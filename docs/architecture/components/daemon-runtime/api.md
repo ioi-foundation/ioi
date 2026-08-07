@@ -1335,8 +1335,10 @@ retirement refusal. The adopted ported client estate does not yet consume that
 projection app by app; its compatibility routes, fixture branches, and local
 catalog assumptions remain migration inputs. The daemon implementation is not
 client cutover or release closure: per-surface operational-journey depth and
-product claims remain subject to their implementation-program gates and
-retained evidence.
+product claims bind through the conformance claim coverage index
+([`../../../conformance/README.md`](../../../conformance/README.md)), not through private
+program gates. This status was measured on 2026-07-30 and has not been
+re-derived since; treat it as stale until re-verified.
 
 ```http
 POST /v1/hypervisor/session-launch-recipe-admissions
@@ -1737,6 +1739,52 @@ GET  /v1/workers/{worker_id}/manifest
   }
 }
 ```
+
+## ODK Application Package Registry
+
+The live bounded Packages slice closes the package/release/install middle of
+the ODK Domain App ladder without collapsing the later registration and
+serving stages. It is authenticated and organization-owner-scoped. Every
+mutation is an Agentgres operation with bounded idempotency, exact-head
+compare-and-swap where a predecessor exists, and a hash-linked receipt.
+
+```http
+GET  /v1/hypervisor/packages
+POST /v1/hypervisor/packages
+GET  /v1/hypervisor/packages/{package_id}
+GET  /v1/hypervisor/packages/{package_id}/releases
+POST /v1/hypervisor/packages/{package_id}/releases
+GET  /v1/hypervisor/packages/{package_id}/releases/{release_digest}
+GET  /v1/hypervisor/packages/{package_id}/releases/{release_digest}/installations
+POST /v1/hypervisor/packages/{package_id}/releases/{release_digest}/installations
+GET  /v1/hypervisor/packages/{package_id}/releases/{release_digest}/installations/{installation_id}
+POST /v1/hypervisor/packages/{package_id}/releases/{release_digest}/installations/{installation_id}/uninstall
+```
+
+`POST /v1/hypervisor/packages` freezes the exact bytes of one resolving draft
+`DomainApp`, its required `OntologyDevelopmentKitManifest`, and the manifest's
+`domain_app`-pattern `OntologySurfaceDescriptor`. The resulting package
+candidate names `surface_class: extension_application` while explicitly
+recording `registration_state: absent`.
+
+Release admission compares against the exact package-candidate head and emits
+one content-addressed canonical `HypervisorSurfaceReleaseRecord`. Installation
+compares against that exact release head, may only narrow the release's object
+and action contracts, and emits one canonical
+`HypervisorSurfaceInstallationBinding`. The initial binding is `installed` but
+`disabled`; uninstall appends an immutable successor revision under exact-head
+CAS. Inventory reads reconstruct authorized current heads from Agentgres after
+restart.
+
+This slice does not create a
+`HypervisorApplicationSurfaceRegistration`, System-interface binding, serving
+binding, executable process, public route, or launch authority. Consequently,
+an admitted release or installed binding from this family is not a launchable
+application. Applications registration, product-surface compilation,
+System-specific effect admission, and Domain App mount/serve remain separate
+later stages. Deprecation, supersession, recall, revocation, executable artifact
+materialization, upgrade/rollback, and affected-System remediation are also
+still open Packages lifecycle work.
 
 ## Worker/Agent and Run Lifecycle
 

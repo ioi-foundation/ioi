@@ -181,7 +181,7 @@ test("buildCandidatesViewModel renders retained lineage and validation receipts"
       "Best on required:3/6",
       "Coverage:clear",
       "Compare intent:model change",
-      "Exec scope:fleet shared",
+      "Exec scope:session shared",
       "Lane state:proxy retained · validation retained · challenge queued · holdout protected not run",
       "Conformance:pass",
       "Rollback:Planner-grade local OSS (Qwen3 8B)",

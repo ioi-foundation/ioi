@@ -1,0 +1,19 @@
+{
+  "schema_version": "ioi.foundry-checkpoint-artifact.v1",
+  "program_id": "trainpipe://acme/reference-v1",
+  "dataset_snapshot_ref": "dataset-snapshot://foundry/2222222222222222222222222222222222222222222222222222222222222222",
+  "dataset_content_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "recipe_content_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "trainer_backend_profile_ref": "trainer-backend://ioi/reference-token-frequency/v1",
+  "model_state": {
+    "token_counts": { "alpha": 2, "beta": 1 },
+    "total_tokens": 3
+  },
+  "optimizer_state": { "kind": "count_accumulator", "updates": 2 },
+  "scheduler_state": { "kind": "row_cursor", "next_row": 2 },
+  "rng_state": { "algorithm": "fixed_seed_no_rng_training", "seed": 23 },
+  "data_cursor": 2,
+  "global_step": 2,
+  "token_count": 3,
+  "status": "complete"
+}

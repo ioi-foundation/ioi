@@ -7,6 +7,8 @@ Superseded by: none.
 Last alignment pass: 2026-07-16.
 Doctrine status: canonical
 Implementation status: partial admission precursor (current master contains the older Rust-owned physical-action-intent admission path. The stricter deployment/ODD/timing/resource-closure contract, `PhysicalActionExecutionCore`, native controller mount, durable Agentgres receipt emission, cryptographic controller identity, controller-side idempotency, and estate-wide CPAS coverage remain planned. This cut adds only the registered execution-receipt schema, invariants, fixtures, and generated projections.)
+Implementation refs:
+  - `docs/architecture/_meta/schemas/physical-action-execution-receipt.v1.schema.json`
 Last implementation audit: 2026-07-16
 
 ## Canonical Definition

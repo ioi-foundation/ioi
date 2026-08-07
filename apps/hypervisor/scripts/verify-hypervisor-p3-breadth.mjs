@@ -35,9 +35,10 @@ async function run() {
   const scmList = (scm.j || {}).connectors || [];
   if (scmList.length) ok("SCM hosts cited with posture", scmList.every((c) => code.text.includes(c.auth_posture || "@")), `${scmList.length} hosts`);
   else ok("SCM empty state honest (bind lane linked)", code.text.includes("No SCM hosts bound") && code.text.includes("git-authentications"));
-  const led = await jd("GET", "/v1/hypervisor/work-ledger");
-  const pubs = ((led.j || {}).entries || []).filter((e) => String(e.kind || "").includes("publish") || String(e.op || "").includes("publish"));
-  if (pubs.length) ok("governed publishes cited from the proof stream", code.text.includes(pubs[0].kind || "@"), `${pubs.length} publishes`);
+  const effects = await jd("GET", "/v1/hypervisor/scm-publication-effects");
+  const pubs = (effects.j || {}).publication_effects || [];
+  const firstPublishMarker = pubs[0]?.effects?.publication?.effect_kind || "scm_publication";
+  if (pubs.length) ok("governed publishes cited from the exact effect projection", code.text.includes(firstPublishMarker), `${pubs.length} publishes`);
   else ok("publish trail honest when empty", code.text.includes("No governed publishes recorded yet"));
   ok("no mutation lanes on the repo surface", !/<form[^>]*method="post"/i.test(code.text), "publishing stays a wallet-authorized crossing elsewhere");
 

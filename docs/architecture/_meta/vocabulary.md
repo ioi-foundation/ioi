@@ -349,7 +349,7 @@ product pitch or routine onboarding flow.
   only daemon admission activates it. A correlation id, UI link, subscription,
   facilitator selection, `origin_surface` tag, or untyped `activation_evidence`
   payload is never the crossing. Owned by
-  [`objects/goal-pursuit.md`](../foundations/objects/goal-pursuit.md).
+  [`../domains/ioi-ai/goal-pursuit.md`](../domains/ioi-ai/goal-pursuit.md).
 - `GoalGroundingLoop`: low-level conductor-orientation loop for goal-shaped
   work: receive intent, classify risk, gather grounding, inspect current state,
   derive constraints and acceptance, select topology, lease context, open

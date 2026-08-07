@@ -4,10 +4,12 @@ Status: canonical architecture authority.
 Canonical owner: this file for persistent aiagent managed worker instance lifecycle, payment lapse, archive, restore, export, migration, and deletion semantics.
 Supersedes: plan prose and endpoint examples when lifecycle state conflicts.
 Superseded by: none.
-Last alignment pass: 2026-07-13.
+Last alignment pass: 2026-08-06.
 Doctrine status: canonical
-Implementation status: planned (lifecycle design; no managed-instance instantiation)
-Last implementation audit: 2026-07-05
+Implementation status: partial (bounded Agentgres-backed instance creation, closed runtime policy, proposal/commit/rejection transitions, local placement/session, manifest backup, export, and staged local restore execute; package/config onboarding, provider reconciliation, remote custody, and the full product lifecycle remain planned)
+Implementation refs:
+  - `crates/services/src/agentic/runtime/kernel/runtime_managed_worker_instance_lifecycle_admission.rs`
+Last implementation audit: 2026-08-06
 
 ## Canonical Definition
 
@@ -18,6 +20,13 @@ instance backed by a Hypervisor Daemon runtime node and Agentgres truth.
 
 Compute entitlement may lapse. User-owned context must remain restorable,
 exportable, or deletable according to retention, archive, authority, and policy.
+
+The registered bounded runtime bytes are owned by
+[`../../foundations/objects/work-execution.md`](../../foundations/objects/work-execution.md#bounded-managed-runtime-wire-contracts).
+They implement only the closed state subset represented there. The larger
+product object below remains target canon; fields and intermediate states not
+present in `ManagedWorkerInstanceState` v1 may not be inferred from the UI or
+added to that wire version in place.
 
 ## Owns
 

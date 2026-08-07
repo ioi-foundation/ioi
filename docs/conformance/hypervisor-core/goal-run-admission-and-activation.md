@@ -9,12 +9,12 @@ every other source kind, and the broader unified-admission cases remain target
 behavior. This document does not own retained stage evidence, M4 status, or
 product and release claims.
 Canonical inputs:
-[`../../architecture/foundations/objects/goal-run-execution.md`](../../architecture/foundations/objects/goal-run-execution.md)
+[`../../architecture/../../architecture/domains/ioi-ai/goal-run-execution.md`](../../architecture/domains/ioi-ai/goal-run-execution.md)
 (the orchestration application's admission contract and `GoalRunEnvelope`
 admission bindings; placement per ADR 0022),
 [`../../architecture/components/daemon-runtime/doctrine.md`](../../architecture/components/daemon-runtime/doctrine.md)
 (admission-evidence discipline),
-[`../../architecture/foundations/objects/goal-pursuit.md`](../../architecture/foundations/objects/goal-pursuit.md)
+[`../../architecture/../../architecture/domains/ioi-ai/goal-pursuit.md`](../../architecture/domains/ioi-ai/goal-pursuit.md)
 (`GoalRunActivationEnvelope`),
 [`../../architecture/foundations/objects/evidence-and-delivery.md`](../../architecture/foundations/objects/evidence-and-delivery.md)
 (`ReceiptObligation`),
@@ -38,9 +38,10 @@ Honest posture: the M4 activation path is judged by these cases, not by route
 presence or schema acceptance. A green fresh isolated run proves the applicable
 evaluator, retained state, typed obligations, idempotency, authority,
 receipt-profile conformance, access control, and recovery behavior together for
-this one lane. Only the implementation-program owner may retain that result or
-use it in an M4 status decision. No broader admission or product-surface claim
-follows.
+this one lane. A green run closes the GRA clauses listed above and nothing
+else — it binds through this file and the claim coverage index in
+[`../README.md`](../README.md), not through any private retention procedure
+No broader admission or product-surface claim follows.
 
 ## Active selected M4 slice
 

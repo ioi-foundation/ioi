@@ -13,12 +13,16 @@ Supersedes: product prose that treats Foundry as direct runtime mutation, a
 generic dashboard, only a training UI, or the same concept as ioi.ai goal
 coordination.
 Superseded by: none.
-Last alignment pass: 2026-07-15.
+Last alignment pass: 2026-08-06.
 Doctrine status: canonical
-Implementation status: partial (draft object plane bound to real model-mount
-substrate, deliberately inert; training/eval execution and generalized
+Implementation status: partial (a bounded Agentgres-backed recipe, dataset,
+Implementation refs:
+  - `crates/node/src/bin/hypervisor_daemon_routes/foundry_execution_routes.rs`
+reference token-frequency trainer, checkpoint/restore verification, and
+proposal-only qualification slice executes; production trainers, independent
+evaluation, packaging/registry, serving qualification, and generalized
 campaign-linked optimization remain planned)
-Last implementation audit: 2026-07-05
+Last implementation audit: 2026-08-06
 
 ## Canonical Definition
 

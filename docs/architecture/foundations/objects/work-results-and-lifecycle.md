@@ -7,6 +7,8 @@ Superseded by: none.
 Last alignment pass: 2026-07-25.
 Doctrine status: canonical
 Implementation status: partial (work-result routes exist in the daemon; the shared work-lifecycle kernel persistence and routes remain planned)
+Implementation refs:
+  - `crates/types/src/app/generated/architecture_contracts.rs`
 Last implementation audit: 2026-07-25
 
 ## Purpose

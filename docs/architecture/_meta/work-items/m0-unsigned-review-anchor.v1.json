@@ -9,23 +9,8 @@
   "objective": "Retire the machine-local Ed25519 review-signing ceremony as workflow/framework conflation: the M0 review anchor becomes an unsigned hash chain (ioi.m0.review_epoch_anchor.v3) whose sequences 1-6 are retained verbatim as immutable legacy claims and whose new epochs declare authorship_binding: self_declared_unsigned; the bounded agency framework's authority model (wallet-network grants, sealed intents, receipts) remains the only owner of real cryptographic authority.",
   "falsifiable_claim": "Tampering any retained claim breaks the predecessor chain and repository baseline pin; an unsigned entry cannot impersonate a verified signer; a legacy-shaped entry cannot follow the unsigned era; tampered head commitments and predecessor substitutions fail before attestation.",
   "canon_owners": [],
-  "code_anchors": [
-    {
-      "path": "scripts/lib/m0-program-control-model.mjs",
-      "must_contain": "ioi.m0.review_epoch_anchor.v3",
-      "present_when": "merged"
-    },
-    {
-      "path": "scripts/lib/m0-program-control-model.mjs",
-      "must_contain": "self_declared_unsigned",
-      "present_when": "merged"
-    }
-  ],
-  "evidence_refs": [
-    "docs/evidence/m0-program-control/review-epoch-anchor.json",
-    "docs/evidence/m0-program-control/m0-exit-report.json",
-    "docs/evidence/m0-program-control/README.md"
-  ],
+  "code_anchors": [],
+  "evidence_refs": [],
   "pr": 97,
   "adversarial_or_fault_proof": "m0-program-control adversarial suite 56/56 after rework (tamper, impersonation, ghost-legacy, head-commitment, predecessor-substitution, rollback-collapse, and same-day-fork cases all fail closed); full check:pre-next-leg green at 0c5e5c558.",
   "remaining_nonclaims": [
@@ -33,5 +18,7 @@
     "This cut closes no M0 stage semantics; the M0 exit claim is unchanged in scope."
   ],
   "source_provenance": "User decision 2026-07-22 (workflow-vs-framework de-conflation); commit 0c5e5c558 on PR #97. Verified 2026-07-22: PR #97 merged to master after delegated review; adversarial suite 56/56 on the unsigned v3 anchor.",
-  "last_status_transaction": "2026-07-22"
+  "last_status_transaction": "2026-07-22",
+  "retired_evidence_note": "docs/evidence/m0-program-control/ was removed by the 2026-08-05 proof-apparatus strip (9fe221227); this field no longer names paths a reader cannot open.",
+  "retired_code_anchor_note": "scripts/lib/m0-program-control-model.mjs was removed by the 2026-08-05 proof-apparatus strip (9fe221227). At merge it carried the markers ['ioi.m0.review_epoch_anchor.v3', 'self_declared_unsigned']. The anchors are recorded as what was proven rather than as paths a reader cannot open; there is no current code anchor for this item."
 }

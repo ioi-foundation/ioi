@@ -155,7 +155,7 @@ deleted section, not a lost guarantee.
 ## Canonical References
 
 - [`../architecture/_meta/execution-horizons.md`](../architecture/_meta/execution-horizons.md)
-- [`../architecture/foundations/objects/goal-run-execution.md`](../architecture/foundations/objects/goal-run-execution.md)
+- [`../architecture/../architecture/domains/ioi-ai/goal-run-execution.md`](../architecture/../architecture/domains/ioi-ai/goal-run-execution.md)
 - [`../architecture/components/hypervisor/core-clients-surfaces.md`](../architecture/components/hypervisor/core-clients-surfaces.md)
 - [`../architecture/foundations/term-boundaries.md`](../architecture/foundations/term-boundaries.md)
 - [`../conformance/hypervisor-core/sovereign-local-completeness.md`](../conformance/hypervisor-core/sovereign-local-completeness.md)

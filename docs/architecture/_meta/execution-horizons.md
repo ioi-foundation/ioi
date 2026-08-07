@@ -384,7 +384,7 @@ commercially metered:
   beside the horizon plan;
 - implement `GoalRunActivationEnvelope` and the goal-orchestration
   application's unified GoalRun admission contract
-  ([`objects/goal-run-execution.md`](../foundations/objects/goal-run-execution.md),
+  ([`../domains/ioi-ai/goal-run-execution.md`](../domains/ioi-ai/goal-run-execution.md),
   placement per ADR 0022), including typed receipt obligations, the retained
   admitted state root, and INV-37 resolved-evidence admission under
   [`daemon-runtime/doctrine.md`](../components/daemon-runtime/doctrine.md)'s

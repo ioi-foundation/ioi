@@ -11,11 +11,19 @@
 import { mintTestGrant } from "./lib/wallet-authority.mjs";
 import { daemonEnvToIOI } from "./ioi-projection.mjs";
 import { join } from "node:path";
+import { createHash } from "node:crypto";
 
 const runs = new Map(); // agentExecutionId -> run (in-memory CACHE; durable truth is the daemon)
 const nowIso = () => new Date().toISOString();
 let counter = 0;
 const genId = (prefix) => `${prefix}_${Date.now().toString(36)}${(counter++).toString(36)}`;
+const canonicalJson = (value) => {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(",")}}`;
+};
+const sha256 = (value) => `sha256:${createHash("sha256").update(canonicalJson(value)).digest("hex")}`;
+const refSegment = (value) => String(value || "local").replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "local";
 
 // #3 — Agentgres-durable transcript. The run-registry is the serve-side orchestrator/cache; the
 // DURABLE truth lives in the daemon (`/v1/hypervisor/agent-run-transcripts`), so the Run Timeline
@@ -62,6 +70,9 @@ function runRecord(run) {
     authority: run.authority || null,
     capability_lease_ref: run.capabilityLeaseRef || null,
     proposal_ref: run.proposalRef || null,
+    publication_proposal_ref: run.publicationProposalRef || null,
+    publication_source_branch: run.publicationSourceBranch || null,
+    destination_binding_ref: run.destinationBindingRef || null,
     changed_files: run.changedFiles || [],
     publish_receipts: run.publishReceipts || [],
     transcript: (run.transcript || []).slice(-50),
@@ -97,6 +108,9 @@ function recordToRun(r) {
     authority: r.authority || null,
     capabilityLeaseRef: r.capability_lease_ref || null,
     proposalRef: r.proposal_ref || null,
+    publicationProposalRef: r.publication_proposal_ref || null,
+    publicationSourceBranch: r.publication_source_branch || null,
+    destinationBindingRef: r.destination_binding_ref || null,
     userInputBlockId: r.user_input_block_id || null,
     stateRoot: r.state_root || null,
     sessionRehydrated: true,
@@ -429,6 +443,8 @@ async function createLocalPullRequestDraft(run, dj) {
     const changedCount = Array.isArray(draft.changed_files) ? draft.changed_files.length : 0;
     run.status = "done";
     run.proposalRef = r.body.proposal_ref;
+    run.publicationProposalRef = remote.publication_proposal_ref || null;
+    run.publicationSourceBranch = draft.source_branch || null;
     run.transcript = [{ stream: "stdout", text: `Proposed PR draft ${draft.draft_id} (review_state: ${draft.review_state}, ${changedCount} changed file(s)).\n` }];
     run.changedFiles = files.length ? [{ files }] : [];
     run.summary = [
@@ -464,22 +480,87 @@ export async function publishRunViaConnector(
     });
     return { status: res.status, body: await res.json().catch(() => ({})) };
   };
-  let cid = connectorId;
-  if (!cid) {
-    const list = await dj("GET", "/v1/hypervisor/scm-connectors");
-    const conns = list.body?.connectors || [];
-    const byAge = (a, b) => String(a.created_at || "").localeCompare(String(b.created_at || ""));
-    // Prefer a CONNECTED github account (bound credential) — that's the operator's real publish
-    // target; fall back to the newest credential-free local connector for the local slice.
-    const boundGithub = conns.filter((c) => c.kind === "github" && c.auth_posture === "token-lease:bound").sort(byAge);
-    const localNone = conns.filter((c) => c.auth_posture === "local-none").sort(byAge);
-    cid = boundGithub[boundGithub.length - 1]?.connector_id || localNone[localNone.length - 1]?.connector_id || null;
+  if (!run.publicationProposalRef) {
+    return { ok: false, reason: "run has no admitted publication proposal" };
   }
-  if (!cid) return { ok: false, reason: "no usable SCM connector registered" };
+  const whoami = await dj("GET", "/v1/hypervisor/auth/whoami");
+  const ownerRef = (whoami.body?.principal?.tenant_refs || []).find((value) =>
+    typeof value === "string" && (value.startsWith("project://") || value.startsWith("org://")),
+  );
+  if (!ownerRef) {
+    return { ok: false, reason: "authenticated principal has no publication owner tenant" };
+  }
+  const connectorList = await dj("GET", "/v1/hypervisor/scm-connectors");
+  const connectors = connectorList.body?.connectors || [];
+  const byAge = (a, b) => String(a.created_at || "").localeCompare(String(b.created_at || ""));
+  let connector = connectorId
+    ? connectors.find((candidate) => candidate.connector_id === connectorId)
+    : null;
+  if (!connector) {
+    const boundHosted = connectors
+      .filter((candidate) => candidate.auth_posture === "token-lease:bound" && !candidate.host_level && String(candidate.remote_url || "").endsWith(".git"))
+      .sort(byAge);
+    const credentialFree = connectors
+      .filter((candidate) => candidate.auth_posture === "local-none" && !candidate.host_level)
+      .sort(byAge);
+    connector = boundHosted[boundHosted.length - 1] || credentialFree[credentialFree.length - 1] || null;
+  }
+  if (!connector?.connector_id || !connector?.remote_url) {
+    return { ok: false, reason: "no repository-scoped SCM connector registered" };
+  }
+  const cid = connector.connector_id;
+  let destinationBindingRef = run.destinationBindingRef;
+  if (!destinationBindingRef) {
+    const bindingList = await dj("GET", "/v1/hypervisor/scm-destination-bindings");
+    const existing = (bindingList.body?.destination_bindings || []).find((binding) =>
+      binding.connector_ref === `connector://${cid}` && binding.remote_url === connector.remote_url,
+    );
+    if (existing?.destination_binding_ref) {
+      destinationBindingRef = existing.destination_binding_ref;
+    } else {
+      const repositoryTail = `local/${refSegment(cid)}`;
+      const branch = refSegment(run.publicationSourceBranch || "main");
+      const bindingIdentity = sha256({
+        connector_id: cid,
+        remote_url: connector.remote_url,
+        repository_tail: repositoryTail,
+        branch,
+      }).slice("sha256:".length, "sha256:".length + 20);
+      const bindingCandidate = {
+        destination_binding_ref: `scm-destination-binding://${repositoryTail}/revision/${bindingIdentity}`,
+        connector_ref: `connector://${cid}`,
+        connector_revision_hash: sha256(connector),
+        repository_ref: `repository://${repositoryTail}`,
+        base_ref: `scm-ref://${repositoryTail}/heads/${branch}`,
+        target_ref_namespace: `scm-ref://${repositoryTail}/heads/`,
+        remote_url: connector.remote_url,
+        admission_receipt_ref: `receipt://${repositoryTail}/scm-destination-binding/${bindingIdentity}`,
+        owner_ref: ownerRef,
+        idempotency_key: `scm-binding:${bindingIdentity}`,
+      };
+      const admitted = await dj("POST", "/v1/hypervisor/scm-destination-bindings", bindingCandidate);
+      if (!admitted.body?.ok || !admitted.body?.destination_binding?.destination_binding_ref) {
+        bump(run, `Publish blocked: ${admitted.body?.reason || admitted.status}`);
+        return { ok: false, reason: admitted.body?.reason || "destination binding admission failed" };
+      }
+      destinationBindingRef = admitted.body.destination_binding.destination_binding_ref;
+    }
+    run.destinationBindingRef = destinationBindingRef;
+    bump(run, "Destination binding admitted");
+  }
   const path = `/v1/hypervisor/environments/${encodeURIComponent(run.envId)}/scm/publish`;
   const title = run.prompt ? run.prompt.slice(0, 72) : "Hypervisor publish";
+  const submission = {
+    destination_binding_ref: destinationBindingRef,
+    proposal_ref: run.publicationProposalRef,
+    work_run_ref: `work-run://local/hypervisor/${refSegment(run.id)}`,
+    target_ref_name: `ioi-${refSegment(run.id)}`,
+    open_review_request: true,
+    title,
+    idempotency_key: `scm-publish:${refSegment(run.id)}`,
+  };
   bump(run, "Requesting publish authority…");
-  const challenge = await dj("POST", path, { connector_id: cid, title });
+  const challenge = await dj("POST", path, submission);
   const policyHash = challenge.body?.approval?.policy_hash;
   const requestHash = challenge.body?.approval?.request_hash;
   if (!policyHash || !requestHash) {
@@ -492,15 +573,25 @@ export async function publishRunViaConnector(
     return { ok: false, reason: "awaiting_wallet_authority", approval: { policy_hash: policyHash, request_hash: requestHash } };
   }
   bump(run, "Authorizing publish (wallet grant)…");
-  const pub = await dj("POST", path, { connector_id: cid, title, wallet_approval_grant: grant });
+  const pub = await dj("POST", path, { ...submission, wallet_approval_grant: grant });
   if (pub.status !== 200 || !pub.body?.ok) {
     bump(run, `Publish failed: ${pub.body?.reason || pub.status}`);
     return { ok: false, reason: pub.body?.reason || `publish failed (${pub.status})` };
   }
   run.publishReceipts = run.publishReceipts || [];
-  run.publishReceipts.push(pub.body.receipt);
-  bump(run, `Published ${pub.body.receipt?.branch} → ${pub.body.receipt?.remote_url}`);
-  return { ok: true, receipt: pub.body.receipt, remote_ref: pub.body.remote_ref };
+  for (const receipt of pub.body.receipts || []) {
+    if (receipt && !run.publishReceipts.some((existing) => existing?.receipt_ref === receipt.receipt_ref)) {
+      run.publishReceipts.push(receipt);
+    }
+  }
+  const effect = pub.body.publication_effect || {};
+  bump(run, `Publication ${effect.overall_outcome || pub.body.overall_outcome || "committed"}`);
+  return {
+    ok: true,
+    publication_effect: effect,
+    receipts: pub.body.receipts || [],
+    overall_outcome: pub.body.overall_outcome || effect.overall_outcome,
+  };
 }
 
 async function executeRun(run, base, dj) {

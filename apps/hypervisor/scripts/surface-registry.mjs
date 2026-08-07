@@ -155,7 +155,7 @@ if (process.env.IOI_APP_RUNTIME_TEST_ROUTE === "1") {
   bindSurface("__test_action", {
     meta: { slug: "__test_action", route: "/__ioi/__test/action-surface" },
     load: async () => ({}),
-    render: () => "<!doctype html><title>action test</title>ok",
+    render: () => "<!doctype html><title>action test</title><body>ok</body>",
     actions: [
       { id: "boom", method: "POST", route: "/:id/transition", transition: "boom", fields: [], context: ["id"], authority: { plane: "test", operation: "none" }, receipt: "test.v1", confirm: false, success: "return-to-surface", refusal: "typed-banner" },
       { id: "no-receipt", method: "POST", route: "/:id/transition", transition: "no-receipt", fields: [], context: ["id"], authority: { plane: "test", operation: "none" }, receipt: "test.v1", confirm: false, success: "return-to-surface", refusal: "typed-banner" },

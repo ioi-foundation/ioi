@@ -114,6 +114,26 @@ fn bad(code: &str, message: &str) -> (StatusCode, Json<Value>) {
         Json(json!({ "ok": false, "error": { "code": code, "message": message } })),
     )
 }
+fn persist_required(
+    data_dir: &str,
+    kind: &str,
+    id: &str,
+    record: &Value,
+    code: &str,
+) -> Result<(), (StatusCode, Json<Value>)> {
+    persist_record(data_dir, kind, id, record).map_err(|_| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "ok": false,
+                "error": {
+                    "code": code,
+                    "message": "the durable record could not be committed"
+                }
+            })),
+        )
+    })
+}
 fn str_refs(body: &Value, key: &str) -> Vec<String> {
     body.get(key)
         .and_then(|v| v.as_array())
@@ -1241,7 +1261,15 @@ pub(crate) async fn handle_odk_recipe_create(
         "created_at": now,
         "updated_at": now
     });
-    let _ = persist_record(&st.data_dir, KIND_RECIPE, &id, &record);
+    if let Err(response) = persist_required(
+        &st.data_dir,
+        KIND_RECIPE,
+        &id,
+        &record,
+        "odk_data_recipe_persistence_failed",
+    ) {
+        return response;
+    }
     (
         StatusCode::CREATED,
         Json(json!({ "ok": true, "data_recipe": record })),
@@ -1259,20 +1287,26 @@ pub(crate) async fn handle_odk_recipe_patch(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
     Json(body): Json<Value>,
-) -> Json<Value> {
+) -> (StatusCode, Json<Value>) {
     let Some(mut r) = load(&st.data_dir, KIND_RECIPE, &id) else {
-        return Json(json!({ "ok": false, "reason": "data_recipe not found" }));
+        return (
+            StatusCode::NOT_FOUND,
+            Json(
+                json!({ "ok": false, "error": { "code": "odk_data_recipe_not_found", "message": "data_recipe not found" } }),
+            ),
+        );
     };
     if let Some(ok) = body.get("output_kind").and_then(|v| v.as_str()) {
         if !RECIPE_OUTPUT_KINDS.contains(&ok) {
-            return Json(
-                json!({ "ok": false, "error": { "code": "odk_output_kind_invalid", "message": format!("output_kind must be one of {RECIPE_OUTPUT_KINDS:?}") } }),
+            return bad(
+                "odk_output_kind_invalid",
+                &format!("output_kind must be one of {RECIPE_OUTPUT_KINDS:?}"),
             );
         }
     }
     if let Some(oref) = body.get("ontology_ref").and_then(|v| v.as_str()) {
         if let Err((c, m)) = require_local_ref(&st.data_dir, oref, "ontology", "ontology_ref") {
-            return Json(json!({ "ok": false, "error": { "code": c, "message": m } }));
+            return bad(&c, &m);
         }
     }
     for key in [
@@ -1284,7 +1318,7 @@ pub(crate) async fn handle_odk_recipe_patch(
     ] {
         if body.get(key).is_some() {
             if let Err((c, m)) = check_named_refs(&st.data_dir, &str_refs(&body, key)) {
-                return Json(json!({ "ok": false, "error": { "code": c, "message": m } }));
+                return bad(&c, &m);
             }
         }
     }
@@ -1306,8 +1340,19 @@ pub(crate) async fn handle_odk_recipe_patch(
         }
     }
     r["updated_at"] = json!(iso_now());
-    let _ = persist_record(&st.data_dir, KIND_RECIPE, &id, &r);
-    Json(json!({ "ok": true, "data_recipe": r }))
+    if let Err(response) = persist_required(
+        &st.data_dir,
+        KIND_RECIPE,
+        &id,
+        &r,
+        "odk_data_recipe_persistence_failed",
+    ) {
+        return response;
+    }
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "data_recipe": r })),
+    )
 }
 
 pub(crate) async fn handle_odk_recipe_delete(
@@ -1384,7 +1429,15 @@ pub(crate) async fn handle_odk_manifest_create(
         "created_at": now,
         "updated_at": now
     });
-    let _ = persist_record(&st.data_dir, KIND_MANIFEST, &id, &record);
+    if let Err(response) = persist_required(
+        &st.data_dir,
+        KIND_MANIFEST,
+        &id,
+        &record,
+        "odk_manifest_persistence_failed",
+    ) {
+        return response;
+    }
     (
         StatusCode::CREATED,
         Json(json!({ "ok": true, "manifest": record })),
@@ -1402,9 +1455,14 @@ pub(crate) async fn handle_odk_manifest_patch(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
     Json(body): Json<Value>,
-) -> Json<Value> {
+) -> (StatusCode, Json<Value>) {
     let Some(mut man) = load(&st.data_dir, KIND_MANIFEST, &id) else {
-        return Json(json!({ "ok": false, "reason": "manifest not found" }));
+        return (
+            StatusCode::NOT_FOUND,
+            Json(
+                json!({ "ok": false, "error": { "code": "odk_manifest_not_found", "message": "manifest not found" } }),
+            ),
+        );
     };
     // Re-validate any ref set that is being changed (ontology_refs stays required-nonempty).
     if body.get("ontology_refs").is_some() {
@@ -1415,7 +1473,7 @@ pub(crate) async fn handle_odk_manifest_patch(
             "ontology_ref",
             true,
         ) {
-            return Json(json!({ "ok": false, "error": { "code": c, "message": m } }));
+            return bad(&c, &m);
         }
     }
     if body.get("recipe_refs").is_some() {
@@ -1426,7 +1484,7 @@ pub(crate) async fn handle_odk_manifest_patch(
             "recipe_ref",
             false,
         ) {
-            return Json(json!({ "ok": false, "error": { "code": c, "message": m } }));
+            return bad(&c, &m);
         }
     }
     if body.get("surface_descriptor_refs").is_some() {
@@ -1437,13 +1495,13 @@ pub(crate) async fn handle_odk_manifest_patch(
             "surface_descriptor_ref",
             false,
         ) {
-            return Json(json!({ "ok": false, "error": { "code": c, "message": m } }));
+            return bad(&c, &m);
         }
     }
     for key in ["eval_refs", "worker_plan_refs", "mcp_operator_contracts"] {
         if body.get(key).is_some() {
             if let Err((c, m)) = check_named_refs(&st.data_dir, &str_refs(&body, key)) {
-                return Json(json!({ "ok": false, "error": { "code": c, "message": m } }));
+                return bad(&c, &m);
             }
         }
     }
@@ -1464,8 +1522,16 @@ pub(crate) async fn handle_odk_manifest_patch(
         }
     }
     man["updated_at"] = json!(iso_now());
-    let _ = persist_record(&st.data_dir, KIND_MANIFEST, &id, &man);
-    Json(json!({ "ok": true, "manifest": man }))
+    if let Err(response) = persist_required(
+        &st.data_dir,
+        KIND_MANIFEST,
+        &id,
+        &man,
+        "odk_manifest_persistence_failed",
+    ) {
+        return response;
+    }
+    (StatusCode::OK, Json(json!({ "ok": true, "manifest": man })))
 }
 
 pub(crate) async fn handle_odk_manifest_delete(
@@ -1549,7 +1615,15 @@ pub(crate) async fn handle_odk_descriptor_create(
         "created_at": now,
         "updated_at": now
     });
-    let _ = persist_record(&st.data_dir, KIND_SD, &id, &record);
+    if let Err(response) = persist_required(
+        &st.data_dir,
+        KIND_SD,
+        &id,
+        &record,
+        "odk_surface_descriptor_persistence_failed",
+    ) {
+        return response;
+    }
     (
         StatusCode::CREATED,
         Json(json!({ "ok": true, "surface_descriptor": record })),
@@ -1567,20 +1641,26 @@ pub(crate) async fn handle_odk_descriptor_patch(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
     Json(body): Json<Value>,
-) -> Json<Value> {
+) -> (StatusCode, Json<Value>) {
     let Some(mut d) = load(&st.data_dir, KIND_SD, &id) else {
-        return Json(json!({ "ok": false, "reason": "surface_descriptor not found" }));
+        return (
+            StatusCode::NOT_FOUND,
+            Json(
+                json!({ "ok": false, "error": { "code": "odk_surface_descriptor_not_found", "message": "surface_descriptor not found" } }),
+            ),
+        );
     };
     if let Some(cp) = body.get("composition_pattern").and_then(|v| v.as_str()) {
         if !COMPOSITION_PATTERNS.contains(&cp) {
-            return Json(
-                json!({ "ok": false, "error": { "code": "odk_composition_pattern_invalid", "message": format!("composition_pattern must be one of {COMPOSITION_PATTERNS:?}") } }),
+            return bad(
+                "odk_composition_pattern_invalid",
+                &format!("composition_pattern must be one of {COMPOSITION_PATTERNS:?}"),
             );
         }
     }
     if let Some(oref) = body.get("ontology_ref").and_then(|v| v.as_str()) {
         if let Err((c, m)) = require_local_ref(&st.data_dir, oref, "ontology", "ontology_ref") {
-            return Json(json!({ "ok": false, "error": { "code": c, "message": m } }));
+            return bad(&c, &m);
         }
     }
     if body.get("recipe_refs").is_some() {
@@ -1591,7 +1671,7 @@ pub(crate) async fn handle_odk_descriptor_patch(
             "recipe_ref",
             false,
         ) {
-            return Json(json!({ "ok": false, "error": { "code": c, "message": m } }));
+            return bad(&c, &m);
         }
     }
     for key in [
@@ -1607,8 +1687,19 @@ pub(crate) async fn handle_odk_descriptor_patch(
         }
     }
     d["updated_at"] = json!(iso_now());
-    let _ = persist_record(&st.data_dir, KIND_SD, &id, &d);
-    Json(json!({ "ok": true, "surface_descriptor": d }))
+    if let Err(response) = persist_required(
+        &st.data_dir,
+        KIND_SD,
+        &id,
+        &d,
+        "odk_surface_descriptor_persistence_failed",
+    ) {
+        return response;
+    }
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "surface_descriptor": d })),
+    )
 }
 
 pub(crate) async fn handle_odk_descriptor_delete(
@@ -1847,6 +1938,25 @@ mod odk_tests {
         assert!(RECIPE_OUTPUT_KINDS.contains(&"ontology_objects"));
         assert!(RECIPE_OUTPUT_KINDS.contains(&"training_material"));
         assert!(!RECIPE_OUTPUT_KINDS.contains(&"magic"));
+    }
+
+    #[test]
+    fn required_persistence_refuses_success_when_record_directory_is_unwritable() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join(KIND_SD), b"not-a-directory").unwrap();
+        let error = persist_required(
+            dir.path().to_str().unwrap(),
+            KIND_SD,
+            "sd_failure",
+            &json!({"id":"sd_failure"}),
+            "odk_surface_descriptor_persistence_failed",
+        )
+        .unwrap_err();
+        assert_eq!(error.0, StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(
+            error.1 .0["error"]["code"],
+            json!("odk_surface_descriptor_persistence_failed")
+        );
     }
 
     // ---- Ontology-manager contract validation.

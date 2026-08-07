@@ -64,7 +64,7 @@ truth.
 
 ## Receipt Registry And Schema Ownership
 
-[`../../foundations/common-objects-and-envelopes.md`](../../foundations/objects/evidence-and-delivery.md#receiptenvelope)
+[`evidence-and-delivery.md`](../../foundations/objects/evidence-and-delivery.md#receiptenvelope)
 owns the portable `ReceiptEnvelope` base and shared identity/ref contract. This
 file owns the exhaustive receipt-type registry, cross-component specialized
 schemas, lifecycle, and assurance semantics (INV-9,

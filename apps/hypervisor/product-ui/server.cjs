@@ -3,14 +3,32 @@
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
+const crypto = require('crypto');
 
 const PORT = process.env.PORT || 9228;
-// Shell tree selection: IOI_PRODUCT_UI_PUBLIC points at an alternate served tree — the OWNED
-// vendored source (product-ui/owned/public), proven wire-equivalent by the shell-parity oracle.
-// Default stays the original bundle so the switch is explicit and reversible.
+// The owned tree is the only shipped product artifact. IOI_PRODUCT_UI_PUBLIC remains available to
+// the parity oracle so it can boot either side of the ownership fold explicitly, but an ordinary
+// product start must never fall back to the legacy harvested source tree.
+const OWNED_PUBLIC_DIR = path.join(__dirname, 'owned', 'public');
 const PUBLIC_DIR = process.env.IOI_PRODUCT_UI_PUBLIC
   ? path.resolve(process.env.IOI_PRODUCT_UI_PUBLIC)
-  : path.join(__dirname, 'public');
+  : OWNED_PUBLIC_DIR;
+if (!fs.existsSync(path.join(PUBLIC_DIR, 'index.html'))) {
+  throw new Error(`product UI tree has no index.html: ${PUBLIC_DIR}`);
+}
+const PUBLIC_DIR_REAL = fs.realpathSync(PUBLIC_DIR);
+const OWNED_PUBLIC_DIR_REAL = fs.realpathSync(OWNED_PUBLIC_DIR);
+const PRODUCT_UI_TREE = PUBLIC_DIR_REAL === OWNED_PUBLIC_DIR_REAL ? 'owned' : 'override';
+const PRODUCT_UI_INDEX_SHA256 = crypto
+  .createHash('sha256')
+  .update(fs.readFileSync(path.join(PUBLIC_DIR_REAL, 'index.html')))
+  .digest('hex');
+const PRODUCT_UI_IDENTITY = Object.freeze({
+  schema_version: 'ioi.hypervisor-product-ui-tree.v1',
+  tree: PRODUCT_UI_TREE,
+  public_dir: path.relative(__dirname, PUBLIC_DIR_REAL) || '.',
+  index_sha256: PRODUCT_UI_INDEX_SHA256,
+});
 
 const chunkMap = {};
 
@@ -1531,6 +1549,8 @@ const server = http.createServer((req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
+  res.setHeader('X-IOI-Product-UI-Tree', PRODUCT_UI_TREE);
+  res.setHeader('X-IOI-Product-UI-Index-SHA256', PRODUCT_UI_INDEX_SHA256);
   try {
     const urlObj = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
     pathname = urlObj.pathname;
@@ -1543,6 +1563,12 @@ const server = http.createServer((req, res) => {
   // Remove trailing slash
   if (pathname.endsWith('/') && pathname !== '/') {
     pathname = pathname.slice(0, -1);
+  }
+
+  if (pathname === '/__ioi/product-ui-identity') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(PRODUCT_UI_IDENTITY));
+    return;
   }
 
   // Intercept RSC (React Server Component) prefetch calls to prevent Next.js html fallbacks
@@ -1720,5 +1746,7 @@ server.listen(PORT, () => {
   console.log(`============================================================`);
   console.log(`Local URL:  http://localhost:${PORT}`);
   console.log(`Serving:    ${PUBLIC_DIR}`);
+  console.log(`Tree:       ${PRODUCT_UI_TREE}`);
+  console.log(`Index:      sha256:${PRODUCT_UI_INDEX_SHA256}`);
   console.log(`============================================================`);
 });

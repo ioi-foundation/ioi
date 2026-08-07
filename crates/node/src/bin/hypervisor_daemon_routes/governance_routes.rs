@@ -1431,10 +1431,10 @@ pub(crate) async fn handle_kill_enforce(
         if let Some(r) = rt.get("ref").and_then(|v| v.as_str()) {
             affected.push(r.to_string());
         }
-        receipt_refs.extend(super::domain_apps_routes::kill_enforce_runtime(
-            &st.data_dir,
-            rt,
-        ));
+        match super::domain_apps_routes::kill_enforce_runtime(&st.data_dir, rt) {
+            Ok(refs) => receipt_refs.extend(refs),
+            Err(response) => return response,
+        }
     }
     let enforcement_state = if runtimes.is_empty() {
         "noop"
@@ -1459,7 +1459,20 @@ pub(crate) async fn handle_kill_enforce(
         "state_root": format!("sha256:{state_root}"),
         "at": now
     });
-    let _ = persist_record(&st.data_dir, KIND_KILL_ENFORCE_RECEIPT, &erid, &ereceipt);
+    if persist_record(&st.data_dir, KIND_KILL_ENFORCE_RECEIPT, &erid, &ereceipt).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "ok": false,
+                "error": {
+                    "code": "kill_enforcement_receipt_persistence_failed",
+                    "message": "runtime enforcement completed but its governance receipt could not be committed; reconcile before retry",
+                    "effects_committed": true,
+                    "recovery_required": true
+                }
+            })),
+        );
+    }
     receipt_refs.push(format!("kill-enforcement-receipt://{erid}"));
     let result = if enforcement_state == "enforced" {
         format!("stopped/unmounted {} runtime(s)", runtimes.len())
@@ -1473,7 +1486,21 @@ pub(crate) async fn handle_kill_enforce(
     k["enforcement_receipt_refs"] = json!(receipt_refs);
     k["last_enforcement_error"] = Value::Null;
     k["updated_at"] = json!(now);
-    let _ = persist_record(&st.data_dir, KIND_KILL, &id, &k);
+    if persist_record(&st.data_dir, KIND_KILL, &id, &k).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "ok": false,
+                "error": {
+                    "code": "kill_enforcement_projection_persistence_failed",
+                    "message": "runtime enforcement and its receipt committed, but the KillSwitch projection did not; reconcile from the receipt before retry",
+                    "effects_committed": true,
+                    "recovery_required": true,
+                    "enforcement_receipt_ref": format!("kill-enforcement-receipt://{erid}")
+                }
+            })),
+        );
+    }
     (
         StatusCode::CREATED,
         Json(json!({ "ok": true, "kill_switch": k, "enforcement_receipt": ereceipt })),

@@ -51,6 +51,18 @@ kbd {
     "Courier New", monospace;
 }
 
+/* Inline repository refs and immutable evidence ids must contract with the docs column on
+ * phone-sized viewports. Code blocks keep their own horizontal-scroll behavior below. */
+code {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+pre code {
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
 * {
   box-sizing: border-box;
 }

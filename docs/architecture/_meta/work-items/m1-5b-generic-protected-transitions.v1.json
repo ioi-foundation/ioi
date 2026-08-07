@@ -43,9 +43,7 @@
     "apps/hypervisor/scripts/verify-hypervisor-system-sequence-zero-materialization.mjs",
     "crates/types/src/app/system_lifecycle_transitions.rs",
     "docs/architecture/_meta/schemas/autonomous-system-protected-transition-proposal.v1.schema.json",
-    "docs/architecture/_meta/schemas/autonomous-system-operation-log.v2.schema.json",
-    "docs/evidence/m0-program-control/review-epoch-anchor.json",
-    "docs/evidence/m0-program-control/reviewed-entry-lock.json"
+    "docs/architecture/_meta/schemas/autonomous-system-operation-log.v2.schema.json"
   ],
   "pr": 103,
   "adversarial_or_fault_proof": "Committed: 6/6 canon-parity tests on the op family (row-by-row legality pinning, scope disjointness, degraded unreachable, terminal arcs) + 12/12 compile-path tests (full 154-cell op-by-predecessor sweep compiles or refuses per canon; identity detachment/overclaims refused; bootstrap and reserved statuses refused; byte-determinism with tamper-sensitive commitments; six negative claims preserved). ioi-types 262/262. Increment 3: three registered contracts embedding the closed effect; full architecture-contract bar green (39 contracts/141 fixtures incl. mutation+differential corpora; generated cargo tests 14/14 with the live ajv-vs-Rust differential); ten real-hash fixtures prove Rust/Python/JS recipe agreement; state root aligned to the flat JCS house pattern. Predeclared remaining: sealed-intent replay/restart convergence and fault-injection recovery in the runtime increment. Increment 4b-0: operation-log v2 successor contract landed (first registry evolution use; general head_entry after the bar caught v1's activation-pinned inheritance; solver-generated fixpoint fixture; bar green BAR4_EXIT=0 at 40 contracts/145 fixtures). Increment 4/5 (runtime + journeys): parameterized route pair over the sealed-intent machinery with under-lock plan rebinding, fail-closed wallet consumption, no-clobber persistence + Agentgres admission (schema_version-dispatched root recipes; lifecycle-state root recomputed independently from the flat material), background replay driver from at-plan-time truth; module suites protected 7/7, activation 13/13 (activation rewired through the shared evidence builder with no drift). Live protected-transition journey 25/25; full 11-journey suite 100/100 at literal FULLJ_EXIT=0 (exact teardown 37/37); full check:pre-next-leg at literal PNL3_EXIT=0 on tip 4c17d324d (41 contracts; m0 56/56 with the epoch-8 anchor pin). The two pre-next-leg refusals en route were deliberate-change pins (work-items tier, epoch count) acknowledged without weakening. Census epoch 8 (unsigned v3): 1,547 identities, epoch m1-5b-protected-transitions-review-2026-07-22, exit verified.",
@@ -55,5 +53,6 @@
     "degraded is an observed posture, never an op target."
   ],
   "source_provenance": "Phased from work item m1-5-protected-transitions (internal groundwork); canon + op family committed on feat/system-lifecycle-transition-contracts. MERGED to master 695921491 (PR #103, delegated review APPROVE).",
-  "last_status_transaction": "2026-07-22"
+  "last_status_transaction": "2026-07-22",
+  "retired_evidence_note": "docs/evidence/m0-program-control/ was removed by the 2026-08-05 proof-apparatus strip (9fe221227); this field no longer names paths a reader cannot open."
 }

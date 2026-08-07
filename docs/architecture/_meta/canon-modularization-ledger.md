@@ -9,7 +9,6 @@ Doctrine status: reference
 Implementation status: mixed (a point-in-time refactor record; the checks it describes are executable and named below)
 Implementation refs:
   - `scripts/check-architecture-docs.mjs`
-  - `scripts/lib/architecture-docs-integrity.mjs`
 Last implementation audit: 2026-07-25
 
 ## What this file is
@@ -66,7 +65,7 @@ only what the audit *found*.
 | Finding | Class | Resolution |
 | --- | --- | --- |
 | `README.md` states that ioi.ai Goal Space "does not own admitted goal lifecycle, plan selection, execution effects, wallet authority, or global truth", but nothing said so at the object level and no document stated the `Session` / `GoalRun` / `OutcomeRoom` layering. | `new_architectural_requirement` | `term-boundaries.md` owns a section: *Session, GoalRun, and OutcomeRoom Are Three Different Things*, with a which-layer-owns-which table. It quotes the canon's own formulation from `source-of-truth-map.md` — ioi.ai "dogfoods Hypervisor rather than receiving privileged substrate semantics… GoalRun solely owns admitted `goal://` identity and lifecycle" — rather than inventing new doctrine. Enforced by `check-architecture-docs.mjs`. |
-| **Caught in review, not shipped.** The first cut assigned `objects/goal-pursuit.md`'s doctrine owner to `domains/ioi-ai/control-plane.md`, inverting that boundary. | `semantic_correction` | Corrected to `components/daemon-runtime/doctrine.md`. |
+| **Caught in review, not shipped.** The first cut assigned `../domains/ioi-ai/goal-pursuit.md`'s doctrine owner to `domains/ioi-ai/control-plane.md`, inverting that boundary. | `semantic_correction` | Corrected to `components/daemon-runtime/doctrine.md`. |
 | **Caught in review, not shipped.** The first cut asserted "GoalRun and OutcomeRoom are substrate primitives that ioi.ai productizes", CI-pinned that novel phrasing, and dropped `governed-autonomous-systems.md` as `OutcomeRoom` co-owner — while `source-of-truth-map.md:167` names it jointly with `collaborative-outcome-pattern.md`. | `semantic_correction` | Co-owner restored; the section now separates *object identity/admission* (substrate) from *doctrine ownership* (per the map, jointly owned) and defers to the owners on substance. The CI pin now quotes pre-existing canon only. |
 | **Caught in review, not shipped.** The first cut claimed present-tense that a deployment with no ioi.ai account "creates, admits, runs, verifies, and replays" GoalRuns and OutcomeRooms. `control-plane.md` records that the current product "has not yet passed that end-to-end standalone contract." | `semantic_correction` | Requalified as the **target** contract, with the not-yet-passed status stated inline and `implementation-matrix.md` named as the place to check. |
 | **Caught in review, not shipped.** `Facilitation` was defined as ioi.ai help in "drafting, **routing**, synthesis, and presentation". The canon denies ioi.ai routing truth in four places. | `semantic_correction` | "routing" removed; the Must-Not-Mean column now explicitly forbids any claim on route, worker, harness, verifier, or materialization truth. |
@@ -132,10 +131,10 @@ zero prose lines dropped, zero content duplicated, zero broken anchors.
 | `objects/embodied-systems.md` | 1,061 | `daemon-runtime/embodied-runtime.md` |
 | `objects/memory-and-promotion.md` | 319 | `daemon-runtime/portable-memory-vault.md` |
 | `objects/bounded-improvement.md` | 386 | `foundations/bounded-recursive-improvement.md` |
-| `objects/goal-pursuit.md` | 334 | `daemon-runtime/doctrine.md` |
+| `../domains/ioi-ai/goal-pursuit.md` | 334 | `daemon-runtime/doctrine.md` |
 | `objects/collaborative-pursuit.md` | 858 | `ioi-ai/collaborative-outcome-pattern.md` + `foundations/governed-autonomous-systems.md` |
 | `objects/work-results-and-lifecycle.md` | 372 | `daemon-runtime/doctrine.md` |
-| `objects/goal-run-execution.md` | 840 | `daemon-runtime/doctrine.md` (step resolution only: `default-harness-profile.md`) |
+| `../domains/ioi-ai/goal-run-execution.md` | 840 | `daemon-runtime/doctrine.md` (step resolution only: `default-harness-profile.md`) |
 | `foundations/term-boundaries.md` | 247 | itself |
 
 **Six** modules exceed the 800-line threshold this pass introduced —
@@ -177,7 +176,7 @@ J3  before/after  hypervisor/core-clients-surfaces.md + daemon-runtime/default-h
 J4  before  common-objects-and-envelopes.md + _meta/vocabulary.md
     after   foundations/term-boundaries.md
 J5  before  common-objects-and-envelopes.md + ioi-ai/control-plane.md
-    after   objects/goal-pursuit.md + objects/goal-run-execution.md + ioi-ai/control-plane.md
+    after   ../domains/ioi-ai/goal-pursuit.md + ../domains/ioi-ai/goal-run-execution.md + ioi-ai/control-plane.md
 J6  before  common-objects-and-envelopes.md + ioi-ai/collaborative-outcome-pattern.md
     after   objects/collaborative-pursuit.md + ioi-ai/collaborative-outcome-pattern.md
 J7  before/after  connectors-tools/contracts.md + daemon-runtime/api.md
@@ -251,10 +250,11 @@ These are the things a reviewer would otherwise have to discover.
    program-state refresh**, which is deliberately not performed here.
 5. **`internal-docs/implementation/` is gitignored.** Anchor rewrites were
    applied to files there so those records stay consistent, but **those edits are
-   not part of any commit.** One pre-existing broken anchor was found and left
-   alone rather than silently fixed:
-   `internal-docs/implementation/program/canon-map.v1.json` references
-   `#autonomoussystemactivationproposalenvelope`, which has never existed.
+   not part of any commit**, and nothing in this ledger closes on them. One
+   pre-existing broken anchor was found in a private program artifact and left
+   alone rather than silently fixed; that artifact has since been deleted along
+   with the rest of the 2026-08-05 apparatus removal, so the citation is not
+   restated here: canon does not cite what its reader cannot open.
 6. **~189 links point at the family index with no anchor** (tracked `.md` only:
    158). They resolve, and now land on a complete module registry. They were not
    individually repointed. An earlier draft of this ledger said 372; that figure

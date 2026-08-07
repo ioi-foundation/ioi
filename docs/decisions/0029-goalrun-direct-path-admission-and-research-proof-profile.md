@@ -59,8 +59,8 @@ valid non-software profile.
 ## Canonical References
 
 - `docs/architecture/components/daemon-runtime/default-harness-profile.md`
-- `docs/architecture/foundations/objects/goal-pursuit.md`
-- `docs/architecture/foundations/objects/goal-run-execution.md`
+- `../architecture/domains/ioi-ai/goal-pursuit.md`
+- `../architecture/domains/ioi-ai/goal-run-execution.md`
 - `docs/architecture/foundations/objects/work-results-and-lifecycle.md`
 - `docs/decisions/0017-goal-pursuit-workflow-skill-and-harness-taxonomy.md`
 - `docs/decisions/0020-unified-goal-run-admission-and-resolved-evidence.md`

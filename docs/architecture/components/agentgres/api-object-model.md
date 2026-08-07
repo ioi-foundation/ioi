@@ -7,6 +7,8 @@ Superseded by: none.
 Last alignment pass: 2026-07-15.
 Doctrine status: reference
 Implementation status: partial (object catalog; families land with their planes. Agent Execution Branch remains planned over existing fork/replay/snapshot substrate. Receipt-checkpoint/proof schemas, invariants, fixtures, and generated projections are present, while portable verifiers and Agentgres checkpoint admission/emission/export remain planned. The current hosted v2 OutcomeRoom slice admits one bounded-System-backed room, reciprocal GoalRun membership, and a minimum WorkResult/OutcomeDelta graph with payload/label custody and reconstructable projections. Current v2 participation, frontier/claim, offer/matching, Attempt/Finding, and VerifierChallenge lifecycles are not started; mounted v1 predecessor planes remain historical executable/source disposition and are fenced from v2 rooms. Room discovery, portable exit, federation, acceptance/verdict/settlement, NetworkGoalBudget, and the bounded-improvement Agenda/Campaign/Epoch/exposure/claim spine remain planned.)
+Implementation refs:
+  - `crates/node/src/bin/hypervisor_daemon_routes/substrate_store.rs`
 Last implementation audit: 2026-07-30
 
 ## Purpose
@@ -458,7 +460,7 @@ remain the only promotion proposal/decision path.
 The constitution, deployment, membership, failover, ordering/finality,
 oracle/evidence, lifecycle, and enrollment object bodies follow the canonical
 field schemas in
-[`../../foundations/common-objects-and-envelopes.md`](../../foundations/objects/bounded-system-genesis.md#governed-autonomous-system-chain-envelopes).
+[`bounded-system-genesis.md`](../../foundations/objects/bounded-system-genesis.md#governed-autonomous-system-chain-envelopes).
 Agentgres records desired profiles and observed membership separately. A node
 cannot become ready, change roles, or acquire a writer epoch merely because a
 deployment profile requests it.
@@ -1539,7 +1541,7 @@ Room messages, boards, inboxes, digests, feeds, taskforce lists, leaderboards,
 and replay timelines are projection definitions over those objects. They are
 not canonical state classes. Their durable room-specific form is the
 `OutcomeRoomDiscussionProjectionEnvelope` owned by
-[`collaborative-pursuit.md`](../../foundations/objects/collaborative-pursuit.md):
+[`collaborative-pursuit.md`](../../domains/ioi-ai/collaborative-pursuit.md):
 it binds one exact room revision/root, source receipts, visibility policy, and
 information-flow labels, and is neither authoritative nor client-writable.
 Participant inputs remain tainted until the enclosing room System's Agentgres

@@ -3,7 +3,7 @@
 Status: canonical architecture authority.
 Canonical owner: this file for connector/tool registry doctrine and the
 local-agent-pairing-to-gateway boundary; low-level tool contracts and connector
-mappings live in [`connector-and-tool-contracts.md`](./contracts.md).
+mappings live in [`contracts.md`](./contracts.md).
 Supersedes: older flattened capability-registry wording when it conflicts with primitive capability and authority scope tiers.
 Superseded by: none.
 Last alignment pass: 2026-07-19.

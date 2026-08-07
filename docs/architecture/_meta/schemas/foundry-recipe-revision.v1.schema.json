@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/foundry-recipe-revision/v1",
+  "title": "FoundryRecipeRevision",
+  "description": "Immutable revision of the bounded executable Foundry data recipe, including exact rights, tokenizer, sequence, packing, loss-mask, harness, environment, operator, seed, and content commitments.",
+  "x-ioi-schema-version": "ioi.foundry-recipe-revision.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "recipe_id", "recipe_revision_ref", "revision", "predecessor_recipe_ref", "owner_ref", "data_recipe_ref", "source_snapshot_refs", "institutional_learning_boundary_ref", "learning_source_rights_claim_refs", "tokenizer_ref", "sequence_format_ref", "packing_policy_ref", "loss_mask_policy_ref", "harness_variant_refs", "environment_profile_ref", "operators", "split_seed", "content_hash", "status"],
+  "properties": {
+    "schema_version": { "const": "ioi.foundry-recipe-revision.v1" },
+    "recipe_id": { "type": "string", "pattern": "^foundry-recipe://[^\\s]{1,500}$" },
+    "recipe_revision_ref": { "type": "string", "pattern": "^foundry-recipe://[^\\s]{1,440}/revision/[1-9][0-9]*$" },
+    "revision": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+    "predecessor_recipe_ref": { "$ref": "#/$defs/nullableRef" },
+    "owner_ref": { "type": "string", "pattern": "^(?:wallet|org|project)://[^\\s]{1,500}$" },
+    "data_recipe_ref": { "type": "string", "pattern": "^data-recipe://[^\\s]{1,500}$" },
+    "source_snapshot_refs": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/nonempty" } },
+    "institutional_learning_boundary_ref": { "type": "string", "pattern": "^(?:learning-boundary|policy)://[^\\s]{1,500}$" },
+    "learning_source_rights_claim_refs": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/nonempty" } },
+    "tokenizer_ref": { "type": "string", "pattern": "^(?:tokenizer|artifact)://[^\\s]{1,500}$" },
+    "sequence_format_ref": { "type": "string", "pattern": "^(?:format|artifact|schema)://[^\\s]{1,500}$" },
+    "packing_policy_ref": { "type": "string", "pattern": "^policy://[^\\s]{1,500}$" },
+    "loss_mask_policy_ref": { "type": "string", "pattern": "^policy://[^\\s]{1,500}$" },
+    "harness_variant_refs": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/nonempty" } },
+    "environment_profile_ref": { "type": "string", "pattern": "^(?:profile|environment-profile)://[^\\s]{1,500}$" },
+    "operators": { "type": "array", "minItems": 1, "maxItems": 64, "items": { "$ref": "#/$defs/operator" } },
+    "split_seed": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+    "content_hash": { "$ref": "#/$defs/hash" },
+    "status": { "const": "ready" }
+  },
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "nonempty": { "type": "string", "minLength": 1 },
+    "ref": { "type": "string", "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$" },
+    "nullableRef": { "anyOf": [{ "$ref": "#/$defs/ref" }, { "type": "null" }] },
+    "nullableName": { "anyOf": [{ "type": "string", "minLength": 1, "maxLength": 500 }, { "type": "null" }] },
+    "nullableNames": { "anyOf": [{ "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1, "maxLength": 500 } }, { "type": "null" }] },
+    "operator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "field", "fields", "from", "to"],
+      "properties": {
+        "kind": { "enum": ["normalize_whitespace", "filter_nonempty", "select_fields", "deduplicate", "rename_field"] },
+        "field": { "$ref": "#/$defs/nullableName" },
+        "fields": { "$ref": "#/$defs/nullableNames" },
+        "from": { "$ref": "#/$defs/nullableName" },
+        "to": { "$ref": "#/$defs/nullableName" }
+      },
+      "allOf": [
+        { "if": { "properties": { "kind": { "enum": ["normalize_whitespace", "filter_nonempty"] } }, "required": ["kind"] }, "then": { "properties": { "field": { "type": "string", "minLength": 1, "maxLength": 500 }, "fields": { "type": "null" }, "from": { "type": "null" }, "to": { "type": "null" } } } },
+        { "if": { "properties": { "kind": { "enum": ["select_fields", "deduplicate"] } }, "required": ["kind"] }, "then": { "properties": { "field": { "type": "null" }, "fields": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1, "maxLength": 500 } }, "from": { "type": "null" }, "to": { "type": "null" } } } },
+        { "if": { "properties": { "kind": { "const": "rename_field" } }, "required": ["kind"] }, "then": { "properties": { "field": { "type": "null" }, "fields": { "type": "null" }, "from": { "type": "string", "minLength": 1, "maxLength": 500 }, "to": { "type": "string", "minLength": 1, "maxLength": 500 } } } }
+      ]
+    }
+  }
+}

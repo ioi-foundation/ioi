@@ -90,6 +90,30 @@ their lifecycle or infer execution from application-local receipts.
 5. **Application plans remain legitimate.** Goal grounding, topology selection,
    orchestration plans, attempt comparison, and course correction remain ioi.ai
    semantics. Their execution effects cross the kernel seam exactly once.
+6. **The context family re-homes to the application layer (owner ruling,
+   2026-08-07).** `ContextCell`, `ContextLease`, and `ContextHandoff` appear in
+   this ADR's keep-list while
+   [ADR 0022](./0022-goal-orchestration-application-layer-and-clean-slate.md)
+   Decision 1 still lists them in the Hypervisor substrate block. That was an
+   unstated move, and it left two accepted ADRs assigning the same three objects
+   to opposite layers. **The owner ruling is that this ADR governs: the goal
+   family is ioi.ai productization, and its execution composes daemon-owned
+   thread orchestration primitives.** The context family is therefore application
+   vocabulary; ADR 0022 Decision 1's substrate line is amended accordingly and
+   carries a pointer here.
+
+   Two boundaries survive the move intact. First, the composition rule of this
+   Decision still applies to their execution effects — an application-owned
+   context object may not mint thread, fork, managed-session, launch, or harness
+   truth. Second, `WorkResult` and `OutcomeDelta` are **not** re-homed: ADR 0022
+   sub-ruling 7 keeps those objects in foundations carrying only generic
+   work-subject and bounded-System fields, and this ADR's keep-list deliberately
+   claims their *associations* rather than the objects.
+
+   Consequence for contract identity: per ADR 0022 sub-ruling 7 these three take
+   `schema://ioi/applications/ioi-ai/*` when they are registered. None of the
+   three is registered today, so no existing `$id` changes and no alias is
+   created.
 6. **No ambient authority from composition.** A thread, fork, Session, harness
    binding, or terminal attachment is execution truth, not authority to mutate a
    GoalRun or room. Existing admission, scope, policy, and receipt gates remain.
@@ -146,7 +170,7 @@ path.
 
 ## Canonical References
 
-- `docs/architecture/foundations/objects/goal-run-execution.md`
+- `../architecture/domains/ioi-ai/goal-run-execution.md`
 - `docs/architecture/components/daemon-runtime/doctrine.md`
 - `docs/architecture/components/hypervisor/core-clients-surfaces.md`
 - `docs/architecture/domains/ioi-ai/control-plane.md`

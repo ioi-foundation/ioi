@@ -19,7 +19,7 @@ function ioiGlobalRailHtml(active) {
     const kbd = opts.kbd ? `<kbd class="og-gkbd">${opts.kbd.split("+").map((k) => `<span>${k.trim()}</span>`).join("<span>+</span>")}</kbd>` : "";
     const ico = icon === "@aip-grad" ? AIP_GRADIENT_SVG_RAIL : bpIcon(icon);
     const inner = `<span class="og-gico">${ico}${opts.badge ? '<span class="og-gbadge"></span>' : ""}</span><span class="og-glabel">${CX_ESC(label)}</span>${kbd}`;
-    return opts.href ? `<a class="og-gitem${opts.ctx ? " ctx" : ""}" href="${opts.href}">${inner}</a>` : `<span class="og-gitem muted">${inner}</span>`;
+    return opts.href ? `<a class="og-gitem${opts.ctx ? " ctx" : ""}" href="${opts.href}" aria-label="${CX_ESC(label)}" title="${CX_ESC(label)}">${inner}</a>` : `<span class="og-gitem muted" aria-label="${CX_ESC(label)}" title="${CX_ESC(label)}">${inner}</span>`;
   };
   return `<aside class="og-grail${active.railVariant ? " " + active.railVariant : ""}">
     <div class="og-gtop"><span class="og-gmark">◗</span><span class="og-gmenu">${bpIcon("menu-closed")}</span></div>
@@ -33,7 +33,7 @@ function ioiGlobalRailHtml(active) {
     ${gi("cubes", "Ontology", { href: "/__ioi/odk", ctx: active.hiliteNav === "Ontology" })}
     ${gi("layout-grid", "Applications", { href: "/__ioi/home" })}
     <div class="og-gsecrow"><span class="og-gsec">APPLICATIONS</span>${active.viewAll === false ? "" : `<a class="og-gviewall" href="/__ioi/home">View all</a>`}</div>
-    <a class="og-gitem on" href="${active.href}"><span class="og-gappico" style="background-image:url('${active.iconUri}')"></span><span class="og-glabel og-strong">${CX_ESC(active.label)}</span>${active.star === false ? "" : `<span class="og-gstar">${bpIcon("star-empty")}</span>`}</a>
+    <a class="og-gitem on" href="${active.href}" aria-label="${CX_ESC(active.label)}" title="${CX_ESC(active.label)}"><span class="og-gappico" style="background-image:url('${active.iconUri}')"></span><span class="og-glabel og-strong">${CX_ESC(active.label)}</span>${active.star === false ? "" : `<span class="og-gstar">${bpIcon("star-empty")}</span>`}</a>
     <div class="og-gspacer"></div>
     ${gi(active.aipGradient ? "@aip-grad" : "aip-logo", "AIP Assist", { kbd: "ctrl + shift + U" })}
     ${gi("help", "Support", {})}
@@ -68,6 +68,7 @@ const IOI_GRAIL_CSS = `
     .og-gsec{font-size:12px;letter-spacing:.02em;color:#abb3bf;font-weight:600}
     .og-gviewall{font-size:14px;color:#abb3bf;font-weight:400}
     .og-gavatar{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;margin-left:0;margin-right:-4px;border-radius:3px;background:#1e6ba1;color:#8abbff;font-size:12px;font-weight:600;flex:0 0 20px}
-    .og-gspacer{flex:1 1 auto;min-height:14px}`;
+    .og-gspacer{flex:1 1 auto;min-height:14px}
+    @media(max-width:700px){.og-grail{position:sticky;top:0;flex:0 0 52px;width:52px;height:100svh;padding:0 8px 8px}.og-gtop{height:52px;flex-basis:52px;justify-content:center;padding:0}.og-gmark,.og-glabel,.og-gkbd,.og-gsecrow,.og-gstar{display:none}.og-gitem,.rv-pipe .og-gitem.on{justify-content:center;gap:0;height:38px;margin:0;padding:0;border-radius:6px}.og-gitem.on{height:38px}.og-gdiv{height:12px}.og-gappico{margin:0}.og-gavatar{margin:0}.og-gspacer{min-height:8px}}`;
 
 export { ioiGlobalRailHtml, IOI_GRAIL_CSS };

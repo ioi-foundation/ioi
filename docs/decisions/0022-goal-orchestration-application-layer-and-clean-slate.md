@@ -38,7 +38,7 @@ subsequent change more expensive for nobody's benefit.
 
 ```text
 Hypervisor — substrate and its own product identity
-  Session, WorkRun, HarnessInvocation, ContextCell/Lease/Handoff,
+  Session, WorkRun, HarnessInvocation, ContextCell/Lease/Handoff [AMENDED],
   environments, automations machinery, authority, receipts, Agentgres
   truth, packages, and the generic result seam (WorkResult / OutcomeDelta).
   Its surfaces and API namespace speak session vocabulary. Goal runs and
@@ -61,6 +61,14 @@ Protocol — what an external party speaks
   cross-party grammar is protocol + package level, never one product's
   private schema and never a substrate favor.
 ```
+
+> **[AMENDED 2026-08-07]** `ContextCell`, `ContextLease` and `ContextHandoff`
+> are no longer substrate. They re-home to the ioi.ai orchestration application
+> by owner ruling recorded at
+> [ADR 0031](./0031-goalrun-execution-composes-thread-orchestration.md)
+> sub-ruling 6. `Session`, `WorkRun`, `HarnessInvocation` and the generic result
+> seam are **unaffected** and remain substrate. Nothing else in this Decision
+> changes.
 
 Consequential sub-rulings:
 
@@ -179,7 +187,7 @@ wrong is churn, not lost guarantees.
 
 - [`../architecture/domains/ioi-ai/collaborative-outcome-pattern.md`](../architecture/domains/ioi-ai/collaborative-outcome-pattern.md)
 - [`../architecture/domains/ioi-ai/control-plane.md`](../architecture/domains/ioi-ai/control-plane.md)
-- [`../architecture/foundations/objects/goal-pursuit.md`](../architecture/foundations/objects/goal-pursuit.md)
+- [`../architecture/../architecture/domains/ioi-ai/goal-pursuit.md`](../architecture/../architecture/domains/ioi-ai/goal-pursuit.md)
 - [`../architecture/components/daemon-runtime/doctrine.md`](../architecture/components/daemon-runtime/doctrine.md)
 - [`../architecture/components/hypervisor/core-clients-surfaces.md`](../architecture/components/hypervisor/core-clients-surfaces.md)
 - [`../architecture/_meta/execution-horizons.md`](../architecture/_meta/execution-horizons.md)

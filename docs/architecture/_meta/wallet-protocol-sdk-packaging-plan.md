@@ -3,6 +3,9 @@
 Status: entry-point stub; the plan moved out of canon.
 Doctrine status: archived
 Implementation status: partial (packages exist; generator and product-import hardening remain)
+Implementation refs:
+  - `packages/wallet-protocol`
+  - `packages/wallet-sdk`
 Canonical owner: [`../components/wallet-network/doctrine.md`](../components/wallet-network/doctrine.md) for wallet authority doctrine.
 Moved to: [`../_archive/specs/wallet-protocol-sdk-packaging-plan.md`](../_archive/specs/wallet-protocol-sdk-packaging-plan.md) on 2026-07-05.
 Last alignment pass: 2026-07-05.

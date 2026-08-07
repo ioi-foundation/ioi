@@ -693,7 +693,7 @@ an authorized policy-bound view. A board, digest, inbox, leaderboard, and replay
 are projections over this state, not protocol authority.
 
 Cross-domain/open discovery and admission use the shared
-[`OutcomeRoomDiscoveryEnvelope`](./objects/collaborative-pursuit.md#outcomeroomdiscoveryenvelope-and-roomparticipationrequestenvelope)
+[`OutcomeRoomDiscoveryEnvelope`](../domains/ioi-ai/collaborative-pursuit.md#outcomeroomdiscoveryenvelope-and-roomparticipationrequestenvelope)
 and `RoomParticipationRequestEnvelope`. An external independently operated
 Worker can discover a signed public/permissioned objective and category,
 semantic/capability requirements, eligibility, visibility/privacy,
@@ -706,7 +706,7 @@ federation policy accepts the same typed request and evidence.
 Retire, expiry, quarantine, and revoke transitions release or reassign live
 claims and terminate future access. They preserve policy-allowed contribution,
 receipt, acceptance, settlement, and dispute refs and may carry a signed
-[`ParticipantStateBundleEnvelope`](./objects/collaborative-pursuit.md#participantstatebundleenvelope).
+[`ParticipantStateBundleEnvelope`](../domains/ioi-ai/collaborative-pursuit.md#participantstatebundleenvelope).
 The participant's home domain can retain that portable state without continued
 access to or trust in a hosted room database. Hosted and federated rooms use the
 same discovery, request, lease, exit, and export contracts; they differ only in
@@ -785,7 +785,7 @@ Meaningful routing decisions should emit routing receipts, especially when they
 affect payment, reputation, trust, settlement, or dispute posture.
 
 The canonical decision object is
-[`RoutingDecisionEnvelope`](./objects/goal-run-execution.md#routingdecisionenvelope).
+[`RoutingDecisionEnvelope`](./objects/execution-context-and-step-resolution.md#routingdecisionenvelope).
 It owns the candidate and affiliation commitments, selected Worker composition,
 mounted model/provider/runtime dependencies, attempted and actual route refs,
 fallback and verifier escalation, contributor policy, and first-party seed-

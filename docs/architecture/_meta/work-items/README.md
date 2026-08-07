@@ -7,6 +7,8 @@ Superseded by: none.
 Last alignment pass: 2026-07-22.
 Doctrine status: canonical
 Implementation status: built (records validated by `npm run check:work-items`)
+Implementation refs:
+  - `docs/architecture/_meta/work-items`
 Last implementation audit: 2026-07-22 (initial migration: M1 family and M0 census gate records)
 
 One machine-checkable record per implementation cut, using the master

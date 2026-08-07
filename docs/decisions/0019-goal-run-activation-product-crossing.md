@@ -53,7 +53,7 @@ workflow-step lane with `activation_mode: create | join_existing`.
 
 Reading 2, with reading 3's *shape* but not its ownership: adopt
 **`GoalRunActivationEnvelope`** as a substrate object owned by
-`foundations/objects/goal-pursuit.md`, admitted only by the daemon, drafted
+`../architecture/domains/ioi-ai/goal-pursuit.md`, admitted only by the daemon, drafted
 and projected by products. It binds exactly one typed source context
 (`ioi_goal_draft | hypervisor_session | work_run | work_item |
 outcome_room_claim | automation_workflow_step | gateway_adapter_context`),
@@ -100,7 +100,7 @@ Consequential sub-rulings:
 
 ## Surfaces Affected
 
-`objects/goal-pursuit.md`, `objects/goal-run-execution.md`
+`../architecture/domains/ioi-ai/goal-pursuit.md`, `../architecture/domains/ioi-ai/goal-run-execution.md`
 (`activation_ref`), `daemon-runtime/doctrine.md` (admission contract),
 `domains/ioi-ai/control-plane.md` and `collaborative-outcome-pattern.md`
 (product lane), `term-boundaries.md`, `vocabulary.md`,
@@ -119,7 +119,7 @@ the object yet; the recorded delta row marks it not started.
 
 ## Canonical References
 
-- [`../architecture/foundations/objects/goal-pursuit.md`](../architecture/foundations/objects/goal-pursuit.md)
+- [`../architecture/../architecture/domains/ioi-ai/goal-pursuit.md`](../architecture/../architecture/domains/ioi-ai/goal-pursuit.md)
 - [`../architecture/components/daemon-runtime/doctrine.md`](../architecture/components/daemon-runtime/doctrine.md)
 - [`../architecture/domains/ioi-ai/control-plane.md`](../architecture/domains/ioi-ai/control-plane.md)
 - [`../architecture/foundations/term-boundaries.md`](../architecture/foundations/term-boundaries.md)

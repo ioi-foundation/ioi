@@ -104,22 +104,16 @@ __pycache__/
 internal-docs/reverse-engineering
 /internal-docs/prompts/
 
-# The implementation program is versioned. Only reproducible orientation,
-# cache state, and nested working checkouts stay local; see
-# internal-docs/implementation/README.md#version-control-classification.
-/internal-docs/implementation/worktrees/
-# NOW.md and program-state.v1.json were ignored while every OTHER generated
-# artifact beside them was tracked. The estate's own README and program/rules.md
-# link to them, so check-estate failed on any fresh clone or detached worktree
-# while passing wherever someone had run the generator -- the estate was only
-# coherent on a machine that had already built it. Generated artifacts a GATE
-# DEPENDS ON must be committed, the same discipline the M0 artifacts already
-# follow: regenerate, then commit.
-/internal-docs/implementation/generated/.fast-lane-stamp
-/internal-docs/implementation/generated/.certify/
-/internal-docs/implementation/**/.cache/
-/internal-docs/implementation/**/__pycache__/
-/internal-docs/implementation/**/node_modules/
+# Local implementation planning and evidence workspace. Product code and CI
+# must remain independently buildable without these private working records.
+/internal-docs/implementation/
+/scripts/implementation-program.mjs
+
+# Owner ruling 2026-08-07: there is ONE ioi.ai application, apps/ioi-ai (the QM
+# fork), and it receives modifications directly. apps/ioi-ai-product was a second
+# runtime invented beside it. Its 277 source files are preserved on disk and
+# quarantined here pending fold-in; they are not a tracked peer product.
+/apps/ioi-ai-product/
 
 
 .chrome-flatpak-profile

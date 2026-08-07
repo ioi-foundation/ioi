@@ -1,0 +1,304 @@
+{
+  "schema_version": "ioi.hypervisor.mutation_event_foundation_coverage.v1",
+  "status": "partial",
+  "status_semantics": "partial means the shared boundary is live for the named closed slices, but it is forbidden to claim estate-wide mutation completeness while any open_gap or unclassified direct-persistence indicator remains",
+  "source_scope": [
+    "crates/node/src/bin/hypervisor-daemon.rs",
+    "crates/node/src/bin/hypervisor_daemon_routes/*.rs"
+  ],
+  "completion_rule": {
+    "required_status": "complete",
+    "all_open_gaps_must_be_closed": true,
+    "direct_persistence_indicators_must_be_classified": true,
+    "required_properties": [
+      "authenticated principal and exact owner/tenant resource scope",
+      "caller-owned idempotency key with same-key/different-bytes refusal",
+      "expected-absent genesis or explicit expected-head compare-and-swap",
+      "Agentgres-admitted operation and hash-linked receipt",
+      "no success response before required durability confirmation",
+      "restart replay from durable admitted truth",
+      "typed recovery for ambiguous persistence, receipt, event, and multi-effect failures",
+      "cross-principal receipt and idempotency-key borrowing refusal"
+    ]
+  },
+  "shared_boundary": {
+    "source": "crates/node/src/bin/hypervisor_daemon_routes/mutation_event_foundation.rs",
+    "truth_owner": "Agentgres",
+    "creates_parallel_journal": false,
+    "properties": [
+      "immutable request-scope validation",
+      "caller idempotency validation",
+      "expected-absent genesis",
+      "explicit expected-head successor",
+      "stable logical-command fingerprint",
+      "exact operation and receipt refs",
+      "authorized head and history replay",
+      "retained-checkpoint validation"
+    ]
+  },
+  "closed_slices": [
+    {
+      "id": "MEF-CLOSED-001",
+      "plane": "generic event streams",
+      "source": "crates/node/src/bin/hypervisor_daemon_routes/event_stream_routes.rs",
+      "status": "closed",
+      "evidence": [
+        "stream genesis requires authenticated owner_ref and caller idempotency_key",
+        "admitted append requires exact resource scope and explicit expected_head",
+        "exact retry replays the original operation and receipt",
+        "fresh-key redeclaration cannot borrow the creation receipt",
+        "denied reads fail before revealing stream existence",
+        "ephemeral classes remain explicitly non-admitted"
+      ]
+    },
+    {
+      "id": "MEF-CLOSED-002",
+      "plane": "subscription leases and checkpoints",
+      "source": "crates/node/src/bin/hypervisor_daemon_routes/event_stream_routes.rs",
+      "status": "closed",
+      "evidence": [
+        "lease create/checkpoint/revoke are owner-scoped admitted mutations",
+        "checkpoint and revoke require caller idempotency and explicit expected_head",
+        "delivery authorizes both lease and source stream",
+        "a missing or changed retained checkpoint returns a typed resync requirement",
+        "lease and checkpoint truth survive daemon restart"
+      ]
+    },
+    {
+      "id": "MEF-CLOSED-003",
+      "plane": "ODK package candidates, immutable releases, disabled installation bindings, and uninstall",
+      "source": "crates/node/src/bin/hypervisor_daemon_routes/package_registry_routes.rs",
+      "status": "closed",
+      "bounded_scope": "Stages 5, 6, and the disabled installation-binding half of stage 7 only; no extension-application registration, executable activation, System binding, mount, serve, upgrade, or rollback claim",
+      "evidence": [
+        "package admission freezes the exact DomainApp, ODK manifest, and domain-app surface-descriptor bytes under an authenticated organization owner",
+        "candidate creation is expected-absent and release/install/uninstall successors require explicit exact heads",
+        "every mutation uses caller-owned idempotency and the shared Agentgres admission and receipt boundary",
+        "release and installation payloads validate against the generated canonical architecture contracts",
+        "installation can only narrow release contracts and is forced disabled and nonlaunchable while registration is absent",
+        "authorized inventory reconstructs current heads from Agentgres after daemon restart",
+        "the executable smoke proves exact retry, same-scope stale-head refusal, restart recovery, narrowing refusal, and CAS uninstall"
+      ]
+    }
+  ],
+  "open_gaps": [
+    {
+      "id": "MEF-GAP-001",
+      "priority": "blocker",
+      "plane": "remaining daemon mutation estate",
+      "status": "open",
+      "source_markers": [
+        "let _ = persist_record(",
+        "let _ = super::persist_record("
+      ],
+      "gap": "At least 304 direct persist_record results are explicitly discarded across 41 daemon source files. This is a source indicator, not a proof that every call is user-visible or defective; every occurrence still requires an explicit durable/compensated/best-effort classification before estate-wide completion can be claimed.",
+      "acceptance": [
+        "classify every indicator as canonical mutation, derived projection, rollback cleanup, or intentionally best-effort telemetry",
+        "migrate canonical mutations to the shared admission boundary or record an owner-approved equivalent",
+        "make every projection and cleanup failure observable and recoverable according to its classification",
+        "regenerate the census with scripts/audit-daemon-mutation-foundation.mjs"
+      ]
+    },
+    {
+      "id": "MEF-GAP-002",
+      "priority": "blocker",
+      "plane": "marketplace listings, publish candidates, reviews, publish, and managed-instance offers",
+      "status": "open",
+      "source": "crates/node/src/bin/hypervisor_daemon_routes/marketplace_routes.rs",
+      "handler_markers": [
+        "handle_listing_create",
+        "handle_listing_patch",
+        "handle_candidate_create",
+        "handle_candidate_publish",
+        "handle_review_create",
+        "handle_review_patch",
+        "handle_offer_create",
+        "handle_offer_patch"
+      ],
+      "gap": "Mutations are not request-scoped, carry no caller idempotency or expected-head contract, and discard persistence results. Publish writes receipt, candidate, and listing as separate unchecked records; review creation writes review then candidate backlink through a best-effort helper. A partial write can therefore return success or leave torn public/review state.",
+      "acceptance": [
+        "bind every object to authenticated principal, tenant, and owner scope",
+        "admit create/update/delete/review/publish/offer transitions with caller keys and CAS",
+        "represent publish and review-link changes as one admitted transition or a recoverable saga with explicit compensation state",
+        "prove forced failure at every effect boundary, exact retry, restart replay, and cross-principal refusal"
+      ]
+    },
+    {
+      "id": "MEF-GAP-003",
+      "priority": "blocker",
+      "plane": "Domain App records, mount receipts, runtimes, serve state, and kill-switch backlinks",
+      "status": "open",
+      "source": "crates/node/src/bin/hypervisor_daemon_routes/domain_apps_routes.rs",
+      "handler_markers": [
+        "handle_domain_apps_patch",
+        "handle_domain_app_mount",
+        "handle_domain_app_unmount",
+        "handle_domain_app_serve",
+        "kill_runtime"
+      ],
+      "progress": [
+        "DomainApp create and patch refuse success when their durable record cannot commit",
+        "mount, unmount, serve, stop-serving, and each kill-target runtime now commit runtime and DomainApp backlink before receipts, restore both prior records on a later-stage failure, and return a typed repair-required error if compensation is incomplete",
+        "a forced receipt-directory failure test proves runtime and backlink restoration",
+        "KillSwitch enforcement no longer reports success when its governance receipt or final projection fails; it returns an explicit committed-effects recovery obligation"
+      ],
+      "gap": "The direct persistence-discard indicators and false-success paths in this file are removed, but the records still lack authenticated owner scope, caller idempotency, expected-head CAS, and one Agentgres-admitted canonical transition. Kill enforcement across multiple runtimes plus its governance record is not yet one restart-recoverable saga.",
+      "acceptance": [
+        "admit one canonical transition before exposing any successful posture",
+        "derive runtime and Domain App backlinks from admitted truth or reconcile them from a durable saga",
+        "never mint or return a receipt whose required transition was not durably admitted",
+        "prove interruption between receipt/runtime/backlink effects and deterministic recovery after restart"
+      ]
+    },
+    {
+      "id": "MEF-GAP-004",
+      "priority": "blocker",
+      "plane": "ODK recipes, manifests, and surface descriptors",
+      "status": "open",
+      "source": "crates/node/src/bin/hypervisor_daemon_routes/odk_routes.rs",
+      "handler_markers": [
+        "handle_odk_recipe_create",
+        "handle_odk_recipe_patch",
+        "handle_odk_manifest_create",
+        "handle_odk_manifest_patch",
+        "handle_odk_descriptor_patch"
+      ],
+      "progress": [
+        "recipe, manifest, and surface-descriptor create and patch handlers now refuse success when durable persistence fails",
+        "ontology create, patch, and delete already use receipt-last persistence with rollback/restore tests"
+      ],
+      "gap": "The direct persistence-discard indicators and false-success paths in this file are removed, but recipes, manifests, and surface descriptors still expose no authenticated owner scope, caller idempotency, expected-head CAS, Agentgres admission, or mutation receipt contract.",
+      "acceptance": [
+        "route every ODK create/update/delete through owner scope, idempotency, CAS, admission, and receipts",
+        "make schema/ontology/descriptor cross-object validation part of the admitted command fingerprint",
+        "prove persistence and receipt failure do not produce success"
+      ]
+    },
+    {
+      "id": "MEF-GAP-005",
+      "priority": "high",
+      "plane": "managed worker runtime, backup, and restore",
+      "status": "open",
+      "source": "crates/node/src/bin/hypervisor_daemon_routes/managed_runtime_routes.rs",
+      "handler_markers": [
+        "handle_instance_transition",
+        "handle_environment_backup_create",
+        "handle_restore_plan_prepare",
+        "handle_restore_plan_action"
+      ],
+      "gap": "This plane already has authenticated resource scopes plus direct Agentgres CAS/idempotency for its main state records, but it does not use the shared boundary. Restore cancellation removes staging before the cancelled transition is admitted; restore apply mutates workspace/rollback bytes before the completed transition. Admission failure after those effects can leave state and filesystem posture divergent. Legacy backup projections remain a second fallible write after canonical admission.",
+      "acceptance": [
+        "adopt the shared boundary or prove a byte-equivalent owner-scoped admission wrapper",
+        "introduce explicit intent/effect/observation/recovery states for restore filesystem changes",
+        "retain rollback material until completion admission is confirmed or record a cleanup obligation",
+        "prove cancellation/apply interruption recovery and exact retry after restart"
+      ]
+    },
+    {
+      "id": "MEF-GAP-006",
+      "priority": "high",
+      "plane": "Foundry recipe, program, checkpoint, and qualification execution",
+      "status": "open",
+      "source": "crates/node/src/bin/hypervisor_daemon_routes/foundry_execution_routes.rs",
+      "handler_markers": [
+        "prior_idempotent_projection",
+        "handle_recipes_create",
+        "handle_recipe_run",
+        "handle_program_action",
+        "handle_checkpoint_verify_restore",
+        "handle_program_qualify"
+      ],
+      "gap": "The plane already binds owner scopes and admits its primary state through Agentgres, but retains caller-side history/idempotency scanning and a direct admission wrapper rather than inheriting the shared discipline. Artifact/filesystem effects and multi-record run outputs need explicit orphan cleanup or recovery obligations when admission fails after bytes are materialized.",
+      "acceptance": [
+        "remove caller-side idempotency scans and use the shared whole-stream enforcement",
+        "bind every artifact effect to an admitted intent and cleanup obligation",
+        "prove same-key/different-bytes, stale-head, restart replay, and post-materialization admission-failure recovery"
+      ]
+    },
+    {
+      "id": "MEF-GAP-007",
+      "priority": "blocker",
+      "plane": "worker package planner plus package registration, activation, and rollback",
+      "status": "open",
+      "source": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+      "handler_markers": ["handle_worker_package_install_admission"],
+      "gap": "The separate worker-package install endpoint remains a pure kernel planner returning 202. It does not authenticate a request scope, durably admit an install transition, execute installation, or provide idempotent/CAS/restart semantics. MEF-CLOSED-003 covers only exact ODK package candidates, immutable releases, disabled installation bindings, and uninstall; it does not close extension_application registration, executable artifact activation, product-catalog/System/serving bindings, upgrade, rollback, or affected-System remediation.",
+      "acceptance": [
+        "separate pure planning from the mutation endpoint contract",
+        "admit worker-package execution and package activation/upgrade/rollback transitions through owner scope, caller idempotency, CAS, and receipts",
+        "bind verified executable package bytes to registration before any installed binding can become enabled or launchable",
+        "project installed application and System bindings from admitted package truth",
+        "prove interruption and rollback for package bytes, registration, and runtime activation"
+      ]
+    },
+    {
+      "id": "MEF-GAP-008",
+      "priority": "blocker",
+      "plane": "provider, lifecycle, orchestration, GoalRun/OutcomeRoom legacy, governance, storage, connector, and intelligence route families",
+      "status": "open",
+      "sources_from_census": true,
+      "gap": "The module census identifies direct unchecked persistence in these shipped families. Some newer subpaths already implement durable commit/receipt protocols, so file-level counts cannot be promoted to route-level failure claims; each public mutation handler must be classified against the completion properties rather than grandfathered by module name.",
+      "acceptance": [
+        "maintain a handler-level owner/status entry for every public mutation route",
+        "delete or migrate unchecked compatibility mutations",
+        "keep proven durable subpaths closed with failure/replay/restart/cross-principal tests",
+        "reach zero unclassified census indicators"
+      ]
+    }
+  ],
+  "direct_persistence_indicator_census": {
+    "indicator": "explicitly discarded direct persist_record result",
+    "total_occurrences": 304,
+    "source_files": 41,
+    "classification": "audit indicator only; includes possible projections, cleanup, fixtures, and compatibility paths until individually classified",
+    "regenerator": "node scripts/audit-daemon-mutation-foundation.mjs",
+    "by_source": {
+      "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs": 45,
+      "crates/node/src/bin/hypervisor-daemon.rs": 32,
+      "crates/node/src/bin/hypervisor_daemon_routes/provider_routes.rs": 26,
+      "crates/node/src/bin/hypervisor_daemon_routes/ioi_intelligence_routes.rs": 21,
+      "crates/node/src/bin/hypervisor_daemon_routes/storage_backend_routes.rs": 18,
+      "crates/node/src/bin/hypervisor_daemon_routes/orchestration_routes.rs": 16,
+      "crates/node/src/bin/hypervisor_daemon_routes/ioi_agent_routes.rs": 13,
+      "crates/node/src/bin/hypervisor_daemon_routes/connector_execution_routes.rs": 12,
+      "crates/node/src/bin/hypervisor_daemon_routes/governance_routes.rs": 10,
+      "crates/node/src/bin/hypervisor_daemon_routes/marketplace_routes.rs": 11,
+      "crates/node/src/bin/hypervisor_daemon_routes/resource_routes.rs": 9,
+      "crates/node/src/bin/hypervisor_daemon_routes/environment_routes.rs": 7,
+      "crates/node/src/bin/hypervisor_daemon_routes/authority_routes.rs": 6,
+      "crates/node/src/bin/hypervisor_daemon_routes/connector_session_routes.rs": 6,
+      "crates/node/src/bin/hypervisor_daemon_routes/materializing_run_routes.rs": 6,
+      "crates/node/src/bin/hypervisor_daemon_routes/ontology_projection_routes.rs": 6,
+      "crates/node/src/bin/hypervisor_daemon_routes/transformation_run_routes.rs": 6,
+      "crates/node/src/bin/hypervisor_daemon_routes/decentralized_cloud_routes.rs": 5,
+      "crates/node/src/bin/hypervisor_daemon_routes/model_routes.rs": 5,
+      "crates/node/src/bin/hypervisor_daemon_routes/placement_failover_routes.rs": 5,
+      "crates/node/src/bin/hypervisor_daemon_routes/capability_lease_plan_routes.rs": 4,
+      "crates/node/src/bin/hypervisor_daemon_routes/editor_routes.rs": 4,
+      "crates/node/src/bin/hypervisor_daemon_routes/harness_routes.rs": 4,
+      "crates/node/src/bin/hypervisor_daemon_routes/connector_mapping_routes.rs": 3,
+      "crates/node/src/bin/hypervisor_daemon_routes/policy_bound_data_view_routes.rs": 3,
+      "crates/node/src/bin/hypervisor_daemon_routes/binding_routes.rs": 2,
+      "crates/node/src/bin/hypervisor_daemon_routes/eval_suite_routes.rs": 2,
+      "crates/node/src/bin/hypervisor_daemon_routes/feedback_routes.rs": 2,
+      "crates/node/src/bin/hypervisor_daemon_routes/operability_routes.rs": 2,
+      "crates/node/src/bin/hypervisor_daemon_routes/state_machine_routes.rs": 2,
+      "crates/node/src/bin/hypervisor_daemon_routes/akash_candidate_source.rs": 1,
+      "crates/node/src/bin/hypervisor_daemon_routes/aws_candidate_source.rs": 1,
+      "crates/node/src/bin/hypervisor_daemon_routes/azure_candidate_source.rs": 1,
+      "crates/node/src/bin/hypervisor_daemon_routes/editor_proxy.rs": 1,
+      "crates/node/src/bin/hypervisor_daemon_routes/gcp_candidate_source.rs": 1,
+      "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs": 1,
+      "crates/node/src/bin/hypervisor_daemon_routes/k8s_candidate_source.rs": 1,
+      "crates/node/src/bin/hypervisor_daemon_routes/lambda_candidate_source.rs": 1,
+      "crates/node/src/bin/hypervisor_daemon_routes/runpod_candidate_source.rs": 1,
+      "crates/node/src/bin/hypervisor_daemon_routes/scm_publication_routes.rs": 1,
+      "crates/node/src/bin/hypervisor_daemon_routes/vast_candidate_source.rs": 1
+    }
+  },
+  "verification": {
+    "foundation_tests": "cargo test -p ioi-node --bin hypervisor-daemon mutation_event_foundation::tests -- --test-threads=1",
+    "live_event_subscription_test": "node apps/hypervisor/scripts/verify-m5-event-substrate-genericity.mjs",
+    "census_check": "node scripts/audit-daemon-mutation-foundation.mjs --check"
+  }
+}

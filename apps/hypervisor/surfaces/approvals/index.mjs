@@ -264,9 +264,29 @@ function renderApprovalsPort(records, statusFilter, opts) {
     .ap-banner.ap-ok{border:1px solid #8fdcb6;background:#eafaf1;color:#0e6b41}
     .ap-banner.ap-no{border:1px solid #e8c48d;background:#fdf7ec;color:#935610}
     .ap-rcpt{background:rgba(14,138,83,.08);border-radius:3px;padding:1px 4px}
-    .ap-confirm{display:flex;align-items:center;gap:6px;font-size:11.5px;color:#5f6b7c;margin:0 8px 0 0}`;
+    .ap-confirm{display:flex;align-items:center;gap:6px;font-size:11.5px;color:#5f6b7c;margin:0 8px 0 0}
+    @media(max-width:700px){
+      .ap-main{height:100svh}
+      .ap-work{display:block;overflow-y:auto}
+      .ap-content{width:100%;max-width:none;min-height:100%;flex:0 0 auto;flex-direction:column}
+      .ap-facets{width:100%;flex:0 0 auto;overflow:visible;padding:0 14px 14px;border-right:0;border-bottom:1px solid #dce0e5}
+      .ap-ftitle{height:50px;padding-top:7px;align-items:flex-start}
+      .ap-fappico{margin-right:10px}.ap-ftitle h5{line-height:30px}
+      .ap-fsec{height:30px;margin:4px 0 0;font-size:13px}.ap-fsec.first{margin-top:0}
+      .ap-qfbox{width:auto;margin:0;padding:4px}
+      .ap-qf{height:30px;margin-bottom:2px;padding-left:8px}
+      .ap-qfdiv{margin-bottom:2px}
+      .ap-ff{display:grid;grid-template-columns:minmax(94px,.8fr) minmax(0,1.2fr);align-items:center;gap:7px 10px;padding:0;margin-top:5px}
+      .ap-ff .ap-flabel:first-child,.ap-flabel{height:auto;line-height:1.25;margin:0;font-size:11.5px}
+      .ap-fsel{width:100%;min-width:0;height:29px;margin:0;font-size:12.5px}
+      .ap-fcheck{grid-column:1/-1;margin:1px 0;font-size:12.5px}
+      .ap-list{flex:0 0 auto;min-height:300px;overflow:visible;padding:14px;background:#f4f5f7}
+      .ap-listhd{align-items:flex-start;flex-direction:column;margin-bottom:10px}
+      .ap-listtools{width:100%}.ap-search{flex:1}.ap-sort{display:none}
+      .ap-row{padding:11px 12px;gap:9px}.ap-rowic{display:none}.ap-rowst{max-width:96px}
+      .ap-detail{width:100%;flex:0 0 auto;overflow:visible;border-left:0;border-top:1px solid #e6e8ec}
+    }`;
 
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Approvals inbox</title><style>${css}</style></head>
     <body><div class="ap-shell">${globalRail}<div class="ap-main"><div class="ap-topbar" aria-hidden="true"></div><div class="ap-work"><div class="ap-content">${facets}${list}${detail}</div></div></div></div></body></html>`;
 }
-

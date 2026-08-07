@@ -348,7 +348,25 @@ function renderObjectExplorerPort(ov, lists, opts) {
     .oe-itable th{text-align:left;color:#7b8494;font-weight:600;padding:3px 8px 3px 0;border-bottom:1px solid #e2e4e8;text-transform:none}
     .oe-itable td{padding:3px 8px 3px 0;border-bottom:1px solid #f0f1f4;color:#2a2f38;word-break:break-word}
     .oe-iacts{display:flex;gap:8px;margin-top:8px}
-    .ioi-cmd-disabled{display:inline-flex;align-items:center;height:24px;padding:0 8px;border:1px solid #d3d8de;border-radius:4px;background:#f7f8f8;color:#8f99a8;font:inherit;font-size:12px;cursor:not-allowed}`;
+    .ioi-cmd-disabled{display:inline-flex;align-items:center;height:24px;padding:0 8px;border:1px solid #d3d8de;border-radius:4px;background:#f7f8f8;color:#8f99a8;font:inherit;font-size:12px;cursor:not-allowed}
+    @media(max-width:700px){
+      .oe-main{height:100svh}.oe-tabbar{min-width:0}
+      .oe-sqbtn{width:35px;flex:0 0 35px}.oe-tab{width:auto;min-width:0;flex:1;padding-left:9px}.oe-tabt{font-size:13px}
+      .oe-plus{display:none}.oe-ontsel{max-width:120px;margin-right:6px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+      .oe-body{overflow-x:hidden}.oe-content{width:auto;margin:0 14px}
+      .oe-htitle{margin-top:18px}.oe-searchrow{margin-top:12px}
+      .oe-herogrp{width:100%;flex-direction:column;margin-left:0}
+      .oe-filterby,.oe-objsearch{width:100%;border-right:0;border-radius:4px}.oe-filterby{height:34px;border-bottom:1px solid rgba(17,20,24,.15)}
+      .oe-shrow{align-items:flex-start;flex-wrap:wrap}.oe-lanes{width:100%;margin:8px 0 0;overflow-x:auto}.oe-lane{flex:0 0 auto}
+      .oe-shchev{display:none}.oe-cards{flex-direction:column}.oe-card,.oe-cardempty{flex:0 0 auto;width:100%;min-height:57px;height:auto;padding-top:10px;padding-bottom:10px}
+      .oe-cathead{margin-top:38px}.oe-filterrow{align-items:flex-start;flex-wrap:wrap;gap:8px}.oe-filterform{width:100%}.oe-sortlanes{margin-left:0;width:100%;overflow-x:auto}
+      .oe-tablebox{height:360px}.oe-table th:nth-child(n+3),.oe-table td:nth-child(n+3){display:none}
+      .oe-thname{width:calc(100% - 78px)}.oe-thstatus{width:78px}
+      .oe-setrow{align-items:flex-start;flex-direction:column;gap:9px}.oe-setlanes{width:100%;margin-left:0;overflow-x:auto}.oe-setsearch{width:170px;flex:0 0 170px}
+      .oe-withinsp{display:flex;flex-direction:column;overflow-y:auto}.oe-withinsp .oe-content{width:auto;margin:0 14px;overflow:visible;flex:0 0 auto}
+      .oe-inspector{width:100%;flex:0 0 auto;border-left:0;border-top:1px solid #dce0e5;overflow:visible}
+      .oe-irow{flex-direction:column;gap:2px}.oe-ik{width:auto;flex:0 0 auto}
+    }`;
 
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Object Explorer</title><style>${css}</style></head>
     <body><div class="oe-shell">${globalRail}<div class="oe-main">${tabbar}<div class="oe-body${insp ? " oe-withinsp" : ""}"><main class="oe-content" role="main">${hero}${shortcutsBand}${catalogBand}${setBand}</main>${inspectorAside}</div></div></div></body></html>`;

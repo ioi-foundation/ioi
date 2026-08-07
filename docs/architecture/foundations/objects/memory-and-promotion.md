@@ -7,6 +7,8 @@ Superseded by: none.
 Last alignment pass: 2026-07-25.
 Doctrine status: canonical
 Implementation status: partial (the portable memory vault serialization and memory-mutation path exist in the daemon; promotion-decision and capability-regression object planes remain planned)
+Implementation refs:
+  - `crates/types/src/app/generated/architecture_contracts.rs`
 Last implementation audit: 2026-07-25
 
 ## Purpose

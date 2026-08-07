@@ -1,0 +1,19 @@
+{
+  "schema_version": "ioi.runtime-assignment.v1",
+  "runtime_assignment_id": "runtime-assignment://managed/acme-agent/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "assignment_epoch": 3,
+  "placement": {
+    "runtime_node_ref": "runtime://local/node-1",
+    "daemon_profile_ref": "profile://ioi/reference-daemon",
+    "environment_ref": "environment://local/acme-agent",
+    "provider_ref": "provider://local/reference",
+    "quote_ref": null,
+    "budget_reservation_ref": null,
+    "assignment_lease_ref": "lease://acme/runtime-1",
+    "isolation_binding_ref": "workload-isolation-binding://local/acme-agent",
+    "readiness_evidence_refs": ["evidence://local/acme-agent-ready"],
+    "provider_claimed_ready": true
+  },
+  "assignment_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "status": "active"
+}

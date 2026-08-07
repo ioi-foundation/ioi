@@ -15,7 +15,7 @@ jobs:
     name: Build and Test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Install native deps for kernel build
         run: |
@@ -45,6 +45,12 @@ jobs:
       - name: Install JavaScript dependencies
         run: npm ci
 
+      - name: Verify generated architecture contracts
+        run: |
+          npm run check:architecture-contracts
+          npm run check:architecture-docs
+          npm run check:mutation-foundation
+
       - name: Cache dependencies
         uses: actions/cache@v3
         with:
@@ -66,6 +72,40 @@ jobs:
           command: build
           args: --locked --all-features -p ioi-types -p ioi-api -p ioi-pii -p ioi-telemetry
 
+      - name: Build the shipped Hypervisor daemon
+        run: cargo build --locked -p ioi-node --bin hypervisor-daemon
+
+      - name: Publish the shipped Hypervisor daemon for live product smoke
+        uses: actions/upload-artifact@v4
+        with:
+          name: hypervisor-daemon-linux-debug
+          if-no-files-found: error
+          path: target/debug/hypervisor-daemon
+
+      - name: Smoke implementation-complete daemon paths
+        run: npm run smoke:implementation-daemon
+
+      - name: Publish implementation daemon smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: implementation-daemon-smoke-evidence
+          include-hidden-files: true
+          if-no-files-found: error
+          path: .artifacts/implementation/daemon-smoke
+
+      - name: Smoke the canonical package registry through restart
+        run: npm run smoke:package-registry
+
+      - name: Publish package registry smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-registry-smoke-evidence
+          include-hidden-files: true
+          if-no-files-found: error
+          path: .artifacts/implementation/package-registry-smoke
+
       - name: Run tests
         uses: actions-rs/cargo@v1
         with:
@@ -77,3 +117,130 @@ jobs:
           cargo test --locked -p ioi-consensus --features aft guardian_majority_safety_holds_below_quorum_intersection_budget -- --nocapture
           cargo test --locked -p ioi-consensus --features aft experimental_nested_guardian_accepts_deterministically_assigned_witness_certificate -- --nocapture
           cargo test --locked -p ioi-services rejects_unsafe_odd_sized_guardian_committee_under_production_policy -- --nocapture
+
+  product_surfaces:
+    name: Product builds and browser smoke
+    runs-on: ubuntu-latest
+    needs: build_and_test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.22.0
+          cache: npm
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Download the built Hypervisor daemon
+        uses: actions/download-artifact@v4
+        with:
+          name: hypervisor-daemon-linux-debug
+          path: target/debug
+
+      - name: Make the downloaded daemon executable
+        run: chmod +x target/debug/hypervisor-daemon
+
+      - name: Install browser runtime
+        run: npx playwright install --with-deps chromium
+
+      - name: Verify generated contracts and product client contracts
+        run: |
+          npm run check:architecture-contracts
+          npm run check:shipped-products
+          npm run test:shipped-products
+          npm run test:hypervisor-scm-publication-client
+          npm run test:hypervisor-domain-app-runtime
+          npm run test:hypervisor-app-harness
+          npm run test:vite-production-authority-scan
+          npm run test:product-shell-auth --workspace=@ioi/hypervisor-app
+
+      - name: Test marketplace authority, lifecycle, and recovery contracts
+        run: |
+          npm test --workspace=apps/aiagent-xyz
+          npm test --workspace=apps/sas-xyz
+          npm run check --workspace=apps/sas-xyz
+          npm run test:benchmarks
+
+      - name: Build every shipped JavaScript product and package
+        run: npm run build:all
+
+      - name: Verify developer documentation contracts and built routes
+        run: |
+          npm run validate:live --workspace=apps/developers-ioi-ai
+          npm run validate:seo --workspace=apps/developers-ioi-ai
+          npm run smoke:routes --workspace=apps/developers-ioi-ai
+
+      - name: Verify marketplace source graphs and built authority boundaries
+        run: |
+          npm run check:production --workspace=apps/aiagent-xyz
+          npm run check:production --workspace=apps/sas-xyz
+
+      - name: Typecheck JavaScript workspaces
+        run: npm run typecheck
+
+      - name: Lint JavaScript workspaces
+        run: npm run lint
+
+      - name: Verify the ported Hypervisor seed and source-neutral boundary
+        run: |
+          npm run check:owned-product-ui --workspace=@ioi/hypervisor-app
+          npm run check:shell-parity --workspace=@ioi/hypervisor-app
+          npm run check:ported-seed --workspace=@ioi/hypervisor-app
+          npm run check:source-neutral --workspace=@ioi/hypervisor-app
+
+      - name: Record post-build shipped-product artifact identities
+        run: |
+          mkdir -p .artifacts/implementation/shipped-products
+          for lane in \
+            hypervisor-owned-served-ui \
+            hypervisor-vite-workbench \
+            hypervisor-web \
+            developers-ioi-ai \
+            benchmarks \
+            aiagent-xyz \
+            sas-xyz
+          do
+            node scripts/validate-shipped-products.mjs \
+              --post-build \
+              --lane "$lane" \
+              --json > ".artifacts/implementation/shipped-products/$lane.json"
+          done
+
+      - name: Browser-smoke shipped product routes
+        run: npm run smoke:product-surfaces
+
+      - name: Install web UI dependencies
+        run: npm ci
+
+      - name: Download the built Hypervisor daemon
+        uses: actions/download-artifact@v4
+        with:
+          name: hypervisor-daemon-linux-debug
+          path: target/debug
+
+      - name: Make the downloaded daemon executable
+        run: chmod +x ../../../../target/debug/hypervisor-daemon
+
+      - name: Verify committed ioi.ai vendor snapshot-ledger integrity
+        run: node ../../../../scripts/generate-ioi-ai-vendor-manifest.mjs --check
+
+      - name: Build ioi.ai web UI
+        run: npm run build
+
+      - name: Typecheck browser, server, and tests
+        run: npm run typecheck
+
+      - name: Run ioi.ai contracts
+        run: npm test
+
+      - name: Verify authenticated ioi.ai contracts against the real daemon
+        run: IOI_AI_REAL_DAEMON_BINARY=../../../../target/debug/hypervisor-daemon npm run smoke:real-daemon
+
+      - name: Install browser runtime
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser-smoke authenticated ioi.ai routes
+        run: npm run smoke:browser

@@ -96,7 +96,7 @@ Reading 2. Three moves, all additive:
 ## Surfaces Affected
 
 `foundations/invariants.md` (INV-37), `daemon-runtime/doctrine.md`,
-`objects/goal-run-execution.md`, `objects/evidence-and-delivery.md`,
+`../architecture/domains/ioi-ai/goal-run-execution.md`, `objects/evidence-and-delivery.md`,
 `canon-to-code-delta.md` (admission-bindings row), and the conformance target
 `goal-run-admission-and-activation.md` (GRA-1..GRA-4).
 
@@ -115,6 +115,6 @@ states no admission contract, which no reading supported.
 
 - [`../architecture/foundations/invariants.md`](../architecture/foundations/invariants.md)
 - [`../architecture/components/daemon-runtime/doctrine.md`](../architecture/components/daemon-runtime/doctrine.md)
-- [`../architecture/foundations/objects/goal-run-execution.md`](../architecture/foundations/objects/goal-run-execution.md)
+- [`../architecture/../architecture/domains/ioi-ai/goal-run-execution.md`](../architecture/../architecture/domains/ioi-ai/goal-run-execution.md)
 - [`../architecture/foundations/objects/evidence-and-delivery.md`](../architecture/foundations/objects/evidence-and-delivery.md)
 - [`../conformance/hypervisor-core/goal-run-admission-and-activation.md`](../conformance/hypervisor-core/goal-run-admission-and-activation.md)

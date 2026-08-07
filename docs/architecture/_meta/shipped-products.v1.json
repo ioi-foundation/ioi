@@ -1,0 +1,821 @@
+{
+  "schema_version": "ioi.shipped-products.v1",
+  "authority": "Authoritative repository register for executable product lanes, their release posture, state boundary, static/illustrative allowance, and required verification. Product capability and protocol semantics remain owned by their canonical architecture documents.",
+  "required_shipped_product_ids": [
+    "hypervisor-owned-served-ui",
+    "hypervisor-vite-workbench",
+    "hypervisor-web",
+    "developers-ioi-ai",
+    "benchmarks",
+    "aiagent-xyz",
+    "sas-xyz"
+  ],
+  "products": [
+    {
+      "id": "hypervisor-owned-served-ui",
+      "name": "Hypervisor owned served application estate",
+      "owner": "Hypervisor application-surface owner",
+      "owner_ref": "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+      "disposition": "shipped",
+      "release_posture": "development_only",
+      "root": "apps/hypervisor",
+      "path_ownership": {
+        "lane_roots": [
+          "apps/hypervisor/product-ui/owned",
+          "apps/hypervisor/product-ui/server.cjs",
+          "apps/hypervisor/scripts"
+        ],
+        "shared_dependencies": []
+      },
+      "production_entries": [
+        "apps/hypervisor/scripts/serve-product-ui.mjs",
+        "apps/hypervisor/product-ui/server.cjs",
+        "apps/hypervisor/product-ui/owned/public/index.html"
+      ],
+      "build_artifacts": [
+        {
+          "path": "apps/hypervisor/product-ui/owned/public",
+          "materialization": "tracked",
+          "digest_policy": "verify",
+          "expected_file_count": 383,
+          "expected_sha256": "ed6d61f5f97b0e0d73677ea2d3c365cb491304d9bf798ebbd6f0f20a48edd379",
+          "identity_gate": {
+            "schema_version": "ioi.hypervisor-product-ui-tree.v1",
+            "endpoint": "/__ioi/product-ui-identity",
+            "tree": "owned",
+            "ledger_path": "apps/hypervisor/product-ui/owned/vendor-manifest.json",
+            "verifier_entry": "apps/hypervisor/scripts/verify-owned-product-ui.mjs",
+            "index_path": "apps/hypervisor/product-ui/owned/public/index.html",
+            "index_sha256": "64a437e45dadf9bbc11f36197785d0f0e069ed51547763dc8ef19d77385bfaab"
+          }
+        }
+      ],
+      "route_sources": [
+        "apps/hypervisor/scripts/serve-product-ui.mjs",
+        "apps/hypervisor/scripts/surface-registry.mjs",
+        "apps/hypervisor/scripts/v2-route-shell.mjs"
+      ],
+      "route_inventory": {
+        "inventory_version": 1,
+        "routes": [
+          "/",
+          "/__ioi/automations/monitors",
+          "/__ioi/data/sources",
+          "/__ioi/evaluations/evalsuites",
+          "/__ioi/foundry/models",
+          "/__ioi/governance/approvals",
+          "/__ioi/improvement/changes",
+          "/__ioi/marketplace/listings",
+          "/__ioi/missions",
+          "/__ioi/missions/incidents",
+          "/__ioi/ontology/explorer",
+          "/__ioi/ontology/manager",
+          "/__ioi/pipeline",
+          "/__ioi/studio/designer",
+          "/__ioi/studio/machinery",
+          "/applications",
+          "/automations",
+          "/data",
+          "/developer-console",
+          "/developer-workspace",
+          "/environments",
+          "/evaluations",
+          "/foundry",
+          "/governance",
+          "/home",
+          "/improvement",
+          "/ontology",
+          "/operations",
+          "/packages",
+          "/projects",
+          "/provenance",
+          "/settings",
+          "/sign-in",
+          "/studio",
+          "/systems",
+          "/work",
+          "/work/new-session",
+          "/work/sessions"
+        ],
+        "expected_count": 38,
+        "sha256": "d9983eb29679334cd211561448009aa20095f39d96542afd0db101fd1ecddcf4",
+        "browser_verification_id": "served-surface-smoke"
+      },
+      "state_authority_mode": "daemon_authoritative_projection",
+      "source_graph": {
+        "root": ".",
+        "entries": [
+          "apps/hypervisor/scripts/serve-product-ui.mjs",
+          "apps/hypervisor/product-ui/server.cjs"
+        ],
+        "allowed_source_roots": [],
+        "quarantined_roots": [
+          "apps/hypervisor/ux-seeds"
+        ]
+      },
+      "permitted_static_boundary": {
+        "mode": "ported_seed_with_declared_gaps",
+        "summary": "The owned ported shell and explicitly labelled reference grammar may render; runtime, identity, mutation, receipt, and launch truth must resolve to daemon owners or an honest unavailable/refusal state.",
+        "source_assertions": [
+          {
+            "path": "apps/hypervisor/ported-seed-preservation.v1.json",
+            "contains": [
+              "\"status\": \"active_invariant\"",
+              "\"whole_estate_retirement_allowed\": false"
+            ]
+          }
+        ]
+      },
+      "required_verification": [
+        {
+          "id": "production-source-graph",
+          "kind": "scanner",
+          "implementation": "builtin:production-source-graph"
+        },
+        {
+          "id": "ported-seed-invariant",
+          "kind": "scanner",
+          "entry": "apps/hypervisor/scripts/verify-hypervisor-ported-seed-invariant.mjs",
+          "command": "npm run check:ported-seed --workspace=@ioi/hypervisor-app"
+        },
+        {
+          "id": "source-neutrality",
+          "kind": "scanner",
+          "entry": "apps/hypervisor/scripts/check-source-neutral.mjs",
+          "command": "npm run check:source-neutral --workspace=@ioi/hypervisor-app"
+        },
+        {
+          "id": "owned-artifact-integrity",
+          "kind": "scanner",
+          "entry": "apps/hypervisor/scripts/verify-owned-product-ui.mjs",
+          "command": "npm run check:owned-product-ui --workspace=@ioi/hypervisor-app"
+        },
+        {
+          "id": "owned-shell-parity",
+          "kind": "integration",
+          "entry": "apps/hypervisor/scripts/verify-hypervisor-shell-parity.mjs",
+          "command": "npm run check:shell-parity --workspace=@ioi/hypervisor-app"
+        },
+        {
+          "id": "served-surface-smoke",
+          "kind": "browser",
+          "entry": "scripts/smoke-product-surfaces.mjs",
+          "command": "node scripts/smoke-product-surfaces.mjs"
+        }
+      ]
+    },
+    {
+      "id": "hypervisor-vite-workbench",
+      "name": "Hypervisor Vite workbench artifact",
+      "owner": "Hypervisor workbench client owner",
+      "owner_ref": "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+      "disposition": "shipped",
+      "release_posture": "development_only",
+      "root": "apps/hypervisor",
+      "path_ownership": {
+        "lane_roots": [
+          "apps/hypervisor/dist",
+          "apps/hypervisor/index.html",
+          "apps/hypervisor/src"
+        ],
+        "shared_dependencies": []
+      },
+      "production_entries": [
+        "apps/hypervisor/index.html",
+        "apps/hypervisor/src/main.tsx"
+      ],
+      "build_artifacts": [
+        {
+          "path": "apps/hypervisor/dist",
+          "materialization": "generated",
+          "digest_policy": "record",
+          "producer": {
+            "package_json": "apps/hypervisor/package.json",
+            "script": "build"
+          }
+        }
+      ],
+      "route_sources": [
+        "apps/hypervisor/src/main.tsx"
+      ],
+      "route_inventory": {
+        "inventory_version": 1,
+        "routes": [
+          "/",
+          "/workspace-preview"
+        ],
+        "expected_count": 2,
+        "sha256": "95e1f04b5ff4e1a2cb57fdd5bb85e4549aa0888b7f4a8cd90ea4cdce8a417222",
+        "browser_verification_id": "workbench-browser-smoke"
+      },
+      "state_authority_mode": "daemon_development_preview",
+      "source_graph": {
+        "root": "apps/hypervisor",
+        "entries": [
+          "index.html"
+        ],
+        "allowed_source_roots": [],
+        "quarantined_roots": [
+          "ux-seeds"
+        ]
+      },
+      "permitted_static_boundary": {
+        "mode": "development_notice_only",
+        "summary": "The Vite lane is a workbench/runtime-services development artifact and must identify the owned served estate as the canonical product UI.",
+        "source_assertions": [
+          {
+            "path": "apps/hypervisor/src/main.tsx",
+            "contains": [
+              "This Vite entry only hosts the workbench dev preview + runtime services",
+              "it is NOT a second"
+            ]
+          }
+        ]
+      },
+      "required_verification": [
+        {
+          "id": "production-source-graph",
+          "kind": "scanner",
+          "implementation": "builtin:production-source-graph"
+        },
+        {
+          "id": "workbench-harness-contract",
+          "kind": "integration",
+          "entry": "scripts/lib/hypervisor-app-harness-contract.test.mjs",
+          "command": "npm run test:hypervisor-app-harness"
+        },
+        {
+          "id": "workbench-browser-smoke",
+          "kind": "browser",
+          "entry": "scripts/smoke-product-surfaces.mjs",
+          "command": "node scripts/smoke-product-surfaces.mjs"
+        }
+      ]
+    },
+    {
+      "id": "hypervisor-web",
+      "name": "Hypervisor Web",
+      "owner": "Hypervisor public-web owner",
+      "owner_ref": "docs/architecture/_meta/public-web-estate.md",
+      "disposition": "shipped",
+      "release_posture": "production_candidate",
+      "root": "apps/hypervisor-web",
+      "path_ownership": {
+        "lane_roots": [
+          "apps/hypervisor-web"
+        ],
+        "shared_dependencies": []
+      },
+      "production_entries": [
+        "apps/hypervisor-web/index.html",
+        "apps/hypervisor-web/src/main.jsx"
+      ],
+      "build_artifacts": [
+        {
+          "path": "apps/hypervisor-web/dist",
+          "materialization": "generated",
+          "digest_policy": "record",
+          "producer": {
+            "package_json": "apps/hypervisor-web/package.json",
+            "script": "build"
+          }
+        }
+      ],
+      "route_sources": [
+        "apps/hypervisor-web/src/main.jsx"
+      ],
+      "route_inventory": {
+        "inventory_version": 1,
+        "routes": [
+          "/",
+          "/automations-fleets",
+          "/background-work",
+          "/code-modernization",
+          "/code-review",
+          "/developers",
+          "/docs",
+          "/hv-adk",
+          "/hv-app",
+          "/hv-cli",
+          "/hv-embodied",
+          "/hv-mcp",
+          "/hv-odk",
+          "/hv-os",
+          "/hv-sdk",
+          "/hv-web",
+          "/platform",
+          "/pricing",
+          "/runtime-security",
+          "/solutions",
+          "/worker-training"
+        ],
+        "expected_count": 21,
+        "sha256": "eb67127871b2b506fbda5eefcd553bf2385e006f6e01220bc9f854cadb8f5b1e",
+        "browser_verification_id": "public-surface-smoke"
+      },
+      "state_authority_mode": "presentation_only",
+      "source_graph": {
+        "root": "apps/hypervisor-web",
+        "entries": [
+          "index.html"
+        ],
+        "allowed_source_roots": [],
+        "quarantined_roots": []
+      },
+      "permitted_static_boundary": {
+        "mode": "source_addressed_illustration",
+        "summary": "Marketing copy, diagrams, and interaction demonstrations are presentation only; operational-looking benchmark content must carry an adjacent non-production disclosure.",
+        "source_assertions": [
+          {
+            "path": "apps/hypervisor-web/src/site/WorkerTraining.jsx",
+            "contains": [
+              "fixture result \u00b7 not production"
+            ]
+          }
+        ]
+      },
+      "required_verification": [
+        {
+          "id": "production-source-graph",
+          "kind": "scanner",
+          "implementation": "builtin:production-source-graph"
+        },
+        {
+          "id": "public-surface-smoke",
+          "kind": "browser",
+          "entry": "scripts/smoke-product-surfaces.mjs",
+          "command": "node scripts/smoke-product-surfaces.mjs"
+        }
+      ]
+    },
+    {
+      "id": "developers-ioi-ai",
+      "name": "developers.ioi.ai",
+      "owner": "Developer experience owner",
+      "owner_ref": "docs/architecture/_meta/public-web-estate.md",
+      "disposition": "shipped",
+      "release_posture": "production_candidate",
+      "root": "apps/developers-ioi-ai",
+      "path_ownership": {
+        "lane_roots": [
+          "apps/developers-ioi-ai"
+        ],
+        "shared_dependencies": []
+      },
+      "production_entries": [
+        "apps/developers-ioi-ai/index.html",
+        "apps/developers-ioi-ai/src/main.tsx"
+      ],
+      "build_artifacts": [
+        {
+          "path": "apps/developers-ioi-ai/dist",
+          "materialization": "generated",
+          "digest_policy": "record",
+          "producer": {
+            "package_json": "apps/developers-ioi-ai/package.json",
+            "script": "build"
+          }
+        }
+      ],
+      "route_sources": [
+        "apps/developers-ioi-ai/src/App.tsx",
+        "apps/developers-ioi-ai/src/content/docs.tsx"
+      ],
+      "route_inventory": {
+        "inventory_version": 1,
+        "routes": [
+          "/",
+          "/api",
+          "/benchmarks",
+          "/cli",
+          "/examples",
+          "/hypervisor",
+          "/mcp-tools",
+          "/model-mounting",
+          "/quickstart",
+          "/runtime",
+          "/sdks",
+          "/setup",
+          "/ship/aiagent",
+          "/ship/sas",
+          "/ship/service-candidate",
+          "/ship/sovereign-domain",
+          "/ship/worker-training-mow",
+          "/tutorials"
+        ],
+        "expected_count": 18,
+        "sha256": "d37e93018c7dae419cb899cdad12379e0dd6f4a0dcf2e7d2a72df095791e7bac",
+        "browser_verification_id": "route-smoke"
+      },
+      "state_authority_mode": "presentation_only",
+      "source_graph": {
+        "root": "apps/developers-ioi-ai",
+        "entries": [
+          "index.html"
+        ],
+        "allowed_source_roots": [],
+        "quarantined_roots": []
+      },
+      "permitted_static_boundary": {
+        "mode": "source_addressed_illustration",
+        "summary": "Examples and previews are legitimate developer education only when their page declares Current, Preview, or Concept status, names sources, and frames partial implementation under What Exists Today.",
+        "source_assertions": [
+          {
+            "path": "apps/developers-ioi-ai/src/content/docs.tsx",
+            "contains": [
+              "export type DocStatus = 'Current' | 'Preview' | 'Concept'",
+              "sources: string[]",
+              "title: 'What Exists Today'"
+            ]
+          }
+        ]
+      },
+      "required_verification": [
+        {
+          "id": "production-source-graph",
+          "kind": "scanner",
+          "implementation": "builtin:production-source-graph"
+        },
+        {
+          "id": "live-readiness",
+          "kind": "scanner",
+          "entry": "apps/developers-ioi-ai/scripts/check-live-readiness.mjs",
+          "command": "npm run validate:live --workspace=apps/developers-ioi-ai"
+        },
+        {
+          "id": "seo-routing",
+          "kind": "scanner",
+          "entry": "apps/developers-ioi-ai/scripts/check-seo-routing.mjs",
+          "command": "npm run validate:seo --workspace=apps/developers-ioi-ai"
+        },
+        {
+          "id": "route-smoke",
+          "kind": "browser",
+          "entry": "apps/developers-ioi-ai/scripts/smoke-routes.mjs",
+          "command": "npm run smoke:routes --workspace=apps/developers-ioi-ai"
+        },
+        {
+          "id": "all-surface-browser-census",
+          "kind": "browser",
+          "entry": "scripts/smoke-product-surfaces.mjs",
+          "command": "node scripts/smoke-product-surfaces.mjs"
+        }
+      ]
+    },
+    {
+      "id": "benchmarks",
+      "name": "IOI Benchmarks",
+      "owner": "Benchmark evidence and scorecard owner",
+      "owner_ref": "docs/architecture/components/hypervisor/evaluations.md",
+      "disposition": "shipped",
+      "release_posture": "production_candidate",
+      "root": "apps/benchmarks",
+      "path_ownership": {
+        "lane_roots": [
+          "apps/benchmarks"
+        ],
+        "shared_dependencies": []
+      },
+      "production_entries": [
+        "apps/benchmarks/index.html",
+        "apps/benchmarks/src/main.tsx"
+      ],
+      "build_artifacts": [
+        {
+          "path": "apps/benchmarks/dist",
+          "materialization": "generated",
+          "digest_policy": "record",
+          "producer": {
+            "package_json": "apps/benchmarks/package.json",
+            "script": "build"
+          }
+        }
+      ],
+      "route_sources": [
+        "apps/benchmarks/src/App.tsx",
+        "apps/benchmarks/scripts/generate-benchmark-data.mjs"
+      ],
+      "route_inventory": {
+        "inventory_version": 1,
+        "routes": [
+          "/"
+        ],
+        "expected_count": 1,
+        "sha256": "d1f7a51cfcad412897836502f157bf6d194ea0af6168e3e73acab8a3bbafe7e5",
+        "browser_verification_id": "benchmark-browser-census"
+      },
+      "state_authority_mode": "retained_evidence_projection",
+      "source_graph": {
+        "root": "apps/benchmarks",
+        "entries": [
+          "index.html"
+        ],
+        "allowed_source_roots": [],
+        "quarantined_roots": []
+      },
+      "permitted_static_boundary": {
+        "mode": "query_gated_preview",
+        "summary": "Retained generated evidence is the default projection. Synthetic scorecard examples are permitted only behind the exact scorecardPreview=1 query gate and must render a preview-fixture badge.",
+        "source_assertions": [
+          {
+            "path": "apps/benchmarks/src/appShellState.ts",
+            "contains": [
+              ".get(\"scorecardPreview\") === \"1\""
+            ]
+          },
+          {
+            "path": "apps/benchmarks/src/App.tsx",
+            "contains": [
+              "scorecardPreviewEnabled",
+              "withScorecardPreview"
+            ]
+          },
+          {
+            "path": "apps/benchmarks/src/components/ScorecardPanels.tsx",
+            "contains": [
+              "preview fixture"
+            ]
+          }
+        ]
+      },
+      "required_verification": [
+        {
+          "id": "production-source-graph",
+          "kind": "scanner",
+          "implementation": "builtin:production-source-graph"
+        },
+        {
+          "id": "generated-evidence-tests",
+          "kind": "integration",
+          "entry": "apps/benchmarks/scripts/generate-benchmark-data.test.mjs",
+          "command": "npm run test:benchmarks"
+        },
+        {
+          "id": "benchmark-browser-census",
+          "kind": "browser",
+          "entry": "scripts/smoke-product-surfaces.mjs",
+          "command": "node scripts/smoke-product-surfaces.mjs"
+        }
+      ]
+    },
+    {
+      "id": "aiagent-xyz",
+      "name": "aiagent.xyz",
+      "owner": "aiagent.xyz marketplace domain owner",
+      "owner_ref": "docs/architecture/domains/aiagent/worker-marketplace.md",
+      "disposition": "shipped",
+      "release_posture": "production_refused",
+      "root": "apps/aiagent-xyz",
+      "path_ownership": {
+        "lane_roots": [
+          "apps/aiagent-xyz/api",
+          "apps/aiagent-xyz/dist",
+          "apps/aiagent-xyz/index.html",
+          "apps/aiagent-xyz/server.mjs",
+          "apps/aiagent-xyz/src"
+        ],
+        "shared_dependencies": []
+      },
+      "production_entries": [
+        "apps/aiagent-xyz/index.html",
+        "apps/aiagent-xyz/src/main.jsx",
+        "apps/aiagent-xyz/server.mjs"
+      ],
+      "build_artifacts": [
+        {
+          "path": "apps/aiagent-xyz/dist",
+          "materialization": "generated",
+          "digest_policy": "record",
+          "producer": {
+            "package_json": "apps/aiagent-xyz/package.json",
+            "script": "build"
+          }
+        }
+      ],
+      "route_sources": [
+        "apps/aiagent-xyz/src/product/MarketplaceApp.jsx",
+        "apps/aiagent-xyz/api/handler.mjs",
+        "apps/aiagent-xyz/server.mjs"
+      ],
+      "route_inventory": {
+        "inventory_version": 1,
+        "routes": [
+          "/",
+          "/agents",
+          "/agents/:id",
+          "/builder",
+          "/instances",
+          "/instances/:id",
+          "/my-workers"
+        ],
+        "expected_count": 7,
+        "sha256": "9c76af9a638fae7a1d2a9a384b82138e47df7b20216180d23bc4909a32e09873",
+        "browser_verification_id": "marketplace-browser-census"
+      },
+      "state_authority_mode": "development_domain_projection",
+      "source_graph": {
+        "root": "apps/aiagent-xyz",
+        "entries": [
+          "index.html",
+          "server.mjs"
+        ],
+        "allowed_source_roots": [],
+        "quarantined_roots": [
+          "fixtures/legacy-ui"
+        ]
+      },
+      "permitted_static_boundary": {
+        "mode": "quarantined_legacy_fixture",
+        "summary": "The functional development product may ship static assets; the retired legacy prototype is evidence only and must remain unreachable from the source and built production graph.",
+        "source_assertions": [
+          {
+            "path": "apps/aiagent-xyz/server.mjs",
+            "contains": [
+              "aiagent.xyz production is refused",
+              "canonical package-release, benchmark, settlement, authority, and managed-instance owner contracts are not all registered"
+            ]
+          }
+        ]
+      },
+      "required_verification": [
+        {
+          "id": "production-authority-scan",
+          "kind": "scanner",
+          "entry": "apps/aiagent-xyz/scripts/assert-production-clean.mjs",
+          "command": "npm run check:production --workspace=apps/aiagent-xyz"
+        },
+        {
+          "id": "marketplace-tests",
+          "kind": "integration",
+          "entry": "apps/aiagent-xyz/test/marketplace.test.mjs",
+          "command": "npm test --workspace=apps/aiagent-xyz"
+        },
+        {
+          "id": "production-startup-refusal",
+          "kind": "test",
+          "entry": "scripts/lib/shipped-products-manifest.test.mjs",
+          "command": "node --test scripts/lib/shipped-products-manifest.test.mjs"
+        },
+        {
+          "id": "marketplace-browser-census",
+          "kind": "browser",
+          "entry": "scripts/smoke-product-surfaces.mjs",
+          "command": "node scripts/smoke-product-surfaces.mjs"
+        }
+      ]
+    },
+    {
+      "id": "sas-xyz",
+      "name": "sas.xyz",
+      "owner": "sas.xyz service marketplace domain owner",
+      "owner_ref": "docs/architecture/domains/sas/service-marketplace.md",
+      "disposition": "shipped",
+      "release_posture": "production_refused",
+      "root": "apps/sas-xyz",
+      "path_ownership": {
+        "lane_roots": [
+          "apps/sas-xyz/api",
+          "apps/sas-xyz/dist",
+          "apps/sas-xyz/index.html",
+          "apps/sas-xyz/server.mjs",
+          "apps/sas-xyz/src"
+        ],
+        "shared_dependencies": []
+      },
+      "production_entries": [
+        "apps/sas-xyz/index.html",
+        "apps/sas-xyz/src/main.js",
+        "apps/sas-xyz/server.mjs"
+      ],
+      "build_artifacts": [
+        {
+          "path": "apps/sas-xyz/dist",
+          "materialization": "generated",
+          "digest_policy": "record",
+          "producer": {
+            "package_json": "apps/sas-xyz/package.json",
+            "script": "build"
+          }
+        }
+      ],
+      "route_sources": [
+        "apps/sas-xyz/src/main.js",
+        "apps/sas-xyz/api/handler.mjs",
+        "apps/sas-xyz/server.mjs"
+      ],
+      "route_inventory": {
+        "inventory_version": 1,
+        "routes": [
+          "/",
+          "/orders",
+          "/orders/:id",
+          "/provider",
+          "/rights/:id",
+          "/services",
+          "/services/:id"
+        ],
+        "expected_count": 7,
+        "sha256": "590b918d476a20a66d18014ac02302bde3d874707f7616492af66ecb7419a2a0",
+        "browser_verification_id": "outcome-market-browser-census"
+      },
+      "state_authority_mode": "development_domain_projection",
+      "source_graph": {
+        "root": "apps/sas-xyz",
+        "entries": [
+          "index.html",
+          "server.mjs"
+        ],
+        "allowed_source_roots": [],
+        "quarantined_roots": [
+          "fixtures/legacy-ui"
+        ]
+      },
+      "permitted_static_boundary": {
+        "mode": "quarantined_legacy_fixture",
+        "summary": "The functional development product may ship static assets; the retired legacy prototype is evidence only and must remain unreachable from the source and built production graph.",
+        "source_assertions": [
+          {
+            "path": "apps/sas-xyz/server.mjs",
+            "contains": [
+              "sas.xyz production is refused",
+              "canonical ServiceOrder runtime, settlement, authority, artifact-storage, and governed-production owner contracts are not all registered"
+            ]
+          }
+        ]
+      },
+      "required_verification": [
+        {
+          "id": "production-authority-scan",
+          "kind": "scanner",
+          "entry": "apps/sas-xyz/scripts/assert-production-clean.mjs",
+          "command": "npm run check:production --workspace=apps/sas-xyz"
+        },
+        {
+          "id": "outcome-market-tests",
+          "kind": "integration",
+          "entry": "apps/sas-xyz/test/outcomes.test.mjs",
+          "command": "npm test --workspace=apps/sas-xyz"
+        },
+        {
+          "id": "production-startup-refusal",
+          "kind": "test",
+          "entry": "scripts/lib/shipped-products-manifest.test.mjs",
+          "command": "node --test scripts/lib/shipped-products-manifest.test.mjs"
+        },
+        {
+          "id": "outcome-market-browser-census",
+          "kind": "browser",
+          "entry": "scripts/smoke-product-surfaces.mjs",
+          "command": "node scripts/smoke-product-surfaces.mjs"
+        }
+      ]
+    }
+  ],
+  "nonshipped_roots": [
+    {
+      "id": "ioi-ai-upstream-vendor",
+      "root": "apps/ioi-ai",
+      "owner": "Committed local vendor snapshot owner",
+      "owner_ref": "docs/architecture/_meta/ioi-ai-vendor-snapshot.v1.json",
+      "disposition": "nonshipped_vendor",
+      "summary": "Dormant QM source recorded as a local Git-identity and working-byte snapshot. It is not an IOI product entry or release artifact, and the ledger does not independently certify the remote upstream commit or provenance.",
+      "verification_entry": "scripts/generate-ioi-ai-vendor-manifest.mjs"
+    },
+    {
+      "id": "hypervisor-legacy-product-ui",
+      "root": "apps/hypervisor/product-ui/public",
+      "owner": "Hypervisor legacy shell comparison-snapshot owner",
+      "owner_ref": "apps/hypervisor/product-ui/owned/vendor-manifest.json",
+      "disposition": "nonshipped_vendor",
+      "summary": "Legacy harvested comparison input retained for the owned-shell parity oracle. It is not the default runtime tree or a shipped artifact, and its presence does not itself establish remote provenance.",
+      "verification_entry": "apps/hypervisor/scripts/vendor-product-ui.mjs"
+    },
+    {
+      "id": "hypervisor-ux-seeds",
+      "root": "apps/hypervisor/ux-seeds",
+      "owner": "Hypervisor UX evidence owner",
+      "owner_ref": "apps/hypervisor/ported-seed-preservation.v1.json",
+      "disposition": "nonshipped_fixture",
+      "summary": "Reference interaction and layout evidence; never an executable product entry.",
+      "verification_entry": "apps/hypervisor/scripts/verify-hypervisor-ux-seed-evidence.mjs"
+    },
+    {
+      "id": "aiagent-legacy-ui",
+      "root": "apps/aiagent-xyz/fixtures/legacy-ui",
+      "owner": "aiagent.xyz fixture quarantine owner",
+      "owner_ref": "apps/aiagent-xyz/fixtures/legacy-ui/README.md",
+      "disposition": "nonshipped_fixture",
+      "summary": "Retired local-only prototype retained as evidence and forbidden from the production graph.",
+      "verification_entry": "apps/aiagent-xyz/scripts/assert-production-clean.mjs"
+    },
+    {
+      "id": "sas-legacy-ui",
+      "root": "apps/sas-xyz/fixtures/legacy-ui",
+      "owner": "sas.xyz fixture quarantine owner",
+      "owner_ref": "apps/sas-xyz/fixtures/legacy-ui/README.md",
+      "disposition": "nonshipped_fixture",
+      "summary": "Retired local-only prototype retained as evidence and forbidden from the production graph.",
+      "verification_entry": "apps/sas-xyz/scripts/assert-production-clean.mjs"
+    }
+  ]
+}

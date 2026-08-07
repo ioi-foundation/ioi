@@ -34,7 +34,7 @@ import { startIsolatedPlane } from "./lib/isolated-daemon.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, "..", "..", "..");
-const EXPECTED_CHECKS = 62;
+const EXPECTED_CHECKS = 63;
 
 let passed = 0;
 const failures = [];
@@ -147,7 +147,10 @@ async function main() {
 
   // ---- 2. structural: no caller-side idempotency scan survives ------------
   for (const [label, path] of [
-    ["daemon", "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs"],
+    [
+      "event daemon integration",
+      "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+    ],
     ["runtime bridge", "crates/services/src/agentic/runtime/event_log_bridge.rs"],
   ]) {
     const source = codeOnly(readFileSync(join(REPO, path), "utf8"));
@@ -186,13 +189,14 @@ async function main() {
   }
   try {
     const principal = {
-      email: "m5-genericity-owner@local",
+      email: "johndoe@ioi.local",
       password: "m5-owner-password",
-      principal_id: "usr_m5_genericity_owner",
+      principal_id: "00000000-0000-4000-8000-000000000001",
     };
-    await request(plane.daemonUrl, "POST", "/v1/hypervisor/principals", principal);
-    const login = await request(plane.daemonUrl, "POST", "/v1/hypervisor/auth/login", {
-      email: principal.email,
+    const daemonLog = readFileSync(join(plane.dataDir, "isolated-daemon.log"), "utf8");
+    const bootstrapToken = daemonLog.match(/ioi_bootstrap_[a-f0-9]{64}/gu)?.at(-1);
+    const login = await request(plane.daemonUrl, "POST", "/v1/hypervisor/auth/bootstrap", {
+      token: bootstrapToken,
       password: principal.password,
     });
     const auth = { authorization: `Bearer ${login.body?.session_token}` };
@@ -203,12 +207,23 @@ async function main() {
       `login=${login.status}`,
     );
 
-    const declare = (namespace, tail, decl) =>
+    const declare = (
+      namespace,
+      tail,
+      decl,
+      idempotencyKey = `declare-${namespace}-${tail}-v1`,
+    ) =>
       request(
         plane.daemonUrl,
         "POST",
         `/v1/event-streams/${namespace}/${tail}`,
-        decl === undefined ? declaration({}) : { event_class_declaration: decl },
+        decl === undefined
+          ? declaration({ owner_ref: "org://local", idempotency_key: idempotencyKey })
+          : {
+              event_class_declaration: decl,
+              owner_ref: "org://local",
+              idempotency_key: idempotencyKey,
+            },
         auth,
       );
     const append = (namespace, tail, key, payload, expectedHead) =>
@@ -246,10 +261,22 @@ async function main() {
     );
     const redeclare = await declare("thread-orchestration", "s1");
     check(
-      "redeclaration is refused by the substrate's own compare-and-swap",
-      redeclare.status === 409 &&
-        redeclare.body?.error?.code === "event_stream_already_declared",
-      `status=${redeclare.status} code=${redeclare.body?.error?.code}`,
+      "an ambiguous stream create retries under the exact key/body by replaying the original fact",
+      redeclare.status === 200 && redeclare.body?.replayed === true &&
+        redeclare.body?.agentgres_sequence === declared.body?.agentgres_sequence,
+      `status=${redeclare.status} replayed=${redeclare.body?.replayed}`,
+    );
+    const freshRedeclare = await declare(
+      "thread-orchestration",
+      "s1",
+      undefined,
+      "declare-thread-orchestration-s1-fresh",
+    );
+    check(
+      "a fresh key cannot borrow the original stream-creation receipt",
+      freshRedeclare.status === 409 &&
+        freshRedeclare.body?.error?.code === "event_stream_already_declared",
+      `status=${freshRedeclare.status} code=${freshRedeclare.body?.error?.code}`,
     );
     const bothSides = await declare("automation-scheduler", "both", {
       admitted_truth_classes: [{ class_id: "x", payload_schema_ref: "schema://x/v1" }],
@@ -263,9 +290,9 @@ async function main() {
     );
     const undeclaredStream = await append("automation-scheduler", "nodecl", "k", { n: 1 });
     check(
-      "an append to an UNDECLARED stream refuses rather than defaulting a side",
-      undeclaredStream.status === 422 &&
-        undeclaredStream.body?.error?.code === "event_stream_undeclared",
+      "an append to an unscoped stream fails before becoming an existence oracle",
+      undeclaredStream.status === 403 &&
+        undeclaredStream.body?.error?.code === "request_resource_scope_required",
       `status=${undeclaredStream.status} code=${undeclaredStream.body?.error?.code}`,
     );
 
@@ -282,6 +309,7 @@ async function main() {
       {
         class_id: "demo.admitted",
         idempotency_key: "reviewer-repro",
+        expected_head: declared.body?.admitted_head?.resulting_head_ref,
         recorded_at_ms: 1,
         payload: { n: 0 },
         event_class_declaration: {
@@ -299,7 +327,13 @@ async function main() {
       `delivery=${liar.body?.delivery} (request claimed ephemeral; stream truth says admitted)`,
     );
 
-    const first = await append("thread-orchestration", "s1", "k1", { n: 1 });
+    const first = await append(
+      "thread-orchestration",
+      "s1",
+      "k1",
+      { n: 1 },
+      liar.body?.admitted_head?.resulting_head_ref,
+    );
     check(
       "boot injection is LIVE: a real admission succeeds against a booted daemon",
       first.status === 200 && typeof first.body?.agentgres_sequence === "number",
@@ -351,8 +385,14 @@ async function main() {
     const threadSeqBeforeScheduler = planeMoved.body?.agentgres_sequence;
 
     // ---- 6. TWO NAMESPACES traverse identical code ------------------------
-    await declare("automation-scheduler", "s1");
-    const scheduler = await append("automation-scheduler", "s1", "k1", { n: 1 });
+    const schedulerDeclaration = await declare("automation-scheduler", "s1");
+    const scheduler = await append(
+      "automation-scheduler",
+      "s1",
+      "k1",
+      { n: 1 },
+      schedulerDeclaration.body?.admitted_head?.resulting_head_ref,
+    );
     check(
       "a second, unrelated owner namespace admits through the same path",
       scheduler.status === 200 &&
@@ -501,8 +541,8 @@ async function main() {
       { n: 1 },
     );
     check(
-      "a non-canonical owner namespace refuses",
-      noncanonical.status === 422,
+      "a non-canonical unscoped namespace refuses before revealing stream coordinates",
+      noncanonical.status === 403,
       `status=${noncanonical.status}`,
     );
 
@@ -521,6 +561,7 @@ async function main() {
       permitted_event_class_ids: ["demo.admitted"],
       max_undelivered_events: 3,
       recorded_at_ms: 1,
+      idempotency_key: "lease-sub-1-create",
     }, auth);
     const REQUIRED_LEASE_FIELDS = [
       "schema_version", "lease_id", "stream_id", "subscriber_ref", "lease_state",
@@ -561,7 +602,12 @@ async function main() {
     // closed. An arbitrary integer must not become an acknowledged fact.
     const bogusCheckpoint = await request(
       plane.daemonUrl, "POST", `/v1/subscriptions/${leaseNs}/sub_1/checkpoint`,
-      { acknowledged_seq: 9999, recorded_at_ms: 2 }, auth);
+      {
+        acknowledged_seq: 9999,
+        expected_head: created.body?.admitted_lease_transition?.resulting_head_ref,
+        idempotency_key: "lease-sub-1-bogus-checkpoint",
+        recorded_at_ms: 2,
+      }, auth);
     check(
       "checkpoint substitution refuses: an unadmitted sequence cannot be acknowledged",
       bogusCheckpoint.status === 422 &&
@@ -572,7 +618,12 @@ async function main() {
     const ackSeq = deliverFirst.body?.events?.[0]?.seq;
     const advanced = await request(
       plane.daemonUrl, "POST", `/v1/subscriptions/${leaseNs}/sub_1/checkpoint`,
-      { acknowledged_seq: ackSeq, recorded_at_ms: 3 }, auth);
+      {
+        acknowledged_seq: ackSeq,
+        expected_head: created.body?.admitted_lease_transition?.resulting_head_ref,
+        idempotency_key: "lease-sub-1-checkpoint-1",
+        recorded_at_ms: 3,
+      }, auth);
     check(
       "a checkpoint advance is an ADMITTED transition, not a scalar the adapter holds",
       advanced.status === 200 &&
@@ -582,7 +633,12 @@ async function main() {
     );
     const rewind = await request(
       plane.daemonUrl, "POST", `/v1/subscriptions/${leaseNs}/sub_1/checkpoint`,
-      { acknowledged_seq: 0, recorded_at_ms: 4 }, auth);
+      {
+        acknowledged_seq: 0,
+        expected_head: advanced.body?.admitted_lease_transition?.resulting_head_ref,
+        idempotency_key: "lease-sub-1-rewind",
+        recorded_at_ms: 4,
+      }, auth);
     check(
       "a checkpoint cannot REWIND: re-delivering acknowledged events refuses",
       rewind.status === 409 &&
@@ -605,7 +661,11 @@ async function main() {
     // deliver" are different facts.
     const revoked = await request(
       plane.daemonUrl, "POST", `/v1/subscriptions/${leaseNs}/sub_1/revoke`,
-      { recorded_at_ms: 5 }, auth);
+      {
+        expected_head: advanced.body?.admitted_lease_transition?.resulting_head_ref,
+        idempotency_key: "lease-sub-1-revoke",
+        recorded_at_ms: 5,
+      }, auth);
     check(
       "revoke is an admitted lease transition",
       revoked.status === 200 && revoked.body?.lease_state === "revoked",
@@ -625,6 +685,7 @@ async function main() {
       subscriber_ref: "subscriber://m5/expiring", lease_tail: "sub_exp",
       permitted_event_class_ids: ["demo.admitted"], max_undelivered_events: 3,
       expires_at_ms: 1, recorded_at_ms: 1,
+      idempotency_key: "lease-sub-exp-create",
     }, auth);
     const deliverExpired = await request(
       plane.daemonUrl, "GET", `/v1/subscriptions/${leaseNs}/sub_exp/delivery`, undefined, auth);
@@ -671,7 +732,7 @@ async function main() {
     const keysOf = (body) => Object.keys(body || {}).sort().join(",");
 
     const PINNED_APPEND_KEYS =
-      "admitted_head,agentgres_sequence,class_id,delivery,owner_namespace,payload_schema_ref,replayed,stream_id";
+      "admitted_head,agentgres_sequence,class_id,delivery,operation_ref,owner_namespace,payload_schema_ref,receipt_ref,replayed,request_fingerprint,stream_id";
     check(
       "admitted-append response keys are pinned byte-for-byte",
       keysOf(first.body) === PINNED_APPEND_KEYS,
@@ -684,7 +745,7 @@ async function main() {
       `keys=${keysOf(first.body?.admitted_head)}`,
     );
     const PINNED_LEASE_KEYS =
-      "acknowledged_checkpoint,admitted_lease_transition,backpressure,delivery_adapter_kind,expires_at_ref,lease_id,lease_state,nonclaim,projection_binding,schema_version,stream_id,subscriber_ref";
+      "acknowledged_checkpoint,admitted_lease_transition,backpressure,delivery_adapter_kind,expires_at_ref,lease_id,lease_state,nonclaim,operation_ref,projection_binding,receipt_ref,replayed,request_fingerprint,schema_version,stream_id,subscriber_ref";
     check(
       "lease response keys are pinned byte-for-byte",
       keysOf(created.body) === PINNED_LEASE_KEYS,
@@ -713,7 +774,7 @@ async function main() {
     );
     check(
       "every refusal body carries exactly {error:{code,message}} and nothing else",
-      [bogusCheckpoint, rewind, deliverRevoked, deliverExpired, redeclare, bothSides].every(
+      [bogusCheckpoint, rewind, deliverRevoked, deliverExpired, freshRedeclare, bothSides].every(
         (r) => keysOf(r.body) === "error" && keysOf(r.body?.error) === "code,message",
       ),
       "uniform refusal envelope across six distinct refusals",
@@ -780,7 +841,7 @@ async function main() {
     const counters = () =>
       request(plane.daemonUrl, "GET", "/v1/event-streams/_substrate-traversals", undefined, auth);
 
-    await declare("automation-scheduler", "eph");
+    const ephemeralDeclaration = await declare("automation-scheduler", "eph");
     const beforeWarm = await counters();
     check(
       "the traversal instrument is READABLE",
@@ -791,7 +852,13 @@ async function main() {
     );
 
     // Prove the instrument reads NON-ZERO when the substrate IS traversed.
-    const admittedAppend = await append("automation-scheduler", "eph", "warm-1", { n: 1 });
+    const admittedAppend = await append(
+      "automation-scheduler",
+      "eph",
+      "warm-1",
+      { n: 1 },
+      ephemeralDeclaration.body?.admitted_head?.resulting_head_ref,
+    );
     const afterAdmitted = await counters();
     const instrumentProvenLive =
       admittedAppend.status === 200 &&

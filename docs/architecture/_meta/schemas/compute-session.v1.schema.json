@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/daemon-runtime/compute-session/v1",
+  "title": "ComputeSession",
+  "description": "Bounded managed-runtime compute-session readiness and terminal-close projection bound to one runtime assignment.",
+  "x-ioi-schema-version": "ioi.compute-session.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "compute_session_ref", "runtime_assignment_ref", "environment_ref", "provider_ref", "status", "readiness_evidence_refs"],
+  "properties": {
+    "schema_version": { "const": "ioi.compute-session.v1" },
+    "compute_session_ref": { "type": "string", "pattern": "^compute://[^\\s]{1,500}$" },
+    "runtime_assignment_ref": { "type": "string", "pattern": "^runtime-assignment://[^\\s]{1,500}$" },
+    "environment_ref": { "type": "string", "pattern": "^environment://[^\\s]{1,500}$" },
+    "provider_ref": { "type": "string", "pattern": "^(?:provider|provider-account)://[^\\s]{1,500}$" },
+    "status": { "enum": ["ready", "ended"] },
+    "readiness_evidence_refs": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/ref" } },
+    "provider_close_receipt_ref": { "anyOf": [{ "$ref": "#/$defs/ref" }, { "type": "null" }] }
+  },
+  "$defs": {
+    "ref": { "type": "string", "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$" }
+  }
+}

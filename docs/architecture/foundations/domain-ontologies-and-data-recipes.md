@@ -7,6 +7,8 @@ Superseded by: none.
 Last alignment pass: 2026-08-06.
 Doctrine status: canonical
 Implementation status: partial (ODK draft object plane exists; the Domain App mount/serve ladder is implemented in the daemon ahead of these object shapes; optional cross-domain semantic negotiation, provenance-bearing assertions, executable ontology actions, and most of the semantic data plane are planned)
+Implementation refs:
+  - `crates/node/src/bin/hypervisor_daemon_routes/odk_routes.rs`
 Last implementation audit: 2026-08-06
 
 ## Canonical Definition

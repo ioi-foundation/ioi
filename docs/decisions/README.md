@@ -7,11 +7,11 @@ ADRs record durable product/protocol/runtime decisions and their consequences.
 Canonical architecture prose still lives under `docs/architecture/`; ADRs
 explain the accepted decision when that history remains useful.
 
-ADRs neither define nor close proof gates. `PG-*` identifiers are
-program-control machinery owned by the private program estate under the
-single-sequencer rule; public canon and ADRs bind capability claims through
-the conformance claim coverage index (`docs/conformance/README.md`), never
-through gate identifiers.
+ADRs neither define nor close proof gates. **Canon defines no `PG-*` identifier
+family and confers no authority through one.** Public canon and ADRs bind
+capability claims through the conformance claim coverage index
+(`docs/conformance/README.md`). Any `PG-*` projection appearing in a tracked
+artifact is oversight reporting only, never closure authority.
 
 ## Accepted ADRs
 

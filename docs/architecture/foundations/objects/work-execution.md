@@ -4,10 +4,12 @@ Status: canonical low-level reference.
 Canonical owner: this file for the shared object shapes of worker instances, runtime subscriptions, typed work-subject bindings, runtime assignments, work requests, WorkRuns, and resource-allocation decisions.
 Supersedes: the same object definitions when they were carried inside the single `common-objects-and-envelopes.md` file.
 Superseded by: none.
-Last alignment pass: 2026-07-25.
+Last alignment pass: 2026-08-06.
 Doctrine status: canonical
-Implementation status: partial (worker-instance, runtime-assignment, and run-lifecycle shapes back existing daemon run routes; typed work-subject binding, resource-allocation decision, and runtime-subscription shapes remain planned)
-Last implementation audit: 2026-07-25
+Implementation status: partial (a bounded Agentgres-backed managed-worker state, runtime policy, placement assignment, and compute-session slice is executable and registered; the broader cross-domain assignment envelope, typed work-subject binding, resource-allocation decision, and runtime-subscription families remain planned)
+Implementation refs:
+  - `crates/types/src/app/generated/architecture_contracts.rs`
+Last implementation audit: 2026-08-06
 
 ## Purpose
 
@@ -18,6 +20,38 @@ the envelope base types, ID conventions, and capability/authority tiers every
 module here reuses. Doctrine and lifecycle semantics for these objects are owned
 by [`../../components/daemon-runtime/doctrine.md`](../../components/daemon-runtime/doctrine.md);
 this module does not restate them.
+
+## Bounded managed-runtime wire contracts
+
+The daemon currently admits one deliberately narrow managed-runtime slice. The
+registered contracts are the exact stored bytes, not the richer target families
+elsewhere in this file:
+
+- `ManagedWorkerRuntimePolicy` is the closed policy embedded in an instance;
+- `ManagedWorkerInstanceState` is the Agentgres event-stream payload for the
+  instance head, including a typed pending proposal and committed/rejected
+  transition evidence;
+- `RuntimeAssignment` v1 is the bounded placement commitment emitted by this
+  slice; and
+- `ComputeSession` v1 is its readiness/ended session projection.
+
+Every object and nested policy is closed. An admitted transition proposal may
+not carry an arbitrary JSON policy bag. `RuntimeAssignment` binds a placement
+request and its JCS hash; it does not prove provider execution or grant work,
+spend, secret, or actuator authority. `ComputeSession.status=ready` is backed by
+the cited readiness evidence but is not stronger than that evidence.
+
+The daemon adds an `agentgres` block only while constructing HTTP response
+projections. That response annotation (operation/receipt refs, sequence, head,
+roots, recorded time, and replay posture) is not part of any object above, is
+not included in its JCS hash, and is rejected by the registered schemas if
+inserted into canonical object bytes.
+
+The expansive `RuntimeAssignmentEnvelope` below remains the target for general
+logical-work, system-placement, embodied, state-partition, economics, and
+authority binding. It is not the registered v1 byte shape and may not widen v1
+in place. Canon must assign a successor version and migration before those
+fields become admitted bytes.
 
 ## WorkerInstanceEnvelope
 

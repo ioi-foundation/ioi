@@ -804,7 +804,12 @@ for await (const event of run.stream()) {
     sourceFreshness: 'current_repo',
     primaryAudience: 'operator',
     routePath: '/hypervisor',
-    legacyHashes: ['run-autopilot-locally', 'autopilot', 'autopilot-desktop'],
+    legacyHashes: [
+      'run-hypervisor-locally',
+      'run-autopilot-locally',
+      'autopilot',
+      'autopilot-desktop',
+    ],
     lastVerified: LAST_VERIFIED,
     keywords: ['hypervisor', 'desktop', 'GUI', 'screenshots', 'workflow canvas', 'chat', 'harness'],
     sources: [

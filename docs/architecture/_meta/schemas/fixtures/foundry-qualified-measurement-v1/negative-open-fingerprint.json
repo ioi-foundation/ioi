@@ -1,0 +1,45 @@
+{
+  "schema_version": "ioi.foundry-qualified-measurement.v1",
+  "verdict": "qualified",
+  "quality": {
+    "token_coverage": 0.75,
+    "mean_negative_log_likelihood": 1.25,
+    "gate": {
+      "minimum_token_coverage": 0.5,
+      "maximum_mean_negative_log_likelihood": 2.0
+    }
+  },
+  "measurement": {
+    "phase": "evaluation",
+    "token_numerator": "loss_bearing",
+    "denominator": "full_wall_clock",
+    "scope": "daemon_cpu_process",
+    "raw_tokens": 4,
+    "effective_tokens": 4,
+    "elapsed_nanoseconds": 1000000,
+    "tokens_per_second": 4000,
+    "includes_compilation": false,
+    "includes_loading": true,
+    "includes_evaluation": true,
+    "includes_checkpoint": false,
+    "includes_failure_and_recovery": false,
+    "hardware_software_topology_fingerprint": {
+      "runtime_node_ref": "runtime://local/node-1",
+      "environment_ref": "environment://local/foundry-reference",
+      "trainer_backend_profile_ref": "trainer-backend://ioi/reference-token-frequency/v1",
+      "hardware_architecture": "x86_64",
+      "logical_cpu_count": 4,
+      "memory_bytes": 8589934592,
+      "operating_system": "linux",
+      "daemon_release_ref": "release://ioi/hypervisor-daemon/dev",
+      "gpu": "unruled"
+    },
+    "cost_basis_ref": "cost://acme/local-reference",
+    "failure_schedule_ref": "schedule://acme/no-faults"
+  },
+  "promotion_boundary": {
+    "proposal_only": true,
+    "governance_approval_required": true,
+    "runtime_activation_performed": false
+  }
+}

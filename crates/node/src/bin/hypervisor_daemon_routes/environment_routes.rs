@@ -921,12 +921,37 @@ pub(crate) async fn handle_env_watch_state(
 pub(crate) async fn handle_env_pr_draft(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
+    headers: HeaderMap,
 ) -> Result<Json<Value>, AppError> {
+    let identity = super::scm_publication_routes::request_identity(&st.data_dir, &headers)
+        .map_err(|(status, Json(body))| {
+            AppError(
+                status,
+                body.get("message")
+                    .or_else(|| body.get("reason"))
+                    .and_then(Value::as_str)
+                    .unwrap_or("publication identity refused")
+                    .to_owned(),
+            )
+        })?;
     let Some(env) = load_env(&st.data_dir, &id) else {
         return Ok(Json(
             json!({ "ok": false, "reason": "environment not found" }),
         ));
     };
+    let publication_owner_ref = super::scm_publication_routes::publication_owner_for_environment(
+        &identity, &env,
+    )
+    .map_err(|(status, Json(body))| {
+        AppError(
+            status,
+            body.get("message")
+                .or_else(|| body.get("reason"))
+                .and_then(Value::as_str)
+                .unwrap_or("environment publication ownership refused")
+                .to_owned(),
+        )
+    })?;
     let Some(ws) = env["status"]["workspace_root"]
         .as_str()
         .filter(|s| !s.is_empty())
@@ -1000,11 +1025,101 @@ pub(crate) async fn handle_env_pr_draft(
     } else {
         "Proposed workspace changes"
     };
+    let canonical_base_revision = head.len() >= 40
+        && head.len() <= 64
+        && head
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || matches!(byte, b'a'..=b'f'));
+    let publication_proposal_ref = format!("proposal://local/hypervisor/{pid}");
+    let mut publication_files = Vec::new();
+    if canonical_base_revision {
+        for line in porcelain.lines() {
+            let Some(status) = line.get(..2) else {
+                continue;
+            };
+            let Some(raw_path) = line.get(3..) else {
+                continue;
+            };
+            let relative_path = raw_path
+                .rsplit_once(" -> ")
+                .map(|(_, target)| target)
+                .unwrap_or(raw_path)
+                .trim();
+            if relative_path.is_empty() {
+                continue;
+            }
+            let change_kind = if status.contains('D') {
+                "removed"
+            } else if status == "??" || status.contains('A') {
+                "added"
+            } else {
+                "modified"
+            };
+            let content_digest = if change_kind == "removed" {
+                Value::Null
+            } else {
+                let bytes = std::fs::read(std::path::Path::new(&ws).join(relative_path)).map_err(
+                    |error| {
+                        AppError(
+                            StatusCode::CONFLICT,
+                            format!(
+                                "pull-request draft cannot bind changed file '{relative_path}': {error}"
+                            ),
+                        )
+                    },
+                )?;
+                json!(format!("sha256:{}", sha256_hex_bytes(&bytes)))
+            };
+            publication_files.push(json!({
+                "path": relative_path,
+                "change_kind": change_kind,
+                "content_digest": content_digest,
+                "proposal_ref": publication_proposal_ref,
+            }));
+        }
+    }
+    let admitted_publication_proposal = if canonical_base_revision && !publication_files.is_empty()
+    {
+        let candidate = json!({
+            "proposal_ref": publication_proposal_ref,
+            "base_revision_id": format!("scm-revision:{head}"),
+            "files": publication_files,
+            "work_run_ref": Value::Null,
+        });
+        Some(
+            super::scm_publication_routes::admit_publication_proposal(
+                &st.data_dir,
+                &identity,
+                &publication_owner_ref,
+                &format!("scm-pr-draft:{pid}"),
+                &candidate,
+            )
+            .map_err(|(status, Json(body))| {
+                AppError(
+                    status,
+                    format!(
+                        "pull-request publication proposal refused: {}",
+                        body.get("message")
+                            .or_else(|| body.get("reason"))
+                            .and_then(Value::as_str)
+                            .unwrap_or("unknown refusal")
+                    ),
+                )
+            })?,
+        )
+    } else {
+        None
+    };
     // DAEMON writes the artifact into the env's scoped workspace (.hypervisor/pr-drafts/<id>.*).
     let dir = std::path::Path::new(&ws)
         .join(".hypervisor")
         .join("pr-drafts");
-    let _ = std::fs::create_dir_all(&dir);
+    std::fs::create_dir_all(&dir).map_err(|error| {
+        AppError(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("pull-request draft directory cannot be created: {error}"),
+        )
+    })?;
     let md_rel = format!(".hypervisor/pr-drafts/{pid}.md");
     let patch_rel = format!(".hypervisor/pr-drafts/{pid}.patch");
     let md = format!(
@@ -1012,28 +1127,72 @@ pub(crate) async fn handle_env_pr_draft(
         if changed.is_empty() { "- None".to_string() } else { changed.iter().map(|f| format!("- {f}")).collect::<Vec<_>>().join("\n") },
         if stat.is_empty() { "No tracked diff." } else { &stat },
     );
-    let _ = std::fs::write(std::path::Path::new(&ws).join(&md_rel), md);
-    let _ = std::fs::write(
-        std::path::Path::new(&ws).join(&patch_rel),
+    let md_path = std::path::Path::new(&ws).join(&md_rel);
+    let patch_path = std::path::Path::new(&ws).join(&patch_rel);
+    std::fs::write(&md_path, md).map_err(|error| {
+        AppError(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("pull-request draft summary cannot be persisted: {error}"),
+        )
+    })?;
+    if let Err(error) = std::fs::write(
+        &patch_path,
         if diff.is_empty() {
             "# No tracked diff.\n".to_string()
         } else {
             format!("{diff}\n")
         },
-    );
+    ) {
+        let _ = std::fs::remove_file(&md_path);
+        return Err(AppError(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("pull-request draft patch cannot be persisted: {error}"),
+        ));
+    }
     let draft = json!({
         "schema_version": "ioi.hypervisor.pull-request-draft.v1",
         "draft_id": pid, "environment_id": id, "title": title,
         "review_state": "proposed", "base_ref": base_ref, "head_ref": head, "source_branch": branch,
         "changed_files": changed, "diffstat": stat,
         "artifact_refs": { "summary": md_rel, "patch": patch_rel },
-        "remote_publish": { "supported": false, "reason": "remote pull-request publishing requires an SCM connector + wallet authority" },
-        "host_mutation": false, "at": iso_now()
+        "remote_publish": {
+            "supported": admitted_publication_proposal.is_some(),
+            "reason": if admitted_publication_proposal.is_some() {
+                "an enumerated proposal is admitted; publication additionally requires an admitted destination binding, SCM connector, and wallet authority"
+            } else if changed.is_empty() {
+                "no changed files are available for an enumerated publication proposal"
+            } else {
+                "the workspace has no canonical base revision for an enumerated publication proposal"
+            },
+            "publication_proposal_ref": admitted_publication_proposal
+                .as_ref()
+                .and_then(|proposal| proposal.get("proposal_ref"))
+                .cloned()
+                .unwrap_or(Value::Null),
+            "publication_proposal_hash": admitted_publication_proposal
+                .as_ref()
+                .and_then(|proposal| proposal.get("proposal_hash"))
+                .cloned()
+                .unwrap_or(Value::Null)
+        },
+        "host_mutation": false,
+        "admission_state": "local_draft_not_agentgres_admitted",
+        "at": iso_now()
     });
-    let _ = persist_record(&st.data_dir, "pull-request-drafts", &pid, &draft);
-    Ok(Json(
-        json!({ "ok": true, "draft": draft, "proposal_ref": format!("agentgres://pull-request-draft/{pid}") }),
-    ))
+    if let Err(error) = persist_record(&st.data_dir, "pull-request-drafts", &pid, &draft) {
+        let _ = std::fs::remove_file(&md_path);
+        let _ = std::fs::remove_file(&patch_path);
+        return Err(AppError(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("pull-request draft record cannot be persisted: {error}"),
+        ));
+    }
+    Ok(Json(json!({
+        "ok": true,
+        "draft": draft,
+        "proposal_ref": format!("local-pr-draft://{pid}"),
+        "admission_state": "local_draft_not_agentgres_admitted"
+    })))
 }
 
 // ---- Durable agent-run transcripts (Agentgres-backed Run Timeline truth) -------------------------

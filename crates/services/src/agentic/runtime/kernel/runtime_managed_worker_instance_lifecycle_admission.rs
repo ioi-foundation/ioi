@@ -197,7 +197,7 @@ impl RuntimeManagedWorkerInstanceLifecycleAdmissionCore {
         }
         require_prefix(&lifecycle_id, "lifecycle:", "lifecycle_id")?;
         require_prefix(&worker_instance_id, "agent://", "worker_instance_id")?;
-        require_prefix(&owner_ref, "wallet://", "owner_ref")?;
+        require_owner_ref(&owner_ref)?;
         require_agentgres_and_receipt(&agentgres_operation_refs, &receipt_refs, &to_state)?;
 
         if to_state == "payment_past_due" {
@@ -470,6 +470,23 @@ fn require_prefix(value: &str, prefix: &str, field: &str) -> AdmitResult<()> {
         format!("managed_worker_lifecycle_{field}_invalid"),
         format!("Managed worker lifecycle {field} must start with {prefix}."),
         Value::Object(details),
+    ))
+}
+
+fn require_owner_ref(value: &str) -> AdmitResult<()> {
+    const OWNER_PREFIXES: [&str; 3] = ["wallet://", "org://", "project://"];
+    if OWNER_PREFIXES
+        .iter()
+        .any(|prefix| value.starts_with(prefix))
+    {
+        return Ok(());
+    }
+    Err(RuntimeManagedWorkerInstanceLifecycleAdmissionError::new(
+        400,
+        "managed_worker_lifecycle_owner_ref_invalid".to_string(),
+        "Managed worker lifecycle owner_ref must name a wallet, organization, or project owner."
+            .to_string(),
+        json!({ "owner_ref": value, "allowed_prefixes": OWNER_PREFIXES }),
     ))
 }
 
@@ -805,6 +822,16 @@ mod tests {
             "managed-worker-lifecycle:lifecycle_carwash_heath:active-idle"
         );
         assert_eq!(admission["runtimeTruthSource"], "daemon-runtime");
+    }
+
+    #[test]
+    fn admits_organization_owned_transition() {
+        let mut request = base_request();
+        request["owner_ref"] = json!("org://local");
+        let admission = RuntimeManagedWorkerInstanceLifecycleAdmissionCore
+            .admit(&request, "2026-08-06T00:00:00.000Z")
+            .expect("organization-owned lifecycle is admitted");
+        assert_eq!(admission["owner_ref"], "org://local");
     }
 
     #[test]

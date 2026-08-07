@@ -565,7 +565,21 @@ function renderOntologyManagerPort(ov, lists, selectedId, opts) {
     .og-save{align-self:flex-start;border:1px solid #2f6fd8;background:#2f6fd8;color:#fff;border-radius:4px;font:inherit;font-size:12.5px;font-weight:600;padding:6px 14px;cursor:pointer}
     .og-iacts{margin:8px 0}.ioi-cmd-disabled{display:inline-flex;align-items:center;height:24px;padding:0 8px;border:1px solid #d3d8de;border-radius:4px;background:#f7f8f8;color:#8f99a8;font:inherit;font-size:12px;cursor:not-allowed}
     .og-sublink{display:inline-block;margin-top:10px;font-size:12px}`;
-  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ontology Manager</title><style>${css}${aside ? asideCss : ""}</style></head>
+  const mobileCss = `@media(max-width:700px){
+    .og-main{height:100svh}.og-header{height:92px;padding:0 10px 42px 0;flex:0 0 92px}
+    .og-hchip{width:44px;height:50px;flex-basis:44px}.og-htitle{margin-left:10px}
+    .og-search{left:10px;right:10px;top:52px;transform:none;width:auto}.og-headright{display:none}
+    .og-work{flex-direction:column;overflow-y:auto;overflow-x:hidden}
+    .og-arail{width:100%;flex:0 0 auto;display:flex;align-items:center;gap:4px;overflow-x:auto;overflow-y:hidden;padding:6px;border-right:0;border-bottom:1px solid #dce0e5}
+    .og-nav{flex:0 0 auto;margin:0;height:34px;padding:0 10px}.og-nav.sub{padding-left:10px}
+    .og-adiv,.og-adiv2,.og-agap,.og-asec{display:none}
+    .og-body{flex:0 0 auto;overflow:visible;padding:14px;min-height:360px}
+    .og-sechd{align-items:flex-start;justify-content:flex-start;gap:8px;flex-wrap:wrap}.og-sechd h2{width:100%}
+    .og-explorerlink{margin-left:auto;margin-right:0}.og-cards{grid-template-columns:1fr}
+    .og-body section{overflow-x:auto}.og-table{min-width:520px}.og-cfgrow{align-items:flex-start;flex-direction:column;gap:3px}
+    .og-searchbody{max-width:none}.og-inspectorwrap{width:100%;flex:0 0 auto;border-left:0;border-top:1px solid #dce0e5;overflow:visible}
+    .og-irow{flex-direction:column;gap:2px}.og-ik{width:auto;flex:0 0 auto}
+  }`;
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ontology Manager</title><style>${css}${aside ? asideCss : ""}${mobileCss}</style></head>
     <body><div class="og-shell">${globalRail}<div class="og-main">${header}<div class="og-work">${appRail}${body}${aside ? `<aside class="og-inspectorwrap">${aside}</aside>` : ""}</div></div></body></html>`;
 }
-

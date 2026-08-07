@@ -15,6 +15,8 @@ Superseded by: none.
 Last alignment pass: 2026-07-19.
 Doctrine status: canonical
 Implementation status: partial admission precursor only (current master retains the older Rust physical-action-intent admission path; the stricter deployment-assurance, graph-timing, ODD, assured-input, restart/writer, and teleoperation checks described here are target contract. Native graph compiler, mixed-criticality executor, physical stream runtime, local supervisor, actuator execution, and the Embodied Systems surface are not implemented.)
+Implementation refs:
+  - `crates/types/src/app/generated/architecture_contracts.rs`
 Last implementation audit: 2026-07-16
 
 ## Canonical Definition

@@ -3,12 +3,14 @@
 Status: canonical architecture authority.
 Canonical owner: this file for model routing, supply-portfolio, commercial
 route-rights, BYOK/BYOA, privacy/fallback, and run-to-idle doctrine; low-level
-model-router API lives in [`model-router-api-byok-and-mounting.md`](./api-byok-mounting.md).
+model-router API lives in [`api-byok-mounting.md`](./api-byok-mounting.md).
 Supersedes: overlapping model/provider prose when routing or BYOK boundaries conflict.
 Superseded by: none.
 Last alignment pass: 2026-07-13.
 Doctrine status: canonical
 Implementation status: partial (model-route registry and local Ollama mounting
+Implementation refs:
+  - `crates/node/src/bin/hypervisor-daemon.rs`
 are built; registered information-flow/declassification schemas and generated
 projections define the hosted-provider boundary, but production parent-aware
 admission and output-label propagation remain planned; sealed BYOK and

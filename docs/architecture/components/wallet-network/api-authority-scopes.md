@@ -10,6 +10,8 @@ Superseded by: none.
 Last alignment pass: 2026-07-19.
 Doctrine status: reference
 Implementation status: partial (authority-client seams, lease APIs, portable principal-to-approval-authority binding resolution, and exact grant-hash-keyed effect consumption with immutable replayable receipts are live on named qualified owner paths; all affected shared-verifier and governed-authority registrations now route structural evidence through independent issuer resolution, deterministic atomic consumption, opaque admission revalidation, and retained route/final-invoker, concurrency, crash, denial, and replay proof; account/factor, WebAuthn ceremony, device/session lifecycle, recovery, guardian, and shard surfaces are planned; the closed approval-ceremony context, temporal profile/evaluation input, review/effect-admission receipt profiles, context-bound v3 grant, and WalletReceipt v2 are target successor contracts with no registered schema, emitter, or verifier)
+Implementation refs:
+  - `crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs`
 Last implementation audit: 2026-07-19
 
 ## Purpose

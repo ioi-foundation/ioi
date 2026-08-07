@@ -7,6 +7,8 @@ Superseded by: none.
 Last alignment pass: 2026-07-25.
 Doctrine status: canonical
 Implementation status: partial admission precursor only (`PhysicalActionExecutionReceipt` v1 has a registered schema, invariants, fixtures, and generated projections; physical execution and the embodied object plane remain planned)
+Implementation refs:
+  - `crates/types/src/app/generated/architecture_contracts.rs`
 Last implementation audit: 2026-07-25
 
 ## Purpose

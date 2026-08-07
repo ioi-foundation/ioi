@@ -18,12 +18,14 @@
 // Exit 0 = the owned tree is provably the same shell; exit 1 otherwise.
 
 import { spawn, spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, "..", "..", "..");
+const LEGACY = join(HERE, "..", "product-ui", "public");
 const OWNED = join(HERE, "..", "product-ui", "owned", "public");
 const SERVER = join(HERE, "..", "product-ui", "server.cjs");
 const require_ = (await import("node:module")).createRequire(import.meta.url);
@@ -32,6 +34,17 @@ const esbuild = require_(join(ROOT, "node_modules", "esbuild"));
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
 const runNode = (script, args = []) => spawnSync(process.execPath, [join(HERE, script), ...args], { encoding: "utf8", cwd: ROOT, timeout: 900000 });
+const runNodeAsync = (script, args = []) => new Promise((resolve) => {
+  const child = spawn(process.execPath, [join(HERE, script), ...args], {
+    cwd: ROOT,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  let stdout = "";
+  let stderr = "";
+  child.stdout.on("data", (chunk) => { stdout += chunk; });
+  child.stderr.on("data", (chunk) => { stderr += chunk; });
+  child.on("exit", (status) => resolve({ status, stdout, stderr }));
+});
 
 // Declared owned edits, normalized before wire comparison. Each entry documents WHY the owned
 // tree may differ at that path; anything not declared here must be identical.
@@ -46,7 +59,7 @@ async function wireGate() {
     env: { ...process.env, PORT: String(port), ...(publicDir ? { IOI_PRODUCT_UI_PUBLIC: publicDir } : {}) },
     stdio: "ignore",
   });
-  const a = mk(9401, null);
+  const a = mk(9401, LEGACY);
   const b = mk(9402, OWNED);
   try {
     for (let i = 0; i < 40; i++) {
@@ -107,29 +120,74 @@ async function run() {
   const w = await wireGate();
   ok("wire equivalence: every asset identical through both trees", w.diff.length === 0 && w.statusDiff.length === 0, `${w.same}/${w.total} equal${w.diff.length ? " · DIFF: " + w.diff.slice(0, 5).join(", ") : ""}${w.statusDiff.length ? " · STATUS: " + w.statusDiff.slice(0, 5).join(", ") : ""}`);
 
-  // 4. Behavioral freeze on the live estate serve (original tree).
-  const r4 = runNode("shell-freeze-behavior.mjs", ["--check"]);
-  ok("behavioral freeze intact on the original tree", r4.status === 0, (r4.stdout || r4.stderr || "").trim().split("\n").pop());
-  if (r4.status !== 0) console.error((r4.stderr || "").trim().split("\n").slice(-12).join("\n"));
-
-  // 5. Behavioral freeze on a full stack over the OWNED tree.
-  const serve = spawn(process.execPath, [join(HERE, "serve-product-ui.mjs")], {
+  // 4. Behavioral equivalence between explicitly selected legacy and owned stacks. Historical
+  // behavior drift is a separate freeze concern; ownership parity compares both current programs
+  // directly so identical intentional evolution cannot fail this gate.
+  const legacyServe = spawn(process.execPath, [join(HERE, "serve-product-ui.mjs")], {
+    env: { ...process.env, PORT: "4600", PRODUCT_UI_PORT: "9410", IOI_PRODUCT_UI_PUBLIC: LEGACY, IOI_HYPERVISOR_DAEMON_URL: process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765" },
+    stdio: "ignore",
+    cwd: ROOT,
+  });
+  const ownedServe = spawn(process.execPath, [join(HERE, "serve-product-ui.mjs")], {
     env: { ...process.env, PORT: "4601", PRODUCT_UI_PORT: "9403", IOI_PRODUCT_UI_PUBLIC: OWNED, IOI_HYPERVISOR_DAEMON_URL: process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765" },
     stdio: "ignore",
     cwd: ROOT,
   });
+  const captureRoot = mkdtempSync(join(tmpdir(), "ioi-shell-parity-"));
   try {
-    let up = false;
-    for (let i = 0; i < 60 && !up; i++) {
+    let legacyUp = false;
+    let ownedUp = false;
+    for (let i = 0; i < 60 && (!legacyUp || !ownedUp); i++) {
       await new Promise((r) => setTimeout(r, 500));
-      up = await fetch("http://127.0.0.1:4601/ai").then((r) => r.ok).catch(() => false);
+      [legacyUp, ownedUp] = await Promise.all([
+        fetch("http://127.0.0.1:4600/ai").then((r) => r.ok).catch(() => false),
+        fetch("http://127.0.0.1:4601/ai").then((r) => r.ok).catch(() => false),
+      ]);
     }
-    ok("owned-tree full stack comes up", up, "serve :4601 over product-ui/owned");
-    const r5 = runNode("shell-freeze-behavior.mjs", ["--check", "--base", "http://127.0.0.1:4601"]);
-    ok("behavioral freeze intact on the OWNED tree (DOM, animations, network, console)", r5.status === 0, (r5.stdout || r5.stderr || "").trim().split("\n").pop());
-    if (r5.status !== 0) console.error((r5.stderr || "").trim().split("\n").slice(-12).join("\n"));
+    ok("legacy parity full stack comes up", legacyUp, "serve :4600 over non-shipped product-ui/public");
+    ok("owned-tree full stack comes up", ownedUp, "serve :4601 over product-ui/owned");
+    const legacyCapture = join(captureRoot, "legacy.json");
+    const ownedCapture = join(captureRoot, "owned.json");
+    const [r4, r5] = await Promise.all([
+      runNodeAsync("shell-freeze-behavior.mjs", ["--base", "http://127.0.0.1:4600", "--capture-json", legacyCapture]),
+      runNodeAsync("shell-freeze-behavior.mjs", ["--base", "http://127.0.0.1:4601", "--capture-json", ownedCapture]),
+    ]);
+    const captured = r4.status === 0 && r5.status === 0;
+    const behaviorDiff = [];
+    if (captured) {
+      const legacy = JSON.parse(readFileSync(legacyCapture, "utf8"));
+      const owned = JSON.parse(readFileSync(ownedCapture, "utf8"));
+      const routes = [...new Set([
+        ...Object.keys(legacy.routes || {}),
+        ...Object.keys(owned.routes || {}),
+      ])].sort();
+      for (const route of routes) {
+        for (const field of ["dom", "animations", "network", "console"]) {
+          const legacyValue = legacy.routes?.[route]?.[field];
+          const ownedValue = owned.routes?.[route]?.[field];
+          if (JSON.stringify(legacyValue) !== JSON.stringify(ownedValue)) {
+            behaviorDiff.push(`${route}:${field}`);
+            if (Array.isArray(legacyValue) && Array.isArray(ownedValue)) {
+              const legacySet = new Set(legacyValue);
+              const ownedSet = new Set(ownedValue);
+              const removed = legacyValue.filter((value) => !ownedSet.has(value)).slice(0, 8);
+              const added = ownedValue.filter((value) => !legacySet.has(value)).slice(0, 8);
+              console.error(`behavior DIFF ${route}:${field}${removed.length ? `\n  legacy-only: ${removed.join(" | ")}` : ""}${added.length ? `\n  owned-only: ${added.join(" | ")}` : ""}`);
+            }
+          }
+        }
+      }
+    }
+    const equal = captured && behaviorDiff.length === 0;
+    ok("runtime behavior equivalent across legacy and owned trees (DOM, animations, network, console)", equal, captured ? `5-route captures compared${behaviorDiff.length ? ` · DIFF ${behaviorDiff.join(", ")}` : ""}` : `capture failed: legacy=${r4.status} owned=${r5.status}`);
+    if (!captured) {
+      console.error((r4.stderr || r4.stdout || "").trim().split("\n").slice(-12).join("\n"));
+      console.error((r5.stderr || r5.stdout || "").trim().split("\n").slice(-12).join("\n"));
+    }
   } finally {
-    serve.kill("SIGTERM");
+    legacyServe.kill("SIGTERM");
+    ownedServe.kill("SIGTERM");
+    rmSync(captureRoot, { recursive: true, force: true });
   }
 }
 

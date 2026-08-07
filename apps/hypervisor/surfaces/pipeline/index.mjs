@@ -1228,6 +1228,35 @@ function renderPipelineBuilder(lists, sel, embed) {
     @media(max-width:1439px){
       .pb-hmid{width:auto;right:250px;max-width:494px}
       .pb-hmid .pb-btn.link{flex:0 1 auto;min-width:0;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:26px}
+    }
+    @media(max-width:700px){
+      .pb-main{height:100svh}
+      .pb-header{flex:0 0 96px;height:96px;flex-wrap:wrap}
+      .pb-hchip{width:44px;flex-basis:44px}
+      .pb-htitles{height:51px;padding-left:10px;justify-content:center;max-width:calc(100% - 44px)}
+      .pb-crumbrow{height:auto}.pb-crumb{max-width:none;font-size:13px}
+      .pb-cxt,.pb-star,.pb-menurow,.pb-hright{display:none}
+      .pb-hmid{left:0;right:0;top:51px;width:auto;max-width:none;height:45px;gap:6px;padding:7px 10px;overflow-x:auto;border-top:1px solid #eef0f2}
+      .pb-hmid .pb-btn{flex:0 0 auto;height:30px}
+      .pb-hmid .pb-btn:nth-child(3),.pb-hmid .pb-btn:nth-child(4){display:none}
+      .pb-work{flex-direction:column;overflow-y:auto;overflow-x:hidden}
+      .pb-canvaszone{width:100%;min-height:620px;flex:0 0 620px}
+      .pb-toolband{display:none}
+      .pb-toolcard{left:10px;right:10px;top:10px;width:auto;max-width:none;height:46px;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden}
+      .pb-tg{height:36px;flex:0 0 auto}.pb-tgrow{height:30px}.pb-tghints{display:none}
+      .pb-tg2,.pb-tg3{gap:8px;margin-left:8px}
+      .pb-floatbtns{right:8px;top:66px}
+      .pb-legend{right:8px;top:106px;width:124px;padding-bottom:0}
+      .pb-legend .pb-leggrid,.pb-legend .pb-addcolor{display:none}
+      .pb-canvas{inset:56px 0 260px 0;padding:52px 10px 10px}
+      .pb-canvaszone.pb-traymin .pb-canvas{inset:56px 0 35px 0}
+      .pb-pickrow{margin:60px 0 10px}.pb-graphwrap{min-height:180px}
+      .pb-tray{height:260px}.pb-traytabs{overflow-x:auto}.pb-tab{flex:0 0 auto}
+      .pb-zoomstack{bottom:270px}.pb-canvaszone.pb-traymin .pb-zoomstack{bottom:45px}
+      .pb-nodefloat{max-width:calc(100% - 20px)}
+      .pb-right{width:100%;min-height:420px;flex:0 0 420px;border-left:0;border-top:1px solid #dce0e5}
+      .pb-rstrip{width:42px;flex-basis:42px}.pb-stripico{width:36px}
+      .pb-rsearch{margin-top:10px}.pb-settings{padding-bottom:10px}
     }`;
 
   // Client behavior (#66) — ONE inline script, view-only: pan/zoom/fit on the SVG viewBox,

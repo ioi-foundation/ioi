@@ -999,7 +999,7 @@ and `ImprovementGovernanceProfileEnvelope`
 [`bounded-system-genesis.md`](./bounded-system-genesis.md)); `domain://...` is
 admitted because `GoalRunEnvelope` and `WorkLifecycleRecordEnvelope` already
 carry it in their own `owner_ref`
-([`goal-run-execution.md`](./goal-run-execution.md),
+([`goal-run-execution.md`](../../domains/ioi-ai/goal-run-execution.md),
 [`work-results-and-lifecycle.md`](./work-results-and-lifecycle.md)). A proposal
 never mints an owner, and an unlisted owner scheme fails admission.
 

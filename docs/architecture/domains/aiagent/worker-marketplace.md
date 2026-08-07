@@ -1,7 +1,7 @@
 # aiagent.xyz Worker Marketplace Specification
 
 Status: canonical architecture authority.
-Canonical owner: this file for aiagent.xyz marketplace doctrine; low-level worker endpoints live in [`aiagent-xyz-worker-and-inter-agent-endpoints.md`](./worker-endpoints.md).
+Canonical owner: this file for aiagent.xyz marketplace doctrine; low-level worker endpoints live in [`worker-endpoints.md`](./worker-endpoints.md).
 Supersedes: overlapping worker-marketplace plan prose when marketplace boundaries conflict.
 Superseded by: none.
 Last alignment pass: 2026-07-15.
