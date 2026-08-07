@@ -1,0 +1,27 @@
+{
+  "schema_version": "ioi.work-lifecycle-record.v1",
+  "record_id": "work-lifecycle://work_run_1/2",
+  "record_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "record_type": "child_reference",
+  "object_kind": "work_run",
+  "object_ref": "work_run://run-1",
+  "expected_head": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "resulting_head": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "idempotency_key": "attach-harness-invocation-1",
+  "authority_class": "daemon",
+  "authority_ref": "authority://daemon",
+  "evidence_refs": [
+    "trace://work_run/run-1/attach-1"
+  ],
+  "receipt_refs": [
+    "receipt://work_run/attach-1"
+  ],
+  "phase_transition": null,
+  "child_reference": {
+    "operation": "attach",
+    "relation_kind": "harness_invocation",
+    "child_ref": "harness_invocation://invocation-1",
+    "effect_recovery_class": "compensatable"
+  },
+  "occurred_at_ms": 2
+}

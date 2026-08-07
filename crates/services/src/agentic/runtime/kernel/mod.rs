@@ -70,6 +70,7 @@ pub mod runtime_thread_event;
 pub mod runtime_thread_fork_control;
 pub mod runtime_tool_catalog;
 pub mod runtime_work_lifecycle_admission;
+pub mod runtime_work_lifecycle_log;
 pub mod runtime_worker_package_install_admission;
 pub mod runtime_workflow_edit_control;
 pub mod runtime_workspace_change_control;

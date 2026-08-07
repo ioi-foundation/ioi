@@ -17,8 +17,6 @@ pub const RUNTIME_WORK_LIFECYCLE_ADMISSION_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.work-lifecycle-admission-request.v1";
 pub const RUNTIME_WORK_LIFECYCLE_ADMISSION_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.work_lifecycle_admission.v1";
-pub const RUNTIME_CANCELLATION_FANOUT_PLAN_SCHEMA_VERSION: &str =
-    "ioi.runtime.cancellation_fanout_plan.v1";
 
 /// Admitted state of one node in the work-owning graph.
 ///
@@ -134,22 +132,6 @@ pub struct WorkLifecycleAdmissionRecord {
     pub child: WorkOwningNodeState,
     pub parent_after: WorkOwningNodeState,
     pub admitted_reservations: BTreeMap<String, u64>,
-}
-
-/// One target in a cancellation fanout, deepest-first.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CancellationFanoutTarget {
-    pub node_id: String,
-    pub depth: u8,
-    pub already_settled: bool,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CancellationFanoutPlan {
-    pub schema_version: &'static str,
-    pub root_node_id: String,
-    /// Deepest-first: descendants terminate before their ancestors.
-    pub targets: Vec<CancellationFanoutTarget>,
 }
 
 /// Result of asking whether a node may release its conserved capacity.
@@ -474,63 +456,6 @@ impl WorkLifecycleAdmissionCore {
         })
     }
 
-    /// Derive a cancellation fanout over the transitive descendant graph.
-    ///
-    /// Deepest-first, so a descendant terminates before its ancestor. Already
-    /// settled nodes are retained in the plan and marked, not silently dropped.
-    pub fn plan_cancellation_fanout(
-        &self,
-        root_node_id: &str,
-        nodes: &[WorkOwningNodeState],
-    ) -> AdmitResult<CancellationFanoutPlan> {
-        let root_node_id = root_node_id.trim();
-        if root_node_id.is_empty() {
-            return Err(WorkLifecycleAdmissionError::new(
-                "work_lifecycle_cancellation_root_required",
-                "cancellation fanout requires a root node id",
-            ));
-        }
-
-        let mut targets: Vec<CancellationFanoutTarget> = Vec::new();
-        let mut frontier = vec![root_node_id.to_string()];
-        let mut visited: BTreeSet<String> = BTreeSet::new();
-        visited.insert(root_node_id.to_string());
-
-        while let Some(current) = frontier.pop() {
-            for node in nodes {
-                if node.parent_id.as_deref() != Some(current.as_str()) {
-                    continue;
-                }
-                if !visited.insert(node.node_id.clone()) {
-                    // Already seen: the stored graph contains a cycle.
-                    return Err(WorkLifecycleAdmissionError::new(
-                        "work_lifecycle_cancellation_cycle_detected",
-                        format!("cycle detected at node {}", node.node_id),
-                    ));
-                }
-                targets.push(CancellationFanoutTarget {
-                    node_id: node.node_id.clone(),
-                    depth: node.depth,
-                    already_settled: node.is_settled(),
-                });
-                frontier.push(node.node_id.clone());
-            }
-        }
-
-        // Deepest-first; stable by node_id within a depth.
-        targets.sort_by(|a, b| {
-            b.depth
-                .cmp(&a.depth)
-                .then_with(|| a.node_id.cmp(&b.node_id))
-        });
-
-        Ok(CancellationFanoutPlan {
-            schema_version: RUNTIME_CANCELLATION_FANOUT_PLAN_SCHEMA_VERSION,
-            root_node_id: root_node_id.to_string(),
-            targets,
-        })
-    }
-
     /// Decide whether a node may release its conserved capacity.
     ///
     /// INV-35: process exit, a cancellation request, or bare local detach
@@ -823,45 +748,6 @@ mod tests {
     }
 
     #[test]
-    fn cancellation_fanout_is_transitive_and_deepest_first() {
-        let core = WorkLifecycleAdmissionCore;
-        let node = |id: &str, parent: Option<&str>, depth: u8| WorkOwningNodeState {
-            node_id: id.into(),
-            parent_id: parent.map(str::to_string),
-            depth,
-            ..parent_for_graph()
-        };
-        let nodes = vec![
-            node("a", Some("root"), 1),
-            node("b", Some("a"), 2),
-            node("c", Some("b"), 3),
-            node("d", Some("root"), 1),
-            node("unrelated", Some("elsewhere"), 1),
-        ];
-        let plan = core.plan_cancellation_fanout("root", &nodes).unwrap();
-        let ids: Vec<&str> = plan.targets.iter().map(|t| t.node_id.as_str()).collect();
-        // Grandchild reached (transitive), unrelated excluded, deepest first.
-        assert_eq!(ids, vec!["c", "b", "a", "d"]);
-    }
-
-    #[test]
-    fn cancellation_fanout_detects_a_stored_cycle() {
-        let core = WorkLifecycleAdmissionCore;
-        let node = |id: &str, parent: Option<&str>| WorkOwningNodeState {
-            node_id: id.into(),
-            parent_id: parent.map(str::to_string),
-            ..parent_for_graph()
-        };
-        let nodes = vec![
-            node("a", Some("root")),
-            node("b", Some("a")),
-            node("a", Some("b")),
-        ];
-        let err = core.plan_cancellation_fanout("root", &nodes).unwrap_err();
-        assert_eq!(err.code(), "work_lifecycle_cancellation_cycle_detected");
-    }
-
-    #[test]
     fn capacity_is_not_released_while_children_are_unsettled() {
         let core = WorkLifecycleAdmissionCore;
         let mut node = parent();
@@ -881,29 +767,5 @@ mod tests {
         let plan = core.plan_capacity_release(&node, &[settled_child]);
         assert!(plan.may_release);
         assert_eq!(plan.released.get("tokens"), Some(&50));
-    }
-
-    fn parent_for_graph() -> WorkOwningNodeState {
-        WorkOwningNodeState {
-            node_id: String::new(),
-            root_id: "root".into(),
-            parent_id: None,
-            state_head: "head".into(),
-            depth: 0,
-            max_depth: 8,
-            can_delegate: true,
-            remaining_descendant_budget: None,
-            children_admitted: 0,
-            active_children: 0,
-            max_concurrent_children: None,
-            deadline_unix_s: None,
-            authority_scope_refs: BTreeSet::new(),
-            context_visibility_refs: BTreeSet::new(),
-            capacity: BTreeMap::new(),
-            reserved: BTreeMap::new(),
-            protected: BTreeMap::new(),
-            terminal: false,
-            fenced: false,
-        }
     }
 }
