@@ -139,6 +139,9 @@ fn verify_assertion(
         "sub",
         "tenant_ref",
         "source_identity_hash",
+        // W1.1 / DEF-IDENT-3 — optional actor claim. Absent means "not impersonated"; the set
+        // stays closed, so an unknown claim is still a refusal.
+        "act",
         "iat",
         "nbf",
         "exp",
@@ -151,6 +154,18 @@ fn verify_assertion(
     let tenant_ref = claims["tenant_ref"].as_str().unwrap_or_default();
     let source_hash = claims["source_identity_hash"].as_str().unwrap_or_default();
     let jti = claims["jti"].as_str().unwrap_or_default();
+    // An `act` claim that is malformed, or that names the subject itself, is a refusal rather
+    // than a silently-dropped attribution: losing the actor is exactly the defect being closed.
+    let _actor = match claims.get("act") {
+        None | Some(Value::Null) => None,
+        Some(value) => {
+            let actor = value.as_str().unwrap_or_default();
+            if !canonical_principal_id(actor) || actor == subject {
+                return Err("assertion actor claim is invalid".to_string());
+            }
+            Some(actor.to_string())
+        }
+    };
     let (Some(iat), Some(nbf), Some(exp)) = (
         claim_i64(&claims, "iat"),
         claim_i64(&claims, "nbf"),
@@ -308,6 +323,7 @@ fn exchange_assertion(
         &config.audience,
         &config.tenant_ref,
         consumption["consumption_ref"].as_str().unwrap_or_default(),
+        claims["act"].as_str(),
     )
 }
 

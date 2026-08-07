@@ -14924,7 +14924,7 @@ pub(crate) fn resolve_principal(data_dir: &str, headers: &HeaderMap) -> Option<V
     // The portal exchange records `tenant_ref` on the session at mint; without returning it here
     // the scope is admitted once and never enforced, so a session minted for one tenant resolves
     // a principal carrying every tenant it belongs to.
-    let try_session = |tok: &str| -> Option<(Value, Option<String>)> {
+    let try_session = |tok: &str| -> Option<(Value, Option<String>, Option<String>)> {
         let h = sha256_hex_str(tok);
         let now = iso_now();
         read_record_dir(data_dir, "sessions")
@@ -14938,10 +14938,11 @@ pub(crate) fn resolve_principal(data_dir: &str, headers: &HeaderMap) -> Option<V
             })
             .and_then(|s| {
                 let scope = s["source_tenant_ref"].as_str().map(str::to_owned);
+                let actor = s["source_actor_ref"].as_str().map(str::to_owned);
                 s["principal_id"]
                     .as_str()
                     .and_then(|pid| find_principal(data_dir, pid))
-                    .map(|principal| (principal, scope))
+                    .map(|principal| (principal, scope, actor))
             })
     };
 
@@ -14965,21 +14966,39 @@ pub(crate) fn resolve_principal(data_dir: &str, headers: &HeaderMap) -> Option<V
         principal["tenant_memberships"] = json!(memberships);
         Some(principal)
     };
+
+    // DEF-IDENT-3 — an impersonated request resolves to the SUBJECT, and carries the actor
+    // beside it. Receipts that bind only `principal_ref` would otherwise attribute the act to
+    // someone who did not perform it.
+    let attribute_actor = |principal: Option<Value>, actor: Option<String>| -> Option<Value> {
+        let mut principal = principal?;
+        if let Some(actor) = actor {
+            principal["acting_principal_ref"] = json!(actor);
+            principal["is_impersonated"] = json!(true);
+        }
+        Some(principal)
+    };
     if let Some(tok) = &session_tok {
-        if let Some((p, scope)) = try_session(tok) {
+        if let Some((p, scope, actor)) = try_session(tok) {
             if p["status"].as_str() == Some("active") {
-                return principal_public_with_memberships(data_dir, p)
-                    .ok()
-                    .and_then(|principal| narrow_to_session_tenant(principal, scope));
+                return attribute_actor(
+                    principal_public_with_memberships(data_dir, p)
+                        .ok()
+                        .and_then(|principal| narrow_to_session_tenant(principal, scope)),
+                    actor,
+                );
             }
         }
     }
     if let Some(tok) = &bearer {
-        if let Some((p, scope)) = try_session(tok) {
+        if let Some((p, scope, actor)) = try_session(tok) {
             if p["status"].as_str() == Some("active") {
-                return principal_public_with_memberships(data_dir, p)
-                    .ok()
-                    .and_then(|principal| narrow_to_session_tenant(principal, scope));
+                return attribute_actor(
+                    principal_public_with_memberships(data_dir, p)
+                        .ok()
+                        .and_then(|principal| narrow_to_session_tenant(principal, scope)),
+                    actor,
+                );
             }
         }
         // API access token: match the stored hash → its user_id → principal
@@ -15993,6 +16012,7 @@ mod principal_tenant_membership_tests {
             "https://daemon.test",
             "org://local",
             "consumption://test",
+            None,
         );
         assert_eq!(status, StatusCode::OK);
         let token = issued["session_token"].as_str().unwrap().to_string();
@@ -16044,6 +16064,67 @@ mod principal_tenant_membership_tests {
             resolve_principal(data_dir, &headers).is_none(),
             "a session whose admitted tenant membership is gone must fail closed"
         );
+    }
+
+    /// W1.1 / DEF-IDENT-3 — an impersonated session resolves to the SUBJECT and must carry the
+    /// actor beside it. Without that, a receipt binding only `principal_ref` attributes the act
+    /// to someone who did not perform it and the delegation disappears from the evidence.
+    #[test]
+    fn impersonated_session_retains_actor_beside_the_subject() {
+        let directory = fixture();
+        let data_dir = directory.path().to_str().unwrap();
+
+        let (status, issued) = issue_portal_exchange_session(
+            data_dir,
+            OPERATOR_ID,
+            "https://portal.test",
+            "https://daemon.test",
+            "org://local",
+            "consumption://impersonated",
+            Some("member-alpha"),
+        );
+        assert_eq!(status, StatusCode::OK);
+        let token = issued["session_token"].as_str().unwrap().to_string();
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            header::AUTHORIZATION,
+            format!("Bearer {token}").parse().unwrap(),
+        );
+
+        let resolved = resolve_principal(data_dir, &headers).expect("session resolves");
+        assert_eq!(
+            resolved["principal_ref"],
+            json!(canonical_local_principal_ref(OPERATOR_ID).unwrap()),
+            "an impersonated request still acts AS the subject"
+        );
+        assert_eq!(
+            resolved["acting_principal_ref"],
+            json!(canonical_local_principal_ref("member-alpha").unwrap()),
+            "the actor must survive onto the resolved principal"
+        );
+        assert_eq!(resolved["is_impersonated"], json!(true));
+
+        // A non-impersonated session carries neither field, so "impersonated" is never inferred
+        // from an absent value.
+        let (_, plain) = issue_portal_exchange_session(
+            data_dir,
+            OPERATOR_ID,
+            "https://portal.test",
+            "https://daemon.test",
+            "org://local",
+            "consumption://plain",
+            None,
+        );
+        let mut plain_headers = HeaderMap::new();
+        plain_headers.insert(
+            header::AUTHORIZATION,
+            format!("Bearer {}", plain["session_token"].as_str().unwrap())
+                .parse()
+                .unwrap(),
+        );
+        let plain_resolved = resolve_principal(data_dir, &plain_headers).unwrap();
+        assert!(plain_resolved.get("acting_principal_ref").is_none());
+        assert!(plain_resolved.get("is_impersonated").is_none());
     }
 }
 
@@ -16197,6 +16278,10 @@ pub(crate) fn issue_portal_exchange_session(
     audience: &str,
     tenant_ref: &str,
     consumption_ref: &str,
+    // W1.1 / DEF-IDENT-3 — the portal's actor, when the subject is being impersonated. Retained
+    // on the session so daemon evidence attributes the act to BOTH parties; without it a receipt
+    // names only the subject and the delegation disappears.
+    actor_principal_id: Option<&str>,
 ) -> (StatusCode, Value) {
     issue_session_with_context(
         data_dir,
@@ -16208,6 +16293,10 @@ pub(crate) fn issue_portal_exchange_session(
             "source_audience": audience,
             "source_tenant_ref": tenant_ref,
             "source_consumption_ref": consumption_ref,
+            "source_actor_ref": actor_principal_id
+                .and_then(canonical_local_principal_ref)
+                .map(Value::String)
+                .unwrap_or(Value::Null),
             "allowed_route_prefixes": ["/v1/goal-orchestration/"],
             "allowed_exact_routes": [
                 "/v1/hypervisor/auth/whoami",
