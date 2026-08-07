@@ -314,6 +314,99 @@ impl WorkLifecycleLogCore {
         })
     }
 
+    /// Reconstruct one object's record chain in append order from an unordered
+    /// record set, by walking `expected_head` -> `resulting_head` links from
+    /// genesis.
+    ///
+    /// Storage order is not trusted. Fails closed on a missing or duplicate
+    /// genesis, a fork (two records claiming the same predecessor), or an
+    /// orphan/gap (records that no chain walk reaches).
+    pub fn reconstruct_chain(&self, records: &[Value]) -> LogResult<Vec<Value>> {
+        if records.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let mut genesis: Option<&Value> = None;
+        let mut by_predecessor: BTreeMap<String, &Value> = BTreeMap::new();
+
+        for record in records {
+            let object = record.as_object().ok_or_else(|| {
+                WorkLifecycleLogError::new(
+                    "work_lifecycle_log_record_not_object",
+                    "stored record is not an object",
+                )
+            })?;
+            match object.get("expected_head").and_then(Value::as_str) {
+                None => {
+                    if genesis.is_some() {
+                        return Err(WorkLifecycleLogError::new(
+                            "work_lifecycle_log_duplicate_genesis",
+                            "more than one genesis record exists for this object",
+                        ));
+                    }
+                    genesis = Some(record);
+                }
+                Some(predecessor) => {
+                    if by_predecessor
+                        .insert(predecessor.to_string(), record)
+                        .is_some()
+                    {
+                        return Err(WorkLifecycleLogError::new(
+                            "work_lifecycle_log_fork_detected",
+                            format!("two records claim predecessor {predecessor}"),
+                        ));
+                    }
+                }
+            }
+        }
+
+        let Some(genesis) = genesis else {
+            return Err(WorkLifecycleLogError::new(
+                "work_lifecycle_log_missing_genesis",
+                "record set has no genesis record",
+            ));
+        };
+
+        let mut chain = vec![genesis.clone()];
+        let mut head = self.stored_head(genesis)?;
+        while let Some(next) = by_predecessor.remove(&head) {
+            head = self.stored_head(next)?;
+            chain.push(next.clone());
+        }
+
+        if !by_predecessor.is_empty() {
+            return Err(WorkLifecycleLogError::new(
+                "work_lifecycle_log_orphan_records",
+                format!(
+                    "{} record(s) are unreachable from genesis (gap or orphan)",
+                    by_predecessor.len()
+                ),
+            ));
+        }
+
+        Ok(chain)
+    }
+
+    /// Read a stored record's head, verifying it equals its own commitment.
+    fn stored_head(&self, record: &Value) -> LogResult<String> {
+        let stored = record
+            .as_object()
+            .and_then(|object| str_field(object, "resulting_head"))
+            .ok_or_else(|| {
+                WorkLifecycleLogError::new(
+                    "work_lifecycle_log_head_missing",
+                    "stored record has no resulting_head",
+                )
+            })?;
+        if self.commitment(record)? != stored {
+            return Err(WorkLifecycleLogError::new(
+                "work_lifecycle_log_invalid_stored_hash",
+                "stored record hash does not match its content commitment",
+            ));
+        }
+        Ok(stored)
+    }
+
     /// Rebuild the active typed child set from append-only attach/detach facts.
     pub fn project_active_children(&self, log: &[Value]) -> LogResult<Vec<ActiveChild>> {
         let mut active: BTreeMap<(String, String), ActiveChild> = BTreeMap::new();
@@ -699,6 +792,52 @@ mod tests {
             .plan_append(&log, &attach("a", "k-a", "none", &head, 2_000))
             .unwrap_err();
         assert_eq!(err.code(), "work_lifecycle_log_invalid_stored_hash");
+    }
+
+    #[test]
+    fn chain_reconstructs_from_unordered_storage() {
+        let core = WorkLifecycleLogCore;
+        let mut log = Vec::new();
+        let mut head = commit(&core, &mut log, genesis());
+        head = commit(&core, &mut log, attach("a", "k-a", "none", &head, 2_000));
+        commit(&core, &mut log, attach("b", "k-b", "none", &head, 3_000));
+
+        // Storage order is not append order.
+        let mut shuffled = vec![log[2].clone(), log[0].clone(), log[1].clone()];
+        let chain = core.reconstruct_chain(&shuffled).unwrap();
+        assert_eq!(chain, log);
+
+        // An orphan that no walk reaches fails closed rather than being dropped.
+        shuffled.push(attach(
+            "orphan",
+            "k-orphan",
+            "none",
+            &format!("sha256:{}", "9".repeat(64)),
+            4_000,
+        ));
+        assert_eq!(
+            core.reconstruct_chain(&shuffled).unwrap_err().code(),
+            "work_lifecycle_log_orphan_records"
+        );
+    }
+
+    #[test]
+    fn chain_reconstruction_detects_a_fork() {
+        let core = WorkLifecycleLogCore;
+        let mut log = Vec::new();
+        let head = commit(&core, &mut log, genesis());
+        // Two records claiming the same predecessor: a fork in storage.
+        let planned_a = core
+            .plan_append(&log, &attach("a", "k-a", "none", &head, 2_000))
+            .unwrap();
+        let planned_b = core
+            .plan_append(&log, &attach("b", "k-b", "none", &head, 2_000))
+            .unwrap();
+        let forked = vec![log[0].clone(), planned_a.record, planned_b.record];
+        assert_eq!(
+            core.reconstruct_chain(&forked).unwrap_err().code(),
+            "work_lifecycle_log_fork_detected"
+        );
     }
 
     #[test]
