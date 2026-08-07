@@ -13,6 +13,28 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde::Deserialize;
 
+/// Substrate delegation defaults. Owner ruling, 2026-08-07.
+///
+/// These are **substrate fail-closed defaults, not policy**. INV-14 (honest
+/// posture, fail closed): a bound must exist even when no policy speaks, so
+/// absence of policy is never unbounded-by-absence.
+///
+/// The narrowing rule that governs them:
+///
+/// - an admitted policy object may **narrow** these, always;
+/// - it may **widen** them only through the governed authority path;
+/// - a route-supplied value may never set them, in either direction.
+///
+/// The request type below carries `requested_*` fields for the first case only:
+/// `admit_child` refuses any request that exceeds its parent, so a caller can
+/// ask for less and can never ask for more. Deriving these from an admitted
+/// policy plane is carried forward, not built here.
+///
+/// This is the one place these numbers are named.
+pub const SUBSTRATE_DEFAULT_MAX_DEPTH: u8 = 3;
+pub const SUBSTRATE_DEFAULT_MAX_CONCURRENT_CHILDREN: u32 = 8;
+pub const SUBSTRATE_DEFAULT_DESCENDANT_BUDGET: u32 = 32;
+
 pub const RUNTIME_WORK_LIFECYCLE_ADMISSION_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.work-lifecycle-admission-request.v1";
 pub const RUNTIME_WORK_LIFECYCLE_ADMISSION_RESULT_SCHEMA_VERSION: &str =

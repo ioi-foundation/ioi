@@ -16,7 +16,8 @@ use axum::http::StatusCode;
 use axum::Json;
 use ioi_services::agentic::runtime::kernel::runtime_work_lifecycle_admission::{
     WorkLifecycleAdmissionCore, WorkLifecycleAdmissionRequest, WorkOwningNodeState,
-    RUNTIME_WORK_LIFECYCLE_ADMISSION_REQUEST_SCHEMA_VERSION,
+    RUNTIME_WORK_LIFECYCLE_ADMISSION_REQUEST_SCHEMA_VERSION, SUBSTRATE_DEFAULT_DESCENDANT_BUDGET,
+    SUBSTRATE_DEFAULT_MAX_CONCURRENT_CHILDREN, SUBSTRATE_DEFAULT_MAX_DEPTH,
 };
 use ioi_services::agentic::runtime::kernel::runtime_work_lifecycle_log::{
     AppendOutcome, CancellationIntent, WorkLifecycleLogCore,
@@ -142,9 +143,9 @@ pub(crate) fn ensure_genesis(
             "to_phase": initial_phase,
             "delegation_bounds": bounds_payload(
                 0,
-                ROOT_MAX_DEPTH,
-                ROOT_MAX_CONCURRENT_CHILDREN,
-                ROOT_DESCENDANT_BUDGET,
+                SUBSTRATE_DEFAULT_MAX_DEPTH,
+                SUBSTRATE_DEFAULT_MAX_CONCURRENT_CHILDREN,
+                SUBSTRATE_DEFAULT_DESCENDANT_BUDGET,
             ),
         },
         "child_reference": Value::Null,
@@ -159,13 +160,10 @@ pub(crate) fn ensure_genesis(
         .ok_or_else(|| bad_request("genesis produced no head"))
 }
 
-/// Root delegation ceilings applied when an object is admitted as a root.
-///
-/// These are the substrate's default bounds. A child never widens them; it
-/// inherits them narrowed (INV-35).
-const ROOT_MAX_DEPTH: u8 = 3;
-const ROOT_MAX_CONCURRENT_CHILDREN: u32 = 8;
-const ROOT_DESCENDANT_BUDGET: u32 = 32;
+// Root ceilings are NOT named here. They are substrate defaults owned by the
+// kernel (owner ruling 2026-08-07), imported so there is exactly one place
+// these numbers exist. This module supplies no bound of its own and reads none
+// from the request body: a route-supplied value may never set a ceiling.
 
 /// Delegation bounds are carried in the genesis `phase_transition` payload,
 /// which canon leaves as an open object.
@@ -203,9 +201,9 @@ fn node_state_from_chain(
         .unwrap_or_else(|| {
             bounds_payload(
                 0,
-                ROOT_MAX_DEPTH,
-                ROOT_MAX_CONCURRENT_CHILDREN,
-                ROOT_DESCENDANT_BUDGET,
+                SUBSTRATE_DEFAULT_MAX_DEPTH,
+                SUBSTRATE_DEFAULT_MAX_CONCURRENT_CHILDREN,
+                SUBSTRATE_DEFAULT_DESCENDANT_BUDGET,
             )
         });
 
@@ -223,12 +221,12 @@ fn node_state_from_chain(
         parent_id: None,
         state_head: head,
         depth: read_u64("depth", 0) as u8,
-        max_depth: read_u64("max_depth", u64::from(ROOT_MAX_DEPTH)) as u8,
+        max_depth: read_u64("max_depth", u64::from(SUBSTRATE_DEFAULT_MAX_DEPTH)) as u8,
         can_delegate: true,
         remaining_descendant_budget: Some(
             read_u64(
                 "remaining_descendant_budget",
-                u64::from(ROOT_DESCENDANT_BUDGET),
+                u64::from(SUBSTRATE_DEFAULT_DESCENDANT_BUDGET),
             )
             .saturating_sub(u64::from(active_children)) as u32,
         ),
@@ -236,7 +234,7 @@ fn node_state_from_chain(
         active_children,
         max_concurrent_children: Some(read_u64(
             "max_concurrent_children",
-            u64::from(ROOT_MAX_CONCURRENT_CHILDREN),
+            u64::from(SUBSTRATE_DEFAULT_MAX_CONCURRENT_CHILDREN),
         ) as u32),
         deadline_unix_s: None,
         authority_scope_refs: BTreeSet::new(),
@@ -568,8 +566,8 @@ mod tests {
         let (dir, data_dir) = temp_dir("fanout");
         let parent = "work_run://parent";
 
-        // The root ceiling is ROOT_MAX_CONCURRENT_CHILDREN.
-        for index in 0..ROOT_MAX_CONCURRENT_CHILDREN {
+        // The root ceiling is SUBSTRATE_DEFAULT_MAX_CONCURRENT_CHILDREN.
+        for index in 0..SUBSTRATE_DEFAULT_MAX_CONCURRENT_CHILDREN {
             admit(&data_dir, parent, &format!("work_run://child-{index}"))
                 .unwrap_or_else(|error| panic!("child {index} should be admitted: {error}"));
         }
@@ -583,7 +581,10 @@ mod tests {
 
         // The refusal is structural: no edge was recorded for the refused child.
         let children = flatten(active_children_of(&data_dir, parent)).expect("children");
-        assert_eq!(children.len() as u32, ROOT_MAX_CONCURRENT_CHILDREN);
+        assert_eq!(
+            children.len() as u32,
+            SUBSTRATE_DEFAULT_MAX_CONCURRENT_CHILDREN
+        );
         assert!(children
             .iter()
             .all(|(_, child_ref)| child_ref != "work_run://one-too-many"));
@@ -598,7 +599,7 @@ mod tests {
         // Each generation narrows from its parent, so depth is bounded across
         // the chain rather than resetting at every hop.
         let mut current = "work_run://gen-0".to_string();
-        for generation in 1..=ROOT_MAX_DEPTH {
+        for generation in 1..=SUBSTRATE_DEFAULT_MAX_DEPTH {
             let next = format!("work_run://gen-{generation}");
             admit(&data_dir, &current, &next)
                 .unwrap_or_else(|error| panic!("generation {generation}: {error}"));
@@ -609,7 +610,7 @@ mod tests {
         let refused = admit(
             &data_dir,
             &current,
-            &format!("work_run://gen-{}", ROOT_MAX_DEPTH + 1),
+            &format!("work_run://gen-{}", SUBSTRATE_DEFAULT_MAX_DEPTH + 1),
         );
         let message = refused.expect_err("depth ceiling must refuse");
         assert!(
