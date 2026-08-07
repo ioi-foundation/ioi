@@ -75,6 +75,17 @@ jobs:
       - name: Build the shipped Hypervisor daemon
         run: cargo build --locked -p ioi-node --bin hypervisor-daemon
 
+      # Wired 2026-08-07, once the suite became deterministic. It previously varied run to run —
+      # three runs of one tree gave 2, 3 and 4 failures — because fault injection was a
+      # process-global env var while Rust runs tests as parallel threads. A suite that answers
+      # differently each time cannot gate anything: a green run is not evidence and a red run does
+      # not identify a defect. Injection is now thread-local, and this is a real gate.
+      - name: Test the shipped Hypervisor daemon
+        run: cargo test --locked -p ioi-node --bin hypervisor-daemon
+
+      - name: Test the Agentgres substrate
+        run: cargo test --locked -p agentgres
+
       - name: Publish the shipped Hypervisor daemon for live product smoke
         uses: actions/upload-artifact@v4
         with:
