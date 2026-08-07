@@ -1045,16 +1045,6 @@ pub(crate) async fn handle_recipe_run(
         }
     };
     let content_hash = digest(&bytes);
-    if let Err(error) = durable_write(
-        &artifact_path(&st.data_dir, DATA_DIR, &content_hash),
-        &bytes,
-    ) {
-        return bad(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "foundry_dataset_persist_failed",
-            error.to_string(),
-        );
-    }
     let snapshot_ref = format!(
         "dataset-snapshot://foundry/{}",
         content_hash.trim_start_matches("sha256:")
@@ -1074,6 +1064,11 @@ pub(crate) async fn handle_recipe_run(
         "status":"materialized",
     });
     let tail = hash_tail("dataset", &snapshot_ref);
+    // Bind the dataset's owner scope BEFORE materializing bytes. The write used to come first, so a
+    // snapshot ref already owned by another tenant was detected only after this daemon had written
+    // the artifact for it. The ref is content-addressed, so the bytes are identical either way and
+    // nothing is corrupted — but the refusal now costs no disk, and the effect follows the
+    // authorization that permits it rather than preceding it.
     if let Err(reply) = bind_scope(
         &st.data_dir,
         &identity,
@@ -1083,6 +1078,16 @@ pub(crate) async fn handle_recipe_run(
         &request.idempotency_key,
     ) {
         return reply;
+    }
+    if let Err(error) = durable_write(
+        &artifact_path(&st.data_dir, DATA_DIR, &content_hash),
+        &bytes,
+    ) {
+        return bad(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "foundry_dataset_persist_failed",
+            error.to_string(),
+        );
     }
     match append(
         &st.data_dir,

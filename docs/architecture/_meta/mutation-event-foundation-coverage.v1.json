@@ -205,6 +205,15 @@
         "remove caller-side idempotency scans and use the shared whole-stream enforcement",
         "bind every artifact effect to an admitted intent and cleanup obligation",
         "prove same-key/different-bytes, stale-head, restart replay, and post-materialization admission-failure recovery"
+      ],
+      "progress": [
+        "handle_recipe_run materialized the dataset artifact BEFORE binding the dataset's owner scope, so a snapshot ref already owned by another tenant was detected only after this daemon had written the artifact for it. The bind now precedes the write. The ref is content-addressed, so no corruption was possible either way and the bytes are identical \u2014 but an authorization refusal now costs no disk, and the effect follows the authorization that permits it."
+      ],
+      "correction": "The gap text's first acceptance item \u2014 'remove caller-side idempotency scans' \u2014 was written as though those scans were unsound. They were read and they are NOT. Both compare COMPLETE request identity: the recipe scan's content_hash is a JCS digest of the entire request minus expected_head and idempotency_key, and ProgramActionRequest has exactly three fields, of which action_identity carries the only two that are semantic. Neither can accept a same-key request with different bytes as a replay. They remain worth removing because each reads the WHOLE stream history per call \u2014 O(history) per program step, so O(n^2) across a long training run \u2014 and because a second definition of request identity beside the substrate's is exactly what the shared boundary exists to eliminate. That is a duplication and scaling argument, not a correctness one, and this gap should not be cited as evidence of a live idempotency defect.",
+      "still_open": [
+        "NOT adopted onto the shared owner-scoped boundary; the plane keeps its own append/authorize_scope/bind_scope wrappers and its own idempotency scans.",
+        "Artifact effects still have no explicit cleanup obligation when admission fails after bytes are materialized. The exposure is bounded \u2014 artifacts are content-addressed and durable_write is a no-op when the bytes already match, so a retry converges and nothing is corrupted \u2014 but an unreferenced blob can still outlive a failed admission with nothing recording that it should be collected.",
+        "Same-key/different-bytes, stale-head, restart replay and post-materialization admission-failure recovery are unproven by test for this plane."
       ]
     },
     {
