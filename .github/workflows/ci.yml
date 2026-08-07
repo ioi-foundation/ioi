@@ -227,35 +227,16 @@ jobs:
       - name: Browser-smoke shipped product routes
         run: npm run smoke:product-surfaces
 
-      - name: Install web UI dependencies
-        run: npm ci
-
-      - name: Download the built Hypervisor daemon
-        uses: actions/download-artifact@v4
-        with:
-          name: hypervisor-daemon-linux-debug
-          path: target/debug
-
-      - name: Make the downloaded daemon executable
-        run: chmod +x ../../../../target/debug/hypervisor-daemon
-
-      - name: Verify committed ioi.ai vendor snapshot-ledger integrity
-        run: node ../../../../scripts/generate-ioi-ai-vendor-manifest.mjs --check
-
-      - name: Build ioi.ai web UI
-        run: npm run build
-
-      - name: Typecheck browser, server, and tests
-        run: npm run typecheck
-
-      - name: Run ioi.ai contracts
-        run: npm test
-
-      - name: Verify authenticated ioi.ai contracts against the real daemon
-        run: IOI_AI_REAL_DAEMON_BINARY=../../../../target/debug/hypervisor-daemon npm run smoke:real-daemon
-
-      - name: Install browser runtime
-        run: npx playwright install --with-deps chromium
-
-      - name: Browser-smoke authenticated ioi.ai routes
-        run: npm run smoke:browser
+      # An ioi.ai web-UI block used to follow here. It was residue of the dual runtime removed under
+      # the one-ioi.ai-app ruling, and it could not run: every step carried `../../../../` paths
+      # written for a working directory four levels deep, but the block declared no
+      # `working-directory`, so `chmod ../../../../target/debug/hypervisor-daemon` reached outside
+      # the repo and failed. It also re-ran `npm ci` and re-downloaded the daemon artifact that this
+      # job already has. Three of the scripts it invoked — `build`, `smoke:real-daemon`,
+      # `smoke:browser` — exist neither at the repo root nor in apps/ioi-ai; the other two duplicate
+      # the root `typecheck` and `test` already run above.
+      #
+      # So there is currently NO CI coverage of the ioi.ai web UI. That is a real gap, left open
+      # deliberately rather than closed by guessing: `OQ-4` — whether the ioi.ai web UI ships, and
+      # from which root — is an open question in the implementation guide, and inventing a
+      # working-directory here would answer it by accident.
