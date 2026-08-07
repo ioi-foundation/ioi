@@ -173,6 +173,17 @@
         "introduce explicit intent/effect/observation/recovery states for restore filesystem changes",
         "retain rollback material until completion admission is confirmed or record a cleanup obligation",
         "prove cancellation/apply interruption recovery and exact retry after restart"
+      ],
+      "progress": [
+        "The two effect-ordering defects named in the gap text are FIXED. Restore cancel admitted the cancellation only AFTER deleting the staged bytes: if that append then failed, the plan still read 'prepared' over bytes that were gone, and no reader could tell it was unsatisfiable. Cancel now admits a `restore_plan_cancelling` intent first, so a failure between intent and effect is resumable.",
+        "Restore apply deleted the rollback directory \u2014 the only copy of the pre-restore workspace \u2014 BEFORE admitting completion. A failure in that window left the plan 'applying', the workspace already restored, and nothing left to undo it with: the one state from which neither finishing nor rolling back is possible. Completion is now admitted while the rollback material still exists, and a failure to remove it afterwards is reported as a retained-material cleanup obligation rather than a 500 over a restore that did complete.",
+        "`restore_effects_are_admitted_before_they_are_performed` pins both orderings. It asserts source order rather than driving a real restore, because forcing a rename or remove_dir_all to fail mid-transition needs a fixture corpus. It was mutation-checked: reversing the apply ordering makes it fail with the intended message.",
+        "The backup projection write after canonical Agentgres admission now says the admission stands and the divergence is replayable, instead of reporting a bare persist failure that reads as though the backup never happened."
+      ],
+      "still_open": [
+        "NOT adopted onto the shared owner-scoped boundary. This plane still uses its own `append`/`admit_required` wrappers. They do bind authenticated scopes and do CAS, but they are a second implementation of the same contract, which is what the shared boundary exists to prevent. This gap stays OPEN for that reason alone.",
+        "No test drives cancellation or apply through an actual interrupted restore; the ordering is pinned by source assertion only.",
+        "Exact retry after restart is unproven for this plane."
       ]
     },
     {
