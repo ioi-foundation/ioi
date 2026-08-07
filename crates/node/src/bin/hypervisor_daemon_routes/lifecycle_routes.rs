@@ -6543,10 +6543,27 @@ pub(crate) async fn handle_retired_hypervisor_route(uri: axum::http::Uri) -> Res
 /// the canonical admission record (202). Rejections carry the JS facade's structured
 /// {error:{code,message,details}} shape + status (400 validation / 403 authority).
 pub(crate) async fn handle_model_route_mutation_admission(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    // Identity first: the planner must never answer an unauthenticated caller.
+    let (identity, owner_ref, idempotency_key) =
+        match planner_caller(&st.data_dir, &headers, &body) {
+            Ok(caller) => caller,
+            Err(refusal) => return refusal,
+        };
     match RuntimeKernelService::new().admit_model_route_mutation(&body, &iso_now()) {
-        Ok(record) => (StatusCode::ACCEPTED, Json(record)),
+        Ok(record) => admit_planner_record(
+            &st.data_dir,
+            &identity,
+            &owner_ref,
+            &idempotency_key,
+            "hypervisor-model-route-mutation",
+            "model-route-mutation://",
+            "event_stream.hypervisor_model_route_mutation_admitted",
+            record,
+        ),
         Err(error) => (
             StatusCode::from_u16(error.status).unwrap_or(StatusCode::BAD_REQUEST),
             Json(json!({
@@ -6563,10 +6580,27 @@ pub(crate) async fn handle_model_route_mutation_admission(
 /// POST /v1/hypervisor/model-weight-custody-admissions — admit a model-weight custody route
 /// (pure kernel planner: weight-class lane + required controls/scopes/attestation refs).
 pub(crate) async fn handle_model_weight_custody_admission(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    // Identity first: the planner must never answer an unauthenticated caller.
+    let (identity, owner_ref, idempotency_key) =
+        match planner_caller(&st.data_dir, &headers, &body) {
+            Ok(caller) => caller,
+            Err(refusal) => return refusal,
+        };
     match RuntimeKernelService::new().admit_model_weight_custody(&body, &iso_now()) {
-        Ok(record) => (StatusCode::ACCEPTED, Json(record)),
+        Ok(record) => admit_planner_record(
+            &st.data_dir,
+            &identity,
+            &owner_ref,
+            &idempotency_key,
+            "hypervisor-model-weight-custody",
+            "model-weight-custody://",
+            "event_stream.hypervisor_model_weight_custody_admitted",
+            record,
+        ),
         Err(error) => (
             StatusCode::from_u16(error.status).unwrap_or(StatusCode::BAD_REQUEST),
             Json(json!({
@@ -6585,10 +6619,27 @@ pub(crate) async fn handle_model_weight_custody_admission(
 /// authority/receipt/Agentgres refs + daemon-gate/runtime-truth assertion). 202 + record, or
 /// the structured {error:{code,message,details}} shape with status (all 400 validation).
 pub(crate) async fn handle_session_launch_recipe_admission(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    // Identity first: the planner must never answer an unauthenticated caller.
+    let (identity, owner_ref, idempotency_key) =
+        match planner_caller(&st.data_dir, &headers, &body) {
+            Ok(caller) => caller,
+            Err(refusal) => return refusal,
+        };
     match RuntimeKernelService::new().admit_hypervisor_session_launch_recipe(&body, &iso_now()) {
-        Ok(record) => (StatusCode::ACCEPTED, Json(record)),
+        Ok(record) => admit_planner_record(
+            &st.data_dir,
+            &identity,
+            &owner_ref,
+            &idempotency_key,
+            "hypervisor-session-launch-recipe",
+            "session-launch-recipe://",
+            "event_stream.hypervisor_session_launch_recipe_admitted",
+            record,
+        ),
         Err(error) => (
             StatusCode::from_u16(error.status).unwrap_or(StatusCode::BAD_REQUEST),
             Json(json!({
@@ -6607,10 +6658,27 @@ pub(crate) async fn handle_session_launch_recipe_admission(
 /// / receipts + daemon-gate boundary). 202 + record, or the structured {error:{code,message,
 /// details}} shape with status (400 field-shape / 403 policy-authority).
 pub(crate) async fn handle_harness_session_binding_admission(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    // Identity first: the planner must never answer an unauthenticated caller.
+    let (identity, owner_ref, idempotency_key) =
+        match planner_caller(&st.data_dir, &headers, &body) {
+            Ok(caller) => caller,
+            Err(refusal) => return refusal,
+        };
     match RuntimeKernelService::new().admit_harness_session_binding(&body, &iso_now()) {
-        Ok(record) => (StatusCode::ACCEPTED, Json(record)),
+        Ok(record) => admit_planner_record(
+            &st.data_dir,
+            &identity,
+            &owner_ref,
+            &idempotency_key,
+            "hypervisor-harness-session-binding",
+            "harness-session-binding://",
+            "event_stream.hypervisor_harness_session_binding_admitted",
+            record,
+        ),
         Err(error) => (
             StatusCode::from_u16(error.status).unwrap_or(StatusCode::BAD_REQUEST),
             Json(json!({
@@ -6629,10 +6697,27 @@ pub(crate) async fn handle_harness_session_binding_admission(
 /// / scopes / attestation / wallet / declassification refs). 202 + record, or the structured
 /// {error:{code,message,details}} shape with status (400 field-shape / 403 custody-lane policy).
 pub(crate) async fn handle_private_workspace_mount_admission(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    // Identity first: the planner must never answer an unauthenticated caller.
+    let (identity, owner_ref, idempotency_key) =
+        match planner_caller(&st.data_dir, &headers, &body) {
+            Ok(caller) => caller,
+            Err(refusal) => return refusal,
+        };
     match RuntimeKernelService::new().admit_private_workspace_mount(&body, &iso_now()) {
-        Ok(record) => (StatusCode::ACCEPTED, Json(record)),
+        Ok(record) => admit_planner_record(
+            &st.data_dir,
+            &identity,
+            &owner_ref,
+            &idempotency_key,
+            "hypervisor-private-workspace-mount",
+            "private-workspace-mount://",
+            "event_stream.hypervisor_private_workspace_mount_admitted",
+            record,
+        ),
         Err(error) => (
             StatusCode::from_u16(error.status).unwrap_or(StatusCode::BAD_REQUEST),
             Json(json!({
@@ -6651,10 +6736,27 @@ pub(crate) async fn handle_private_workspace_mount_admission(
 /// generic tool call). 202 + record, or {error:{code,message,details}} with status (400 field-shape
 /// / 403 policy-authority).
 pub(crate) async fn handle_physical_action_intent_admission(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    // Identity first: the planner must never answer an unauthenticated caller.
+    let (identity, owner_ref, idempotency_key) =
+        match planner_caller(&st.data_dir, &headers, &body) {
+            Ok(caller) => caller,
+            Err(refusal) => return refusal,
+        };
     match RuntimeKernelService::new().admit_physical_action_intent(&body, &iso_now()) {
-        Ok(record) => (StatusCode::ACCEPTED, Json(record)),
+        Ok(record) => admit_planner_record(
+            &st.data_dir,
+            &identity,
+            &owner_ref,
+            &idempotency_key,
+            "hypervisor-physical-action-intent",
+            "physical-action-intent://",
+            "event_stream.hypervisor_physical_action_intent_admitted",
+            record,
+        ),
         Err(error) => (
             StatusCode::from_u16(error.status).unwrap_or(StatusCode::BAD_REQUEST),
             Json(json!({
@@ -6863,12 +6965,29 @@ pub(crate) async fn handle_worker_package_install_admission(
 /// archive / restore / export / deletion / payment-lapse controls + policies + receipts). 202 +
 /// record, or {error:{code,message,details}} with status (400 field-shape / 403 lifecycle-policy).
 pub(crate) async fn handle_managed_worker_lifecycle_admission(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    // Identity first: the planner must never answer an unauthenticated caller.
+    let (identity, owner_ref, idempotency_key) =
+        match planner_caller(&st.data_dir, &headers, &body) {
+            Ok(caller) => caller,
+            Err(refusal) => return refusal,
+        };
     match RuntimeKernelService::new()
         .admit_managed_worker_instance_lifecycle_transition(&body, &iso_now())
     {
-        Ok(record) => (StatusCode::ACCEPTED, Json(record)),
+        Ok(record) => admit_planner_record(
+            &st.data_dir,
+            &identity,
+            &owner_ref,
+            &idempotency_key,
+            "hypervisor-managed-worker-lifecycle",
+            "managed-worker-lifecycle://",
+            "event_stream.hypervisor_managed_worker_lifecycle_admitted",
+            record,
+        ),
         Err(error) => (
             StatusCode::from_u16(error.status).unwrap_or(StatusCode::BAD_REQUEST),
             Json(json!({
@@ -6887,10 +7006,27 @@ pub(crate) async fn handle_managed_worker_lifecycle_admission(
 /// adapter runtime-truth claim). 202 + record, or {error:{code,message,details}} with status (400
 /// field-shape / 403 policy).
 pub(crate) async fn handle_code_editor_adapter_launch_plan_admission(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    // Identity first: the planner must never answer an unauthenticated caller.
+    let (identity, owner_ref, idempotency_key) =
+        match planner_caller(&st.data_dir, &headers, &body) {
+            Ok(caller) => caller,
+            Err(refusal) => return refusal,
+        };
     match RuntimeKernelService::new().admit_code_editor_adapter_launch_plan(&body, &iso_now()) {
-        Ok(record) => (StatusCode::ACCEPTED, Json(record)),
+        Ok(record) => admit_planner_record(
+            &st.data_dir,
+            &identity,
+            &owner_ref,
+            &idempotency_key,
+            "hypervisor-code-editor-launch-plan",
+            "code-editor-launch-plan://",
+            "event_stream.hypervisor_code_editor_adapter_launch_plan_admitted",
+            record,
+        ),
         Err(error) => (
             StatusCode::from_u16(error.status).unwrap_or(StatusCode::BAD_REQUEST),
             Json(json!({
@@ -6909,10 +7045,27 @@ pub(crate) async fn handle_code_editor_adapter_launch_plan_admission(
 /// receipt refs + delivery evidence + provider-log/dispute + unsafe-plaintext exception gates).
 /// 202 + record, or {error:{code,message,details}} with status (400 field-shape / 403 policy).
 pub(crate) async fn handle_service_composition_receipt_bundle_admission(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    // Identity first: the planner must never answer an unauthenticated caller.
+    let (identity, owner_ref, idempotency_key) =
+        match planner_caller(&st.data_dir, &headers, &body) {
+            Ok(caller) => caller,
+            Err(refusal) => return refusal,
+        };
     match RuntimeKernelService::new().admit_service_composition_receipt_bundle(&body, &iso_now()) {
-        Ok(record) => (StatusCode::ACCEPTED, Json(record)),
+        Ok(record) => admit_planner_record(
+            &st.data_dir,
+            &identity,
+            &owner_ref,
+            &idempotency_key,
+            "hypervisor-service-composition-bundle",
+            "service-composition-bundle://",
+            "event_stream.hypervisor_service_composition_receipt_bundle_admitted",
+            record,
+        ),
         Err(error) => (
             StatusCode::from_u16(error.status).unwrap_or(StatusCode::BAD_REQUEST),
             Json(json!({
@@ -6932,10 +7085,27 @@ pub(crate) async fn handle_service_composition_receipt_bundle_admission(
 /// the incident + a derived agentgres_operation). 202 + record, or {error:{code,message,details}}
 /// with status (400 field-shape / 403 incident-policy).
 pub(crate) async fn handle_artifact_availability_incident_admission(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    // Identity first: the planner must never answer an unauthenticated caller.
+    let (identity, owner_ref, idempotency_key) =
+        match planner_caller(&st.data_dir, &headers, &body) {
+            Ok(caller) => caller,
+            Err(refusal) => return refusal,
+        };
     match RuntimeKernelService::new().admit_artifact_availability_incident(&body, &iso_now()) {
-        Ok(record) => (StatusCode::ACCEPTED, Json(record)),
+        Ok(record) => admit_planner_record(
+            &st.data_dir,
+            &identity,
+            &owner_ref,
+            &idempotency_key,
+            "hypervisor-artifact-availability-incident",
+            "artifact-availability-incident://",
+            "event_stream.hypervisor_artifact_availability_incident_admitted",
+            record,
+        ),
         Err(error) => (
             StatusCode::from_u16(error.status).unwrap_or(StatusCode::BAD_REQUEST),
             Json(json!({
@@ -6954,10 +7124,27 @@ pub(crate) async fn handle_artifact_availability_incident_admission(
 /// client-attach contract + transcript projection). 202 + record, or {error:{code,message,
 /// details}} with status (400 field-shape / 403 spawn-or-readiness boundary).
 pub(crate) async fn handle_harness_session_terminal_attach_admission(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    // Identity first: the planner must never answer an unauthenticated caller.
+    let (identity, owner_ref, idempotency_key) =
+        match planner_caller(&st.data_dir, &headers, &body) {
+            Ok(caller) => caller,
+            Err(refusal) => return refusal,
+        };
     match RuntimeKernelService::new().admit_harness_session_terminal_attach(&body, &iso_now()) {
-        Ok(record) => (StatusCode::ACCEPTED, Json(record)),
+        Ok(record) => admit_planner_record(
+            &st.data_dir,
+            &identity,
+            &owner_ref,
+            &idempotency_key,
+            "hypervisor-harness-terminal-attach",
+            "harness-terminal-attach://",
+            "event_stream.hypervisor_harness_session_terminal_attach_admitted",
+            record,
+        ),
         Err(error) => (
             StatusCode::from_u16(error.status).unwrap_or(StatusCode::BAD_REQUEST),
             Json(json!({
@@ -7035,10 +7222,27 @@ pub(crate) async fn handle_project_create(
 /// receipt/state-root refs + family targets; emits the admission + execution plan). 202 + record,
 /// or {error:{code,message,details}} with status (400 field-shape / 403 wallet-authority).
 pub(crate) async fn handle_approved_operation_admission(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    // Identity first: the planner must never answer an unauthenticated caller.
+    let (identity, owner_ref, idempotency_key) =
+        match planner_caller(&st.data_dir, &headers, &body) {
+            Ok(caller) => caller,
+            Err(refusal) => return refusal,
+        };
     match RuntimeKernelService::new().admit_hypervisor_approved_operation(&body, &iso_now()) {
-        Ok(record) => (StatusCode::ACCEPTED, Json(record)),
+        Ok(record) => admit_planner_record(
+            &st.data_dir,
+            &identity,
+            &owner_ref,
+            &idempotency_key,
+            "hypervisor-approved-operation",
+            "approved-operation://",
+            "event_stream.hypervisor_approved_operation_admitted",
+            record,
+        ),
         Err(error) => (
             StatusCode::from_u16(error.status).unwrap_or(StatusCode::BAD_REQUEST),
             Json(json!({
