@@ -111,13 +111,15 @@
         "let _ = persist_record(",
         "let _ = super::persist_record("
       ],
-      "gap": "At least 304 direct persist_record results are explicitly discarded across 41 daemon source files. This is a source indicator, not a proof that every call is user-visible or defective; every occurrence still requires an explicit durable/compensated/best-effort classification before estate-wide completion can be claimed.",
+      "gap": "269 direct persist_record results are explicitly discarded across 40 daemon source files (was 304/41; three closed in resource_routes::handle_allocate, the rest by earlier work). This remains a SOURCE INDICATOR, not a defect count. Every occurrence still needs an explicit durable / compensated / best-effort classification.",
       "acceptance": [
         "classify every indicator as canonical mutation, derived projection, rollback cleanup, or intentionally best-effort telemetry",
         "migrate canonical mutations to the shared admission boundary or record an owner-approved equivalent",
         "make every projection and cleanup failure observable and recoverable according to its classification",
         "regenerate the census with scripts/audit-daemon-mutation-foundation.mjs"
-      ]
+      ],
+      "classification_method": "A regex census over handler bodies is a LEAD, not a finding. Slicing each `pub(crate) async fn handle_*` body and asking whether it contains any checked write flags ~129 handlers as 'only persistence is discarded' \u2014 but that over-counts: lifecycle_routes::handle_secret_create is flagged and does have an INTERNAL_SERVER_ERROR path. The discriminator that actually holds is narrower: does the handler RETURN SUCCESS carrying a record whose only write was discarded, and is that record READ BACK as authoritative state elsewhere? Confirm both before calling a site a defect.",
+      "worked_example": "resource_routes::handle_allocate met both tests and is CLOSED. It built an allocation decision with a receipt_ref, discarded the persist, and returned it unconditionally, while handle_* reads allocation-decisions back as admitted state \u2014 so a caller could hold a receipted decision no later read would find. It also discarded the budget spend write, silently under-counting spend so the next request saw headroom that did not exist, and the allocation request write, leaving a decision referencing an unfindable request. All three now fail closed with typed 500s."
     },
     {
       "id": "MEF-GAP-002",

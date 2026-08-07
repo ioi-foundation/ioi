@@ -14,6 +14,7 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use axum::extract::State;
+use axum::http::StatusCode;
 use axum::Json;
 use serde_json::{json, Value};
 
@@ -179,7 +180,7 @@ fn load(data_dir: &str, dir: &str, id_key: &str, id: &str) -> Option<Value> {
 pub(crate) async fn handle_allocate(
     State(st): State<Arc<DaemonState>>,
     Json(body): Json<Value>,
-) -> Json<Value> {
+) -> (StatusCode, Json<Value>) {
     let data_dir = &st.data_dir;
     let req_id = format!("areq_{:x}", nanos());
     let needs = body
@@ -225,7 +226,16 @@ pub(crate) async fn handle_allocate(
         "needs": needs, "budget_ref": budget_ref, "priority": priority, "pool_ref": pool_id,
         "provider_candidates": candidates, "privacy": privacy, "external_spend": external, "created_at": iso_now()
     });
-    let _ = persist_record(data_dir, "allocation-requests", &req_id, &request);
+    // W1.2 / MEF-GAP-001 — this write was discarded. An allocation request that is not durable
+    // cannot be reconciled against its decision, so a decision could reference a request that no
+    // reader will ever find.
+    if persist_record(data_dir, "allocation-requests", &req_id, &request).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "code": "resource_allocation_request_persistence_failed",
+                "message": "the allocation request did not commit — nothing was allocated" })),
+        );
+    }
 
     let pool = load(data_dir, "resource-pools", "pool_id", &pool_id);
 
@@ -402,7 +412,15 @@ pub(crate) async fn handle_allocate(
     if (state == "admitted") && !budget_ref.is_empty() {
         if let Some(mut budget) = load(data_dir, "resource-budgets", "budget_id", &budget_ref) {
             budget["spent"] = json!(i(&budget, "spent") + estimated_cost);
-            let _ = persist_record(data_dir, "resource-budgets", &budget_ref, &budget);
+            // Discarding this silently under-counts spend: the allocation is granted and the
+            // budget never records it, so the next request sees headroom that does not exist.
+            if persist_record(data_dir, "resource-budgets", &budget_ref, &budget).is_err() {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({ "ok": false, "code": "resource_budget_persistence_failed",
+                        "message": "the budget spend did not commit — the allocation is refused rather than granted uncounted" })),
+                );
+            }
         }
     }
     let receipt = emit_receipt(data_dir, "allocation_decision", &req_id, decision, reason);
@@ -420,8 +438,17 @@ pub(crate) async fn handle_allocate(
         "receipt_ref": receipt,
         "decided_at": iso_now()
     });
-    let _ = persist_record(data_dir, "allocation-decisions", &dec_id, &decision_record);
-    Json(json!({ "decision": decision_record }))
+    // The decision is authoritative — handle_* reads allocation-decisions back as admitted state.
+    // Returning it while the write failed hands the caller a decision, with a receipt_ref, that no
+    // subsequent read will find. Program invariant 4: a 2xx without its durable effect is failure.
+    if persist_record(data_dir, "allocation-decisions", &dec_id, &decision_record).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "code": "resource_allocation_decision_persistence_failed",
+                "message": "the allocation decision did not commit — no allocation was made" })),
+        );
+    }
+    (StatusCode::OK, Json(json!({ "decision": decision_record })))
 }
 
 /// POST /v1/hypervisor/resource/release — free an admitted allocation (capacity returns to pool).
