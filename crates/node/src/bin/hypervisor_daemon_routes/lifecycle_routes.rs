@@ -12601,7 +12601,18 @@ pub(crate) async fn handle_connector_register(
         "auth_profile": auth_profile, "org_policy": org_policy,
         "auth_posture": if requires_credential { "token-lease:unbound" } else { "open" }, "created_at": iso_now(),
     });
-    let _ = persist_record(&st.data_dir, "connectors", &connector_id, &connector);
+    // The response hands back the connector as registered state, and every later authority decision
+    // — org policy risk_posture, principal_scoped, auth_posture — reads `connectors` back.
+    // Discarding this write returned a connector no invoke path could ever find.
+    if persist_record(&st.data_dir, "connectors", &connector_id, &connector).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "error": {
+                "code": "connector_registration_persistence_failed",
+                "message": "the connector could not be durably recorded and is not registered"
+            }})),
+        );
+    }
     (
         StatusCode::OK,
         Json(json!({ "ok": true, "connector": connector })),
@@ -12784,9 +12795,23 @@ pub(crate) async fn handle_connector_bind_credential(
         };
         json!({ "connector_id": id, "kind": kind, "sealed_token": sealed, "key_source": key_source, "sealed": true, "bound_at": iso_now() })
     };
-    let _ = persist_record(&st.data_dir, "connector-credentials", &id, &cred);
+    // Both writes are load-bearing and neither may be assumed. The credential is what the invoke
+    // crossing resolves; the posture is what tells every later reader the connector is usable. A
+    // discarded credential write reported `token-lease:bound` over a connector with no credential,
+    // and a discarded posture write left a bound credential the posture still called unbound.
+    if persist_record(&st.data_dir, "connector-credentials", &id, &cred).is_err() {
+        return Json(json!({ "ok": false, "error": {
+            "code": "connector_credential_persistence_failed",
+            "message": "the credential could not be durably sealed and is not bound"
+        }}));
+    }
     connector["auth_posture"] = json!("token-lease:bound");
-    let _ = persist_record(&st.data_dir, "connectors", &id, &connector);
+    if persist_record(&st.data_dir, "connectors", &id, &connector).is_err() {
+        return Json(json!({ "ok": false, "error": {
+            "code": "connector_auth_posture_persistence_failed",
+            "message": "the credential was sealed but the connector auth posture could not be recorded; re-bind to converge"
+        }}));
+    }
     Json(
         json!({ "ok": true, "connector_id": id, "auth_posture": "token-lease:bound", "kind": cred["kind"] }),
     )
@@ -12797,14 +12822,31 @@ pub(crate) async fn handle_connector_revoke_credential(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
 ) -> Json<Value> {
+    // `remove_record` returns `remove_file(..).is_ok()`, which conflates "no credential was bound"
+    // with "the credential could not be deleted". Reporting revoked for the second case leaves a
+    // usable credential behind an ack that says it is gone, so the two are separated here.
+    let had_credential = read_record_dir(&st.data_dir, "connector-credentials")
+        .into_iter()
+        .any(|c| c["connector_id"].as_str() == Some(id.as_str()));
     let revoked = remove_record(&st.data_dir, "connector-credentials", &id);
+    if had_credential && !revoked {
+        return Json(json!({ "ok": false, "error": {
+            "code": "connector_credential_revocation_failed",
+            "message": "the sealed credential could not be removed and is still bound"
+        }}));
+    }
     if let Some(mut connector) = read_record_dir(&st.data_dir, "connectors")
         .into_iter()
         .find(|c| c["connector_id"].as_str() == Some(id.as_str()))
     {
         connector["auth_posture"] = json!("token-lease:unbound");
         connector["revoked_at"] = json!(iso_now());
-        let _ = persist_record(&st.data_dir, "connectors", &id, &connector);
+        if persist_record(&st.data_dir, "connectors", &id, &connector).is_err() {
+            return Json(json!({ "ok": false, "error": {
+                "code": "connector_auth_posture_persistence_failed",
+                "message": "the credential was removed but the connector still reads as bound; re-run revoke to converge"
+            }}));
+        }
     }
     Json(
         json!({ "ok": true, "connector_id": id, "revoked": revoked, "auth_posture": "token-lease:unbound" }),
@@ -12843,7 +12885,15 @@ pub(crate) async fn handle_connector_set_policy(
         });
     let org_policy = json!({ "allowed_tools": allowed_tools, "risk_posture": risk_posture, "principal_scoped": principal_scoped, "set_at": iso_now() });
     connector["org_policy"] = org_policy.clone();
-    let _ = persist_record(&st.data_dir, "connectors", &id, &connector);
+    // This is an enforcement control, not a preference: the invoke crossing refuses with
+    // `policy_locked` on risk_posture "locked" and gates on principal_scoped. Discarding the write
+    // let an operator lock an integration, be told it was locked, and leave it fully invokable.
+    if persist_record(&st.data_dir, "connectors", &id, &connector).is_err() {
+        return Json(json!({ "ok": false, "error": {
+            "code": "connector_org_policy_persistence_failed",
+            "message": "the org policy could not be durably recorded and is NOT in force"
+        }}));
+    }
     Json(json!({ "ok": true, "connector_id": id, "org_policy": org_policy }))
 }
 
@@ -13049,7 +13099,18 @@ pub(crate) async fn handle_connector_oauth_discover(
         "client_id": client_id, "scopes": scopes, "discovered": true,
     });
     connector["auth_profile"] = auth_profile.clone();
-    let _ = persist_record(&st.data_dir, "connectors", &id, &connector);
+    // oauth/start reads the discovered auth_profile back off the connector. Returning
+    // `discovered: true` over a discarded write meant the next step in the flow could not find the
+    // endpoints this response just promised.
+    if persist_record(&st.data_dir, "connectors", &id, &connector).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "error": {
+                "code": "connector_auth_profile_persistence_failed",
+                "message": "the discovered auth profile could not be durably recorded"
+            }})),
+        );
+    }
     (
         StatusCode::OK,
         Json(json!({ "ok": true, "discovered": true, "auth_profile": auth_profile })),
@@ -13112,7 +13173,18 @@ pub(crate) async fn handle_connector_oauth_start(
         );
     };
     let pending = json!({ "state": state, "connector_id": id, "sealed_verifier": sealed_verifier, "redirect_uri": redirect_uri, "created_at": iso_now() });
-    let _ = persist_record(&st.data_dir, "oauth-pending", &state, &pending);
+    // The sealed PKCE verifier is the only thing that lets the callback complete the exchange.
+    // Handing back an authorize_url over a discarded write sent the operator to the provider to
+    // authorize a flow the daemon had already lost the means to finish.
+    if persist_record(&st.data_dir, "oauth-pending", &state, &pending).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "error": {
+                "code": "oauth_pending_persistence_failed",
+                "message": "the PKCE verifier could not be durably recorded; the authorization was not started"
+            }})),
+        );
+    }
     let mut authorize_url = format!(
         "{authorization_endpoint}?response_type=code&client_id={}&redirect_uri={}&state={state}&code_challenge={challenge}&code_challenge_method=S256",
         pct(&client_id), pct(&redirect_uri)
@@ -13215,13 +13287,32 @@ pub(crate) async fn handle_connector_oauth_callback(
             Json(json!({ "ok": false, "reason": "failed to seal token" })),
         );
     };
-    let _ = persist_record(&st.data_dir, "connector-credentials", &connector_id, &cred);
+    // This response tells the operator `connected: true` at the end of a real provider handshake.
+    // Discarding either write meant the connection was reported complete with no credential to
+    // resolve, or with a posture that never left unbound.
+    if persist_record(&st.data_dir, "connector-credentials", &connector_id, &cred).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "error": {
+                "code": "oauth_credential_persistence_failed",
+                "message": "the exchanged token could not be durably sealed; the connector is not connected"
+            }})),
+        );
+    }
     if let Some(mut c) = read_record_dir(&st.data_dir, "connectors")
         .into_iter()
         .find(|c| c["connector_id"].as_str() == Some(connector_id.as_str()))
     {
         c["auth_posture"] = json!("token-lease:bound");
-        let _ = persist_record(&st.data_dir, "connectors", &connector_id, &c);
+        if persist_record(&st.data_dir, "connectors", &connector_id, &c).is_err() {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "ok": false, "error": {
+                    "code": "connector_auth_posture_persistence_failed",
+                    "message": "the token was sealed but the connector auth posture could not be recorded; re-run connect to converge"
+                }})),
+            );
+        }
     }
     let _ = remove_record(&st.data_dir, "oauth-pending", &state);
     (
@@ -13337,12 +13428,25 @@ pub(crate) async fn handle_connector_device_start(
         );
     };
     let interval = v["interval"].as_u64().unwrap_or(5);
-    let _ = persist_record(
+    // The sealed device_code is what poll exchanges. Handing back a user_code and verification_uri
+    // over a discarded write sent the operator to the provider to authorize a flow poll could not
+    // complete.
+    if persist_record(
         &st.data_dir,
         "oauth-device-pending",
         &id,
         &json!({ "connector_id": id, "sealed_device_code": sealed, "interval": interval, "created_at": iso_now() }),
-    );
+    )
+    .is_err()
+    {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "error": {
+                "code": "oauth_device_pending_persistence_failed",
+                "message": "the device authorization could not be durably recorded and was not started"
+            }})),
+        );
+    }
     (
         StatusCode::OK,
         Json(json!({
@@ -13423,13 +13527,31 @@ pub(crate) async fn handle_connector_device_poll(
                 Json(json!({ "ok": false, "reason": "failed to seal token" })),
             );
         };
-        let _ = persist_record(&st.data_dir, "connector-credentials", &id, &cred);
+        // Same contract as the authcode callback: `connected: true` ends a real handshake, so
+        // neither the credential nor the posture may be assumed to have landed.
+        if persist_record(&st.data_dir, "connector-credentials", &id, &cred).is_err() {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "ok": false, "error": {
+                    "code": "oauth_credential_persistence_failed",
+                    "message": "the exchanged token could not be durably sealed; the connector is not connected"
+                }})),
+            );
+        }
         if let Some(mut c) = read_record_dir(&st.data_dir, "connectors")
             .into_iter()
             .find(|c| c["connector_id"].as_str() == Some(id.as_str()))
         {
             c["auth_posture"] = json!("token-lease:bound");
-            let _ = persist_record(&st.data_dir, "connectors", &id, &c);
+            if persist_record(&st.data_dir, "connectors", &id, &c).is_err() {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({ "ok": false, "error": {
+                        "code": "connector_auth_posture_persistence_failed",
+                        "message": "the token was sealed but the connector auth posture could not be recorded; re-poll to converge"
+                    }})),
+                );
+            }
         }
         let _ = remove_record(&st.data_dir, "oauth-device-pending", &id);
         return (
@@ -13753,16 +13875,22 @@ pub(crate) async fn handle_connector_invoke(
         "capability_lease": lease.descriptor, "org_policy": org_policy, "host_mutation": true, "error": error,
         "invoked_at": iso_now(),
     });
-    let _ = persist_record(
+    // Classified as an audit record, not canonical state and not best-effort telemetry: nothing
+    // reads `connector-invoke-receipts` back, so this fails the second admission test and must not
+    // fail the call closed — the host mutation has already happened and cannot be un-invoked.
+    // What it must not do is silently swallow the failure, so the receipt's durability is reported.
+    let receipt_durable = persist_record(
         &st.data_dir,
         "connector-invoke-receipts",
         &receipt_id,
         &receipt,
-    );
+    )
+    .is_ok();
     (
         StatusCode::OK,
         Json(
-            json!({ "ok": ok, "status": status_code, "response": response_value, "receipt": receipt }),
+            json!({ "ok": ok, "status": status_code, "response": response_value, "receipt": receipt,
+                "receipt_durable": receipt_durable }),
         ),
     )
 }
@@ -13905,7 +14033,14 @@ pub(crate) async fn handle_scm_connector_register(
         "auth_posture": auth_posture,
         "created_at": iso_now(),
     });
-    let _ = persist_record(&st.data_dir, "scm-connectors", &connector_id, &record);
+    // The publish crossing resolves the connector and its auth_posture from `scm-connectors`.
+    // Returning the record over a discarded write registered a connector publish could not find.
+    if persist_record(&st.data_dir, "scm-connectors", &connector_id, &record).is_err() {
+        return Json(json!({ "ok": false, "error": {
+            "code": "scm_connector_registration_persistence_failed",
+            "message": "the SCM connector could not be durably recorded and is not registered"
+        }}));
+    }
     Json(json!({ "ok": true, "connector": record }))
 }
 
@@ -13946,11 +14081,21 @@ pub(crate) async fn handle_scm_connector_bind_credential(
     };
     let key_source = scm_key_source();
     let cred = json!({ "connector_id": id, "sealed_token": sealed, "key_source": key_source, "sealed": true, "bound_at": iso_now() });
-    let _ = persist_record(&st.data_dir, "scm-credentials", &id, &cred);
+    if persist_record(&st.data_dir, "scm-credentials", &id, &cred).is_err() {
+        return Json(json!({ "ok": false, "error": {
+            "code": "scm_credential_persistence_failed",
+            "message": "the credential could not be durably sealed and is not bound"
+        }}));
+    }
     connector["auth_posture"] = json!("token-lease:bound");
     connector["requires_credential"] = json!(true);
     connector["credential_key_source"] = json!(key_source);
-    let _ = persist_record(&st.data_dir, "scm-connectors", &id, &connector);
+    if persist_record(&st.data_dir, "scm-connectors", &id, &connector).is_err() {
+        return Json(json!({ "ok": false, "error": {
+            "code": "scm_connector_auth_posture_persistence_failed",
+            "message": "the credential was sealed but the connector auth posture could not be recorded; re-bind to converge"
+        }}));
+    }
     // NEVER return the token
     Json(
         json!({ "ok": true, "connector_id": id, "auth_posture": "token-lease:bound", "key_source": key_source }),
@@ -13966,7 +14111,19 @@ pub(crate) async fn handle_scm_connector_revoke_credential(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
 ) -> Json<Value> {
+    // The doc comment above promises this is real backing for Disconnect with "no fake ack". It was
+    // not: `remove_record` conflates "nothing was bound" with "deletion failed", and the posture
+    // write was discarded, so both failures still returned ok with a revoked posture.
+    let had_credential = read_record_dir(&st.data_dir, "scm-credentials")
+        .into_iter()
+        .any(|c| c["connector_id"].as_str() == Some(id.as_str()));
     let revoked = remove_record(&st.data_dir, "scm-credentials", &id);
+    if had_credential && !revoked {
+        return Json(json!({ "ok": false, "error": {
+            "code": "scm_credential_revocation_failed",
+            "message": "the sealed credential could not be removed and is still bound"
+        }}));
+    }
     // Flip the connector posture back to unbound (if the connector record still exists).
     if let Some(mut connector) = read_record_dir(&st.data_dir, "scm-connectors")
         .into_iter()
@@ -13976,7 +14133,12 @@ pub(crate) async fn handle_scm_connector_revoke_credential(
         connector["credential_key_source"] = Value::Null;
         connector["connected_login"] = Value::Null;
         connector["revoked_at"] = json!(iso_now());
-        let _ = persist_record(&st.data_dir, "scm-connectors", &id, &connector);
+        if persist_record(&st.data_dir, "scm-connectors", &id, &connector).is_err() {
+            return Json(json!({ "ok": false, "error": {
+                "code": "scm_connector_auth_posture_persistence_failed",
+                "message": "the credential was removed but the connector still reads as bound; re-run revoke to converge"
+            }}));
+        }
     }
     Json(
         json!({ "ok": true, "connector_id": id, "revoked": revoked, "auth_posture": "token-lease:unbound" }),

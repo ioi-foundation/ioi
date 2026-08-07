@@ -233,9 +233,10 @@
         "method": "MEF-GAP-001's recorded discriminator, applied to every `pub(crate) async fn handle_*` in the route modules: (1) the handler returns success carrying a record whose only write was discarded, AND (2) that record kind is read back as authoritative state elsewhere in the daemon. Both must hold. Either alone over-counts, which is why the raw census is a lead and not a finding.",
         "totals": {
           "handlers_with_discarded_writes": 128,
-          "both_tests_hold": 92,
+          "both_tests_hold": 84,
           "partial_fail_path_needs_reading": 29,
-          "kind_never_read_back": 7
+          "kind_never_read_back": 7,
+          "both_tests_hold_closed": 8
         },
         "sample_verified_by_hand": [
           "authority_routes::handle_authority_grant \u2014 takes no headers at all, discards the authority-grant write, and returns the grant with a live status and an expiry. `authority-grants` is read back by preflight, so a caller can be told `granted` while no later check can find the grant; a `denied` decision that fails to write leaves no audit trail, in a handler whose own comment claims a complete one.",
@@ -245,11 +246,6 @@
           "lifecycle_routes.rs": [
             "handle_budget_reconcile",
             "handle_budget_set",
-            "handle_connector_bind_credential",
-            "handle_connector_oauth_discover",
-            "handle_connector_register",
-            "handle_connector_revoke_credential",
-            "handle_connector_set_policy",
             "handle_custom_domain_set",
             "handle_domain_verification_create",
             "handle_domain_verification_verify",
@@ -259,10 +255,7 @@
             "handle_scim_group_create",
             "handle_scim_group_patch",
             "handle_scim_user_delete",
-            "handle_scim_user_patch",
-            "handle_scm_connector_bind_credential",
-            "handle_scm_connector_register",
-            "handle_scm_connector_revoke_credential"
+            "handle_scim_user_patch"
           ],
           "ioi_intelligence_routes.rs": [
             "handle_improvement_apply",
@@ -383,16 +376,31 @@
             "handle_guardrails_set"
           ]
         },
-        "reading_note": "94 handlers meet both tests by method with two confirmed by hand. That is a CLASSIFIED CANDIDATE SET, not 94 confirmed defects: each still needs its own reading before it is called one. The 29 in `partial_fail_path_needs_reading` have some checked failure path in the handler and cannot be judged mechanically at all. The 8 whose record kind is never read back are the closest thing here to genuinely benign."
+        "reading_note": "84 handlers meet both tests and remain UNFIXED (was 92; the connector credential/authority-posture family in lifecycle_routes is closed). That is a CLASSIFIED CANDIDATE SET, not 84 confirmed defects: each still needs its own reading before it is called one. The 29 in `partial_fail_path_needs_reading` have some checked failure path in the handler and cannot be judged mechanically at all. The 7 whose record kind is never read back are the closest thing here to genuinely benign. CORRECTION 2026-08-07: this note previously read '94' and '8' against totals of 92 and 7; the totals were right (92+29+7=128) and the prose was stale.",
+        "classifier_coverage_defect": {
+          "found": "2026-08-07, while closing the connector family",
+          "defect": "Test (1) of the discriminator \u2014 'returns success carrying a record whose only write was discarded' \u2014 was mechanized as though the response body must EMBED the written record. Handlers that return a CLAIM ABOUT the record instead were missed, and they are equally defective.",
+          "missed_handlers": [
+            "lifecycle_routes::handle_connector_oauth_start \u2014 discards the sealed PKCE verifier write, then returns an authorize_url the operator visits for a flow the callback can no longer complete",
+            "lifecycle_routes::handle_connector_oauth_callback \u2014 returns {ok:true, connected:true} while discarding BOTH the credential write and the auth-posture write",
+            "lifecycle_routes::handle_connector_device_start \u2014 discards the sealed device_code write, then returns a user_code and verification_uri for a flow poll cannot complete",
+            "lifecycle_routes::handle_connector_device_poll \u2014 byte-for-byte the same defect as oauth_callback: {ok:true, connected:true} over two discarded writes"
+          ],
+          "consequence": "Four handlers in ONE already-audited family were absent from the census. The 84 remaining rows are a floor, not a ceiling; re-run the classification with test (1) widened to cover success claims about a record, not only embedded records.",
+          "also_reclassified": "lifecycle_routes::handle_connector_invoke writes a connector-invoke-receipt and returns it, but `connector-invoke-receipts` is read back NOWHERE, so it fails test (2) and is not a both-tests defect. It is not best-effort telemetry either \u2014 it is the audit record of a wallet-gated host mutation. It must not fail the call closed, because the host effect has already happened and cannot be un-invoked; the write result is now surfaced as `receipt_durable` instead of swallowed."
+        }
       },
       "progress": [
         "The gap asked for a handler-level classification instead of module-name grandfathering, and that classification now exists above. 284 census indicators resolve to 128 handlers with discarded writes: 92 meet both halves of the discriminator, 29 carry some checked failure path and cannot be judged mechanically, and 7 write a record kind nothing reads back.",
-        "authority_routes is CLOSED and now has zero discarded writes \u2014 it was the most severe module in the set and was fixed rather than merely catalogued. handle_authority_grant took no headers, discarded the grant write, and returned a live status with an expiry: a caller could be told `granted` while no preflight could find the grant, and a `denied` decision left no audit trail under a comment promising a complete one. Both revoke paths \u2014 the handler and the port-preview unexpose helper \u2014 emitted a `revoked` receipt and then discarded the write, so revocation reported success, produced evidence, and left the grant live and usable. emit_receipt returned a receipt ref it had not necessarily written, so grants could cite authority_receipt_refs resolving to nothing. issue_capability_lease and handle_harness_binding_create both returned records asserting admission over writes that could silently fail."
+        "authority_routes is CLOSED and now has zero discarded writes \u2014 it was the most severe module in the set and was fixed rather than merely catalogued. handle_authority_grant took no headers, discarded the grant write, and returned a live status with an expiry: a caller could be told `granted` while no preflight could find the grant, and a `denied` decision left no audit trail under a comment promising a complete one. Both revoke paths \u2014 the handler and the port-preview unexpose helper \u2014 emitted a `revoked` receipt and then discarded the write, so revocation reported success, produced evidence, and left the grant live and usable. emit_receipt returned a receipt ref it had not necessarily written, so grants could cite authority_receipt_refs resolving to nothing. issue_capability_lease and handle_harness_binding_create both returned records asserting admission over writes that could silently fail.",
+        "CLOSED 2026-08-07 \u2014 the connector credential and authority-posture family in lifecycle_routes: register, bind_credential, revoke_credential, set_policy, oauth_discover, oauth_start, oauth_callback, device_start, device_poll, and the SCM trio (register, bind_credential, revoke_credential). Twelve handlers, sixteen previously-discarded writes, now zero in the family. The two most severe: set_policy discarded the org-policy write while the invoke crossing refuses on org_policy.risk_posture == 'locked' and gates on principal_scoped, so an operator could lock an integration, be told it was locked, and leave it fully invokable; and both revoke paths reported a revoked posture over a discarded write, under a doc comment promising 'no fake ack'. remove_record returns remove_file(..).is_ok(), which conflated 'nothing was bound' with 'deletion failed' \u2014 both revoke paths now distinguish them and refuse when a present credential could not be removed. Fix shape matches each handler's existing failure convention rather than introducing a second one: typed 500 where the handler already returns (StatusCode, Json), ok:false where its whole convention is Json<Value> \u2014 the resource_routes::handle_allocate and authority_routes precedents respectively.",
+        "PROVEN AGAINST A LIVE DAEMON, not only by test \u2014 set_policy under an unwritable connector record refuses connector_org_policy_persistence_failed and leaves the on-disk risk_posture at its prior value; connector revoke refuses connector_auth_posture_persistence_failed; register against an unwritable directory returns HTTP 500 connector_registration_persistence_failed; SCM revoke refuses scm_connector_auth_posture_persistence_failed. Failures were induced by making the record file or its directory read-only, so these are real io::Error paths rather than injected ones."
       ],
       "still_open": [
-        "92 handlers across 24 modules meet both tests and are UNFIXED. They are a classified candidate set, not confirmed defects: each needs its own reading. lifecycle_routes (20), ioi_intelligence_routes (10) and orchestration_routes (8) are the largest concentrations.",
+        "84 handlers across 24 modules meet both tests and are UNFIXED (was 92; the connector family in lifecycle_routes is closed). They are a classified candidate set, not confirmed defects: each needs its own reading. ioi_intelligence_routes (10), orchestration_routes (8) and lifecycle_routes (12 remaining) are the largest concentrations.",
         "29 handlers cannot be classified mechanically because they mix checked and discarded writes; these need reading before any claim is made about them.",
-        "authority_routes still takes NO request identity on grant, revoke, or harness-binding create. The writes now fail closed, but the routes remain unauthenticated \u2014 that is a separate and larger change than this fix, and it is not claimed here."
+        "authority_routes still takes NO request identity on grant, revoke, or harness-binding create. The writes now fail closed, but the routes remain unauthenticated \u2014 that is a separate and larger change than this fix, and it is not claimed here.",
+        "The classification itself under-counts \u2014 see classifier_coverage_defect. Four handlers in the connector family alone were absent from the census because test (1) was mechanized to require the response to embed the written record. Re-run it with that test widened before treating 84 as the remaining total."
       ]
     }
   ],
