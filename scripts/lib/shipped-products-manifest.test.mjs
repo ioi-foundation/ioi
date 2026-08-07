@@ -22,9 +22,12 @@ const validateShippedProductsManifest = (manifest, options = {}) =>
 test("the authoritative shipped-products manifest covers and verifies the executable estate", async () => {
   const manifest = await loadShippedProductsManifest();
   const report = await validateShippedProductsManifest(manifest);
-  assert.equal(report.product_count, 8);
+  // Seven, not eight: the owner's 2026-08-07 ruling is that there is ONE ioi.ai application, so
+  // the dual runtime invented beside apps/ioi-ai stopped being a tracked product lane and its
+  // manifest entry was removed. These counts were left at the old value when that landed.
+  assert.equal(report.product_count, 7);
   assert.equal(report.nonshipped_root_count, 5);
-  assert.equal(report.source_graphs.length, 8);
+  assert.equal(report.source_graphs.length, 7);
   assert.equal(report.artifacts[0].verified, true);
 });
 

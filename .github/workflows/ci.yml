@@ -157,9 +157,13 @@ jobs:
       - name: Install browser runtime
         run: npx playwright install --with-deps chromium
 
-      - name: Verify generated contracts and product client contracts
+      # `check:architecture-contracts` is deliberately NOT repeated here. It shells out to the
+      # pinned rustfmt toolchain, and this job installs only Node — so it could never pass in this
+      # job, and this step has been failing for exactly that reason. The check already runs in
+      # `build_and_test`, which this job `needs:`, so repeating it adds a full Rust toolchain
+      # install to a Node-only job for no additional signal.
+      - name: Verify product client contracts
         run: |
-          npm run check:architecture-contracts
           npm run check:shipped-products
           npm run test:shipped-products
           npm run test:hypervisor-scm-publication-client
