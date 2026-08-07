@@ -1,5 +1,6 @@
 import { createServer, type IncomingMessage, type ServerResponse, type Server } from "node:http";
 import { AsyncLocalStorage } from "node:async_hooks";
+import { createHash } from "node:crypto";
 import { Readable } from "node:stream";
 import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -10,30 +11,54 @@ import {
   withSourceAuthNonce,
   CAPABILITY_HEADER,
   type HttpMethod,
-} from "../../chassis/src/core-client.ts";
+} from "../../../../ioi-ai/plugins/chassis/src/core-client.ts";
 import {
   json,
   readBody as readBodyCapped,
   cookie,
   PayloadTooLargeError,
   serveEmojiFavicon,
-} from "../../chassis/src/http.ts";
-import { verifyPortalIdentity, PORTAL_IDENTITY_HEADER } from "../../chassis/src/portal-identity.ts";
-import { createBrandingCache, injectBranding } from "../../chassis/src/branding.ts";
+} from "../../../../ioi-ai/plugins/chassis/src/http.ts";
+import {
+  verifyPortalIdentity,
+  PORTAL_IDENTITY_HEADER,
+} from "../../../../ioi-ai/plugins/chassis/src/portal-identity.ts";
+import { createBrandingCache, injectBranding } from "../../../../ioi-ai/plugins/chassis/src/branding.ts";
 import {
   CORE_API_URL as CORE,
   CORE_ORG_ID as ORG,
   CORE_SIGNING_SECRET,
   PORTAL_IDENTITY_SECRET,
   portFromEnv,
-} from "../../chassis/src/env.ts";
+} from "../../../../ioi-ai/plugins/chassis/src/env.ts";
+import { boundedIoiId, createIoiDaemonGateway } from "./ioi-daemon.ts";
+import { portalDaemonExchangeConfigFromEnv } from "./portal-daemon-exchange.ts";
 
 const PORT = portFromEnv(8096);
 const PUBLIC_URL = (process.env.WEB_UI_PUBLIC_URL ?? `http://localhost:${PORT}`).replace(/\/$/, "");
+const PUBLIC_ORIGIN = new URL(PUBLIC_URL).origin;
+const SECURE_COOKIE = new URL(PUBLIC_URL).protocol === "https:" ? "; Secure" : "";
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
+const EXPLICIT_PORTAL_IDENTITY_SECRET = process.env.PORTAL_IDENTITY_SECRET?.trim() ?? "";
+const PRODUCTION_IDENTITY_CONFIGURED =
+  !IS_PRODUCTION || Boolean(CORE_SIGNING_SECRET?.trim() && EXPLICIT_PORTAL_IDENTITY_SECRET);
 const WEB_UI_DEV = process.env.WEB_UI_DEV === "1";
+const IOI_DAEMON = process.env.IOI_HYPERVISOR_DAEMON_URL ?? "http://127.0.0.1:8765";
+const IOI_LOOPBACK_DEV_TRUST =
+  process.env.NODE_ENV !== "production" && process.env.IOI_AI_ALLOW_LOOPBACK_DAEMON_TRUST === "1";
+const IOI_INSECURE_REMOTE_HTTP =
+  process.env.NODE_ENV !== "production" && process.env.IOI_AI_ALLOW_INSECURE_DAEMON_HTTP === "1";
+const IOI_PORTAL_DAEMON_EXCHANGE = portalDaemonExchangeConfigFromEnv();
+const ioiDaemon = createIoiDaemonGateway(IOI_DAEMON, fetch, {
+  timeoutMs: 10_000,
+  allowLoopbackTrust: IOI_LOOPBACK_DEV_TRUST,
+  allowInsecureRemoteHttp: IOI_INSECURE_REMOTE_HTTP,
+  portalExchange: IOI_PORTAL_DAEMON_EXCHANGE,
+  requirePortalExchange: IS_PRODUCTION,
+});
 const ALLOW_UNSIGNED_TEST_IDENTITY =
   process.env.NODE_ENV === "test" && process.env.ALLOW_UNSIGNED_TEST_IDENTITY === "1";
-const COOKIE_AUTH = !CORE_SIGNING_SECRET || ALLOW_UNSIGNED_TEST_IDENTITY;
+const COOKIE_AUTH = !IS_PRODUCTION && (!CORE_SIGNING_SECRET || ALLOW_UNSIGNED_TEST_IDENTITY);
 const AUTH_MODE = COOKIE_AUTH ? "dev" : "portal";
 const ALLOW = (process.env.WEB_UI_PRINCIPALS ?? "")
   .split(",")
@@ -162,7 +187,12 @@ interface ViteDevServer {
 type CreateViteServer = (opts: Record<string, unknown>) => Promise<ViteDevServer>;
 
 function relay(res: ServerResponse, r: { status: number; text: string }): void {
-  res.writeHead(r.status, { "content-type": "application/json", "x-content-type-options": "nosniff" });
+  res.writeHead(r.status, {
+    "content-type": "application/json",
+    "x-content-type-options": "nosniff",
+    "cache-control": "no-store",
+    pragma: "no-cache",
+  });
   res.end(r.text);
 }
 
@@ -211,7 +241,10 @@ async function gateManageDeployment(res: ServerResponse, user: string, id: strin
     return false;
   }
   if (!mayManageDeployment(d)) {
-    json(res, 403, { error: "forbidden", message: "you do not manage this deployment" });
+    json(res, 403, {
+      error: "forbidden",
+      message: "you do not manage this deployment",
+    });
     return false;
   }
   return true;
@@ -230,13 +263,23 @@ function conversationForScope(
   threadRef: string,
   scope: string | undefined,
   channelName: string | undefined,
-): { kind: "dm" | "channel" | "group"; threadRef: string; channelRef?: string; channelName?: string } | null {
+): {
+  kind: "dm" | "channel" | "group";
+  threadRef: string;
+  channelRef?: string;
+  channelName?: string;
+} | null {
   if (!scope || scope === `personal:${user}`) return { kind: "dm", threadRef };
   const sep = scope.indexOf(":");
   const kind = scope.slice(0, sep);
   const ref = scope.slice(sep + 1);
   if ((kind !== "channel" && kind !== "group") || !ref) return null;
-  return { kind, channelRef: ref, threadRef, ...(channelName ? { channelName } : {}) };
+  return {
+    kind,
+    channelRef: ref,
+    threadRef,
+    ...(channelName ? { channelName } : {}),
+  };
 }
 
 interface Identity {
@@ -266,7 +309,13 @@ function authenticate(req: IncomingMessage): { identity: Identity } | { denied: 
   }
   if (!user) return { denied: "unauthenticated" };
   if (ALLOW.length > 0 && !ALLOW.includes(user)) return { denied: "not_allowed" };
-  return { identity: { user, name: name?.trim() || null, impersonator: impersonator ?? null } };
+  return {
+    identity: {
+      user,
+      name: name?.trim() || null,
+      impersonator: impersonator ?? null,
+    },
+  };
 }
 
 function resolveIdentity(req: IncomingMessage): Identity | null {
@@ -278,6 +327,12 @@ function cookieUser(req: IncomingMessage): string | null {
   return resolveIdentity(req)?.user ?? null;
 }
 
+function hasVerifiedPortalIdentity(req: IncomingMessage): boolean {
+  const raw = req.headers[PORTAL_IDENTITY_HEADER];
+  const token = Array.isArray(raw) ? raw[0] : raw;
+  return Boolean(token && PORTAL_IDENTITY_SECRET && verifyPortalIdentity(token, PORTAL_IDENTITY_SECRET, Date.now()));
+}
+
 function unauthorized(res: ServerResponse, req: IncomingMessage): void {
   const outcome = authenticate(req);
   const denied = "denied" in outcome ? outcome.denied : "unauthenticated";
@@ -286,13 +341,136 @@ function unauthorized(res: ServerResponse, req: IncomingMessage): void {
 
 const SESSION_TTL_S = 90 * 24 * 60 * 60;
 function sessionCookie(id: string): string {
-  return `webuiuser=${encodeURIComponent(id)}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${SESSION_TTL_S}`;
+  return `webuiuser=${encodeURIComponent(id)}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${SESSION_TTL_S}${SECURE_COOKIE}`;
+}
+
+function expiredIdentityCookies(): string[] {
+  return ["webuiuser", "webuiuser_name", "webui_impersonator", "ioi_session"].map(
+    (name) => `${name}=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0${SECURE_COOKIE}`,
+  );
 }
 
 const MAX_BODY_BYTES = 1_000_000;
 const readBody = (req: IncomingMessage): Promise<string> => readBodyCapped(req, MAX_BODY_BYTES);
 
-const slackUrlCache = new LRUCache<string, { url: string | null }>({ max: 1, ttl: 5 * 60_000 });
+function setPrivateResponseHeaders(res: ServerResponse): void {
+  res.setHeader("cache-control", "no-store");
+  res.setHeader("pragma", "no-cache");
+}
+
+function mutationMediaType(path: string): "application/json" | "application/octet-stream" {
+  return path === "/api/blobs" || path === "/api/files/upload" ? "application/octet-stream" : "application/json";
+}
+
+function allowMutation(req: IncomingMessage, res: ServerResponse, path: string): boolean {
+  const origin = req.headers.origin;
+  const site = req.headers["sec-fetch-site"];
+  const browserRequest = origin === PUBLIC_ORIGIN && site === "same-origin";
+  const signedNonBrowserRequest = origin === undefined && site === undefined && hasVerifiedPortalIdentity(req);
+  if (!browserRequest && !signedNonBrowserRequest) {
+    json(res, 403, {
+      error: "cross_site_request_refused",
+      message: "The request origin is not this ioi.ai surface.",
+    });
+    return false;
+  }
+  const expected = mutationMediaType(path);
+  const contentType = req.headers["content-type"]?.split(";", 1)[0]?.trim().toLowerCase();
+  if (contentType !== expected) {
+    json(res, 415, {
+      error: "unsupported_media_type",
+      message: `Content-Type must be ${expected}.`,
+    });
+    return false;
+  }
+  return true;
+}
+
+async function readIoiObject(
+  req: IncomingMessage,
+  res: ServerResponse,
+  message: string,
+): Promise<Record<string, unknown> | null> {
+  let value: unknown;
+  try {
+    value = JSON.parse((await readBody(req)) || "{}");
+  } catch (error) {
+    if (error instanceof PayloadTooLargeError) throw error;
+    json(res, 400, { error: "bad_request", message });
+    return null;
+  }
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    json(res, 400, { error: "bad_request", message });
+    return null;
+  }
+  return value as Record<string, unknown>;
+}
+
+function closedIoiObject(
+  res: ServerResponse,
+  value: Record<string, unknown>,
+  allowed: readonly string[],
+  label: string,
+): boolean {
+  const unknown = Object.keys(value).find((key) => !allowed.includes(key));
+  if (!unknown) return true;
+  json(res, 400, {
+    error: "bad_request",
+    message: `${label} contains an unsupported field: ${unknown}.`,
+  });
+  return false;
+}
+
+function boundedIoiText(value: unknown, maximum: number): string | null {
+  if (typeof value !== "string") return null;
+  const text = value.trim();
+  return text && text.length <= maximum && !/[\u0000-\u001f\u007f]/u.test(text) ? text : null;
+}
+
+function canonicalIoiRef(value: unknown, schemes: readonly string[]): string | null {
+  const reference = boundedIoiText(value, 500);
+  if (!reference) return null;
+  const separator = reference.indexOf("://");
+  if (separator <= 0 || separator === reference.length - 3) return null;
+  return schemes.includes(reference.slice(0, separator)) ? reference : null;
+}
+
+function canonicalIoiRefs(value: unknown, schemes: readonly string[]): string[] | null {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value) || value.length > 64) return null;
+  const references = value.map((entry) => canonicalIoiRef(entry, schemes));
+  if (references.some((entry) => entry === null)) return null;
+  const result = references as string[];
+  return new Set(result).size === result.length ? result : null;
+}
+
+function canonicalJson(value: unknown): string {
+  if (value === null || typeof value === "boolean" || typeof value === "string") return JSON.stringify(value);
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) throw new Error("non-finite JSON number");
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  if (typeof value !== "object") throw new Error("unsupported JSON value");
+  const object = value as Record<string, unknown>;
+  return `{${Object.keys(object)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${canonicalJson(object[key])}`)
+    .join(",")}}`;
+}
+
+export function goalRunMembershipRoot(goalRun: Record<string, unknown>): string {
+  const canonical = canonicalJson({
+    domain: "ioi.goal-run-room-membership-predecessor-jcs-sha256.v1",
+    value: goalRun,
+  });
+  return `sha256:${createHash("sha256").update(canonical).digest("hex")}`;
+}
+
+const slackUrlCache = new LRUCache<string, { url: string | null }>({
+  max: 1,
+  ttl: 5 * 60_000,
+});
 async function slackWorkspaceUrl(): Promise<string | null> {
   const hit = slackUrlCache.get("url");
   if (hit) return hit.url;
@@ -455,7 +633,13 @@ async function coreFetchCap(
     token = undefined;
   }
   if (!token)
-    return { status: 503, text: JSON.stringify({ error: "not_configured", message: "no session capability" }) };
+    return {
+      status: 503,
+      text: JSON.stringify({
+        error: "not_configured",
+        message: "no session capability",
+      }),
+    };
   const r = await fetch(`${CORE}${pathWithQuery}`, {
     method,
     headers: { "content-type": "application/json", [CAPABILITY_HEADER]: token },
@@ -469,7 +653,9 @@ async function postTurnAndMint(res: ServerResponse, turn: unknown, user: string,
   const r = await coreFetch("POST", `/v1/turns?async=1`, JSON.stringify(turn));
   if (r.status >= 200 && r.status < 300) {
     try {
-      const parsed = JSON.parse(r.text) as Record<string, unknown> & { runId?: string };
+      const parsed = JSON.parse(r.text) as Record<string, unknown> & {
+        runId?: string;
+      };
       const runId = parsed.runId;
       if (runId) {
         rememberRun(runId, user, threadRef);
@@ -502,7 +688,12 @@ interface CoreCron {
   title?: string;
   action?: string;
   message?: string;
-  schedule: { everyMs?: number; firstFireAt?: number; cron?: string; timezone?: string };
+  schedule: {
+    everyMs?: number;
+    firstFireAt?: number;
+    cron?: string;
+    timezone?: string;
+  };
   destination?: unknown;
   enabled: boolean;
   archived?: boolean;
@@ -536,6 +727,12 @@ function uploadFileName(url: URL): string {
   return url.searchParams.get("name")?.trim() || "file";
 }
 
+function uploadMimeType(url: URL): string | null {
+  const value = (url.searchParams.get("mimetype") ?? "application/octet-stream").trim().toLowerCase();
+  if (value.length > 200) return null;
+  return /^[a-z0-9][a-z0-9!#$&^_.+-]{0,126}\/[a-z0-9][a-z0-9!#$&^_.+-]{0,126}$/.test(value) ? value : null;
+}
+
 async function stageUploadStream(req: IncomingMessage, sha256: string): Promise<Response> {
   const corePath = withSourceAuthNonce("/v1/blobs", CORE_SIGNING_SECRET);
   const headers = {
@@ -558,10 +755,15 @@ function declaredSha(url: URL): string {
 async function uploadBlobFromRequest(req: IncomingMessage, res: ServerResponse, sha256: string): Promise<void> {
   if (!/^[0-9a-f]{64}$/.test(sha256)) {
     req.resume();
-    return json(res, 400, { error: "bad_request", message: "sha (hex sha-256) required" });
+    return json(res, 400, {
+      error: "bad_request",
+      message: "sha (hex sha-256) required",
+    });
   }
   const staged = await stageUploadStream(req, sha256);
-  res.writeHead(staged.status, { "content-type": staged.headers.get("content-type") ?? "application/json" });
+  res.writeHead(staged.status, {
+    "content-type": staged.headers.get("content-type") ?? "application/json",
+  });
   return void res.end(await staged.text());
 }
 
@@ -572,15 +774,21 @@ async function uploadFileFromRequest(
   scope: string | null,
   sha256: string,
   name: string,
+  mimetype: string,
 ): Promise<void> {
   if (!/^[0-9a-f]{64}$/.test(sha256)) {
     req.resume();
-    return json(res, 400, { error: "bad_request", message: "sha (hex sha-256) required" });
+    return json(res, 400, {
+      error: "bad_request",
+      message: "sha (hex sha-256) required",
+    });
   }
   const staged = await stageUploadStream(req, sha256);
   const stagedText = await staged.text();
   if (!staged.ok) {
-    res.writeHead(staged.status, { "content-type": staged.headers.get("content-type") ?? "application/json" });
+    res.writeHead(staged.status, {
+      "content-type": staged.headers.get("content-type") ?? "application/json",
+    });
     return void res.end(stagedText);
   }
   const stagedBody = JSON.parse(stagedText) as { blobId: string };
@@ -588,8 +796,7 @@ async function uploadFileFromRequest(
     principalId: user,
     ...(scope ? { scopeId: scope } : {}),
     name,
-    mimetype:
-      typeof req.headers["content-type"] === "string" ? req.headers["content-type"] : "application/octet-stream",
+    mimetype,
     blobId: stagedBody.blobId,
   });
   const registered = await coreFetch("POST", "/v1/files/upload", body);
@@ -608,14 +815,20 @@ async function serveStatic(res: ServerResponse, urlPath: string): Promise<void> 
     if (extname(rel)) return void json(res, 404, { error: "not_found" });
     filePath = join(DIST, "index.html");
     if (!existsSync(filePath)) {
-      return void json(res, 503, { error: "not_built", message: "run `npm run build` to produce dist-web/" });
+      return void json(res, 503, {
+        error: "not_built",
+        message: "run `npm run build` to produce dist-web/",
+      });
     }
   }
   if (filePath.endsWith("index.html")) {
     const branded = await brandIndexHtml(readFileSync(filePath, "utf8"));
     res.writeHead(
       200,
-      withSecurityHeaders({ "content-type": "text/html; charset=utf-8", "cache-control": "no-cache" }),
+      withSecurityHeaders({
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-cache",
+      }),
     );
     return void res.end(branded);
   }
@@ -644,7 +857,11 @@ async function serveAppEditHtml(req: IncomingMessage, res: ServerResponse, url: 
     if (!existsSync(filePath)) return false;
     html = readFileSync(filePath, "utf8");
   }
-  const headers = withSecurityHeaders({ "content-type": "text/html; charset=utf-8", "cache-control": "no-cache" });
+  const headers = withSecurityHeaders({
+    "content-type": "text/html; charset=utf-8",
+    "cache-control": "no-store",
+    pragma: "no-cache",
+  });
   headers["content-security-policy"] = SPA_CSP.replace(
     "frame-ancestors 'self'",
     `frame-ancestors 'self' ${slug}.${APPS_FRAME_DOMAIN}`,
@@ -712,6 +929,15 @@ const routeRequest = async (req: IncomingMessage, res: ServerResponse) => {
   const url = new URL(req.url ?? "/", `http://localhost:${PORT}`);
   const path = url.pathname;
   const method = req.method ?? "GET";
+  const privatePath =
+    path === "/signin" ||
+    path === "/signout" ||
+    path === "/me" ||
+    path.startsWith("/api/") ||
+    path.startsWith("/deployments/") ||
+    path === "/app-edit" ||
+    path.includes("/connectors/oauth/");
+  if (privatePath) setPrivateResponseHeaders(res);
 
   if (method === "GET" && path === "/healthz") return json(res, 200, { ok: true });
   if (method === "GET" && path === "/favicon.svg") {
@@ -720,6 +946,7 @@ const routeRequest = async (req: IncomingMessage, res: ServerResponse) => {
 
   if (method === "POST" && path === "/signin") {
     if (!COOKIE_AUTH) return json(res, 404, { error: "not_found" });
+    if (!allowMutation(req, res, path)) return;
     const body = await readBody(req);
     const id = (() => {
       try {
@@ -728,7 +955,11 @@ const routeRequest = async (req: IncomingMessage, res: ServerResponse) => {
         return "";
       }
     })();
-    if (!id) return json(res, 400, { error: "bad_request", message: "Enter a principal to sign in as." });
+    if (!id)
+      return json(res, 400, {
+        error: "bad_request",
+        message: "Enter a principal to sign in as.",
+      });
     if (ALLOW.length > 0 && !ALLOW.includes(id))
       return json(res, 403, {
         error: "not_allowed",
@@ -742,7 +973,20 @@ const routeRequest = async (req: IncomingMessage, res: ServerResponse) => {
   }
 
   if (method === "POST" && path === "/signout") {
-    res.writeHead(200, { "set-cookie": "webuiuser=; HttpOnly; Path=/; Max-Age=0", "content-type": "application/json" });
+    if (!allowMutation(req, res, path)) return;
+    const user = cookieUser(req);
+    if (user) {
+      try {
+        await ioiDaemon.request(req, user, "POST", "/v1/hypervisor/auth/logout", "{}");
+      } catch {
+        void 0;
+      }
+    }
+    res.writeHead(200, {
+      "set-cookie": expiredIdentityCookies(),
+      "content-type": "application/json",
+      "cache-control": "no-store",
+    });
     return res.end(JSON.stringify({ ok: true }));
   }
 
@@ -767,6 +1011,8 @@ const routeRequest = async (req: IncomingMessage, res: ServerResponse) => {
     const user = cookieUser(req);
     if (!user) return unauthorized(res, req);
 
+    if (["POST", "PUT", "PATCH", "DELETE"].includes(method) && !allowMutation(req, res, path)) return;
+
     if (path === "/me") {
       res.setHeader("set-cookie", sessionCookie(user));
       const permissions = await userPermissions();
@@ -780,11 +1026,433 @@ const routeRequest = async (req: IncomingMessage, res: ServerResponse) => {
       });
     }
 
+    if (method === "GET" && path === "/api/ioi/goals") {
+      return relay(res, await ioiDaemon.request(req, user, "GET", "/v1/goal-orchestration/goal-runs"));
+    }
+
+    if (method === "POST" && path === "/api/ioi/goals") {
+      const source = await readIoiObject(req, res, "GoalRun input must be a JSON object.");
+      if (!source || !closedIoiObject(res, source, ["goal", "session_ref", "model_route_ref"], "GoalRun input"))
+        return;
+      const goal = boundedIoiText(source.goal, 32_768);
+      const sessionRef = boundedIoiText(source.session_ref, 320);
+      const modelRouteRef =
+        source.model_route_ref === undefined || source.model_route_ref === null
+          ? null
+          : canonicalIoiRef(source.model_route_ref, ["model-route"]);
+      if (!goal || goal.length < 4 || !sessionRef || !/^session:[A-Za-z0-9][^\s]{0,311}$/u.test(sessionRef)) {
+        return json(res, 400, {
+          error: "bad_request",
+          message: "goal and a canonical session: target are required.",
+        });
+      }
+      if (source.model_route_ref !== undefined && source.model_route_ref !== null && !modelRouteRef) {
+        return json(res, 400, {
+          error: "bad_request",
+          message: "model_route_ref must be a canonical model-route:// ref.",
+        });
+      }
+      const body = JSON.stringify({
+        goal,
+        session_ref: sessionRef,
+        origin_surface: "api",
+        ...(modelRouteRef ? { model_route_ref: modelRouteRef } : {}),
+      });
+      return relay(res, await ioiDaemon.request(req, user, "POST", "/v1/goal-orchestration/goal-runs", body));
+    }
+
+    if (method === "POST" && path === "/api/ioi/goal-activations") {
+      const source = await readIoiObject(req, res, "Activation input must be a JSON object.");
+      if (!source) return;
+      const body = JSON.stringify({
+        schema_version: "ioi.goal-run-activation-draft-request.v1",
+        goal_text: source.goal_text,
+        constraints: source.constraints,
+        project_ref: source.project_ref ?? null,
+        result_profile: "research",
+        idempotency_key: source.idempotency_key,
+      });
+      return relay(
+        res,
+        await ioiDaemon.request(req, user, "POST", "/v1/goal-orchestration/goal-run-activations", body),
+      );
+    }
+
+    const activation = path.match(/^\/api\/ioi\/goal-activations\/([^/]+)$/);
+    if (method === "GET" && activation) {
+      const id = boundedIoiId(activation[1]!, "gra_");
+      if (!id)
+        return json(res, 400, {
+          error: "bad_request",
+          message: "Invalid activation id.",
+        });
+      return relay(
+        res,
+        await ioiDaemon.request(
+          req,
+          user,
+          "GET",
+          `/v1/goal-orchestration/goal-run-activations/${encodeURIComponent(id)}`,
+        ),
+      );
+    }
+
+    const activationSubmit = path.match(/^\/api\/ioi\/goal-activations\/([^/]+)\/submit$/);
+    if (method === "POST" && activationSubmit) {
+      const id = boundedIoiId(activationSubmit[1]!, "gra_");
+      if (!id)
+        return json(res, 400, {
+          error: "bad_request",
+          message: "Invalid activation id.",
+        });
+      const source = await readIoiObject(req, res, "Activation approval must be a JSON object.");
+      if (!source) return;
+      const body = JSON.stringify({
+        schema_version: "ioi.goal-run-activation-submit-request.v1",
+        expected_activation_hash: source.expected_activation_hash,
+        review_decision: "approve",
+        ...(source.wallet_approval_grant ? { wallet_approval_grant: source.wallet_approval_grant } : {}),
+      });
+      return relay(
+        res,
+        await ioiDaemon.request(
+          req,
+          user,
+          "POST",
+          `/v1/goal-orchestration/goal-run-activations/${encodeURIComponent(id)}/submit`,
+          body,
+        ),
+      );
+    }
+
+    const goal = path.match(/^\/api\/ioi\/goals\/([^/]+)$/);
+    if (method === "GET" && goal) {
+      const id = boundedIoiId(goal[1]!, "gr_");
+      if (!id)
+        return json(res, 400, {
+          error: "bad_request",
+          message: "Invalid GoalRun id.",
+        });
+      return relay(
+        res,
+        await ioiDaemon.request(req, user, "GET", `/v1/goal-orchestration/goal-runs/${encodeURIComponent(id)}`),
+      );
+    }
+
+    const goalEvents = path.match(/^\/api\/ioi\/goals\/([^/]+)\/events$/);
+    if (method === "GET" && goalEvents) {
+      const id = boundedIoiId(goalEvents[1]!, "gr_");
+      if (!id)
+        return json(res, 400, {
+          error: "bad_request",
+          message: "Invalid GoalRun id.",
+        });
+      return relay(
+        res,
+        await ioiDaemon.request(req, user, "GET", `/v1/goal-orchestration/goal-runs/${encodeURIComponent(id)}/events`),
+      );
+    }
+
+    const goalMutation = path.match(/^\/api\/ioi\/goals\/([^/]+)\/(start|reconcile)$/);
+    if (method === "POST" && goalMutation) {
+      const id = boundedIoiId(goalMutation[1]!, "gr_");
+      if (!id)
+        return json(res, 400, {
+          error: "bad_request",
+          message: "Invalid GoalRun id.",
+        });
+      const source = await readIoiObject(req, res, "GoalRun mutation input must be a JSON object.");
+      const action = goalMutation[2]!;
+      const allowed = action === "start" ? ["wallet_approval_grant"] : ["idempotency_key", "wallet_approval_grant"];
+      if (!source || !closedIoiObject(res, source, allowed, "GoalRun mutation input")) return;
+      const walletGrant = source.wallet_approval_grant;
+      if (
+        walletGrant !== undefined &&
+        (walletGrant === null || typeof walletGrant !== "object" || Array.isArray(walletGrant))
+      ) {
+        return json(res, 400, {
+          error: "bad_request",
+          message: "wallet_approval_grant must be a JSON object.",
+        });
+      }
+      let idempotencyKey: string | null = null;
+      if (action === "reconcile") {
+        idempotencyKey = boundedIoiText(source.idempotency_key, 200);
+        if (!idempotencyKey || idempotencyKey.length < 8) {
+          return json(res, 400, {
+            error: "bad_request",
+            message: "Reconciliation requires an 8..200 character idempotency_key.",
+          });
+        }
+      }
+      const body = JSON.stringify({
+        ...(idempotencyKey ? { idempotency_key: idempotencyKey } : {}),
+        ...(walletGrant ? { wallet_approval_grant: walletGrant } : {}),
+      });
+      return relay(
+        res,
+        await ioiDaemon.request(
+          req,
+          user,
+          "POST",
+          `/v1/goal-orchestration/goal-runs/${encodeURIComponent(id)}/${action}`,
+          body,
+        ),
+      );
+    }
+
+    if (method === "GET" && path === "/api/ioi/rooms") {
+      return relay(res, await ioiDaemon.request(req, user, "GET", "/v1/goal-orchestration/outcome-rooms"));
+    }
+
+    if (method === "POST" && path === "/api/ioi/rooms") {
+      const source = await readIoiObject(req, res, "OutcomeRoom materialization input must be a JSON object.");
+      if (
+        !source ||
+        !closedIoiObject(
+          res,
+          source,
+          ["system_id", "goal_run_ref", "objective", "room_mode", "governance"],
+          "OutcomeRoom materialization input",
+        )
+      )
+        return;
+      const systemId = canonicalIoiRef(source.system_id, ["system"]);
+      const goalRunRef = canonicalIoiRef(source.goal_run_ref, ["goal"]);
+      const objective = boundedIoiText(source.objective, 4_096);
+      const roomMode = source.room_mode;
+      const governance =
+        source.governance !== null && typeof source.governance === "object" && !Array.isArray(source.governance)
+          ? (source.governance as Record<string, unknown>)
+          : null;
+      const governanceFields = [
+        "constraint_refs",
+        "acceptance_criteria_refs",
+        "stop_policy_ref",
+        "visibility_policy_ref",
+        "participation_policy_ref",
+        "privacy_policy_ref",
+        "contribution_policy_ref",
+        "cooperation_surplus_policy_ref",
+        "collaboration_terms_refs",
+        "artifact_license_rights_retention_and_export_policy_refs",
+        "coordination_policy_ref",
+        "ordering_and_merge_policy_ref",
+        "conflict_and_failover_policy_ref",
+        "ontology_profile_refs",
+        "scorecard_and_guardrail_refs",
+        "verifier_path_refs",
+        "resource_and_budget_refs",
+      ] as const;
+      if (
+        !systemId ||
+        !goalRunRef ||
+        !/^goal:\/\/gr_[A-Za-z0-9_-]+$/u.test(goalRunRef) ||
+        !objective ||
+        !["private_goal", "permissioned_team"].includes(String(roomMode)) ||
+        !governance ||
+        !closedIoiObject(res, governance, governanceFields, "OutcomeRoom governance")
+      ) {
+        if (!res.headersSent)
+          json(res, 400, {
+            error: "bad_request",
+            message: "A System, collective GoalRun, objective, selected room mode, and closed governance object are required.",
+          });
+        return;
+      }
+      const scalarPolicies = [
+        "stop_policy_ref",
+        "visibility_policy_ref",
+        "participation_policy_ref",
+        "privacy_policy_ref",
+        "contribution_policy_ref",
+        "cooperation_surplus_policy_ref",
+        "coordination_policy_ref",
+        "ordering_and_merge_policy_ref",
+        "conflict_and_failover_policy_ref",
+      ] as const;
+      const policies = Object.fromEntries(
+        scalarPolicies.map((field) => [field, canonicalIoiRef(governance[field], ["policy"])]),
+      );
+      if (Object.values(policies).some((value) => value === null)) {
+        return json(res, 400, {
+          error: "bad_request",
+          message: "Every required governance policy must be a canonical policy:// ref.",
+        });
+      }
+      const listFields = {
+        constraint_refs: ["constraint", "policy", "budget"],
+        acceptance_criteria_refs: ["rubric", "gate", "policy"],
+        collaboration_terms_refs: ["terms"],
+        artifact_license_rights_retention_and_export_policy_refs: ["policy", "license"],
+        ontology_profile_refs: ["ontology", "semantic-profile", "ontology-mapping"],
+        scorecard_and_guardrail_refs: ["benchmark", "rubric", "gate", "policy"],
+        verifier_path_refs: ["verifier-path"],
+        resource_and_budget_refs: ["resource-pool", "budget", "goal-budget", "order"],
+      } as const;
+      const lists = Object.fromEntries(
+        Object.entries(listFields).map(([field, schemes]) => [field, canonicalIoiRefs(governance[field], schemes)]),
+      );
+      if (Object.values(lists).some((value) => value === null)) {
+        return json(res, 400, {
+          error: "bad_request",
+          message: "OutcomeRoom governance lists must contain unique canonical refs of the required kind.",
+        });
+      }
+      const body = JSON.stringify({
+        schema_version: "ioi.applications.ioi-ai.outcome-room.v2",
+        system_id: systemId,
+        owner_or_sponsor_ref: `user://${user}`,
+        objective_ref: goalRunRef,
+        objective,
+        room_mode: roomMode,
+        coordination_topology: "hosted_admission",
+        host_domain_ref: systemId,
+        ...policies,
+        ...lists,
+        discovery_and_external_admission_policy_refs: [],
+        multi_party_collaboration_ref: null,
+        settlement_policy_ref: null,
+      });
+      return relay(
+        res,
+        await ioiDaemon.request(req, user, "POST", "/v1/goal-orchestration/outcome-rooms", body),
+      );
+    }
+
+    if (method === "GET" && path === "/api/ioi/rooms/overview") {
+      return relay(res, await ioiDaemon.request(req, user, "GET", "/v1/goal-orchestration/outcome-rooms/overview"));
+    }
+
+    const roomProjection = path.match(
+      /^\/api\/ioi\/rooms\/([^/]+)\/(replay|collaborative-work-graph|discussion-projection|product-projection)$/,
+    );
+    if (method === "GET" && roomProjection) {
+      const id = boundedIoiId(roomProjection[1]!, "or_");
+      if (!id)
+        return json(res, 400, {
+          error: "bad_request",
+          message: "Invalid OutcomeRoom id.",
+        });
+      return relay(
+        res,
+        await ioiDaemon.request(
+          req,
+          user,
+          "GET",
+          `/v1/goal-orchestration/outcome-rooms/${encodeURIComponent(id)}/${roomProjection[2]}`,
+        ),
+      );
+    }
+
+    const room = path.match(/^\/api\/ioi\/rooms\/([^/]+)$/);
+    if (method === "GET" && room) {
+      const id = boundedIoiId(room[1]!, "or_");
+      if (!id)
+        return json(res, 400, {
+          error: "bad_request",
+          message: "Invalid OutcomeRoom id.",
+        });
+      return relay(
+        res,
+        await ioiDaemon.request(req, user, "GET", `/v1/goal-orchestration/outcome-rooms/${encodeURIComponent(id)}`),
+      );
+    }
+
+    const roomMembership = path.match(/^\/api\/ioi\/rooms\/([^/]+)\/goal-runs\/(attach|detach)$/);
+    if (method === "POST" && roomMembership) {
+      const id = boundedIoiId(roomMembership[1]!, "or_");
+      if (!id)
+        return json(res, 400, {
+          error: "bad_request",
+          message: "Invalid OutcomeRoom id.",
+        });
+      const source = await readIoiObject(req, res, "OutcomeRoom membership input must be a JSON object.");
+      if (
+        !source ||
+        !closedIoiObject(res, source, ["goal_run_ref", "expected_revision"], "OutcomeRoom membership input")
+      )
+        return;
+      const goalRunRef = canonicalIoiRef(source.goal_run_ref, ["goal"]);
+      const expectedRevision = source.expected_revision;
+      const goalRunId = goalRunRef?.slice("goal://".length) ?? "";
+      if (
+        !goalRunRef ||
+        !boundedIoiId(encodeURIComponent(goalRunId), "gr_") ||
+        !Number.isSafeInteger(expectedRevision) ||
+        Number(expectedRevision) < 0
+      ) {
+        return json(res, 400, {
+          error: "bad_request",
+          message: "A canonical goal://gr_ ref and non-negative expected_revision are required.",
+        });
+      }
+      const current = await ioiDaemon.request(
+        req,
+        user,
+        "GET",
+        `/v1/goal-orchestration/goal-runs/${encodeURIComponent(goalRunId)}`,
+      );
+      if (current.status !== 200) return relay(res, current);
+      let currentBody: unknown;
+      try {
+        currentBody = JSON.parse(current.text);
+      } catch {
+        return json(res, 502, {
+          error: "invalid_daemon_response",
+          message: "The daemon returned a non-JSON GoalRun while resolving room membership.",
+        });
+      }
+      const currentEnvelope =
+        currentBody !== null && typeof currentBody === "object" && !Array.isArray(currentBody)
+          ? (currentBody as Record<string, unknown>)
+          : null;
+      const currentGoalRun =
+        currentEnvelope?.goal_run !== null &&
+        typeof currentEnvelope?.goal_run === "object" &&
+        !Array.isArray(currentEnvelope?.goal_run)
+          ? (currentEnvelope.goal_run as Record<string, unknown>)
+          : null;
+      if (
+        currentEnvelope?.ok !== true ||
+        currentGoalRun?.goal_run_id !== goalRunId ||
+        currentGoalRun?.goal_ref !== goalRunRef
+      ) {
+        return json(res, 502, {
+          error: "invalid_daemon_response",
+          message: "The daemon GoalRun projection cannot supply the exact membership predecessor.",
+        });
+      }
+      const body = JSON.stringify({
+        goal_run_ref: goalRunRef,
+        expected_revision: expectedRevision,
+        expected_goal_run_record_root: goalRunMembershipRoot(currentGoalRun),
+      });
+      return relay(
+        res,
+        await ioiDaemon.request(
+          req,
+          user,
+          "POST",
+          `/v1/goal-orchestration/outcome-rooms/${encodeURIComponent(id)}/${roomMembership[2]}-goal-run`,
+          body,
+        ),
+      );
+    }
+
     if (method === "POST" && path === "/api/blobs") {
       return uploadBlobFromRequest(req, res, declaredSha(url));
     }
 
     if (method === "POST" && path === "/api/files/upload") {
+      const mimetype = uploadMimeType(url);
+      if (!mimetype) {
+        req.resume();
+        return json(res, 400, {
+          error: "bad_request",
+          message: "mimetype must be a bounded media type.",
+        });
+      }
       return uploadFileFromRequest(
         req,
         res,
@@ -792,6 +1460,7 @@ const routeRequest = async (req: IncomingMessage, res: ServerResponse) => {
         url.searchParams.get("scope"),
         declaredSha(url),
         uploadFileName(url),
+        mimetype,
       );
     }
 
@@ -816,7 +1485,12 @@ const routeRequest = async (req: IncomingMessage, res: ServerResponse) => {
     }
     if (method === "PUT" && contextPolicy) {
       const scope = decodeURIComponent(contextPolicy[1]!);
-      let p: { orders?: unknown; bots?: unknown; ambientEnabled?: unknown; baseUpdatedAt?: unknown };
+      let p: {
+        orders?: unknown;
+        bots?: unknown;
+        ambientEnabled?: unknown;
+        baseUpdatedAt?: unknown;
+      };
       try {
         p = JSON.parse((await readBody(req)) || "{}") as typeof p;
       } catch (e) {
@@ -841,13 +1515,19 @@ const routeRequest = async (req: IncomingMessage, res: ServerResponse) => {
     if (method === "POST" && path === "/api/projects") {
       let name = "";
       try {
-        const p = JSON.parse((await readBody(req)) || "{}") as { name?: unknown };
+        const p = JSON.parse((await readBody(req)) || "{}") as {
+          name?: unknown;
+        };
         if (typeof p.name === "string") name = p.name.trim().slice(0, 200);
       } catch (e) {
         if (e instanceof PayloadTooLargeError) throw e;
         return json(res, 400, { error: "bad_request" });
       }
-      if (!name) return json(res, 400, { error: "bad_request", message: "name required" });
+      if (!name)
+        return json(res, 400, {
+          error: "bad_request",
+          message: "name required",
+        });
       const r = await coreFetch("POST", "/v1/projects", JSON.stringify({ principalId: user, name }));
       return relay(res, r);
     }
@@ -857,13 +1537,19 @@ const routeRequest = async (req: IncomingMessage, res: ServerResponse) => {
       const id = decodeURIComponent(renameProject[1]!);
       let name = "";
       try {
-        const p = JSON.parse((await readBody(req)) || "{}") as { name?: unknown };
+        const p = JSON.parse((await readBody(req)) || "{}") as {
+          name?: unknown;
+        };
         if (typeof p.name === "string") name = p.name.trim().slice(0, 200);
       } catch (e) {
         if (e instanceof PayloadTooLargeError) throw e;
         return json(res, 400, { error: "bad_request" });
       }
-      if (!name) return json(res, 400, { error: "bad_request", message: "name required" });
+      if (!name)
+        return json(res, 400, {
+          error: "bad_request",
+          message: "name required",
+        });
       const r = await coreFetch(
         "PATCH",
         `/v1/projects/${encodeURIComponent(id)}`,
@@ -877,13 +1563,19 @@ const routeRequest = async (req: IncomingMessage, res: ServerResponse) => {
       const id = decodeURIComponent(addProjectMember[1]!);
       let memberId = "";
       try {
-        const p = JSON.parse((await readBody(req)) || "{}") as { memberId?: unknown };
+        const p = JSON.parse((await readBody(req)) || "{}") as {
+          memberId?: unknown;
+        };
         if (typeof p.memberId === "string") memberId = p.memberId.trim();
       } catch (e) {
         if (e instanceof PayloadTooLargeError) throw e;
         return json(res, 400, { error: "bad_request" });
       }
-      if (!memberId) return json(res, 400, { error: "bad_request", message: "memberId required" });
+      if (!memberId)
+        return json(res, 400, {
+          error: "bad_request",
+          message: "memberId required",
+        });
       const r = await coreFetch(
         "POST",
         `/v1/projects/${encodeURIComponent(id)}/members`,
@@ -937,7 +1629,11 @@ const routeRequest = async (req: IncomingMessage, res: ServerResponse) => {
 
     if (method === "GET" && path === "/api/scope-resources") {
       const scope = url.searchParams.get("scope");
-      if (!scope) return json(res, 400, { error: "bad_request", message: "scope required" });
+      if (!scope)
+        return json(res, 400, {
+          error: "bad_request",
+          message: "scope required",
+        });
       const qs = new URLSearchParams({ principalId: user, scope });
       const r = await coreFetch("GET", `/v1/scope-resources?${qs.toString()}`);
       return relay(res, r);
@@ -957,7 +1653,12 @@ const routeRequest = async (req: IncomingMessage, res: ServerResponse) => {
     }
 
     if (method === "POST" && path === "/api/skills") {
-      const draft: { name?: string; description?: string; body?: string; scopeId?: string } = {};
+      const draft: {
+        name?: string;
+        description?: string;
+        body?: string;
+        scopeId?: string;
+      } = {};
       try {
         const p = JSON.parse((await readBody(req)) || "{}") as {
           name?: unknown;
@@ -981,7 +1682,10 @@ const routeRequest = async (req: IncomingMessage, res: ServerResponse) => {
       const id = decodeURIComponent(path.slice("/api/skills/".length));
       const patch: { description?: string; body?: string } = {};
       try {
-        const p = JSON.parse((await readBody(req)) || "{}") as { description?: unknown; body?: unknown };
+        const p = JSON.parse((await readBody(req)) || "{}") as {
+          description?: unknown;
+          body?: unknown;
+        };
         if (typeof p.description === "string") patch.description = p.description;
         if (typeof p.body === "string") patch.body = p.body;
       } catch (e) {
@@ -1030,7 +1734,9 @@ const routeRequest = async (req: IncomingMessage, res: ServerResponse) => {
       const id = decodeURIComponent(path.slice("/api/sessions/".length, -"/fork".length));
       let upToSeq: number | undefined;
       try {
-        const p = JSON.parse((await readBody(req)) || "{}") as { upToSeq?: unknown };
+        const p = JSON.parse((await readBody(req)) || "{}") as {
+          upToSeq?: unknown;
+        };
         if (typeof p.upToSeq === "number") upToSeq = p.upToSeq;
       } catch (e) {
         if (e instanceof PayloadTooLargeError) throw e;
@@ -1039,7 +1745,10 @@ const routeRequest = async (req: IncomingMessage, res: ServerResponse) => {
       const r = await coreFetch(
         "POST",
         `/v1/sessions/${encodeURIComponent(id)}/fork`,
-        JSON.stringify({ principalId: user, ...(upToSeq !== undefined ? { upToSeq } : {}) }),
+        JSON.stringify({
+          principalId: user,
+          ...(upToSeq !== undefined ? { upToSeq } : {}),
+        }),
       );
       return relay(res, r);
     }
@@ -1109,8 +1818,14 @@ const routeRequest = async (req: IncomingMessage, res: ServerResponse) => {
         redirect: "manual",
       });
       if (!r.ok || !r.body) {
-        res.writeHead(r.status === 404 ? 404 : 502, { "content-type": "application/json" });
-        return res.end(JSON.stringify({ error: r.status === 404 ? "not_found" : "upstream_error" }));
+        res.writeHead(r.status === 404 ? 404 : 502, {
+          "content-type": "application/json",
+        });
+        return res.end(
+          JSON.stringify({
+            error: r.status === 404 ? "not_found" : "upstream_error",
+          }),
+        );
       }
       res.writeHead(200, {
         "content-type": r.headers.get("content-type") ?? "application/octet-stream",
@@ -1148,7 +1863,10 @@ const routeRequest = async (req: IncomingMessage, res: ServerResponse) => {
       let revision = "";
       let expectedRevision = "";
       try {
-        const p = JSON.parse(await readBody(req)) as { revision?: unknown; expectedRevision?: unknown };
+        const p = JSON.parse(await readBody(req)) as {
+          revision?: unknown;
+          expectedRevision?: unknown;
+        };
         if (typeof p.revision === "string") revision = p.revision;
         if (typeof p.expectedRevision === "string") expectedRevision = p.expectedRevision;
       } catch (e) {
@@ -1166,9 +1884,15 @@ const routeRequest = async (req: IncomingMessage, res: ServerResponse) => {
       let content: string;
       let revision: string;
       try {
-        const p = JSON.parse(await readBody(req)) as { content?: unknown; revision?: unknown };
+        const p = JSON.parse(await readBody(req)) as {
+          content?: unknown;
+          revision?: unknown;
+        };
         if (typeof p.content !== "string")
-          return json(res, 400, { error: "bad_request", message: "content must be a string" });
+          return json(res, 400, {
+            error: "bad_request",
+            message: "content must be a string",
+          });
         content = p.content;
         revision =
           typeof p.revision === "string"
@@ -1190,7 +1914,12 @@ const routeRequest = async (req: IncomingMessage, res: ServerResponse) => {
 
     if (method === "POST" && path.startsWith("/api/sessions/")) {
       const id = decodeURIComponent(path.slice("/api/sessions/".length));
-      const patch: { title?: string | null; archived?: boolean; pinned?: boolean; color?: string | null } = {};
+      const patch: {
+        title?: string | null;
+        archived?: boolean;
+        pinned?: boolean;
+        color?: string | null;
+      } = {};
       try {
         const p = JSON.parse(await readBody(req)) as {
           title?: unknown;
@@ -1212,7 +1941,10 @@ const routeRequest = async (req: IncomingMessage, res: ServerResponse) => {
         patch.pinned === undefined &&
         patch.color === undefined
       ) {
-        return json(res, 400, { error: "bad_request", message: "title, archived, pinned, or color required" });
+        return json(res, 400, {
+          error: "bad_request",
+          message: "title, archived, pinned, or color required",
+        });
       }
       const r = await coreFetch(
         "POST",
@@ -1230,7 +1962,11 @@ const routeRequest = async (req: IncomingMessage, res: ServerResponse) => {
     if (method === "POST" && path.startsWith("/api/connectors/") && path.endsWith("/start")) {
       const provider = path.slice("/api/connectors/".length, -"/start".length);
       const callback = `${PUBLIC_URL}/v1/connectors/oauth/${encodeURIComponent(provider)}/callback`;
-      const params = new URLSearchParams({ principalId: user, redirectUri: callback, returnTo: "/keychain" });
+      const params = new URLSearchParams({
+        principalId: user,
+        redirectUri: callback,
+        returnTo: "/keychain",
+      });
       const corePath = `/v1/connectors/oauth/${encodeURIComponent(provider)}/start?${params.toString()}`;
       const r = await coreFetch("GET", corePath);
       return relay(res, r);
@@ -1240,15 +1976,25 @@ const routeRequest = async (req: IncomingMessage, res: ServerResponse) => {
       let provider: string;
       let host: string;
       try {
-        const parsed = JSON.parse(await readBody(req)) as { provider?: unknown; host?: unknown };
+        const parsed = JSON.parse(await readBody(req)) as {
+          provider?: unknown;
+          host?: unknown;
+        };
         provider = typeof parsed.provider === "string" ? parsed.provider : "";
         host = typeof parsed.host === "string" ? parsed.host : "";
       } catch (e) {
         if (e instanceof PayloadTooLargeError) throw e;
         return json(res, 400, { error: "bad_request" });
       }
-      if (!provider && !host) return json(res, 400, { error: "bad_request", message: "provider or host required" });
-      const rawBody = JSON.stringify({ principalId: user, ...(provider ? { provider } : { host }) });
+      if (!provider && !host)
+        return json(res, 400, {
+          error: "bad_request",
+          message: "provider or host required",
+        });
+      const rawBody = JSON.stringify({
+        principalId: user,
+        ...(provider ? { provider } : { host }),
+      });
       const r = await coreFetch("POST", "/v1/connectors/oauth/revoke", rawBody);
       return relay(res, r);
     }
@@ -1272,7 +2018,11 @@ const routeRequest = async (req: IncomingMessage, res: ServerResponse) => {
     if (method === "POST" && path === "/api/keychain/drops") {
       let draft: { service?: string; purpose?: string; envKey?: string };
       try {
-        const p = JSON.parse(await readBody(req)) as { service?: unknown; purpose?: unknown; envKey?: unknown };
+        const p = JSON.parse(await readBody(req)) as {
+          service?: unknown;
+          purpose?: unknown;
+          envKey?: unknown;
+        };
         draft = {
           ...(typeof p.service === "string" ? { service: p.service } : {}),
           ...(typeof p.purpose === "string" ? { purpose: p.purpose } : {}),
@@ -1288,7 +2038,11 @@ const routeRequest = async (req: IncomingMessage, res: ServerResponse) => {
 
     if (method === "DELETE" && path.startsWith("/api/keychain/credentials/")) {
       const id = decodeURIComponent(path.slice("/api/keychain/credentials/".length));
-      if (!id) return json(res, 400, { error: "bad_request", message: "credential id required" });
+      if (!id)
+        return json(res, 400, {
+          error: "bad_request",
+          message: "credential id required",
+        });
       const r = await coreFetchCap("DELETE", `/v1/keychain/credentials/${encodeURIComponent(id)}`);
       return relay(res, r);
     }
@@ -1310,13 +2064,18 @@ const routeRequest = async (req: IncomingMessage, res: ServerResponse) => {
       }
       let deployments: Array<Record<string, unknown>>;
       try {
-        const parsed = JSON.parse(r.text) as { deployments?: Array<Record<string, unknown>> };
+        const parsed = JSON.parse(r.text) as {
+          deployments?: Array<Record<string, unknown>>;
+        };
         deployments = parsed.deployments ?? [];
       } catch {
         return json(res, 502, { error: "bad_core_response" });
       }
       return json(res, 200, {
-        deployments: deployments.map((d) => ({ ...d, webUrl: `/deployments/${encodeURIComponent(String(d.id))}/` })),
+        deployments: deployments.map((d) => ({
+          ...d,
+          webUrl: `/deployments/${encodeURIComponent(String(d.id))}/`,
+        })),
       });
     }
 
@@ -1329,7 +2088,9 @@ const routeRequest = async (req: IncomingMessage, res: ServerResponse) => {
       );
       if (r.status !== 200) return relay(res, r);
       try {
-        const parsed = JSON.parse(r.text) as { deployment?: Record<string, unknown> };
+        const parsed = JSON.parse(r.text) as {
+          deployment?: Record<string, unknown>;
+        };
         if (!parsed.deployment) return json(res, 502, { error: "bad_core_response" });
         return json(res, 200, {
           deployment: {
@@ -1396,7 +2157,10 @@ const routeRequest = async (req: IncomingMessage, res: ServerResponse) => {
       let approved = false;
       let scope: "once" | "session" | "always" | undefined;
       try {
-        const p = JSON.parse(await readBody(req)) as { approved?: unknown; scope?: unknown };
+        const p = JSON.parse(await readBody(req)) as {
+          approved?: unknown;
+          scope?: unknown;
+        };
         approved = p.approved === true;
         if (p.scope === "once" || p.scope === "session" || p.scope === "always") scope = p.scope;
       } catch (e) {
@@ -1473,7 +2237,12 @@ const routeRequest = async (req: IncomingMessage, res: ServerResponse) => {
         if (Array.isArray(p.attachments)) {
           for (const raw of p.attachments as unknown[]) {
             if (!raw || typeof raw !== "object") continue;
-            const a = raw as { name?: unknown; mimetype?: unknown; sizeBytes?: unknown; blobId?: unknown };
+            const a = raw as {
+              name?: unknown;
+              mimetype?: unknown;
+              sizeBytes?: unknown;
+              blobId?: unknown;
+            };
             if (typeof a.name !== "string" || typeof a.blobId !== "string" || !a.blobId) continue;
             attachments.push({
               name: a.name,
@@ -1597,7 +2366,10 @@ const routeRequest = async (req: IncomingMessage, res: ServerResponse) => {
       let kind = "";
       let text: string | undefined;
       try {
-        const p = JSON.parse(await readBody(req)) as { kind?: unknown; text?: unknown };
+        const p = JSON.parse(await readBody(req)) as {
+          kind?: unknown;
+          text?: unknown;
+        };
         if (typeof p.kind === "string") kind = p.kind;
         if (typeof p.text === "string") text = p.text;
       } catch (e) {
@@ -1685,7 +2457,10 @@ const routeRequest = async (req: IncomingMessage, res: ServerResponse) => {
         }
         if (activity.length > activityLen) {
           activityLen = activity.length;
-          sseEvent(res, "activity", { activity, startedAt: run.startedAt ?? null });
+          sseEvent(res, "activity", {
+            activity,
+            startedAt: run.startedAt ?? null,
+          });
           lastProgressAt = now;
           lastBeat = now;
         }
@@ -1747,7 +2522,10 @@ const routeRequest = async (req: IncomingMessage, res: ServerResponse) => {
         let crons: CoreCron[] = [];
         let visible: CoreCron[] = [];
         try {
-          const parsed = JSON.parse(r.text) as { crons?: CoreCron[]; visible?: CoreCron[] };
+          const parsed = JSON.parse(r.text) as {
+            crons?: CoreCron[];
+            visible?: CoreCron[];
+          };
           crons = parsed.crons ?? [];
           visible = parsed.visible ?? [];
         } catch {
@@ -1769,7 +2547,13 @@ const routeRequest = async (req: IncomingMessage, res: ServerResponse) => {
 
       if (method === "PATCH" && path.startsWith("/api/crons/") && !path.slice("/api/crons/".length).includes("/")) {
         const id = decodeURIComponent(path.slice("/api/crons/".length));
-        let patch: { title?: string; task?: string; schedule?: unknown; enabled?: boolean; archived?: boolean } = {};
+        let patch: {
+          title?: string;
+          task?: string;
+          schedule?: unknown;
+          enabled?: boolean;
+          archived?: boolean;
+        } = {};
         try {
           const p = JSON.parse(await readBody(req)) as {
             title?: unknown;
@@ -1780,28 +2564,43 @@ const routeRequest = async (req: IncomingMessage, res: ServerResponse) => {
           };
           if ("title" in p) {
             if (typeof p.title !== "string")
-              return json(res, 400, { error: "bad_request", message: "title must be a string" });
+              return json(res, 400, {
+                error: "bad_request",
+                message: "title must be a string",
+              });
             patch = { ...patch, title: p.title.trim() };
           }
           if ("task" in p) {
             if (typeof p.task !== "string" || !p.task.trim())
-              return json(res, 400, { error: "bad_request", message: "task must be a non-empty string" });
+              return json(res, 400, {
+                error: "bad_request",
+                message: "task must be a non-empty string",
+              });
             patch = { ...patch, task: p.task.trim() };
           }
           if ("schedule" in p) patch = { ...patch, schedule: p.schedule };
           if ("enabled" in p) {
             if (typeof p.enabled !== "boolean")
-              return json(res, 400, { error: "bad_request", message: "enabled must be a boolean" });
+              return json(res, 400, {
+                error: "bad_request",
+                message: "enabled must be a boolean",
+              });
             patch = { ...patch, enabled: p.enabled };
           }
           if ("archived" in p) {
             if (typeof p.archived !== "boolean")
-              return json(res, 400, { error: "bad_request", message: "archived must be a boolean" });
+              return json(res, 400, {
+                error: "bad_request",
+                message: "archived must be a boolean",
+              });
             patch = { ...patch, archived: p.archived };
           }
         } catch (e) {
           if (e instanceof PayloadTooLargeError) throw e;
-          return json(res, 400, { error: "bad_request", message: "expected JSON body" });
+          return json(res, 400, {
+            error: "bad_request",
+            message: "expected JSON body",
+          });
         }
         if (Object.keys(patch).length === 0)
           return json(res, 400, {
@@ -1875,12 +2674,18 @@ const routeRequest = async (req: IncomingMessage, res: ServerResponse) => {
       ...(portalTok ? { [PORTAL_IDENTITY_HEADER]: portalTok } : {}),
     };
     delete headers["content-type"];
-    const up = await fetch(`${CORE}${corePath}`, { method, headers, redirect: "manual" });
+    const up = await fetch(`${CORE}${corePath}`, {
+      method,
+      headers,
+      redirect: "manual",
+    });
     const outHeaders = Object.fromEntries(up.headers.entries());
     delete outHeaders["content-encoding"];
     delete outHeaders["content-length"];
     res.writeHead(up.status, {
       ...outHeaders,
+      "cache-control": "no-store",
+      pragma: "no-cache",
       "content-security-policy": UNTRUSTED_CONTENT_SANDBOX_CSP,
       "x-content-type-options": "nosniff",
     });
@@ -1902,6 +2707,13 @@ export const handler = async (req: IncomingMessage, res: ServerResponse) => {
   res.setHeader("referrer-policy", "no-referrer");
   res.setHeader("x-content-type-options", "nosniff");
   res.setHeader("x-frame-options", "DENY");
+  if (!PRODUCTION_IDENTITY_CONFIGURED) {
+    setPrivateResponseHeaders(res);
+    return json(res, 503, {
+      error: "identity_configuration_required",
+      message: "Production requires CORE_SIGNING_SECRET and an explicit PORTAL_IDENTITY_SECRET.",
+    });
+  }
   const raw = req.headers[PORTAL_IDENTITY_HEADER];
   const token = Array.isArray(raw) ? raw[0] : raw;
   try {
@@ -1909,6 +2721,16 @@ export const handler = async (req: IncomingMessage, res: ServerResponse) => {
   } catch (err) {
     if (err instanceof PayloadTooLargeError) {
       if (!res.headersSent) json(res, 413, { error: "payload_too_large", message: err.message });
+      else res.end();
+      return;
+    }
+    if ((req.url ?? "").split("?", 1)[0]?.startsWith("/api/ioi")) {
+      setPrivateResponseHeaders(res);
+      if (!res.headersSent)
+        json(res, 502, {
+          error: "bad_gateway",
+          message: "The IOI daemon is unavailable.",
+        });
       else res.end();
       return;
     }
@@ -1925,24 +2747,30 @@ const server = createServer((req, res) => {
 });
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-  createVite(server)
-    .then((v) => {
-      vite = v;
-      server.listen(PORT, () => {
-        console.log(
-          `[web-ui] surface on http://localhost:${PORT} → core ${CORE} (org ${ORG})${WEB_UI_DEV ? " [vite hmr]" : ""}`,
-        );
-        if (!WEB_UI_DEV && !existsSync(join(DIST, "index.html")))
-          console.warn("[web-ui] dist-web/ not built — run `npm run build`");
-        if (COOKIE_AUTH && ALLOW.length === 0)
-          console.warn("[web-ui] WEB_UI_PRINCIPALS unset — any principal id may sign in (dev only)");
-        const t = setInterval(() => void drainWebDeliveries(), WEB_DELIVERY_POLL_MS);
-        t.unref?.();
-        void runStateFeed();
+  if (!PRODUCTION_IDENTITY_CONFIGURED) {
+    console.error(
+      "[web-ui] production identity configuration missing: set CORE_SIGNING_SECRET and PORTAL_IDENTITY_SECRET",
+    );
+    process.exitCode = 1;
+  } else
+    createVite(server)
+      .then((v) => {
+        vite = v;
+        server.listen(PORT, () => {
+          console.log(
+            `[web-ui] surface on http://localhost:${PORT} → core ${CORE} (org ${ORG})${WEB_UI_DEV ? " [vite hmr]" : ""}`,
+          );
+          if (!WEB_UI_DEV && !existsSync(join(DIST, "index.html")))
+            console.warn("[web-ui] dist-web/ not built — run `npm run build`");
+          if (COOKIE_AUTH && ALLOW.length === 0)
+            console.warn("[web-ui] WEB_UI_PRINCIPALS unset — any principal id may sign in (dev only)");
+          const t = setInterval(() => void drainWebDeliveries(), WEB_DELIVERY_POLL_MS);
+          t.unref?.();
+          void runStateFeed();
+        });
+      })
+      .catch((err: unknown) => {
+        console.error("[web-ui] failed to start:", err);
+        process.exit(1);
       });
-    })
-    .catch((err: unknown) => {
-      console.error("[web-ui] failed to start:", err);
-      process.exit(1);
-    });
 }

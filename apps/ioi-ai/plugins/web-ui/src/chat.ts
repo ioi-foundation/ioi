@@ -67,7 +67,7 @@ import { buildTimeline, toolRowKind, type TimelineItem, type ToolPayload, type T
 import { CONNECTOR_NAMES, connectorLinksIn, stripConnectorLinks, type ConnectorLink } from "./connector-link";
 import { deepLinkPath, UI_BASE } from "./deep-link";
 import type { ChatSurface, ConvCtx } from "./conv-types";
-import { errMessage, swallow } from "../../chassis/src/errors";
+import { errMessage, swallow } from "../../../../ioi-ai/plugins/chassis/src/errors";
 import { showStateError } from "./error-banner";
 import { escapeLoneDollars } from "./markdown-dollars";
 import { splitStreamingMarkdown } from "./streaming-markdown";

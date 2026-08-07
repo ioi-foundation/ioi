@@ -2,7 +2,7 @@ import { html, nothing, render, type TemplateResult } from "lit";
 import { Box } from "lucide";
 import { api, type CoreContext } from "./core-bridge";
 import type { SkillItem } from "./composer";
-import { errMessage } from "../../chassis/src/errors";
+import { errMessage } from "../../../../ioi-ai/plugins/chassis/src/errors";
 import { fieldSelect, icon } from "./ui";
 import { appState } from "./shell";
 import { skillActions } from "./skill-actions";
@@ -67,6 +67,31 @@ const skillsRefreshes = new SkillsRefreshSequence();
 const skillMutations = new SkillsMutationSequence();
 let flowFocusTarget: HTMLElement | null = null;
 let archiveFocusTarget: HTMLElement | null = null;
+
+export function resetSkillsState(): void {
+  editRequestSeq += 1;
+  skillsRefreshes.invalidate();
+  skillMutations.invalidate();
+  skillRows = [];
+  skillsNotice = "";
+  skillSearch = "";
+  scopeFilter = "all";
+  sourceFilter = "all";
+  statusFilter = "active";
+  createScopes = [];
+  skillsPageHost = null;
+  editing = null;
+  editingTarget = null;
+  saving = false;
+  editError = "";
+  creating = null;
+  creatingSaving = false;
+  createError = "";
+  deleting = null;
+  archiveConfirmation = null;
+  flowFocusTarget = null;
+  archiveFocusTarget = null;
+}
 
 function scopeLabel(scope: string): string {
   return scope ? scope.charAt(0).toUpperCase() + scope.slice(1) : "";
@@ -199,20 +224,28 @@ function skillVariant(s: SkillItem, hasScopeVariants: boolean): TemplateResult {
       </div>
       <div class="skill-variant-state">
         <span class="badge ${archived ? "" : "skill-active"}">${state}</span>
-        ${actions.edit && !archived ? html`<button class="btn skill-edit-trigger" data-skill-id=${s.id ?? ""} type="button" ?disabled=${deleting === s.id} @click=${() => void startEdit(s)}>Edit</button>` : nothing}
-        ${
-          actions.delete
-            ? html`<button
-                class="btn skill-archive-trigger"
-                data-skill-id=${s.id ?? ""}
-                type="button"
-                ?disabled=${deleting === s.id}
-                @click=${(event: Event) => void deleteSkill(s, event.currentTarget as HTMLElement)}
-              >
-                ${archiveLabel}
-              </button>`
-            : nothing
-        }
+        ${actions.edit && !archived
+          ? html`<button
+              class="btn skill-edit-trigger"
+              data-skill-id=${s.id ?? ""}
+              type="button"
+              ?disabled=${deleting === s.id}
+              @click=${() => void startEdit(s)}
+            >
+              Edit
+            </button>`
+          : nothing}
+        ${actions.delete
+          ? html`<button
+              class="btn skill-archive-trigger"
+              data-skill-id=${s.id ?? ""}
+              type="button"
+              ?disabled=${deleting === s.id}
+              @click=${(event: Event) => void deleteSkill(s, event.currentTarget as HTMLElement)}
+            >
+              ${archiveLabel}
+            </button>`
+          : nothing}
       </div>
     </div>
   `;
@@ -226,7 +259,9 @@ function skillGroup(name: string, skills: SkillItem[]): TemplateResult {
       <h2 class="skill-group-name">
         <code>/${name}</code>${skills.length > 1 ? html`<span>${skills.length} variants</span>` : nothing}
       </h2>
-      ${hasScopeVariants ? html`<span class="skill-precedence">Narrower scope takes precedence where both apply</span>` : nothing}
+      ${hasScopeVariants
+        ? html`<span class="skill-precedence">Narrower scope takes precedence where both apply</span>`
+        : nothing}
     </div>
     ${skills.map((skill) => skillVariant(skill, hasScopeVariants))}
   </section>`;
@@ -296,18 +331,16 @@ function editorPane() {
         ></textarea>
       </label>
       ${editError ? html`<div class="card-meta skill-shadowed">${editError}</div>` : nothing}
-      ${
-        reviewed
-          ? html`<div class="skill-impact" role="alert">
-              <strong>Publish this change to ${e.scopeId}?</strong>
-              <div class="card-meta">
-                Everyone in this context can invoke the updated instructions. Description
-                ${e.description === e.originalDescription ? "unchanged" : "changed"}; instructions
-                ${e.body === e.originalBody ? "unchanged" : "changed"}.
-              </div>
-            </div>`
-          : nothing
-      }
+      ${reviewed
+        ? html`<div class="skill-impact" role="alert">
+            <strong>Publish this change to ${e.scopeId}?</strong>
+            <div class="card-meta">
+              Everyone in this context can invoke the updated instructions. Description
+              ${e.description === e.originalDescription ? "unchanged" : "changed"}; instructions
+              ${e.body === e.originalBody ? "unchanged" : "changed"}.
+            </div>
+          </div>`
+        : nothing}
       <div class="actions skill-form-actions">
         <button
           class="btn primary"
@@ -319,21 +352,19 @@ function editorPane() {
         >
           ${saveLabel}
         </button>
-        ${
-          reviewed
-            ? html`<button
-                class="btn"
-                type="button"
-                ?disabled=${saving}
-                @click=${() => {
-                  e.review = null;
-                  drawSkills();
-                }}
-              >
-                Review again
-              </button>`
-            : nothing
-        }
+        ${reviewed
+          ? html`<button
+              class="btn"
+              type="button"
+              ?disabled=${saving}
+              @click=${() => {
+                e.review = null;
+                drawSkills();
+              }}
+            >
+              Review again
+            </button>`
+          : nothing}
         <button class="btn" type="button" ?disabled=${saving} @click=${closeFocusedFlow}>Cancel</button>
       </div>
     </form>
@@ -425,14 +456,12 @@ function creatorPane() {
         ></textarea>
       </label>
       ${createError ? html`<div class="card-meta skill-shadowed">${createError}</div>` : nothing}
-      ${
-        reviewed
-          ? html`<div class="skill-impact" role="alert">
-              <strong>Publish /${c.name.trim()} to ${c.scopeId}?</strong>
-              <div class="card-meta">Everyone in this context can invoke and edit these instructions.</div>
-            </div>`
-          : nothing
-      }
+      ${reviewed
+        ? html`<div class="skill-impact" role="alert">
+            <strong>Publish /${c.name.trim()} to ${c.scopeId}?</strong>
+            <div class="card-meta">Everyone in this context can invoke and edit these instructions.</div>
+          </div>`
+        : nothing}
       <div class="actions skill-form-actions">
         <button
           class="btn primary"
@@ -444,21 +473,19 @@ function creatorPane() {
         >
           ${createLabel}
         </button>
-        ${
-          reviewed
-            ? html`<button
-                class="btn"
-                type="button"
-                ?disabled=${creatingSaving}
-                @click=${() => {
-                  c.review = null;
-                  drawSkills();
-                }}
-              >
-                Review again
-              </button>`
-            : nothing
-        }
+        ${reviewed
+          ? html`<button
+              class="btn"
+              type="button"
+              ?disabled=${creatingSaving}
+              @click=${() => {
+                c.review = null;
+                drawSkills();
+              }}
+            >
+              Review again
+            </button>`
+          : nothing}
         <button class="btn" type="button" ?disabled=${creatingSaving} @click=${closeFocusedFlow}>Cancel</button>
       </div>
     </form>
@@ -574,7 +601,9 @@ function drawSkills(loading = false): void {
           </div>
         </div>
         <div class="skill-result-count" aria-live="polite">
-          ${loading ? "Loading…" : `${filtered.length} skill${filtered.length === 1 ? "" : "s"} in ${groups.length} ${groups.length === 1 ? "group" : "groups"}`}
+          ${loading
+            ? "Loading…"
+            : `${filtered.length} skill${filtered.length === 1 ? "" : "s"} in ${groups.length} ${groups.length === 1 ? "group" : "groups"}`}
         </div>
         ${skillsNotice ? html`<div class="status">${skillsNotice}</div>` : nothing}`,
       rows,

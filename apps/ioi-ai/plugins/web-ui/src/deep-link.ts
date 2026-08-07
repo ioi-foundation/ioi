@@ -15,6 +15,12 @@ export function deepLinkPath(
     if (itemId) throw new Error("the contexts view is addressed by scope, not by item id");
     return `${b}/contexts?scope=${encodeURIComponent(contextScope)}`;
   }
+  if (view === "goals" && itemId?.startsWith("room:")) {
+    return `${b}/rooms/${encodeURIComponent(itemId.slice("room:".length))}`;
+  }
+  if (view === "goals" && itemId?.startsWith("activation:")) {
+    return `${b}/goal-activations/${encodeURIComponent(itemId.slice("activation:".length))}`;
+  }
   if (view !== "chats") return `${b}/${encodeURIComponent(view)}${itemId ? `/${encodeURIComponent(itemId)}` : ""}`;
   if (itemId) throw new Error("the chats view is addressed by session, not by item id");
   return `${b}/${sessionId ? `?session=${encodeURIComponent(sessionId)}` : ""}`;
@@ -45,14 +51,24 @@ export function parseDeepLink(
     projectItem = projectKind ? decodeSegment(segments[2] ?? "") : decodeSegment(segments[1] ?? "");
   }
   const requestedView = params.get("view") ?? (pathView === "projects" ? "contexts" : pathView);
-  const view = requestedView === "connectors" ? "keychain" : requestedView;
+  let view = requestedView;
+  if (requestedView === "connectors") view = "keychain";
+  if (requestedView === "rooms") view = "goals";
+  if (requestedView === "goal-activations") view = "goals";
+  let item = projectItem ?? decodeSegment(segments[1] ?? "");
+  if (pathView === "projects" && projectKind && projectItem) item = `${projectKind}:${projectItem}`;
+  if (pathView === "rooms") {
+    const room = decodeSegment(segments[1] ?? "");
+    item = room ? `room:${room}` : null;
+  }
+  if (pathView === "goal-activations") {
+    const activation = decodeSegment(segments[1] ?? "");
+    item = activation ? `activation:${activation}` : null;
+  }
   return {
     view,
     session: params.get("session"),
-    item:
-      pathView === "projects" && projectKind && projectItem
-        ? `${projectKind}:${projectItem}`
-        : (projectItem ?? decodeSegment(segments[1] ?? "")),
+    item,
   };
 }
 

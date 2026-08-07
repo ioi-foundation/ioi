@@ -2,7 +2,7 @@ import { html, nothing, type TemplateResult } from "lit";
 import { fetchRuntimeConfig, updateRuntimeConfig, type RuntimeConfig } from "./core-bridge";
 import { runtimeModelOptions, type ModelOption } from "./model-options";
 import { fieldSelect } from "./ui";
-import { errMessage } from "../../chassis/src/errors";
+import { errMessage } from "../../../../ioi-ai/plugins/chassis/src/errors";
 
 const INHERIT = "";
 

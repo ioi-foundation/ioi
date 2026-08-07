@@ -26,7 +26,7 @@ import {
   type PendingApproval,
   type RuntimeConfig,
 } from "./core-bridge";
-import { errMessage, swallow } from "../../chassis/src/errors";
+import { errMessage, swallow } from "../../../../ioi-ai/plugins/chassis/src/errors";
 import { icon } from "./ui";
 import {
   EFFORT_LEVELS,

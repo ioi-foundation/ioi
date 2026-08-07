@@ -28,7 +28,7 @@ import {
   type CoreSession,
 } from "./core-bridge";
 import { UI_BASE } from "./deep-link";
-import { errMessage } from "../../chassis/src/errors";
+import { errMessage } from "../../../../ioi-ai/plugins/chassis/src/errors";
 import { actionSnippet, closeFormMenus, fieldSelect, formatBytes, icon, initials, relTime, toggleFormMenu } from "./ui";
 import { appState, renderSidebarTop, replacePanePreservingFocus, switchView, syncUrlFromState } from "./shell";
 import { mainConversation } from "./conversations";

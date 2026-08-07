@@ -91,13 +91,39 @@ const files = indexEntries.map((indexEntry) => {
   };
 });
 
+// apps/ioi-ai is a FORK, not a pin: by owner ruling of 2026-08-07 it is the one
+// ioi.ai application and it receives IOI modifications directly. Provenance is
+// therefore per-file, so a reader can still tell what came from upstream, what
+// IOI changed, and what IOI wrote.
+const baselinePath = path.join(root, "docs", "architecture", "_meta", "ioi-ai-upstream-baseline.v1.json");
+const baseline = fs.existsSync(baselinePath)
+  ? new Map(JSON.parse(fs.readFileSync(baselinePath, "utf8")).files.map((f) => [f.path, f.git_blob_sha1]))
+  : new Map();
+
+for (const entry of files) {
+  const upstream = baseline.get(entry.path);
+  if (upstream === undefined) {
+    entry.provenance = "ioi_owned";
+  } else if (upstream === entry.git_blob_sha1) {
+    entry.provenance = "vendored";
+  } else {
+    entry.provenance = "vendored_then_modified";
+    entry.upstream_blob_sha1 = upstream;
+  }
+}
+
+const tally = files.reduce((a, f) => ((a[f.provenance] = (a[f.provenance] ?? 0) + 1), a), {});
+
 const manifest = {
-  schema_version: "ioi.vendor-snapshot.v1",
+  schema_version: "ioi.vendor-snapshot.v2",
   vendor_root: vendorRoot,
   upstream_repository: "https://github.com/yc-software/qm.git",
   upstream_commit: "5eb3393315b45b338b860572ab516db9f6eae6da",
   upstream_identity_verification: "not_performed",
+  posture: "fork — apps/ioi-ai is the single ioi.ai application and receives IOI modifications directly (owner ruling 2026-08-07). This ledger records per-file provenance; it no longer asserts byte identity with upstream.",
+  upstream_baseline_ref: "docs/architecture/_meta/ioi-ai-upstream-baseline.v1.json",
   adopted_file_count: files.length,
+  provenance_tally: tally,
   files,
 };
 
@@ -111,10 +137,10 @@ if (write) {
   const existing = fs.readFileSync(manifestPath, "utf8");
   if (existing !== rendered) {
     throw new Error(
-      "apps/ioi-ai differs from the committed vendor snapshot ledger; restore vendor bytes or refresh deliberately",
+      "apps/ioi-ai differs from the committed vendor ledger; refresh it deliberately with --write and review the provenance tally",
     );
   }
   process.stdout.write(
-    `ioi.ai vendor snapshot: ${files.length} files verified\n`,
+    `ioi.ai vendor ledger: ${files.length} files verified — ${JSON.stringify(tally)}\n`,
   );
 }

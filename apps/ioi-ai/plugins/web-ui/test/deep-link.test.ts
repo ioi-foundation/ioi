@@ -81,6 +81,30 @@ test("a cron is addressed by /crons/<id>", () => {
   });
 });
 
+test("GoalRuns and OutcomeRooms use their canonical application paths", () => {
+  assert.equal(deepLinkPath("", "goals", null, null, "gr_123"), "/goals/gr_123");
+  assert.equal(deepLinkPath("", "goals", null, null, "room:or_456"), "/rooms/or_456");
+  assert.deepEqual(parseDeepLink("", "/goals/gr_123", ""), {
+    view: "goals",
+    session: null,
+    item: "gr_123",
+  });
+  assert.deepEqual(parseDeepLink("", "/rooms/or_456", ""), {
+    view: "goals",
+    session: null,
+    item: "room:or_456",
+  });
+});
+
+test("GoalRun activation reviews have a reloadable recovery path", () => {
+  assert.equal(deepLinkPath("", "goals", null, null, "activation:gra_789"), "/goal-activations/gra_789");
+  assert.deepEqual(parseDeepLink("", "/goal-activations/gra_789", ""), {
+    view: "goals",
+    session: null,
+    item: "activation:gra_789",
+  });
+});
+
 test("an item id is rejected for views that are not addressed that way", () => {
   assert.throws(() => deepLinkPath("", "chats", "s1", null, "x"));
   assert.throws(() => deepLinkPath("", "contexts", null, "channel:C1", "x"));

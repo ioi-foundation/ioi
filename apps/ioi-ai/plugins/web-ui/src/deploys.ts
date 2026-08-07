@@ -2,7 +2,7 @@ import { html, nothing, render, type TemplateResult } from "lit";
 import { live } from "lit/directives/live.js";
 import { Archive, Check, Copy, ExternalLink, MoreHorizontal, Pencil, RotateCcw, X } from "lucide";
 import { api, withBase } from "./core-bridge";
-import { errMessage } from "../../chassis/src/errors";
+import { errMessage } from "../../../../ioi-ai/plugins/chassis/src/errors";
 import { copyText, fieldSelect, icon, relTime } from "./ui";
 import { listBackLink, listPageTpl } from "./list-page";
 import { contextsState, ensureContexts, scopeChip } from "./contexts";
@@ -59,6 +59,26 @@ let archiveCandidate: DeploymentView | null = null;
 let archiveFocusTarget: { id: string; detail: boolean } | null = null;
 let deployToast: { deployment: DeploymentView; text: string; undo?: boolean } | null = null;
 let deployRefreshSeq = 0;
+
+export function resetDeploysState(): void {
+  deployRefreshSeq += 1;
+  deployList = [];
+  deployNotices = { list: "", detail: null };
+  deployLoading = false;
+  deployScope = null;
+  deployQuery = "";
+  deployTab = "yours";
+  deploySort = "newest";
+  deployPageHost = null;
+  deployMenuId = null;
+  activeDeploy = null;
+  editingDeploy = null;
+  deployDraft = "";
+  deploySaving = false;
+  archiveCandidate = null;
+  archiveFocusTarget = null;
+  deployToast = null;
+}
 
 function statusLabel(d: DeploymentView): string {
   if (
@@ -166,26 +186,26 @@ function deploymentRow(d: DeploymentView): TemplateResult {
         </span>
       </button>
       <div class="deploy-row-actions" aria-label="App actions">
-        ${
-          running && d.webUrl
-            ? html`<a class="btn deploy-open" href=${withBase(d.webUrl)} target="_blank" rel="noreferrer"
-                >Open ${icon(ExternalLink, 14)}</a
-              >`
-            : nothing
-        }
-        ${
-          d.webUrl
-            ? html`<button
-                class="icon-btn subtle"
-                type="button"
-                title="Copy app URL"
-                aria-label="Copy app URL"
-                @click=${(event: Event) => void copyText(new URL(withBase(d.webUrl!), window.location.href).href, event.currentTarget as HTMLButtonElement)}
-              >
-                ${icon(Copy, 14)}
-              </button>`
-            : nothing
-        }
+        ${running && d.webUrl
+          ? html`<a class="btn deploy-open" href=${withBase(d.webUrl)} target="_blank" rel="noreferrer"
+              >Open ${icon(ExternalLink, 14)}</a
+            >`
+          : nothing}
+        ${d.webUrl
+          ? html`<button
+              class="icon-btn subtle"
+              type="button"
+              title="Copy app URL"
+              aria-label="Copy app URL"
+              @click=${(event: Event) =>
+                void copyText(
+                  new URL(withBase(d.webUrl!), window.location.href).href,
+                  event.currentTarget as HTMLButtonElement,
+                )}
+            >
+              ${icon(Copy, 14)}
+            </button>`
+          : nothing}
         ${canManage(d) ? deployMenu(d) : nothing}
       </div>
     </div>
@@ -211,49 +231,45 @@ function deployMenu(d: DeploymentView): TemplateResult {
       >
         ${icon(MoreHorizontal, 16)}
       </button>
-      ${
-        open
-          ? html`<div class="session-menu-popover" role="menu" @click=${(event: Event) => event.stopPropagation()}>
-              ${
-                d.status === "archived"
-                  ? html`<button
-                      class="session-menu-option"
-                      type="button"
-                      role="menuitem"
-                      @click=${() => void restoreDeploy(d)}
-                    >
-                      ${icon(RotateCcw, 15)}<span>Restore</span>
-                    </button>`
-                  : html`
-                      <button
-                        class="session-menu-option"
-                        type="button"
-                        role="menuitem"
-                        @click=${() => void editFromList(d, "displayName")}
-                      >
-                        ${icon(Pencil, 15)}<span>Edit display name</span>
-                      </button>
-                      <button
-                        class="session-menu-option"
-                        type="button"
-                        role="menuitem"
-                        @click=${() => void editFromList(d, "name")}
-                      >
-                        ${icon(Pencil, 15)}<span>Change URL slug</span>
-                      </button>
-                      <button
-                        class="session-menu-option danger"
-                        type="button"
-                        role="menuitem"
-                        @click=${() => requestArchive(d)}
-                      >
-                        ${icon(Archive, 15)}<span>Archive</span>
-                      </button>
-                    `
-              }
-            </div>`
-          : nothing
-      }
+      ${open
+        ? html`<div class="session-menu-popover" role="menu" @click=${(event: Event) => event.stopPropagation()}>
+            ${d.status === "archived"
+              ? html`<button
+                  class="session-menu-option"
+                  type="button"
+                  role="menuitem"
+                  @click=${() => void restoreDeploy(d)}
+                >
+                  ${icon(RotateCcw, 15)}<span>Restore</span>
+                </button>`
+              : html`
+                  <button
+                    class="session-menu-option"
+                    type="button"
+                    role="menuitem"
+                    @click=${() => void editFromList(d, "displayName")}
+                  >
+                    ${icon(Pencil, 15)}<span>Edit display name</span>
+                  </button>
+                  <button
+                    class="session-menu-option"
+                    type="button"
+                    role="menuitem"
+                    @click=${() => void editFromList(d, "name")}
+                  >
+                    ${icon(Pencil, 15)}<span>Change URL slug</span>
+                  </button>
+                  <button
+                    class="session-menu-option danger"
+                    type="button"
+                    role="menuitem"
+                    @click=${() => requestArchive(d)}
+                  >
+                    ${icon(Archive, 15)}<span>Archive</span>
+                  </button>
+                `}
+          </div>`
+        : nothing}
     </div>
   `;
 }
@@ -378,9 +394,33 @@ function drawDeployDetail(d: DeploymentView, loading = false): void {
             <div class="deploy-detail-url">/d/${deploymentSlug(d)}/</div>
           </div>
           <div class="actions">
-            ${running && d.webUrl ? html`<a class="btn primary" href=${withBase(d.webUrl)} target="_blank" rel="noreferrer">Open app ${icon(ExternalLink, 14)}</a>` : nothing}
-            ${running && canManage(d) ? html`<button class="btn" type="button" @click=${(event: Event) => void openLiveEdit(d, event.currentTarget as HTMLButtonElement)}>${icon(Pencil, 14)}<span>Edit live</span></button>` : nothing}
-            ${d.webUrl ? html`<button class="btn" type="button" @click=${(event: Event) => void copyText(new URL(withBase(d.webUrl!), window.location.href).href, event.currentTarget as HTMLButtonElement)}>${icon(Copy, 14)}<span>Copy URL</span></button>` : nothing}
+            ${running && d.webUrl
+              ? html`<a class="btn primary" href=${withBase(d.webUrl)} target="_blank" rel="noreferrer"
+                  >Open app ${icon(ExternalLink, 14)}</a
+                >`
+              : nothing}
+            ${running && canManage(d)
+              ? html`<button
+                  class="btn"
+                  type="button"
+                  @click=${(event: Event) => void openLiveEdit(d, event.currentTarget as HTMLButtonElement)}
+                >
+                  ${icon(Pencil, 14)}<span>Edit live</span>
+                </button>`
+              : nothing}
+            ${d.webUrl
+              ? html`<button
+                  class="btn"
+                  type="button"
+                  @click=${(event: Event) =>
+                    void copyText(
+                      new URL(withBase(d.webUrl!), window.location.href).href,
+                      event.currentTarget as HTMLButtonElement,
+                    )}
+                >
+                  ${icon(Copy, 14)}<span>Copy URL</span>
+                </button>`
+              : nothing}
           </div>
         </div>
         ${loading ? html`<div class="hint">Loading authoritative app details…</div>` : nothing}
@@ -414,95 +454,101 @@ function drawDeployDetail(d: DeploymentView, loading = false): void {
             <label>Owner</label>
             <div class="value">${ownerLabel(d)}</div>
           </div>
-          ${
-            d.createdBy
-              ? html`<div class="field">
-                  <label>Created by</label>
-                  <div class="value">${friendlyPrincipal(d.createdBy)}</div>
-                </div>`
-              : nothing
-          }
-          ${
-            d.gitUrl
-              ? html`<div class="field deploy-git-field">
-                  <label>Git remote</label>
-                  <div class="value">
-                    <code>${d.gitUrl}</code
-                    ><button
-                      class="icon-btn subtle"
-                      type="button"
-                      title="Copy Git remote"
-                      aria-label="Copy Git remote"
-                      @click=${(event: Event) => void copyText(d.gitUrl!, event.currentTarget as HTMLButtonElement)}
-                    >
-                      ${icon(Copy, 14)}
-                    </button>
-                  </div>
-                  <p class="hint">
-                    ${d.permission === "write" ? "Clone or push a new version with this short-lived authenticated URL." : "Clone source with this short-lived read-only authenticated URL."}
-                  </p>
-                </div>`
-              : nothing
-          }
+          ${d.createdBy
+            ? html`<div class="field">
+                <label>Created by</label>
+                <div class="value">${friendlyPrincipal(d.createdBy)}</div>
+              </div>`
+            : nothing}
+          ${d.gitUrl
+            ? html`<div class="field deploy-git-field">
+                <label>Git remote</label>
+                <div class="value">
+                  <code>${d.gitUrl}</code
+                  ><button
+                    class="icon-btn subtle"
+                    type="button"
+                    title="Copy Git remote"
+                    aria-label="Copy Git remote"
+                    @click=${(event: Event) => void copyText(d.gitUrl!, event.currentTarget as HTMLButtonElement)}
+                  >
+                    ${icon(Copy, 14)}
+                  </button>
+                </div>
+                <p class="hint">
+                  ${d.permission === "write"
+                    ? "Clone or push a new version with this short-lived authenticated URL."
+                    : "Clone source with this short-lived read-only authenticated URL."}
+                </p>
+              </div>`
+            : nothing}
         </section>
 
-        ${
-          canManage(d)
-            ? html`<section class="deploy-detail-section">
-                <h3>Settings</h3>
-                <div class="deploy-setting-row">
-                  <div>
-                    <strong>Display name</strong
-                    ><span>The human-friendly name shown here. This does not change the app URL.</span>
-                  </div>
-                  ${editingName ? deployEditForm(d, "displayName") : html`<div class="deploy-setting-value"><span>${d.displayName || "Using URL slug"}</span><button class="btn" type="button" @click=${() => startEditDeploy(d, "displayName")}>Edit</button></div>`}
+        ${canManage(d)
+          ? html`<section class="deploy-detail-section">
+              <h3>Settings</h3>
+              <div class="deploy-setting-row">
+                <div>
+                  <strong>Display name</strong
+                  ><span>The human-friendly name shown here. This does not change the app URL.</span>
                 </div>
-                <div class="deploy-setting-row">
-                  <div><strong>URL slug</strong><span>Changes the app URL. Existing links do not redirect.</span></div>
-                  ${editingSlug ? deployEditForm(d, "name") : html`<div class="deploy-setting-value"><code>/d/${deploymentSlug(d)}/</code><button class="btn" type="button" @click=${() => startEditDeploy(d, "name")}>Change</button></div>`}
-                </div>
-                <div class="actions deploy-danger-actions">
-                  ${
-                    d.status === "archived"
-                      ? html`<button class="btn" type="button" @click=${() => void restoreDeploy(d)}>
-                          ${icon(RotateCcw, 14)}<span>Restore deployment</span>
-                        </button>`
-                      : html`<button
-                          class="btn danger deploy-archive-trigger"
-                          data-deployment-id=${d.id}
-                          type="button"
-                          @click=${() => requestArchive(d)}
-                        >
-                          ${icon(Archive, 14)}<span>Archive deployment</span>
-                        </button>`
-                  }
-                </div>
-              </section>`
-            : nothing
-        }
+                ${editingName
+                  ? deployEditForm(d, "displayName")
+                  : html`<div class="deploy-setting-value">
+                      <span>${d.displayName || "Using URL slug"}</span
+                      ><button class="btn" type="button" @click=${() => startEditDeploy(d, "displayName")}>Edit</button>
+                    </div>`}
+              </div>
+              <div class="deploy-setting-row">
+                <div><strong>URL slug</strong><span>Changes the app URL. Existing links do not redirect.</span></div>
+                ${editingSlug
+                  ? deployEditForm(d, "name")
+                  : html`<div class="deploy-setting-value">
+                      <code>/d/${deploymentSlug(d)}/</code
+                      ><button class="btn" type="button" @click=${() => startEditDeploy(d, "name")}>Change</button>
+                    </div>`}
+              </div>
+              <div class="actions deploy-danger-actions">
+                ${d.status === "archived"
+                  ? html`<button class="btn" type="button" @click=${() => void restoreDeploy(d)}>
+                      ${icon(RotateCcw, 14)}<span>Restore deployment</span>
+                    </button>`
+                  : html`<button
+                      class="btn danger deploy-archive-trigger"
+                      data-deployment-id=${d.id}
+                      type="button"
+                      @click=${() => requestArchive(d)}
+                    >
+                      ${icon(Archive, 14)}<span>Archive deployment</span>
+                    </button>`}
+              </div>
+            </section>`
+          : nothing}
 
         <section class="deploy-detail-section">
           <h3>Version history</h3>
-          ${
-            versions.length
-              ? html`<div class="deploy-version-list">
-                  ${versions.map(
-                    (version) => html`
-                      <div class="deploy-version-row">
-                        <div>
-                          <strong>v${version.version}</strong
-                          >${version.version === d.appliedVersion ? html`<span class="badge ok">Live</span>` : nothing}${version.version === d.currentVersion && version.version !== d.appliedVersion ? html`<span class="badge">Latest</span>` : nothing}
-                        </div>
-                        <div>
-                          <span>${new Date(version.createdAt).toLocaleString()}</span
-                          >${version.commit ? html`<code title=${version.commit}>${version.commit.slice(0, 10)}</code>` : nothing}
-                        </div>
+          ${versions.length
+            ? html`<div class="deploy-version-list">
+                ${versions.map(
+                  (version) => html`
+                    <div class="deploy-version-row">
+                      <div>
+                        <strong>v${version.version}</strong>${version.version === d.appliedVersion
+                          ? html`<span class="badge ok">Live</span>`
+                          : nothing}${version.version === d.currentVersion && version.version !== d.appliedVersion
+                          ? html`<span class="badge">Latest</span>`
+                          : nothing}
                       </div>
-                    `,
-                  )}
-                </div>`
-              : html`<div class="empty compact">No version history available.</div>`
-          }
+                      <div>
+                        <span>${new Date(version.createdAt).toLocaleString()}</span>${version.commit
+                          ? html`<code title=${version.commit}>${version.commit.slice(0, 10)}</code>`
+                          : nothing}
+                      </div>
+                    </div>
+                  `,
+                )}
+              </div>`
+            : html`<div class="empty compact">No version history available.</div>`}
         </section>
       </div>
       ${archiveCandidate ? archiveDialog(archiveCandidate) : nothing} ${deployToast ? undoToast(deployToast) : nothing}
@@ -812,8 +858,11 @@ async function restoreDeploy(d: DeploymentView): Promise<void> {
 function undoToast(toast: { deployment: DeploymentView; text: string; undo?: boolean }): TemplateResult {
   const archived = toast.undo && deploymentArchiveUndoAvailable(toast.deployment);
   return html`<div class="deploy-toast" role="status">
-    <span>${toast.text}</span
-    >${archived ? html`<button type="button" ?disabled=${deploySaving} @click=${() => void restoreDeploy(toast.deployment)}>Undo</button>` : nothing}<button
+    <span>${toast.text}</span>${archived
+      ? html`<button type="button" ?disabled=${deploySaving} @click=${() => void restoreDeploy(toast.deployment)}>
+          Undo
+        </button>`
+      : nothing}<button
       class="icon-btn"
       type="button"
       title="Dismiss"

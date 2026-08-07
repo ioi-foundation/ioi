@@ -109,11 +109,6 @@ internal-docs/reverse-engineering
 /internal-docs/implementation/
 /scripts/implementation-program.mjs
 
-# Owner ruling 2026-08-07: there is ONE ioi.ai application, apps/ioi-ai (the QM
-# fork), and it receives modifications directly. apps/ioi-ai-product was a second
-# runtime invented beside it. Its 277 source files are preserved on disk and
-# quarantined here pending fold-in; they are not a tracked peer product.
-/apps/ioi-ai-product/
 
 
 .chrome-flatpak-profile

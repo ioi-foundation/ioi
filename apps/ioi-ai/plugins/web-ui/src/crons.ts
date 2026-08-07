@@ -1,7 +1,7 @@
 import { html, nothing, render, type TemplateResult } from "lit";
 import { Archive, Pause, Pencil, Play, Plus, RotateCcw, Trash2 } from "lucide";
 import { api } from "./core-bridge";
-import { errMessage } from "../../chassis/src/errors";
+import { errMessage } from "../../../../ioi-ai/plugins/chassis/src/errors";
 import { icon } from "./ui";
 import { listBackLink, listPageTpl } from "./list-page";
 import { ensureContexts, scopeChip } from "./contexts";
@@ -69,6 +69,26 @@ const cronRunsLoading = new Set<string>();
 let cronDialog: { kind: "rename" | "delete"; cron: CronView } | null = null;
 let activeCronId: string | null = null;
 let pendingCronId: string | null = null;
+
+export function resetCronsState(): void {
+  cronRefreshSeq += 1;
+  cronList = [];
+  visibleCronList = [];
+  cronsScope = null;
+  cronTab = "yours";
+  showDisabledCrons = false;
+  cronsPageHost = null;
+  cronsLoading = false;
+  cronsNotice = "";
+  cronActionNotice = "";
+  cronMutationInFlight = false;
+  cronsSearch = "";
+  cronRuns.clear();
+  cronRunsLoading.clear();
+  cronDialog = null;
+  activeCronId = null;
+  pendingCronId = null;
+}
 
 export function resetActiveCron(): void {
   cronsScope = null;
@@ -409,21 +429,19 @@ function cronRowActions(c: CronView): TemplateResult {
         ${icon(Pencil, 14)}
       </button>
       ${stateAction}
-      ${
-        c.archived
-          ? nothing
-          : html`
-              <button
-                class="icon-btn subtle cron-action-btn"
-                type="button"
-                title="Archive"
-                aria-label="Archive cron"
-                @click=${() => void archiveCron(c.id, true)}
-              >
-                ${icon(Archive, 14)}
-              </button>
-            `
-      }
+      ${c.archived
+        ? nothing
+        : html`
+            <button
+              class="icon-btn subtle cron-action-btn"
+              type="button"
+              title="Archive"
+              aria-label="Archive cron"
+              @click=${() => void archiveCron(c.id, true)}
+            >
+              ${icon(Archive, 14)}
+            </button>
+          `}
     </div>
   `;
 }
@@ -469,14 +487,12 @@ function openCron(c: CronView, opts: { push?: boolean } = {}): void {
           <label>Context</label>
           <div class="value">${scopeChip(c.ownerScopeId, c.scopeName ?? null)}</div>
         </div>
-        ${
-          c.title
-            ? html`<div class="field">
-                <label>Title</label>
-                <div class="value">${c.title}</div>
-              </div>`
-            : nothing
-        }
+        ${c.title
+          ? html`<div class="field">
+              <label>Title</label>
+              <div class="value">${c.title}</div>
+            </div>`
+          : nothing}
         <div class="field">
           <label>${c.message !== undefined ? "Message" : "Task"}</label>
           <div class="value pre">${cronText(c)}</div>
@@ -485,34 +501,28 @@ function openCron(c: CronView, opts: { push?: boolean } = {}): void {
           <label>Schedule</label>
           <div class="value">${cronScheduleDetail(c)}</div>
         </div>
-        ${
-          mine
-            ? ""
-            : html`<div class="field">
-                <label>Owner</label>
-                <div class="value">${c.owner}</div>
-              </div>`
-        }
-        ${
-          mine
-            ? ""
-            : html`<div class="field">
-                <label>Scope</label>
-                <div class="value">${cronScopeLabel(c)}</div>
-              </div>`
-        }
+        ${mine
+          ? ""
+          : html`<div class="field">
+              <label>Owner</label>
+              <div class="value">${c.owner}</div>
+            </div>`}
+        ${mine
+          ? ""
+          : html`<div class="field">
+              <label>Scope</label>
+              <div class="value">${cronScopeLabel(c)}</div>
+            </div>`}
         <div class="field">
           <label>Status</label>
           <div class="value">${cronStatusText(c)}</div>
         </div>
-        ${
-          c.destination
-            ? html`<div class="field">
-                <label>Destination</label>
-                <div class="value">${c.destination.type} → ${c.destination.target}</div>
-              </div>`
-            : ""
-        }
+        ${c.destination
+          ? html`<div class="field">
+              <label>Destination</label>
+              <div class="value">${c.destination.type} → ${c.destination.target}</div>
+            </div>`
+          : ""}
         <div class="field">
           <label>Next run</label>
           <div class="value">${next != null ? new Date(next).toLocaleString() : "—"}</div>
@@ -522,21 +532,19 @@ function openCron(c: CronView, opts: { push?: boolean } = {}): void {
           <div class="value">${c.lastFiredAt ? new Date(c.lastFiredAt).toLocaleString() : "Never"}</div>
         </div>
         ${manageable ? cronRunHistory(c) : nothing}
-        ${
-          manageable
-            ? html`
-                <div class="actions">
-                  <button class="btn" @click=${() => showCronDialog("rename", c)}>
-                    ${icon(Pencil, 15)}<span>Edit</span>
-                  </button>
-                  ${stateActions}
-                  <button class="btn danger" @click=${() => showCronDialog("delete", c)}>
-                    ${icon(Trash2, 15)}<span>Delete</span>
-                  </button>
-                </div>
-              `
-            : html`<div class="hint">Shared from ${cronScopeLabel(c)} — you can view it, but not change it.</div>`
-        }
+        ${manageable
+          ? html`
+              <div class="actions">
+                <button class="btn" @click=${() => showCronDialog("rename", c)}>
+                  ${icon(Pencil, 15)}<span>Edit</span>
+                </button>
+                ${stateActions}
+                <button class="btn danger" @click=${() => showCronDialog("delete", c)}>
+                  ${icon(Trash2, 15)}<span>Delete</span>
+                </button>
+              </div>
+            `
+          : html`<div class="hint">Shared from ${cronScopeLabel(c)} — you can view it, but not change it.</div>`}
         ${cronDialog?.cron.id === c.id ? cronDialogTpl(cronDialog) : nothing}
       </div>
     `,
@@ -572,11 +580,9 @@ function cronRunHistory(c: CronView): TemplateResult {
           <span class=${run.note ? "cron-run-detail cron-run-error" : "cron-run-detail"} title=${detail}>
             ${detail}
           </span>
-          ${
-            run.sessionId
-              ? html`<a class="cron-run-link" href=${deepLinkPath(UI_BASE, "chats", run.sessionId)}>Worklog</a>`
-              : nothing
-          }
+          ${run.sessionId
+            ? html`<a class="cron-run-link" href=${deepLinkPath(UI_BASE, "chats", run.sessionId)}>Worklog</a>`
+            : nothing}
         </div>`;
       })}
     </div>
@@ -701,17 +707,17 @@ function cronDialogTpl(dialog: { kind: "rename" | "delete"; cron: CronView }): T
         <div><h2 id="cron-edit-title">Edit cron</h2></div>
       </div>
       <label>Title<input name="title" maxlength="80" value=${c.title ?? cronTitle(c)} required /></label>
-      ${
-        c.message === undefined
-          ? html`<label>Task<textarea name="task" rows="5" required>${cronText(c)}</textarea></label>`
-          : html`<div class="field">
-              <label>Message</label>
-              <div class="value pre">${c.message}</div>
-            </div>`
-      }
+      ${c.message === undefined
+        ? html`<label>Task<textarea name="task" rows="5" required>${cronText(c)}</textarea></label>`
+        : html`<div class="field">
+            <label>Message</label>
+            <div class="value pre">${c.message}</div>
+          </div>`}
       <p class="hint">
         To change
-        ${c.message === undefined ? "the schedule, timezone, destination, or run mode" : "the message, schedule, timezone, destination, or run mode"},
+        ${c.message === undefined
+          ? "the schedule, timezone, destination, or run mode"
+          : "the message, schedule, timezone, destination, or run mode"},
         use the agent so it can validate the resulting behavior and permissions.
       </p>
       <div class="form-error"></div>

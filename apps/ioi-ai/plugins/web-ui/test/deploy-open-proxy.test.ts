@@ -1,4 +1,4 @@
-import { mintPortalIdentity, PORTAL_IDENTITY_HEADER } from "../../chassis/src/portal-identity.ts";
+import { mintPortalIdentity, PORTAL_IDENTITY_HEADER } from "../../../../ioi-ai/plugins/chassis/src/portal-identity.ts";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createServer, get as httpGet, type IncomingMessage } from "node:http";

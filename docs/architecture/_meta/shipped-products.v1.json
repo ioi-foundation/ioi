@@ -778,7 +778,7 @@
       "owner": "Committed local vendor snapshot owner",
       "owner_ref": "docs/architecture/_meta/ioi-ai-vendor-snapshot.v1.json",
       "disposition": "nonshipped_vendor",
-      "summary": "Dormant QM source recorded as a local Git-identity and working-byte snapshot. It is not an IOI product entry or release artifact, and the ledger does not independently certify the remote upstream commit or provenance.",
+      "summary": "Forked QM source. By owner ruling of 2026-08-07 this is the single ioi.ai application and it receives IOI modifications directly; it is not a dormant byte-identical pin. The ledger records per-file provenance (vendored / vendored_then_modified / ioi_owned) against a frozen upstream baseline. It is not itself a release artifact, and the ledger does not independently certify the remote upstream commit or provenance.",
       "verification_entry": "scripts/generate-ioi-ai-vendor-manifest.mjs"
     },
     {
