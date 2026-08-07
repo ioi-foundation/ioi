@@ -18,6 +18,7 @@
 //
 // Usage: PORT=4173 node apps/hypervisor/scripts/serve-product-ui.mjs
 import http from "node:http";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { spawn } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -236,6 +237,14 @@ const DEFAULT_DAEMON_PROJECTION_TIMEOUT_MS = 10_000;
 // reads remain healthy. Keep a hard two-minute bound: Goal Space shares it across its five serial
 // reads, while the two GoalRun timeline reads run concurrently under the same selected bound.
 const M4_OWNER_PROJECTION_TIMEOUT_MS = 120_000;
+// W1.1 / DEF-IDENT-1 — ambient per-request identity, mirroring the envelope
+// `ioi-api-adapter.mjs:42` already uses. 130 of this file's 190 daemon calls used to be bare
+// `daemonFetch(`...`)` from render helpers that take no `req`, so every one of those reads
+// reached the daemon with NO identity and was adjudicated as the loopback development
+// principal. Threading `req` through ~60 helper signatures would have been the same fix with
+// far more blast radius; the request context makes it ambient instead. `daemonFetch` is the
+// only sanctioned way to call the daemon from this file.
+const reqCtx = new AsyncLocalStorage();
 const DAEMON_IDENTITY_HEADERS = [
   "authorization",
   "cookie",
@@ -252,6 +261,20 @@ const LOOPBACK_REMOTE_ADDRESSES = new Set([
 // Forwarding less can silently promote an exposed or authenticated request to the daemon's
 // loopback development principal; forwarding more would let arbitrary browser headers become
 // daemon authority inputs.
+// Every daemon call from this file goes through here. With no explicit `req` it uses the
+// ambient request; outside a request (startup probes) it sends no identity, which the daemon
+// adjudicates as unauthenticated rather than as an operator.
+function daemonFetch(pathOrUrl, init = {}) {
+  const req = init.req || reqCtx.getStore()?.req || null;
+  const headers = {
+    ...(req ? daemonRequestHeaders(req, { includeContentType: Boolean(init.body) }) : {}),
+    ...(init.headers || {}),
+  };
+  const { req: _drop, ...rest } = init;
+  const url = String(pathOrUrl).startsWith("http") ? pathOrUrl : `${DAEMON}${pathOrUrl}`;
+  return fetch(url, { ...rest, headers });
+}
+
 function daemonRequestHeaders(req, { includeContentType = false } = {}) {
   const headers = includeContentType
     ? { "content-type": req.headers["content-type"] || "application/json" }
@@ -3028,7 +3051,7 @@ function renderAgentStudio(agents, profiles, routes, providers, conversations, r
 // no authority bypass. Promotion is shown as a PREVIEW (would_promote:false), never applied.
 const FOUNDRY_KINDS = ["model_eval", "model_tune", "tool_build", "inference_endpoint", "ontology"];
 async function foundryCatalog() {
-  const J = (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => null);
+  const J = (p) => daemonFetch(`${p}`).then((r) => r.json()).catch(() => null);
   const [ro, pv, bk, ep] = await Promise.all([
     J("/v1/model-mount/routes"), J("/v1/model-mount/providers"),
     J("/v1/model-mount/backends"), J("/v1/model-mount/endpoints"),
@@ -3225,7 +3248,7 @@ function odkRefLink(ref) {
   return fam ? `<a href="/__ioi/odk/${fam}/${encodeURIComponent(m[2])}"><code>${CX_ESC(ref)}</code></a>` : `<code>${CX_ESC(ref)}</code>`;
 }
 async function odkPickers() {
-  const J = (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => ({}));
+  const J = (p) => daemonFetch(`${p}`).then((r) => r.json()).catch(() => ({}));
   const [o, r, d] = await Promise.all([
     J("/v1/hypervisor/odk/domain-ontologies"), J("/v1/hypervisor/odk/data-recipes"), J("/v1/hypervisor/odk/surface-descriptors"),
   ]);
@@ -5728,7 +5751,7 @@ const ODK_UI = {
 };
 const DOMAIN_APP_VIS = ["private", "org", "marketplace_candidate"];
 async function domainAppPickers(descriptorRefForManifestFilter) {
-  const J = (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => ({}));
+  const J = (p) => daemonFetch(`${p}`).then((r) => r.json()).catch(() => ({}));
   const [sd, man] = await Promise.all([J("/v1/hypervisor/odk/surface-descriptors"), J("/v1/hypervisor/odk/manifests")]);
   const descriptors = (sd.surface_descriptors || [])
     .filter((d) => d.composition_pattern === "domain_app")
@@ -6253,7 +6276,7 @@ function marketplaceSubjectLink(kind, ref) {
   return r ? `<code>${CX_ESC(r)}</code>` : "—";
 }
 async function marketplaceSubjectOptions() {
-  const J = (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => null);
+  const J = (p) => daemonFetch(`${p}`).then((r) => r.json()).catch(() => null);
   const [ag, da, man, rec, fs, fr] = await Promise.all([
     J("/v1/agents"), J("/v1/hypervisor/domain-apps"), J("/v1/hypervisor/odk/manifests"),
     J("/v1/hypervisor/odk/data-recipes"), J("/v1/hypervisor/foundry/specs"), J("/v1/hypervisor/foundry/run-plans"),
@@ -7101,7 +7124,7 @@ async function handleSupervisorStream(route, req, res, body) {
   const sanitize = makeTerminalSanitizer();
   const interval = setInterval(async () => {
     try {
-      const r = await fetch(`${DAEMON}/v1/hypervisor/terminals/${encodeURIComponent(termId)}/stream?since=${since}`);
+      const r = await daemonFetch(`/v1/hypervisor/terminals/${encodeURIComponent(termId)}/stream?since=${since}`);
       if (r.status === 404) {
         res.write(connectMessageFrame({ exited: { exitCode: 0 } }));
         res.end(connectEndStreamFrame({}));
@@ -7195,7 +7218,10 @@ ${error ? `<div class="err">${error}</div>` : ""}
 const server = http.createServer((req, res) => {
   const chunks = [];
   req.on("data", (c) => chunks.push(c));
-  req.on("end", () => handleEstateRequest(req, res, Buffer.concat(chunks)).catch((err) => surfaceErrorBoundary(req, res, err)));
+  // W1.1 / DEF-IDENT-1 — bind the request into the ambient identity context for the whole
+  // handler, so every `daemonFetch` below reaches the daemon with the caller's identity
+  // instead of being adjudicated as the loopback development principal.
+  req.on("end", () => reqCtx.run({ req }, () => handleEstateRequest(req, res, Buffer.concat(chunks))).catch((err) => surfaceErrorBoundary(req, res, err)));
 });
 
 // ---- App-runtime error boundary (functional-runtime wave) ----
@@ -7683,14 +7709,14 @@ async function handleEstateRequest(req, res, body) {
         };
         try {
           if (pathname === "/interventions/api/interventions/v2/list") {
-            const pj = await fetch(`${DAEMON}/v1/hypervisor/intelligence/improvement-proposals`).then((r) => r.json());
+            const pj = await daemonFetch(`/v1/hypervisor/intelligence/improvement-proposals`).then((r) => r.json());
             const mapped = (pj.proposals || []).map(mapProposal);
             return send({ interventions: mapped });
           }
           const statsMatch = pathname.match(/^\/interventions\/api\/interventions\/ri\.interventions\.main\.intervention\.([a-z0-9-]+)\/(?:compass\/)?stats\/search$/);
           if (statsMatch) {
             const idHex = statsMatch[1].replace(/-/g, "").slice(0, 16);
-            const pj = await fetch(`${DAEMON}/v1/hypervisor/intelligence/improvement-proposals`).then((r) => r.json());
+            const pj = await daemonFetch(`/v1/hypervisor/intelligence/improvement-proposals`).then((r) => r.json());
             const pr = (pj.proposals || []).find((x) => String(x.improvement_id || "").replace(/^imp_/, "") === idHex);
             const done = pr && (pr.state === "applied" || pr.state === "rejected") ? 1 : 0;
             const pend = pr && !(pr.state === "applied" || pr.state === "rejected") ? 1 : 0;
@@ -7741,7 +7767,7 @@ async function handleEstateRequest(req, res, body) {
           try {
             const [capResp, routesJson] = await Promise.all([
               fetch(`${CAPTURE}/graphql-gateway/api/graphql`, { method: "POST", headers: { "content-type": "application/json" }, body }).then((r) => r.json()).catch(() => null),
-              fetch(`${DAEMON}/v1/hypervisor/model-routes`).then((r) => r.json()).catch(() => ({})),
+              daemonFetch(`/v1/hypervisor/model-routes`).then((r) => r.json()).catch(() => ({})),
             ]);
             const template = capResp && capResp.data && capResp.data.languageModelsV4 && (capResp.data.languageModelsV4.values || [])[0];
             const routes = (routesJson && routesJson.routes) || [];
@@ -7798,12 +7824,12 @@ async function handleEstateRequest(req, res, body) {
               __typename: "BuildReport",
             });
             const [grj, ssj, atj] = await Promise.all([
-              fetch(`${DAEMON}/v1/goal-orchestration/goal-runs`).then((r) => r.json()),
-              fetch(`${DAEMON}/v1/hypervisor/sessions`).then((r) => r.json()),
-              fetch(`${DAEMON}/v1/hypervisor/automations`).then((r) => r.json()),
+              daemonFetch(`/v1/goal-orchestration/goal-runs`).then((r) => r.json()),
+              daemonFetch(`/v1/hypervisor/sessions`).then((r) => r.json()),
+              daemonFetch(`/v1/hypervisor/automations`).then((r) => r.json()),
             ]);
             const autoDefs = atj.automations || [];
-            const runsPer = await Promise.all(autoDefs.map((a) => fetch(`${DAEMON}/v1/hypervisor/automations/${encodeURIComponent(a.automation_id)}/runs`).then((r) => r.json()).catch(() => ({}))));
+            const runsPer = await Promise.all(autoDefs.map((a) => daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(a.automation_id)}/runs`).then((r) => r.json()).catch(() => ({}))));
             const rows = [];
             const grStatus = { complete: "SUCCEEDED", blocked: "FAILED", active: "RUNNING" };
             for (const g of grj.goal_runs || []) {
@@ -7878,7 +7904,7 @@ async function handleEstateRequest(req, res, body) {
             if (q.includes("LOCAL_MARKETPLACE")) {
               return sendJson({ data: { searchResources: { nextPageToken: null, results: [{ resource: { resource: store, _id: b64(STORE_RID + ":res"), __typename: "ResourceWrapper" }, __typename: "SearchResourcesResult" }], __typename: "SearchResourcesPage" }, __typename: "Query" } });
             }
-            const lj = await fetch(`${DAEMON}/v1/hypervisor/marketplace/listings`).then((r) => r.json());
+            const lj = await daemonFetch(`/v1/hypervisor/marketplace/listings`).then((r) => r.json());
             const listings = lj.listings || [];
             const vars = gqlOp.variables || {};
             // StoreTableQuery pins its status filter in the query TEXT, not variables.
@@ -7944,7 +7970,7 @@ async function handleEstateRequest(req, res, body) {
       if (pathname === "/issues/api/search/issues/v2/search" || pathname === "/issues/api/search/issues/v2/batch") {
         const sendJson = (obj, status = 200) => { res.writeHead(status, { "Content-Type": "application/json" }); res.end(JSON.stringify(obj)); };
         try {
-          const ij = await fetch(`${DAEMON}/v1/hypervisor/incidents`).then((r) => r.json());
+          const ij = await daemonFetch(`/v1/hypervisor/incidents`).then((r) => r.json());
           const fnv = (s, rev) => { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h = Math.imul(h ^ s.charCodeAt(rev ? s.length - 1 - i : i), 0x01000193) >>> 0; } return h.toString(16).padStart(8, "0"); };
           const uuidOf = (s) => { const h = fnv(s, false) + fnv(s, true); return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(0, 4)}-${h.slice(4, 16)}`; };
           const issues = (ij.incidents || []).map((inc) => ({
@@ -8001,7 +8027,7 @@ async function handleEstateRequest(req, res, body) {
       }
       if (pathname === "/approvals/api/search/task-requests" || pathname === "/approvals/api/search/task-requests/counts") {
         try {
-          const gj = await fetch(`${DAEMON}/v1/hypervisor/governance/approval-requests`).then((r) => r.json());
+          const gj = await daemonFetch(`/v1/hypervisor/governance/approval-requests`).then((r) => r.json());
           const mapStatus = (st) => st === "approved" ? "APPROVED" : (st === "denied" || st === "rejected") ? "DISAPPROVED" : (st === "pending" || st === "open") ? "PENDING_APPROVAL" : "CLOSED";
           // The seed bundle renders ONLY its closed type registry (foreign types are dropped by
           // the renderer lookup, verbatim vendor code). Daemon approval-requests are mapped to
@@ -8109,7 +8135,7 @@ async function handleEstateRequest(req, res, body) {
         // development principal and can both break managed deployments and defeat
         // owner-filtered projections such as GoalRunActivation reads.
         const daemonHeaders = daemonRequestHeaders(req, { includeContentType: true });
-        const upstream = await fetch(DAEMON + req.url, {
+        const upstream = await daemonFetch(req.url, {
           method: req.method,
           headers: daemonHeaders,
           body: ["GET", "HEAD"].includes(req.method) ? undefined : body,
@@ -8129,7 +8155,7 @@ async function handleEstateRequest(req, res, body) {
       try {
         const headers = { "Content-Type": req.headers["content-type"] || "application/json" };
         if (req.headers["authorization"]) headers["Authorization"] = req.headers["authorization"];
-        const upstream = await fetch(DAEMON + req.url, { method: req.method, headers, body: ["GET", "HEAD"].includes(req.method) ? undefined : body });
+        const upstream = await daemonFetch(req.url, { method: req.method, headers, body: ["GET", "HEAD"].includes(req.method) ? undefined : body });
         const text = await upstream.text();
         res.writeHead(upstream.status, { "Content-Type": upstream.headers.get("content-type") || "application/json" });
         res.end(text);
@@ -8154,7 +8180,7 @@ async function handleEstateRequest(req, res, body) {
         }
         const headers = { "Content-Type": req.headers["content-type"] || "application/json" };
         if (req.headers["authorization"]) headers["Authorization"] = req.headers["authorization"];
-        const upstream = await fetch(DAEMON + req.url, {
+        const upstream = await daemonFetch(req.url, {
           method: req.method,
           headers,
           body: ["GET", "HEAD"].includes(req.method) ? undefined : body,
@@ -8205,7 +8231,7 @@ async function handleEstateRequest(req, res, body) {
       if (req.method === "POST") {
         const form = new URLSearchParams(body.toString("utf8"));
         try {
-          const r = await fetch(`${DAEMON}/v1/hypervisor/auth/login`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: form.get("email") || "", password: form.get("password") || "" }) });
+          const r = await daemonFetch(`/v1/hypervisor/auth/login`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: form.get("email") || "", password: form.get("password") || "" }) });
           const d = await r.json().catch(() => ({}));
           if (r.ok && d.ok && d.session_token) {
             res.writeHead(302, { "Set-Cookie": `ioi_session=${d.session_token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=604800`, Location: "/ai" });
@@ -8221,7 +8247,7 @@ async function handleEstateRequest(req, res, body) {
         return;
       }
       let cfgs = [];
-      try { const r = await fetch(`${DAEMON}/v1/hypervisor/sso-configurations`); const d = await r.json(); cfgs = d.sso_configurations || []; } catch { /* none */ }
+      try { const r = await daemonFetch(`/v1/hypervisor/sso-configurations`); const d = await r.json(); cfgs = d.sso_configurations || []; } catch { /* none */ }
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
       res.end(loginShell("", cfgs));
       return;
@@ -8231,7 +8257,7 @@ async function handleEstateRequest(req, res, body) {
       const configId = decodeURIComponent(pathname.slice("/__ioi/login/sso/".length).split("/")[0]);
       const redirectUri = `${publicBase(req)}/__ioi/login/sso/callback`;
       try {
-        const r = await fetch(`${DAEMON}/v1/hypervisor/auth/oidc/start`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ config_id: configId, redirect_uri: redirectUri }) });
+        const r = await daemonFetch(`/v1/hypervisor/auth/oidc/start`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ config_id: configId, redirect_uri: redirectUri }) });
         const d = await r.json().catch(() => ({}));
         if (r.ok && d.ok && d.authorize_url) { res.writeHead(302, { Location: d.authorize_url }); res.end(); return; }
         res.writeHead(400, { "Content-Type": "text/html; charset=utf-8" });
@@ -8247,7 +8273,7 @@ async function handleEstateRequest(req, res, body) {
       const q = new URLSearchParams((req.url || "").split("?")[1] || "");
       const redirectUri = `${publicBase(req)}/__ioi/login/sso/callback`;
       try {
-        const r = await fetch(`${DAEMON}/v1/hypervisor/auth/oidc/callback`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: q.get("code") || "", state: q.get("state") || "", redirect_uri: redirectUri }) });
+        const r = await daemonFetch(`/v1/hypervisor/auth/oidc/callback`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: q.get("code") || "", state: q.get("state") || "", redirect_uri: redirectUri }) });
         const d = await r.json().catch(() => ({}));
         if (r.ok && d.ok && d.session_token) {
           res.writeHead(302, { "Set-Cookie": `ioi_session=${d.session_token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=604800`, Location: "/ai" });
@@ -8268,7 +8294,7 @@ async function handleEstateRequest(req, res, body) {
       if (req.method === "POST") {
         const form = new URLSearchParams(body.toString("utf8"));
         try {
-          const r = await fetch(`${DAEMON}/v1/hypervisor/org-invite/accept`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ invite_id: inviteId, email: form.get("email") || "", name: form.get("name") || "", password: form.get("password") || "" }) });
+          const r = await daemonFetch(`/v1/hypervisor/org-invite/accept`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ invite_id: inviteId, email: form.get("email") || "", name: form.get("name") || "", password: form.get("password") || "" }) });
           const d = await r.json().catch(() => ({}));
           if (r.ok && d.ok && d.session_token) {
             res.writeHead(302, { "Set-Cookie": `ioi_session=${d.session_token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=604800`, Location: "/ai" });
@@ -8288,7 +8314,7 @@ async function handleEstateRequest(req, res, body) {
       return;
     }
     if (pathname === "/__ioi/logout") {
-      try { await fetch(`${DAEMON}/v1/hypervisor/auth/logout`, { method: "POST", headers: { Cookie: req.headers.cookie || "" } }); } catch { /* best-effort */ }
+      try { await daemonFetch(`/v1/hypervisor/auth/logout`, { method: "POST", headers: { Cookie: req.headers.cookie || "" } }); } catch { /* best-effort */ }
       res.writeHead(302, { "Set-Cookie": "ioi_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0", Location: "/__ioi/login" });
       res.end();
       return;
@@ -8300,7 +8326,7 @@ async function handleEstateRequest(req, res, body) {
       const isHtmlNav = req.method === "GET" && accept.includes("text/html") && !pathname.startsWith("/api/") && !pathname.startsWith("/__ioi/") && !pathname.startsWith("/static/") && !pathname.startsWith("/assets/") && !pathname.startsWith("/v1/") && pathname !== "/ioi-augmentation.js";
       if (isHtmlNav) {
         try {
-          const w = await fetch(`${DAEMON}/v1/hypervisor/auth/whoami`, { headers: { Cookie: req.headers.cookie || "", ...(req.headers["x-forwarded-host"] ? { "X-Forwarded-Host": req.headers["x-forwarded-host"] } : {}) } });
+          const w = await daemonFetch(`/v1/hypervisor/auth/whoami`, { headers: { Cookie: req.headers.cookie || "", ...(req.headers["x-forwarded-host"] ? { "X-Forwarded-Host": req.headers["x-forwarded-host"] } : {}) } });
           if (w.status === 401) { res.writeHead(302, { Location: "/__ioi/login" }); res.end(); return; }
         } catch {
           res.writeHead(503, {
@@ -8389,7 +8415,7 @@ async function handleEstateRequest(req, res, body) {
       const owner = qp.get("owner") || ""; // omit for a USER account (e.g. teamioitest)
       let page;
       try {
-        const r = await fetch(`${DAEMON}/v1/hypervisor/scm-connect/github-app/manifest`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ owner, callback_base: `http://${req.headers.host || "127.0.0.1:4173"}` }) });
+        const r = await daemonFetch(`/v1/hypervisor/scm-connect/github-app/manifest`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ owner, callback_base: `http://${req.headers.host || "127.0.0.1:4173"}` }) });
         const d = await r.json();
         const esc = CX_ESC; // the kit escaper (surfaces/kit.mjs) — no local duplicates
         page = githubAppShell("Create your GitHub App", `
@@ -8413,7 +8439,7 @@ async function handleEstateRequest(req, res, body) {
       const code = qp.get("code") || "";
       let page;
       try {
-        const r = await fetch(`${DAEMON}/v1/hypervisor/scm-connect/github-app/conversion`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ code }) });
+        const r = await daemonFetch(`/v1/hypervisor/scm-connect/github-app/conversion`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ code }) });
         const d = await r.json();
         if (d.ok && d.install_url) {
           page = githubAppShell("GitHub App created ✓", `
@@ -8436,7 +8462,7 @@ async function handleEstateRequest(req, res, body) {
       const installation_id = qp.get("installation_id") || "";
       let page;
       try {
-        const r = await fetch(`${DAEMON}/v1/hypervisor/scm-connect/github-app/installation`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ installation_id }) });
+        const r = await daemonFetch(`/v1/hypervisor/scm-connect/github-app/installation`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ installation_id }) });
         const d = await r.json();
         page = d.ok
           ? githubAppShell("GitHub App connected ✓", `<p>Installation <b>${d.installation_id}</b> bound to <b>${d.connector_id}</b>${d.verified ? " — installation token minted successfully." : "."}</p><p class="muted">The agent will receive a use-only lease; the App key never leaves your daemon. This connection has no webhook and supplies no live provider workflow events; signed event ingestion remains unavailable. You can close this tab.</p>`)
@@ -8454,12 +8480,12 @@ async function handleEstateRequest(req, res, body) {
     if (pathname.startsWith("/__ioi/integrations/connect/")) {
       const cid = decodeURIComponent(pathname.slice("/__ioi/integrations/connect/".length).split("/")[0]);
       const redirect_uri = `${publicBase(req)}/__ioi/integrations/oauth/callback`;
-      const start = () => fetch(`${DAEMON}/v1/hypervisor/connectors/${encodeURIComponent(cid)}/oauth/start`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ redirect_uri }) }).then((r) => r.json());
+      const start = () => daemonFetch(`/v1/hypervisor/connectors/${encodeURIComponent(cid)}/oauth/start`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ redirect_uri }) }).then((r) => r.json());
       try {
         let d = await start();
         // No auth_profile yet → auto-discover + DCR (no per-service app), then retry.
         if (!(d.ok && d.authorize_url)) {
-          await fetch(`${DAEMON}/v1/hypervisor/connectors/${encodeURIComponent(cid)}/oauth/discover`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ redirect_uri }) }).catch(() => {});
+          await daemonFetch(`/v1/hypervisor/connectors/${encodeURIComponent(cid)}/oauth/discover`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ redirect_uri }) }).catch(() => {});
           d = await start();
         }
         if (d.ok && d.authorize_url) { res.writeHead(302, { Location: d.authorize_url, "Cache-Control": "no-cache" }); return res.end(); }
@@ -8476,7 +8502,7 @@ async function handleEstateRequest(req, res, body) {
       const state = qp.get("state") || "", code = qp.get("code") || "";
       let page;
       try {
-        const r = await fetch(`${DAEMON}/v1/hypervisor/connectors/oauth/callback`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ state, code }) });
+        const r = await daemonFetch(`/v1/hypervisor/connectors/oauth/callback`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ state, code }) });
         const d = await r.json();
         page = d.ok
           ? githubAppShell("Integration connected ✓", `<p>Authorized and sealed (<b>${d.credential_kind}</b>) on <b>${d.connector_id}</b>.</p><p class="muted">The agent receives only scoped capability leases minted from this — the provider credential never leaves your daemon. You can close this tab.</p>`)
@@ -8516,7 +8542,7 @@ async function handleEstateRequest(req, res, body) {
       const client_secret = (p.get("client_secret") || "").trim();
       const scopes = (p.get("scopes") || "chat:write").trim();
       try {
-        const reg = await fetch(`${DAEMON}/v1/hypervisor/connectors`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
+        const reg = await daemonFetch(`/v1/hypervisor/connectors`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
           service: "slack", kind: "http", name: "Slack", base_url: "https://slack.com/api",
           allowed_tools: [{ name: "auth.test", method: "POST", path: "/auth.test" }, { name: "chat.postMessage", method: "POST", path: "/chat.postMessage" }],
           auth_profile: { type: "oauth_authcode_pkce", authorization_endpoint: "https://slack.com/oauth/v2/authorize", token_endpoint: "https://slack.com/api/oauth.v2.access", client_id, client_secret, scopes: [scopes] },
@@ -8536,8 +8562,8 @@ async function handleEstateRequest(req, res, body) {
       const projectId = new URL(req.url, "http://x").searchParams.get("project") || "";
       try {
         const [aRes, pRes] = await Promise.all([
-          fetch(`${DAEMON}/v1/hypervisor/automations${projectId ? "?project_ref=" + encodeURIComponent(projectId) : ""}`).then((r) => r.json()).catch(() => ({})),
-          fetch(`${DAEMON}/v1/hypervisor/projects`).then((r) => r.json()).catch(() => ({})),
+          daemonFetch(`/v1/hypervisor/automations${projectId ? "?project_ref=" + encodeURIComponent(projectId) : ""}`).then((r) => r.json()).catch(() => ({})),
+          daemonFetch(`/v1/hypervisor/projects`).then((r) => r.json()).catch(() => ({})),
         ]);
         const projectsById = {};
         for (const p of pRes.projects || []) projectsById[p.project_id] = p;
@@ -8552,7 +8578,7 @@ async function handleEstateRequest(req, res, body) {
     if (pathname === "/__ioi/automations.json" && req.method === "GET") {
       // JSON feed for the project-detail panel (the augmentation script fetches this).
       const projectId = new URL(req.url, "http://x").searchParams.get("project") || "";
-      const aRes = await fetch(`${DAEMON}/v1/hypervisor/automations${projectId ? "?project_ref=" + encodeURIComponent(projectId) : ""}`).then((r) => r.json()).catch(() => ({}));
+      const aRes = await daemonFetch(`/v1/hypervisor/automations${projectId ? "?project_ref=" + encodeURIComponent(projectId) : ""}`).then((r) => r.json()).catch(() => ({}));
       const automations = (aRes.automations || []).map((a) => ({ automation_id: a.automation_id, name: a.name, trigger_kind: a.trigger_kind || "manual", enabled: a.enabled !== false, model: a.model || null, steps: Array.isArray(a.steps) ? a.steps.length : 0 }));
       res.writeHead(200, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-cache" });
       res.end(JSON.stringify({ automations }));
@@ -8560,7 +8586,7 @@ async function handleEstateRequest(req, res, body) {
     }
     if (pathname === "/__ioi/automations/new" && req.method === "GET") {
       const projectId = new URL(req.url, "http://x").searchParams.get("project") || "";
-      const pRes = await fetch(`${DAEMON}/v1/hypervisor/projects`).then((r) => r.json()).catch(() => ({}));
+      const pRes = await daemonFetch(`/v1/hypervisor/projects`).then((r) => r.json()).catch(() => ({}));
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
       res.end(renderAutomationNewForm(projectId, pRes.projects || []));
       return;
@@ -8568,7 +8594,7 @@ async function handleEstateRequest(req, res, body) {
     if (pathname === "/__ioi/automations/cron-preview" && req.method === "GET") {
       // Proxy the daemon cron-preview (next-runs) for the create form's live preview.
       const qs = new URL(req.url, "http://x").searchParams.toString();
-      const r = await fetch(`${DAEMON}/v1/hypervisor/cron-preview?${qs}`).then((x) => x.json()).catch(() => ({ ok: false, error: "daemon unavailable" }));
+      const r = await daemonFetch(`/v1/hypervisor/cron-preview?${qs}`).then((x) => x.json()).catch(() => ({ ok: false, error: "daemon unavailable" }));
       res.writeHead(200, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-cache" });
       res.end(JSON.stringify(r));
       return;
@@ -8605,7 +8631,7 @@ async function handleEstateRequest(req, res, body) {
         memory_profile_ref: (p.get("memory_profile_ref") || "").trim() || null,
         steps,
       };
-      const r = await fetch(`${DAEMON}/v1/hypervisor/automations`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
+      const r = await daemonFetch(`/v1/hypervisor/automations`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
       const j = await r.json().catch(() => ({}));
       const newId = j.automation && j.automation.automation_id;
       if (r.status >= 400 || !newId) {
@@ -8620,14 +8646,14 @@ async function handleEstateRequest(req, res, body) {
     // ---- Evaluations · Evalsuites — the AIP Evals landing port (#54). A DECLARATION LIBRARY over
     // the real eval-suite plane: no EvalRun execution, no scoring/verdicts/judging on this surface.
     if (pathname === "/__ioi/evaluations/evalsuites" && req.method === "GET") {
-      const sj = await fetch(`${DAEMON}/v1/hypervisor/eval-suites`).then((r) => r.json()).catch(() => ({}));
+      const sj = await daemonFetch(`/v1/hypervisor/eval-suites`).then((r) => r.json()).catch(() => ({}));
       sendOwnedSurfaceHtml(res, "evalsuites", renderEvalsuitesPort(sj));
       return;
     }
     // ---- Improvement · Changes — the Upgrade Assistant inbox port (#53). A read-only projection
     // over the real improvement-proposal plane; apply/approve/release lanes stay on Agent Studio.
     if (pathname === "/__ioi/improvement/changes" && req.method === "GET") {
-      const pj = await fetch(`${DAEMON}/v1/hypervisor/intelligence/improvement-proposals`).then((r) => r.json()).catch(() => ({}));
+      const pj = await daemonFetch(`/v1/hypervisor/intelligence/improvement-proposals`).then((r) => r.json()).catch(() => ({}));
       const qp = new URL(req.url, "http://x").searchParams;
       const lane = ["active", "pastdue", "archived"].includes(qp.get("lane")) ? qp.get("lane") : "active";
       const filter = qp.get("filter") === "all" ? "all" : "action";
@@ -8637,10 +8663,10 @@ async function handleEstateRequest(req, res, body) {
     // ---- Automations · Monitors — the Automate-overview port (#51). A read-only PROJECTION over
     // the real automation plane (specs + executions); authoring stays on /__ioi/automations.
     if (pathname === "/__ioi/automations/monitors" && req.method === "GET") {
-      const aRes = await fetch(`${DAEMON}/v1/hypervisor/automations`).then((r) => r.json()).catch(() => ({}));
+      const aRes = await daemonFetch(`/v1/hypervisor/automations`).then((r) => r.json()).catch(() => ({}));
       const autos = aRes.automations || [];
       const runsEntries = await Promise.all(autos.map((a) =>
-        fetch(`${DAEMON}/v1/hypervisor/automations/${encodeURIComponent(a.automation_id)}/runs`).then((r) => r.json()).then((j) => [a.automation_id, j.runs || []]).catch(() => [a.automation_id, []])));
+        daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(a.automation_id)}/runs`).then((r) => r.json()).then((j) => [a.automation_id, j.runs || []]).catch(() => [a.automation_id, []])));
       sendOwnedSurfaceHtml(res, "monitors", renderMonitorsPort(autos, Object.fromEntries(runsEntries)));
       return;
     }
@@ -8653,28 +8679,28 @@ async function handleEstateRequest(req, res, body) {
         ? "/__ioi/operations" : `/__ioi/automations/${encodeURIComponent(id)}`;
       if (action === "run" && req.method === "POST") {
         // Manual run: the daemon executor creates an env, runs the steps, and records a transcript.
-        await fetch(`${DAEMON}/v1/hypervisor/automations/${encodeURIComponent(id)}/runs`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }).catch(() => {});
+        await daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(id)}/runs`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }).catch(() => {});
         res.writeHead(302, { Location: backTo, "Cache-Control": "no-cache" });
         res.end();
         return;
       }
       if ((action === "pause" || action === "resume") && req.method === "POST") {
         // Pause/resume the schedule = PATCH enabled (the daemon scheduler skips disabled specs).
-        await fetch(`${DAEMON}/v1/hypervisor/automations/${encodeURIComponent(id)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ enabled: action === "resume" }) }).catch(() => {});
+        await daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(id)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ enabled: action === "resume" }) }).catch(() => {});
         res.writeHead(302, { Location: backTo, "Cache-Control": "no-cache" });
         res.end();
         return;
       }
       if (action === "patch" && req.method === "POST") {
         // Canvas inspector save → daemon PATCH (returns JSON so the canvas can surface validation errors).
-        const r = await fetch(`${DAEMON}/v1/hypervisor/automations/${encodeURIComponent(id)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: body.toString() || "{}" }).then((x) => x.json()).catch(() => ({ ok: false, error: { message: "daemon unavailable" } }));
+        const r = await daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(id)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: body.toString() || "{}" }).then((x) => x.json()).catch(() => ({ ok: false, error: { message: "daemon unavailable" } }));
         res.writeHead(200, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-cache" });
         res.end(JSON.stringify(r));
         return;
       }
       if (action === "webhook-rotate" && req.method === "POST") {
         // Mint/rotate the trigger secret and reveal it ONCE (only its hash is persisted).
-        const r = await fetch(`${DAEMON}/v1/hypervisor/automations/${encodeURIComponent(id)}/webhook-rotate`, { method: "POST" }).then((x) => x.json()).catch(() => ({}));
+        const r = await daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(id)}/webhook-rotate`, { method: "POST" }).then((x) => x.json()).catch(() => ({}));
         const token = r.webhook_token || "";
         const url = `${publicBase(req)}/v1/hypervisor/automations/${encodeURIComponent(id)}/webhook`;
         const reveal = token
@@ -8693,9 +8719,9 @@ async function handleEstateRequest(req, res, body) {
         return;
       }
       if (action === "delete" && req.method === "POST") {
-        const a = await fetch(`${DAEMON}/v1/hypervisor/automations/${encodeURIComponent(id)}`).then((r) => r.json()).catch(() => ({}));
+        const a = await daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(id)}`).then((r) => r.json()).catch(() => ({}));
         const pid = a.automation && (a.automation.project_ref || a.automation.project_id);
-        await fetch(`${DAEMON}/v1/hypervisor/automations/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
+        await daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
         res.writeHead(302, { Location: `/__ioi/automations${pid ? "?project=" + encodeURIComponent(pid) : ""}`, "Cache-Control": "no-cache" });
         res.end();
         return;
@@ -8703,10 +8729,10 @@ async function handleEstateRequest(req, res, body) {
       if (!action && req.method === "GET") {
         try {
           const [aRes, rRes, pRes, wRes] = await Promise.all([
-            fetch(`${DAEMON}/v1/hypervisor/automations/${encodeURIComponent(id)}`).then((r) => r.json()).catch(() => ({})),
-            fetch(`${DAEMON}/v1/hypervisor/automations/${encodeURIComponent(id)}/runs`).then((r) => r.json()).catch(() => ({})),
-            fetch(`${DAEMON}/v1/hypervisor/projects`).then((r) => r.json()).catch(() => ({})),
-            fetch(`${DAEMON}/v1/hypervisor/automations/${encodeURIComponent(id)}/webhook-events`).then((r) => r.json()).catch(() => ({})),
+            daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(id)}`).then((r) => r.json()).catch(() => ({})),
+            daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(id)}/runs`).then((r) => r.json()).catch(() => ({})),
+            daemonFetch(`/v1/hypervisor/projects`).then((r) => r.json()).catch(() => ({})),
+            daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(id)}/webhook-events`).then((r) => r.json()).catch(() => ({})),
           ]);
           if (!aRes.automation) {
             res.writeHead(404, { "Content-Type": "text/html; charset=utf-8" });
@@ -8747,8 +8773,8 @@ async function handleEstateRequest(req, res, body) {
     if (pathname === "/__ioi/feedback" && req.method === "GET") {
       const flash = new URL(req.url, "http://x").searchParams.get("refused") || "";
       const [ov, li] = await Promise.all([
-        fetch(`${DAEMON}/v1/hypervisor/feedback/overview`).then((x) => x.json()).catch(() => ({})),
-        fetch(`${DAEMON}/v1/hypervisor/feedback-entries`).then((x) => x.json()).catch(() => ({})),
+        daemonFetch(`/v1/hypervisor/feedback/overview`).then((x) => x.json()).catch(() => ({})),
+        daemonFetch(`/v1/hypervisor/feedback-entries`).then((x) => x.json()).catch(() => ({})),
       ]);
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
       res.end(renderFeedbackQueue(ov, li.feedback_entries || [], flash));
@@ -8756,7 +8782,7 @@ async function handleEstateRequest(req, res, body) {
     }
     if (pathname === "/__ioi/feedback" && req.method === "POST") {
       const f = new URLSearchParams(body.toString("utf8"));
-      const r = await fetch(`${DAEMON}/v1/hypervisor/feedback-entries`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ subject_ref: f.get("subject_ref") || "", entry_kind: f.get("entry_kind") || "feedback", body: f.get("body") || "", consent: f.get("consent") || "never_train" }) });
+      const r = await daemonFetch(`/v1/hypervisor/feedback-entries`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ subject_ref: f.get("subject_ref") || "", entry_kind: f.get("entry_kind") || "feedback", body: f.get("body") || "", consent: f.get("consent") || "never_train" }) });
       const j = await r.json().catch(() => ({}));
       res.writeHead(302, { Location: r.ok ? "/__ioi/feedback" : `/__ioi/feedback?refused=${encodeURIComponent((j.error && j.error.message) || "invalid")}`, "Cache-Control": "no-cache" });
       return res.end();
@@ -8766,7 +8792,7 @@ async function handleEstateRequest(req, res, body) {
       const f = new URLSearchParams(body.toString("utf8"));
       const payload = { transition: f.get("transition") || "" };
       if (f.get("converted_to_ref")) payload.converted_to_ref = f.get("converted_to_ref");
-      const r = await fetch(`${DAEMON}/v1/hypervisor/feedback-entries/${encodeURIComponent(fid)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
+      const r = await daemonFetch(`/v1/hypervisor/feedback-entries/${encodeURIComponent(fid)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
       const j = await r.json().catch(() => ({}));
       res.writeHead(302, { Location: r.ok ? "/__ioi/feedback" : `/__ioi/feedback?refused=${encodeURIComponent((j.error && j.error.message) || "invalid")}`, "Cache-Control": "no-cache" });
       return res.end();
@@ -8777,12 +8803,12 @@ async function handleEstateRequest(req, res, body) {
     if (pathname === "/__ioi/evaluations" && req.method === "GET") {
       const flash = new URL(req.url, "http://x").searchParams.get("refused") || "";
       const [suitesRes, ovRes, opsRes, grRes, foundryRes, fbOvRes] = await Promise.all([
-        fetch(`${DAEMON}/v1/hypervisor/eval-suites`).then((x) => x.json()).catch(() => ({})),
-        fetch(`${DAEMON}/v1/hypervisor/eval-suites/overview`).then((x) => x.json()).catch(() => ({})),
-        fetch(`${DAEMON}/v1/hypervisor/operations`).then((x) => x.json()).catch(() => ({})),
-        fetch(`${DAEMON}/v1/goal-orchestration/goal-runs`).then((x) => x.json()).catch(() => ({})),
-        fetch(`${DAEMON}/v1/hypervisor/foundry/specs`).then((x) => x.json()).catch(() => ({})),
-        fetch(`${DAEMON}/v1/hypervisor/feedback/overview`).then((x) => x.json()).catch(() => ({})),
+        daemonFetch(`/v1/hypervisor/eval-suites`).then((x) => x.json()).catch(() => ({})),
+        daemonFetch(`/v1/hypervisor/eval-suites/overview`).then((x) => x.json()).catch(() => ({})),
+        daemonFetch(`/v1/hypervisor/operations`).then((x) => x.json()).catch(() => ({})),
+        daemonFetch(`/v1/goal-orchestration/goal-runs`).then((x) => x.json()).catch(() => ({})),
+        daemonFetch(`/v1/hypervisor/foundry/specs`).then((x) => x.json()).catch(() => ({})),
+        daemonFetch(`/v1/hypervisor/feedback/overview`).then((x) => x.json()).catch(() => ({})),
       ]);
       const runs = (opsRes.runs) || {};
       const subjects = {
@@ -8806,21 +8832,21 @@ async function handleEstateRequest(req, res, body) {
         rubric_refs: splitRefs(f.get("rubric_refs")),
         candidate_refs: splitRefs(f.get("candidate_refs")),
       };
-      const r = await fetch(`${DAEMON}/v1/hypervisor/eval-suites`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
+      const r = await daemonFetch(`/v1/hypervisor/eval-suites`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
       const j = await r.json().catch(() => ({}));
       res.writeHead(302, { Location: r.ok ? "/__ioi/evaluations" : `/__ioi/evaluations?refused=${encodeURIComponent((j.error && j.error.message) || "invalid")}`, "Cache-Control": "no-cache" });
       return res.end();
     }
     if (pathname.startsWith("/__ioi/evaluations/") && pathname.endsWith("/delete") && req.method === "POST") {
       const sid = decodeURIComponent(pathname.slice("/__ioi/evaluations/".length).split("/")[0]);
-      await fetch(`${DAEMON}/v1/hypervisor/eval-suites/${encodeURIComponent(sid)}`, { method: "DELETE" }).catch(() => {});
+      await daemonFetch(`/v1/hypervisor/eval-suites/${encodeURIComponent(sid)}`, { method: "DELETE" }).catch(() => {});
       res.writeHead(302, { Location: "/__ioi/evaluations", "Cache-Control": "no-cache" });
       return res.end();
     }
     // ---- Search — typed cross-estate discovery, fan-out over live projections at query time.
     if (pathname === "/__ioi/search" && req.method === "GET") {
       const q = (new URL(req.url, "http://x").searchParams.get("q") || "").trim().toLowerCase();
-      const J = (p) => fetch(`${DAEMON}${p}`).then((x) => x.json()).catch(() => ({}));
+      const J = (p) => daemonFetch(`${p}`).then((x) => x.json()).catch(() => ({}));
       const SOURCES = ["projects", "sessions", "automations", "model routes", "connectors", "ontologies", "data recipes", "surface descriptors", "manifests", "domain apps", "approval requests", "failover runs", "environments"];
       let groups = [];
       if (q) {
@@ -8856,9 +8882,9 @@ async function handleEstateRequest(req, res, body) {
     // ---- Code Repositories (folds into Workbench; repos over project truth + SCM posture).
     if (pathname === "/__ioi/code" && req.method === "GET") {
       const [pjRes, scmRes, effectsRes] = await Promise.all([
-        fetch(`${DAEMON}/v1/hypervisor/projects`).then((x) => x.json()).catch(() => ({})),
-        fetch(`${DAEMON}/v1/hypervisor/scm-connectors`).then((x) => x.json()).catch(() => ({})),
-        fetch(`${DAEMON}/v1/hypervisor/scm-publication-effects`).then((x) => x.json()).catch(() => ({})),
+        daemonFetch(`/v1/hypervisor/projects`).then((x) => x.json()).catch(() => ({})),
+        daemonFetch(`/v1/hypervisor/scm-connectors`).then((x) => x.json()).catch(() => ({})),
+        daemonFetch(`/v1/hypervisor/scm-publication-effects`).then((x) => x.json()).catch(() => ({})),
       ]);
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
       res.end(renderCodeRepositories(pjRes, scmRes, effectsRes.publication_effects || []));
@@ -8867,8 +8893,8 @@ async function handleEstateRequest(req, res, body) {
     // ---- Sessions root (rail root; session lifecycle facts + admitted bindings).
     if (pathname === "/__ioi/sessions" && req.method === "GET") {
       const [sessRes, envRes] = await Promise.all([
-        fetch(`${DAEMON}/v1/hypervisor/sessions`).then((x) => x.json()).catch(() => ({})),
-        fetch(`${DAEMON}/v1/hypervisor/environments-summary?limit=60`).then((x) => x.json()).catch(() => ({})),
+        daemonFetch(`/v1/hypervisor/sessions`).then((x) => x.json()).catch(() => ({})),
+        daemonFetch(`/v1/hypervisor/environments-summary?limit=60`).then((x) => x.json()).catch(() => ({})),
       ]);
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
       res.end(renderSessionsRoot(sessRes, envRes));
@@ -8878,7 +8904,7 @@ async function handleEstateRequest(req, res, body) {
     // governed-work band. Fetches fail to null (NOT {}) so the renderer can distinguish "daemon
     // did not answer" from an honestly empty projection.
     if (pathname === "/__ioi/home" && req.method === "GET") {
-      const J = (p) => fetch(`${DAEMON}${p}`).then((x) => x.json()).catch(() => null);
+      const J = (p) => daemonFetch(`${p}`).then((x) => x.json()).catch(() => null);
       const [homeOps, homeLedger, homeSessions, homeApprovals, homeFoRuns] = await Promise.all([
         J("/v1/hypervisor/operations"),
         J("/v1/hypervisor/work-ledger"),
@@ -8985,19 +9011,19 @@ async function handleEstateRequest(req, res, body) {
     // operations run queue + goal-runs; renders the run/job queue and the mission-level incident
     // inbox (run failures + GoalRun blockers). Operations stays substrate/infra (separate route).
     if (pathname === "/__ioi/marketplace/listings" && req.method === "GET") {
-      const listingsJson = await fetch(`${DAEMON}/v1/hypervisor/marketplace/listings`).then((x) => x.json()).catch(() => ({}));
+      const listingsJson = await daemonFetch(`/v1/hypervisor/marketplace/listings`).then((x) => x.json()).catch(() => ({}));
       sendOwnedSurfaceHtml(res, "listings", renderMarketplaceBrowsePort(listingsJson));
       return;
     }
     if (pathname === "/__ioi/foundry/models" && req.method === "GET") {
-      const routesJson = await fetch(`${DAEMON}/v1/hypervisor/model-routes`).then((x) => x.json()).catch(() => ({}));
+      const routesJson = await daemonFetch(`/v1/hypervisor/model-routes`).then((x) => x.json()).catch(() => ({}));
       sendOwnedSurfaceHtml(res, "models", renderModelCatalogPort(routesJson));
       return;
     }
     if (pathname === "/__ioi/missions/incidents" && req.method === "GET") {
       const [opsRes, grRes] = await Promise.all([
-        fetch(`${DAEMON}/v1/hypervisor/operations`).then((x) => x.json()).catch(() => ({})),
-        fetch(`${DAEMON}/v1/goal-orchestration/goal-runs`).then((x) => x.json()).catch(() => ({})),
+        daemonFetch(`/v1/hypervisor/operations`).then((x) => x.json()).catch(() => ({})),
+        daemonFetch(`/v1/goal-orchestration/goal-runs`).then((x) => x.json()).catch(() => ({})),
       ]);
       const qp = new URL(req.url, "http://x").searchParams;
       const lane = ["open", "closed", "all"].includes(qp.get("lane")) ? qp.get("lane") : "open";
@@ -9027,15 +9053,15 @@ async function handleEstateRequest(req, res, body) {
     if (pathname === "/__ioi/environments" && req.method === "GET") {
       const offset = parseInt(new URL(req.url, "http://x").searchParams.get("offset") || "0", 10) || 0;
       const [sRes, cRes, paRes, pvRes, ppRes, srRes, saRes, pdRes, fpRes] = await Promise.all([
-        fetch(`${DAEMON}/v1/hypervisor/environments-summary?limit=60&offset=${offset}`).then((x) => x.json()).catch(() => ({})),
-        fetch(`${DAEMON}/v1/hypervisor/environment-classes`).then((x) => x.json()).catch(() => ({})),
-        fetch(`${DAEMON}/v1/hypervisor/provider-accounts`).then((x) => x.json()).catch(() => ({})),
-        fetch(`${DAEMON}/v1/hypervisor/placement/venues`).then((x) => x.json()).catch(() => ({})),
-        fetch(`${DAEMON}/v1/hypervisor/placement/venue-policy`).then((x) => x.json()).catch(() => ({})),
-        fetch(`${DAEMON}/v1/hypervisor/provider-spend/reconciliation`).then((x) => x.json()).catch(() => ({})),
-        fetch(`${DAEMON}/v1/hypervisor/storage-archives`).then((x) => x.json()).catch(() => ({})),
-        fetch(`${DAEMON}/v1/hypervisor/placement/decisions`).then((x) => x.json()).catch(() => ({})),
-        fetch(`${DAEMON}/v1/hypervisor/failover/plans`).then((x) => x.json()).catch(() => ({})),
+        daemonFetch(`/v1/hypervisor/environments-summary?limit=60&offset=${offset}`).then((x) => x.json()).catch(() => ({})),
+        daemonFetch(`/v1/hypervisor/environment-classes`).then((x) => x.json()).catch(() => ({})),
+        daemonFetch(`/v1/hypervisor/provider-accounts`).then((x) => x.json()).catch(() => ({})),
+        daemonFetch(`/v1/hypervisor/placement/venues`).then((x) => x.json()).catch(() => ({})),
+        daemonFetch(`/v1/hypervisor/placement/venue-policy`).then((x) => x.json()).catch(() => ({})),
+        daemonFetch(`/v1/hypervisor/provider-spend/reconciliation`).then((x) => x.json()).catch(() => ({})),
+        daemonFetch(`/v1/hypervisor/storage-archives`).then((x) => x.json()).catch(() => ({})),
+        daemonFetch(`/v1/hypervisor/placement/decisions`).then((x) => x.json()).catch(() => ({})),
+        daemonFetch(`/v1/hypervisor/failover/plans`).then((x) => x.json()).catch(() => ({})),
       ]);
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
       res.end(renderEnvironments(sRes, cRes.environmentClasses || [], paRes, pvRes, ppRes, srRes, saRes, pdRes, fpRes));
@@ -9045,10 +9071,10 @@ async function handleEstateRequest(req, res, body) {
     if (pathname === "/__ioi/workbench" && req.method === "GET") {
       const offset = parseInt(new URL(req.url, "http://x").searchParams.get("offset") || "0", 10) || 0;
       const [sRes, etRes, sessRes, grRes] = await Promise.all([
-        fetch(`${DAEMON}/v1/hypervisor/environments-summary?limit=60&offset=${offset}`).then((x) => x.json()).catch(() => ({})),
-        fetch(`${DAEMON}/v1/hypervisor/editor-targets`).then((x) => x.json()).catch(() => ({})),
-        fetch(`${DAEMON}/v1/hypervisor/sessions`).then((x) => x.json()).catch(() => ({})),
-        fetch(`${DAEMON}/v1/goal-orchestration/goal-runs`).then((x) => x.json()).catch(() => ({})),
+        daemonFetch(`/v1/hypervisor/environments-summary?limit=60&offset=${offset}`).then((x) => x.json()).catch(() => ({})),
+        daemonFetch(`/v1/hypervisor/editor-targets`).then((x) => x.json()).catch(() => ({})),
+        daemonFetch(`/v1/hypervisor/sessions`).then((x) => x.json()).catch(() => ({})),
+        daemonFetch(`/v1/goal-orchestration/goal-runs`).then((x) => x.json()).catch(() => ({})),
       ]);
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
       res.end(renderWorkbench(sRes, etRes, sessRes, grRes.goal_runs || []));
@@ -9064,7 +9090,7 @@ async function handleEstateRequest(req, res, body) {
     // wallet signer (the same local wallet-holder pattern as the /ai agent-run lane): phase A
     // provisions + returns the authority challenge, serve mints the grant, phase B executes.
     if (pathname === "/__ioi/api/ioi-agent/preview" && req.method === "POST") {
-      const r = await fetch(`${DAEMON}/v1/goal-orchestration/ioi-agent/launch-preview`, { method: "POST", headers: { "content-type": "application/json" }, body: body.toString() || "{}" }).catch(() => null);
+      const r = await daemonFetch(`/v1/goal-orchestration/ioi-agent/launch-preview`, { method: "POST", headers: { "content-type": "application/json" }, body: body.toString() || "{}" }).catch(() => null);
       const j = r ? await r.json().catch(() => ({})) : { ok: false, error: { code: "daemon_unavailable" } };
       res.writeHead(r ? r.status : 502, { "Content-Type": "application/json", "Cache-Control": "no-cache" });
       res.end(JSON.stringify(j));
@@ -9120,7 +9146,7 @@ async function handleEstateRequest(req, res, body) {
     // Placement venue policy relay — the picker's durable choice is DAEMON truth, not UI state.
     if (pathname === "/__ioi/api/placement/venue-policy") {
       const method = req.method === "PUT" || req.method === "POST" ? "PUT" : "GET";
-      const r = await fetch(`${DAEMON}/v1/hypervisor/placement/venue-policy`, {
+      const r = await daemonFetch(`/v1/hypervisor/placement/venue-policy`, {
         method,
         headers: { "content-type": "application/json" },
         body: method === "PUT" ? (body.toString() || "{}") : undefined,
@@ -9131,7 +9157,7 @@ async function handleEstateRequest(req, res, body) {
       return;
     }
     if (pathname === "/__ioi/api/new-session/context" && req.method === "GET") {
-      const J = (p) => fetch(`${DAEMON}${p}`).then((x) => x.json()).catch(() => ({}));
+      const J = (p) => daemonFetch(`${p}`).then((x) => x.json()).catch(() => ({}));
       const [pj, envs, arp, mr, et, lp, plVenues, plPolicy] = await Promise.all([
         J("/v1/hypervisor/projects"),
         J("/v1/hypervisor/environments"),
@@ -9191,13 +9217,13 @@ async function handleEstateRequest(req, res, body) {
       for (const k of ["project_ref", "context_url", "environment_id", "harness_profile_ref", "model_route_ref", "editor_target_ref", "session_ref"]) {
         if (b[k]) sessionBody[k] = b[k];
       }
-      const r = await fetch(`${DAEMON}/v1/hypervisor/sessions`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(sessionBody) }).catch(() => null);
+      const r = await daemonFetch(`/v1/hypervisor/sessions`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(sessionBody) }).catch(() => null);
       const j = r ? await r.json().catch(() => ({})) : { error: { code: "daemon_unavailable", message: "the daemon did not answer" } };
       let knobBinding = null;
       if (r && r.status < 400 && b.harness_key) {
         // Compile the capability-admitted per-session knob binding (fail-closed on violations;
         // the rejection is reported honestly alongside the created session).
-        const kb = await fetch(`${DAEMON}/v1/hypervisor/harness-bindings`, {
+        const kb = await daemonFetch(`/v1/hypervisor/harness-bindings`, {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ harness: b.harness_key, model: b.matrix_model, reasoning: b.reasoning, speed: b.speed, session_ref: j.session_ref }),
@@ -9213,7 +9239,7 @@ async function handleEstateRequest(req, res, body) {
       const sp = new URL(req.url, "http://x").searchParams;
       const selId = sp.get("agent") || "";
       const q = sp.get("q") || "";
-      const J = (p) => fetch(`${DAEMON}${p}`).then((x) => x.json()).catch(() => ({}));
+      const J = (p) => daemonFetch(`${p}`).then((x) => x.json()).catch(() => ({}));
       const [ag, pr, ro, pv, cv, tr, mr, lp, me, sk, af, cn, cl, mp, mprj, rq, om, imp, rcl, coh, odkov, odksd] = await Promise.all([
         J("/v1/agents"),
         J("/v1/hypervisor/agent-runner-profiles"),
@@ -9292,7 +9318,7 @@ async function handleEstateRequest(req, res, body) {
           }
           target = { method: "POST", url: `/v1/hypervisor/${api}`, body: JSON.stringify(payload) };
         }
-        const r = await fetch(`${DAEMON}${target.url}`, { method: target.method, headers: { "content-type": "application/json" }, body: target.body }).catch(() => null);
+        const r = await daemonFetch(`${target.url}`, { method: target.method, headers: { "content-type": "application/json" }, body: target.body }).catch(() => null);
         const j = r ? await r.json().catch(() => ({})) : {};
         if (!r || r.status >= 400) {
           const code = (j.error && j.error.code) || (r ? `HTTP ${r.status}` : "daemon unavailable");
@@ -9309,7 +9335,7 @@ async function handleEstateRequest(req, res, body) {
     {
       const simAction = pathname.match(/^\/__ioi\/agent-studio\/improvements\/([^/]+)\/simulate$/);
       if (simAction && req.method === "POST") {
-        const r = await fetch(`${DAEMON}/v1/hypervisor/intelligence/improvement-proposals/${encodeURIComponent(simAction[1])}/simulate`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ save: true }) }).catch(() => null);
+        const r = await daemonFetch(`/v1/hypervisor/intelligence/improvement-proposals/${encodeURIComponent(simAction[1])}/simulate`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ save: true }) }).catch(() => null);
         const j = r ? await r.json().catch(() => ({})) : {};
         const simId = String(j.report?.simulation_ref || "").replace("simulation-report://", "");
         if (!r || r.status >= 400 || !simId) {
@@ -9325,7 +9351,7 @@ async function handleEstateRequest(req, res, body) {
     {
       const simPage = pathname.match(/^\/__ioi\/intelligence\/simulations\/([^/]+)$/);
       if (simPage && req.method === "GET") {
-        const r = await fetch(`${DAEMON}/v1/hypervisor/intelligence/simulation-reports/${encodeURIComponent(simPage[1])}`).catch(() => null);
+        const r = await daemonFetch(`/v1/hypervisor/intelligence/simulation-reports/${encodeURIComponent(simPage[1])}`).catch(() => null);
         const j = r ? await r.json().catch(() => ({})) : {};
         const rep = j.report;
         if (!r || r.status >= 400 || !rep) {
@@ -9370,7 +9396,7 @@ async function handleEstateRequest(req, res, body) {
         reason: `mined: ${payload.signal} × ${payload.occurrences || "?"}`,
       };
       if (payload.target_ref) proposal.target_ref = payload.target_ref;
-      const r = await fetch(`${DAEMON}/v1/hypervisor/intelligence/improvement-proposals`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(proposal) }).catch(() => null);
+      const r = await daemonFetch(`/v1/hypervisor/intelligence/improvement-proposals`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(proposal) }).catch(() => null);
       const j = r ? await r.json().catch(() => ({})) : {};
       if (!r || r.status >= 400) {
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
@@ -9386,7 +9412,7 @@ async function handleEstateRequest(req, res, body) {
       const rolloutAct = pathname.match(/^\/__ioi\/agent-studio\/launch-policies\/([^/]+)\/rollout\/(promote|rollback)$/);
       if (rolloutAct && req.method === "POST") {
         const [, pid, act] = rolloutAct;
-        const r = await fetch(`${DAEMON}/v1/goal-orchestration/ioi-agent/launch-policies/${encodeURIComponent(pid)}/rollout/${act}`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }).catch(() => null);
+        const r = await daemonFetch(`/v1/goal-orchestration/ioi-agent/launch-policies/${encodeURIComponent(pid)}/rollout/${act}`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }).catch(() => null);
         const j = r ? await r.json().catch(() => ({})) : {};
         if (!r || r.status >= 400) {
           res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
@@ -9407,16 +9433,16 @@ async function handleEstateRequest(req, res, body) {
           res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
           res.end(automationsShell("Governance", `<div class="empty"><b>${CX_ESC(label)}</b> rejected fail-closed: <code>${CX_ESC((j.error && j.error.code) || j.reason || "daemon unavailable")}</code></div><p><a href="/__ioi/agent-studio#launch-policies">← Studio</a></p>`));
         };
-        const pr = await fetch(`${DAEMON}/v1/hypervisor/intelligence/improvement-proposals/${encodeURIComponent(iid)}`).then((r) => r.json()).catch(() => ({}));
+        const pr = await daemonFetch(`/v1/hypervisor/intelligence/improvement-proposals/${encodeURIComponent(iid)}`).then((r) => r.json()).catch(() => ({}));
         const proposalRef = (pr.proposal || {}).proposal_ref || "";
         const attach = {};
         if (act === "request-approval") {
-          const r = await fetch(`${DAEMON}/v1/hypervisor/governance/approval-requests`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ subject_ref: proposalRef, request_kind: "improvement_apply", reason: "gate a high-impact learned improvement" }) }).catch(() => null);
+          const r = await daemonFetch(`/v1/hypervisor/governance/approval-requests`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ subject_ref: proposalRef, request_kind: "improvement_apply", reason: "gate a high-impact learned improvement" }) }).catch(() => null);
           const j = r ? await r.json().catch(() => ({})) : {};
           if (!r || r.status >= 400 || !(j.approval_request || {}).ref) { failPage(j, "request approval"); return; }
           attach.approval_request_ref = j.approval_request.ref;
         } else if (act === "open-release") {
-          const r = await fetch(`${DAEMON}/v1/hypervisor/governance/release-controls`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ release_target_ref: proposalRef, reason: "release gate for a high-impact learned improvement" }) }).catch(() => null);
+          const r = await daemonFetch(`/v1/hypervisor/governance/release-controls`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ release_target_ref: proposalRef, reason: "release gate for a high-impact learned improvement" }) }).catch(() => null);
           const j = r ? await r.json().catch(() => ({})) : {};
           if (!r || r.status >= 400 || !(j.release_control || {}).ref) { failPage(j, "create release gate"); return; }
           attach.release_control_ref = j.release_control.ref;
@@ -9427,7 +9453,7 @@ async function handleEstateRequest(req, res, body) {
             if (v) attach[key] = v;
           }
         }
-        const r2 = await fetch(`${DAEMON}/v1/hypervisor/intelligence/improvement-proposals/${encodeURIComponent(iid)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(attach) }).catch(() => null);
+        const r2 = await daemonFetch(`/v1/hypervisor/intelligence/improvement-proposals/${encodeURIComponent(iid)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(attach) }).catch(() => null);
         const j2 = r2 ? await r2.json().catch(() => ({})) : {};
         if (!r2 || r2.status >= 400) { failPage(j2, "bind governance refs"); return; }
         res.writeHead(302, { Location: "/__ioi/agent-studio#launch-policies", "Cache-Control": "no-cache" });
@@ -9440,7 +9466,7 @@ async function handleEstateRequest(req, res, body) {
       if (govAct && req.method === "POST") {
         const [, family, gid, transition] = govAct;
         const path = family === "approvals" ? "approval-requests" : "release-controls";
-        const r = await fetch(`${DAEMON}/v1/hypervisor/governance/${path}/${encodeURIComponent(gid)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ transition, reviewer_ref: "principal://operator" }) }).catch(() => null);
+        const r = await daemonFetch(`/v1/hypervisor/governance/${path}/${encodeURIComponent(gid)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ transition, reviewer_ref: "principal://operator" }) }).catch(() => null);
         const j = r ? await r.json().catch(() => ({})) : {};
         if (!r || j.ok === false) {
           res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
@@ -9456,7 +9482,7 @@ async function handleEstateRequest(req, res, body) {
       const impAction = pathname.match(/^\/__ioi\/agent-studio\/improvements\/([^/]+)\/(approve|reject|apply)$/);
       if (impAction && req.method === "POST") {
         const [, iid, act] = impAction;
-        const r = await fetch(`${DAEMON}/v1/hypervisor/intelligence/improvement-proposals/${encodeURIComponent(iid)}/${act}`, { method: "POST", headers: { "content-type": "application/json" }, body: act === "reject" ? JSON.stringify({ reason: "operator rejected" }) : "{}" }).catch(() => null);
+        const r = await daemonFetch(`/v1/hypervisor/intelligence/improvement-proposals/${encodeURIComponent(iid)}/${act}`, { method: "POST", headers: { "content-type": "application/json" }, body: act === "reject" ? JSON.stringify({ reason: "operator rejected" }) : "{}" }).catch(() => null);
         const j = r ? await r.json().catch(() => ({})) : {};
         if (!r || r.status >= 400) {
           res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
@@ -9477,7 +9503,7 @@ async function handleEstateRequest(req, res, body) {
         const api = family === "memory" ? "memory-entries" : "skill-entries";
         const payload = { transition: form.get("transition") || "", reason: form.get("reason") || "operator action from Agent Studio" };
         if (form.get("superseded_by_ref")) payload.superseded_by_ref = form.get("superseded_by_ref");
-        const r = await fetch(`${DAEMON}/v1/hypervisor/${api}/${encodeURIComponent(rid)}/lifecycle`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).catch(() => null);
+        const r = await daemonFetch(`/v1/hypervisor/${api}/${encodeURIComponent(rid)}/lifecycle`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).catch(() => null);
         const j = r ? await r.json().catch(() => ({})) : {};
         if (!r || r.status >= 400) {
           res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
@@ -9492,7 +9518,7 @@ async function handleEstateRequest(req, res, body) {
     // ---- Memory graph (derived, read-only) + projection explainability lanes.
     if (pathname === "/__ioi/agent-studio/intel/graph" && req.method === "GET") {
       const q = new URL(req.url, "http://x").searchParams.get("q") || "";
-      const r = await fetch(`${DAEMON}/v1/hypervisor/intelligence/graph${q ? "?q=" + encodeURIComponent(q) : ""}`).catch(() => null);
+      const r = await daemonFetch(`/v1/hypervisor/intelligence/graph${q ? "?q=" + encodeURIComponent(q) : ""}`).catch(() => null);
       const j = r ? await r.json().catch(() => ({})) : { ok: false };
       res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-cache" });
       res.end(JSON.stringify(j));
@@ -9501,7 +9527,7 @@ async function handleEstateRequest(req, res, body) {
     {
       const explainMatch = pathname.match(/^\/__ioi\/intelligence\/projections\/([^/]+)\/explain$/);
       if (explainMatch && req.method === "GET") {
-        const r = await fetch(`${DAEMON}/v1/hypervisor/intelligence/projections/${encodeURIComponent(explainMatch[1])}/explain`).catch(() => null);
+        const r = await daemonFetch(`/v1/hypervisor/intelligence/projections/${encodeURIComponent(explainMatch[1])}/explain`).catch(() => null);
         const j = r ? await r.json().catch(() => ({})) : {};
         if (!r || r.status >= 400) {
           res.writeHead(404, { "Content-Type": "text/html; charset=utf-8" });
@@ -9535,7 +9561,7 @@ async function handleEstateRequest(req, res, body) {
     }
     // ---- Agent Studio portable-vault + mutation-proposal lanes (daemon proxies).
     if (pathname === "/__ioi/agent-studio/vault/export" && req.method === "GET") {
-      const r = await fetch(`${DAEMON}/v1/hypervisor/intelligence/spaces/ms_workspace_default/export`).catch(() => null);
+      const r = await daemonFetch(`/v1/hypervisor/intelligence/spaces/ms_workspace_default/export`).catch(() => null);
       const j = r ? await r.json().catch(() => ({})) : {};
       res.writeHead(r && r.status < 400 ? 200 : 502, {
         "Content-Type": "application/json",
@@ -9551,7 +9577,7 @@ async function handleEstateRequest(req, res, body) {
         const form = new URLSearchParams(body.toString());
         bundle = JSON.parse(form.get("vault_json") || body.toString());
       } catch { bundle = {}; }
-      const r = await fetch(`${DAEMON}/v1/hypervisor/intelligence/spaces/import`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(bundle.vault ? bundle : { vault: bundle }) }).catch(() => null);
+      const r = await daemonFetch(`/v1/hypervisor/intelligence/spaces/import`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(bundle.vault ? bundle : { vault: bundle }) }).catch(() => null);
       const j = r ? await r.json().catch(() => ({})) : {};
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
       if (!r || r.status >= 400) {
@@ -9570,7 +9596,7 @@ async function handleEstateRequest(req, res, body) {
       const propAction = pathname.match(/^\/__ioi\/agent-studio\/proposals\/([^/]+)\/(approve|reject)$/);
       if (propAction && req.method === "POST") {
         const [, pid, act] = propAction;
-        const r = await fetch(`${DAEMON}/v1/hypervisor/memory-mutation-proposals/${encodeURIComponent(pid)}/${act}`, { method: "POST", headers: { "content-type": "application/json" }, body: act === "reject" ? JSON.stringify({ reason: new URLSearchParams(body.toString()).get("reason") || "operator rejected" }) : "{}" }).catch(() => null);
+        const r = await daemonFetch(`/v1/hypervisor/memory-mutation-proposals/${encodeURIComponent(pid)}/${act}`, { method: "POST", headers: { "content-type": "application/json" }, body: act === "reject" ? JSON.stringify({ reason: new URLSearchParams(body.toString()).get("reason") || "operator rejected" }) : "{}" }).catch(() => null);
         const j = r ? await r.json().catch(() => ({})) : {};
         if (!r || r.status >= 400) {
           res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
@@ -9593,7 +9619,7 @@ async function handleEstateRequest(req, res, body) {
           : act === "delete"
             ? { method: "DELETE", url: `/v1/goal-orchestration/ioi-agent/launch-policies/${encodeURIComponent(pid)}`, body: undefined }
             : { method: "PATCH", url: `/v1/goal-orchestration/ioi-agent/launch-policies/${encodeURIComponent(pid)}`, body: JSON.stringify({ status: act === "enable" ? "active" : "disabled" }) };
-        const r = await fetch(`${DAEMON}${target.url}`, { method: target.method, headers: { "content-type": "application/json" }, body: target.body }).catch(() => null);
+        const r = await daemonFetch(`${target.url}`, { method: target.method, headers: { "content-type": "application/json" }, body: target.body }).catch(() => null);
         const j = r ? await r.json().catch(() => ({})) : {};
         if (!r || r.status >= 400) {
           const code = (j.error && j.error.code) || (r ? `HTTP ${r.status}` : "daemon unavailable");
@@ -9632,7 +9658,7 @@ async function handleEstateRequest(req, res, body) {
         };
         const editId = form.get("policy_id");
         const url = editId ? `/v1/goal-orchestration/ioi-agent/launch-policies/${encodeURIComponent(editId)}` : "/v1/goal-orchestration/ioi-agent/launch-policies";
-        const r = await fetch(`${DAEMON}${url}`, { method: editId ? "PATCH" : "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).catch(() => null);
+        const r = await daemonFetch(`${url}`, { method: editId ? "PATCH" : "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).catch(() => null);
         const j = r ? await r.json().catch(() => ({})) : {};
         if (!r || r.status >= 400) {
           const code = (j.error && j.error.code) || (r ? `HTTP ${r.status}` : "daemon unavailable");
@@ -9651,7 +9677,7 @@ async function handleEstateRequest(req, res, body) {
       const mrAction = pathname.match(/^\/__ioi\/agent-studio\/model-routes\/([^/]+)\/(probe|enable|disable|select-default)$/);
       if (mrAction && req.method === "POST") {
         const [, mrId, act] = mrAction;
-        const r = await fetch(`${DAEMON}/v1/hypervisor/model-routes/${encodeURIComponent(mrId)}/${act}`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }).catch(() => null);
+        const r = await daemonFetch(`/v1/hypervisor/model-routes/${encodeURIComponent(mrId)}/${act}`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }).catch(() => null);
         const j = r ? await r.json().catch(() => ({})) : {};
         if (!r || r.status >= 400) {
           const code = (j.error && j.error.code) || (r ? `HTTP ${r.status}` : "daemon unavailable");
@@ -9674,7 +9700,7 @@ async function handleEstateRequest(req, res, body) {
         const [, hpIdRaw, act] = hpAction;
         const acceptance = new URLSearchParams(body.toString()).get("provider_trust_acceptance_ref");
         const payload = acceptance ? JSON.stringify({ provider_trust_acceptance_ref: acceptance }) : "{}";
-        const r = await fetch(`${DAEMON}/v1/hypervisor/harness-profiles/${encodeURIComponent(hpIdRaw)}/${act}`, { method: "POST", headers: { "content-type": "application/json" }, body: payload }).catch(() => null);
+        const r = await daemonFetch(`/v1/hypervisor/harness-profiles/${encodeURIComponent(hpIdRaw)}/${act}`, { method: "POST", headers: { "content-type": "application/json" }, body: payload }).catch(() => null);
         const j = r ? await r.json().catch(() => ({})) : {};
         if (!r || r.status >= 400) {
           const code = (j.error && j.error.code) || (r ? `HTTP ${r.status}` : "daemon unavailable");
@@ -9699,7 +9725,7 @@ async function handleEstateRequest(req, res, body) {
     // ---- Foundry — controlled builder over the daemon Foundry object plane (estate surface #4).
     const HTMLH = { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" };
     if (pathname === "/__ioi/foundry" && req.method === "GET") {
-      const J = (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => ({}));
+      const J = (p) => daemonFetch(`${p}`).then((r) => r.json()).catch(() => ({}));
       const [ov, sp, rp, mr, mb] = await Promise.all([
         J("/v1/hypervisor/foundry/overview"),
         J("/v1/hypervisor/foundry/specs"),
@@ -9718,7 +9744,7 @@ async function handleEstateRequest(req, res, body) {
     }
     if (pathname === "/__ioi/foundry/specs" && req.method === "POST") {
       const payload = foundrySpecPayloadFromForm(new URLSearchParams(body.toString()));
-      const r = await fetch(`${DAEMON}/v1/hypervisor/foundry/specs`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
+      const r = await daemonFetch(`/v1/hypervisor/foundry/specs`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
       if (r && r.ok) { res.writeHead(302, { Location: `/__ioi/foundry/specs/${encodeURIComponent(r.spec.id)}`, "Cache-Control": "no-cache" }); return res.end(); }
       res.writeHead(200, HTMLH);
       res.end(automationsShell("New FoundrySpec", `<div class="empty">Create failed: ${CX_ESC((r.error && r.error.message) || "invalid")}</div><p><a href="/__ioi/foundry/specs/new">← back</a></p>`));
@@ -9728,28 +9754,28 @@ async function handleEstateRequest(req, res, body) {
       const [rawId, action] = pathname.slice("/__ioi/foundry/specs/".length).split("/");
       const id = decodeURIComponent(rawId);
       if (action === "edit" && req.method === "GET") {
-        const [cat, sres] = await Promise.all([foundryCatalog(), fetch(`${DAEMON}/v1/hypervisor/foundry/specs/${encodeURIComponent(id)}`).then((r) => r.json()).catch(() => ({}))]);
+        const [cat, sres] = await Promise.all([foundryCatalog(), daemonFetch(`/v1/hypervisor/foundry/specs/${encodeURIComponent(id)}`).then((r) => r.json()).catch(() => ({}))]);
         res.writeHead(200, HTMLH);
         res.end(sres.ok ? renderFoundrySpecForm(cat, sres.spec) : automationsShell("Not found", `<div class="empty">Spec not found.</div><p><a href="/__ioi/foundry">← Foundry</a></p>`));
         return;
       }
       if (action === "patch" && req.method === "POST") {
         const payload = foundrySpecPayloadFromForm(new URLSearchParams(body.toString()));
-        const r = await fetch(`${DAEMON}/v1/hypervisor/foundry/specs/${encodeURIComponent(id)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
+        const r = await daemonFetch(`/v1/hypervisor/foundry/specs/${encodeURIComponent(id)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
         if (r && r.ok) { res.writeHead(302, { Location: `/__ioi/foundry/specs/${encodeURIComponent(id)}`, "Cache-Control": "no-cache" }); return res.end(); }
         res.writeHead(200, HTMLH);
         res.end(automationsShell("Edit FoundrySpec", `<div class="empty">Save failed: ${CX_ESC((r.error && r.error.message) || "invalid")}</div><p><a href="/__ioi/foundry/specs/${encodeURIComponent(id)}/edit">← back</a></p>`));
         return;
       }
       if (action === "delete" && req.method === "POST") {
-        await fetch(`${DAEMON}/v1/hypervisor/foundry/specs/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
+        await daemonFetch(`/v1/hypervisor/foundry/specs/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
         res.writeHead(302, { Location: "/__ioi/foundry", "Cache-Control": "no-cache" });
         return res.end();
       }
       if (req.method === "GET") {
         const [sres, rp] = await Promise.all([
-          fetch(`${DAEMON}/v1/hypervisor/foundry/specs/${encodeURIComponent(id)}`).then((r) => r.json()).catch(() => ({})),
-          fetch(`${DAEMON}/v1/hypervisor/foundry/run-plans?spec_ref=${encodeURIComponent(id)}`).then((r) => r.json()).catch(() => ({})),
+          daemonFetch(`/v1/hypervisor/foundry/specs/${encodeURIComponent(id)}`).then((r) => r.json()).catch(() => ({})),
+          daemonFetch(`/v1/hypervisor/foundry/run-plans?spec_ref=${encodeURIComponent(id)}`).then((r) => r.json()).catch(() => ({})),
         ]);
         res.writeHead(200, HTMLH);
         res.end(sres.ok ? renderFoundrySpecDetail(sres.spec, rp.run_plans || []) : automationsShell("Not found", `<div class="empty">Spec not found.</div><p><a href="/__ioi/foundry">← Foundry</a></p>`));
@@ -9758,7 +9784,7 @@ async function handleEstateRequest(req, res, body) {
     }
     if (pathname === "/__ioi/foundry/run-plans/new" && req.method === "GET") {
       const specId = new URL(req.url, "http://x").searchParams.get("spec") || "";
-      const [cat, sres] = await Promise.all([foundryCatalog(), fetch(`${DAEMON}/v1/hypervisor/foundry/specs/${encodeURIComponent(specId)}`).then((r) => r.json()).catch(() => ({}))]);
+      const [cat, sres] = await Promise.all([foundryCatalog(), daemonFetch(`/v1/hypervisor/foundry/specs/${encodeURIComponent(specId)}`).then((r) => r.json()).catch(() => ({}))]);
       res.writeHead(200, HTMLH);
       res.end(sres.ok ? renderFoundryRunPlanForm(sres.spec, cat) : automationsShell("New run plan", `<div class="empty">Pick a spec first.</div><p><a href="/__ioi/foundry">← Foundry</a></p>`));
       return;
@@ -9769,7 +9795,7 @@ async function handleEstateRequest(req, res, body) {
       const payload = { spec_ref: (p.get("spec_ref") || "").trim(), name: (p.get("name") || "foundry-run-plan").trim(), description: (p.get("description") || "").trim(), steps };
       const tr = (p.get("target_route_ref") || "").trim(); if (tr) payload.target_route_ref = tr;
       const tp = (p.get("target_provider_ref") || "").trim(); if (tp) payload.target_provider_ref = tp;
-      const r = await fetch(`${DAEMON}/v1/hypervisor/foundry/run-plans`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
+      const r = await daemonFetch(`/v1/hypervisor/foundry/run-plans`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
       if (r && r.ok) { res.writeHead(302, { Location: `/__ioi/foundry/run-plans/${encodeURIComponent(r.run_plan.id)}`, "Cache-Control": "no-cache" }); return res.end(); }
       res.writeHead(200, HTMLH);
       res.end(automationsShell("New FoundryRunPlan", `<div class="empty">Create failed: ${CX_ESC((r.error && r.error.message) || "invalid")}</div><p><a href="/__ioi/foundry">← Foundry</a></p>`));
@@ -9779,14 +9805,14 @@ async function handleEstateRequest(req, res, body) {
       const [rawId, action] = pathname.slice("/__ioi/foundry/run-plans/".length).split("/");
       const id = decodeURIComponent(rawId);
       if (action === "delete" && req.method === "POST") {
-        await fetch(`${DAEMON}/v1/hypervisor/foundry/run-plans/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
+        await daemonFetch(`/v1/hypervisor/foundry/run-plans/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
         res.writeHead(302, { Location: "/__ioi/foundry", "Cache-Control": "no-cache" });
         return res.end();
       }
       if (req.method === "GET") {
-        const pres = await fetch(`${DAEMON}/v1/hypervisor/foundry/run-plans/${encodeURIComponent(id)}`).then((r) => r.json()).catch(() => ({}));
+        const pres = await daemonFetch(`/v1/hypervisor/foundry/run-plans/${encodeURIComponent(id)}`).then((r) => r.json()).catch(() => ({}));
         if (!pres.ok) { res.writeHead(200, HTMLH); res.end(automationsShell("Not found", `<div class="empty">Run plan not found.</div><p><a href="/__ioi/foundry">← Foundry</a></p>`)); return; }
-        const sres = await fetch(`${DAEMON}/v1/hypervisor/foundry/specs/${encodeURIComponent(pres.run_plan.spec_ref || "")}`).then((r) => r.json()).catch(() => ({}));
+        const sres = await daemonFetch(`/v1/hypervisor/foundry/specs/${encodeURIComponent(pres.run_plan.spec_ref || "")}`).then((r) => r.json()).catch(() => ({}));
         res.writeHead(200, HTMLH);
         res.end(renderFoundryRunPlanDetail(pres.run_plan, sres.spec || null));
         return;
@@ -9796,7 +9822,7 @@ async function handleEstateRequest(req, res, body) {
     // ---- Studio · Designer — the system-design canvas (designer seed). Read-only typed map over
     // real ODK composition (concepts/components) + generated resources. Owner: /__ioi/agent-studio.
     if (pathname === "/__ioi/studio/designer" && req.method === "GET") {
-      const J = (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => ({}));
+      const J = (p) => daemonFetch(`${p}`).then((r) => r.json()).catch(() => ({}));
       const [o, cm, pv, op, ms, da] = await Promise.all([
         J("/v1/hypervisor/odk/domain-ontologies"),
         J("/v1/hypervisor/odk/connector-mappings"),
@@ -9818,13 +9844,13 @@ async function handleEstateRequest(req, res, body) {
     }
     // ---- Studio · Machinery — read-only process/state-machine DEFINITION view. Owner: agent-studio.
     if (pathname === "/__ioi/studio/machinery" && req.method === "GET") {
-      const r = await fetch(`${DAEMON}/v1/hypervisor/state-machines`).then((x) => x.json()).catch(() => ({}));
+      const r = await daemonFetch(`/v1/hypervisor/state-machines`).then((x) => x.json()).catch(() => ({}));
       const selectedMachine = new URL(req.url, "http://x").searchParams.get("machine") || "";
       sendOwnedSurfaceHtml(res, "machinery", renderMachineryPort(r.state_machines || [], selectedMachine));
       return;
     }
     if (pathname === "/__ioi/vertex" && req.method === "GET") {
-      const J = (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => ({}));
+      const J = (p) => daemonFetch(`${p}`).then((r) => r.json()).catch(() => ({}));
       const [o, ms, op, mr, wl] = await Promise.all([
         J("/v1/hypervisor/odk/domain-ontologies"),
         J("/v1/hypervisor/odk/materialized-object-sets"),
@@ -9844,7 +9870,7 @@ async function handleEstateRequest(req, res, body) {
       return;
     }
     if (pathname === "/__ioi/lineage" && req.method === "GET") {
-      const J = (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => ({}));
+      const J = (p) => daemonFetch(`${p}`).then((r) => r.json()).catch(() => ({}));
       const [o, mr, ms, wl, cm, pv, op, lp, dsr] = await Promise.all([
         J("/v1/hypervisor/odk/domain-ontologies"),
         J("/v1/hypervisor/odk/materializing-runs"),
@@ -9904,7 +9930,7 @@ async function handleEstateRequest(req, res, body) {
     // Ontology Manager — reference UX PORT (#34, daemon_wired). Ported schema-workbench shell over the
     // real ODK CanonicalObjectModel; the /__ioi/odk substrate/authoring surface stays as-is.
     if (pathname === "/__ioi/odk" && req.method === "GET") {
-      const J = (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => ({}));
+      const J = (p) => daemonFetch(`${p}`).then((r) => r.json()).catch(() => ({}));
       const [ov, o, r, d, m, ds, cm, pv, tr, op, lp, mr, cs, ms] = await Promise.all([
         J("/v1/hypervisor/odk/overview"),
         J("/v1/hypervisor/odk/domain-ontologies"),
@@ -9950,7 +9976,7 @@ async function handleEstateRequest(req, res, body) {
         const seg2 = segs[2] || "";
         // new form
         if (seg1 === "new" && req.method === "GET") {
-          const [pk, ov] = await Promise.all([odkPickers(), fetch(`${DAEMON}/v1/hypervisor/odk/overview`).then((x) => x.json()).catch(() => ({}))]);
+          const [pk, ov] = await Promise.all([odkPickers(), daemonFetch(`/v1/hypervisor/odk/overview`).then((x) => x.json()).catch(() => ({}))]);
           res.writeHead(200, HTMLH);
           res.end(cfg.form(null, pk, ov));
           return;
@@ -9958,7 +9984,7 @@ async function handleEstateRequest(req, res, body) {
         // create (POST to family root)
         if (!seg1 && req.method === "POST") {
           const payload = cfg.payload(new URLSearchParams(body.toString()));
-          const rr = await fetch(`${DAEMON}${api}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
+          const rr = await daemonFetch(`${api}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
           if (rr && rr.ok) { res.writeHead(302, { Location: `/__ioi/odk/${family}/${encodeURIComponent(rr[cfg.key].id)}`, "Cache-Control": "no-cache" }); return res.end(); }
           res.writeHead(200, HTMLH);
           res.end(automationsShell(`New ${cfg.label}`, `<div class="empty">Create failed: ${CX_ESC((rr.error && rr.error.message) || "invalid")}</div><p><a href="/__ioi/odk/${family}/new">← back</a></p>`));
@@ -9970,8 +9996,8 @@ async function handleEstateRequest(req, res, body) {
           if (seg2 === "edit" && req.method === "GET") {
             const [pk, ov, rec] = await Promise.all([
               odkPickers(),
-              fetch(`${DAEMON}/v1/hypervisor/odk/overview`).then((x) => x.json()).catch(() => ({})),
-              fetch(`${DAEMON}${api}/${encodeURIComponent(id)}`).then((x) => x.json()).catch(() => ({})),
+              daemonFetch(`/v1/hypervisor/odk/overview`).then((x) => x.json()).catch(() => ({})),
+              daemonFetch(`${api}/${encodeURIComponent(id)}`).then((x) => x.json()).catch(() => ({})),
             ]);
             res.writeHead(200, HTMLH);
             res.end(rec.ok ? cfg.form(rec[cfg.key], pk, ov) : automationsShell("Not found", `<div class="empty">Not found.</div><p><a href="/__ioi/odk">← ODK</a></p>`));
@@ -9979,23 +10005,23 @@ async function handleEstateRequest(req, res, body) {
           }
           if (seg2 === "patch" && req.method === "POST") {
             const payload = cfg.payload(new URLSearchParams(body.toString()));
-            const rr = await fetch(`${DAEMON}${api}/${encodeURIComponent(id)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
+            const rr = await daemonFetch(`${api}/${encodeURIComponent(id)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
             if (rr && rr.ok) { res.writeHead(302, { Location: `/__ioi/odk/${family}/${encodeURIComponent(id)}`, "Cache-Control": "no-cache" }); return res.end(); }
             res.writeHead(200, HTMLH);
             res.end(automationsShell(`Edit ${cfg.label}`, `<div class="empty">Save failed: ${CX_ESC((rr.error && rr.error.message) || "invalid")}</div><p><a href="/__ioi/odk/${family}/${encodeURIComponent(id)}/edit">← back</a></p>`));
             return;
           }
           if (seg2 === "delete" && req.method === "POST") {
-            await fetch(`${DAEMON}${api}/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
+            await daemonFetch(`${api}/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
             res.writeHead(302, { Location: "/__ioi/odk", "Cache-Control": "no-cache" });
             return res.end();
           }
           if (!seg2 && req.method === "GET") {
             // Detail also loads the sibling family lists (same endpoints the landing uses) so the
             // renderer can compute REVERSE lineage — which drafts reference this record.
-            const J2 = (p) => fetch(`${DAEMON}${p}`).then((x) => x.json()).catch(() => ({}));
+            const J2 = (p) => daemonFetch(`${p}`).then((x) => x.json()).catch(() => ({}));
             const [rec, oL, rL, dL, mL, wl] = await Promise.all([
-              fetch(`${DAEMON}${api}/${encodeURIComponent(id)}`).then((x) => x.json()).catch(() => ({})),
+              daemonFetch(`${api}/${encodeURIComponent(id)}`).then((x) => x.json()).catch(() => ({})),
               J2("/v1/hypervisor/odk/domain-ontologies"),
               J2("/v1/hypervisor/odk/data-recipes"),
               J2("/v1/hypervisor/odk/surface-descriptors"),
@@ -10017,24 +10043,24 @@ async function handleEstateRequest(req, res, body) {
     // ---- Domain-App runtime — the internal, descriptor-driven, read-only served app view.
     if (pathname.startsWith("/__ioi/domain-app-runtime/") && req.method === "GET") {
       const rid = decodeURIComponent(pathname.slice("/__ioi/domain-app-runtime/".length).split("/")[0]);
-      const rtRes = await fetch(`${DAEMON}/v1/hypervisor/domain-app-runtimes/${encodeURIComponent(rid)}`).then((x) => x.json()).catch(() => ({}));
+      const rtRes = await daemonFetch(`/v1/hypervisor/domain-app-runtimes/${encodeURIComponent(rid)}`).then((x) => x.json()).catch(() => ({}));
       if (!rtRes.ok) { res.writeHead(200, HTMLH); res.end(automationsShell("Domain App", `<div class="empty">Runtime not found.</div><p><a href="/__ioi/domain-apps">← Domain Apps</a></p>`)); return; }
       const rt = rtRes.runtime;
       const dappId = String(rt.domain_app_ref || "").replace(/^domain-app:\/\//, "");
-      const dRes = await fetch(`${DAEMON}/v1/hypervisor/domain-apps/${encodeURIComponent(dappId)}`).then((x) => x.json()).catch(() => ({}));
+      const dRes = await daemonFetch(`/v1/hypervisor/domain-apps/${encodeURIComponent(dappId)}`).then((x) => x.json()).catch(() => ({}));
       const dapp = dRes.domain_app || {};
       const sdId = String(dapp.surface_descriptor_ref || "").replace(/^surface-descriptor:\/\//, "");
-      const descRes = sdId ? await fetch(`${DAEMON}/v1/hypervisor/odk/surface-descriptors/${encodeURIComponent(sdId)}`).then((x) => x.json()).catch(() => ({})) : {};
+      const descRes = sdId ? await daemonFetch(`/v1/hypervisor/odk/surface-descriptors/${encodeURIComponent(sdId)}`).then((x) => x.json()).catch(() => ({})) : {};
       const descriptor = descRes.surface_descriptor || {};
       const ontId = String(descriptor.ontology_ref || "").replace(/^ontology:\/\//, "");
-      const ontRes = ontId ? await fetch(`${DAEMON}/v1/hypervisor/odk/domain-ontologies/${encodeURIComponent(ontId)}`).then((x) => x.json()).catch(() => ({})) : {};
+      const ontRes = ontId ? await daemonFetch(`/v1/hypervisor/odk/domain-ontologies/${encodeURIComponent(ontId)}`).then((x) => x.json()).catch(() => ({})) : {};
       res.writeHead(200, HTMLH);
       res.end(renderDomainAppRuntimeView(rt, dapp, descriptor, ontRes.ontology || {}));
       return;
     }
     // ---- Domain Apps — controlled builder over the daemon Domain Apps object plane (estate #6).
     if (pathname === "/__ioi/domain-apps" && req.method === "GET") {
-      const J = (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => ({}));
+      const J = (p) => daemonFetch(`${p}`).then((r) => r.json()).catch(() => ({}));
       const [ov, list, mfs] = await Promise.all([J("/v1/hypervisor/domain-apps/overview"), J("/v1/hypervisor/domain-apps"), J("/v1/hypervisor/odk/manifests")]);
       res.writeHead(200, HTMLH);
       res.end(renderDomainAppsLanding(ov, list.domain_apps || [], mfs.manifests || []));
@@ -10047,7 +10073,7 @@ async function handleEstateRequest(req, res, body) {
     }
     if (pathname === "/__ioi/domain-apps" && req.method === "POST") {
       const payload = domainAppPayload(new URLSearchParams(body.toString()));
-      const rr = await fetch(`${DAEMON}/v1/hypervisor/domain-apps`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
+      const rr = await daemonFetch(`/v1/hypervisor/domain-apps`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
       if (rr && rr.ok) { res.writeHead(302, { Location: `/__ioi/domain-apps/${encodeURIComponent(rr.domain_app.domain_app_id)}`, "Cache-Control": "no-cache" }); return res.end(); }
       res.writeHead(200, HTMLH);
       res.end(automationsShell("New Domain App", `<div class="empty">Create failed: ${CX_ESC((rr.error && rr.error.message) || "invalid")}</div><p><a href="/__ioi/domain-apps/new">← back</a></p>`));
@@ -10057,7 +10083,7 @@ async function handleEstateRequest(req, res, body) {
       const [rawId, action] = pathname.slice("/__ioi/domain-apps/".length).split("/");
       const id = decodeURIComponent(rawId);
       if (action === "edit" && req.method === "GET") {
-        const app = await fetch(`${DAEMON}/v1/hypervisor/domain-apps/${encodeURIComponent(id)}`).then((x) => x.json()).catch(() => ({}));
+        const app = await daemonFetch(`/v1/hypervisor/domain-apps/${encodeURIComponent(id)}`).then((x) => x.json()).catch(() => ({}));
         if (!app.ok) { res.writeHead(200, HTMLH); res.end(automationsShell("Not found", `<div class="empty">Domain App not found.</div><p><a href="/__ioi/domain-apps">← Domain Apps</a></p>`)); return; }
         const pk = await domainAppPickers(app.domain_app.surface_descriptor_ref);
         res.writeHead(200, HTMLH);
@@ -10066,14 +10092,14 @@ async function handleEstateRequest(req, res, body) {
       }
       if (action === "patch" && req.method === "POST") {
         const payload = domainAppPayload(new URLSearchParams(body.toString()));
-        const rr = await fetch(`${DAEMON}/v1/hypervisor/domain-apps/${encodeURIComponent(id)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
+        const rr = await daemonFetch(`/v1/hypervisor/domain-apps/${encodeURIComponent(id)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
         if (rr && rr.ok) { res.writeHead(302, { Location: `/__ioi/domain-apps/${encodeURIComponent(id)}`, "Cache-Control": "no-cache" }); return res.end(); }
         res.writeHead(200, HTMLH);
         res.end(automationsShell("Edit Domain App", `<div class="empty">Save failed: ${CX_ESC((rr.error && rr.error.message) || "invalid")}</div><p><a href="/__ioi/domain-apps/${encodeURIComponent(id)}/edit">← back</a></p>`));
         return;
       }
       if (action === "delete" && req.method === "POST") {
-        await fetch(`${DAEMON}/v1/hypervisor/domain-apps/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
+        await daemonFetch(`/v1/hypervisor/domain-apps/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
         res.writeHead(302, { Location: "/__ioi/domain-apps", "Cache-Control": "no-cache" });
         return res.end();
       }
@@ -10081,19 +10107,19 @@ async function handleEstateRequest(req, res, body) {
       if (["mount", "unmount", "serve", "stop-serving"].includes(action) && req.method === "POST") {
         const p = new URLSearchParams(body.toString());
         const payload = action === "mount" ? { approval_request_ref: (p.get("approval_request_ref") || "").trim(), release_control_ref: (p.get("release_control_ref") || "").trim() } : {};
-        const r = await fetch(`${DAEMON}/v1/hypervisor/domain-apps/${encodeURIComponent(id)}/${action}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
+        const r = await daemonFetch(`/v1/hypervisor/domain-apps/${encodeURIComponent(id)}/${action}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
         if (r && r.ok === false && r.error) { res.writeHead(200, HTMLH); res.end(automationsShell("Domain App", `<div class="empty">${CX_ESC(action)} failed: ${CX_ESC(r.error.message || "error")}</div><p><a href="/__ioi/domain-apps/${encodeURIComponent(id)}">← back</a></p>`)); return; }
         res.writeHead(302, { Location: `/__ioi/domain-apps/${encodeURIComponent(id)}`, "Cache-Control": "no-cache" });
         return res.end();
       }
       if (!action && req.method === "GET") {
-        const app = await fetch(`${DAEMON}/v1/hypervisor/domain-apps/${encodeURIComponent(id)}`).then((x) => x.json()).catch(() => ({}));
+        const app = await daemonFetch(`/v1/hypervisor/domain-apps/${encodeURIComponent(id)}`).then((x) => x.json()).catch(() => ({}));
         if (!app.ok) { res.writeHead(200, HTMLH); res.end(automationsShell("Not found", `<div class="empty">Domain App not found.</div><p><a href="/__ioi/domain-apps">← Domain Apps</a></p>`)); return; }
         const dref = app.domain_app.domain_app_ref;
         const [rtRes, apRes, relRes] = await Promise.all([
-          fetch(`${DAEMON}/v1/hypervisor/domain-app-runtimes?domain_app_ref=${encodeURIComponent(dref)}`).then((x) => x.json()).catch(() => ({})),
-          fetch(`${DAEMON}/v1/hypervisor/governance/approval-requests?status=approved`).then((x) => x.json()).catch(() => ({})),
-          fetch(`${DAEMON}/v1/hypervisor/governance/release-controls`).then((x) => x.json()).catch(() => ({})),
+          daemonFetch(`/v1/hypervisor/domain-app-runtimes?domain_app_ref=${encodeURIComponent(dref)}`).then((x) => x.json()).catch(() => ({})),
+          daemonFetch(`/v1/hypervisor/governance/approval-requests?status=approved`).then((x) => x.json()).catch(() => ({})),
+          daemonFetch(`/v1/hypervisor/governance/release-controls`).then((x) => x.json()).catch(() => ({})),
         ]);
         const rt = (rtRes.runtimes || []).find((x) => x.mounted === true) || null;
         res.writeHead(200, HTMLH);
@@ -10104,7 +10130,7 @@ async function handleEstateRequest(req, res, body) {
     // ---- Governance — control cockpit over the daemon governance projection + control objects (#7).
     if (pathname === "/__ioi/governance" && req.method === "GET") {
       const tab = new URL(req.url, "http://x").searchParams.get("tab") || "overview";
-      const J = (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => ({}));
+      const J = (p) => daemonFetch(`${p}`).then((r) => r.json()).catch(() => ({}));
       const [ov, ap, rl, ks, ig, co, da, mpc, mls, fsp, frp] = await Promise.all([
         J("/v1/hypervisor/governance/overview"),
         J("/v1/hypervisor/governance/approval-requests"),
@@ -10160,7 +10186,7 @@ async function handleEstateRequest(req, res, body) {
           else if (fam === "cohorts") payload = { display_name: (p.get("display_name") || "").trim(), scope: (p.get("scope") || "project").trim(), description: (p.get("description") || "").trim(), member_refs: csv("member_refs") };
           else if (fam === "kill-switches") payload = { subject_ref: (p.get("subject_ref") || "").trim(), revoke_path: (p.get("revoke_path") || "").trim() };
           else if (fam === "gates") { const bounds = {}; const mi = (p.get("max_iterations") || "").trim(); if (mi) bounds.max_iterations = parseInt(mi, 10) || mi; const et = (p.get("eval_threshold") || "").trim(); if (et) bounds.eval_threshold = parseFloat(et) || et; const pp = (p.get("privacy_posture") || "").trim(); if (pp) bounds.privacy_posture = pp; payload = { subject_ref: (p.get("subject_ref") || "").trim(), bounds }; }
-          const r = await fetch(`${DAEMON}${api}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
+          const r = await daemonFetch(`${api}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
           if (r && r.ok) { res.writeHead(302, { Location: back, "Cache-Control": "no-cache" }); return res.end(); }
           res.writeHead(200, HTMLH);
           res.end(automationsShell("Governance", `<div class="empty">Create failed: ${CX_ESC((r.error && r.error.message) || "invalid")}</div><p><a href="${CX_ESC(back)}">← back</a></p>`));
@@ -10172,17 +10198,17 @@ async function handleEstateRequest(req, res, body) {
           const patch = { transition: (p.get("transition") || "").trim() };
           const rv = (p.get("reviewer_ref") || "").trim(); if (rv) patch.reviewer_ref = rv;
           const tr = (p.get("trip_reason") || "").trim(); if (tr) patch.trip_reason = tr;
-          const r = await fetch(`${DAEMON}${api}/${encodeURIComponent(id)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(patch) }).then((x) => x.json()).catch(() => ({}));
+          const r = await daemonFetch(`${api}/${encodeURIComponent(id)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(patch) }).then((x) => x.json()).catch(() => ({}));
           if (r && r.ok === false && r.error) { res.writeHead(200, HTMLH); res.end(automationsShell("Governance", `<div class="empty">Transition failed: ${CX_ESC(r.error.message || "invalid")}</div><p><a href="${CX_ESC(back)}">← back</a></p>`)); return; }
           res.writeHead(302, { Location: back, "Cache-Control": "no-cache" }); return res.end();
         }
         if (action === "delete") {
-          await fetch(`${DAEMON}${api}/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
+          await daemonFetch(`${api}/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
           res.writeHead(302, { Location: back, "Cache-Control": "no-cache" }); return res.end();
         }
         // Effectful KillSwitch enforcement (after trip).
         if (action === "enforce" && fam === "kill-switches") {
-          const r = await fetch(`${DAEMON}${api}/${encodeURIComponent(id)}/enforce`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }).then((x) => x.json()).catch(() => ({}));
+          const r = await daemonFetch(`${api}/${encodeURIComponent(id)}/enforce`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }).then((x) => x.json()).catch(() => ({}));
           if (r && r.ok === false && r.error) { res.writeHead(200, HTMLH); res.end(automationsShell("Governance", `<div class="empty">Enforce failed: ${CX_ESC(r.error.message || "invalid")}</div><p><a href="${CX_ESC(back)}">← back</a></p>`)); return; }
           res.writeHead(302, { Location: back, "Cache-Control": "no-cache" }); return res.end();
         }
@@ -10192,8 +10218,8 @@ async function handleEstateRequest(req, res, body) {
     if (pathname === "/__ioi/marketplace" && req.method === "GET") {
       const u = new URL(req.url, "http://x");
       const [ov, ls] = await Promise.all([
-        fetch(`${DAEMON}/v1/hypervisor/marketplace/overview`).then((r) => r.json()).catch(() => ({})),
-        fetch(`${DAEMON}/v1/hypervisor/marketplace/listings`).then((r) => r.json()).catch(() => ({})),
+        daemonFetch(`/v1/hypervisor/marketplace/overview`).then((r) => r.json()).catch(() => ({})),
+        daemonFetch(`/v1/hypervisor/marketplace/listings`).then((r) => r.json()).catch(() => ({})),
       ]);
       res.writeHead(200, HTMLH);
       res.end(renderMarketplaceHome(ov, ls.listings || [], u.searchParams.get("q") || "", u.searchParams.get("store") || ""));
@@ -10206,7 +10232,7 @@ async function handleEstateRequest(req, res, body) {
     }
     if (pathname === "/__ioi/marketplace/listings" && req.method === "POST") {
       const payload = marketplacePayloadFromForm(new URLSearchParams(body.toString()));
-      const rr = await fetch(`${DAEMON}/v1/hypervisor/marketplace/listings`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
+      const rr = await daemonFetch(`/v1/hypervisor/marketplace/listings`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
       if (rr && rr.ok) { res.writeHead(302, { Location: `/__ioi/marketplace/listings/${encodeURIComponent(rr.listing.id)}`, "Cache-Control": "no-cache" }); return res.end(); }
       res.writeHead(200, HTMLH);
       res.end(automationsShell("Draft listing", `<div class="empty">Create failed: ${CX_ESC((rr.error && rr.error.message) || "invalid")}</div><p><a href="/__ioi/marketplace/listings/new">← back</a></p>`));
@@ -10217,45 +10243,45 @@ async function handleEstateRequest(req, res, body) {
       const id = decodeURIComponent(rawId);
       const listingApi = `/v1/hypervisor/marketplace/listings/${encodeURIComponent(id)}`;
       if (action === "edit" && req.method === "GET") {
-        const [lr, opts] = await Promise.all([fetch(`${DAEMON}${listingApi}`).then((x) => x.json()).catch(() => ({})), marketplaceSubjectOptions()]);
+        const [lr, opts] = await Promise.all([daemonFetch(`${listingApi}`).then((x) => x.json()).catch(() => ({})), marketplaceSubjectOptions()]);
         res.writeHead(200, HTMLH);
         res.end(lr.ok ? renderMarketplaceListingForm(lr.listing, opts) : automationsShell("Not found", `<div class="empty">Listing not found.</div><p><a href="/__ioi/marketplace">← Marketplace</a></p>`));
         return;
       }
       if (action === "patch" && req.method === "POST") {
         const payload = marketplacePayloadFromForm(new URLSearchParams(body.toString()));
-        const rr = await fetch(`${DAEMON}${listingApi}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
+        const rr = await daemonFetch(`${listingApi}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
         if (rr && rr.ok) { res.writeHead(302, { Location: `/__ioi/marketplace/listings/${encodeURIComponent(id)}`, "Cache-Control": "no-cache" }); return res.end(); }
         res.writeHead(200, HTMLH);
         res.end(automationsShell("Edit listing", `<div class="empty">Save failed: ${CX_ESC((rr.error && rr.error.message) || "invalid")}</div><p><a href="/__ioi/marketplace/listings/${encodeURIComponent(id)}/edit">← back</a></p>`));
         return;
       }
       if (action === "delete" && req.method === "POST") {
-        await fetch(`${DAEMON}${listingApi}`, { method: "DELETE" }).catch(() => {});
+        await daemonFetch(`${listingApi}`, { method: "DELETE" }).catch(() => {});
         res.writeHead(302, { Location: "/__ioi/marketplace", "Cache-Control": "no-cache" });
         return res.end();
       }
       if (action === "candidates" && req.method === "POST") {
-        const lr = await fetch(`${DAEMON}${listingApi}`).then((x) => x.json()).catch(() => ({}));
-        if (lr.ok) await fetch(`${DAEMON}/v1/hypervisor/marketplace/publish-candidates`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ listing_ref: lr.listing.ref }) }).catch(() => {});
+        const lr = await daemonFetch(`${listingApi}`).then((x) => x.json()).catch(() => ({}));
+        if (lr.ok) await daemonFetch(`/v1/hypervisor/marketplace/publish-candidates`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ listing_ref: lr.listing.ref }) }).catch(() => {});
         res.writeHead(302, { Location: `/__ioi/marketplace/listings/${encodeURIComponent(id)}`, "Cache-Control": "no-cache" });
         return res.end();
       }
       if (action === "offers" && req.method === "POST") {
-        const lr = await fetch(`${DAEMON}${listingApi}`).then((x) => x.json()).catch(() => ({}));
-        if (lr.ok) await fetch(`${DAEMON}/v1/hypervisor/marketplace/instance-offers`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ offer_kind: lr.listing.listing_kind, subject_ref: lr.listing.subject_ref, listing_ref: lr.listing.ref, name: `${lr.listing.name || "offer"} (offer)` }) }).catch(() => {});
+        const lr = await daemonFetch(`${listingApi}`).then((x) => x.json()).catch(() => ({}));
+        if (lr.ok) await daemonFetch(`/v1/hypervisor/marketplace/instance-offers`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ offer_kind: lr.listing.listing_kind, subject_ref: lr.listing.subject_ref, listing_ref: lr.listing.ref, name: `${lr.listing.name || "offer"} (offer)` }) }).catch(() => {});
         res.writeHead(302, { Location: `/__ioi/marketplace/listings/${encodeURIComponent(id)}`, "Cache-Control": "no-cache" });
         return res.end();
       }
       if (!action && req.method === "GET") {
-        const lr = await fetch(`${DAEMON}${listingApi}`).then((x) => x.json()).catch(() => ({}));
+        const lr = await daemonFetch(`${listingApi}`).then((x) => x.json()).catch(() => ({}));
         if (!lr.ok) { res.writeHead(200, HTMLH); res.end(automationsShell("Not found", `<div class="empty">Listing not found.</div><p><a href="/__ioi/marketplace">← Marketplace</a></p>`)); return; }
         const listing = lr.listing;
         const [cRes, rRes, oRes, gRes] = await Promise.all([
-          fetch(`${DAEMON}/v1/hypervisor/marketplace/publish-candidates`).then((x) => x.json()).catch(() => ({})),
-          fetch(`${DAEMON}/v1/hypervisor/marketplace/admission-reviews`).then((x) => x.json()).catch(() => ({})),
-          fetch(`${DAEMON}/v1/hypervisor/marketplace/instance-offers`).then((x) => x.json()).catch(() => ({})),
-          fetch(`${DAEMON}/v1/hypervisor/marketplace/overview`).then((x) => x.json()).catch(() => ({})),
+          daemonFetch(`/v1/hypervisor/marketplace/publish-candidates`).then((x) => x.json()).catch(() => ({})),
+          daemonFetch(`/v1/hypervisor/marketplace/admission-reviews`).then((x) => x.json()).catch(() => ({})),
+          daemonFetch(`/v1/hypervisor/marketplace/instance-offers`).then((x) => x.json()).catch(() => ({})),
+          daemonFetch(`/v1/hypervisor/marketplace/overview`).then((x) => x.json()).catch(() => ({})),
         ]);
         const candidates = (cRes.publish_candidates || []).filter((c) => c.listing_ref === listing.ref);
         const reviewsByCandidate = {};
@@ -10273,11 +10299,11 @@ async function handleEstateRequest(req, res, body) {
       const p = new URLSearchParams(body.toString());
       const back = `/__ioi/marketplace/listings/${encodeURIComponent(p.get("listing_id") || "")}`;
       if (action === "delete") {
-        await fetch(`${DAEMON}/v1/hypervisor/marketplace/publish-candidates/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
+        await daemonFetch(`/v1/hypervisor/marketplace/publish-candidates/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
       } else if (action === "reviews") {
-        await fetch(`${DAEMON}/v1/hypervisor/marketplace/admission-reviews`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ candidate_ref: `marketplace-publish://${id}`, decision: (p.get("decision") || "pending").trim() }) }).catch(() => {});
+        await daemonFetch(`/v1/hypervisor/marketplace/admission-reviews`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ candidate_ref: `marketplace-publish://${id}`, decision: (p.get("decision") || "pending").trim() }) }).catch(() => {});
       } else if (action === "publish") {
-        const r = await fetch(`${DAEMON}/v1/hypervisor/marketplace/publish-candidates/${encodeURIComponent(id)}/publish`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }).then((x) => x.json()).catch(() => ({}));
+        const r = await daemonFetch(`/v1/hypervisor/marketplace/publish-candidates/${encodeURIComponent(id)}/publish`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }).then((x) => x.json()).catch(() => ({}));
         if (r && r.ok === false && r.error) {
           const reasons = (r.error.blocked_reasons || []).join(", ");
           res.writeHead(200, HTMLH);
@@ -10292,7 +10318,7 @@ async function handleEstateRequest(req, res, body) {
       const [rawId] = pathname.slice("/__ioi/marketplace/reviews/".length).split("/");
       const id = decodeURIComponent(rawId);
       const p = new URLSearchParams(body.toString());
-      await fetch(`${DAEMON}/v1/hypervisor/marketplace/admission-reviews/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
+      await daemonFetch(`/v1/hypervisor/marketplace/admission-reviews/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
       res.writeHead(302, { Location: `/__ioi/marketplace/listings/${encodeURIComponent(p.get("listing_id") || "")}`, "Cache-Control": "no-cache" });
       return res.end();
     }
@@ -10300,7 +10326,7 @@ async function handleEstateRequest(req, res, body) {
       const [rawId] = pathname.slice("/__ioi/marketplace/offers/".length).split("/");
       const id = decodeURIComponent(rawId);
       const p = new URLSearchParams(body.toString());
-      await fetch(`${DAEMON}/v1/hypervisor/marketplace/instance-offers/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
+      await daemonFetch(`/v1/hypervisor/marketplace/instance-offers/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
       res.writeHead(302, { Location: `/__ioi/marketplace/listings/${encodeURIComponent(p.get("listing_id") || "")}`, "Cache-Control": "no-cache" });
       return res.end();
     }
@@ -10308,12 +10334,12 @@ async function handleEstateRequest(req, res, body) {
     if (pathname === "/__ioi/connections") {
       try {
         const [c, s, l, mcpTools, authPol, scimStatus] = await Promise.all([
-          fetch(`${DAEMON}/v1/hypervisor/connectors`).then((r) => r.json()).catch(() => ({})),
-          fetch(`${DAEMON}/v1/hypervisor/scm-connectors`).then((r) => r.json()).catch(() => ({})),
-          fetch(`${DAEMON}/v1/hypervisor/capability-leases`).then((r) => r.json()).catch(() => ({})),
-          fetch(`${DAEMON}/v1/hypervisor/mcp-gateway/tools`).then((r) => r.json()).catch(() => null),
-          fetch(`${DAEMON}/v1/hypervisor/auth/policy`).then((r) => r.json()).catch(() => null),
-          fetch(`${DAEMON}/scim/v2/ServiceProviderConfig`).then((r) => r.status).catch(() => 0),
+          daemonFetch(`/v1/hypervisor/connectors`).then((r) => r.json()).catch(() => ({})),
+          daemonFetch(`/v1/hypervisor/scm-connectors`).then((r) => r.json()).catch(() => ({})),
+          daemonFetch(`/v1/hypervisor/capability-leases`).then((r) => r.json()).catch(() => ({})),
+          daemonFetch(`/v1/hypervisor/mcp-gateway/tools`).then((r) => r.json()).catch(() => null),
+          daemonFetch(`/v1/hypervisor/auth/policy`).then((r) => r.json()).catch(() => null),
+          daemonFetch(`/scim/v2/ServiceProviderConfig`).then((r) => r.status).catch(() => 0),
         ]);
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
         res.end(renderConnectionsCockpit(c.connectors || [], s.connectors || [], l.leases || [], { mcpTools, authPol, scimStatus }));
@@ -10347,7 +10373,7 @@ async function handleEstateRequest(req, res, body) {
     if (pathname === "/__ioi/connections/add" && req.method === "POST") {
       const type = new URL(req.url, "http://x").searchParams.get("type") || "mcp";
       const p = new URLSearchParams(body.toString());
-      const post = (path, b) => fetch(`${DAEMON}${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(b) }).then((r) => r.json());
+      const post = (path, b) => daemonFetch(`${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(b) }).then((r) => r.json());
       try {
         if (type === "mcp") {
           const reg = await post("/v1/hypervisor/connectors", { service: "mcp", kind: "mcp", name: p.get("name"), base_url: p.get("mcp_url") });
@@ -10397,7 +10423,7 @@ async function handleEstateRequest(req, res, body) {
         // proof links from Work Ledger / IOI Agent results open a real page (never a 404).
         // Real fields only — request/activity/artifacts come straight off the transcript.
         try {
-          const tRes = await fetch(`${DAEMON}/v1/hypervisor/agent-run-transcripts/${encodeURIComponent(runId)}`, { headers: timelineHeaders }).then((x) => x.json()).catch(() => null);
+          const tRes = await daemonFetch(`/v1/hypervisor/agent-run-transcripts/${encodeURIComponent(runId)}`, { headers: timelineHeaders }).then((x) => x.json()).catch(() => null);
           const tr = tRes?.run || (tRes?.run_id ? tRes : null);
           if (tr && tr.run_id === runId) {
             const out = (tr.step_results || [])[0]?.output || {};
@@ -10532,7 +10558,7 @@ async function handleEstateRequest(req, res, body) {
       const envId = new URLSearchParams((req.url || "").split("?")[1] || "").get("environmentId");
       if (!envId) { res.writeHead(400, { "Content-Type": "text/plain" }); res.end("missing environmentId"); return; }
       const dj = async (m, p, b) => {
-        const r = await fetch(DAEMON + p, { method: m, headers: b ? { "content-type": "application/json" } : undefined, body: b ? JSON.stringify(b) : undefined });
+        const r = await daemonFetch(p, { method: m, headers: b ? { "content-type": "application/json" } : undefined, body: b ? JSON.stringify(b) : undefined });
         return { status: r.status, body: await r.json().catch(() => ({})) };
       };
       const fail = (reason) => {
@@ -10620,7 +10646,7 @@ const STREAMING = new Set(["AttachTerminal", "ReadTerminal", "Watch"]);
 async function djson(method, path, body, token) {
   const headers = { "content-type": "application/json" };
   if (token) headers["authorization"] = `Bearer ${token}`;
-  const r = await fetch(DAEMON + path, { method, headers, body: body !== undefined ? JSON.stringify(body) : undefined });
+  const r = await daemonFetch(path, { method, headers, body: body !== undefined ? JSON.stringify(body) : undefined });
   const t = await r.text(); let j = {}; try { j = t ? JSON.parse(t) : {}; } catch { j = {}; }
   return { status: r.status, body: j };
 }
@@ -10690,7 +10716,7 @@ function handleSupervisorWs(ws) {
           try {
             while (!aborted) {
               let r;
-              try { r = await fetch(`${DAEMON}/v1/hypervisor/terminals/${encodeURIComponent(termId)}/stream?since=${since}`); }
+              try { r = await daemonFetch(`/v1/hypervisor/terminals/${encodeURIComponent(termId)}/stream?since=${since}`); }
               catch { break; }
               if (r.status === 404) { ok(id, { exited: { exitCode: 0 } }); ok(id, null); break; }
               const text = await r.text();
