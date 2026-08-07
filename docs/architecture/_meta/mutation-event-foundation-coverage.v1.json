@@ -79,6 +79,16 @@
         "authorized inventory reconstructs current heads from Agentgres after daemon restart",
         "the executable smoke proves exact retry, same-scope stale-head refusal, restart recovery, narrowing refusal, and CAS uninstall"
       ]
+    },
+    {
+      "id": "MEF-CLOSED-004",
+      "plane": "ODK surface descriptors, data recipes, and manifests",
+      "source": "crates/node/src/bin/hypervisor_daemon_routes/odk_routes.rs",
+      "status": "closed",
+      "bounded_scope": "The ODK authoring plane's create/patch/delete only. No claim about DomainApp mount, serve, package admission, extension-application registration, or System binding.",
+      "evidence": [
+        "CLOSED. All seven ODK mutations \u2014 surface-descriptor create/patch/delete, data-recipe create/patch, and odk-manifest create/patch \u2014 share ONE owner-scoped admission path (odk_admit): authenticated identity, owner binding, required caller idempotency_key, expected-head compare-and-swap on every successor, Agentgres admission, and a returned receipt_ref. Resource identity is derived from owner+idempotency_key rather than wall-clock, so a retry resolves the same resource; wall-clock is excluded from the admitted payload entirely and projected onto the read model from the admission. DELETE is a recorded tombstone successor rather than a silent row drop, and the read-model row is removed only after the tombstone is durable. Descriptor GET surfaces admitted_head so a caller can compare-and-swap."
+      ]
     }
   ],
   "open_gaps": [
@@ -148,30 +158,6 @@
         "derive runtime and Domain App backlinks from admitted truth or reconcile them from a durable saga",
         "never mint or return a receipt whose required transition was not durably admitted",
         "prove interruption between receipt/runtime/backlink effects and deterministic recovery after restart"
-      ]
-    },
-    {
-      "id": "MEF-GAP-004",
-      "priority": "blocker",
-      "plane": "ODK recipes, manifests, and surface descriptors",
-      "status": "partially_closed_2026_08_07",
-      "source": "crates/node/src/bin/hypervisor_daemon_routes/odk_routes.rs",
-      "handler_markers": [
-        "handle_odk_recipe_create",
-        "handle_odk_recipe_patch",
-        "handle_odk_manifest_create",
-        "handle_odk_manifest_patch",
-        "handle_odk_descriptor_patch"
-      ],
-      "progress": [
-        "recipe, manifest, and surface-descriptor create and patch handlers now refuse success when durable persistence fails",
-        "ontology create, patch, and delete already use receipt-last persistence with rollback/restore tests"
-      ],
-      "gap": "Surface descriptors are CLOSED for create AND patch, proven against a live daemon: unauthenticated create 401s; a create without idempotency_key or owner_ref refuses typed; an identical replayed create returns the SAME id with replayed=true and leaves exactly one record; GET surfaces admitted_head; a patch without expected_head refuses; a stale head refuses event_stream_expected_head_conflict; the correct head succeeds with a receipt. Wall-clock is excluded from the admitted payload because a retry can never be byte-identical otherwise \u2014 timestamps are projected from the admission. Recipes and manifests remain open. Descriptor DELETE remains unscoped.",
-      "acceptance": [
-        "route every ODK create/update/delete through owner scope, idempotency, CAS, admission, and receipts",
-        "make schema/ontology/descriptor cross-object validation part of the admitted command fingerprint",
-        "prove persistence and receipt failure do not produce success"
       ]
     },
     {

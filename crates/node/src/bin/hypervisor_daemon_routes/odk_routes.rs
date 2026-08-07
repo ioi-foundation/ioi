@@ -1204,6 +1204,7 @@ pub(crate) async fn handle_odk_recipe_list(
 /// projections/eval datasets/training material). Nothing is transformed here.
 pub(crate) async fn handle_odk_recipe_create(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     let ontology_ref = body
@@ -1238,7 +1239,11 @@ pub(crate) async fn handle_odk_recipe_create(
             return bad(&c, &m);
         }
     }
-    let id = format!("recipe_{:x}", nanos());
+    let id = odk_derived_id(
+        "recipe",
+        body.get("owner_ref").and_then(|v| v.as_str()).unwrap_or(""),
+        body.get("idempotency_key").and_then(|v| v.as_str()).unwrap_or(""),
+    );
     let now = iso_now();
     let record = json!({
         "schema_version": "ioi.hypervisor.odk.data-recipe.v1",
@@ -1262,18 +1267,21 @@ pub(crate) async fn handle_odk_recipe_create(
         "created_at": now,
         "updated_at": now
     });
-    if let Err(response) = persist_required(
+    odk_admit(
         &st.data_dir,
-        KIND_RECIPE,
+        &headers,
+        &body,
+        OdkAdmission {
+            family: KIND_RECIPE,
+            scope_kind: "hypervisor-odk-data-recipe",
+            ref_prefix: "data-recipe://",
+            op_kind: "event_stream.hypervisor_odk_data_recipe_admitted",
+            reply_key: "data_recipe",
+            persist_error: "odk_data_recipe_persistence_failed",
+        },
         &id,
-        &record,
-        "odk_data_recipe_persistence_failed",
-    ) {
-        return response;
-    }
-    (
-        StatusCode::CREATED,
-        Json(json!({ "ok": true, "data_recipe": record })),
+        record,
+        None,
     )
 }
 
@@ -1287,6 +1295,7 @@ pub(crate) async fn handle_odk_recipe_get(
 pub(crate) async fn handle_odk_recipe_patch(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     let Some(mut r) = load(&st.data_dir, KIND_RECIPE, &id) else {
@@ -1341,18 +1350,22 @@ pub(crate) async fn handle_odk_recipe_patch(
         }
     }
     r["updated_at"] = json!(iso_now());
-    if let Err(response) = persist_required(
+    let previous = load(&st.data_dir, KIND_RECIPE, &id).unwrap_or_else(|| json!({}));
+    odk_admit(
         &st.data_dir,
-        KIND_RECIPE,
+        &headers,
+        &body,
+        OdkAdmission {
+            family: KIND_RECIPE,
+            scope_kind: "hypervisor-odk-data-recipe",
+            ref_prefix: "data-recipe://",
+            op_kind: "event_stream.hypervisor_odk_data_recipe_revised",
+            reply_key: "data_recipe",
+            persist_error: "odk_data_recipe_persistence_failed",
+        },
         &id,
-        &r,
-        "odk_data_recipe_persistence_failed",
-    ) {
-        return response;
-    }
-    (
-        StatusCode::OK,
-        Json(json!({ "ok": true, "data_recipe": r })),
+        r,
+        Some(&previous),
     )
 }
 
@@ -1375,6 +1388,7 @@ pub(crate) async fn handle_odk_manifest_list(State(st): State<Arc<DaemonState>>)
 /// ontology refs (required, ≥1) + recipe + surface-descriptor refs + named contract refs.
 pub(crate) async fn handle_odk_manifest_create(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     let ontology_refs = str_refs(&body, "ontology_refs");
@@ -1408,7 +1422,11 @@ pub(crate) async fn handle_odk_manifest_create(
             return bad(&c, &m);
         }
     }
-    let id = format!("odk_{:x}", nanos());
+    let id = odk_derived_id(
+        "odk",
+        body.get("owner_ref").and_then(|v| v.as_str()).unwrap_or(""),
+        body.get("idempotency_key").and_then(|v| v.as_str()).unwrap_or(""),
+    );
     let now = iso_now();
     let record = json!({
         "schema_version": "ioi.hypervisor.odk.manifest.v1",
@@ -1430,18 +1448,21 @@ pub(crate) async fn handle_odk_manifest_create(
         "created_at": now,
         "updated_at": now
     });
-    if let Err(response) = persist_required(
+    odk_admit(
         &st.data_dir,
-        KIND_MANIFEST,
+        &headers,
+        &body,
+        OdkAdmission {
+            family: KIND_MANIFEST,
+            scope_kind: "hypervisor-odk-manifest",
+            ref_prefix: "odk-manifest://",
+            op_kind: "event_stream.hypervisor_odk_manifest_admitted",
+            reply_key: "manifest",
+            persist_error: "odk_manifest_persistence_failed",
+        },
         &id,
-        &record,
-        "odk_manifest_persistence_failed",
-    ) {
-        return response;
-    }
-    (
-        StatusCode::CREATED,
-        Json(json!({ "ok": true, "manifest": record })),
+        record,
+        None,
     )
 }
 
@@ -1455,6 +1476,7 @@ pub(crate) async fn handle_odk_manifest_get(
 pub(crate) async fn handle_odk_manifest_patch(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     let Some(mut man) = load(&st.data_dir, KIND_MANIFEST, &id) else {
@@ -1522,17 +1544,23 @@ pub(crate) async fn handle_odk_manifest_patch(
             man[key] = v.clone();
         }
     }
-    man["updated_at"] = json!(iso_now());
-    if let Err(response) = persist_required(
+    let previous = load(&st.data_dir, KIND_MANIFEST, &id).unwrap_or_else(|| json!({}));
+    odk_admit(
         &st.data_dir,
-        KIND_MANIFEST,
+        &headers,
+        &body,
+        OdkAdmission {
+            family: KIND_MANIFEST,
+            scope_kind: "hypervisor-odk-manifest",
+            ref_prefix: "odk-manifest://",
+            op_kind: "event_stream.hypervisor_odk_manifest_revised",
+            reply_key: "manifest",
+            persist_error: "odk_manifest_persistence_failed",
+        },
         &id,
-        &man,
-        "odk_manifest_persistence_failed",
-    ) {
-        return response;
-    }
-    (StatusCode::OK, Json(json!({ "ok": true, "manifest": man })))
+        man,
+        Some(&previous),
+    )
 }
 
 pub(crate) async fn handle_odk_manifest_delete(
@@ -1607,6 +1635,152 @@ fn odk_hash_tail(prefix: &str, identity: &str) -> String {
     use sha2::Digest;
     format!("{prefix}.{:x}", sha2::Sha256::digest(identity.as_bytes()))
 }
+}
+
+
+/// One owner-scoped admission path for every ODK family. The caller validates its own shape and
+/// hands over a finished record; this does identity, owner binding, caller idempotency, CAS,
+/// Agentgres admission, and the read-model projection. Six handlers share it so descriptors,
+/// recipes and manifests cannot drift into three different mutation contracts.
+///
+/// `previous` is None for a genesis create and Some(existing) for a successor patch.
+struct OdkAdmission<'a> {
+    family: &'a str,
+    scope_kind: &'a str,
+    ref_prefix: &'a str,
+    op_kind: &'a str,
+    reply_key: &'a str,
+    persist_error: &'a str,
+}
+
+fn odk_admit(
+    data_dir: &str,
+    headers: &HeaderMap,
+    body: &Value,
+    spec: OdkAdmission<'_>,
+    id: &str,
+    mut record: Value,
+    previous: Option<&Value>,
+) -> (StatusCode, Json<Value>) {
+    let identity = match super::substrate_store::resolve_request_identity(data_dir, headers) {
+        Ok(identity) => identity,
+        Err(error) => return odk_scope_refusal(error),
+    };
+    let idempotency_key = body
+        .get("idempotency_key")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .unwrap_or("");
+    if idempotency_key.is_empty() {
+        return bad(
+            "mutation_idempotency_key_invalid",
+            "idempotency_key is required so a retried write cannot apply twice",
+        );
+    }
+    // A patch may not move a resource between owners, so on a successor the owner comes from the
+    // admitted record rather than the request body.
+    let owner_ref = match previous {
+        Some(existing) => existing["owner_ref"].as_str().unwrap_or("").to_string(),
+        None => body
+            .get("owner_ref")
+            .and_then(|v| v.as_str())
+            .map(str::trim)
+            .unwrap_or("")
+            .to_string(),
+    };
+    if owner_ref.is_empty() {
+        return bad(
+            "odk_owner_ref_required",
+            "owner_ref is required: this record is owned by exactly one org:// or project://",
+        );
+    }
+    let expected_head = body
+        .get("expected_head")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    if previous.is_some() && expected_head.is_none() {
+        return bad(
+            "mutation_successor_expected_head_required",
+            "expected_head is required: a patch compare-and-swaps against the exact admitted head",
+        );
+    }
+
+    // Wall-clock never enters the admitted payload: a retry could never be byte-identical, and the
+    // substrate would refuse the replay as same-key-different-bytes, making the key meaningless.
+    let created_at = previous.map(|existing| existing["created_at"].clone());
+    if let Some(object) = record.as_object_mut() {
+        object.remove("created_at");
+        object.remove("updated_at");
+        object.insert("owner_ref".into(), json!(owner_ref));
+    }
+
+    let resource_ref = format!("{}{id}", spec.ref_prefix);
+    let scope = match super::substrate_store::bind_request_resource_scope(
+        data_dir,
+        &identity,
+        spec.scope_kind,
+        &resource_ref,
+        &owner_ref,
+        &owner_ref,
+        idempotency_key,
+    ) {
+        Ok(scope) => scope,
+        Err(error) => return odk_scope_refusal(error),
+    };
+    let tail = odk_hash_tail(spec.scope_kind, &resource_ref);
+    match super::mutation_event_foundation::admit_owner_scoped_mutation(
+        data_dir,
+        previous.is_none(),
+        super::mutation_event_foundation::ScopedMutation {
+            identity: &identity,
+            scope: &scope,
+            resource_kind: spec.scope_kind,
+            resource_ref: &resource_ref,
+            owner_namespace: ODK_NAMESPACE,
+            stream_tail: &tail,
+            op_kind: spec.op_kind,
+            expected_head,
+            payload: &record,
+            idempotency_key,
+            recorded_at_ms: 0,
+        },
+    ) {
+        Ok(commit) => {
+            let stamp = admitted_stamp_ms(commit.projection.operation.recorded_at_ms);
+            let mut admitted = commit.projection.operation.payload.clone();
+            admitted["created_at"] = created_at.unwrap_or_else(|| json!(stamp.clone()));
+            admitted["updated_at"] = json!(stamp);
+            if let Err(response) =
+                persist_required(data_dir, spec.family, id, &admitted, spec.persist_error)
+            {
+                return response;
+            }
+            (
+                if previous.is_some() {
+                    StatusCode::OK
+                } else {
+                    StatusCode::CREATED
+                },
+                Json(json!({
+                    "ok": true,
+                    spec.reply_key: admitted,
+                    "replayed": commit.replayed,
+                    "receipt_ref": commit.receipt_ref,
+                    "operation_ref": commit.operation_ref
+                })),
+            )
+        }
+        Err(error) => odk_mutation_refusal(error),
+    }
+}
+
+/// Derive a resource id from owner + caller key so a retried create resolves the SAME resource.
+/// A wall-clock id can never be idempotent.
+fn odk_derived_id(prefix: &str, owner_ref: &str, idempotency_key: &str) -> String {
+    use sha2::Digest;
+    let digest = sha2::Sha256::digest(format!("{owner_ref}\u{0}{idempotency_key}").as_bytes());
+    format!("{prefix}_{digest:x}")[..(prefix.len() + 17)].to_string()
 }
 
 // ============================ ONTOLOGY SURFACE DESCRIPTOR =======================================
@@ -1696,18 +1870,11 @@ pub(crate) async fn handle_odk_descriptor_create(
     }
     // Identity is derived from the owner + caller key, never from wall-clock nanos: a replayed
     // request must resolve to the SAME resource, which a timestamp id can never do.
-    let id = {
-        use sha2::Digest;
-        format!(
-            "sd_{:x}",
-            sha2::Sha256::digest(format!("{owner_ref}\u{0}{idempotency_key}").as_bytes())
-        )
-    };
-    let id = id[..19].to_string();
-    // Wall-clock is deliberately ABSENT from the admitted payload. A retried create must be
-    // byte-identical or the substrate refuses it as same-key-different-bytes, and created_at
-    // differs on every attempt. Timestamps are projected onto the read model below, from the
-    // admission, which is the only stable source for them.
+    let id = odk_derived_id(
+        "sd",
+        body.get("owner_ref").and_then(|v| v.as_str()).unwrap_or(""),
+        body.get("idempotency_key").and_then(|v| v.as_str()).unwrap_or(""),
+    );
     let record = json!({
         "schema_version": "ioi.hypervisor.odk.surface-descriptor.v1",
         "object": "ioi.hypervisor.odk.surface_descriptor",
@@ -1724,66 +1891,22 @@ pub(crate) async fn handle_odk_descriptor_create(
         "view_config": body.get("view_config").cloned().unwrap_or_else(|| json!({}))
     });
 
-    let resource_ref = format!("surface-descriptor://{id}");
-    let scope = match super::substrate_store::bind_request_resource_scope(
+    odk_admit(
         &st.data_dir,
-        &identity,
-        ODK_DESCRIPTOR_SCOPE_KIND,
-        &resource_ref,
-        owner_ref,
-        owner_ref,
-        idempotency_key,
-    ) {
-        Ok(scope) => scope,
-        Err(error) => return odk_scope_refusal(error),
-    };
-    let tail = odk_hash_tail("odk-surface-descriptor", &resource_ref);
-    match super::mutation_event_foundation::admit_owner_scoped_mutation(
-        &st.data_dir,
-        true,
-        super::mutation_event_foundation::ScopedMutation {
-            identity: &identity,
-            scope: &scope,
-            resource_kind: ODK_DESCRIPTOR_SCOPE_KIND,
-            resource_ref: &resource_ref,
-            owner_namespace: ODK_NAMESPACE,
-            stream_tail: &tail,
+        &headers,
+        &body,
+        OdkAdmission {
+            family: KIND_SD,
+            scope_kind: ODK_DESCRIPTOR_SCOPE_KIND,
+            ref_prefix: "surface-descriptor://",
             op_kind: "event_stream.hypervisor_odk_surface_descriptor_admitted",
-            expected_head: None,
-            payload: &record,
-            idempotency_key,
-            recorded_at_ms: 0,
+            reply_key: "surface_descriptor",
+            persist_error: "odk_surface_descriptor_persistence_failed",
         },
-    ) {
-        Ok(commit) => {
-            // Keep the read-model directory the existing list/detail panes serve from, but only
-            // AFTER admission: the admitted projection is the truth, this is its projection.
-            let mut admitted = commit.projection.operation.payload.clone();
-            let stamp = admitted_stamp_ms(commit.projection.operation.recorded_at_ms);
-            admitted["created_at"] = json!(stamp);
-            admitted["updated_at"] = json!(stamp);
-            if let Err(response) = persist_required(
-                &st.data_dir,
-                KIND_SD,
-                &id,
-                &admitted,
-                "odk_surface_descriptor_persistence_failed",
-            ) {
-                return response;
-            }
-            (
-                StatusCode::CREATED,
-                Json(json!({
-                    "ok": true,
-                    "surface_descriptor": admitted,
-                    "replayed": commit.replayed,
-                    "receipt_ref": commit.receipt_ref,
-                    "operation_ref": commit.operation_ref
-                })),
-            )
-        }
-        Err(error) => odk_mutation_refusal(error),
-    }
+        &id,
+        record,
+        None,
+    )
 }
 
 pub(crate) async fn handle_odk_descriptor_get(
@@ -1797,7 +1920,7 @@ pub(crate) async fn handle_odk_descriptor_get(
     // than laundered.
     if reply["ok"].as_bool() == Some(true) {
         let resource_ref = format!("surface-descriptor://{id}");
-        let tail = odk_hash_tail("odk-surface-descriptor", &resource_ref);
+        let tail = odk_hash_tail(ODK_DESCRIPTOR_SCOPE_KIND, &resource_ref);
         let head = super::substrate_store::read_event_stream_operation(
             &st.data_dir,
             ODK_NAMESPACE,
@@ -1822,34 +1945,6 @@ pub(crate) async fn handle_odk_descriptor_patch(
     headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
-    // W1.2 / MEF-GAP-004 — a patch is a SUCCESSOR mutation. It must compare-and-swap against the
-    // exact admitted head, or two concurrent edits silently last-write-wins.
-    let identity = match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
-        Ok(identity) => identity,
-        Err(error) => return odk_scope_refusal(error),
-    };
-    let idempotency_key = body
-        .get("idempotency_key")
-        .and_then(|v| v.as_str())
-        .map(str::trim)
-        .unwrap_or("");
-    if idempotency_key.is_empty() {
-        return bad(
-            "mutation_idempotency_key_invalid",
-            "idempotency_key is required so a retried patch cannot apply twice",
-        );
-    }
-    let expected_head = body
-        .get("expected_head")
-        .and_then(|v| v.as_str())
-        .map(str::trim)
-        .unwrap_or("");
-    if expected_head.is_empty() {
-        return bad(
-            "mutation_successor_expected_head_required",
-            "expected_head is required: a patch compare-and-swaps against the exact admitted head",
-        );
-    }
     let Some(mut d) = load(&st.data_dir, KIND_SD, &id) else {
         return (
             StatusCode::NOT_FOUND,
@@ -1902,79 +1997,71 @@ pub(crate) async fn handle_odk_descriptor_patch(
         o.remove("updated_at")
     });
 
-    // The descriptor's owner is fixed at creation: a patch may not move a resource between
-    // owners, so the owner is read from the admitted record rather than the request body.
-    let owner_ref = d["owner_ref"].as_str().unwrap_or_default().to_string();
-    if owner_ref.is_empty() {
-        return bad(
-            "odk_owner_ref_required",
-            "this descriptor predates owner-scoped admission and cannot be patched through it; recreate it under an owner",
-        );
-    }
-    let resource_ref = format!("surface-descriptor://{id}");
-    let scope = match super::substrate_store::bind_request_resource_scope(
+    let previous = load(&st.data_dir, KIND_SD, &id).unwrap_or_else(|| json!({}));
+    odk_admit(
         &st.data_dir,
-        &identity,
-        ODK_DESCRIPTOR_SCOPE_KIND,
-        &resource_ref,
-        &owner_ref,
-        &owner_ref,
-        idempotency_key,
-    ) {
-        Ok(scope) => scope,
-        Err(error) => return odk_scope_refusal(error),
-    };
-    let tail = odk_hash_tail("odk-surface-descriptor", &resource_ref);
-    match super::mutation_event_foundation::admit_owner_scoped_mutation(
-        &st.data_dir,
-        false,
-        super::mutation_event_foundation::ScopedMutation {
-            identity: &identity,
-            scope: &scope,
-            resource_kind: ODK_DESCRIPTOR_SCOPE_KIND,
-            resource_ref: &resource_ref,
-            owner_namespace: ODK_NAMESPACE,
-            stream_tail: &tail,
+        &headers,
+        &body,
+        OdkAdmission {
+            family: KIND_SD,
+            scope_kind: ODK_DESCRIPTOR_SCOPE_KIND,
+            ref_prefix: "surface-descriptor://",
             op_kind: "event_stream.hypervisor_odk_surface_descriptor_revised",
-            expected_head: Some(expected_head),
-            payload: &d,
-            idempotency_key,
-            recorded_at_ms: 0,
+            reply_key: "surface_descriptor",
+            persist_error: "odk_surface_descriptor_persistence_failed",
         },
-    ) {
-        Ok(commit) => {
-            let mut admitted = commit.projection.operation.payload.clone();
-            admitted["created_at"] = created_at;
-            admitted["updated_at"] = json!(admitted_stamp_ms(commit.projection.operation.recorded_at_ms));
-            if let Err(response) = persist_required(
-                &st.data_dir,
-                KIND_SD,
-                &id,
-                &admitted,
-                "odk_surface_descriptor_persistence_failed",
-            ) {
-                return response;
-            }
-            (
-                StatusCode::OK,
-                Json(json!({
-                    "ok": true,
-                    "surface_descriptor": admitted,
-                    "replayed": commit.replayed,
-                    "receipt_ref": commit.receipt_ref,
-                    "operation_ref": commit.operation_ref
-                })),
-            )
-        }
-        Err(error) => odk_mutation_refusal(error),
-    }
+        &id,
+        d,
+        Some(&previous),
+    )
 }
 
 pub(crate) async fn handle_odk_descriptor_delete(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
-) -> Json<Value> {
-    json_del(&st.data_dir, KIND_SD, &id)
+    headers: HeaderMap,
+) -> (StatusCode, Json<Value>) {
+    // W1.2 / MEF-GAP-004 — a delete is the most consequential mutation in the family and was the
+    // only one that took no identity at all: any caller could erase any descriptor. It is a
+    // successor mutation like any other, so it carries the same owner scope, caller idempotency
+    // and compare-and-swap, and it is RECORDED rather than silently dropping the row.
+    let Some(previous) = load(&st.data_dir, KIND_SD, &id) else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "ok": false, "code": "odk_surface_descriptor_not_found",
+                         "message": "surface_descriptor not found" })),
+        );
+    };
+    let mut tombstone = previous.clone();
+    tombstone["status"] = json!("deleted");
+    let body = json!({
+        "idempotency_key": headers.get("x-ioi-idempotency-key")
+            .and_then(|v| v.to_str().ok()).unwrap_or(""),
+        "expected_head": headers.get("x-ioi-expected-head")
+            .and_then(|v| v.to_str().ok()).unwrap_or(""),
+    });
+    let reply = odk_admit(
+        &st.data_dir,
+        &headers,
+        &body,
+        OdkAdmission {
+            family: KIND_SD,
+            scope_kind: ODK_DESCRIPTOR_SCOPE_KIND,
+            ref_prefix: "surface-descriptor://",
+            op_kind: "event_stream.hypervisor_odk_surface_descriptor_deleted",
+            reply_key: "surface_descriptor",
+            persist_error: "odk_surface_descriptor_persistence_failed",
+        },
+        &id,
+        tombstone,
+        Some(&previous),
+    );
+    if reply.0 == StatusCode::OK {
+        // The admitted tombstone is the record of the deletion; the read-model row goes only
+        // after it is durable, so a failed admission never loses the descriptor.
+        let _ = remove_record(&st.data_dir, KIND_SD, &id);
+    }
+    reply
 }
 
 #[cfg(test)]
@@ -1988,14 +2075,9 @@ mod odk_tests {
     fn descriptor_identity_is_derived_from_owner_and_caller_key_not_wall_clock() {
         // The whole point of dropping nanos(): the same owner + key must resolve to the same
         // resource, so a retried create cannot mint a second descriptor.
-        let derive = |owner: &str, key: &str| {
-            use sha2::Digest;
-            let id = format!(
-                "sd_{:x}",
-                sha2::Sha256::digest(format!("{owner}\u{0}{key}").as_bytes())
-            );
-            id[..19].to_string()
-        };
+        let derive = |owner: &str, key: &str| odk_derived_id("sd", owner, key);
+        let a_id = |owner: &str, key: &str| odk_derived_id("sd", owner, key);
+        assert_eq!(a_id("org://acme", "k"), odk_derived_id("sd", "org://acme", "k"));
         let a = derive("org://acme", "form-submit-1");
         assert_eq!(a, derive("org://acme", "form-submit-1"), "a retry is the same resource");
         assert_ne!(a, derive("org://acme", "form-submit-2"), "a different key is a different resource");
@@ -2007,11 +2089,14 @@ mod odk_tests {
     /// would share an Agentgres stream and CAS would compare the wrong heads.
     #[test]
     fn descriptor_stream_tail_is_stable_and_resource_bound() {
-        let one = odk_hash_tail("odk-surface-descriptor", "surface-descriptor://sd_aaa");
-        let two = odk_hash_tail("odk-surface-descriptor", "surface-descriptor://sd_bbb");
-        assert_eq!(one, odk_hash_tail("odk-surface-descriptor", "surface-descriptor://sd_aaa"));
+        // Reader and writer MUST derive the tail from the same constant. They once did not:
+        // the GET used a literal while the writer used the scope kind, so `admitted_head` read
+        // an empty stream and every compare-and-swap patch refused.
+        let one = odk_hash_tail(ODK_DESCRIPTOR_SCOPE_KIND, "surface-descriptor://sd_aaa");
+        let two = odk_hash_tail(ODK_DESCRIPTOR_SCOPE_KIND, "surface-descriptor://sd_bbb");
+        assert_eq!(one, odk_hash_tail(ODK_DESCRIPTOR_SCOPE_KIND, "surface-descriptor://sd_aaa"));
         assert_ne!(one, two, "distinct descriptors must not share a stream tail");
-        assert!(one.starts_with("odk-surface-descriptor."));
+        assert!(one.starts_with(&format!("{ODK_DESCRIPTOR_SCOPE_KIND}.")));
         assert_eq!(ODK_NAMESPACE, "hypervisor-odk");
         assert_eq!(ODK_DESCRIPTOR_SCOPE_KIND, "hypervisor-odk-surface-descriptor");
     }
