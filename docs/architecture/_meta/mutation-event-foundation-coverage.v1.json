@@ -99,6 +99,25 @@
       "evidence": [
         "CLOSED for the admission boundary. All THIRTEEN kernel-planner endpoints in lifecycle_routes.rs \u2014 every handler that previously returned a bare 202 with a planned record and persisted nothing \u2014 now authenticate the caller BEFORE the planner runs, require owner_ref and idempotency_key, derive admission identity from owner+key rather than wall-clock, admit the planner's record through admit_owner_scoped_mutation, and return receipt_ref plus operation_ref. Verified live on all 13 routes: 401 unauthenticated, typed refusals when authenticated. STILL OPEN and explicitly NOT claimed here: extension_application registration, executable artifact activation, product-catalog/System/serving bindings, upgrade, rollback, and affected-System remediation \u2014 those are the EXECUTION of an admitted decision, not its admission."
       ]
+    },
+    {
+      "id": "MEF-CLOSED-006",
+      "plane": "Domain App records, runtimes, mount receipts, serve state, and kill-switch enforcement",
+      "source": "crates/node/src/bin/hypervisor_daemon_routes/domain_apps_routes.rs",
+      "also_touches": "crates/node/src/bin/hypervisor_daemon_routes/governance_routes.rs (handle_kill_enforce)",
+      "status": "closed",
+      "supersedes": "MEF-GAP-003",
+      "bounded_scope": "The ADMISSION and ordering of Domain App state transitions. No claim that a mounted runtime executes anything: this plane still starts no process, exposes no URL, and generates no app code.",
+      "evidence": [
+        "CLOSED. All seven Domain App mutations (create, patch, delete, mount, unmount, serve, stop-serving) plus governance kill enforcement now authenticate the caller as their FIRST statement, require owner_ref and idempotency_key, and admit one canonical transition through the shared owner-scoped write path before any projection write. Create derives its resource id from owner+idempotency_key instead of `nanos()`, so a retried create resolves to the one resource it already made rather than minting a second. Every successor presents the head it read; a record written before this plane bound identity is refused rather than silently advanced.",
+        "The mount/unmount/serve/stop-serving fan-out \u2014 a runtime record, a Domain App backlink, and N receipts \u2014 now admits the transition ahead of all three writes. Previously the only crash story was rollback, so a process death between writes left no durable trace of the attempt; the admitted transition is now the recoverable intent.",
+        "Kill enforcement was reachable UNAUTHENTICATED and enforced runtime-by-runtime, returning on the first failure: with five targets, a failure at the third left two runtimes killed, three running, and the KillSwitch never updated \u2014 a half-enforced kill that no record described. It now authenticates, admits one transition naming every target runtime before stopping any of them, and on partial failure returns the admitted head plus the planned and already-enforced target lists so recovery can finish the set instead of guessing it.",
+        "Proven against a live daemon, not only in tests: 401 on all seven mutations and on kill-enforce while unauthenticated; typed mutation_owner_ref_required and mutation_idempotency_key_invalid when authenticated; identity refused before body validation; content-derived id (dapp_74ef08dc370df3e6); an identical retry replaying to that same id with replayed=true; the admitted head advancing across a patch; and cross-tenant owner substitution refused 403 request_tenant_authority_required."
+      ],
+      "still_open": [
+        "Mount admission remains governed by an ApprovalRequest plus ReleaseControl but does not itself execute a runtime.",
+        "Kill enforcement covers only domain-app-runtime:// and domain-app:// targets. Wallet grants, leases, connectors, environments and workers are out of this cut and are NOT enforced by a tripped switch."
+      ]
     }
   ],
   "open_gaps": [
@@ -143,33 +162,6 @@
         "admit create/update/delete/review/publish/offer transitions with caller keys and CAS",
         "represent publish and review-link changes as one admitted transition or a recoverable saga with explicit compensation state",
         "prove forced failure at every effect boundary, exact retry, restart replay, and cross-principal refusal"
-      ]
-    },
-    {
-      "id": "MEF-GAP-003",
-      "priority": "blocker",
-      "plane": "Domain App records, mount receipts, runtimes, serve state, and kill-switch backlinks",
-      "status": "open",
-      "source": "crates/node/src/bin/hypervisor_daemon_routes/domain_apps_routes.rs",
-      "handler_markers": [
-        "handle_domain_apps_patch",
-        "handle_domain_app_mount",
-        "handle_domain_app_unmount",
-        "handle_domain_app_serve",
-        "kill_runtime"
-      ],
-      "progress": [
-        "DomainApp create and patch refuse success when their durable record cannot commit",
-        "mount, unmount, serve, stop-serving, and each kill-target runtime now commit runtime and DomainApp backlink before receipts, restore both prior records on a later-stage failure, and return a typed repair-required error if compensation is incomplete",
-        "a forced receipt-directory failure test proves runtime and backlink restoration",
-        "KillSwitch enforcement no longer reports success when its governance receipt or final projection fails; it returns an explicit committed-effects recovery obligation"
-      ],
-      "gap": "The direct persistence-discard indicators and false-success paths in this file are removed, but the records still lack authenticated owner scope, caller idempotency, expected-head CAS, and one Agentgres-admitted canonical transition. Kill enforcement across multiple runtimes plus its governance record is not yet one restart-recoverable saga.",
-      "acceptance": [
-        "admit one canonical transition before exposing any successful posture",
-        "derive runtime and Domain App backlinks from admitted truth or reconcile them from a durable saga",
-        "never mint or return a receipt whose required transition was not durably admitted",
-        "prove interruption between receipt/runtime/backlink effects and deterministic recovery after restart"
       ]
     },
     {
@@ -230,7 +222,7 @@
   ],
   "direct_persistence_indicator_census": {
     "indicator": "explicitly discarded direct persist_record result",
-    "total_occurrences": 304,
+    "total_occurrences": 301,
     "source_files": 41,
     "classification": "audit indicator only; includes possible projections, cleanup, fixtures, and compatibility paths until individually classified",
     "regenerator": "node scripts/audit-daemon-mutation-foundation.mjs",
@@ -245,7 +237,7 @@
       "crates/node/src/bin/hypervisor_daemon_routes/connector_execution_routes.rs": 12,
       "crates/node/src/bin/hypervisor_daemon_routes/governance_routes.rs": 10,
       "crates/node/src/bin/hypervisor_daemon_routes/marketplace_routes.rs": 11,
-      "crates/node/src/bin/hypervisor_daemon_routes/resource_routes.rs": 9,
+      "crates/node/src/bin/hypervisor_daemon_routes/resource_routes.rs": 6,
       "crates/node/src/bin/hypervisor_daemon_routes/environment_routes.rs": 7,
       "crates/node/src/bin/hypervisor_daemon_routes/authority_routes.rs": 6,
       "crates/node/src/bin/hypervisor_daemon_routes/connector_session_routes.rs": 6,
@@ -276,7 +268,8 @@
       "crates/node/src/bin/hypervisor_daemon_routes/runpod_candidate_source.rs": 1,
       "crates/node/src/bin/hypervisor_daemon_routes/scm_publication_routes.rs": 1,
       "crates/node/src/bin/hypervisor_daemon_routes/vast_candidate_source.rs": 1
-    }
+    },
+    "census_note": "Down from 304 across the same 41 files. The three eliminated indicators are all in resource_routes::handle_allocate and are the worked example under MEF-GAP-001: they met both halves of the discriminator and now fail closed with typed 500s. The remaining 301 are still UNCLASSIFIED leads, not 301 defects \u2014 apply the classification_method before treating any as one."
   },
   "verification": {
     "foundation_tests": "cargo test -p ioi-node --bin hypervisor-daemon mutation_event_foundation::tests -- --test-threads=1",
