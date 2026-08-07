@@ -5413,7 +5413,12 @@ mod participation_tests {
         )
         .unwrap_err();
         drop(room_scope);
-        assert_eq!(code, "outcome_room_registry_unreadable");
+        // The participation plane names its failures in its OWN vocabulary and does not leak the
+        // outcome-room registry's code — see refuse_predecessor_room, and the same translation in
+        // attempt_finding, verifier_challenge, resource_capability_offer and work_frontier_claim.
+        // This assertion predates that translation. Neither code is a canon-named contract, so the
+        // domain code is the correct one; do NOT "fix" this by deleting the translation.
+        assert_eq!(code, "room_participation_room_unreadable");
         let submit_intent_path = submit_dir.join(SUBMIT_INTENT_DIR).join("rpr_bc.json");
         assert!(submit_intent_path.exists());
         complete_participation_intents(submit_data);
