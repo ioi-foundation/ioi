@@ -234,11 +234,37 @@ pub fn require_operation_class(
 /// forces the refusal, and the env-var name is preserved verbatim from the
 /// pre-lift implementation so the M4 fault-injection proofs keep exercising
 /// this exact path.
+thread_local! {
+    /// In-process fault injection. The env var below is PROCESS-GLOBAL, and Rust runs tests as
+    /// parallel threads in one process, so a test that sets it forces the refusal in every other
+    /// test running at that moment. That is what made this suite nondeterministic: unrelated
+    /// admissions failed with "test-forced required-admission durability failure" depending only
+    /// on scheduling. In-process tests use this thread-local instead; the env var stays for
+    /// out-of-process verifiers, where a whole process really is the unit of injection.
+    static FORCE_DURABILITY_FAILURE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Force the durability refusal for the CURRENT THREAD only. Returns a guard that clears it.
+pub fn force_durability_failure_for_this_thread() -> ForcedDurabilityFailure {
+    FORCE_DURABILITY_FAILURE.with(|flag| flag.set(true));
+    ForcedDurabilityFailure
+}
+
+#[must_use = "the guard clears the thread-local flag when dropped"]
+pub struct ForcedDurabilityFailure;
+
+impl Drop for ForcedDurabilityFailure {
+    fn drop(&mut self) {
+        FORCE_DURABILITY_FAILURE.with(|flag| flag.set(false));
+    }
+}
+
 pub fn confirm_log_durability(engine_dir: &Path) -> Result<(), AdmissionRefusal> {
-    if std::env::var("IOI_TEST_FORCE_REQUIRED_ADMISSION_SYNC_FAILURE")
-        .ok()
-        .as_deref()
-        == Some("1")
+    if FORCE_DURABILITY_FAILURE.with(std::cell::Cell::get)
+        || std::env::var("IOI_TEST_FORCE_REQUIRED_ADMISSION_SYNC_FAILURE")
+            .ok()
+            .as_deref()
+            == Some("1")
     {
         return Err(AdmissionRefusal::DurabilityUnconfirmed(
             "test-forced required-admission durability failure".to_owned(),
@@ -701,9 +727,9 @@ mod tests {
     // hook itself, under a temp dir that has no log at all.
     #[test]
     fn forced_durability_failure_refuses() {
-        std::env::set_var("IOI_TEST_FORCE_REQUIRED_ADMISSION_SYNC_FAILURE", "1");
+        let _forced = force_durability_failure_for_this_thread();
         let refusal = confirm_log_durability(Path::new("/nonexistent")).unwrap_err();
-        std::env::remove_var("IOI_TEST_FORCE_REQUIRED_ADMISSION_SYNC_FAILURE");
+        drop(_forced);
         assert_eq!(refusal.code(), "event_stream_durability_unconfirmed");
     }
 }

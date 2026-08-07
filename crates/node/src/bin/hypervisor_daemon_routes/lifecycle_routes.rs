@@ -6668,15 +6668,183 @@ pub(crate) async fn handle_physical_action_intent_admission(
     }
 }
 
+
+// ---------------------------------------------------------------------------------------------
+// W1.2 / MEF-GAP-007 — durable admission for kernel-planner endpoints.
+//
+// Thirteen handlers in this file share one shape: run a pure kernel planner, return 202 with the
+// planned record, and forget it. A plan that is never admitted is not an admission — there is no
+// request scope, no durable transition, no idempotency, no compare-and-swap, and no receipt, so a
+// caller cannot tell a retry from a second install and a restart loses the decision entirely.
+//
+// This turns a planner result into an owner-scoped admitted mutation. The planner keeps doing the
+// validation it already does; this adds the durability the 202 implied but never had.
+// ---------------------------------------------------------------------------------------------
+const PLANNER_NAMESPACE: &str = "hypervisor-kernel-admissions";
+
+fn planner_scope_refusal(
+    error: super::substrate_store::RequestScopeRefusal,
+) -> (StatusCode, Json<Value>) {
+    use super::substrate_store::RequestScopeRefusal;
+    let status = match error {
+        RequestScopeRefusal::AuthenticationRequired
+        | RequestScopeRefusal::PrincipalIdentityInvalid => StatusCode::UNAUTHORIZED,
+        RequestScopeRefusal::TenantAuthorityRequired
+        | RequestScopeRefusal::ResourceScopeRequired
+        | RequestScopeRefusal::ResourceOwnerMismatch => StatusCode::FORBIDDEN,
+        RequestScopeRefusal::SubstrateUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
+    };
+    (
+        status,
+        Json(json!({ "ok": false, "code": error.code(), "message": error.message() })),
+    )
+}
+
+fn planner_mutation_refusal(
+    error: super::mutation_event_foundation::MutationRefusal,
+) -> (StatusCode, Json<Value>) {
+    use super::mutation_event_foundation::MutationRefusal;
+    let status = match error {
+        MutationRefusal::Scope(inner) => return planner_scope_refusal(inner),
+        MutationRefusal::Admission(_) => StatusCode::CONFLICT,
+        MutationRefusal::RequestFingerprintFailed(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        _ => StatusCode::BAD_REQUEST,
+    };
+    (
+        status,
+        Json(json!({ "ok": false, "code": error.code(), "message": error.message() })),
+    )
+}
+
+/// Authenticate and bind the caller BEFORE any planner runs. Identity is the first gate: a
+/// planner that validates shape first tells an unauthenticated caller what fields it wants, and
+/// answers 400 where it owes 401.
+fn planner_caller(
+    data_dir: &str,
+    headers: &HeaderMap,
+    body: &Value,
+) -> Result<(super::substrate_store::RequestIdentity, String, String), (StatusCode, Json<Value>)> {
+    let identity = match super::substrate_store::resolve_request_identity(data_dir, headers) {
+        Ok(identity) => identity,
+        Err(error) => return Err(planner_scope_refusal(error)),
+    };
+    let owner_ref = body
+        .get("owner_ref")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .unwrap_or("")
+        .to_string();
+    let idempotency_key = body
+        .get("idempotency_key")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .unwrap_or("")
+        .to_string();
+    if owner_ref.is_empty() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "code": "admission_owner_ref_required",
+                "message": "owner_ref is required: an admission is owned by exactly one org:// or project://" })),
+        ));
+    }
+    if idempotency_key.is_empty() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "code": "mutation_idempotency_key_invalid",
+                "message": "idempotency_key is required so a retried admission cannot install twice" })),
+        ));
+    }
+    Ok((identity, owner_ref, idempotency_key))
+}
+
+/// Admit a kernel-planner result durably under an ALREADY-authenticated caller's owner scope.
+fn admit_planner_record(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    owner_ref: &str,
+    idempotency_key: &str,
+    resource_kind: &str,
+    resource_prefix: &str,
+    op_kind: &str,
+    record: Value,
+) -> (StatusCode, Json<Value>) {
+    // Caller was authenticated and bound by planner_caller before the planner ran.
+    let digest = sha256_hex_str(&format!("{owner_ref}\u{0}{idempotency_key}"));
+    let resource_ref = format!("{resource_prefix}{}", &digest[..32]);
+    let scope = match super::substrate_store::bind_request_resource_scope(
+        data_dir,
+        identity,
+        resource_kind,
+        &resource_ref,
+        owner_ref,
+        owner_ref,
+        idempotency_key,
+    ) {
+        Ok(scope) => scope,
+        Err(error) => return planner_scope_refusal(error),
+    };
+    let tail = format!("{resource_kind}.{}", sha256_hex_str(&resource_ref));
+    match super::mutation_event_foundation::admit_owner_scoped_mutation(
+        data_dir,
+        true,
+        super::mutation_event_foundation::ScopedMutation {
+            identity,
+            scope: &scope,
+            resource_kind,
+            resource_ref: &resource_ref,
+            owner_namespace: PLANNER_NAMESPACE,
+            stream_tail: &tail,
+            op_kind,
+            expected_head: None,
+            payload: &record,
+            idempotency_key,
+            recorded_at_ms: 0,
+        },
+    ) {
+        Ok(commit) => (
+            StatusCode::CREATED,
+            Json(json!({
+                "ok": true,
+                "admission": commit.projection.operation.payload,
+                "admission_ref": resource_ref,
+                "replayed": commit.replayed,
+                "receipt_ref": commit.receipt_ref,
+                "operation_ref": commit.operation_ref
+            })),
+        ),
+        Err(error) => planner_mutation_refusal(error),
+    }
+}
+
 /// POST /v1/hypervisor/worker-package-install-admissions — admit a worker-package install (pure
 /// kernel planner: manifest/ontology/surfaces/requirements/policy/receipt/evidence/artifact refs
 /// + wallet approval + mode-specific gates + physical-action safety envelope). 202 + record, or
 /// {error:{code,message,details}} with status (400 field-shape / 403 policy-authority).
 pub(crate) async fn handle_worker_package_install_admission(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    // Identity first, always: the planner must never answer an unauthenticated caller.
+    let (identity, owner_ref, idempotency_key) =
+        match planner_caller(&st.data_dir, &headers, &body) {
+            Ok(caller) => caller,
+            Err(refusal) => return refusal,
+        };
     match RuntimeKernelService::new().admit_worker_package_install(&body, &iso_now()) {
-        Ok(record) => (StatusCode::ACCEPTED, Json(record)),
+        // The planner validated the shape; the decision is now durable under the caller's owner
+        // scope, idempotently, with a receipt. A 202 that persisted nothing could not survive a
+        // restart and could not distinguish a retry from a second install.
+        Ok(record) => admit_planner_record(
+            &st.data_dir,
+            &identity,
+            &owner_ref,
+            &idempotency_key,
+            "hypervisor-worker-package-install",
+            "worker-package-install://",
+            "event_stream.hypervisor_worker_package_install_admitted",
+            record,
+        ),
         Err(error) => (
             StatusCode::from_u16(error.status).unwrap_or(StatusCode::BAD_REQUEST),
             Json(json!({
