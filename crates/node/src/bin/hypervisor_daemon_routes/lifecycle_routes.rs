@@ -17862,6 +17862,18 @@ fn scim_unauth() -> (StatusCode, Json<Value>) {
         ),
     )
 }
+/// A SCIM provisioning write that did not land. This MUST be an error status: the caller is an
+/// identity provider, and 200/204 tells it the change is applied and never to retry. Principal
+/// `status` is the authentication gate, so a swallowed deactivation leaves a deprovisioned user
+/// able to authenticate with the IdP believing offboarding completed.
+fn scim_persist_failed(detail: &str) -> (StatusCode, Json<Value>) {
+    (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        Json(
+            json!({ "schemas": ["urn:ietf:params:scim:api:messages:2.0:Error"], "status": "500", "detail": detail }),
+        ),
+    )
+}
 fn principal_to_scim(p: &Value) -> Value {
     let email = p["email"].as_str().unwrap_or("");
     json!({
@@ -18192,7 +18204,12 @@ pub(crate) async fn handle_scim_user_patch(
     if let Some(a) = active {
         p["status"] = json!(if a { "active" } else { "deactivated" });
         p["updated_at"] = json!(iso_now());
-        let _ = persist_record(&st.data_dir, "principals", &id, &p);
+        // Fail closed BEFORE the session sweep, so a failure leaves coherent state the IdP can
+        // simply retry rather than a user whose sessions were cleared but who is still active and
+        // free to re-authenticate.
+        if persist_record(&st.data_dir, "principals", &id, &p).is_err() {
+            return scim_persist_failed("principal status change could not be durably recorded");
+        }
         if !a {
             for s in read_record_dir(&st.data_dir, "sessions")
                 .into_iter()
@@ -18221,7 +18238,11 @@ pub(crate) async fn handle_scim_user_delete(
     if let Some(mut p) = find_principal(&st.data_dir, &id) {
         p["status"] = json!("deactivated");
         p["updated_at"] = json!(iso_now());
-        let _ = persist_record(&st.data_dir, "principals", &id, &p);
+        // 204 is the IdP's signal that deprovisioning completed and must not be retried. Emitting
+        // it over a discarded write left a terminated principal authenticating normally.
+        if persist_record(&st.data_dir, "principals", &id, &p).is_err() {
+            return scim_persist_failed("deprovision could not be durably recorded");
+        }
     }
     (StatusCode::NO_CONTENT, Json(Value::Null))
 }
@@ -18279,7 +18300,11 @@ pub(crate) async fn handle_scim_group_create(
         .unwrap_or_default();
     let now = iso_now();
     let g = json!({ "schema_version": "ioi.hypervisor.scim-group.v1", "group_id": gid, "display_name": name, "external_id": body.get("externalId").cloned().unwrap_or(Value::Null), "members": members, "created_at": now, "updated_at": now });
-    let _ = persist_record(&st.data_dir, "scim-groups", &gid, &g);
+    // 201 with a group id the IdP will use as the authoritative handle for every later membership
+    // PATCH. Discarding the write returned an id that resolved to nothing.
+    if persist_record(&st.data_dir, "scim-groups", &gid, &g).is_err() {
+        return scim_persist_failed("group could not be durably recorded and was not created");
+    }
     (StatusCode::CREATED, Json(group_to_scim(&g)))
 }
 /// GET /scim/v2/Groups/:id
@@ -18325,7 +18350,11 @@ pub(crate) async fn handle_scim_group_patch(
             .collect::<Vec<_>>());
     }
     g["updated_at"] = json!(iso_now());
-    let _ = persist_record(&st.data_dir, "scim-groups", &id, &g);
+    // Membership is an access grant. Returning 200 with the new member list over a discarded write
+    // told the IdP a removal had taken effect while the member remained in the group.
+    if persist_record(&st.data_dir, "scim-groups", &id, &g).is_err() {
+        return scim_persist_failed("group membership change could not be durably recorded");
+    }
     (StatusCode::OK, Json(group_to_scim(&g)))
 }
 /// DELETE /scim/v2/Groups/:id
@@ -18337,7 +18366,15 @@ pub(crate) async fn handle_scim_group_delete(
     if !scim_authed(&st.data_dir, &headers) {
         return scim_unauth();
     }
-    remove_record(&st.data_dir, "scim-groups", &id);
+    // remove_record conflates "no such group" with "deletion failed", and 204 tells the IdP the
+    // group is gone and never to retry. Separate them so a failed delete is retried rather than
+    // leaving a group — and its membership grants — live behind a successful ack.
+    let existed = read_record_dir(&st.data_dir, "scim-groups")
+        .into_iter()
+        .any(|g| g["group_id"].as_str() == Some(id.as_str()));
+    if existed && !remove_record(&st.data_dir, "scim-groups", &id) {
+        return scim_persist_failed("group could not be removed and still exists");
+    }
     (StatusCode::NO_CONTENT, Json(Value::Null))
 }
 
@@ -19011,7 +19048,15 @@ pub(crate) async fn handle_oidc_set(
     }
     c["id"] = json!("config");
     c["updated_at"] = json!(iso_now());
-    let _ = persist_record(&st.data_dir, "oidc-config", "config", &c);
+    // This is the SSO trust anchor: issuer, client id, sealed secret, and the `enabled` flag that
+    // decides whether OIDC login is accepted at all. Returning the new config over a discarded
+    // write reported an IdP rebinding — or a disable — that the login path would never see.
+    if persist_record(&st.data_dir, "oidc-config", "config", &c).is_err() {
+        return Json(json!({ "ok": false, "error": {
+            "code": "oidc_config_persistence_failed",
+            "message": "the OIDC configuration could not be durably recorded and is NOT in force"
+        }}));
+    }
     Json(json!({ "ok": true, "config": oidc_public(c) }))
 }
 
