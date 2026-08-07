@@ -30,12 +30,14 @@
     {
       "severity": "high",
       "scope": "continuous tenant authorization",
-      "reason": "tenant_ref is validated at exchange admission but is not enforced as the live session and resource scope on every daemon request; cross-tenant access and access after membership revocation remain unproven"
+      "reason": "CLOSED. resolve_principal now narrows a portal-exchanged session to its admitted source_tenant_ref on every request and returns None when that membership is no longer live, so cross-tenant reach and post-revocation access both fail closed. Proven by portal_session_tenant_scope_binds_every_request_and_revocation_fails_closed.",
+      "status": "closed_2026_08_07"
     },
     {
       "severity": "high",
       "scope": "impersonation attribution",
-      "reason": "the portal impersonator claim is not retained, so daemon evidence attributes an impersonated action only to the subject and loses actor/delegation identity"
+      "reason": "CLOSED. The assertion admits an optional `act` claim into its closed claim set, refuses a malformed or self-referential actor, retains it as source_actor_ref on the session, and surfaces it as acting_principal_ref + is_impersonated on the resolved principal, so evidence binds actor AND subject. Proven by impersonated_session_retains_actor_beside_the_subject.",
+      "status": "closed_2026_08_07"
     },
     {
       "severity": "medium",
