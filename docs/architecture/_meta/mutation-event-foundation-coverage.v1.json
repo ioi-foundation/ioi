@@ -118,6 +118,21 @@
         "Mount admission remains governed by an ApprovalRequest plus ReleaseControl but does not itself execute a runtime.",
         "Kill enforcement covers only domain-app-runtime:// and domain-app:// targets. Wallet grants, leases, connectors, environments and workers are out of this cut and are NOT enforced by a tripped switch."
       ]
+    },
+    {
+      "id": "MEF-CLOSED-007",
+      "plane": "marketplace listings, publish candidates, admission reviews, publish, and managed-instance offers",
+      "source": "crates/node/src/bin/hypervisor_daemon_routes/marketplace_routes.rs",
+      "status": "closed",
+      "supersedes": "MEF-GAP-002",
+      "bounded_scope": "The ADMISSION and ordering of marketplace object transitions. The plane's own hard boundaries are unchanged and NOT claimed here: no payments, no settlement, no install/hire runtime, no managed-instance instantiation, no external ingress. `published` still means read-only discoverable metadata with runtime backing.",
+      "evidence": [
+        "CLOSED. All twelve mutations \u2014 create, patch and delete across listings, candidates, reviews and offers, plus publish \u2014 now authenticate first, require owner_ref and idempotency_key, derive create ids from owner+key rather than nanos(), and admit one canonical transition per mutation. Patches and deletes previously returned a bare Json<Value> with no way to express 401 or 409 at all; they now carry real status codes. Zero discarded persist results remain in the file.",
+        "Publish was three discarded writes \u2014 receipt, candidate, listing \u2014 behind an unconditional 201. A failed receipt write still left the candidate advertising a receipt_ref no read resolved, and a failed candidate write still left the listing public. It is now ONE admitted transition over the whole tuple, projected with checked writes. It also silently skipped the listing flip when the listing no longer resolved, returning 201 with the candidate published and nothing publicly listed; that now refuses with marketplace_publish_listing_missing.",
+        "link_candidate_review swallowed every failure and returned unit \u2014 malformed ref, missing candidate, failed write alike. publish_gates reads admission_review_ref, so a silent failure there decided publish eligibility from a backlink that was never written. It now returns Result and both callers fail closed.",
+        "Two defects were found by live probe AFTER the tests passed, which is why the probe exists: create payloads carried iso_now(), so an identical retry admitted different bytes under the same key and was refused instead of replayed \u2014 the idempotency contract was present but inert; and cross-tenant callers received a body-validation 400 rather than 403 because owner authorization ran after body validation. Owner authorization now happens in require_write_caller, before any field is read, which fixes it for every plane on the shared path.",
+        "Proven against a live daemon: 401 on all twelve mutations unauthenticated; typed refusals for both missing fields; 403 request_tenant_authority_required on owner substitution; content-derived id mlist_bd490a501b7b5faf; an identical retry replaying to that same id with replayed=true and 200 rather than a second 201; the admitted head advancing across a patch; and publish of an unresolvable candidate refusing typed. 23 of 23 assertions."
+      ]
     }
   ],
   "open_gaps": [
@@ -139,30 +154,6 @@
       ],
       "classification_method": "A regex census over handler bodies is a LEAD, not a finding. Slicing each `pub(crate) async fn handle_*` body and asking whether it contains any checked write flags ~129 handlers as 'only persistence is discarded' \u2014 but that over-counts: lifecycle_routes::handle_secret_create is flagged and does have an INTERNAL_SERVER_ERROR path. The discriminator that actually holds is narrower: does the handler RETURN SUCCESS carrying a record whose only write was discarded, and is that record READ BACK as authoritative state elsewhere? Confirm both before calling a site a defect.",
       "worked_example": "resource_routes::handle_allocate met both tests and is CLOSED. It built an allocation decision with a receipt_ref, discarded the persist, and returned it unconditionally, while handle_* reads allocation-decisions back as admitted state \u2014 so a caller could hold a receipted decision no later read would find. It also discarded the budget spend write, silently under-counting spend so the next request saw headroom that did not exist, and the allocation request write, leaving a decision referencing an unfindable request. All three now fail closed with typed 500s."
-    },
-    {
-      "id": "MEF-GAP-002",
-      "priority": "blocker",
-      "plane": "marketplace listings, publish candidates, reviews, publish, and managed-instance offers",
-      "status": "open",
-      "source": "crates/node/src/bin/hypervisor_daemon_routes/marketplace_routes.rs",
-      "handler_markers": [
-        "handle_listing_create",
-        "handle_listing_patch",
-        "handle_candidate_create",
-        "handle_candidate_publish",
-        "handle_review_create",
-        "handle_review_patch",
-        "handle_offer_create",
-        "handle_offer_patch"
-      ],
-      "gap": "Mutations are not request-scoped, carry no caller idempotency or expected-head contract, and discard persistence results. Publish writes receipt, candidate, and listing as separate unchecked records; review creation writes review then candidate backlink through a best-effort helper. A partial write can therefore return success or leave torn public/review state.",
-      "acceptance": [
-        "bind every object to authenticated principal, tenant, and owner scope",
-        "admit create/update/delete/review/publish/offer transitions with caller keys and CAS",
-        "represent publish and review-link changes as one admitted transition or a recoverable saga with explicit compensation state",
-        "prove forced failure at every effect boundary, exact retry, restart replay, and cross-principal refusal"
-      ]
     },
     {
       "id": "MEF-GAP-005",
@@ -222,8 +213,8 @@
   ],
   "direct_persistence_indicator_census": {
     "indicator": "explicitly discarded direct persist_record result",
-    "total_occurrences": 301,
-    "source_files": 41,
+    "total_occurrences": 290,
+    "source_files": 40,
     "classification": "audit indicator only; includes possible projections, cleanup, fixtures, and compatibility paths until individually classified",
     "regenerator": "node scripts/audit-daemon-mutation-foundation.mjs",
     "by_source": {
@@ -236,13 +227,12 @@
       "crates/node/src/bin/hypervisor_daemon_routes/ioi_agent_routes.rs": 13,
       "crates/node/src/bin/hypervisor_daemon_routes/connector_execution_routes.rs": 12,
       "crates/node/src/bin/hypervisor_daemon_routes/governance_routes.rs": 10,
-      "crates/node/src/bin/hypervisor_daemon_routes/marketplace_routes.rs": 11,
-      "crates/node/src/bin/hypervisor_daemon_routes/resource_routes.rs": 6,
       "crates/node/src/bin/hypervisor_daemon_routes/environment_routes.rs": 7,
       "crates/node/src/bin/hypervisor_daemon_routes/authority_routes.rs": 6,
       "crates/node/src/bin/hypervisor_daemon_routes/connector_session_routes.rs": 6,
       "crates/node/src/bin/hypervisor_daemon_routes/materializing_run_routes.rs": 6,
       "crates/node/src/bin/hypervisor_daemon_routes/ontology_projection_routes.rs": 6,
+      "crates/node/src/bin/hypervisor_daemon_routes/resource_routes.rs": 6,
       "crates/node/src/bin/hypervisor_daemon_routes/transformation_run_routes.rs": 6,
       "crates/node/src/bin/hypervisor_daemon_routes/decentralized_cloud_routes.rs": 5,
       "crates/node/src/bin/hypervisor_daemon_routes/model_routes.rs": 5,
@@ -269,7 +259,7 @@
       "crates/node/src/bin/hypervisor_daemon_routes/scm_publication_routes.rs": 1,
       "crates/node/src/bin/hypervisor_daemon_routes/vast_candidate_source.rs": 1
     },
-    "census_note": "Down from 304 across the same 41 files. The three eliminated indicators are all in resource_routes::handle_allocate and are the worked example under MEF-GAP-001: they met both halves of the discriminator and now fail closed with typed 500s. The remaining 301 are still UNCLASSIFIED leads, not 301 defects \u2014 apply the classification_method before treating any as one."
+    "census_note": "Down from 304 across 41 files to 290 across 40. The eliminated indicators are classified, not merely subtracted: three in resource_routes::handle_allocate (the worked example under MEF-GAP-001) and eleven across marketplace_routes, which now has none \u2014 every mutation there admits a transition and projects through a checked write (MEF-CLOSED-007). The remaining 290 are still UNCLASSIFIED leads, not defects; apply the classification_method before treating any one as a finding."
   },
   "verification": {
     "foundation_tests": "cargo test -p ioi-node --bin hypervisor-daemon mutation_event_foundation::tests -- --test-threads=1",
