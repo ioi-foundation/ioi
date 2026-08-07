@@ -355,15 +355,38 @@ fn validate_inputs(data_dir: &str, body: &Value) -> Result<PlanInputs, VErr> {
     })
 }
 
-fn plan_receipt(data_dir: &str, plan_ref: &str, op: &str, outcome: &str, summary: &str) -> Value {
+/// Mint a plan receipt. Returns None when the receipt did not durably land, so a caller can refuse
+/// rather than cite a `receipt_ref` that resolves to nothing — the defect authority_routes was
+/// closed for, where `emit_receipt` returned a ref it had not necessarily written.
+fn plan_receipt(
+    data_dir: &str,
+    plan_ref: &str,
+    op: &str,
+    outcome: &str,
+    summary: &str,
+) -> Option<Value> {
     let id = format!("clpr_{:x}", nanos());
     let receipt_ref = format!("agentgres://capability-lease-plan-receipt/{id}");
     let rec = json!({
         "schema_version": RECEIPT_SCHEMA, "receipt_id": id, "receipt_ref": receipt_ref,
         "capability_lease_plan_ref": plan_ref, "op": op, "outcome": outcome, "summary": summary, "at": iso_now()
     });
-    let _ = persist_record(data_dir, RECEIPT_DIR, &id, &rec);
-    rec
+    persist_record(data_dir, RECEIPT_DIR, &id, &rec)
+        .ok()
+        .map(|_| rec)
+}
+
+/// A plan mutation that did not durably land. The plan record is re-read by the execution ladder at
+/// the moment of execution (`connector_execution_routes`), so returning the in-memory record as
+/// admitted state over a lost write hands the caller a plan later reads will not agree with.
+fn plan_persist_failed(what: &str) -> (StatusCode, Json<Value>) {
+    (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        Json(json!({ "ok": false, "error": {
+            "code": "capability_lease_plan_persistence_failed",
+            "message": format!("the CapabilityLease plan {what} could not be durably recorded")
+        }})),
+    )
 }
 fn push_history(record: &mut Value, op: &str, summary: &str, receipt_ref: Value) {
     let rev = record.get("revision").and_then(|v| v.as_u64()).unwrap_or(1);
@@ -440,6 +463,9 @@ fn apply_inputs(record: &mut Value, i: &PlanInputs) {
     record["missing_authority"] = json!(MISSING_AUTHORITY);
 }
 fn bad(data_dir: &str, op: &str, err: VErr) -> (StatusCode, Json<Value>) {
+    // CLASSIFIED audit, deliberately tolerant: this receipt records a refusal that is already being
+    // returned to the caller and admits nothing. Escalating a validation 400 into a 500 because an
+    // audit write failed would report the wrong defect, and no receipt_ref is handed back here.
     let _ = plan_receipt(
         data_dir,
         "capability-lease-plan://unadmitted",
@@ -547,13 +573,15 @@ pub(crate) async fn handle_plan_create(
     let id = format!("clp_{:x}", nanos());
     let now = iso_now();
     let pref = format!("capability-lease-plan://{id}");
-    let receipt = plan_receipt(
+    let Some(receipt) = plan_receipt(
         &st.data_dir,
         &pref,
         "created",
         "ok",
         "CapabilityLease plan declared (nothing minted)",
-    );
+    ) else {
+        return plan_persist_failed("creation receipt");
+    };
     let receipt_ref = receipt.get("receipt_ref").cloned().unwrap_or(Value::Null);
     let mut record = json!({
         "schema_version": PLAN_SCHEMA,
@@ -570,7 +598,9 @@ pub(crate) async fn handle_plan_create(
         "updated_at": now
     });
     apply_inputs(&mut record, &inputs);
-    let _ = persist_record(&st.data_dir, RECORD_DIR, &id, &record);
+    if persist_record(&st.data_dir, RECORD_DIR, &id, &record).is_err() {
+        return plan_persist_failed("creation");
+    }
     (
         StatusCode::CREATED,
         Json(json!({ "ok": true, "capability_lease_plan": record })),
@@ -617,6 +647,8 @@ pub(crate) async fn handle_plan_patch(
     let inputs = match validate_inputs(&st.data_dir, &merged) {
         Ok(i) => i,
         Err(e) => {
+            // CLASSIFIED audit, deliberately tolerant — same reasoning as `bad`: the refusal is
+            // returned either way, no state changes, and no receipt_ref reaches the caller.
             let _ = plan_receipt(
                 &st.data_dir,
                 &s(&existing, "ref", ""),
@@ -638,20 +670,30 @@ pub(crate) async fn handle_plan_patch(
     let rev = record.get("revision").and_then(|v| v.as_u64()).unwrap_or(1) + 1;
     record["revision"] = json!(rev);
     record["updated_at"] = json!(iso_now());
-    let receipt = plan_receipt(
+    let Some(receipt) = plan_receipt(
         &st.data_dir,
         &s(&record, "ref", ""),
         "patched",
         "ok",
         "CapabilityLease plan re-declared",
-    );
+    ) else {
+        return Json(json!({ "ok": false, "error": {
+            "code": "capability_lease_plan_persistence_failed",
+            "message": "the CapabilityLease plan patch receipt could not be durably recorded"
+        }}));
+    };
     push_history(
         &mut record,
         "patched",
         "CapabilityLease plan re-declared",
         receipt.get("receipt_ref").cloned().unwrap_or(Value::Null),
     );
-    let _ = persist_record(&st.data_dir, RECORD_DIR, &id, &record);
+    if persist_record(&st.data_dir, RECORD_DIR, &id, &record).is_err() {
+        return Json(json!({ "ok": false, "error": {
+            "code": "capability_lease_plan_persistence_failed",
+            "message": "the CapabilityLease plan patch could not be durably recorded"
+        }}));
+    }
     Json(json!({ "ok": true, "capability_lease_plan": record }))
 }
 
@@ -674,13 +716,15 @@ pub(crate) async fn handle_plan_revoke(
             ),
         );
     }
-    let receipt = plan_receipt(
+    let Some(receipt) = plan_receipt(
         &st.data_dir,
         &s(&record, "ref", ""),
         "revoked",
         "ok",
         "CapabilityLease plan revoked",
-    );
+    ) else {
+        return plan_persist_failed("revocation receipt");
+    };
     record["status"] = json!("revoked");
     record["updated_at"] = json!(iso_now());
     push_history(
@@ -689,7 +733,14 @@ pub(crate) async fn handle_plan_revoke(
         "CapabilityLease plan revoked",
         receipt.get("receipt_ref").cloned().unwrap_or(Value::Null),
     );
-    let _ = persist_record(&st.data_dir, RECORD_DIR, &id, &record);
+    // NOTE: this closes the persistence half only. No downstream consumer refuses on
+    // `status == "revoked"` — connector_execution_routes, connector_session_routes and
+    // materializing_run_routes contain zero references to it — so revocation remains
+    // unenforced even when the write lands. That is a separate and larger change than this
+    // fix and is NOT claimed here; it is recorded in MEF-GAP-008.
+    if persist_record(&st.data_dir, RECORD_DIR, &id, &record).is_err() {
+        return plan_persist_failed("revocation");
+    }
     (
         StatusCode::OK,
         Json(json!({ "ok": true, "capability_lease_plan": record })),
@@ -705,16 +756,19 @@ pub(crate) async fn handle_plan_delete(
         .and_then(|r| r.get("ref").and_then(|v| v.as_str()).map(str::to_string))
         .unwrap_or_else(|| format!("capability-lease-plan://{id}"));
     let removed = remove_record(&st.data_dir, RECORD_DIR, &id);
-    if removed {
-        let _ = plan_receipt(
+    // The deletion already happened and cannot be undone, so the receipt must not fail the call
+    // closed — but its durability is reported rather than swallowed, since the audit trail for a
+    // removed plan is the only remaining evidence the plan ever existed.
+    let receipt_durable = removed
+        && plan_receipt(
             &st.data_dir,
             &pref,
             "deleted",
             "ok",
             "CapabilityLease plan removed",
-        );
-    }
-    Json(json!({ "ok": removed, "removed": removed, "id": id }))
+        )
+        .is_some();
+    Json(json!({ "ok": removed, "removed": removed, "id": id, "receipt_durable": receipt_durable }))
 }
 
 #[cfg(test)]
