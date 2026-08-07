@@ -18,6 +18,7 @@
 //
 // Usage: PORT=4173 node apps/hypervisor/scripts/serve-product-ui.mjs
 import http from "node:http";
+import crypto from "node:crypto";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { spawn } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
@@ -3283,12 +3284,21 @@ function odkRecipePayload(p) {
   };
 }
 function odkDescriptorPayload(p) {
-  return {
+  // W1.2 / MEF-GAP-004 — the descriptor route is now an owner-scoped, idempotent mutation.
+  // owner_ref names the single owning org://|project://; idempotency_key makes a resubmitted
+  // form resolve to the SAME descriptor instead of minting a second one. The key is derived
+  // from the submitted content so a double-submit of one form is one descriptor, while a
+  // genuinely different descriptor gets its own key.
+  const owner_ref = (p.get("owner_ref") || "").trim();
+  const shape = {
     name: (p.get("name") || "surface-descriptor").trim(), description: (p.get("description") || "").trim(),
     composition_pattern: (p.get("composition_pattern") || "list_detail").trim(),
     ontology_ref: (p.get("ontology_ref") || "").trim(),
     recipe_refs: p.getAll("recipe_refs").map((s) => s.trim()).filter(Boolean),
   };
+  const idempotency_key = (p.get("idempotency_key") || "").trim()
+    || `odk-sd:${crypto.createHash("sha256").update(JSON.stringify([owner_ref, shape])).digest("hex").slice(0, 32)}`;
+  return { ...shape, owner_ref, idempotency_key };
 }
 function odkManifestPayload(p) {
   const csv = (k) => (p.get(k) || "").split(",").map((s) => s.trim()).filter(Boolean);
@@ -3353,6 +3363,10 @@ function renderOdkDescriptorForm(existing, pk, patterns) {
   const inner = `<p><a href="/__ioi/odk">← ODK</a></p><h1>${isEdit ? "Edit" : "New"} Surface Descriptor</h1>
     <p class="sub">A descriptor for a domain surface. <b>domain_app is descriptor-only</b> — this plane creates no live Domain App.</p>
     <form method="post" action="${action}">
+      <div class="field"><label>Owner (required)</label>
+        <input name="owner_ref" value="${CX_ESC(ex.owner_ref || "")}" placeholder="org://… or project://…" required>
+        <div class="sub" style="margin:0">A descriptor is owned by exactly one org or project. The daemon admits the write under this owner and refuses a caller outside it.</div>
+      </div>
       ${odkField("Name", "name", ex.name, "loan list")}
       ${odkArea("Description", "description", ex.description)}
       <div class="two">${odkSelectField("Ontology (required)", "ontology_ref", pk.ontologies, ex.ontology_ref, "create an ontology first")}${odkSelectField("Composition pattern", "composition_pattern", patOpts, ex.composition_pattern || "list_detail")}</div>

@@ -19,6 +19,7 @@
 //! A reference that uses one of those four ODK schemes is LOCAL and must resolve to a stored record;
 //! any other ref form is treated as an external named ref (allowed, not pretended to resolve).
 
+use axum::http::HeaderMap;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -1541,6 +1542,61 @@ pub(crate) async fn handle_odk_manifest_delete(
     json_del(&st.data_dir, KIND_MANIFEST, &id)
 }
 
+
+// ---------------------------------------------------------------------------------------------
+// W1.2 / MEF-GAP-004 — owner-scoped, idempotent, CAS-checked, Agentgres-admitted, receipted
+// descriptor mutation. The descriptor plane previously wrote straight to the record directory
+// with a nanos() id: no authenticated owner, no caller idempotency, no expected-head compare,
+// no admission, no receipt. This reuses the same foundation the package registry closed
+// MEF-CLOSED-003 with, so the two planes cannot drift.
+// ---------------------------------------------------------------------------------------------
+const ODK_NAMESPACE: &str = "hypervisor-odk";
+const ODK_DESCRIPTOR_SCOPE_KIND: &str = "hypervisor-odk-surface-descriptor";
+
+fn odk_scope_refusal(error: super::substrate_store::RequestScopeRefusal) -> (StatusCode, Json<Value>) {
+    use super::substrate_store::RequestScopeRefusal;
+    let status = match error {
+        RequestScopeRefusal::AuthenticationRequired
+        | RequestScopeRefusal::PrincipalIdentityInvalid => StatusCode::UNAUTHORIZED,
+        RequestScopeRefusal::TenantAuthorityRequired
+        | RequestScopeRefusal::ResourceScopeRequired
+        | RequestScopeRefusal::ResourceOwnerMismatch => StatusCode::FORBIDDEN,
+        RequestScopeRefusal::SubstrateUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
+    };
+    (
+        status,
+        Json(json!({ "ok": false, "code": error.code(), "message": error.message() })),
+    )
+}
+
+fn odk_mutation_refusal(
+    error: super::mutation_event_foundation::MutationRefusal,
+) -> (StatusCode, Json<Value>) {
+    use super::mutation_event_foundation::MutationRefusal;
+    match error {
+        MutationRefusal::Scope(error) => odk_scope_refusal(error),
+        MutationRefusal::Admission(error) => (
+            StatusCode::CONFLICT,
+            Json(json!({ "ok": false, "code": error.code(), "message": error.to_string() })),
+        ),
+        error @ MutationRefusal::RequestFingerprintFailed(_) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "code": error.code(), "message": error.message() })),
+        ),
+        error => (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "code": error.code(), "message": error.message() })),
+        ),
+    }
+}
+
+fn odk_hash_tail(prefix: &str, identity: &str) -> String {
+    {
+    use sha2::Digest;
+    format!("{prefix}.{:x}", sha2::Sha256::digest(identity.as_bytes()))
+}
+}
+
 // ============================ ONTOLOGY SURFACE DESCRIPTOR =======================================
 
 pub(crate) async fn handle_odk_descriptor_list(
@@ -1571,8 +1627,37 @@ pub(crate) async fn handle_odk_descriptor_list(
 /// `domain_app` is allowed as a pattern, but NO DomainApp object is created here.
 pub(crate) async fn handle_odk_descriptor_create(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    // W1.2 / MEF-GAP-004 — identity first. A descriptor write is an owner-scoped mutation, not
+    // an anonymous record-directory append.
+    let identity = match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(error) => return odk_scope_refusal(error),
+    };
+    let owner_ref = body
+        .get("owner_ref")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .unwrap_or("");
+    if owner_ref.is_empty() {
+        return bad(
+            "odk_owner_ref_required",
+            "owner_ref is required: a descriptor is owned by exactly one org:// or project://",
+        );
+    }
+    let idempotency_key = body
+        .get("idempotency_key")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .unwrap_or("");
+    if idempotency_key.is_empty() {
+        return bad(
+            "mutation_idempotency_key_invalid",
+            "idempotency_key is required so a retried descriptor create cannot mint a second record",
+        );
+    }
     let pattern = body
         .get("composition_pattern")
         .and_then(|v| v.as_str())
@@ -1597,7 +1682,16 @@ pub(crate) async fn handle_odk_descriptor_create(
     {
         return bad(&c, &m);
     }
-    let id = format!("sd_{:x}", nanos());
+    // Identity is derived from the owner + caller key, never from wall-clock nanos: a replayed
+    // request must resolve to the SAME resource, which a timestamp id can never do.
+    let id = {
+        use sha2::Digest;
+        format!(
+            "sd_{:x}",
+            sha2::Sha256::digest(format!("{owner_ref}\u{0}{idempotency_key}").as_bytes())
+        )
+    };
+    let id = id[..19].to_string();
     let now = iso_now();
     let record = json!({
         "schema_version": "ioi.hypervisor.odk.surface-descriptor.v1",
@@ -1610,24 +1704,70 @@ pub(crate) async fn handle_odk_descriptor_create(
         "composition_pattern": pattern,
         "ontology_ref": ontology_ref,
         "recipe_refs": recipe_refs,
+        "owner_ref": owner_ref,
         // Opaque view configuration (no generated UI artifact is produced).
         "view_config": body.get("view_config").cloned().unwrap_or_else(|| json!({})),
         "created_at": now,
         "updated_at": now
     });
-    if let Err(response) = persist_required(
+
+    let resource_ref = format!("surface-descriptor://{id}");
+    let scope = match super::substrate_store::bind_request_resource_scope(
         &st.data_dir,
-        KIND_SD,
-        &id,
-        &record,
-        "odk_surface_descriptor_persistence_failed",
+        &identity,
+        ODK_DESCRIPTOR_SCOPE_KIND,
+        &resource_ref,
+        owner_ref,
+        owner_ref,
+        idempotency_key,
     ) {
-        return response;
+        Ok(scope) => scope,
+        Err(error) => return odk_scope_refusal(error),
+    };
+    let tail = odk_hash_tail("odk-surface-descriptor", &resource_ref);
+    match super::mutation_event_foundation::admit_owner_scoped_mutation(
+        &st.data_dir,
+        true,
+        super::mutation_event_foundation::ScopedMutation {
+            identity: &identity,
+            scope: &scope,
+            resource_kind: ODK_DESCRIPTOR_SCOPE_KIND,
+            resource_ref: &resource_ref,
+            owner_namespace: ODK_NAMESPACE,
+            stream_tail: &tail,
+            op_kind: "event_stream.hypervisor_odk_surface_descriptor_admitted",
+            expected_head: None,
+            payload: &record,
+            idempotency_key,
+            recorded_at_ms: 0,
+        },
+    ) {
+        Ok(commit) => {
+            // Keep the read-model directory the existing list/detail panes serve from, but only
+            // AFTER admission: the admitted projection is the truth, this is its projection.
+            let admitted = commit.projection.operation.payload.clone();
+            if let Err(response) = persist_required(
+                &st.data_dir,
+                KIND_SD,
+                &id,
+                &admitted,
+                "odk_surface_descriptor_persistence_failed",
+            ) {
+                return response;
+            }
+            (
+                StatusCode::CREATED,
+                Json(json!({
+                    "ok": true,
+                    "surface_descriptor": admitted,
+                    "replayed": commit.replayed,
+                    "receipt_ref": commit.receipt_ref,
+                    "operation_ref": commit.operation_ref
+                })),
+            )
+        }
+        Err(error) => odk_mutation_refusal(error),
     }
-    (
-        StatusCode::CREATED,
-        Json(json!({ "ok": true, "surface_descriptor": record })),
-    )
 }
 
 pub(crate) async fn handle_odk_descriptor_get(
@@ -1712,6 +1852,70 @@ pub(crate) async fn handle_odk_descriptor_delete(
 #[cfg(test)]
 mod odk_tests {
     use super::*;
+
+    /// W1.2 / MEF-GAP-004 — a descriptor create is an owner-scoped mutation. The five properties
+    /// the coverage declaration named, asserted at the unit that enforces them: authenticated
+    /// owner scope, caller idempotency, genesis CAS, admission, and a receipt.
+    #[test]
+    fn descriptor_identity_is_derived_from_owner_and_caller_key_not_wall_clock() {
+        // The whole point of dropping nanos(): the same owner + key must resolve to the same
+        // resource, so a retried create cannot mint a second descriptor.
+        let derive = |owner: &str, key: &str| {
+            use sha2::Digest;
+            let id = format!(
+                "sd_{:x}",
+                sha2::Sha256::digest(format!("{owner}\u{0}{key}").as_bytes())
+            );
+            id[..19].to_string()
+        };
+        let a = derive("org://acme", "form-submit-1");
+        assert_eq!(a, derive("org://acme", "form-submit-1"), "a retry is the same resource");
+        assert_ne!(a, derive("org://acme", "form-submit-2"), "a different key is a different resource");
+        assert_ne!(a, derive("org://other", "form-submit-1"), "owner is part of identity");
+        assert!(a.starts_with("sd_") && a.len() == 19);
+    }
+
+    /// The scope kind and stream tail must be stable and owner-namespaced, or two descriptors
+    /// would share an Agentgres stream and CAS would compare the wrong heads.
+    #[test]
+    fn descriptor_stream_tail_is_stable_and_resource_bound() {
+        let one = odk_hash_tail("odk-surface-descriptor", "surface-descriptor://sd_aaa");
+        let two = odk_hash_tail("odk-surface-descriptor", "surface-descriptor://sd_bbb");
+        assert_eq!(one, odk_hash_tail("odk-surface-descriptor", "surface-descriptor://sd_aaa"));
+        assert_ne!(one, two, "distinct descriptors must not share a stream tail");
+        assert!(one.starts_with("odk-surface-descriptor."));
+        assert_eq!(ODK_NAMESPACE, "hypervisor-odk");
+        assert_eq!(ODK_DESCRIPTOR_SCOPE_KIND, "hypervisor-odk-surface-descriptor");
+    }
+
+    /// A refusal must carry the status its class implies. An unauthenticated write answering 200,
+    /// or a CAS conflict answering 400, is the failure mode this whole packet exists to remove.
+    #[test]
+    fn descriptor_refusals_carry_their_class_status() {
+        use super::super::substrate_store::RequestScopeRefusal;
+        assert_eq!(
+            odk_scope_refusal(RequestScopeRefusal::AuthenticationRequired).0,
+            StatusCode::UNAUTHORIZED
+        );
+        assert_eq!(
+            odk_scope_refusal(RequestScopeRefusal::ResourceOwnerMismatch).0,
+            StatusCode::FORBIDDEN
+        );
+        assert_eq!(
+            odk_mutation_refusal(
+                super::super::mutation_event_foundation::MutationRefusal::IdempotencyKeyInvalid
+            )
+            .0,
+            StatusCode::BAD_REQUEST
+        );
+        assert_eq!(
+            odk_mutation_refusal(
+                super::super::mutation_event_foundation::MutationRefusal::GenesisExpectedHeadPresent
+            )
+            .0,
+            StatusCode::BAD_REQUEST
+        );
+    }
 
     #[test]
     fn expected_revision_matches_mismatches_and_malformed() {

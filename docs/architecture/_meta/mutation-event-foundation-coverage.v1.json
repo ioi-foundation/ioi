@@ -154,7 +154,7 @@
       "id": "MEF-GAP-004",
       "priority": "blocker",
       "plane": "ODK recipes, manifests, and surface descriptors",
-      "status": "open",
+      "status": "partially_closed_2026_08_07",
       "source": "crates/node/src/bin/hypervisor_daemon_routes/odk_routes.rs",
       "handler_markers": [
         "handle_odk_recipe_create",
@@ -167,7 +167,7 @@
         "recipe, manifest, and surface-descriptor create and patch handlers now refuse success when durable persistence fails",
         "ontology create, patch, and delete already use receipt-last persistence with rollback/restore tests"
       ],
-      "gap": "The direct persistence-discard indicators and false-success paths in this file are removed, but recipes, manifests, and surface descriptors still expose no authenticated owner scope, caller idempotency, expected-head CAS, Agentgres admission, or mutation receipt contract.",
+      "gap": "Surface descriptors are CLOSED: create is owner-scoped (bind_request_resource_scope), requires a caller idempotency_key, derives resource identity from owner+key rather than wall-clock nanos so a retry resolves the same descriptor, admits through admit_owner_scoped_mutation as a genesis mutation (expected_head absent), and returns receipt_ref plus operation_ref. The record directory is now written from the ADMITTED projection, after admission, as a read model. Recipes and manifests still expose no owner scope, idempotency, CAS, admission or receipt and remain open. Descriptor patch/delete are also still unscoped.",
       "acceptance": [
         "route every ODK create/update/delete through owner scope, idempotency, CAS, admission, and receipts",
         "make schema/ontology/descriptor cross-object validation part of the admitted command fingerprint",
@@ -221,7 +221,9 @@
       "plane": "worker package planner plus package registration, activation, and rollback",
       "status": "open",
       "source": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
-      "handler_markers": ["handle_worker_package_install_admission"],
+      "handler_markers": [
+        "handle_worker_package_install_admission"
+      ],
       "gap": "The separate worker-package install endpoint remains a pure kernel planner returning 202. It does not authenticate a request scope, durably admit an install transition, execute installation, or provide idempotent/CAS/restart semantics. MEF-CLOSED-003 covers only exact ODK package candidates, immutable releases, disabled installation bindings, and uninstall; it does not close extension_application registration, executable artifact activation, product-catalog/System/serving bindings, upgrade, rollback, or affected-System remediation.",
       "acceptance": [
         "separate pure planning from the mutation endpoint contract",
