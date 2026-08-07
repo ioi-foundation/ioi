@@ -631,3 +631,167 @@ mod tests {
         super::super::substrate_store::reset_handle_for_test();
     }
 }
+
+// =================================================================================================
+// Shared owner-scoped write path.
+//
+// Three modules were growing their own copy of the same twelve steps — resolve identity, require
+// owner_ref, require idempotency_key, derive a replay-stable resource id, bind scope, hash a
+// stream tail, admit, project. Copies drift, and a mutation contract that differs per module is
+// the thing this foundation exists to prevent. This is the one implementation.
+// =================================================================================================
+
+/// What a caller must present before any owner-scoped write.
+pub(crate) struct WriteCaller {
+    pub(crate) identity: RequestIdentity,
+    pub(crate) owner_ref: String,
+    pub(crate) idempotency_key: String,
+}
+
+pub(crate) fn scope_refusal_reply(
+    error: super::substrate_store::RequestScopeRefusal,
+) -> (axum::http::StatusCode, axum::Json<Value>) {
+    use super::substrate_store::RequestScopeRefusal;
+    use axum::http::StatusCode;
+    let status = match error {
+        RequestScopeRefusal::AuthenticationRequired
+        | RequestScopeRefusal::PrincipalIdentityInvalid => StatusCode::UNAUTHORIZED,
+        RequestScopeRefusal::TenantAuthorityRequired
+        | RequestScopeRefusal::ResourceScopeRequired
+        | RequestScopeRefusal::ResourceOwnerMismatch => StatusCode::FORBIDDEN,
+        RequestScopeRefusal::SubstrateUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
+    };
+    (
+        status,
+        axum::Json(json!({ "ok": false, "code": error.code(), "message": error.message() })),
+    )
+}
+
+pub(crate) fn mutation_refusal_reply(
+    error: MutationRefusal,
+) -> (axum::http::StatusCode, axum::Json<Value>) {
+    use axum::http::StatusCode;
+    let status = match error {
+        MutationRefusal::Scope(inner) => return scope_refusal_reply(inner),
+        MutationRefusal::Admission(_) => StatusCode::CONFLICT,
+        MutationRefusal::RequestFingerprintFailed(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        _ => StatusCode::BAD_REQUEST,
+    };
+    (
+        status,
+        axum::Json(json!({ "ok": false, "code": error.code(), "message": error.message() })),
+    )
+}
+
+/// Authenticate and bind the caller. Identity is the FIRST gate — validating a request body before
+/// authenticating tells an anonymous caller what fields it wants, and answers 400 where it owes 401.
+pub(crate) fn require_write_caller(
+    data_dir: &str,
+    headers: &axum::http::HeaderMap,
+    body: &Value,
+) -> Result<WriteCaller, (axum::http::StatusCode, axum::Json<Value>)> {
+    use axum::http::StatusCode;
+    let identity = super::substrate_store::resolve_request_identity(data_dir, headers)
+        .map_err(scope_refusal_reply)?;
+    let field = |key: &str| {
+        body.get(key)
+            .and_then(|value| value.as_str())
+            .map(str::trim)
+            .unwrap_or("")
+            .to_string()
+    };
+    let owner_ref = field("owner_ref");
+    let idempotency_key = field("idempotency_key");
+    if owner_ref.is_empty() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            axum::Json(json!({ "ok": false, "code": "mutation_owner_ref_required",
+                "message": "owner_ref is required: this record is owned by exactly one org:// or project://" })),
+        ));
+    }
+    if idempotency_key.is_empty() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            axum::Json(
+                json!({ "ok": false, "code": "mutation_idempotency_key_invalid",
+                "message": "idempotency_key is required so a retried write cannot apply twice" }),
+            ),
+        ));
+    }
+    Ok(WriteCaller {
+        identity,
+        owner_ref,
+        idempotency_key,
+    })
+}
+
+/// Resource identity from owner + caller key. A wall-clock id can never be idempotent: the same
+/// logical request submitted twice mints two resources.
+pub(crate) fn replay_stable_id(prefix: &str, owner_ref: &str, idempotency_key: &str) -> String {
+    use sha2::Digest;
+    let digest = sha2::Sha256::digest(format!("{owner_ref}\u{0}{idempotency_key}").as_bytes());
+    format!("{prefix}_{digest:x}")[..(prefix.len() + 17)].to_string()
+}
+
+pub(crate) fn stream_tail(resource_kind: &str, resource_ref: &str) -> String {
+    use sha2::Digest;
+    format!(
+        "{resource_kind}.{:x}",
+        sha2::Sha256::digest(resource_ref.as_bytes())
+    )
+}
+
+/// Admit a record under the caller's owner scope. `expected_head` is None for a genesis write and
+/// required for a successor. Wall-clock must already be absent from `payload`: a retry that is not
+/// byte-identical is refused as same-key-different-bytes, which makes the key meaningless.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn admit_owner_scoped_write(
+    data_dir: &str,
+    caller: &WriteCaller,
+    owner_namespace: &str,
+    resource_kind: &str,
+    resource_ref: &str,
+    op_kind: &str,
+    expected_head: Option<&str>,
+    payload: &Value,
+) -> Result<MutationCommit, (axum::http::StatusCode, axum::Json<Value>)> {
+    let scope = super::substrate_store::bind_request_resource_scope(
+        data_dir,
+        &caller.identity,
+        resource_kind,
+        resource_ref,
+        &caller.owner_ref,
+        &caller.owner_ref,
+        &caller.idempotency_key,
+    )
+    .map_err(scope_refusal_reply)?;
+    admit_owner_scoped_mutation(
+        data_dir,
+        expected_head.is_none(),
+        ScopedMutation {
+            identity: &caller.identity,
+            scope: &scope,
+            resource_kind,
+            resource_ref,
+            owner_namespace,
+            stream_tail: &stream_tail(resource_kind, resource_ref),
+            op_kind,
+            expected_head,
+            payload,
+            idempotency_key: &caller.idempotency_key,
+            recorded_at_ms: 0,
+        },
+    )
+    .map_err(mutation_refusal_reply)
+}
+
+/// Render an admitted transition's own timestamp. Callers must project this rather than calling the
+/// clock: a payload carrying `now()` is byte-different on every retry, so the idempotency key stops
+/// matching and the same command mints a second resource.
+pub(crate) fn admitted_stamp(recorded_at_ms: u64) -> String {
+    use time::format_description::well_known::Rfc3339;
+    time::OffsetDateTime::from_unix_timestamp_nanos((recorded_at_ms as i128) * 1_000_000)
+        .ok()
+        .and_then(|dt| dt.format(&Rfc3339).ok())
+        .unwrap_or_else(super::iso_now)
+}

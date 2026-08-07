@@ -1400,7 +1400,17 @@ const KIND_KILL_ENFORCE_RECEIPT: &str = "governance-kill-enforcement-receipts";
 pub(crate) async fn handle_kill_enforce(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
+    headers: axum::http::HeaderMap,
+    Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    // Enforcement stops running software. It was reachable unauthenticated: anyone who could reach
+    // the port could unmount every runtime a tripped switch named.
+    let caller =
+        match super::mutation_event_foundation::require_write_caller(&st.data_dir, &headers, &body)
+        {
+            Ok(caller) => caller,
+            Err(response) => return response,
+        };
     let Some(mut k) = load(&st.data_dir, KIND_KILL, &id) else {
         return bad("kill_switch_not_found", "kill switch not found");
     };
@@ -1427,13 +1437,48 @@ pub(crate) async fn handle_kill_enforce(
     let now = iso_now();
     let mut affected: Vec<String> = Vec::new();
     let mut receipt_refs: Vec<String> = Vec::new();
+    let targets: Vec<String> = runtimes
+        .iter()
+        .filter_map(|rt| rt.get("ref").and_then(|v| v.as_str()).map(str::to_string))
+        .collect();
+    // Admit the WHOLE fan-out as one transition before stopping anything. Previously this loop
+    // enforced runtime-by-runtime and returned on the first failure: with five targets, a failure
+    // at the third left two runtimes killed, three running, and the KillSwitch never updated — a
+    // half-enforced kill that no record described and no restart could finish. The admitted
+    // transition names every target, so recovery can complete the set instead of guessing it.
+    let enforcement_plan = json!({
+        "kill_switch_ref": k.get("ref").cloned().unwrap_or(Value::Null),
+        "subject_ref": subject,
+        "target_runtime_refs": targets
+    });
+    let plan_commit = match super::mutation_event_foundation::admit_owner_scoped_write(
+        &st.data_dir,
+        &caller,
+        "hypervisor-governance",
+        KIND_KILL,
+        k.get("ref").and_then(|v| v.as_str()).unwrap_or(&id),
+        "governance.kill_enforce.planned",
+        k.get("admitted_head").and_then(|v| v.as_str()),
+        &enforcement_plan,
+    ) {
+        Ok(commit) => commit,
+        Err(response) => return response,
+    };
     for rt in &runtimes {
         if let Some(r) = rt.get("ref").and_then(|v| v.as_str()) {
             affected.push(r.to_string());
         }
-        match super::domain_apps_routes::kill_enforce_runtime(&st.data_dir, rt) {
+        match super::domain_apps_routes::kill_enforce_runtime(&st.data_dir, &caller, rt) {
             Ok(refs) => receipt_refs.extend(refs),
-            Err(response) => return response,
+            // Report the admitted plan so the caller — and a restart — can finish the remaining
+            // targets. Returning a bare error here is what made partial enforcement invisible.
+            Err((status, Json(mut payload))) => {
+                payload["admitted_enforcement_head"] = json!(plan_commit.projection.head);
+                payload["planned_target_runtime_refs"] =
+                    json!(enforcement_plan["target_runtime_refs"]);
+                payload["enforced_before_failure"] = json!(affected);
+                return (status, Json(payload));
+            }
         }
     }
     let enforcement_state = if runtimes.is_empty() {

@@ -1242,7 +1242,9 @@ pub(crate) async fn handle_odk_recipe_create(
     let id = odk_derived_id(
         "recipe",
         body.get("owner_ref").and_then(|v| v.as_str()).unwrap_or(""),
-        body.get("idempotency_key").and_then(|v| v.as_str()).unwrap_or(""),
+        body.get("idempotency_key")
+            .and_then(|v| v.as_str())
+            .unwrap_or(""),
     );
     let now = iso_now();
     let record = json!({
@@ -1425,7 +1427,9 @@ pub(crate) async fn handle_odk_manifest_create(
     let id = odk_derived_id(
         "odk",
         body.get("owner_ref").and_then(|v| v.as_str()).unwrap_or(""),
-        body.get("idempotency_key").and_then(|v| v.as_str()).unwrap_or(""),
+        body.get("idempotency_key")
+            .and_then(|v| v.as_str())
+            .unwrap_or(""),
     );
     let now = iso_now();
     let record = json!({
@@ -1570,7 +1574,6 @@ pub(crate) async fn handle_odk_manifest_delete(
     json_del(&st.data_dir, KIND_MANIFEST, &id)
 }
 
-
 // ---------------------------------------------------------------------------------------------
 // W1.2 / MEF-GAP-004 — owner-scoped, idempotent, CAS-checked, Agentgres-admitted, receipted
 // descriptor mutation. The descriptor plane previously wrote straight to the record directory
@@ -1581,7 +1584,9 @@ pub(crate) async fn handle_odk_manifest_delete(
 const ODK_NAMESPACE: &str = "hypervisor-odk";
 const ODK_DESCRIPTOR_SCOPE_KIND: &str = "hypervisor-odk-surface-descriptor";
 
-fn odk_scope_refusal(error: super::substrate_store::RequestScopeRefusal) -> (StatusCode, Json<Value>) {
+fn odk_scope_refusal(
+    error: super::substrate_store::RequestScopeRefusal,
+) -> (StatusCode, Json<Value>) {
     use super::substrate_store::RequestScopeRefusal;
     let status = match error {
         RequestScopeRefusal::AuthenticationRequired
@@ -1632,11 +1637,10 @@ fn admitted_stamp_ms(recorded_at_ms: u64) -> String {
 
 fn odk_hash_tail(prefix: &str, identity: &str) -> String {
     {
-    use sha2::Digest;
-    format!("{prefix}.{:x}", sha2::Sha256::digest(identity.as_bytes()))
+        use sha2::Digest;
+        format!("{prefix}.{:x}", sha2::Sha256::digest(identity.as_bytes()))
+    }
 }
-}
-
 
 /// One owner-scoped admission path for every ODK family. The caller validates its own shape and
 /// hands over a finished record; this does identity, owner binding, caller idempotency, CAS,
@@ -1873,7 +1877,9 @@ pub(crate) async fn handle_odk_descriptor_create(
     let id = odk_derived_id(
         "sd",
         body.get("owner_ref").and_then(|v| v.as_str()).unwrap_or(""),
-        body.get("idempotency_key").and_then(|v| v.as_str()).unwrap_or(""),
+        body.get("idempotency_key")
+            .and_then(|v| v.as_str())
+            .unwrap_or(""),
     );
     let record = json!({
         "schema_version": "ioi.hypervisor.odk.surface-descriptor.v1",
@@ -1921,14 +1927,11 @@ pub(crate) async fn handle_odk_descriptor_get(
     if reply["ok"].as_bool() == Some(true) {
         let resource_ref = format!("surface-descriptor://{id}");
         let tail = odk_hash_tail(ODK_DESCRIPTOR_SCOPE_KIND, &resource_ref);
-        let head = super::substrate_store::read_event_stream_operation(
-            &st.data_dir,
-            ODK_NAMESPACE,
-            &tail,
-        )
-        .ok()
-        .flatten()
-        .map(|projection| projection.head);
+        let head =
+            super::substrate_store::read_event_stream_operation(&st.data_dir, ODK_NAMESPACE, &tail)
+                .ok()
+                .flatten()
+                .map(|projection| projection.head);
         reply["admitted_head"] = match head {
             Some(head) => json!(head),
             // No admitted stream means the descriptor predates owner-scoped admission. Say so
@@ -2028,8 +2031,10 @@ pub(crate) async fn handle_odk_descriptor_delete(
     let Some(previous) = load(&st.data_dir, KIND_SD, &id) else {
         return (
             StatusCode::NOT_FOUND,
-            Json(json!({ "ok": false, "code": "odk_surface_descriptor_not_found",
-                         "message": "surface_descriptor not found" })),
+            Json(
+                json!({ "ok": false, "code": "odk_surface_descriptor_not_found",
+                         "message": "surface_descriptor not found" }),
+            ),
         );
     };
     let mut tombstone = previous.clone();
@@ -2077,11 +2082,26 @@ mod odk_tests {
         // resource, so a retried create cannot mint a second descriptor.
         let derive = |owner: &str, key: &str| odk_derived_id("sd", owner, key);
         let a_id = |owner: &str, key: &str| odk_derived_id("sd", owner, key);
-        assert_eq!(a_id("org://acme", "k"), odk_derived_id("sd", "org://acme", "k"));
+        assert_eq!(
+            a_id("org://acme", "k"),
+            odk_derived_id("sd", "org://acme", "k")
+        );
         let a = derive("org://acme", "form-submit-1");
-        assert_eq!(a, derive("org://acme", "form-submit-1"), "a retry is the same resource");
-        assert_ne!(a, derive("org://acme", "form-submit-2"), "a different key is a different resource");
-        assert_ne!(a, derive("org://other", "form-submit-1"), "owner is part of identity");
+        assert_eq!(
+            a,
+            derive("org://acme", "form-submit-1"),
+            "a retry is the same resource"
+        );
+        assert_ne!(
+            a,
+            derive("org://acme", "form-submit-2"),
+            "a different key is a different resource"
+        );
+        assert_ne!(
+            a,
+            derive("org://other", "form-submit-1"),
+            "owner is part of identity"
+        );
         assert!(a.starts_with("sd_") && a.len() == 19);
     }
 
@@ -2094,11 +2114,20 @@ mod odk_tests {
         // an empty stream and every compare-and-swap patch refused.
         let one = odk_hash_tail(ODK_DESCRIPTOR_SCOPE_KIND, "surface-descriptor://sd_aaa");
         let two = odk_hash_tail(ODK_DESCRIPTOR_SCOPE_KIND, "surface-descriptor://sd_bbb");
-        assert_eq!(one, odk_hash_tail(ODK_DESCRIPTOR_SCOPE_KIND, "surface-descriptor://sd_aaa"));
-        assert_ne!(one, two, "distinct descriptors must not share a stream tail");
+        assert_eq!(
+            one,
+            odk_hash_tail(ODK_DESCRIPTOR_SCOPE_KIND, "surface-descriptor://sd_aaa")
+        );
+        assert_ne!(
+            one, two,
+            "distinct descriptors must not share a stream tail"
+        );
         assert!(one.starts_with(&format!("{ODK_DESCRIPTOR_SCOPE_KIND}.")));
         assert_eq!(ODK_NAMESPACE, "hypervisor-odk");
-        assert_eq!(ODK_DESCRIPTOR_SCOPE_KIND, "hypervisor-odk-surface-descriptor");
+        assert_eq!(
+            ODK_DESCRIPTOR_SCOPE_KIND,
+            "hypervisor-odk-surface-descriptor"
+        );
     }
 
     /// A refusal must carry the status its class implies. An unauthenticated write answering 200,

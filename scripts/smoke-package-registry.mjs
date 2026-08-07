@@ -40,7 +40,15 @@ function writeReport() {
 }
 
 function assertThat(condition, name, detail = {}) {
-  if (!condition) throw new Error(`assertion failed: ${name}`);
+  if (!condition) {
+    // Carry the detail into the message. A failure that reports only its own name forces the
+    // reader to re-run the smoke by hand to learn which status or code it actually saw.
+    throw new Error(
+      `assertion failed: ${name}${
+        Object.keys(detail).length ? ` — ${JSON.stringify(detail)}` : ""
+      }`,
+    );
+  }
   report.assertions.push({ name, status: "passed", ...detail });
 }
 
@@ -53,6 +61,7 @@ function expectStatus(response, status, name) {
     expected_status: status,
     actual_status: response.status,
     error_code: errorCode(response.body),
+    message: response.body?.error?.message ?? response.body?.message ?? null,
   });
 }
 
@@ -294,6 +303,8 @@ async function run() {
         composition_pattern: "domain_app",
         ontology_ref: ontologyRef,
         recipe_refs: [],
+        owner_ref: "org://local",
+        idempotency_key: "package-registry-smoke-descriptor-v1",
       },
     );
     expectStatus(descriptor, 201, "ODK domain-app descriptor is durable");
@@ -309,6 +320,8 @@ async function run() {
         ontology_refs: [ontologyRef],
         recipe_refs: [],
         surface_descriptor_refs: [descriptorRef],
+        owner_ref: "org://local",
+        idempotency_key: "package-registry-smoke-manifest-v1",
       },
     );
     expectStatus(manifest, 201, "ODK manifest source is durable");
@@ -324,6 +337,7 @@ async function run() {
         surface_descriptor_ref: descriptorRef,
         odk_manifest_ref: manifestRef,
         owner_ref: "org://local",
+        idempotency_key: "package-registry-smoke-domain-app-v1",
       },
     );
     expectStatus(domainApp, 201, "DomainApp source is durable");

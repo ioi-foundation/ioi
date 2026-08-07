@@ -21,7 +21,36 @@ use axum::Json;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 
+use super::mutation_event_foundation::{
+    admit_owner_scoped_write, replay_stable_id, require_write_caller, WriteCaller,
+};
 use super::{iso_now, persist_record, read_record_dir, remove_record, sha256_hex_str, DaemonState};
+
+/// Every Domain App record lives under one owner namespace so a tenant's apps cannot be read or
+/// advanced through another tenant's scope.
+const DAPP_NAMESPACE: &str = "hypervisor-domain-apps";
+
+/// The admitted head a successor must present. Absent on a record written before this plane bound
+/// identity, which is why the CAS below refuses rather than silently accepting.
+fn admitted_head_of(record: &Value) -> Option<String> {
+    record
+        .get("admitted_head")
+        .and_then(|v| v.as_str())
+        .map(str::to_string)
+}
+
+/// Project the admission onto the record. The head is what the NEXT writer must present, and the
+/// timestamp comes from the admission rather than the wall clock — a payload that carries `now()`
+/// is byte-different on every retry, which makes the idempotency key meaningless.
+fn project_admission(
+    record: &mut Value,
+    commit: &super::mutation_event_foundation::MutationCommit,
+) {
+    record["admitted_head"] = json!(commit.projection.head);
+    record["updated_at"] = json!(super::mutation_event_foundation::admitted_stamp(
+        commit.projection.operation.recorded_at_ms
+    ));
+}
 
 const KIND_DAPP: &str = "domain-apps";
 const KIND_SD: &str = "odk-surface-descriptors";
@@ -316,8 +345,15 @@ pub(crate) async fn handle_domain_apps_list(
 /// odk_manifest_ref is optional (if present, must resolve AND include the descriptor).
 pub(crate) async fn handle_domain_apps_create(
     State(st): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    // Identity is the first gate. Validating the body first tells an unauthenticated caller which
+    // fields this route wants, and answers 400 where it owes 401.
+    let caller: WriteCaller = match require_write_caller(&st.data_dir, &headers, &body) {
+        Ok(caller) => caller,
+        Err(response) => return response,
+    };
     let sd_ref = str_field(&body, "surface_descriptor_ref");
     if sd_ref.is_empty() {
         return bad(
@@ -352,8 +388,9 @@ pub(crate) async fn handle_domain_apps_create(
         v.to_string()
     };
     let derived = derive_snapshot(&descriptor, manifest.as_ref(), &body);
-    let id = format!("dapp_{:x}", nanos());
-    let now = iso_now();
+    // Content-derived, not clock-derived: the same logical create submitted twice must resolve to
+    // one resource, and `nanos()` mints a second one.
+    let id = replay_stable_id("dapp", &caller.owner_ref, &caller.idempotency_key);
     let record = json!({
         "schema_version": "ioi.hypervisor.domain-app.v1",
         "object": "ioi.hypervisor.domain_app",
@@ -365,7 +402,7 @@ pub(crate) async fn handle_domain_apps_create(
         "surface_descriptor_ref": sd_ref,
         "odk_manifest_ref": if man_ref.is_empty() { Value::Null } else { json!(man_ref) },
         "project_ref": body.get("project_ref").cloned().unwrap_or(Value::Null),
-        "owner_ref": body.get("owner_ref").cloned().unwrap_or(Value::Null),
+        "owner_ref": caller.owner_ref,
         "visibility": visibility,
         // Derived provenance snapshot from the descriptor (+ manifest, if bound).
         "ontology_refs": derived.ontology_refs,
@@ -382,9 +419,27 @@ pub(crate) async fn handle_domain_apps_create(
             "route": Value::Null,
             "note": "draft object only; no generated runtime mounted"
         },
-        "created_at": now,
-        "updated_at": now
     });
+    // The admitted transition is canon; the record directory is a projection of it. Admitting first
+    // means a crash between the two is recoverable by replay rather than by rollback-and-hope.
+    let commit = match admit_owner_scoped_write(
+        &st.data_dir,
+        &caller,
+        DAPP_NAMESPACE,
+        KIND_DAPP,
+        &format!("domain-app://{id}"),
+        "domain_app.create",
+        None,
+        &record,
+    ) {
+        Ok(commit) => commit,
+        Err(response) => return response,
+    };
+    let mut record = record;
+    record["created_at"] = json!(super::mutation_event_foundation::admitted_stamp(
+        commit.projection.operation.recorded_at_ms
+    ));
+    project_admission(&mut record, &commit);
     if let Err(response) = persist_required(
         &st.data_dir,
         KIND_DAPP,
@@ -395,8 +450,12 @@ pub(crate) async fn handle_domain_apps_create(
         return response;
     }
     (
-        StatusCode::CREATED,
-        Json(json!({ "ok": true, "domain_app": record })),
+        if commit.replayed {
+            StatusCode::OK
+        } else {
+            StatusCode::CREATED
+        },
+        Json(json!({ "ok": true, "replayed": commit.replayed, "domain_app": record })),
     )
 }
 
@@ -416,8 +475,13 @@ pub(crate) async fn handle_domain_apps_get(
 pub(crate) async fn handle_domain_apps_patch(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
+    headers: axum::http::HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    let caller: WriteCaller = match require_write_caller(&st.data_dir, &headers, &body) {
+        Ok(caller) => caller,
+        Err(response) => return response,
+    };
     let Some(mut a) = load(&st.data_dir, KIND_DAPP, &id) else {
         return (
             StatusCode::NOT_FOUND,
@@ -497,7 +561,36 @@ pub(crate) async fn handle_domain_apps_patch(
             a[key] = v.clone();
         }
     }
-    a["updated_at"] = json!(iso_now());
+    // A successor must name the head it read. Without this, two concurrent patches both succeed and
+    // the loser's edit is lost with no error anywhere.
+    let expected_head = match admitted_head_of(&a) {
+        Some(head) => head,
+        None => {
+            return bad(
+                "domain_app_expected_head_required",
+                "this record predates admitted mutation; it cannot be advanced without a head",
+            )
+        }
+    };
+    if let Some(map) = a.as_object_mut() {
+        // The head is the stream's fact, not the record's. Leaving it in the admitted payload makes
+        // every successor byte-different from its own replay.
+        map.remove("admitted_head");
+    }
+    let commit = match admit_owner_scoped_write(
+        &st.data_dir,
+        &caller,
+        DAPP_NAMESPACE,
+        KIND_DAPP,
+        &format!("domain-app://{id}"),
+        "domain_app.patch",
+        Some(&expected_head),
+        &a,
+    ) {
+        Ok(commit) => commit,
+        Err(response) => return response,
+    };
+    project_admission(&mut a, &commit);
     if let Err(response) = persist_required(
         &st.data_dir,
         KIND_DAPP,
@@ -507,15 +600,77 @@ pub(crate) async fn handle_domain_apps_patch(
     ) {
         return response;
     }
-    (StatusCode::OK, Json(json!({ "ok": true, "domain_app": a })))
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "replayed": commit.replayed, "domain_app": a })),
+    )
 }
 
 pub(crate) async fn handle_domain_apps_delete(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
-) -> Json<Value> {
+    headers: axum::http::HeaderMap,
+    // Optional so a DELETE sent without a body answers the typed "owner_ref is required" refusal
+    // instead of axum's bare 415, which tells the caller nothing about what it owes.
+    body: Option<Json<Value>>,
+) -> (StatusCode, Json<Value>) {
+    let body = body.map(|Json(value)| value).unwrap_or_else(|| json!({}));
+    let caller: WriteCaller = match require_write_caller(&st.data_dir, &headers, &body) {
+        Ok(caller) => caller,
+        Err(response) => return response,
+    };
+    let Some(existing) = load(&st.data_dir, KIND_DAPP, &id) else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(
+                json!({ "ok": false, "error": { "code": "domain_app_not_found", "message": "domain_app not found" } }),
+            ),
+        );
+    };
+    // Deletion is a transition, not an absence of one. Removing the projection without admitting a
+    // terminal event leaves the stream claiming the app still exists.
+    let expected_head = match admitted_head_of(&existing) {
+        Some(head) => head,
+        None => {
+            return bad(
+                "domain_app_expected_head_required",
+                "this record predates admitted mutation; it cannot be advanced without a head",
+            )
+        }
+    };
+    let commit = match admit_owner_scoped_write(
+        &st.data_dir,
+        &caller,
+        DAPP_NAMESPACE,
+        KIND_DAPP,
+        &format!("domain-app://{id}"),
+        "domain_app.delete",
+        Some(&expected_head),
+        &json!({ "domain_app_id": id, "deleted": true }),
+    ) {
+        Ok(commit) => commit,
+        Err(response) => return response,
+    };
     let removed = remove_record(&st.data_dir, KIND_DAPP, &id);
-    Json(json!({ "ok": removed, "removed": removed, "id": id }))
+    if !removed {
+        // The transition is admitted and canonical; the projection did not follow. Say so rather
+        // than reporting a clean delete, so recovery replays instead of assuming success.
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "ok": false,
+                "error": {
+                    "code": "domain_app_projection_removal_failed",
+                    "message": "the delete is admitted but its projection could not be removed; replay to reconcile"
+                },
+                "admitted_head": commit.projection.head
+            })),
+        );
+    }
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "removed": true, "replayed": commit.replayed, "id": id })),
+    )
 }
 
 // ============================ DOMAIN-APP RUNTIME MOUNT (effectful cut A) =========================
@@ -648,8 +803,11 @@ fn transition_persist_failure(
 /// Commit one runtime transition as runtime + DomainApp backlink + receipt set. Receipts are
 /// persisted last so none can attest to state that failed to commit. Any later-stage failure
 /// restores both prior records and removes receipts written by this attempt.
+#[allow(clippy::too_many_arguments)]
 fn finalize_domain_app_transition(
     data_dir: &str,
+    caller: &WriteCaller,
+    op_kind: &str,
     runtime_id: &str,
     prior_runtime: Option<&Value>,
     next_runtime: &Value,
@@ -658,6 +816,38 @@ fn finalize_domain_app_transition(
     next_domain_app: &Value,
     receipts: &[PendingMountReceipt],
 ) -> Result<(), (StatusCode, Json<Value>)> {
+    // Admit the transition BEFORE any of the three projection writes. A mount touches a runtime
+    // record, a Domain App backlink and N receipts; if the crash-recovery story is rollback, a
+    // process death between writes leaves no trace of what was being attempted. Admitting first
+    // makes the canonical transition durable, so recovery is a replay of a known intent.
+    let expected_head = admitted_head_of(prior_domain_app);
+    if expected_head.is_none() && prior_domain_app.get("domain_app_ref").is_some() {
+        return Err(bad(
+            "domain_app_expected_head_required",
+            "this record predates admitted mutation; its runtime cannot be advanced without a head",
+        ));
+    }
+    let mut admitted = next_domain_app.clone();
+    if let Some(map) = admitted.as_object_mut() {
+        map.remove("admitted_head");
+    }
+    let commit = admit_owner_scoped_write(
+        data_dir,
+        caller,
+        DAPP_NAMESPACE,
+        KIND_DAPP,
+        &format!("domain-app://{domain_app_id}"),
+        op_kind,
+        expected_head.as_deref(),
+        &json!({
+            "domain_app": admitted,
+            "runtime": next_runtime,
+            "receipts": receipts.iter().map(|r| r.value.clone()).collect::<Vec<_>>()
+        }),
+    )?;
+    let mut next_domain_app = next_domain_app.clone();
+    project_admission(&mut next_domain_app, &commit);
+    let next_domain_app = &next_domain_app;
     if persist_record(data_dir, KIND_RUNTIME, runtime_id, next_runtime).is_err() {
         return Err(transition_persist_failure(
             "domain_app_runtime_persistence_failed",
@@ -701,8 +891,13 @@ fn finalize_domain_app_transition(
 pub(crate) async fn handle_domain_app_mount(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
+    headers: axum::http::HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    let caller: WriteCaller = match require_write_caller(&st.data_dir, &headers, &body) {
+        Ok(caller) => caller,
+        Err(response) => return response,
+    };
     let Some(prior_dapp) = load(&st.data_dir, KIND_DAPP, &id) else {
         return bad("domain_app_not_found", "domain app not found");
     };
@@ -791,6 +986,8 @@ pub(crate) async fn handle_domain_app_mount(
     next_dapp["updated_at"] = json!(iso_now());
     if let Err(response) = finalize_domain_app_transition(
         &st.data_dir,
+        &caller,
+        "domain_app.mount",
         &rid,
         None,
         &runtime,
@@ -811,8 +1008,13 @@ pub(crate) async fn handle_domain_app_mount(
 pub(crate) async fn handle_domain_app_unmount(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
+    headers: axum::http::HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    let caller: WriteCaller = match require_write_caller(&st.data_dir, &headers, &body) {
+        Ok(caller) => caller,
+        Err(response) => return response,
+    };
     let Some(prior_dapp) = load(&st.data_dir, KIND_DAPP, &id) else {
         return bad("domain_app_not_found", "domain app not found");
     };
@@ -867,6 +1069,8 @@ pub(crate) async fn handle_domain_app_unmount(
     next_dapp["updated_at"] = json!(iso_now());
     if let Err(response) = finalize_domain_app_transition(
         &st.data_dir,
+        &caller,
+        "domain_app.unmount",
         &rid,
         Some(&prior_runtime),
         &next_runtime,
@@ -940,8 +1144,13 @@ fn serve_precheck(runtime: &Value) -> Result<(), (String, String)> {
 pub(crate) async fn handle_domain_app_serve(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
-    Json(_body): Json<Value>,
+    headers: axum::http::HeaderMap,
+    Json(identity_body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    let caller: WriteCaller = match require_write_caller(&st.data_dir, &headers, &identity_body) {
+        Ok(caller) => caller,
+        Err(response) => return response,
+    };
     let Some(prior_dapp) = load(&st.data_dir, KIND_DAPP, &id) else {
         return bad("domain_app_not_found", "domain app not found");
     };
@@ -1033,6 +1242,8 @@ pub(crate) async fn handle_domain_app_serve(
     next_dapp["updated_at"] = json!(iso_now());
     if let Err(response) = finalize_domain_app_transition(
         &st.data_dir,
+        &caller,
+        "domain_app.serve",
         &rid,
         Some(&prior_runtime),
         &next_runtime,
@@ -1053,8 +1264,13 @@ pub(crate) async fn handle_domain_app_serve(
 pub(crate) async fn handle_domain_app_stop_serving(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
-    Json(_body): Json<Value>,
+    headers: axum::http::HeaderMap,
+    Json(identity_body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    let caller: WriteCaller = match require_write_caller(&st.data_dir, &headers, &identity_body) {
+        Ok(caller) => caller,
+        Err(response) => return response,
+    };
     let Some(prior_dapp) = load(&st.data_dir, KIND_DAPP, &id) else {
         return bad("domain_app_not_found", "domain app not found");
     };
@@ -1118,6 +1334,8 @@ pub(crate) async fn handle_domain_app_stop_serving(
     next_dapp["updated_at"] = json!(iso_now());
     if let Err(response) = finalize_domain_app_transition(
         &st.data_dir,
+        &caller,
+        "domain_app.stop_serving",
         &rid,
         Some(&prior_runtime),
         &next_runtime,
@@ -1166,6 +1384,7 @@ pub(crate) fn runtimes_for_kill_target(data_dir: &str, subject_ref: &str) -> Vec
 /// receipt refs emitted. Effectful — used only from the governance enforce path.
 pub(crate) fn kill_enforce_runtime(
     data_dir: &str,
+    caller: &WriteCaller,
     runtime: &Value,
 ) -> Result<Vec<String>, (StatusCode, Json<Value>)> {
     let mut next_runtime = runtime.clone();
@@ -1239,6 +1458,8 @@ pub(crate) fn kill_enforce_runtime(
     next_dapp["updated_at"] = json!(now);
     finalize_domain_app_transition(
         data_dir,
+        caller,
+        "domain_app.kill_enforce",
         &rid,
         Some(runtime),
         &next_runtime,
@@ -1430,11 +1651,33 @@ mod domain_apps_tests {
             "state":"mounted",
             "receipt_refs":[]
         });
-        let prior_dapp = json!({
+        let caller = WriteCaller {
+            identity: super::super::substrate_store::request_identity_for_test(
+                "user://enforcer",
+                ["org://acme".to_string()],
+            ),
+            owner_ref: "org://acme".to_string(),
+            idempotency_key: "transition-rollback-genesis".to_string(),
+        };
+        let mut prior_dapp = json!({
             "domain_app_id":"dapp_1",
             "domain_app_ref":"domain-app://dapp_1",
             "runtime_posture":{"mounted":true,"serving":false}
         });
+        // Mint the head the same way production does, rather than hand-writing a plausible string:
+        // a fabricated head would make the CAS below assert against a value the stream never issued.
+        let genesis = admit_owner_scoped_write(
+            data_dir,
+            &caller,
+            DAPP_NAMESPACE,
+            KIND_DAPP,
+            "domain-app://dapp_1",
+            "domain_app.create",
+            None,
+            &prior_dapp,
+        )
+        .expect("genesis admission");
+        prior_dapp["admitted_head"] = json!(genesis.projection.head);
         persist_record(data_dir, KIND_RUNTIME, "runtime_1", &prior_runtime).unwrap();
         persist_record(data_dir, KIND_DAPP, "dapp_1", &prior_dapp).unwrap();
 
@@ -1446,6 +1689,10 @@ mod domain_apps_tests {
         next_runtime["state"] = json!("serving");
         let mut next_dapp = prior_dapp.clone();
         next_dapp["runtime_posture"]["serving"] = json!(true);
+        let caller = WriteCaller {
+            idempotency_key: "transition-rollback-serve".to_string(),
+            ..caller
+        };
         let receipt = build_mount_receipt(
             "domain_app.serve_start",
             "domain-app://dapp_1",
@@ -1455,6 +1702,8 @@ mod domain_apps_tests {
 
         let error = finalize_domain_app_transition(
             data_dir,
+            &caller,
+            "domain_app.serve",
             "runtime_1",
             Some(&prior_runtime),
             &next_runtime,
