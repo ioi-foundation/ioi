@@ -99,9 +99,26 @@ the right to write delegation records directly.
    over the descendant graph through the kernel. The opt-in one-level endpoint
    is superseded and is deleted when the client is re-homed, not left beside the
    new path.
-5. **The surface owns no records.** Subagent projections read from the
-   work-owning graph. The direct `subagents` record write is deleted in the same
-   change that re-homes the spawn path.
+5. **The surface owns the child object; it does not own the delegation edge.**
+   *(Corrected 2026-08-07. This sub-ruling first read "the surface owns no
+   records… the direct `subagents` record write is deleted." That overreached,
+   and canon contradicts it: `child_reference.child_ref` is a `typed_ref`, and
+   `work-results-and-lifecycle.md` states that reference mutations "never mutate
+   the child object; they only append or retire the owning object's typed index
+   entry." The child object is therefore separate and owned elsewhere by
+   design.)*
+
+   A subagent's domain state — prompt, status, role, run ref — is the child
+   object and legitimately persists on the subagent surface. What the surface
+   may not own is the **delegation edge**: the parent→child work-owning relation
+   and its bounds. That edge is a `child_reference` attach in the work-owning
+   graph, admitted by the kernel.
+
+   Consequences: the child object is written only *after* admission succeeds, so
+   a refused delegation leaves no agent, run, or subagent record. Any projection
+   that answers "what are this parent's children?" reads the graph, not a
+   `parent_thread_id` scan. Projections that answer "what is this child's
+   status?" read the child object by ref.
 6. **This ADR adds no object, plane, runtime, or vocabulary.** It assigns
    ownership between two things canon already names.
 
