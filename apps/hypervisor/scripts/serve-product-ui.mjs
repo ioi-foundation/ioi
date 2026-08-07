@@ -3298,7 +3298,8 @@ function odkDescriptorPayload(p) {
   };
   const idempotency_key = (p.get("idempotency_key") || "").trim()
     || `odk-sd:${crypto.createHash("sha256").update(JSON.stringify([owner_ref, shape])).digest("hex").slice(0, 32)}`;
-  return { ...shape, owner_ref, idempotency_key };
+  const expected_head = (p.get("expected_head") || "").trim();
+  return { ...shape, owner_ref, idempotency_key, ...(expected_head ? { expected_head } : {}) };
 }
 function odkManifestPayload(p) {
   const csv = (k) => (p.get(k) || "").split(",").map((s) => s.trim()).filter(Boolean);
@@ -3363,6 +3364,7 @@ function renderOdkDescriptorForm(existing, pk, patterns) {
   const inner = `<p><a href="/__ioi/odk">← ODK</a></p><h1>${isEdit ? "Edit" : "New"} Surface Descriptor</h1>
     <p class="sub">A descriptor for a domain surface. <b>domain_app is descriptor-only</b> — this plane creates no live Domain App.</p>
     <form method="post" action="${action}">
+      ${ex.admitted_head ? `<input type="hidden" name="expected_head" value="${CX_ESC(ex.admitted_head)}">` : ""}
       <div class="field"><label>Owner (required)</label>
         <input name="owner_ref" value="${CX_ESC(ex.owner_ref || "")}" placeholder="org://… or project://…" required>
         <div class="sub" style="margin:0">A descriptor is owned by exactly one org or project. The daemon admits the write under this owner and refuses a caller outside it.</div>
@@ -10014,7 +10016,12 @@ async function handleEstateRequest(req, res, body) {
               daemonFetch(`${api}/${encodeURIComponent(id)}`).then((x) => x.json()).catch(() => ({})),
             ]);
             res.writeHead(200, HTMLH);
-            res.end(rec.ok ? cfg.form(rec[cfg.key], pk, ov) : automationsShell("Not found", `<div class="empty">Not found.</div><p><a href="/__ioi/odk">← ODK</a></p>`));
+            // admitted_head rides on the envelope, not the record: merge it so the edit form can
+            // carry it forward as expected_head for the compare-and-swap.
+            const editing = rec.ok
+              ? (rec.admitted_head ? { ...rec[cfg.key], admitted_head: rec.admitted_head } : rec[cfg.key])
+              : null;
+            res.end(rec.ok ? cfg.form(editing, pk, ov) : automationsShell("Not found", `<div class="empty">Not found.</div><p><a href="/__ioi/odk">← ODK</a></p>`));
             return;
           }
           if (seg2 === "patch" && req.method === "POST") {
