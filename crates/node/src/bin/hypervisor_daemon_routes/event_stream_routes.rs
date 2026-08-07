@@ -20,11 +20,14 @@ use super::substrate_store;
 use super::DaemonState;
 use agentgres::event_stream::AdmissionRefusal;
 use axum::extract::{Path as AxumPath, State};
-use axum::http::StatusCode;
+use axum::http::{HeaderMap, StatusCode};
 use axum::response::IntoResponse;
 use axum::Json;
 use serde_json::{json, Value};
 use std::sync::Arc;
+
+const EVENT_STREAM_SCOPE_KIND: &str = "daemon-event-stream";
+const SUBSCRIPTION_SCOPE_KIND: &str = "daemon-subscription-lease";
 
 /// A refusal that reaches the wire WITH its machine code.
 ///
@@ -69,6 +72,92 @@ fn refused(refusal: AdmissionRefusal) -> Refused {
     };
     let message = refusal.to_string();
     bad(status, refusal.code(), &message)
+}
+
+fn scope_refused(refusal: substrate_store::RequestScopeRefusal) -> Refused {
+    let status = match refusal {
+        substrate_store::RequestScopeRefusal::AuthenticationRequired
+        | substrate_store::RequestScopeRefusal::PrincipalIdentityInvalid => {
+            StatusCode::UNAUTHORIZED
+        }
+        substrate_store::RequestScopeRefusal::TenantAuthorityRequired
+        | substrate_store::RequestScopeRefusal::ResourceScopeRequired
+        | substrate_store::RequestScopeRefusal::ResourceOwnerMismatch => StatusCode::FORBIDDEN,
+        substrate_store::RequestScopeRefusal::SubstrateUnavailable(_) => {
+            StatusCode::SERVICE_UNAVAILABLE
+        }
+    };
+    let message = refusal.message();
+    bad(status, refusal.code(), &message)
+}
+
+fn mutation_refused(refusal: super::mutation_event_foundation::MutationRefusal) -> Refused {
+    use super::mutation_event_foundation::MutationRefusal;
+    match refusal {
+        MutationRefusal::Scope(error) => scope_refused(error),
+        MutationRefusal::Admission(error) => refused(error),
+        MutationRefusal::IdempotencyKeyInvalid
+        | MutationRefusal::GenesisExpectedHeadPresent
+        | MutationRefusal::SuccessorExpectedHeadRequired => {
+            let message = refusal.message();
+            bad(StatusCode::BAD_REQUEST, refusal.code(), &message)
+        }
+        MutationRefusal::RequestFingerprintFailed(_) => {
+            let message = refusal.message();
+            bad(StatusCode::INTERNAL_SERVER_ERROR, refusal.code(), &message)
+        }
+    }
+}
+
+fn request_identity(
+    st: &DaemonState,
+    headers: &HeaderMap,
+) -> Result<substrate_store::RequestIdentity, Refused> {
+    substrate_store::resolve_request_identity(&st.data_dir, headers).map_err(scope_refused)
+}
+
+fn event_stream_ref(owner_namespace: &str, stream_tail: &str) -> String {
+    format!("event-stream://{owner_namespace}/{stream_tail}")
+}
+
+fn subscription_ref(owner_namespace: &str, lease_tail: &str) -> String {
+    format!("subscription-lease://{owner_namespace}/{lease_tail}")
+}
+
+fn bind_scope(
+    st: &DaemonState,
+    identity: &substrate_store::RequestIdentity,
+    resource_kind: &str,
+    resource_ref: &str,
+    owner_ref: &str,
+    idempotency_key: &str,
+) -> Result<substrate_store::RequestResourceScope, Refused> {
+    substrate_store::bind_request_resource_scope(
+        &st.data_dir,
+        identity,
+        resource_kind,
+        resource_ref,
+        owner_ref,
+        owner_ref,
+        idempotency_key,
+    )
+    .map_err(scope_refused)
+}
+
+fn authorize_scope(
+    st: &DaemonState,
+    identity: &substrate_store::RequestIdentity,
+    resource_kind: &str,
+    resource_ref: &str,
+) -> Result<substrate_store::RequestResourceScope, Refused> {
+    substrate_store::authorize_request_resource_scope(
+        &st.data_dir,
+        identity,
+        resource_kind,
+        resource_ref,
+        None,
+    )
+    .map_err(scope_refused)
 }
 
 fn text<'a>(value: &'a Value, key: &str) -> &'a str {
@@ -192,8 +281,12 @@ fn admitted_declaration(
 /// reads does. These counters are the instrument, and the verifier proves the
 /// instrument can read non-zero before it trusts a zero.
 pub(crate) async fn handle_substrate_traversals(
-    State(_st): State<Arc<DaemonState>>,
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
 ) -> Result<Json<Value>, Refused> {
+    // Diagnostic counters are process-wide but still not a public anonymous
+    // oracle.  Resolve a real principal; no development fallback exists.
+    let _identity = request_identity(&st, &headers)?;
     let (walks, hits, fills, admitted, domains) = substrate_store::traversal_counters();
     Ok(Json(json!({
         "history_walks": walks,
@@ -212,9 +305,11 @@ pub(crate) async fn handle_substrate_traversals(
 /// forgotten: a second genesis has a head where absence was required.
 pub(crate) async fn handle_event_stream_create(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath((owner_namespace, stream_tail)): AxumPath<(String, String)>,
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, Refused> {
+    let identity = request_identity(&st, &headers)?;
     let Some(declaration) = body.get("event_class_declaration") else {
         return Err(bad(
             StatusCode::BAD_REQUEST,
@@ -223,41 +318,64 @@ pub(crate) async fn handle_event_stream_create(
         ));
     };
     validate_declaration(declaration)?;
-
-    // Refuse redeclaration explicitly. Leaving this to the expected-absent CAS
-    // is not enough: an identical redeclaration carries identical bytes under
-    // the same key and would REPLAY as success, which reads as "declared
-    // again" rather than "refused". The rule is one declaration per stream,
-    // so it is checked as one declaration per stream.
-    if admitted_declaration(&st, &owner_namespace, &stream_tail)?.is_some() {
+    let owner_ref = text(&body, "owner_ref");
+    if owner_ref.is_empty() {
         return Err(bad(
-            StatusCode::CONFLICT,
-            "event_stream_already_declared",
-            "this stream already carries an admitted event-class declaration; \
-             redeclaration would rewrite truth callers have already been judged against",
+            StatusCode::BAD_REQUEST,
+            "event_stream_owner_ref_required",
+            "an event stream is bound to one authenticated tenant owner_ref",
         ));
     }
-
-    let admitted = substrate_store::admit_event_stream_operation(
+    let idempotency_key = text(&body, "idempotency_key");
+    if idempotency_key.is_empty() {
+        return Err(bad(
+            StatusCode::BAD_REQUEST,
+            "idempotency_key_required",
+            "stream creation carries a caller-owned idempotency key",
+        ));
+    }
+    let resource_ref = event_stream_ref(&owner_namespace, &stream_tail);
+    let scope = bind_scope(
+        &st,
+        &identity,
+        EVENT_STREAM_SCOPE_KIND,
+        &resource_ref,
+        owner_ref,
+        idempotency_key,
+    )?;
+    // Expected-absent remains the concurrency rule, but an exact duplicate
+    // under the SAME key/body is allowed to replay the original fact.  A fresh
+    // key or changed declaration still conflicts, so a client can resolve an
+    // ambiguous create without "declaring again".
+    let admitted = super::mutation_event_foundation::admit_owner_scoped_mutation(
         &st.data_dir,
-        &owner_namespace,
-        &stream_tail,
-        GENESIS_OP_KIND,
-        None, // expected-absent: this stream must not already exist
-        declaration,
-        body.get("recorded_at_ms")
-            .and_then(Value::as_u64)
-            .unwrap_or_default(),
-        &format!("genesis-{owner_namespace}-{stream_tail}"),
+        true,
+        super::mutation_event_foundation::ScopedMutation {
+            identity: &identity,
+            scope: &scope,
+            resource_kind: EVENT_STREAM_SCOPE_KIND,
+            resource_ref: &resource_ref,
+            owner_namespace: &owner_namespace,
+            stream_tail: &stream_tail,
+            op_kind: GENESIS_OP_KIND,
+            expected_head: None,
+            payload: declaration,
+            recorded_at_ms: body
+                .get("recorded_at_ms")
+                .and_then(Value::as_u64)
+                .unwrap_or_default(),
+            idempotency_key,
+        },
     )
     .map_err(|refusal| match refusal {
-        AdmissionRefusal::HeadConflict => bad(
+        super::mutation_event_foundation::MutationRefusal::Admission(
+            AdmissionRefusal::HeadConflict,
+        ) => bad(
             StatusCode::CONFLICT,
             "event_stream_already_declared",
-            "this stream already carries an admitted event-class declaration; \
-             redeclaration would rewrite truth callers have already been judged against",
+            "this stream already carries a different creation identity or declaration",
         ),
-        other => refused(other),
+        other => mutation_refused(other),
     })?;
     let exact = &admitted.projection;
     substrate_store::remember_declaration(&owner_namespace, &stream_tail, declaration);
@@ -267,6 +385,9 @@ pub(crate) async fn handle_event_stream_create(
         "owner_namespace": owner_namespace,
         "declared": true,
         "replayed": admitted.replayed,
+        "request_fingerprint": admitted.request_fingerprint,
+        "operation_ref": admitted.operation_ref,
+        "receipt_ref": admitted.receipt_ref,
         "event_class_declaration": declaration,
         "admitted_head": {
             "operation_ref": agentgres::refs::event_stream_operation_ref(
@@ -288,9 +409,15 @@ pub(crate) async fn handle_event_stream_create(
 /// delivered without ever entering the admission path.
 pub(crate) async fn handle_event_stream_append(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath((owner_namespace, stream_tail)): AxumPath<(String, String)>,
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, Refused> {
+    let identity = request_identity(&st, &headers)?;
+    let resource_ref = event_stream_ref(&owner_namespace, &stream_tail);
+    // Authorize before reading the declaration/head.  A denied caller does not
+    // get an existence oracle for another principal's stream.
+    let scope = authorize_scope(&st, &identity, EVENT_STREAM_SCOPE_KIND, &resource_ref)?;
     let class_id = text(&body, "class_id");
     if class_id.is_empty() {
         return Err(bad(
@@ -339,17 +466,16 @@ pub(crate) async fn handle_event_stream_append(
         })));
     }
 
-    // A declared stream always has a head, so expected-absent is never the
-    // right precondition for an append. An explicit expected_head is honoured
-    // verbatim; otherwise the append CASes against the head read here.
-    let current_head =
-        substrate_store::read_event_stream_operation(&st.data_dir, &owner_namespace, &stream_tail)
-            .map_err(refused)?
-            .map(|projection| projection.head);
-    let expected_head = body
-        .get("expected_head")
-        .and_then(Value::as_str)
-        .or(current_head.as_deref());
+    // A declared stream always has a head.  Never read-and-default a missing
+    // precondition: that converts an explicit CAS into last-writer-wins.
+    let expected_head = body.get("expected_head").and_then(Value::as_str);
+    if expected_head.is_none() {
+        return Err(bad(
+            StatusCode::BAD_REQUEST,
+            "event_stream_expected_head_required",
+            "an admitted append must compare-and-swap against the exact observed stream head",
+        ));
+    }
     let idem_key = text(&body, "idempotency_key");
     if idem_key.is_empty() {
         return Err(bad(
@@ -372,17 +498,24 @@ pub(crate) async fn handle_event_stream_append(
         "payload_schema_ref": payload_schema_ref,
         "payload": body.get("payload").cloned().unwrap_or(Value::Null),
     });
-    let admitted = substrate_store::admit_event_stream_operation(
+    let admitted = super::mutation_event_foundation::admit_owner_scoped_mutation(
         &st.data_dir,
-        &owner_namespace,
-        &stream_tail,
-        "event_stream.append",
-        expected_head,
-        &envelope,
-        recorded_at_ms,
-        idem_key,
+        false,
+        super::mutation_event_foundation::ScopedMutation {
+            identity: &identity,
+            scope: &scope,
+            resource_kind: EVENT_STREAM_SCOPE_KIND,
+            resource_ref: &resource_ref,
+            owner_namespace: &owner_namespace,
+            stream_tail: &stream_tail,
+            op_kind: "event_stream.append",
+            expected_head,
+            payload: &envelope,
+            recorded_at_ms,
+            idempotency_key: idem_key,
+        },
     )
-    .map_err(refused)?;
+    .map_err(mutation_refused)?;
     let exact = &admitted.projection;
 
     Ok(Json(json!({
@@ -392,6 +525,9 @@ pub(crate) async fn handle_event_stream_append(
         "payload_schema_ref": payload_schema_ref,
         "stream_id": format!("event-stream://{owner_namespace}/{stream_tail}"),
         "owner_namespace": owner_namespace,
+        "request_fingerprint": admitted.request_fingerprint,
+        "operation_ref": admitted.operation_ref,
+        "receipt_ref": admitted.receipt_ref,
         "admitted_head": {
             "operation_ref": agentgres::refs::event_stream_operation_ref(
                 &owner_namespace, &stream_tail, exact.seq, &exact.head),
@@ -408,11 +544,22 @@ pub(crate) async fn handle_event_stream_append(
 /// head, by reference only.
 pub(crate) async fn handle_event_stream_get(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath((owner_namespace, stream_tail)): AxumPath<(String, String)>,
 ) -> Result<Json<Value>, Refused> {
-    let exact =
-        substrate_store::read_event_stream_operation(&st.data_dir, &owner_namespace, &stream_tail)
-            .map_err(refused)?;
+    let identity = request_identity(&st, &headers)?;
+    let resource_ref = event_stream_ref(&owner_namespace, &stream_tail);
+    let scope = authorize_scope(&st, &identity, EVENT_STREAM_SCOPE_KIND, &resource_ref)?;
+    let exact = super::mutation_event_foundation::read_owner_scoped_head(
+        &st.data_dir,
+        &identity,
+        &scope,
+        EVENT_STREAM_SCOPE_KIND,
+        &resource_ref,
+        &owner_namespace,
+        &stream_tail,
+    )
+    .map_err(mutation_refused)?;
     let Some(exact) = exact else {
         return Err(bad(
             StatusCode::NOT_FOUND,
@@ -534,6 +681,8 @@ fn lease_is_deliverable(state: &Value, now_ms: u64) -> Result<(), Refused> {
 /// Admit one lease transition on the lease's own object key.
 fn admit_lease_transition(
     st: &DaemonState,
+    identity: &substrate_store::RequestIdentity,
+    scope: &substrate_store::RequestResourceScope,
     owner_namespace: &str,
     lease_tail: &str,
     op_kind: &str,
@@ -541,26 +690,37 @@ fn admit_lease_transition(
     next_state: &Value,
     recorded_at_ms: u64,
     idem_key: &str,
-) -> Result<(u64, String), Refused> {
-    let admitted = substrate_store::admit_event_stream_operation(
+) -> Result<super::mutation_event_foundation::MutationCommit, Refused> {
+    let resource_ref = subscription_ref(owner_namespace, lease_tail);
+    super::mutation_event_foundation::admit_owner_scoped_mutation(
         &st.data_dir,
-        owner_namespace,
-        &lease_stream_tail(lease_tail),
-        op_kind,
-        expected_head,
-        next_state,
-        recorded_at_ms,
-        idem_key,
+        expected_head.is_none(),
+        super::mutation_event_foundation::ScopedMutation {
+            identity,
+            scope,
+            resource_kind: SUBSCRIPTION_SCOPE_KIND,
+            resource_ref: &resource_ref,
+            owner_namespace,
+            stream_tail: &lease_stream_tail(lease_tail),
+            op_kind,
+            expected_head,
+            payload: next_state,
+            idempotency_key: idem_key,
+            recorded_at_ms,
+        },
     )
-    .map_err(refused)?;
-    Ok((admitted.projection.seq, admitted.projection.head))
+    .map_err(mutation_refused)
 }
 
 /// GET /v1/subscriptions/:owner_namespace/:lease_tail — the lease, exactly.
 pub(crate) async fn handle_subscription_get(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath((owner_namespace, lease_tail)): AxumPath<(String, String)>,
 ) -> Result<Json<Value>, Refused> {
+    let identity = request_identity(&st, &headers)?;
+    let resource_ref = subscription_ref(&owner_namespace, &lease_tail);
+    let _scope = authorize_scope(&st, &identity, SUBSCRIPTION_SCOPE_KIND, &resource_ref)?;
     let Some((state, seq, head)) = admitted_lease(&st, &owner_namespace, &lease_tail)? else {
         return Err(bad(
             StatusCode::NOT_FOUND,
@@ -578,10 +738,15 @@ pub(crate) async fn handle_subscription_get(
 /// to a sequence the source stream actually admitted.
 pub(crate) async fn handle_subscription_checkpoint(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath((owner_namespace, lease_tail)): AxumPath<(String, String)>,
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, Refused> {
-    let Some((state, _seq, head)) = admitted_lease(&st, &owner_namespace, &lease_tail)? else {
+    let identity = request_identity(&st, &headers)?;
+    let lease_resource_ref = subscription_ref(&owner_namespace, &lease_tail);
+    let lease_scope =
+        authorize_scope(&st, &identity, SUBSCRIPTION_SCOPE_KIND, &lease_resource_ref)?;
+    let Some((state, _seq, _head)) = admitted_lease(&st, &owner_namespace, &lease_tail)? else {
         return Err(bad(
             StatusCode::NOT_FOUND,
             "subscription_lease_not_found",
@@ -606,6 +771,22 @@ pub(crate) async fn handle_subscription_checkpoint(
             "a checkpoint advance names the sequence it acknowledges",
         ));
     };
+    let expected_head = text(&body, "expected_head");
+    if expected_head.is_empty() {
+        return Err(bad(
+            StatusCode::BAD_REQUEST,
+            "subscription_expected_head_required",
+            "a checkpoint transition must name the exact observed lease head",
+        ));
+    }
+    let idempotency_key = text(&body, "idempotency_key");
+    if idempotency_key.is_empty() {
+        return Err(bad(
+            StatusCode::BAD_REQUEST,
+            "subscription_idempotency_key_required",
+            "a checkpoint transition carries a caller-owned idempotency key",
+        ));
+    }
     let current = state
         .get("acknowledged_checkpoint")
         .and_then(|c| c.get("acknowledged_seq"))
@@ -627,9 +808,23 @@ pub(crate) async fn handle_subscription_checkpoint(
         .and_then(Value::as_str)
         .unwrap_or_default()
         .to_owned();
-    let history =
-        substrate_store::read_event_stream_history(&st.data_dir, &owner_namespace, &stream_tail)
-            .map_err(refused)?;
+    let stream_resource_ref = event_stream_ref(&owner_namespace, &stream_tail);
+    let stream_scope = authorize_scope(
+        &st,
+        &identity,
+        EVENT_STREAM_SCOPE_KIND,
+        &stream_resource_ref,
+    )?;
+    let history = super::mutation_event_foundation::read_owner_scoped_history(
+        &st.data_dir,
+        &identity,
+        &stream_scope,
+        EVENT_STREAM_SCOPE_KIND,
+        &stream_resource_ref,
+        &owner_namespace,
+        &stream_tail,
+    )
+    .map_err(mutation_refused)?;
     if !history.iter().any(|p| p.seq == to_seq) {
         return Err(bad(
             StatusCode::UNPROCESSABLE_ENTITY,
@@ -643,49 +838,138 @@ pub(crate) async fn handle_subscription_checkpoint(
         "acknowledged_seq": to_seq,
         "acknowledged_head_ref": history.iter().find(|p| p.seq == to_seq).map(|p| p.head.clone()),
     });
-    let (seq, new_head) = admit_lease_transition(
+    // A fresh key for an already-achieved state is not allowed to borrow the
+    // old transition's receipt.  An exact retry under the original key is
+    // handed to Agentgres, which replays that original fact.
+    let lease_history = super::mutation_event_foundation::read_owner_scoped_history(
+        &st.data_dir,
+        &identity,
+        &lease_scope,
+        SUBSCRIPTION_SCOPE_KIND,
+        &lease_resource_ref,
+        &owner_namespace,
+        &lease_stream_tail(&lease_tail),
+    )
+    .map_err(mutation_refused)?;
+    let key_previously_admitted = lease_history
+        .iter()
+        .any(|entry| entry.operation.idem_key == idempotency_key);
+    if current == Some(to_seq) && !key_previously_admitted {
+        return Err(bad(
+            StatusCode::CONFLICT,
+            "subscription_checkpoint_already_acknowledged",
+            "the checkpoint is already at this sequence; a fresh idempotency key is not consumed for a no-op",
+        ));
+    }
+    let committed = admit_lease_transition(
         &st,
+        &identity,
+        &lease_scope,
         &owner_namespace,
         &lease_tail,
         "subscription_lease.checkpoint_advance",
-        Some(&head),
+        Some(expected_head),
         &next,
         body.get("recorded_at_ms")
             .and_then(Value::as_u64)
             .unwrap_or(0),
-        &format!("checkpoint-{lease_tail}-{to_seq}"),
+        idempotency_key,
     )?;
-    Ok(Json(lease_view(&next, seq, &new_head, &lease_tail)))
+    let mut view = lease_view(
+        &committed.projection.operation.payload,
+        committed.projection.seq,
+        &committed.projection.head,
+        &lease_tail,
+    );
+    view["replayed"] = json!(committed.replayed);
+    view["request_fingerprint"] = json!(committed.request_fingerprint);
+    view["operation_ref"] = json!(committed.operation_ref);
+    view["receipt_ref"] = json!(committed.receipt_ref);
+    Ok(Json(view))
 }
 
 /// POST /v1/subscriptions/:owner_namespace/:lease_tail/revoke
 pub(crate) async fn handle_subscription_revoke(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath((owner_namespace, lease_tail)): AxumPath<(String, String)>,
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, Refused> {
-    let Some((state, _seq, head)) = admitted_lease(&st, &owner_namespace, &lease_tail)? else {
+    let identity = request_identity(&st, &headers)?;
+    let resource_ref = subscription_ref(&owner_namespace, &lease_tail);
+    let scope = authorize_scope(&st, &identity, SUBSCRIPTION_SCOPE_KIND, &resource_ref)?;
+    let Some((state, _seq, _head)) = admitted_lease(&st, &owner_namespace, &lease_tail)? else {
         return Err(bad(
             StatusCode::NOT_FOUND,
             "subscription_lease_not_found",
             "no admitted lease exists at these coordinates",
         ));
     };
+    let expected_head = text(&body, "expected_head");
+    if expected_head.is_empty() {
+        return Err(bad(
+            StatusCode::BAD_REQUEST,
+            "subscription_expected_head_required",
+            "a revoke transition must name the exact observed lease head",
+        ));
+    }
+    let idempotency_key = text(&body, "idempotency_key");
+    if idempotency_key.is_empty() {
+        return Err(bad(
+            StatusCode::BAD_REQUEST,
+            "subscription_idempotency_key_required",
+            "a revoke transition carries a caller-owned idempotency key",
+        ));
+    }
+    let history = super::mutation_event_foundation::read_owner_scoped_history(
+        &st.data_dir,
+        &identity,
+        &scope,
+        SUBSCRIPTION_SCOPE_KIND,
+        &resource_ref,
+        &owner_namespace,
+        &lease_stream_tail(&lease_tail),
+    )
+    .map_err(mutation_refused)?;
+    let key_previously_admitted = history
+        .iter()
+        .any(|entry| entry.operation.idem_key == idempotency_key);
+    if state.get("lease_state").and_then(Value::as_str) == Some("revoked")
+        && !key_previously_admitted
+    {
+        return Err(bad(
+            StatusCode::CONFLICT,
+            "subscription_lease_already_revoked",
+            "this lease is already revoked; a fresh idempotency key is not consumed for a no-op",
+        ));
+    }
     let mut next = state.clone();
     next["lease_state"] = json!("revoked");
-    let (seq, new_head) = admit_lease_transition(
+    let committed = admit_lease_transition(
         &st,
+        &identity,
+        &scope,
         &owner_namespace,
         &lease_tail,
         "subscription_lease.revoke",
-        Some(&head),
+        Some(expected_head),
         &next,
         body.get("recorded_at_ms")
             .and_then(Value::as_u64)
             .unwrap_or(0),
-        &format!("revoke-{lease_tail}"),
+        idempotency_key,
     )?;
-    Ok(Json(lease_view(&next, seq, &new_head, &lease_tail)))
+    let mut view = lease_view(
+        &committed.projection.operation.payload,
+        committed.projection.seq,
+        &committed.projection.head,
+        &lease_tail,
+    );
+    view["replayed"] = json!(committed.replayed);
+    view["request_fingerprint"] = json!(committed.request_fingerprint);
+    view["operation_ref"] = json!(committed.operation_ref);
+    view["receipt_ref"] = json!(committed.receipt_ref);
+    Ok(Json(view))
 }
 
 /// GET /v1/subscriptions/:owner_namespace/:lease_tail/delivery
@@ -696,8 +980,13 @@ pub(crate) async fn handle_subscription_revoke(
 /// no one-shot body that cannot be re-requested.
 pub(crate) async fn handle_subscription_delivery(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath((owner_namespace, lease_tail)): AxumPath<(String, String)>,
 ) -> Result<Json<Value>, Refused> {
+    let identity = request_identity(&st, &headers)?;
+    let lease_resource_ref = subscription_ref(&owner_namespace, &lease_tail);
+    let _lease_scope =
+        authorize_scope(&st, &identity, SUBSCRIPTION_SCOPE_KIND, &lease_resource_ref)?;
     let Some((state, _seq, _head)) = admitted_lease(&st, &owner_namespace, &lease_tail)? else {
         return Err(bad(
             StatusCode::NOT_FOUND,
@@ -739,9 +1028,40 @@ pub(crate) async fn handle_subscription_delivery(
         .and_then(|c| c.get("acknowledged_seq"))
         .and_then(Value::as_u64);
 
-    let history =
-        substrate_store::read_event_stream_history(&st.data_dir, &owner_namespace, &stream_tail)
-            .map_err(refused)?;
+    let stream_resource_ref = event_stream_ref(&owner_namespace, &stream_tail);
+    let stream_scope = authorize_scope(
+        &st,
+        &identity,
+        EVENT_STREAM_SCOPE_KIND,
+        &stream_resource_ref,
+    )?;
+    let history = super::mutation_event_foundation::read_owner_scoped_history(
+        &st.data_dir,
+        &identity,
+        &stream_scope,
+        EVENT_STREAM_SCOPE_KIND,
+        &stream_resource_ref,
+        &owner_namespace,
+        &stream_tail,
+    )
+    .map_err(mutation_refused)?;
+    if let Some(checkpoint) = state.get("acknowledged_checkpoint") {
+        if !checkpoint.is_null() {
+            let seq = checkpoint.get("acknowledged_seq").and_then(Value::as_u64);
+            let checkpoint_head = checkpoint
+                .get("acknowledged_head_ref")
+                .and_then(Value::as_str);
+            if !matches!((seq, checkpoint_head), (Some(seq), Some(checkpoint_head))
+                if super::mutation_event_foundation::checkpoint_is_retained(&history, seq, checkpoint_head))
+            {
+                return Err(bad(
+                    StatusCode::CONFLICT,
+                    "subscription_checkpoint_gap_requires_resync",
+                    "the admitted checkpoint no longer names an exact retained source event; fetch a fresh snapshot and create a successor lease",
+                ));
+            }
+        }
+    }
     let mut pending: Vec<Value> = history
         .into_iter()
         .filter(|p| from.is_none_or(|at| p.seq > at))
@@ -787,19 +1107,22 @@ pub(crate) async fn handle_subscription_delivery(
 /// canonical Agentgres: the family mints no lease chain of its own.
 pub(crate) async fn handle_subscription_create(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, Refused> {
+    let identity = request_identity(&st, &headers)?;
     for required in [
         "owner_namespace",
         "stream_tail",
         "subscriber_ref",
         "lease_tail",
+        "idempotency_key",
     ] {
         if text(&body, required).is_empty() {
             return Err(bad(
                 StatusCode::BAD_REQUEST,
                 "subscription_field_required",
-                "owner_namespace, stream_tail, subscriber_ref, and lease_tail are required",
+                "owner_namespace, stream_tail, subscriber_ref, lease_tail, and idempotency_key are required",
             ));
         }
     }
@@ -809,9 +1132,23 @@ pub(crate) async fn handle_subscription_create(
 
     // A lease may only be issued over a stream that actually exists: an
     // unleased delivery is refused, and so is a lease over nothing.
-    let stream =
-        substrate_store::read_event_stream_operation(&st.data_dir, &owner_namespace, &stream_tail)
-            .map_err(refused)?;
+    let stream_resource_ref = event_stream_ref(&owner_namespace, &stream_tail);
+    let stream_scope = authorize_scope(
+        &st,
+        &identity,
+        EVENT_STREAM_SCOPE_KIND,
+        &stream_resource_ref,
+    )?;
+    let stream = super::mutation_event_foundation::read_owner_scoped_head(
+        &st.data_dir,
+        &identity,
+        &stream_scope,
+        EVENT_STREAM_SCOPE_KIND,
+        &stream_resource_ref,
+        &owner_namespace,
+        &stream_tail,
+    )
+    .map_err(mutation_refused)?;
     if stream.is_none() {
         return Err(bad(
             StatusCode::UNPROCESSABLE_ENTITY,
@@ -864,9 +1201,23 @@ pub(crate) async fn handle_subscription_create(
         "acknowledged_checkpoint": Value::Null,
         "delivery_adapter_kind": body.get("delivery_adapter_kind").cloned().unwrap_or(json!("pull")),
         "permitted_event_class_ids": body.get("permitted_event_class_ids").cloned().unwrap_or(json!([])),
+        "principal_ref": identity.principal_ref.clone(),
+        "owner_ref": stream_scope.owner_ref.clone(),
+        "tenant_ref": stream_scope.tenant_ref.clone(),
     });
-    let (seq, head) = admit_lease_transition(
+    let lease_resource_ref = subscription_ref(&owner_namespace, &lease_tail);
+    let lease_scope = bind_scope(
         &st,
+        &identity,
+        SUBSCRIPTION_SCOPE_KIND,
+        &lease_resource_ref,
+        &stream_scope.owner_ref,
+        text(&body, "idempotency_key"),
+    )?;
+    let committed = admit_lease_transition(
+        &st,
+        &identity,
+        &lease_scope,
         &owner_namespace,
         &lease_tail,
         "subscription_lease.admit",
@@ -875,7 +1226,17 @@ pub(crate) async fn handle_subscription_create(
         body.get("recorded_at_ms")
             .and_then(Value::as_u64)
             .unwrap_or_default(),
-        &format!("lease-{lease_tail}"),
+        text(&body, "idempotency_key"),
     )?;
-    Ok(Json(lease_view(&state, seq, &head, &lease_tail)))
+    let mut view = lease_view(
+        &committed.projection.operation.payload,
+        committed.projection.seq,
+        &committed.projection.head,
+        &lease_tail,
+    );
+    view["replayed"] = json!(committed.replayed);
+    view["request_fingerprint"] = json!(committed.request_fingerprint);
+    view["operation_ref"] = json!(committed.operation_ref);
+    view["receipt_ref"] = json!(committed.receipt_ref);
+    Ok(Json(view))
 }

@@ -26,6 +26,22 @@ Core binds run reads and signals to the portal-verified actor;
 no run bearer is exposed to browser code or placed in a URL. The active-run resume index
 (`/api/runs/active`) is per-process best-effort with a durable core fallback for personal threads.
 
+GoalRun and OutcomeRoom requests cross a separate production trust boundary. The BFF validates the
+portal identity, mints a 10–60 second HMAC assertion for one configured issuer, daemon audience,
+principal, and tenant, and sends it to
+`POST /v1/hypervisor/auth/portal-session-exchange`. The daemon consumes the JTI durably, resolves
+the principal and current tenant membership from daemon-owned records, and returns a five-minute
+hash-at-rest session. That session stays in bounded server memory and is never set as a browser
+cookie or relayed in an API response. The daemon session itself is restricted to
+`/v1/goal-orchestration/*` plus introspection and logout; it is not a general Hypervisor login. In
+production, missing exchange configuration is a fail-closed
+503; browser-supplied `ioi_session` cookies and daemon bearer tokens are not a fallback.
+
+Set the same four `IOI_PORTAL_DAEMON_EXCHANGE_*` trust values on this BFF and the daemon. The secret
+must be a random value of at least 32 bytes; issuer, audience, and the canonical `org://` or
+`project://` tenant are explicit. This deployment-local bridge establishes outer identity only—it
+does not grant wallet, connector, spend, GoalRun-transition, or other effect authority.
+
 ```
 npm install
 npm run build
@@ -34,13 +50,50 @@ npm run serve
 npm start
 ```
 
+### Opt-in real-daemon smoke
+
+`npm run smoke:browser` proves the seeded UI journeys against a strict contract fake. It is not
+real-daemon evidence. The separate `npm run smoke:real-daemon` lane sends GoalRun and OutcomeRoom
+read-only requests through this plugin's identity-binding BFF and validates their canonical
+response contracts. It never creates, starts, reconciles, attaches, detaches, or transitions one
+of those records.
+
+Use an already-running daemon with its expected principal and exactly one real credential:
+
+```sh
+IOI_AI_REAL_DAEMON_URL=https://daemon.example \
+IOI_AI_REAL_DAEMON_PRINCIPAL=00000000-0000-4000-8000-000000000001 \
+IOI_AI_REAL_DAEMON_BEARER_TOKEN=... \
+npm run smoke:real-daemon
+```
+
+For a local compiled daemon, point the smoke at the executable. This starts that real binary on a
+random loopback port with a throwaway data directory, consumes the one-boot host-log bootstrap
+credential, creates a daemon-issued operator session, and requires authenticated `whoami` before
+testing the BFF. It then removes the isolated directory after the run:
+
+```sh
+IOI_AI_REAL_DAEMON_BINARY=../../../../target/debug/hypervisor-daemon npm run smoke:real-daemon
+```
+
+An existing loopback daemon with intentionally unenforced local identity may be checked only when
+`IOI_AI_REAL_ALLOW_LOOPBACK_TRUST=1` is set explicitly. Remote HTTP is refused. Optional
+`IOI_AI_REAL_GOAL_RUN_ID`, `IOI_AI_REAL_OUTCOME_ROOM_ID`, and
+`IOI_AI_REAL_ACTIVATION_ID` select detail projections; otherwise the first visible GoalRun and
+OutcomeRoom are used when present. The sanitized report is written to
+`.artifacts/implementation/ioi-ai-real-daemon-smoke/report.json` at the repository root. It also
+records the daemon's mechanically derived `/v1` capability index and fails unless every route and
+method used by the GoalRun, activation, OutcomeRoom membership, lifecycle, and projection journeys
+is compiled into that binary.
+
 Dev (HMR): run `npm run serve` in one terminal and `npm run dev` in another — Vite serves
 the front-end on :5173 and proxies `/signin`, `/me`, `/api/*` to the node server.
 
 Env (see `.env.example`): `CORE_API_URL` (default `http://localhost:8080`),
 `CORE_ORG_ID` (default `acme`), `PORT` (default 8096), `WEB_UI_PUBLIC_URL`,
 `WEB_UI_PRINCIPALS` (csv allowlist; empty = any id, **dev only**),
-and `CORE_SIGNING_SECRET` (same value as the core when source-auth is enabled).
+`CORE_SIGNING_SECRET` (same value as the core when source-auth is enabled), and the four explicit
+`IOI_PORTAL_DAEMON_EXCHANGE_SECRET|ISSUER|AUDIENCE|TENANT_REF` values described above.
 
 ## What you get
 

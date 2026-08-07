@@ -4,11 +4,14 @@ import { fileURLToPath } from "node:url";
 const SERVER = process.env.WEB_UI_SERVER_URL ?? "http://localhost:8096";
 
 const here = (rel: string): string => fileURLToPath(new URL(rel, import.meta.url));
+export const KATEX_FONT_PATTERN = /^fonts\/(KaTeX_[^/]+\.(?:woff2?|ttf))$/;
+export const KATEX_FONT_ALIAS = here("node_modules/katex/dist/fonts/$1");
 
 export default defineConfig({
   base: process.env.WEB_UI_BASE ?? "/",
   resolve: {
     alias: [
+      { find: KATEX_FONT_PATTERN, replacement: KATEX_FONT_ALIAS },
       { find: /^katex$/, replacement: here("src/lazy-katex.ts") },
       { find: "katex-real", replacement: here("node_modules/katex/dist/katex.mjs") },
       { find: /^highlight\.js\/lib\/core$/, replacement: here("src/lazy-hljs.ts") },

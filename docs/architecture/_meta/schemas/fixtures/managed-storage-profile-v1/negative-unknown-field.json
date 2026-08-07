@@ -1,0 +1,19 @@
+{
+  "schema_version": "ioi.storage-profile.v1",
+  "storage_profile_ref": "storage-profile://acme/local-private",
+  "owner_ref": "wallet://acme/operator",
+  "backend_class": "local_private",
+  "destination_ref": "storage://acme/local-private",
+  "custody_policy_ref": "policy://acme/custody",
+  "encryption_ref": null,
+  "key_epoch_ref": null,
+  "retention_policy_ref": "policy://acme/retention",
+  "jurisdiction_refs": [],
+  "minimum_replicas": 1,
+  "independent_compute_copy_required": false,
+  "export_allowed": true,
+  "authority_grant_refs": ["grant://acme/storage-admin"],
+  "revision": 1,
+  "profile_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "availability_proven": true
+}

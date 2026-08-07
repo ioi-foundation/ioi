@@ -9,6 +9,8 @@ Superseded by: none.
 Last alignment pass: 2026-07-26.
 Doctrine status: canonical
 Implementation status: partial (authority/receipt gates are enforced across existing owner planes; registered multi-axis information-flow and declassification schemas, invariants, fixtures, and generated projections provide contract substrate only; the shared pre-effect evaluator and production propagation/enforcement across HTTP connectors, MCP, hosted models, browsers, memory, OutcomeRoom, ContextCell, general computer use, and inbound connectors/webhooks remain planned; local-agent pairing and TEE/cTEE/L1 items follow their owners and remain planned where not exposed by live routes)
+Implementation refs:
+  - `crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs`
 Last implementation audit: 2026-07-18
 
 ## Canonical Definition

@@ -8,6 +8,8 @@ Superseded by: none.
 Last alignment pass: 2026-07-13.
 Doctrine status: reference
 Implementation status: partial (route registry and local Ollama mount/binding
+Implementation refs:
+  - `crates/node/src/bin/hypervisor-daemon.rs`
 are live; the registered information-flow/declassification contracts define a
 target hosted-provider bundle and untrusted-output posture, but production
 enforcement remains planned; sealed BYOK and multi-transport session execution

@@ -1,6 +1,6 @@
 # Canonical State and Projection System (CSPS)
 
-Status: taxonomy reference; Agentgres state doctrine remains owned by [`agentgres-state-substrate.md`](./doctrine.md) when terminology or mechanics disagree.
+Status: taxonomy reference; Agentgres state doctrine remains owned by [`doctrine.md`](./doctrine.md) when terminology or mechanics disagree.
 Context owner: this file for the generic Canonical State and Projection System category above Agentgres/FQF-style state systems.
 Supersedes: `docs/specs/formal/canonical-state-and-projection-system-whitepaper.md`.
 Superseded by: none.
@@ -229,7 +229,7 @@ resolved in both owning planes is unavailable, not zero and not best-effort.
 
 Messages, boards, inboxes, digests, feeds, and replay timelines use the
 `OutcomeRoomDiscussionProjectionEnvelope` shape owned by
-[`collaborative-pursuit.md`](../../foundations/objects/collaborative-pursuit.md).
+[`collaborative-pursuit.md`](../../domains/ioi-ai/collaborative-pursuit.md).
 That envelope is a durable, versioned projection artifact: it contains
 policy-filtered message refs and redaction summaries, not copied private
 message bytes; it binds the source room revision/root, receipts, visibility

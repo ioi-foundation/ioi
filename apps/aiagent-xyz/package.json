@@ -4,10 +4,12 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "IOI_ENABLE_DEVELOPMENT_AUTHORITY=1 node server.mjs",
+    "build": "vite build --manifest && npm run check:production",
+    "check:production": "node scripts/assert-production-clean.mjs",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "NODE_ENV=production node server.mjs",
+    "test": "node --test test/*.test.mjs"
   },
   "dependencies": {
     "react": "^19.2.0",

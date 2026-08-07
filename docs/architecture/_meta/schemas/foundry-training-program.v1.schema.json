@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/foundry-training-program/v1",
+  "title": "FoundryTrainingProgram",
+  "description": "Restart-safe bounded reference-training program state. It records immutable dataset and recipe commitments, closed deterministic token-count rows, complete checkpoint projections, restore verification, and proposal-only qualification without claiming production trainer capability.",
+  "x-ioi-schema-version": "ioi.foundry-training-program.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "program_id", "owner_ref", "foundry_spec_ref", "dataset_snapshot_ref", "dataset_content_hash", "recipe_content_hash", "training_mode", "trainer_backend_profile_ref", "backend_scope", "text_field", "checkpoint_every_rows", "seed", "authority_grant_refs", "rights_grant_refs", "revision", "status", "data_cursor", "processed_rows", "processed_tokens", "token_counts", "checkpoint_refs", "current_checkpoint", "restore_verification", "qualification", "last_action_idempotency_key"],
+  "properties": {
+    "schema_version": { "const": "ioi.foundry-training-program.v1" },
+    "program_id": { "type": "string", "pattern": "^trainpipe://[^\\s]{1,500}$" },
+    "owner_ref": { "type": "string", "pattern": "^(?:wallet|org|project)://[^\\s]{1,500}$" },
+    "foundry_spec_ref": { "$ref": "#/$defs/nullableRef" },
+    "dataset_snapshot_ref": { "type": "string", "pattern": "^dataset-snapshot://[^\\s]{1,500}$" },
+    "dataset_content_hash": { "$ref": "#/$defs/hash" },
+    "recipe_content_hash": { "$ref": "#/$defs/hash" },
+    "training_mode": { "enum": ["sft", "adapter"] },
+    "trainer_backend_profile_ref": { "const": "trainer-backend://ioi/reference-token-frequency/v1" },
+    "backend_scope": { "const": "bounded_reference_pipeline_only" },
+    "text_field": { "type": "string", "minLength": 1, "maxLength": 500 },
+    "checkpoint_every_rows": { "$ref": "#/$defs/positiveInteger" },
+    "seed": { "$ref": "#/$defs/nonnegativeInteger" },
+    "authority_grant_refs": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/nonempty" } },
+    "rights_grant_refs": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/nonempty" } },
+    "revision": { "$ref": "#/$defs/positiveInteger" },
+    "status": { "enum": ["admitted", "running", "paused", "completed", "cancelled"] },
+    "data_cursor": { "$ref": "#/$defs/nonnegativeInteger" },
+    "processed_rows": { "$ref": "#/$defs/nonnegativeInteger" },
+    "processed_tokens": { "$ref": "#/$defs/nonnegativeInteger" },
+    "token_counts": { "$ref": "#/$defs/tokenCountRows" },
+    "checkpoint_refs": { "type": "array", "items": { "type": "string", "pattern": "^checkpoint://[^\\s]{1,500}$" } },
+    "current_checkpoint": { "anyOf": [{ "$ref": "#/$defs/checkpointProjection" }, { "type": "null" }] },
+    "restore_verification": { "anyOf": [{ "$ref": "#/$defs/restoreVerification" }, { "type": "null" }] },
+    "qualification": { "anyOf": [{ "$ref": "#/$defs/qualification" }, { "type": "null" }] },
+    "last_action_idempotency_key": { "type": "string", "minLength": 1, "maxLength": 500 },
+    "last_action_request": { "$ref": "#/$defs/actionRequest" },
+    "reconciliation": { "$ref": "#/$defs/reconciliation" },
+    "qualification_proposal_ref": { "type": "string", "pattern": "^qualification-proposal://foundry/[^\\s]{1,500}$" }
+  },
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "nonempty": { "type": "string", "minLength": 1 },
+    "ref": { "type": "string", "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$" },
+    "nullableRef": { "anyOf": [{ "$ref": "#/$defs/ref" }, { "type": "null" }] },
+    "nonnegativeInteger": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+    "positiveInteger": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+    "tokenCountRows": { "type": "array", "uniqueItems": true, "items": { "type": "object", "additionalProperties": false, "required": ["token", "count"], "properties": { "token": { "type": "string", "minLength": 1 }, "count": { "$ref": "#/$defs/positiveInteger" } } } },
+    "checkpointProjection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["checkpoint_ref", "artifact_ref", "artifact_hash", "data_cursor", "global_step", "token_count", "complete", "restore_verified"],
+      "properties": {
+        "checkpoint_ref": { "type": "string", "pattern": "^checkpoint://foundry/[^\\s]{1,500}$" },
+        "artifact_ref": { "type": "string", "pattern": "^artifact://foundry-checkpoint/[0-9a-f]{64}$" },
+        "artifact_hash": { "$ref": "#/$defs/hash" },
+        "data_cursor": { "$ref": "#/$defs/nonnegativeInteger" },
+        "global_step": { "$ref": "#/$defs/nonnegativeInteger" },
+        "token_count": { "$ref": "#/$defs/nonnegativeInteger" },
+        "complete": { "const": true },
+        "restore_verified": { "type": "boolean" }
+      }
+    },
+    "restoreVerification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["verified", "checkpoint_ref", "artifact_hash", "data_cursor", "model_state_hash", "optimizer_state_hash", "scheduler_state_hash", "rng_state_hash"],
+      "properties": {
+        "verified": { "const": true },
+        "checkpoint_ref": { "type": "string", "pattern": "^checkpoint://foundry/[^\\s]{1,500}$" },
+        "artifact_hash": { "$ref": "#/$defs/hash" },
+        "data_cursor": { "$ref": "#/$defs/nonnegativeInteger" },
+        "model_state_hash": { "$ref": "#/$defs/hash" },
+        "optimizer_state_hash": { "$ref": "#/$defs/hash" },
+        "scheduler_state_hash": { "$ref": "#/$defs/hash" },
+        "rng_state_hash": { "$ref": "#/$defs/hash" }
+      }
+    },
+    "actionRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action", "max_rows"],
+      "properties": {
+        "action": { "enum": ["start", "step", "pause", "resume", "cancel", "reconcile"] },
+        "max_rows": { "anyOf": [{ "$ref": "#/$defs/positiveInteger" }, { "type": "null" }] }
+      }
+    },
+    "reconciliation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "checkpoint_ref"],
+      "properties": {
+        "status": { "const": "satisfied" },
+        "checkpoint_ref": { "anyOf": [{ "type": "string", "pattern": "^checkpoint://foundry/[^\\s]{1,500}$" }, { "type": "null" }] }
+      }
+    },
+    "workloadFingerprint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["runtime_node_ref", "environment_ref", "trainer_backend_profile_ref", "hardware_architecture", "logical_cpu_count", "memory_bytes", "operating_system", "daemon_release_ref"],
+      "properties": {
+        "runtime_node_ref": { "type": "string", "pattern": "^runtime://[^\\s]{1,500}$" },
+        "environment_ref": { "type": "string", "pattern": "^environment://[^\\s]{1,500}$" },
+        "trainer_backend_profile_ref": { "const": "trainer-backend://ioi/reference-token-frequency/v1" },
+        "hardware_architecture": { "enum": ["x86_64", "aarch64"] },
+        "logical_cpu_count": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "memory_bytes": { "$ref": "#/$defs/positiveInteger" },
+        "operating_system": { "enum": ["linux", "macos", "windows"] },
+        "daemon_release_ref": { "type": "string", "pattern": "^release://[^\\s]{1,500}$" }
+      }
+    },
+    "qualification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "verdict", "quality", "measurement", "promotion_boundary"],
+      "properties": {
+        "schema_version": { "const": "ioi.foundry-qualified-measurement.v1" },
+        "verdict": { "enum": ["qualified", "rejected"] },
+        "quality": { "type": "object", "additionalProperties": false, "required": ["token_coverage", "mean_negative_log_likelihood", "gate"], "properties": { "token_coverage": { "type": "number", "minimum": 0, "maximum": 1 }, "mean_negative_log_likelihood": { "type": "number", "minimum": 0, "maximum": 1000000000000 }, "gate": { "type": "object", "additionalProperties": false, "required": ["minimum_token_coverage", "maximum_mean_negative_log_likelihood"], "properties": { "minimum_token_coverage": { "type": "number", "minimum": 0, "maximum": 1 }, "maximum_mean_negative_log_likelihood": { "type": "number", "minimum": 0, "maximum": 1000000000000 } } } } },
+        "measurement": { "type": "object", "additionalProperties": false, "required": ["phase", "token_numerator", "denominator", "scope", "raw_tokens", "effective_tokens", "elapsed_nanoseconds", "tokens_per_second", "includes_compilation", "includes_loading", "includes_evaluation", "includes_checkpoint", "includes_failure_and_recovery", "hardware_software_topology_fingerprint", "cost_basis_ref", "failure_schedule_ref"], "properties": { "phase": { "const": "evaluation" }, "token_numerator": { "const": "loss_bearing" }, "denominator": { "const": "full_wall_clock" }, "scope": { "const": "daemon_cpu_process" }, "raw_tokens": { "$ref": "#/$defs/positiveInteger" }, "effective_tokens": { "$ref": "#/$defs/positiveInteger" }, "elapsed_nanoseconds": { "$ref": "#/$defs/positiveInteger" }, "tokens_per_second": { "type": "number", "minimum": 0, "maximum": 1000000000000000 }, "includes_compilation": { "const": false }, "includes_loading": { "const": true }, "includes_evaluation": { "const": true }, "includes_checkpoint": { "const": false }, "includes_failure_and_recovery": { "const": false }, "hardware_software_topology_fingerprint": { "$ref": "#/$defs/workloadFingerprint" }, "cost_basis_ref": { "type": "string", "pattern": "^(?:cost|ledger|policy)://[^\\s]{1,500}$" }, "failure_schedule_ref": { "type": "string", "pattern": "^(?:schedule|policy|artifact)://[^\\s]{1,500}$" } } },
+        "promotion_boundary": { "type": "object", "additionalProperties": false, "required": ["proposal_only", "governance_approval_required", "runtime_activation_performed"], "properties": { "proposal_only": { "const": true }, "governance_approval_required": { "const": true }, "runtime_activation_performed": { "const": false } } }
+      }
+    }
+  }
+}

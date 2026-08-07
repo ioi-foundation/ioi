@@ -1,0 +1,9 @@
+{
+  "schema_version": "ioi.compute-session.v1",
+  "compute_session_ref": "compute://managed/acme-agent/3",
+  "runtime_assignment_ref": "runtime-assignment://managed/acme-agent/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "environment_ref": "environment://local/acme-agent",
+  "provider_ref": "provider://local/reference",
+  "status": "ready",
+  "readiness_evidence_refs": ["evidence://local/acme-agent-ready"]
+}

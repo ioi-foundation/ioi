@@ -250,8 +250,8 @@ export const V2_ROUTE_TABLE = [
     surface: "Packages",
     kind: "owner application",
     rule: "Marketplace is the optional mode at /packages/marketplace",
-    waves: "W3 (registry family — biggest build)",
-    build_state: "shell-only (W0.1) — the packages/* registry family (package, immutable release, install bindings, deprecation/disable/recall/revocation + receipts) is the biggest Wave 3 backend build (surfaces/packages.md §5), around the existing install-admission planner",
+    waves: "W3 (registry foundation live; lifecycle + registration open)",
+    build_state: "partial backend — /v1/hypervisor/packages now admits owner-scoped ODK package candidates, immutable canonical release records, disabled installation bindings, and CAS/idempotent uninstall receipts through Agentgres. Still open: extension_application registration, compiler/System/serving bindings, executable artifact materialization, and deprecate/recall/revoke lifecycle.",
     serving_today: [
       { href: "/__ioi/marketplace", label: "Marketplace readout", note: "draft listing/publish/admission object plane (admission-only)" },
       { href: "/__ioi/marketplace/listings", label: "Marketplace listings", note: "protected ported seed (daemon-wired); re-files over the registry in Wave 3" },
@@ -355,7 +355,7 @@ const PAGE_CSS = `
   h2{font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:#878a93;margin:26px 0 10px;font-weight:600}
   .grid{display:grid;grid-template-columns:170px 1fr;gap:8px 16px;padding:16px;border:1px solid #24262d;border-radius:12px;background:#15171c;margin:0 0 18px}
   .grid dt{color:#878a93;font-size:12.5px}
-  .grid dd{margin:0;color:#e6e7ea}
+  .grid dd{margin:0;min-width:0;color:#e6e7ea;overflow-wrap:anywhere}
   .card{display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid #24262d;border-radius:12px;background:#15171c;margin-bottom:8px;text-decoration:none;color:inherit}
   a.card:hover{border-color:#3a82f6;background:#191b21}
   .card .main{flex:1;min-width:0}
@@ -367,7 +367,14 @@ const PAGE_CSS = `
   .empty{color:#6f7280;padding:18px;border:1px dashed #24262d;border-radius:12px}
   code{font-size:11.5px;color:#aab;background:#0e0f13;padding:1px 5px;border-radius:4px}
   pre{background:#0e0f13;border:1px solid #24262d;border-radius:8px;padding:12px;overflow:auto;font:11.5px/1.5 ui-monospace,monospace;color:#cdd1d8;white-space:pre-wrap;word-break:break-all}
-  .foot{color:#6f7280;font-size:12.5px;margin-top:28px;border-top:1px solid #1b1d23;padding-top:14px}`;
+  .foot{color:#6f7280;font-size:12.5px;margin-top:28px;border-top:1px solid #1b1d23;padding-top:14px}
+  @media(max-width:700px){
+    .wrap{padding:28px 16px 56px}
+    .grid{grid-template-columns:minmax(0,1fr);gap:3px;padding:14px}
+    .grid dt:not(:first-child){margin-top:8px}
+    .card{align-items:flex-start;padding:13px 14px}
+    code{overflow-wrap:anywhere;word-break:break-word}
+  }`;
 
 function pageShell(title, inner) {
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escHtml(title)} · Hypervisor</title>
@@ -413,7 +420,8 @@ export function renderV2RouteShellPage(row, compiled) {
     : `<div class="empty">Nothing serves this surface today. This page states that honestly — no fixture rows, no fabricated counts, no placeholder data.</div>`;
   return pageShell(
     row.surface,
-    `<div class="brand">IOI Hypervisor · v2 route shell (W0.1)</div>
+    `<main data-ioi-surface-route="${esc(row.route)}" data-ioi-surface-owner="${esc(row.kind)}">
+    <div class="brand">IOI Hypervisor · v2 route shell (W0.1)</div>
     <h1>${esc(row.surface)}${reserved ? '<span class="pill warn">reserved · nonlaunchable</span>' : ""}</h1>
     <p class="sub">${
       reserved
@@ -432,7 +440,8 @@ export function renderV2RouteShellPage(row, compiled) {
     ${servingBlock}
     <h2>Estate navigation — compiled product-surface projection (W0.2)</h2>
     ${navBand(row, compiled)}
-    <div class="foot">Route declared in the canonical target-route ledger (core-clients-surfaces.md § Canonical Target Routes) and resolved by the W0.1 route table (<code>apps/hypervisor/scripts/v2-route-shell.mjs</code>); navigation compiled by <code>apps/hypervisor/scripts/surface-compiler.mjs</code>. <a href="/ai">← Home</a></div>`,
+    <div class="foot">Route declared in the canonical target-route ledger (core-clients-surfaces.md § Canonical Target Routes) and resolved by the W0.1 route table (<code>apps/hypervisor/scripts/v2-route-shell.mjs</code>); navigation compiled by <code>apps/hypervisor/scripts/surface-compiler.mjs</code>. <a href="/ai">← Home</a></div>
+    </main>`,
   );
 }
 

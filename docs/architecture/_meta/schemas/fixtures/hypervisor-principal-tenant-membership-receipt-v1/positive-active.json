@@ -1,0 +1,19 @@
+{
+  "schema_version": "ioi.hypervisor.principal_tenant_membership_receipt.v1",
+  "membership_ref": "tenant-membership://hypervisor/1111111111111111111111111111111111111111111111111111111111111111/revision/1",
+  "receipt_ref": "receipt://hypervisor/principal-tenant-membership/2222222222222222222222222222222222222222222222222222222222222222",
+  "principal_ref": "user://member-alpha",
+  "tenant_ref": "org://local",
+  "tenant_kind": "organization",
+  "status": "active",
+  "revision": 1,
+  "predecessor_membership_ref": null,
+  "predecessor_transition_hash": null,
+  "changed_by_principal_ref": "user://00000000-0000-4000-8000-000000000001",
+  "change_source": "admin_api",
+  "reason": "Admit the member to the local organization surface.",
+  "idempotency_key_hash": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+  "request_hash": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+  "transition_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "changed_at": "2026-08-06T12:00:00Z"
+}

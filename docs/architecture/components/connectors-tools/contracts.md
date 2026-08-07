@@ -11,6 +11,8 @@ Superseded by: none.
 Last alignment pass: 2026-07-29.
 Doctrine status: canonical
 Implementation status: partial (the RuntimeToolContract owner and daemon tool catalog are live, the registered information-flow/declassification schemas, invariants, fixtures, and generated projections provide contract substrate, and a conforming `ScmPublicationEffect` runtime path is live on `POST /v1/hypervisor/environments/{id}/scm/publish`; production IFC propagation/enforcement, MCP resource/prompt/elicitation/task/App propagation, general inbound connector subscriptions, OutcomeRoom discussion/artifact resolution, remaining browser/computer-use families, immutable gateway requirements, `LocalAgentPairingSessionEnvelope` bindings, room-admitted local-agent gateway issuance, a bound review-request host surface, and the whole of `ioi.scm-publication-effect.v2` remain planned)
+Implementation refs:
+  - `crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs`
 Last implementation audit: 2026-07-29 (contract substrate; production IFC enforcement not claimed; `ScmPublicationEffect` v1 has a conforming runtime path whose refusal branches are each pinned by a test against the registered negative fixture, with the review-request host surface still unbound; `ScmPublicationEffect` v2 is registered contract substrate only and is implemented by nothing)
 
 ## Purpose

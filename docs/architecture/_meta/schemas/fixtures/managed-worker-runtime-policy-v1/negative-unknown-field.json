@@ -1,0 +1,17 @@
+{
+  "persistence_profile": "persistent",
+  "idle_threshold_seconds": 300,
+  "minimum_warm_seconds": 60,
+  "wake_sources": ["user"],
+  "maximum_cold_start_seconds": 120,
+  "maximum_restore_age_seconds": 3600,
+  "checkpoint_cadence_seconds": 300,
+  "pre_stop_checkpoint_required": true,
+  "provider_idle_semantics": "stop",
+  "fallback_placement_refs": [],
+  "privacy_floor_ref": "policy://acme/privacy/private",
+  "spend_ceiling_ref": "budget://acme/managed/monthly",
+  "archive_retention_policy_ref": "policy://acme/retention/standard",
+  "minimum_backup_replicas": 1,
+  "unruled": true
+}

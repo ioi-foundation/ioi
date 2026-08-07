@@ -1,0 +1,80 @@
+{
+  "schema_version": "ioi.architecture.portal-daemon-session-exchange-status.v1",
+  "scope": "ioi.ai portal identity to deployment-local Hypervisor daemon session",
+  "implementation_status": "bounded_exchange_release_blocked",
+  "bounded_implementation": {
+    "portal_identity_verified_by": "apps/ioi-ai-product/plugins/web-ui/server/index.ts",
+    "assertion_minted_by": "apps/ioi-ai-product/plugins/web-ui/server/portal-daemon-exchange.ts",
+    "assertion_consumed_by": "crates/node/src/bin/hypervisor_daemon_routes/portal_session_exchange_routes.rs",
+    "verified_properties": [
+      "separate explicitly configured trust secret",
+      "HS256 signature with a 32-byte minimum key",
+      "exact issuer and daemon audience",
+      "exact configured org:// or project:// tenant",
+      "10-to-60-second assertion lifetime",
+      "durably single-use JTI across restart",
+      "daemon-owned principal and live tenant-membership resolution",
+      "five-minute hash-at-rest daemon session retained only by the BFF",
+      "daemon-enforced /v1/goal-orchestration route scope plus whoami/logout",
+      "production refusal of browser daemon-cookie or bearer fallback"
+    ],
+    "authority_not_granted": [
+      "wallet approval",
+      "connector or tool authority",
+      "spend authority",
+      "GoalRun or OutcomeRoom transition authority",
+      "tenant membership"
+    ]
+  },
+  "release_blockers": [
+    {
+      "severity": "high",
+      "scope": "continuous tenant authorization",
+      "reason": "tenant_ref is validated at exchange admission but is not enforced as the live session and resource scope on every daemon request; cross-tenant access and access after membership revocation remain unproven"
+    },
+    {
+      "severity": "high",
+      "scope": "impersonation attribution",
+      "reason": "the portal impersonator claim is not retained, so daemon evidence attributes an impersonated action only to the subject and loses actor/delegation identity"
+    },
+    {
+      "severity": "medium",
+      "scope": "principal registry integrity",
+      "reason": "principal uniqueness uses permissive registry reads that may skip malformed or unreadable records"
+    },
+    {
+      "severity": "medium",
+      "scope": "replay custody and retention",
+      "reason": "single-use custody is local to one shared data directory, and exchange/session records lack clustered custody, bounded garbage collection, and per-principal singleflight"
+    },
+    {
+      "severity": "medium",
+      "scope": "integration evidence",
+      "reason": "real BFF-to-Axum HTTP, middleware bypass, parallel replay, tenant revocation, cross-tenant, impersonation, and corrupt-registry cases are not yet covered"
+    }
+  ],
+  "executable_evidence": [
+    "crates/node/src/bin/hypervisor_daemon_routes/portal_session_exchange_routes.rs#tests",
+    "apps/ioi-ai-product/plugins/web-ui/test/portal-daemon-exchange.test.ts",
+    "apps/ioi-ai-product/plugins/web-ui/test/portal-daemon-bff-route.test.ts"
+  ],
+  "operational_followups": [
+    {
+      "status": "open",
+      "scope": "bounded retention",
+      "reason": "Expired replay-consumption and authentication-session records remain durable after they cease granting access.",
+      "closure_requires": "A daemon-owned, race-safe retention policy may remove an exchange consumption only after assertion expiry plus the accepted clock-skew window, and may remove a session only after session expiry."
+    }
+  ],
+  "canonical_blocker": {
+    "status": "open",
+    "reason": "Canon does not yet register a portable multi-issuer surface-identity exchange envelope, trust-registry lifecycle, key rotation/revocation object, or conformance contract.",
+    "bounded_effect": "The implemented protocol is deployment-local, single-issuer, configuration-bound, and must not be presented as portable federation or machine authority.",
+    "closure_requires": [
+      "canonical assertion and consumption receipt schemas",
+      "trusted surface issuer and key rotation/revocation owner ruling",
+      "multi-deployment audience identity rules",
+      "conformance coverage for rotation, revocation, clock skew, and clustered replay custody"
+    ]
+  }
+}

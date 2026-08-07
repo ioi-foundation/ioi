@@ -33,11 +33,16 @@ export function replaceChildrenPreservingFocus(container: HTMLElement, host: HTM
   const selection = readSelection(view, active);
   container.replaceChildren(host);
   if (!key) return;
+  const next = focusByKey(container, key);
+  if (next) applySelection(view, next, selection);
+}
+
+export function focusByKey(container: HTMLElement, key: string): HTMLElement | null {
   const next = [...container.querySelectorAll<HTMLElement>("[data-focus-key]")].find(
     (element) => element.dataset.focusKey === key,
   );
   next?.focus();
-  if (next) applySelection(view, next, selection);
+  return next ?? null;
 }
 
 export function preservingFocus(doc: Document, mutate: () => void): void {

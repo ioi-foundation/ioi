@@ -1,0 +1,14 @@
+{
+  "schema_version": "ioi.foundry-dataset-snapshot.v1",
+  "dataset_snapshot_ref": "dataset-snapshot://foundry/2222222222222222222222222222222222222222222222222222222222222222",
+  "recipe_revision_ref": "foundry-recipe://acme/reference/revision/1",
+  "recipe_content_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "institutional_learning_boundary_ref": "learning-boundary://acme/private",
+  "learning_source_rights_claim_refs": ["learning-source-rights://acme/input-v1"],
+  "rights_grant_refs": ["rights-grant://acme/training-v1"],
+  "content_manifest_ref": "artifact://foundry-dataset/2222222222222222222222222222222222222222222222222222222222222222",
+  "content_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "row_count": 3,
+  "split_counts": { "train": 2, "test": 1 },
+  "status": "materialized"
+}

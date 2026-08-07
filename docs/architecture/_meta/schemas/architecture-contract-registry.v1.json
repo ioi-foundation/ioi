@@ -196,7 +196,7 @@
     {
       "contract_id": "schema://ioi/applications/ioi-ai/goal-grounding-loop/v1",
       "canonical_name": "GoalGroundingLoop",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/goal-run-execution.md#goalgroundingloopenvelope",
+      "canonical_owner_ref": "canon://../../domains/ioi-ai/goal-run-execution.md#goalgroundingloopenvelope",
       "schema_version": "ioi.goal-grounding-loop.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -297,7 +297,7 @@
     {
       "contract_id": "schema://ioi/applications/ioi-ai/goal-run-activation/v1",
       "canonical_name": "GoalRunActivationEnvelope",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/goal-pursuit.md#goalrunactivationenvelope",
+      "canonical_owner_ref": "canon://../../domains/ioi-ai/goal-pursuit.md#goalrunactivationenvelope",
       "schema_version": "ioi.goal-run-activation.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -396,7 +396,7 @@
     {
       "contract_id": "schema://ioi/applications/ioi-ai/goal-run-admitted-state/v1",
       "canonical_name": "GoalRunAdmittedState",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/goal-run-execution.md#goalrunenvelope",
+      "canonical_owner_ref": "canon://../../domains/ioi-ai/goal-run-execution.md#goalrunenvelope",
       "schema_version": "ioi.goal-run-admitted-state.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -449,7 +449,7 @@
     {
       "contract_id": "schema://ioi/applications/ioi-ai/goal-run-execution-ceiling/v1",
       "canonical_name": "GoalRunExecutionCeiling",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/goal-run-execution.md#goalrunexecutionceilingenvelope",
+      "canonical_owner_ref": "canon://../../domains/ioi-ai/goal-run-execution.md#goalrunexecutionceilingenvelope",
       "schema_version": "ioi.goal-run-execution-ceiling.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -550,7 +550,7 @@
     {
       "contract_id": "schema://ioi/applications/ioi-ai/goal-run-profile/v1",
       "canonical_name": "GoalRunProfile",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/goal-pursuit.md#goalrunprofileenvelope",
+      "canonical_owner_ref": "canon://../../domains/ioi-ai/goal-pursuit.md#goalrunprofileenvelope",
       "schema_version": "ioi.goal-run-profile.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -593,7 +593,7 @@
     {
       "contract_id": "schema://ioi/applications/ioi-ai/goal-run/v1",
       "canonical_name": "GoalRun",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/goal-run-execution.md#goalrunenvelope",
+      "canonical_owner_ref": "canon://../../domains/ioi-ai/goal-run-execution.md#goalrunenvelope",
       "schema_version": "ioi.goal-run.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -3501,6 +3501,53 @@
       "negative_fixture_refs": [
         {
           "path": "fixtures/hypervisor-preference-record-v1/negative-unknown-field.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/principal-tenant-membership-receipt/v1",
+      "canonical_name": "HypervisorPrincipalTenantMembershipReceipt",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/identity-access-and-metering.md#principal-to-tenant-visibility-memberships",
+      "schema_version": "ioi.hypervisor.principal_tenant_membership_receipt.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "hypervisor-principal-tenant-membership-receipt.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "HypervisorPrincipalTenantMembershipReceiptV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "HypervisorPrincipalTenantMembershipReceiptV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/hypervisor-principal-tenant-membership-receipt-v1/positive-active.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/hypervisor-principal-tenant-membership-receipt-v1/negative-wallet-tenant.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-principal-tenant-membership-receipt-v1/negative-unknown-field.json",
           "expected_failure": "schema"
         }
       ]
@@ -6526,7 +6573,7 @@
     {
       "contract_id": "schema://ioi/foundations/declassification-approval/v1",
       "canonical_name": "DeclassificationApproval",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/goal-run-execution.md#informationflowlabel-and-declassificationapproval",
+      "canonical_owner_ref": "canon://../../foundations/objects/execution-context-and-step-resolution.md#informationflowlabel-and-declassificationapproval",
       "schema_version": "ioi.foundations.declassification-approval.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -6623,7 +6670,7 @@
     {
       "contract_id": "schema://ioi/foundations/information-flow-label/v1",
       "canonical_name": "InformationFlowLabel",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/goal-run-execution.md#informationflowlabel-and-declassificationapproval",
+      "canonical_owner_ref": "canon://../../foundations/objects/execution-context-and-step-resolution.md#informationflowlabel-and-declassificationapproval",
       "schema_version": "ioi.foundations.information-flow-label.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -8161,6 +8208,226 @@
           "expected_failure": "schema"
         }
       ]
+    },
+    {
+      "contract_id": "schema://ioi/components/daemon-runtime/managed-worker-runtime-policy/v1",
+      "canonical_name": "ManagedWorkerRuntimePolicy",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/work-execution.md#bounded-managed-runtime-wire-contracts",
+      "schema_version": "ioi.managed-worker-runtime-policy.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": { "successor_of": null, "successor_contract_id": null, "compatibility": "initial", "migration_policy": "none", "predecessor_remains_valid": false, "wire_mutation_policy": "forbidden", "hash_impact": "signature_preimage_changed" },
+      "schema_ref": "managed-worker-runtime-policy.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        { "kind": "typescript_projection", "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts", "symbol": "ManagedWorkerRuntimePolicyV1" },
+        { "kind": "rust_projection", "path": "crates/types/src/app/generated/architecture_contracts.rs", "symbol": "ManagedWorkerRuntimePolicyV1" }
+      ],
+      "positive_fixture_refs": ["fixtures/managed-worker-runtime-policy-v1/positive-minimal.json"],
+      "negative_fixture_refs": [{ "path": "fixtures/managed-worker-runtime-policy-v1/negative-unknown-field.json", "expected_failure": "schema" }]
+    },
+    {
+      "contract_id": "schema://ioi/components/daemon-runtime/managed-worker-instance-state/v1",
+      "canonical_name": "ManagedWorkerInstanceState",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/work-execution.md#bounded-managed-runtime-wire-contracts",
+      "schema_version": "ioi.managed-worker-instance-state.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": { "successor_of": null, "successor_contract_id": null, "compatibility": "initial", "migration_policy": "none", "predecessor_remains_valid": false, "wire_mutation_policy": "forbidden", "hash_impact": "signature_preimage_changed" },
+      "schema_ref": "managed-worker-instance-state.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        { "kind": "typescript_projection", "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts", "symbol": "ManagedWorkerInstanceStateV1" },
+        { "kind": "rust_projection", "path": "crates/types/src/app/generated/architecture_contracts.rs", "symbol": "ManagedWorkerInstanceStateV1" }
+      ],
+      "positive_fixture_refs": ["fixtures/managed-worker-instance-state-v1/positive-installed.json"],
+      "negative_fixture_refs": [{ "path": "fixtures/managed-worker-instance-state-v1/negative-agentgres-in-object-bytes.json", "expected_failure": "schema" }]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/runtime-assignment/v1",
+      "canonical_name": "RuntimeAssignment",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/work-execution.md#bounded-managed-runtime-wire-contracts",
+      "schema_version": "ioi.runtime-assignment.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": { "successor_of": null, "successor_contract_id": null, "compatibility": "initial", "migration_policy": "none", "predecessor_remains_valid": false, "wire_mutation_policy": "forbidden", "hash_impact": "signature_preimage_changed" },
+      "schema_ref": "runtime-assignment.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        { "kind": "typescript_projection", "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts", "symbol": "RuntimeAssignmentV1" },
+        { "kind": "rust_projection", "path": "crates/types/src/app/generated/architecture_contracts.rs", "symbol": "RuntimeAssignmentV1" }
+      ],
+      "positive_fixture_refs": ["fixtures/runtime-assignment-v1/positive-managed-active.json"],
+      "negative_fixture_refs": [{ "path": "fixtures/runtime-assignment-v1/negative-open-placement.json", "expected_failure": "schema" }]
+    },
+    {
+      "contract_id": "schema://ioi/components/daemon-runtime/compute-session/v1",
+      "canonical_name": "ComputeSession",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/work-execution.md#bounded-managed-runtime-wire-contracts",
+      "schema_version": "ioi.compute-session.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": { "successor_of": null, "successor_contract_id": null, "compatibility": "initial", "migration_policy": "none", "predecessor_remains_valid": false, "wire_mutation_policy": "forbidden", "hash_impact": "signature_preimage_changed" },
+      "schema_ref": "compute-session.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        { "kind": "typescript_projection", "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts", "symbol": "ComputeSessionV1" },
+        { "kind": "rust_projection", "path": "crates/types/src/app/generated/architecture_contracts.rs", "symbol": "ComputeSessionV1" }
+      ],
+      "positive_fixture_refs": ["fixtures/compute-session-v1/positive-ready.json"],
+      "negative_fixture_refs": [{ "path": "fixtures/compute-session-v1/negative-unknown-field.json", "expected_failure": "schema" }]
+    },
+    {
+      "contract_id": "schema://ioi/components/storage-backends/managed-storage-profile/v1",
+      "canonical_name": "ManagedStorageProfile",
+      "canonical_owner_ref": "canon://docs/architecture/components/storage-backends/doctrine.md#managedstorageprofile-realized-bounded-contract",
+      "schema_version": "ioi.storage-profile.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": { "successor_of": null, "successor_contract_id": null, "compatibility": "initial", "migration_policy": "none", "predecessor_remains_valid": false, "wire_mutation_policy": "forbidden", "hash_impact": "signature_preimage_changed" },
+      "schema_ref": "managed-storage-profile.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        { "kind": "typescript_projection", "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts", "symbol": "ManagedStorageProfileV1" },
+        { "kind": "rust_projection", "path": "crates/types/src/app/generated/architecture_contracts.rs", "symbol": "ManagedStorageProfileV1" }
+      ],
+      "positive_fixture_refs": ["fixtures/managed-storage-profile-v1/positive-local-private.json"],
+      "negative_fixture_refs": [{ "path": "fixtures/managed-storage-profile-v1/negative-unknown-field.json", "expected_failure": "schema" }]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/managed-restore-plan/v1",
+      "canonical_name": "ManagedRestorePlan",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/providers-and-environments.md#managed-runtime-backup-and-restore-contract-alignment",
+      "schema_version": "ioi.managed-restore-plan.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": { "successor_of": null, "successor_contract_id": null, "compatibility": "initial", "migration_policy": "none", "predecessor_remains_valid": false, "wire_mutation_policy": "forbidden", "hash_impact": "signature_preimage_changed" },
+      "schema_ref": "managed-restore-plan.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        { "kind": "typescript_projection", "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts", "symbol": "ManagedRestorePlanV1" },
+        { "kind": "rust_projection", "path": "crates/types/src/app/generated/architecture_contracts.rs", "symbol": "ManagedRestorePlanV1" }
+      ],
+      "positive_fixture_refs": ["fixtures/managed-restore-plan-v1/positive-prepared.json"],
+      "negative_fixture_refs": [{ "path": "fixtures/managed-restore-plan-v1/negative-unknown-field.json", "expected_failure": "schema" }]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/foundry-recipe-revision/v1",
+      "canonical_name": "FoundryRecipeRevision",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/model-foundry-and-training.md#bounded-executable-foundry-wire-contracts",
+      "schema_version": "ioi.foundry-recipe-revision.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": { "successor_of": null, "successor_contract_id": null, "compatibility": "initial", "migration_policy": "none", "predecessor_remains_valid": false, "wire_mutation_policy": "forbidden", "hash_impact": "signature_preimage_changed" },
+      "schema_ref": "foundry-recipe-revision.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        { "kind": "typescript_projection", "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts", "symbol": "FoundryRecipeRevisionV1" },
+        { "kind": "rust_projection", "path": "crates/types/src/app/generated/architecture_contracts.rs", "symbol": "FoundryRecipeRevisionV1" }
+      ],
+      "positive_fixture_refs": ["fixtures/foundry-recipe-revision-v1/positive-ready.json"],
+      "negative_fixture_refs": [{ "path": "fixtures/foundry-recipe-revision-v1/negative-open-operator.json", "expected_failure": "schema" }]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/foundry-dataset-snapshot/v1",
+      "canonical_name": "FoundryDatasetSnapshot",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/model-foundry-and-training.md#bounded-executable-foundry-wire-contracts",
+      "schema_version": "ioi.foundry-dataset-snapshot.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": { "successor_of": null, "successor_contract_id": null, "compatibility": "initial", "migration_policy": "none", "predecessor_remains_valid": false, "wire_mutation_policy": "forbidden", "hash_impact": "signature_preimage_changed" },
+      "schema_ref": "foundry-dataset-snapshot.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        { "kind": "typescript_projection", "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts", "symbol": "FoundryDatasetSnapshotV1" },
+        { "kind": "rust_projection", "path": "crates/types/src/app/generated/architecture_contracts.rs", "symbol": "FoundryDatasetSnapshotV1" }
+      ],
+      "positive_fixture_refs": ["fixtures/foundry-dataset-snapshot-v1/positive-materialized.json"],
+      "negative_fixture_refs": [{ "path": "fixtures/foundry-dataset-snapshot-v1/negative-unknown-split.json", "expected_failure": "schema" }]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/foundry-training-program/v1",
+      "canonical_name": "FoundryTrainingProgram",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/model-foundry-and-training.md#bounded-executable-foundry-wire-contracts",
+      "schema_version": "ioi.foundry-training-program.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": { "successor_of": null, "successor_contract_id": null, "compatibility": "initial", "migration_policy": "explicit_adapter_required", "predecessor_remains_valid": false, "wire_mutation_policy": "forbidden", "hash_impact": "signature_preimage_changed" },
+      "schema_ref": "foundry-training-program.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        { "kind": "typescript_projection", "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts", "symbol": "FoundryTrainingProgramV1" },
+        { "kind": "rust_projection", "path": "crates/types/src/app/generated/architecture_contracts.rs", "symbol": "FoundryTrainingProgramV1" }
+      ],
+      "positive_fixture_refs": ["fixtures/foundry-training-program-v1/positive-admitted.json"],
+      "negative_fixture_refs": [{ "path": "fixtures/foundry-training-program-v1/negative-legacy-token-map.json", "expected_failure": "schema" }]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/foundry-checkpoint-artifact/v1",
+      "canonical_name": "FoundryCheckpointArtifact",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/model-foundry-and-training.md#bounded-executable-foundry-wire-contracts",
+      "schema_version": "ioi.foundry-checkpoint-artifact.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": { "successor_of": null, "successor_contract_id": null, "compatibility": "initial", "migration_policy": "none", "predecessor_remains_valid": false, "wire_mutation_policy": "forbidden", "hash_impact": "signature_preimage_changed" },
+      "schema_ref": "foundry-checkpoint-artifact.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        { "kind": "typescript_projection", "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts", "symbol": "FoundryCheckpointArtifactV1" },
+        { "kind": "rust_projection", "path": "crates/types/src/app/generated/architecture_contracts.rs", "symbol": "FoundryCheckpointArtifactV1" }
+      ],
+      "positive_fixture_refs": ["fixtures/foundry-checkpoint-artifact-v1/positive-complete.json"],
+      "negative_fixture_refs": [{ "path": "fixtures/foundry-checkpoint-artifact-v1/negative-legacy-token-map.json", "expected_failure": "schema" }]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/foundry-qualified-measurement/v1",
+      "canonical_name": "FoundryQualifiedMeasurement",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/model-foundry-and-training.md#bounded-executable-foundry-wire-contracts",
+      "schema_version": "ioi.foundry-qualified-measurement.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": { "successor_of": null, "successor_contract_id": null, "compatibility": "initial", "migration_policy": "none", "predecessor_remains_valid": false, "wire_mutation_policy": "forbidden", "hash_impact": "signature_preimage_changed" },
+      "schema_ref": "foundry-qualified-measurement.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        { "kind": "typescript_projection", "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts", "symbol": "FoundryQualifiedMeasurementV1" },
+        { "kind": "rust_projection", "path": "crates/types/src/app/generated/architecture_contracts.rs", "symbol": "FoundryQualifiedMeasurementV1" }
+      ],
+      "positive_fixture_refs": ["fixtures/foundry-qualified-measurement-v1/positive-proposal-only.json"],
+      "negative_fixture_refs": [{ "path": "fixtures/foundry-qualified-measurement-v1/negative-open-fingerprint.json", "expected_failure": "schema" }]
     }
   ]
 }

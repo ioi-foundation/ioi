@@ -58,6 +58,26 @@ fn bad(code: &str, message: &str) -> (StatusCode, Json<Value>) {
         Json(json!({ "ok": false, "error": { "code": code, "message": message } })),
     )
 }
+fn persist_required(
+    data_dir: &str,
+    kind: &str,
+    id: &str,
+    record: &Value,
+    code: &str,
+) -> Result<(), (StatusCode, Json<Value>)> {
+    persist_record(data_dir, kind, id, record).map_err(|_| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "ok": false,
+                "error": {
+                    "code": code,
+                    "message": "the durable record could not be committed"
+                }
+            })),
+        )
+    })
+}
 fn split_ref(r: &str) -> Option<(&str, &str)> {
     r.split_once("://")
         .filter(|(s, rest)| !s.is_empty() && !rest.is_empty())
@@ -365,7 +385,15 @@ pub(crate) async fn handle_domain_apps_create(
         "created_at": now,
         "updated_at": now
     });
-    let _ = persist_record(&st.data_dir, KIND_DAPP, &id, &record);
+    if let Err(response) = persist_required(
+        &st.data_dir,
+        KIND_DAPP,
+        &id,
+        &record,
+        "domain_app_persistence_failed",
+    ) {
+        return response;
+    }
     (
         StatusCode::CREATED,
         Json(json!({ "ok": true, "domain_app": record })),
@@ -389,14 +417,20 @@ pub(crate) async fn handle_domain_apps_patch(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
     Json(body): Json<Value>,
-) -> Json<Value> {
+) -> (StatusCode, Json<Value>) {
     let Some(mut a) = load(&st.data_dir, KIND_DAPP, &id) else {
-        return Json(json!({ "ok": false, "reason": "domain_app not found" }));
+        return (
+            StatusCode::NOT_FOUND,
+            Json(
+                json!({ "ok": false, "error": { "code": "domain_app_not_found", "message": "domain_app not found" } }),
+            ),
+        );
     };
     if let Some(v) = body.get("visibility").and_then(|v| v.as_str()) {
         if !VISIBILITIES.contains(&v) {
-            return Json(
-                json!({ "ok": false, "error": { "code": "domain_app_visibility_invalid", "message": format!("visibility must be one of {VISIBILITIES:?}") } }),
+            return bad(
+                "domain_app_visibility_invalid",
+                &format!("visibility must be one of {VISIBILITIES:?}"),
             );
         }
     }
@@ -427,18 +461,14 @@ pub(crate) async fn handle_domain_apps_patch(
     if touches_refs {
         let descriptor = match resolve_domain_app_descriptor(&st.data_dir, &sd_ref) {
             Ok(d) => d,
-            Err((c, m)) => {
-                return Json(json!({ "ok": false, "error": { "code": c, "message": m } }))
-            }
+            Err((c, m)) => return bad(&c, &m),
         };
         let manifest = if man_ref.is_empty() {
             None
         } else {
             match resolve_manifest_including(&st.data_dir, &man_ref, &sd_ref) {
                 Ok(m) => Some(m),
-                Err((c, m)) => {
-                    return Json(json!({ "ok": false, "error": { "code": c, "message": m } }))
-                }
+                Err((c, m)) => return bad(&c, &m),
             }
         };
         let derived = derive_snapshot(&descriptor, manifest.as_ref(), &body);
@@ -468,8 +498,16 @@ pub(crate) async fn handle_domain_apps_patch(
         }
     }
     a["updated_at"] = json!(iso_now());
-    let _ = persist_record(&st.data_dir, KIND_DAPP, &id, &a);
-    Json(json!({ "ok": true, "domain_app": a }))
+    if let Err(response) = persist_required(
+        &st.data_dir,
+        KIND_DAPP,
+        &id,
+        &a,
+        "domain_app_persistence_failed",
+    ) {
+        return response;
+    }
+    (StatusCode::OK, Json(json!({ "ok": true, "domain_app": a })))
 }
 
 pub(crate) async fn handle_domain_apps_delete(
@@ -542,14 +580,20 @@ fn current_runtime(data_dir: &str, domain_app_ref: &str) -> Option<Value> {
                 && rt.get("mounted").and_then(|v| v.as_bool()) == Some(true)
         })
 }
-fn write_mount_receipt(
-    data_dir: &str,
+struct PendingMountReceipt {
+    id: String,
+    reference: String,
+    value: Value,
+}
+
+fn build_mount_receipt(
     kind_action: &str,
     domain_app_ref: &str,
     approval_ref: &str,
     release_ref: &str,
-) -> (String, Value) {
+) -> PendingMountReceipt {
     let id = format!("mrcpt_{:x}", nanos());
+    let reference = format!("mount-receipt://{id}");
     let now = iso_now();
     let state_root = sha256_hex_str(&format!(
         "{kind_action}|{domain_app_ref}|{approval_ref}|{release_ref}|{now}"
@@ -557,7 +601,7 @@ fn write_mount_receipt(
     let receipt = json!({
         "schema_version": "ioi.hypervisor.domain-app-mount-receipt.v1",
         "object": "ioi.hypervisor.domain_app_mount_receipt",
-        "id": id, "ref": format!("mount-receipt://{id}"),
+        "id": id, "ref": reference,
         "action": kind_action,
         "domain_app_ref": domain_app_ref,
         "approval_request_ref": approval_ref,
@@ -565,8 +609,92 @@ fn write_mount_receipt(
         "state_root": format!("sha256:{state_root}"),
         "at": now
     });
-    let _ = persist_record(data_dir, KIND_MOUNT_RECEIPT, &id, &receipt);
-    (format!("mount-receipt://{id}"), receipt)
+    PendingMountReceipt {
+        id,
+        reference,
+        value: receipt,
+    }
+}
+
+fn rollback_record(data_dir: &str, kind: &str, id: &str, prior: Option<&Value>) -> bool {
+    match prior {
+        Some(record) => persist_record(data_dir, kind, id, record).is_ok(),
+        None => load(data_dir, kind, id).is_none() || remove_record(data_dir, kind, id),
+    }
+}
+
+fn transition_persist_failure(
+    code: &str,
+    stage: &str,
+    rollback_succeeded: bool,
+) -> (StatusCode, Json<Value>) {
+    (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        Json(json!({
+            "ok": false,
+            "error": {
+                "code": code,
+                "message": if rollback_succeeded {
+                    format!("the {stage} durable write failed; prior Domain App state was restored")
+                } else {
+                    format!("the {stage} durable write failed and rollback was incomplete; manual repair is required")
+                },
+                "rollback_succeeded": rollback_succeeded
+            }
+        })),
+    )
+}
+
+/// Commit one runtime transition as runtime + DomainApp backlink + receipt set. Receipts are
+/// persisted last so none can attest to state that failed to commit. Any later-stage failure
+/// restores both prior records and removes receipts written by this attempt.
+fn finalize_domain_app_transition(
+    data_dir: &str,
+    runtime_id: &str,
+    prior_runtime: Option<&Value>,
+    next_runtime: &Value,
+    domain_app_id: &str,
+    prior_domain_app: &Value,
+    next_domain_app: &Value,
+    receipts: &[PendingMountReceipt],
+) -> Result<(), (StatusCode, Json<Value>)> {
+    if persist_record(data_dir, KIND_RUNTIME, runtime_id, next_runtime).is_err() {
+        return Err(transition_persist_failure(
+            "domain_app_runtime_persistence_failed",
+            "runtime",
+            true,
+        ));
+    }
+    if persist_record(data_dir, KIND_DAPP, domain_app_id, next_domain_app).is_err() {
+        return Err(transition_persist_failure(
+            "domain_app_backlink_persistence_failed",
+            "Domain App backlink",
+            rollback_record(data_dir, KIND_RUNTIME, runtime_id, prior_runtime),
+        ));
+    }
+    let mut written_receipts: Vec<&str> = Vec::new();
+    for receipt in receipts {
+        if persist_record(data_dir, KIND_MOUNT_RECEIPT, &receipt.id, &receipt.value).is_err() {
+            let mut rollback_succeeded = true;
+            for id in written_receipts {
+                rollback_succeeded &= load(data_dir, KIND_MOUNT_RECEIPT, id).is_none()
+                    || remove_record(data_dir, KIND_MOUNT_RECEIPT, id);
+            }
+            rollback_succeeded &= load(data_dir, KIND_MOUNT_RECEIPT, &receipt.id).is_none()
+                || remove_record(data_dir, KIND_MOUNT_RECEIPT, &receipt.id);
+            rollback_succeeded &=
+                rollback_record(data_dir, KIND_DAPP, domain_app_id, Some(prior_domain_app));
+            rollback_succeeded &=
+                rollback_record(data_dir, KIND_RUNTIME, runtime_id, prior_runtime);
+            return Err(transition_persist_failure(
+                "domain_app_receipt_persistence_failed",
+                "receipt",
+                rollback_succeeded,
+            ));
+        }
+        written_receipts.push(&receipt.id);
+    }
+    Ok(())
 }
 
 /// POST /v1/hypervisor/domain-apps/:id/mount — governed mount admission (effectful, not serving).
@@ -575,15 +703,15 @@ pub(crate) async fn handle_domain_app_mount(
     AxumPath(id): AxumPath<String>,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
-    let Some(dapp) = load(&st.data_dir, KIND_DAPP, &id) else {
+    let Some(prior_dapp) = load(&st.data_dir, KIND_DAPP, &id) else {
         return bad("domain_app_not_found", "domain app not found");
     };
-    let domain_app_ref = dapp
+    let domain_app_ref = prior_dapp
         .get("domain_app_ref")
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string();
-    if dapp
+    if prior_dapp
         .get("runtime_posture")
         .and_then(|p| p.get("mounted"))
         .and_then(|v| v.as_bool())
@@ -621,8 +749,7 @@ pub(crate) async fn handle_domain_app_mount(
         return bad(&c, &m);
     }
     // Admission granted by the control plane. Emit a receipt + durable runtime record (mounted:true).
-    let (receipt_ref, receipt) = write_mount_receipt(
-        &st.data_dir,
+    let receipt = build_mount_receipt(
         "domain_app.mount",
         &domain_app_ref,
         approval_ref,
@@ -646,27 +773,37 @@ pub(crate) async fn handle_domain_app_mount(
         "approval_request_ref": approval_ref,
         "release_control_ref": release_ref,
         "authority_refs": authority_refs,
-        "receipt_refs": [receipt_ref],
+        "receipt_refs": [receipt.reference.clone()],
         "rollback": { "unmountable": true, "note": "governed unmount available; no process/ingress to tear down (not serving)" },
         "note": "governed mount admission; effectful but NOT serving — no process, URL, ingress, publish, or connector action",
         "mounted_at": now,
         "unmounted_at": Value::Null,
         "created_at": now, "updated_at": now
     });
-    let _ = persist_record(&st.data_dir, KIND_RUNTIME, &rid, &runtime);
     // Backlink the DomainApp runtime_posture to the mounted runtime.
-    let mut dapp = dapp;
-    dapp["runtime_posture"] = json!({
+    let mut next_dapp = prior_dapp.clone();
+    next_dapp["runtime_posture"] = json!({
         "mounted": true, "route": Value::Null, "serving": false,
         "mount_ref": format!("domain-app-runtime://{rid}"),
         "approval_request_ref": approval_ref, "release_control_ref": release_ref,
         "note": "governed mount admission; not serving"
     });
-    dapp["updated_at"] = json!(iso_now());
-    let _ = persist_record(&st.data_dir, KIND_DAPP, &id, &dapp);
+    next_dapp["updated_at"] = json!(iso_now());
+    if let Err(response) = finalize_domain_app_transition(
+        &st.data_dir,
+        &rid,
+        None,
+        &runtime,
+        &id,
+        &prior_dapp,
+        &next_dapp,
+        std::slice::from_ref(&receipt),
+    ) {
+        return response;
+    }
     (
         StatusCode::CREATED,
-        Json(json!({ "ok": true, "runtime": runtime, "receipt": receipt })),
+        Json(json!({ "ok": true, "runtime": runtime, "receipt": receipt.value })),
     )
 }
 
@@ -676,61 +813,73 @@ pub(crate) async fn handle_domain_app_unmount(
     AxumPath(id): AxumPath<String>,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
-    let Some(mut dapp) = load(&st.data_dir, KIND_DAPP, &id) else {
+    let Some(prior_dapp) = load(&st.data_dir, KIND_DAPP, &id) else {
         return bad("domain_app_not_found", "domain app not found");
     };
-    let domain_app_ref = dapp
+    let domain_app_ref = prior_dapp
         .get("domain_app_ref")
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string();
-    let Some(mut rt) = current_runtime(&st.data_dir, &domain_app_ref) else {
+    let Some(prior_runtime) = current_runtime(&st.data_dir, &domain_app_ref) else {
         return bad(
             "domain_app_not_mounted",
             "no mounted runtime for this domain app",
         );
     };
-    let rid = rt
+    let rid = prior_runtime
         .get("id")
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string();
-    let approval_ref = rt
+    let approval_ref = prior_runtime
         .get("approval_request_ref")
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string();
-    let release_ref = rt
+    let release_ref = prior_runtime
         .get("release_control_ref")
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string();
-    let (receipt_ref, receipt) = write_mount_receipt(
-        &st.data_dir,
+    let receipt = build_mount_receipt(
         "domain_app.unmount",
         &domain_app_ref,
         &approval_ref,
         &release_ref,
     );
-    let mut refs: Vec<Value> = rt
+    let mut refs: Vec<Value> = prior_runtime
         .get("receipt_refs")
         .and_then(|v| v.as_array())
         .cloned()
         .unwrap_or_default();
-    refs.push(json!(receipt_ref));
-    rt["mounted"] = json!(false);
-    rt["state"] = json!("unmounted");
-    rt["unmounted_at"] = json!(iso_now());
-    rt["unmount_reason"] = json!(body.get("reason").and_then(|v| v.as_str()).unwrap_or(""));
-    rt["receipt_refs"] = json!(refs);
-    rt["updated_at"] = json!(iso_now());
-    let _ = persist_record(&st.data_dir, KIND_RUNTIME, &rid, &rt);
-    dapp["runtime_posture"] = json!({ "mounted": false, "route": Value::Null, "serving": false, "note": "unmounted (governed)" });
-    dapp["updated_at"] = json!(iso_now());
-    let _ = persist_record(&st.data_dir, KIND_DAPP, &id, &dapp);
+    refs.push(json!(receipt.reference.clone()));
+    let mut next_runtime = prior_runtime.clone();
+    next_runtime["mounted"] = json!(false);
+    next_runtime["state"] = json!("unmounted");
+    next_runtime["unmounted_at"] = json!(iso_now());
+    next_runtime["unmount_reason"] =
+        json!(body.get("reason").and_then(|v| v.as_str()).unwrap_or(""));
+    next_runtime["receipt_refs"] = json!(refs);
+    next_runtime["updated_at"] = json!(iso_now());
+    let mut next_dapp = prior_dapp.clone();
+    next_dapp["runtime_posture"] = json!({ "mounted": false, "route": Value::Null, "serving": false, "note": "unmounted (governed)" });
+    next_dapp["updated_at"] = json!(iso_now());
+    if let Err(response) = finalize_domain_app_transition(
+        &st.data_dir,
+        &rid,
+        Some(&prior_runtime),
+        &next_runtime,
+        &id,
+        &prior_dapp,
+        &next_dapp,
+        std::slice::from_ref(&receipt),
+    ) {
+        return response;
+    }
     (
         StatusCode::CREATED,
-        Json(json!({ "ok": true, "runtime": rt, "receipt": receipt })),
+        Json(json!({ "ok": true, "runtime": next_runtime, "receipt": receipt.value })),
     )
 }
 
@@ -793,30 +942,30 @@ pub(crate) async fn handle_domain_app_serve(
     AxumPath(id): AxumPath<String>,
     Json(_body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
-    let Some(mut dapp) = load(&st.data_dir, KIND_DAPP, &id) else {
+    let Some(prior_dapp) = load(&st.data_dir, KIND_DAPP, &id) else {
         return bad("domain_app_not_found", "domain app not found");
     };
-    let domain_app_ref = dapp
+    let domain_app_ref = prior_dapp
         .get("domain_app_ref")
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string();
-    let Some(mut rt) = current_runtime(&st.data_dir, &domain_app_ref) else {
+    let Some(prior_runtime) = current_runtime(&st.data_dir, &domain_app_ref) else {
         return bad(
             "domain_app_not_mounted",
             "no mounted runtime for this domain app",
         );
     };
-    if let Err((c, m)) = serve_precheck(&rt) {
+    if let Err((c, m)) = serve_precheck(&prior_runtime) {
         return bad(&c, &m);
     }
     // Re-validate the mount's governance is STILL valid (approval approved, release open, right subject).
-    let approval_ref = rt
+    let approval_ref = prior_runtime
         .get("approval_request_ref")
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string();
-    let release_ref = rt
+    let release_ref = prior_runtime
         .get("release_control_ref")
         .and_then(|v| v.as_str())
         .unwrap_or("")
@@ -845,34 +994,34 @@ pub(crate) async fn handle_domain_app_serve(
     if let Err((c, m)) = release_admits(&release, &domain_app_ref) {
         return bad(&c, &m);
     }
-    let rid = rt
+    let rid = prior_runtime
         .get("id")
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string();
-    let (receipt_ref, receipt) = write_mount_receipt(
-        &st.data_dir,
+    let receipt = build_mount_receipt(
         "domain_app.serve_start",
         &domain_app_ref,
         &approval_ref,
         &release_ref,
     );
     let route = format!("/__ioi/domain-app-runtime/{rid}");
-    let mut refs: Vec<Value> = rt
+    let mut refs: Vec<Value> = prior_runtime
         .get("receipt_refs")
         .and_then(|v| v.as_array())
         .cloned()
         .unwrap_or_default();
-    refs.push(json!(receipt_ref));
-    rt["serving"] = json!(true);
-    rt["state"] = json!("serving");
-    rt["internal_route_ref"] = json!(route);
-    rt["serve_started_at"] = json!(iso_now());
-    rt["receipt_refs"] = json!(refs);
-    rt["updated_at"] = json!(iso_now());
-    let _ = persist_record(&st.data_dir, KIND_RUNTIME, &rid, &rt);
+    refs.push(json!(receipt.reference.clone()));
+    let mut next_runtime = prior_runtime.clone();
+    next_runtime["serving"] = json!(true);
+    next_runtime["state"] = json!("serving");
+    next_runtime["internal_route_ref"] = json!(route);
+    next_runtime["serve_started_at"] = json!(iso_now());
+    next_runtime["receipt_refs"] = json!(refs);
+    next_runtime["updated_at"] = json!(iso_now());
     // Backlink: DomainApp runtime_posture now serving on the INTERNAL route (still no external ingress).
-    let mut posture = dapp
+    let mut next_dapp = prior_dapp.clone();
+    let mut posture = next_dapp
         .get("runtime_posture")
         .cloned()
         .unwrap_or_else(|| json!({}));
@@ -880,12 +1029,23 @@ pub(crate) async fn handle_domain_app_serve(
     posture["route"] = json!(route);
     posture["note"] =
         json!("internally served (descriptor-driven, read-only); no external ingress");
-    dapp["runtime_posture"] = posture;
-    dapp["updated_at"] = json!(iso_now());
-    let _ = persist_record(&st.data_dir, KIND_DAPP, &id, &dapp);
+    next_dapp["runtime_posture"] = posture;
+    next_dapp["updated_at"] = json!(iso_now());
+    if let Err(response) = finalize_domain_app_transition(
+        &st.data_dir,
+        &rid,
+        Some(&prior_runtime),
+        &next_runtime,
+        &id,
+        &prior_dapp,
+        &next_dapp,
+        std::slice::from_ref(&receipt),
+    ) {
+        return response;
+    }
     (
         StatusCode::CREATED,
-        Json(json!({ "ok": true, "runtime": rt, "receipt": receipt })),
+        Json(json!({ "ok": true, "runtime": next_runtime, "receipt": receipt.value })),
     )
 }
 
@@ -895,71 +1055,82 @@ pub(crate) async fn handle_domain_app_stop_serving(
     AxumPath(id): AxumPath<String>,
     Json(_body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
-    let Some(mut dapp) = load(&st.data_dir, KIND_DAPP, &id) else {
+    let Some(prior_dapp) = load(&st.data_dir, KIND_DAPP, &id) else {
         return bad("domain_app_not_found", "domain app not found");
     };
-    let domain_app_ref = dapp
+    let domain_app_ref = prior_dapp
         .get("domain_app_ref")
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string();
-    let Some(mut rt) = current_runtime(&st.data_dir, &domain_app_ref) else {
+    let Some(prior_runtime) = current_runtime(&st.data_dir, &domain_app_ref) else {
         return bad(
             "domain_app_not_mounted",
             "no mounted runtime for this domain app",
         );
     };
-    if rt.get("serving").and_then(|v| v.as_bool()) != Some(true) {
+    if prior_runtime.get("serving").and_then(|v| v.as_bool()) != Some(true) {
         return bad("domain_app_not_serving", "runtime is not serving");
     }
-    let rid = rt
+    let rid = prior_runtime
         .get("id")
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string();
-    let approval_ref = rt
+    let approval_ref = prior_runtime
         .get("approval_request_ref")
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string();
-    let release_ref = rt
+    let release_ref = prior_runtime
         .get("release_control_ref")
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string();
-    let (receipt_ref, receipt) = write_mount_receipt(
-        &st.data_dir,
+    let receipt = build_mount_receipt(
         "domain_app.serve_stop",
         &domain_app_ref,
         &approval_ref,
         &release_ref,
     );
-    let mut refs: Vec<Value> = rt
+    let mut refs: Vec<Value> = prior_runtime
         .get("receipt_refs")
         .and_then(|v| v.as_array())
         .cloned()
         .unwrap_or_default();
-    refs.push(json!(receipt_ref));
-    rt["serving"] = json!(false);
-    rt["state"] = json!("mounted");
-    rt["internal_route_ref"] = Value::Null;
-    rt["serve_stopped_at"] = json!(iso_now());
-    rt["receipt_refs"] = json!(refs);
-    rt["updated_at"] = json!(iso_now());
-    let _ = persist_record(&st.data_dir, KIND_RUNTIME, &rid, &rt);
-    let mut posture = dapp
+    refs.push(json!(receipt.reference.clone()));
+    let mut next_runtime = prior_runtime.clone();
+    next_runtime["serving"] = json!(false);
+    next_runtime["state"] = json!("mounted");
+    next_runtime["internal_route_ref"] = Value::Null;
+    next_runtime["serve_stopped_at"] = json!(iso_now());
+    next_runtime["receipt_refs"] = json!(refs);
+    next_runtime["updated_at"] = json!(iso_now());
+    let mut next_dapp = prior_dapp.clone();
+    let mut posture = next_dapp
         .get("runtime_posture")
         .cloned()
         .unwrap_or_else(|| json!({}));
     posture["serving"] = json!(false);
     posture["route"] = Value::Null;
     posture["note"] = json!("mounted (governed); serving stopped");
-    dapp["runtime_posture"] = posture;
-    dapp["updated_at"] = json!(iso_now());
-    let _ = persist_record(&st.data_dir, KIND_DAPP, &id, &dapp);
+    next_dapp["runtime_posture"] = posture;
+    next_dapp["updated_at"] = json!(iso_now());
+    if let Err(response) = finalize_domain_app_transition(
+        &st.data_dir,
+        &rid,
+        Some(&prior_runtime),
+        &next_runtime,
+        &id,
+        &prior_dapp,
+        &next_dapp,
+        std::slice::from_ref(&receipt),
+    ) {
+        return response;
+    }
     (
         StatusCode::CREATED,
-        Json(json!({ "ok": true, "runtime": rt, "receipt": receipt })),
+        Json(json!({ "ok": true, "runtime": next_runtime, "receipt": receipt.value })),
     )
 }
 
@@ -993,77 +1164,90 @@ pub(crate) fn runtimes_for_kill_target(data_dir: &str, subject_ref: &str) -> Vec
 /// serving:false and mounted:false, appending receipts (same kinds as the governed transitions plus
 /// kill-specific actions), setting state "killed", and resetting the DomainApp backlink. Returns the
 /// receipt refs emitted. Effectful — used only from the governance enforce path.
-pub(crate) fn kill_enforce_runtime(data_dir: &str, runtime: &Value) -> Vec<String> {
-    let mut rt = runtime.clone();
-    let rid = rt
+pub(crate) fn kill_enforce_runtime(
+    data_dir: &str,
+    runtime: &Value,
+) -> Result<Vec<String>, (StatusCode, Json<Value>)> {
+    let mut next_runtime = runtime.clone();
+    let rid = next_runtime
         .get("id")
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string();
-    let dref = rt
+    let dref = next_runtime
         .get("domain_app_ref")
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string();
-    let approval = rt
+    let approval = next_runtime
         .get("approval_request_ref")
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string();
-    let release = rt
+    let release = next_runtime
         .get("release_control_ref")
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string();
     let now = iso_now();
-    let mut refs: Vec<Value> = rt
+    let mut refs: Vec<Value> = next_runtime
         .get("receipt_refs")
         .and_then(|v| v.as_array())
         .cloned()
         .unwrap_or_default();
     let mut emitted: Vec<String> = Vec::new();
-    if rt.get("serving").and_then(|v| v.as_bool()) == Some(true) {
-        let (r, _) = write_mount_receipt(
-            data_dir,
-            "domain_app.kill_stop_serving",
-            &dref,
-            &approval,
-            &release,
-        );
-        refs.push(json!(r.clone()));
-        emitted.push(r);
-        rt["serving"] = json!(false);
-        rt["internal_route_ref"] = Value::Null;
-        rt["serve_stopped_at"] = json!(now);
+    let mut receipts: Vec<PendingMountReceipt> = Vec::new();
+    if next_runtime.get("serving").and_then(|v| v.as_bool()) == Some(true) {
+        let receipt =
+            build_mount_receipt("domain_app.kill_stop_serving", &dref, &approval, &release);
+        refs.push(json!(receipt.reference.clone()));
+        emitted.push(receipt.reference.clone());
+        receipts.push(receipt);
+        next_runtime["serving"] = json!(false);
+        next_runtime["internal_route_ref"] = Value::Null;
+        next_runtime["serve_stopped_at"] = json!(now);
     }
-    if rt.get("mounted").and_then(|v| v.as_bool()) == Some(true) {
-        let (r, _) = write_mount_receipt(
-            data_dir,
-            "domain_app.kill_unmount",
-            &dref,
-            &approval,
-            &release,
-        );
-        refs.push(json!(r.clone()));
-        emitted.push(r);
-        rt["mounted"] = json!(false);
-        rt["unmounted_at"] = json!(now);
+    if next_runtime.get("mounted").and_then(|v| v.as_bool()) == Some(true) {
+        let receipt = build_mount_receipt("domain_app.kill_unmount", &dref, &approval, &release);
+        refs.push(json!(receipt.reference.clone()));
+        emitted.push(receipt.reference.clone());
+        receipts.push(receipt);
+        next_runtime["mounted"] = json!(false);
+        next_runtime["unmounted_at"] = json!(now);
     }
-    rt["state"] = json!("killed");
-    rt["killed"] = json!(true);
-    rt["killed_at"] = json!(now);
-    rt["receipt_refs"] = json!(refs);
-    rt["updated_at"] = json!(now);
-    let _ = persist_record(data_dir, KIND_RUNTIME, &rid, &rt);
-    // Reset the DomainApp backlink so its posture reflects the kill.
-    if let Some((_, dapp_id)) = split_ref(&dref) {
-        if let Some(mut dapp) = load(data_dir, KIND_DAPP, dapp_id) {
-            dapp["runtime_posture"] = json!({ "mounted": false, "serving": false, "route": Value::Null, "note": "killed by KillSwitch enforcement" });
-            dapp["updated_at"] = json!(now);
-            let _ = persist_record(data_dir, KIND_DAPP, dapp_id, &dapp);
-        }
-    }
-    emitted
+    next_runtime["state"] = json!("killed");
+    next_runtime["killed"] = json!(true);
+    next_runtime["killed_at"] = json!(now);
+    next_runtime["receipt_refs"] = json!(refs);
+    next_runtime["updated_at"] = json!(now);
+    let Some(("domain-app", dapp_id)) = split_ref(&dref) else {
+        return Err(transition_persist_failure(
+            "domain_app_backlink_invalid",
+            "Domain App backlink resolution",
+            true,
+        ));
+    };
+    let Some(prior_dapp) = load(data_dir, KIND_DAPP, dapp_id) else {
+        return Err(transition_persist_failure(
+            "domain_app_backlink_missing",
+            "Domain App backlink resolution",
+            true,
+        ));
+    };
+    let mut next_dapp = prior_dapp.clone();
+    next_dapp["runtime_posture"] = json!({ "mounted": false, "serving": false, "route": Value::Null, "note": "killed by KillSwitch enforcement" });
+    next_dapp["updated_at"] = json!(now);
+    finalize_domain_app_transition(
+        data_dir,
+        &rid,
+        Some(runtime),
+        &next_runtime,
+        dapp_id,
+        &prior_dapp,
+        &next_dapp,
+        &receipts,
+    )?;
+    Ok(emitted)
 }
 
 #[cfg(test)]
@@ -1213,5 +1397,83 @@ mod domain_apps_tests {
         assert_eq!(d.ontology_refs, vec!["ontology://ont_1".to_string()]);
         assert!(d.data_recipe_refs.is_empty());
         assert!(d.mcp_contract_refs.is_empty());
+    }
+
+    #[test]
+    fn required_persistence_refuses_success_when_record_directory_is_unwritable() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join(KIND_DAPP), b"not-a-directory").unwrap();
+        let error = persist_required(
+            dir.path().to_str().unwrap(),
+            KIND_DAPP,
+            "dapp_failure",
+            &json!({"domain_app_id":"dapp_failure"}),
+            "domain_app_persistence_failed",
+        )
+        .unwrap_err();
+        assert_eq!(error.0, StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(
+            error.1 .0["error"]["code"],
+            json!("domain_app_persistence_failed")
+        );
+    }
+
+    #[test]
+    fn transition_restores_runtime_and_backlink_when_receipt_cannot_persist() {
+        let dir = tempfile::tempdir().unwrap();
+        let data_dir = dir.path().to_str().unwrap();
+        let prior_runtime = json!({
+            "id":"runtime_1",
+            "domain_app_ref":"domain-app://dapp_1",
+            "mounted":true,
+            "serving":false,
+            "state":"mounted",
+            "receipt_refs":[]
+        });
+        let prior_dapp = json!({
+            "domain_app_id":"dapp_1",
+            "domain_app_ref":"domain-app://dapp_1",
+            "runtime_posture":{"mounted":true,"serving":false}
+        });
+        persist_record(data_dir, KIND_RUNTIME, "runtime_1", &prior_runtime).unwrap();
+        persist_record(data_dir, KIND_DAPP, "dapp_1", &prior_dapp).unwrap();
+
+        // A plain file at the receipt-directory coordinate forces the last-stage write to fail
+        // after both state records commit, exercising the compensating restore path.
+        std::fs::write(dir.path().join(KIND_MOUNT_RECEIPT), b"not-a-directory").unwrap();
+        let mut next_runtime = prior_runtime.clone();
+        next_runtime["serving"] = json!(true);
+        next_runtime["state"] = json!("serving");
+        let mut next_dapp = prior_dapp.clone();
+        next_dapp["runtime_posture"]["serving"] = json!(true);
+        let receipt = build_mount_receipt(
+            "domain_app.serve_start",
+            "domain-app://dapp_1",
+            "approval-request://approval_1",
+            "release-control://release_1",
+        );
+
+        let error = finalize_domain_app_transition(
+            data_dir,
+            "runtime_1",
+            Some(&prior_runtime),
+            &next_runtime,
+            "dapp_1",
+            &prior_dapp,
+            &next_dapp,
+            std::slice::from_ref(&receipt),
+        )
+        .unwrap_err();
+        assert_eq!(error.0, StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(
+            error.1 .0["error"]["code"],
+            json!("domain_app_receipt_persistence_failed")
+        );
+        assert_eq!(error.1 .0["error"]["rollback_succeeded"], json!(true));
+        assert_eq!(
+            load(data_dir, KIND_RUNTIME, "runtime_1"),
+            Some(prior_runtime)
+        );
+        assert_eq!(load(data_dir, KIND_DAPP, "dapp_1"), Some(prior_dapp));
     }
 }

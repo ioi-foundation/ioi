@@ -13,6 +13,9 @@
     "serve:reference": "node scripts/serve-product-ui.mjs",
     "check:ported-seed": "node scripts/verify-hypervisor-ported-seed-invariant.mjs",
     "check:ported-seed:live": "node scripts/verify-hypervisor-ported-seed-invariant.mjs --live",
+    "check:owned-product-ui": "node scripts/verify-owned-product-ui.mjs",
+    "check:shell-parity": "node scripts/verify-hypervisor-shell-parity.mjs",
+    "test:product-shell-auth": "node --test scripts/product-shell-auth.test.mjs",
     "check:source-neutral": "node scripts/check-source-neutral.mjs"
   },
   "dependencies": {

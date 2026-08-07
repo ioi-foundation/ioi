@@ -4793,6 +4793,18 @@ fn compare_json_numbers(
 ) -> Ordering {
     let (left_negative, left_digits, left_exponent) = normalized_json_number(left);
     let (right_negative, right_digits, right_exponent) = normalized_json_number(right);
+    let left_zero = left_digits == "0";
+    let right_zero = right_digits == "0";
+    match (left_zero, right_zero) {
+        (true, true) => return Ordering::Equal,
+        (true, false) => {
+            return if right_negative { Ordering::Greater } else { Ordering::Less };
+        }
+        (false, true) => {
+            return if left_negative { Ordering::Less } else { Ordering::Greater };
+        }
+        (false, false) => {}
+    }
     if left_negative != right_negative {
         return if left_negative {
             Ordering::Less
@@ -6158,6 +6170,17 @@ ${roundTripArms},
             &serde_json::from_str("9007199254740991")
                 .expect("second portable JSON number"),
         ));
+        let number = |source| {
+            serde_json::from_str::<Value>(source)
+                .expect("exact JSON number")
+                .as_number()
+                .expect("number value")
+                .clone()
+        };
+        assert_eq!(compare_json_numbers(&number("0.5"), &number("0")), Ordering::Greater);
+        assert_eq!(compare_json_numbers(&number("0"), &number("0.5")), Ordering::Less);
+        assert_eq!(compare_json_numbers(&number("-0.5"), &number("0")), Ordering::Less);
+        assert_eq!(compare_json_numbers(&number("0"), &number("-0.5")), Ordering::Greater);
     }
 
     #[test]

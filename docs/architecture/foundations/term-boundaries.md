@@ -9,7 +9,6 @@ Doctrine status: canonical
 Implementation status: mixed (a terminology contract over subjects at every maturity level; the deprecated-alias register is enforced by `npm run check:architecture-docs`)
 Implementation refs:
   - `scripts/check-architecture-docs.mjs`
-  - `scripts/lib/architecture-docs-integrity.mjs`
 Last implementation audit: 2026-07-25
 
 ## Purpose
@@ -164,7 +163,7 @@ Directional rules, all of which are testable:
   them. Under an OutcomeRoom's `federated_admission` mode, `admission_owner_ref`
   names the versioned federation policy or adjudicator path instead; each domain
   still keeps local truth. See
-  [`collaborative-pursuit.md`](./objects/collaborative-pursuit.md).
+  [`collaborative-pursuit.md`](../domains/ioi-ai/collaborative-pursuit.md).
 
 ### Which layer owns which
 
@@ -196,7 +195,7 @@ Doctrine ownership per subject is read from the
 [`collaborative-outcome-pattern.md`](../domains/ioi-ai/collaborative-outcome-pattern.md)
 **and** [`governed-autonomous-systems.md`](./governed-autonomous-systems.md);
 the GoalRun admission contract is the orchestration application's, stated in
-[`objects/goal-run-execution.md`](./objects/goal-run-execution.md) against the
+[`../domains/ioi-ai/goal-run-execution.md`](./../domains/ioi-ai/goal-run-execution.md) against the
 substrate-generic admission rules (INV-37, `ReceiptObligation`) that
 [`daemon-runtime/doctrine.md`](../components/daemon-runtime/doctrine.md) owns.
 

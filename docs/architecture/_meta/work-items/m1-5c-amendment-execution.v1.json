@@ -41,9 +41,7 @@
     "docs/architecture/_meta/schemas/autonomous-system-amendment-execution-proposal.v1.schema.json",
     "docs/architecture/_meta/schemas/autonomous-system-amendment-execution-decision.v1.schema.json",
     "docs/architecture/_meta/schemas/autonomous-system-active-profile-set.v2.schema.json",
-    "apps/hypervisor/scripts/verify-hypervisor-system-sequence-zero-materialization.mjs",
-    "docs/evidence/m0-program-control/review-epoch-anchor.json",
-    "docs/evidence/m0-program-control/reviewed-entry-lock.json"
+    "apps/hypervisor/scripts/verify-hypervisor-system-sequence-zero-materialization.mjs"
   ],
   "pr": 105,
   "adversarial_or_fault_proof": "MERGED at a44f8c670 (PR #105). Held live constitutional-amendment proof plus all eleven prior journeys passed 115/115: canonical-diff refusal in BOTH directions; protected, structural, and /governance refusals; stale-head and wrong-scope refusals; declaration-bound governance approval and exact wallet consumption; eight-way real-wallet race with exactly one successor; forced-crash sealed-intent convergence; legacy receipt and protection migration; independent-daemon compare-and-swap; and pause/resume continuity over the amended constitution without profile reversion. Daemon tests 333/333; architecture bar 48 contracts/165 fixtures, 283 TypeScript differential cases, 15 docs tests, and 14 Rust tests; check:pre-next-leg and GitHub CI green; M0 56/56 at fingerprint 95d4553a45cb8b291f0a90abb4d012f956a3a902d36c569ef1316b1959c67a86. Exact-head independent review found no actionable correctness defects.",
@@ -52,6 +50,7 @@
     "Notice/challenge time-window enforcement is declared governance evidence, not clock-enforced in the single-authority M1 profile; recorded honestly in canon.",
     "No membership/topology (M2), consensus, or multi-node claims."
   ],
-  "source_provenance": "Cut from guide M1.5 (distinct protected amendment) after m1-5b merged at 695921491; design in internal-docs/implementation/work-item-m1-5c-amendment-execution.md. Implemented at f8d44a8e7 and merged to master as a44f8c670 in PR #105.",
-  "last_status_transaction": "2026-07-24"
+  "source_provenance": "Cut from guide M1.5 (distinct protected amendment) after m1-5b merged at 695921491; design was recorded in the private program estate and has since been removed. Implemented at f8d44a8e7 and merged to master as a44f8c670 in PR #105.",
+  "last_status_transaction": "2026-07-24",
+  "retired_evidence_note": "docs/evidence/m0-program-control/ was removed by the 2026-08-05 proof-apparatus strip (9fe221227); this field no longer names paths a reader cannot open."
 }

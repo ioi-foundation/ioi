@@ -14,11 +14,11 @@
 //!
 //! See `internal-docs/implementation/hypervisor-unified-rust-daemon-lifecycle-migration.md`.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fs;
 use std::io::Write as _;
 use std::path::{Component, Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, OnceLock};
 
 use axum::body::Body;
 use axum::extract::{Path as AxumPath, Query, State};
@@ -12499,9 +12499,13 @@ fn principal_has_lease_grant(
 /// scoped access to specific connector tools. This is the per-principal authority scope (NOT a role).
 pub(crate) async fn handle_principal_lease_grant(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    if let Err(response) = require_authenticated_org_admin(&st.data_dir, &headers) {
+        return response;
+    }
     if find_principal(&st.data_dir, &id).is_none() {
         return (
             StatusCode::NOT_FOUND,
@@ -12522,7 +12526,16 @@ pub(crate) async fn handle_principal_lease_grant(
     let tools = body.get("tools").cloned().unwrap_or_else(|| json!(["*"]));
     let gid = format!("plg_{}", short_hash(&format!("{id}:{connector_id}")));
     let rec = json!({ "id": gid, "grant_id": gid, "principal_id": id, "connector_id": connector_id, "tools": tools, "created_at": iso_now() });
-    let _ = persist_record(&st.data_dir, "principal-lease-grants", &gid, &rec);
+    if let Err(error) = persist_record(&st.data_dir, "principal-lease-grants", &gid, &rec) {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({
+                "ok": false,
+                "code": "hypervisor.principal_lease_grant_persistence_failed",
+                "message": error.to_string()
+            })),
+        );
+    }
     (
         StatusCode::OK,
         Json(json!({ "ok": true, "lease_grant": rec })),
@@ -12531,23 +12544,61 @@ pub(crate) async fn handle_principal_lease_grant(
 /// GET /v1/hypervisor/principals/:id/lease-grants
 pub(crate) async fn handle_principal_lease_grant_list(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
-) -> Json<Value> {
+) -> (StatusCode, Json<Value>) {
+    let actor = match require_authenticated_principal(&st.data_dir, &headers) {
+        Ok(actor) => actor,
+        Err(response) => return response,
+    };
+    if actor["principal_id"].as_str() != Some(id.as_str())
+        && actor["role"].as_str() != Some("admin")
+    {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(json!({
+                "ok": false,
+                "code": "hypervisor.principal_lease_grant_visibility_denied"
+            })),
+        );
+    }
     let grants: Vec<Value> = read_record_dir(&st.data_dir, "principal-lease-grants")
         .into_iter()
         .filter(|g| g["principal_id"].as_str() == Some(id.as_str()))
         .collect();
-    Json(json!({ "ok": true, "lease_grants": grants }))
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "lease_grants": grants })),
+    )
 }
 /// DELETE /v1/hypervisor/principals/:id/lease-grants/:connector_id — revoke a principal's scope.
 pub(crate) async fn handle_principal_lease_grant_revoke(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath((id, connector_id)): AxumPath<(String, String)>,
-) -> Json<Value> {
+) -> (StatusCode, Json<Value>) {
+    if let Err(response) = require_authenticated_org_admin(&st.data_dir, &headers) {
+        return response;
+    }
     let gid = format!("plg_{}", short_hash(&format!("{id}:{connector_id}")));
+    let existed = read_record_dir(&st.data_dir, "principal-lease-grants")
+        .into_iter()
+        .any(|grant| grant["grant_id"].as_str() == Some(gid.as_str()));
     let removed = remove_record(&st.data_dir, "principal-lease-grants", &gid);
-    Json(
-        json!({ "ok": true, "principal_id": id, "connector_id": connector_id, "revoked": removed }),
+    if existed && !removed {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({
+                "ok": false,
+                "code": "hypervisor.principal_lease_grant_revoke_persistence_failed"
+            })),
+        );
+    }
+    (
+        StatusCode::OK,
+        Json(
+            json!({ "ok": true, "principal_id": id, "connector_id": connector_id, "revoked": removed }),
+        ),
     )
 }
 
@@ -13766,8 +13817,39 @@ fn parse_valid_for(v: &Value) -> i64 {
 /// POST /v1/hypervisor/api-tokens — mint a token. Returns the plaintext ONCE; stores only the hash.
 pub(crate) async fn handle_api_token_create(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    let actor = match require_authenticated_principal(&st.data_dir, &headers) {
+        Ok(actor) => actor,
+        Err(response) => return response,
+    };
+    let Some(request) = body.as_object() else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "code": "hypervisor.api_token_request_invalid" })),
+        );
+    };
+    let allowed = [
+        "description",
+        "read_only",
+        "readOnly",
+        "valid_for",
+        "validFor",
+    ];
+    if let Some(field) = request
+        .keys()
+        .find(|field| !allowed.contains(&field.as_str()))
+    {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "ok": false,
+                "code": "hypervisor.api_token_request_closed",
+                "message": format!("request-carried field '{field}' is not allowed; token principal is the authenticated caller")
+            })),
+        );
+    }
     let description = body
         .get("description")
         .and_then(Value::as_str)
@@ -13780,11 +13862,9 @@ pub(crate) async fn handle_api_token_create(
             Json(json!({ "ok": false, "reason": "description is required" })),
         );
     }
-    let user_id = body
-        .get("user_id")
-        .or_else(|| body.get("userId"))
-        .and_then(Value::as_str)
-        .unwrap_or("")
+    let user_id = actor["principal_id"]
+        .as_str()
+        .unwrap_or_default()
         .to_string();
     let read_only = body
         .get("read_only")
@@ -13796,6 +13876,16 @@ pub(crate) async fn handle_api_token_create(
         .or_else(|| body.get("validFor"))
         .map(parse_valid_for)
         .unwrap_or(2_592_000);
+    if !(60..=31_536_000).contains(&valid_for_secs) {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "ok": false,
+                "code": "hypervisor.api_token_validity_invalid",
+                "message": "valid_for must be between 60 seconds and 365 days"
+            })),
+        );
+    }
     // Generate a high-entropy opaque token (never stored in plaintext).
     let plaintext = format!(
         "ioi_pat_{}{}",
@@ -13818,7 +13908,16 @@ pub(crate) async fn handle_api_token_create(
         "expires_at": expires_at,
         "last_used_at": Value::Null,
     });
-    let _ = persist_record(&st.data_dir, "api-tokens", &token_id, &record);
+    if let Err(error) = persist_record_durable(&st.data_dir, "api-tokens", &token_id, &record) {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({
+                "ok": false,
+                "code": "hypervisor.api_token_persistence_failed",
+                "message": format!("{error:?}")
+            })),
+        );
+    }
     // Return the plaintext ONCE (the only time it is ever surfaced).
     (
         StatusCode::OK,
@@ -13838,9 +13937,18 @@ pub(crate) async fn handle_api_token_create(
 }
 
 /// GET /v1/hypervisor/api-tokens — list token METADATA (never the value or the hash).
-pub(crate) async fn handle_api_token_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+pub(crate) async fn handle_api_token_list(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+) -> (StatusCode, Json<Value>) {
+    let actor = match require_authenticated_principal(&st.data_dir, &headers) {
+        Ok(actor) => actor,
+        Err(response) => return response,
+    };
+    let actor_id = actor["principal_id"].as_str().unwrap_or_default();
     let tokens: Vec<Value> = read_record_dir(&st.data_dir, "api-tokens")
         .into_iter()
+        .filter(|token| token["user_id"].as_str() == Some(actor_id))
         .map(|mut t| {
             // defense in depth: strip the hash from any list projection
             if let Some(obj) = t.as_object_mut() {
@@ -13849,16 +13957,51 @@ pub(crate) async fn handle_api_token_list(State(st): State<Arc<DaemonState>>) ->
             t
         })
         .collect();
-    Json(json!({ "ok": true, "tokens": tokens }))
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "tokens": tokens })),
+    )
 }
 
 /// DELETE /v1/hypervisor/api-tokens/:id — revoke a token.
 pub(crate) async fn handle_api_token_delete(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
-) -> Json<Value> {
+) -> (StatusCode, Json<Value>) {
+    let actor = match require_authenticated_principal(&st.data_dir, &headers) {
+        Ok(actor) => actor,
+        Err(response) => return response,
+    };
+    let token = read_record_dir(&st.data_dir, "api-tokens")
+        .into_iter()
+        .find(|token| token["token_id"].as_str() == Some(id.as_str()));
+    let Some(token) = token else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "ok": false, "code": "hypervisor.api_token_not_found" })),
+        );
+    };
+    let actor_is_owner = token["user_id"].as_str() == actor["principal_id"].as_str();
+    if !actor_is_owner {
+        if let Err(response) = require_authenticated_org_admin(&st.data_dir, &headers) {
+            return response;
+        }
+    }
     let removed = remove_record(&st.data_dir, "api-tokens", &id);
-    Json(json!({ "ok": true, "token_id": id, "removed": removed }))
+    if !removed {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({
+                "ok": false,
+                "code": "hypervisor.api_token_revoke_persistence_failed"
+            })),
+        );
+    }
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "token_id": id, "removed": true })),
+    )
 }
 
 // ============================================================================================
@@ -13866,10 +14009,612 @@ pub(crate) async fn handle_api_token_delete(
 // This is the OUTER ring (who is calling); it COMPOSES with — does not replace — the wallet/lease
 // authority model (what a crossing is allowed to do). Enforcement is policy-gated (default OFF) so
 // the single-operator localhost runtime is untouched until an org turns authentication on.
-// Boundary: passwords + tokens are HASHED at rest (salted sha256); the plaintext is never stored.
+// Boundary: passwords use Argon2id; opaque tokens are hash-only at rest. Plaintext is never stored.
 // ============================================================================================
 
 const OPERATOR_ID: &str = "00000000-0000-4000-8000-000000000001";
+
+/// Deployment-local, append-only principal-to-tenant visibility bindings. These records answer
+/// only which organization/project surfaces an authenticated principal may see. They never grant
+/// a consequential effect, connector use, spend, declassification, or runtime authority.
+pub(crate) const PRINCIPAL_TENANT_MEMBERSHIP_FAMILY: &str = "principal-tenant-membership-receipts";
+const PRINCIPAL_TENANT_MEMBERSHIP_CONTRACT: &str =
+    "schema://ioi/components/hypervisor/principal-tenant-membership-receipt/v1";
+const PRINCIPAL_TENANT_MEMBERSHIP_SCHEMA: &str =
+    "ioi.hypervisor.principal_tenant_membership_receipt.v1";
+const MAX_PRINCIPAL_TENANT_MEMBERSHIP_RECORDS: usize = 65_536;
+const MAX_PRINCIPAL_TENANT_MEMBERSHIP_RECORD_BYTES: u64 = 64 * 1_024;
+const MAX_PRINCIPAL_TENANT_MEMBERSHIP_TOTAL_BYTES: u64 = 64 * 1_048_576;
+
+static PRINCIPAL_TENANT_MEMBERSHIP_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+
+fn principal_tenant_membership_lock() -> &'static Mutex<()> {
+    PRINCIPAL_TENANT_MEMBERSHIP_LOCK.get_or_init(|| Mutex::new(()))
+}
+
+fn canonical_local_principal_ref(principal_id: &str) -> Option<String> {
+    if principal_id.is_empty()
+        || principal_id.len() > 480
+        || principal_id.chars().any(|character| {
+            character.is_whitespace() || matches!(character, '/' | '?' | '#' | '\\')
+        })
+    {
+        return None;
+    }
+    Some(format!("user://{principal_id}"))
+}
+
+fn principal_id_from_local_ref(principal_ref: &str) -> Option<&str> {
+    let principal_id = principal_ref.strip_prefix("user://")?;
+    canonical_local_principal_ref(principal_id).map(|_| principal_id)
+}
+
+fn membership_pair_hash(principal_ref: &str, tenant_ref: &str) -> String {
+    sha256_hex_str(&format!(
+        "ioi.hypervisor.principal-tenant-membership-pair.v1\0{principal_ref}\0{tenant_ref}"
+    ))
+}
+
+fn membership_storage_tail(pair_hash: &str, revision: u64) -> String {
+    format!("{pair_hash}-{revision:020}")
+}
+
+fn membership_transition_material(record: &Value) -> Value {
+    json!({
+        "domain": "ioi.hypervisor.principal-tenant-membership-transition.v1",
+        "schema_version": record["schema_version"],
+        "principal_ref": record["principal_ref"],
+        "tenant_ref": record["tenant_ref"],
+        "tenant_kind": record["tenant_kind"],
+        "status": record["status"],
+        "revision": record["revision"],
+        "predecessor_membership_ref": record["predecessor_membership_ref"],
+        "predecessor_transition_hash": record["predecessor_transition_hash"],
+        "changed_by_principal_ref": record["changed_by_principal_ref"],
+        "change_source": record["change_source"],
+        "reason": record["reason"],
+        "idempotency_key_hash": record["idempotency_key_hash"],
+        "request_hash": record["request_hash"],
+        "changed_at": record["changed_at"],
+    })
+}
+
+fn membership_transition_hash(record: &Value) -> Result<String, String> {
+    let bytes = serde_jcs::to_vec(&membership_transition_material(record))
+        .map_err(|error| format!("membership transition cannot be canonicalized ({error})"))?;
+    Ok(format!(
+        "sha256:{}",
+        sha256_hex_str(
+            std::str::from_utf8(&bytes)
+                .map_err(|error| format!("canonical membership bytes were not UTF-8 ({error})"))?
+        )
+    ))
+}
+
+fn validate_membership_record(record: &Value, storage_tail: &str) -> Result<(), String> {
+    ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
+        PRINCIPAL_TENANT_MEMBERSHIP_CONTRACT,
+        record,
+    )
+    .map_err(|error| format!("membership record violates its registered contract ({error})"))?;
+
+    let principal_ref = record["principal_ref"]
+        .as_str()
+        .and_then(principal_id_from_local_ref)
+        .and_then(canonical_local_principal_ref)
+        .ok_or_else(|| "membership principal_ref is not one local user principal".to_string())?;
+    let tenant_ref = record["tenant_ref"]
+        .as_str()
+        .ok_or_else(|| "membership tenant_ref is absent".to_string())?;
+    let tenant_kind = record["tenant_kind"]
+        .as_str()
+        .ok_or_else(|| "membership tenant_kind is absent".to_string())?;
+    if (tenant_kind == "organization" && !tenant_ref.starts_with("org://"))
+        || (tenant_kind == "project" && !tenant_ref.starts_with("project://"))
+    {
+        return Err("membership tenant kind and reference disagree".to_string());
+    }
+    let revision = record["revision"]
+        .as_u64()
+        .filter(|revision| *revision > 0)
+        .ok_or_else(|| "membership revision is invalid".to_string())?;
+    let expected_request_hash = membership_request_hash(
+        record["changed_by_principal_ref"]
+            .as_str()
+            .ok_or_else(|| "membership changed_by_principal_ref is absent".to_string())?,
+        &principal_ref,
+        tenant_ref,
+        tenant_kind,
+        record["status"]
+            .as_str()
+            .ok_or_else(|| "membership status is absent".to_string())?,
+        revision - 1,
+        record["idempotency_key_hash"]
+            .as_str()
+            .ok_or_else(|| "membership idempotency_key_hash is absent".to_string())?,
+        record["reason"]
+            .as_str()
+            .ok_or_else(|| "membership reason is absent".to_string())?,
+        record["change_source"]
+            .as_str()
+            .ok_or_else(|| "membership change_source is absent".to_string())?,
+    )?;
+    if record["request_hash"].as_str() != Some(expected_request_hash.as_str()) {
+        return Err("membership request hash does not bind its exact admitted request".to_string());
+    }
+    let pair_hash = membership_pair_hash(&principal_ref, tenant_ref);
+    if storage_tail != membership_storage_tail(&pair_hash, revision) {
+        return Err(
+            "membership storage identity does not match its principal/tenant/revision".to_string(),
+        );
+    }
+    let expected_ref = format!("tenant-membership://hypervisor/{pair_hash}/revision/{revision}");
+    if record["membership_ref"].as_str() != Some(expected_ref.as_str()) {
+        return Err("membership_ref does not derive from its exact pair and revision".to_string());
+    }
+    let transition_hash = membership_transition_hash(record)?;
+    if record["transition_hash"].as_str() != Some(transition_hash.as_str()) {
+        return Err("membership transition hash does not recompute".to_string());
+    }
+    let digest = transition_hash.trim_start_matches("sha256:");
+    if record["receipt_ref"].as_str()
+        != Some(format!("receipt://hypervisor/principal-tenant-membership/{digest}").as_str())
+    {
+        return Err(
+            "membership receipt_ref is not content-addressed by the transition".to_string(),
+        );
+    }
+    Ok(())
+}
+
+/// Read the complete immutable membership chain through a pinned, no-follow directory census.
+/// A malformed, unreadable, duplicated, or non-contiguous successor refuses the whole projection;
+/// it is never converted into a false-empty tenant set.
+fn membership_records_strict(data_dir: &str) -> Result<Vec<Value>, String> {
+    let directory = match open_family_dir_pinned(data_dir, PRINCIPAL_TENANT_MEMBERSHIP_FAMILY) {
+        Ok(directory) => directory,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(error) => {
+            return Err(format!(
+                "principal-tenant membership family cannot be pinned ({error})"
+            ))
+        }
+    };
+    let mut names = enumerate_pinned(&directory).map_err(|error| {
+        format!("principal-tenant membership family cannot be enumerated ({error})")
+    })?;
+    names.sort();
+    if names.len() > MAX_PRINCIPAL_TENANT_MEMBERSHIP_RECORDS {
+        return Err(format!(
+            "principal-tenant membership family exceeds its bounded census ({}/{MAX_PRINCIPAL_TENANT_MEMBERSHIP_RECORDS})",
+            names.len()
+        ));
+    }
+    let mut total_bytes = 0u64;
+    let mut records = Vec::with_capacity(names.len());
+    for name in names {
+        let Some(storage_tail) = name.strip_suffix(".json") else {
+            return Err(format!(
+                "principal-tenant membership family contains unexpected slot '{name}'"
+            ));
+        };
+        let bytes = read_contained(
+            &directory,
+            Path::new(&name),
+            MAX_PRINCIPAL_TENANT_MEMBERSHIP_RECORD_BYTES,
+        )
+        .map_err(|error| format!("membership slot '{name}' is unavailable ({error:?})"))?;
+        total_bytes = total_bytes
+            .checked_add(bytes.len() as u64)
+            .ok_or_else(|| "membership family byte census overflowed".to_string())?;
+        if total_bytes > MAX_PRINCIPAL_TENANT_MEMBERSHIP_TOTAL_BYTES {
+            return Err(format!(
+                "principal-tenant membership family exceeds its aggregate byte bound ({total_bytes}/{MAX_PRINCIPAL_TENANT_MEMBERSHIP_TOTAL_BYTES})"
+            ));
+        }
+        let record: Value = serde_json::from_slice(&bytes)
+            .map_err(|error| format!("membership slot '{name}' is malformed ({error})"))?;
+        validate_membership_record(&record, storage_tail)
+            .map_err(|error| format!("membership slot '{name}' is invalid ({error})"))?;
+        records.push(record);
+    }
+
+    let mut chains = BTreeMap::<(String, String), Vec<Value>>::new();
+    for record in records {
+        let key = (
+            record["principal_ref"]
+                .as_str()
+                .unwrap_or_default()
+                .to_string(),
+            record["tenant_ref"]
+                .as_str()
+                .unwrap_or_default()
+                .to_string(),
+        );
+        chains.entry(key).or_default().push(record);
+    }
+    let mut verified = Vec::new();
+    for ((_principal_ref, _tenant_ref), mut chain) in chains {
+        chain.sort_by_key(|record| record["revision"].as_u64().unwrap_or(0));
+        let mut predecessor: Option<Value> = None;
+        for record in chain {
+            let revision = record["revision"].as_u64().unwrap_or(0);
+            let expected_revision = predecessor
+                .as_ref()
+                .and_then(|record| record["revision"].as_u64())
+                .unwrap_or(0)
+                + 1;
+            if revision != expected_revision {
+                return Err(
+                    "membership chain is not a contiguous immutable successor chain".to_string(),
+                );
+            }
+            match predecessor.as_ref() {
+                None => {
+                    if !record["predecessor_membership_ref"].is_null()
+                        || !record["predecessor_transition_hash"].is_null()
+                    {
+                        return Err("initial membership revision carries a predecessor".to_string());
+                    }
+                }
+                Some(previous) => {
+                    if record["predecessor_membership_ref"] != previous["membership_ref"]
+                        || record["predecessor_transition_hash"] != previous["transition_hash"]
+                        || record["status"] == previous["status"]
+                    {
+                        return Err(
+                            "membership successor does not bind and change its exact predecessor"
+                                .to_string(),
+                        );
+                    }
+                }
+            }
+            predecessor = Some(record.clone());
+            verified.push(record);
+        }
+    }
+    Ok(verified)
+}
+
+fn current_membership_records(data_dir: &str) -> Result<Vec<Value>, String> {
+    let mut current = BTreeMap::<(String, String), Value>::new();
+    for record in membership_records_strict(data_dir)? {
+        let key = (
+            record["principal_ref"]
+                .as_str()
+                .unwrap_or_default()
+                .to_string(),
+            record["tenant_ref"]
+                .as_str()
+                .unwrap_or_default()
+                .to_string(),
+        );
+        if current
+            .get(&key)
+            .and_then(|head| head["revision"].as_u64())
+            .unwrap_or(0)
+            < record["revision"].as_u64().unwrap_or(0)
+        {
+            current.insert(key, record);
+        }
+    }
+    Ok(current.into_values().collect())
+}
+
+fn active_memberships_for_principal(
+    data_dir: &str,
+    principal_ref: &str,
+) -> Result<Vec<Value>, String> {
+    let mut memberships = current_membership_records(data_dir)?
+        .into_iter()
+        .filter(|record| {
+            record["principal_ref"].as_str() == Some(principal_ref)
+                && record["status"].as_str() == Some("active")
+        })
+        .collect::<Vec<_>>();
+    memberships.sort_by(|left, right| {
+        left["tenant_ref"]
+            .as_str()
+            .unwrap_or_default()
+            .cmp(right["tenant_ref"].as_str().unwrap_or_default())
+    });
+    Ok(memberships)
+}
+
+/// Server-owned tenant visibility for a resolved local principal. Request bodies and mutable
+/// principal records never contribute tenant refs. Session and API-token callers therefore see
+/// revocation immediately without rotating their authentication credential.
+pub(crate) fn resolve_principal_tenant_refs(
+    data_dir: &str,
+    principal_ref: &str,
+) -> Result<BTreeSet<String>, String> {
+    if principal_id_from_local_ref(principal_ref).is_none() {
+        return Err("tenant membership requires one canonical local user principal".to_string());
+    }
+    Ok(active_memberships_for_principal(data_dir, principal_ref)?
+        .into_iter()
+        .filter_map(|record| record["tenant_ref"].as_str().map(str::to_owned))
+        .collect())
+}
+
+fn principal_public_with_memberships(data_dir: &str, principal: Value) -> Result<Value, String> {
+    let mut principal = principal_public(principal);
+    let principal_id = principal["principal_id"]
+        .as_str()
+        .ok_or_else(|| "principal record has no canonical principal_id".to_string())?;
+    let principal_ref = canonical_local_principal_ref(principal_id)
+        .ok_or_else(|| "principal record has an invalid principal_id".to_string())?;
+    let memberships = active_memberships_for_principal(data_dir, &principal_ref)?;
+    let tenant_refs = memberships
+        .iter()
+        .filter_map(|record| record["tenant_ref"].as_str().map(str::to_owned))
+        .collect::<Vec<_>>();
+    principal["principal_ref"] = json!(principal_ref);
+    principal["tenant_refs"] = json!(tenant_refs);
+    principal["tenant_memberships"] = json!(memberships);
+    Ok(principal)
+}
+
+fn membership_request_hash(
+    changed_by_principal_ref: &str,
+    principal_ref: &str,
+    tenant_ref: &str,
+    tenant_kind: &str,
+    desired_status: &str,
+    expected_revision: u64,
+    idempotency_key_hash: &str,
+    reason: &str,
+    change_source: &str,
+) -> Result<String, String> {
+    let material = json!({
+        "domain": "ioi.hypervisor.principal-tenant-membership-request.v1",
+        "changed_by_principal_ref": changed_by_principal_ref,
+        "principal_ref": principal_ref,
+        "tenant_ref": tenant_ref,
+        "tenant_kind": tenant_kind,
+        "desired_status": desired_status,
+        "expected_revision": expected_revision,
+        "idempotency_key_hash": idempotency_key_hash,
+        "reason": reason,
+        "change_source": change_source,
+    });
+    let bytes = serde_jcs::to_vec(&material)
+        .map_err(|error| format!("membership request cannot be canonicalized ({error})"))?;
+    Ok(format!(
+        "sha256:{}",
+        sha256_hex_str(std::str::from_utf8(&bytes).map_err(|error| format!(
+            "canonical membership request bytes were not UTF-8 ({error})"
+        ))?)
+    ))
+}
+
+pub(crate) fn apply_membership_transition(
+    data_dir: &str,
+    changed_by_principal_ref: &str,
+    principal_ref: &str,
+    tenant_ref: &str,
+    tenant_kind: &str,
+    desired_status: &str,
+    expected_revision: u64,
+    idempotency_key: &str,
+    reason: &str,
+    change_source: &str,
+) -> Result<(Value, bool), (StatusCode, &'static str, String)> {
+    let _guard = principal_tenant_membership_lock().lock().map_err(|_| {
+        (
+            StatusCode::SERVICE_UNAVAILABLE,
+            "hypervisor.membership_lock_unavailable",
+            "principal-tenant membership writer lock is poisoned".to_string(),
+        )
+    })?;
+    if principal_id_from_local_ref(principal_ref).is_none()
+        || principal_id_from_local_ref(changed_by_principal_ref).is_none()
+    {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "hypervisor.membership_principal_invalid",
+            "membership principals must be canonical deployment-local user:// refs".to_string(),
+        ));
+    }
+    if !matches!(desired_status, "active" | "revoked")
+        || !matches!(tenant_kind, "organization" | "project")
+        || !matches!(
+            change_source,
+            "deployment_bootstrap"
+                | "admin_api"
+                | "org_invite"
+                | "sso_auto_join"
+                | "scim_provisioning"
+        )
+    {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "hypervisor.membership_transition_invalid",
+            "membership transition uses an unsupported closed enum".to_string(),
+        ));
+    }
+    if idempotency_key.trim().is_empty() || idempotency_key.len() > 256 {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "hypervisor.membership_idempotency_key_invalid",
+            "idempotency_key is required and must be at most 256 bytes".to_string(),
+        ));
+    }
+    if reason.trim().is_empty() || reason.len() > 500 {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "hypervisor.membership_reason_invalid",
+            "reason is required and must be at most 500 bytes".to_string(),
+        ));
+    }
+    let pair_hash = membership_pair_hash(principal_ref, tenant_ref);
+    let idempotency_key_hash = format!(
+        "sha256:{}",
+        sha256_hex_str(&format!(
+            "ioi.hypervisor.principal-tenant-membership-idempotency.v1\0{idempotency_key}"
+        ))
+    );
+    let request_hash = membership_request_hash(
+        changed_by_principal_ref,
+        principal_ref,
+        tenant_ref,
+        tenant_kind,
+        desired_status,
+        expected_revision,
+        &idempotency_key_hash,
+        reason,
+        change_source,
+    )
+    .map_err(|message| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "hypervisor.membership_hash_failed",
+            message,
+        )
+    })?;
+    let records = membership_records_strict(data_dir).map_err(|message| {
+        (
+            StatusCode::SERVICE_UNAVAILABLE,
+            "hypervisor.membership_registry_unavailable",
+            message,
+        )
+    })?;
+    let current = records
+        .iter()
+        .filter(|record| {
+            record["principal_ref"].as_str() == Some(principal_ref)
+                && record["tenant_ref"].as_str() == Some(tenant_ref)
+        })
+        .max_by_key(|record| record["revision"].as_u64().unwrap_or(0));
+    let current_revision = current
+        .and_then(|record| record["revision"].as_u64())
+        .unwrap_or(0);
+    for record in records.iter().filter(|record| {
+        record["principal_ref"].as_str() == Some(principal_ref)
+            && record["tenant_ref"].as_str() == Some(tenant_ref)
+            && record["idempotency_key_hash"].as_str() == Some(idempotency_key_hash.as_str())
+    }) {
+        if record["request_hash"].as_str() == Some(request_hash.as_str()) {
+            if current.map(|head| head["membership_ref"].as_str())
+                == Some(record["membership_ref"].as_str())
+            {
+                return Ok((record.clone(), true));
+            }
+            return Err((
+                StatusCode::CONFLICT,
+                "hypervisor.membership_idempotency_superseded",
+                "idempotent membership request names an immutable receipt that is no longer the current membership head"
+                    .to_string(),
+            ));
+        }
+        return Err((
+            StatusCode::CONFLICT,
+            "hypervisor.membership_idempotency_conflict",
+            "idempotency_key was already used for different membership bytes".to_string(),
+        ));
+    }
+    if current_revision != expected_revision {
+        return Err((
+            StatusCode::CONFLICT,
+            "hypervisor.membership_revision_conflict",
+            format!(
+                "expected revision {expected_revision}, current revision is {current_revision}"
+            ),
+        ));
+    }
+    if current.and_then(|record| record["status"].as_str()) == Some(desired_status) {
+        return Err((
+            StatusCode::CONFLICT,
+            "hypervisor.membership_already_in_desired_state",
+            format!(
+                "membership is already {desired_status} at revision {current_revision}; only the exact request that authored the current immutable receipt may replay it"
+            ),
+        ));
+    }
+    if desired_status == "revoked" && current.is_none() {
+        return Err((
+            StatusCode::CONFLICT,
+            "hypervisor.membership_not_active",
+            "an absent membership cannot be revoked".to_string(),
+        ));
+    }
+    let revision = current_revision + 1;
+    let membership_ref = format!("tenant-membership://hypervisor/{pair_hash}/revision/{revision}");
+    let mut record = json!({
+        "schema_version": PRINCIPAL_TENANT_MEMBERSHIP_SCHEMA,
+        "membership_ref": membership_ref,
+        "receipt_ref": Value::Null,
+        "principal_ref": principal_ref,
+        "tenant_ref": tenant_ref,
+        "tenant_kind": tenant_kind,
+        "status": desired_status,
+        "revision": revision,
+        "predecessor_membership_ref": current.map(|record| record["membership_ref"].clone()).unwrap_or(Value::Null),
+        "predecessor_transition_hash": current.map(|record| record["transition_hash"].clone()).unwrap_or(Value::Null),
+        "changed_by_principal_ref": changed_by_principal_ref,
+        "change_source": change_source,
+        "reason": reason,
+        "idempotency_key_hash": idempotency_key_hash,
+        "request_hash": request_hash,
+        "transition_hash": Value::Null,
+        "changed_at": iso_now(),
+    });
+    let transition_hash = membership_transition_hash(&record).map_err(|message| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "hypervisor.membership_hash_failed",
+            message,
+        )
+    })?;
+    let digest = transition_hash.trim_start_matches("sha256:");
+    record["transition_hash"] = json!(transition_hash);
+    record["receipt_ref"] = json!(format!(
+        "receipt://hypervisor/principal-tenant-membership/{digest}"
+    ));
+    validate_membership_record(&record, &membership_storage_tail(&pair_hash, revision)).map_err(
+        |message| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "hypervisor.membership_contract_invalid",
+                message,
+            )
+        },
+    )?;
+    super::durable_fs::persist_receipt_no_clobber(
+        data_dir,
+        PRINCIPAL_TENANT_MEMBERSHIP_FAMILY,
+        &membership_storage_tail(&pair_hash, revision),
+        &record,
+    )
+    .map_err(|error| {
+        (
+            StatusCode::SERVICE_UNAVAILABLE,
+            "hypervisor.membership_persistence_failed",
+            format!("membership successor was not durably certified ({error:?})"),
+        )
+    })?;
+    let observed = current_membership_records(data_dir)
+        .map_err(|message| {
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "hypervisor.membership_registry_unavailable",
+                message,
+            )
+        })?
+        .into_iter()
+        .find(|candidate| {
+            candidate["principal_ref"].as_str() == Some(principal_ref)
+                && candidate["tenant_ref"].as_str() == Some(tenant_ref)
+        });
+    if observed.as_ref() != Some(&record) {
+        return Err((
+            StatusCode::SERVICE_UNAVAILABLE,
+            "hypervisor.membership_commit_not_observable",
+            "durable membership successor did not become the exact current projection".to_string(),
+        ));
+    }
+    Ok((record, false))
+}
 
 // Password hashing is Argon2id via dcrypt (ioi_crypto::key_store). The stored field is the hex of
 // `salt(16) || hash(32)`; verification re-derives. Never reversible, never sha256.
@@ -13895,24 +14640,73 @@ fn principal_public(mut p: Value) -> Value {
     if let Some(o) = p.as_object_mut() {
         o.remove("salt");
         o.remove("password_hash");
+        // Legacy/provisioning payload fields are not an authority source. Memberships are
+        // projected only from the append-only server-owned binding chain below.
+        o.remove("org_refs");
+        o.remove("project_refs");
+        o.remove("wallet_refs");
+        o.remove("owner_refs");
+        o.remove("tenant_refs");
+        o.remove("tenant_memberships");
     }
     p
 }
-/// Lazily ensure the single bootstrap operator principal exists (admin, no password until set).
-fn ensure_operator(data_dir: &str) {
-    let exists = read_record_dir(data_dir, "principals")
-        .iter()
-        .any(|p| p["principal_id"].as_str() == Some(OPERATOR_ID));
-    if !exists {
+/// Establish the exact deployment bootstrap principal and its sole automatic tenant membership
+/// before listener readiness. This is not a public administration shortcut: only this fixed
+/// operator -> org://local edge can be seeded without an authenticated administrator.
+pub(crate) fn ensure_identity_foundation(data_dir: &str) -> Result<(), String> {
+    let existing = read_record_dir(data_dir, "principals")
+        .into_iter()
+        .filter(|principal| principal["principal_id"].as_str() == Some(OPERATOR_ID))
+        .collect::<Vec<_>>();
+    if existing.len() > 1 {
+        return Err("bootstrap operator identity is ambiguous".to_string());
+    }
+    if let Some(operator) = existing.first() {
+        if operator["role"].as_str() != Some("admin")
+            || operator["status"].as_str() != Some("active")
+        {
+            return Err("bootstrap operator is not an active deployment administrator".to_string());
+        }
+    } else {
         let now = iso_now();
-        let p = json!({
+        let operator = json!({
             "schema_version": "ioi.hypervisor.principal.v1",
             "principal_id": OPERATOR_ID, "email": "johndoe@ioi.local", "name": "John Doe",
             "role": "admin", "status": "active", "source": "local-operator",
             "created_at": now, "updated_at": now,
         });
-        let _ = persist_record(data_dir, "principals", OPERATOR_ID, &p);
+        persist_record_durable(data_dir, "principals", OPERATOR_ID, &operator)
+            .map_err(|error| format!("bootstrap operator was not durably persisted ({error:?})"))?;
     }
+    let operator_ref = canonical_local_principal_ref(OPERATOR_ID)
+        .ok_or_else(|| "bootstrap operator principal ref is invalid".to_string())?;
+    apply_membership_transition(
+        data_dir,
+        &operator_ref,
+        &operator_ref,
+        "org://local",
+        "organization",
+        "active",
+        0,
+        "deployment-bootstrap-operator-org-local-v1",
+        "fixed deployment bootstrap operator membership",
+        "deployment_bootstrap",
+    )
+    .map_err(|(_status, code, message)| format!("{code}: {message}"))?;
+    if !resolve_principal_tenant_refs(data_dir, &operator_ref)?.contains("org://local") {
+        return Err(
+            "bootstrap operator's current org://local membership is not active".to_string(),
+        );
+    }
+    Ok(())
+}
+
+/// Lazily retain compatibility for call sites that predate startup initialization. Production
+/// startup calls `ensure_identity_foundation` and fails readiness on error; later calls do not
+/// turn a persistence failure into a successful identity response.
+fn ensure_operator(data_dir: &str) {
+    let _ = ensure_identity_foundation(data_dir);
 }
 fn find_principal(data_dir: &str, id: &str) -> Option<Value> {
     read_record_dir(data_dir, "principals")
@@ -14005,39 +14799,108 @@ pub(crate) fn deployment_auth_posture(data_dir: &str, headers: &HeaderMap) -> &'
     }
 }
 
-/// Startup notice: if this instance is exposed (non-loopback bind) with no login configured,
-/// enforcement is ON (fail-safe) — print a one-time bootstrap token for the host operator (log access).
-pub(crate) fn startup_auth_notice(data_dir: &str) {
+/// Emit a one-boot bootstrap credential whenever no login exists. This closes the fresh-loopback
+/// deadlock without treating loopback as an authenticated administrator: the plaintext appears
+/// only in the host log, while its hash is durably stored. Each restart rotates an unused token.
+pub(crate) fn startup_auth_notice(data_dir: &str) -> Result<(), String> {
     let policy = auth_policy(data_dir);
     let mode = policy["mode"].as_str().unwrap_or("auto");
     let would_enforce = mode == "always" || (mode != "never" && daemon_exposed());
-    if would_enforce && !login_possible(data_dir) {
-        let token = ensure_bootstrap_token(data_dir);
-        tracing::warn!(
-            "AUTH BOOTSTRAP REQUIRED — exposed instance, no login configured, authentication enforced. Set the first operator password: POST /v1/hypervisor/auth/bootstrap {{\"token\":\"{token}\",\"password\":\"<min 8 chars>\"}}"
-        );
-    }
-}
-/// The one-time bootstrap token (created lazily) used to set the first operator password on an
-/// exposed instance that has no login configured yet. Printed to the daemon log at startup.
-fn ensure_bootstrap_token(data_dir: &str) -> String {
-    if let Some(rec) = read_record_dir(data_dir, "auth-bootstrap")
-        .into_iter()
-        .find(|b| b["id"].as_str() == Some("bootstrap"))
-    {
-        if let Some(t) = rec["token"].as_str() {
-            return t.to_string();
+    if !login_possible(data_dir) {
+        let token = issue_bootstrap_token(data_dir)?;
+        if would_enforce {
+            tracing::warn!(
+                "AUTH BOOTSTRAP REQUIRED — no login configured and authentication enforced. Set the first operator password: POST /v1/hypervisor/auth/bootstrap {{\"token\":\"{token}\",\"password\":\"<min 8 chars>\"}}"
+            );
+        } else {
+            tracing::warn!(
+                "AUTH BOOTSTRAP AVAILABLE — fresh local deployment. Loopback is not an administrator credential; authenticate the operator with: POST /v1/hypervisor/auth/bootstrap {{\"token\":\"{token}\",\"password\":\"<min 8 chars>\"}}"
+            );
         }
     }
-    let token = gen_opaque("ioi_bootstrap");
-    let _ = persist_record(
-        data_dir,
-        "auth-bootstrap",
-        "bootstrap",
-        &json!({ "id": "bootstrap", "token": token, "created_at": iso_now() }),
-    );
-    token
+    Ok(())
 }
+/// Issue the one-time bootstrap token and persist only its hash. The token is rotated on every
+/// unauthenticated daemon boot so a lost host-log value never requires editing principal bytes.
+fn issue_bootstrap_token(data_dir: &str) -> Result<String, String> {
+    let token = gen_opaque("ioi_bootstrap");
+    let record = json!({
+        "id": "bootstrap",
+        "token_hash": sha256_hex_str(&token),
+        "created_at": iso_now()
+    });
+    persist_record_durable(data_dir, "auth-bootstrap", "bootstrap", &record)
+        .map_err(|error| format!("authentication bootstrap token was not durable ({error:?})"))?;
+    let observed = read_record_dir(data_dir, "auth-bootstrap")
+        .into_iter()
+        .find(|candidate| candidate["id"].as_str() == Some("bootstrap"));
+    if observed.as_ref() != Some(&record) {
+        return Err("authentication bootstrap token was not exactly observable".to_string());
+    }
+    Ok(token)
+}
+
+fn presented_session_record(data_dir: &str, headers: &HeaderMap) -> Option<Value> {
+    let mut tokens = Vec::new();
+    if let Some(cookie) = headers.get("cookie").and_then(|value| value.to_str().ok()) {
+        for part in cookie.split(';') {
+            if let Some(token) = part.trim().strip_prefix("ioi_session=") {
+                if !token.is_empty() {
+                    tokens.push(token.to_string());
+                }
+            }
+        }
+    }
+    if let Some(token) = headers
+        .get(header::AUTHORIZATION)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.strip_prefix("Bearer "))
+        .map(str::trim)
+        .filter(|token| !token.is_empty())
+    {
+        if !tokens.iter().any(|candidate| candidate == token) {
+            tokens.push(token.to_string());
+        }
+    }
+    let now = iso_now();
+    tokens.into_iter().find_map(|token| {
+        let hash = sha256_hex_str(&token);
+        read_record_dir(data_dir, "sessions")
+            .into_iter()
+            .find(|session| {
+                session["token_hash"].as_str() == Some(hash.as_str())
+                    && session["expires_at"]
+                        .as_str()
+                        .is_some_and(|expires_at| expires_at > now.as_str())
+            })
+    })
+}
+
+/// Portal-exchanged sessions are deliberately narrower than a normal daemon login. The assertion
+/// audience authenticates the daemon; these retained route constraints limit what that resulting
+/// bearer can ask the daemon to do if it escapes the BFF's in-memory custody.
+pub(crate) fn session_allows_route(data_dir: &str, headers: &HeaderMap, path: &str) -> bool {
+    let Some(session) = presented_session_record(data_dir, headers) else {
+        return true;
+    };
+    let has_scope = session.get("allowed_route_prefixes").is_some()
+        || session.get("allowed_exact_routes").is_some();
+    if !has_scope {
+        return true;
+    }
+    let Some(prefixes) = session["allowed_route_prefixes"].as_array() else {
+        return false;
+    };
+    let Some(exact) = session["allowed_exact_routes"].as_array() else {
+        return false;
+    };
+    exact.iter().any(|route| route.as_str() == Some(path))
+        || prefixes
+            .iter()
+            .filter_map(Value::as_str)
+            .any(|prefix| path.starts_with(prefix))
+}
+
 /// Resolve the calling principal from a session cookie (ioi_session=) or a Bearer token (session
 /// token OR an API access token whose hash we stored). Returns the public principal record.
 pub(crate) fn resolve_principal(data_dir: &str, headers: &HeaderMap) -> Option<Value> {
@@ -14075,26 +14938,32 @@ pub(crate) fn resolve_principal(data_dir: &str, headers: &HeaderMap) -> Option<V
     if let Some(tok) = &session_tok {
         if let Some(p) = try_session(tok) {
             if p["status"].as_str() == Some("active") {
-                return Some(principal_public(p));
+                return principal_public_with_memberships(data_dir, p).ok();
             }
         }
     }
     if let Some(tok) = &bearer {
         if let Some(p) = try_session(tok) {
             if p["status"].as_str() == Some("active") {
-                return Some(principal_public(p));
+                return principal_public_with_memberships(data_dir, p).ok();
             }
         }
         // API access token: match the stored hash → its user_id → principal
         let h = sha256_hex_str(tok);
+        let now = iso_now();
         if let Some(rec) = read_record_dir(data_dir, "api-tokens")
             .into_iter()
-            .find(|t| t["token_hash"].as_str() == Some(h.as_str()))
+            .find(|t| {
+                t["token_hash"].as_str() == Some(h.as_str())
+                    && t["expires_at"]
+                        .as_str()
+                        .is_some_and(|expires_at| expires_at > now.as_str())
+            })
         {
             if let Some(uid) = rec["user_id"].as_str() {
                 if let Some(p) = find_principal(data_dir, uid) {
                     if p["status"].as_str() == Some("active") {
-                        return Some(principal_public(p));
+                        return principal_public_with_memberships(data_dir, p).ok();
                     }
                 }
             }
@@ -14103,14 +14972,988 @@ pub(crate) fn resolve_principal(data_dir: &str, headers: &HeaderMap) -> Option<V
     None
 }
 
+fn require_authenticated_principal(
+    data_dir: &str,
+    headers: &HeaderMap,
+) -> Result<Value, (StatusCode, Json<Value>)> {
+    resolve_principal(data_dir, headers).ok_or_else(|| {
+        (
+            StatusCode::UNAUTHORIZED,
+            Json(json!({
+                "ok": false,
+                "code": "hypervisor.authentication_required",
+                "message": "an authenticated session or API token is required even on loopback"
+            })),
+        )
+    })
+}
+
+fn require_authenticated_admin(
+    data_dir: &str,
+    headers: &HeaderMap,
+) -> Result<Value, (StatusCode, Json<Value>)> {
+    let principal = require_authenticated_principal(data_dir, headers)?;
+    if principal["role"].as_str() != Some("admin") {
+        return Err((
+            StatusCode::FORBIDDEN,
+            Json(json!({
+                "ok": false,
+                "code": "hypervisor.membership_administrator_required",
+                "message": "deployment membership administration requires an authenticated admin"
+            })),
+        ));
+    }
+    Ok(principal)
+}
+
+fn validate_membership_tenant(
+    data_dir: &str,
+    tenant_ref: &str,
+) -> Result<&'static str, (StatusCode, Json<Value>)> {
+    if tenant_ref.len() > 500 || tenant_ref.chars().any(char::is_whitespace) {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "ok": false,
+                "code": "hypervisor.membership_tenant_ref_invalid"
+            })),
+        ));
+    }
+    if tenant_ref == "org://local" {
+        return Ok("organization");
+    }
+    if tenant_ref.starts_with("org://") {
+        return Err((
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "ok": false,
+                "code": "hypervisor.organization_not_found",
+                "message": "this deployment currently owns only the exact org://local organization record"
+            })),
+        ));
+    }
+    if let Some(slug) = tenant_ref.strip_prefix("project://") {
+        if slug.is_empty()
+            || slug
+                .chars()
+                .any(|character| matches!(character, '?' | '#' | '\\'))
+        {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                Json(json!({
+                    "ok": false,
+                    "code": "hypervisor.membership_tenant_ref_invalid"
+                })),
+            ));
+        }
+        let legacy_project_id = format!("project:{slug}");
+        let matches = read_record_dir(data_dir, "projects")
+            .into_iter()
+            .filter(|project| {
+                project["project_id"].as_str() == Some(legacy_project_id.as_str())
+                    || project["project_ref"].as_str() == Some(tenant_ref)
+            })
+            .count();
+        return match matches {
+            1 => Ok("project"),
+            0 => Err((
+                StatusCode::NOT_FOUND,
+                Json(json!({
+                    "ok": false,
+                    "code": "hypervisor.project_not_found",
+                    "tenant_ref": tenant_ref
+                })),
+            )),
+            _ => Err((
+                StatusCode::CONFLICT,
+                Json(json!({
+                    "ok": false,
+                    "code": "hypervisor.project_identity_ambiguous",
+                    "tenant_ref": tenant_ref
+                })),
+            )),
+        };
+    }
+    if tenant_ref.starts_with("wallet://") {
+        return Err((
+            StatusCode::PRECONDITION_FAILED,
+            Json(json!({
+                "ok": false,
+                "code": "hypervisor.wallet_membership_authority_resolution_required",
+                "message": "wallet:// visibility cannot be admin-asserted; an existing exact wallet.network principal-authority binding and authenticated local-principal resolution are required, and this deployment-local binding API does not yet own that bridge"
+            })),
+        ));
+    }
+    Err((
+        StatusCode::BAD_REQUEST,
+        Json(json!({
+            "ok": false,
+            "code": "hypervisor.membership_tenant_kind_unsupported",
+            "message": "tenant_ref must name an existing org:// or project:// record"
+        })),
+    ))
+}
+
+fn actor_can_administer_tenant(
+    data_dir: &str,
+    actor: &Value,
+    tenant_ref: &str,
+    tenant_kind: &str,
+) -> Result<(), (StatusCode, Json<Value>)> {
+    let actor_ref = actor["principal_ref"].as_str().unwrap_or_default();
+    let actor_tenants = resolve_principal_tenant_refs(data_dir, actor_ref).map_err(|message| {
+        (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({
+                "ok": false,
+                "code": "hypervisor.membership_registry_unavailable",
+                "message": message
+            })),
+        )
+    })?;
+    if actor_tenants.contains(tenant_ref) {
+        return Ok(());
+    }
+    // A newly-created project has no member capable of adding its first member. An authenticated
+    // org://local administrator may seed exactly that first project membership; once any active
+    // project membership exists, all further administration is tenant-member-only.
+    let active_tenant_members = current_membership_records(data_dir)
+        .map_err(|message| {
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(json!({
+                    "ok": false,
+                    "code": "hypervisor.membership_registry_unavailable",
+                    "message": message
+                })),
+            )
+        })?
+        .into_iter()
+        .filter(|record| {
+            record["tenant_ref"].as_str() == Some(tenant_ref)
+                && record["status"].as_str() == Some("active")
+        })
+        .count();
+    if tenant_kind == "project"
+        && active_tenant_members == 0
+        && actor_tenants.contains("org://local")
+    {
+        return Ok(());
+    }
+    Err((
+        StatusCode::FORBIDDEN,
+        Json(json!({
+            "ok": false,
+            "code": "hypervisor.membership_tenant_administrator_required",
+            "tenant_ref": tenant_ref,
+            "message": "the authenticated admin is not a current member of this tenant"
+        })),
+    ))
+}
+
+fn require_authenticated_org_admin(
+    data_dir: &str,
+    headers: &HeaderMap,
+) -> Result<Value, (StatusCode, Json<Value>)> {
+    let actor = require_authenticated_admin(data_dir, headers)?;
+    actor_can_administer_tenant(data_dir, &actor, "org://local", "organization")?;
+    Ok(actor)
+}
+
+fn parse_membership_mutation_body(
+    body: &Value,
+) -> Result<(String, u64, String, String), (StatusCode, Json<Value>)> {
+    let Some(object) = body.as_object() else {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "code": "hypervisor.membership_request_invalid" })),
+        ));
+    };
+    let allowed = [
+        "tenant_ref",
+        "expected_revision",
+        "idempotency_key",
+        "reason",
+    ];
+    if let Some(field) = object
+        .keys()
+        .find(|field| !allowed.contains(&field.as_str()))
+    {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "ok": false,
+                "code": "hypervisor.membership_request_closed",
+                "message": format!("request-carried field '{field}' is not allowed; principal, owner, actor, role, and authority are resolved server-side")
+            })),
+        ));
+    }
+    let tenant_ref = object
+        .get("tenant_ref")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    let expected_revision = object
+        .get("expected_revision")
+        .and_then(Value::as_u64)
+        .ok_or_else(|| {
+            (
+                StatusCode::BAD_REQUEST,
+                Json(json!({
+                    "ok": false,
+                    "code": "hypervisor.membership_expected_revision_required"
+                })),
+            )
+        })?;
+    let idempotency_key = object
+        .get("idempotency_key")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    let reason = object
+        .get("reason")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    Ok((tenant_ref, expected_revision, idempotency_key, reason))
+}
+
+fn membership_error_response(
+    error: (StatusCode, &'static str, String),
+) -> (StatusCode, Json<Value>) {
+    let (status, code, message) = error;
+    (
+        status,
+        Json(json!({ "ok": false, "code": code, "message": message })),
+    )
+}
+
+fn deactivate_new_principal_after_membership_failure(
+    data_dir: &str,
+    principal: &Value,
+    principal_created: bool,
+    failure: &(StatusCode, &'static str, String),
+) -> Result<(), String> {
+    if !principal_created {
+        return Ok(());
+    }
+    let principal_id = principal["principal_id"]
+        .as_str()
+        .ok_or_else(|| "new principal has no principal_id to compensate".to_string())?;
+    let mut deactivated = principal.clone();
+    deactivated["status"] = json!("inactive");
+    deactivated["updated_at"] = json!(iso_now());
+    deactivated["deactivation_reason"] = json!(format!(
+        "organization membership provisioning failed ({})",
+        failure.1
+    ));
+    persist_record_durable(data_dir, "principals", principal_id, &deactivated)
+        .map_err(|error| format!("principal compensation was not durable ({error:?})"))
+}
+
+/// Complete a federated/invite principal provisioning transaction by establishing the exact
+/// deployment organization membership before a session or SCIM success is returned. The caller
+/// must durably persist the principal first. When a newly-created principal cannot obtain its
+/// membership, the helper durably deactivates it; a compensation failure is surfaced explicitly.
+fn ensure_provisioned_org_membership(
+    data_dir: &str,
+    changed_by_principal_ref: &str,
+    principal: &Value,
+    principal_created: bool,
+    change_source: &str,
+    idempotency_key: &str,
+    reason: &str,
+) -> Result<Value, (StatusCode, &'static str, String)> {
+    let result = (|| {
+        let principal_id = principal["principal_id"].as_str().ok_or_else(|| {
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "hypervisor.provisioned_principal_invalid",
+                "durable provisioned principal has no principal_id".to_string(),
+            )
+        })?;
+        let principal_ref = canonical_local_principal_ref(principal_id).ok_or_else(|| {
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "hypervisor.provisioned_principal_invalid",
+                "durable provisioned principal has a non-canonical principal_id".to_string(),
+            )
+        })?;
+        let current_membership = current_membership_records(data_dir)
+            .map_err(|message| {
+                (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "hypervisor.membership_registry_unavailable",
+                    message,
+                )
+            })?
+            .into_iter()
+            .find(|record| {
+                record["principal_ref"].as_str() == Some(principal_ref.as_str())
+                    && record["tenant_ref"].as_str() == Some("org://local")
+            });
+        if current_membership
+            .as_ref()
+            .and_then(|record| record["status"].as_str())
+            == Some("active")
+        {
+            return Ok(current_membership.unwrap_or(Value::Null));
+        }
+        if current_membership.is_some() {
+            return Err((
+                StatusCode::FORBIDDEN,
+                "hypervisor.provisioned_membership_revoked",
+                "the principal's organization membership was explicitly revoked and cannot be restored by this provisioning lane"
+                    .to_string(),
+            ));
+        }
+        let expected_revision = current_membership
+            .as_ref()
+            .and_then(|record| record["revision"].as_u64())
+            .unwrap_or(0);
+        apply_membership_transition(
+            data_dir,
+            changed_by_principal_ref,
+            &principal_ref,
+            "org://local",
+            "organization",
+            "active",
+            expected_revision,
+            idempotency_key,
+            reason,
+            change_source,
+        )
+        .map(|(receipt, _)| receipt)
+    })();
+    match result {
+        Ok(receipt) => Ok(receipt),
+        Err(failure) => {
+            if let Err(compensation_error) = deactivate_new_principal_after_membership_failure(
+                data_dir,
+                principal,
+                principal_created,
+                &failure,
+            ) {
+                return Err((
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "hypervisor.membership_provisioning_compensation_failed",
+                    format!("{}; {compensation_error}", failure.2),
+                ));
+            }
+            Err(failure)
+        }
+    }
+}
+
+/// GET /v1/hypervisor/principals/:id/tenant-memberships — current, server-resolved visibility
+/// bindings. A principal may read itself; an administrator may read only tenant rows it is itself
+/// entitled to administer.
+pub(crate) async fn handle_principal_tenant_memberships_list(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    AxumPath(id): AxumPath<String>,
+) -> (StatusCode, Json<Value>) {
+    let actor = match require_authenticated_principal(&st.data_dir, &headers) {
+        Ok(actor) => actor,
+        Err(response) => return response,
+    };
+    let Some(target_ref) = canonical_local_principal_ref(&id) else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "code": "hypervisor.membership_principal_invalid" })),
+        );
+    };
+    if find_principal(&st.data_dir, &id).is_none() {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "ok": false, "code": "hypervisor.principal_not_found" })),
+        );
+    }
+    let actor_ref = actor["principal_ref"].as_str().unwrap_or_default();
+    let actor_is_target = actor_ref == target_ref;
+    if !actor_is_target && actor["role"].as_str() != Some("admin") {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(json!({ "ok": false, "code": "hypervisor.membership_administrator_required" })),
+        );
+    }
+    let actor_tenants = match resolve_principal_tenant_refs(&st.data_dir, actor_ref) {
+        Ok(tenant_refs) => tenant_refs,
+        Err(message) => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(
+                    json!({ "ok": false, "code": "hypervisor.membership_registry_unavailable", "message": message }),
+                ),
+            )
+        }
+    };
+    let mut memberships = match current_membership_records(&st.data_dir) {
+        Ok(records) => records
+            .into_iter()
+            .filter(|record| record["principal_ref"].as_str() == Some(target_ref.as_str()))
+            .filter(|record| {
+                actor_is_target
+                    || record["tenant_ref"]
+                        .as_str()
+                        .is_some_and(|tenant_ref| actor_tenants.contains(tenant_ref))
+            })
+            .collect::<Vec<_>>(),
+        Err(message) => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(
+                    json!({ "ok": false, "code": "hypervisor.membership_registry_unavailable", "message": message }),
+                ),
+            )
+        }
+    };
+    memberships.sort_by(|left, right| {
+        left["tenant_ref"]
+            .as_str()
+            .unwrap_or_default()
+            .cmp(right["tenant_ref"].as_str().unwrap_or_default())
+    });
+    (
+        StatusCode::OK,
+        Json(json!({
+            "ok": true,
+            "principal_ref": target_ref,
+            "tenant_memberships": memberships,
+            "runtimeTruthSource": "daemon-membership-chain"
+        })),
+    )
+}
+
+async fn mutate_principal_tenant_membership(
+    st: Arc<DaemonState>,
+    headers: HeaderMap,
+    id: String,
+    body: Value,
+    desired_status: &'static str,
+) -> (StatusCode, Json<Value>) {
+    let actor = match require_authenticated_admin(&st.data_dir, &headers) {
+        Ok(actor) => actor,
+        Err(response) => return response,
+    };
+    let (tenant_ref, expected_revision, idempotency_key, reason) =
+        match parse_membership_mutation_body(&body) {
+            Ok(request) => request,
+            Err(response) => return response,
+        };
+    let tenant_kind = match validate_membership_tenant(&st.data_dir, &tenant_ref) {
+        Ok(kind) => kind,
+        Err(response) => return response,
+    };
+    let Some(target) = find_principal(&st.data_dir, &id) else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "ok": false, "code": "hypervisor.principal_not_found" })),
+        );
+    };
+    if target["status"].as_str() != Some("active") {
+        return (
+            StatusCode::CONFLICT,
+            Json(json!({ "ok": false, "code": "hypervisor.membership_principal_inactive" })),
+        );
+    }
+    let Some(target_ref) = canonical_local_principal_ref(&id) else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "code": "hypervisor.membership_principal_invalid" })),
+        );
+    };
+    let actor_ref = actor["principal_ref"].as_str().unwrap_or_default();
+    if let Err(response) =
+        actor_can_administer_tenant(&st.data_dir, &actor, &tenant_ref, tenant_kind)
+    {
+        return response;
+    }
+    if desired_status == "revoked"
+        && target_ref == canonical_local_principal_ref(OPERATOR_ID).unwrap_or_default()
+        && tenant_ref == "org://local"
+    {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(json!({
+                "ok": false,
+                "code": "hypervisor.bootstrap_operator_membership_immutable",
+                "message": "the deployment bootstrap operator's org://local membership cannot be revoked"
+            })),
+        );
+    }
+    match apply_membership_transition(
+        &st.data_dir,
+        actor_ref,
+        &target_ref,
+        &tenant_ref,
+        tenant_kind,
+        desired_status,
+        expected_revision,
+        &idempotency_key,
+        &reason,
+        "admin_api",
+    ) {
+        Ok((receipt, replayed)) => (
+            if desired_status == "active" && !replayed {
+                StatusCode::CREATED
+            } else {
+                StatusCode::OK
+            },
+            Json(json!({
+                "ok": true,
+                "membership_receipt": receipt,
+                "replayed": replayed,
+                "immediately_effective": true
+            })),
+        ),
+        Err(error) => membership_error_response(error),
+    }
+}
+
+/// POST /v1/hypervisor/principals/:id/tenant-memberships — append an active successor.
+pub(crate) async fn handle_principal_tenant_membership_grant(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    mutate_principal_tenant_membership(st, headers, id, body, "active").await
+}
+
+/// POST /v1/hypervisor/principals/:id/tenant-memberships/revoke — append a revoked successor.
+pub(crate) async fn handle_principal_tenant_membership_revoke(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    mutate_principal_tenant_membership(st, headers, id, body, "revoked").await
+}
+
+#[cfg(test)]
+mod principal_tenant_membership_tests {
+    use super::*;
+
+    fn seed_principal(data_dir: &str, id: &str, role: &str) {
+        let principal = json!({
+            "schema_version": "ioi.hypervisor.principal.v1",
+            "principal_id": id,
+            "email": format!("{id}@example.test"),
+            "name": id,
+            "role": role,
+            "status": "active",
+            "source": "test",
+            // These forged legacy fields must never become membership truth.
+            "owner_refs": ["org://forged"],
+            "tenant_refs": ["project://forged"],
+            "created_at": "2026-01-01T00:00:00Z",
+            "updated_at": "2026-01-01T00:00:00Z",
+        });
+        persist_record_durable(data_dir, "principals", id, &principal).unwrap();
+    }
+
+    fn fixture() -> tempfile::TempDir {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        super::super::durable_fs::precreate_family_dirs_durable(
+            data_dir,
+            &[PRINCIPAL_TENANT_MEMBERSHIP_FAMILY],
+        )
+        .unwrap();
+        ensure_identity_foundation(data_dir).unwrap();
+        seed_principal(data_dir, "member-alpha", "member");
+        seed_principal(data_dir, "member-beta", "member");
+        directory
+    }
+
+    #[test]
+    fn membership_is_durable_restart_visible_and_revocation_hits_existing_sessions() {
+        let directory = fixture();
+        let data_dir = directory.path().to_str().unwrap();
+        let operator_ref = canonical_local_principal_ref(OPERATOR_ID).unwrap();
+        let member_ref = "user://member-alpha";
+        let (active, replayed) = apply_membership_transition(
+            data_dir,
+            &operator_ref,
+            member_ref,
+            "org://local",
+            "organization",
+            "active",
+            0,
+            "grant-alpha-org-local",
+            "add alpha to local organization",
+            "admin_api",
+        )
+        .unwrap();
+        assert!(!replayed);
+        assert_eq!(active["status"], "active");
+        let same_state_new_key = apply_membership_transition(
+            data_dir,
+            &operator_ref,
+            member_ref,
+            "org://local",
+            "organization",
+            "active",
+            1,
+            "unused-same-state-key",
+            "must not borrow the prior receipt",
+            "admin_api",
+        )
+        .unwrap_err();
+        assert_eq!(
+            same_state_new_key.1,
+            "hypervisor.membership_already_in_desired_state"
+        );
+
+        let (status, session) = issue_session(data_dir, "member-alpha", "test");
+        assert_eq!(status, StatusCode::OK);
+        let token = session["session_token"].as_str().unwrap();
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            header::AUTHORIZATION,
+            format!("Bearer {token}").parse().unwrap(),
+        );
+        let before = resolve_principal(data_dir, &headers).unwrap();
+        assert_eq!(before["tenant_refs"], json!(["org://local"]));
+
+        // Reconstruct from disk without any in-memory membership cache (the restart path).
+        assert!(resolve_principal_tenant_refs(data_dir, member_ref)
+            .unwrap()
+            .contains("org://local"));
+        let (revoked, _) = apply_membership_transition(
+            data_dir,
+            &operator_ref,
+            member_ref,
+            "org://local",
+            "organization",
+            "revoked",
+            1,
+            "revoke-alpha-org-local",
+            "remove alpha from local organization",
+            "admin_api",
+        )
+        .unwrap();
+        assert_eq!(
+            revoked["predecessor_membership_ref"],
+            active["membership_ref"]
+        );
+        assert!(resolve_principal_tenant_refs(data_dir, member_ref)
+            .unwrap()
+            .is_empty());
+        let after = resolve_principal(data_dir, &headers).unwrap();
+        assert_eq!(after["tenant_refs"], json!([]));
+
+        // The rejected no-op did not consume its idempotency key. It can author a later, distinct
+        // transition once the expected revision and desired state actually advance.
+        let (reactivated, reactivated_replay) = apply_membership_transition(
+            data_dir,
+            &operator_ref,
+            member_ref,
+            "org://local",
+            "organization",
+            "active",
+            2,
+            "unused-same-state-key",
+            "reactivate after a real revoke",
+            "admin_api",
+        )
+        .unwrap();
+        assert!(!reactivated_replay);
+        assert_eq!(reactivated["revision"], 3);
+
+        // An old idempotency key still identifies its immutable receipt, but replaying it must
+        // never report the superseded active transition as immediately effective after revoke.
+        let superseded = apply_membership_transition(
+            data_dir,
+            &operator_ref,
+            member_ref,
+            "org://local",
+            "organization",
+            "active",
+            0,
+            "grant-alpha-org-local",
+            "add alpha to local organization",
+            "admin_api",
+        )
+        .unwrap_err();
+        assert_eq!(superseded.1, "hypervisor.membership_idempotency_superseded");
+    }
+
+    #[test]
+    fn membership_is_cross_principal_and_request_owner_forgery_safe() {
+        let directory = fixture();
+        let data_dir = directory.path().to_str().unwrap();
+        let operator_ref = canonical_local_principal_ref(OPERATOR_ID).unwrap();
+        apply_membership_transition(
+            data_dir,
+            &operator_ref,
+            "user://member-beta",
+            "org://local",
+            "organization",
+            "active",
+            0,
+            "grant-beta-org-local",
+            "add beta",
+            "admin_api",
+        )
+        .unwrap();
+        assert!(
+            resolve_principal_tenant_refs(data_dir, "user://member-alpha")
+                .unwrap()
+                .is_empty()
+        );
+        assert!(
+            resolve_principal_tenant_refs(data_dir, "user://member-beta")
+                .unwrap()
+                .contains("org://local")
+        );
+        let forged = parse_membership_mutation_body(&json!({
+            "tenant_ref": "org://local",
+            "expected_revision": 0,
+            "idempotency_key": "forged",
+            "reason": "forged",
+            "principal_ref": "user://member-beta",
+            "owner_ref": "org://local"
+        }))
+        .unwrap_err();
+        assert_eq!(forged.0, StatusCode::BAD_REQUEST);
+        assert_eq!(forged.1 .0["code"], "hypervisor.membership_request_closed");
+
+        // Raw legacy claims stored on alpha were stripped and never resolved.
+        let alpha = find_principal(data_dir, "member-alpha").unwrap();
+        let projected = principal_public_with_memberships(data_dir, alpha).unwrap();
+        assert_eq!(projected["tenant_refs"], json!([]));
+    }
+
+    #[test]
+    fn membership_admin_requires_real_auth_even_on_loopback_and_wallet_fails_precondition() {
+        let directory = fixture();
+        let data_dir = directory.path().to_str().unwrap();
+        let mut loopback = HeaderMap::new();
+        loopback.insert(header::HOST, "127.0.0.1".parse().unwrap());
+        assert_eq!(
+            require_authenticated_admin(data_dir, &loopback)
+                .unwrap_err()
+                .0,
+            StatusCode::UNAUTHORIZED
+        );
+        let wallet = validate_membership_tenant(data_dir, "wallet://acme/operator").unwrap_err();
+        assert_eq!(wallet.0, StatusCode::PRECONDITION_FAILED);
+        assert_eq!(
+            wallet.1 .0["code"],
+            "hypervisor.wallet_membership_authority_resolution_required"
+        );
+    }
+
+    #[test]
+    fn membership_persistence_failure_returns_no_success() {
+        // /proc/self is readable, but a daemon-owned family cannot be created beneath it. The
+        // append-only writer must surface a typed persistence failure instead of issuing a receipt.
+        let error = apply_membership_transition(
+            "/proc/self",
+            "user://admin",
+            "user://member",
+            "org://local",
+            "organization",
+            "active",
+            0,
+            "persistence-failure",
+            "prove failure",
+            "admin_api",
+        )
+        .unwrap_err();
+        assert_eq!(error.0, StatusCode::SERVICE_UNAVAILABLE);
+        assert!(matches!(
+            error.1,
+            "hypervisor.membership_persistence_failed"
+                | "hypervisor.membership_registry_unavailable"
+        ));
+    }
+
+    #[test]
+    fn oidc_and_scim_provisioning_append_org_membership_before_success() {
+        let directory = fixture();
+        let data_dir = directory.path().to_str().unwrap();
+        let operator_ref = canonical_local_principal_ref(OPERATOR_ID).unwrap();
+        seed_principal(data_dir, "oidc-member", "member");
+        seed_principal(data_dir, "scim-member", "member");
+
+        let oidc_principal = find_principal(data_dir, "oidc-member").unwrap();
+        let oidc_receipt = ensure_provisioned_org_membership(
+            data_dir,
+            &operator_ref,
+            &oidc_principal,
+            true,
+            "sso_auto_join",
+            "sso-auto-join:sso-test:oidc-member",
+            "verified OIDC test identity",
+        )
+        .unwrap();
+        assert_eq!(oidc_receipt["change_source"], "sso_auto_join");
+        assert!(
+            resolve_principal_tenant_refs(data_dir, "user://oidc-member")
+                .unwrap()
+                .contains("org://local")
+        );
+        apply_membership_transition(
+            data_dir,
+            &operator_ref,
+            "user://oidc-member",
+            "org://local",
+            "organization",
+            "revoked",
+            1,
+            "revoke-oidc-test-member",
+            "prove SSO cannot silently restore an explicit revocation",
+            "admin_api",
+        )
+        .unwrap();
+        let revoked_login = ensure_provisioned_org_membership(
+            data_dir,
+            &operator_ref,
+            &oidc_principal,
+            false,
+            "sso_auto_join",
+            "sso-auto-join:sso-test:oidc-member:retry",
+            "retry revoked OIDC identity",
+        )
+        .unwrap_err();
+        assert_eq!(revoked_login.1, "hypervisor.provisioned_membership_revoked");
+
+        let scim_principal = find_principal(data_dir, "scim-member").unwrap();
+        let scim_receipt = ensure_provisioned_org_membership(
+            data_dir,
+            &operator_ref,
+            &scim_principal,
+            true,
+            "scim_provisioning",
+            "scim-provision:scim-test:scim-member",
+            "SCIM test provisioning",
+        )
+        .unwrap();
+        assert_eq!(scim_receipt["change_source"], "scim_provisioning");
+        assert!(
+            resolve_principal_tenant_refs(data_dir, "user://scim-member")
+                .unwrap()
+                .contains("org://local")
+        );
+    }
+
+    #[test]
+    fn oidc_and_scim_membership_failure_durably_compensates_new_principal() {
+        for (principal_id, change_source) in [
+            ("oidc-failure", "sso_auto_join"),
+            ("scim-failure", "scim_provisioning"),
+        ] {
+            let directory = fixture();
+            let data_dir = directory.path().to_str().unwrap();
+            let operator_ref = canonical_local_principal_ref(OPERATOR_ID).unwrap();
+            seed_principal(data_dir, principal_id, "member");
+            let principal = find_principal(data_dir, principal_id).unwrap();
+            std::fs::write(
+                directory
+                    .path()
+                    .join(PRINCIPAL_TENANT_MEMBERSHIP_FAMILY)
+                    .join("malformed.json"),
+                b"not-json",
+            )
+            .unwrap();
+
+            let error = ensure_provisioned_org_membership(
+                data_dir,
+                &operator_ref,
+                &principal,
+                true,
+                change_source,
+                &format!("{change_source}:{principal_id}"),
+                "force membership failure",
+            )
+            .unwrap_err();
+            assert_eq!(error.1, "hypervisor.membership_registry_unavailable");
+            assert_eq!(
+                find_principal(data_dir, principal_id).unwrap()["status"],
+                "inactive"
+            );
+        }
+    }
+
+    #[test]
+    fn fresh_local_bootstrap_is_durable_hash_only_and_rotates_per_boot() {
+        let directory = fixture();
+        let data_dir = directory.path().to_str().unwrap();
+        let first = issue_bootstrap_token(data_dir).unwrap();
+        let first_record = read_record_dir(data_dir, "auth-bootstrap")
+            .into_iter()
+            .find(|record| record["id"].as_str() == Some("bootstrap"))
+            .unwrap();
+        assert!(first_record.get("token").is_none());
+        assert_eq!(
+            first_record["token_hash"].as_str(),
+            Some(sha256_hex_str(&first).as_str())
+        );
+
+        let second = issue_bootstrap_token(data_dir).unwrap();
+        assert_ne!(first, second);
+        let second_record = read_record_dir(data_dir, "auth-bootstrap")
+            .into_iter()
+            .find(|record| record["id"].as_str() == Some("bootstrap"))
+            .unwrap();
+        assert_eq!(
+            second_record["token_hash"].as_str(),
+            Some(sha256_hex_str(&second).as_str())
+        );
+        assert_ne!(
+            second_record["token_hash"].as_str(),
+            Some(sha256_hex_str(&first).as_str())
+        );
+    }
+
+    #[test]
+    fn api_token_identity_enforces_expiry_membership_and_immediate_revoke() {
+        let directory = fixture();
+        let data_dir = directory.path().to_str().unwrap();
+        let token = "ioi_pat_test_identity";
+        let token_id = "pat_test_identity";
+        let mut record = json!({
+            "schema_version": "ioi.hypervisor.api-token.v1",
+            "token_id": token_id,
+            "user_id": OPERATOR_ID,
+            "description": "identity resolver test",
+            "read_only": true,
+            "token_hash": sha256_hex_str(token),
+            "created_at": "2026-01-01T00:00:00Z",
+            "expires_at": "2000-01-01T00:00:00Z",
+            "last_used_at": Value::Null
+        });
+        persist_record_durable(data_dir, "api-tokens", token_id, &record).unwrap();
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            header::AUTHORIZATION,
+            format!("Bearer {token}").parse().unwrap(),
+        );
+        assert!(resolve_principal(data_dir, &headers).is_none());
+
+        record["expires_at"] = json!("2999-01-01T00:00:00Z");
+        persist_record_durable(data_dir, "api-tokens", token_id, &record).unwrap();
+        let resolved = resolve_principal(data_dir, &headers).unwrap();
+        assert_eq!(resolved["tenant_refs"], json!(["org://local"]));
+
+        assert!(remove_record(data_dir, "api-tokens", token_id));
+        assert!(resolve_principal(data_dir, &headers).is_none());
+    }
+}
+
 const AUTH_GATE_EXEMPT_PATHS: &[&str] = &[
     "/v1/hypervisor/auth/login",
     "/v1/hypervisor/auth/logout",
     "/v1/hypervisor/auth/whoami",
     "/v1/hypervisor/auth/bootstrap",
     "/v1/hypervisor/auth/bootstrap-status",
+    "/v1/hypervisor/auth/portal-session-exchange",
     "/v1/hypervisor/auth/oidc/start",
     "/v1/hypervisor/auth/oidc/callback",
+    "/v1/hypervisor/org-invite/accept",
     "/v1/hypervisor/editor-targets",
     "/v1/hypervisor/cron-preview",
 ];
@@ -14136,7 +15979,19 @@ pub(crate) async fn auth_gate(
     next: axum::middleware::Next,
 ) -> Response {
     let path = req.uri().path().to_string();
-    let exempt = auth_gate_exempt_path(&path);
+    let exempt = auth_gate_exempt_path(&path)
+        || (req.method() == axum::http::Method::GET && path == "/v1/hypervisor/sso-configurations");
+    if !exempt && !session_allows_route(&st.data_dir, req.headers(), &path) {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(json!({
+                "ok": false,
+                "code": "hypervisor.auth_session_route_scope_denied",
+                "message": "this short-lived session is not scoped to the requested daemon route"
+            })),
+        )
+            .into_response();
+    }
     if !exempt && auth_enforced(&st.data_dir, req.headers()) {
         if resolve_principal(&st.data_dir, req.headers()).is_none() {
             let needs_bootstrap = !login_possible(&st.data_dir);
@@ -14226,6 +16081,46 @@ pub(crate) async fn handle_auth_login(
 /// Issue a session for a principal (shared by local login + OIDC/SSO callback). Returns the plaintext
 /// session token ONCE.
 fn issue_session(data_dir: &str, principal_id: &str, source: &str) -> (StatusCode, Value) {
+    issue_session_with_context(data_dir, principal_id, source, 7 * 24 * 3600, None)
+}
+
+/// Mint the short-lived daemon session produced by the deployment-local portal exchange. The
+/// caller has already verified and durably consumed the assertion. These source bindings are
+/// retained with the hash-only session record; they are never taken from a browser request.
+pub(crate) fn issue_portal_exchange_session(
+    data_dir: &str,
+    principal_id: &str,
+    issuer: &str,
+    audience: &str,
+    tenant_ref: &str,
+    consumption_ref: &str,
+) -> (StatusCode, Value) {
+    issue_session_with_context(
+        data_dir,
+        principal_id,
+        "portal_exchange",
+        5 * 60,
+        Some(json!({
+            "source_issuer": issuer,
+            "source_audience": audience,
+            "source_tenant_ref": tenant_ref,
+            "source_consumption_ref": consumption_ref,
+            "allowed_route_prefixes": ["/v1/goal-orchestration/"],
+            "allowed_exact_routes": [
+                "/v1/hypervisor/auth/whoami",
+                "/v1/hypervisor/auth/logout"
+            ],
+        })),
+    )
+}
+
+fn issue_session_with_context(
+    data_dir: &str,
+    principal_id: &str,
+    source: &str,
+    ttl_seconds: i64,
+    context: Option<Value>,
+) -> (StatusCode, Value) {
     let Some(p) = find_principal(data_dir, principal_id) else {
         return (
             StatusCode::NOT_FOUND,
@@ -14234,14 +16129,38 @@ fn issue_session(data_dir: &str, principal_id: &str, source: &str) -> (StatusCod
     };
     let token = gen_opaque("ioi_sess");
     let sid = format!("sess_{}", short_hash(&sha256_hex_str(&token)));
-    let rec = json!({
+    let mut rec = json!({
+        "schema_version": "ioi.hypervisor.auth-session.v1",
         "session_id": sid, "token_hash": sha256_hex_str(&token), "principal_id": principal_id,
-        "source": source, "created_at": iso_now(), "expires_at": iso_in_seconds(7 * 24 * 3600),
+        "source": source, "created_at": iso_now(), "expires_at": iso_in_seconds(ttl_seconds),
     });
-    let _ = persist_record(data_dir, "sessions", &sid, &rec);
+    if let Some(context) = context.and_then(|value| value.as_object().cloned()) {
+        let record = rec.as_object_mut().expect("session record is an object");
+        record.extend(context);
+    }
+    if let Err(error) = persist_record_durable(data_dir, "sessions", &sid, &rec) {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            json!({
+                "ok": false,
+                "reason": "session_persistence_failed",
+                "detail": format!("{error:?}")
+            }),
+        );
+    }
+    let principal = match principal_public_with_memberships(data_dir, p) {
+        Ok(principal) => principal,
+        Err(message) => {
+            remove_record(data_dir, "sessions", &sid);
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                json!({ "ok": false, "reason": "membership_registry_unavailable", "detail": message }),
+            );
+        }
+    };
     (
         StatusCode::OK,
-        json!({ "ok": true, "session_token": token, "expires_at": rec["expires_at"], "principal": principal_public(p) }),
+        json!({ "ok": true, "session_token": token, "expires_at": rec["expires_at"], "principal": principal }),
     )
 }
 
@@ -14301,7 +16220,7 @@ pub(crate) async fn handle_auth_whoami(
         );
     }
     let op = find_principal(&st.data_dir, OPERATOR_ID)
-        .map(principal_public)
+        .and_then(|principal| principal_public_with_memberships(&st.data_dir, principal).ok())
         .unwrap_or(Value::Null);
     (
         StatusCode::OK,
@@ -14328,8 +16247,12 @@ pub(crate) async fn handle_auth_policy_get(
 /// PUT /v1/hypervisor/auth/policy — set the enforcement mode (auto|always|never) / allowed methods.
 pub(crate) async fn handle_auth_policy_set(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
-) -> Json<Value> {
+) -> (StatusCode, Json<Value>) {
+    if let Err(response) = require_authenticated_org_admin(&st.data_dir, &headers) {
+        return response;
+    }
     let mut p = auth_policy(&st.data_dir);
     if let Some(m) = body.get("mode").and_then(Value::as_str) {
         if ["auto", "always", "never"].contains(&m) {
@@ -14347,19 +16270,25 @@ pub(crate) async fn handle_auth_policy_set(
     }
     p["id"] = json!("policy");
     p["updated_at"] = json!(iso_now());
-    let _ = persist_record(&st.data_dir, "auth-policy", "policy", &p);
-    Json(json!({ "ok": true, "policy": p }))
+    match persist_record_durable(&st.data_dir, "auth-policy", "policy", &p) {
+        Ok(()) => (StatusCode::OK, Json(json!({ "ok": true, "policy": p }))),
+        Err(error) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "ok": false,
+                "reason": "auth_policy_persistence_failed",
+                "detail": format!("{error:?}")
+            })),
+        ),
+    }
 }
 
 /// GET /v1/hypervisor/auth/bootstrap-status — is a first-login bootstrap required? (exempt route)
 pub(crate) async fn handle_auth_bootstrap_status(
     State(st): State<Arc<DaemonState>>,
-    headers: HeaderMap,
+    _headers: HeaderMap,
 ) -> Json<Value> {
-    let needs = auth_enforced(&st.data_dir, &headers) && !login_possible(&st.data_dir);
-    if needs {
-        ensure_bootstrap_token(&st.data_dir);
-    } // materialize the token (printed to log; never returned here)
+    let needs = !login_possible(&st.data_dir);
     Json(
         json!({ "ok": true, "needs_bootstrap": needs, "login_possible": login_possible(&st.data_dir) }),
     )
@@ -14378,12 +16307,12 @@ pub(crate) async fn handle_auth_bootstrap(
         );
     }
     let token = body.get("token").and_then(Value::as_str).unwrap_or("");
-    let expected = read_record_dir(&st.data_dir, "auth-bootstrap")
+    let expected_hash = read_record_dir(&st.data_dir, "auth-bootstrap")
         .into_iter()
         .find(|b| b["id"].as_str() == Some("bootstrap"))
-        .and_then(|b| b["token"].as_str().map(String::from))
+        .and_then(|b| b["token_hash"].as_str().map(String::from))
         .unwrap_or_default();
-    if token.is_empty() || expected.is_empty() || token != expected {
+    if token.is_empty() || expected_hash.is_empty() || sha256_hex_str(token) != expected_hash {
         return (
             StatusCode::FORBIDDEN,
             Json(json!({ "ok": false, "reason": "invalid_bootstrap_token" })),
@@ -14410,26 +16339,61 @@ pub(crate) async fn handle_auth_bootstrap(
     };
     op["password_hash"] = json!(h);
     op["updated_at"] = json!(iso_now());
-    let _ = persist_record(&st.data_dir, "principals", OPERATOR_ID, &op);
+    if let Err(error) = persist_record_durable(&st.data_dir, "principals", OPERATOR_ID, &op) {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "ok": false,
+                "reason": "operator_persistence_failed",
+                "detail": format!("{error:?}")
+            })),
+        );
+    }
     remove_record(&st.data_dir, "auth-bootstrap", "bootstrap");
     let (status, sess) = issue_session(&st.data_dir, OPERATOR_ID, "bootstrap");
     (status, Json(sess))
 }
 
 /// GET /v1/hypervisor/principals — list members (public records, no secrets).
-pub(crate) async fn handle_principal_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+pub(crate) async fn handle_principal_list(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+) -> (StatusCode, Json<Value>) {
     ensure_operator(&st.data_dir);
-    let ps: Vec<Value> = read_record_dir(&st.data_dir, "principals")
+    if let Err(response) = require_authenticated_org_admin(&st.data_dir, &headers) {
+        return response;
+    }
+    let ps = match read_record_dir(&st.data_dir, "principals")
         .into_iter()
-        .map(principal_public)
-        .collect();
-    Json(json!({ "ok": true, "principals": ps }))
+        .map(|principal| principal_public_with_memberships(&st.data_dir, principal))
+        .collect::<Result<Vec<_>, _>>()
+    {
+        Ok(principals) => principals,
+        Err(message) => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(json!({
+                    "ok": false,
+                    "code": "hypervisor.membership_registry_unavailable",
+                    "message": message
+                })),
+            )
+        }
+    };
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "principals": ps })),
+    )
 }
 /// POST /v1/hypervisor/principals — create/provision a principal (optionally with a local password).
 pub(crate) async fn handle_principal_create(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    if let Err(response) = require_authenticated_org_admin(&st.data_dir, &headers) {
+        return response;
+    }
     let email = body
         .get("email")
         .and_then(Value::as_str)
@@ -14443,10 +16407,18 @@ pub(crate) async fn handle_principal_create(
         );
     }
     if let Some(existing) = find_principal_by_email(&st.data_dir, &email) {
-        return (
-            StatusCode::OK,
-            Json(json!({ "ok": true, "principal": principal_public(existing), "existed": true })),
-        );
+        return match principal_public_with_memberships(&st.data_dir, existing) {
+            Ok(principal) => (
+                StatusCode::OK,
+                Json(json!({ "ok": true, "principal": principal, "existed": true })),
+            ),
+            Err(message) => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(
+                    json!({ "ok": false, "code": "hypervisor.membership_registry_unavailable", "message": message }),
+                ),
+            ),
+        };
     }
     let now = iso_now();
     let pid = body
@@ -14454,11 +16426,24 @@ pub(crate) async fn handle_principal_create(
         .and_then(Value::as_str)
         .map(String::from)
         .unwrap_or_else(|| format!("usr_{}", short_hash(&format!("{email}:{now}"))));
+    if canonical_local_principal_ref(&pid).is_none() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "reason": "principal_id_invalid" })),
+        );
+    }
+    let role = body.get("role").and_then(Value::as_str).unwrap_or("member");
+    if !matches!(role, "admin" | "member") {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "reason": "principal_role_invalid" })),
+        );
+    }
     let mut p = json!({
         "schema_version": "ioi.hypervisor.principal.v1", "principal_id": pid, "email": email,
         "name": body.get("name").and_then(Value::as_str).unwrap_or(&email),
-        "role": body.get("role").and_then(Value::as_str).unwrap_or("member"),
-        "status": "active", "source": body.get("source").and_then(Value::as_str).unwrap_or("local"),
+        "role": role,
+        "status": "active", "source": "local",
         "created_at": now, "updated_at": now,
     });
     if let Some(pw) = body.get("password").and_then(Value::as_str) {
@@ -14468,19 +16453,46 @@ pub(crate) async fn handle_principal_create(
             }
         }
     }
-    let _ = persist_record(&st.data_dir, "principals", &pid, &p);
-    (
-        StatusCode::OK,
-        Json(json!({ "ok": true, "principal": principal_public(p) })),
-    )
+    if let Err(error) = persist_record_durable(&st.data_dir, "principals", &pid, &p) {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "ok": false,
+                "reason": "principal_persistence_failed",
+                "detail": format!("{error:?}")
+            })),
+        );
+    }
+    match principal_public_with_memberships(&st.data_dir, p) {
+        Ok(principal) => (
+            StatusCode::CREATED,
+            Json(json!({ "ok": true, "principal": principal })),
+        ),
+        Err(message) => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(
+                json!({ "ok": false, "code": "hypervisor.membership_registry_unavailable", "message": message }),
+            ),
+        ),
+    }
 }
 /// POST /v1/hypervisor/principals/:id/password — set/rotate a local password.
 pub(crate) async fn handle_principal_set_password(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     ensure_operator(&st.data_dir);
+    let actor = match require_authenticated_principal(&st.data_dir, &headers) {
+        Ok(actor) => actor,
+        Err(response) => return response,
+    };
+    if actor["principal_id"].as_str() != Some(id.as_str()) {
+        if let Err(response) = require_authenticated_org_admin(&st.data_dir, &headers) {
+            return response;
+        }
+    }
     let Some(mut p) = find_principal(&st.data_dir, &id) else {
         return (
             StatusCode::NOT_FOUND,
@@ -14488,10 +16500,10 @@ pub(crate) async fn handle_principal_set_password(
         );
     };
     let pw = body.get("password").and_then(Value::as_str).unwrap_or("");
-    if pw.is_empty() {
+    if pw.len() < 8 {
         return (
             StatusCode::BAD_REQUEST,
-            Json(json!({ "ok": false, "reason": "password is required" })),
+            Json(json!({ "ok": false, "reason": "password must be at least 8 characters" })),
         );
     }
     let Some(h) = hash_password(pw) else {
@@ -14502,19 +16514,35 @@ pub(crate) async fn handle_principal_set_password(
     };
     p["password_hash"] = json!(h);
     p["updated_at"] = json!(iso_now());
-    let _ = persist_record(&st.data_dir, "principals", &id, &p);
-    (StatusCode::OK, Json(json!({ "ok": true })))
+    match persist_record_durable(&st.data_dir, "principals", &id, &p) {
+        Ok(()) => (StatusCode::OK, Json(json!({ "ok": true }))),
+        Err(error) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "ok": false,
+                "reason": "principal_persistence_failed",
+                "detail": format!("{error:?}")
+            })),
+        ),
+    }
 }
 /// DELETE /v1/hypervisor/principals/:id[?purge=true] — deactivate a principal (default; keeps the
 /// record for audit) or hard-purge it (compliance erasure). The operator cannot be removed. Sessions
 /// are always revoked.
 pub(crate) async fn handle_principal_delete(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
     Query(q): Query<std::collections::HashMap<String, String>>,
-) -> Json<Value> {
+) -> (StatusCode, Json<Value>) {
+    if let Err(response) = require_authenticated_org_admin(&st.data_dir, &headers) {
+        return response;
+    }
     if id == OPERATOR_ID {
-        return Json(json!({ "ok": false, "reason": "cannot_remove_operator" }));
+        return (
+            StatusCode::FORBIDDEN,
+            Json(json!({ "ok": false, "reason": "cannot_remove_operator" })),
+        );
     }
     // revoke sessions regardless of mode
     for s in read_record_dir(&st.data_dir, "sessions")
@@ -14531,14 +16559,29 @@ pub(crate) async fn handle_principal_delete(
         .unwrap_or(false);
     if purge {
         let removed = remove_record(&st.data_dir, "principals", &id);
-        return Json(json!({ "ok": true, "principal_id": id, "purged": removed }));
+        return (
+            StatusCode::OK,
+            Json(json!({ "ok": true, "principal_id": id, "purged": removed })),
+        );
     }
     if let Some(mut p) = find_principal(&st.data_dir, &id) {
         p["status"] = json!("deactivated");
         p["updated_at"] = json!(iso_now());
-        let _ = persist_record(&st.data_dir, "principals", &id, &p);
+        if let Err(error) = persist_record_durable(&st.data_dir, "principals", &id, &p) {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "ok": false,
+                    "reason": "principal_persistence_failed",
+                    "detail": format!("{error:?}")
+                })),
+            );
+        }
     }
-    Json(json!({ "ok": true, "principal_id": id, "status": "deactivated" }))
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "principal_id": id, "status": "deactivated" })),
+    )
 }
 
 // ---- SSO / OIDC login (multi-user IdP, Phase 2) --------------------------------------------
@@ -14669,8 +16712,39 @@ pub(crate) async fn handle_sso_list(State(st): State<Arc<DaemonState>>) -> Json<
 /// POST /v1/hypervisor/sso-configurations — register a BYO OIDC IdP (client_secret sealed).
 pub(crate) async fn handle_sso_create(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    let actor = match require_authenticated_org_admin(&st.data_dir, &headers) {
+        Ok(actor) => actor,
+        Err(response) => return response,
+    };
+    let Some(request) = body.as_object() else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "code": "hypervisor.sso_configuration_request_invalid" })),
+        );
+    };
+    let allowed = [
+        "issuer_url",
+        "client_id",
+        "client_secret",
+        "email_domain",
+        "display_name",
+    ];
+    if let Some(field) = request
+        .keys()
+        .find(|field| !allowed.contains(&field.as_str()))
+    {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "ok": false,
+                "code": "hypervisor.sso_configuration_request_closed",
+                "message": format!("request-carried field '{field}' is not allowed; tenant, owner, role, and authority are server-resolved")
+            })),
+        );
+    }
     let issuer = body
         .get("issuer_url")
         .and_then(Value::as_str)
@@ -14698,18 +16772,35 @@ pub(crate) async fn handle_sso_create(
         "email_domain": body.get("email_domain").and_then(Value::as_str).unwrap_or(""),
         "display_name": body.get("display_name").and_then(Value::as_str).unwrap_or(issuer.as_str()),
         "provider_type": "PROVIDER_TYPE_OIDC", "state": "active", "client_secret_set": false,
+        "issued_by_principal_ref": actor["principal_ref"],
         "created_at": now, "updated_at": now,
     });
     if let Some(sec) = body.get("client_secret").and_then(Value::as_str) {
         if !sec.is_empty() {
-            if let Some(s) = seal_value(sec) {
-                c["sealed_client_secret"] = json!(s);
-                c["client_secret_set"] = json!(true);
-                c["key_source"] = json!(scm_key_source());
-            }
+            let Some(s) = seal_value(sec) else {
+                return (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    Json(json!({
+                        "ok": false,
+                        "code": "hypervisor.sso_client_secret_seal_failed"
+                    })),
+                );
+            };
+            c["sealed_client_secret"] = json!(s);
+            c["client_secret_set"] = json!(true);
+            c["key_source"] = json!(scm_key_source());
         }
     }
-    let _ = persist_record(&st.data_dir, "sso-configurations", &id, &c);
+    if let Err(error) = persist_record_durable(&st.data_dir, "sso-configurations", &id, &c) {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({
+                "ok": false,
+                "code": "hypervisor.sso_configuration_persistence_failed",
+                "message": format!("{error:?}")
+            })),
+        );
+    }
     (
         StatusCode::OK,
         Json(json!({ "ok": true, "sso_configuration": sso_public(c) })),
@@ -14718,10 +16809,29 @@ pub(crate) async fn handle_sso_create(
 /// DELETE /v1/hypervisor/sso-configurations/:id
 pub(crate) async fn handle_sso_delete(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
-) -> Json<Value> {
+) -> (StatusCode, Json<Value>) {
+    if let Err(response) = require_authenticated_org_admin(&st.data_dir, &headers) {
+        return response;
+    }
+    let existed = read_record_dir(&st.data_dir, "sso-configurations")
+        .into_iter()
+        .any(|configuration| configuration["sso_id"].as_str() == Some(id.as_str()));
     let removed = remove_record(&st.data_dir, "sso-configurations", &id);
-    Json(json!({ "ok": true, "sso_id": id, "removed": removed }))
+    if existed && !removed {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({
+                "ok": false,
+                "code": "hypervisor.sso_configuration_delete_persistence_failed"
+            })),
+        );
+    }
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "sso_id": id, "removed": removed })),
+    )
 }
 
 /// POST /v1/hypervisor/auth/oidc/start — begin SSO login (build the PKCE authorize URL).
@@ -14766,7 +16876,16 @@ pub(crate) async fn handle_auth_oidc_start(
         );
     };
     let pending = json!({ "state": state, "flow": "login", "sso_id": cfg_id, "sealed_verifier": sv, "nonce": nonce, "redirect_uri": redirect_uri, "created_at": iso_now() });
-    let _ = persist_record(&st.data_dir, "oauth-pending", &state, &pending);
+    if let Err(error) = persist_record_durable(&st.data_dir, "oauth-pending", &state, &pending) {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({
+                "ok": false,
+                "code": "hypervisor.sso_pending_login_persistence_failed",
+                "message": format!("{error:?}")
+            })),
+        );
+    }
     let url = format!(
         "{auth_ep}?response_type=code&client_id={}&redirect_uri={}&state={state}&nonce={nonce}&scope=openid%20email%20profile&code_challenge={challenge}&code_challenge_method=S256",
         pct(&client_id), pct(&redirect_uri)
@@ -14809,6 +16928,26 @@ pub(crate) async fn handle_auth_oidc_callback(
         return (
             StatusCode::BAD_REQUEST,
             Json(json!({ "ok": false, "reason": "unknown sso config" })),
+        );
+    };
+    if cfg["state"].as_str() != Some("active") {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(json!({ "ok": false, "code": "hypervisor.sso_configuration_inactive" })),
+        );
+    }
+    let Some(sso_issuer_ref) = cfg["issued_by_principal_ref"]
+        .as_str()
+        .filter(|principal_ref| principal_id_from_local_ref(principal_ref).is_some())
+        .map(String::from)
+    else {
+        return (
+            StatusCode::PRECONDITION_FAILED,
+            Json(json!({
+                "ok": false,
+                "code": "hypervisor.sso_configuration_issuer_binding_required",
+                "message": "a legacy SSO configuration must be recreated by an authenticated organization administrator before it can auto-join principals"
+            })),
         );
     };
     let issuer = cfg["issuer_url"].as_str().unwrap_or("");
@@ -14905,22 +17044,50 @@ pub(crate) async fn handle_auth_oidc_callback(
             ),
         );
     }
-    let principal = match find_principal_by_email(&st.data_dir, &email) {
-        Some(p) => p,
+    let (principal, principal_created) = match find_principal_by_email(&st.data_dir, &email) {
+        Some(p) if p["status"].as_str() == Some("active") => (p, false),
+        Some(_) => {
+            return (
+                StatusCode::FORBIDDEN,
+                Json(json!({ "ok": false, "code": "hypervisor.sso_principal_inactive" })),
+            )
+        }
         None => {
-            let pid = format!("usr_{}", short_hash(&format!("{email}:{}", iso_now())));
+            let pid = format!("usr_{}", short_hash(&format!("sso:{sso_id}:{email}")));
             let p = json!({ "schema_version": "ioi.hypervisor.principal.v1", "principal_id": pid, "email": email, "name": name, "role": "member", "status": "active", "source": format!("sso:{sso_id}"), "created_at": iso_now(), "updated_at": iso_now() });
-            let _ = persist_record(&st.data_dir, "principals", &pid, &p);
-            p
+            if let Err(error) = persist_record_durable(&st.data_dir, "principals", &pid, &p) {
+                return (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    Json(json!({
+                        "ok": false,
+                        "code": "hypervisor.sso_principal_persistence_failed",
+                        "message": format!("{error:?}")
+                    })),
+                );
+            }
+            (p, true)
         }
     };
-    remove_record(&st.data_dir, "oauth-pending", state);
-    let (status, sess) = issue_session(
+    let principal_id = principal["principal_id"].as_str().unwrap_or_default();
+    let membership_receipt = match ensure_provisioned_org_membership(
         &st.data_dir,
-        principal["principal_id"].as_str().unwrap_or(""),
-        &format!("sso:{sso_id}"),
-    );
-    (status, Json(sess))
+        &sso_issuer_ref,
+        &principal,
+        principal_created,
+        "sso_auto_join",
+        &format!("sso-auto-join:{sso_id}:{principal_id}"),
+        "accepted verified identity from configured organization SSO",
+    ) {
+        Ok(receipt) => receipt,
+        Err(error) => return membership_error_response(error),
+    };
+    remove_record(&st.data_dir, "oauth-pending", state);
+    let (status, sess) = issue_session(&st.data_dir, principal_id, &format!("sso:{sso_id}"));
+    let mut response = sess;
+    if status == StatusCode::OK {
+        response["membership_receipt"] = membership_receipt;
+    }
+    (status, Json(response))
 }
 
 // ---- SCIM 2.0 provisioning (multi-user IdP, Phase 3) ----------------------------------------
@@ -14935,20 +17102,28 @@ fn scim_config_public(mut c: Value) -> Value {
     }
     c
 }
-/// True if the request carries a Bearer matching an active SCIM config token.
-fn scim_authed(data_dir: &str, headers: &HeaderMap) -> bool {
+/// Resolve the active SCIM configuration whose hash matches the request bearer. The configuration
+/// itself is the standing organization provisioning authority; its authenticated creator is
+/// retained for transition attribution, never accepted from a SCIM User body.
+fn resolve_scim_configuration(data_dir: &str, headers: &HeaderMap) -> Option<Value> {
     let Some(tok) = headers
         .get(header::AUTHORIZATION)
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.strip_prefix("Bearer "))
         .map(|s| s.trim().to_string())
     else {
-        return false;
+        return None;
     };
     let h = sha256_hex_str(&tok);
     read_record_dir(data_dir, "scim-configurations")
-        .iter()
-        .any(|c| c["token_hash"].as_str() == Some(h.as_str()))
+        .into_iter()
+        .find(|configuration| {
+            configuration["token_hash"].as_str() == Some(h.as_str())
+                && configuration["enabled"].as_bool() == Some(true)
+        })
+}
+fn scim_authed(data_dir: &str, headers: &HeaderMap) -> bool {
+    resolve_scim_configuration(data_dir, headers).is_some()
 }
 fn scim_unauth() -> (StatusCode, Json<Value>) {
     (
@@ -14985,8 +17160,33 @@ pub(crate) async fn handle_scim_config_list(State(st): State<Arc<DaemonState>>) 
 /// POST /v1/hypervisor/scim-configurations — provision (or rotate) a SCIM token. Returns the token ONCE.
 pub(crate) async fn handle_scim_config_create(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    let actor = match require_authenticated_org_admin(&st.data_dir, &headers) {
+        Ok(actor) => actor,
+        Err(response) => return response,
+    };
+    let Some(request) = body.as_object() else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "code": "hypervisor.scim_configuration_request_invalid" })),
+        );
+    };
+    let allowed = ["scim_id", "base_url"];
+    if let Some(field) = request
+        .keys()
+        .find(|field| !allowed.contains(&field.as_str()))
+    {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "ok": false,
+                "code": "hypervisor.scim_configuration_request_closed",
+                "message": format!("request-carried field '{field}' is not allowed; tenant, owner, role, and authority are server-resolved")
+            })),
+        );
+    }
     let token = gen_opaque("scim");
     let id = body
         .get("scim_id")
@@ -15002,8 +17202,18 @@ pub(crate) async fn handle_scim_config_create(
     let rec = json!({
         "schema_version": "ioi.hypervisor.scim-config.v1", "scim_id": id, "base_url": base_url,
         "token_hash": sha256_hex_str(&token), "enabled": true, "created_at": now, "updated_at": now,
+        "issued_by_principal_ref": actor["principal_ref"],
     });
-    let _ = persist_record(&st.data_dir, "scim-configurations", &id, &rec);
+    if let Err(error) = persist_record_durable(&st.data_dir, "scim-configurations", &id, &rec) {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({
+                "ok": false,
+                "code": "hypervisor.scim_configuration_persistence_failed",
+                "message": format!("{error:?}")
+            })),
+        );
+    }
     (
         StatusCode::OK,
         Json(json!({ "ok": true, "scim_configuration": scim_config_public(rec), "token": token })),
@@ -15012,10 +17222,29 @@ pub(crate) async fn handle_scim_config_create(
 /// DELETE /v1/hypervisor/scim-configurations/:id
 pub(crate) async fn handle_scim_config_delete(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
-) -> Json<Value> {
+) -> (StatusCode, Json<Value>) {
+    if let Err(response) = require_authenticated_org_admin(&st.data_dir, &headers) {
+        return response;
+    }
+    let existed = read_record_dir(&st.data_dir, "scim-configurations")
+        .into_iter()
+        .any(|configuration| configuration["scim_id"].as_str() == Some(id.as_str()));
     let removed = remove_record(&st.data_dir, "scim-configurations", &id);
-    Json(json!({ "ok": true, "scim_id": id, "removed": removed }))
+    if existed && !removed {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({
+                "ok": false,
+                "code": "hypervisor.scim_configuration_delete_persistence_failed"
+            })),
+        );
+    }
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "scim_id": id, "removed": removed })),
+    )
 }
 
 /// GET /scim/v2/ServiceProviderConfig — advertise SCIM capabilities.
@@ -15070,9 +17299,45 @@ pub(crate) async fn handle_scim_user_create(
     headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
-    if !scim_authed(&st.data_dir, &headers) {
+    let Some(scim_configuration) = resolve_scim_configuration(&st.data_dir, &headers) else {
         return scim_unauth();
+    };
+    if [
+        "role",
+        "roles",
+        "owner_ref",
+        "tenant_ref",
+        "org_ref",
+        "authority",
+    ]
+    .iter()
+    .any(|field| body.get(*field).is_some())
+    {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "schemas": ["urn:ietf:params:scim:api:messages:2.0:Error"],
+                "status": "400",
+                "code": "hypervisor.scim_authority_claim_forbidden",
+                "detail": "SCIM User bodies cannot assert role, owner, tenant, or authority"
+            })),
+        );
     }
+    let Some(scim_issuer_ref) = scim_configuration["issued_by_principal_ref"]
+        .as_str()
+        .filter(|principal_ref| principal_id_from_local_ref(principal_ref).is_some())
+        .map(String::from)
+    else {
+        return (
+            StatusCode::PRECONDITION_FAILED,
+            Json(json!({
+                "schemas": ["urn:ietf:params:scim:api:messages:2.0:Error"],
+                "status": "412",
+                "code": "hypervisor.scim_configuration_issuer_binding_required",
+                "detail": "a legacy SCIM configuration must be recreated by an authenticated organization administrator before it can provision members"
+            })),
+        );
+    };
     let email = body["userName"]
         .as_str()
         .or_else(|| body["emails"][0]["value"].as_str())
@@ -15109,7 +17374,39 @@ pub(crate) async fn handle_scim_user_create(
         "scim_external_id": body.get("externalId").cloned().unwrap_or(Value::Null),
         "created_at": now, "updated_at": now,
     });
-    let _ = persist_record(&st.data_dir, "principals", &pid, &p);
+    if let Err(error) = persist_record_durable(&st.data_dir, "principals", &pid, &p) {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({
+                "schemas": ["urn:ietf:params:scim:api:messages:2.0:Error"],
+                "status": "503",
+                "code": "hypervisor.scim_principal_persistence_failed",
+                "detail": format!("{error:?}")
+            })),
+        );
+    }
+    let scim_id = scim_configuration["scim_id"]
+        .as_str()
+        .unwrap_or("scim-config");
+    if let Err((status, code, message)) = ensure_provisioned_org_membership(
+        &st.data_dir,
+        &scim_issuer_ref,
+        &p,
+        true,
+        "scim_provisioning",
+        &format!("scim-provision:{scim_id}:{pid}"),
+        "provisioned by configured organization SCIM connection",
+    ) {
+        return (
+            status,
+            Json(json!({
+                "schemas": ["urn:ietf:params:scim:api:messages:2.0:Error"],
+                "status": status.as_u16().to_string(),
+                "code": code,
+                "detail": message
+            })),
+        );
+    }
     (StatusCode::CREATED, Json(principal_to_scim(&p)))
 }
 /// GET /scim/v2/Users/:id
@@ -15326,20 +17623,69 @@ fn load_org_invite(data_dir: &str) -> Option<Value> {
         .find(|i| i["id"].as_str() == Some("invite"))
 }
 /// GET /v1/hypervisor/org-invite — the org's standing invite (creates one on first read).
-pub(crate) async fn handle_org_invite_get(State(st): State<Arc<DaemonState>>) -> Json<Value> {
-    let inv = load_org_invite(&st.data_dir).unwrap_or_else(|| {
+pub(crate) async fn handle_org_invite_get(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+) -> (StatusCode, Json<Value>) {
+    let actor = match require_authenticated_org_admin(&st.data_dir, &headers) {
+        Ok(actor) => actor,
+        Err(response) => return response,
+    };
+    let actor_ref = actor["principal_ref"].as_str().unwrap_or_default();
+    let inv = if let Some(invite) = load_org_invite(&st.data_dir).filter(|invite| {
+        invite["issued_by_principal_ref"]
+            .as_str()
+            .is_some_and(|principal_ref| principal_id_from_local_ref(principal_ref).is_some())
+    }) {
+        invite
+    } else {
         let id = gen_opaque("inv");
-        let rec = json!({ "id": "invite", "invite_id": id, "created_at": iso_now() });
-        let _ = persist_record(&st.data_dir, "org-invite", "invite", &rec);
+        let rec = json!({
+            "id": "invite",
+            "invite_id": id,
+            "issued_by_principal_ref": actor_ref,
+            "created_at": iso_now()
+        });
+        if let Err(error) = persist_record_durable(&st.data_dir, "org-invite", "invite", &rec) {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(json!({
+                    "ok": false,
+                    "code": "hypervisor.org_invite_persistence_failed",
+                    "message": format!("{error:?}")
+                })),
+            );
+        }
         rec
-    });
-    Json(json!({ "ok": true, "invite": inv }))
+    };
+    (StatusCode::OK, Json(json!({ "ok": true, "invite": inv })))
 }
 /// POST /v1/hypervisor/org-invite — rotate (regenerate) the invite link.
-pub(crate) async fn handle_org_invite_reset(State(st): State<Arc<DaemonState>>) -> Json<Value> {
-    let rec = json!({ "id": "invite", "invite_id": gen_opaque("inv"), "created_at": iso_now() });
-    let _ = persist_record(&st.data_dir, "org-invite", "invite", &rec);
-    Json(json!({ "ok": true, "invite": rec }))
+pub(crate) async fn handle_org_invite_reset(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+) -> (StatusCode, Json<Value>) {
+    let actor = match require_authenticated_org_admin(&st.data_dir, &headers) {
+        Ok(actor) => actor,
+        Err(response) => return response,
+    };
+    let rec = json!({
+        "id": "invite",
+        "invite_id": gen_opaque("inv"),
+        "issued_by_principal_ref": actor["principal_ref"],
+        "created_at": iso_now()
+    });
+    if let Err(error) = persist_record_durable(&st.data_dir, "org-invite", "invite", &rec) {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({
+                "ok": false,
+                "code": "hypervisor.org_invite_persistence_failed",
+                "message": format!("{error:?}")
+            })),
+        );
+    }
+    (StatusCode::OK, Json(json!({ "ok": true, "invite": rec })))
 }
 
 /// GET /v1/hypervisor/organization — the minimal honest org-identity read record (W0.6).
@@ -15399,14 +17745,65 @@ pub(crate) async fn handle_org_invite_accept(
     State(st): State<Arc<DaemonState>>,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    let Some(request) = body.as_object() else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "code": "hypervisor.org_invite_request_invalid" })),
+        );
+    };
+    let allowed = ["invite_id", "email", "name", "password"];
+    if let Some(field) = request
+        .keys()
+        .find(|field| !allowed.contains(&field.as_str()))
+    {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "ok": false,
+                "code": "hypervisor.org_invite_request_closed",
+                "message": format!("request-carried field '{field}' is not allowed")
+            })),
+        );
+    }
     let invite_id = body.get("invite_id").and_then(Value::as_str).unwrap_or("");
-    let current = load_org_invite(&st.data_dir)
-        .and_then(|i| i["invite_id"].as_str().map(String::from))
-        .unwrap_or_default();
-    if invite_id.is_empty() || invite_id != current {
+    let Some(invite) = load_org_invite(&st.data_dir) else {
         return (
             StatusCode::FORBIDDEN,
             Json(json!({ "ok": false, "reason": "invalid_or_expired_invite" })),
+        );
+    };
+    if invite_id.is_empty() || invite["invite_id"].as_str() != Some(invite_id) {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(json!({ "ok": false, "reason": "invalid_or_expired_invite" })),
+        );
+    }
+    let Some(issuer_ref) = invite["issued_by_principal_ref"].as_str() else {
+        return (
+            StatusCode::PRECONDITION_FAILED,
+            Json(json!({
+                "ok": false,
+                "code": "hypervisor.org_invite_issuer_binding_required",
+                "message": "a legacy unbound invite must be rotated by an authenticated administrator"
+            })),
+        );
+    };
+    let issuer_is_current_org_admin = principal_id_from_local_ref(issuer_ref)
+        .and_then(|principal_id| find_principal(&st.data_dir, principal_id))
+        .is_some_and(|principal| {
+            principal["status"].as_str() == Some("active")
+                && principal["role"].as_str() == Some("admin")
+        })
+        && resolve_principal_tenant_refs(&st.data_dir, issuer_ref)
+            .map(|tenant_refs| tenant_refs.contains("org://local"))
+            .unwrap_or(false);
+    if !issuer_is_current_org_admin {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(json!({
+                "ok": false,
+                "code": "hypervisor.org_invite_issuer_no_longer_authorized"
+            })),
         );
     }
     let email = body
@@ -15421,8 +17818,24 @@ pub(crate) async fn handle_org_invite_accept(
             Json(json!({ "ok": false, "reason": "email is required" })),
         );
     }
-    let principal = match find_principal_by_email(&st.data_dir, &email) {
-        Some(p) => p,
+    if body
+        .get("password")
+        .and_then(Value::as_str)
+        .is_some_and(|password| !password.is_empty() && password.len() < 8)
+    {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "reason": "password_too_short" })),
+        );
+    }
+    let (principal, principal_created) = match find_principal_by_email(&st.data_dir, &email) {
+        Some(p) if p["status"].as_str() == Some("active") => (p, false),
+        Some(_) => {
+            return (
+                StatusCode::CONFLICT,
+                Json(json!({ "ok": false, "code": "hypervisor.org_invite_principal_inactive" })),
+            )
+        }
         None => {
             let pid = format!("usr_{}", short_hash(&format!("invite:{email}")));
             let mut p = json!({ "schema_version": "ioi.hypervisor.principal.v1", "principal_id": pid, "email": email,
@@ -15435,16 +17848,39 @@ pub(crate) async fn handle_org_invite_accept(
                     }
                 }
             }
-            let _ = persist_record(&st.data_dir, "principals", &pid, &p);
-            p
+            if let Err(error) = persist_record_durable(&st.data_dir, "principals", &pid, &p) {
+                return (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    Json(json!({
+                        "ok": false,
+                        "code": "hypervisor.org_invite_principal_persistence_failed",
+                        "message": format!("{error:?}")
+                    })),
+                );
+            }
+            (p, true)
         }
     };
-    let (status, sess) = issue_session(
+    let principal_id = principal["principal_id"].as_str().unwrap_or_default();
+    let idempotency_key = format!("org-invite:{}:{principal_id}", sha256_hex_str(invite_id));
+    let membership_receipt = match ensure_provisioned_org_membership(
         &st.data_dir,
-        principal["principal_id"].as_str().unwrap_or(""),
-        "invite",
-    );
-    (status, Json(sess))
+        issuer_ref,
+        &principal,
+        principal_created,
+        "org_invite",
+        &idempotency_key,
+        "accepted current organization invite",
+    ) {
+        Ok(receipt) => receipt,
+        Err(error) => return membership_error_response(error),
+    };
+    let (status, sess) = issue_session(&st.data_dir, principal_id, "invite");
+    let mut response = sess;
+    if status == StatusCode::OK {
+        response["membership_receipt"] = membership_receipt;
+    }
+    (status, Json(response))
 }
 
 async fn doh_txt(domain: &str) -> Vec<String> {

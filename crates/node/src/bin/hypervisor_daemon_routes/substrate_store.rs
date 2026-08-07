@@ -24,9 +24,11 @@ use agentgres::mux::{
 };
 use agentgres::replica::ReplicaLink;
 use agentgres::{parse_rfc3339_ms, AdmitAck, Operation, Refusal};
+use axum::http::HeaderMap;
 use axum::{extract::State, Json};
 use serde_json::{json, Value};
 use sha2::Digest;
+use std::collections::BTreeSet;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 
@@ -2661,6 +2663,319 @@ pub(crate) fn read_event_stream_operation(
     .map_err(|error| AdmissionRefusal::SubstrateUnavailable(error.to_string()))?
 }
 
+/// Enumerate the canonical stream tails currently admitted for one owner
+/// namespace. This exposes coordinates only; callers still read every head
+/// through `read_event_stream_operation` before projecting owner state.
+///
+/// Inventory therefore remains reconstructible after a daemon restart (or a
+/// crash between Agentgres admission and any rebuildable local projection)
+/// without giving consumers a handle, a raw-log reader, or a second source of
+/// truth.
+pub(crate) fn list_event_stream_tails(
+    data_dir: &str,
+    owner_namespace: &str,
+) -> std::io::Result<Vec<String>> {
+    agentgres::event_stream::validate_stream_coordinates(owner_namespace, "inventory")
+        .map_err(std::io::Error::other)?;
+    let prefix = format!("event-stream-operations.{owner_namespace}.");
+    let snapshot = read_only_status_snapshot(data_dir)?;
+    let mut tails = snapshot
+        .domains
+        .keys()
+        .filter_map(|domain| domain.strip_prefix(&prefix).map(str::to_owned))
+        .collect::<Vec<_>>();
+    tails.sort();
+    tails.dedup();
+    Ok(tails)
+}
+
+const REQUEST_RESOURCE_SCOPE_NAMESPACE: &str = "request-resource-scopes";
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct RequestIdentity {
+    pub(crate) principal_ref: String,
+    pub(crate) tenant_refs: BTreeSet<String>,
+    correlation_seed: String,
+}
+
+impl RequestIdentity {
+    pub(crate) fn authorizes_tenant(&self, tenant_ref: &str) -> bool {
+        self.tenant_refs.contains(tenant_ref)
+    }
+}
+
+#[cfg(test)]
+pub(crate) fn request_identity_for_test(
+    principal_ref: &str,
+    tenant_refs: impl IntoIterator<Item = String>,
+) -> RequestIdentity {
+    RequestIdentity {
+        principal_ref: principal_ref.to_owned(),
+        tenant_refs: tenant_refs.into_iter().collect(),
+        correlation_seed: scoped_digest(principal_ref),
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct RequestResourceScope {
+    pub(crate) resource_kind: String,
+    pub(crate) resource_ref: String,
+    pub(crate) principal_ref: String,
+    pub(crate) tenant_ref: String,
+    pub(crate) owner_ref: String,
+    pub(crate) correlation_ref: String,
+}
+
+#[derive(Debug)]
+pub(crate) enum RequestScopeRefusal {
+    AuthenticationRequired,
+    PrincipalIdentityInvalid,
+    TenantAuthorityRequired,
+    ResourceScopeRequired,
+    ResourceOwnerMismatch,
+    SubstrateUnavailable(String),
+}
+
+impl RequestScopeRefusal {
+    pub(crate) fn code(&self) -> &'static str {
+        match self {
+            Self::AuthenticationRequired => "request_principal_required",
+            Self::PrincipalIdentityInvalid => "request_principal_invalid",
+            Self::TenantAuthorityRequired => "request_tenant_authority_required",
+            Self::ResourceScopeRequired => "request_resource_scope_required",
+            Self::ResourceOwnerMismatch => "request_resource_owner_mismatch",
+            Self::SubstrateUnavailable(_) => "request_scope_substrate_unavailable",
+        }
+    }
+
+    pub(crate) fn message(&self) -> String {
+        match self {
+            Self::AuthenticationRequired => {
+                "an authenticated session or API token is required for this control plane".into()
+            }
+            Self::PrincipalIdentityInvalid => {
+                "the authenticated request did not resolve one canonical principal identity".into()
+            }
+            Self::TenantAuthorityRequired => {
+                "the authenticated principal is not bound to the requested owner tenant".into()
+            }
+            Self::ResourceScopeRequired => {
+                "the requested resource has no scope visible to the authenticated principal".into()
+            }
+            Self::ResourceOwnerMismatch => {
+                "the admitted resource owner does not match its immutable request scope".into()
+            }
+            Self::SubstrateUnavailable(message) => message.clone(),
+        }
+    }
+}
+
+fn scoped_digest(material: &str) -> String {
+    scoped_digest_bytes(material.as_bytes())
+}
+
+fn scoped_digest_bytes(bytes: &[u8]) -> String {
+    format!("{:x}", sha2::Sha256::digest(bytes))
+}
+
+pub(crate) fn resolve_request_identity(
+    data_dir: &str,
+    headers: &HeaderMap,
+) -> Result<RequestIdentity, RequestScopeRefusal> {
+    let principal = super::lifecycle_routes::resolve_principal(data_dir, headers)
+        .ok_or(RequestScopeRefusal::AuthenticationRequired)?;
+    let principal_id = principal
+        .get("principal_id")
+        .and_then(Value::as_str)
+        .filter(|value| {
+            !value.is_empty() && value.len() <= 480 && !value.chars().any(char::is_whitespace)
+        })
+        .ok_or(RequestScopeRefusal::PrincipalIdentityInvalid)?;
+    let correlation_seed = ["x-ioi-correlation-id", "x-request-id", "traceparent"]
+        .iter()
+        .find_map(|name| headers.get(*name).and_then(|value| value.to_str().ok()))
+        .filter(|value| !value.is_empty())
+        .map(scoped_digest)
+        .unwrap_or_else(|| scoped_digest(principal_id));
+    let principal_ref = format!("user://{principal_id}");
+    let tenant_refs =
+        super::lifecycle_routes::resolve_principal_tenant_refs(data_dir, &principal_ref)
+            .map_err(RequestScopeRefusal::SubstrateUnavailable)?;
+    Ok(RequestIdentity {
+        principal_ref,
+        tenant_refs,
+        correlation_seed,
+    })
+}
+
+fn request_scope_tail(resource_kind: &str, resource_ref: &str) -> String {
+    format!(
+        "scope.{}",
+        scoped_digest(&format!("{resource_kind}\u{0}{resource_ref}"))
+    )
+}
+
+fn project_request_scope(
+    exact: &ExactProjection,
+) -> Result<RequestResourceScope, RequestScopeRefusal> {
+    let payload = &exact.operation.payload;
+    if payload.get("schema_version").and_then(Value::as_str)
+        != Some("ioi.request-resource-scope.v1")
+    {
+        return Err(RequestScopeRefusal::ResourceScopeRequired);
+    }
+    let field = |name: &str| {
+        payload
+            .get(name)
+            .and_then(Value::as_str)
+            .filter(|value| !value.is_empty())
+            .map(str::to_owned)
+            .ok_or(RequestScopeRefusal::ResourceScopeRequired)
+    };
+    Ok(RequestResourceScope {
+        resource_kind: field("resource_kind")?,
+        resource_ref: field("resource_ref")?,
+        principal_ref: field("principal_ref")?,
+        tenant_ref: field("tenant_ref")?,
+        owner_ref: field("owner_ref")?,
+        correlation_ref: field("correlation_ref")?,
+    })
+}
+
+fn read_request_scope(
+    data_dir: &str,
+    resource_kind: &str,
+    resource_ref: &str,
+) -> Result<Option<RequestResourceScope>, RequestScopeRefusal> {
+    let tail = request_scope_tail(resource_kind, resource_ref);
+    read_event_stream_operation(data_dir, REQUEST_RESOURCE_SCOPE_NAMESPACE, &tail)
+        .map_err(|error| RequestScopeRefusal::SubstrateUnavailable(error.to_string()))?
+        .map(|exact| project_request_scope(&exact))
+        .transpose()
+}
+
+pub(crate) fn bind_request_resource_scope(
+    data_dir: &str,
+    identity: &RequestIdentity,
+    resource_kind: &str,
+    resource_ref: &str,
+    tenant_ref: &str,
+    owner_ref: &str,
+    idempotency_key: &str,
+) -> Result<RequestResourceScope, RequestScopeRefusal> {
+    if !identity.authorizes_tenant(tenant_ref) || tenant_ref != owner_ref {
+        return Err(RequestScopeRefusal::TenantAuthorityRequired);
+    }
+    if let Some(existing) = read_request_scope(data_dir, resource_kind, resource_ref)? {
+        if existing.resource_kind == resource_kind
+            && existing.resource_ref == resource_ref
+            && existing.principal_ref == identity.principal_ref
+            && existing.tenant_ref == tenant_ref
+            && existing.owner_ref == owner_ref
+            && identity.authorizes_tenant(&existing.tenant_ref)
+        {
+            return Ok(existing);
+        }
+        return Err(RequestScopeRefusal::ResourceOwnerMismatch);
+    }
+    let correlation_ref = format!(
+        "correlation://request/sha256:{}",
+        scoped_digest(&format!(
+            "{}\u{0}{}\u{0}{}\u{0}{}\u{0}{}",
+            identity.principal_ref,
+            identity.correlation_seed,
+            resource_kind,
+            resource_ref,
+            idempotency_key
+        ))
+    );
+    let payload = json!({
+        "schema_version": "ioi.request-resource-scope.v1",
+        "resource_kind": resource_kind,
+        "resource_ref": resource_ref,
+        "principal_ref": identity.principal_ref,
+        "tenant_ref": tenant_ref,
+        "owner_ref": owner_ref,
+        "correlation_ref": correlation_ref,
+    });
+    let tail = request_scope_tail(resource_kind, resource_ref);
+    let internal_idempotency_key = format!(
+        "scope:{}",
+        scoped_digest_bytes(&serde_jcs::to_vec(&payload).unwrap_or_default())
+    );
+    let admitted = admit_event_stream_operation(
+        data_dir,
+        REQUEST_RESOURCE_SCOPE_NAMESPACE,
+        &tail,
+        "event_stream.request_resource_scope_bound",
+        None,
+        &payload,
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|duration| duration.as_millis() as u64)
+            .unwrap_or(0),
+        &internal_idempotency_key,
+    )
+    .map_err(|error| match error {
+        AdmissionRefusal::HeadConflict | AdmissionRefusal::SameKeyDifferentBytes { .. } => {
+            RequestScopeRefusal::ResourceOwnerMismatch
+        }
+        error => RequestScopeRefusal::SubstrateUnavailable(error.to_string()),
+    })?;
+    project_request_scope(&admitted.projection)
+}
+
+pub(crate) fn authorize_request_resource_scope(
+    data_dir: &str,
+    identity: &RequestIdentity,
+    resource_kind: &str,
+    resource_ref: &str,
+    expected_owner_ref: Option<&str>,
+) -> Result<RequestResourceScope, RequestScopeRefusal> {
+    let scope = read_request_scope(data_dir, resource_kind, resource_ref)?
+        .ok_or(RequestScopeRefusal::ResourceScopeRequired)?;
+    if scope.resource_kind != resource_kind
+        || scope.resource_ref != resource_ref
+        || scope.principal_ref != identity.principal_ref
+        || !identity.authorizes_tenant(&scope.tenant_ref)
+    {
+        return Err(RequestScopeRefusal::ResourceScopeRequired);
+    }
+    if scope.tenant_ref != scope.owner_ref
+        || expected_owner_ref.is_some_and(|owner_ref| owner_ref != scope.owner_ref)
+    {
+        return Err(RequestScopeRefusal::ResourceOwnerMismatch);
+    }
+    Ok(scope)
+}
+
+pub(crate) fn authorized_request_resource_refs(
+    data_dir: &str,
+    identity: &RequestIdentity,
+    resource_kind: &str,
+) -> Result<BTreeSet<String>, RequestScopeRefusal> {
+    let tails = list_event_stream_tails(data_dir, REQUEST_RESOURCE_SCOPE_NAMESPACE)
+        .map_err(|error| RequestScopeRefusal::SubstrateUnavailable(error.to_string()))?;
+    let mut refs = BTreeSet::new();
+    for tail in tails.into_iter().filter(|tail| tail.starts_with("scope.")) {
+        let Some(exact) =
+            read_event_stream_operation(data_dir, REQUEST_RESOURCE_SCOPE_NAMESPACE, &tail)
+                .map_err(|error| RequestScopeRefusal::SubstrateUnavailable(error.to_string()))?
+        else {
+            continue;
+        };
+        let scope = project_request_scope(&exact)?;
+        if scope.resource_kind == resource_kind
+            && scope.principal_ref == identity.principal_ref
+            && identity.authorizes_tenant(&scope.tenant_ref)
+            && scope.tenant_ref == scope.owner_ref
+        {
+            refs.insert(scope.resource_ref);
+        }
+    }
+    Ok(refs)
+}
+
 /// Read the current canonical head for one bounded OutcomeRoom System.
 pub(crate) fn read_outcome_room_system_operation(
     data_dir: &str,
@@ -2936,6 +3251,161 @@ mod tests {
             "at": "2026-07-19T12:00:00Z",
             "payload": {"kind": "genesis"}
         })
+    }
+
+    fn authenticated_headers(
+        data_dir: &str,
+        principal_id: &str,
+        token: &str,
+        tenant_refs: &[&str],
+    ) -> HeaderMap {
+        super::super::persist_record(
+            data_dir,
+            "principals",
+            principal_id,
+            &json!({
+                "schema_version":"ioi.hypervisor.principal.v1",
+                "principal_id":principal_id,
+                "email":format!("{principal_id}@example.test"),
+                "name":principal_id,
+                "role":"member",
+                "status":"active",
+                "source":"test",
+                "created_at":"2026-01-01T00:00:00Z",
+                "updated_at":"2026-01-01T00:00:00Z",
+            }),
+        )
+        .unwrap();
+        for tenant_ref in tenant_refs {
+            super::super::lifecycle_routes::apply_membership_transition(
+                data_dir,
+                &format!("user://{principal_id}"),
+                &format!("user://{principal_id}"),
+                tenant_ref,
+                if tenant_ref.starts_with("org://") {
+                    "organization"
+                } else {
+                    "project"
+                },
+                "active",
+                0,
+                &format!("test-{principal_id}-{tenant_ref}"),
+                "test membership",
+                "deployment_bootstrap",
+            )
+            .unwrap();
+        }
+        super::super::persist_record(
+            data_dir,
+            "sessions",
+            &format!("session-{principal_id}"),
+            &json!({
+                "session_id":format!("session-{principal_id}"),
+                "token_hash":scoped_digest(token),
+                "principal_id":principal_id,
+                "source":"test",
+                "created_at":"2026-01-01T00:00:00Z",
+                "expires_at":"9999-12-31T23:59:59Z",
+            }),
+        )
+        .unwrap();
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            axum::http::header::AUTHORIZATION,
+            format!("Bearer {token}").parse().unwrap(),
+        );
+        headers
+    }
+
+    #[test]
+    fn request_identity_never_trusts_loopback_or_identity_headers() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        let mut headers = HeaderMap::new();
+        headers.insert(axum::http::header::HOST, "127.0.0.1".parse().unwrap());
+        headers.insert("x-forwarded-user", "admin".parse().unwrap());
+        headers.insert("x-ioi-principal", "user://admin".parse().unwrap());
+        assert!(matches!(
+            resolve_request_identity(data_dir, &headers),
+            Err(RequestScopeRefusal::AuthenticationRequired)
+        ));
+    }
+
+    #[test]
+    fn resource_scope_denies_owner_substitution_and_cross_principal_access() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        reset_handle_for_test();
+        let owner = "org://acme/factory";
+        let alpha_headers = authenticated_headers(data_dir, "alpha", "token-alpha", &[owner]);
+        let beta_headers = authenticated_headers(data_dir, "beta", "token-beta", &[owner]);
+        let alpha = resolve_request_identity(data_dir, &alpha_headers).unwrap();
+        let beta = resolve_request_identity(data_dir, &beta_headers).unwrap();
+
+        assert!(matches!(
+            bind_request_resource_scope(
+                data_dir,
+                &alpha,
+                "foundry-training-program",
+                "trainpipe://acme/one",
+                "org://acme/substituted",
+                "org://acme/substituted",
+                "create-1",
+            ),
+            Err(RequestScopeRefusal::TenantAuthorityRequired)
+        ));
+
+        let bound = bind_request_resource_scope(
+            data_dir,
+            &alpha,
+            "foundry-training-program",
+            "trainpipe://acme/one",
+            owner,
+            owner,
+            "create-1",
+        )
+        .unwrap();
+        assert_eq!(bound.principal_ref, "user://alpha");
+        assert_eq!(bound.tenant_ref, owner);
+        assert!(bound
+            .correlation_ref
+            .starts_with("correlation://request/sha256:"));
+        assert!(authorize_request_resource_scope(
+            data_dir,
+            &alpha,
+            "foundry-training-program",
+            "trainpipe://acme/one",
+            Some(owner),
+        )
+        .is_ok());
+        assert!(matches!(
+            authorize_request_resource_scope(
+                data_dir,
+                &beta,
+                "foundry-training-program",
+                "trainpipe://acme/one",
+                Some(owner),
+            ),
+            Err(RequestScopeRefusal::ResourceScopeRequired)
+        ));
+        assert!(matches!(
+            bind_request_resource_scope(
+                data_dir,
+                &beta,
+                "foundry-training-program",
+                "trainpipe://acme/one",
+                owner,
+                owner,
+                "create-1",
+            ),
+            Err(RequestScopeRefusal::ResourceOwnerMismatch)
+        ));
+        assert!(
+            authorized_request_resource_refs(data_dir, &beta, "foundry-training-program")
+                .unwrap()
+                .is_empty()
+        );
+        reset_handle_for_test();
     }
 
     fn exact_projection(operation: Operation) -> ExactProjection {

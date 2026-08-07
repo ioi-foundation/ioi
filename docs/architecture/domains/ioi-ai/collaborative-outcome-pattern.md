@@ -12,6 +12,8 @@ Superseded by: none.
 Last alignment pass: 2026-07-31.
 Doctrine status: canonical
 Implementation status: partial (the M3 direct GoalRun/WorkResult seam exists.
+Implementation refs:
+  - `crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs`
 The current hosted M4 implementation demonstrates package/genesis binding,
 reciprocal GoalRun membership, and a minimum WorkResult/OutcomeDelta graph, but
 its room-owned admission, transition, receipt, and root spine is migration input
@@ -830,7 +832,7 @@ inside a room:
 ### Cross-Domain Discovery, Admission, and Portable Exit
 
 `Network / Open` and discoverable cross-org Goal Spaces project the shared
-[`OutcomeRoomDiscoveryEnvelope`](../../foundations/objects/collaborative-pursuit.md#outcomeroomdiscoveryenvelope-and-roomparticipationrequestenvelope).
+[`OutcomeRoomDiscoveryEnvelope`](collaborative-pursuit.md#outcomeroomdiscoveryenvelope-and-roomparticipationrequestenvelope).
 The projection exposes only the public objective/category, semantic/action
 profiles, capability and eligibility requirements, visibility/privacy posture,
 budget/quote bounds, exact collaboration terms ref/root, verifier/acceptance
@@ -1142,7 +1144,7 @@ admission, the daemon creates a canonical GoalRun and ioi.ai renders
 `IoiAiGoalProjection` from that owner. When the draft promotes work that
 already lives in a Hypervisor context, the crossing is the admitted
 `GoalRunActivationEnvelope`
-([`goal-pursuit.md`](../../foundations/objects/goal-pursuit.md)) with
+([`goal-pursuit.md`](goal-pursuit.md)) with
 `source_kind: ioi_goal_draft`; ioi.ai drafts and projects that activation and
 never admits it. Likewise,
 `IoiAiOutcomePlanProjection` binds one exact immutable OrchestrationPlan

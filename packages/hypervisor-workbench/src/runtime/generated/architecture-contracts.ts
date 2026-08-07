@@ -2303,6 +2303,26 @@ export type HypervisorPreferenceRecordV1 = {
   updated_at: string;
 };
 
+export type HypervisorPrincipalTenantMembershipReceiptV1 = {
+  schema_version: "ioi.hypervisor.principal_tenant_membership_receipt.v1";
+  membership_ref: string;
+  receipt_ref: string;
+  principal_ref: string;
+  tenant_ref: string;
+  tenant_kind: "organization" | "project";
+  status: "active" | "revoked";
+  revision: number;
+  predecessor_membership_ref: string | null;
+  predecessor_transition_hash: string | null;
+  changed_by_principal_ref: string;
+  change_source: "deployment_bootstrap" | "admin_api" | "org_invite" | "sso_auto_join" | "scim_provisioning";
+  reason: string;
+  idempotency_key_hash: string;
+  request_hash: string;
+  transition_hash: string;
+  changed_at: string;
+};
+
 export type HypervisorProductSurfaceProjectionV1 = {
   schema_version: "ioi.hypervisor.product_surface_projection.v1";
   projection_id: string;
@@ -6568,6 +6588,483 @@ export type OutcomeDeltaEnvelopeV1 = {
   status: "proposed" | "evaluating" | "admitted" | "rejected" | "superseded" | "rolled_back";
 };
 
+export type ManagedWorkerRuntimePolicyV1 = {
+  persistence_profile: "ephemeral" | "session" | "zero_to_idle" | "persistent";
+  idle_threshold_seconds: number;
+  minimum_warm_seconds: number;
+  wake_sources: Array<"user" | "schedule" | "webhook" | "queue" | "approved_event" | "recovery">;
+  maximum_cold_start_seconds: number;
+  maximum_restore_age_seconds: number;
+  checkpoint_cadence_seconds: number;
+  pre_stop_checkpoint_required: boolean;
+  provider_idle_semantics: "stop" | "close";
+  fallback_placement_refs: Array<string>;
+  privacy_floor_ref: string;
+  spend_ceiling_ref: string;
+  archive_retention_policy_ref: string;
+  minimum_backup_replicas: number;
+};
+
+export type ManagedWorkerInstanceStateV1 = {
+  schema_version: "ioi.managed-worker-instance-state.v1";
+  instance_id: string;
+  lifecycle_id: string;
+  owner_ref: string;
+  worker_package_ref: string;
+  config_revision_ref: string;
+  revision: number;
+  state: "discover" | "installed" | "initializing" | "active" | "idle" | "zero_to_idle" | "suspended" | "payment_past_due" | "archived" | "restoring" | "migrated" | "exported" | "deleted" | "forgotten";
+  runtime_policy: {
+      persistence_profile: "ephemeral" | "session" | "zero_to_idle" | "persistent";
+      idle_threshold_seconds: number;
+      minimum_warm_seconds: number;
+      wake_sources: Array<"user" | "schedule" | "webhook" | "queue" | "approved_event" | "recovery">;
+      maximum_cold_start_seconds: number;
+      maximum_restore_age_seconds: number;
+      checkpoint_cadence_seconds: number;
+      pre_stop_checkpoint_required: boolean;
+      provider_idle_semantics: "stop" | "close";
+      fallback_placement_refs: Array<string>;
+      privacy_floor_ref: string;
+      spend_ceiling_ref: string;
+      archive_retention_policy_ref: string;
+      minimum_backup_replicas: number;
+    };
+  runtime_policy_hash: string;
+  authority_grant_refs: Array<string>;
+  runtime_assignment: {
+      schema_version: "ioi.runtime-assignment.v1";
+      runtime_assignment_id: string;
+      assignment_epoch: number;
+      placement: {
+            runtime_node_ref: string;
+            daemon_profile_ref: string;
+            environment_ref: string;
+            provider_ref: string;
+            quote_ref: string | null;
+            budget_reservation_ref: string | null;
+            assignment_lease_ref: string;
+            isolation_binding_ref: string;
+            readiness_evidence_refs: Array<string>;
+          };
+      assignment_hash: string;
+      status: "admitted" | "active" | "closed" | "completed";
+    } | null;
+  compute_session: {
+      schema_version: "ioi.compute-session.v1";
+      compute_session_ref: string;
+      runtime_assignment_ref: string;
+      environment_ref: string;
+      provider_ref: string;
+      status: "ready" | "ended";
+      readiness_evidence_refs: Array<string>;
+      provider_close_receipt_ref?: string | null;
+    } | null;
+  latest_verified_backup_ref: string | null;
+  latest_state_root: string | null;
+  pending_transition: {
+      request_hash: string;
+      idempotency_key: string;
+      to_state: "discover" | "installed" | "initializing" | "active" | "idle" | "zero_to_idle" | "suspended" | "payment_past_due" | "archived" | "restoring" | "migrated" | "exported" | "deleted" | "forgotten";
+      request: {
+            expected_head: string;
+            idempotency_key: string;
+            to_state: "discover" | "installed" | "initializing" | "active" | "idle" | "zero_to_idle" | "suspended" | "payment_past_due" | "archived" | "restoring" | "migrated" | "exported" | "deleted" | "forgotten";
+            transition_reason: string;
+            payment_status: "current" | "past_due" | "canceled" | "settled" | "not_applicable" | null;
+            authority_scope_refs: Array<string>;
+            authority_grant_refs: Array<string>;
+            policy_refs: Array<string>;
+            required_controls: Array<string>;
+            wallet_approval_ref: string | null;
+            latest_state_root: string | null;
+            backup_ref: string | null;
+            restore_import_ref: string | null;
+            migration_target_ref: string | null;
+            provider_close_receipt_ref: string | null;
+            high_risk_orders_paused: boolean | null;
+            new_billable_work_blocked: boolean | null;
+            archive_policy: {
+                    archive_after: string | null;
+                    retain_for: string | null;
+                    storage_policy_ref: string;
+                  } | null;
+            restore_policy: {
+                    restore_requires: "authority_step_up" | "wallet_step_up" | "org_quorum" | "admin_policy";
+                    restore_receipt_required: true;
+                  } | null;
+            export_policy: {
+                    export_requires: "authority_step_up" | "wallet_step_up" | "org_quorum" | "admin_policy";
+                  } | null;
+            deletion_policy: {
+                    delete_runtime_state: boolean;
+                    delete_archives: boolean;
+                    forget_semantic_memory: boolean;
+                  } | null;
+            placement: {
+                    runtime_node_ref: string;
+                    daemon_profile_ref: string;
+                    environment_ref: string;
+                    provider_ref: string;
+                    quote_ref: string | null;
+                    budget_reservation_ref: string | null;
+                    assignment_lease_ref: string;
+                    isolation_binding_ref: string;
+                    readiness_evidence_refs: Array<string>;
+                  } | null;
+          };
+    } | null;
+  last_transition: {
+      status: "committed" | "rejected";
+      request_hash: string;
+      idempotency_key: string;
+      proposal_operation_ref: string;
+      proposal_receipt_ref: string;
+      admission: {
+            schema_version: "ioi.runtime.managed_worker_instance_lifecycle_admission.v1";
+            transition_id: string;
+            lifecycle_id: string;
+            worker_instance_id: string;
+            worker_package_ref: string | null;
+            owner_ref: string;
+            from_state: "discover" | "installed" | "initializing" | "active" | "idle" | "zero_to_idle" | "suspended" | "payment_past_due" | "archived" | "restoring" | "migrated" | "exported" | "deleted" | "forgotten";
+            to_state: "discover" | "installed" | "initializing" | "active" | "idle" | "zero_to_idle" | "suspended" | "payment_past_due" | "archived" | "restoring" | "migrated" | "exported" | "deleted" | "forgotten";
+            state: "discover" | "installed" | "initializing" | "active" | "idle" | "zero_to_idle" | "suspended" | "payment_past_due" | "archived" | "restoring" | "migrated" | "exported" | "deleted" | "forgotten";
+            persistence_profile: "ephemeral" | "session" | "zero_to_idle" | "persistent";
+            payment_status: "current" | "past_due" | "canceled" | "settled" | "not_applicable";
+            transition_reason: string;
+            freezes_new_billable_work: boolean;
+            pauses_high_risk_standing_orders: boolean;
+            latest_state_root: string | null;
+            archive_policy: {
+                    archive_after: string | null;
+                    retain_for: string | null;
+                    storage_policy_ref: string;
+                  } | null;
+            restore_policy: {
+                    restore_requires: "authority_step_up" | "wallet_step_up" | "org_quorum" | "admin_policy";
+                    restore_receipt_required: true;
+                  } | null;
+            export_policy: {
+                    export_requires: "authority_step_up" | "wallet_step_up" | "org_quorum" | "admin_policy";
+                  } | null;
+            deletion_policy: {
+                    delete_runtime_state: boolean;
+                    delete_archives: boolean;
+                    forget_semantic_memory: boolean;
+                  } | null;
+            archive_refs: Array<string>;
+            artifact_refs: Array<string>;
+            authority_scope_refs: Array<string>;
+            authority_grant_refs: Array<string>;
+            policy_refs: Array<string>;
+            wallet_approval_ref: string | null;
+            restore_import_ref: string | null;
+            migration_target_ref: string | null;
+            agentgres_operation_refs: Array<string>;
+            receipt_refs: Array<string>;
+            runtimeTruthSource: "daemon-runtime";
+          } | null;
+      error_status: number | null;
+      error_response: {
+            ok: false;
+            error: {
+                    code: string;
+                    message: string;
+                  };
+          } | null;
+    } | null;
+};
+
+export type RuntimeAssignmentV1 = {
+  schema_version: "ioi.runtime-assignment.v1";
+  runtime_assignment_id: string;
+  assignment_epoch: number;
+  placement: {
+      runtime_node_ref: string;
+      daemon_profile_ref: string;
+      environment_ref: string;
+      provider_ref: string;
+      quote_ref: string | null;
+      budget_reservation_ref: string | null;
+      assignment_lease_ref: string;
+      isolation_binding_ref: string;
+      readiness_evidence_refs: Array<string>;
+    };
+  assignment_hash: string;
+  status: "admitted" | "active" | "closed" | "completed";
+};
+
+export type ComputeSessionV1 = {
+  schema_version: "ioi.compute-session.v1";
+  compute_session_ref: string;
+  runtime_assignment_ref: string;
+  environment_ref: string;
+  provider_ref: string;
+  status: "ready" | "ended";
+  readiness_evidence_refs: Array<string>;
+  provider_close_receipt_ref?: string | null;
+};
+
+export type ManagedStorageProfileV1 = {
+  schema_version: "ioi.storage-profile.v1";
+  storage_profile_ref: string;
+  owner_ref: string;
+  backend_class: "local_private" | "object_store" | "cas_ipfs" | "filecoin_archive" | "customer_vpc";
+  destination_ref: string;
+  custody_policy_ref: string;
+  encryption_ref: string | null;
+  key_epoch_ref: string | null;
+  retention_policy_ref: string;
+  jurisdiction_refs: Array<string>;
+  minimum_replicas: number;
+  independent_compute_copy_required: boolean;
+  export_allowed: boolean;
+  authority_grant_refs: Array<string>;
+  revision: number;
+  profile_hash: string;
+};
+
+export type ManagedRestorePlanV1 = {
+  schema_version: "ioi.managed-restore-plan.v1";
+  plan_id: string;
+  backup_ref: string;
+  restore_manifest_root: string;
+  source_state_root: string;
+  target_environment_id: string;
+  authority_grant_refs: Array<string>;
+  status: "prepared" | "applying" | "completed" | "cancelled";
+  preparation_verified: true;
+  applied_state_root?: string;
+};
+
+export type FoundryRecipeRevisionV1 = {
+  schema_version: "ioi.foundry-recipe-revision.v1";
+  recipe_id: string;
+  recipe_revision_ref: string;
+  revision: number;
+  predecessor_recipe_ref: string | null;
+  owner_ref: string;
+  data_recipe_ref: string;
+  source_snapshot_refs: Array<string>;
+  institutional_learning_boundary_ref: string;
+  learning_source_rights_claim_refs: Array<string>;
+  tokenizer_ref: string;
+  sequence_format_ref: string;
+  packing_policy_ref: string;
+  loss_mask_policy_ref: string;
+  harness_variant_refs: Array<string>;
+  environment_profile_ref: string;
+  operators: Array<{
+        kind: "normalize_whitespace" | "filter_nonempty" | "select_fields" | "deduplicate" | "rename_field";
+        field: string | null;
+        fields: Array<string> | null;
+        from: string | null;
+        to: string | null;
+      }>;
+  split_seed: number;
+  content_hash: string;
+  status: "ready";
+};
+
+export type FoundryDatasetSnapshotV1 = {
+  schema_version: "ioi.foundry-dataset-snapshot.v1";
+  dataset_snapshot_ref: string;
+  recipe_revision_ref: string;
+  recipe_content_hash: string;
+  institutional_learning_boundary_ref: string;
+  learning_source_rights_claim_refs: Array<string>;
+  rights_grant_refs: Array<string>;
+  content_manifest_ref: string;
+  content_hash: string;
+  row_count: number;
+  split_counts: {
+      train?: number;
+      validation?: number;
+      test?: number;
+    };
+  status: "materialized";
+};
+
+export type FoundryTrainingProgramV1 = {
+  schema_version: "ioi.foundry-training-program.v1";
+  program_id: string;
+  owner_ref: string;
+  foundry_spec_ref: string | null;
+  dataset_snapshot_ref: string;
+  dataset_content_hash: string;
+  recipe_content_hash: string;
+  training_mode: "sft" | "adapter";
+  trainer_backend_profile_ref: "trainer-backend://ioi/reference-token-frequency/v1";
+  backend_scope: "bounded_reference_pipeline_only";
+  text_field: string;
+  checkpoint_every_rows: number;
+  seed: number;
+  authority_grant_refs: Array<string>;
+  rights_grant_refs: Array<string>;
+  revision: number;
+  status: "admitted" | "running" | "paused" | "completed" | "cancelled";
+  data_cursor: number;
+  processed_rows: number;
+  processed_tokens: number;
+  token_counts: Array<{
+        token: string;
+        count: number;
+      }>;
+  checkpoint_refs: Array<string>;
+  current_checkpoint: {
+      checkpoint_ref: string;
+      artifact_ref: string;
+      artifact_hash: string;
+      data_cursor: number;
+      global_step: number;
+      token_count: number;
+      complete: true;
+      restore_verified: boolean;
+    } | null;
+  restore_verification: {
+      verified: true;
+      checkpoint_ref: string;
+      artifact_hash: string;
+      data_cursor: number;
+      model_state_hash: string;
+      optimizer_state_hash: string;
+      scheduler_state_hash: string;
+      rng_state_hash: string;
+    } | null;
+  qualification: {
+      schema_version: "ioi.foundry-qualified-measurement.v1";
+      verdict: "qualified" | "rejected";
+      quality: {
+            token_coverage: number;
+            mean_negative_log_likelihood: number;
+            gate: {
+                    minimum_token_coverage: number;
+                    maximum_mean_negative_log_likelihood: number;
+                  };
+          };
+      measurement: {
+            phase: "evaluation";
+            token_numerator: "loss_bearing";
+            denominator: "full_wall_clock";
+            scope: "daemon_cpu_process";
+            raw_tokens: number;
+            effective_tokens: number;
+            elapsed_nanoseconds: number;
+            tokens_per_second: number;
+            includes_compilation: false;
+            includes_loading: true;
+            includes_evaluation: true;
+            includes_checkpoint: false;
+            includes_failure_and_recovery: false;
+            hardware_software_topology_fingerprint: {
+                    runtime_node_ref: string;
+                    environment_ref: string;
+                    trainer_backend_profile_ref: "trainer-backend://ioi/reference-token-frequency/v1";
+                    hardware_architecture: "x86_64" | "aarch64";
+                    logical_cpu_count: number;
+                    memory_bytes: number;
+                    operating_system: "linux" | "macos" | "windows";
+                    daemon_release_ref: string;
+                  };
+            cost_basis_ref: string;
+            failure_schedule_ref: string;
+          };
+      promotion_boundary: {
+            proposal_only: true;
+            governance_approval_required: true;
+            runtime_activation_performed: false;
+          };
+    } | null;
+  last_action_idempotency_key: string;
+  last_action_request?: {
+      action: "start" | "step" | "pause" | "resume" | "cancel" | "reconcile";
+      max_rows: number | null;
+    };
+  reconciliation?: {
+      status: "satisfied";
+      checkpoint_ref: string | null;
+    };
+  qualification_proposal_ref?: string;
+};
+
+export type FoundryCheckpointArtifactV1 = {
+  schema_version: "ioi.foundry-checkpoint-artifact.v1";
+  program_id: string;
+  dataset_snapshot_ref: string;
+  dataset_content_hash: string;
+  recipe_content_hash: string;
+  trainer_backend_profile_ref: "trainer-backend://ioi/reference-token-frequency/v1";
+  model_state: {
+      token_counts: Array<{
+              token: string;
+              count: number;
+            }>;
+      total_tokens: number;
+    };
+  optimizer_state: {
+      kind: "count_accumulator";
+      updates: number;
+    };
+  scheduler_state: {
+      kind: "row_cursor";
+      next_row: number;
+    };
+  rng_state: {
+      algorithm: "fixed_seed_no_rng_training";
+      seed: number;
+    };
+  data_cursor: number;
+  global_step: number;
+  token_count: number;
+  status: "complete";
+};
+
+export type FoundryQualifiedMeasurementV1 = {
+  schema_version: "ioi.foundry-qualified-measurement.v1";
+  verdict: "qualified" | "rejected";
+  quality: {
+      token_coverage: number;
+      mean_negative_log_likelihood: number;
+      gate: {
+            minimum_token_coverage: number;
+            maximum_mean_negative_log_likelihood: number;
+          };
+    };
+  measurement: {
+      phase: "evaluation";
+      token_numerator: "loss_bearing";
+      denominator: "full_wall_clock";
+      scope: "daemon_cpu_process";
+      raw_tokens: number;
+      effective_tokens: number;
+      elapsed_nanoseconds: number;
+      tokens_per_second: number;
+      includes_compilation: false;
+      includes_loading: true;
+      includes_evaluation: true;
+      includes_checkpoint: false;
+      includes_failure_and_recovery: false;
+      hardware_software_topology_fingerprint: {
+            runtime_node_ref: string;
+            environment_ref: string;
+            trainer_backend_profile_ref: "trainer-backend://ioi/reference-token-frequency/v1";
+            hardware_architecture: "x86_64" | "aarch64";
+            logical_cpu_count: number;
+            memory_bytes: number;
+            operating_system: "linux" | "macos" | "windows";
+            daemon_release_ref: string;
+          };
+      cost_basis_ref: string;
+      failure_schedule_ref: string;
+    };
+  promotion_boundary: {
+      proposal_only: true;
+      governance_approval_required: true;
+      runtime_activation_performed: false;
+    };
+};
+
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
 
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = 0 as const;
@@ -8877,6 +9374,30 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
   {
     "contract_id": "schema://ioi/components/hypervisor/preference-record/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-preference-record-v1/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/principal-tenant-membership-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-principal-tenant-membership-receipt-v1/positive-active.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/principal-tenant-membership-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-principal-tenant-membership-receipt-v1/negative-wallet-tenant.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/principal-tenant-membership-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-principal-tenant-membership-receipt-v1/negative-unknown-field.json",
     "expected": "reject",
     "expected_schema_accept": false,
     "expected_failure": "schema",
@@ -11261,6 +11782,182 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
   {
     "contract_id": "schema://ioi/foundations/objects/outcome-delta-envelope/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/outcome-delta-envelope-v1/negative-invented-delta-kind.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/managed-worker-runtime-policy/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/managed-worker-runtime-policy-v1/positive-minimal.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/managed-worker-runtime-policy/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/managed-worker-runtime-policy-v1/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/managed-worker-instance-state/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/managed-worker-instance-state-v1/positive-installed.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/managed-worker-instance-state/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/managed-worker-instance-state-v1/negative-agentgres-in-object-bytes.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/runtime-assignment/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/runtime-assignment-v1/positive-managed-active.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/runtime-assignment/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/runtime-assignment-v1/negative-open-placement.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/compute-session/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/compute-session-v1/positive-ready.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/compute-session/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/compute-session-v1/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/storage-backends/managed-storage-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/managed-storage-profile-v1/positive-local-private.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/storage-backends/managed-storage-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/managed-storage-profile-v1/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/managed-restore-plan/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/managed-restore-plan-v1/positive-prepared.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/managed-restore-plan/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/managed-restore-plan-v1/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/foundry-recipe-revision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/foundry-recipe-revision-v1/positive-ready.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/foundry-recipe-revision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/foundry-recipe-revision-v1/negative-open-operator.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/foundry-dataset-snapshot/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/foundry-dataset-snapshot-v1/positive-materialized.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/foundry-dataset-snapshot/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/foundry-dataset-snapshot-v1/negative-unknown-split.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/foundry-training-program/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v1/positive-admitted.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/foundry-training-program/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v1/negative-legacy-token-map.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/foundry-checkpoint-artifact/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/foundry-checkpoint-artifact-v1/positive-complete.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/foundry-checkpoint-artifact/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/foundry-checkpoint-artifact-v1/negative-legacy-token-map.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/foundry-qualified-measurement/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v1/positive-proposal-only.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/foundry-qualified-measurement/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v1/negative-open-fingerprint.json",
     "expected": "reject",
     "expected_schema_accept": false,
     "expected_failure": "schema",
@@ -15867,6 +16564,27 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-principal-tenant-membership-receipt-v1/positive-active.json",
+    "contract_id": "schema://ioi/components/hypervisor/principal-tenant-membership-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-principal-tenant-membership-receipt-v1/positive-active.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-principal-tenant-membership-receipt-v1/negative-wallet-tenant.json",
+    "contract_id": "schema://ioi/components/hypervisor/principal-tenant-membership-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-principal-tenant-membership-receipt-v1/negative-wallet-tenant.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-principal-tenant-membership-receipt-v1/negative-unknown-field.json",
+    "contract_id": "schema://ioi/components/hypervisor/principal-tenant-membership-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-principal-tenant-membership-receipt-v1/negative-unknown-field.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-product-surface-projection-v1/positive-minimal.json",
     "contract_id": "schema://ioi/components/hypervisor/product-surface-projection/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-product-surface-projection-v1/positive-minimal.json",
@@ -17953,6 +18671,160 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/managed-worker-runtime-policy-v1/positive-minimal.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/managed-worker-runtime-policy/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/managed-worker-runtime-policy-v1/positive-minimal.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/managed-worker-runtime-policy-v1/negative-unknown-field.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/managed-worker-runtime-policy/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/managed-worker-runtime-policy-v1/negative-unknown-field.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/managed-worker-instance-state-v1/positive-installed.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/managed-worker-instance-state/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/managed-worker-instance-state-v1/positive-installed.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/managed-worker-instance-state-v1/negative-agentgres-in-object-bytes.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/managed-worker-instance-state/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/managed-worker-instance-state-v1/negative-agentgres-in-object-bytes.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/runtime-assignment-v1/positive-managed-active.json",
+    "contract_id": "schema://ioi/foundations/runtime-assignment/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/runtime-assignment-v1/positive-managed-active.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/runtime-assignment-v1/negative-open-placement.json",
+    "contract_id": "schema://ioi/foundations/runtime-assignment/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/runtime-assignment-v1/negative-open-placement.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/compute-session-v1/positive-ready.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/compute-session/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/compute-session-v1/positive-ready.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/compute-session-v1/negative-unknown-field.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/compute-session/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/compute-session-v1/negative-unknown-field.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/managed-storage-profile-v1/positive-local-private.json",
+    "contract_id": "schema://ioi/components/storage-backends/managed-storage-profile/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/managed-storage-profile-v1/positive-local-private.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/managed-storage-profile-v1/negative-unknown-field.json",
+    "contract_id": "schema://ioi/components/storage-backends/managed-storage-profile/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/managed-storage-profile-v1/negative-unknown-field.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/managed-restore-plan-v1/positive-prepared.json",
+    "contract_id": "schema://ioi/components/hypervisor/managed-restore-plan/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/managed-restore-plan-v1/positive-prepared.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/managed-restore-plan-v1/negative-unknown-field.json",
+    "contract_id": "schema://ioi/components/hypervisor/managed-restore-plan/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/managed-restore-plan-v1/negative-unknown-field.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/foundry-recipe-revision-v1/positive-ready.json",
+    "contract_id": "schema://ioi/components/hypervisor/foundry-recipe-revision/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/foundry-recipe-revision-v1/positive-ready.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/foundry-recipe-revision-v1/negative-open-operator.json",
+    "contract_id": "schema://ioi/components/hypervisor/foundry-recipe-revision/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/foundry-recipe-revision-v1/negative-open-operator.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/foundry-dataset-snapshot-v1/positive-materialized.json",
+    "contract_id": "schema://ioi/components/hypervisor/foundry-dataset-snapshot/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/foundry-dataset-snapshot-v1/positive-materialized.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/foundry-dataset-snapshot-v1/negative-unknown-split.json",
+    "contract_id": "schema://ioi/components/hypervisor/foundry-dataset-snapshot/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/foundry-dataset-snapshot-v1/negative-unknown-split.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/foundry-training-program-v1/positive-admitted.json",
+    "contract_id": "schema://ioi/components/hypervisor/foundry-training-program/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v1/positive-admitted.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/foundry-training-program-v1/negative-legacy-token-map.json",
+    "contract_id": "schema://ioi/components/hypervisor/foundry-training-program/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v1/negative-legacy-token-map.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/foundry-checkpoint-artifact-v1/positive-complete.json",
+    "contract_id": "schema://ioi/components/hypervisor/foundry-checkpoint-artifact/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/foundry-checkpoint-artifact-v1/positive-complete.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/foundry-checkpoint-artifact-v1/negative-legacy-token-map.json",
+    "contract_id": "schema://ioi/components/hypervisor/foundry-checkpoint-artifact/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/foundry-checkpoint-artifact-v1/negative-legacy-token-map.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v1/positive-proposal-only.json",
+    "contract_id": "schema://ioi/components/hypervisor/foundry-qualified-measurement/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v1/positive-proposal-only.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v1/negative-open-fingerprint.json",
+    "contract_id": "schema://ioi/components/hypervisor/foundry-qualified-measurement/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v1/negative-open-fingerprint.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
     "id": "mutation:sequence-zero-receipt-timestamp-detached",
     "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
     "source_fixture_path": null,
@@ -18863,11 +19735,13 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:commitment|evidence)://[^\\s]{1,248}$",
   "^(?:commitment|settlement|tx)://[^\\s]+$",
   "^(?:commitment|settlement|tx)://[^\\s]{1,248}$",
+  "^(?:config-revision|artifact)://[^\\s]{1,500}$",
   "^(?:constraint|policy|budget)://[^\\s]{1,500}$",
   "^(?:context_lease|grant|authority)://[^\\s]{1,500}$",
   "^(?:contribution|attempt|finding|work-result)://[^\\s]{1,500}$",
   "^(?:contribution|attempt|finding|work-result|outcome-delta)://[^\\s]{1,500}$",
   "^(?:contribution|receipt)://[^\\s]{1,500}$",
+  "^(?:cost|ledger|policy)://[^\\s]{1,500}$",
   "^(?:decision|dispute)://[^\\s]+$",
   "^(?:decision|dispute)://[^\\s]{1,500}$",
   "^(?:decision|work-claim|receipt)://[^\\s]{1,500}$",
@@ -18885,6 +19759,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:evidence|receipt|certification_claim)://[^\\s]{1,500}$",
   "^(?:finding|ontology-assertion|evidence)://[^\\s]{1,500}$",
   "^(?:finding|ontology-assertion|evidence|artifact)://[^\\s]{1,500}$",
+  "^(?:format|artifact|schema)://[^\\s]{1,500}$",
   "^(?:frontier|attempt|finding)://[^\\s]{1,500}$",
   "^(?:frontier|routing-prior|policy|capability)://[^\\s]{1,500}$",
   "^(?:gate|policy)://[^\\s]{1,240}$",
@@ -18900,6 +19775,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:harness_invocation|run|work_run|automation-run|service)://[^\\s]{1,500}$",
   "^(?:heartbeat|receipt)://[^\\s]{1,500}$",
   "^(?:intent|prompt)://[^\\s]{1,500}$",
+  "^(?:learning-boundary|policy)://[^\\s]{1,500}$",
   "^(?:lease|resource-lease|budget)://[^\\s]{1,500}$",
   "^(?:license|policy)://[^\\s]{1,500}$",
   "^(?:license|policy|restricted-view|receipt)://[^\\s]{1,500}$",
@@ -18910,6 +19786,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:network|chain|domain)://[^\\s]{1,248}$",
   "^(?:observed-state|agentgres)://[^\\s]{1,240}$",
   "^(?:ontology|semantic-profile|ontology-mapping)://[^\\s]{1,500}$",
+  "^(?:org|project)://[^\\s?#\\\\]+$",
   "^(?:org|project|system|user)://[^\\s]{1,500}$",
   "^(?:outcome-room|user|org)://[^\\s]{1,500}$",
   "^(?:participant-lease|system|domain|worker|service|agent|org)://[^\\s]{1,500}$",
@@ -18917,6 +19794,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:participant-lease|system|worker|org|user)://[^\\s]{1,500}$",
   "^(?:participant-lease|system|worker|service|org|domain)://[^\\s]{1,500}$",
   "^(?:participation-request|proposal)://[^\\s]{1,500}$",
+  "^(?:policy|budget)://[^\\s]{1,500}$",
   "^(?:policy|event)://[^\\s]{1,500}$",
   "^(?:policy|finding|ontology)://[^\\s]{1,500}$",
   "^(?:policy|gate|state)://[^\\s]{1,500}$",
@@ -18926,10 +19804,13 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:policy|restricted_view)://[^\\s]{1,500}$",
   "^(?:policy|room-discovery|aiip)://[^\\s]{1,500}$",
   "^(?:policy|schema|authority-requirement)://[^\\s]{1,248}$",
+  "^(?:policy|storage-policy)(?:://|:)[^\\s]{1,500}$",
   "^(?:principal|wallet|organization|org)://[^\\s]{1,248}$",
+  "^(?:profile|environment-profile)://[^\\s]{1,500}$",
   "^(?:projection|message)://[^\\s]{1,500}$",
   "^(?:provenance|ontology|ontology-mapping)://[^\\s]{1,500}$",
   "^(?:provider|provider-account)://[^\\s]{1,240}$",
+  "^(?:provider|provider-account)://[^\\s]{1,500}$",
   "^(?:receipt|acceptance|settlement-intent|dispute|decision)://[^\\s]{1,500}$",
   "^(?:receipt|approval)://[^\\s]{1,500}$",
   "^(?:receipt|decision)://[^\\s]{1,500}$",
@@ -18951,6 +19832,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:runtime|authority)://[^\\s]{1,248}$",
   "^(?:runtime|environment|provider|provider-account)://[^\\s]{1,240}$",
   "^(?:schedule|change-plan|event)://[^\\s]{1,240}$",
+  "^(?:schedule|policy|artifact)://[^\\s]{1,500}$",
   "^(?:schema|policy)://[^\\s]+$",
   "^(?:schema|profile)://[^\\s]{1,500}$",
   "^(?:sha256:[0-9a-f]{64}|commitment://[^\\s]{1,400})$",
@@ -18972,6 +19854,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:task|task_brief|policy)://[^\\s]{1,500}$",
   "^(?:temporal-evaluation|evidence|receipt)://[^\\s]{1,248}$",
   "^(?:test|gate|receipt|branch-checkpoint)://[^\\s]+$",
+  "^(?:tokenizer|artifact)://[^\\s]{1,500}$",
   "^(?:transition|decision)://[^\\s]{1,248}$",
   "^(?:user|org)://[^\\s]{1,500}$",
   "^(?:user|wallet)://\\S*$",
@@ -18986,12 +19869,14 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:verifier_path|worker|gate|receipt)://[^\\s]{1,500}$",
   "^(?:wallet|org|project)://[^\\s]{1,240}$",
   "^(?:wallet|org|project)://[^\\s]{1,248}$",
+  "^(?:wallet|org|project)://[^\\s]{1,500}$",
   "^(?:wallet|org|project|runtime)://[^\\s]{1,240}$",
   "^(?:wallet|provider|org)://[^\\s]{1,248}$",
   "^(?:wallet|user|agent|system)://[^\\s]{1,500}$",
   "^(?:work-claim|decision|receipt)://[^\\s]{1,500}$",
   "^(?:work-result|outcome-delta)://[^\\s]{1,500}$",
   "^(?:work-run|run)://[^\\s]{1,500}$",
+  "^(?:worker-package|package)://[^\\s]{1,500}$",
   "^(?:worker|agent)://[^\\s]{1,500}$",
   "^(?:worker|harness-profile|agent-harness-adapter|model_route|runtime|node)://[^\\s]{1,500}$",
   "^(?:worker|model_route|harness-profile|agent-harness-adapter|tool|runtime)://[^\\s]{1,500}$",
@@ -18999,6 +19884,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:worker|service|org|domain|system)://[^\\s]{1,500}$",
   "^(?:worker|service|org|domain|wallet|agentgres)://[^\\s]{1,248}$",
   "^(?:workflow|workflow-template)://[^\\s]{1,248}$",
+  "^(?:workload-isolation-binding|binding)://[^\\s]{1,500}$",
   "^/(?:[A-Za-z0-9._-]|~0|~1)(?:(?:[A-Za-z0-9._/-]|~0|~1){0,254})$",
   "^/[^\\s]{0,200}$",
   "^/\\S*$",
@@ -19049,6 +19935,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^adapter://[^\\s]{1,500}$",
   "^agent-harness-adapter://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^agent-harness-adapter:[^\\s]{1,200}$",
+  "^agent://[^\\s]{1,500}$",
   "^agentgres://[^\\s]{1,240}$",
   "^agentgres://[^\\s]{1,400}$",
   "^agentgres://[^\\s]{1,500}$",
@@ -19078,6 +19965,8 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^artifact://[^\\s]{1,240}$",
   "^artifact://[^\\s]{1,248}$",
   "^artifact://[^\\s]{1,500}$",
+  "^artifact://foundry-checkpoint/[0-9a-f]{64}$",
+  "^artifact://foundry-dataset/[0-9a-f]{64}$",
   "^assurance-evidence://[^\\s]+$",
   "^assurance-profile://[^\\s]{1,248}$",
   "^attempt://[^\\s]{1,240}$",
@@ -19098,6 +19987,8 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^change-plan://[^\\s]{1,240}$",
   "^check:[^\\s]{1,200}$",
   "^checkpoint://[^\\s]{1,248}$",
+  "^checkpoint://[^\\s]{1,500}$",
+  "^checkpoint://foundry/[^\\s]{1,500}$",
   "^cleanup-obligation://[^\\s]{1,240}$",
   "^collaboration://[^\\s]{1,500}$",
   "^commitment://[^\\s]{1,248}$",
@@ -19105,6 +19996,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^commitment://ioi/system-genesis/sha256:[0-9a-f]{64}$",
   "^commitment://ioi/system-sequence-zero/sha256:[0-9a-f]{64}$",
   "^composition://[^\\s]{1,500}$",
+  "^compute://[^\\s]{1,500}$",
   "^conformance-profile://[^\\s]{1,248}$",
   "^connector://[^\\s]{1,248}$",
   "^constitution-amendment://[^\\s]{1,248}$",
@@ -19116,6 +20008,9 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^context_lease://[^\\s]{1,500}$",
   "^controller-binding://[^\\s]+$",
   "^data-recipe://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
+  "^data-recipe://[^\\s]{1,500}$",
+  "^dataset-snapshot://[^\\s]{1,500}$",
+  "^dataset-snapshot://foundry/[0-9a-f]{64}$",
   "^decision://[A-Za-z0-9._:/-]+$",
   "^decision://[^\\s]{1,248}$",
   "^decision://[^\\s]{1,500}$",
@@ -19141,10 +20036,12 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^endpoint://[^\\s]{1,240}$",
   "^enforcement-coverage://[^\\s]{1,248}$",
   "^environment-backup://[^\\s]{1,240}$",
+  "^environment-backup://[^\\s]{1,500}$",
   "^environment-port://[^\\s]{1,240}$",
   "^environment-route-binding://[^\\s?#\\\\]{1,180}/revision/[1-9][0-9]{0,15}$",
   "^environment-service://[^\\s]{1,240}$",
   "^environment://[^\\s]{1,240}$",
+  "^environment://[^\\s]{1,500}$",
   "^estop://[^\\s]+$",
   "^event-stream://[a-z0-9][a-z0-9._-]*/[A-Za-z0-9._:-]+$",
   "^evidence://[^\\s]{1,240}$",
@@ -19154,6 +20051,8 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^failure-domain://[^\\s]{1,248}$",
   "^fee-basis://[^\\s]{1,248}$",
   "^finding://[^\\s]{1,500}$",
+  "^foundry-recipe://[^\\s]{1,440}/revision/[1-9][0-9]*$",
+  "^foundry-recipe://[^\\s]{1,500}$",
   "^frontier://[^\\s]{1,500}$",
   "^gate_[0-9a-f]{1,32}$",
   "^genesis://[A-Za-z0-9._:/-]+$",
@@ -19194,10 +20093,12 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^key://[^\\s]{1,500}$",
   "^keyset://[^\\s]+$",
   "^lease://[^\\s]{1,248}$",
+  "^lease://[^\\s]{1,500}$",
   "^lifecycle-profile://[^\\s]{1,248}$",
   "^lifecycle-profile://[^\\s]{1,500}$",
   "^lifecycle-transition://[A-Za-z0-9._:/-]+$",
   "^lifecycle-transition://[^\\s]{1,248}$",
+  "^lifecycle:[^\\s]{1,500}$",
   "^local-agent-pairing://[^\\s]{1,500}$",
   "^lost-suffix://[^\\s]{1,248}$",
   "^mcp-gateway-requirement://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
@@ -19221,6 +20122,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^ordering-profile://[^\\s]{1,248}$",
   "^ordering-profile://[^\\s]{1,500}$",
   "^ordering-recovery://[^\\s]{1,248}$",
+  "^org://[^\\s?#\\\\]+$",
   "^org://\\S*$",
   "^org://\\S+$",
   "^outcome-delta://[^\\s]{1,500}$",
@@ -19250,6 +20152,8 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^prim:[a-z][a-z0-9._-]{0,127}$",
   "^privacy:[^\\s]{1,200}$",
   "^profile://[^\\s]{1,248}$",
+  "^profile://[^\\s]{1,500}$",
+  "^project://[^\\s?#\\\\]+$",
   "^project://\\S*$",
   "^project:[^\\s]{1,200}$",
   "^projection://hypervisor/product-surface/\\S*$",
@@ -19257,6 +20161,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^proposal://[A-Za-z0-9._:/-]+$",
   "^proposal://[^\\s]{1,248}$",
   "^provenance://[^\\s]{1,248}$",
+  "^qualification-proposal://foundry/[^\\s]{1,500}$",
   "^query://hypervisor/\\S+$",
   "^quote://[^\\s]{1,500}$",
   "^receipt-checkpoint://[^\\s]+$",
@@ -19273,18 +20178,23 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^receipt://[^\\s]{1,500}$",
   "^receipt://asar_[0-9a-f]{64}$",
   "^receipt://aszmr_[0-9a-f]{64}$",
+  "^receipt://hypervisor/principal-tenant-membership/[0-9a-f]{64}$",
   "^receipt://ltr_[0-9a-f]{64}$",
   "^receipt[^\\s]{1,260}$",
   "^recipe_[0-9a-f]{1,32}$",
   "^reference://[^\\s]{1,248}$",
+  "^release://[^\\s]{1,500}$",
   "^repository://[^\\s]{1,224}$",
   "^reso_[0-9a-f]{1,32}$",
   "^resource-lease://[^\\s]+$",
   "^resource-offer://[^\\s]{1,500}$",
+  "^restore-[^\\s]{1,500}$",
   "^room-discovery://[^\\s]{1,500}$",
   "^routing-decision://[^\\s]{1,500}$",
   "^run://[^\\s]+$",
+  "^runtime-assignment://[^\\s]{1,500}$",
   "^runtime://[^\\s]{1,248}$",
+  "^runtime://[^\\s]{1,500}$",
   "^runtime://\\S*$",
   "^safety://[^\\s]+$",
   "^sao_[0-9a-f]+$",
@@ -19325,8 +20235,10 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^storage-archive://[^\\s]+$",
   "^storage-archive://sao_[0-9a-f]+$",
   "^storage-backend://[^\\s]+$",
+  "^storage-profile://[^\\s]{1,500}$",
   "^storage://[^\\s]+$",
   "^storage://[^\\s]{1,240}$",
+  "^storage://[^\\s]{1,500}$",
   "^subscription-lease://[A-Za-z0-9._:-]+$",
   "^surface-serving://\\S*$",
   "^surface://[^\\s]{1,500}$",
@@ -19354,12 +20266,15 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^target-binding:[^\\s]{1,240}$",
   "^task://[^\\s]+$",
   "^temporal-evaluation://[^\\s]{1,248}$",
+  "^tenant-membership://hypervisor/[0-9a-f]{64}/revision/[1-9][0-9]*$",
   "^terms://[^\\s]{1,248}$",
   "^terms://[^\\s]{1,500}$",
   "^tool://[A-Za-z0-9._~:/-]+$",
   "^tool://[A-Za-z0-9._~:/-]+/revision/[A-Za-z0-9._~-]+$",
   "^tool://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
+  "^trainpipe://[^\\s]{1,500}$",
   "^transition://[^\\s]{1,248}$",
+  "^user://[^\\s/?#\\\\]+$",
   "^vault://[^\\s]{1,248}$",
   "^verification://[^\\s]{1,248}$",
   "^verifier-challenge://[^\\s]{1,500}$",
@@ -19446,6 +20361,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/hypervisor/hypervisor-session-launch-recipe-admission/v1": "sha256:689bfc17c504c046e8817d52c077c25d99dd9b55c9e5e3fec7cd1964c2c06c89",
   "schema://ioi/components/hypervisor/mutation-receipt/v1": "sha256:608784081d9e0bb6584543f28ba3082325a75ddbfa7ecdac976af0a83cfa1e7c",
   "schema://ioi/components/hypervisor/preference-record/v1": "sha256:55d783b8b59c2eeb519f37a65dafa7996718f343634a1b1193d9bed738334155",
+  "schema://ioi/components/hypervisor/principal-tenant-membership-receipt/v1": "sha256:2a6c08df5ae9b9b8c12e43eb8555062c691bc1ee6d21bd48744a8a947e29b381",
   "schema://ioi/components/hypervisor/product-surface-projection/v1": "sha256:cc530c54a5f51661e39430a90f787a0bef17870680417f61f884f4a91881306e",
   "schema://ioi/components/hypervisor/route-retirement-refusal/v1": "sha256:6add3b557f9b25684a4ad6172bba6de8d147133d01c2835ba52b9d4f71ef290e",
   "schema://ioi/components/hypervisor/storage-archive-object/v1": "sha256:23447556ad5e93292fbe613fb3cfc326424edb8599ab31d1e57aff1f96793fc3",
@@ -19535,7 +20451,18 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/objects/attempt-envelope/v1": "sha256:5884e7798b927a8243c1313b9b89dc4de3b6f17e345e616bd830bb0b2ec3c5fe",
   "schema://ioi/foundations/objects/finding-envelope/v1": "sha256:3f6670b624ce8921e3aacaa62a3caa25bf7754e325f2848050cb54d0b78887d5",
   "schema://ioi/foundations/objects/work-result-envelope/v1": "sha256:71268aebf0e18716c1d964bb99c403542ff87b7dc39365e24fc4d21071963c04",
-  "schema://ioi/foundations/objects/outcome-delta-envelope/v1": "sha256:d2e27d92cb2812358fddd2d10c5dcb47d6e0f7563306cb2f2dc90bc74aa03350"
+  "schema://ioi/foundations/objects/outcome-delta-envelope/v1": "sha256:d2e27d92cb2812358fddd2d10c5dcb47d6e0f7563306cb2f2dc90bc74aa03350",
+  "schema://ioi/components/daemon-runtime/managed-worker-runtime-policy/v1": "sha256:d7effb315d112dc5945e1f1e4f6e65818cd76a51d7090533da6e1b2f81c7769f",
+  "schema://ioi/components/daemon-runtime/managed-worker-instance-state/v1": "sha256:a267d51ea7c58fbd52c516c37e42e7bc6db2077787781b7eea8405da9dcebe2c",
+  "schema://ioi/foundations/runtime-assignment/v1": "sha256:c4fd87258db991ed9c185e99806426813e38ec2c86a2cc1f0c8a61edb75a4c54",
+  "schema://ioi/components/daemon-runtime/compute-session/v1": "sha256:ed6f3f8e7a51cab064c06d906da7e8eddc5c1cb520512b7916f2a252b8775267",
+  "schema://ioi/components/storage-backends/managed-storage-profile/v1": "sha256:0a168d32033c6a52de020cc5e5dccb24c3a0766e0aeef56a41518adffae2cc58",
+  "schema://ioi/components/hypervisor/managed-restore-plan/v1": "sha256:6a498f0b7d088394dbb949d64ecb2f89a7cd982885f52e1d0839faba284c5845",
+  "schema://ioi/components/hypervisor/foundry-recipe-revision/v1": "sha256:f2ad51d460c838866e3ae3e45ff265d33dd0e2080c98b278d3d7cdb312ce7592",
+  "schema://ioi/components/hypervisor/foundry-dataset-snapshot/v1": "sha256:e6bb2de2420013ae71b7fbc14748de13128f429e4120d4ef2dc4eacdf66723c3",
+  "schema://ioi/components/hypervisor/foundry-training-program/v1": "sha256:389c0eec02944b340660f0070b982a16b75e3fb3a942e5af116cfd7f6d3b5eb1",
+  "schema://ioi/components/hypervisor/foundry-checkpoint-artifact/v1": "sha256:01f3a640cd573a50d6088b6b48f05440931208718c956e886cac9253cfb578e2",
+  "schema://ioi/components/hypervisor/foundry-qualified-measurement/v1": "sha256:de7a97b715688c7510c6c1bb2935c24ee24bf99db285742412631246568f6c94"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -38072,6 +38999,179 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "pattern": "^agentgres://state-root/\\S+$"
       },
       "updated_at": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/principal-tenant-membership-receipt/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/principal-tenant-membership-receipt/v1",
+    "title": "HypervisorPrincipalTenantMembershipReceipt",
+    "description": "An immutable deployment-local successor that binds one authenticated local principal to one exact organization or project visibility tenant. It is surface membership evidence only and never effect authority.",
+    "x-ioi-schema-version": "ioi.hypervisor.principal_tenant_membership_receipt.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "membership_ref",
+      "receipt_ref",
+      "principal_ref",
+      "tenant_ref",
+      "tenant_kind",
+      "status",
+      "revision",
+      "predecessor_membership_ref",
+      "predecessor_transition_hash",
+      "changed_by_principal_ref",
+      "change_source",
+      "reason",
+      "idempotency_key_hash",
+      "request_hash",
+      "transition_hash",
+      "changed_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.hypervisor.principal_tenant_membership_receipt.v1"
+      },
+      "membership_ref": {
+        "type": "string",
+        "pattern": "^tenant-membership://hypervisor/[0-9a-f]{64}/revision/[1-9][0-9]*$"
+      },
+      "receipt_ref": {
+        "type": "string",
+        "pattern": "^receipt://hypervisor/principal-tenant-membership/[0-9a-f]{64}$"
+      },
+      "principal_ref": {
+        "type": "string",
+        "maxLength": 487,
+        "pattern": "^user://[^\\s/?#\\\\]+$"
+      },
+      "tenant_ref": {
+        "type": "string",
+        "maxLength": 500,
+        "pattern": "^(?:org|project)://[^\\s?#\\\\]+$"
+      },
+      "tenant_kind": {
+        "enum": [
+          "organization",
+          "project"
+        ]
+      },
+      "status": {
+        "enum": [
+          "active",
+          "revoked"
+        ]
+      },
+      "revision": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 9007199254740991
+      },
+      "predecessor_membership_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^tenant-membership://hypervisor/[0-9a-f]{64}/revision/[1-9][0-9]*$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "predecessor_transition_hash": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/hash"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "changed_by_principal_ref": {
+        "type": "string",
+        "maxLength": 487,
+        "pattern": "^user://[^\\s/?#\\\\]+$"
+      },
+      "change_source": {
+        "enum": [
+          "deployment_bootstrap",
+          "admin_api",
+          "org_invite",
+          "sso_auto_join",
+          "scim_provisioning"
+        ]
+      },
+      "reason": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      },
+      "idempotency_key_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "request_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "transition_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "changed_at": {
+        "$ref": "#/$defs/canonicalDateTime"
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "tenant_kind": {
+              "const": "organization"
+            }
+          },
+          "required": [
+            "tenant_kind"
+          ]
+        },
+        "then": {
+          "properties": {
+            "tenant_ref": {
+              "type": "string",
+              "pattern": "^org://[^\\s?#\\\\]+$"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "tenant_kind": {
+              "const": "project"
+            }
+          },
+          "required": [
+            "tenant_kind"
+          ]
+        },
+        "then": {
+          "properties": {
+            "tenant_ref": {
+              "type": "string",
+              "pattern": "^project://[^\\s?#\\\\]+$"
+            }
+          }
+        }
+      }
+    ],
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "canonicalDateTime": {
         "type": "string",
         "format": "date-time",
         "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
@@ -70430,6 +71530,2907 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         ]
       }
     }
+  },
+  "schema://ioi/components/daemon-runtime/managed-worker-runtime-policy/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/daemon-runtime/managed-worker-runtime-policy/v1",
+    "title": "ManagedWorkerRuntimePolicy",
+    "description": "Closed runtime, idle, checkpoint, placement-fallback, privacy, spend, retention, and replica policy embedded in the bounded managed-worker instance state.",
+    "x-ioi-schema-version": "ioi.managed-worker-runtime-policy.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "persistence_profile",
+      "idle_threshold_seconds",
+      "minimum_warm_seconds",
+      "wake_sources",
+      "maximum_cold_start_seconds",
+      "maximum_restore_age_seconds",
+      "checkpoint_cadence_seconds",
+      "pre_stop_checkpoint_required",
+      "provider_idle_semantics",
+      "fallback_placement_refs",
+      "privacy_floor_ref",
+      "spend_ceiling_ref",
+      "archive_retention_policy_ref",
+      "minimum_backup_replicas"
+    ],
+    "properties": {
+      "persistence_profile": {
+        "enum": [
+          "ephemeral",
+          "session",
+          "zero_to_idle",
+          "persistent"
+        ]
+      },
+      "idle_threshold_seconds": {
+        "$ref": "#/$defs/nonnegativeInteger"
+      },
+      "minimum_warm_seconds": {
+        "$ref": "#/$defs/nonnegativeInteger"
+      },
+      "wake_sources": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "enum": [
+            "user",
+            "schedule",
+            "webhook",
+            "queue",
+            "approved_event",
+            "recovery"
+          ]
+        }
+      },
+      "maximum_cold_start_seconds": {
+        "$ref": "#/$defs/positiveInteger"
+      },
+      "maximum_restore_age_seconds": {
+        "$ref": "#/$defs/positiveInteger"
+      },
+      "checkpoint_cadence_seconds": {
+        "$ref": "#/$defs/positiveInteger"
+      },
+      "pre_stop_checkpoint_required": {
+        "type": "boolean"
+      },
+      "provider_idle_semantics": {
+        "enum": [
+          "stop",
+          "close"
+        ]
+      },
+      "fallback_placement_refs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "privacy_floor_ref": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,500}$"
+      },
+      "spend_ceiling_ref": {
+        "type": "string",
+        "pattern": "^(?:policy|budget)://[^\\s]{1,500}$"
+      },
+      "archive_retention_policy_ref": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,500}$"
+      },
+      "minimum_backup_replicas": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 65535
+      }
+    },
+    "$defs": {
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      },
+      "nonnegativeInteger": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "positiveInteger": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 9007199254740991
+      }
+    }
+  },
+  "schema://ioi/components/daemon-runtime/managed-worker-instance-state/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/daemon-runtime/managed-worker-instance-state/v1",
+    "title": "ManagedWorkerInstanceState",
+    "description": "The bounded daemon-admitted managed-worker aggregate: exact runtime policy, optional placement/session, backup and state commitments, and replay-safe proposal/commit/rejection evidence. Agentgres projection metadata is deliberately outside these canonical bytes.",
+    "x-ioi-schema-version": "ioi.managed-worker-instance-state.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "instance_id",
+      "lifecycle_id",
+      "owner_ref",
+      "worker_package_ref",
+      "config_revision_ref",
+      "revision",
+      "state",
+      "runtime_policy",
+      "runtime_policy_hash",
+      "authority_grant_refs",
+      "runtime_assignment",
+      "compute_session",
+      "latest_verified_backup_ref",
+      "latest_state_root",
+      "pending_transition",
+      "last_transition"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.managed-worker-instance-state.v1"
+      },
+      "instance_id": {
+        "type": "string",
+        "pattern": "^agent://[^\\s]{1,500}$"
+      },
+      "lifecycle_id": {
+        "type": "string",
+        "pattern": "^lifecycle:[^\\s]{1,500}$"
+      },
+      "owner_ref": {
+        "type": "string",
+        "pattern": "^(?:wallet|org|project)://[^\\s]{1,500}$"
+      },
+      "worker_package_ref": {
+        "type": "string",
+        "pattern": "^(?:worker-package|package)://[^\\s]{1,500}$"
+      },
+      "config_revision_ref": {
+        "type": "string",
+        "pattern": "^(?:config-revision|artifact)://[^\\s]{1,500}$"
+      },
+      "revision": {
+        "$ref": "#/$defs/positiveInteger"
+      },
+      "state": {
+        "$ref": "#/$defs/lifecycleState"
+      },
+      "runtime_policy": {
+        "$ref": "#/$defs/runtimePolicy"
+      },
+      "runtime_policy_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "authority_grant_refs": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "$ref": "#/$defs/nonempty"
+        }
+      },
+      "runtime_assignment": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/runtimeAssignment"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "compute_session": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/computeSession"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "latest_verified_backup_ref": {
+        "$ref": "#/$defs/nullableRef"
+      },
+      "latest_state_root": {
+        "$ref": "#/$defs/nullableHash"
+      },
+      "pending_transition": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/pendingTransition"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "last_transition": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/lastTransition"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "nullableHash": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/hash"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "nonempty": {
+        "type": "string",
+        "minLength": 1
+      },
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      },
+      "nullableRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ref"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "nonnegativeInteger": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "positiveInteger": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 9007199254740991
+      },
+      "lifecycleState": {
+        "enum": [
+          "discover",
+          "installed",
+          "initializing",
+          "active",
+          "idle",
+          "zero_to_idle",
+          "suspended",
+          "payment_past_due",
+          "archived",
+          "restoring",
+          "migrated",
+          "exported",
+          "deleted",
+          "forgotten"
+        ]
+      },
+      "paymentStatus": {
+        "enum": [
+          "current",
+          "past_due",
+          "canceled",
+          "settled",
+          "not_applicable"
+        ]
+      },
+      "runtimePolicy": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "persistence_profile",
+          "idle_threshold_seconds",
+          "minimum_warm_seconds",
+          "wake_sources",
+          "maximum_cold_start_seconds",
+          "maximum_restore_age_seconds",
+          "checkpoint_cadence_seconds",
+          "pre_stop_checkpoint_required",
+          "provider_idle_semantics",
+          "fallback_placement_refs",
+          "privacy_floor_ref",
+          "spend_ceiling_ref",
+          "archive_retention_policy_ref",
+          "minimum_backup_replicas"
+        ],
+        "properties": {
+          "persistence_profile": {
+            "enum": [
+              "ephemeral",
+              "session",
+              "zero_to_idle",
+              "persistent"
+            ]
+          },
+          "idle_threshold_seconds": {
+            "$ref": "#/$defs/nonnegativeInteger"
+          },
+          "minimum_warm_seconds": {
+            "$ref": "#/$defs/nonnegativeInteger"
+          },
+          "wake_sources": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "enum": [
+                "user",
+                "schedule",
+                "webhook",
+                "queue",
+                "approved_event",
+                "recovery"
+              ]
+            }
+          },
+          "maximum_cold_start_seconds": {
+            "$ref": "#/$defs/positiveInteger"
+          },
+          "maximum_restore_age_seconds": {
+            "$ref": "#/$defs/positiveInteger"
+          },
+          "checkpoint_cadence_seconds": {
+            "$ref": "#/$defs/positiveInteger"
+          },
+          "pre_stop_checkpoint_required": {
+            "type": "boolean"
+          },
+          "provider_idle_semantics": {
+            "enum": [
+              "stop",
+              "close"
+            ]
+          },
+          "fallback_placement_refs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/ref"
+            }
+          },
+          "privacy_floor_ref": {
+            "type": "string",
+            "pattern": "^policy://[^\\s]{1,500}$"
+          },
+          "spend_ceiling_ref": {
+            "type": "string",
+            "pattern": "^(?:policy|budget)://[^\\s]{1,500}$"
+          },
+          "archive_retention_policy_ref": {
+            "type": "string",
+            "pattern": "^policy://[^\\s]{1,500}$"
+          },
+          "minimum_backup_replicas": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          }
+        }
+      },
+      "placement": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "runtime_node_ref",
+          "daemon_profile_ref",
+          "environment_ref",
+          "provider_ref",
+          "quote_ref",
+          "budget_reservation_ref",
+          "assignment_lease_ref",
+          "isolation_binding_ref",
+          "readiness_evidence_refs"
+        ],
+        "properties": {
+          "runtime_node_ref": {
+            "type": "string",
+            "pattern": "^runtime://[^\\s]{1,500}$"
+          },
+          "daemon_profile_ref": {
+            "type": "string",
+            "pattern": "^profile://[^\\s]{1,500}$"
+          },
+          "environment_ref": {
+            "type": "string",
+            "pattern": "^environment://[^\\s]{1,500}$"
+          },
+          "provider_ref": {
+            "type": "string",
+            "pattern": "^(?:provider|provider-account)://[^\\s]{1,500}$"
+          },
+          "quote_ref": {
+            "$ref": "#/$defs/nullableRef"
+          },
+          "budget_reservation_ref": {
+            "$ref": "#/$defs/nullableRef"
+          },
+          "assignment_lease_ref": {
+            "type": "string",
+            "pattern": "^lease://[^\\s]{1,500}$"
+          },
+          "isolation_binding_ref": {
+            "type": "string",
+            "pattern": "^(?:workload-isolation-binding|binding)://[^\\s]{1,500}$"
+          },
+          "readiness_evidence_refs": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/$defs/ref"
+            }
+          }
+        }
+      },
+      "runtimeAssignment": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "runtime_assignment_id",
+          "assignment_epoch",
+          "placement",
+          "assignment_hash",
+          "status"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "ioi.runtime-assignment.v1"
+          },
+          "runtime_assignment_id": {
+            "type": "string",
+            "pattern": "^runtime-assignment://[^\\s]{1,500}$"
+          },
+          "assignment_epoch": {
+            "$ref": "#/$defs/positiveInteger"
+          },
+          "placement": {
+            "$ref": "#/$defs/placement"
+          },
+          "assignment_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "status": {
+            "enum": [
+              "admitted",
+              "active",
+              "closed",
+              "completed"
+            ]
+          }
+        }
+      },
+      "computeSession": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "compute_session_ref",
+          "runtime_assignment_ref",
+          "environment_ref",
+          "provider_ref",
+          "status",
+          "readiness_evidence_refs"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "ioi.compute-session.v1"
+          },
+          "compute_session_ref": {
+            "type": "string",
+            "pattern": "^compute://[^\\s]{1,500}$"
+          },
+          "runtime_assignment_ref": {
+            "type": "string",
+            "pattern": "^runtime-assignment://[^\\s]{1,500}$"
+          },
+          "environment_ref": {
+            "type": "string",
+            "pattern": "^environment://[^\\s]{1,500}$"
+          },
+          "provider_ref": {
+            "type": "string",
+            "pattern": "^(?:provider|provider-account)://[^\\s]{1,500}$"
+          },
+          "status": {
+            "enum": [
+              "ready",
+              "ended"
+            ]
+          },
+          "readiness_evidence_refs": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/$defs/ref"
+            }
+          },
+          "provider_close_receipt_ref": {
+            "$ref": "#/$defs/nullableRef"
+          }
+        }
+      },
+      "archivePolicy": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "archive_after",
+          "retain_for",
+          "storage_policy_ref"
+        ],
+        "properties": {
+          "archive_after": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "retain_for": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "storage_policy_ref": {
+            "type": "string",
+            "pattern": "^(?:policy|storage-policy)(?:://|:)[^\\s]{1,500}$"
+          }
+        }
+      },
+      "restorePolicy": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "restore_requires",
+          "restore_receipt_required"
+        ],
+        "properties": {
+          "restore_requires": {
+            "$ref": "#/$defs/stepUpMode"
+          },
+          "restore_receipt_required": {
+            "const": true
+          }
+        }
+      },
+      "exportPolicy": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "export_requires"
+        ],
+        "properties": {
+          "export_requires": {
+            "$ref": "#/$defs/stepUpMode"
+          }
+        }
+      },
+      "deletionPolicy": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "delete_runtime_state",
+          "delete_archives",
+          "forget_semantic_memory"
+        ],
+        "properties": {
+          "delete_runtime_state": {
+            "type": "boolean"
+          },
+          "delete_archives": {
+            "type": "boolean"
+          },
+          "forget_semantic_memory": {
+            "type": "boolean"
+          }
+        }
+      },
+      "stepUpMode": {
+        "enum": [
+          "authority_step_up",
+          "wallet_step_up",
+          "org_quorum",
+          "admin_policy"
+        ]
+      },
+      "nullableArchivePolicy": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/archivePolicy"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "nullableRestorePolicy": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/restorePolicy"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "nullableExportPolicy": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/exportPolicy"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "nullableDeletionPolicy": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/deletionPolicy"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "transitionRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "expected_head",
+          "idempotency_key",
+          "to_state",
+          "transition_reason",
+          "payment_status",
+          "authority_scope_refs",
+          "authority_grant_refs",
+          "policy_refs",
+          "required_controls",
+          "wallet_approval_ref",
+          "latest_state_root",
+          "backup_ref",
+          "restore_import_ref",
+          "migration_target_ref",
+          "provider_close_receipt_ref",
+          "high_risk_orders_paused",
+          "new_billable_work_blocked",
+          "archive_policy",
+          "restore_policy",
+          "export_policy",
+          "deletion_policy",
+          "placement"
+        ],
+        "properties": {
+          "expected_head": {
+            "$ref": "#/$defs/hash"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "to_state": {
+            "$ref": "#/$defs/lifecycleState"
+          },
+          "transition_reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "payment_status": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/paymentStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "authority_scope_refs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/nonempty"
+            }
+          },
+          "authority_grant_refs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/nonempty"
+            }
+          },
+          "policy_refs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/nonempty"
+            }
+          },
+          "required_controls": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/nonempty"
+            }
+          },
+          "wallet_approval_ref": {
+            "$ref": "#/$defs/nullableRef"
+          },
+          "latest_state_root": {
+            "$ref": "#/$defs/nullableHash"
+          },
+          "backup_ref": {
+            "$ref": "#/$defs/nullableRef"
+          },
+          "restore_import_ref": {
+            "$ref": "#/$defs/nullableRef"
+          },
+          "migration_target_ref": {
+            "$ref": "#/$defs/nullableRef"
+          },
+          "provider_close_receipt_ref": {
+            "$ref": "#/$defs/nullableRef"
+          },
+          "high_risk_orders_paused": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "new_billable_work_blocked": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "archive_policy": {
+            "$ref": "#/$defs/nullableArchivePolicy"
+          },
+          "restore_policy": {
+            "$ref": "#/$defs/nullableRestorePolicy"
+          },
+          "export_policy": {
+            "$ref": "#/$defs/nullableExportPolicy"
+          },
+          "deletion_policy": {
+            "$ref": "#/$defs/nullableDeletionPolicy"
+          },
+          "placement": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/placement"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "pendingTransition": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "request_hash",
+          "idempotency_key",
+          "to_state",
+          "request"
+        ],
+        "properties": {
+          "request_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "to_state": {
+            "$ref": "#/$defs/lifecycleState"
+          },
+          "request": {
+            "$ref": "#/$defs/transitionRequest"
+          }
+        }
+      },
+      "lifecycleAdmission": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "transition_id",
+          "lifecycle_id",
+          "worker_instance_id",
+          "worker_package_ref",
+          "owner_ref",
+          "from_state",
+          "to_state",
+          "state",
+          "persistence_profile",
+          "payment_status",
+          "transition_reason",
+          "freezes_new_billable_work",
+          "pauses_high_risk_standing_orders",
+          "latest_state_root",
+          "archive_policy",
+          "restore_policy",
+          "export_policy",
+          "deletion_policy",
+          "archive_refs",
+          "artifact_refs",
+          "authority_scope_refs",
+          "authority_grant_refs",
+          "policy_refs",
+          "wallet_approval_ref",
+          "restore_import_ref",
+          "migration_target_ref",
+          "agentgres_operation_refs",
+          "receipt_refs",
+          "runtimeTruthSource"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "ioi.runtime.managed_worker_instance_lifecycle_admission.v1"
+          },
+          "transition_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "lifecycle_id": {
+            "type": "string",
+            "pattern": "^lifecycle:[^\\s]{1,500}$"
+          },
+          "worker_instance_id": {
+            "type": "string",
+            "pattern": "^agent://[^\\s]{1,500}$"
+          },
+          "worker_package_ref": {
+            "$ref": "#/$defs/nullableRef"
+          },
+          "owner_ref": {
+            "type": "string",
+            "pattern": "^(?:wallet|org|project)://[^\\s]{1,500}$"
+          },
+          "from_state": {
+            "$ref": "#/$defs/lifecycleState"
+          },
+          "to_state": {
+            "$ref": "#/$defs/lifecycleState"
+          },
+          "state": {
+            "$ref": "#/$defs/lifecycleState"
+          },
+          "persistence_profile": {
+            "enum": [
+              "ephemeral",
+              "session",
+              "zero_to_idle",
+              "persistent"
+            ]
+          },
+          "payment_status": {
+            "$ref": "#/$defs/paymentStatus"
+          },
+          "transition_reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "freezes_new_billable_work": {
+            "type": "boolean"
+          },
+          "pauses_high_risk_standing_orders": {
+            "type": "boolean"
+          },
+          "latest_state_root": {
+            "$ref": "#/$defs/nullableHash"
+          },
+          "archive_policy": {
+            "$ref": "#/$defs/nullableArchivePolicy"
+          },
+          "restore_policy": {
+            "$ref": "#/$defs/nullableRestorePolicy"
+          },
+          "export_policy": {
+            "$ref": "#/$defs/nullableExportPolicy"
+          },
+          "deletion_policy": {
+            "$ref": "#/$defs/nullableDeletionPolicy"
+          },
+          "archive_refs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/ref"
+            }
+          },
+          "artifact_refs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/ref"
+            }
+          },
+          "authority_scope_refs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/nonempty"
+            }
+          },
+          "authority_grant_refs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/nonempty"
+            }
+          },
+          "policy_refs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/nonempty"
+            }
+          },
+          "wallet_approval_ref": {
+            "$ref": "#/$defs/nullableRef"
+          },
+          "restore_import_ref": {
+            "$ref": "#/$defs/nullableRef"
+          },
+          "migration_target_ref": {
+            "$ref": "#/$defs/nullableRef"
+          },
+          "agentgres_operation_refs": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/$defs/ref"
+            }
+          },
+          "receipt_refs": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/$defs/ref"
+            }
+          },
+          "runtimeTruthSource": {
+            "const": "daemon-runtime"
+          }
+        }
+      },
+      "errorResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ok",
+          "error"
+        ],
+        "properties": {
+          "ok": {
+            "const": false
+          },
+          "error": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "code",
+              "message"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              },
+              "message": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      },
+      "lastTransition": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "request_hash",
+          "idempotency_key",
+          "proposal_operation_ref",
+          "proposal_receipt_ref",
+          "admission",
+          "error_status",
+          "error_response"
+        ],
+        "properties": {
+          "status": {
+            "enum": [
+              "committed",
+              "rejected"
+            ]
+          },
+          "request_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "proposal_operation_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "proposal_receipt_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "admission": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/lifecycleAdmission"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error_status": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 100,
+                "maximum": 599
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error_response": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/errorResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "committed"
+                }
+              },
+              "required": [
+                "status"
+              ]
+            },
+            "then": {
+              "properties": {
+                "admission": {
+                  "$ref": "#/$defs/lifecycleAdmission"
+                },
+                "error_status": {
+                  "type": "null"
+                },
+                "error_response": {
+                  "type": "null"
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "admission": {
+                  "type": "null"
+                },
+                "error_status": {
+                  "type": "integer",
+                  "minimum": 100,
+                  "maximum": 599
+                },
+                "error_response": {
+                  "$ref": "#/$defs/errorResponse"
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  "schema://ioi/foundations/runtime-assignment/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/runtime-assignment/v1",
+    "title": "RuntimeAssignment",
+    "description": "The bounded managed-runtime placement commitment currently admitted by the daemon. It is placement evidence, not work authority, provider execution proof, or the broader planned cross-domain assignment family.",
+    "x-ioi-schema-version": "ioi.runtime-assignment.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "runtime_assignment_id",
+      "assignment_epoch",
+      "placement",
+      "assignment_hash",
+      "status"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.runtime-assignment.v1"
+      },
+      "runtime_assignment_id": {
+        "type": "string",
+        "pattern": "^runtime-assignment://[^\\s]{1,500}$"
+      },
+      "assignment_epoch": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 9007199254740991
+      },
+      "placement": {
+        "$ref": "#/$defs/placement"
+      },
+      "assignment_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "status": {
+        "enum": [
+          "admitted",
+          "active",
+          "closed",
+          "completed"
+        ]
+      }
+    },
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      },
+      "nullableRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ref"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "placement": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "runtime_node_ref",
+          "daemon_profile_ref",
+          "environment_ref",
+          "provider_ref",
+          "quote_ref",
+          "budget_reservation_ref",
+          "assignment_lease_ref",
+          "isolation_binding_ref",
+          "readiness_evidence_refs"
+        ],
+        "properties": {
+          "runtime_node_ref": {
+            "type": "string",
+            "pattern": "^runtime://[^\\s]{1,500}$"
+          },
+          "daemon_profile_ref": {
+            "type": "string",
+            "pattern": "^profile://[^\\s]{1,500}$"
+          },
+          "environment_ref": {
+            "type": "string",
+            "pattern": "^environment://[^\\s]{1,500}$"
+          },
+          "provider_ref": {
+            "type": "string",
+            "pattern": "^(?:provider|provider-account)://[^\\s]{1,500}$"
+          },
+          "quote_ref": {
+            "$ref": "#/$defs/nullableRef"
+          },
+          "budget_reservation_ref": {
+            "$ref": "#/$defs/nullableRef"
+          },
+          "assignment_lease_ref": {
+            "type": "string",
+            "pattern": "^lease://[^\\s]{1,500}$"
+          },
+          "isolation_binding_ref": {
+            "type": "string",
+            "pattern": "^(?:workload-isolation-binding|binding)://[^\\s]{1,500}$"
+          },
+          "readiness_evidence_refs": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/$defs/ref"
+            }
+          }
+        }
+      }
+    }
+  },
+  "schema://ioi/components/daemon-runtime/compute-session/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/daemon-runtime/compute-session/v1",
+    "title": "ComputeSession",
+    "description": "Bounded managed-runtime compute-session readiness and terminal-close projection bound to one runtime assignment.",
+    "x-ioi-schema-version": "ioi.compute-session.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "compute_session_ref",
+      "runtime_assignment_ref",
+      "environment_ref",
+      "provider_ref",
+      "status",
+      "readiness_evidence_refs"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.compute-session.v1"
+      },
+      "compute_session_ref": {
+        "type": "string",
+        "pattern": "^compute://[^\\s]{1,500}$"
+      },
+      "runtime_assignment_ref": {
+        "type": "string",
+        "pattern": "^runtime-assignment://[^\\s]{1,500}$"
+      },
+      "environment_ref": {
+        "type": "string",
+        "pattern": "^environment://[^\\s]{1,500}$"
+      },
+      "provider_ref": {
+        "type": "string",
+        "pattern": "^(?:provider|provider-account)://[^\\s]{1,500}$"
+      },
+      "status": {
+        "enum": [
+          "ready",
+          "ended"
+        ]
+      },
+      "readiness_evidence_refs": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "provider_close_receipt_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ref"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "$defs": {
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      }
+    }
+  },
+  "schema://ioi/components/storage-backends/managed-storage-profile/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/storage-backends/managed-storage-profile/v1",
+    "title": "ManagedStorageProfile",
+    "description": "The bounded managed-persistence custody declaration admitted by the daemon. It does not claim the richer successor-versioned general StorageProfile family.",
+    "x-ioi-schema-version": "ioi.storage-profile.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "storage_profile_ref",
+      "owner_ref",
+      "backend_class",
+      "destination_ref",
+      "custody_policy_ref",
+      "encryption_ref",
+      "key_epoch_ref",
+      "retention_policy_ref",
+      "jurisdiction_refs",
+      "minimum_replicas",
+      "independent_compute_copy_required",
+      "export_allowed",
+      "authority_grant_refs",
+      "revision",
+      "profile_hash"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.storage-profile.v1"
+      },
+      "storage_profile_ref": {
+        "type": "string",
+        "pattern": "^storage-profile://[^\\s]{1,500}$"
+      },
+      "owner_ref": {
+        "type": "string",
+        "pattern": "^(?:wallet|org|project)://[^\\s]{1,500}$"
+      },
+      "backend_class": {
+        "enum": [
+          "local_private",
+          "object_store",
+          "cas_ipfs",
+          "filecoin_archive",
+          "customer_vpc"
+        ]
+      },
+      "destination_ref": {
+        "type": "string",
+        "pattern": "^storage://[^\\s]{1,500}$"
+      },
+      "custody_policy_ref": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,500}$"
+      },
+      "encryption_ref": {
+        "$ref": "#/$defs/nullableRef"
+      },
+      "key_epoch_ref": {
+        "$ref": "#/$defs/nullableRef"
+      },
+      "retention_policy_ref": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,500}$"
+      },
+      "jurisdiction_refs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "minimum_replicas": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 65535
+      },
+      "independent_compute_copy_required": {
+        "type": "boolean"
+      },
+      "export_allowed": {
+        "type": "boolean"
+      },
+      "authority_grant_refs": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "revision": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 9007199254740991
+      },
+      "profile_hash": {
+        "$ref": "#/$defs/hash"
+      }
+    },
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      },
+      "nullableRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ref"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/managed-restore-plan/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/managed-restore-plan/v1",
+    "title": "ManagedRestorePlan",
+    "description": "Prepared, applying, completed, or cancelled local-private restore plan over one verified HypervisorEnvironmentBackup and one target environment.",
+    "x-ioi-schema-version": "ioi.managed-restore-plan.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "plan_id",
+      "backup_ref",
+      "restore_manifest_root",
+      "source_state_root",
+      "target_environment_id",
+      "authority_grant_refs",
+      "status",
+      "preparation_verified"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.managed-restore-plan.v1"
+      },
+      "plan_id": {
+        "type": "string",
+        "pattern": "^restore-[^\\s]{1,500}$"
+      },
+      "backup_ref": {
+        "type": "string",
+        "pattern": "^environment-backup://[^\\s]{1,500}$"
+      },
+      "restore_manifest_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "source_state_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "target_environment_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      },
+      "authority_grant_refs": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "status": {
+        "enum": [
+          "prepared",
+          "applying",
+          "completed",
+          "cancelled"
+        ]
+      },
+      "preparation_verified": {
+        "const": true
+      },
+      "applied_state_root": {
+        "$ref": "#/$defs/hash"
+      }
+    },
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/foundry-recipe-revision/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/foundry-recipe-revision/v1",
+    "title": "FoundryRecipeRevision",
+    "description": "Immutable revision of the bounded executable Foundry data recipe, including exact rights, tokenizer, sequence, packing, loss-mask, harness, environment, operator, seed, and content commitments.",
+    "x-ioi-schema-version": "ioi.foundry-recipe-revision.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "recipe_id",
+      "recipe_revision_ref",
+      "revision",
+      "predecessor_recipe_ref",
+      "owner_ref",
+      "data_recipe_ref",
+      "source_snapshot_refs",
+      "institutional_learning_boundary_ref",
+      "learning_source_rights_claim_refs",
+      "tokenizer_ref",
+      "sequence_format_ref",
+      "packing_policy_ref",
+      "loss_mask_policy_ref",
+      "harness_variant_refs",
+      "environment_profile_ref",
+      "operators",
+      "split_seed",
+      "content_hash",
+      "status"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.foundry-recipe-revision.v1"
+      },
+      "recipe_id": {
+        "type": "string",
+        "pattern": "^foundry-recipe://[^\\s]{1,500}$"
+      },
+      "recipe_revision_ref": {
+        "type": "string",
+        "pattern": "^foundry-recipe://[^\\s]{1,440}/revision/[1-9][0-9]*$"
+      },
+      "revision": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 9007199254740991
+      },
+      "predecessor_recipe_ref": {
+        "$ref": "#/$defs/nullableRef"
+      },
+      "owner_ref": {
+        "type": "string",
+        "pattern": "^(?:wallet|org|project)://[^\\s]{1,500}$"
+      },
+      "data_recipe_ref": {
+        "type": "string",
+        "pattern": "^data-recipe://[^\\s]{1,500}$"
+      },
+      "source_snapshot_refs": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "$ref": "#/$defs/nonempty"
+        }
+      },
+      "institutional_learning_boundary_ref": {
+        "type": "string",
+        "pattern": "^(?:learning-boundary|policy)://[^\\s]{1,500}$"
+      },
+      "learning_source_rights_claim_refs": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "$ref": "#/$defs/nonempty"
+        }
+      },
+      "tokenizer_ref": {
+        "type": "string",
+        "pattern": "^(?:tokenizer|artifact)://[^\\s]{1,500}$"
+      },
+      "sequence_format_ref": {
+        "type": "string",
+        "pattern": "^(?:format|artifact|schema)://[^\\s]{1,500}$"
+      },
+      "packing_policy_ref": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,500}$"
+      },
+      "loss_mask_policy_ref": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,500}$"
+      },
+      "harness_variant_refs": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "$ref": "#/$defs/nonempty"
+        }
+      },
+      "environment_profile_ref": {
+        "type": "string",
+        "pattern": "^(?:profile|environment-profile)://[^\\s]{1,500}$"
+      },
+      "operators": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 64,
+        "items": {
+          "$ref": "#/$defs/operator"
+        }
+      },
+      "split_seed": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "content_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "status": {
+        "const": "ready"
+      }
+    },
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "nonempty": {
+        "type": "string",
+        "minLength": 1
+      },
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      },
+      "nullableRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ref"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "nullableName": {
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "nullableNames": {
+        "anyOf": [
+          {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "operator": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "field",
+          "fields",
+          "from",
+          "to"
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "normalize_whitespace",
+              "filter_nonempty",
+              "select_fields",
+              "deduplicate",
+              "rename_field"
+            ]
+          },
+          "field": {
+            "$ref": "#/$defs/nullableName"
+          },
+          "fields": {
+            "$ref": "#/$defs/nullableNames"
+          },
+          "from": {
+            "$ref": "#/$defs/nullableName"
+          },
+          "to": {
+            "$ref": "#/$defs/nullableName"
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "normalize_whitespace",
+                    "filter_nonempty"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": {
+              "properties": {
+                "field": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 500
+                },
+                "fields": {
+                  "type": "null"
+                },
+                "from": {
+                  "type": "null"
+                },
+                "to": {
+                  "type": "null"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "select_fields",
+                    "deduplicate"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": {
+              "properties": {
+                "field": {
+                  "type": "null"
+                },
+                "fields": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  }
+                },
+                "from": {
+                  "type": "null"
+                },
+                "to": {
+                  "type": "null"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "rename_field"
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": {
+              "properties": {
+                "field": {
+                  "type": "null"
+                },
+                "fields": {
+                  "type": "null"
+                },
+                "from": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 500
+                },
+                "to": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 500
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/foundry-dataset-snapshot/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/foundry-dataset-snapshot/v1",
+    "title": "FoundryDatasetSnapshot",
+    "description": "Immutable materialization of bounded Foundry recipe output with exact recipe, rights, content, row-count, and deterministic split commitments.",
+    "x-ioi-schema-version": "ioi.foundry-dataset-snapshot.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "dataset_snapshot_ref",
+      "recipe_revision_ref",
+      "recipe_content_hash",
+      "institutional_learning_boundary_ref",
+      "learning_source_rights_claim_refs",
+      "rights_grant_refs",
+      "content_manifest_ref",
+      "content_hash",
+      "row_count",
+      "split_counts",
+      "status"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.foundry-dataset-snapshot.v1"
+      },
+      "dataset_snapshot_ref": {
+        "type": "string",
+        "pattern": "^dataset-snapshot://foundry/[0-9a-f]{64}$"
+      },
+      "recipe_revision_ref": {
+        "type": "string",
+        "pattern": "^foundry-recipe://[^\\s]{1,440}/revision/[1-9][0-9]*$"
+      },
+      "recipe_content_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "institutional_learning_boundary_ref": {
+        "type": "string",
+        "pattern": "^(?:learning-boundary|policy)://[^\\s]{1,500}$"
+      },
+      "learning_source_rights_claim_refs": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "$ref": "#/$defs/nonempty"
+        }
+      },
+      "rights_grant_refs": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "$ref": "#/$defs/nonempty"
+        }
+      },
+      "content_manifest_ref": {
+        "type": "string",
+        "pattern": "^artifact://foundry-dataset/[0-9a-f]{64}$"
+      },
+      "content_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "row_count": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 10000
+      },
+      "split_counts": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "train": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "validation": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "test": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000
+          }
+        }
+      },
+      "status": {
+        "const": "materialized"
+      }
+    },
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "nonempty": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/foundry-training-program/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/foundry-training-program/v1",
+    "title": "FoundryTrainingProgram",
+    "description": "Restart-safe bounded reference-training program state. It records immutable dataset and recipe commitments, closed deterministic token-count rows, complete checkpoint projections, restore verification, and proposal-only qualification without claiming production trainer capability.",
+    "x-ioi-schema-version": "ioi.foundry-training-program.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "program_id",
+      "owner_ref",
+      "foundry_spec_ref",
+      "dataset_snapshot_ref",
+      "dataset_content_hash",
+      "recipe_content_hash",
+      "training_mode",
+      "trainer_backend_profile_ref",
+      "backend_scope",
+      "text_field",
+      "checkpoint_every_rows",
+      "seed",
+      "authority_grant_refs",
+      "rights_grant_refs",
+      "revision",
+      "status",
+      "data_cursor",
+      "processed_rows",
+      "processed_tokens",
+      "token_counts",
+      "checkpoint_refs",
+      "current_checkpoint",
+      "restore_verification",
+      "qualification",
+      "last_action_idempotency_key"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.foundry-training-program.v1"
+      },
+      "program_id": {
+        "type": "string",
+        "pattern": "^trainpipe://[^\\s]{1,500}$"
+      },
+      "owner_ref": {
+        "type": "string",
+        "pattern": "^(?:wallet|org|project)://[^\\s]{1,500}$"
+      },
+      "foundry_spec_ref": {
+        "$ref": "#/$defs/nullableRef"
+      },
+      "dataset_snapshot_ref": {
+        "type": "string",
+        "pattern": "^dataset-snapshot://[^\\s]{1,500}$"
+      },
+      "dataset_content_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "recipe_content_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "training_mode": {
+        "enum": [
+          "sft",
+          "adapter"
+        ]
+      },
+      "trainer_backend_profile_ref": {
+        "const": "trainer-backend://ioi/reference-token-frequency/v1"
+      },
+      "backend_scope": {
+        "const": "bounded_reference_pipeline_only"
+      },
+      "text_field": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      },
+      "checkpoint_every_rows": {
+        "$ref": "#/$defs/positiveInteger"
+      },
+      "seed": {
+        "$ref": "#/$defs/nonnegativeInteger"
+      },
+      "authority_grant_refs": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "$ref": "#/$defs/nonempty"
+        }
+      },
+      "rights_grant_refs": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "$ref": "#/$defs/nonempty"
+        }
+      },
+      "revision": {
+        "$ref": "#/$defs/positiveInteger"
+      },
+      "status": {
+        "enum": [
+          "admitted",
+          "running",
+          "paused",
+          "completed",
+          "cancelled"
+        ]
+      },
+      "data_cursor": {
+        "$ref": "#/$defs/nonnegativeInteger"
+      },
+      "processed_rows": {
+        "$ref": "#/$defs/nonnegativeInteger"
+      },
+      "processed_tokens": {
+        "$ref": "#/$defs/nonnegativeInteger"
+      },
+      "token_counts": {
+        "$ref": "#/$defs/tokenCountRows"
+      },
+      "checkpoint_refs": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "^checkpoint://[^\\s]{1,500}$"
+        }
+      },
+      "current_checkpoint": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/checkpointProjection"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "restore_verification": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/restoreVerification"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "qualification": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/qualification"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "last_action_idempotency_key": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      },
+      "last_action_request": {
+        "$ref": "#/$defs/actionRequest"
+      },
+      "reconciliation": {
+        "$ref": "#/$defs/reconciliation"
+      },
+      "qualification_proposal_ref": {
+        "type": "string",
+        "pattern": "^qualification-proposal://foundry/[^\\s]{1,500}$"
+      }
+    },
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "nonempty": {
+        "type": "string",
+        "minLength": 1
+      },
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      },
+      "nullableRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ref"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "nonnegativeInteger": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "positiveInteger": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 9007199254740991
+      },
+      "tokenCountRows": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "token",
+            "count"
+          ],
+          "properties": {
+            "token": {
+              "type": "string",
+              "minLength": 1
+            },
+            "count": {
+              "$ref": "#/$defs/positiveInteger"
+            }
+          }
+        }
+      },
+      "checkpointProjection": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "checkpoint_ref",
+          "artifact_ref",
+          "artifact_hash",
+          "data_cursor",
+          "global_step",
+          "token_count",
+          "complete",
+          "restore_verified"
+        ],
+        "properties": {
+          "checkpoint_ref": {
+            "type": "string",
+            "pattern": "^checkpoint://foundry/[^\\s]{1,500}$"
+          },
+          "artifact_ref": {
+            "type": "string",
+            "pattern": "^artifact://foundry-checkpoint/[0-9a-f]{64}$"
+          },
+          "artifact_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "data_cursor": {
+            "$ref": "#/$defs/nonnegativeInteger"
+          },
+          "global_step": {
+            "$ref": "#/$defs/nonnegativeInteger"
+          },
+          "token_count": {
+            "$ref": "#/$defs/nonnegativeInteger"
+          },
+          "complete": {
+            "const": true
+          },
+          "restore_verified": {
+            "type": "boolean"
+          }
+        }
+      },
+      "restoreVerification": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "verified",
+          "checkpoint_ref",
+          "artifact_hash",
+          "data_cursor",
+          "model_state_hash",
+          "optimizer_state_hash",
+          "scheduler_state_hash",
+          "rng_state_hash"
+        ],
+        "properties": {
+          "verified": {
+            "const": true
+          },
+          "checkpoint_ref": {
+            "type": "string",
+            "pattern": "^checkpoint://foundry/[^\\s]{1,500}$"
+          },
+          "artifact_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "data_cursor": {
+            "$ref": "#/$defs/nonnegativeInteger"
+          },
+          "model_state_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "optimizer_state_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "scheduler_state_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "rng_state_hash": {
+            "$ref": "#/$defs/hash"
+          }
+        }
+      },
+      "actionRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "action",
+          "max_rows"
+        ],
+        "properties": {
+          "action": {
+            "enum": [
+              "start",
+              "step",
+              "pause",
+              "resume",
+              "cancel",
+              "reconcile"
+            ]
+          },
+          "max_rows": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/positiveInteger"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "reconciliation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "checkpoint_ref"
+        ],
+        "properties": {
+          "status": {
+            "const": "satisfied"
+          },
+          "checkpoint_ref": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^checkpoint://foundry/[^\\s]{1,500}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "workloadFingerprint": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "runtime_node_ref",
+          "environment_ref",
+          "trainer_backend_profile_ref",
+          "hardware_architecture",
+          "logical_cpu_count",
+          "memory_bytes",
+          "operating_system",
+          "daemon_release_ref"
+        ],
+        "properties": {
+          "runtime_node_ref": {
+            "type": "string",
+            "pattern": "^runtime://[^\\s]{1,500}$"
+          },
+          "environment_ref": {
+            "type": "string",
+            "pattern": "^environment://[^\\s]{1,500}$"
+          },
+          "trainer_backend_profile_ref": {
+            "const": "trainer-backend://ioi/reference-token-frequency/v1"
+          },
+          "hardware_architecture": {
+            "enum": [
+              "x86_64",
+              "aarch64"
+            ]
+          },
+          "logical_cpu_count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          },
+          "memory_bytes": {
+            "$ref": "#/$defs/positiveInteger"
+          },
+          "operating_system": {
+            "enum": [
+              "linux",
+              "macos",
+              "windows"
+            ]
+          },
+          "daemon_release_ref": {
+            "type": "string",
+            "pattern": "^release://[^\\s]{1,500}$"
+          }
+        }
+      },
+      "qualification": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "verdict",
+          "quality",
+          "measurement",
+          "promotion_boundary"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "ioi.foundry-qualified-measurement.v1"
+          },
+          "verdict": {
+            "enum": [
+              "qualified",
+              "rejected"
+            ]
+          },
+          "quality": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "token_coverage",
+              "mean_negative_log_likelihood",
+              "gate"
+            ],
+            "properties": {
+              "token_coverage": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "mean_negative_log_likelihood": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1000000000000
+              },
+              "gate": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "minimum_token_coverage",
+                  "maximum_mean_negative_log_likelihood"
+                ],
+                "properties": {
+                  "minimum_token_coverage": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "maximum_mean_negative_log_likelihood": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1000000000000
+                  }
+                }
+              }
+            }
+          },
+          "measurement": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "phase",
+              "token_numerator",
+              "denominator",
+              "scope",
+              "raw_tokens",
+              "effective_tokens",
+              "elapsed_nanoseconds",
+              "tokens_per_second",
+              "includes_compilation",
+              "includes_loading",
+              "includes_evaluation",
+              "includes_checkpoint",
+              "includes_failure_and_recovery",
+              "hardware_software_topology_fingerprint",
+              "cost_basis_ref",
+              "failure_schedule_ref"
+            ],
+            "properties": {
+              "phase": {
+                "const": "evaluation"
+              },
+              "token_numerator": {
+                "const": "loss_bearing"
+              },
+              "denominator": {
+                "const": "full_wall_clock"
+              },
+              "scope": {
+                "const": "daemon_cpu_process"
+              },
+              "raw_tokens": {
+                "$ref": "#/$defs/positiveInteger"
+              },
+              "effective_tokens": {
+                "$ref": "#/$defs/positiveInteger"
+              },
+              "elapsed_nanoseconds": {
+                "$ref": "#/$defs/positiveInteger"
+              },
+              "tokens_per_second": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1000000000000000
+              },
+              "includes_compilation": {
+                "const": false
+              },
+              "includes_loading": {
+                "const": true
+              },
+              "includes_evaluation": {
+                "const": true
+              },
+              "includes_checkpoint": {
+                "const": false
+              },
+              "includes_failure_and_recovery": {
+                "const": false
+              },
+              "hardware_software_topology_fingerprint": {
+                "$ref": "#/$defs/workloadFingerprint"
+              },
+              "cost_basis_ref": {
+                "type": "string",
+                "pattern": "^(?:cost|ledger|policy)://[^\\s]{1,500}$"
+              },
+              "failure_schedule_ref": {
+                "type": "string",
+                "pattern": "^(?:schedule|policy|artifact)://[^\\s]{1,500}$"
+              }
+            }
+          },
+          "promotion_boundary": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "proposal_only",
+              "governance_approval_required",
+              "runtime_activation_performed"
+            ],
+            "properties": {
+              "proposal_only": {
+                "const": true
+              },
+              "governance_approval_required": {
+                "const": true
+              },
+              "runtime_activation_performed": {
+                "const": false
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/foundry-checkpoint-artifact/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/foundry-checkpoint-artifact/v1",
+    "title": "FoundryCheckpointArtifact",
+    "description": "Complete content-addressed restart state for the bounded reference trainer. Token counts are deterministic strictly sorted closed rows, never an open JSON map.",
+    "x-ioi-schema-version": "ioi.foundry-checkpoint-artifact.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "program_id",
+      "dataset_snapshot_ref",
+      "dataset_content_hash",
+      "recipe_content_hash",
+      "trainer_backend_profile_ref",
+      "model_state",
+      "optimizer_state",
+      "scheduler_state",
+      "rng_state",
+      "data_cursor",
+      "global_step",
+      "token_count",
+      "status"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.foundry-checkpoint-artifact.v1"
+      },
+      "program_id": {
+        "type": "string",
+        "pattern": "^trainpipe://[^\\s]{1,500}$"
+      },
+      "dataset_snapshot_ref": {
+        "type": "string",
+        "pattern": "^dataset-snapshot://[^\\s]{1,500}$"
+      },
+      "dataset_content_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "recipe_content_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "trainer_backend_profile_ref": {
+        "const": "trainer-backend://ioi/reference-token-frequency/v1"
+      },
+      "model_state": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "token_counts",
+          "total_tokens"
+        ],
+        "properties": {
+          "token_counts": {
+            "$ref": "#/$defs/tokenCountRows"
+          },
+          "total_tokens": {
+            "$ref": "#/$defs/nonnegativeInteger"
+          }
+        }
+      },
+      "optimizer_state": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "updates"
+        ],
+        "properties": {
+          "kind": {
+            "const": "count_accumulator"
+          },
+          "updates": {
+            "$ref": "#/$defs/nonnegativeInteger"
+          }
+        }
+      },
+      "scheduler_state": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "next_row"
+        ],
+        "properties": {
+          "kind": {
+            "const": "row_cursor"
+          },
+          "next_row": {
+            "$ref": "#/$defs/nonnegativeInteger"
+          }
+        }
+      },
+      "rng_state": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "algorithm",
+          "seed"
+        ],
+        "properties": {
+          "algorithm": {
+            "const": "fixed_seed_no_rng_training"
+          },
+          "seed": {
+            "$ref": "#/$defs/nonnegativeInteger"
+          }
+        }
+      },
+      "data_cursor": {
+        "$ref": "#/$defs/nonnegativeInteger"
+      },
+      "global_step": {
+        "$ref": "#/$defs/nonnegativeInteger"
+      },
+      "token_count": {
+        "$ref": "#/$defs/nonnegativeInteger"
+      },
+      "status": {
+        "const": "complete"
+      }
+    },
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "nonnegativeInteger": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "tokenCountRows": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "token",
+            "count"
+          ],
+          "properties": {
+            "token": {
+              "type": "string",
+              "minLength": 1
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          }
+        }
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/foundry-qualified-measurement/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/foundry-qualified-measurement/v1",
+    "title": "FoundryQualifiedMeasurement",
+    "description": "Fully dimensioned bounded-reference evaluation measurement and quality verdict. Its promotion boundary is proposal-only and can never perform runtime activation.",
+    "x-ioi-schema-version": "ioi.foundry-qualified-measurement.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "verdict",
+      "quality",
+      "measurement",
+      "promotion_boundary"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.foundry-qualified-measurement.v1"
+      },
+      "verdict": {
+        "enum": [
+          "qualified",
+          "rejected"
+        ]
+      },
+      "quality": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "token_coverage",
+          "mean_negative_log_likelihood",
+          "gate"
+        ],
+        "properties": {
+          "token_coverage": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "mean_negative_log_likelihood": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000000000000
+          },
+          "gate": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "minimum_token_coverage",
+              "maximum_mean_negative_log_likelihood"
+            ],
+            "properties": {
+              "minimum_token_coverage": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "maximum_mean_negative_log_likelihood": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1000000000000
+              }
+            }
+          }
+        }
+      },
+      "measurement": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "phase",
+          "token_numerator",
+          "denominator",
+          "scope",
+          "raw_tokens",
+          "effective_tokens",
+          "elapsed_nanoseconds",
+          "tokens_per_second",
+          "includes_compilation",
+          "includes_loading",
+          "includes_evaluation",
+          "includes_checkpoint",
+          "includes_failure_and_recovery",
+          "hardware_software_topology_fingerprint",
+          "cost_basis_ref",
+          "failure_schedule_ref"
+        ],
+        "properties": {
+          "phase": {
+            "const": "evaluation"
+          },
+          "token_numerator": {
+            "const": "loss_bearing"
+          },
+          "denominator": {
+            "const": "full_wall_clock"
+          },
+          "scope": {
+            "const": "daemon_cpu_process"
+          },
+          "raw_tokens": {
+            "$ref": "#/$defs/positiveInteger"
+          },
+          "effective_tokens": {
+            "$ref": "#/$defs/positiveInteger"
+          },
+          "elapsed_nanoseconds": {
+            "$ref": "#/$defs/positiveInteger"
+          },
+          "tokens_per_second": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000000000000000
+          },
+          "includes_compilation": {
+            "const": false
+          },
+          "includes_loading": {
+            "const": true
+          },
+          "includes_evaluation": {
+            "const": true
+          },
+          "includes_checkpoint": {
+            "const": false
+          },
+          "includes_failure_and_recovery": {
+            "const": false
+          },
+          "hardware_software_topology_fingerprint": {
+            "$ref": "#/$defs/workloadFingerprint"
+          },
+          "cost_basis_ref": {
+            "type": "string",
+            "pattern": "^(?:cost|ledger|policy)://[^\\s]{1,500}$"
+          },
+          "failure_schedule_ref": {
+            "type": "string",
+            "pattern": "^(?:schedule|policy|artifact)://[^\\s]{1,500}$"
+          }
+        }
+      },
+      "promotion_boundary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "proposal_only",
+          "governance_approval_required",
+          "runtime_activation_performed"
+        ],
+        "properties": {
+          "proposal_only": {
+            "const": true
+          },
+          "governance_approval_required": {
+            "const": true
+          },
+          "runtime_activation_performed": {
+            "const": false
+          }
+        }
+      }
+    },
+    "$defs": {
+      "positiveInteger": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 9007199254740991
+      },
+      "workloadFingerprint": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "runtime_node_ref",
+          "environment_ref",
+          "trainer_backend_profile_ref",
+          "hardware_architecture",
+          "logical_cpu_count",
+          "memory_bytes",
+          "operating_system",
+          "daemon_release_ref"
+        ],
+        "properties": {
+          "runtime_node_ref": {
+            "type": "string",
+            "pattern": "^runtime://[^\\s]{1,500}$"
+          },
+          "environment_ref": {
+            "type": "string",
+            "pattern": "^environment://[^\\s]{1,500}$"
+          },
+          "trainer_backend_profile_ref": {
+            "const": "trainer-backend://ioi/reference-token-frequency/v1"
+          },
+          "hardware_architecture": {
+            "enum": [
+              "x86_64",
+              "aarch64"
+            ]
+          },
+          "logical_cpu_count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          },
+          "memory_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "operating_system": {
+            "enum": [
+              "linux",
+              "macos",
+              "windows"
+            ]
+          },
+          "daemon_release_ref": {
+            "type": "string",
+            "pattern": "^release://[^\\s]{1,500}$"
+          }
+        }
+      }
+    }
   }
 };
 const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
@@ -72989,6 +76990,7 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
   ],
   "schema://ioi/components/hypervisor/mutation-receipt/v1": [],
   "schema://ioi/components/hypervisor/preference-record/v1": [],
+  "schema://ioi/components/hypervisor/principal-tenant-membership-receipt/v1": [],
   "schema://ioi/components/hypervisor/product-surface-projection/v1": [],
   "schema://ioi/components/hypervisor/route-retirement-refusal/v1": [],
   "schema://ioi/components/hypervisor/storage-archive-object/v1": [
@@ -78699,7 +82701,18 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
   "schema://ioi/foundations/objects/attempt-envelope/v1": [],
   "schema://ioi/foundations/objects/finding-envelope/v1": [],
   "schema://ioi/foundations/objects/work-result-envelope/v1": [],
-  "schema://ioi/foundations/objects/outcome-delta-envelope/v1": []
+  "schema://ioi/foundations/objects/outcome-delta-envelope/v1": [],
+  "schema://ioi/components/daemon-runtime/managed-worker-runtime-policy/v1": [],
+  "schema://ioi/components/daemon-runtime/managed-worker-instance-state/v1": [],
+  "schema://ioi/foundations/runtime-assignment/v1": [],
+  "schema://ioi/components/daemon-runtime/compute-session/v1": [],
+  "schema://ioi/components/storage-backends/managed-storage-profile/v1": [],
+  "schema://ioi/components/hypervisor/managed-restore-plan/v1": [],
+  "schema://ioi/components/hypervisor/foundry-recipe-revision/v1": [],
+  "schema://ioi/components/hypervisor/foundry-dataset-snapshot/v1": [],
+  "schema://ioi/components/hypervisor/foundry-training-program/v1": [],
+  "schema://ioi/components/hypervisor/foundry-checkpoint-artifact/v1": [],
+  "schema://ioi/components/hypervisor/foundry-qualified-measurement/v1": []
 };
 
 export function architectureContractSchemaHash(contractId: string): string | null {
@@ -79930,6 +83943,12 @@ export function validateHypervisorPreferenceRecordV1(
   return validateArchitectureContract("schema://ioi/components/hypervisor/preference-record/v1", value).ok;
 }
 
+export function validateHypervisorPrincipalTenantMembershipReceiptV1(
+  value: unknown,
+): value is HypervisorPrincipalTenantMembershipReceiptV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/principal-tenant-membership-receipt/v1", value).ok;
+}
+
 export function validateHypervisorProductSurfaceProjectionV1(
   value: unknown,
 ): value is HypervisorProductSurfaceProjectionV1 {
@@ -80468,4 +84487,70 @@ export function validateOutcomeDeltaEnvelopeV1(
   value: unknown,
 ): value is OutcomeDeltaEnvelopeV1 {
   return validateArchitectureContract("schema://ioi/foundations/objects/outcome-delta-envelope/v1", value).ok;
+}
+
+export function validateManagedWorkerRuntimePolicyV1(
+  value: unknown,
+): value is ManagedWorkerRuntimePolicyV1 {
+  return validateArchitectureContract("schema://ioi/components/daemon-runtime/managed-worker-runtime-policy/v1", value).ok;
+}
+
+export function validateManagedWorkerInstanceStateV1(
+  value: unknown,
+): value is ManagedWorkerInstanceStateV1 {
+  return validateArchitectureContract("schema://ioi/components/daemon-runtime/managed-worker-instance-state/v1", value).ok;
+}
+
+export function validateRuntimeAssignmentV1(
+  value: unknown,
+): value is RuntimeAssignmentV1 {
+  return validateArchitectureContract("schema://ioi/foundations/runtime-assignment/v1", value).ok;
+}
+
+export function validateComputeSessionV1(
+  value: unknown,
+): value is ComputeSessionV1 {
+  return validateArchitectureContract("schema://ioi/components/daemon-runtime/compute-session/v1", value).ok;
+}
+
+export function validateManagedStorageProfileV1(
+  value: unknown,
+): value is ManagedStorageProfileV1 {
+  return validateArchitectureContract("schema://ioi/components/storage-backends/managed-storage-profile/v1", value).ok;
+}
+
+export function validateManagedRestorePlanV1(
+  value: unknown,
+): value is ManagedRestorePlanV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/managed-restore-plan/v1", value).ok;
+}
+
+export function validateFoundryRecipeRevisionV1(
+  value: unknown,
+): value is FoundryRecipeRevisionV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/foundry-recipe-revision/v1", value).ok;
+}
+
+export function validateFoundryDatasetSnapshotV1(
+  value: unknown,
+): value is FoundryDatasetSnapshotV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/foundry-dataset-snapshot/v1", value).ok;
+}
+
+export function validateFoundryTrainingProgramV1(
+  value: unknown,
+): value is FoundryTrainingProgramV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/foundry-training-program/v1", value).ok;
+}
+
+export function validateFoundryCheckpointArtifactV1(
+  value: unknown,
+): value is FoundryCheckpointArtifactV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/foundry-checkpoint-artifact/v1", value).ok;
+}
+
+export function validateFoundryQualifiedMeasurementV1(
+  value: unknown,
+): value is FoundryQualifiedMeasurementV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/foundry-qualified-measurement/v1", value).ok;
 }

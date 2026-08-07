@@ -4,10 +4,12 @@ Status: canonical low-level reference.
 Canonical owner: this file for the shared object shapes of model capacity/deployment/weight-custody profiles, the Foundry spec through registry-version and route-binding family, and the worker-training, dataset-factory, and post-training object families.
 Supersedes: the same object definitions when they were carried inside the single `common-objects-and-envelopes.md` file.
 Superseded by: none.
-Last alignment pass: 2026-07-25.
+Last alignment pass: 2026-08-06.
 Doctrine status: canonical
-Implementation status: planned (Foundry and worker-training object families are draft specs over real model substrate; no durable Foundry or training object plane is admitted)
-Last implementation audit: 2026-07-25
+Implementation status: partial (a bounded Agentgres-backed recipe, dataset, reference-training, checkpoint, restore-verification, and proposal-only qualification slice is executable and registered; production trainers and the broader Foundry object families remain planned)
+Implementation refs:
+  - `crates/types/src/app/generated/architecture_contracts.rs`
+Last implementation audit: 2026-08-06
 
 ## Purpose
 
@@ -18,6 +20,38 @@ the envelope base types, ID conventions, and capability/authority tiers every
 module here reuses. Doctrine and lifecycle semantics for these objects are owned
 by [`../../components/hypervisor/foundry.md`](../../components/hypervisor/foundry.md);
 this module does not restate them.
+
+## Bounded executable Foundry wire contracts
+
+The executable reference slice registers exactly five distinct object families:
+
+- `FoundryRecipeRevision` freezes one closed built-in operator sequence plus
+  its recipe, rights, tokenizer, sequence, packing, loss-mask, harness,
+  environment, split seed, and content hash;
+- `FoundryDatasetSnapshot` binds deterministic material bytes and split counts
+  to that exact recipe revision/hash and rights boundary;
+- `FoundryTrainingProgram` is a restart-safe program for the explicitly named
+  `reference-token-frequency/v1` backend only;
+- `FoundryCheckpointArtifact` contains complete model, optimizer, scheduler,
+  RNG, cursor, step, and token state; and
+- `FoundryQualifiedMeasurement` freezes a typed workload fingerprint, quality
+  gate/result, wall-clock token measurement, cost/failure refs, and a promotion
+  boundary that is always `proposal_only=true` and
+  `runtime_activation_performed=false`.
+
+Token counts in new program heads and checkpoint bytes are strictly sorted
+closed `{token,count}` rows. A read-only migration adapter accepts legacy map
+heads so their next admitted action can normalize them; legacy maps are not
+valid v1 contract bytes and are never written again. Workload fingerprints are
+closed reference-backend dimensions, not arbitrary labels.
+
+Agentgres operation/receipt/head/root/replay metadata is attached only to HTTP
+response projections and is not part of recipe, dataset, program,
+qualification, or checkpoint canonical bytes. These five contracts do not
+claim a production training backend, distributed training, frontier-model
+capability, independent Evaluations judgment, package/registry production, or
+route activation. The larger envelopes below remain planned and must receive
+successor wire versions rather than widening these bounded v1 objects in place.
 
 ## ModelCapacityProfileEnvelope
 

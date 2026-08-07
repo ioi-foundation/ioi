@@ -1,7 +1,7 @@
 # sas.xyz Service-as-Software Marketplace Specification
 
 Status: canonical architecture authority.
-Canonical owner: this file for sas.xyz service marketplace doctrine; low-level service endpoints live in [`sas-xyz-service-endpoints.md`](./service-endpoints.md).
+Canonical owner: this file for sas.xyz service marketplace doctrine; low-level service endpoints live in [`service-endpoints.md`](./service-endpoints.md).
 Supersedes: overlapping service-marketplace plan prose when outcome/service boundaries conflict.
 Superseded by: none.
 Last alignment pass: 2026-07-15.

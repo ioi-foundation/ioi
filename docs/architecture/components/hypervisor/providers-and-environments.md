@@ -8,7 +8,7 @@ integration doctrine.
 Supersedes: prior live canon that split provider and environment posture into a
 standalone provider-management product or peer control plane.
 Superseded by: none.
-Last alignment pass: 2026-07-26.
+Last alignment pass: 2026-08-06.
 Doctrine status: canonical
 Implementation status: partial (env lifecycle, providers, readiness, warm pools, and placement built; DePIN/storage posture families vary)
 Implementation refs:
@@ -16,7 +16,7 @@ Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/provider_routes.rs`
   - `crates/node/src/bin/hypervisor_daemon_routes/hypervisor_environment_routes.rs`
   - `crates/types/src/app/hypervisor_environment_lifecycle.rs`
-Last implementation audit: 2026-07-28
+Last implementation audit: 2026-08-06
 
 ## Canonical Definition
 
@@ -1498,6 +1498,31 @@ there as a gap). The storage-plane byte custody behind `destination_ref` is
 registered separately as
 `schema://ioi/components/hypervisor/storage-archive-object/v1` with its
 incident and repair contracts.
+
+### Managed-runtime backup and restore contract alignment
+
+The bounded managed-runtime controller reuses the registered
+`HypervisorEnvironmentBackup` bytes exactly. There is no second
+`ManagedEnvironmentBackup` schema, alias, or hash domain: “managed environment
+backup” names the controller role, while `HypervisorEnvironmentBackup` remains
+the canonical aggregate and validator.
+
+The same controller registers `ManagedRestorePlan` as its local-private
+prepare/apply/cancel execution state. It binds one verified backup ref and
+manifest root, source state root, target environment id, authority grants,
+preparation verification, and the closed
+`prepared -> applying -> completed | cancelled` ladder. Preparation extracts
+into an isolated staging directory; apply fences the writer by renaming the
+current workspace to rollback custody before the staged workspace becomes
+current. A completed plan records the applied state root.
+
+`ManagedRestorePlan` is subordinate implementation state, not a replacement
+for the general `HypervisorChangePlan(plan_type=environment_restore)` doctrine
+below. The bounded local route does not yet bind the full change-plan,
+compatibility, suffix-disposition, or post-restore gate family and therefore
+cannot claim general restore completion. Agentgres operation/head/receipt
+metadata added to HTTP responses is a projection annotation outside the
+registered restore-plan bytes.
 
 Restore reuses `HypervisorChangePlan` rather than creating a parallel restore
 plan family. When `plan_type = environment_restore`, the immutable plan also

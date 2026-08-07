@@ -392,7 +392,31 @@ function renderSourcesPort(sources, mruns, srcMappings, dataSourceSel, opts) {
     .src-banner code{font-size:10.5px;word-break:break-all}
     .src-banner.src-ok{border:1px solid #8fdcb6;background:#eafaf1;color:#0e6b41}
     .src-banner.src-no{border:1px solid #e8c48d;background:#fdf7ec;color:#935610}
-    .src-rcpt{background:rgba(14,138,83,.08);border-radius:3px;padding:1px 4px}`;
+    .src-rcpt{background:rgba(14,138,83,.08);border-radius:3px;padding:1px 4px}
+    @media(max-width:700px){
+      .src-main{height:100svh}
+      .src-header{position:relative;flex:0 0 88px;height:88px;padding-bottom:37px}
+      .src-hchip{width:44px;height:50px;flex-basis:44px}.src-htitle{margin-left:9px;font-size:15px}
+      .src-hdiv{display:none}
+      .src-tabs{position:absolute;left:0;right:0;bottom:0;height:37px;gap:18px;overflow-x:auto;padding:0 12px;border-top:1px solid #eef0f2}
+      .src-tab{flex:0 0 auto;font-size:14px;line-height:37px}
+      .src-hright{margin-left:auto;padding-right:8px}.src-hright .store,.src-hright .outlined,.src-counters{display:none}
+      .src-hbtn.success{margin-top:10px;font-size:12px;gap:5px}
+      .src-hero{height:104px}.src-heroct{padding:0 20px;background:#fff}.src-heroimg{opacity:.22;width:auto;height:104px}
+      .src-h1{padding-top:16px}.src-desc{width:auto;max-width:270px}
+      .src-content{padding:0 12px}
+      .src-setupcard{height:278px;margin-top:14px;overflow-x:auto;overflow-y:hidden}
+      .src-setuph{position:sticky;left:0;width:300px;padding-left:16px}.src-setupstrip{left:15px}
+      .src-opt.c1{left:16px}.src-opt.c2{left:341px}.src-opt.c3{left:666px}
+      .src-viewrow{margin-top:24px;flex-wrap:wrap;height:auto;min-height:30px}.src-viewall{margin-left:8px}
+      .src-table{height:300px;min-height:300px}
+      .src-th:not(.name),.src-cell:not(.name){display:none}.src-th.name,.src-cell.name{width:100%}
+      .src-row{min-height:57px;height:auto}.src-rowpath{white-space:normal;padding-bottom:8px}
+      .src-exstripwrap{width:100%;overflow-x:auto}.src-exstrip{max-width:none}
+      .src-trutht{line-height:1.25}.src-truthsub{display:block;margin:6px 0 0}
+      .src-truthcols{flex-direction:column}.src-truthcol{width:100%}
+      .src-declare{padding:14px}.src-foot{overflow-wrap:anywhere}
+    }`;
 
   // The banner must always be reachable at the runtime's #ap-result anchor: inside the declare
   // pane when it is open, inside the selection panel when a record is selected, else standalone

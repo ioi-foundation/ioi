@@ -448,7 +448,7 @@ debts, each a named target (none is claimed built; see
   ([`default-harness-profile.md`](./default-harness-profile.md)); its work
   enters the work spine through `GoalRunActivationEnvelope` with
   `source_kind: gateway_adapter_context`
-  ([`goal-pursuit.md`](../../foundations/objects/goal-pursuit.md)); attach-lane
+  ([`goal-pursuit.md`](../../domains/ioi-ai/goal-pursuit.md)); attach-lane
   receipts remain valid, linkable evidence and are never re-minted; and no
   attach-lane approval or credential carries into the run-on lane implicitly —
   the run-on lane requests its own scopes (INV-1). An adopter who leaves keeps
@@ -707,7 +707,7 @@ The goal-orchestration application's GoalRun admission contract — profile
 resolution closure, activation crossing, source-context verification,
 resolved authority, retained state commitment, typed receipt obligations, and
 declared bounds — is owned with its object family in
-[`goal-run-execution.md`](../../foundations/objects/goal-run-execution.md)
+[`goal-run-execution.md`](../../domains/ioi-ai/goal-run-execution.md)
 per [ADR 0022](../../../decisions/0022-goal-orchestration-application-layer-and-clean-slate.md);
 the daemon executes and enforces it but does not own its domain doctrine.
 

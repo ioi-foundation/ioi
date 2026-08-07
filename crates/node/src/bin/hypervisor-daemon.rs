@@ -74,6 +74,8 @@ mod eval_suite_routes;
 mod event_stream_routes;
 #[path = "hypervisor_daemon_routes/feedback_routes.rs"]
 mod feedback_routes;
+#[path = "hypervisor_daemon_routes/foundry_execution_routes.rs"]
+mod foundry_execution_routes;
 #[path = "hypervisor_daemon_routes/foundry_routes.rs"]
 mod foundry_routes;
 #[path = "hypervisor_daemon_routes/gcp_candidate_source.rs"]
@@ -100,6 +102,8 @@ mod k8s_candidate_source;
 mod lambda_candidate_source;
 #[path = "hypervisor_daemon_routes/lifecycle_routes.rs"]
 mod lifecycle_routes;
+#[path = "hypervisor_daemon_routes/managed_runtime_routes.rs"]
+mod managed_runtime_routes;
 #[path = "hypervisor_daemon_routes/marketplace_routes.rs"]
 mod marketplace_routes;
 #[path = "hypervisor_daemon_routes/materializing_run_routes.rs"]
@@ -108,6 +112,8 @@ mod materializing_run_routes;
 mod microvm;
 #[path = "hypervisor_daemon_routes/model_routes.rs"]
 mod model_routes;
+#[path = "hypervisor_daemon_routes/mutation_event_foundation.rs"]
+mod mutation_event_foundation;
 #[path = "hypervisor_daemon_routes/odk_routes.rs"]
 mod odk_routes;
 #[path = "hypervisor_daemon_routes/ontology_projection_routes.rs"]
@@ -120,10 +126,14 @@ mod orchestration_routes;
 mod outcome_room_routes;
 #[path = "hypervisor_daemon_routes/outcome_room_system_routes.rs"]
 mod outcome_room_system_routes;
+#[path = "hypervisor_daemon_routes/package_registry_routes.rs"]
+mod package_registry_routes;
 #[path = "hypervisor_daemon_routes/placement_failover_routes.rs"]
 mod placement_failover_routes;
 #[path = "hypervisor_daemon_routes/policy_bound_data_view_routes.rs"]
 mod policy_bound_data_view_routes;
+#[path = "hypervisor_daemon_routes/portal_session_exchange_routes.rs"]
+mod portal_session_exchange_routes;
 #[path = "hypervisor_daemon_routes/provider_routes.rs"]
 mod provider_routes;
 #[path = "hypervisor_daemon_routes/recipe_routes.rs"]
@@ -496,9 +506,12 @@ async fn async_main() -> anyhow::Result<()> {
             system_writer_routes::WRITER_INTENT_DIR,
             hypervisoros_node_routes::NODE_INTENT_DIR,
             hypervisor_environment_routes::ENVIRONMENT_INTENT_DIR,
+            lifecycle_routes::PRINCIPAL_TENANT_MEMBERSHIP_FAMILY,
         ],
     )?;
     seed_default_state(&data_dir);
+    lifecycle_routes::ensure_identity_foundation(&data_dir)
+        .map_err(|error| anyhow::anyhow!("identity foundation blocks readiness: {error}"))?;
     // A retained M4 child intent makes its owner registry part of recovery truth. Census that
     // complete registry before recovery so malformed, relocated, or ambiguous owner bytes fence
     // the pending intent. Superseded WorkResult compatibility folds were deleted under ADR 0022.
@@ -549,8 +562,10 @@ async fn async_main() -> anyhow::Result<()> {
         .or_else(|| std::env::var("HOME").ok())
         .unwrap_or_default();
 
-    // Auth fail-safe: if exposed with no login configured, print the one-time bootstrap token.
-    lifecycle_routes::startup_auth_notice(&data_dir);
+    // Auth fail-safe and fresh-local zero-to-idle path: issue a hash-at-rest one-boot operator
+    // bootstrap token to the host log. Loopback itself never becomes an administrator credential.
+    lifecycle_routes::startup_auth_notice(&data_dir)
+        .map_err(|error| anyhow::anyhow!("identity bootstrap blocks readiness: {error}"))?;
     let state = Arc::new(DaemonState {
         inference,
         model_name,
@@ -1107,6 +1122,30 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/managed-worker-lifecycle-admissions",
             post(lifecycle_routes::handle_managed_worker_lifecycle_admission),
         )
+        // Durable managed-instance plane. Agentgres streams own lifecycle
+        // heads; filesystem state is byte custody or a rebuildable projection.
+        .route(
+            "/v1/hypervisor/managed-worker-instances",
+            get(managed_runtime_routes::handle_instances_list)
+                .post(managed_runtime_routes::handle_instances_create),
+        )
+        .route(
+            "/v1/hypervisor/managed-worker-instances/:id",
+            get(managed_runtime_routes::handle_instance_get),
+        )
+        .route(
+            "/v1/hypervisor/managed-worker-instances/:id/transitions",
+            post(managed_runtime_routes::handle_instance_transition),
+        )
+        .route(
+            "/v1/hypervisor/managed-worker-instances/:id/runtime-policy",
+            axum::routing::put(managed_runtime_routes::handle_runtime_policy_put),
+        )
+        .route(
+            "/v1/hypervisor/storage-profiles",
+            get(managed_runtime_routes::handle_storage_profiles_list)
+                .post(managed_runtime_routes::handle_storage_profiles_create),
+        )
         .route(
             "/v1/hypervisor/code-editor-adapter-launch-plans",
             post(lifecycle_routes::handle_code_editor_adapter_launch_plan_admission),
@@ -1219,7 +1258,36 @@ async fn async_main() -> anyhow::Result<()> {
         )
         .route(
             "/v1/hypervisor/backups",
-            post(environment_routes::handle_backup_create),
+            get(managed_runtime_routes::handle_backups_list)
+                .post(environment_routes::handle_backup_create),
+        )
+        .route(
+            "/v1/hypervisor/environments/:id/backups",
+            post(managed_runtime_routes::handle_environment_backup_create),
+        )
+        .route(
+            "/v1/hypervisor/backups/:id",
+            get(managed_runtime_routes::handle_backup_get),
+        )
+        .route(
+            "/v1/hypervisor/backups/:id/verify",
+            post(managed_runtime_routes::handle_backup_verify),
+        )
+        .route(
+            "/v1/hypervisor/backups/:id/export",
+            post(managed_runtime_routes::handle_backup_export),
+        )
+        .route(
+            "/v1/hypervisor/backup-exports/:token",
+            get(managed_runtime_routes::handle_backup_export_download),
+        )
+        .route(
+            "/v1/hypervisor/backups/:id/restore-plans",
+            post(managed_runtime_routes::handle_restore_plan_prepare),
+        )
+        .route(
+            "/v1/hypervisor/restore-plans/:plan_id/:action",
+            post(managed_runtime_routes::handle_restore_plan_action),
         )
         // WS-2: DevelopmentEnvironmentRecipe (repo-detect-first) → resolution → readiness gate.
         .route(
@@ -1350,6 +1418,56 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/foundry/run-plans/:id",
             get(foundry_routes::handle_foundry_run_plan_get)
                 .delete(foundry_routes::handle_foundry_run_plan_delete),
+        )
+        // Executable, bounded model-factory lane. Legacy Foundry specs and
+        // run-plans above remain labelled drafts; these families carry
+        // immutable recipes, byte-bound snapshots, restart-safe programs,
+        // complete checkpoints, and qualification proposals.
+        .route(
+            "/v1/hypervisor/foundry/recipes",
+            get(foundry_execution_routes::handle_recipes_list)
+                .post(foundry_execution_routes::handle_recipes_create),
+        )
+        .route(
+            "/v1/hypervisor/foundry/recipes/:id",
+            get(foundry_execution_routes::handle_recipe_get),
+        )
+        .route(
+            "/v1/hypervisor/foundry/recipes/:id/runs",
+            post(foundry_execution_routes::handle_recipe_run),
+        )
+        .route(
+            "/v1/hypervisor/foundry/dataset-snapshots",
+            get(foundry_execution_routes::handle_dataset_snapshots_list),
+        )
+        .route(
+            "/v1/hypervisor/foundry/programs",
+            get(foundry_execution_routes::handle_programs_list)
+                .post(foundry_execution_routes::handle_program_create),
+        )
+        .route(
+            "/v1/hypervisor/foundry/programs/:id",
+            get(foundry_execution_routes::handle_program_get),
+        )
+        .route(
+            "/v1/hypervisor/foundry/programs/:id/qualify",
+            post(foundry_execution_routes::handle_program_qualify),
+        )
+        .route(
+            "/v1/hypervisor/foundry/programs/:id/:action",
+            post(foundry_execution_routes::handle_program_action),
+        )
+        .route(
+            "/v1/hypervisor/foundry/checkpoints",
+            get(foundry_execution_routes::handle_checkpoints_list),
+        )
+        .route(
+            "/v1/hypervisor/foundry/checkpoints/:id/verify-restore",
+            post(foundry_execution_routes::handle_checkpoint_verify_restore),
+        )
+        .route(
+            "/v1/hypervisor/foundry/qualification-proposals",
+            get(foundry_execution_routes::handle_qualification_proposals_list),
         )
         // ODK (Ontology Development Kit) object plane (foundation) — draft DomainOntology /
         // DataRecipe / OntologyDevelopmentKitManifest / OntologySurfaceDescriptor + overview.
@@ -1628,6 +1746,41 @@ async fn async_main() -> anyhow::Result<()> {
             get(odk_routes::handle_odk_descriptor_get)
                 .patch(odk_routes::handle_odk_descriptor_patch)
                 .delete(odk_routes::handle_odk_descriptor_delete),
+        )
+        // Packages — the narrow daemon-owned middle of the ODK composable-app ladder.  This
+        // admits exact package candidates, immutable releases, and disabled local installation
+        // bindings.  It deliberately does not create extension-application registrations,
+        // System interfaces, serving bindings, routes, processes, or launch eligibility.
+        .route(
+            "/v1/hypervisor/packages",
+            get(package_registry_routes::handle_package_list)
+                .post(package_registry_routes::handle_package_create),
+        )
+        .route(
+            "/v1/hypervisor/packages/:package_id",
+            get(package_registry_routes::handle_package_get),
+        )
+        .route(
+            "/v1/hypervisor/packages/:package_id/releases",
+            get(package_registry_routes::handle_release_list)
+                .post(package_registry_routes::handle_release_create),
+        )
+        .route(
+            "/v1/hypervisor/packages/:package_id/releases/:release_digest",
+            get(package_registry_routes::handle_release_get),
+        )
+        .route(
+            "/v1/hypervisor/packages/:package_id/releases/:release_digest/installations",
+            get(package_registry_routes::handle_installation_list)
+                .post(package_registry_routes::handle_installation_create),
+        )
+        .route(
+            "/v1/hypervisor/packages/:package_id/releases/:release_digest/installations/:installation_id",
+            get(package_registry_routes::handle_installation_get),
+        )
+        .route(
+            "/v1/hypervisor/packages/:package_id/releases/:release_digest/installations/:installation_id/uninstall",
+            post(package_registry_routes::handle_installation_uninstall),
         )
         // Compatibility list aliases for the previously-404 top-level paths (GET only). No
         // /domain-apps or /blueprints alias — those stay 404 until they have real planes.
@@ -3389,6 +3542,10 @@ async fn async_main() -> anyhow::Result<()> {
             post(lifecycle_routes::handle_auth_bootstrap),
         )
         .route(
+            "/v1/hypervisor/auth/portal-session-exchange",
+            post(portal_session_exchange_routes::handle_portal_session_exchange),
+        )
+        .route(
             "/v1/hypervisor/principals",
             get(lifecycle_routes::handle_principal_list)
                 .post(lifecycle_routes::handle_principal_create),
@@ -3400,6 +3557,15 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/principals/:id/password",
             post(lifecycle_routes::handle_principal_set_password),
+        )
+        .route(
+            "/v1/hypervisor/principals/:id/tenant-memberships/revoke",
+            post(lifecycle_routes::handle_principal_tenant_membership_revoke),
+        )
+        .route(
+            "/v1/hypervisor/principals/:id/tenant-memberships",
+            get(lifecycle_routes::handle_principal_tenant_memberships_list)
+                .post(lifecycle_routes::handle_principal_tenant_membership_grant),
         )
         // Principal-scoped capability leases (per-principal authority scope; NOT a role).
         .route(

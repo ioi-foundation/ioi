@@ -9,14 +9,15 @@ program records.
 Superseded by: none.
 Last alignment pass: 2026-07-26.
 Doctrine status: canonical
-Implementation status: partial (an externally-reachable route census with
-public/authenticated/internal classification exists as retained program
-evidence; public web properties ship from their own repositories; no runtime
-gate yet refuses an unclassified route at startup)
-Implementation refs:
-  - scripts/m0-program-control.mjs
-  - docs/evidence/m0-program-control/effect-census.json
-Last implementation audit: 2026-07-26
+Implementation status: partial (public web properties ship from their own
+repositories; no runtime gate yet refuses an unclassified route at startup). A
+route census with public/authenticated/internal classification was produced on
+2026-07-26; both its generator and its output were removed by the 2026-08-05
+proof-apparatus strip (`9fe221227`), so **no current census artifact exists** and
+this status has not been re-derived since. The removed paths are not restated as
+refs, and this basis is stale rather than verified.
+Implementation refs: none current.
+Last implementation audit: 2026-07-26 (stale)
 
 ## Definition
 
@@ -38,8 +39,9 @@ never an inference from the absence of an auth check.
 
 ## Does Not Own
 
-- Route census mechanics and retained census evidence (program-control
-  evidence under `docs/evidence/m0-program-control/`).
+- Route census mechanics and census evidence. The prior program-control census
+  artifact was removed with the proof apparatus and has no current successor;
+  when one is rebuilt it is named here as a tracked path or not at all.
 - Conformance claims and their owners (the claim coverage index in
   [`../../conformance/README.md`](../../conformance/README.md)).
 - The authority model (wallet grants, leases, receipts) or any product

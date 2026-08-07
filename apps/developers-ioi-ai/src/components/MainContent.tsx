@@ -1,17 +1,14 @@
-import { AnimatePresence, motion } from 'motion/react';
-import { Check, Copy, ExternalLink } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { AnimatePresence, motion } from "motion/react";
+import { Check, Copy, ExternalLink } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   docPageByLegacyHash,
   docPageByRoutePath,
   statusDescription,
   type DocLink,
   type DocPage,
-} from '../content/docs';
-import {
-  Callout,
-  RightSidebar,
-} from './UIComponents';
+} from "../content/docs";
+import { Callout, RightSidebar } from "./UIComponents";
 
 interface MainContentProps {
   isDark: boolean;
@@ -19,13 +16,17 @@ interface MainContentProps {
   page: DocPage;
 }
 
-export default function MainContent({ isDark, onNavigate, page }: MainContentProps) {
+export default function MainContent({
+  isDark,
+  onNavigate,
+  page,
+}: MainContentProps) {
   const [copied, setCopied] = useState(false);
   const [activeSectionId, setActiveSectionId] = useState(page.sections[0]?.id);
   const containerRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'auto' });
+    window.scrollTo({ top: 0, behavior: "auto" });
     setActiveSectionId(page.sections[0]?.id);
 
     const updateActiveSection = () => {
@@ -46,29 +47,30 @@ export default function MainContent({ isDark, onNavigate, page }: MainContentPro
     };
 
     updateActiveSection();
-    window.addEventListener('scroll', updateActiveSection, { passive: true });
-    return () => window.removeEventListener('scroll', updateActiveSection);
+    window.addEventListener("scroll", updateActiveSection, { passive: true });
+    return () => window.removeEventListener("scroll", updateActiveSection);
   }, [page]);
 
   const statusCallout = useMemo(() => {
-    if (page.status === 'Preview') {
+    if (page.status === "Preview") {
       return (
         <Callout isDark={isDark} tone="preview" title="Preview surface">
           <p>
-            This page keeps a future or partial shape visible, but it is framed by what exists
-            today. Do not read preview/static/prototype material as a live production marketplace
-            or final API contract.
+            This page keeps a future or partial shape visible, but it is framed
+            by what exists today. Do not read preview/static/prototype material
+            as a live production marketplace or final API contract.
           </p>
         </Callout>
       );
     }
 
-    if (page.status === 'Concept') {
+    if (page.status === "Concept") {
       return (
         <Callout isDark={isDark} tone="concept" title="Conceptual guidance">
           <p>
-            Use this page for mental models and orientation. For low-level source-of-truth details,
-            follow the canonical references rather than treating this as a complete technical spec.
+            Use this page for mental models and orientation. For low-level
+            source-of-truth details, follow the canonical references rather than
+            treating this as a complete technical spec.
           </p>
         </Callout>
       );
@@ -85,13 +87,13 @@ export default function MainContent({ isDark, onNavigate, page }: MainContentPro
 
   const handleSectionSelect = (sectionId: string) => {
     const node = document.getElementById(sectionId);
-    node?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    node?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   return (
     <main
       className={`flex-1 min-w-0 ${
-        isDark ? 'bg-transparent' : 'bg-transparent'
+        isDark ? "bg-transparent" : "bg-transparent"
       }`}
     >
       <AnimatePresence mode="wait">
@@ -108,26 +110,37 @@ export default function MainContent({ isDark, onNavigate, page }: MainContentPro
               <div className="max-w-4xl space-y-4">
                 <h1
                   className={`max-w-4xl text-4xl font-semibold tracking-tight md:text-5xl ${
-                    isDark ? 'text-stone-50' : 'text-stone-950'
+                    isDark ? "text-stone-50" : "text-stone-950"
                   }`}
                 >
                   {page.title}
                 </h1>
                 <div className="flex flex-wrap gap-2">
-                  <StatusPill isDark={isDark} label={page.status === 'Current' ? 'Ready now' : page.status} />
-                  <StatusPill isDark={isDark} label={page.routePath === '/' ? 'Home' : page.routePath} />
-                  <StatusPill isDark={isDark} label={`Verified ${page.lastVerified}`} />
+                  <StatusPill
+                    isDark={isDark}
+                    label={
+                      page.status === "Current" ? "Ready now" : page.status
+                    }
+                  />
+                  <StatusPill
+                    isDark={isDark}
+                    label={page.routePath === "/" ? "Home" : page.routePath}
+                  />
+                  <StatusPill
+                    isDark={isDark}
+                    label={`Verified ${page.lastVerified}`}
+                  />
                 </div>
                 <p
                   className={`max-w-3xl text-lg leading-8 ${
-                    isDark ? 'text-stone-300/86' : 'text-stone-700'
+                    isDark ? "text-stone-300/86" : "text-stone-700"
                   }`}
                 >
                   {page.summary}
                 </p>
                 <p
                   className={`max-w-3xl text-[13px] leading-6 ${
-                    isDark ? 'text-stone-500' : 'text-stone-500'
+                    isDark ? "text-stone-500" : "text-stone-500"
                   }`}
                 >
                   {statusDescription(page)}
@@ -146,12 +159,12 @@ export default function MainContent({ isDark, onNavigate, page }: MainContentPro
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.2, delay: 0.04 * index }}
                     className={`scroll-mt-28 space-y-5 border-t pt-8 ${
-                      isDark ? 'border-stone-900/80' : 'border-stone-200'
+                      isDark ? "border-stone-900/80" : "border-stone-200"
                     }`}
                   >
                     <h2
                       className={`text-2xl font-semibold tracking-tight ${
-                        isDark ? 'text-stone-100' : 'text-stone-900'
+                        isDark ? "text-stone-100" : "text-stone-900"
                       }`}
                     >
                       {section.title}
@@ -162,57 +175,64 @@ export default function MainContent({ isDark, onNavigate, page }: MainContentPro
 
                 <section
                   className={`space-y-5 border-t pt-8 ${
-                    isDark ? 'border-stone-900/80' : 'border-stone-200'
+                    isDark ? "border-stone-900/80" : "border-stone-200"
                   }`}
                 >
                   <div
                     className={`text-[15px] font-medium leading-6 tracking-[-0.01em] ${
-                      isDark ? 'text-stone-500' : 'text-stone-500'
+                      isDark ? "text-stone-500" : "text-stone-500"
                     }`}
                   >
                     Deeper Reference
                   </div>
                   <div className="space-y-3">
-                    {page.canonicalLinks.map((link) => renderDocAction(link, isDark, onNavigate))}
+                    {page.canonicalLinks.map((link) =>
+                      renderDocAction(link, isDark, onNavigate),
+                    )}
                   </div>
                 </section>
 
                 <section
                   className={`space-y-5 border-t pt-8 ${
-                    isDark ? 'border-stone-900/80' : 'border-stone-200'
+                    isDark ? "border-stone-900/80" : "border-stone-200"
                   }`}
                 >
                   <div
                     className={`text-[15px] font-medium leading-6 tracking-[-0.01em] ${
-                      isDark ? 'text-stone-500' : 'text-stone-500'
+                      isDark ? "text-stone-500" : "text-stone-500"
                     }`}
                   >
                     Next
                   </div>
                   <div className="space-y-3">
-                    {page.nextSteps.map((link) => renderDocAction(link, isDark, onNavigate))}
+                    {page.nextSteps.map((link) =>
+                      renderDocAction(link, isDark, onNavigate),
+                    )}
                   </div>
                 </section>
 
                 <section
                   className={`space-y-3 border-t pt-8 ${
-                    isDark ? 'border-stone-900/80' : 'border-stone-200'
+                    isDark ? "border-stone-900/80" : "border-stone-200"
                   }`}
                 >
                   <div
                     className={`text-[15px] font-medium leading-6 tracking-[-0.01em] ${
-                      isDark ? 'text-stone-500' : 'text-stone-500'
+                      isDark ? "text-stone-500" : "text-stone-500"
                     }`}
                   >
                     Sources Used
                   </div>
                   <ul
-                    className={`grid gap-2 text-xs leading-5 ${
-                      isDark ? 'text-stone-500' : 'text-stone-500'
+                    className={`grid min-w-0 max-w-full gap-2 text-xs leading-5 ${
+                      isDark ? "text-stone-500" : "text-stone-500"
                     }`}
                   >
                     {page.sources.map((source) => (
-                      <li key={source} className="break-words">
+                      <li
+                        key={source}
+                        className="min-w-0 [overflow-wrap:anywhere]"
+                      >
                         {source}
                       </li>
                     ))}
@@ -236,12 +256,16 @@ export default function MainContent({ isDark, onNavigate, page }: MainContentPro
             onClick={handleCopy}
             className={`fixed bottom-6 right-6 z-50 inline-flex items-center gap-2 rounded-full border px-3.5 py-2.5 text-[13px] leading-5 tracking-[-0.01em] transition-colors md:bottom-8 md:right-8 ${
               isDark
-                ? 'border-stone-800 bg-[rgba(24,23,21,0.96)] text-stone-300 shadow-[0_10px_24px_rgba(0,0,0,0.28)] hover:border-stone-700 hover:text-stone-100'
-                : 'border-stone-200 bg-[rgba(255,255,255,0.96)] text-stone-700 shadow-[0_10px_24px_rgba(47,39,32,0.08)] hover:border-stone-300 hover:text-stone-900'
+                ? "border-stone-800 bg-[rgba(24,23,21,0.96)] text-stone-300 shadow-[0_10px_24px_rgba(0,0,0,0.28)] hover:border-stone-700 hover:text-stone-100"
+                : "border-stone-200 bg-[rgba(255,255,255,0.96)] text-stone-700 shadow-[0_10px_24px_rgba(47,39,32,0.08)] hover:border-stone-300 hover:text-stone-900"
             }`}
           >
-            {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
-            {copied ? 'Copied' : 'Copy Page'}
+            {copied ? (
+              <Check className="h-3.5 w-3.5 text-emerald-400" />
+            ) : (
+              <Copy className="h-3.5 w-3.5" />
+            )}
+            {copied ? "Copied" : "Copy Page"}
           </button>
         </motion.article>
       </AnimatePresence>
@@ -249,19 +273,13 @@ export default function MainContent({ isDark, onNavigate, page }: MainContentPro
   );
 }
 
-function StatusPill({
-  isDark,
-  label,
-}: {
-  isDark: boolean;
-  label: string;
-}) {
+function StatusPill({ isDark, label }: { isDark: boolean; label: string }) {
   return (
     <span
       className={`rounded-full border px-3 py-1 text-[12px] font-medium leading-5 ${
         isDark
-          ? 'border-stone-800 bg-stone-950/75 text-stone-300'
-          : 'border-stone-200 bg-white/75 text-stone-700'
+          ? "border-stone-800 bg-stone-950/75 text-stone-300"
+          : "border-stone-200 bg-white/75 text-stone-700"
       }`}
     >
       {label}
@@ -276,8 +294,8 @@ function renderDocAction(
 ) {
   const sharedClass = `group flex w-full items-start justify-between gap-4 rounded-3xl border px-4 py-4 text-left transition-colors ${
     isDark
-      ? 'border-stone-800 bg-stone-950/60 text-stone-300 hover:border-stone-700 hover:text-stone-100'
-      : 'border-stone-200 bg-white/70 text-stone-700 hover:border-stone-300 hover:text-stone-900'
+      ? "border-stone-800 bg-stone-950/60 text-stone-300 hover:border-stone-700 hover:text-stone-100"
+      : "border-stone-200 bg-white/70 text-stone-700 hover:border-stone-300 hover:text-stone-900"
   }`;
 
   const content = (
@@ -285,7 +303,13 @@ function renderDocAction(
       <div className="min-w-0">
         <div className="text-sm font-semibold tracking-tight">{link.label}</div>
         {link.description ? (
-          <div className={isDark ? 'mt-1 text-xs leading-6 text-stone-500' : 'mt-1 text-xs leading-6 text-stone-500'}>
+          <div
+            className={
+              isDark
+                ? "mt-1 text-xs leading-6 text-stone-500"
+                : "mt-1 text-xs leading-6 text-stone-500"
+            }
+          >
             {link.description}
           </div>
         ) : null}
@@ -294,7 +318,7 @@ function renderDocAction(
     </>
   );
 
-  if (!link.external && link.href.startsWith('#')) {
+  if (!link.external && link.href.startsWith("#")) {
     const target = docPageByLegacyHash(link.href);
     return (
       <button
@@ -307,7 +331,7 @@ function renderDocAction(
     );
   }
 
-  if (!link.external && link.href.startsWith('/')) {
+  if (!link.external && link.href.startsWith("/")) {
     const target = docPageByRoutePath(link.href);
     return (
       <button
@@ -324,8 +348,8 @@ function renderDocAction(
     <a
       key={link.label}
       href={link.href}
-      target={link.external ? '_blank' : undefined}
-      rel={link.external ? 'noreferrer' : undefined}
+      target={link.external ? "_blank" : undefined}
+      rel={link.external ? "noreferrer" : undefined}
       className={sharedClass}
     >
       {content}

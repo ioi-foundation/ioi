@@ -13,8 +13,8 @@
 //                       └─ everything else (and unported /api) ─▶ proxy to productUi :PRODUCT_UI_PORT
 //   productUi :PRODUCT_UI_PORT = product-ui server (bundle + IOI branding + remaining mocks)
 //
-// Transitional: the harvested bundle stays in the gitignored local productUi (not committed),
-// so this mode requires the productUi present. The IOI adapter + serve layer are committed.
+// The shipped shell is the committed IOI-owned product-ui/owned/public tree. The legacy harvested
+// tree is retained only as a non-shipped parity input; server.cjs defaults to the owned artifact.
 //
 // Usage: PORT=4173 node apps/hypervisor/scripts/serve-product-ui.mjs
 import http from "node:http";
@@ -34,7 +34,7 @@ import { MON_APP_TILE_URI, MON_WIZ_STRIP_URI, MON_CARDS_STRIP_URI } from "./moni
 import { CHG_APP_TILE_URI } from "./changes-assets.mjs";
 import { EVL_APP_TILE_URI, EVL_HERO_URI } from "./evalsuites-assets.mjs";
 import { compileProductSurfaces } from "./surface-compiler.mjs";
-import { bindSurface, boundSurface, boundActionRoute, embeddableRoutes } from "./surface-registry.mjs";
+import { bindSurface, boundSurface, boundActionRoute, embeddableRoutes, surfaceBySlug } from "./surface-registry.mjs";
 import { canonicalTimelineRef, escHtml } from "../surfaces/kit.mjs";
 import { readJsonWithDeadline } from "../surfaces/plane-read.mjs";
 import { managerLink, managerResourceLink, objectSetLink, sourcesLink, pipelineNodeLink, lineageLink as semLineageLink, vertexLink as semVertexLink, provenanceReceiptLink, provenanceSetLink, semanticBreadcrumb } from "../surfaces/ontology-context.mjs";
@@ -42,6 +42,7 @@ import { ioiGlobalRailHtml, IOI_GRAIL_CSS } from "../surfaces/chrome.mjs";
 import { mintTestGrant, awaitingWalletAuthority } from "./lib/wallet-authority.mjs";
 import { handleSystemGenesisSurfaces } from "./system-genesis-surfaces.mjs";
 import { v2RouteFor, RETIRED_UI_ROUTES, renderV2RouteShellPage, renderRetiredUiRoutePage, retiredUiRouteRefusal } from "./v2-route-shell.mjs";
+import { projectDomainAppRuntimeModel } from "./domain-app-runtime-model.mjs";
 
 // Build the current conversation entries for a run, in the exact NDJSON shape the SPA's V1 pane
 // renders ({id, phase, userInput|todoGroup|text}). Streamed entries are emitted once each (keyed by
@@ -1393,11 +1394,16 @@ function renderSearchResults(q, groups, sources) {
 // SCM host bindings with their real auth posture, and the governed-publish trail from the proof
 // stream. Publishing itself stays a wallet-authorized crossing on the SCM lanes — nothing here
 // mutates a repository.
-function renderCodeRepositories(projectsRes, scmRes, ledgerEntries) {
+function renderCodeRepositories(projectsRes, scmRes, publicationEffects) {
   const enc = encodeURIComponent;
   const projects = (projectsRes || {}).projects || [];
   const scm = (scmRes || {}).connectors || [];
-  const publishes = (ledgerEntries || []).filter((e) => String(e.kind || "").includes("publish") || String(e.op || "").includes("publish"));
+  const publishes = (Array.isArray(publicationEffects) ? publicationEffects : []).map((effect) => ({
+    kind: effect?.effects?.publication?.effect_kind || "scm_publication",
+    status: effect?.overall_outcome || effect?.effects?.publication?.outcome || "unknown",
+    timestamp: effect?.committed_at || "",
+    state_root: effect?.publication_effect_hash || "",
+  }));
   const scmStrip = scm.length
     ? scm.map((c) => {
       const bound = c.auth_posture === "token-lease:bound";
@@ -4034,7 +4040,24 @@ function renderDesignerPort(lists, selectedId) {
     .dsg-meta{color:#5f6b7c;font-weight:400;font-size:12px}
     .dsg-ref{display:block;font-size:11px;color:#5f6b7c;margin-top:1px;word-break:break-all}
     .dsg-gapnote{font-size:13px;color:#5f6b7c;margin:4px 0}
-    .dsg-foot{font-size:12px;line-height:1.6;color:#7b8494;margin-top:18px}`;
+    .dsg-foot{font-size:12px;line-height:1.6;color:#7b8494;margin-top:18px}
+    @media(max-width:700px){
+      .dsg-main{height:100svh}.dsg-hchip{width:42px;flex-basis:42px}.dsg-htitle{margin-left:9px;font-size:15px;min-width:0}
+      .dsg-hright{gap:6px;padding-right:7px}.dsg-hbtn.outlined{display:none}.dsg-hbtn.success{font-size:12px;gap:5px;padding:0 7px}
+      .dsg-hero{height:145px}.dsg-heroct{padding:0 20px;background:#fff}.dsg-heroimg{height:145px;width:auto;opacity:.18}
+      .dsg-h1{padding-top:16px}.dsg-desc{width:auto;max-width:290px}
+      .dsg-content{padding:0 12px}
+      .dsg-aipcard{height:auto;min-height:176px;margin-top:14px;padding:14px;display:grid;grid-template-columns:48px minmax(0,1fr);gap:0 10px;align-items:start}
+      .dsg-aipico{width:48px;height:auto;margin:3px 0 0}.dsg-aipcopy{margin:0}.dsg-aipt{font-size:16px;line-height:19px;margin:0}.dsg-aipsub{font-size:13px;line-height:17px}
+      .dsg-planbtn{grid-column:1/-1;justify-content:center;width:100%;height:36px;margin:12px 0 0;font-size:14px}
+      .dsg-gallery{height:190px;margin-top:18px;overflow-x:auto;overflow-y:hidden}.dsg-galhead{position:sticky;left:0;width:314px;padding:14px 14px 0;z-index:2;background:#fff}
+      .dsg-galt{white-space:normal;font-size:14px;line-height:17px}.dsg-strip{position:static;display:block;width:650px;height:auto;margin:14px}.dsg-galarrow{display:none}
+      .dsg-viewrow{height:auto;min-height:30px;margin-top:22px;flex-wrap:wrap}.dsg-open{margin-left:6px}
+      .dsg-table{min-height:300px}.dsg-th:not(.name),.dsg-cell:not(.name){display:none}.dsg-th.name,.dsg-cell.name{width:100%}
+      .dsg-row{min-height:57px;height:auto}.dsg-rowpath{white-space:normal;padding-bottom:8px}
+      .dsg-trutht{line-height:1.25}.dsg-truthsub{display:block;margin:6px 0 0}.dsg-truthcols{flex-direction:column}.dsg-truthcol{width:100%}
+      .dsg-foot{overflow-wrap:anywhere}
+    }`;
 
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Solution Designer</title><style>${css}</style></head>
     <body><div class="dsg-shell">${globalRail}<div class="dsg-main">${header}<div class="dsg-body">${hero}<main class="dsg-content">${aipCard}${gallery}${viewRow}${table}${truth}</main></div></div></div></body></html>`;
@@ -4201,7 +4224,17 @@ function renderEvalsuitesPort(suitesJson) {
     .evl-meta{color:#5f6b7c;font-weight:400;font-size:12px}
     .evl-refc{display:block;font-size:11px;color:#5f6b7c;margin-top:1px;word-break:break-all}
     .evl-gapnote{font-size:12px;color:#5f6b7c;margin:8px 0 0;line-height:1.5}
-    .evl-foot{font-size:12px;line-height:1.6;color:#7b8494;margin-top:18px}`;
+    .evl-foot{font-size:12px;line-height:1.6;color:#7b8494;margin-top:18px}
+    @media(max-width:700px){
+      .evl-main{height:100svh}.evl-hchip{width:42px;flex-basis:42px}.evl-htitle{margin-left:9px;font-size:15px}
+      .evl-hright{gap:6px;padding-right:7px}.evl-hbtn.outlined{display:none}.evl-hbtn.success{max-width:126px;height:34px;margin-top:8px;padding:0 7px;font-size:12px;line-height:14px}
+      .evl-hero{height:100px}.evl-heroct{padding:0 20px;background:#fff}.evl-heroimg{height:100px;width:auto;opacity:.2}.evl-h1{padding-top:16px}.evl-desc{width:auto;max-width:285px}
+      .evl-content{padding:0 12px}.evl-viewrow{margin-top:22px}
+      .evl-table{height:300px;min-height:300px}.evl-th:not(.name),.evl-cell:not(.name){display:none}.evl-th.name,.evl-cell.name{width:100%}
+      .evl-row{height:auto;min-height:57px}.evl-rowpath{white-space:normal;padding-bottom:8px}
+      .evl-exstripwrap{width:100%;overflow-x:auto}.evl-exstrip{max-width:none}
+      .evl-trutht{line-height:1.25}.evl-truthsub{display:block;margin:6px 0 0}.evl-truthcols{flex-direction:column}.evl-truthcol{width:100%}.evl-foot{overflow-wrap:anywhere}
+    }`;
 
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AIP Evals</title><style>${css}</style></head>
     <body><div class="evl-shell">${globalRail}<div class="evl-main">${header}<div class="evl-body">${hero}<main class="evl-content">${viewRow}${table}${examples}${truth}</main></div></div></div></body></html>`;
@@ -4412,7 +4445,21 @@ function renderChangesPort(proposals, lane, filter) {
     .chg-truth{padding:18px 20px 30px;border-top:1px solid #e5e8eb;margin-top:16px}
     .chg-trutht{font-size:13px;font-weight:600;color:#1c2127;margin:0 0 6px}
     .chg-truthsub{font-weight:400;color:#5f6b7c;margin-left:6px}
-    .chg-truthp{font-size:12px;line-height:1.6;color:#7b8494;margin:0}`;
+    .chg-truthp{font-size:12px;line-height:1.6;color:#7b8494;margin:0}
+    @media(max-width:700px){
+      .chg-main{height:100svh}.chg-hchip{width:42px;flex-basis:42px}.chg-htitle{margin-left:9px;font-size:15px}.chg-hright{display:none}
+      .chg-banner{flex:0 0 auto}.chg-bannerin{height:auto;min-height:42px;padding:7px 12px;gap:8px}.chg-bannertxt{font-size:12px;line-height:15px}
+      .chg-tabs{padding-left:12px;gap:18px}.chg-tab{font-size:14px}
+      .chg-body{flex-direction:column;overflow-y:auto;overflow-x:hidden}
+      .chg-sidebar{width:100%;flex:0 0 auto;overflow:visible;padding:12px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px;border-bottom:1px solid #d8dce2}
+      .chg-fhead,.chg-search,.chg-fdiv,.chg-fsec{grid-column:1/-1}.chg-fhead{margin:0}.chg-search{width:100%}.chg-fdiv{margin:4px -12px 0}.chg-fsec{margin:3px 0 0}
+      .chg-radio,.chg-check{height:auto;min-height:20px;margin:0;font-size:12.5px}.chg-rlabel{white-space:normal}.chg-rcount{top:2px}
+      .chg-list{width:100%;flex:0 0 auto;min-height:380px;overflow:visible;box-shadow:none}
+      .chg-listhead{padding:12px}.chg-cols{margin-top:8px}.chg-col.name{padding-left:12px}
+      .chg-col.type,.chg-col.due,.chg-ctype,.chg-cdue{display:none}.chg-col.act,.chg-cact{width:104px}
+      .chg-grouphead{padding-left:12px;padding-right:12px}.chg-row{padding:11px 0}.chg-cname{padding-left:12px}.chg-rowdata{padding-right:8px}
+      .chg-rowname,.chg-rowsub{white-space:normal}.chg-proof{overflow-wrap:anywhere}.chg-truth{padding:16px 12px 24px}.chg-truthsub{display:block;margin:5px 0 0}
+    }`;
 
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Upgrade Assistant</title><style>${css}</style></head>
     <body><div class="chg-shell">${globalRail}<div class="chg-main">${header}${banner}${tabs}<main class="chg-body">${sidebar}${list}</main></div></div></body></html>`;
@@ -4659,7 +4706,18 @@ function renderMonitorsPort(automations, runsById) {
     .mon-evtwhen{display:block;font-size:12px;color:#5f6b7c}
     .mon-evtstat{display:block;font-size:12px;color:#1c2127;margin-top:1px}
     .mon-evtref{font-size:11px;color:#5f6b7c;margin-left:12px;max-width:340px;word-break:break-all}
-    .mon-foot{font-size:12px;line-height:1.6;color:#7b8494;margin:24px 0 40px}`;
+    .mon-foot{font-size:12px;line-height:1.6;color:#7b8494;margin:24px 0 40px}
+    @media(max-width:700px){
+      .mon-main{height:100svh}.mon-hchip{width:42px;flex-basis:42px}.mon-htitle{margin-left:9px;font-size:15px}
+      .mon-tabs{margin-left:auto}.mon-tab{font-size:13px;margin-right:12px}.mon-hright{display:none}
+      .mon-hero{height:110px}.mon-heroct{padding:0 20px;background:#fff}.mon-h1{padding-top:18px;max-width:285px}.mon-desc{width:auto;max-width:285px;padding-top:4px}
+      .mon-content{padding:0 12px}.mon-gsband{align-items:flex-start;margin-top:22px}.mon-viewall{margin-left:10px}
+      .mon-wizcard{height:225px;overflow:hidden}.mon-wizcopy{position:relative;z-index:2;width:100%;flex-basis:auto;padding:24px 20px}.mon-wizsub{width:auto;max-width:270px}.mon-wizbtn{margin-top:24px}
+      .mon-wizstrip{display:none}.mon-cardswrap,.mon-exstripwrap{width:100%;overflow-x:auto}.mon-cardsstrip,.mon-exstrip{max-width:none}
+      .mon-tiles{flex-direction:column;gap:10px}.mon-tile{width:100%;flex:0 0 72px}
+      .mon-th:not(.name),.mon-cell:not(.name){display:none}.mon-th.name,.mon-cell.name{width:100%}.mon-row{height:auto;min-height:57px}.mon-rowpath{white-space:normal;padding-bottom:8px}
+      .mon-evt{padding:10px 12px;flex-wrap:wrap}.mon-evtref{width:100%;max-width:none;margin:6px 0 0 22px}.mon-foot{overflow-wrap:anywhere}
+    }`;
 
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Automate</title><style>${css}</style></head>
     <body><div class="mon-shell">${globalRail}<div class="mon-main">${header}<div class="mon-body">${hero}<main class="mon-content">${gettingStarted}${stats}${recents}${triggered}</main></div></div></div></body></html>`;
@@ -4879,7 +4937,17 @@ function renderMachineryPort(machines, selectedId) {
     .mch-refc{display:block;font-size:11px;color:#5f6b7c;margin-top:1px;word-break:break-all}
     .mch-gapnote{font-size:13px;color:#5f6b7c;margin:4px 0}
     .mch-histnote{font-size:12px;color:#7b8494;margin:8px 0 0}
-    .mch-foot{font-size:12px;line-height:1.6;color:#7b8494;margin-top:18px}`;
+    .mch-foot{font-size:12px;line-height:1.6;color:#7b8494;margin-top:18px}
+    @media(max-width:700px){
+      .mch-main{height:100svh}.mch-hchip{width:42px;flex-basis:42px}.mch-htitle{margin-left:9px;font-size:15px}
+      .mch-hright{gap:6px;padding-right:7px}.mch-hbtn.store,.mch-hbtn.outlined{display:none}.mch-hbtn.success{font-size:12px;gap:5px;padding:0 7px}
+      .mch-hero{height:124px}.mch-heroct{padding:0 20px;background:#fff}.mch-heroimg{height:124px;width:auto;opacity:.2}.mch-h1{padding-top:16px}.mch-desc{width:auto;max-width:290px}
+      .mch-content{padding:0 12px}.mch-viewrow{margin-top:22px}
+      .mch-table{height:300px;min-height:300px}.mch-th:not(.name),.mch-cell:not(.name){display:none}.mch-th.name,.mch-cell.name{width:100%}
+      .mch-row{height:auto;min-height:57px}.mch-rowpath{white-space:normal;padding-bottom:8px}
+      .mch-exstripwrap{width:100%;overflow-x:auto}.mch-exstrip{max-width:none}
+      .mch-trutht{line-height:1.25}.mch-truthsub{display:block;margin:6px 0 0}.mch-truthcols{flex-direction:column}.mch-truthcol{width:100%}.mch-foot{overflow-wrap:anywhere}
+    }`;
 
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Machinery</title><style>${css}</style></head>
     <body><div class="mch-shell">${globalRail}<div class="mch-main">${header}<div class="mch-body">${hero}<main class="mch-content">${viewRow}${table}${examples}${truth}</main></div></div></div></body></html>`;
@@ -5200,7 +5268,22 @@ function renderIncidentsPort(ops, goalRuns, lane) {
     .in-rpill .in-pdot{color:#ff9980}
     .in-rpill.fail{background:rgba(205,66,70,.18)}.in-rpill.fail .in-pdot{color:#cd4246}
     .in-rkind{font-size:12px;line-height:15.4297px;color:#8f99a8;margin-top:4px}
-    .in-empty{margin:24px;padding:16px 18px;border:1px dashed #d3d8de;border-radius:8px;background:#fbfbfc;color:#5f6b7c;max-width:640px}`;
+    .in-empty{margin:24px;padding:16px 18px;border:1px dashed #d3d8de;border-radius:8px;background:#fbfbfc;color:#5f6b7c;max-width:640px}
+    @media(max-width:700px){
+      .in-main{height:100svh}.in-header{position:relative;flex:0 0 88px;height:88px;padding-bottom:37px}
+      .in-hchip{width:42px;flex-basis:42px}.in-htitle{margin-left:9px;font-size:15px}
+      .in-hright{position:absolute;left:0;right:0;bottom:0;height:38px;padding:0 10px}.in-hright>*{margin-top:4px}
+      .in-search{width:auto;flex:1}.in-new,.in-cog{display:none}
+      .in-work{flex-direction:column;overflow-y:auto;overflow-x:hidden}
+      .in-side{width:100%;flex:0 0 auto;position:relative;overflow:visible;padding:10px 12px 12px;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;border-right:0;border-bottom:1px solid rgba(16,22,26,.15)}
+      .in-lane{position:static;grid-column:span 2;height:32px;padding:0 8px;border-radius:4px}.in-fhead{position:static;grid-column:1/-1;margin-top:3px}
+      .in-fprio{position:static;grid-column:1/-1}.in-prio{position:static;grid-column:span 2;height:auto;min-width:0;gap:4px}.in-ppill{padding:0 5px}
+      .in-facet{position:static;grid-column:span 3;min-width:0}.in-frow{min-width:0}.in-finc{font-size:11px}
+      .in-fuline,.in-fbox{width:100%;min-width:0}.in-dates{width:100%}.in-fdate{width:50%;min-width:0;font-size:12px;padding:0 5px}
+      .in-list{width:100%;flex:0 0 auto;min-height:380px}.in-lhead{height:41px}.in-lmut,.in-lsel,.in-lsort{display:none}.in-lcounttxt{left:47px;max-width:none}
+      .in-row{height:auto;min-height:78px;padding:10px 12px}.in-rico{margin-left:10px}.in-rsub{white-space:normal}.in-rright{width:78px;margin-left:8px}.in-rpill{max-width:78px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.in-rkind{display:none}
+      .in-empty{margin:14px}
+    }`;
 
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Issues — incidents inbox</title><style>${css}</style></head>
     <body><div class="in-shell">${globalRail}<div class="in-main">${header}<div class="in-work">${sidebar}${list}</div></div></div></body></html>`;
@@ -5328,7 +5411,15 @@ function renderModelCatalogPort(routesJson) {
     .mc-pill{display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:10px;background:#eef0f2;font-size:12px;line-height:16px;color:#1c2127}
     .mc-pill.alt{background:#f6f7f9;color:#5f6b7c}
     .mc-empty{width:420px;padding:16px 18px;border:1px dashed #d3d8de;border-radius:8px;background:#fbfbfc;color:#5f6b7c}
-    .mc-foot{margin-top:16px;max-width:480px;color:#7b8494;font-size:12px;line-height:1.5}`;
+    .mc-foot{margin-top:16px;max-width:480px;color:#7b8494;font-size:12px;line-height:1.5}
+    @media(max-width:700px){
+      .mc-main{height:100svh}.mc-header{position:relative;flex:0 0 88px;height:88px;padding-bottom:37px}
+      .mc-hchip{width:42px;flex-basis:42px}.mc-htitle{margin-left:9px;font-size:15px}
+      .mc-tab{position:absolute;bottom:0;height:37px;margin:0;font-size:13px;line-height:37px}.mc-tab:first-of-type{left:12px;margin-left:0}.mc-tab:last-child{right:12px}
+      .mc-hero{height:145px;padding-left:20px}.mc-h1{font-size:28px;line-height:34px;margin-top:20px}.mc-sub{max-width:280px}
+      .mc-work{flex-direction:column;padding:12px;gap:22px}.mc-filters{width:100%;flex:0 0 354px}.mc-search,.mc-fsec{width:calc(100% - 38px)}
+      .mc-list{width:100%;max-width:none}.mc-card,.mc-empty{width:100%}.mc-foot{max-width:none;overflow-wrap:anywhere}
+    }`;
 
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Model Catalog</title><style>${css}</style></head>
     <body><div class="mc-shell">${globalRail}<div class="mc-main">${header}<div class="mc-body">${hero}<main class="mc-work">${filters}${catalog}</main></div></div></div></body></html>`;
@@ -5394,6 +5485,7 @@ function renderMarketplaceBrowsePort(listingsJson) {
         <img class="w3" src="${MK_WIZ3_URI}" width="125" height="98" alt="">
         <span class="wc1">Choose a product to install</span><span class="wc2">Configure product inputs</span><span class="wc3">Install and explore</span>
       </div>
+      <ol class="mk-mobile-steps" aria-label="Reference installation steps"><li>Choose a product</li><li>Configure inputs</li><li>Install and explore</li></ol>
     </div>
     <div class="mk-foot">The store row is daemon truth: ${listings.length} listing${listings.length === 1 ? "" : "s"} on the governed plane (${published.length} published). Draft/publish/admission: <a href="/__ioi/marketplace">Marketplace substrate →</a> · reference: <a href="/__apps/listings" target="_blank" rel="noopener">Marketplace capture ↗</a></div>
   </div>`;
@@ -5449,7 +5541,23 @@ function renderMarketplaceBrowsePort(listingsJson) {
     .mk-wizsteps .w1{left:492px;top:55px}.mk-wizsteps .wa1{left:632px;top:86px}.mk-wizsteps .w2{left:686px;top:54px}.mk-wizsteps .wa2{left:866px;top:86px}.mk-wizsteps .w3{left:937.5px;top:45px}
     .mk-wizsteps .wc1{left:469px;top:145px}.mk-wizsteps .wc2{left:689.7px;top:145px}.mk-wizsteps .wc3{left:943.2px;top:145px}
     .mk-wizsteps span{font-size:14px;line-height:18.0013px;color:#1c2127}
-    .mk-foot{margin:16px 0 30px;color:#7b8494;font-size:12px;line-height:1.5}`;
+    .mk-mobile-steps{display:none}
+    .mk-foot{margin:16px 0 30px;color:#7b8494;font-size:12px;line-height:1.5}
+    @media(max-width:700px){
+      .mk-main{height:100svh}.mk-header{position:relative;flex:0 0 88px;height:88px;padding-bottom:37px}
+      .mk-hchip{width:42px;flex-basis:42px}.mk-htitle{margin-left:9px;font-size:15px}
+      .mk-hright{position:absolute;left:0;right:0;bottom:0;height:38px;padding:0 10px}.mk-hright>*{margin-top:4px}
+      .mk-hright>.mk-search{width:auto;flex:1}.mk-hbtn{display:none}
+      .mk-hero{height:100px}.mk-heroimg{height:100px;width:auto;opacity:.24}.mk-hero .mk-h1,.mk-hero .mk-sub{padding-left:20px;padding-right:20px}.mk-h1{font-size:26px;padding-top:20px}
+      .mk-content{padding:0 12px}.mk-storeshead{align-items:flex-start;flex-direction:column;gap:10px;margin-top:18px}.mk-storesearch{width:100%}
+      .mk-storecard{height:300px}.mk-thname{padding-left:12px}.mk-thprod{width:92px;padding-left:8px}
+      .mk-row{padding:12px 0}.mk-rowico{margin-left:12px}.mk-rowmain{margin-left:7px}.mk-rowname{font-size:13px;line-height:17px}.mk-rowsub{display:none}
+      .mk-rowright{width:92px;padding:0 8px;font-size:12px}.mk-rowcount{gap:4px;align-items:flex-start;flex-direction:column}.mk-rowshare{display:none}
+      .mk-wizcard{height:auto;display:block;overflow:visible}.mk-wizcopy{width:auto;flex:0 0 auto;padding:16px}.mk-wizsteps{display:none}
+      .mk-mobile-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;list-style:none;counter-reset:steps;margin:0;padding:0 16px 16px}
+      .mk-mobile-steps li{counter-increment:steps;padding:9px 6px;border:1px solid #dce0e5;border-radius:4px;font-size:11.5px;line-height:15px}.mk-mobile-steps li::before{content:counter(steps);display:block;font-weight:600;margin-bottom:3px}
+      .mk-foot{overflow-wrap:anywhere}
+    }`;
 
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Marketplace</title><style>${css}</style></head>
     <body><div class="mk-shell">${globalRail}<div class="mk-main">${header}<div class="mk-body">${hero}<main>${stores}</main></div></div></div></body></html>`;
@@ -5707,7 +5815,7 @@ function odkGovLink(ref) {
 function renderDomainAppRuntimeView(rt, dapp, descriptor, ontology) {
   const enc = encodeURIComponent;
   const d = dapp || {}; const desc = descriptor || {}; const ont = ontology || {};
-  const com = ont.canonical_object_model || {};
+  const runtimeModel = projectDomainAppRuntimeModel(ont);
   const pattern = desc.composition_pattern || "domain_app";
   const serving = rt && rt.serving === true;
   const chips = (arr, cls) => (arr && arr.length) ? arr.map((x) => `<span class="pill ${cls || "muted"}">${CX_ESC(x)}</span>`).join(" ") : `<span class="sub" style="margin:0">none</span>`;
@@ -5716,14 +5824,16 @@ function renderDomainAppRuntimeView(rt, dapp, descriptor, ontology) {
   if (!serving) {
     return automationsShell(d.name || "Domain App", `${head}${banner}<div class="empty">This runtime is not serving. Start serving from the Domain App detail.</div><p><a href="/__ioi/domain-apps/${enc(d.domain_app_id || "")}">← Domain App</a></p>`);
   }
-  const objects = com.objects || [];
+  const objects = runtimeModel.objects;
   const objList = objects.length
-    ? `<table><thead><tr><th>Object</th><th>Available actions (read-only)</th></tr></thead><tbody>${objects.map((o) => `<tr><td><b>${CX_ESC(o)}</b></td><td>${(com.actions || []).map((ac) => `<button class="act ghost" disabled style="opacity:.5;cursor:not-allowed">${CX_ESC(ac)}</button>`).join(" ") || "—"}</td></tr>`).join("")}</tbody></table>`
+    ? `<table><thead><tr><th>Object</th><th>Available actions (read-only)</th></tr></thead><tbody>${objects.map((o) => `<tr><td><b>${CX_ESC(o.name)}</b> <code>${CX_ESC(o.id)}</code></td><td>${o.actions.map((action) => `<button class="act ghost" disabled style="opacity:.5;cursor:not-allowed">${CX_ESC(action.name)}</button>`).join(" ") || "—"}</td></tr>`).join("")}</tbody></table>`
     : `<div class="empty">The ontology declares no objects yet. Add objects to <code>${CX_ESC(ont.domain || "the ontology")}</code> in ODK.</div>`;
   const model = `<h2>Domain: ${CX_ESC(ont.domain || "—")} <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">v${CX_ESC(ont.version || "")}</span></h2>
-    <div class="chips"><span class="chiplabel">States</span>${chips(com.states)}</div>
-    <div class="chips"><span class="chiplabel">Events</span>${chips(com.events)}</div>
-    <div class="chips"><span class="chiplabel">Roles</span>${chips(com.roles)}</div>
+    <div class="chips"><span class="chiplabel">Value types</span>${chips(runtimeModel.valueTypes)}</div>
+    <div class="chips"><span class="chiplabel">Relations</span>${chips(runtimeModel.linkTypes)}</div>
+    <div class="chips"><span class="chiplabel">States</span>${chips(runtimeModel.states)}</div>
+    <div class="chips"><span class="chiplabel">Events</span>${chips(runtimeModel.events)}</div>
+    <div class="chips"><span class="chiplabel">Roles</span>${chips(runtimeModel.roles)}</div>
     <h2>Objects</h2>${objList}`;
   const footer = `<p class="sub" style="margin-top:20px">Runtime <code>${CX_ESC(rt.ref || "")}</code> · descriptor <code>${CX_ESC(d.surface_descriptor_ref || "")}</code> · governed by ${odkGovLink(rt.approval_request_ref)} + ${odkGovLink(rt.release_control_ref)} · <a href="/__ioi/work-ledger">Work Ledger</a> · <a href="/__ioi/domain-apps/${enc(d.domain_app_id || "")}">← Domain App</a></p>`;
   return automationsShell(d.name || "Domain App", head + banner + model + footer);
@@ -6734,7 +6844,12 @@ if (!existsSync(REF_SERVER)) {
 // 1) Spawn the product-ui server (bundle + branding + remaining mocks) on an internal port.
 const productUi = spawn("node", [REF_SERVER], {
   stdio: "inherit",
-  env: { ...process.env, PORT: String(PRODUCT_UI_PORT) },
+  env: {
+    ...process.env,
+    PORT: String(PRODUCT_UI_PORT),
+    IOI_PRODUCT_UI_PUBLIC:
+      process.env.IOI_PRODUCT_UI_PUBLIC || join(HERE, "..", "product-ui", "owned", "public"),
+  },
 });
 productUi.on("exit", (code) => process.exit(code ?? 0));
 process.on("SIGINT", () => productUi.kill("SIGINT"));
@@ -6769,8 +6884,13 @@ function stripCapturedDemoIdentity(html) {
 // went wrong" error boundary. The productUi already serves all assets locally, so point the base at
 // our own origin (root-relative /static/) for a self-contained, deterministic app.
 const ASSET_CDN_BASE = "https://app.ioi.io/static/";
+const CHANGELOG_IMAGE_URL = "https://docs.ioi.com/images/changelog/user-budgets.webp";
+const CHANGELOG_IMAGE_PATH = "/__ioi/assets/changelog-user-budgets.svg";
 function localizeAssetBase(html) {
   return html.split(ASSET_CDN_BASE).join("/static/");
+}
+function localizeExternalMedia(text) {
+  return text.split(CHANGELOG_IMAGE_URL).join(CHANGELOG_IMAGE_PATH);
 }
 
 // Rename the "Personal access tokens" settings surface — which is really about Hypervisor *API*
@@ -6818,7 +6938,8 @@ function proxyToProductUi(req, res, body) {
       r.on("end", () => {
         let text = Buffer.concat(parts).toString("utf8");
         if (renameJs) text = renameApiTokens(text); // JS bundle: rename only, no HTML rewrite
-        if (!renameJs && ct.includes("text/html")) text = augmentHtml(localizeAssetBase(stripCapturedDemoIdentity(text))); // demo-identity residue deleted + localize CDN base + WS-I inject
+        if (!renameJs && ct.includes("text/html")) text = augmentHtml(localizeExternalMedia(localizeAssetBase(stripCapturedDemoIdentity(text)))); // demo-identity residue deleted + localize captured media/CDN base + WS-I inject
+        if (!renameJs && ct.startsWith("application/json")) text = localizeExternalMedia(text);
         const out = Buffer.from(text, "utf8");
         const outHeaders = { ...r.headers, "content-length": String(out.length) };
         // We send a fixed-length body, so drop any chunked/encoding headers from upstream
@@ -7121,6 +7242,30 @@ function embedSurfaceHtml(html) {
   return html.replace(/<aside class="og-grail[\s\S]*?<\/aside>/, "");
 }
 
+// Registry identity is a serving invariant, not an implementation detail of extracted modules.
+// Metadata-only surfaces still use flat handlers while they are migrated, so every successful
+// registry surface response passes through this single boundary: one body marker plus matching
+// response headers. The browser smoke binds all three coordinates back to SURFACES.
+function sendOwnedSurfaceHtml(res, surfaceOrSlug, rendered, headers = {}) {
+  const surface = typeof surfaceOrSlug === "string" ? surfaceBySlug(surfaceOrSlug) : surfaceOrSlug;
+  if (!surface) throw new Error(`sendOwnedSurfaceHtml: unknown surface '${surfaceOrSlug}'`);
+  const html = String(rendered);
+  if (!/<body(?:\s|>)/i.test(html)) throw new Error(`sendOwnedSurfaceHtml: '${surface.slug}' rendered no document body`);
+  if (/\bdata-ioi-surface-(?:route|owner)=/i.test(html)) throw new Error(`sendOwnedSurfaceHtml: '${surface.slug}' rendered a duplicate ownership marker`);
+  const marked = html.replace(
+    /<body\b/i,
+    `<body data-ioi-surface-route="${surface.route}" data-ioi-surface-owner="${surface.owner}"`,
+  );
+  res.writeHead(200, {
+    "Content-Type": "text/html; charset=utf-8",
+    "Cache-Control": "no-cache",
+    ...headers,
+    "X-IOI-Surface-Route": surface.route,
+    "X-IOI-Surface-Owner": surface.owner,
+  });
+  res.end(marked);
+}
+
 // ---- Governed action runtime (operational wave #62) ------------------------------------------
 // ONE runtime for every module action: bounded form parsing, action lookup by declared transition
 // vocabulary, input allowlisting (undeclared fields are NEVER forwarded), same-origin return
@@ -7219,6 +7364,12 @@ async function handleEstateRequest(req, res, body) {
       res.end(TERMINAL_CHUNK);
       return;
     }
+    if (pathname === CHANGELOG_IMAGE_PATH && req.method === "GET") {
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-labelledby="title"><title id="title">User budgets for AI usage</title><rect width="640" height="360" fill="#f2f2f0"/><path d="M96 278V92h448v186" fill="#fff" stroke="#c9c9c4" stroke-width="2"/><path d="M152 226h54v28h-54zm88-52h54v80h-54zm88-34h54v114h-54zm88-58h54v172h-54z" fill="#111"/><text x="320" y="320" text-anchor="middle" font-family="system-ui,sans-serif" font-size="22" fill="#3f3f3b">User budgets for AI usage</text></svg>`;
+      res.writeHead(200, { "Content-Type": "image/svg+xml; charset=utf-8", "Cache-Control": "public, max-age=86400" });
+      res.end(svg);
+      return;
+    }
     // ---- Vendored font assets for the IOI-owned port surfaces (pixel-certified ports render with the
     // reference's OSS type metrics — Source Sans Pro, SIL OFL; see assets/fonts/LICENSE-NOTES.md).
     // WHITELIST only — no path traversal, no directory serving.
@@ -7231,6 +7382,13 @@ async function handleEstateRequest(req, res, body) {
         res.writeHead(200, { "Content-Type": "font/woff2", "Cache-Control": "public, max-age=86400, immutable" });
         res.end(buf);
       } catch { res.writeHead(404); res.end("not found"); }
+      return;
+    }
+    // Public build identity contains only the owned-tree disposition and content digests. Keep it
+    // independent of daemon identity readiness so deployment probes can prove which immutable UI
+    // artifact is serving even while the authority plane is starting or unavailable.
+    if (pathname === "/__ioi/product-ui-identity" && req.method === "GET") {
+      proxyToProductUi(req, res, body);
       return;
     }
     // Unrebound internal surfaces still aggregate global daemon families and therefore have no
@@ -8144,7 +8302,18 @@ async function handleEstateRequest(req, res, body) {
         try {
           const w = await fetch(`${DAEMON}/v1/hypervisor/auth/whoami`, { headers: { Cookie: req.headers.cookie || "", ...(req.headers["x-forwarded-host"] ? { "X-Forwarded-Host": req.headers["x-forwarded-host"] } : {}) } });
           if (w.status === 401) { res.writeHead(302, { Location: "/__ioi/login" }); res.end(); return; }
-        } catch { /* daemon transient — fail open, never lock the operator out */ }
+        } catch {
+          res.writeHead(503, {
+            "Content-Type": "text/html; charset=utf-8",
+            "Cache-Control": "no-store",
+            "Retry-After": "2",
+          });
+          res.end(automationsShell(
+            "Identity unavailable",
+            '<div class="empty" data-error-code="identity_authority_unavailable">Identity authority is unavailable. The product shell will not create an unauthenticated browser session or expose a protected page while the daemon cannot answer.</div>',
+          ));
+          return;
+        }
       }
     }
     // ---- W0.1 v2 route shell (bring-to-life run) — the canonical target-route ledger
@@ -8173,7 +8342,12 @@ async function handleEstateRequest(req, res, body) {
         // W0.2: the page's estate-navigation band renders the compiled product-surface
         // projection (surface-compiler.mjs) — daemon registration records, never a hand list.
         const compiled = await compileProductSurfaces({ headers: daemonRequestHeaders(req) });
-        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+        res.writeHead(200, {
+          "Content-Type": "text/html; charset=utf-8",
+          "Cache-Control": "no-cache",
+          "X-IOI-Surface-Route": v2Route.route,
+          "X-IOI-Surface-Owner": v2Route.kind,
+        });
         res.end(renderV2RouteShellPage(v2Route, compiled));
         return;
       }
@@ -8220,6 +8394,7 @@ async function handleEstateRequest(req, res, body) {
         const esc = CX_ESC; // the kit escaper (surfaces/kit.mjs) — no local duplicates
         page = githubAppShell("Create your GitHub App", `
           <p>Hypervisor doesn't own a GitHub App — you'll create one in <b>your own</b> account. GitHub will show you exactly what it can access (Contents + Pull requests), then hand the key straight to your daemon. Nothing is shared with us.</p>
+          <p class="muted"><b>Outbound repository access only.</b> This localhost manifest does not register a webhook or subscribe to provider events. Pull-request and check state must not be treated as live until signed provider-event ingestion is configured.</p>
           <form id="gh" action="${esc(d.create_url)}" method="post">
             <input type="hidden" name="manifest" value="${esc(JSON.stringify(d.manifest))}">
             <button type="submit" class="btn">Create GitHub App on GitHub →</button>
@@ -8264,7 +8439,7 @@ async function handleEstateRequest(req, res, body) {
         const r = await fetch(`${DAEMON}/v1/hypervisor/scm-connect/github-app/installation`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ installation_id }) });
         const d = await r.json();
         page = d.ok
-          ? githubAppShell("GitHub App connected ✓", `<p>Installation <b>${d.installation_id}</b> bound to <b>${d.connector_id}</b>${d.verified ? " — installation token minted successfully." : "."}</p><p class="muted">The agent will receive a use-only lease; the App key never leaves your daemon. You can close this tab.</p>`)
+          ? githubAppShell("GitHub App connected ✓", `<p>Installation <b>${d.installation_id}</b> bound to <b>${d.connector_id}</b>${d.verified ? " — installation token minted successfully." : "."}</p><p class="muted">The agent will receive a use-only lease; the App key never leaves your daemon. This connection has no webhook and supplies no live provider workflow events; signed event ingestion remains unavailable. You can close this tab.</p>`)
           : githubAppShell("Couldn't finish install", `<p class="muted">${d.reason || "installation capture failed"}</p>`);
       } catch (e) {
         page = githubAppShell("Couldn't finish install", `<p class="muted">${String(e?.message || e)}</p>`);
@@ -8446,8 +8621,7 @@ async function handleEstateRequest(req, res, body) {
     // the real eval-suite plane: no EvalRun execution, no scoring/verdicts/judging on this surface.
     if (pathname === "/__ioi/evaluations/evalsuites" && req.method === "GET") {
       const sj = await fetch(`${DAEMON}/v1/hypervisor/eval-suites`).then((r) => r.json()).catch(() => ({}));
-      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-      res.end(renderEvalsuitesPort(sj));
+      sendOwnedSurfaceHtml(res, "evalsuites", renderEvalsuitesPort(sj));
       return;
     }
     // ---- Improvement · Changes — the Upgrade Assistant inbox port (#53). A read-only projection
@@ -8457,8 +8631,7 @@ async function handleEstateRequest(req, res, body) {
       const qp = new URL(req.url, "http://x").searchParams;
       const lane = ["active", "pastdue", "archived"].includes(qp.get("lane")) ? qp.get("lane") : "active";
       const filter = qp.get("filter") === "all" ? "all" : "action";
-      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-      res.end(renderChangesPort((pj.proposals || []).sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || ""))), lane, filter));
+      sendOwnedSurfaceHtml(res, "changes", renderChangesPort((pj.proposals || []).sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || ""))), lane, filter));
       return;
     }
     // ---- Automations · Monitors — the Automate-overview port (#51). A read-only PROJECTION over
@@ -8468,8 +8641,7 @@ async function handleEstateRequest(req, res, body) {
       const autos = aRes.automations || [];
       const runsEntries = await Promise.all(autos.map((a) =>
         fetch(`${DAEMON}/v1/hypervisor/automations/${encodeURIComponent(a.automation_id)}/runs`).then((r) => r.json()).then((j) => [a.automation_id, j.runs || []]).catch(() => [a.automation_id, []])));
-      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-      res.end(renderMonitorsPort(autos, Object.fromEntries(runsEntries)));
+      sendOwnedSurfaceHtml(res, "monitors", renderMonitorsPort(autos, Object.fromEntries(runsEntries)));
       return;
     }
     if (pathname.startsWith("/__ioi/automations/")) {
@@ -8683,13 +8855,13 @@ async function handleEstateRequest(req, res, body) {
     }
     // ---- Code Repositories (folds into Workbench; repos over project truth + SCM posture).
     if (pathname === "/__ioi/code" && req.method === "GET") {
-      const [pjRes, scmRes, ledRes] = await Promise.all([
+      const [pjRes, scmRes, effectsRes] = await Promise.all([
         fetch(`${DAEMON}/v1/hypervisor/projects`).then((x) => x.json()).catch(() => ({})),
         fetch(`${DAEMON}/v1/hypervisor/scm-connectors`).then((x) => x.json()).catch(() => ({})),
-        fetch(`${DAEMON}/v1/hypervisor/work-ledger`).then((x) => x.json()).catch(() => ({})),
+        fetch(`${DAEMON}/v1/hypervisor/scm-publication-effects`).then((x) => x.json()).catch(() => ({})),
       ]);
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-      res.end(renderCodeRepositories(pjRes, scmRes, ledRes.entries || []));
+      res.end(renderCodeRepositories(pjRes, scmRes, effectsRes.publication_effects || []));
       return;
     }
     // ---- Sessions root (rail root; session lifecycle facts + admitted bindings).
@@ -8814,14 +8986,12 @@ async function handleEstateRequest(req, res, body) {
     // inbox (run failures + GoalRun blockers). Operations stays substrate/infra (separate route).
     if (pathname === "/__ioi/marketplace/listings" && req.method === "GET") {
       const listingsJson = await fetch(`${DAEMON}/v1/hypervisor/marketplace/listings`).then((x) => x.json()).catch(() => ({}));
-      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-      res.end(renderMarketplaceBrowsePort(listingsJson));
+      sendOwnedSurfaceHtml(res, "listings", renderMarketplaceBrowsePort(listingsJson));
       return;
     }
     if (pathname === "/__ioi/foundry/models" && req.method === "GET") {
       const routesJson = await fetch(`${DAEMON}/v1/hypervisor/model-routes`).then((x) => x.json()).catch(() => ({}));
-      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-      res.end(renderModelCatalogPort(routesJson));
+      sendOwnedSurfaceHtml(res, "models", renderModelCatalogPort(routesJson));
       return;
     }
     if (pathname === "/__ioi/missions/incidents" && req.method === "GET") {
@@ -8831,8 +9001,7 @@ async function handleEstateRequest(req, res, body) {
       ]);
       const qp = new URL(req.url, "http://x").searchParams;
       const lane = ["open", "closed", "all"].includes(qp.get("lane")) ? qp.get("lane") : "open";
-      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-      res.end(renderIncidentsPort(opsRes, grRes.goal_runs || [], lane));
+      sendOwnedSurfaceHtml(res, "incidents", renderIncidentsPort(opsRes, grRes.goal_runs || [], lane));
       return;
     }
     if (pathname === "/__ioi/operations" && req.method === "GET") {
@@ -9637,8 +9806,7 @@ async function handleEstateRequest(req, res, body) {
         J("/v1/hypervisor/domain-apps"),
       ]);
       const selectedOntology = new URL(req.url, "http://x").searchParams.get("ontology") || "";
-      res.writeHead(200, HTMLH);
-      res.end(renderDesignerPort({
+      sendOwnedSurfaceHtml(res, "designer", renderDesignerPort({
         ontologies: o.ontologies || [],
         connector_mappings: cm.connector_mappings || [],
         policy_views: pv.policy_bound_data_views || [],
@@ -9652,8 +9820,7 @@ async function handleEstateRequest(req, res, body) {
     if (pathname === "/__ioi/studio/machinery" && req.method === "GET") {
       const r = await fetch(`${DAEMON}/v1/hypervisor/state-machines`).then((x) => x.json()).catch(() => ({}));
       const selectedMachine = new URL(req.url, "http://x").searchParams.get("machine") || "";
-      res.writeHead(200, HTMLH);
-      res.end(renderMachineryPort(r.state_machines || [], selectedMachine));
+      sendOwnedSurfaceHtml(res, "machinery", renderMachineryPort(r.state_machines || [], selectedMachine));
       return;
     }
     if (pathname === "/__ioi/vertex" && req.method === "GET") {
@@ -9717,10 +9884,10 @@ async function handleEstateRequest(req, res, body) {
         const url = new URL(req.url, "http://x");
         const ctx = { url, daemon: DAEMON, embed: url.searchParams.get("embed") === "1" };
         const model = hit.impl.load ? await hit.impl.load(ctx) : null;
-        res.writeHead(200, HTMLH);
+        const rendered = hit.impl.render(model, ctx);
         // ctx.embed gates the module's own rail emission; the estate-wide embed choke point
         // (handleEstateRequest head) owns link threading — applying it here too would double it.
-        res.end(hit.impl.render(model, ctx));
+        sendOwnedSurfaceHtml(res, hit.surface, rendered);
         return;
       }
     }

@@ -14,6 +14,7 @@ delete process.env.CORE_SIGNING_SECRET;
 delete process.env.PORTAL_IDENTITY_SECRET;
 process.env.WEB_UI_PRINCIPALS = "alice";
 process.env.ALLOW_UNSIGNED_TEST_IDENTITY = "0";
+process.env.WEB_UI_PUBLIC_URL = "http://localhost:8096";
 
 const { handler } = await import("../server/index.ts");
 const surface = createServer((req, res) => void handler(req, res));
@@ -23,7 +24,11 @@ const base = `http://localhost:${(surface.address() as AddressInfo).port}`;
 const signin = (user: unknown) =>
   fetch(`${base}/signin`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: {
+      "content-type": "application/json",
+      origin: "http://localhost:8096",
+      "sec-fetch-site": "same-origin",
+    },
     body: JSON.stringify({ user }),
   });
 
@@ -36,6 +41,16 @@ test("with no signing secret the surface advertises dev mode", async () => {
   const r = await fetch(`${base}/me`);
   assert.equal(r.status, 401);
   assert.deepEqual(await r.json(), { error: "sign in", mode: "dev", reason: "unauthenticated" });
+});
+
+test("unsigned dev identity cannot use the non-browser mutation carveout", async () => {
+  const r = await fetch(`${base}/signin`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ user: "alice" }),
+  });
+  assert.equal(r.status, 403);
+  assert.equal(((await r.json()) as { error?: string }).error, "cross_site_request_refused");
 });
 
 test("a bare principal id — not just an email — can sign in", async () => {

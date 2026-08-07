@@ -1,6 +1,6 @@
-import type { Session } from "../../../src/types.ts";
-import type { TranscriptEntry as CoreSessionEntry } from "../../../src/sessions/session-store.ts";
-import type { ContextSummary, ProjectView } from "../../../src/api/app.ts";
+import type { Session } from "../../../../ioi-ai/src/types.ts";
+import type { TranscriptEntry as CoreSessionEntry } from "../../../../ioi-ai/src/sessions/session-store.ts";
+import type { ContextSummary, ProjectView } from "../../../../ioi-ai/src/api/app.ts";
 import type { CoreContext, CoreProject, CoreSession, SessionEntry } from "../src/core-bridge.ts";
 
 type Expect<T extends true> = T;

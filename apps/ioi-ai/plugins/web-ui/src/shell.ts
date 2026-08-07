@@ -14,6 +14,7 @@ import {
   Plus,
   RefreshCw,
   Rocket,
+  Target,
   type IconNode,
 } from "lucide";
 import "@mariozechner/mini-lit/dist/ThemeToggle.js";
@@ -27,7 +28,7 @@ import {
   withBase,
 } from "./core-bridge";
 import { applyRuntimeOptions } from "./model-options";
-import { errMessage, swallow } from "../../chassis/src/errors";
+import { errMessage, swallow } from "../../../../ioi-ai/plugins/chassis/src/errors";
 import { brandMark, brandName, icon, initials } from "./ui";
 import { markConnectorConnected } from "./chat";
 import { clearSkillsCache, resyncModelSelection, seedRuntimeConfig } from "./composer";
@@ -56,21 +57,26 @@ import {
   sessionsState,
   toggleWebOnly,
 } from "./sessions";
-import { openCronById, renderCronsPage, resetActiveCron, routeCronsHistory } from "./crons";
-import { renderFiles } from "./files";
+import { openCronById, renderCronsPage, resetActiveCron, resetCronsState, routeCronsHistory } from "./crons";
+import { renderFiles, resetFilesState } from "./files";
 import { clearConnectorNotice, noteConnectorResult, renderConnectors, resetKeychainState } from "./connectors";
-import { renderDeploys } from "./deploys";
+import { renderDeploys, resetDeploysState } from "./deploys";
 import { renderMemory, resetMemoryState } from "./memory";
-import { renderSkills } from "./skills";
+import { renderSkills, resetSkillsState } from "./skills";
+import { renderGoalSpace, resetGoalSpaceState, routeGoalSpaceHistory, suspendGoalSpaceRequests } from "./goal-space";
 import { contextsState, ensureContexts, renderContexts, resetContextsState, resolveProjectScope } from "./contexts";
 import { appState, isView, type AuthMode, type Me, type View } from "./shell-state";
 import { trapDialogFocus } from "./dialog-focus";
+import { advanceIdentityEpoch } from "./identity-epoch";
 export { appState, can, type Me, type View } from "./shell-state";
 
 let authMode: AuthMode = "portal";
 let shellMounted = false;
+let historyRouteSequence = 0;
 
 setSigninRequiredHandler((detail) => {
+  clearPrincipalState(appState.me?.user ?? null);
+  appState.me = null;
   authMode = detail.mode ?? authMode;
   renderAuthGate(gateFor(authMode, detail.reason));
 });
@@ -84,15 +90,21 @@ export const ADMIN_BASE = (() => {
 export const ADMIN_HOME_URL = `${ADMIN_BASE}/`;
 
 export function adminSessionLogUrl(sessionId: string, scopeId: string): string {
-  const q = new URLSearchParams({ view: "history", scope: scopeId, session: sessionId });
+  const q = new URLSearchParams({
+    view: "history",
+    scope: scopeId,
+    session: sessionId,
+  });
   return `${ADMIN_BASE}/?${q.toString()}`;
 }
 
-export function syncUrlFromState(): void {
+export function syncUrlFromState(push = false): void {
   const chatState = mainConversation().state;
   const sessionId = splitState.active ? null : (chatState.sessionId ?? chatState.rememberedSessionId);
   const next = deepLinkPath(UI_BASE, appState.currentView, sessionId, contextsState.selected);
-  if (`${location.pathname}${location.search}` !== next) history.replaceState(null, "", next);
+  if (`${location.pathname}${location.search}` === next) return;
+  if (push) history.pushState(null, "", next);
+  else history.replaceState(null, "", next);
 }
 
 const appEl = document.getElementById("app");
@@ -172,6 +184,7 @@ function toggleNavWorkspace(): void {
 const ICON = {
   newChat: Plus,
   chats: MessageSquare,
+  goals: Target,
   contexts: Folder,
   files: Files,
   keychain: KeyRound,
@@ -181,33 +194,45 @@ const ICON = {
   skills: Box,
 };
 
-export async function signOut(): Promise<void> {
-  const portal = authMode === "portal";
-  if (!portal) {
-    try {
-      await api("/signout", { method: "POST" });
-    } catch {
-      void 0;
-    }
-  }
-  appState.me = null;
+function clearPrincipalState(principal: string | null): void {
+  advanceIdentityEpoch();
   clearAllDrafts();
   exitSplitIfActive();
   mainConversation().resetChatState();
   resetSessionsState();
-  appState.currentView = "chats";
-  clearSkillsCache();
+  resetCronsState();
+  resetFilesState();
+  resetDeploysState();
+  resetSkillsState();
   resetMemoryState();
   resetContextsState();
   resetKeychainState();
+  resetGoalSpaceState(principal);
+  clearSkillsCache();
   mainConversation().composer.resetComposer();
+  appState.currentView = "chats";
+}
+
+export async function signOut(): Promise<void> {
+  const portal = authMode === "portal";
+  const principal = appState.me?.user ?? null;
+  try {
+    await api("/signout", { method: "POST" });
+  } catch {
+    void 0;
+  }
+  clearPrincipalState(principal);
+  appState.me = null;
   if (!portal) {
     renderAuthGate({ kind: "dev" });
     return;
   }
   let endedSession: boolean;
   try {
-    const r = await fetch("/auth/logout", { method: "POST", headers: { accept: "application/json" } });
+    const r = await fetch("/auth/logout", {
+      method: "POST",
+      headers: { accept: "application/json" },
+    });
     endedSession = r.ok;
   } catch {
     endedSession = false;
@@ -222,7 +247,10 @@ export async function signOut(): Promise<void> {
 
 export async function exitImpersonation(): Promise<void> {
   try {
-    await fetch("/auth/impersonate/stop", { method: "POST", headers: { accept: "application/json" } });
+    await fetch("/auth/impersonate/stop", {
+      method: "POST",
+      headers: { accept: "application/json" },
+    });
   } catch {
     void 0;
   }
@@ -317,11 +345,9 @@ function deniedGate() {
       Your account is signed in and verified — it just isn't allowed on this instance. Ask an administrator to add you.
     </p>
     <button class="btn" type="button" @click=${signOut}>Sign out</button>
-    ${
-      authMode === "dev"
-        ? html`<div class="hint">This instance lists its principals in <b>WEB_UI_PRINCIPALS</b>.</div>`
-        : nothing
-    }
+    ${authMode === "dev"
+      ? html`<div class="hint">This instance lists its principals in <b>WEB_UI_PRINCIPALS</b>.</div>`
+      : nothing}
   `);
 }
 
@@ -343,7 +369,11 @@ async function submitDevSignin(user: string): Promise<void> {
   try {
     await api("/signin", { method: "POST", body: JSON.stringify({ user }) });
   } catch (err) {
-    renderAuthGate({ kind: "dev", value: user, error: errMessage(err, "Sign-in failed.") });
+    renderAuthGate({
+      kind: "dev",
+      value: user,
+      error: errMessage(err, "Sign-in failed."),
+    });
     return;
   }
   await bootSafely();
@@ -526,32 +556,31 @@ export function renderSidebarTop(): void {
           navWorkspaceOpen,
           toggleNavWorkspace,
           html`
-            ${navRow("contexts", ICON.contexts, "Projects")} ${navRow("chats", ICON.chats, "Chats")}
-            ${navRow("files", ICON.files, "Files")} ${navRow("crons", ICON.crons, "Crons")}
-            ${navRow("keychain", ICON.keychain, "Keychain")} ${navRow("deploys", ICON.deploys, "Apps")}
-            ${navRow("memory", ICON.memory, "Memory")} ${navRow("skills", ICON.skills, "Skills")}
+            ${navRow("goals", ICON.goals, "Goal Spaces")} ${navRow("contexts", ICON.contexts, "Projects")}
+            ${navRow("chats", ICON.chats, "Chats")} ${navRow("files", ICON.files, "Files")}
+            ${navRow("crons", ICON.crons, "Crons")} ${navRow("keychain", ICON.keychain, "Keychain")}
+            ${navRow("deploys", ICON.deploys, "Apps")} ${navRow("memory", ICON.memory, "Memory")}
+            ${navRow("skills", ICON.skills, "Skills")}
           `,
         )}
       </nav>
-      ${
-        appState.currentView === "chats"
-          ? html`
-              <div class="section-label recents-label">
-                <span>Sessions</span>
-                <button
-                  class="web-only-toggle ${sessionsState.webOnly ? "on" : ""}"
-                  type="button"
-                  role="switch"
-                  aria-checked=${sessionsState.webOnly ? "true" : "false"}
-                  title=${sessionsState.webOnly ? "Showing web chats only" : "Hide non-web conversations"}
-                  @click=${toggleWebOnly}
-                >
-                  <span>Web only</span><span class="mini-switch"><span class="mini-knob"></span></span>
-                </button>
-              </div>
-            `
-          : ""
-      }
+      ${appState.currentView === "chats"
+        ? html`
+            <div class="section-label recents-label">
+              <span>Sessions</span>
+              <button
+                class="web-only-toggle ${sessionsState.webOnly ? "on" : ""}"
+                type="button"
+                role="switch"
+                aria-checked=${sessionsState.webOnly ? "true" : "false"}
+                title=${sessionsState.webOnly ? "Showing web chats only" : "Hide non-web conversations"}
+                @click=${toggleWebOnly}
+              >
+                <span>Web only</span><span class="mini-switch"><span class="mini-knob"></span></span>
+              </button>
+            </div>
+          `
+        : ""}
     `,
     appState.topEl,
   );
@@ -562,17 +591,26 @@ function onNavClick(e: Event): void {
   const row = target?.closest<HTMLButtonElement>(".navrow[data-view]");
   const view = row?.dataset.view;
   if (isView(view)) {
-    switchView(view);
+    switchView(view, null, false, true);
     closeSidebarOnNarrowView();
   }
 }
 
-export function switchView(v: View): void {
+export function switchView(v: View, item: string | null = null, preserveLocation = false, pushLocation = false): void {
   closeSidebarOnNarrowView();
   if (appState.currentView === v) {
+    if (preserveLocation && v === "goals") {
+      routeGoalSpaceHistory(item);
+      return;
+    }
+    if (preserveLocation && v === "crons") {
+      routeCronsHistory(item);
+      return;
+    }
     refreshActiveView(v);
     return;
   }
+  if (appState.currentView === "goals") suspendGoalSpaceRequests();
   appState.currentView = v;
   appState.viewRenderSeq++;
   sessionsState.openMenuId = null;
@@ -582,9 +620,12 @@ export function switchView(v: View): void {
     mainConversation().composer.resetComposer();
   }
   renderSidebarTop();
-  syncUrlFromState();
+  if (!preserveLocation && (v !== "goals" || !item)) syncUrlFromState(pushLocation);
   if (v !== "chats" && appState.listEl) render(nothing, appState.listEl);
   switch (v) {
+    case "goals":
+      void renderGoalSpace(item);
+      break;
     case "chats":
       if (splitState.active) drawCanvas();
       else void renderChatsPage();
@@ -592,6 +633,7 @@ export function switchView(v: View): void {
       break;
     case "crons":
       resetActiveCron();
+      if (item) openCronById(item);
       void renderCronsPage();
       break;
     case "contexts":
@@ -617,6 +659,9 @@ export function switchView(v: View): void {
 
 function refreshActiveView(v: View): void {
   switch (v) {
+    case "goals":
+      void renderGoalSpace(parseDeepLink(UI_BASE, location.pathname, location.search).item);
+      break;
     case "chats":
       if (splitState.active) void refreshSessions({ silent: true, refreshContexts: true });
       else void renderChatsPage();
@@ -651,7 +696,10 @@ export function showMainEmpty(text: string): void {
   mainConversation().state.host = null;
   if (appState.mainEl)
     appState.mainEl.replaceChildren(
-      Object.assign(document.createElement("div"), { className: "empty", textContent: text }),
+      Object.assign(document.createElement("div"), {
+        className: "empty",
+        textContent: text,
+      }),
     );
 }
 
@@ -754,12 +802,28 @@ export function replacePanePreservingFocus(host: HTMLElement): void {
   replaceChildrenPreservingFocus(appState.mainEl, host);
 }
 
-window.addEventListener("popstate", () => {
-  if (appState.currentView !== "crons") return;
-  const { view, item } = parseDeepLink(UI_BASE, location.pathname, location.search);
-  if (view !== "crons") return;
-  routeCronsHistory(item);
-});
+export async function routeShellHistory(): Promise<void> {
+  const sequence = ++historyRouteSequence;
+  const { view, session, item } = parseDeepLink(UI_BASE, location.pathname, location.search);
+  const target = isView(view) ? view : "chats";
+  if (target === "contexts" || target === "files" || target === "deploys") {
+    const scope =
+      new URLSearchParams(location.search).get("scope") ??
+      (item ? resolveProjectScope(await ensureContexts(), item) : null);
+    if (sequence !== historyRouteSequence) return;
+    if (scope) contextsState.selected = scope;
+  }
+  if (sequence !== historyRouteSequence) return;
+  switchView(target, item, true);
+  if (target !== "chats" || !session) return;
+  const match = sessionsState.list.find((candidate) => candidate.id === session);
+  if (match) {
+    await openSession(match);
+    if (sequence !== historyRouteSequence) return;
+  } else showMainEmpty("That conversation wasn't found, or you don't have access to it.");
+}
+
+window.addEventListener("popstate", () => void routeShellHistory());
 
 window.addEventListener("focus", () => {
   if (!appState.me) return;
@@ -806,6 +870,8 @@ export async function boot(): Promise<void> {
   }
   if (r.status === 401) {
     const body = (await r.json().catch(() => ({}))) as SigninRequired;
+    clearPrincipalState(appState.me?.user ?? null);
+    appState.me = null;
     authMode = body.mode ?? "portal";
     renderAuthGate(gateFor(authMode, body.reason));
     return;
@@ -814,8 +880,10 @@ export async function boot(): Promise<void> {
     renderAuthGate({ kind: "unreachable" });
     return;
   }
-  resetKeychainState();
-  appState.me = (await r.json()) as Me;
+  const nextMe = (await r.json()) as Me;
+  if (appState.me?.user && appState.me.user !== nextMe.user) clearPrincipalState(appState.me.user);
+  else resetKeychainState();
+  appState.me = nextMe;
   authMode = appState.me.mode ?? "portal";
   clearPortalAttempt();
   const personalScope = `personal:${appState.me.user}`;
@@ -875,7 +943,7 @@ export async function boot(): Promise<void> {
       if (scope) contextsState.selected = scope;
     }
     if (wanted === "crons" && wantedItem) openCronById(wantedItem);
-    switchView(wanted as View);
+    switchView(wanted as View, wanted === "goals" ? wantedItem : null);
   } else if (wantedSession) {
     const match = sessionsState.list.find((s) => s.id === wantedSession);
     if (match) {

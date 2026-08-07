@@ -57,7 +57,7 @@ import {
   type ChatBrowseStatus,
 } from "./session-list";
 import { hideTooltip, showTooltip } from "./tooltip";
-import { errMessage } from "../../chassis/src/errors";
+import { errMessage } from "../../../../ioi-ai/plugins/chassis/src/errors";
 import { copyText, fieldSelect, icon, relTime } from "./ui";
 import { listPageTpl } from "./list-page";
 import {

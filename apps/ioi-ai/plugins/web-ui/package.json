@@ -1,9 +1,9 @@
 {
-  "name": "qm-web-ui-plugin",
+  "name": "@ioi/ioi-ai-web",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Web UI surface plugin for qm. Custom chat shell over a thin node:http transport that talks only to the core HTTP API.",
+  "description": "IOI-owned ioi.ai application rebind over the upstream QM web shell and canonical Hypervisor daemon.",
   "engines": {
     "node": ">=24.0.0"
   },
@@ -13,6 +13,8 @@
     "serve": "node --env-file-if-exists=.env server/index.ts",
     "start": "npm run build && npm run serve",
     "test": "NODE_ENV=test ALLOW_UNSIGNED_TEST_IDENTITY=1 node --test \"test/**/*.test.ts\"",
+    "smoke:browser": "node scripts/smoke-browser.mjs",
+    "smoke:real-daemon": "node scripts/smoke-real-daemon.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.server.json --noEmit && tsc -p tsconfig.test.json --noEmit"
   },
   "dependencies": {
@@ -35,6 +37,7 @@
     "@types/node": "^24.0.0",
     "jsdom": "^29.1.1",
     "katex": "^0.16.47",
+    "playwright": "^1.60.0",
     "typescript": "^5.8.2",
     "vite": "^7.1.6"
   },

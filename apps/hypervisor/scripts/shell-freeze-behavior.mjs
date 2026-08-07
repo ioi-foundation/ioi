@@ -7,8 +7,7 @@
 //     data-driven subtrees pruned to presence markers, so daemon data changing never reads as
 //     shell drift;
 //   · the RUNTIME ANIMATION inventory — document.getAnimations() sampled every 100ms from first
-//     paint through settle, so transient loading spinners/fades are enumerated even though no
-//     final screenshot could ever show them;
+//     paint through settle, with data/request-state loading effects normalized below;
 //   · same-origin network requests (normalized) and console errors/warnings (environment noise
 //     allowlisted);
 //   · a screenshot (human reference only — the JSON is the freeze, screenshots are not).
@@ -33,6 +32,8 @@ const SHOTS = join(HERE, "..", "..", "..", "internal-docs", "prompts", "hypervis
 const CHECK = process.argv.includes("--check");
 const baseIdx = process.argv.indexOf("--base");
 const BASE = baseIdx > -1 ? process.argv[baseIdx + 1].replace(/\/$/, "") : "http://127.0.0.1:4173";
+const captureIdx = process.argv.indexOf("--capture-json");
+const CAPTURE_JSON = captureIdx > -1 ? process.argv[captureIdx + 1] : null;
 
 const ROUTES = ["/ai", "/ai#new-session", "/projects", "/automations", "/settings"];
 
@@ -60,11 +61,17 @@ const NET_SKIP = [
   // Streaming/long-poll lifecycle (event watch + reconnects) fires on its own clock, not per view.
   /EventService\/WatchEvents/,
 ];
-// Content/data-driven animations track estate data, not shell code — excluded like volatile DOM:
-// fadeOut (empty state replaced), animate-in (list items entering), animate-spin (data-load
-// spinners). Bespoke shell animations (pulse, brand motion) stay in the freeze, and every
-// keyframe DEFINITION stays enumerated in the code-level CSS inventory regardless.
-const ANIM_SKIP = [/^CSSAnimation:fadeOut:/, /\.animate-in(:|\.|$)/, /\.animate-spin(:|\.|$)/];
+// Content/data-driven animations track estate/request timing, not shell code — excluded like
+// volatile DOM: fadeOut (empty state replaced), animate-in (list items entering), animate-spin
+// (data-load spinners), and skeleton-pulse (the shared `ready`-gated loading placeholder).
+// Bespoke shell animations (pulse, brand motion) stay in the freeze, and every keyframe
+// DEFINITION stays enumerated in the code-level CSS inventory regardless.
+const ANIM_SKIP = [
+  /^CSSAnimation:fadeOut:/,
+  /^CSSAnimation:skeleton-pulse:/,
+  /\.animate-in(:|\.|$)/,
+  /\.animate-spin(:|\.|$)/,
+];
 
 function normalizeUrl(u) {
   try {
@@ -178,7 +185,11 @@ await b.close();
 
 const next = JSON.stringify(baseline, null, 1) + "\n";
 const baselinePath = join(OUT, "behavior-baseline.json");
-if (CHECK || baseIdx > -1) {
+if (CAPTURE_JSON) {
+  mkdirSync(dirname(CAPTURE_JSON), { recursive: true });
+  writeFileSync(CAPTURE_JSON, next);
+  console.log(`shell behavior capture: ${ROUTES.length} routes -> ${CAPTURE_JSON}`);
+} else if (CHECK || baseIdx > -1) {
   if (!existsSync(baselinePath)) { console.error("no committed behavior baseline"); process.exit(1); }
   const prev = JSON.parse(readFileSync(baselinePath, "utf8"));
   const cur = JSON.parse(next);

@@ -5,11 +5,10 @@ implementation's room-owned admission/receipt/root spine. Existing tests and
 retained evidence remain implementation history, but they cannot close the
 restated package/genesis/System plus Agentgres-composition contract. The M5
 lifecycle profile remains on hold. This document admits no M4 stage, product,
-independent-party, federation, settlement, P0, or release claim; retained proof
-and status remain owned by the implementation program.
+independent-party, federation, settlement, P0, or release claim.
 
 Canonical inputs:
-[`collaborative-pursuit.md`](../../architecture/foundations/objects/collaborative-pursuit.md),
+[`collaborative-pursuit.md`](../../architecture/domains/ioi-ai/collaborative-pursuit.md),
 [`collaborative-outcome-pattern.md`](../../architecture/domains/ioi-ai/collaborative-outcome-pattern.md),
 [`api-object-model.md`](../../architecture/components/agentgres/api-object-model.md),
 and [`api.md`](../../architecture/components/daemon-runtime/api.md).
@@ -173,5 +172,6 @@ graph and discussion source commitments.
 - Stop if registered M5 lifecycle schemas or honest-empty projections are cited
   as runtime participant/frontier/claim/attempt/finding/challenge admission or
   challenge-interlock proof.
-- A process exit code is not retained evidence; M4 literal-exit contracts remain
-  the only implementation-program closure carriers.
+- A process exit code is not evidence. A claim closes through the clauses in this
+  file and the claim coverage index in [`../README.md`](../README.md); no private
+  program artifact carries closure.

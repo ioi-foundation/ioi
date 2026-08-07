@@ -5,7 +5,7 @@ declassification schemas, fixtures, and generated projections. No estate-wide
 runtime enforcement seam is claimed.
 Canonical inputs:
 [`security-privacy-policy-invariants.md`](../../architecture/foundations/security-privacy-policy-invariants.md),
-[`objects/goal-run-execution.md`](../../architecture/foundations/objects/goal-run-execution.md),
+[`../../architecture/domains/ioi-ai/goal-run-execution.md`](../../architecture/domains/ioi-ai/goal-run-execution.md),
 and [`connectors-tools/contracts.md`](../../architecture/components/connectors-tools/contracts.md).
 Last audited: 2026-07-16.
 

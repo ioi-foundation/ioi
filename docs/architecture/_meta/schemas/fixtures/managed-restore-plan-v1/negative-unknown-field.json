@@ -1,0 +1,12 @@
+{
+  "schema_version": "ioi.managed-restore-plan.v1",
+  "plan_id": "restore-acme-agent-aaaaaaaaaaaaaaaa",
+  "backup_ref": "environment-backup://local/acme-agent/backup-1",
+  "restore_manifest_root": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "source_state_root": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "target_environment_id": "acme-agent-restored",
+  "authority_grant_refs": ["grant://acme/restore"],
+  "status": "prepared",
+  "preparation_verified": true,
+  "target_mutated": false
+}

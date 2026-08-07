@@ -2,7 +2,15 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
 import { readFileSync } from "node:fs";
-import { preservingFocus, replaceChildrenPreservingFocus } from "../src/pane-focus.ts";
+import { focusByKey, preservingFocus, replaceChildrenPreservingFocus } from "../src/pane-focus.ts";
+
+test("explicit pane transitions move focus to the newly rendered semantic target", () => {
+  const dom = new JSDOM('<main><h1 tabindex="-1" data-focus-key="goal-detail-heading">Goal</h1></main>');
+  const main = dom.window.document.querySelector("main") as HTMLElement;
+  const heading = main.querySelector("h1");
+  assert.equal(focusByKey(main, "goal-detail-heading"), heading);
+  assert.equal(dom.window.document.activeElement, heading);
+});
 
 test("re-rendered pane inputs keep focus and caret across multi-character typing", () => {
   const dom = new JSDOM('<main><div><input data-focus-key="search" value="a"></div></main>');

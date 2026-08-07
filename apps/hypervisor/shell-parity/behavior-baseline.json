@@ -3048,7 +3048,6 @@
    "animations": [
     "CSSAnimation:fadeIn:DIV.:400:1:2kf",
     "CSSAnimation:ship-bob:g.ship-hull-animated:1600:inf:3kf",
-    "CSSAnimation:skeleton-pulse:DIV.block.bg-surface-tertiary:2000:inf:3kf",
     "CSSAnimation:wave-morph:path.ship-wave-animated:1600:inf:3kf",
     "CSSTransition::DIV.relative.h-full:200:1:2kf"
    ],
@@ -7955,7 +7954,6 @@
    "animations": [
     "CSSAnimation:fadeIn:DIV.:400:1:2kf",
     "CSSAnimation:ship-bob:g.ship-hull-animated:1600:inf:3kf",
-    "CSSAnimation:skeleton-pulse:DIV.block.bg-surface-tertiary:2000:inf:3kf",
     "CSSAnimation:wave-morph:path.ship-wave-animated:1600:inf:3kf",
     "CSSTransition::DIV.relative.h-full:200:1:2kf"
    ],
@@ -14175,7 +14173,6 @@
    "animations": [
     "CSSAnimation:fadeIn:DIV.:400:1:2kf",
     "CSSAnimation:ship-bob:g.ship-hull-animated:1600:inf:3kf",
-    "CSSAnimation:skeleton-pulse:DIV.block.bg-surface-tertiary:2000:inf:3kf",
     "CSSAnimation:wave-morph:path.ship-wave-animated:1600:inf:3kf",
     "CSSTransition::DIV.relative.h-full:200:1:2kf"
    ],

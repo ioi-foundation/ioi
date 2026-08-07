@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/managed-restore-plan/v1",
+  "title": "ManagedRestorePlan",
+  "description": "Prepared, applying, completed, or cancelled local-private restore plan over one verified HypervisorEnvironmentBackup and one target environment.",
+  "x-ioi-schema-version": "ioi.managed-restore-plan.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "plan_id", "backup_ref", "restore_manifest_root", "source_state_root", "target_environment_id", "authority_grant_refs", "status", "preparation_verified"],
+  "properties": {
+    "schema_version": { "const": "ioi.managed-restore-plan.v1" },
+    "plan_id": { "type": "string", "pattern": "^restore-[^\\s]{1,500}$" },
+    "backup_ref": { "type": "string", "pattern": "^environment-backup://[^\\s]{1,500}$" },
+    "restore_manifest_root": { "$ref": "#/$defs/hash" },
+    "source_state_root": { "$ref": "#/$defs/hash" },
+    "target_environment_id": { "type": "string", "minLength": 1, "maxLength": 500 },
+    "authority_grant_refs": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/ref" } },
+    "status": { "enum": ["prepared", "applying", "completed", "cancelled"] },
+    "preparation_verified": { "const": true },
+    "applied_state_root": { "$ref": "#/$defs/hash" }
+  },
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "ref": { "type": "string", "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$" }
+  }
+}

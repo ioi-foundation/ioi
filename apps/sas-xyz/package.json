@@ -2,8 +2,14 @@
   "name": "sas-xyz",
   "version": "2.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
-    "dev": "vite"
+    "dev": "IOI_ENABLE_DEVELOPMENT_AUTHORITY=1 node server.mjs",
+    "build": "vite build --manifest && npm run check:production",
+    "check:production": "node scripts/assert-production-clean.mjs",
+    "check": "node --check src/main.js && node --check src/api.js && node --check domain/service.mjs && node --check domain/store.mjs && node --check domain/adapters.mjs && node --check domain/receipts.mjs && node --check auth/session.mjs && node --check api/handler.mjs && node --check server.mjs",
+    "test": "node --test test/*.test.mjs",
+    "preview": "NODE_ENV=production node server.mjs"
   },
   "devDependencies": {
     "vite": "^5.0.0"

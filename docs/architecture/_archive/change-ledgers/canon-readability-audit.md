@@ -1,0 +1,142 @@
+# Canon Readability Audit
+
+Status: canonical readability workplan.
+Canonical owner: this file for tracking architecture-doc enterability, implementation-grade gaps, and reader-path cleanup.
+Supersedes: informal readability notes in plans/specs.
+Superseded by: none.
+Last alignment pass: 2026-07-04.
+Doctrine status: reference
+Implementation status: mixed (audit workplan)
+Last implementation audit: 2026-07-05
+
+## Purpose
+
+The canon already contains the right deep architecture. The readability problem
+is that new implementers can still encounter the system as scattered doctrine
+instead of a guided build map.
+
+This audit tracks the cleanup needed to make the canon:
+
+- easy to enter;
+- precise about ownership boundaries;
+- implementation-grade;
+- explicit about durable forms;
+- honest about supporting/historical context;
+- resistant to stale terminology.
+
+## Current Top-Level Findings
+
+| Finding | Impact | Fix |
+| --- | --- | --- |
+| Reader path was implicit | New readers had to reconstruct the stack from doctrine docs | Added [`start-here.md`](../../_meta/start-here.md) |
+| Current defaults were embedded in the owner map | The edit-first map had become partly a long doctrine digest | Split defaults into [`current-canon-defaults.md`](../../_meta/current-canon-defaults.md) and kept [`source-of-truth-map.md`](../../_meta/source-of-truth-map.md) focused on ownership |
+| Concept-to-durable-form mapping was scattered | Implementers could not quickly tell event vs receipt vs object vs projection | Added [`implementation-matrix.md`](../../_meta/implementation-matrix.md) |
+| Runtime profile naming was too easy to overread as a peer runtime | Risk of reintroducing a runtime beside the daemon | Canonicalized `Default Harness Profile` |
+| Older docs mix canon and long former-spec modules | Correctness is high, but first-read clarity suffers | Mark supporting context clearly and keep top canon sections crisp |
+| Anti-patterns are uneven | Boundary mistakes are harder to remember | Add explicit anti-pattern sections to major docs |
+| Some docs have good ownership but weak implementation hooks | Builders need current durable form and conformance anchor | Use implementation matrix and add "Minimal Implementation Objects" where needed |
+| Placement/resource-routing doctrine changed | Cloud/provider UX can look bolted on if docs preserve older two-lane or pre-picker placement taxonomy | Canonicalized four placement choices, decentralized.cloud resource-intelligence boundaries, and direct-vs-orchestrated BYO fee posture across owner docs and meta maps |
+
+## Audit Table
+
+| Doc | Primary reader | Current strength | Gap | Priority fix |
+| --- | --- | --- | --- | --- |
+| [`start-here.md`](../../_meta/start-here.md) | everyone | guided entry point | new file; keep synchronized with source map | maintain as first-read map |
+| [`current-canon-defaults.md`](../../_meta/current-canon-defaults.md) | everyone | compact cross-owner current-defaults digest | new file; keep synchronized when owner docs settle a new cross-owner default | maintain as digest, not owner replacement |
+| [`_meta/source-of-truth-map.md`](../../_meta/source-of-truth-map.md) | architects, implementers | strong owner table | must include new profile and matrix docs | keep owner rows complete |
+| [`_meta/vocabulary.md`](../../_meta/vocabulary.md) | everyone | strong naming reference | inactive terms should stay out of the live reader path | keep `DefaultHarnessProfile`, `AgentWiki`, `ioi-memory` current |
+| [`_meta/implementation-matrix.md`](../../_meta/implementation-matrix.md) | implementers | maps concept to durable form | new file; needs code anchors maintained | update whenever objects promote |
+| [`daemon-runtime/default-harness-profile.md`](../../components/daemon-runtime/default-harness-profile.md) | runtime implementers | implementation-grade lifecycle and schemas | long but intentionally buildable | keep as canonical profile owner |
+| [`daemon-runtime/doctrine.md`](../../components/daemon-runtime/doctrine.md) | runtime/product/CLI | clear daemon ownership | long CLI appendix competes for attention | keep top canon crisp; label appendix as support |
+| [`daemon-runtime/api.md`](../../components/daemon-runtime/api.md) | API/runtime implementers | concrete endpoints and non-negotiables | should expose profile metadata | done; keep profile field current |
+| [`daemon-runtime/events-receipts-delivery-bundles.md`](../../components/daemon-runtime/events-receipts-delivery-bundles.md) | runtime/evidence implementers | strong event/receipt owner | anti-pattern section useful | add if stale completion/proof confusion returns |
+| [`agentgres/doctrine.md`](../../components/agentgres/doctrine.md) | Agentgres, memory, state implementers | excellent ownership doctrine | very long supporting module after canon | add anti-patterns; eventually split support appendix |
+| [`agentgres/api-object-model.md`](../../components/agentgres/api-object-model.md) | Agentgres implementers | concrete object shapes | should cross-link implementation matrix | add when object promotion accelerates |
+| [`wallet-network/doctrine.md`](../../components/wallet-network/doctrine.md) | authority implementers | clear owns/does-not-own | anti-patterns help prevent wallet-as-runtime drift | add anti-patterns |
+| [`domains/decentralized/README.md`](../../domains/decentralized/README.md) | wallet, Hypervisor, candidate-source implementers | now frames exchange/trade/cloud as one candidate-intelligence family | keep exchange/trade/cloud additions synchronized; do not let cloud become a mandatory gateway | maintain with `exchange.md`, `trade.md`, and `cloud.md` |
+| [`domains/decentralized/cloud.md`](../../domains/decentralized/cloud.md) | resource-routing and provider-placement implementers | compact owner for cloud resource candidates, picker/optimizer split, and anti-patterns | new file; keep implementation objects synchronized with provider-plane and wallet authority docs | maintain as resource-intelligence owner, not provider lifecycle owner |
+| [`hypervisor/byo-provider-plane.md`](../../components/hypervisor/byo-provider-plane.md) | provider adapter and placement implementers | concrete four-choice placement UX, adapter ladder, and fee boundary | new file; keep object contract synchronized with daemon provider routes | maintain as BYO provider-plane owner |
+| [`foundations/aiip.md`](../../foundations/aiip.md) | interop implementers | clear interop semantics | anti-patterns should call out bespoke app protocols | add anti-patterns |
+| [`foundations/ioi-l1-mainnet.md`](../../foundations/ioi-l1-mainnet.md) | settlement implementers | clear L1 boundary | anti-patterns should emphasize trigger-based settlement | add when touched next |
+| [`agentgres/artifact-ref-plane.md`](../../components/agentgres/artifact-ref-plane.md) | Agentgres/artifact implementers | canonical artifact-ref and restore boundary | new file; keep synchronized with object model and delivery docs | maintain as artifact-ref owner |
+| [`storage-backends/doctrine.md`](../../components/storage-backends/doctrine.md) | storage implementers | clear byte-plane boundary | new file; backend profiles should not drift into authority | keep backend docs byte-only |
+| [`common-objects-and-envelopes.md`](../../foundations/common-objects-and-envelopes.md) | API/schema implementers | strong shared vocabulary | long envelope list can overwhelm | use matrix for first-read object status |
+| [`marketplace-neutrality.md`](../../domains/marketplace-neutrality.md) | marketplace/routing implementers | clear anti-cannibalization | now should use `Default Harness Profile` consistently | done |
+| [`aiagent/worker-marketplace.md`](../../domains/aiagent/worker-marketplace.md) | worker marketplace implementers | clear worker package vs instance | long product context appendix | label as supporting context; keep anti-patterns |
+| [`sas/service-marketplace.md`](../../domains/sas/service-marketplace.md) | service marketplace implementers | clear service package/outcome boundary | long product context appendix | ensure local/managed/service-package distinctions stay canonical |
+
+## Standard Shape Target
+
+Major docs should converge toward:
+
+```text
+Canonical Definition
+Owns
+Does Not Own
+Lifecycle
+Minimal Implementation Objects
+Admission / Settlement Boundary
+Events and Receipts
+Conformance Checks
+Anti-Patterns
+Related Canon
+Supporting Context / Appendix
+```
+
+Do not force every doc to use every heading. Use the shape where it clarifies
+implementation ownership.
+
+Keep three meta documents distinct:
+
+```text
+start-here.md
+  entry path and role/problem routing
+
+current-canon-defaults.md
+  current cross-owner digest
+
+source-of-truth-map.md
+  edit-first owner map and conflict rules
+```
+
+## Terminology Watchlist
+
+Keep live wording to:
+
+```text
+Default Harness Profile
+  selected profile for loop-native scoped step resolution
+
+CAS/Filecoin as runtime substrate
+  wrong; storage backend / payload availability plane only
+
+capability as authority
+  wrong when it means permission; use prim:* for primitive capabilities and
+  scope:* for authority scopes
+```
+
+## Refactor Backlog
+
+1. Keep [`start-here.md`](../../_meta/start-here.md) as the primary entry link from
+   `README.md`.
+2. Add explicit anti-pattern sections to Agentgres, daemon runtime,
+   wallet.network, AIIP, and marketplace docs.
+3. Keep former product/spec modules clearly labeled as supporting context.
+4. As implementation lands, update code anchors in
+   [`implementation-matrix.md`](../../_meta/implementation-matrix.md).
+5. When a projection/event/receipt is promoted to a canonical object, update
+   the canonical owner doc first, then this audit and the implementation matrix.
+
+## Acceptance Checklist
+
+- A new reader can explain the core stack in under five minutes.
+- A runtime implementer can find the Default Harness Profile without mistaking
+  it for a peer daemon.
+- An Agentgres implementer can tell refs/state/projections/bytes apart.
+- A memory implementer can tell Agent Wiki / `ioi-memory` from Agentgres truth.
+- An authority implementer can tell `prim:*` from `scope:*`.
+- A marketplace implementer can tell worker packages, service packages, and
+  marketplace surfaces apart.
+- An interop implementer can find AIIP as the shared protocol instead of
+  inventing bespoke per-app protocols.
+- Inactive terms stay out of the live reader path.

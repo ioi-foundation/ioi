@@ -28,7 +28,7 @@ ActiveSkillSetSnapshot   exact run-scoped skill selection
 
 Standing activation over a WorkflowTemplate revision is `AutomationSpec`; adaptive
 pursuit over a goal class is `GoalRunProfile`, owned by
-[`goal-pursuit.md`](./goal-pursuit.md). Neither is a WorkflowTemplate.
+[`goal-pursuit.md`](../../domains/ioi-ai/goal-pursuit.md). Neither is a WorkflowTemplate.
 
 Term boundaries for every name used here are owned by
 [`term-boundaries.md`](../term-boundaries.md).

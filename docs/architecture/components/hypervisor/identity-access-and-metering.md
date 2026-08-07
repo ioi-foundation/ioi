@@ -10,9 +10,18 @@ Supersedes: prose that treats org login/SSO/SCIM/secrets/metering for a
 self-hosted Hypervisor deployment as having no daemon-side plane, or that treats
 identity roles as machine authority.
 Superseded by: none.
-Last alignment pass: 2026-07-16.
+Last alignment pass: 2026-08-06.
 Doctrine status: canonical
-Implementation status: mixed (principals, sessions, OIDC SSO, SCIM, enforcement, and receipt-derived coarse OCU projection are built; the registered managed-work billing schema, invariants, fixtures, and generated projections are present as contract substrate, while the quote/hold/usage/debit/adjustment kernel, durable billing store, `LocalAgentPairingSessionEnvelope`, local-agent pairing APIs, room-admitted gateway issuance, public Work Credit billing APIs, supplier-statement reconciliation, and SaaS billing remain planned)
+Implementation status: mixed (principals, sessions, OIDC SSO, SCIM, enforcement,
+append-only organization/project visibility memberships, and receipt-derived
+coarse OCU projection are built; wallet-tenant visibility remains deliberately
+unsupported until an exact wallet.network principal-authority resolution can be
+bound to the authenticated local principal. The registered managed-work billing
+schema, invariants, fixtures, and generated projections are present as contract
+substrate, while the quote/hold/usage/debit/adjustment kernel, durable billing
+store, `LocalAgentPairingSessionEnvelope`, local-agent pairing APIs,
+room-admitted gateway issuance, public Work Credit billing APIs,
+supplier-statement reconciliation, and SaaS billing remain planned)
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/`
 Last implementation audit: 2026-07-16
@@ -73,22 +82,121 @@ never substitutes for it.
 - **Gated, fail-safe enforcement** — an inbound auth ring with modes
   `auto | always | never` (default `auto`). `auto` enforces when the deployment
   is **exposed** (bound non-loopback, or reached via a forwarded host); loopback
-  stays open. An exposed deployment with no login configured stays enforced and
-  emits a one-time bootstrap token (operator sets the first password). The gate
-  exempts only the login-flow endpoints, so an unauthenticated caller can never
-  disable enforcement or manage principals.
+  stays open for non-sensitive compatibility reads, but never counts as an
+  authenticated administrator. Any deployment with no login configured emits a
+  one-boot bootstrap token to the host log so the operator can set the first
+  password without editing principal bytes. Only its hash is durably stored and
+  every unauthenticated restart rotates it. An exposed deployment stays
+  enforced throughout. The gate exempts only login-flow endpoints, so an
+  unauthenticated caller can never disable enforcement or manage principals.
+
+### Principal-to-tenant visibility memberships
+
+Hypervisor owns one deployment-local, revocable binding from an authenticated
+local `user://` principal to an exact existing `org://` or `project://` tenant.
+The binding controls visibility and settings membership only. It is not a
+wallet grant, capability lease, resource ownership claim, or consequential
+effect authorization.
+
+`HypervisorPrincipalTenantMembershipReceipt` is the immutable successor record:
+
+```yaml
+schema_version: ioi.hypervisor.principal_tenant_membership_receipt.v1
+membership_ref: tenant-membership://hypervisor/<pair-hash>/revision/<n>
+receipt_ref: receipt://hypervisor/principal-tenant-membership/<transition-hash>
+principal_ref: user://...
+tenant_ref: org://... | project://...
+tenant_kind: organization | project
+status: active | revoked
+revision: positive_integer
+predecessor_membership_ref: tenant-membership://... | null
+predecessor_transition_hash: sha256:... | null
+changed_by_principal_ref: user://...
+change_source: deployment_bootstrap | admin_api | org_invite | sso_auto_join | scim_provisioning
+reason: nonempty_string
+idempotency_key_hash: sha256:...
+request_hash: sha256:...
+transition_hash: sha256:...
+changed_at: rfc3339_timestamp
+```
+
+The daemon stores every revision append-only and no-clobber, recomputes the
+pair, predecessor, transition hash, and content-addressed receipt identity, and
+requires an exact expected revision. A repeated idempotency key succeeds only
+for byte-equivalent request material at the current head; changed material
+conflicts, and a matching receipt superseded by a later transition returns a
+typed conflict rather than falsely reporting the old state as effective. Reads
+perform a bounded, pinned, no-follow census of the whole chain and fail closed
+on a malformed, unreadable, duplicated, or non-contiguous successor.
+Submitting a new idempotency key when the head is already in the desired state
+also conflicts: the daemon never borrows an older receipt that was not authored
+from that request, and the rejected key remains unused.
+
+The fixed bootstrap operator receives exactly one automatic
+`org://local` membership before listener readiness. Every public grant or
+revocation requires an authenticated active administrator even on loopback.
+For a new project with no members, an `org://local` administrator may create the
+first project membership; after that, the administrator must itself be a
+current member of the project. The bootstrap operator's `org://local`
+membership is non-revocable. Request bodies never select the acting principal,
+owner, role, or authority.
+
+An organization invite is issued or rotated only by an authenticated current
+administrator and records that issuer's canonical principal. Acceptance
+revalidates that the issuer remains an active `org://local` administrator,
+durably persists the invited principal, and appends the exact
+`org://local` membership before issuing a session. A legacy invite without an
+issuer binding must be rotated; the invite request cannot carry role, owner, or
+tenant fields. A standing invite cannot silently restore an explicitly revoked
+membership.
+
+SSO and SCIM configurations are likewise created only by an authenticated
+current `org://local` administrator and retain that canonical issuer for
+transition attribution. A verified SSO identity or authenticated SCIM User
+create is successful only after the principal is durably persisted and its
+exact `org://local` membership successor is durable; membership failure
+durably deactivates a newly-created principal and returns a typed failure.
+Legacy configurations without an issuer binding cannot auto-join members.
+Client or IdP role/owner/tenant/authority claims never enter this decision.
+Neither SSO nor SCIM silently restores an explicitly revoked membership; a
+fresh administrator-governed membership transition is required.
+
+Sessions and API tokens retain only authentication identity. `whoami`, login
+responses, and request-identity resolution join the current membership head on
+every call, so revocation takes effect immediately without rotating a token.
+Legacy `org_refs`, `project_refs`, `owner_refs`, `wallet_refs`, or `tenant_refs`
+inside principal JSON are stripped from projections and never trusted.
+
+```http
+GET  /v1/hypervisor/principals/{principal_id}/tenant-memberships
+POST /v1/hypervisor/principals/{principal_id}/tenant-memberships
+POST /v1/hypervisor/principals/{principal_id}/tenant-memberships/revoke
+```
+
+The current deployment has one exact organization record, `org://local`, and
+reuses existing project records by canonical `project://` identity. An
+administrator can never assert `wallet://` membership. That request fails with
+the typed precondition
+`hypervisor.wallet_membership_authority_resolution_required` until an existing,
+verified wallet.network principal-authority binding/resolution is joined to the
+authenticated local principal by its canonical owner. No first-claim or role-
+derived wallet ownership is permitted.
 
 ### Federated login & provisioning
 - **SSO / OIDC connections** — BYO OIDC IdP for org login (client secret sealed
   at rest). Login is Authorization Code + PKCE; the id_token is verified
   (signature against the IdP JWKS, issuer/audience/expiry, and a per-login
   nonce) before the identity is trusted; principals are provisioned-on-login
-  with an emailDomain auto-join gate.
+  with an emailDomain auto-join gate and a durable organization-membership
+  successor before session issuance.
 - **SCIM 2.0 provisioning** — a standard SCIM server an external IdP drives to
   provision/deprovision Users (mapped onto principals) and Groups, authenticated
-  by a SCIM bearer token (hash-only at rest, plaintext returned once).
-- **Invites** — a standing org invite that provisions a member on acceptance
-  (fail-closed on a stale/rotated link).
+  by a SCIM bearer token (hash-only at rest, plaintext returned once). The
+  configured connection, not request-carried role or owner claims, authorizes
+  the exact organization-membership append.
+- **Invites** — a standing, administrator-issued org invite that durably
+  provisions a member and receipted `org://local` membership before session
+  issuance (fail-closed on a stale/rotated link or revoked issuer).
 - **Domain verification** — DNS-TXT challenge (checked over DoH) to prove
   email-domain ownership for auto-join; plus an optional vanity custom domain.
 
@@ -109,7 +217,10 @@ never substitutes for it.
 - **API access tokens** (inbound) — high-entropy tokens that authenticate calls
   to the Hypervisor API; only a hash + metadata are stored, the plaintext is
   surfaced exactly once, and a token resolves to its principal through the auth
-  ring.
+  ring. Mint/list/revoke require explicit authentication even on loopback. A
+  mint is always bound to the authenticated caller (no request-carried user or
+  owner substitution), succeeds only after durable persistence, and enforces
+  its expiry during resolution; deletion takes effect on the next request.
 
 ### Local-agent pairing sessions
 
@@ -288,6 +399,9 @@ it is not required merely to represent every deployment-local product action.
 - Passwords and inbound tokens (API access tokens, SCIM tokens, SSO client
   secrets) must be hashed/sealed at rest; plaintext is surfaced at most once and
   never recoverable from a list/read.
+- API-token minting must bind the authenticated caller server-side, reject
+  request-carried principal/owner fields, persist before disclosing plaintext,
+  and enforce revocation plus expiry during every identity resolution.
 - Secret values must be sealed at rest and never returned by any list/get; only
   metadata is projected.
 - Enforcement must be fail-safe: an exposed deployment authenticates by default;
@@ -317,6 +431,19 @@ it is not required merely to represent every deployment-local product action.
 - The deployment-local identity plane must compose with, and never shadow, the
   applicable local/domain or protocol authority; it must preserve wallet.network
   wherever portable delegation or a designated high-risk action requires it.
+- Principal-to-tenant membership must come only from the daemon's immutable
+  successor chain. Provision and revoke require a real authenticated
+  administrator even on loopback, exact tenant existence and administration,
+  expected-revision compare-and-swap, idempotency conflict detection, durable
+  no-clobber persistence, and a content-addressed receipt. Session/token
+  rotation must not be required for revocation to take effect.
+- Principal-scoped lease grants and organization-invite disclosure/rotation
+  must require explicit authenticated identity even on loopback; an unenforced
+  local auth gate is never an implicit administrator credential.
+- A principal record, request body, role, or first-claim flow must never assert
+  `wallet://` membership. Wallet visibility requires the exact current
+  wallet.network principal-authority binding/resolution or fails with a typed
+  unsupported/precondition result.
 - `LocalAgentPairingSessionEnvelope` challenge/device-code material must be
   single-use, expiring, hash-only at rest, and returned in plaintext at most
   once. The candidate must generate its own signing key and prove possession at
@@ -351,6 +478,9 @@ retail chat subscription limits treated as managed worker capacity
 customer BYOK provider spend charged again as IOI model cost
 budget auto-fund treated as crossing authorization
 deployment-local identity replacing wallet.network protocol authority
+principal JSON org_refs/project_refs/tenant_refs treated as membership truth
+loopback request treated as an authenticated membership administrator
+admin role used to assert wallet ownership or consequential effect authority
 shared organization read/write token pasted into a local agent
 pairing challenge stored in plaintext or reusable after completion
 pairing success = room admission, authority grant, or marketplace publication
@@ -373,6 +503,9 @@ coarse OCU is a labeled projection of recorded receipts, not invoice truth
 commercial Work Credits wait for route-attempt and supplier-statement reconciliation
 direct BYOK/local provider cost is not double charged
 wallet funds the deployment budget without granting crossing authority
+immutable principal-to-org/project membership successors narrow surface visibility
+current membership is joined server-side on every session/API-token request
+wallet:// visibility waits for exact wallet.network principal-authority resolution
 the daemon admits/enforces authorized work; Agentgres records admitted truth
 LocalAgentPairingSessionEnvelope = authenticated candidate ingress only
 room admission -> participant lease -> scoped expiring gateway profile

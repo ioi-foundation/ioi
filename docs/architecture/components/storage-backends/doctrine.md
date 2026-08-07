@@ -4,10 +4,12 @@ Status: canonical architecture authority.
 Canonical owner: this file for storage backend byte-store doctrine underneath Agentgres-governed artifact refs, the canonical `StorageProfile` contract, and the `ArtifactAvailabilityIncident` / `ArtifactRepairReceipt` shapes.
 Supersedes: component-level Filecoin/CAS wording when it implies storage backends own artifact meaning, authority, lifecycle, restore validity, or operational truth.
 Superseded by: none.
-Last alignment pass: 2026-07-26.
+Last alignment pass: 2026-08-06.
 Doctrine status: canonical
-Implementation status: partial (local_disk/cas/ipfs/filecoin backends built; S3/object-store and provider blob profiles planned; the StorageProfile contract is target canonical, not started; the storage-plane incident and repair-receipt shapes are registered wire contracts pinned to the daemon-produced records)
-Last implementation audit: 2026-07-05
+Implementation status: partial (local_disk/cas/ipfs/filecoin backends built; a bounded ManagedStorageProfile declaration is Agentgres-backed and registered for managed persistence; the richer general StorageProfile and remote executors remain planned; incident and repair-receipt contracts remain registered)
+Implementation refs:
+  - `crates/node/src/bin/hypervisor_daemon_routes/managed_runtime_routes.rs`
+Last implementation audit: 2026-08-06
 
 ## Canonical Definition
 
@@ -202,10 +204,9 @@ Rules, each testable:
   are inputs to choosing or authoring a profile; work admits against a
   profile revision, not against ad hoc per-write choices.
 
-Registered wire contract: none for `StorageProfile` — deferred by the M2
-storage cut. The contract is canon-only ("target canonical, not started"
-above): no code produces, persists, or enforces a `StorageProfile` revision.
-The closest realized record, the daemon `StorageBackendAccount`
+Registered wire contract: none for the full successor-versioned
+`StorageProfile` target above — it remains deferred by the M2 storage cut.
+A neighboring older realized record, the daemon `StorageBackendAccount`
 (`ioi.hypervisor.storage-backend-account.v1`), is mutable per-backend account
 state (kind, endpoint mode, preflight posture), not an immutable
 successor-versioned custody declaration, so registering it under this family
@@ -216,6 +217,23 @@ code path yet — the registered structural hold surface today is
 discipline on `HypervisorResourceCleanupObligation`, and destruction of
 conversation artifacts is unrepresentable in the runtime control plane
 (no delete operation admits).
+
+### ManagedStorageProfile realized bounded contract
+
+The managed-persistence controller now admits the distinct, bounded
+`ManagedStorageProfile` contract (`ioi.storage-profile.v1`). It records one
+owner, backend class (`local_private`, `object_store`, `cas_ipfs`,
+`filecoin_archive`, or `customer_vpc`), destination, custody/encryption/key and
+retention refs, jurisdiction refs, replica floor, independent-compute-copy and
+export postures, authority-grant refs, revision, and JCS profile hash.
+
+This realized contract is narrower than the target `StorageProfile` above. It
+does not claim successor/predecessor revision identity, retention holds,
+repair/incident policy, active/revoked lifecycle, or current byte availability.
+Only `local_private` has an executor in the bounded managed-backup route;
+admitted remote declarations return an explicit unavailable/`501` execution
+boundary and never fall back to local custody. Widening this record requires a
+new registered version rather than adding keys to v1.
 
 The incident and repair objects this file names have these canonical shapes:
 

@@ -27,10 +27,7 @@
       "present_when": "merged"
     }
   ],
-  "evidence_refs": [
-    "docs/evidence/m0-program-control/reviewed-entry-lock.json",
-    "docs/evidence/m0-program-control/review-epoch-anchor.json"
-  ],
+  "evidence_refs": [],
   "pr": 97,
   "adversarial_or_fault_proof": "Activation journey 26/26; full sequence-zero certification 93/93 across ten journeys and two clean-room historical builds; contract registry 36 contracts / 131 fixtures / 103 mutations / 249 differential checks; M0 census epoch 7 binds all four routes after source-aware review; full check:pre-next-leg green at 0c5e5c558.",
   "remaining_nonclaims": [
@@ -39,5 +36,6 @@
     "GoalRun remains untouched; no swarm object, conductor, peer runtime, or new authority plane."
   ],
   "source_provenance": "PR #97 (feat/system-activation-transition); ready for review 2026-07-22; verified only when reviewed and landed. Verified 2026-07-22: PR #97 merged to master after delegated review (independent full-gate rerun, fresh-build journey certification, authority-seam source review).",
-  "last_status_transaction": "2026-07-22"
+  "last_status_transaction": "2026-07-22",
+  "retired_evidence_note": "docs/evidence/m0-program-control/ was removed by the 2026-08-05 proof-apparatus strip (9fe221227); this field no longer names paths a reader cannot open."
 }

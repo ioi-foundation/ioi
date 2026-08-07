@@ -24,6 +24,19 @@ Every shared object shape is owned by exactly one module below. Load the
 module you need; you do not need the rest of the family. Doctrine and
 lifecycle semantics stay with the subject owner named in each row.
 
+`objects/` holds **substrate-shared** shapes: any application domain may carry
+them and no application owns them. Their registered contracts use
+`schema://ioi/foundations/*` or `schema://ioi/components/*`.
+
+Application-domain object shapes live with their domain. The ioi.ai orchestration
+application's shapes are owned by
+[`../domains/ioi-ai/`](../domains/ioi-ai/), and their registered contracts use
+`schema://ioi/applications/ioi-ai/*`. Both sets reuse the envelope base types, ID
+conventions, and capability/authority tiers defined here, and both are indexed
+below.
+
+A module's registered `$id` prefix and its owning directory state the same layer.
+
 | Module | Owns the object shapes for | Doctrine owner |
 | --- | --- | --- |
 | [`reusable-work-definitions.md`](./objects/reusable-work-definitions.md) | WorkflowTemplate, SkillManifest, SkillEntry, ActiveSkillSetSnapshot | [`components/hypervisor/core-clients-surfaces.md`](../components/hypervisor/core-clients-surfaces.md) |
@@ -39,10 +52,11 @@ lifecycle semantics stay with the subject owner named in each row.
 | [`embodied-systems.md`](./objects/embodied-systems.md) | Physical Mission Segment Envelopes, EmbodiedCapabilitySpecEnvelope, EmbodiedTrainingDataContractEnvelope, WorldRepresentationManifest, +10 more | [`components/daemon-runtime/embodied-runtime.md`](../components/daemon-runtime/embodied-runtime.md) |
 | [`memory-and-promotion.md`](./objects/memory-and-promotion.md) | AgentWikiEnvelope, Portable Agent Memory, ContextMutationEnvelope, PromotionDecisionEnvelope, +1 more | [`components/daemon-runtime/portable-memory-vault.md`](../components/daemon-runtime/portable-memory-vault.md) |
 | [`bounded-improvement.md`](./objects/bounded-improvement.md) | Bounded Improvement Campaign Envelopes | [`foundations/bounded-recursive-improvement.md`](../foundations/bounded-recursive-improvement.md) |
-| [`goal-pursuit.md`](./objects/goal-pursuit.md) | GoalRunProfileEnvelope, OrchestrationConstraintEnvelope, OrchestrationPolicyEnvelope, OrchestrationPlanEnvelope, +1 more | [`domains/ioi-ai/control-plane.md`](../domains/ioi-ai/control-plane.md) |
-| [`collaborative-pursuit.md`](./objects/collaborative-pursuit.md) | OutcomeRoomDiscoveryEnvelope and RoomParticipationRequestEnvelope, OutcomeRoomEnvelope, OutcomeRoomDiscussionProjectionEnvelope, RoomParticipantLeaseEnvelope, ParticipantStateBundleEnvelope, +7 more | [`domains/ioi-ai/collaborative-outcome-pattern.md`](../domains/ioi-ai/collaborative-outcome-pattern.md) |
+| [`../domains/ioi-ai/goal-pursuit.md`](../domains/ioi-ai/goal-pursuit.md) *(ioi.ai)* | GoalRunProfileEnvelope, OrchestrationConstraintEnvelope, OrchestrationPolicyEnvelope, OrchestrationPlanEnvelope, +1 more | [`domains/ioi-ai/control-plane.md`](../domains/ioi-ai/control-plane.md) |
+| [`../domains/ioi-ai/collaborative-pursuit.md`](../domains/ioi-ai/collaborative-pursuit.md) *(ioi.ai)* | OutcomeRoomDiscoveryEnvelope and RoomParticipationRequestEnvelope, OutcomeRoomEnvelope, OutcomeRoomDiscussionProjectionEnvelope, RoomParticipantLeaseEnvelope, ParticipantStateBundleEnvelope, +7 more | [`domains/ioi-ai/collaborative-outcome-pattern.md`](../domains/ioi-ai/collaborative-outcome-pattern.md) |
+| [`execution-context-and-step-resolution.md`](./objects/execution-context-and-step-resolution.md) | InformationFlowLabel and DeclassificationApproval, TaskBriefPayloadEnvelope, HarnessInvocationEnvelope, HarnessAdapterEventEnvelope, ImplementationResultPayloadEnvelope, VerifierPathEnvelope, BenchmarkEnvelope, RoutingDecisionEnvelope | [`components/daemon-runtime/doctrine.md`](../components/daemon-runtime/doctrine.md) |
 | [`work-results-and-lifecycle.md`](./objects/work-results-and-lifecycle.md) | WorkResultEnvelope, OutcomeDeltaEnvelope, WorkLifecycleRecordEnvelope, WorkLifecycleArchiveSegmentEnvelope and WorkLifecycleSnapshotEnvelope | [`components/daemon-runtime/doctrine.md`](../components/daemon-runtime/doctrine.md) |
-| [`goal-run-execution.md`](./objects/goal-run-execution.md) | GoalRunEnvelope, GoalGroundingLoopEnvelope, RoleTopologyEnvelope, InformationFlowLabel and DeclassificationApproval, +11 more | [`components/daemon-runtime/default-harness-profile.md`](../components/daemon-runtime/default-harness-profile.md) |
+| [`../domains/ioi-ai/goal-run-execution.md`](../domains/ioi-ai/goal-run-execution.md) *(ioi.ai)* | GoalRunEnvelope, GoalGroundingLoopEnvelope, RoleTopologyEnvelope, InformationFlowLabel and DeclassificationApproval, +11 more | [`components/daemon-runtime/default-harness-profile.md`](../components/daemon-runtime/default-harness-profile.md) |
 
 Anything not listed above is owned by this file: the envelope base types,
 the `Common ID Conventions` ref-scheme registry, the primitive-capability and

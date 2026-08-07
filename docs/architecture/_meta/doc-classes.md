@@ -28,6 +28,14 @@ This register names the document classes used to keep architecture doctrine, ref
 | `decision-history` | Resolved historical decisions retained only when future maintainers need the reason. | Nearest owning component or `_meta/changelog/` |
 | `formal-source` | TLA+, configs, proof source, and formal-model READMEs. | `internal-docs/architecture/protocols/aft/formal/` |
 | `formal-generated` | TLC traces, generated trace modules, state dumps, and model-checker byproducts. | `internal-docs/formal/aft/` |
+> **Fixture-directory convention.** Directories under
+> `_meta/schemas/fixtures/` normally pair 1:1 with a registered `*.schema.json`.
+> One deliberately does not: `system-genesis-compiler-v1/` is an adversarial case
+> corpus for the System genesis **compiler**, loaded by
+> `crates/types/src/app/system_genesis.rs` and exercised by
+> `npm run test:system-genesis-compiler`. It is bound to code by path, so it is
+> not an orphan and must not be moved.
+
 | `evidence-artifact` | Validation outputs, scorecards, screenshots, bundles, and run reports. | `docs/evidence/` |
 
 ## Status Axis (Doctrine vs Implementation)

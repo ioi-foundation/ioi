@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/foundry-qualified-measurement/v1",
+  "title": "FoundryQualifiedMeasurement",
+  "description": "Fully dimensioned bounded-reference evaluation measurement and quality verdict. Its promotion boundary is proposal-only and can never perform runtime activation.",
+  "x-ioi-schema-version": "ioi.foundry-qualified-measurement.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "verdict", "quality", "measurement", "promotion_boundary"],
+  "properties": {
+    "schema_version": { "const": "ioi.foundry-qualified-measurement.v1" },
+    "verdict": { "enum": ["qualified", "rejected"] },
+    "quality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["token_coverage", "mean_negative_log_likelihood", "gate"],
+      "properties": {
+        "token_coverage": { "type": "number", "minimum": 0, "maximum": 1 },
+        "mean_negative_log_likelihood": { "type": "number", "minimum": 0, "maximum": 1000000000000 },
+        "gate": { "type": "object", "additionalProperties": false, "required": ["minimum_token_coverage", "maximum_mean_negative_log_likelihood"], "properties": { "minimum_token_coverage": { "type": "number", "minimum": 0, "maximum": 1 }, "maximum_mean_negative_log_likelihood": { "type": "number", "minimum": 0, "maximum": 1000000000000 } } }
+      }
+    },
+    "measurement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["phase", "token_numerator", "denominator", "scope", "raw_tokens", "effective_tokens", "elapsed_nanoseconds", "tokens_per_second", "includes_compilation", "includes_loading", "includes_evaluation", "includes_checkpoint", "includes_failure_and_recovery", "hardware_software_topology_fingerprint", "cost_basis_ref", "failure_schedule_ref"],
+      "properties": {
+        "phase": { "const": "evaluation" },
+        "token_numerator": { "const": "loss_bearing" },
+        "denominator": { "const": "full_wall_clock" },
+        "scope": { "const": "daemon_cpu_process" },
+        "raw_tokens": { "$ref": "#/$defs/positiveInteger" },
+        "effective_tokens": { "$ref": "#/$defs/positiveInteger" },
+        "elapsed_nanoseconds": { "$ref": "#/$defs/positiveInteger" },
+        "tokens_per_second": { "type": "number", "minimum": 0, "maximum": 1000000000000000 },
+        "includes_compilation": { "const": false },
+        "includes_loading": { "const": true },
+        "includes_evaluation": { "const": true },
+        "includes_checkpoint": { "const": false },
+        "includes_failure_and_recovery": { "const": false },
+        "hardware_software_topology_fingerprint": { "$ref": "#/$defs/workloadFingerprint" },
+        "cost_basis_ref": { "type": "string", "pattern": "^(?:cost|ledger|policy)://[^\\s]{1,500}$" },
+        "failure_schedule_ref": { "type": "string", "pattern": "^(?:schedule|policy|artifact)://[^\\s]{1,500}$" }
+      }
+    },
+    "promotion_boundary": { "type": "object", "additionalProperties": false, "required": ["proposal_only", "governance_approval_required", "runtime_activation_performed"], "properties": { "proposal_only": { "const": true }, "governance_approval_required": { "const": true }, "runtime_activation_performed": { "const": false } } }
+  },
+  "$defs": {
+    "positiveInteger": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+    "workloadFingerprint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["runtime_node_ref", "environment_ref", "trainer_backend_profile_ref", "hardware_architecture", "logical_cpu_count", "memory_bytes", "operating_system", "daemon_release_ref"],
+      "properties": {
+        "runtime_node_ref": { "type": "string", "pattern": "^runtime://[^\\s]{1,500}$" },
+        "environment_ref": { "type": "string", "pattern": "^environment://[^\\s]{1,500}$" },
+        "trainer_backend_profile_ref": { "const": "trainer-backend://ioi/reference-token-frequency/v1" },
+        "hardware_architecture": { "enum": ["x86_64", "aarch64"] },
+        "logical_cpu_count": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "memory_bytes": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "operating_system": { "enum": ["linux", "macos", "windows"] },
+        "daemon_release_ref": { "type": "string", "pattern": "^release://[^\\s]{1,500}$" }
+      }
+    }
+  }
+}

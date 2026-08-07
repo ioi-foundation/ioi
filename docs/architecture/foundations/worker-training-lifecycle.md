@@ -4,10 +4,12 @@ Status: canonical architecture authority.
 Canonical owner: this file for Worker Training lifecycle, training-vs-mutation doctrine, training receipts, training profile semantics, and training lineage semantics.
 Supersedes: product, marketplace, or model docs when they reduce Worker Training to fine-tuning alone or crown one model architecture as the IOI default.
 Superseded by: none.
-Last alignment pass: 2026-07-13.
+Last alignment pass: 2026-08-06.
 Doctrine status: canonical
-Implementation status: partial (Foundry draft object plane exists and is deliberately inert; no real training pipeline)
-Last implementation audit: 2026-07-05
+Implementation status: partial (a deterministic bounded reference recipe/dataset/token-frequency training/checkpoint/qualification slice executes and is registered; production training, independent evaluation, packaging, registry, and promotion execution remain planned)
+Implementation refs:
+  - `crates/node/src/bin/hypervisor_daemon_routes/foundry_execution_routes.rs`
+Last implementation audit: 2026-08-06
 
 ## Canonical Definition
 

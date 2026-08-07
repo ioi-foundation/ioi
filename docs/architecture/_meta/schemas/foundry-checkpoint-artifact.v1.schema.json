@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/foundry-checkpoint-artifact/v1",
+  "title": "FoundryCheckpointArtifact",
+  "description": "Complete content-addressed restart state for the bounded reference trainer. Token counts are deterministic strictly sorted closed rows, never an open JSON map.",
+  "x-ioi-schema-version": "ioi.foundry-checkpoint-artifact.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "program_id", "dataset_snapshot_ref", "dataset_content_hash", "recipe_content_hash", "trainer_backend_profile_ref", "model_state", "optimizer_state", "scheduler_state", "rng_state", "data_cursor", "global_step", "token_count", "status"],
+  "properties": {
+    "schema_version": { "const": "ioi.foundry-checkpoint-artifact.v1" },
+    "program_id": { "type": "string", "pattern": "^trainpipe://[^\\s]{1,500}$" },
+    "dataset_snapshot_ref": { "type": "string", "pattern": "^dataset-snapshot://[^\\s]{1,500}$" },
+    "dataset_content_hash": { "$ref": "#/$defs/hash" },
+    "recipe_content_hash": { "$ref": "#/$defs/hash" },
+    "trainer_backend_profile_ref": { "const": "trainer-backend://ioi/reference-token-frequency/v1" },
+    "model_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["token_counts", "total_tokens"],
+      "properties": {
+        "token_counts": { "$ref": "#/$defs/tokenCountRows" },
+        "total_tokens": { "$ref": "#/$defs/nonnegativeInteger" }
+      }
+    },
+    "optimizer_state": { "type": "object", "additionalProperties": false, "required": ["kind", "updates"], "properties": { "kind": { "const": "count_accumulator" }, "updates": { "$ref": "#/$defs/nonnegativeInteger" } } },
+    "scheduler_state": { "type": "object", "additionalProperties": false, "required": ["kind", "next_row"], "properties": { "kind": { "const": "row_cursor" }, "next_row": { "$ref": "#/$defs/nonnegativeInteger" } } },
+    "rng_state": { "type": "object", "additionalProperties": false, "required": ["algorithm", "seed"], "properties": { "algorithm": { "const": "fixed_seed_no_rng_training" }, "seed": { "$ref": "#/$defs/nonnegativeInteger" } } },
+    "data_cursor": { "$ref": "#/$defs/nonnegativeInteger" },
+    "global_step": { "$ref": "#/$defs/nonnegativeInteger" },
+    "token_count": { "$ref": "#/$defs/nonnegativeInteger" },
+    "status": { "const": "complete" }
+  },
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "nonnegativeInteger": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+    "tokenCountRows": { "type": "array", "uniqueItems": true, "items": { "type": "object", "additionalProperties": false, "required": ["token", "count"], "properties": { "token": { "type": "string", "minLength": 1 }, "count": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 } } } }
+  }
+}

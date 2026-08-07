@@ -1,6 +1,6 @@
 import { html, nothing, type TemplateResult } from "lit";
 import { api } from "./core-bridge";
-import { errMessage } from "../../chassis/src/errors";
+import { errMessage } from "../../../../ioi-ai/plugins/chassis/src/errors";
 import { fieldSelect } from "./ui";
 
 export const BOT_MODES = ["ignore", "rollup", "action", "user"] as const;

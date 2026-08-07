@@ -213,7 +213,7 @@ Hypervisor context — a Session, WorkRun, work item, room claim, automation
 step, or gateway adapter context — should become or join an admitted GoalRun
 ("promote this session into a goal," "attach this work to my goal"), ioi.ai
 may draft, render, review, and submit a `GoalRunActivationEnvelope`
-([`goal-pursuit.md`](../../foundations/objects/goal-pursuit.md)), and only
+([`goal-pursuit.md`](goal-pursuit.md)), and only
 daemon admission activates it. A subscription, account linkage, chat link,
 correlation id, projection row, facilitator selection, or MCP call is never
 that crossing. This closes the previously recorded gap in which this canon

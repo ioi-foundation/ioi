@@ -24,6 +24,9 @@ Start with [`START_HERE.md`](./START_HERE.md). Then use:
   subject;
 - [`implementation-matrix.md`](./_meta/implementation-matrix.md) before making
   a built/partial/planned claim;
+- [`shipped-products.v1.json`](./_meta/shipped-products.v1.json) for the
+  machine-checked executable product-lane, release-posture, state-boundary,
+  fixture-disposition, and required-verification register;
 - [`execution-horizons.md`](./_meta/execution-horizons.md) to distinguish the
   convergence target from later gated horizons;
 - [`term-boundaries.md`](./foundations/term-boundaries.md) when a name is

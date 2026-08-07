@@ -732,7 +732,7 @@ The shared schema is owned by
 deployment-local lifecycle handling is owned by
 [`identity-access-and-metering.md`](./identity-access-and-metering.md#local-agent-pairing-sessions).
 Gateway-profile binding is owned by
-[`connector-and-tool-contracts.md`](../connectors-tools/contracts.md#local-agent-pairing-profile-binding).
+[`contracts.md`](../connectors-tools/contracts.md#local-agent-pairing-profile-binding).
 
 ## Top-Level Product IA
 
@@ -3449,9 +3449,11 @@ semantics of an Ontology, workflow, System, dependency, Work, or embodied graph.
 > durable semantics. Registered JSON Schemas own the admitted wire shapes, and
 > daemon/app source implements them; neither code nor this hand-maintained wall
 > may silently redefine the other. Presence here is not a shipped or released
-> claim — see the file's `Implementation status` and the implementation-program
-> evidence gates. Generator TODO: project the registered shapes alongside this
-> semantic wall without transferring ownership to generated output.
+> claim — see the file's `Implementation status` and the conformance claim
+> coverage index ([`../../../conformance/README.md`](../../../conformance/README.md)),
+> which is where a capability claim binds. Generator TODO: project the
+> registered shapes alongside this semantic wall without transferring ownership to
+> generated output.
 
 ```yaml
 HypervisorClient:

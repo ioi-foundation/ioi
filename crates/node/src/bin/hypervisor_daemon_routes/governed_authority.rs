@@ -954,6 +954,175 @@ pub(crate) async fn refuse_final_invocation(
     settle_final_invocation(data_dir, claim, FinalInvocationDisposition::Refused, reason).await
 }
 
+/// Settle an orphaned final-invocation claim from independently observed remote truth. Recovery
+/// callers do not get to manufacture a new claim: every coordinate must match the durable claim
+/// byte-for-byte, and only `claimed`/`reconciliation_required` may advance to `invoked`.
+pub(crate) async fn reconcile_final_invocation_as_invoked(
+    data_dir: &str,
+    reference: &str,
+    claim_id: &str,
+    effect_hash: &str,
+    invoker_label: &str,
+    outcome: &str,
+) -> Result<(), String> {
+    reconcile_final_invocation(
+        data_dir,
+        reference,
+        claim_id,
+        effect_hash,
+        invoker_label,
+        FinalInvocationDisposition::Invoked,
+        outcome,
+    )
+    .await
+}
+
+/// Settle a claimed final invoker as a proven pre-effect refusal after its terminal publication
+/// record was committed but the ordinary settlement response was lost.
+pub(crate) async fn reconcile_final_invocation_as_refused(
+    data_dir: &str,
+    reference: &str,
+    claim_id: &str,
+    effect_hash: &str,
+    invoker_label: &str,
+    reason: &str,
+) -> Result<(), String> {
+    reconcile_final_invocation(
+        data_dir,
+        reference,
+        claim_id,
+        effect_hash,
+        invoker_label,
+        FinalInvocationDisposition::Refused,
+        reason,
+    )
+    .await
+}
+
+/// Preserve spent authority as Unknown when a Prepared dispatch cannot be proven either absent or
+/// converged. This is a durable terminal authority disposition, never a refund or a second claim.
+pub(crate) async fn mark_final_invocation_reconciliation_required(
+    data_dir: &str,
+    reference: &str,
+    claim_id: &str,
+    effect_hash: &str,
+    invoker_label: &str,
+    reason: &str,
+) -> Result<(), String> {
+    reconcile_final_invocation(
+        data_dir,
+        reference,
+        claim_id,
+        effect_hash,
+        invoker_label,
+        FinalInvocationDisposition::ReconciliationRequired,
+        reason,
+    )
+    .await
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn reconcile_final_invocation(
+    data_dir: &str,
+    reference: &str,
+    claim_id: &str,
+    effect_hash: &str,
+    invoker_label: &str,
+    disposition: FinalInvocationDisposition,
+    detail: &str,
+) -> Result<(), String> {
+    if claim_id.is_empty() || effect_hash.is_empty() || invoker_label.is_empty() {
+        return Err("reconciliation requires the exact durable claim coordinates".to_string());
+    }
+    if !matches!(
+        disposition,
+        FinalInvocationDisposition::Invoked
+            | FinalInvocationDisposition::Refused
+            | FinalInvocationDisposition::ReconciliationRequired
+    ) {
+        return Err(
+            "reconciliation may only prove invocation/refusal or preserve Unknown".to_string(),
+        );
+    }
+    let _guard = AUTHORITY_ADMISSION_LOCK.lock().await;
+    let tail = admission_intent_tail(reference)?;
+    let mut record =
+        super::durable_fs::read_record_durable(data_dir, AUTHORITY_ADMISSION_INTENT_FAMILY, tail)?
+            .ok_or_else(|| "authority admission receipt is absent".to_string())?;
+    let recorded_claim = record.get("final_invoker_claim").ok_or_else(|| {
+        "authority admission receipt carries no final-invocation claim".to_string()
+    })?;
+    for (field, expected) in [
+        ("claim_id", claim_id),
+        ("effect_hash", effect_hash),
+        ("invoker_label", invoker_label),
+    ] {
+        if recorded_claim.get(field).and_then(Value::as_str) != Some(expected) {
+            return Err(format!(
+                "reconciliation coordinate '{field}' does not match the durable claim"
+            ));
+        }
+    }
+    let current = FinalInvocationDisposition::parse(
+        record.get("final_invoker_status").and_then(Value::as_str),
+    )
+    .ok_or_else(|| {
+        "authority admission receipt carries no final-invoker disposition".to_string()
+    })?;
+    if current == disposition
+        && matches!(
+            disposition,
+            FinalInvocationDisposition::Invoked | FinalInvocationDisposition::Refused
+        )
+        && record
+            .pointer("/final_invoker_settlement/claim_id")
+            .and_then(Value::as_str)
+            == Some(claim_id)
+    {
+        return Ok(());
+    }
+    if !matches!(
+        current,
+        FinalInvocationDisposition::Claimed | FinalInvocationDisposition::ReconciliationRequired
+    ) {
+        return Err(format!(
+            "a {} final invocation cannot be reconciled to {}",
+            current.label(),
+            disposition.label()
+        ));
+    }
+    record["final_invoker_status"] = json!(disposition.label());
+    if matches!(
+        disposition,
+        FinalInvocationDisposition::Invoked | FinalInvocationDisposition::Refused
+    ) {
+        record["final_invoker_settlement"] = json!({
+            "claim_id": claim_id,
+            "invoker_label": invoker_label,
+            "effect_hash": effect_hash,
+            "outcome": detail,
+            "settled_at_ms": local_now_ms(),
+            "reconciled_from_remote_truth": true,
+        });
+    } else {
+        record["final_invoker_reconciliation"] = json!({
+            "reason": detail,
+            "claim_id": claim_id,
+            "invoker_label": invoker_label,
+            "effect_hash": effect_hash,
+            "observed_at_ms": local_now_ms(),
+            "usage_disposition": "spent_not_refunded",
+        });
+    }
+    super::durable_fs::persist_record_durable(
+        data_dir,
+        AUTHORITY_ADMISSION_INTENT_FAMILY,
+        tail,
+        &record,
+    )
+    .map_err(|error| format!("reconciled final-invocation disposition was not durable: {error:?}"))
+}
+
 async fn settle_final_invocation(
     data_dir: &str,
     claim: &FinalInvocationClaim,

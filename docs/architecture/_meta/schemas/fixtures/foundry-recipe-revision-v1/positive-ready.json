@@ -1,0 +1,30 @@
+{
+  "schema_version": "ioi.foundry-recipe-revision.v1",
+  "recipe_id": "foundry-recipe://acme/reference",
+  "recipe_revision_ref": "foundry-recipe://acme/reference/revision/1",
+  "revision": 1,
+  "predecessor_recipe_ref": null,
+  "owner_ref": "project://acme/foundry",
+  "data_recipe_ref": "data-recipe://acme/reference/v1",
+  "source_snapshot_refs": ["source-snapshot://acme/input-v1"],
+  "institutional_learning_boundary_ref": "learning-boundary://acme/private",
+  "learning_source_rights_claim_refs": ["learning-source-rights://acme/input-v1"],
+  "tokenizer_ref": "tokenizer://acme/reference/v1",
+  "sequence_format_ref": "format://acme/text-row/v1",
+  "packing_policy_ref": "policy://acme/packing/v1",
+  "loss_mask_policy_ref": "policy://acme/loss-mask/v1",
+  "harness_variant_refs": ["harness://acme/reference/v1"],
+  "environment_profile_ref": "profile://acme/foundry-reference",
+  "operators": [
+    {
+      "kind": "normalize_whitespace",
+      "field": "text",
+      "fields": null,
+      "from": null,
+      "to": null
+    }
+  ],
+  "split_seed": 23,
+  "content_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "status": "ready"
+}

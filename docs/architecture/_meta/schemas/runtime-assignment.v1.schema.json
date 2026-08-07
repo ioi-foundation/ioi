@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/runtime-assignment/v1",
+  "title": "RuntimeAssignment",
+  "description": "The bounded managed-runtime placement commitment currently admitted by the daemon. It is placement evidence, not work authority, provider execution proof, or the broader planned cross-domain assignment family.",
+  "x-ioi-schema-version": "ioi.runtime-assignment.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "runtime_assignment_id", "assignment_epoch", "placement", "assignment_hash", "status"],
+  "properties": {
+    "schema_version": { "const": "ioi.runtime-assignment.v1" },
+    "runtime_assignment_id": { "type": "string", "pattern": "^runtime-assignment://[^\\s]{1,500}$" },
+    "assignment_epoch": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+    "placement": { "$ref": "#/$defs/placement" },
+    "assignment_hash": { "$ref": "#/$defs/hash" },
+    "status": { "enum": ["admitted", "active", "closed", "completed"] }
+  },
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "ref": { "type": "string", "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$" },
+    "nullableRef": { "anyOf": [{ "$ref": "#/$defs/ref" }, { "type": "null" }] },
+    "placement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["runtime_node_ref", "daemon_profile_ref", "environment_ref", "provider_ref", "quote_ref", "budget_reservation_ref", "assignment_lease_ref", "isolation_binding_ref", "readiness_evidence_refs"],
+      "properties": {
+        "runtime_node_ref": { "type": "string", "pattern": "^runtime://[^\\s]{1,500}$" },
+        "daemon_profile_ref": { "type": "string", "pattern": "^profile://[^\\s]{1,500}$" },
+        "environment_ref": { "type": "string", "pattern": "^environment://[^\\s]{1,500}$" },
+        "provider_ref": { "type": "string", "pattern": "^(?:provider|provider-account)://[^\\s]{1,500}$" },
+        "quote_ref": { "$ref": "#/$defs/nullableRef" },
+        "budget_reservation_ref": { "$ref": "#/$defs/nullableRef" },
+        "assignment_lease_ref": { "type": "string", "pattern": "^lease://[^\\s]{1,500}$" },
+        "isolation_binding_ref": { "type": "string", "pattern": "^(?:workload-isolation-binding|binding)://[^\\s]{1,500}$" },
+        "readiness_evidence_refs": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/ref" } }
+      }
+    }
+  }
+}

@@ -1,7 +1,7 @@
 import { html, nothing, render } from "lit";
 import { Clock3, Pencil, RefreshCw, Search, Trash2 } from "lucide";
 import { api, ApiError } from "./core-bridge";
-import { errMessage } from "../../chassis/src/errors";
+import { errMessage } from "../../../../ioi-ai/plugins/chassis/src/errors";
 import { icon } from "./ui";
 import { appState, replacePanePreservingFocus } from "./shell";
 

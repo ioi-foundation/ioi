@@ -348,7 +348,7 @@ function LifecycleOrbit() {
 
   // fit to container
   React.useEffect(() => {
-    const fit = () => { if (wrapRef.current) { const w = Math.min(wrapRef.current.clientWidth, MAXW); setBox((p) => Math.abs(p.w - w) < 0.5 ? p : { w, h: w * ARH }); } };
+    const fit = () => { if (wrapRef.current) { const w = Math.min(wrapRef.current.clientWidth, MAXW); if (w < 48) return; setBox((p) => Math.abs(p.w - w) < 0.5 ? p : { w, h: w * ARH }); } };
     fit();
     const ro = new ResizeObserver(fit); if (wrapRef.current) ro.observe(wrapRef.current);
     return () => ro.disconnect();
@@ -389,7 +389,7 @@ function LifecycleOrbit() {
       ctx.strokeStyle = rgba(C.hair, 0.72); ctx.lineWidth = 1;
       ctx.beginPath(); ctx.arc(cx, cy, R, 0, TWO); ctx.stroke();
       ctx.save(); ctx.setLineDash([0.5, 6]); ctx.lineCap = "round"; ctx.lineDashOffset = -(ts / 130); ctx.strokeStyle = rgba(C.hair, 0.42);
-      ctx.beginPath(); ctx.arc(cx, cy, R - 11, 0, TWO); ctx.stroke(); ctx.restore();
+      ctx.beginPath(); ctx.arc(cx, cy, Math.max(0, R - 11), 0, TWO); ctx.stroke(); ctx.restore();
 
       // tapered hairline tracer (no glow — a clean ink stroke that thins to nothing)
       st.trail.push([hx, hy]); if (st.trail.length > 22) st.trail.shift();

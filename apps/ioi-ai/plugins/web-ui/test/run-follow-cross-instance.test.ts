@@ -29,12 +29,18 @@ await new Promise<void>((resolve) => core.listen(0, resolve));
 process.env.CORE_API_URL = `http://localhost:${(core.address() as AddressInfo).port}`;
 process.env.CORE_SIGNING_SECRET = "run-follow-cross-instance-test";
 process.env.WEB_UI_PRINCIPALS = "alice";
+process.env.WEB_UI_PUBLIC_URL = "http://localhost:8096";
 
 const { handler } = await import("../server/index.ts");
 const surface = createServer((req, res) => void handler(req, res));
 await new Promise<void>((resolve) => surface.listen(0, resolve));
 const base = `http://localhost:${(surface.address() as AddressInfo).port}`;
-const headers = { cookie: "webuiuser=alice", "content-type": "application/json" };
+const headers = {
+  cookie: "webuiuser=alice",
+  "content-type": "application/json",
+  origin: "http://localhost:8096",
+  "sec-fetch-site": "same-origin",
+};
 
 test.after(() => {
   surface.close();

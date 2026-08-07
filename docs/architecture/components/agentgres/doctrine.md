@@ -1,7 +1,7 @@
 # Agentgres State Substrate Specification
 
 Status: canonical architecture authority.
-Canonical owner: this file for high-level Agentgres doctrine; low-level runtime objects live in [`agentgres-api-and-object-model.md`](./api-object-model.md), and Postgres bridge/readiness guarantees live in [`postgres-bridge-and-readiness-contract.md`](./postgres-bridge-and-readiness-contract.md).
+Canonical owner: this file for high-level Agentgres doctrine; low-level runtime objects live in [`api-object-model.md`](./api-object-model.md), and Postgres bridge/readiness guarantees live in [`postgres-bridge-and-readiness-contract.md`](./postgres-bridge-and-readiness-contract.md).
 Supersedes: overlapping plan prose when Agentgres state ownership conflicts.
 Superseded by: none.
 Last alignment pass: 2026-07-31.

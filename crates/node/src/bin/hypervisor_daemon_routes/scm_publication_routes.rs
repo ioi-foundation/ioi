@@ -35,7 +35,7 @@
 use std::sync::Arc;
 
 use axum::extract::{Path as AxumPath, State};
-use axum::http::StatusCode;
+use axum::http::{HeaderMap, StatusCode};
 use axum::Json;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -78,6 +78,9 @@ const SCM_PUBLICATION_OPERATION_FAMILY: &str = "scm-publication-operations";
 const SCM_PUBLICATION_EFFECT_V2_CONTRACT: &str =
     "schema://ioi/components/connectors-tools/scm-publication-effect/v2";
 static SCM_PUBLICATION_OPERATION_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+const SCM_DESTINATION_SCOPE_KIND: &str = "scm-destination-binding";
+const SCM_PROPOSAL_SCOPE_KIND: &str = "scm-publication-proposal";
+const SCM_CALLER_IDEMPOTENCY_DOMAIN: &str = "ioi.scm-publication-caller-idempotency.v1";
 
 // =====================================================================
 // The remote boundary
@@ -720,6 +723,11 @@ pub(crate) struct PublicationAuthority {
     /// The effect hash the authority owner actually consumed. Binding it into the Prepared
     /// commitment is what makes the published effect provably the admitted one.
     pub(crate) admission_effect_hash: String,
+    /// Durable authority-owner claim coordinates. They stay outside the registered effect's
+    /// closed authority object, but are retained in Prepared so a later daemon process can settle
+    /// the exact claim after remote convergence is observed.
+    pub(crate) final_invocation_claim_ref: Option<String>,
+    pub(crate) final_invocation_claim_id: Option<String>,
 }
 
 /// What one executed publication reports back.
@@ -890,6 +898,79 @@ fn operation_tail(operation_key: &str) -> String {
         .collect()
 }
 
+fn bounded_caller_idempotency_key(body: &Value) -> Result<String, VErr> {
+    let key = body
+        .get("idempotency_key")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    if !(8..=200).contains(&key.len()) || key.chars().any(char::is_control) {
+        return Err(verr(
+            "scm_publication_idempotency_key_invalid",
+            "idempotency_key must contain 8..200 non-control characters",
+        ));
+    }
+    Ok(key.to_owned())
+}
+
+fn caller_idempotency_hash(principal_ref: &str, key: &str) -> Result<String, VErr> {
+    v2_commitment(&json!({
+        "domain": SCM_CALLER_IDEMPOTENCY_DOMAIN,
+        "principal_ref": principal_ref,
+        "idempotency_key": key,
+    }))
+}
+
+/// Reserve one caller key for one observation-independent operation identity. The key is scoped
+/// to the authenticated principal and retained only as a hash. Same key + same operation is an
+/// exact replay; same key + changed material is a conflict before authority or remote contact.
+fn claim_caller_idempotency(
+    data_dir: &str,
+    principal_ref: &str,
+    key: &str,
+    operation_key: &str,
+    now: &str,
+) -> Result<(), VErr> {
+    let key_hash = caller_idempotency_hash(principal_ref, key)?;
+    let claims = read_publication_family(data_dir, SCM_PUBLICATION_OPERATION_FAMILY)?
+        .into_iter()
+        .filter(|record| {
+            record.get("state").and_then(Value::as_str) == Some("caller_idempotency_claimed")
+                && record
+                    .pointer("/caller_idempotency/key_hash")
+                    .and_then(Value::as_str)
+                    == Some(key_hash.as_str())
+        })
+        .collect::<Vec<_>>();
+    if claims
+        .iter()
+        .any(|record| record.get("operation_key").and_then(Value::as_str) != Some(operation_key))
+    {
+        return Err(verr(
+            "scm_publication_idempotency_body_conflict",
+            "the authenticated principal reused this idempotency_key for changed publication material",
+        ));
+    }
+    if !claims.is_empty() {
+        return Ok(());
+    }
+    persist_publication_record(
+        data_dir,
+        SCM_PUBLICATION_OPERATION_FAMILY,
+        &json!({
+            "schema_version": "ioi.scm-publication-operation-state.v2",
+            "operation_key": operation_key,
+            "state": "caller_idempotency_claimed",
+            "caller_idempotency": {
+                "principal_ref": principal_ref,
+                "key_hash": key_hash,
+                "request_hash": operation_key,
+            },
+            "claimed_at": now,
+        }),
+    )?;
+    Ok(())
+}
+
 fn terminal_operation_report(
     data_dir: &str,
     operation_key: &str,
@@ -975,31 +1056,26 @@ fn unresolved_prepared_operation(
         .cloned())
 }
 
-#[allow(clippy::too_many_arguments)]
-fn execute_scm_publication_v2<P: ScmRemotePort>(
+fn prepared_operation_record(data_dir: &str, operation_key: &str) -> Result<Option<Value>, VErr> {
+    Ok(
+        read_publication_family(data_dir, SCM_PUBLICATION_OPERATION_FAMILY)?
+            .into_iter()
+            .find(|record| {
+                record.get("operation_key").and_then(Value::as_str) == Some(operation_key)
+                    && record.get("state").and_then(Value::as_str) == Some("prepared")
+            }),
+    )
+}
+
+fn persist_prepared_v2(
     data_dir: &str,
-    port: &P,
-    workspace_root: &str,
-    source: &ScmPublicationSource,
-    submission: &ScmPublicationSubmission,
+    identity: &Value,
+    operation_key: &str,
     authority: &PublicationAuthority,
-    title: &str,
+    observed: &ObservedHeads,
     now: &str,
-    identity: Value,
-    operation_key: String,
-) -> Result<ScmPublicationReport, VErr> {
-    let operation_tag = operation_tail(&operation_key);
-    let operation_ref = format!("scm-publication-operation://ioi/hypervisor/{operation_tag}");
-    let target_ref = identity["target_ref"].as_str().unwrap_or_default();
-    let base_ref = identity["base_ref"].as_str().unwrap_or_default();
-    let remote_url = source.binding["remote_url"].as_str().unwrap_or_default();
-    let observed = port
-        .observe_heads(&HeadObservationRequest {
-            remote_url,
-            target_ref,
-            base_ref,
-        })
-        .map_err(|error| verr("scm_publication_remote_unobservable", error))?;
+) -> Result<Value, VErr> {
+    let operation_tag = operation_tail(operation_key);
     let (precondition, expected_target_head) = match &observed.target {
         ObservedTargetRef::Present(head) => ("expected_head", json!(head)),
         ObservedTargetRef::Absent => ("must_not_exist", Value::Null),
@@ -1012,20 +1088,17 @@ fn execute_scm_publication_v2<P: ScmRemotePort>(
     };
     let observation_ref = format!("evidence://ioi/hypervisor/scm/head-observation/{operation_tag}");
     let cas_fingerprint = v2_cas_fingerprint(
-        &operation_key,
+        operation_key,
         precondition,
         &expected_target_head,
         &identity["base_revision_id"],
     )?;
     let operation = json!({
-        "operation_ref": operation_ref,
+        "operation_ref": format!("scm-publication-operation://ioi/hypervisor/{operation_tag}"),
         "operation_key": operation_key,
         "operation_key_domain": "excludes_observed_remote_state",
         "identity": identity,
     });
-    // The published effect artifact keeps exactly the registered v2 authority shape; the
-    // consumed effect hash is bound into the Prepared commitment below instead, where it
-    // constrains what may be dispatched without widening a canonical schema.
     let authority_value = json!({
         "authority_grant_refs": authority.grant_refs,
         "authority_scope_refs": authority.scope_refs,
@@ -1053,11 +1126,129 @@ fn execute_scm_publication_v2<P: ScmRemotePort>(
         "operation": operation,
         "authority": authority_value,
         "admission_effect_hash": authority.admission_effect_hash,
+        "authority_claim": {
+            "reference": authority.final_invocation_claim_ref,
+            "claim_id": authority.final_invocation_claim_id,
+            "effect_hash": authority.admission_effect_hash,
+            "invoker_label": "scm.publication.advance-target-ref",
+        },
         "preparation": preparation,
+        "frozen_cas": {
+            "target_ref_precondition": precondition,
+            "expected_target_head": expected_target_head,
+            "base_head": observed.base_head,
+            "observed_at": now,
+            "observation_evidence_ref": observation_ref,
+            "fingerprint": cas_fingerprint,
+        },
         "frozen_cas_fingerprint": cas_fingerprint,
         "prepared_at": now,
     });
     persist_publication_record(data_dir, SCM_PUBLICATION_OPERATION_FAMILY, &prepared_record)?;
+    Ok(prepared_record)
+}
+
+fn commit_v2_terminal_effect(
+    data_dir: &str,
+    operation_key: &str,
+    effect: Value,
+    now: &str,
+    converged: bool,
+) -> Result<ScmPublicationReport, VErr> {
+    ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
+        SCM_PUBLICATION_EFFECT_V2_CONTRACT,
+        &effect,
+    )
+    .map_err(|error| verr("scm_publication_artifact_invalid", error))?;
+    let mut receipts = Vec::new();
+    for kind in ["scm_publication", "scm_review_request"] {
+        if effect
+            .pointer(if kind == "scm_publication" {
+                "/effects/publication/receipt_ref"
+            } else {
+                "/effects/review_request/receipt_ref"
+            })
+            .and_then(Value::as_str)
+            .is_some()
+        {
+            let receipt = build_scm_publication_receipt(&effect, kind, now)
+                .map_err(|error| verr("scm_publication_artifact_invalid", error))?;
+            persist_publication_record(data_dir, SCM_PUBLICATION_RECEIPT_FAMILY, &receipt)?;
+            receipts.push(receipt);
+        }
+    }
+    persist_publication_record(data_dir, SCM_PUBLICATION_EFFECT_FAMILY, &effect)?;
+    persist_publication_record(
+        data_dir,
+        SCM_PUBLICATION_OPERATION_FAMILY,
+        &json!({
+            "schema_version": "ioi.scm-publication-operation-state.v2",
+            "operation_key": operation_key,
+            "state": "terminal",
+            "terminal_effect": effect,
+            "committed_at": now,
+        }),
+    )?;
+    Ok(ScmPublicationReport {
+        overall_outcome: effect["overall_outcome"]
+            .as_str()
+            .unwrap_or("reconciliation_required")
+            .to_owned(),
+        effect,
+        receipts,
+        converged,
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn execute_scm_publication_v2<P: ScmRemotePort>(
+    data_dir: &str,
+    port: &P,
+    workspace_root: &str,
+    source: &ScmPublicationSource,
+    submission: &ScmPublicationSubmission,
+    authority: &PublicationAuthority,
+    title: &str,
+    now: &str,
+    identity: Value,
+    operation_key: String,
+) -> Result<ScmPublicationReport, VErr> {
+    let operation_tag = operation_tail(&operation_key);
+    let target_ref = identity["target_ref"].as_str().unwrap_or_default();
+    let base_ref = identity["base_ref"].as_str().unwrap_or_default();
+    let remote_url = source.binding["remote_url"].as_str().unwrap_or_default();
+    let observed = port
+        .observe_heads(&HeadObservationRequest {
+            remote_url,
+            target_ref,
+            base_ref,
+        })
+        .map_err(|error| verr("scm_publication_remote_unobservable", error))?;
+    let prepared_record = persist_prepared_v2(
+        data_dir,
+        &identity,
+        &operation_key,
+        authority,
+        &observed,
+        now,
+    )?;
+    let precondition = prepared_record
+        .pointer("/frozen_cas/target_ref_precondition")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let expected_target_head = prepared_record["frozen_cas"]["expected_target_head"].clone();
+    let observation_ref = prepared_record["frozen_cas"]["observation_evidence_ref"]
+        .as_str()
+        .unwrap_or_default();
+    let cas_fingerprint = prepared_record["frozen_cas_fingerprint"]
+        .as_str()
+        .unwrap_or_default();
+    let operation = prepared_record["operation"].clone();
+    let authority_value = prepared_record["authority"].clone();
+    let preparation = prepared_record["preparation"].clone();
+    let prepared_hash = preparation["prepared_record_hash"]
+        .as_str()
+        .unwrap_or_default();
 
     let base_revision = identity["base_revision_id"].as_str().unwrap_or_default();
     let moved_from_base = expected_target_head
@@ -1078,23 +1269,32 @@ fn execute_scm_publication_v2<P: ScmRemotePort>(
             Some("frozen-cas-precondition-diverged"),
         )
     } else {
-        let advance = match verify_change_set_against_workspace(workspace_root, files) {
-            Ok(()) => port.advance_target_ref(&TargetRefAdvanceRequest {
-                remote_url,
-                target_ref,
-                base_revision_id: base_revision,
-                expected_target_head: expected_target_head.as_str(),
-                files,
-                workspace_root,
-                title,
-                intended_revision_id: intended_revision,
-            }),
-            Err(detail) => TargetRefAdvanceOutcome::Refused {
-                refusal_code: REFUSAL_CONTENT_DIGEST_MISMATCH.to_owned(),
-                detail,
-            },
-        };
-        (advance, true, "first_dispatch", None)
+        match verify_change_set_against_workspace(workspace_root, files) {
+            Ok(()) => (
+                port.advance_target_ref(&TargetRefAdvanceRequest {
+                    remote_url,
+                    target_ref,
+                    base_revision_id: base_revision,
+                    expected_target_head: expected_target_head.as_str(),
+                    files,
+                    workspace_root,
+                    title,
+                    intended_revision_id: intended_revision,
+                }),
+                true,
+                "first_dispatch",
+                None,
+            ),
+            Err(detail) => (
+                TargetRefAdvanceOutcome::Refused {
+                    refusal_code: REFUSAL_CONTENT_DIGEST_MISMATCH.to_owned(),
+                    detail,
+                },
+                false,
+                "first_dispatch",
+                None,
+            ),
+        }
     };
 
     let (
@@ -1270,43 +1470,285 @@ fn execute_scm_publication_v2<P: ScmRemotePort>(
         "nonclaims": effect["nonclaims"],
         "committed_at": effect["committed_at"],
     }))?);
-    ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
-        SCM_PUBLICATION_EFFECT_V2_CONTRACT,
-        &effect,
-    )
-    .map_err(|error| verr("scm_publication_artifact_invalid", error))?;
-    let mut receipts = Vec::new();
-    for kind in ["scm_publication", "scm_review_request"] {
-        if effect
-            .pointer(if kind == "scm_publication" {
-                "/effects/publication/receipt_ref"
-            } else {
-                "/effects/review_request/receipt_ref"
-            })
-            .and_then(Value::as_str)
-            .is_some()
-        {
-            let receipt = build_scm_publication_receipt(&effect, kind, now)
-                .map_err(|error| verr("scm_publication_artifact_invalid", error))?;
-            persist_publication_record(data_dir, SCM_PUBLICATION_RECEIPT_FAMILY, &receipt)?;
-            receipts.push(receipt);
-        }
+    commit_v2_terminal_effect(data_dir, &operation_key, effect, now, false)
+}
+
+/// Resolve a crash window from the durable Prepared record and remote truth. This path never calls
+/// `advance_target_ref` or `open_review_request`: convergence is recovered when the target already
+/// equals the frozen intended revision; every other uncertain disposition becomes a terminal,
+/// named reconciliation result. A later operator workflow may supersede that result, but a retry
+/// cannot create a fresh commit or review request.
+fn reconcile_prepared_operation<P: ScmRemotePort>(
+    data_dir: &str,
+    port: &P,
+    source: &ScmPublicationSource,
+    prepared: &Value,
+    now: &str,
+) -> Result<ScmPublicationReport, VErr> {
+    if prepared.get("state").and_then(Value::as_str) != Some("prepared") {
+        return Err(verr(
+            "scm_publication_operation_corrupt",
+            "reconciliation requires one durable Prepared operation",
+        ));
     }
-    persist_publication_record(data_dir, SCM_PUBLICATION_EFFECT_FAMILY, &effect)?;
-    let terminal = json!({
-        "schema_version": "ioi.scm-publication-operation-state.v2",
-        "operation_key": operation_key,
-        "state": "terminal",
-        "terminal_effect": effect,
+    let operation = prepared.get("operation").cloned().ok_or_else(|| {
+        verr(
+            "scm_publication_operation_corrupt",
+            "Prepared carries no operation",
+        )
+    })?;
+    let identity = operation.get("identity").cloned().ok_or_else(|| {
+        verr(
+            "scm_publication_operation_corrupt",
+            "Prepared carries no operation identity",
+        )
+    })?;
+    let operation_key = operation
+        .get("operation_key")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    if operation_key.is_empty() || v2_operation_key(&identity)? != operation_key {
+        return Err(verr(
+            "scm_publication_operation_corrupt",
+            "Prepared operation key does not recompute",
+        ));
+    }
+    if identity.get("destination_binding_hash") != source.binding.get("destination_binding_hash")
+        || identity.get("proposal_hash") != source.proposal.get("proposal_hash")
+    {
+        return Err(verr(
+            "scm_publication_operation_corrupt",
+            "Prepared source revisions no longer resolve to their admitted bytes",
+        ));
+    }
+    let frozen = prepared.get("frozen_cas").ok_or_else(|| {
+        verr(
+            "scm_publication_operation_corrupt",
+            "Prepared carries no frozen compare-and-swap",
+        )
+    })?;
+    let precondition = frozen
+        .get("target_ref_precondition")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let expected_target_head = frozen
+        .get("expected_target_head")
+        .cloned()
+        .unwrap_or(Value::Null);
+    let frozen_fingerprint = frozen
+        .get("fingerprint")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    if frozen_fingerprint.is_empty()
+        || v2_cas_fingerprint(
+            operation_key,
+            precondition,
+            &expected_target_head,
+            &identity["base_revision_id"],
+        )? != frozen_fingerprint
+        || prepared
+            .get("frozen_cas_fingerprint")
+            .and_then(Value::as_str)
+            != Some(frozen_fingerprint)
+    {
+        return Err(verr(
+            "scm_publication_operation_corrupt",
+            "Prepared frozen compare-and-swap does not recompute",
+        ));
+    }
+    let target_ref = identity["target_ref"].as_str().unwrap_or_default();
+    let base_ref = identity["base_ref"].as_str().unwrap_or_default();
+    let remote_url = source.binding["remote_url"].as_str().unwrap_or_default();
+    let observed = port
+        .observe_heads(&HeadObservationRequest {
+            remote_url,
+            target_ref,
+            base_ref,
+        })
+        .map_err(|error| verr("scm_publication_remote_unobservable", error))?;
+    let intended_revision = identity["intended_revision_id"]
+        .as_str()
+        .unwrap_or_default();
+    let converged = matches!(
+        &observed.target,
+        ObservedTargetRef::Present(head) if head == intended_revision
+    );
+    let precondition_holds = match (&observed.target, precondition) {
+        (ObservedTargetRef::Absent, "must_not_exist") => true,
+        (ObservedTargetRef::Present(head), "expected_head") => {
+            expected_target_head.as_str() == Some(head.as_str())
+        }
+        _ => false,
+    };
+    let (resolution, remote_convergence, precondition_recheck, reconciliation_code) = if converged {
+        (
+            "recovered_converged_remote",
+            "matches_intended_revision",
+            "holds",
+            None,
+        )
+    } else if matches!(observed.target, ObservedTargetRef::Unobserved) {
+        (
+            "reconciliation_required",
+            "unobserved",
+            "unobserved",
+            Some("remote-head-unobservable"),
+        )
+    } else if precondition_holds {
+        (
+            "reconciliation_required",
+            "unobserved",
+            "holds",
+            Some("dispatch-disposition-indeterminate"),
+        )
+    } else {
+        (
+            "reconciliation_required",
+            "diverged",
+            "moved",
+            Some("moved-head-ambiguity"),
+        )
+    };
+    let review_intent = identity["review_intent"]
+        .as_str()
+        .unwrap_or("not_requested");
+    let operation_tag = operation_tail(operation_key);
+    let review_key =
+        v2_review_operation_key(operation_key, review_intent, &identity["target_ref"])?;
+    let (
+        publication_outcome,
+        publication_code,
+        review_outcome,
+        review_receipt_ref,
+        review_code,
+        review_resolution,
+        overall,
+        resulting,
+    ) = if converged {
+        if review_intent == "not_requested" {
+            (
+                "published",
+                None,
+                "not_requested",
+                None,
+                None,
+                "not_engaged",
+                "published_review_request_not_requested",
+                json!({"revision_id": intended_revision, "target_head": intended_revision}),
+            )
+        } else {
+            (
+                "published",
+                None,
+                "reconciliation_required",
+                Some(format!(
+                    "receipt://ioi/hypervisor/scm/review/{operation_tag}"
+                )),
+                Some("review-request-dispatch-ambiguous"),
+                "reconciliation_required",
+                "published_review_request_reconciliation_required",
+                json!({"revision_id": intended_revision, "target_head": intended_revision}),
+            )
+        }
+    } else {
+        (
+            "reconciliation_required",
+            reconciliation_code,
+            "not_attempted",
+            None,
+            None,
+            "not_engaged",
+            "reconciliation_required",
+            Value::Null,
+        )
+    };
+    let attempt = json!({
+        "publication_attempt_ref": format!("scm-publication-attempt://ioi/hypervisor/{operation_tag}-2"),
+        "attempt_number": 2,
+        "cas": {
+            "mechanism": "expected_head_compare_and_swap",
+            "remote_update_mode": "expected_head_advance_or_refuse",
+            "stale_head_disposition": "refuse_never_overwrite",
+            "target_ref_precondition": precondition,
+            "expected_target_head": expected_target_head,
+            "observed_at": frozen.get("observed_at").cloned().unwrap_or(Value::Null),
+            "observation_evidence_ref": frozen.get("observation_evidence_ref").cloned().unwrap_or(Value::Null),
+        },
+        "cas_fingerprint": frozen_fingerprint,
+        "frozen_cas_fingerprint": frozen_fingerprint,
+        "dispatch": {
+            "prepared_record_hash": prepared["preparation"]["prepared_record_hash"],
+            "dispatch_observation": "indeterminate",
+            "dispatch_evidence_refs": [format!("evidence://ioi/hypervisor/scm/dispatch-recovery/{operation_tag}")],
+        },
+    });
+    let effects = json!({
+        "publication": {
+            "effect_kind": "scm_publication",
+            "outcome": publication_outcome,
+            "receipt_ref": format!("receipt://ioi/hypervisor/scm/publication/{operation_tag}"),
+            "refusal_code": publication_code,
+            "evidence_refs": [format!("evidence://ioi/hypervisor/scm/publication-recovery/{operation_tag}")],
+        },
+        "review_request": {
+            "effect_kind": "scm_review_request",
+            "outcome": review_outcome,
+            "receipt_ref": review_receipt_ref,
+            "refusal_code": review_code,
+            "evidence_refs": if review_outcome == "reconciliation_required" { vec![format!("evidence://ioi/hypervisor/scm/review-recovery/{operation_tag}")] } else { Vec::<String>::new() },
+            "reconciliation": {
+                "operation_key": review_key,
+                "resolution_disposition": review_resolution,
+                "remote_effect_invoked": false,
+                "reconciliation_code": if review_outcome == "reconciliation_required" { Some("review-request-dispatch-ambiguous") } else { None },
+            },
+        },
+    });
+    let mut effect = json!({
+        "schema_version": "ioi.scm-publication-effect.v2",
+        "publication_effect_id": format!("scm-publication-effect://ioi/hypervisor/{operation_tag}-terminal"),
+        "publication_effect_hash": Value::Null,
+        "execution_semantics": "at_most_once_execution_plus_reconciliation",
+        "operation": operation,
+        "authority": prepared["authority"],
+        "preparation": prepared["preparation"],
+        "attempt": attempt,
+        "recovery": {
+            "resolution_disposition": resolution,
+            "remote_effect_invoked": false,
+            "remote_convergence": remote_convergence,
+            "precondition_recheck": precondition_recheck,
+            "prior_terminal_effect_ref": Value::Null,
+            "prior_terminal_effect_hash": Value::Null,
+            "reconciliation_code": reconciliation_code,
+            "recovery_evidence_refs": [format!("evidence://ioi/hypervisor/scm/recovery-probe/{operation_tag}")],
+        },
+        "outcome": {
+            "resulting_revision": resulting,
+            "proof_ref": format!("receipt://ioi/hypervisor/scm/proof/{operation_tag}"),
+        },
+        "effects": effects,
+        "overall_outcome": overall,
+        "nonclaims": ["grants_no_authority", "no_remote_acceptance_beyond_receipt_evidence", "asserts_no_review_approval", "asserts_no_exactly_once_execution"],
         "committed_at": now,
     });
-    persist_publication_record(data_dir, SCM_PUBLICATION_OPERATION_FAMILY, &terminal)?;
-    Ok(ScmPublicationReport {
-        effect,
-        receipts,
-        overall_outcome: overall.to_owned(),
-        converged: false,
-    })
+    effect["publication_effect_hash"] = json!(v2_commitment(&json!({
+        "domain": "ioi.scm-publication-effect-commitment-jcs-sha256.v2",
+        "schema_version": effect["schema_version"],
+        "publication_effect_id": effect["publication_effect_id"],
+        "execution_semantics": effect["execution_semantics"],
+        "operation": effect["operation"],
+        "authority": effect["authority"],
+        "preparation": effect["preparation"],
+        "attempt": effect["attempt"],
+        "recovery": effect["recovery"],
+        "outcome": effect["outcome"],
+        "effects": effect["effects"],
+        "overall_outcome": effect["overall_outcome"],
+        "nonclaims": effect["nonclaims"],
+        "committed_at": effect["committed_at"],
+    }))?);
+    commit_v2_terminal_effect(data_dir, operation_key, effect, now, true)
 }
 
 /// Execute one publication submission end to end against durable truth and a
@@ -1612,7 +2054,10 @@ fn status_for(code: &str) -> StatusCode {
         "scm_publication_binding_ambiguous"
         | "scm_publication_proposal_ambiguous"
         | "scm_publication_refused"
-        | "scm_publication_artifact_invalid" => StatusCode::CONFLICT,
+        | "scm_publication_artifact_invalid"
+        | "scm_publication_artifact_ref_conflict"
+        | "scm_publication_idempotency_body_conflict" => StatusCode::CONFLICT,
+        "scm_publication_idempotency_key_invalid" => StatusCode::BAD_REQUEST,
         "scm_publication_remote_unobservable" => StatusCode::BAD_GATEWAY,
         _ => StatusCode::INTERNAL_SERVER_ERROR,
     }
@@ -1626,16 +2071,387 @@ fn fail(error: VErr) -> (StatusCode, Json<Value>) {
     )
 }
 
+fn scope_fail(error: super::substrate_store::RequestScopeRefusal) -> (StatusCode, Json<Value>) {
+    use super::substrate_store::RequestScopeRefusal;
+    let status = match error {
+        RequestScopeRefusal::AuthenticationRequired
+        | RequestScopeRefusal::PrincipalIdentityInvalid => StatusCode::UNAUTHORIZED,
+        RequestScopeRefusal::TenantAuthorityRequired
+        | RequestScopeRefusal::ResourceScopeRequired
+        | RequestScopeRefusal::ResourceOwnerMismatch => StatusCode::FORBIDDEN,
+        RequestScopeRefusal::SubstrateUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
+    };
+    (
+        status,
+        Json(json!({
+            "ok": false,
+            "reason": error.code(),
+            "message": error.message(),
+            "fail_closed": true,
+        })),
+    )
+}
+
+pub(crate) fn request_identity(
+    data_dir: &str,
+    headers: &HeaderMap,
+) -> Result<super::substrate_store::RequestIdentity, (StatusCode, Json<Value>)> {
+    super::substrate_store::resolve_request_identity(data_dir, headers).map_err(scope_fail)
+}
+
+fn requested_owner_ref(
+    body: &Value,
+    identity: &super::substrate_store::RequestIdentity,
+) -> Result<String, (StatusCode, Json<Value>)> {
+    let owner_ref = body
+        .get("owner_ref")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    if owner_ref.is_empty()
+        || owner_ref.len() > 500
+        || owner_ref.chars().any(char::is_whitespace)
+        || !(owner_ref.starts_with("org://") || owner_ref.starts_with("project://"))
+    {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "ok": false,
+                "reason": "scm_publication_owner_ref_invalid",
+                "message": "owner_ref must name one canonical org:// or project:// tenant",
+                "fail_closed": true,
+            })),
+        ));
+    }
+    if !identity.authorizes_tenant(owner_ref) {
+        return Err(scope_fail(
+            super::substrate_store::RequestScopeRefusal::TenantAuthorityRequired,
+        ));
+    }
+    Ok(owner_ref.to_owned())
+}
+
+fn bind_publication_scope(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    resource_kind: &str,
+    resource_ref: &str,
+    owner_ref: &str,
+    idempotency_key: &str,
+) -> Result<super::substrate_store::RequestResourceScope, (StatusCode, Json<Value>)> {
+    super::substrate_store::bind_request_resource_scope(
+        data_dir,
+        identity,
+        resource_kind,
+        resource_ref,
+        owner_ref,
+        owner_ref,
+        idempotency_key,
+    )
+    .map_err(scope_fail)
+}
+
+fn authorize_publication_source_scope(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    source: &ScmPublicationSource,
+) -> Result<String, (StatusCode, Json<Value>)> {
+    let binding_ref = source.binding["destination_binding_ref"]
+        .as_str()
+        .unwrap_or_default();
+    let proposal_ref = source.proposal["proposal_ref"].as_str().unwrap_or_default();
+    let binding_owner = source.binding["owner_ref"].as_str().unwrap_or_default();
+    let proposal_owner = source.proposal["owner_ref"].as_str().unwrap_or_default();
+    if binding_owner.is_empty() || binding_owner != proposal_owner {
+        return Err(scope_fail(
+            super::substrate_store::RequestScopeRefusal::ResourceOwnerMismatch,
+        ));
+    }
+    let binding_scope = super::substrate_store::authorize_request_resource_scope(
+        data_dir,
+        identity,
+        SCM_DESTINATION_SCOPE_KIND,
+        binding_ref,
+        Some(binding_owner),
+    )
+    .map_err(scope_fail)?;
+    let proposal_scope = super::substrate_store::authorize_request_resource_scope(
+        data_dir,
+        identity,
+        SCM_PROPOSAL_SCOPE_KIND,
+        proposal_ref,
+        Some(proposal_owner),
+    )
+    .map_err(scope_fail)?;
+    if binding_scope.owner_ref != proposal_scope.owner_ref {
+        return Err(scope_fail(
+            super::substrate_store::RequestScopeRefusal::ResourceOwnerMismatch,
+        ));
+    }
+    Ok(binding_scope.owner_ref)
+}
+
+fn authorize_environment_owner(
+    identity: &super::substrate_store::RequestIdentity,
+    environment: &Value,
+    owner_ref: &str,
+) -> Result<(), (StatusCode, Json<Value>)> {
+    if !identity.authorizes_tenant(owner_ref) {
+        return Err(scope_fail(
+            super::substrate_store::RequestScopeRefusal::TenantAuthorityRequired,
+        ));
+    }
+    let declared_owner = environment
+        .get("owner_ref")
+        .or_else(|| environment.pointer("/spec/owner_ref"))
+        .and_then(Value::as_str);
+    if let Some(declared) = declared_owner {
+        if declared.starts_with("user://") && declared != identity.principal_ref {
+            return Err(scope_fail(
+                super::substrate_store::RequestScopeRefusal::ResourceOwnerMismatch,
+            ));
+        }
+        if (declared.starts_with("org://") || declared.starts_with("project://"))
+            && declared != owner_ref
+        {
+            return Err(scope_fail(
+                super::substrate_store::RequestScopeRefusal::ResourceOwnerMismatch,
+            ));
+        }
+    } else if identity.principal_ref != "user://local-operator"
+        || environment
+            .pointer("/status/tenant_posture")
+            .and_then(Value::as_str)
+            != Some("single_user")
+    {
+        // Legacy local-workspace environments have no owner coordinate. They are intentionally
+        // usable only by the authenticated bootstrap operator in their declared single-user mode.
+        return Err(scope_fail(
+            super::substrate_store::RequestScopeRefusal::ResourceScopeRequired,
+        ));
+    }
+    if let Some(project) = environment
+        .pointer("/spec/project_id")
+        .and_then(Value::as_str)
+        .filter(|value| value.starts_with("project://"))
+    {
+        if project != owner_ref {
+            return Err(scope_fail(
+                super::substrate_store::RequestScopeRefusal::ResourceOwnerMismatch,
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Resolve the single tenant that owns publication artifacts derived from an environment. A
+/// canonical project coordinate wins; legacy local workspaces may use the caller's sole tenant,
+/// but only after the environment's explicit single-user/local-operator posture is rechecked.
+pub(crate) fn publication_owner_for_environment(
+    identity: &super::substrate_store::RequestIdentity,
+    environment: &Value,
+) -> Result<String, (StatusCode, Json<Value>)> {
+    let owner_ref = if let Some(project_ref) = environment
+        .pointer("/spec/project_id")
+        .and_then(Value::as_str)
+        .filter(|value| value.starts_with("project://"))
+    {
+        project_ref.to_owned()
+    } else if identity.tenant_refs.len() == 1 {
+        identity
+            .tenant_refs
+            .iter()
+            .next()
+            .cloned()
+            .unwrap_or_default()
+    } else {
+        return Err(scope_fail(
+            super::substrate_store::RequestScopeRefusal::TenantAuthorityRequired,
+        ));
+    };
+    authorize_environment_owner(identity, environment, &owner_ref)?;
+    Ok(owner_ref)
+}
+
+async fn settle_prepared_authority_from_remote_truth(
+    data_dir: &str,
+    prepared: &Value,
+    report: &ScmPublicationReport,
+) -> Result<(), String> {
+    let claim = prepared
+        .get("authority_claim")
+        .ok_or_else(|| "Prepared carries no authority claim coordinates".to_string())?;
+    let coordinate = |field: &str| {
+        claim
+            .get(field)
+            .and_then(Value::as_str)
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| format!("Prepared authority claim carries no '{field}'"))
+    };
+    let reference = coordinate("reference")?;
+    let claim_id = coordinate("claim_id")?;
+    let effect_hash = coordinate("effect_hash")?;
+    let invoker_label = coordinate("invoker_label")?;
+    let resolution = report
+        .effect
+        .pointer("/recovery/resolution_disposition")
+        .and_then(Value::as_str)
+        .unwrap_or("reconciliation_required");
+    let publication_outcome = report
+        .effect
+        .pointer("/effects/publication/outcome")
+        .and_then(Value::as_str)
+        .unwrap_or("reconciliation_required");
+    let remote_invoked = report
+        .effect
+        .pointer("/recovery/remote_effect_invoked")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    if publication_outcome == "published"
+        || remote_invoked
+        || resolution == "recovered_converged_remote"
+    {
+        super::governed_authority::reconcile_final_invocation_as_invoked(
+            data_dir,
+            reference,
+            claim_id,
+            effect_hash,
+            invoker_label,
+            &report.overall_outcome,
+        )
+        .await
+    } else if publication_outcome == "refused" {
+        let reason = report
+            .effect
+            .pointer("/effects/publication/refusal_code")
+            .and_then(Value::as_str)
+            .unwrap_or("pre-dispatch-refusal");
+        super::governed_authority::reconcile_final_invocation_as_refused(
+            data_dir,
+            reference,
+            claim_id,
+            effect_hash,
+            invoker_label,
+            reason,
+        )
+        .await
+    } else {
+        let reason = report
+            .effect
+            .pointer("/recovery/reconciliation_code")
+            .and_then(Value::as_str)
+            .unwrap_or("prepared-dispatch-disposition-indeterminate");
+        super::governed_authority::mark_final_invocation_reconciliation_required(
+            data_dir,
+            reference,
+            claim_id,
+            effect_hash,
+            invoker_label,
+            reason,
+        )
+        .await
+    }
+}
+
+fn bounded_resource_ref(body: &Value, field: &str, prefix: &str) -> Result<String, VErr> {
+    let value = body.get(field).and_then(Value::as_str).unwrap_or_default();
+    if value.len() > 500
+        || !value.starts_with(prefix)
+        || value
+            .chars()
+            .any(|character| character.is_whitespace() || character.is_control())
+    {
+        return Err(verr(
+            "scm_publication_artifact_invalid",
+            format!("{field} must be one bounded canonical {prefix} reference"),
+        ));
+    }
+    Ok(value.to_owned())
+}
+
+fn immutable_admission_view(record: &Value, hash_field: &str) -> Value {
+    let mut material = record.as_object().cloned().unwrap_or_default();
+    material.remove(hash_field);
+    material.remove("admitted_at");
+    Value::Object(material)
+}
+
+/// Logical admission refs are immutable. This makes an exact HTTP retry converge to the admitted
+/// bytes instead of manufacturing a second timestamped revision, while a changed body fails before
+/// it can poison resolution with two revisions carrying the same ref.
+fn converge_admission_by_ref(
+    data_dir: &str,
+    family: &str,
+    ref_field: &str,
+    hash_field: &str,
+    candidate: &Value,
+) -> Result<Option<Value>, VErr> {
+    let wanted = candidate
+        .get(ref_field)
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let mut existing = read_publication_family(data_dir, family)?
+        .into_iter()
+        .filter(|record| record.get(ref_field).and_then(Value::as_str) == Some(wanted))
+        .collect::<Vec<_>>();
+    if existing.is_empty() {
+        return Ok(None);
+    }
+    let candidate_view = immutable_admission_view(candidate, hash_field);
+    if existing
+        .iter()
+        .any(|record| immutable_admission_view(record, hash_field) != candidate_view)
+    {
+        return Err(verr(
+            "scm_publication_artifact_ref_conflict",
+            format!("{ref_field} '{wanted}' is already bound to different admitted material"),
+        ));
+    }
+    existing.sort_by_key(|record| scm_publication_artifact_root(record).unwrap_or_default());
+    Ok(existing.into_iter().next())
+}
+
 /// POST /v1/hypervisor/scm-destination-bindings — admit one destination
 /// binding. The binding, not the caller, is what a later publication resolves
 /// its remote from.
 pub(crate) async fn handle_destination_binding_admit(
     State(state): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    let identity = match request_identity(&state.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+    let owner_ref = match requested_owner_ref(&body, &identity) {
+        Ok(owner_ref) => owner_ref,
+        Err(response) => return response,
+    };
+    let idempotency_key = match bounded_caller_idempotency_key(&body) {
+        Ok(key) => key,
+        Err(error) => return fail(error),
+    };
+    let destination_binding_ref = match bounded_resource_ref(
+        &body,
+        "destination_binding_ref",
+        "scm-destination-binding://",
+    ) {
+        Ok(reference) => reference,
+        Err(error) => return fail(error),
+    };
+    let scope = match bind_publication_scope(
+        &state.data_dir,
+        &identity,
+        SCM_DESTINATION_SCOPE_KIND,
+        &destination_binding_ref,
+        &owner_ref,
+        &idempotency_key,
+    ) {
+        Ok(scope) => scope,
+        Err(response) => return response,
+    };
     let mut record = json!({
         "schema_version": SCM_DESTINATION_BINDING_SCHEMA_VERSION,
-        "destination_binding_ref": body.get("destination_binding_ref").cloned().unwrap_or(Value::Null),
+        "destination_binding_ref": destination_binding_ref,
         "destination_binding_hash": Value::Null,
         "connector_ref": body.get("connector_ref").cloned().unwrap_or(Value::Null),
         "connector_revision_hash": body.get("connector_revision_hash").cloned().unwrap_or(Value::Null),
@@ -1644,6 +2460,9 @@ pub(crate) async fn handle_destination_binding_admit(
         "target_ref_namespace": body.get("target_ref_namespace").cloned().unwrap_or(Value::Null),
         "remote_url": body.get("remote_url").cloned().unwrap_or(Value::Null),
         "admission_receipt_ref": body.get("admission_receipt_ref").cloned().unwrap_or(Value::Null),
+        "owner_ref": owner_ref,
+        "principal_ref": identity.principal_ref,
+        "request_scope_ref": scope.correlation_ref,
         "admitted_at": super::iso_now(),
     });
     let hash = match scm_destination_binding_hash(&record) {
@@ -1651,6 +2470,22 @@ pub(crate) async fn handle_destination_binding_admit(
         Err(error) => return fail(verr("scm_publication_artifact_invalid", error)),
     };
     record["destination_binding_hash"] = json!(hash);
+    match converge_admission_by_ref(
+        &state.data_dir,
+        SCM_DESTINATION_BINDING_FAMILY,
+        "destination_binding_ref",
+        "destination_binding_hash",
+        &record,
+    ) {
+        Ok(Some(existing)) => {
+            return (
+                StatusCode::OK,
+                Json(json!({ "ok": true, "converged": true, "destination_binding": existing })),
+            );
+        }
+        Ok(None) => {}
+        Err(error) => return fail(error),
+    }
     match persist_publication_record(&state.data_dir, SCM_DESTINATION_BINDING_FAMILY, &record) {
         Ok(_) => (
             StatusCode::OK,
@@ -1663,12 +2498,36 @@ pub(crate) async fn handle_destination_binding_admit(
 /// GET /v1/hypervisor/scm-destination-bindings — the admitted bindings.
 pub(crate) async fn handle_destination_binding_list(
     State(state): State<Arc<DaemonState>>,
+    headers: HeaderMap,
 ) -> (StatusCode, Json<Value>) {
+    let identity = match request_identity(&state.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+    let visible = match super::substrate_store::authorized_request_resource_refs(
+        &state.data_dir,
+        &identity,
+        SCM_DESTINATION_SCOPE_KIND,
+    ) {
+        Ok(refs) => refs,
+        Err(error) => return scope_fail(error),
+    };
     match read_publication_family(&state.data_dir, SCM_DESTINATION_BINDING_FAMILY) {
-        Ok(rows) => (
-            StatusCode::OK,
-            Json(json!({ "ok": true, "destination_bindings": rows })),
-        ),
+        Ok(rows) => {
+            let rows = rows
+                .into_iter()
+                .filter(|record| {
+                    record
+                        .get("destination_binding_ref")
+                        .and_then(Value::as_str)
+                        .is_some_and(|reference| visible.contains(reference))
+                })
+                .collect::<Vec<_>>();
+            (
+                StatusCode::OK,
+                Json(json!({ "ok": true, "destination_bindings": rows })),
+            )
+        }
         Err(error) => fail(error),
     }
 }
@@ -1678,42 +2537,123 @@ pub(crate) async fn handle_destination_binding_list(
 /// shape here, so nothing downstream can express one.
 pub(crate) async fn handle_publication_proposal_admit(
     State(state): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    let identity = match request_identity(&state.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+    let owner_ref = match requested_owner_ref(&body, &identity) {
+        Ok(owner_ref) => owner_ref,
+        Err(response) => return response,
+    };
+    let idempotency_key = match bounded_caller_idempotency_key(&body) {
+        Ok(key) => key,
+        Err(error) => return fail(error),
+    };
+    match admit_publication_proposal(
+        &state.data_dir,
+        &identity,
+        &owner_ref,
+        &idempotency_key,
+        &body,
+    ) {
+        Ok(record) => (
+            StatusCode::OK,
+            Json(json!({ "ok": true, "proposal": record })),
+        ),
+        Err(response) => response,
+    }
+}
+
+pub(crate) fn admit_publication_proposal(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    owner_ref: &str,
+    idempotency_key: &str,
+    body: &Value,
+) -> Result<Value, (StatusCode, Json<Value>)> {
+    if !identity.authorizes_tenant(owner_ref) {
+        return Err(scope_fail(
+            super::substrate_store::RequestScopeRefusal::TenantAuthorityRequired,
+        ));
+    }
+    let proposal_ref = bounded_resource_ref(body, "proposal_ref", "proposal://").map_err(fail)?;
+    let scope = bind_publication_scope(
+        data_dir,
+        identity,
+        SCM_PROPOSAL_SCOPE_KIND,
+        &proposal_ref,
+        owner_ref,
+        idempotency_key,
+    )?;
     let mut record = json!({
         "schema_version": SCM_PUBLICATION_PROPOSAL_SCHEMA_VERSION,
-        "proposal_ref": body.get("proposal_ref").cloned().unwrap_or(Value::Null),
+        "proposal_ref": proposal_ref,
         "proposal_hash": Value::Null,
         "change_set_kind": SCM_CHANGE_SET_KIND,
         "base_revision_id": body.get("base_revision_id").cloned().unwrap_or(Value::Null),
         "files": body.get("files").cloned().unwrap_or(json!([])),
         "work_run_ref": body.get("work_run_ref").cloned().unwrap_or(Value::Null),
+        "owner_ref": owner_ref,
+        "principal_ref": identity.principal_ref,
+        "request_scope_ref": scope.correlation_ref,
         "admitted_at": super::iso_now(),
     });
-    let commitment = match scm_publication_proposal_commitment(&record) {
-        Ok(commitment) => commitment,
-        Err(error) => return fail(verr("scm_publication_artifact_invalid", error)),
-    };
+    let commitment = scm_publication_proposal_commitment(&record)
+        .map_err(|error| fail(verr("scm_publication_artifact_invalid", error)))?;
     record["proposal_hash"] = json!(commitment);
-    match persist_publication_record(&state.data_dir, SCM_PUBLICATION_PROPOSAL_FAMILY, &record) {
-        Ok(_) => (
-            StatusCode::OK,
-            Json(json!({ "ok": true, "proposal": record })),
-        ),
-        Err(error) => fail(error),
+    if let Some(existing) = converge_admission_by_ref(
+        data_dir,
+        SCM_PUBLICATION_PROPOSAL_FAMILY,
+        "proposal_ref",
+        "proposal_hash",
+        &record,
+    )
+    .map_err(fail)?
+    {
+        return Ok(existing);
     }
+    persist_publication_record(data_dir, SCM_PUBLICATION_PROPOSAL_FAMILY, &record).map_err(fail)?;
+    Ok(record)
 }
 
 /// GET /v1/hypervisor/scm-publication-effects — every committed effect,
 /// rebuilt from the durable plane.
 pub(crate) async fn handle_publication_effect_list(
     State(state): State<Arc<DaemonState>>,
+    headers: HeaderMap,
 ) -> (StatusCode, Json<Value>) {
+    let identity = match request_identity(&state.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+    let visible = match super::substrate_store::authorized_request_resource_refs(
+        &state.data_dir,
+        &identity,
+        SCM_DESTINATION_SCOPE_KIND,
+    ) {
+        Ok(refs) => refs,
+        Err(error) => return scope_fail(error),
+    };
     match read_publication_family(&state.data_dir, SCM_PUBLICATION_EFFECT_FAMILY) {
-        Ok(rows) => (
-            StatusCode::OK,
-            Json(json!({ "ok": true, "publication_effects": rows })),
-        ),
+        Ok(rows) => {
+            let rows = rows
+                .into_iter()
+                .filter(|record| {
+                    record
+                        .pointer("/operation/identity/destination_binding_ref")
+                        .or_else(|| record.pointer("/destination/destination_binding_ref"))
+                        .and_then(Value::as_str)
+                        .is_some_and(|reference| visible.contains(reference))
+                })
+                .collect::<Vec<_>>();
+            (
+                StatusCode::OK,
+                Json(json!({ "ok": true, "publication_effects": rows })),
+            )
+        }
         Err(error) => fail(error),
     }
 }
@@ -1773,8 +2713,13 @@ fn submission_from_body(body: &Value) -> ScmPublicationSubmission {
 pub(crate) async fn handle_scm_publish(
     State(state): State<Arc<DaemonState>>,
     AxumPath(environment_id): AxumPath<String>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    let request_identity = match request_identity(&state.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
     let Some(environment) = super::read_record_dir(&state.data_dir, "environments")
         .into_iter()
         .find(|record| record["id"].as_str() == Some(environment_id.as_str()))
@@ -1810,6 +2755,19 @@ pub(crate) async fn handle_scm_publish(
         &submission.proposal_ref,
     ) {
         Ok(source) => source,
+        Err(error) => return fail(error),
+    };
+    let owner_ref =
+        match authorize_publication_source_scope(&state.data_dir, &request_identity, &source) {
+            Ok(owner_ref) => owner_ref,
+            Err(response) => return response,
+        };
+    if let Err(response) = authorize_environment_owner(&request_identity, &environment, &owner_ref)
+    {
+        return response;
+    }
+    let caller_idempotency_key = match bounded_caller_idempotency_key(&body) {
+        Ok(key) => key,
         Err(error) => return fail(error),
     };
     let connector_id = source
@@ -1864,8 +2822,44 @@ pub(crate) async fn handle_scm_publish(
     // Prepared persistence, and dispatch. A duplicate can therefore neither
     // consume twice nor reach a second final invocation.
     let _operation_guard = SCM_PUBLICATION_OPERATION_LOCK.lock().await;
+    if let Err(error) = claim_caller_idempotency(
+        &state.data_dir,
+        &request_identity.principal_ref,
+        &caller_idempotency_key,
+        &operation_key,
+        &super::iso_now(),
+    ) {
+        return fail(error);
+    }
     match terminal_operation_report(&state.data_dir, &operation_key) {
         Ok(Some(report)) => {
+            let prepared = match prepared_operation_record(&state.data_dir, &operation_key) {
+                Ok(Some(prepared)) => prepared,
+                Ok(None) => {
+                    return fail(verr(
+                        "scm_publication_operation_corrupt",
+                        "terminal operation has no durable Prepared predecessor",
+                    ));
+                }
+                Err(error) => return fail(error),
+            };
+            if let Err(reason) =
+                settle_prepared_authority_from_remote_truth(&state.data_dir, &prepared, &report)
+                    .await
+            {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({
+                        "ok": false,
+                        "overall_outcome": "reconciliation_required",
+                        "converged": false,
+                        "reason": format!("terminal publication exists but its exact authority claim is not settled: {reason}"),
+                        "authority_usage_disposition": "spent_not_refunded",
+                        "publication_effect": report.effect,
+                        "receipts": report.receipts,
+                    })),
+                );
+            }
             let landed = matches!(
                 report.overall_outcome.as_str(),
                 "published_with_review_request" | "published_review_request_not_requested"
@@ -1889,22 +2883,57 @@ pub(crate) async fn handle_scm_publish(
         Ok(None) => {}
         Err(error) => return fail(error),
     }
-    // A Prepared record with no terminal sibling is an unclosed dispatch window from a previous
-    // process. The remote effect is of unknown disposition, so this operation is never dispatched
-    // a second time.
+    // A Prepared record with no terminal sibling is an unclosed dispatch window. Reconcile it from
+    // remote truth without calling either final invoker a second time.
     match unresolved_prepared_operation(&state.data_dir, &operation_key) {
         Ok(Some(prepared)) => {
+            let report = match reconcile_prepared_operation(
+                &state.data_dir,
+                &GitProcessScmPort,
+                &source,
+                &prepared,
+                &super::iso_now(),
+            ) {
+                Ok(report) => report,
+                Err(error) => return fail(error),
+            };
+            if let Err(reason) =
+                settle_prepared_authority_from_remote_truth(&state.data_dir, &prepared, &report)
+                    .await
+            {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({
+                        "ok": false,
+                        "overall_outcome": "reconciliation_required",
+                        "converged": false,
+                        "reason": format!("remote truth was committed but the exact authority claim was not settled: {reason}"),
+                        "authority_usage_disposition": "spent_not_refunded",
+                        "publication_effect": report.effect,
+                        "receipts": report.receipts,
+                    })),
+                );
+            }
+            let landed = matches!(
+                report.overall_outcome.as_str(),
+                "published_with_review_request" | "published_review_request_not_requested"
+            );
             return (
-                StatusCode::CONFLICT,
+                if landed {
+                    StatusCode::OK
+                } else {
+                    StatusCode::CONFLICT
+                },
                 Json(json!({
-                    "ok": false,
-                    "overall_outcome": "reconciliation_required",
-                    "converged": false,
-                    "recovery_disposition": "prepared_dispatch_window_unresolved",
-                    "reason": "a previous attempt persisted this operation's Prepared record and did not record an outcome; the remote effect is of unknown disposition and must be reconciled before another dispatch",
+                    "ok": landed,
+                    "overall_outcome": report.overall_outcome,
+                    "converged": report.converged,
+                    "recovery_disposition": report.effect.pointer("/recovery/resolution_disposition").cloned().unwrap_or(Value::Null),
                     "operation_key": operation_key,
                     "prepared_record_ref": prepared.pointer("/preparation/prepared_record_ref").cloned().unwrap_or(Value::Null),
                     "authority_usage_disposition": "spent_not_refunded",
+                    "publication_effect": report.effect,
+                    "receipts": report.receipts,
                 })),
             );
         }
@@ -1937,6 +2966,9 @@ pub(crate) async fn handle_scm_publish(
         // observed remote state, which the frozen CAS precondition covers separately.
         request_facets: json!({
             "environment_id": environment_id,
+            "owner_ref": owner_ref,
+            "principal_ref": request_identity.principal_ref,
+            "caller_idempotency_hash": caller_idempotency_hash(&request_identity.principal_ref, &caller_idempotency_key).unwrap_or_default(),
             "destination_binding_ref": submission.destination_binding_ref,
             "proposal_ref": submission.proposal_ref,
             "target_ref_name": submission.target_ref_name,
@@ -1969,12 +3001,14 @@ pub(crate) async fn handle_scm_publish(
         .to_owned();
     // The admission receipt the invoker records is the wallet-owned identity the authority owner
     // can resolve — never a reference synthesized from the lease id.
-    let authority = PublicationAuthority {
+    let mut authority = PublicationAuthority {
         grant_refs: vec![format!("grant://{}", lease.grant_ref)],
         scope_refs: scopes,
         capability_lease_ref: format!("lease://{lease_id}"),
         admission_receipt_ref: format!("receipt://{}", lease.admitted.admission_intent_ref),
         admission_effect_hash: lease.admitted.authorized.evidence.effect_hash.clone(),
+        final_invocation_claim_ref: None,
+        final_invocation_claim_id: None,
     };
     // Claim the one final invocation before any remote effect. The claim is durable, so a crash
     // inside the dispatch window is recoverable as Unknown rather than replayable.
@@ -1999,7 +3033,9 @@ pub(crate) async fn handle_scm_publish(
             );
         }
     };
-    let executed = execute_scm_publication_v2(
+    authority.final_invocation_claim_ref = Some(claim.reference().to_owned());
+    authority.final_invocation_claim_id = Some(claim.claim_id().to_owned());
+    let first_execution = execute_scm_publication_v2(
         &state.data_dir,
         &GitProcessScmPort,
         &workspace_root,
@@ -2009,14 +3045,93 @@ pub(crate) async fn handle_scm_publish(
         &title,
         &super::iso_now(),
         identity,
-        operation_key,
+        operation_key.clone(),
     );
+    // If anything failed after Prepared became durable, probe the frozen remote truth instead of
+    // calling the port again or falsely settling the claim as a pre-dispatch refusal.
+    let mut prepared_dispatch_window = false;
+    let executed = match first_execution {
+        Ok(report) => Ok(report),
+        Err(first_error) => match unresolved_prepared_operation(&state.data_dir, &operation_key) {
+            Ok(Some(prepared)) => {
+                prepared_dispatch_window = true;
+                reconcile_prepared_operation(
+                    &state.data_dir,
+                    &GitProcessScmPort,
+                    &source,
+                    &prepared,
+                    &super::iso_now(),
+                )
+            }
+            Ok(None) => Err(first_error),
+            Err(recovery_error) => {
+                // Failure to inspect the durable operation plane cannot prove dispatch absent.
+                prepared_dispatch_window = true;
+                Err(recovery_error)
+            }
+        },
+    };
     let settlement = match &executed {
+        Ok(report)
+            if report
+                .effect
+                .pointer("/effects/publication/outcome")
+                .and_then(Value::as_str)
+                == Some("reconciliation_required") =>
+        {
+            super::governed_authority::mark_final_invocation_reconciliation_required(
+                &state.data_dir,
+                claim.reference(),
+                claim.claim_id(),
+                claim.effect_hash(),
+                "scm.publication.advance-target-ref",
+                report
+                    .effect
+                    .pointer("/recovery/reconciliation_code")
+                    .and_then(Value::as_str)
+                    .unwrap_or("prepared-dispatch-disposition-indeterminate"),
+            )
+            .await
+        }
+        Ok(report)
+            if report
+                .effect
+                .pointer("/effects/publication/outcome")
+                .and_then(Value::as_str)
+                == Some("refused")
+                && report
+                    .effect
+                    .pointer("/recovery/remote_effect_invoked")
+                    .and_then(Value::as_bool)
+                    == Some(false) =>
+        {
+            super::governed_authority::refuse_final_invocation(
+                &state.data_dir,
+                &claim,
+                report
+                    .effect
+                    .pointer("/effects/publication/refusal_code")
+                    .and_then(Value::as_str)
+                    .unwrap_or("pre-dispatch-refusal"),
+            )
+            .await
+        }
         Ok(report) => {
             super::governed_authority::complete_final_invocation(
                 &state.data_dir,
                 &claim,
                 &report.overall_outcome,
+            )
+            .await
+        }
+        Err(error) if prepared_dispatch_window => {
+            super::governed_authority::mark_final_invocation_reconciliation_required(
+                &state.data_dir,
+                claim.reference(),
+                claim.claim_id(),
+                claim.effect_hash(),
+                "scm.publication.advance-target-ref",
+                &error.0,
             )
             .await
         }
@@ -2225,6 +3340,8 @@ mod tests {
             capability_lease_ref: "lease://acme/scm-publication/0001".to_owned(),
             admission_receipt_ref: "receipt://authority-admission-intents/aai_0001".to_owned(),
             admission_effect_hash: "sha256:0001".to_owned(),
+            final_invocation_claim_ref: None,
+            final_invocation_claim_id: None,
         }
     }
 

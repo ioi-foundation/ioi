@@ -1,8 +1,9 @@
 import { createAssistantMessageEventStream } from "@earendil-works/pi-ai";
 import type { Api, AssistantMessage, AssistantMessageEventStream, Context, Model, Usage } from "@earendil-works/pi-ai";
 import type { Agent, AgentMessage, StreamFn } from "@earendil-works/pi-agent-core";
-import { swallow } from "../../chassis/src/errors.ts";
+import { swallow } from "../../../../ioi-ai/plugins/chassis/src/errors.ts";
 import { groupDmText } from "./group-dm-label.ts";
+import { assertIdentityEpoch, captureIdentityEpoch } from "./identity-epoch.ts";
 import { base64ToBytes } from "./paste-text.ts";
 import { defaultEffortForModel, harnessSupportsEffort } from "./model-options.ts";
 
@@ -346,18 +347,22 @@ function toHex(buf: ArrayBuffer): string {
 }
 
 async function toCoreAttachment(a: PiAttachment): Promise<CoreAttachment> {
+  const identityEpoch = captureIdentityEpoch();
   const bytes = attachmentBytes(a);
   const sha256 = toHex(await crypto.subtle.digest("SHA-256", bytes as unknown as ArrayBuffer));
+  assertIdentityEpoch(identityEpoch);
   const r = await fetch(withBase(`/api/blobs?sha=${sha256}`), {
     method: "POST",
     headers: { "content-type": "application/octet-stream" },
     body: bytes as unknown as BodyInit,
   });
+  const body = await r.json().catch(() => ({}));
+  assertIdentityEpoch(identityEpoch);
   if (!r.ok) {
-    if (r.status === 401) reportSigninRequired(await r.json().catch(() => ({})));
-    throw new ApiError(`attachment upload failed: HTTP ${r.status}`, r.status);
+    if (r.status === 401) reportSigninRequired(body as SigninRequired);
+    throw new ApiError(`attachment upload failed: HTTP ${r.status}`, r.status, body);
   }
-  const { blobId, sizeBytes } = (await r.json()) as { blobId: string; sizeBytes: number };
+  const { blobId, sizeBytes } = body as { blobId: string; sizeBytes: number };
   return { name: a.fileName, mimetype: a.mimeType, sizeBytes: sizeBytes ?? a.size, blobId };
 }
 
@@ -388,8 +393,10 @@ export function reportSigninRequired(detail: SigninRequired): void {
 }
 
 export async function api<T = unknown>(path: string, init?: RequestInit): Promise<T> {
+  const identityEpoch = captureIdentityEpoch();
   const r = await fetch(withBase(path), { headers: { "content-type": "application/json" }, ...init });
   const text = await r.text();
+  assertIdentityEpoch(identityEpoch);
   let body: unknown = {};
   try {
     body = text ? JSON.parse(text) : {};
