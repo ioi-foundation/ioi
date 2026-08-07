@@ -107,7 +107,13 @@ fn emit_receipt(
         "detail": detail,
         "at": iso_now()
     });
-    let _ = persist_record(data_dir, "authority-receipts", &receipt_id, &record);
+    // A receipt ref is only evidence if the receipt exists. This discarded the write and returned
+    // the ref anyway, so grants could cite authority_receipt_refs that resolve to nothing. The ref
+    // is still returned on failure — callers embed it before this returns — but the empty string
+    // marks it, so a caller cannot mistake an unwritten receipt for a written one.
+    if persist_record(data_dir, "authority-receipts", &receipt_id, &record).is_err() {
+        return String::new();
+    }
     receipt_ref
 }
 
@@ -189,7 +195,18 @@ pub(crate) fn issue_capability_lease(
         "authority_receipt_refs": [receipt_ref],
         "lease_kind": "capability_lease",
     });
-    let _ = persist_record(data_dir, "authority-grants", &grant_id, &record);
+    // A lease that was not recorded was not issued: preflight resolves leases by reading this
+    // family back, so returning the record over a discarded write hands out authority no later
+    // check can see.
+    if persist_record(data_dir, "authority-grants", &grant_id, &record).is_err() {
+        return json!({
+            "ok": false,
+            "error": {
+                "code": "authority_capability_lease_persistence_failed",
+                "message": "the capability lease could not be durably recorded and is therefore not in force"
+            }
+        });
+    }
     record
 }
 
@@ -248,8 +265,10 @@ pub(crate) fn revoke_lease(data_dir: &str, key: &str) -> bool {
     {
         arr.push(json!(receipt_ref));
     }
-    let _ = persist_record(data_dir, "authority-grants", &grant_id, &grant);
-    true
+    // Revocation is only real once the grant record itself says so: preflight reads the record,
+    // not the receipt. This discarded the write and returned true, so an unexpose could report
+    // success — and emit a "revoked" receipt — while the grant stayed live and usable.
+    persist_record(data_dir, "authority-grants", &grant_id, &grant).is_ok()
 }
 
 /// GET /v1/hypervisor/authority/posture — the local-operator authority posture.
@@ -395,7 +414,17 @@ pub(crate) async fn handle_harness_binding_create(
         "evidence_ref": format!("agentgres://harness-binding/{id}"),
         "created_at": now
     });
-    let _ = persist_record(&st.data_dir, "harness-bindings", &id, &record);
+    // The record claims `admitted: true` and carries an evidence_ref. Discarding the write meant
+    // both were asserted over state that may never have existed.
+    if persist_record(&st.data_dir, "harness-bindings", &id, &record).is_err() {
+        return Json(json!({
+            "ok": false,
+            "error": {
+                "code": "authority_harness_binding_persistence_failed",
+                "message": "the harness binding could not be durably recorded and is not admitted"
+            }
+        }));
+    }
     Json(json!({ "harnessBinding": record }))
 }
 
@@ -593,7 +622,21 @@ pub(crate) async fn handle_authority_grant(
         "authority_receipt_refs": [receipt_ref],
     });
     // Persist every decision (granted | denied | no_grant_needed) for a complete audit trail.
-    let _ = persist_record(data_dir, "authority-grants", &grant_id, &record);
+    //
+    // This was discarded. Preflight resolves authority by reading `authority-grants` back, so a
+    // failed write meant the caller was told `granted` — with a live status and an expiry — while
+    // no later check could find the grant; and a `denied` decision left no audit trail at all,
+    // under a comment promising a complete one. A decision that cannot be recorded was not made.
+    if persist_record(data_dir, "authority-grants", &grant_id, &record).is_err() {
+        return Json(json!({
+            "ok": false,
+            "error": {
+                "code": "authority_grant_persistence_failed",
+                "message": "the authority decision could not be durably recorded and is therefore not in force"
+            },
+            "at": iso_now(),
+        }));
+    }
 
     Json(json!({
         "grant": record,
@@ -659,7 +702,20 @@ pub(crate) async fn handle_authority_revoke(
     {
         arr.push(json!(receipt_ref));
     }
-    let _ = persist_record(data_dir, "authority-grants", &grant_id, &grant);
+    // Same reason as the helper above: the receipt is evidence, the record is authority. Emitting
+    // a "revoked" receipt and then discarding this write left a grant that every preflight would
+    // still honour, with a receipt on file saying it had been revoked.
+    if persist_record(data_dir, "authority-grants", &grant_id, &grant).is_err() {
+        return Json(json!({
+            "ok": false,
+            "error": {
+                "code": "authority_revoke_persistence_failed",
+                "message": "the revocation could not be durably recorded; the grant is still in force"
+            },
+            "grant_ref": grant_ref,
+            "at": iso_now(),
+        }));
+    }
     Json(
         json!({ "ok": true, "grant_ref": grant_ref, "status": "revoked", "receipt_ref": receipt_ref, "at": iso_now() }),
     )

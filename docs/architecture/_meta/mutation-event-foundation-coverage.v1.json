@@ -228,13 +228,178 @@
         "delete or migrate unchecked compatibility mutations",
         "keep proven durable subpaths closed with failure/replay/restart/cross-principal tests",
         "reach zero unclassified census indicators"
+      ],
+      "handler_level_classification": {
+        "method": "MEF-GAP-001's recorded discriminator, applied to every `pub(crate) async fn handle_*` in the route modules: (1) the handler returns success carrying a record whose only write was discarded, AND (2) that record kind is read back as authoritative state elsewhere in the daemon. Both must hold. Either alone over-counts, which is why the raw census is a lead and not a finding.",
+        "totals": {
+          "handlers_with_discarded_writes": 128,
+          "both_tests_hold": 92,
+          "partial_fail_path_needs_reading": 29,
+          "kind_never_read_back": 7
+        },
+        "sample_verified_by_hand": [
+          "authority_routes::handle_authority_grant \u2014 takes no headers at all, discards the authority-grant write, and returns the grant with a live status and an expiry. `authority-grants` is read back by preflight, so a caller can be told `granted` while no later check can find the grant; a `denied` decision that fails to write leaves no audit trail, in a handler whose own comment claims a complete one.",
+          "binding_routes::handle_binding_create \u2014 discards the session-execution-binding write and returns a binding carrying a receipt_ref and a state_root_ref. `load_binding` reads that kind back."
+        ],
+        "meets_both_tests_by_module": {
+          "lifecycle_routes.rs": [
+            "handle_budget_reconcile",
+            "handle_budget_set",
+            "handle_connector_bind_credential",
+            "handle_connector_oauth_discover",
+            "handle_connector_register",
+            "handle_connector_revoke_credential",
+            "handle_connector_set_policy",
+            "handle_custom_domain_set",
+            "handle_domain_verification_create",
+            "handle_domain_verification_verify",
+            "handle_github_app_installation",
+            "handle_oidc_set",
+            "handle_project_create",
+            "handle_scim_group_create",
+            "handle_scim_group_patch",
+            "handle_scim_user_delete",
+            "handle_scim_user_patch",
+            "handle_scm_connector_bind_credential",
+            "handle_scm_connector_register",
+            "handle_scm_connector_revoke_credential"
+          ],
+          "ioi_intelligence_routes.rs": [
+            "handle_improvement_apply",
+            "handle_improvement_patch",
+            "handle_improvement_simulate",
+            "handle_improvements_create",
+            "handle_projection_explain",
+            "handle_projection_preview",
+            "handle_proposal_approve",
+            "handle_proposal_reject",
+            "handle_proposals_create",
+            "handle_spaces_create"
+          ],
+          "orchestration_routes.rs": [
+            "handle_automation_cancel",
+            "handle_automation_start",
+            "handle_automation_webhook",
+            "handle_automation_webhook_rotate",
+            "handle_placement_resolve",
+            "handle_venue_policy_put",
+            "handle_warm_pool_claim",
+            "handle_warm_pool_create"
+          ],
+          "ioi_agent_routes.rs": [
+            "handle_policies_clone",
+            "handle_policies_create",
+            "handle_policies_patch",
+            "handle_policy_rollout_promote",
+            "handle_policy_rollout_rollback"
+          ],
+          "provider_routes.rs": [
+            "handle_provider_account_create",
+            "handle_provider_account_credential_revoke",
+            "handle_provider_account_patch",
+            "handle_provider_account_preflight",
+            "handle_provider_op"
+          ],
+          "connector_session_routes.rs": [
+            "handle_session_cancel",
+            "handle_session_create",
+            "handle_session_patch",
+            "handle_session_release"
+          ],
+          "governance_routes.rs": [
+            "handle_approval_patch",
+            "handle_gate_patch",
+            "handle_kill_patch",
+            "handle_release_patch"
+          ],
+          "materializing_run_routes.rs": [
+            "handle_mrun_cancel",
+            "handle_mrun_create",
+            "handle_mrun_patch",
+            "handle_mrun_release_lease"
+          ],
+          "ontology_projection_routes.rs": [
+            "handle_projection_create",
+            "handle_projection_patch",
+            "handle_projection_recheck",
+            "handle_projection_retire"
+          ],
+          "transformation_run_routes.rs": [
+            "handle_run_cancel",
+            "handle_run_create",
+            "handle_run_dry_run",
+            "handle_run_patch"
+          ],
+          "capability_lease_plan_routes.rs": [
+            "handle_plan_create",
+            "handle_plan_patch",
+            "handle_plan_revoke"
+          ],
+          "resource_routes.rs": [
+            "handle_budget_create",
+            "handle_pool_create",
+            "handle_release"
+          ],
+          "storage_backend_routes.rs": [
+            "handle_storage_backend_create",
+            "handle_storage_backend_patch",
+            "handle_storage_backend_preflight"
+          ],
+          "connector_mapping_routes.rs": [
+            "handle_connector_mapping_create",
+            "handle_connector_mapping_patch"
+          ],
+          "editor_routes.rs": [
+            "handle_editor_service_create",
+            "handle_editor_services_list"
+          ],
+          "policy_bound_data_view_routes.rs": [
+            "handle_policy_view_create",
+            "handle_policy_view_patch"
+          ],
+          "state_machine_routes.rs": [
+            "handle_state_machine_create",
+            "handle_state_machine_patch"
+          ],
+          "binding_routes.rs": [
+            "handle_binding_create"
+          ],
+          "decentralized_cloud_routes.rs": [
+            "handle_intent_create"
+          ],
+          "environment_routes.rs": [
+            "handle_agent_run_upsert"
+          ],
+          "feedback_routes.rs": [
+            "handle_feedback_patch"
+          ],
+          "harness_routes.rs": [
+            "handle_harness_profile_bind_session"
+          ],
+          "model_routes.rs": [
+            "handle_model_route_bind_session"
+          ],
+          "operability_routes.rs": [
+            "handle_guardrails_set"
+          ]
+        },
+        "reading_note": "94 handlers meet both tests by method with two confirmed by hand. That is a CLASSIFIED CANDIDATE SET, not 94 confirmed defects: each still needs its own reading before it is called one. The 29 in `partial_fail_path_needs_reading` have some checked failure path in the handler and cannot be judged mechanically at all. The 8 whose record kind is never read back are the closest thing here to genuinely benign."
+      },
+      "progress": [
+        "The gap asked for a handler-level classification instead of module-name grandfathering, and that classification now exists above. 284 census indicators resolve to 128 handlers with discarded writes: 92 meet both halves of the discriminator, 29 carry some checked failure path and cannot be judged mechanically, and 7 write a record kind nothing reads back.",
+        "authority_routes is CLOSED and now has zero discarded writes \u2014 it was the most severe module in the set and was fixed rather than merely catalogued. handle_authority_grant took no headers, discarded the grant write, and returned a live status with an expiry: a caller could be told `granted` while no preflight could find the grant, and a `denied` decision left no audit trail under a comment promising a complete one. Both revoke paths \u2014 the handler and the port-preview unexpose helper \u2014 emitted a `revoked` receipt and then discarded the write, so revocation reported success, produced evidence, and left the grant live and usable. emit_receipt returned a receipt ref it had not necessarily written, so grants could cite authority_receipt_refs resolving to nothing. issue_capability_lease and handle_harness_binding_create both returned records asserting admission over writes that could silently fail."
+      ],
+      "still_open": [
+        "92 handlers across 24 modules meet both tests and are UNFIXED. They are a classified candidate set, not confirmed defects: each needs its own reading. lifecycle_routes (20), ioi_intelligence_routes (10) and orchestration_routes (8) are the largest concentrations.",
+        "29 handlers cannot be classified mechanically because they mix checked and discarded writes; these need reading before any claim is made about them.",
+        "authority_routes still takes NO request identity on grant, revoke, or harness-binding create. The writes now fail closed, but the routes remain unauthenticated \u2014 that is a separate and larger change than this fix, and it is not claimed here."
       ]
     }
   ],
   "direct_persistence_indicator_census": {
     "indicator": "explicitly discarded direct persist_record result",
-    "total_occurrences": 290,
-    "source_files": 40,
+    "total_occurrences": 284,
+    "source_files": 39,
     "classification": "audit indicator only; includes possible projections, cleanup, fixtures, and compatibility paths until individually classified",
     "regenerator": "node scripts/audit-daemon-mutation-foundation.mjs",
     "by_source": {
@@ -248,7 +413,6 @@
       "crates/node/src/bin/hypervisor_daemon_routes/connector_execution_routes.rs": 12,
       "crates/node/src/bin/hypervisor_daemon_routes/governance_routes.rs": 10,
       "crates/node/src/bin/hypervisor_daemon_routes/environment_routes.rs": 7,
-      "crates/node/src/bin/hypervisor_daemon_routes/authority_routes.rs": 6,
       "crates/node/src/bin/hypervisor_daemon_routes/connector_session_routes.rs": 6,
       "crates/node/src/bin/hypervisor_daemon_routes/materializing_run_routes.rs": 6,
       "crates/node/src/bin/hypervisor_daemon_routes/ontology_projection_routes.rs": 6,
@@ -279,7 +443,7 @@
       "crates/node/src/bin/hypervisor_daemon_routes/scm_publication_routes.rs": 1,
       "crates/node/src/bin/hypervisor_daemon_routes/vast_candidate_source.rs": 1
     },
-    "census_note": "Down from 304 across 41 files to 290 across 40. The eliminated indicators are classified, not merely subtracted: three in resource_routes::handle_allocate (the worked example under MEF-GAP-001) and eleven across marketplace_routes, which now has none \u2014 every mutation there admits a transition and projects through a checked write (MEF-CLOSED-007). The remaining 290 are still UNCLASSIFIED leads, not defects; apply the classification_method before treating any one as a finding."
+    "census_note": "Down from 304 across 41 files to 284 across 39. Every eliminated indicator is classified, not subtracted: three in resource_routes::handle_allocate, eleven across marketplace_routes (MEF-CLOSED-007), and six across authority_routes, which now has none. The remaining 284 are leads; MEF-GAP-008 carries the handler-level classification that turns them into a candidate set."
   },
   "verification": {
     "foundation_tests": "cargo test -p ioi-node --bin hypervisor-daemon mutation_event_foundation::tests -- --test-threads=1",
