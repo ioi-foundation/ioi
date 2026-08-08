@@ -1178,6 +1178,47 @@ pub(crate) async fn handle_review_list(State(st): State<Arc<DaemonState>>) -> Js
     Json(json!({ "ok": true, "admission_reviews": items }))
 }
 
+// ---- reviewer attribution (P-MKT-ATTR-1) -------------------------------------------------------
+//
+// An admission review's `reviewer_ref` is WHO REVIEWED, and an admitted review is a publish gate:
+// `publish_reasons` reads it back as `no_admitted_admission_review`. Attribution a client chooses is
+// not attribution at all. Canon (`identity-access-and-metering.md`) is flat about it — "Request
+// bodies never select the acting principal, owner, role, or authority."
+//
+// Both handlers already resolve the acting principal (`require_write_caller`) and every admitted
+// mutation is fingerprinted and scope-bound to it, so the record was the ONLY place a different name
+// could survive: event truth said one principal, the projection a later read treats as proof said
+// another. Two rules close that, both fail-closed:
+//
+//   1. A body carrying `reviewer_ref` is REFUSED, never ignored. Silently dropping it would let a
+//      caller believe it had attributed the review while the record said otherwise, and any surface
+//      sending one would go on lying instead of being fixed.
+//   2. The reviewer written is `caller.identity.principal_ref`, set into the SAME bytes that are
+//      admitted, so the event payload and the projection name one principal by construction.
+//
+// NONCLAIM: this packet closes ATTRIBUTION only. WHO MAY review an admission review still has no
+// canonical role/authority owner, so nothing here decides that — any principal authorized for the
+// owner tenant may still create and advance a review, exactly as before.
+
+/// Refuse a body that names who reviewed. Refuses on the KEY BEING PRESENT, not on its value, so
+/// `null`, `""`, and a value that happens to match the caller are refused alike: "accept it when it
+/// matches" would make the gate depend on the very identity the request is trying to assert.
+///
+/// `reviewer_ref` is the only name checked, and deliberately so. It is the one attribution field
+/// this plane writes; refusing invented spellings would refuse fields nothing here persists, and the
+/// record is built key-by-key so no other body field can reach it. If this record ever gains a
+/// second actor field, that field belongs in this gate on the same day.
+fn reject_client_supplied_reviewer(body: &Value) -> Result<(), (StatusCode, Json<Value>)> {
+    if body.get("reviewer_ref").is_none() {
+        return Ok(());
+    }
+    Err(bad(
+        "marketplace_reviewer_ref_not_client_settable",
+        "'reviewer_ref' is derived from the authenticated caller and cannot be supplied by the \
+         request; remove it and re-send",
+    ))
+}
+
 /// POST /v1/hypervisor/marketplace/admission-reviews — review a candidate. `admitted` != `published`.
 pub(crate) async fn handle_review_create(
     State(st): State<Arc<DaemonState>>,
@@ -1189,7 +1230,28 @@ pub(crate) async fn handle_review_create(
         Ok(caller) => caller,
         Err(response) => return response,
     };
-    let candidate_ref = str_field(&body, "candidate_ref");
+    let gov = governance_snapshot(&st.base_url).await;
+    create_admission_review(&st.data_dir, &caller, &body, gov)
+}
+
+/// Everything a create decides once its caller is authenticated. Split out of the handler — and
+/// taking the already-resolved `caller` rather than the request — so the attribution contract is
+/// exercised by tests against THE code the route runs, not a re-stated copy of it. The governance
+/// posture arrives as a value because it is the handler's only await; the reviewer arrives only
+/// inside `caller`, so there is no argument shape a request body could occupy.
+fn create_admission_review(
+    data_dir: &str,
+    caller: &WriteCaller,
+    body: &Value,
+    gov: Value,
+) -> (StatusCode, Json<Value>) {
+    // A body may not name who reviewed. Refused here — before the candidate is resolved, before any
+    // event is admitted, and before any projection or candidate backlink is written — so a forged
+    // create leaves nothing behind to reconcile.
+    if let Err(response) = reject_client_supplied_reviewer(body) {
+        return response;
+    }
+    let candidate_ref = str_field(body, "candidate_ref");
     if candidate_ref.is_empty() {
         return bad(
             "marketplace_candidate_ref_required",
@@ -1197,7 +1259,7 @@ pub(crate) async fn handle_review_create(
         );
     }
     if let Err((c, m)) = resolve_scheme_ref(
-        &st.data_dir,
+        data_dir,
         candidate_ref,
         "marketplace-publish",
         KIND_CANDIDATE,
@@ -1218,7 +1280,6 @@ pub(crate) async fn handle_review_create(
         }
         d.to_string()
     };
-    let gov = governance_snapshot(&st.base_url).await;
     // Content-derived, not clock-derived: a retried create must resolve to one resource.
     let id = replay_stable_id("madm", &caller.owner_ref, &caller.idempotency_key);
     let now = iso_now();
@@ -1232,15 +1293,17 @@ pub(crate) async fn handle_review_create(
         "decision": decision,
         // Explicit: admission is a gate review, not a publish. Nothing goes live from here.
         "admits_but_not_publishes": true,
-        "reviewer_ref": body.get("reviewer_ref").cloned().unwrap_or(Value::Null),
-        "findings": str_refs(&body, "findings"),
+        // THE reviewer: the server-resolved principal this write is admitted as. It is in the
+        // payload below, so the admitted event and this projection carry one identical name.
+        "reviewer_ref": caller.identity.principal_ref,
+        "findings": str_refs(body, "findings"),
         "governance_posture_snapshot": gov,
         "created_at": now,
         "updated_at": now
     });
     let commit = match admit_owner_scoped_write(
-        &st.data_dir,
-        &caller,
+        data_dir,
+        caller,
         MARKETPLACE_NAMESPACE,
         KIND_REVIEW,
         &format!("marketplace-admission-review://{id}"),
@@ -1254,7 +1317,7 @@ pub(crate) async fn handle_review_create(
     let mut record = record;
     project_created(&mut record, &commit);
     if let Err(response) = project_or_fail(
-        &st.data_dir,
+        data_dir,
         KIND_REVIEW,
         &id,
         &record,
@@ -1266,7 +1329,7 @@ pub(crate) async fn handle_review_create(
     // must not be best-effort: a review the candidate never learns about is a review that cannot
     // gate publish, and reporting 201 would say the opposite.
     if let Err(response) = link_candidate_review(
-        &st.data_dir,
+        data_dir,
         candidate_ref,
         Some(&format!("marketplace-admission://{id}")),
     ) {
@@ -1302,7 +1365,25 @@ pub(crate) async fn handle_review_patch(
         Ok(caller) => caller,
         Err(response) => return response,
     };
-    let Some(mut r) = load(&st.data_dir, KIND_REVIEW, &id) else {
+    patch_admission_review(&st.data_dir, &id, &caller, &body)
+}
+
+/// Everything a patch decides once its caller is authenticated. Same split, and the same reason, as
+/// `create_admission_review`.
+fn patch_admission_review(
+    data_dir: &str,
+    id: &str,
+    caller: &WriteCaller,
+    body: &Value,
+) -> (StatusCode, Json<Value>) {
+    // Before the record is even LOADED. A forged patch must be refused identically whether or not
+    // the id exists: answering 400 for a real review and 404 for an invented one would turn this
+    // refusal into an existence oracle for another tenant's records. A patch that names no reviewer
+    // still reaches the load below and still answers the auth-before-load 404.
+    if let Err(response) = reject_client_supplied_reviewer(body) {
+        return response;
+    }
+    let Some(mut r) = load(data_dir, KIND_REVIEW, id) else {
         return (
             StatusCode::NOT_FOUND,
             Json(json!({ "ok": false, "reason": "admission review not found" })),
@@ -1318,18 +1399,23 @@ pub(crate) async fn handle_review_patch(
             );
         }
     }
-    for key in ["decision", "reviewer_ref", "findings"] {
+    for key in ["decision", "findings"] {
         if let Some(v) = body.get(key) {
             r[key] = v.clone();
         }
     }
+    // Attribution is rewritten from the caller on EVERY admitted patch, not merged from the stored
+    // record. Whoever advanced this review is its reviewer of record for the state that results, so
+    // a stale name — including one a pre-cut body planted — is overwritten rather than inherited.
+    // This lands BEFORE the payload is hashed below, so the event and the projection agree.
+    r["reviewer_ref"] = json!(caller.identity.principal_ref);
     let expected_head = match require_head(&r) {
         Ok(head) => head,
         Err(response) => return response,
     };
     let commit = match admit_owner_scoped_write(
-        &st.data_dir,
-        &caller,
+        data_dir,
+        caller,
         MARKETPLACE_NAMESPACE,
         KIND_REVIEW,
         &format!("marketplace-admission-review://{id}"),
@@ -1342,9 +1428,9 @@ pub(crate) async fn handle_review_patch(
     };
     project_admission(&mut r, &commit);
     if let Err(response) = project_or_fail(
-        &st.data_dir,
+        data_dir,
         KIND_REVIEW,
-        &id,
+        id,
         &r,
         "marketplace_review_persistence_failed",
     ) {
@@ -1746,5 +1832,498 @@ mod marketplace_tests {
         let h = histogram(&items, "listing_kind");
         assert_eq!(h.get("agent"), Some(&2));
         assert_eq!(h.get("domain_app"), Some(&1));
+    }
+
+    // ---- P-MKT-ATTR-1: the reviewer is the authenticated caller, resolved server-side -----------
+    //
+    // These drive `create_admission_review` / `patch_admission_review` — the exact functions the
+    // routes call once identity is admitted — against a real tempdir and the real Agentgres
+    // admission chain, so "the event and the projection agree" is read back from durable truth
+    // rather than asserted about source order.
+
+    use super::super::mutation_event_foundation::stream_tail;
+    use super::super::substrate_store::{
+        read_event_stream_history, read_event_stream_operation, request_identity_for_test,
+        reset_handle_for_test,
+    };
+
+    /// The server-derived principal the identity seam would return; the ONLY admissible reviewer.
+    /// Shaped like `resolve_request_identity`'s output (`user://<principal_id>`).
+    const REVIEWER_PRINCIPAL: &str = "user://reviewer-real";
+    /// A reviewer identity a request might try to assert. Never admissible.
+    const FORGED_PRINCIPAL: &str = "user://attacker-chosen";
+    const TEST_OWNER: &str = "org://local";
+
+    fn test_caller(principal_ref: &str, idempotency_key: &str) -> WriteCaller {
+        WriteCaller {
+            identity: request_identity_for_test(principal_ref, [TEST_OWNER.to_string()]),
+            owner_ref: TEST_OWNER.to_string(),
+            idempotency_key: idempotency_key.to_string(),
+        }
+    }
+
+    /// The handler derives this from the governance overview on every call. Pinning it here is what
+    /// lets a replay present byte-identical material — see `governance_snapshot_carries_wall_clock`.
+    fn pinned_governance_snapshot() -> Value {
+        json!({
+            "auth_enforced": true,
+            "governance_gaps": 0,
+            "wallet_required_crossings": 0,
+            "authority_grants_active": 0,
+            "at": "2026-01-01T00:00:00Z"
+        })
+    }
+
+    fn seed_candidate(data_dir: &str, id: &str) -> String {
+        persist_record(
+            data_dir,
+            KIND_CANDIDATE,
+            id,
+            &json!({ "id": id, "ref": format!("marketplace-publish://{id}") }),
+        )
+        .unwrap();
+        format!("marketplace-publish://{id}")
+    }
+
+    fn review_tail(id: &str) -> String {
+        stream_tail(KIND_REVIEW, &format!("marketplace-admission-review://{id}"))
+    }
+
+    /// The payload of the review's CURRENT admitted event, read back from the durable log. This is
+    /// "event truth"; `load(.., KIND_REVIEW, id)` is "projection truth". The defect this packet
+    /// closes was the two disagreeing about who reviewed.
+    fn admitted_event_payload(data_dir: &str, id: &str) -> Option<Value> {
+        read_event_stream_operation(data_dir, MARKETPLACE_NAMESPACE, &review_tail(id))
+            .expect("the marketplace stream is readable")
+            .map(|exact| exact.operation.payload)
+    }
+
+    fn admitted_event_count(data_dir: &str, id: &str) -> usize {
+        read_event_stream_history(data_dir, MARKETPLACE_NAMESPACE, &review_tail(id))
+            .expect("the marketplace stream is readable")
+            .len()
+    }
+
+    /// Every shape a forged attribution can take. The KEY BEING PRESENT is the refusal — `null`,
+    /// `""`, a non-string, and a value that happens to match the real caller are all refused, so no
+    /// shape slips through and the gate never depends on the identity being asserted.
+    fn forged_reviewer_values() -> Vec<Value> {
+        vec![
+            json!(FORGED_PRINCIPAL),
+            json!(REVIEWER_PRINCIPAL),
+            Value::Null,
+            json!(""),
+            json!({ "id": "x" }),
+        ]
+    }
+
+    #[test]
+    fn a_body_that_names_no_reviewer_passes_the_gate() {
+        // The gate refuses forgery ONLY; it must not break any legitimate create or patch body.
+        for admissible in [
+            json!({ "candidate_ref": "marketplace-publish://mpub_1", "decision": "admitted" }),
+            json!({ "decision": "needs_changes", "findings": ["finding://a"] }),
+            json!({}),
+            // A near-miss key is a different field and must not be refused as if it were this one.
+            json!({ "reviewer_refs": ["user://a"] }),
+        ] {
+            assert!(
+                reject_client_supplied_reviewer(&admissible).is_ok(),
+                "must pass the gate: {admissible}"
+            );
+        }
+        for forged in forged_reviewer_values() {
+            let (status, Json(reply)) =
+                reject_client_supplied_reviewer(&json!({ "reviewer_ref": forged.clone() }))
+                    .expect_err(&format!(
+                        "a body carrying reviewer_ref must be refused: {forged}"
+                    ));
+            assert_eq!(status, StatusCode::BAD_REQUEST);
+            assert_eq!(
+                reply["error"]["code"],
+                json!("marketplace_reviewer_ref_not_client_settable")
+            );
+            assert!(
+                reply["error"]["message"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .contains("authenticated caller"),
+                "the refusal says WHY so a caller can fix the request: {reply}"
+            );
+        }
+    }
+
+    #[test]
+    fn forged_reviewer_refuses_a_create_before_any_admission_or_projection() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        reset_handle_for_test();
+        let candidate_ref = seed_candidate(data_dir, "mpub_forged_create");
+        let caller = test_caller(REVIEWER_PRINCIPAL, "create-forged-1");
+        let id = replay_stable_id("madm", &caller.owner_ref, &caller.idempotency_key);
+
+        for forged in forged_reviewer_values() {
+            let body = json!({
+                "candidate_ref": candidate_ref,
+                "decision": "admitted",
+                "reviewer_ref": forged.clone()
+            });
+            let (status, Json(reply)) =
+                create_admission_review(data_dir, &caller, &body, pinned_governance_snapshot());
+            assert_eq!(
+                status,
+                StatusCode::BAD_REQUEST,
+                "a create naming its own reviewer must be refused: {forged}"
+            );
+            assert_eq!(
+                reply["error"]["code"],
+                json!("marketplace_reviewer_ref_not_client_settable")
+            );
+            assert_eq!(reply["ok"], json!(false));
+        }
+
+        // Refused BEFORE anything durable happened: no admitted event, no projection, and no
+        // candidate backlink — so a forged create leaves nothing for a later read to trust.
+        assert_eq!(
+            admitted_event_count(data_dir, &id),
+            0,
+            "a refused create admitted an event"
+        );
+        assert!(
+            load(data_dir, KIND_REVIEW, &id).is_none(),
+            "a refused create projected a review"
+        );
+        assert!(read_record_dir(data_dir, KIND_REVIEW).is_empty());
+        assert!(
+            load(data_dir, KIND_CANDIDATE, "mpub_forged_create")
+                .unwrap()
+                .get("admission_review_ref")
+                .is_none(),
+            "a refused create linked a review onto the candidate"
+        );
+    }
+
+    #[test]
+    fn create_projects_the_server_principal_the_admitted_event_binds() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        reset_handle_for_test();
+        let candidate_ref = seed_candidate(data_dir, "mpub_ok");
+        let caller = test_caller(REVIEWER_PRINCIPAL, "create-ok-1");
+
+        let (status, Json(reply)) = create_admission_review(
+            data_dir,
+            &caller,
+            &json!({ "candidate_ref": candidate_ref, "decision": "admitted" }),
+            pinned_governance_snapshot(),
+        );
+        assert_eq!(status, StatusCode::CREATED);
+        let id = reply["admission_review"]["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+
+        // Response, projection, and the admitted event's own payload name ONE principal, and it is
+        // the caller the write was admitted as — never a body field, which is the whole defect.
+        let projected = load(data_dir, KIND_REVIEW, &id).expect("the review is projected");
+        let event = admitted_event_payload(data_dir, &id).expect("the create admitted an event");
+        for (label, value) in [
+            ("response", &reply["admission_review"]["reviewer_ref"]),
+            ("projection", &projected["reviewer_ref"]),
+            ("admitted event", &event["reviewer_ref"]),
+        ] {
+            assert_eq!(
+                value,
+                &json!(REVIEWER_PRINCIPAL),
+                "{label} does not name the server-resolved principal"
+            );
+        }
+        assert_eq!(
+            projected["reviewer_ref"], event["reviewer_ref"],
+            "projection truth and event truth disagree about who reviewed"
+        );
+        // The rest of the create is unchanged: the review still gates publish through its candidate.
+        assert_eq!(projected["decision"], json!("admitted"));
+        assert_eq!(
+            load(data_dir, KIND_CANDIDATE, "mpub_ok").unwrap()["admission_review_ref"],
+            json!(format!("marketplace-admission://{id}"))
+        );
+    }
+
+    #[test]
+    fn create_replay_is_one_resource_and_keeps_the_same_reviewer() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        reset_handle_for_test();
+        let candidate_ref = seed_candidate(data_dir, "mpub_replay");
+        let caller = test_caller(REVIEWER_PRINCIPAL, "create-replay-1");
+        let body = json!({ "candidate_ref": candidate_ref, "decision": "pending" });
+
+        let (first_status, Json(first)) =
+            create_admission_review(data_dir, &caller, &body, pinned_governance_snapshot());
+        let (second_status, Json(second)) =
+            create_admission_review(data_dir, &caller, &body, pinned_governance_snapshot());
+
+        assert_eq!(first_status, StatusCode::CREATED);
+        assert_eq!(first["replayed"], json!(false));
+        assert_eq!(
+            second_status,
+            StatusCode::OK,
+            "a retried create must replay, not mint a second resource"
+        );
+        assert_eq!(second["replayed"], json!(true));
+        assert_eq!(first["admission_review"], second["admission_review"]);
+        assert_eq!(
+            second["admission_review"]["reviewer_ref"],
+            json!(REVIEWER_PRINCIPAL),
+            "a replay must not weaken attribution"
+        );
+        // One resource, one admitted event: the retry appended nothing.
+        assert_eq!(read_record_dir(data_dir, KIND_REVIEW).len(), 1);
+        let id = first["admission_review"]["id"].as_str().unwrap();
+        assert_eq!(admitted_event_count(data_dir, id), 1);
+        assert_eq!(
+            admitted_event_payload(data_dir, id).unwrap()["reviewer_ref"],
+            json!(REVIEWER_PRINCIPAL)
+        );
+    }
+
+    #[test]
+    fn forged_reviewer_refuses_a_patch_before_any_mutation() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        reset_handle_for_test();
+        let candidate_ref = seed_candidate(data_dir, "mpub_forged_patch");
+        let caller = test_caller(REVIEWER_PRINCIPAL, "create-for-patch-1");
+        let (_, Json(created)) = create_admission_review(
+            data_dir,
+            &caller,
+            &json!({ "candidate_ref": candidate_ref, "decision": "pending" }),
+            pinned_governance_snapshot(),
+        );
+        let id = created["admission_review"]["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let before = load(data_dir, KIND_REVIEW, &id).unwrap();
+        let events_before = admitted_event_count(data_dir, &id);
+
+        for forged in forged_reviewer_values() {
+            let (status, Json(reply)) = patch_admission_review(
+                data_dir,
+                &id,
+                &test_caller(REVIEWER_PRINCIPAL, "patch-forged-1"),
+                &json!({ "decision": "rejected", "reviewer_ref": forged.clone() }),
+            );
+            assert_eq!(
+                status,
+                StatusCode::BAD_REQUEST,
+                "a patch naming its own reviewer must be refused: {forged}"
+            );
+            assert_eq!(
+                reply["error"]["code"],
+                json!("marketplace_reviewer_ref_not_client_settable")
+            );
+        }
+
+        // Nothing moved: same bytes on disk, same head, no new event. The decision did not advance
+        // and no reviewer was installed.
+        assert_eq!(
+            load(data_dir, KIND_REVIEW, &id).unwrap(),
+            before,
+            "a refused patch changed the projection"
+        );
+        assert_eq!(
+            admitted_event_count(data_dir, &id),
+            events_before,
+            "a refused patch admitted an event"
+        );
+
+        // The refusal cannot be used as an existence oracle: a forged patch to an id that does not
+        // exist answers the SAME 400, while a patch that names no reviewer keeps the 404.
+        let (absent_forged, Json(absent_reply)) = patch_admission_review(
+            data_dir,
+            "madm_does_not_exist",
+            &test_caller(REVIEWER_PRINCIPAL, "patch-forged-absent"),
+            &json!({ "decision": "rejected", "reviewer_ref": FORGED_PRINCIPAL }),
+        );
+        assert_eq!(absent_forged, StatusCode::BAD_REQUEST);
+        assert_eq!(
+            absent_reply["error"]["code"],
+            json!("marketplace_reviewer_ref_not_client_settable")
+        );
+        let (absent_clean, _) = patch_admission_review(
+            data_dir,
+            "madm_does_not_exist",
+            &test_caller(REVIEWER_PRINCIPAL, "patch-clean-absent"),
+            &json!({ "decision": "rejected" }),
+        );
+        assert_eq!(
+            absent_clean,
+            StatusCode::NOT_FOUND,
+            "the auth-before-load 404 must survive for a body that forges nothing"
+        );
+    }
+
+    #[test]
+    fn patch_binds_the_acting_principal_and_never_inherits_a_stored_reviewer() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        reset_handle_for_test();
+        let candidate_ref = seed_candidate(data_dir, "mpub_patch");
+        let caller = test_caller(REVIEWER_PRINCIPAL, "create-for-attr-1");
+        let (_, Json(created)) = create_admission_review(
+            data_dir,
+            &caller,
+            &json!({ "candidate_ref": candidate_ref, "decision": "pending" }),
+            pinned_governance_snapshot(),
+        );
+        let id = created["admission_review"]["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+
+        // POISON the projection the way a pre-cut body could: a reviewer nobody authenticated,
+        // sitting in the record the patch is about to read.
+        let mut poisoned = load(data_dir, KIND_REVIEW, &id).unwrap();
+        poisoned["reviewer_ref"] = json!(FORGED_PRINCIPAL);
+        persist_record(data_dir, KIND_REVIEW, &id, &poisoned).unwrap();
+
+        let (status, Json(reply)) = patch_admission_review(
+            data_dir,
+            &id,
+            &test_caller(REVIEWER_PRINCIPAL, "patch-attr-1"),
+            &json!({ "decision": "admitted" }),
+        );
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(reply["admission_review"]["decision"], json!("admitted"));
+
+        let projected = load(data_dir, KIND_REVIEW, &id).unwrap();
+        let event = admitted_event_payload(data_dir, &id).expect("the patch admitted an event");
+        for (label, value) in [
+            ("response", &reply["admission_review"]["reviewer_ref"]),
+            ("projection", &projected["reviewer_ref"]),
+            ("admitted event", &event["reviewer_ref"]),
+        ] {
+            assert_eq!(
+                value,
+                &json!(REVIEWER_PRINCIPAL),
+                "{label} does not name the acting principal"
+            );
+        }
+        for (label, document) in [("projection", &projected), ("admitted event", &event)] {
+            assert!(
+                !serde_json::to_string(document)
+                    .unwrap()
+                    .contains(FORGED_PRINCIPAL),
+                "{label} still carries the pre-cut reviewer"
+            );
+        }
+
+        // A patch that changes nothing else STILL re-attributes: re-poison, patch with an empty
+        // body, and the acting principal is back. Attribution is never merged from stored bytes.
+        let mut repoisoned = load(data_dir, KIND_REVIEW, &id).unwrap();
+        repoisoned["reviewer_ref"] = json!(FORGED_PRINCIPAL);
+        persist_record(data_dir, KIND_REVIEW, &id, &repoisoned).unwrap();
+        let (status, Json(reply)) = patch_admission_review(
+            data_dir,
+            &id,
+            &test_caller(REVIEWER_PRINCIPAL, "patch-attr-2"),
+            &json!({}),
+        );
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(
+            reply["admission_review"]["reviewer_ref"],
+            json!(REVIEWER_PRINCIPAL)
+        );
+        assert_eq!(
+            load(data_dir, KIND_REVIEW, &id).unwrap()["reviewer_ref"],
+            json!(REVIEWER_PRINCIPAL)
+        );
+
+        // The decision vocabulary is untouched by this cut, and a refused transition attributes
+        // nothing: the projection keeps the reviewer and decision it already had.
+        let admitted_state = load(data_dir, KIND_REVIEW, &id).unwrap();
+        let (status, Json(reply)) = patch_admission_review(
+            data_dir,
+            &id,
+            &test_caller(REVIEWER_PRINCIPAL, "patch-bad-vocab"),
+            &json!({ "decision": "published" }),
+        );
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        assert_eq!(
+            reply["error"]["code"],
+            json!("marketplace_decision_invalid")
+        );
+        assert_eq!(load(data_dir, KIND_REVIEW, &id).unwrap(), admitted_state);
+    }
+
+    #[test]
+    fn a_second_principal_cannot_take_over_the_attribution() {
+        // Attribution cannot be handed off by patching as someone else: the resource scope was
+        // bound to the creating principal, so a different caller is refused at the scope seam and
+        // the recorded reviewer never changes.
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        reset_handle_for_test();
+        let candidate_ref = seed_candidate(data_dir, "mpub_intruder");
+        let (_, Json(created)) = create_admission_review(
+            data_dir,
+            &test_caller(REVIEWER_PRINCIPAL, "create-for-intruder-1"),
+            &json!({ "candidate_ref": candidate_ref, "decision": "pending" }),
+            pinned_governance_snapshot(),
+        );
+        let id = created["admission_review"]["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+
+        let (status, _) = patch_admission_review(
+            data_dir,
+            &id,
+            &test_caller("user://intruder", "patch-intruder-1"),
+            &json!({ "decision": "admitted" }),
+        );
+        assert_eq!(status, StatusCode::FORBIDDEN);
+        assert_eq!(
+            load(data_dir, KIND_REVIEW, &id).unwrap()["reviewer_ref"],
+            json!(REVIEWER_PRINCIPAL)
+        );
+        assert_eq!(
+            admitted_event_payload(data_dir, &id).unwrap()["reviewer_ref"],
+            json!(REVIEWER_PRINCIPAL)
+        );
+    }
+
+    #[test]
+    fn governance_snapshot_carries_wall_clock_into_the_admitted_create_payload() {
+        // NOT this packet's defect, and deliberately left standing — recorded here so the replay
+        // test above is read for exactly what it proves. `governance_snapshot` stamps `at:
+        // iso_now()`, and `without_clock` only strips the record's OWN top-level clock fields, so a
+        // real HTTP retry of a create presents byte-different material under the same idempotency
+        // key and conflicts instead of replaying. The replay test pins the snapshot to get past
+        // that. Attribution is unaffected either way: both paths carry the same server principal.
+        let mut record = json!({
+            "id": "madm_x",
+            "governance_posture_snapshot": { "at": "2026-01-01T00:00:00Z" },
+            "created_at": "2026-01-01T00:00:00Z",
+            "updated_at": "2026-01-01T00:00:00Z",
+            "admitted_head": "sha256:0"
+        });
+        let stripped = without_clock(&record);
+        assert!(stripped.get("created_at").is_none());
+        assert!(stripped.get("updated_at").is_none());
+        assert!(stripped.get("admitted_head").is_none());
+        assert_eq!(
+            stripped["governance_posture_snapshot"]["at"],
+            json!("2026-01-01T00:00:00Z"),
+            "the nested governance clock survives into the admitted payload"
+        );
+        record["governance_posture_snapshot"]["at"] = json!("2026-01-01T00:00:01Z");
+        assert_ne!(
+            without_clock(&record),
+            stripped,
+            "two creates one second apart present different bytes under the same key"
+        );
     }
 }
