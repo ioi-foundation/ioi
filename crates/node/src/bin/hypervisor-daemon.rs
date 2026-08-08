@@ -1469,6 +1469,17 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/foundry/qualification-proposals",
             get(foundry_execution_routes::handle_qualification_proposals_list),
         )
+        // Artifact-intent durability obligations: the recoverable record that binds each
+        // content-addressed Foundry blob (dataset material, per-step checkpoint) to an admitted
+        // intent, with a conservative abandon/collect cleanup path.
+        .route(
+            "/v1/hypervisor/foundry/artifact-intents",
+            get(foundry_execution_routes::handle_artifact_intents_list),
+        )
+        .route(
+            "/v1/hypervisor/foundry/artifact-intents/:intent_id/abandon",
+            post(foundry_execution_routes::handle_artifact_intent_abandon),
+        )
         // ODK (Ontology Development Kit) object plane (foundation) — draft DomainOntology /
         // DataRecipe / OntologyDevelopmentKitManifest / OntologySurfaceDescriptor + overview.
         // Draft-only: no transformation runs, no generated UI, no Domain App creation, no execution.

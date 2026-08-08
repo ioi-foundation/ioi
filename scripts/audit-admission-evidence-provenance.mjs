@@ -348,7 +348,6 @@ const H_BASELINE = [
   "lifecycle_routes.rs::handle_workflow_edit_apply",
   "lifecycle_routes.rs::handle_workflow_edit_propose",
   "managed_runtime_routes.rs::handle_backup_export",
-  "managed_runtime_routes.rs::handle_restore_plan_prepare",
   "materializing_run_routes.rs::handle_mrun_acquire_lease",
   "materializing_run_routes.rs::handle_mrun_cancel",
   "materializing_run_routes.rs::handle_mrun_create",

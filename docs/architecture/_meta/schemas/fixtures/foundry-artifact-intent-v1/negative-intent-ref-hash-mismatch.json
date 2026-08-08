@@ -1,0 +1,14 @@
+{
+  "schema_version": "ioi.foundry-artifact-intent.v1",
+  "intent_ref": "foundry-artifact-intent://foundry-dataset-artifacts/dataset.2222222222222222222222222222222222222222222222222222222222222222/3333333333333333333333333333333333333333333333333333333333333333",
+  "artifact_family": "foundry-dataset-artifacts",
+  "artifact_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "artifact_ref": "artifact://foundry-dataset/1111111111111111111111111111111111111111111111111111111111111111",
+  "parent_kind": "dataset-snapshot",
+  "parent_stream_tail": "dataset.2222222222222222222222222222222222222222222222222222222222222222",
+  "parent_resource_ref": "dataset-snapshot://foundry/1111111111111111111111111111111111111111111111111111111111111111",
+  "parent_op_kind": "event_stream.foundry_dataset_materialized",
+  "parent_idempotency_key": "run-key-alpha",
+  "owner_ref": "org://acme",
+  "status": "pending"
+}

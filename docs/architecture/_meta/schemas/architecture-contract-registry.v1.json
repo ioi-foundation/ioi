@@ -8428,6 +8428,28 @@
       ],
       "positive_fixture_refs": ["fixtures/foundry-qualified-measurement-v1/positive-proposal-only.json"],
       "negative_fixture_refs": [{ "path": "fixtures/foundry-qualified-measurement-v1/negative-open-fingerprint.json", "expected_failure": "schema" }]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/foundry-artifact-intent/v1",
+      "canonical_name": "FoundryArtifactIntent",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/model-foundry-and-training.md#foundry-artifact-intent-durability-obligations",
+      "schema_version": "ioi.foundry-artifact-intent.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": { "successor_of": null, "successor_contract_id": null, "compatibility": "initial", "migration_policy": "none", "predecessor_remains_valid": false, "wire_mutation_policy": "forbidden", "hash_impact": "signature_preimage_changed" },
+      "schema_ref": "foundry-artifact-intent.v1.schema.json",
+      "cross_field_invariant_refs": [
+        { "invariant_id": "invariant://ioi/components/hypervisor/foundry-artifact-intent/content-addressed-identity/v1", "path": "invariants/foundry-artifact-intent.v1.invariants.json" }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        { "kind": "typescript_projection", "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts", "symbol": "FoundryArtifactIntentV1" },
+        { "kind": "rust_projection", "path": "crates/types/src/app/generated/architecture_contracts.rs", "symbol": "FoundryArtifactIntentV1" }
+      ],
+      "positive_fixture_refs": ["fixtures/foundry-artifact-intent-v1/positive-pending-dataset.json"],
+      "negative_fixture_refs": [{ "path": "fixtures/foundry-artifact-intent-v1/negative-intent-ref-hash-mismatch.json", "expected_failure": "invariant", "expected_rule_id": "foundry_artifact_intent.intent_ref.binds_artifact_hash" }]
     }
   ]
 }
