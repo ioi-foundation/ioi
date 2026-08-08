@@ -2560,8 +2560,7 @@ mod tests {
         state.tool_execution_log.insert(
             "file__write:docs".to_string(),
             ToolCallStatus::Executed(
-                "step=6;tool=file__write;path=internal-docs/implementation/refine-architecture.md"
-                    .to_string(),
+                "step=6;tool=file__write;path=docs/architecture/refine-architecture.md".to_string(),
             ),
         );
         state.tool_execution_log.insert(

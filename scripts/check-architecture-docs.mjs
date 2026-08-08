@@ -14,21 +14,27 @@
 // Doc rules:
 //   1. every relative markdown link resolves
 //   2. a backticked filename link label matches its target's basename
-//   3. every canon doc declares both status-axis fields
+//   3. every canon doc declares `Canonical owner:` + both status-axis fields in its header
 //   4. every path named under `Implementation refs:` exists
 //   5. a doc declaring `built` or `partial` names its code anchors (doc-classes.md)
+//   6. every contract-registry `canonical_owner_ref` uses the one repo-root-absolute
+//      `canon://docs/architecture/...` form and resolves to a file that exists
+//   7. status-axis VALUES come from the doc-classes.md vocabulary — doctrine is
+//      exactly canonical|reference|archived; implementation opens with
+//      built|partial|planned|speculative|mixed|n/a or a resolving `see` form
+//   8. a doc declaring `built`, `partial`, or `mixed` carries `Last implementation audit:`
 //
 // Work-item record rules, owned by docs/architecture/_meta/work-items/README.md.
 // They run in both modes, so status truth cannot rot without CI noticing:
-//   6. every record parses and declares `evidence_format` `ioi.program.work_item.v1`
-//   7. `status` is one of the sequencer vocabulary
-//   8. every `code_anchors[]` entry names a file that exists, and contains its
+//   9. every record parses and declares `evidence_format` `ioi.program.work_item.v1`
+//  10. `status` is one of the sequencer vocabulary
+//  11. every `code_anchors[]` entry names a file that exists, and contains its
 //      optional `must_contain` literal — except a `present_when: "pr_open"` anchor,
 //      which is reported pending, not failed, when the file is not in this checkout
-//   9. every `evidence_refs[]` path exists
-//  10. every record path is repository-relative: no absolute path, none that climbs
+//  12. every `evidence_refs[]` path exists
+//  13. every record path is repository-relative: no absolute path, none that climbs
 //      out of the tree, and none that leaves it through a symlink, is status truth
-//  11. a `verified` record carries no `pr_open` anchor — promotion requires anchors
+//  14. a `verified` record carries no `pr_open` anchor — promotion requires anchors
 //      that always validate
 
 import fs from "node:fs";
@@ -117,15 +123,47 @@ for (const file of files) {
     }
   }
 
-  // 3 — the status axis every canon doc declares. ADRs carry their own header.
+  // 3 + 7 + 8 — the status axis every canon doc declares, with VALUES from the
+  // doc-classes.md vocabulary, not just presence. Values are read from the header
+  // (first 20 lines) so deep per-section status prose and fenced vocabulary
+  // listings cannot false-positive; audit presence is whole-file because long
+  // owner headers legitimately carry it past line 20. ADRs carry their own header.
+  let declared;
   if (file.includes(`${path.sep}docs${path.sep}architecture${path.sep}`) && !path.basename(file).startsWith("_")) {
-    for (const field of ["Doctrine status:", "Implementation status:"]) {
-      if (!source.includes(field)) failures.push(`${rel(file)}: missing \`${field}\``);
+    const head = source.split("\n").slice(0, 20).join("\n");
+    for (const field of ["Doctrine status:", "Implementation status:", "Canonical owner:"]) {
+      if (!head.includes(field)) failures.push(`${rel(file)}: missing \`${field}\` in the header (first 20 lines)`);
+    }
+    const doctrine = head.match(/^Doctrine status:\s*(.+)$/mu)?.[1]?.trim();
+    if (doctrine !== undefined && !["canonical", "reference", "archived"].includes(doctrine)) {
+      failures.push(`${rel(file)}: Doctrine status must be exactly canonical | reference | archived — got \`${doctrine}\``);
+    }
+    const impl = head.match(/^Implementation status:\s*(.+)$/mu)?.[1]?.trim();
+    if (impl !== undefined) {
+      const see = impl.match(/^see\s+(?:\[[^\]]*\]\(([^)\s]+)\)|`([^`\s]+)`|(\S+))/u);
+      if (see) {
+        const target = (see[1] ?? see[2] ?? see[3]).split("#")[0];
+        if (!fs.existsSync(path.resolve(dir, target))) {
+          failures.push(`${rel(file)}: Implementation status \`see\` target does not resolve — ${target}`);
+        }
+      } else {
+        declared = impl.match(/^([a-z/]+)/u)?.[1];
+        if (!["built", "partial", "planned", "speculative", "mixed", "n/a"].includes(declared)) {
+          failures.push(
+            `${rel(file)}: Implementation status must open with built | partial | planned | speculative | mixed | n/a, or a resolving \`see\` form — got \`${impl}\``,
+          );
+          declared = undefined;
+        } else if (
+          ["built", "partial", "mixed"].includes(declared) &&
+          !source.includes("Last implementation audit:")
+        ) {
+          failures.push(`${rel(file)}: Implementation status \`${declared}\` declares no \`Last implementation audit:\``);
+        }
+      }
     }
   }
 
   // 5 — doc-classes.md: `built` and `partial` name their code anchors.
-  const declared = source.match(/^Implementation status:\s*(\w+)/mu)?.[1];
   if (
     ["built", "partial"].includes(declared) &&
     !/^Implementation refs:/mu.test(source) &&
@@ -145,7 +183,34 @@ for (const file of files) {
   }
 }
 
-// 6-10 — the work-item status records, per `_meta/work-items/README.md`.
+// 6 — the contract registry's canonical_owner_ref plane resolves, in one form.
+// The markdown link gate above is airtight because it exists; this is the same
+// gate for the JSON reference plane, which had drifted 25-of-165 unnoticed —
+// 17 refs at a path that never existed and 8 in an incompatible relative form.
+const REGISTRY = "docs/architecture/_meta/schemas/architecture-contract-registry.v1.json";
+if (!workItemsOnly) {
+  try {
+    const registry = JSON.parse(fs.readFileSync(path.join(root, REGISTRY), "utf8"));
+    for (const contract of registry.contracts ?? []) {
+      const at = `${REGISTRY}: ${contract.contract_id}`;
+      const ref = contract.canonical_owner_ref;
+      if (typeof ref !== "string" || !ref.startsWith("canon://docs/architecture/")) {
+        failures.push(
+          `${at}: canonical_owner_ref must use the repo-root-absolute canon://docs/architecture/ form — got ${JSON.stringify(ref)}`,
+        );
+        continue;
+      }
+      const target = ref.slice("canon://".length).split("#")[0];
+      if (!insideRepo(target) || !fs.existsSync(path.resolve(root, target))) {
+        failures.push(`${at}: canonical_owner_ref does not resolve — ${ref}`);
+      }
+    }
+  } catch (error) {
+    failures.push(`${REGISTRY}: unreadable — ${error.message}`);
+  }
+}
+
+// 9-14 — the work-item status records, per `_meta/work-items/README.md`.
 const workItemDir = path.join(root, WORK_ITEMS);
 const records = fs.existsSync(workItemDir)
   ? fs
@@ -270,7 +335,7 @@ if (failures.length > 0) {
   process.exit(1);
 }
 const count = (n, noun) => `${n} ${noun}${n === 1 ? "" : "s"}`;
-if (!workItemsOnly) console.log(`Architecture docs OK — ${files.length} files, 5 rules.`);
+if (!workItemsOnly) console.log(`Architecture docs OK — ${files.length} files, 8 rules.`);
 console.log(
   `Work-item records OK — ${count(records.length, "record")} checked, ${count(anchorCount, "code anchor")}, ${count(pending.length, "pending PR anchor")}.`,
 );

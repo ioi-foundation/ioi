@@ -7,6 +7,7 @@ Canonical owner: this file for the canonical one-sentence wording of cross-cutti
 Supersedes: repeated restatements of these invariants across foundations, components, and domains docs when wordings drift.
 Superseded by: none.
 Last alignment pass: 2026-07-25.
+Last implementation audit: 2026-08-08 (registry names owner-doc applications, not code anchors; all cross-links resolve).
 
 ## Purpose
 

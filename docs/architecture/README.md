@@ -448,6 +448,7 @@ actuator commands, safety heartbeats, or emergency-stop authorities.
 | institutional learning boundary | [`institutional-learning-boundary.md`](./foundations/institutional-learning-boundary.md) |
 | worker routing and training | [`mixture-of-workers.md`](./foundations/mixture-of-workers.md), [`worker-training-lifecycle.md`](./foundations/worker-training-lifecycle.md) |
 | interop | [`aiip.md`](./foundations/aiip.md) |
+| protocol governance neutrality | [`protocol-governance-neutrality.md`](./foundations/protocol-governance-neutrality.md) |
 | physical safety | [`physical-action-safety.md`](./foundations/physical-action-safety.md) |
 | economics | [`economic-flywheel-and-pricing-boundaries.md`](./foundations/economic-flywheel-and-pricing-boundaries.md) |
 | ecosystem assurance | [`ecosystem-assurance-certification-liability.md`](./foundations/ecosystem-assurance-certification-liability.md) |
@@ -479,7 +480,7 @@ namespace.
 
 | Domain | Canonical owners |
 | --- | --- |
-| ioi.ai Goal Space | [`collaborative-outcome-pattern.md`](./domains/ioi-ai/collaborative-outcome-pattern.md), [`control-plane.md`](./domains/ioi-ai/control-plane.md) |
+| ioi.ai Goal Space | [`collaborative-outcome-pattern.md`](./domains/ioi-ai/collaborative-outcome-pattern.md), [`control-plane.md`](./domains/ioi-ai/control-plane.md), [`goal-pursuit.md`](./domains/ioi-ai/goal-pursuit.md), [`goal-run-execution.md`](./domains/ioi-ai/goal-run-execution.md), [`collaborative-pursuit.md`](./domains/ioi-ai/collaborative-pursuit.md) |
 | aiagent.xyz ontology-bound digital and embodied workers | [`worker-marketplace.md`](./domains/aiagent/worker-marketplace.md), [`digital-worker-ontology.md`](./domains/aiagent/digital-worker-ontology.md), [`vertical-ontology-packs.md`](./domains/aiagent/vertical-ontology-packs.md), [`integration-surface-taxonomy.md`](./domains/aiagent/integration-surface-taxonomy.md), [`managed-worker-instance-lifecycle.md`](./domains/aiagent/managed-worker-instance-lifecycle.md), [`managed-agent-console-contract.md`](./domains/aiagent/managed-agent-console-contract.md), [`worker-endpoints.md`](./domains/aiagent/worker-endpoints.md) |
 | sas.xyz | [`service-marketplace.md`](./domains/sas/service-marketplace.md), [`service-endpoints.md`](./domains/sas/service-endpoints.md) |
 | marketplace neutrality | [`marketplace-neutrality.md`](./domains/marketplace-neutrality.md) |

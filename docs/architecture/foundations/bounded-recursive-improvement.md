@@ -14,7 +14,7 @@ benchmark improvement, or one successful self-targeted mutation as sufficient
 evidence of recursive self-improvement.
 Superseded by: none.
 Last alignment pass: 2026-07-26.
-Doctrine status: canonical.
+Doctrine status: canonical
 Implementation status: planned campaign protocol over partial existing GoalRun,
 Improvement Proposal Plane, Foundry, evaluation, governance, release, receipt,
 and learning-boundary primitives. Current master retains the older direct

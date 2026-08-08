@@ -2,7 +2,7 @@
 
 Status: entry-point stub; the record moved out of the live `_meta` path.
 Doctrine status: archived
-Implementation status: none (terminal historical record; not actionable)
+Implementation status: n/a (terminal historical record; not actionable)
 Canonical owner: none. Current implementation status is owned by [`implementation-matrix.md`](./implementation-matrix.md) and [`canon-to-code-delta.md`](./canon-to-code-delta.md); daemon doctrine by [`../components/daemon-runtime/doctrine.md`](../components/daemon-runtime/doctrine.md).
 Moved to: [`../_archive/change-ledgers/hypervisor-kernel-substrate-unification-master-guide.md`](../_archive/change-ledgers/hypervisor-kernel-substrate-unification-master-guide.md) on 2026-08-07.
 Last alignment pass: 2026-08-07.

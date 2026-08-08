@@ -11,7 +11,7 @@ workspace, or data ownership alone as a complete institutional-learning
 boundary.
 Superseded by: none.
 Last alignment pass: 2026-07-13.
-Doctrine status: canonical.
+Doctrine status: canonical
 Implementation status: planned cross-cutting profile over partial underlying
 primitives; do not claim end-to-end enforcement until the golden conformance
 profile passes.

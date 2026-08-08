@@ -3,6 +3,7 @@
 Status: canonical architecture authority.
 Doctrine status: canonical
 Implementation status: mixed (each enum states its code grounding)
+Last implementation audit: 2026-08-08 (three code anchors verified present with claimed symbols; remaining groundings self-mark as planned).
 Canonical owner: this file for the canonical member set and spelling of cross-component enumerations that previously drifted.
 Supersedes: divergent local redefinitions of risk classes, execution venues /
 privacy modes, provider account kinds, Goal Space controls, Hypervisor product-
@@ -313,7 +314,7 @@ owner_application | substrate_application | tool_surface | extension_application
   including a generated System interface or packaged custom application. Its
   installation and System binding are separate fields.
 
-Core workspaces such as Home, Systems, Projects, Applications, and Work are not
+Core workspaces such as Home, Systems, Projects, Applications, Work, and Settings are not
 members of this enum. They are navigation and policy-filtered projection
 identities beside the application catalog. Automations is one
 `owner_application` that may also have permanent shell placement; that creates

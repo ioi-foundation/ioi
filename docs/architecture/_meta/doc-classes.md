@@ -28,6 +28,8 @@ This register names the document classes used to keep architecture doctrine, ref
 | `decision-history` | Resolved historical decisions retained only when future maintainers need the reason. | Nearest owning component or `_meta/changelog/` |
 | `formal-source` | TLA+, configs, proof source, and formal-model READMEs. | `internal-docs/architecture/protocols/aft/formal/` |
 | `formal-generated` | TLC traces, generated trace modules, state dumps, and model-checker byproducts. | `internal-docs/formal/aft/` |
+| `evidence-artifact` | Validation outputs, scorecards, screenshots, bundles, and run reports. | `docs/evidence/` |
+
 > **Fixture-directory convention.** Directories under
 > `_meta/schemas/fixtures/` normally pair 1:1 with a registered `*.schema.json`.
 > One deliberately does not: `system-genesis-compiler-v1/` is an adversarial case
@@ -36,20 +38,23 @@ This register names the document classes used to keep architecture doctrine, ref
 > `npm run test:system-genesis-compiler`. It is bound to code by path, so it is
 > not an orphan and must not be moved.
 
-| `evidence-artifact` | Validation outputs, scorecards, screenshots, bundles, and run reports. | `docs/evidence/` |
-
 ## Status Axis (Doctrine vs Implementation)
 
 Every canon file carries two orthogonal status fields in its front matter,
 plus an audit date and optional code refs:
 
 ```text
-Doctrine status: canonical | draft | reference | archived
-Implementation status: built | partial | planned | speculative | mixed
+Doctrine status: canonical | reference | archived
+Implementation status: built | partial | planned | speculative | mixed | n/a
 Implementation refs:            # only when built or partial
   - path/or/route/ref
-Last implementation audit: YYYY-MM-DD
+Last implementation audit: YYYY-MM-DD   # required when built, partial, or mixed
 ```
+
+A file whose implementation status is owned elsewhere may instead declare
+`Implementation status: see <relative-path>`; the target must resolve, and the
+named file carries the status and its audit date. `n/a` marks documents with no
+implementable substrate (indexes, archives, terminal historical records).
 
 Rules:
 
@@ -66,11 +71,14 @@ Rules:
   built/missing — prefer one honest clause over a bare label.
 - When implementation state changes, update the file's status line and
   `Last implementation audit` in the same change that lands the code, or in
-  the next alignment pass.
+  the next alignment pass. A file declaring `built`, `partial`, or `mixed`
+  without an audit date is a gate failure, not a style nit — the checker
+  enforces both the vocabulary above and this requirement.
 
 Horizon framing for the whole corpus lives in
-[`execution-horizons.md`](./execution-horizons.md); per-concept durable-form
-status lives in [`implementation-matrix.md`](./implementation-matrix.md).
+[`execution-horizons.md`](./execution-horizons.md); per-object durable-form
+status lives in [`canon-to-code-delta.md`](./canon-to-code-delta.md) and the
+[`work-items/`](./work-items/) records.
 
 ## Placement Rule
 
@@ -88,7 +96,7 @@ migration artifacts remain in place only as structurally bounded
 would break long-lived historical links. Their whole-document boundary appears
 before all old guidance; every statement below it is historical and cannot
 direct work. Current implementation direction belongs to
-`implementation-matrix.md`, daemon doctrine, and `canon-to-code-delta.md`.
+`canon-to-code-delta.md`, the work-item records, and daemon doctrine.
 
 ## Canonical Owner Shape
 

@@ -1,7 +1,7 @@
 # Canonical State and Projection System (CSPS)
 
 Status: taxonomy reference; Agentgres state doctrine remains owned by [`doctrine.md`](./doctrine.md) when terminology or mechanics disagree.
-Context owner: this file for the generic Canonical State and Projection System category above Agentgres/FQF-style state systems.
+Canonical owner: this file for the generic Canonical State and Projection System category above Agentgres/FQF-style state systems.
 Supersedes: `docs/specs/formal/canonical-state-and-projection-system-whitepaper.md`.
 Superseded by: none.
 Last alignment pass: 2026-05-30.
