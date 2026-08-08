@@ -6,7 +6,7 @@
     {
       "contract_id": "schema://ioi/applications/ioi-ai/attempt/v3",
       "canonical_name": "Attempt",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#attemptenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/collaborative-pursuit.md#attemptenvelope",
       "schema_version": "ioi.applications.ioi-ai.attempt.v3",
       "maturity": "partial",
       "stability": "provisional",
@@ -73,7 +73,7 @@
     {
       "contract_id": "schema://ioi/applications/ioi-ai/collaborative-work-graph/v1",
       "canonical_name": "CollaborativeWorkGraph",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#collaborativeworkgraph-and-discussion-projections",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/collaborative-pursuit.md#collaborativeworkgraph-and-discussion-projections",
       "schema_version": "ioi.applications.ioi-ai.collaborative-work-graph.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -124,7 +124,7 @@
     {
       "contract_id": "schema://ioi/applications/ioi-ai/finding/v3",
       "canonical_name": "Finding",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#findingenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/collaborative-pursuit.md#findingenvelope",
       "schema_version": "ioi.applications.ioi-ai.finding.v3",
       "maturity": "partial",
       "stability": "provisional",
@@ -196,7 +196,7 @@
     {
       "contract_id": "schema://ioi/applications/ioi-ai/goal-grounding-loop/v1",
       "canonical_name": "GoalGroundingLoop",
-      "canonical_owner_ref": "canon://../../domains/ioi-ai/goal-run-execution.md#goalgroundingloopenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/goal-run-execution.md#goalgroundingloopenvelope",
       "schema_version": "ioi.goal-grounding-loop.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -297,7 +297,7 @@
     {
       "contract_id": "schema://ioi/applications/ioi-ai/goal-run-activation/v1",
       "canonical_name": "GoalRunActivationEnvelope",
-      "canonical_owner_ref": "canon://../../domains/ioi-ai/goal-pursuit.md#goalrunactivationenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/goal-pursuit.md#goalrunactivationenvelope",
       "schema_version": "ioi.goal-run-activation.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -396,7 +396,7 @@
     {
       "contract_id": "schema://ioi/applications/ioi-ai/goal-run-admitted-state/v1",
       "canonical_name": "GoalRunAdmittedState",
-      "canonical_owner_ref": "canon://../../domains/ioi-ai/goal-run-execution.md#goalrunenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/goal-run-execution.md#goalrunenvelope",
       "schema_version": "ioi.goal-run-admitted-state.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -449,7 +449,7 @@
     {
       "contract_id": "schema://ioi/applications/ioi-ai/goal-run-execution-ceiling/v1",
       "canonical_name": "GoalRunExecutionCeiling",
-      "canonical_owner_ref": "canon://../../domains/ioi-ai/goal-run-execution.md#goalrunexecutionceilingenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/goal-run-execution.md#goalrunexecutionceilingenvelope",
       "schema_version": "ioi.goal-run-execution-ceiling.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -550,7 +550,7 @@
     {
       "contract_id": "schema://ioi/applications/ioi-ai/goal-run-profile/v1",
       "canonical_name": "GoalRunProfile",
-      "canonical_owner_ref": "canon://../../domains/ioi-ai/goal-pursuit.md#goalrunprofileenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/goal-pursuit.md#goalrunprofileenvelope",
       "schema_version": "ioi.goal-run-profile.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -593,7 +593,7 @@
     {
       "contract_id": "schema://ioi/applications/ioi-ai/goal-run/v1",
       "canonical_name": "GoalRun",
-      "canonical_owner_ref": "canon://../../domains/ioi-ai/goal-run-execution.md#goalrunenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/goal-run-execution.md#goalrunenvelope",
       "schema_version": "ioi.goal-run.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -636,7 +636,7 @@
     {
       "contract_id": "schema://ioi/applications/ioi-ai/outcome-room-discussion-projection/v1",
       "canonical_name": "OutcomeRoomDiscussionProjection",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#collaborativeworkgraph-and-discussion-projections",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/collaborative-pursuit.md#collaborativeworkgraph-and-discussion-projections",
       "schema_version": "ioi.applications.ioi-ai.outcome-room-discussion-projection.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -687,7 +687,7 @@
     {
       "contract_id": "schema://ioi/applications/ioi-ai/outcome-room/v2",
       "canonical_name": "OutcomeRoom",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#outcomeroomenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/collaborative-pursuit.md#outcomeroomenvelope",
       "schema_version": "ioi.applications.ioi-ai.outcome-room.v2",
       "maturity": "partial",
       "stability": "provisional",
@@ -756,7 +756,7 @@
     {
       "contract_id": "schema://ioi/applications/ioi-ai/participant-state-bundle/v3",
       "canonical_name": "ParticipantStateBundle",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#participantstatebundleenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/collaborative-pursuit.md#participantstatebundleenvelope",
       "schema_version": "ioi.applications.ioi-ai.participant-state-bundle.v3",
       "maturity": "partial",
       "stability": "provisional",
@@ -818,7 +818,7 @@
     {
       "contract_id": "schema://ioi/applications/ioi-ai/verifier-challenge/v3",
       "canonical_name": "VerifierChallenge",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#verifierchallengeenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/collaborative-pursuit.md#verifierchallengeenvelope",
       "schema_version": "ioi.applications.ioi-ai.verifier-challenge.v3",
       "maturity": "partial",
       "stability": "provisional",
@@ -876,7 +876,7 @@
     {
       "contract_id": "schema://ioi/applications/ioi-ai/work-claim-lease/v3",
       "canonical_name": "WorkClaimLease",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#workclaimleaseenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/collaborative-pursuit.md#workclaimleaseenvelope",
       "schema_version": "ioi.applications.ioi-ai.work-claim-lease.v3",
       "maturity": "partial",
       "stability": "provisional",
@@ -939,7 +939,7 @@
     {
       "contract_id": "schema://ioi/applications/ioi-ai/work-frontier-item/v3",
       "canonical_name": "WorkFrontierItem",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#workfrontieritemenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/collaborative-pursuit.md#workfrontieritemenvelope",
       "schema_version": "ioi.applications.ioi-ai.work-frontier-item.v3",
       "maturity": "partial",
       "stability": "provisional",
@@ -6573,7 +6573,7 @@
     {
       "contract_id": "schema://ioi/foundations/declassification-approval/v1",
       "canonical_name": "DeclassificationApproval",
-      "canonical_owner_ref": "canon://../../foundations/objects/execution-context-and-step-resolution.md#informationflowlabel-and-declassificationapproval",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/execution-context-and-step-resolution.md#informationflowlabel-and-declassificationapproval",
       "schema_version": "ioi.foundations.declassification-approval.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -6670,7 +6670,7 @@
     {
       "contract_id": "schema://ioi/foundations/information-flow-label/v1",
       "canonical_name": "InformationFlowLabel",
-      "canonical_owner_ref": "canon://../../foundations/objects/execution-context-and-step-resolution.md#informationflowlabel-and-declassificationapproval",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/execution-context-and-step-resolution.md#informationflowlabel-and-declassificationapproval",
       "schema_version": "ioi.foundations.information-flow-label.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -7561,7 +7561,7 @@
     {
       "contract_id": "schema://ioi/foundations/system-scoped-object-binding/v1",
       "canonical_name": "SystemScopedObjectBinding",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#systemscopedobjectbinding",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/collaborative-pursuit.md#systemscopedobjectbinding",
       "schema_version": "ioi.foundations.system-scoped-object-binding.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -7742,7 +7742,7 @@
     {
       "contract_id": "schema://ioi/foundations/objects/work-frontier-item-envelope/v1",
       "canonical_name": "WorkFrontierItemEnvelope",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#workfrontieritemenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/collaborative-pursuit.md#workfrontieritemenvelope",
       "schema_version": "ioi.foundations.work-frontier-item-envelope.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -7789,7 +7789,7 @@
     {
       "contract_id": "schema://ioi/foundations/objects/room-participant-lease-envelope/v1",
       "canonical_name": "RoomParticipantLeaseEnvelope",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#roomparticipantleaseenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/collaborative-pursuit.md#roomparticipantleaseenvelope",
       "schema_version": "ioi.foundations.room-participant-lease-envelope.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -7836,7 +7836,7 @@
     {
       "contract_id": "schema://ioi/foundations/objects/participant-state-bundle-envelope/v1",
       "canonical_name": "ParticipantStateBundleEnvelope",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#participantstatebundleenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/collaborative-pursuit.md#participantstatebundleenvelope",
       "schema_version": "ioi.foundations.participant-state-bundle-envelope.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -7883,7 +7883,7 @@
     {
       "contract_id": "schema://ioi/foundations/objects/work-claim-lease-envelope/v1",
       "canonical_name": "WorkClaimLeaseEnvelope",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#workclaimleaseenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/collaborative-pursuit.md#workclaimleaseenvelope",
       "schema_version": "ioi.foundations.work-claim-lease-envelope.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -7930,7 +7930,7 @@
     {
       "contract_id": "schema://ioi/foundations/objects/verifier-challenge-envelope/v1",
       "canonical_name": "VerifierChallengeEnvelope",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#verifierchallengeenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/collaborative-pursuit.md#verifierchallengeenvelope",
       "schema_version": "ioi.foundations.verifier-challenge-envelope.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -8024,7 +8024,7 @@
     {
       "contract_id": "schema://ioi/foundations/objects/attempt-envelope/v1",
       "canonical_name": "AttemptEnvelope",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#attemptenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/collaborative-pursuit.md#attemptenvelope",
       "schema_version": "ioi.foundations.attempt-envelope.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -8071,7 +8071,7 @@
     {
       "contract_id": "schema://ioi/foundations/objects/finding-envelope/v1",
       "canonical_name": "FindingEnvelope",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#findingenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/collaborative-pursuit.md#findingenvelope",
       "schema_version": "ioi.foundations.finding-envelope.v1",
       "maturity": "partial",
       "stability": "provisional",

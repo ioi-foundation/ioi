@@ -17,6 +17,8 @@
 //   3. every canon doc declares both status-axis fields
 //   4. every path named under `Implementation refs:` exists
 //   5. a doc declaring `built` or `partial` names its code anchors (doc-classes.md)
+//   6. every contract-registry `canonical_owner_ref` uses the one repo-root-absolute
+//      `canon://docs/architecture/...` form and resolves to a file that exists
 //
 // Work-item record rules, owned by docs/architecture/_meta/work-items/README.md.
 // They run in both modes, so status truth cannot rot without CI noticing:
@@ -145,7 +147,34 @@ for (const file of files) {
   }
 }
 
-// 6-10 — the work-item status records, per `_meta/work-items/README.md`.
+// 6 — the contract registry's canonical_owner_ref plane resolves, in one form.
+// The markdown link gate above is airtight because it exists; this is the same
+// gate for the JSON reference plane, which had drifted 25-of-165 unnoticed —
+// 17 refs at a path that never existed and 8 in an incompatible relative form.
+const REGISTRY = "docs/architecture/_meta/schemas/architecture-contract-registry.v1.json";
+if (!workItemsOnly) {
+  try {
+    const registry = JSON.parse(fs.readFileSync(path.join(root, REGISTRY), "utf8"));
+    for (const contract of registry.contracts ?? []) {
+      const at = `${REGISTRY}: ${contract.contract_id}`;
+      const ref = contract.canonical_owner_ref;
+      if (typeof ref !== "string" || !ref.startsWith("canon://docs/architecture/")) {
+        failures.push(
+          `${at}: canonical_owner_ref must use the repo-root-absolute canon://docs/architecture/ form — got ${JSON.stringify(ref)}`,
+        );
+        continue;
+      }
+      const target = ref.slice("canon://".length).split("#")[0];
+      if (!insideRepo(target) || !fs.existsSync(path.resolve(root, target))) {
+        failures.push(`${at}: canonical_owner_ref does not resolve — ${ref}`);
+      }
+    }
+  } catch (error) {
+    failures.push(`${REGISTRY}: unreadable — ${error.message}`);
+  }
+}
+
+// 7-12 — the work-item status records, per `_meta/work-items/README.md`.
 const workItemDir = path.join(root, WORK_ITEMS);
 const records = fs.existsSync(workItemDir)
   ? fs
@@ -270,7 +299,7 @@ if (failures.length > 0) {
   process.exit(1);
 }
 const count = (n, noun) => `${n} ${noun}${n === 1 ? "" : "s"}`;
-if (!workItemsOnly) console.log(`Architecture docs OK — ${files.length} files, 5 rules.`);
+if (!workItemsOnly) console.log(`Architecture docs OK — ${files.length} files, 6 rules.`);
 console.log(
   `Work-item records OK — ${count(records.length, "record")} checked, ${count(anchorCount, "code anchor")}, ${count(pending.length, "pending PR anchor")}.`,
 );

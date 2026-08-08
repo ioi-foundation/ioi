@@ -205,7 +205,7 @@ profile evidence. “Type 3” is qualified IOI shorthand for the autonomy plane
 not a standardized successor VMM category.
 
 Hypervisor App, Hypervisor Web, CLI/headless, optional TUI, SDK, ADK, the
-core workspaces (Home, Systems, Projects, Applications, and Work), the
+core workspaces (Home, Systems, Projects, Applications, Work, and Settings), the
 shell-placed Automations owner application, owner applications (Studio,
 Automations, Ontology, Data, Governance,
 Provenance, Evaluations, Improvement, Foundry, Packages, Developer Workspace,

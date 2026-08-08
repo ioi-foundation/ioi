@@ -1087,7 +1087,7 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
   clients. Clients request, inspect, steer, approve, and render; they do not
   own runtime truth.
 - `HypervisorApp`: the native desktop client over Hypervisor Core. It may host
-  Home, Systems, Projects, Applications, and Work as core workspaces;
+  Home, Systems, Projects, Applications, Work, and Settings as core workspaces;
   Automations as one shell-placed owner application; the owner applications Studio, Automations,
   Ontology, Data, Governance, Provenance, Evaluations, Improvement, Foundry,
   Packages, Developer Workspace, and Developer Console; the Environments and

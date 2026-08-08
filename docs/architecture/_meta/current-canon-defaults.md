@@ -537,9 +537,9 @@ synchronized.
 - Hypervisor App, Hypervisor Web, and Hypervisor CLI/headless are
   first-class clients over Hypervisor Core; TUI is an optional presentation
   of the CLI/headless client, not a separate first-class client lane;
-- Hypervisor's five core workspaces are Home, Systems, Projects, Applications,
-  and Work. Automations is an owner application with a shell placement, not a
-  sixth core-workspace registration. The New menu offers System, Session, Goal,
+- Hypervisor's six core workspaces are Home, Systems, Projects, Applications,
+  Work, and Settings. Automations is an owner application with a shell placement,
+  not a core-workspace registration. The New menu offers System, Session, Goal,
   Project, and Automation while preserving New Session as a one-click and
   keyboard-first action. `Open Application` remains one singular active surface
   slot;

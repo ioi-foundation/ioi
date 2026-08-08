@@ -816,7 +816,7 @@ project/session affordances. `Open Application` remains a singular active
 surface slot when a specialized surface is selected.
 
 The product estate has dimensional classes rather than one flattened list.
-Home, Systems, Projects, Applications, and Work are core workspaces. Automations
+Home, Systems, Projects, Applications, Work, and Settings are core workspaces. Automations
 is one owner-application registration with a shell placement, not a duplicate
 workspace registration. `surface_availability: planned` is a state, not another
 class.
@@ -4818,7 +4818,7 @@ Hypervisor Core = shared contracts and control substrate
 Hypervisor Daemon = execution owner
 App/Web/CLI-headless = first-class clients
 TUI = optional CLI presentation
-Home/Systems/Projects/Applications/Work = core workspaces
+Home/Systems/Projects/Applications/Work/Settings = core workspaces
 Developer Workspace/Automations/Foundry = application surfaces
 Evaluations = independent epoch, exposure, validity, and re-verification owner
 Improvement = optional campaign and direct-change coordination cockpit
