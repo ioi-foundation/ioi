@@ -6825,6 +6825,58 @@ export type DownloadIntentV1 = {
   admitted_head?: string;
 };
 
+export type DataRetentionDispositionV1 = {
+  schema_version: "ioi.foundations.data_retention_disposition.v1";
+  disposition_id: string;
+  subject: {
+      subject_kind: "managed_backup_export";
+      subject_ref: string;
+      payload_state_root?: string | null;
+    };
+  policy_basis_ref: string;
+  owner_ref: string;
+  declared_by: string;
+  legal_hold: Record<string, unknown> | null;
+  state: "declared" | "delete_executed";
+  deletion: Record<string, unknown> | null;
+  created_at?: string;
+  updated_at?: string;
+  admitted_head?: string;
+};
+
+export type SupportIncidentLinkV1 = {
+  schema_version: "ioi.hypervisor.support_incident_link.v1";
+  incident_id: string;
+  title: string;
+  severity: "informational" | "minor" | "major" | "critical";
+  status: "open" | "mitigated" | "resolved" | "closed";
+  affected: {
+      product?: string;
+      tenant_ref: string;
+      object_refs: Array<string>;
+      event_range?: Record<string, unknown> | null;
+    };
+  redacted_diagnostics?: string;
+  reported_by: string;
+  assigned_owner_ref?: string;
+  owner_ref: string;
+  created_at?: string;
+  updated_at?: string;
+  admitted_head?: string;
+};
+
+export type ConnectorCredentialGrantV1 = {
+  schema_version: "ioi.hypervisor.connector_credential_grant.v1";
+  id: string;
+  grant_id: string;
+  principal_id: string;
+  connector_id: string;
+  tools: Array<string>;
+  granted_by: string;
+  expires_at_ms: number;
+  created_at: string;
+};
+
 export type ComputeSessionV1 = {
   schema_version: "ioi.compute-session.v1";
   compute_session_ref: string;
@@ -11907,6 +11959,54 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
   {
     "contract_id": "schema://ioi/foundations/download-intent/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/download-intent-v1/negative-stored-expired-status.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/data-retention-disposition/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/data-retention-disposition-v1/positive-declared-held.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/data-retention-disposition/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/data-retention-disposition-v1/negative-baseless-disposition.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/support-incident-link/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/support-incident-link-v1/positive-open-major.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/support-incident-link/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/support-incident-link-v1/negative-affects-nothing.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/connectors-tools/connector-credential-grant/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/positive-finite-scoped.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/connectors-tools/connector-credential-grant/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/negative-unscoped.json",
     "expected": "reject",
     "expected_schema_accept": false,
     "expected_failure": "schema",
@@ -18834,6 +18934,48 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/data-retention-disposition-v1/positive-declared-held.json",
+    "contract_id": "schema://ioi/foundations/data-retention-disposition/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/data-retention-disposition-v1/positive-declared-held.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/data-retention-disposition-v1/negative-baseless-disposition.json",
+    "contract_id": "schema://ioi/foundations/data-retention-disposition/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/data-retention-disposition-v1/negative-baseless-disposition.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/support-incident-link-v1/positive-open-major.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/support-incident-link/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/support-incident-link-v1/positive-open-major.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/support-incident-link-v1/negative-affects-nothing.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/support-incident-link/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/support-incident-link-v1/negative-affects-nothing.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/positive-finite-scoped.json",
+    "contract_id": "schema://ioi/components/connectors-tools/connector-credential-grant/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/positive-finite-scoped.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/negative-unscoped.json",
+    "contract_id": "schema://ioi/components/connectors-tools/connector-credential-grant/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/negative-unscoped.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/compute-session-v1/positive-ready.json",
     "contract_id": "schema://ioi/components/daemon-runtime/compute-session/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/compute-session-v1/positive-ready.json",
@@ -20280,6 +20422,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^participation-request://[^\\s]{1,500}$",
   "^payload://[^\\s]+$",
   "^physical-action-admission:[^\\s]+$",
+  "^plg_[0-9a-f]+$",
   "^policy://[A-Za-z0-9._:/-]+$",
   "^policy://[A-Za-z0-9._~:/-]+$",
   "^policy://[^\\s]+$",
@@ -20329,6 +20472,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^resource-lease://[^\\s]+$",
   "^resource-offer://[^\\s]{1,500}$",
   "^restore-[^\\s]{1,500}$",
+  "^retention-disposition://[A-Za-z0-9._:-]+$",
   "^room-discovery://[^\\s]{1,500}$",
   "^routing-decision://[^\\s]{1,500}$",
   "^run://[^\\s]+$",
@@ -20380,6 +20524,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^storage://[^\\s]{1,240}$",
   "^storage://[^\\s]{1,500}$",
   "^subscription-lease://[A-Za-z0-9._:-]+$",
+  "^support-incident://[A-Za-z0-9._:-]+$",
   "^surface-serving://\\S*$",
   "^surface://[^\\s]{1,500}$",
   "^surface://\\S*$",
@@ -20596,6 +20741,9 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/daemon-runtime/managed-worker-instance-state/v1": "sha256:a267d51ea7c58fbd52c516c37e42e7bc6db2077787781b7eea8405da9dcebe2c",
   "schema://ioi/foundations/runtime-assignment/v1": "sha256:c4fd87258db991ed9c185e99806426813e38ec2c86a2cc1f0c8a61edb75a4c54",
   "schema://ioi/foundations/download-intent/v1": "sha256:6605d7acd24a8cc550cef7f0ac62fdbbaaf47fecdb871aad2c6a019a6a1e1917",
+  "schema://ioi/foundations/data-retention-disposition/v1": "sha256:d7659a04f5291b703ad7352baecaba2cd76eeb7f436684a38c15b780c5dedec8",
+  "schema://ioi/components/daemon-runtime/support-incident-link/v1": "sha256:dff31b576d2bdf0a1599e8e53d3843bc79206f86dafd4f93d79d2c204c37d0e3",
+  "schema://ioi/components/connectors-tools/connector-credential-grant/v1": "sha256:def8aa1d17369d96acb3d79909822b41f5c6e57f4bfca961f047df250658b7b8",
   "schema://ioi/components/daemon-runtime/compute-session/v1": "sha256:ed6f3f8e7a51cab064c06d906da7e8eddc5c1cb520512b7916f2a252b8775267",
   "schema://ioi/components/storage-backends/managed-storage-profile/v1": "sha256:0a168d32033c6a52de020cc5e5dccb24c3a0766e0aeef56a41518adffae2cc58",
   "schema://ioi/components/hypervisor/managed-restore-plan/v1": "sha256:6a498f0b7d088394dbb949d64ecb2f89a7cd982885f52e1d0839faba284c5845",
@@ -73099,6 +73247,293 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     }
   },
+  "schema://ioi/foundations/data-retention-disposition/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/data-retention-disposition/v1",
+    "title": "DataRetentionDisposition",
+    "x-ioi-schema-version": "ioi.foundations.data_retention_disposition.v1",
+    "description": "The durable, owner-scoped record of what retention duty applies to one exact data subject and of what was actually done about it: policy basis, legal hold, executed deletion with evidence. A legal hold blocks deletion typed; deletion destroys CONTENT and retains ADMISSION EVIDENCE (the receipts proving the deletion happened survive it); the deletion evidence is server-built from real outcomes, never asserted.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "disposition_id",
+      "subject",
+      "policy_basis_ref",
+      "owner_ref",
+      "declared_by",
+      "legal_hold",
+      "state",
+      "deletion"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.foundations.data_retention_disposition.v1"
+      },
+      "disposition_id": {
+        "type": "string",
+        "pattern": "^retention-disposition://[A-Za-z0-9._:-]+$"
+      },
+      "subject": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "subject_kind",
+          "subject_ref"
+        ],
+        "properties": {
+          "subject_kind": {
+            "type": "string",
+            "enum": [
+              "managed_backup_export"
+            ],
+            "description": "Extensible only by an owner ruling in the canonical section; an unlisted kind is refused at declaration."
+          },
+          "subject_ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "payload_state_root": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "policy_basis_ref": {
+        "type": "string",
+        "minLength": 1,
+        "description": "The governing policy as a canonical ref — a disposition without a basis is an opinion."
+      },
+      "owner_ref": {
+        "type": "string",
+        "minLength": 1
+      },
+      "declared_by": {
+        "type": "string",
+        "minLength": 1
+      },
+      "legal_hold": {
+        "anyOf": [
+          {
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Placed/released as distinct admitted transitions with a server-resolved actor (INV-37). While held, deletion refuses typed."
+      },
+      "state": {
+        "type": "string",
+        "enum": [
+          "declared",
+          "delete_executed"
+        ]
+      },
+      "deletion": {
+        "anyOf": [
+          {
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Executed deletion with server-built evidence of what was actually destroyed; admission evidence survives."
+      },
+      "created_at": {
+        "type": "string"
+      },
+      "updated_at": {
+        "type": "string"
+      },
+      "admitted_head": {
+        "type": "string"
+      }
+    }
+  },
+  "schema://ioi/components/daemon-runtime/support-incident-link/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/daemon-runtime/support-incident-link/v1",
+    "title": "SupportIncidentLink",
+    "x-ioi-schema-version": "ioi.hypervisor.support_incident_link.v1",
+    "description": "Operations-owned PROJECTION: an incident correlated to the exact product/tenant/objects/event-range it affects, with severity, status, and reporter-declared redacted diagnostics. It grants nothing, gates nothing, and never becomes authority; secrets have no path into an incident body.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "incident_id",
+      "title",
+      "severity",
+      "status",
+      "affected",
+      "reported_by",
+      "owner_ref"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.hypervisor.support_incident_link.v1"
+      },
+      "incident_id": {
+        "type": "string",
+        "pattern": "^support-incident://[A-Za-z0-9._:-]+$"
+      },
+      "title": {
+        "type": "string",
+        "minLength": 1
+      },
+      "severity": {
+        "type": "string",
+        "enum": [
+          "informational",
+          "minor",
+          "major",
+          "critical"
+        ]
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "open",
+          "mitigated",
+          "resolved",
+          "closed"
+        ]
+      },
+      "affected": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "tenant_ref",
+          "object_refs"
+        ],
+        "properties": {
+          "product": {
+            "type": "string"
+          },
+          "tenant_ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "object_refs": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "event_range": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "redacted_diagnostics": {
+        "type": "string",
+        "description": "DECLARED redacted by the reporter; the plane stores what it is given and never unseals anything."
+      },
+      "reported_by": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Resolved server-side (INV-37)."
+      },
+      "assigned_owner_ref": {
+        "type": "string"
+      },
+      "owner_ref": {
+        "type": "string",
+        "minLength": 1
+      },
+      "created_at": {
+        "type": "string"
+      },
+      "updated_at": {
+        "type": "string"
+      },
+      "admitted_head": {
+        "type": "string"
+      }
+    }
+  },
+  "schema://ioi/components/connectors-tools/connector-credential-grant/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/connectors-tools/connector-credential-grant/v1",
+    "title": "ConnectorCredentialGrant",
+    "x-ioi-schema-version": "ioi.hypervisor.connector_credential_grant.v1",
+    "description": "A principal's finite, declared-tools-only scope over one connector's use-only lease. The grant never carries or exposes the sealed credential; expiry is required and enforced at the single check site; the granting principal is resolved server-side (INV-37); regrant never silently rewrites an existing grant's tool set (revoke first); grant and revocation both write audit records or do not happen.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "id",
+      "grant_id",
+      "principal_id",
+      "connector_id",
+      "tools",
+      "granted_by",
+      "expires_at_ms",
+      "created_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.hypervisor.connector_credential_grant.v1"
+      },
+      "id": {
+        "type": "string",
+        "minLength": 1
+      },
+      "grant_id": {
+        "type": "string",
+        "pattern": "^plg_[0-9a-f]+$"
+      },
+      "principal_id": {
+        "type": "string",
+        "minLength": 1
+      },
+      "connector_id": {
+        "type": "string",
+        "minLength": 1
+      },
+      "tools": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": "Declared tools only — nothing is granted by default; \"*\" is a deliberate declaration, never a fallback."
+      },
+      "granted_by": {
+        "type": "string",
+        "minLength": 1
+      },
+      "expires_at_ms": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 9007199254740991
+      },
+      "created_at": {
+        "type": "string"
+      }
+    }
+  },
   "schema://ioi/components/daemon-runtime/compute-session/v1": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "schema://ioi/components/daemon-runtime/compute-session/v1",
@@ -83121,6 +83556,68 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
       }
     }
   ],
+  "schema://ioi/foundations/data-retention-disposition/v1": [
+    {
+      "rule_id": "data_retention.basis.required",
+      "description": "Every disposition names its governing policy basis; an unexplained retention posture is not auditable.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.policy_basis_ref"
+      }
+    },
+    {
+      "rule_id": "data_retention.subject.exact",
+      "description": "The duty binds one exact subject, never a class pattern — deletion of 'roughly these' is not a deletion anyone can verify.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.subject.subject_ref"
+      }
+    },
+    {
+      "rule_id": "data_retention.declarer.bound",
+      "description": "The declaring principal is recorded server-side, so retention duties have an accountable origin.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.declared_by"
+      }
+    }
+  ],
+  "schema://ioi/components/daemon-runtime/support-incident-link/v1": [
+    {
+      "rule_id": "support_incident.affected.non_empty",
+      "description": "An incident links at least one affected object — an incident that affects nothing links nothing.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.affected.object_refs"
+      }
+    },
+    {
+      "rule_id": "support_incident.reporter.bound",
+      "description": "The reporting principal is resolved server-side, so an incident has an accountable origin.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.reported_by"
+      }
+    }
+  ],
+  "schema://ioi/components/connectors-tools/connector-credential-grant/v1": [
+    {
+      "rule_id": "connector_credential_grant.tools.declared",
+      "description": "The grant names its exact tool scope; an empty scope grants nothing and is not admissible.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.tools"
+      }
+    },
+    {
+      "rule_id": "connector_credential_grant.grantor.bound",
+      "description": "The granting principal is resolved server-side, so standing access has an accountable origin.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.granted_by"
+      }
+    }
+  ],
   "schema://ioi/components/daemon-runtime/compute-session/v1": [],
   "schema://ioi/components/storage-backends/managed-storage-profile/v1": [],
   "schema://ioi/components/hypervisor/managed-restore-plan/v1": [],
@@ -84940,6 +85437,24 @@ export function validateDownloadIntentV1(
   value: unknown,
 ): value is DownloadIntentV1 {
   return validateArchitectureContract("schema://ioi/foundations/download-intent/v1", value).ok;
+}
+
+export function validateDataRetentionDispositionV1(
+  value: unknown,
+): value is DataRetentionDispositionV1 {
+  return validateArchitectureContract("schema://ioi/foundations/data-retention-disposition/v1", value).ok;
+}
+
+export function validateSupportIncidentLinkV1(
+  value: unknown,
+): value is SupportIncidentLinkV1 {
+  return validateArchitectureContract("schema://ioi/components/daemon-runtime/support-incident-link/v1", value).ok;
+}
+
+export function validateConnectorCredentialGrantV1(
+  value: unknown,
+): value is ConnectorCredentialGrantV1 {
+  return validateArchitectureContract("schema://ioi/components/connectors-tools/connector-credential-grant/v1", value).ok;
 }
 
 export function validateComputeSessionV1(

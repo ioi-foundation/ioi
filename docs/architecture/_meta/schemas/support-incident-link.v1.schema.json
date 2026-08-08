@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/daemon-runtime/support-incident-link/v1",
+  "title": "SupportIncidentLink",
+  "x-ioi-schema-version": "ioi.hypervisor.support_incident_link.v1",
+  "description": "Operations-owned PROJECTION: an incident correlated to the exact product/tenant/objects/event-range it affects, with severity, status, and reporter-declared redacted diagnostics. It grants nothing, gates nothing, and never becomes authority; secrets have no path into an incident body.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "incident_id",
+    "title",
+    "severity",
+    "status",
+    "affected",
+    "reported_by",
+    "owner_ref"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "ioi.hypervisor.support_incident_link.v1"
+    },
+    "incident_id": {
+      "type": "string",
+      "pattern": "^support-incident://[A-Za-z0-9._:-]+$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "informational",
+        "minor",
+        "major",
+        "critical"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "open",
+        "mitigated",
+        "resolved",
+        "closed"
+      ]
+    },
+    "affected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tenant_ref",
+        "object_refs"
+      ],
+      "properties": {
+        "product": {
+          "type": "string"
+        },
+        "tenant_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "object_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "event_range": {
+          "anyOf": [
+            {
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "redacted_diagnostics": {
+      "type": "string",
+      "description": "DECLARED redacted by the reporter; the plane stores what it is given and never unseals anything."
+    },
+    "reported_by": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Resolved server-side (INV-37)."
+    },
+    "assigned_owner_ref": {
+      "type": "string"
+    },
+    "owner_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "created_at": {
+      "type": "string"
+    },
+    "updated_at": {
+      "type": "string"
+    },
+    "admitted_head": {
+      "type": "string"
+    }
+  }
+}

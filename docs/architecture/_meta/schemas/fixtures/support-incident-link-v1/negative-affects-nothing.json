@@ -1,0 +1,14 @@
+{
+  "schema_version": "ioi.hypervisor.support_incident_link.v1",
+  "incident_id": "support-incident://sil_bad00000000000000",
+  "title": "vague unease",
+  "severity": "minor",
+  "status": "open",
+  "affected": {
+    "product": "hypervisor",
+    "tenant_ref": "org://acme",
+    "object_refs": []
+  },
+  "reported_by": "user://acme-operator",
+  "owner_ref": "org://acme"
+}

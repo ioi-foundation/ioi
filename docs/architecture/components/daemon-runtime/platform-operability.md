@@ -1136,3 +1136,18 @@ than the daemon's local files. The canonical fault matrix still carries no
 command-execution guardrail cases, so the two conformance cases named above
 remain an open fixture gap — module tests in the daemon are not conformance
 fixtures — and nothing here is evidence of production deployment.
+
+## SupportIncidentLink
+
+Registered contract: `schema://ioi/components/daemon-runtime/support-incident-link/v1`.
+Runtime: `/v1/hypervisor/support-incidents` over the shared owner-scoped
+admission boundary. **Projection only**: an incident link correlates the exact
+product/tenant/objects/event-range an incident affects, with severity
+(`informational | minor | major | critical`), status
+(`open | mitigated | resolved | closed`), a server-resolved reporter (INV-37),
+and reporter-declared redacted diagnostics. It grants nothing, gates nothing,
+and never becomes authority; secrets have no path into an incident body — the
+plane stores what it is given and never unseals anything. The paginated audit
+trail (`/v1/hypervisor/audit/trail`) reads incidents beside authority receipts,
+credential-grant audit records, and retention dispositions; every row is a
+stored record, typed by source — nothing is synthesized.

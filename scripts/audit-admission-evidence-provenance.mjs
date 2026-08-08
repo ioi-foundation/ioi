@@ -305,7 +305,9 @@ const H_BASELINE = [
   "lifecycle_routes.rs::handle_budget_reconcile",
   "lifecycle_routes.rs::handle_compact",
   "lifecycle_routes.rs::handle_connector_bind_credential",
-  "lifecycle_routes.rs::handle_connector_delete",
+  // "lifecycle_routes.rs::handle_connector_delete" — LEFT the baseline 2026-08-08 (W1.5):
+  // the handler now resolves an authenticated org admin and refuses discarded removals; the
+  // vanishing entry is the ratchet improving, not a stale pin.
   "lifecycle_routes.rs::handle_connector_device_poll",
   "lifecycle_routes.rs::handle_connector_device_start",
   "lifecycle_routes.rs::handle_connector_oauth_callback",

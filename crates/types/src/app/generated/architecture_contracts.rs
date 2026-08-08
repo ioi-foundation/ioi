@@ -201,6 +201,9 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/components/daemon-runtime/managed-worker-instance-state/v1", "sha256:a267d51ea7c58fbd52c516c37e42e7bc6db2077787781b7eea8405da9dcebe2c"),
     ("schema://ioi/foundations/runtime-assignment/v1", "sha256:c4fd87258db991ed9c185e99806426813e38ec2c86a2cc1f0c8a61edb75a4c54"),
     ("schema://ioi/foundations/download-intent/v1", "sha256:6605d7acd24a8cc550cef7f0ac62fdbbaaf47fecdb871aad2c6a019a6a1e1917"),
+    ("schema://ioi/foundations/data-retention-disposition/v1", "sha256:d7659a04f5291b703ad7352baecaba2cd76eeb7f436684a38c15b780c5dedec8"),
+    ("schema://ioi/components/daemon-runtime/support-incident-link/v1", "sha256:dff31b576d2bdf0a1599e8e53d3843bc79206f86dafd4f93d79d2c204c37d0e3"),
+    ("schema://ioi/components/connectors-tools/connector-credential-grant/v1", "sha256:def8aa1d17369d96acb3d79909822b41f5c6e57f4bfca961f047df250658b7b8"),
     ("schema://ioi/components/daemon-runtime/compute-session/v1", "sha256:ed6f3f8e7a51cab064c06d906da7e8eddc5c1cb520512b7916f2a252b8775267"),
     ("schema://ioi/components/storage-backends/managed-storage-profile/v1", "sha256:0a168d32033c6a52de020cc5e5dccb24c3a0766e0aeef56a41518adffae2cc58"),
     ("schema://ioi/components/hypervisor/managed-restore-plan/v1", "sha256:6a498f0b7d088394dbb949d64ecb2f89a7cd982885f52e1d0839faba284c5845"),
@@ -73696,6 +73699,476 @@ impl<'de> serde::Deserialize<'de> for DownloadIntentV1Delivery {
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct DataRetentionDispositionV1 {
+    pub schema_version: DataRetentionDispositionV1SchemaVersion,
+    pub disposition_id: String,
+    pub subject: DataRetentionDispositionV1Subject,
+    pub policy_basis_ref: String,
+    pub owner_ref: String,
+    pub declared_by: String,
+    pub legal_hold: Option<serde_json::Value>,
+    pub state: DataRetentionDispositionV1State,
+    pub deletion: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub admitted_head: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for DataRetentionDispositionV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/data-retention-disposition/v1"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/data-retention-disposition/v1","title":"DataRetentionDisposition","x-ioi-schema-version":"ioi.foundations.data_retention_disposition.v1","description":"The durable, owner-scoped record of what retention duty applies to one exact data subject and of what was actually done about it: policy basis, legal hold, executed deletion with evidence. A legal hold blocks deletion typed; deletion destroys CONTENT and retains ADMISSION EVIDENCE (the receipts proving the deletion happened survive it); the deletion evidence is server-built from real outcomes, never asserted.","type":"object","additionalProperties":false,"required":["schema_version","disposition_id","subject","policy_basis_ref","owner_ref","declared_by","legal_hold","state","deletion"],"properties":{"schema_version":{"type":"string","const":"ioi.foundations.data_retention_disposition.v1"},"disposition_id":{"type":"string","pattern":"^retention-disposition://[A-Za-z0-9._:-]+$"},"subject":{"type":"object","additionalProperties":false,"required":["subject_kind","subject_ref"],"properties":{"subject_kind":{"type":"string","enum":["managed_backup_export"],"description":"Extensible only by an owner ruling in the canonical section; an unlisted kind is refused at declaration."},"subject_ref":{"type":"string","minLength":1},"payload_state_root":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]}}},"policy_basis_ref":{"type":"string","minLength":1,"description":"The governing policy as a canonical ref — a disposition without a basis is an opinion."},"owner_ref":{"type":"string","minLength":1},"declared_by":{"type":"string","minLength":1},"legal_hold":{"anyOf":[{"type":"object"},{"type":"null"}],"description":"Placed/released as distinct admitted transitions with a server-resolved actor (INV-37). While held, deletion refuses typed."},"state":{"type":"string","enum":["declared","delete_executed"]},"deletion":{"anyOf":[{"type":"object"},{"type":"null"}],"description":"Executed deletion with server-built evidence of what was actually destroyed; admission evidence survives."},"created_at":{"type":"string"},"updated_at":{"type":"string"},"admitted_head":{"type":"string"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<DataRetentionDispositionV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            disposition_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"disposition_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"disposition_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            subject: serde_json::from_value::<DataRetentionDispositionV1Subject>(
+                object
+                    .remove(r#"subject"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"subject"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_basis_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"policy_basis_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_basis_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            declared_by: serde_json::from_value::<String>(
+                object
+                    .remove(r#"declared_by"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"declared_by"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            legal_hold: serde_json::from_value::<Option<serde_json::Value>>(
+                object
+                    .remove(r#"legal_hold"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"legal_hold"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            state: serde_json::from_value::<DataRetentionDispositionV1State>(
+                object
+                    .remove(r#"state"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"state"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            deletion: serde_json::from_value::<Option<serde_json::Value>>(
+                object
+                    .remove(r#"deletion"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"deletion"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at: match object.remove(r#"created_at"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            updated_at: match object.remove(r#"updated_at"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            admitted_head: match object.remove(r#"admitted_head"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DataRetentionDispositionV1SchemaVersion {
+    #[serde(rename = r#"ioi.foundations.data_retention_disposition.v1"#)]
+    IoiFoundationsDataRetentionDispositionV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct DataRetentionDispositionV1Subject {
+    pub subject_kind: DataRetentionDispositionV1SubjectSubjectKind,
+    pub subject_ref: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub payload_state_root: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for DataRetentionDispositionV1Subject {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/data-retention-disposition/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["subject_kind","subject_ref"],"properties":{"subject_kind":{"type":"string","enum":["managed_backup_export"],"description":"Extensible only by an owner ruling in the canonical section; an unlisted kind is refused at declaration."},"subject_ref":{"type":"string","minLength":1},"payload_state_root":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            subject_kind: serde_json::from_value::<DataRetentionDispositionV1SubjectSubjectKind>(
+                object
+                    .remove(r#"subject_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"subject_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            subject_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"subject_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"subject_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            payload_state_root: match object.remove(r#"payload_state_root"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DataRetentionDispositionV1SubjectSubjectKind {
+    #[serde(rename = r#"managed_backup_export"#)]
+    ManagedBackupExport,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DataRetentionDispositionV1State {
+    #[serde(rename = r#"declared"#)]
+    Declared,
+    #[serde(rename = r#"delete_executed"#)]
+    DeleteExecuted,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct SupportIncidentLinkV1 {
+    pub schema_version: SupportIncidentLinkV1SchemaVersion,
+    pub incident_id: String,
+    pub title: String,
+    pub severity: SupportIncidentLinkV1Severity,
+    pub status: SupportIncidentLinkV1Status,
+    pub affected: SupportIncidentLinkV1Affected,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub redacted_diagnostics: Option<String>,
+    pub reported_by: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub assigned_owner_ref: Option<String>,
+    pub owner_ref: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub admitted_head: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for SupportIncidentLinkV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/support-incident-link/v1"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/support-incident-link/v1","title":"SupportIncidentLink","x-ioi-schema-version":"ioi.hypervisor.support_incident_link.v1","description":"Operations-owned PROJECTION: an incident correlated to the exact product/tenant/objects/event-range it affects, with severity, status, and reporter-declared redacted diagnostics. It grants nothing, gates nothing, and never becomes authority; secrets have no path into an incident body.","type":"object","additionalProperties":false,"required":["schema_version","incident_id","title","severity","status","affected","reported_by","owner_ref"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.support_incident_link.v1"},"incident_id":{"type":"string","pattern":"^support-incident://[A-Za-z0-9._:-]+$"},"title":{"type":"string","minLength":1},"severity":{"type":"string","enum":["informational","minor","major","critical"]},"status":{"type":"string","enum":["open","mitigated","resolved","closed"]},"affected":{"type":"object","additionalProperties":false,"required":["tenant_ref","object_refs"],"properties":{"product":{"type":"string"},"tenant_ref":{"type":"string","minLength":1},"object_refs":{"type":"array","minItems":1,"items":{"type":"string","minLength":1}},"event_range":{"anyOf":[{"type":"object"},{"type":"null"}]}}},"redacted_diagnostics":{"type":"string","description":"DECLARED redacted by the reporter; the plane stores what it is given and never unseals anything."},"reported_by":{"type":"string","minLength":1,"description":"Resolved server-side (INV-37)."},"assigned_owner_ref":{"type":"string"},"owner_ref":{"type":"string","minLength":1},"created_at":{"type":"string"},"updated_at":{"type":"string"},"admitted_head":{"type":"string"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<SupportIncidentLinkV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            incident_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"incident_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"incident_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            title: serde_json::from_value::<String>(
+                object
+                    .remove(r#"title"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"title"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            severity: serde_json::from_value::<SupportIncidentLinkV1Severity>(
+                object
+                    .remove(r#"severity"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"severity"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<SupportIncidentLinkV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            affected: serde_json::from_value::<SupportIncidentLinkV1Affected>(
+                object
+                    .remove(r#"affected"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"affected"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            redacted_diagnostics: match object.remove(r#"redacted_diagnostics"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            reported_by: serde_json::from_value::<String>(
+                object
+                    .remove(r#"reported_by"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"reported_by"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            assigned_owner_ref: match object.remove(r#"assigned_owner_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at: match object.remove(r#"created_at"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            updated_at: match object.remove(r#"updated_at"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            admitted_head: match object.remove(r#"admitted_head"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum SupportIncidentLinkV1SchemaVersion {
+    #[serde(rename = r#"ioi.hypervisor.support_incident_link.v1"#)]
+    IoiHypervisorSupportIncidentLinkV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum SupportIncidentLinkV1Severity {
+    #[serde(rename = r#"informational"#)]
+    Informational,
+    #[serde(rename = r#"minor"#)]
+    Minor,
+    #[serde(rename = r#"major"#)]
+    Major,
+    #[serde(rename = r#"critical"#)]
+    Critical,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum SupportIncidentLinkV1Status {
+    #[serde(rename = r#"open"#)]
+    Open,
+    #[serde(rename = r#"mitigated"#)]
+    Mitigated,
+    #[serde(rename = r#"resolved"#)]
+    Resolved,
+    #[serde(rename = r#"closed"#)]
+    Closed,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct SupportIncidentLinkV1Affected {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub product: Option<String>,
+    pub tenant_ref: String,
+    pub object_refs: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub event_range: Option<serde_json::Value>,
+}
+
+impl<'de> serde::Deserialize<'de> for SupportIncidentLinkV1Affected {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/support-incident-link/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["tenant_ref","object_refs"],"properties":{"product":{"type":"string"},"tenant_ref":{"type":"string","minLength":1},"object_refs":{"type":"array","minItems":1,"items":{"type":"string","minLength":1}},"event_range":{"anyOf":[{"type":"object"},{"type":"null"}]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            product: match object.remove(r#"product"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            tenant_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"tenant_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"tenant_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            object_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"object_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"object_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            event_range: match object.remove(r#"event_range"#) {
+                Some(field_value) => {
+                    serde_json::from_value::<Option<serde_json::Value>>(field_value)
+                        .map_err(serde::de::Error::custom)?
+                }
+                None => None,
+            },
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ConnectorCredentialGrantV1 {
+    pub schema_version: ConnectorCredentialGrantV1SchemaVersion,
+    pub id: String,
+    pub grant_id: String,
+    pub principal_id: String,
+    pub connector_id: String,
+    pub tools: Vec<String>,
+    pub granted_by: String,
+    pub expires_at_ms: ArchitectureContractInteger,
+    pub created_at: String,
+}
+
+impl<'de> serde::Deserialize<'de> for ConnectorCredentialGrantV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/connectors-tools/connector-credential-grant/v1"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/connectors-tools/connector-credential-grant/v1","title":"ConnectorCredentialGrant","x-ioi-schema-version":"ioi.hypervisor.connector_credential_grant.v1","description":"A principal's finite, declared-tools-only scope over one connector's use-only lease. The grant never carries or exposes the sealed credential; expiry is required and enforced at the single check site; the granting principal is resolved server-side (INV-37); regrant never silently rewrites an existing grant's tool set (revoke first); grant and revocation both write audit records or do not happen.","type":"object","additionalProperties":false,"required":["schema_version","id","grant_id","principal_id","connector_id","tools","granted_by","expires_at_ms","created_at"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.connector_credential_grant.v1"},"id":{"type":"string","minLength":1},"grant_id":{"type":"string","pattern":"^plg_[0-9a-f]+$"},"principal_id":{"type":"string","minLength":1},"connector_id":{"type":"string","minLength":1},"tools":{"type":"array","minItems":1,"items":{"type":"string","minLength":1},"description":"Declared tools only — nothing is granted by default; \"*\" is a deliberate declaration, never a fallback."},"granted_by":{"type":"string","minLength":1},"expires_at_ms":{"type":"integer","minimum":1,"maximum":9007199254740991},"created_at":{"type":"string"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<ConnectorCredentialGrantV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            grant_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"grant_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"grant_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            principal_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"principal_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"principal_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            connector_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"connector_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"connector_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            tools: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"tools"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"tools"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            granted_by: serde_json::from_value::<String>(
+                object
+                    .remove(r#"granted_by"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"granted_by"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            expires_at_ms: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"expires_at_ms"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"expires_at_ms"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"created_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"created_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ConnectorCredentialGrantV1SchemaVersion {
+    #[serde(rename = r#"ioi.hypervisor.connector_credential_grant.v1"#)]
+    IoiHypervisorConnectorCredentialGrantV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct ComputeSessionV1 {
     pub schema_version: ComputeSessionV1SchemaVersion,
     pub compute_session_ref: String,
@@ -81993,6 +82466,54 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
     GoldenFixture {
         contract_id: "schema://ioi/foundations/download-intent/v1",
         path: "docs/architecture/_meta/schemas/fixtures/download-intent-v1/negative-stored-expired-status.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/data-retention-disposition/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/data-retention-disposition-v1/positive-declared-held.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/data-retention-disposition/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/data-retention-disposition-v1/negative-baseless-disposition.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/support-incident-link/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/support-incident-link-v1/positive-open-major.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/support-incident-link/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/support-incident-link-v1/negative-affects-nothing.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/connector-credential-grant/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/positive-finite-scoped.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/connector-credential-grant/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/negative-unscoped.json",
         expected_accept: false,
         expected_schema_accept: false,
         expected_failure: Some("schema"),
@@ -90318,6 +90839,72 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/data-retention-disposition-v1/positive-declared-held.json"#,
+        contract_id: r#"schema://ioi/foundations/data-retention-disposition/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/data-retention-disposition-v1/positive-declared-held.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/data-retention-disposition-v1/negative-baseless-disposition.json"#,
+        contract_id: r#"schema://ioi/foundations/data-retention-disposition/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/data-retention-disposition-v1/negative-baseless-disposition.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/support-incident-link-v1/positive-open-major.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/support-incident-link/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/support-incident-link-v1/positive-open-major.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/support-incident-link-v1/negative-affects-nothing.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/support-incident-link/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/support-incident-link-v1/negative-affects-nothing.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/positive-finite-scoped.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/connector-credential-grant/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/positive-finite-scoped.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/negative-unscoped.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/connector-credential-grant/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/negative-unscoped.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"fixture:docs/architecture/_meta/schemas/fixtures/compute-session-v1/positive-ready.json"#,
         contract_id: r#"schema://ioi/components/daemon-runtime/compute-session/v1"#,
         source_fixture_path: Some(
@@ -92068,6 +92655,9 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/components/daemon-runtime/managed-worker-instance-state/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/managed-worker-instance-state/v1","title":"ManagedWorkerInstanceState","description":"The bounded daemon-admitted managed-worker aggregate: exact runtime policy, optional placement/session, backup and state commitments, and replay-safe proposal/commit/rejection evidence. Agentgres projection metadata is deliberately outside these canonical bytes.","x-ioi-schema-version":"ioi.managed-worker-instance-state.v1","type":"object","additionalProperties":false,"required":["schema_version","instance_id","lifecycle_id","owner_ref","worker_package_ref","config_revision_ref","revision","state","runtime_policy","runtime_policy_hash","authority_grant_refs","runtime_assignment","compute_session","latest_verified_backup_ref","latest_state_root","pending_transition","last_transition"],"properties":{"schema_version":{"const":"ioi.managed-worker-instance-state.v1"},"instance_id":{"type":"string","pattern":"^agent://[^\\s]{1,500}$"},"lifecycle_id":{"type":"string","pattern":"^lifecycle:[^\\s]{1,500}$"},"owner_ref":{"type":"string","pattern":"^(?:wallet|org|project)://[^\\s]{1,500}$"},"worker_package_ref":{"type":"string","pattern":"^(?:worker-package|package)://[^\\s]{1,500}$"},"config_revision_ref":{"type":"string","pattern":"^(?:config-revision|artifact)://[^\\s]{1,500}$"},"revision":{"$ref":"#/$defs/positiveInteger"},"state":{"$ref":"#/$defs/lifecycleState"},"runtime_policy":{"$ref":"#/$defs/runtimePolicy"},"runtime_policy_hash":{"$ref":"#/$defs/hash"},"authority_grant_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/nonempty"}},"runtime_assignment":{"anyOf":[{"$ref":"#/$defs/runtimeAssignment"},{"type":"null"}]},"compute_session":{"anyOf":[{"$ref":"#/$defs/computeSession"},{"type":"null"}]},"latest_verified_backup_ref":{"$ref":"#/$defs/nullableRef"},"latest_state_root":{"$ref":"#/$defs/nullableHash"},"pending_transition":{"anyOf":[{"$ref":"#/$defs/pendingTransition"},{"type":"null"}]},"last_transition":{"anyOf":[{"$ref":"#/$defs/lastTransition"},{"type":"null"}]}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nullableHash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"nonempty":{"type":"string","minLength":1},"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"nullableRef":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"nonnegativeInteger":{"type":"integer","minimum":0,"maximum":9007199254740991},"positiveInteger":{"type":"integer","minimum":1,"maximum":9007199254740991},"lifecycleState":{"enum":["discover","installed","initializing","active","idle","zero_to_idle","suspended","payment_past_due","archived","restoring","migrated","exported","deleted","forgotten"]},"paymentStatus":{"enum":["current","past_due","canceled","settled","not_applicable"]},"runtimePolicy":{"type":"object","additionalProperties":false,"required":["persistence_profile","idle_threshold_seconds","minimum_warm_seconds","wake_sources","maximum_cold_start_seconds","maximum_restore_age_seconds","checkpoint_cadence_seconds","pre_stop_checkpoint_required","provider_idle_semantics","fallback_placement_refs","privacy_floor_ref","spend_ceiling_ref","archive_retention_policy_ref","minimum_backup_replicas"],"properties":{"persistence_profile":{"enum":["ephemeral","session","zero_to_idle","persistent"]},"idle_threshold_seconds":{"$ref":"#/$defs/nonnegativeInteger"},"minimum_warm_seconds":{"$ref":"#/$defs/nonnegativeInteger"},"wake_sources":{"type":"array","minItems":1,"uniqueItems":true,"items":{"enum":["user","schedule","webhook","queue","approved_event","recovery"]}},"maximum_cold_start_seconds":{"$ref":"#/$defs/positiveInteger"},"maximum_restore_age_seconds":{"$ref":"#/$defs/positiveInteger"},"checkpoint_cadence_seconds":{"$ref":"#/$defs/positiveInteger"},"pre_stop_checkpoint_required":{"type":"boolean"},"provider_idle_semantics":{"enum":["stop","close"]},"fallback_placement_refs":{"type":"array","items":{"$ref":"#/$defs/ref"}},"privacy_floor_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"spend_ceiling_ref":{"type":"string","pattern":"^(?:policy|budget)://[^\\s]{1,500}$"},"archive_retention_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"minimum_backup_replicas":{"type":"integer","minimum":1,"maximum":65535}}},"placement":{"type":"object","additionalProperties":false,"required":["runtime_node_ref","daemon_profile_ref","environment_ref","provider_ref","quote_ref","budget_reservation_ref","assignment_lease_ref","isolation_binding_ref","readiness_evidence_refs"],"properties":{"runtime_node_ref":{"type":"string","pattern":"^runtime://[^\\s]{1,500}$"},"daemon_profile_ref":{"type":"string","pattern":"^profile://[^\\s]{1,500}$"},"environment_ref":{"type":"string","pattern":"^environment://[^\\s]{1,500}$"},"provider_ref":{"type":"string","pattern":"^(?:provider|provider-account)://[^\\s]{1,500}$"},"quote_ref":{"$ref":"#/$defs/nullableRef"},"budget_reservation_ref":{"$ref":"#/$defs/nullableRef"},"assignment_lease_ref":{"type":"string","pattern":"^lease://[^\\s]{1,500}$"},"isolation_binding_ref":{"type":"string","pattern":"^(?:workload-isolation-binding|binding)://[^\\s]{1,500}$"},"readiness_evidence_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/ref"}}}},"runtimeAssignment":{"type":"object","additionalProperties":false,"required":["schema_version","runtime_assignment_id","assignment_epoch","placement","assignment_hash","status"],"properties":{"schema_version":{"const":"ioi.runtime-assignment.v1"},"runtime_assignment_id":{"type":"string","pattern":"^runtime-assignment://[^\\s]{1,500}$"},"assignment_epoch":{"$ref":"#/$defs/positiveInteger"},"placement":{"$ref":"#/$defs/placement"},"assignment_hash":{"$ref":"#/$defs/hash"},"status":{"enum":["admitted","active","closed","completed"]}}},"computeSession":{"type":"object","additionalProperties":false,"required":["schema_version","compute_session_ref","runtime_assignment_ref","environment_ref","provider_ref","status","readiness_evidence_refs"],"properties":{"schema_version":{"const":"ioi.compute-session.v1"},"compute_session_ref":{"type":"string","pattern":"^compute://[^\\s]{1,500}$"},"runtime_assignment_ref":{"type":"string","pattern":"^runtime-assignment://[^\\s]{1,500}$"},"environment_ref":{"type":"string","pattern":"^environment://[^\\s]{1,500}$"},"provider_ref":{"type":"string","pattern":"^(?:provider|provider-account)://[^\\s]{1,500}$"},"status":{"enum":["ready","ended"]},"readiness_evidence_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/ref"}},"provider_close_receipt_ref":{"$ref":"#/$defs/nullableRef"}}},"archivePolicy":{"type":"object","additionalProperties":false,"required":["archive_after","retain_for","storage_policy_ref"],"properties":{"archive_after":{"anyOf":[{"type":"string","minLength":1,"maxLength":500},{"type":"null"}]},"retain_for":{"anyOf":[{"type":"string","minLength":1,"maxLength":500},{"type":"null"}]},"storage_policy_ref":{"type":"string","pattern":"^(?:policy|storage-policy)(?:://|:)[^\\s]{1,500}$"}}},"restorePolicy":{"type":"object","additionalProperties":false,"required":["restore_requires","restore_receipt_required"],"properties":{"restore_requires":{"$ref":"#/$defs/stepUpMode"},"restore_receipt_required":{"const":true}}},"exportPolicy":{"type":"object","additionalProperties":false,"required":["export_requires"],"properties":{"export_requires":{"$ref":"#/$defs/stepUpMode"}}},"deletionPolicy":{"type":"object","additionalProperties":false,"required":["delete_runtime_state","delete_archives","forget_semantic_memory"],"properties":{"delete_runtime_state":{"type":"boolean"},"delete_archives":{"type":"boolean"},"forget_semantic_memory":{"type":"boolean"}}},"stepUpMode":{"enum":["authority_step_up","wallet_step_up","org_quorum","admin_policy"]},"nullableArchivePolicy":{"anyOf":[{"$ref":"#/$defs/archivePolicy"},{"type":"null"}]},"nullableRestorePolicy":{"anyOf":[{"$ref":"#/$defs/restorePolicy"},{"type":"null"}]},"nullableExportPolicy":{"anyOf":[{"$ref":"#/$defs/exportPolicy"},{"type":"null"}]},"nullableDeletionPolicy":{"anyOf":[{"$ref":"#/$defs/deletionPolicy"},{"type":"null"}]},"transitionRequest":{"type":"object","additionalProperties":false,"required":["expected_head","idempotency_key","to_state","transition_reason","payment_status","authority_scope_refs","authority_grant_refs","policy_refs","required_controls","wallet_approval_ref","latest_state_root","backup_ref","restore_import_ref","migration_target_ref","provider_close_receipt_ref","high_risk_orders_paused","new_billable_work_blocked","archive_policy","restore_policy","export_policy","deletion_policy","placement"],"properties":{"expected_head":{"$ref":"#/$defs/hash"},"idempotency_key":{"type":"string","minLength":1,"maxLength":500},"to_state":{"$ref":"#/$defs/lifecycleState"},"transition_reason":{"type":"string","minLength":1,"maxLength":500},"payment_status":{"anyOf":[{"$ref":"#/$defs/paymentStatus"},{"type":"null"}]},"authority_scope_refs":{"type":"array","items":{"$ref":"#/$defs/nonempty"}},"authority_grant_refs":{"type":"array","items":{"$ref":"#/$defs/nonempty"}},"policy_refs":{"type":"array","items":{"$ref":"#/$defs/nonempty"}},"required_controls":{"type":"array","items":{"$ref":"#/$defs/nonempty"}},"wallet_approval_ref":{"$ref":"#/$defs/nullableRef"},"latest_state_root":{"$ref":"#/$defs/nullableHash"},"backup_ref":{"$ref":"#/$defs/nullableRef"},"restore_import_ref":{"$ref":"#/$defs/nullableRef"},"migration_target_ref":{"$ref":"#/$defs/nullableRef"},"provider_close_receipt_ref":{"$ref":"#/$defs/nullableRef"},"high_risk_orders_paused":{"anyOf":[{"type":"boolean"},{"type":"null"}]},"new_billable_work_blocked":{"anyOf":[{"type":"boolean"},{"type":"null"}]},"archive_policy":{"$ref":"#/$defs/nullableArchivePolicy"},"restore_policy":{"$ref":"#/$defs/nullableRestorePolicy"},"export_policy":{"$ref":"#/$defs/nullableExportPolicy"},"deletion_policy":{"$ref":"#/$defs/nullableDeletionPolicy"},"placement":{"anyOf":[{"$ref":"#/$defs/placement"},{"type":"null"}]}}},"pendingTransition":{"type":"object","additionalProperties":false,"required":["request_hash","idempotency_key","to_state","request"],"properties":{"request_hash":{"$ref":"#/$defs/hash"},"idempotency_key":{"type":"string","minLength":1,"maxLength":500},"to_state":{"$ref":"#/$defs/lifecycleState"},"request":{"$ref":"#/$defs/transitionRequest"}}},"lifecycleAdmission":{"type":"object","additionalProperties":false,"required":["schema_version","transition_id","lifecycle_id","worker_instance_id","worker_package_ref","owner_ref","from_state","to_state","state","persistence_profile","payment_status","transition_reason","freezes_new_billable_work","pauses_high_risk_standing_orders","latest_state_root","archive_policy","restore_policy","export_policy","deletion_policy","archive_refs","artifact_refs","authority_scope_refs","authority_grant_refs","policy_refs","wallet_approval_ref","restore_import_ref","migration_target_ref","agentgres_operation_refs","receipt_refs","runtimeTruthSource"],"properties":{"schema_version":{"const":"ioi.runtime.managed_worker_instance_lifecycle_admission.v1"},"transition_id":{"type":"string","minLength":1,"maxLength":500},"lifecycle_id":{"type":"string","pattern":"^lifecycle:[^\\s]{1,500}$"},"worker_instance_id":{"type":"string","pattern":"^agent://[^\\s]{1,500}$"},"worker_package_ref":{"$ref":"#/$defs/nullableRef"},"owner_ref":{"type":"string","pattern":"^(?:wallet|org|project)://[^\\s]{1,500}$"},"from_state":{"$ref":"#/$defs/lifecycleState"},"to_state":{"$ref":"#/$defs/lifecycleState"},"state":{"$ref":"#/$defs/lifecycleState"},"persistence_profile":{"enum":["ephemeral","session","zero_to_idle","persistent"]},"payment_status":{"$ref":"#/$defs/paymentStatus"},"transition_reason":{"type":"string","minLength":1,"maxLength":500},"freezes_new_billable_work":{"type":"boolean"},"pauses_high_risk_standing_orders":{"type":"boolean"},"latest_state_root":{"$ref":"#/$defs/nullableHash"},"archive_policy":{"$ref":"#/$defs/nullableArchivePolicy"},"restore_policy":{"$ref":"#/$defs/nullableRestorePolicy"},"export_policy":{"$ref":"#/$defs/nullableExportPolicy"},"deletion_policy":{"$ref":"#/$defs/nullableDeletionPolicy"},"archive_refs":{"type":"array","items":{"$ref":"#/$defs/ref"}},"artifact_refs":{"type":"array","items":{"$ref":"#/$defs/ref"}},"authority_scope_refs":{"type":"array","items":{"$ref":"#/$defs/nonempty"}},"authority_grant_refs":{"type":"array","items":{"$ref":"#/$defs/nonempty"}},"policy_refs":{"type":"array","items":{"$ref":"#/$defs/nonempty"}},"wallet_approval_ref":{"$ref":"#/$defs/nullableRef"},"restore_import_ref":{"$ref":"#/$defs/nullableRef"},"migration_target_ref":{"$ref":"#/$defs/nullableRef"},"agentgres_operation_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/ref"}},"receipt_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/ref"}},"runtimeTruthSource":{"const":"daemon-runtime"}}},"errorResponse":{"type":"object","additionalProperties":false,"required":["ok","error"],"properties":{"ok":{"const":false},"error":{"type":"object","additionalProperties":false,"required":["code","message"],"properties":{"code":{"type":"string","minLength":1,"maxLength":500},"message":{"type":"string","minLength":1}}}}},"lastTransition":{"type":"object","additionalProperties":false,"required":["status","request_hash","idempotency_key","proposal_operation_ref","proposal_receipt_ref","admission","error_status","error_response"],"properties":{"status":{"enum":["committed","rejected"]},"request_hash":{"$ref":"#/$defs/hash"},"idempotency_key":{"type":"string","minLength":1,"maxLength":500},"proposal_operation_ref":{"$ref":"#/$defs/ref"},"proposal_receipt_ref":{"$ref":"#/$defs/ref"},"admission":{"anyOf":[{"$ref":"#/$defs/lifecycleAdmission"},{"type":"null"}]},"error_status":{"anyOf":[{"type":"integer","minimum":100,"maximum":599},{"type":"null"}]},"error_response":{"anyOf":[{"$ref":"#/$defs/errorResponse"},{"type":"null"}]}},"allOf":[{"if":{"properties":{"status":{"const":"committed"}},"required":["status"]},"then":{"properties":{"admission":{"$ref":"#/$defs/lifecycleAdmission"},"error_status":{"type":"null"},"error_response":{"type":"null"}}},"else":{"properties":{"admission":{"type":"null"},"error_status":{"type":"integer","minimum":100,"maximum":599},"error_response":{"$ref":"#/$defs/errorResponse"}}}}]}}}"##),
     ("schema://ioi/foundations/runtime-assignment/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/runtime-assignment/v1","title":"RuntimeAssignment","description":"The bounded managed-runtime placement commitment currently admitted by the daemon. It is placement evidence, not work authority, provider execution proof, or the broader planned cross-domain assignment family.","x-ioi-schema-version":"ioi.runtime-assignment.v1","type":"object","additionalProperties":false,"required":["schema_version","runtime_assignment_id","assignment_epoch","placement","assignment_hash","status"],"properties":{"schema_version":{"const":"ioi.runtime-assignment.v1"},"runtime_assignment_id":{"type":"string","pattern":"^runtime-assignment://[^\\s]{1,500}$"},"assignment_epoch":{"type":"integer","minimum":1,"maximum":9007199254740991},"placement":{"$ref":"#/$defs/placement"},"assignment_hash":{"$ref":"#/$defs/hash"},"status":{"enum":["admitted","active","closed","completed"]}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"nullableRef":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"placement":{"type":"object","additionalProperties":false,"required":["runtime_node_ref","daemon_profile_ref","environment_ref","provider_ref","quote_ref","budget_reservation_ref","assignment_lease_ref","isolation_binding_ref","readiness_evidence_refs"],"properties":{"runtime_node_ref":{"type":"string","pattern":"^runtime://[^\\s]{1,500}$"},"daemon_profile_ref":{"type":"string","pattern":"^profile://[^\\s]{1,500}$"},"environment_ref":{"type":"string","pattern":"^environment://[^\\s]{1,500}$"},"provider_ref":{"type":"string","pattern":"^(?:provider|provider-account)://[^\\s]{1,500}$"},"quote_ref":{"$ref":"#/$defs/nullableRef"},"budget_reservation_ref":{"$ref":"#/$defs/nullableRef"},"assignment_lease_ref":{"type":"string","pattern":"^lease://[^\\s]{1,500}$"},"isolation_binding_ref":{"type":"string","pattern":"^(?:workload-isolation-binding|binding)://[^\\s]{1,500}$"},"readiness_evidence_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/ref"}}}}}}"##),
     ("schema://ioi/foundations/download-intent/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/download-intent/v1","title":"DownloadIntent","x-ioi-schema-version":"ioi.foundations.download_intent.v1","description":"Short-lived, rights-bound authorization to fetch one exact artifact payload. Composes with ArtifactEnvelope identity: the intent commits to the exact payload_sha256 and delivery re-verifies the bytes against that commitment before serving. The intent id is NOT a bearer token — delivery re-resolves request identity and re-checks principal binding, owner scope, expiry, and revocation on every fetch. Revocation stops all future deliveries; every content delivery is admitted to the intent's owner-scoped stream BEFORE bytes are served, so the audit trail cannot claim less than what was delivered. Expiry is derived from expires_at_ms at read time, never stored as a status.","type":"object","additionalProperties":false,"required":["schema_version","intent_id","artifact","principal_ref","owner_ref","rights","expires_at_ms","status","delivery"],"properties":{"schema_version":{"type":"string","const":"ioi.foundations.download_intent.v1"},"intent_id":{"type":"string","pattern":"^download-intent://[A-Za-z0-9._:-]+$"},"artifact":{"type":"object","additionalProperties":false,"required":["artifact_kind","artifact_ref","payload_sha256","media_type"],"properties":{"artifact_kind":{"type":"string","enum":["managed_backup_export"],"description":"The artifact family this intent delivers from. Extensible only by an owner ruling in evidence-and-delivery.md — an unlisted kind is refused at mint, not interpreted."},"artifact_ref":{"type":"string","minLength":1,"description":"The exact owning resource the payload belongs to, e.g. backup://..."},"payload_sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"Exact bytes commitment. Delivery re-hashes the payload against this before serving; a mismatch is a typed conflict, never a silent substitution."},"media_type":{"type":"string","minLength":1}}},"principal_ref":{"type":"string","minLength":1,"description":"The principal the intent is bound to. Delivery refuses any other authenticated principal."},"owner_ref":{"type":"string","minLength":1,"description":"The owning org:// or project:// scope the intent was admitted under."},"rights":{"type":"object","additionalProperties":false,"required":["scope_kind","resource_ref"],"properties":{"scope_kind":{"type":"string","minLength":1,"description":"The admission scope kind that authorized minting — the same scope the underlying artifact family enforces."},"resource_ref":{"type":"string","minLength":1,"description":"The resource that scope was checked against."}}},"expires_at_ms":{"type":"integer","minimum":1,"maximum":9007199254740991,"description":"Epoch milliseconds. Delivery compares against the live clock; expiry is never stored as a status because a stored status goes stale."},"status":{"type":"string","enum":["active","revoked"],"description":"Lifecycle. Revocation stops future deliveries; it never rewrites the admitted delivery history."},"revocation":{"anyOf":[{"type":"object","additionalProperties":false,"required":["revoked_at","revoked_by"],"properties":{"revoked_at":{"type":"string","minLength":1},"revoked_by":{"type":"string","minLength":1,"description":"Resolved server-side (INV-37), never caller-supplied."}}},{"type":"null"}]},"delivery":{"type":"object","additionalProperties":false,"required":["supports_ranges","delivery_admissions"],"properties":{"supports_ranges":{"type":"boolean","description":"HTTP Range / resume posture. Ranges serve from the same hash-verified payload; a completed range grants nothing about the whole."},"delivery_admissions":{"type":"integer","minimum":0,"maximum":9007199254740991,"description":"Count of admitted content deliveries. Admitted BEFORE bytes are served."}}},"created_at":{"type":"string","description":"Projection of the admitted mint transition's own timestamp — never the wall clock."},"updated_at":{"type":"string","description":"Projection of the latest admitted transition's timestamp."},"admitted_head":{"type":"string","description":"Head of the intent's owner-scoped admission stream, projected for CAS on successors."}}}"#),
+    ("schema://ioi/foundations/data-retention-disposition/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/data-retention-disposition/v1","title":"DataRetentionDisposition","x-ioi-schema-version":"ioi.foundations.data_retention_disposition.v1","description":"The durable, owner-scoped record of what retention duty applies to one exact data subject and of what was actually done about it: policy basis, legal hold, executed deletion with evidence. A legal hold blocks deletion typed; deletion destroys CONTENT and retains ADMISSION EVIDENCE (the receipts proving the deletion happened survive it); the deletion evidence is server-built from real outcomes, never asserted.","type":"object","additionalProperties":false,"required":["schema_version","disposition_id","subject","policy_basis_ref","owner_ref","declared_by","legal_hold","state","deletion"],"properties":{"schema_version":{"type":"string","const":"ioi.foundations.data_retention_disposition.v1"},"disposition_id":{"type":"string","pattern":"^retention-disposition://[A-Za-z0-9._:-]+$"},"subject":{"type":"object","additionalProperties":false,"required":["subject_kind","subject_ref"],"properties":{"subject_kind":{"type":"string","enum":["managed_backup_export"],"description":"Extensible only by an owner ruling in the canonical section; an unlisted kind is refused at declaration."},"subject_ref":{"type":"string","minLength":1},"payload_state_root":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]}}},"policy_basis_ref":{"type":"string","minLength":1,"description":"The governing policy as a canonical ref — a disposition without a basis is an opinion."},"owner_ref":{"type":"string","minLength":1},"declared_by":{"type":"string","minLength":1},"legal_hold":{"anyOf":[{"type":"object"},{"type":"null"}],"description":"Placed/released as distinct admitted transitions with a server-resolved actor (INV-37). While held, deletion refuses typed."},"state":{"type":"string","enum":["declared","delete_executed"]},"deletion":{"anyOf":[{"type":"object"},{"type":"null"}],"description":"Executed deletion with server-built evidence of what was actually destroyed; admission evidence survives."},"created_at":{"type":"string"},"updated_at":{"type":"string"},"admitted_head":{"type":"string"}}}"#),
+    ("schema://ioi/components/daemon-runtime/support-incident-link/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/support-incident-link/v1","title":"SupportIncidentLink","x-ioi-schema-version":"ioi.hypervisor.support_incident_link.v1","description":"Operations-owned PROJECTION: an incident correlated to the exact product/tenant/objects/event-range it affects, with severity, status, and reporter-declared redacted diagnostics. It grants nothing, gates nothing, and never becomes authority; secrets have no path into an incident body.","type":"object","additionalProperties":false,"required":["schema_version","incident_id","title","severity","status","affected","reported_by","owner_ref"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.support_incident_link.v1"},"incident_id":{"type":"string","pattern":"^support-incident://[A-Za-z0-9._:-]+$"},"title":{"type":"string","minLength":1},"severity":{"type":"string","enum":["informational","minor","major","critical"]},"status":{"type":"string","enum":["open","mitigated","resolved","closed"]},"affected":{"type":"object","additionalProperties":false,"required":["tenant_ref","object_refs"],"properties":{"product":{"type":"string"},"tenant_ref":{"type":"string","minLength":1},"object_refs":{"type":"array","minItems":1,"items":{"type":"string","minLength":1}},"event_range":{"anyOf":[{"type":"object"},{"type":"null"}]}}},"redacted_diagnostics":{"type":"string","description":"DECLARED redacted by the reporter; the plane stores what it is given and never unseals anything."},"reported_by":{"type":"string","minLength":1,"description":"Resolved server-side (INV-37)."},"assigned_owner_ref":{"type":"string"},"owner_ref":{"type":"string","minLength":1},"created_at":{"type":"string"},"updated_at":{"type":"string"},"admitted_head":{"type":"string"}}}"#),
+    ("schema://ioi/components/connectors-tools/connector-credential-grant/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/connectors-tools/connector-credential-grant/v1","title":"ConnectorCredentialGrant","x-ioi-schema-version":"ioi.hypervisor.connector_credential_grant.v1","description":"A principal's finite, declared-tools-only scope over one connector's use-only lease. The grant never carries or exposes the sealed credential; expiry is required and enforced at the single check site; the granting principal is resolved server-side (INV-37); regrant never silently rewrites an existing grant's tool set (revoke first); grant and revocation both write audit records or do not happen.","type":"object","additionalProperties":false,"required":["schema_version","id","grant_id","principal_id","connector_id","tools","granted_by","expires_at_ms","created_at"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.connector_credential_grant.v1"},"id":{"type":"string","minLength":1},"grant_id":{"type":"string","pattern":"^plg_[0-9a-f]+$"},"principal_id":{"type":"string","minLength":1},"connector_id":{"type":"string","minLength":1},"tools":{"type":"array","minItems":1,"items":{"type":"string","minLength":1},"description":"Declared tools only — nothing is granted by default; \"*\" is a deliberate declaration, never a fallback."},"granted_by":{"type":"string","minLength":1},"expires_at_ms":{"type":"integer","minimum":1,"maximum":9007199254740991},"created_at":{"type":"string"}}}"#),
     ("schema://ioi/components/daemon-runtime/compute-session/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/compute-session/v1","title":"ComputeSession","description":"Bounded managed-runtime compute-session readiness and terminal-close projection bound to one runtime assignment.","x-ioi-schema-version":"ioi.compute-session.v1","type":"object","additionalProperties":false,"required":["schema_version","compute_session_ref","runtime_assignment_ref","environment_ref","provider_ref","status","readiness_evidence_refs"],"properties":{"schema_version":{"const":"ioi.compute-session.v1"},"compute_session_ref":{"type":"string","pattern":"^compute://[^\\s]{1,500}$"},"runtime_assignment_ref":{"type":"string","pattern":"^runtime-assignment://[^\\s]{1,500}$"},"environment_ref":{"type":"string","pattern":"^environment://[^\\s]{1,500}$"},"provider_ref":{"type":"string","pattern":"^(?:provider|provider-account)://[^\\s]{1,500}$"},"status":{"enum":["ready","ended"]},"readiness_evidence_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/ref"}},"provider_close_receipt_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}}}"##),
     ("schema://ioi/components/storage-backends/managed-storage-profile/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/storage-backends/managed-storage-profile/v1","title":"ManagedStorageProfile","description":"The bounded managed-persistence custody declaration admitted by the daemon. It does not claim the richer successor-versioned general StorageProfile family.","x-ioi-schema-version":"ioi.storage-profile.v1","type":"object","additionalProperties":false,"required":["schema_version","storage_profile_ref","owner_ref","backend_class","destination_ref","custody_policy_ref","encryption_ref","key_epoch_ref","retention_policy_ref","jurisdiction_refs","minimum_replicas","independent_compute_copy_required","export_allowed","authority_grant_refs","revision","profile_hash"],"properties":{"schema_version":{"const":"ioi.storage-profile.v1"},"storage_profile_ref":{"type":"string","pattern":"^storage-profile://[^\\s]{1,500}$"},"owner_ref":{"type":"string","pattern":"^(?:wallet|org|project)://[^\\s]{1,500}$"},"backend_class":{"enum":["local_private","object_store","cas_ipfs","filecoin_archive","customer_vpc"]},"destination_ref":{"type":"string","pattern":"^storage://[^\\s]{1,500}$"},"custody_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"encryption_ref":{"$ref":"#/$defs/nullableRef"},"key_epoch_ref":{"$ref":"#/$defs/nullableRef"},"retention_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"jurisdiction_refs":{"type":"array","items":{"$ref":"#/$defs/ref"}},"minimum_replicas":{"type":"integer","minimum":1,"maximum":65535},"independent_compute_copy_required":{"type":"boolean"},"export_allowed":{"type":"boolean"},"authority_grant_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/ref"}},"revision":{"type":"integer","minimum":1,"maximum":9007199254740991},"profile_hash":{"$ref":"#/$defs/hash"}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"nullableRef":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]}}}"##),
     ("schema://ioi/components/hypervisor/managed-restore-plan/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/managed-restore-plan/v1","title":"ManagedRestorePlan","description":"Prepared, applying, completed, or cancelled local-private restore plan over one verified HypervisorEnvironmentBackup and one target environment.","x-ioi-schema-version":"ioi.managed-restore-plan.v1","type":"object","additionalProperties":false,"required":["schema_version","plan_id","backup_ref","restore_manifest_root","source_state_root","target_environment_id","authority_grant_refs","status","preparation_verified"],"properties":{"schema_version":{"const":"ioi.managed-restore-plan.v1"},"plan_id":{"type":"string","pattern":"^restore-[^\\s]{1,500}$"},"backup_ref":{"type":"string","pattern":"^environment-backup://[^\\s]{1,500}$"},"restore_manifest_root":{"$ref":"#/$defs/hash"},"source_state_root":{"$ref":"#/$defs/hash"},"target_environment_id":{"type":"string","minLength":1,"maxLength":500},"authority_grant_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/ref"}},"status":{"enum":["prepared","applying","completed","cancelled"]},"preparation_verified":{"const":true},"applied_state_root":{"$ref":"#/$defs/hash"}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}}}"##),
@@ -92238,6 +92828,9 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/components/daemon-runtime/managed-worker-instance-state/v1", r#"[]"#),
     ("schema://ioi/foundations/runtime-assignment/v1", r#"[]"#),
     ("schema://ioi/foundations/download-intent/v1", r#"[{"rule_id":"download_intent.payload.exact_commitment","description":"The intent commits to the exact payload bytes; delivery re-verifies against this commitment, so a substituted payload cannot be served under a minted intent.","expression":{"operator":"non_empty","path":"$.artifact.payload_sha256"}},{"rule_id":"download_intent.principal.bound","description":"The intent is bound to exactly one principal; the id is not a bearer token and delivery re-authenticates on every fetch.","expression":{"operator":"non_empty","path":"$.principal_ref"}},{"rule_id":"download_intent.rights.recorded","description":"Minting records the exact admission scope that authorized it, so the rights basis of every intent is auditable rather than implied.","expression":{"operator":"non_empty","path":"$.rights.scope_kind"}}]"#),
+    ("schema://ioi/foundations/data-retention-disposition/v1", r#"[{"rule_id":"data_retention.basis.required","description":"Every disposition names its governing policy basis; an unexplained retention posture is not auditable.","expression":{"operator":"non_empty","path":"$.policy_basis_ref"}},{"rule_id":"data_retention.subject.exact","description":"The duty binds one exact subject, never a class pattern — deletion of 'roughly these' is not a deletion anyone can verify.","expression":{"operator":"non_empty","path":"$.subject.subject_ref"}},{"rule_id":"data_retention.declarer.bound","description":"The declaring principal is recorded server-side, so retention duties have an accountable origin.","expression":{"operator":"non_empty","path":"$.declared_by"}}]"#),
+    ("schema://ioi/components/daemon-runtime/support-incident-link/v1", r#"[{"rule_id":"support_incident.affected.non_empty","description":"An incident links at least one affected object — an incident that affects nothing links nothing.","expression":{"operator":"non_empty","path":"$.affected.object_refs"}},{"rule_id":"support_incident.reporter.bound","description":"The reporting principal is resolved server-side, so an incident has an accountable origin.","expression":{"operator":"non_empty","path":"$.reported_by"}}]"#),
+    ("schema://ioi/components/connectors-tools/connector-credential-grant/v1", r#"[{"rule_id":"connector_credential_grant.tools.declared","description":"The grant names its exact tool scope; an empty scope grants nothing and is not admissible.","expression":{"operator":"non_empty","path":"$.tools"}},{"rule_id":"connector_credential_grant.grantor.bound","description":"The granting principal is resolved server-side, so standing access has an accountable origin.","expression":{"operator":"non_empty","path":"$.granted_by"}}]"#),
     ("schema://ioi/components/daemon-runtime/compute-session/v1", r#"[]"#),
     ("schema://ioi/components/storage-backends/managed-storage-profile/v1", r#"[]"#),
     ("schema://ioi/components/hypervisor/managed-restore-plan/v1", r#"[]"#),
@@ -94000,6 +94593,7 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^physical-action-admission:[^\s]+$"#,
         r#"^physical-action-admission:[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
+    (r#"^plg_[0-9a-f]+$"#, r#"^plg_[0-9a-f]+$"#),
     (
         r#"^policy://[A-Za-z0-9._:/-]+$"#,
         r#"^policy://[A-Za-z0-9._:/-]+$"#,
@@ -94183,6 +94777,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^restore-[^\s]{1,500}$"#,
         r#"^restore-[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^retention-disposition://[A-Za-z0-9._:-]+$"#,
+        r#"^retention-disposition://[A-Za-z0-9._:-]+$"#,
     ),
     (
         r#"^room-discovery://[^\s]{1,500}$"#,
@@ -94375,6 +94973,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^subscription-lease://[A-Za-z0-9._:-]+$"#,
         r#"^subscription-lease://[A-Za-z0-9._:-]+$"#,
+    ),
+    (
+        r#"^support-incident://[A-Za-z0-9._:-]+$"#,
+        r#"^support-incident://[A-Za-z0-9._:-]+$"#,
     ),
     (
         r#"^surface-serving://\S*$"#,
@@ -96307,6 +96909,12 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/download-intent-v1/positive-revoked.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/download-intent-v1/positive-revoked.json"))),
     ("docs/architecture/_meta/schemas/fixtures/download-intent-v1/negative-unhashed-payload.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/download-intent-v1/negative-unhashed-payload.json"))),
     ("docs/architecture/_meta/schemas/fixtures/download-intent-v1/negative-stored-expired-status.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/download-intent-v1/negative-stored-expired-status.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/data-retention-disposition-v1/positive-declared-held.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/data-retention-disposition-v1/positive-declared-held.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/data-retention-disposition-v1/negative-baseless-disposition.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/data-retention-disposition-v1/negative-baseless-disposition.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/support-incident-link-v1/positive-open-major.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/support-incident-link-v1/positive-open-major.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/support-incident-link-v1/negative-affects-nothing.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/support-incident-link-v1/negative-affects-nothing.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/positive-finite-scoped.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/positive-finite-scoped.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/negative-unscoped.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/negative-unscoped.json"))),
     ("docs/architecture/_meta/schemas/fixtures/compute-session-v1/positive-ready.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/compute-session-v1/positive-ready.json"))),
     ("docs/architecture/_meta/schemas/fixtures/compute-session-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/compute-session-v1/negative-unknown-field.json"))),
     ("docs/architecture/_meta/schemas/fixtures/managed-storage-profile-v1/positive-local-private.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/managed-storage-profile-v1/positive-local-private.json"))),
@@ -97118,6 +97726,21 @@ mod tests {
         },
         "schema://ioi/foundations/download-intent/v1" => {
             serde_json::from_value::<DownloadIntentV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/data-retention-disposition/v1" => {
+            serde_json::from_value::<DataRetentionDispositionV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/daemon-runtime/support-incident-link/v1" => {
+            serde_json::from_value::<SupportIncidentLinkV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/connectors-tools/connector-credential-grant/v1" => {
+            serde_json::from_value::<ConnectorCredentialGrantV1>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -97962,6 +98585,21 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/foundations/data-retention-disposition/v1" => {
+            let projection = serde_json::from_value::<DataRetentionDispositionV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/daemon-runtime/support-incident-link/v1" => {
+            let projection = serde_json::from_value::<SupportIncidentLinkV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/connectors-tools/connector-credential-grant/v1" => {
+            let projection = serde_json::from_value::<ConnectorCredentialGrantV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
         "schema://ioi/components/daemon-runtime/compute-session/v1" => {
             let projection = serde_json::from_value::<ComputeSessionV1>(value.clone())
                 .map_err(|error| error.to_string())?;
@@ -98143,8 +98781,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            617,
-            "the registered golden corpus must remain the explicit 617-fixture bar",
+            623,
+            "the registered golden corpus must remain the explicit 623-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -98386,7 +99024,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 606,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 609,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/data-retention-disposition/v1",
+  "title": "DataRetentionDisposition",
+  "x-ioi-schema-version": "ioi.foundations.data_retention_disposition.v1",
+  "description": "The durable, owner-scoped record of what retention duty applies to one exact data subject and of what was actually done about it: policy basis, legal hold, executed deletion with evidence. A legal hold blocks deletion typed; deletion destroys CONTENT and retains ADMISSION EVIDENCE (the receipts proving the deletion happened survive it); the deletion evidence is server-built from real outcomes, never asserted.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "disposition_id",
+    "subject",
+    "policy_basis_ref",
+    "owner_ref",
+    "declared_by",
+    "legal_hold",
+    "state",
+    "deletion"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "ioi.foundations.data_retention_disposition.v1"
+    },
+    "disposition_id": {
+      "type": "string",
+      "pattern": "^retention-disposition://[A-Za-z0-9._:-]+$"
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject_kind",
+        "subject_ref"
+      ],
+      "properties": {
+        "subject_kind": {
+          "type": "string",
+          "enum": [
+            "managed_backup_export"
+          ],
+          "description": "Extensible only by an owner ruling in the canonical section; an unlisted kind is refused at declaration."
+        },
+        "subject_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "payload_state_root": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "policy_basis_ref": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The governing policy as a canonical ref — a disposition without a basis is an opinion."
+    },
+    "owner_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "declared_by": {
+      "type": "string",
+      "minLength": 1
+    },
+    "legal_hold": {
+      "anyOf": [
+        {
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Placed/released as distinct admitted transitions with a server-resolved actor (INV-37). While held, deletion refuses typed."
+    },
+    "state": {
+      "type": "string",
+      "enum": [
+        "declared",
+        "delete_executed"
+      ]
+    },
+    "deletion": {
+      "anyOf": [
+        {
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Executed deletion with server-built evidence of what was actually destroyed; admission evidence survives."
+    },
+    "created_at": {
+      "type": "string"
+    },
+    "updated_at": {
+      "type": "string"
+    },
+    "admitted_head": {
+      "type": "string"
+    }
+  }
+}
