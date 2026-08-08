@@ -114,7 +114,7 @@ their lifecycle or infer execution from application-local receipts.
    `schema://ioi/applications/ioi-ai/*` when they are registered. None of the
    three is registered today, so no existing `$id` changes and no alias is
    created.
-6. **No ambient authority from composition.** A thread, fork, Session, harness
+7. **No ambient authority from composition.** A thread, fork, Session, harness
    binding, or terminal attachment is execution truth, not authority to mutate a
    GoalRun or room. Existing admission, scope, policy, and receipt gates remain.
 

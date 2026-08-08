@@ -2189,7 +2189,6 @@ GET  /v1/threads
 GET  /v1/threads/{thread_id}
 GET  /v1/threads/{thread_id}/usage
 POST /v1/threads/{thread_id}/resume
-POST /v1/threads/{thread_id}/fork
 POST /v1/threads/{thread_id}/mode
 POST /v1/threads/{thread_id}/model
 POST /v1/threads/{thread_id}/reasoning
@@ -2755,6 +2754,16 @@ contracts as well.
 Subagents are delegated work items under the same runtime substrate. They must
 inherit thread/run authority posture, budget limits, output contracts,
 cancellation behavior, and receipt requirements.
+
+Per [ADR 0034](../../../decisions/0034-thread-fork-is-the-delegation-primitive-subagents-are-its-surface.md),
+this API is the product surface over the `runtime_thread_fork_control`
+primitive. Spawn admits through that primitive plus WorkLifecycle ancestor
+admission; the surface owns naming and projection only. Inheritance is
+structural: a child's depth, fanout, budget, authority, deadline, and context
+ceilings narrow from its admitted parent record and can never widen, whatever
+the caller supplies. Cancellation is derived over the descendant graph by the
+kernel, not invoked one level at a time. There is no separate public thread-fork
+route; fork is the internal primitive reached through this surface.
 
 When a subagent participates in an OutcomeRoom, the spawn additionally carries
 `outcome_room_ref`, `room_participant_lease_ref`, and usually
