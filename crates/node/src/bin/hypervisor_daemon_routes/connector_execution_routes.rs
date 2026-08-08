@@ -188,6 +188,9 @@ fn run_receipt_checked(
     persist_record(data_dir, RUN_RECEIPT_DIR, &id, &rec).map_err(|e| e.to_string())?;
     Ok(rec)
 }
+// CLASSIFIED — best-effort telemetry/receipt mirror: this wrapper swallows the checked
+// variant's error for progress/refusal receipts; the pre-output and registration receipts on
+// the success path use run_receipt_checked directly and fail closed.
 fn run_receipt(data_dir: &str, run_ref: &str, op: &str, outcome: &str, summary: &str) -> Value {
     run_receipt_checked(data_dir, run_ref, op, outcome, summary).unwrap_or(Value::Null)
 }
@@ -540,6 +543,7 @@ pub(crate) async fn handle_run_execute(
                 "authority required",
                 &receipt,
             );
+            // CLASSIFIED — best-effort telemetry: refusal-path history append immediately followed by a non-2xx return; run status stays truthful and only audit color is lost.
             let _ = persist_record(
                 &data_dir,
                 crate::materializing_run_routes::RECORD_DIR,
@@ -591,6 +595,7 @@ pub(crate) async fn handle_run_execute(
                 "connector↔source binding stale",
                 &receipt,
             );
+            // CLASSIFIED — best-effort telemetry: refusal-path history append immediately followed by a non-2xx return; run status stays truthful and only audit color is lost.
             let _ = persist_record(
                 &data_dir,
                 crate::materializing_run_routes::RECORD_DIR,
@@ -630,6 +635,7 @@ pub(crate) async fn handle_run_execute(
             "sealed credential unresolved",
             &receipt,
         );
+        // CLASSIFIED — best-effort telemetry: refusal-path history append immediately followed by a non-2xx return; run status stays truthful and only audit color is lost.
         let _ = persist_record(
             &data_dir,
             crate::materializing_run_routes::RECORD_DIR,
@@ -704,6 +710,7 @@ pub(crate) async fn handle_run_execute(
                 "source unreachable",
                 &receipt,
             );
+            // CLASSIFIED — best-effort telemetry: refusal-path history append immediately followed by a non-2xx return; run status stays truthful and only audit color is lost.
             let _ = persist_record(
                 &data_dir,
                 crate::materializing_run_routes::RECORD_DIR,
@@ -727,6 +734,7 @@ pub(crate) async fn handle_run_execute(
             &format!("redirect refused (http {http_status})"),
             &receipt,
         );
+        // CLASSIFIED — best-effort telemetry: refusal-path history append immediately followed by a non-2xx return; run status stays truthful and only audit color is lost.
         let _ = persist_record(
             &data_dir,
             crate::materializing_run_routes::RECORD_DIR,
@@ -754,6 +762,7 @@ pub(crate) async fn handle_run_execute(
             &format!("http {http_status}"),
             &receipt,
         );
+        // CLASSIFIED — best-effort telemetry: refusal-path history append immediately followed by a non-2xx return; run status stays truthful and only audit color is lost.
         let _ = persist_record(
             &data_dir,
             crate::materializing_run_routes::RECORD_DIR,
@@ -783,6 +792,7 @@ pub(crate) async fn handle_run_execute(
                 "source shape invalid",
                 &receipt,
             );
+            // CLASSIFIED — best-effort telemetry: refusal-path history append immediately followed by a non-2xx return; run status stays truthful and only audit color is lost.
             let _ = persist_record(
                 &data_dir,
                 crate::materializing_run_routes::RECORD_DIR,
@@ -884,6 +894,7 @@ pub(crate) async fn handle_run_execute(
             "batch rejected — no partial truth",
             &receipt,
         );
+        // CLASSIFIED — best-effort telemetry: refusal-path history append immediately followed by a non-2xx return; run status stays truthful and only audit color is lost.
         let _ = persist_record(
             &data_dir,
             crate::materializing_run_routes::RECORD_DIR,
@@ -961,6 +972,7 @@ pub(crate) async fn handle_run_execute(
             "output persist failed",
             &receipt,
         );
+        // CLASSIFIED — rollback/cleanup best-effort: compensating write on an already-failing path that ends in a typed error; there is no deeper fallback to fail into.
         let _ = persist_record(
             &data_dir,
             crate::materializing_run_routes::RECORD_DIR,
@@ -978,6 +990,7 @@ pub(crate) async fn handle_run_execute(
     // removes the set (and restores the projection) so no partial truth ever remains — a set never
     // exists without its projection flip, and a run never stays executable beside a live set.
     let rollback_set = |why: &str| {
+        // CLASSIFIED — rollback/cleanup best-effort: compensating write on an already-failing path that ends in a typed error; there is no deeper fallback to fail into.
         let _ = remove_record(&data_dir, SET_DIR, &set_id);
         let _ = run_receipt(
             &data_dir,
@@ -1021,6 +1034,7 @@ pub(crate) async fn handle_run_execute(
     let receipt = match run_receipt_checked(&data_dir, &run_ref, "materialized_output_registered", "ok", &format!("{count} ontology-bound objects registered as {set_ref}; projection {projection_id} object_instances 0 → {count}")) {
         Ok(r) => r,
         Err(e) => {
+            // CLASSIFIED — rollback/cleanup best-effort: compensating write on an already-failing path that ends in a typed error; there is no deeper fallback to fail into.
             let _ = persist_record(&data_dir, crate::ontology_projection_routes::RECORD_DIR, &projection_id, &prior_projection);
             rollback_set(&format!("registration receipt: {e}"));
             return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "ok": false, "error": { "code": "execution_finalize_failed", "message": "the registration receipt could not persist — projection restored, set rolled back" } })));
@@ -1038,6 +1052,7 @@ pub(crate) async fn handle_run_execute(
         &id,
         &run,
     ) {
+        // CLASSIFIED — rollback/cleanup best-effort: compensating write on an already-failing path that ends in a typed error; there is no deeper fallback to fail into.
         let _ = persist_record(
             &data_dir,
             crate::ontology_projection_routes::RECORD_DIR,
@@ -1112,42 +1127,80 @@ pub(crate) async fn handle_set_get(
 pub(crate) async fn handle_set_delete(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
-) -> Json<Value> {
+) -> (StatusCode, Json<Value>) {
     let Some(set) = find_by_key(&st.data_dir, SET_DIR, "id", &id) else {
-        return Json(json!({ "ok": false, "removed": false, "id": id }));
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "ok": false, "removed": false, "id": id })),
+        );
     };
     let projection_id = s(&set, "ontology_projection_id", "");
+    let mut prior_projection: Option<Value> = None;
     if let Some(mut projection) = find_by_key(
         &st.data_dir,
         crate::ontology_projection_routes::RECORD_DIR,
         "id",
         &projection_id,
     ) {
+        prior_projection = Some(projection.clone());
         projection["health"]["object_instances"] = json!(0);
         projection["health"]["materialized"] = json!(false);
         projection["materialized"] = Value::Null;
         projection["updated_at"] = json!(iso_now());
-        let _ = persist_record(
+        // W1.2 / MEF-GAP-008 — this write was discarded. The tied projection's materialized
+        // state gates the whole ladder (plan checks require status/health truth); removing the
+        // set while the projection still claims `materialized: true` with a dead set_ref is
+        // exactly the dangling count this handler's own doc comment promises to prevent.
+        if persist_record(
             &st.data_dir,
             crate::ontology_projection_routes::RECORD_DIR,
             &projection_id,
             &projection,
-        );
+        )
+        .is_err()
+        {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    json!({ "ok": false, "code": "execution_projection_persistence_failed",
+                    "message": "the tied projection's materialized state could not be reset — the set was NOT removed" }),
+                ),
+            );
+        }
     }
     let removed = remove_record(&st.data_dir, SET_DIR, &id);
-    if removed {
-        let _ = run_receipt(
-            &st.data_dir,
-            &s(&set, "materializing_run_ref", ""),
-            "materialized_output_removed",
-            "ok",
-            &format!(
-                "materialized set {} removed; projection {projection_id} reset to 0",
-                s(&set, "ref", "")
-            ),
+    if !removed {
+        // The projection reset committed but the set removal failed: restore the prior
+        // projection so a live set never stands beside a zeroed projection.
+        if let Some(prior) = prior_projection {
+            // CLASSIFIED — rollback/cleanup best-effort: compensating write on an already-failing path that ends in a typed error; there is no deeper fallback to fail into.
+            let _ = persist_record(
+                &st.data_dir,
+                crate::ontology_projection_routes::RECORD_DIR,
+                &projection_id,
+                &prior,
+            );
+        }
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "code": "execution_set_removal_failed",
+                "message": "the materialized set could not be removed — the projection's prior state was restored" })),
         );
     }
-    Json(json!({ "ok": removed, "removed": removed, "id": id }))
+    let _ = run_receipt(
+        &st.data_dir,
+        &s(&set, "materializing_run_ref", ""),
+        "materialized_output_removed",
+        "ok",
+        &format!(
+            "materialized set {} removed; projection {projection_id} reset to 0",
+            s(&set, "ref", "")
+        ),
+    );
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "removed": true, "id": id })),
+    )
 }
 
 #[cfg(test)]

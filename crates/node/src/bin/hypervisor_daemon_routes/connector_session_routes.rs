@@ -323,6 +323,9 @@ fn session_receipt(
         "schema_version": RECEIPT_SCHEMA, "receipt_id": id, "receipt_ref": receipt_ref,
         "connector_session_ref": session_ref, "op": op, "outcome": outcome, "summary": summary, "at": iso_now()
     });
+    // CLASSIFIED — best-effort telemetry/receipt mirror: the authoritative crossing receipt is
+    // persisted inside the capability-lease gateway itself (receipt_required on the crossing);
+    // module-local receipts feed only the history listing.
     let _ = persist_record(data_dir, RECEIPT_DIR, &id, &rec);
     rec
 }
@@ -490,7 +493,17 @@ pub(crate) async fn handle_session_create(
         "created_at": now.clone(),
         "updated_at": now
     });
-    let _ = persist_record(&st.data_dir, RECORD_DIR, &id, &record);
+    // W1.2 / MEF-GAP-008 — this write was discarded. The session record gates /open (the
+    // credential crossing); a 201 whose persist failed hands back an id /open will 404 on.
+    if persist_record(&st.data_dir, RECORD_DIR, &id, &record).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "connector_session_persistence_failed",
+                "message": "the session request was NOT admitted — nothing was committed" }),
+            ),
+        );
+    }
     (
         StatusCode::CREATED,
         Json(json!({ "ok": true, "connector_session": record })),
@@ -636,7 +649,20 @@ pub(crate) async fn handle_session_open(
                 &format!("sealed session {session_lease_id} obtained"),
                 receipt.get("receipt_ref").cloned().unwrap_or(Value::Null),
             );
-            let _ = persist_record(&st.data_dir, RECORD_DIR, &id, &record);
+            // W1.2 / MEF-GAP-008 — this write was discarded, AFTER the gateway had already
+            // minted the sealed session and consumed a fresh bound wallet grant. A lost persist
+            // leaves disk saying "requested": execute refuses, and a retry crosses the gateway
+            // again consuming a SECOND owner grant. The external effect cannot be reordered
+            // after the persist, so the failure must name the partial effect honestly.
+            if persist_record(&st.data_dir, RECORD_DIR, &id, &record).is_err() {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(
+                        json!({ "ok": false, "code": "connector_session_persistence_failed",
+                        "message": format!("the gateway minted sealed session {session_lease_id} but the session record did NOT commit — the session is NOT open; the minted lease is orphaned in the gateway audit trail") }),
+                    ),
+                );
+            }
             (
                 StatusCode::OK,
                 Json(json!({ "ok": true, "connector_session": record })),
@@ -711,7 +737,18 @@ pub(crate) async fn handle_session_release(
         &format!("sealed session {slid} released"),
         receipt.get("receipt_ref").cloned().unwrap_or(Value::Null),
     );
-    let _ = persist_record(&st.data_dir, RECORD_DIR, &id, &record);
+    // W1.2 / MEF-GAP-008 — this write was discarded. A lost persist leaves the session
+    // `session_obtained` and still usable by execute while the caller was told it was
+    // released — a fail-open authority-liveness lie.
+    if persist_record(&st.data_dir, RECORD_DIR, &id, &record).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "connector_session_persistence_failed",
+                "message": "the session was NOT released — it remains open" }),
+            ),
+        );
+    }
     (
         StatusCode::OK,
         Json(json!({ "ok": true, "connector_session": record })),
@@ -752,7 +789,17 @@ pub(crate) async fn handle_session_cancel(
         "connector session cancelled before any crossing",
         receipt.get("receipt_ref").cloned().unwrap_or(Value::Null),
     );
-    let _ = persist_record(&st.data_dir, RECORD_DIR, &id, &record);
+    // W1.2 / MEF-GAP-008 — this write was discarded. A "cancelled" session that stays
+    // `requested` on disk remains openable.
+    if persist_record(&st.data_dir, RECORD_DIR, &id, &record).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "connector_session_persistence_failed",
+                "message": "the session was NOT cancelled — it remains requested" }),
+            ),
+        );
+    }
     (
         StatusCode::OK,
         Json(json!({ "ok": true, "connector_session": record })),
@@ -764,14 +811,20 @@ pub(crate) async fn handle_session_patch(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
     Json(patch): Json<Value>,
-) -> Json<Value> {
+) -> (StatusCode, Json<Value>) {
     let Some(mut record) = load_session(&st.data_dir, &id) else {
-        return Json(json!({ "ok": false, "reason": "connector session not found" }));
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "ok": false, "reason": "connector session not found" })),
+        );
     };
     let status = s(&record, "status", "");
     if status == "cancelled" || status == "session_released" {
-        return Json(
-            json!({ "ok": false, "error": { "code": "session_terminal_immutable", "message": format!("a {status} session is immutable") } }),
+        return (
+            StatusCode::CONFLICT,
+            Json(
+                json!({ "ok": false, "error": { "code": "session_terminal_immutable", "message": format!("a {status} session is immutable") } }),
+            ),
         );
     }
     let frozen = ["materializing_run_id", "connector_id", "ttl_seconds"];
@@ -781,8 +834,11 @@ pub(crate) async fn handle_session_patch(
         .any(|k| patch.get(*k).is_some())
     {
         let _ = session_receipt(&st.data_dir, &s(&record, "ref", ""), "patch_rejected", "session_scope_frozen", "scope-affecting patch refused — a session's scope is the lease's scope, frozen from birth");
-        return Json(
-            json!({ "ok": false, "error": { "code": "session_scope_frozen", "message": "a session's scope binds the lease verbatim and is frozen — cancel and request a new one" } }),
+        return (
+            StatusCode::CONFLICT,
+            Json(
+                json!({ "ok": false, "error": { "code": "session_scope_frozen", "message": "a session's scope binds the lease verbatim and is frozen — cancel and request a new one" } }),
+            ),
         );
     }
     if let Some(v) = patch.get("name") {
@@ -807,8 +863,21 @@ pub(crate) async fn handle_session_patch(
         "metadata edit",
         receipt.get("receipt_ref").cloned().unwrap_or(Value::Null),
     );
-    let _ = persist_record(&st.data_dir, RECORD_DIR, &id, &record);
-    Json(json!({ "ok": true, "connector_session": record }))
+    // W1.2 / MEF-GAP-008 — this write was discarded; ok:true returned a revision bump no
+    // read would ever show.
+    if persist_record(&st.data_dir, RECORD_DIR, &id, &record).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "connector_session_persistence_failed",
+                "message": "the metadata edit did NOT commit — the prior revision stands" }),
+            ),
+        );
+    }
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "connector_session": record })),
+    )
 }
 
 /// DELETE — receipted removal.

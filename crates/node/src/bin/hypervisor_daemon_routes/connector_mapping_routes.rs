@@ -340,6 +340,8 @@ fn mapping_receipt(data_dir: &str, mapping_ref: &str, op: &str, summary: &str) -
         "schema_version": RECEIPT_SCHEMA, "receipt_id": id, "receipt_ref": receipt_ref,
         "connector_mapping_ref": mapping_ref, "op": op, "outcome": "ok", "summary": summary, "at": iso_now()
     });
+    // CLASSIFIED — best-effort telemetry/receipt mirror: module-local receipts feed only the
+    // history listing; the mapping record itself carries the authoritative history entries.
     let _ = persist_record(data_dir, RECEIPT_DIR, &id, &rec);
     rec
 }
@@ -495,7 +497,10 @@ pub(crate) async fn handle_connector_mapping_create(
             obj.insert(k.clone(), v.clone());
         }
     }
-    let _ = persist_record(
+    // W1.2 / MEF-GAP-008 — this write was discarded. The mapping record gates the whole
+    // downstream ladder (materializing-run lease checks, execution bindings, lease plans);
+    // a 201 whose persist failed hands back an id every later step will refuse.
+    if persist_record(
         &st.data_dir,
         RECORD_DIR,
         record
@@ -503,7 +508,17 @@ pub(crate) async fn handle_connector_mapping_create(
             .and_then(|v| v.as_str())
             .unwrap_or_default(),
         &record,
-    );
+    )
+    .is_err()
+    {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "connector_mapping_persistence_failed",
+                "message": "the mapping was NOT declared — nothing was committed (the created receipt is void)" }),
+            ),
+        );
+    }
     (
         StatusCode::CREATED,
         Json(json!({ "ok": true, "connector_mapping": record })),
@@ -515,9 +530,12 @@ pub(crate) async fn handle_connector_mapping_patch(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
     Json(patch): Json<Value>,
-) -> Json<Value> {
+) -> (StatusCode, Json<Value>) {
     let Some(existing) = load_mapping(&st.data_dir, &id) else {
-        return Json(json!({ "ok": false, "reason": "connector mapping not found" }));
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "ok": false, "reason": "connector mapping not found" })),
+        );
     };
     // Build the merged body from existing declared inputs overlaid with the patch, then re-validate.
     let mut merged = json!({});
@@ -539,7 +557,12 @@ pub(crate) async fn handle_connector_mapping_patch(
     }
     let projected = match validate_and_project(&st.data_dir, &merged) {
         Ok(p) => p,
-        Err(e) => return Json(json!({ "ok": false, "error": { "code": e.0, "message": e.1 } })),
+        Err(e) => {
+            return (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                Json(json!({ "ok": false, "error": { "code": e.0, "message": e.1 } })),
+            )
+        }
     };
     let mut record = existing;
     if let Some(v) = patch.get("name") {
@@ -587,8 +610,22 @@ pub(crate) async fn handle_connector_mapping_patch(
         .unwrap_or_default();
     refs.push(receipt_ref);
     record["receipt_refs"] = json!(refs);
-    let _ = persist_record(&st.data_dir, RECORD_DIR, &id, &record);
-    Json(json!({ "ok": true, "connector_mapping": record }))
+    // W1.2 / MEF-GAP-008 — this write was discarded. A revision bump and re-declared health
+    // returned to the caller while the ladder keeps validating against the OLD mapping is a
+    // quiet divergence between belief and admitted truth.
+    if persist_record(&st.data_dir, RECORD_DIR, &id, &record).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "connector_mapping_persistence_failed",
+                "message": "the re-declared mapping did NOT commit — the prior revision stands" }),
+            ),
+        );
+    }
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "connector_mapping": record })),
+    )
 }
 
 /// DELETE /v1/hypervisor/odk/connector-mappings/:id.
