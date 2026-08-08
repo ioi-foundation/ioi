@@ -393,8 +393,9 @@ Environment restore and outcome reconciliation are separate operations.
 
 Use [`current-canon-defaults.md`](./current-canon-defaults.md) for the current
 cross-owner digest, [`source-of-truth-map.md`](./source-of-truth-map.md) before
-editing doctrine, and [`implementation-matrix.md`](./implementation-matrix.md)
-before claiming that a target object is built.
+editing doctrine, and [`canon-to-code-delta.md`](./canon-to-code-delta.md) plus
+the [`work-items/`](./work-items/) records before claiming that a target object
+is built (the former implementation matrix is archived).
 
 | Problem | Start here | Then read |
 | --- | --- | --- |
@@ -433,7 +434,7 @@ Read, in order:
 3. [`api.md`](../components/daemon-runtime/api.md)
 4. [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md)
 5. [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md)
-6. [`implementation-matrix.md`](./implementation-matrix.md)
+6. [`canon-to-code-delta.md`](./canon-to-code-delta.md)
 
 ### Product implementer
 
@@ -548,6 +549,7 @@ systems.
   [`canonical-enums.md`](../foundations/canonical-enums.md).
 - Put shared names in [`vocabulary.md`](./vocabulary.md).
 - Record built/partial/planned truth in
-  [`implementation-matrix.md`](./implementation-matrix.md).
+  [`canon-to-code-delta.md`](./canon-to-code-delta.md) or a
+  [`work-items/`](./work-items/) record.
 - Do not use the whitepaper, an archive, an ignored internal guide, or a UI
   projection as a competing architecture owner.

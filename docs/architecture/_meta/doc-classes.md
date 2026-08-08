@@ -76,8 +76,9 @@ Rules:
   enforces both the vocabulary above and this requirement.
 
 Horizon framing for the whole corpus lives in
-[`execution-horizons.md`](./execution-horizons.md); per-concept durable-form
-status lives in [`implementation-matrix.md`](./implementation-matrix.md).
+[`execution-horizons.md`](./execution-horizons.md); per-object durable-form
+status lives in [`canon-to-code-delta.md`](./canon-to-code-delta.md) and the
+[`work-items/`](./work-items/) records.
 
 ## Placement Rule
 
@@ -95,7 +96,7 @@ migration artifacts remain in place only as structurally bounded
 would break long-lived historical links. Their whole-document boundary appears
 before all old guidance; every statement below it is historical and cannot
 direct work. Current implementation direction belongs to
-`implementation-matrix.md`, daemon doctrine, and `canon-to-code-delta.md`.
+`canon-to-code-delta.md`, the work-item records, and daemon doctrine.
 
 ## Canonical Owner Shape
 

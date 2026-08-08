@@ -40,7 +40,7 @@ contract, and older mapping documents remain archived historical evidence.
 Implementation refs:
   - `apps/hypervisor/`
   - `crates/node/src/bin/hypervisor_daemon_routes/`
-Last implementation audit: 2026-07-05
+Last implementation audit: 2026-08-08 (scope: core-workspace enumeration sections only, re-derived under repair unit R2 against the v2 route table and surface compiler; all other sections carry the 2026-07-05 basis and need re-derivation before citing)
 
 ## Canonical Definition
 

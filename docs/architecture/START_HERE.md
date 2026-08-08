@@ -19,8 +19,9 @@ Then use:
   cross-owner target-state digest;
 - [`_meta/source-of-truth-map.md`](./_meta/source-of-truth-map.md) before editing
   a subject;
-- [`_meta/implementation-matrix.md`](./_meta/implementation-matrix.md) before
-  treating target canon as built;
+- [`_meta/canon-to-code-delta.md`](./_meta/canon-to-code-delta.md) and the
+  [`_meta/work-items/`](./_meta/work-items/) records before treating target
+  canon as built;
 - [`_meta/execution-horizons.md`](./_meta/execution-horizons.md) for convergence
   versus later gated horizons;
 - [`foundations/institutional-learning-boundary.md`](./foundations/institutional-learning-boundary.md)
