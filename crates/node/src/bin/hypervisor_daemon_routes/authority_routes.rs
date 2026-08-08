@@ -94,7 +94,7 @@ fn active_authority_mode() -> String {
 
 /// Compute a persisted grant's LIVE status from the real clock + revoke flag.
 /// `granted` records become `active` | `expired`; non-granted decisions keep their decision.
-fn live_grant_status(grant: &Value) -> &'static str {
+pub(crate) fn live_grant_status(grant: &Value) -> &'static str {
     if grant.get("decision").and_then(|v| v.as_str()) == Some("denied") {
         return "denied";
     }
@@ -115,7 +115,7 @@ fn live_grant_status(grant: &Value) -> &'static str {
     "active"
 }
 
-fn load_grant(data_dir: &str, grant_id: &str) -> Option<Value> {
+pub(crate) fn load_grant(data_dir: &str, grant_id: &str) -> Option<Value> {
     read_record_dir(data_dir, "authority-grants")
         .into_iter()
         .find(|g| {

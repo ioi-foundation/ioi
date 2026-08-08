@@ -6,7 +6,7 @@ Supersedes: the same object definitions when they were carried inside the single
 Superseded by: none.
 Last alignment pass: 2026-07-25.
 Doctrine status: canonical
-Implementation status: mixed (`ManagedWorkBillingLedgerBundle` v1 has a registered schema, invariants, fixtures, and generated projections; the managed-work billing kernel, settlement, and contribution rails remain planned)
+Implementation status: mixed (`ManagedWorkBillingLedgerBundle` v1 has a registered schema, invariants, fixtures, and generated projections; the managed-work billing KERNEL is runtime-implemented at `/v1/hypervisor/economics/*` — RateCard/Plan/WorkQuote/CreditHold/UsageRecord/OverrunDecision/FinalDebit/BillingAdjustment over the shared admission boundary with integer-only amounts, spend-authority-gated debits, and contract-validated bundle export; settlement execution, supplier reconciliation, entitlements, and contribution rails remain planned)
 Last implementation audit: 2026-07-25
 
 ## Purpose
