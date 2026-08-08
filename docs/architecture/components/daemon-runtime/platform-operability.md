@@ -6,7 +6,7 @@ Supersedes: implicit or component-local assumptions that a healthy daemon implie
 Superseded by: none.
 Last alignment pass: 2026-08-08.
 Doctrine status: canonical
-Implementation status: planned (the canonical fault matrix is machine-readable target fixture data; the deterministic evaluator, plane observers, scheduler, recovery controllers, and estate-wide probes are not implemented on current master; the `TemporalVerificationProfile` and `TemporalValidityEvaluation` wire contracts are registered in this tree — registry entries, v1 schemas, invariants, fixtures, generated projections — with the HypervisorOS node-attestation plane as their first consumer and no independent evaluator runtime yet; the command-execution guardrail policy has a live daemon route and a live enforcement point at the scoped execution primitive, neither of which yet satisfies the failure contract this file now owns)
+Implementation status: planned (the canonical fault matrix is machine-readable target fixture data; the deterministic evaluator, plane observers, scheduler, recovery controllers, and estate-wide probes are not implemented on current master; the `TemporalVerificationProfile` and `TemporalValidityEvaluation` wire contracts are registered in this tree — registry entries, v1 schemas, invariants, fixtures, generated projections — with the HypervisorOS node-attestation plane as their first consumer and no independent evaluator runtime yet; the command-execution guardrail policy's failure-state table and mutation order ARE implemented for the mounted `POST /v1/hypervisor/exec` primitive and its `GET`/`POST /v1/hypervisor/guardrails` route, proven by module tests and by no conformance fixture, while every other command-capable daemon path remains outside that guard — see the command-execution guardrail policy section)
 Last implementation audit: 2026-08-08
 
 ## Canonical Definition
@@ -861,9 +861,10 @@ Also not built or claimed:
 - live key distribution/activation/revocation across verifier processes;
 - deployed mixed-version rollouts, billing/proof reconciliation controllers,
   or telemetry-sink canary probes;
-- a durable, authority-gated mutation path for the command-execution guardrail
-  policy, or an indeterminate-policy denial at the scoped execution primitive
-  (see the command-execution guardrail policy section below);
+- command-execution guardrail enforcement on any command-capable path other
+  than the mounted `POST /v1/hypervisor/exec` primitive (see the command-execution
+  guardrail policy section below, which now records what that one path does
+  satisfy and which paths remain unguarded);
 - platform-wide SLO values for any production deployment; or
 - evidence that a modeled decision repaired, fenced, restored, or reconciled a
   plane.
@@ -1048,41 +1049,90 @@ observability gap — never a reason to admit the command.
 
 ### Current posture
 
-`GET`/`POST /v1/hypervisor/guardrails` and the deny test at the scoped execution
-primitive exist on current master and do refuse real commands. They do not yet
-satisfy this contract. The distance is recorded here rather than left in the
-code so that a later packet closes a named gap instead of inventing a plane:
+`GET`/`POST /v1/hypervisor/guardrails` and the deny test at the mounted
+`POST /v1/hypervisor/exec` primitive now implement the failure-state table above
+for that one path. The five gaps previously recorded here are closed **at that
+path only**:
 
-- an unreadable or malformed persisted policy silently becomes the built-in
-  default at both the read route and the enforcement point, so failure state 2
-  is currently indistinguishable from failure state 1;
-- the mutation path discards its persistence result, acknowledges the submitted
-  candidate rather than a reloaded projection, and can write an empty file when
-  serialization fails — which then presents as the malformed state above, so a
-  failed mutation can *widen* the effective policy;
-- the response asserts `audited: true` unconditionally over a discarded audit
-  write;
-- the environment-local merge applies only when the active global policy already
-  carries the matching key, so a well-formed but incomplete persisted policy
-  silently drops an environment's own additions, against the monotonicity rule
-  above;
-- the handler resolves no principal and no policy-mutation authority of its own.
-  The daemon's inbound auth ring does cover the route, but it demands a principal
-  only while authentication enforcement is active, and that enforcement defaults
-  off under a local-development posture. This is an implementation gap. It is not
-  canonical permission for an ambient caller to rewrite the deny-list, and no
-  deployment posture makes it one.
+- an unreadable, malformed, non-regular, or symlinked persisted policy is
+  indeterminate at both the read route and the enforcement point — command
+  execution is denied and the built-in default is never substituted, so failure
+  state 2 no longer presents as failure state 1;
+- the mutation path persists durably, refuses typed on a persistence failure,
+  and acknowledges the **reloaded** projection rather than the submitted
+  candidate; the raw file write that could emit an empty file on a serialization
+  failure — and thereby *widen* the effective policy — is gone;
+- the audit outcome is reported as an explicit audit-durability state, never
+  `audited: true` over a failed or unconfirmed write, and never as an
+  atomic-failure claim about a policy that is already active;
+- a denial key absent from a *legacy-store* policy composes an empty base, so an
+  environment's own additions land instead of being dropped, and the read route
+  names the normalized absent key rather than re-adding the built-in list
+  underneath an authorized change. This case is legacy-only by construction: a
+  policy write is a full replacement carrying both keys, so a durable record
+  missing one is malformed rather than an operator choice;
+- the mutation resolves an authenticated organization administrator through the
+  existing authority path before the request body is deserialized, so an ambient
+  caller can no longer rewrite the deny-list under any deployment posture, and
+  the resulting audit record names the server-resolved principal that authorized
+  the change.
 
-The mutation-side gaps are instances of the completion properties tracked in
+A policy write is a **full replacement**. A submission carrying only one denial
+key is refused rather than completed from the built-in default: completing it
+would let an operator who meant to add one executable denial silently lose their
+custom command denials to the default list, which is exactly the "the default
+does not silently re-add itself underneath that change" rule above. An
+environment-local declaration is likewise validated at environment creation and
+refused there, because the enforcement point treats a malformed declaration as
+indeterminate and no route exists that can repair one afterwards.
+
+**Coverage is `/exec` only, and this is not a comprehensive deny-list.**
+`run_task`, environment health/readiness command execution, `supervisor_routes`
+command execution, and `provider_routes` command execution do not route through
+this guard today, so no policy set here constrains them. That is a
+higher-severity open gap than any of the five above: a deny instrument enforced
+at one primitive while other command-capable paths execute freely is an
+enforcement gap, not a partial rollout. Routing those paths through the
+primitive changes execution behaviour and is owned separately.
+
+Two further consequences are recorded rather than hidden. Reading the
+pre-durable-family policy file strictly means a deployment whose
+`guardrail-policy.json` is itself a **symlink** now becomes indeterminate and
+denies all scoped command execution; the migration is to place a regular file
+there, or to set a policy through the mutation route, which writes the durable
+record the read path prefers. The daemon *data directory* is resolved normally
+on both the legacy and durable lanes, so a symlink-mounted data directory —
+containers, atomic-swap release directories — is unaffected; strictness that
+applied to one lane and not the other would have bought no containment while
+denying execution estate-wide. And the matcher itself is unchanged on purpose:
+its case-sensitivity split, its substring-matching limits, and its
+quote-splitting of executable tokens are the shipped enforcement line, and
+moving that line inside a change about where the policy is *stored* would be the
+silent semantic drift this section exists to prevent.
+
+One pre-existing risk this section does **not** close: a refused command string
+is written verbatim into the operability-audit record and echoed in the refusal
+response. A command carrying an inline credential is therefore persisted and
+returned in the clear. Redaction is a separate contract with its own owner, and
+inventing one inside a persistence change would be the wrong place to decide
+what a secret looks like — recorded here as an open risk rather than silently
+broadened into.
+
+The mutation-side properties are the ones tracked in
 [`mutation-event-foundation-coverage.v1.json`](../../_meta/mutation-event-foundation-coverage.v1.json)
 — specifically "no success response before required durability confirmation" and
 "typed recovery for ambiguous persistence, receipt, event, and multi-effect
-failures" — and closing them is the same shape of fix already applied to the
-deployment-local budget policy.
+failures". That file records exactly which properties remain unsatisfied for
+these handlers: caller idempotency, expected-head compare-and-swap, Agentgres
+admission with a hash-linked receipt, restart replay from admitted truth, and
+cross-principal borrowing refusal are all still open, and the policy write is an
+unguarded replace that two concurrent setters can lose an update through.
 
 Not owned or claimed by this section: a registered wire contract, schema ref, or
 policy URI for `CommandExecutionGuardrailPolicy`; the exact stable refusal code
-strings; a content-hash or in-guest executable veto; and any assignment of this
-policy's custody to Agentgres rather than the daemon's local files. The
-canonical fault matrix carries no command-execution guardrail cases today, so
-the two conformance cases named above are an open fixture gap.
+strings, which remain implementation-level; a content-hash or in-guest
+executable veto; and any assignment of this policy's custody to Agentgres rather
+than the daemon's local files. The canonical fault matrix still carries no
+command-execution guardrail cases, so the two conformance cases named above
+remain an open fixture gap — module tests in the daemon are not conformance
+fixtures — and nothing here is evidence of production deployment.

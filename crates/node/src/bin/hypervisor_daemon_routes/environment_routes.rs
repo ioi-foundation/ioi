@@ -209,9 +209,9 @@ fn persist_env(data_dir: &str, env: &Value) -> Result<(), AppError> {
     })
 }
 
-fn new_env(id: &str, spec: &Value) -> Value {
+fn new_env(id: &str, spec: &Value) -> Result<Value, AppError> {
     let now = iso_now();
-    json!({
+    let mut env = json!({
         "schema_version": ENV_SCHEMA,
         "id": id,
         "spec": {
@@ -245,7 +245,38 @@ fn new_env(id: &str, spec: &Value) -> Value {
         "created_at": now,
         "updated_at": now,
         "evidence_refs": []
-    })
+    });
+    // The environment-local command-execution guardrail declaration, VALIDATED then RETAINED.
+    //
+    // It was silently DROPPED here, which made the local additions canon requires
+    // (platform-operability.md PO-10, "environment-local declarations may only add denials")
+    // unreachable from the product path: an operator could declare extra denials at create and
+    // the durable record would carry none of them. Dropping is the widening direction.
+    //
+    // Validation uses the SAME semantic validator the enforcement point composes with, so the two
+    // cannot drift: a declaration this accepts is exactly a declaration the scoped primitive can
+    // compose. Refusing here — before persist — matters because the enforcement point treats a
+    // malformed declaration as INDETERMINATE and denies every command in that environment, while
+    // no route exists that can update `spec.guardrails` afterwards. Admitting one would durably
+    // brick the environment's terminal with no in-API repair.
+    //
+    // A valid declaration is retained VERBATIM. The key is omitted entirely when the spec carries
+    // none, so "no local declaration" stays distinguishable from "an empty one", and records
+    // written before this field was retained keep composing as no-additions.
+    if let Err(why) = super::operability_routes::validate_environment_guardrail_declaration(spec) {
+        return Err(AppError(
+            StatusCode::BAD_REQUEST,
+            format!("environment-local command-execution guardrail declaration is invalid: {why}. It may carry only deny_commands and deny_executables, each an array of non-empty strings, and it may only ADD denials."),
+        ));
+    }
+    // A JSON null is ABSENCE, exactly as the validator and the composition step read it, so the
+    // key is omitted rather than retained as null. Retaining it would contradict the contract
+    // stated above — "the key is omitted entirely when the spec carries none" — and mint a
+    // null-shaped declaration that no caller wrote.
+    if let Some(declaration) = spec.get("guardrails").filter(|value| !value.is_null()) {
+        env["spec"]["guardrails"] = declaration.clone();
+    }
+    Ok(env)
 }
 
 /// Append a typed `HypervisorEnvironmentLifecycleObservation` (canon stage/component/
@@ -2266,7 +2297,9 @@ pub(crate) async fn handle_environment_create(
         .and_then(|v| v.as_str())
         .map(String::from)
         .unwrap_or_else(gen_env_id);
-    let mut env = new_env(&id, &spec);
+    // Refuses BEFORE any persist when the spec carries an invalid environment-local guardrail
+    // declaration; every other field is admitted exactly as before.
+    let mut env = new_env(&id, &spec)?;
     // WS-2: repo-detect-first — if the spec points at a repo, admit a detected recipe and bind it.
     if env["spec"]["recipe_ref"]
         .as_str()
@@ -2352,7 +2385,9 @@ pub(crate) async fn handle_environment_get(
             e
         }
         None => {
-            let mut e = new_env(&id, &json!({}));
+            // An empty spec declares no guardrails, so this cannot refuse; `?` keeps the one
+            // validation path rather than asserting that here.
+            let mut e = new_env(&id, &json!({}))?;
             observe(
                 &mut e,
                 "queued",
@@ -2373,7 +2408,11 @@ pub(crate) async fn handle_environment_action(
     State(st): State<Arc<DaemonState>>,
     AxumPath((id, action)): AxumPath<(String, String)>,
 ) -> Result<Json<Value>, AppError> {
-    let mut env = load_env(&st.data_dir, &id).unwrap_or_else(|| new_env(&id, &json!({})));
+    let mut env = match load_env(&st.data_dir, &id) {
+        Some(env) => env,
+        // An empty spec declares no guardrails, so this cannot refuse.
+        None => new_env(&id, &json!({}))?,
+    };
     // WS-1 migration: bring a Phase-0 (flat) env record up to the component model on touch.
     if !env["status"]["components"].is_object() {
         env["status"]["components"] = new_components();
@@ -3426,6 +3465,57 @@ pub(crate) async fn handle_workrun_get(
     Ok(Json(json!({ "workRun": rec })))
 }
 
+/// The command-execution guardrail decision AT the scoped execution primitive, and the response
+/// body when it refuses. `None` means no veto fired — which grants nothing: the caller still has
+/// every other gate to pass.
+///
+/// Extracted from the Axum adapter so both refusal shapes are directly testable without standing
+/// up a daemon. Two refusals, kept DISTINCT:
+///
+///   * `policy_denied` — a policy rule actually matched this command string. `denial` names the
+///     rule and the matched pattern.
+///   * `policy_indeterminate` — the policy could NOT be resolved (unreadable, malformed, or
+///     non-regular persisted state, or a malformed environment-local declaration). Execution is
+///     still refused, but the response must not claim a rule matched, because none did; the
+///     previous hardcoded "blocked by environment guardrail policy" stderr asserted exactly that
+///     for a state where no policy had been read at all.
+///
+/// The enforcement fact and the audit outcome are reported SEPARATELY. Losing the audit record is
+/// an observability gap, never a reason to admit the command and never `audited: true` — so
+/// `audit_durability` rides alongside the refusal instead of being discarded.
+fn guardrail_refusal_response(
+    data_dir: &str,
+    env: &Value,
+    env_id: &str,
+    command: &str,
+) -> Option<Value> {
+    use super::operability_routes::GuardrailDecision;
+    let (mut body, refusal) = match super::operability_routes::guardrail_check(
+        data_dir, env, command,
+    ) {
+        GuardrailDecision::Allowed => return None,
+        GuardrailDecision::Denied(denial) => (
+            json!({
+                "environment_id": env_id, "command": command, "denied": true,
+                "policy_denied": true, "denial": denial.clone(), "exit_code": 126,
+                "stdout": "", "stderr": "blocked by environment guardrail policy (fail-closed)"
+            }),
+            denial,
+        ),
+        GuardrailDecision::Indeterminate(indeterminacy) => (
+            json!({
+                "environment_id": env_id, "command": command, "denied": true,
+                "policy_indeterminate": true, "refusal": indeterminacy.clone(), "exit_code": 126,
+                "stdout": "", "stderr": "refused: the command-execution guardrail policy is INDETERMINATE and no policy rule was evaluated (fail-closed)"
+            }),
+            indeterminacy,
+        ),
+    };
+    body["audit_durability"] =
+        super::operability_routes::audit_guardrail_denial(data_dir, env_id, command, &refusal);
+    Some(body)
+}
+
 /// POST /v1/hypervisor/exec — the env's scoped terminal (Build Rule: terminal/logs).
 ///
 /// Runs a command in the environment's scoped workspace. Locally-authorized via the
@@ -3463,13 +3553,8 @@ pub(crate) async fn handle_workspace_exec(
     // Cut F (M) — guardrail enforcement at the exec primitive: the deny-list is checked on the
     // command string itself, so an agent cannot bypass policy via ordinary shell (a `bash -c "rm
     // -rf /"` is still this command string). Fail-closed + audited; the in-guest path is gated too.
-    if let Some(denial) = super::operability_routes::guardrail_check(&st.data_dir, &env, command) {
-        super::operability_routes::audit_guardrail_denial(&st.data_dir, env_id, command, &denial);
-        return Ok(Json(json!({
-            "environment_id": env_id, "command": command, "denied": true,
-            "policy_denied": true, "denial": denial, "exit_code": 126,
-            "stdout": "", "stderr": "blocked by environment guardrail policy (fail-closed)"
-        })));
+    if let Some(refusal) = guardrail_refusal_response(&st.data_dir, &env, env_id, command) {
+        return Ok(Json(refusal));
     }
 
     // WS-4: if a live microVM backs this env, the terminal runs IN-GUEST (real kernel boundary).
@@ -4267,5 +4352,215 @@ mod containment_tests {
             env["status"]["cleanup_obligations"][0]["status"],
             json!("pending")
         );
+    }
+}
+
+#[cfg(test)]
+mod scoped_exec_guardrail_tests {
+    use super::*;
+
+    // Deterministic, uid-independent, process-local: path shadows only. No chmod (root bypasses
+    // mode bits), no env var, no cwd change. These drive the PRODUCTION functions the mounted
+    // POST /v1/hypervisor/exec route calls — `new_env` for the retained declaration and
+    // `guardrail_refusal_response` for the enforcement decision and its response body.
+
+    fn temp() -> tempfile::TempDir {
+        tempfile::tempdir().unwrap()
+    }
+
+    /// `AppError` is not `Debug`, and its defining module is not this change's to touch, so these
+    /// two destructure it rather than reaching for `expect`/`expect_err`.
+    fn admit(id: &str, spec: &Value) -> Value {
+        match new_env(id, spec) {
+            Ok(env) => env,
+            Err(AppError(status, message)) => {
+                panic!("new_env refused a valid spec: {status} {message}")
+            }
+        }
+    }
+
+    fn creation_refusal(id: &str, spec: &Value) -> (StatusCode, String) {
+        match new_env(id, spec) {
+            Ok(env) => panic!("new_env admitted a spec it must refuse: {env}"),
+            Err(AppError(status, message)) => (status, message),
+        }
+    }
+
+    fn refuse(directory: &tempfile::TempDir, env: &Value, command: &str) -> Option<Value> {
+        guardrail_refusal_response(
+            directory.path().to_str().unwrap(),
+            env,
+            env["id"].as_str().unwrap_or("env_1"),
+            command,
+        )
+    }
+
+    /// 4a. An environment created with a valid local addition RETAINS it, and the addition is
+    /// enforced at the primitive. The declaration used to be dropped by `new_env`, which made
+    /// every environment-local denial unreachable from the product path.
+    #[test]
+    fn environment_creation_retains_a_valid_local_addition_and_it_enforces() {
+        let directory = temp();
+        let env = admit(
+            "env_local",
+            &json!({ "guardrails": { "deny_commands": ["deploy-to-prod"] } }),
+        );
+
+        assert_eq!(
+            env["spec"]["guardrails"],
+            json!({ "deny_commands": ["deploy-to-prod"] }),
+            "the declaration must survive into the durable record"
+        );
+        let refusal = refuse(&directory, &env, "deploy-to-prod --now")
+            .expect("the retained local addition must be enforced");
+        assert_eq!(refusal["policy_denied"], json!(true));
+        assert_eq!(refusal["denial"]["rule"], json!("deny_command"));
+        assert_eq!(refusal["denial"]["matched"], json!("deploy-to-prod"));
+        assert_eq!(refusal["exit_code"], json!(126));
+        // A command the composed policy does not deny still runs the normal path.
+        assert!(refuse(&directory, &env, "cargo build").is_none());
+    }
+
+    #[test]
+    fn an_environment_without_a_declaration_carries_no_guardrails_key() {
+        // Absence stays legible as absence; nothing is minted for a spec that declared none.
+        let env = admit("env_plain", &json!({ "project_id": "prj" }));
+        assert!(env["spec"].get("guardrails").is_none());
+
+        // An EXPLICIT null is absence too — the validator and the composition step both read it
+        // that way, so retaining it would mint a null-shaped declaration no caller wrote and
+        // contradict the "omitted when the spec carries none" contract.
+        let explicit_null = admit("env_null", &json!({ "guardrails": Value::Null }));
+        assert!(
+            explicit_null["spec"].get("guardrails").is_none(),
+            "an explicit null must be omitted, not retained: {}",
+            explicit_null["spec"]
+        );
+    }
+
+    /// 4b. A malformed local declaration is REFUSED at creation, before persist. Admitting one
+    /// would durably brick that environment's terminal: the enforcement point treats a malformed
+    /// declaration as indeterminate and denies every command, and no route can update
+    /// `spec.guardrails` afterwards. Refusing is the only disposition with a repair path.
+    #[test]
+    fn environment_creation_refuses_a_malformed_local_declaration_before_persist() {
+        for malformed in [
+            json!({ "deny_commands": "not-an-array" }),
+            json!({ "deny_commands": [42] }),
+            json!({ "deny_commands": [""] }),
+            json!({ "deny_commands": ["ok"], "deny_executables": [null] }),
+            json!(["deny_commands"]),
+            // An environment cannot author its own authority: an allow-shaped key is refused
+            // rather than ignored.
+            json!({ "allow_commands": ["rm -rf /"] }),
+            json!({ "deny_commands": ["ok"], "note": "extra" }),
+        ] {
+            let (status, message) =
+                creation_refusal("env_bad", &json!({ "guardrails": malformed.clone() }));
+            assert_eq!(status, StatusCode::BAD_REQUEST, "for {malformed}");
+            assert!(
+                message.contains("guardrail declaration is invalid"),
+                "for {malformed}: {message}"
+            );
+        }
+    }
+
+    /// The same semantic validator decides creation and composition, so a record that WAS
+    /// admitted before that validation existed (or written out of band) still denies rather than
+    /// being ignored — and the refusal names the only repair the API actually has.
+    #[test]
+    fn a_pre_existing_malformed_declaration_denies_and_names_a_real_repair() {
+        let directory = temp();
+        // Written out of band, exactly as a record predating create-time validation would be.
+        let mut env = admit("env_broken", &json!({}));
+        env["spec"]["guardrails"] = json!({ "deny_commands": "not-an-array" });
+
+        let refusal = refuse(&directory, &env, "echo harmless").expect("must refuse");
+        assert_eq!(refusal["denied"], json!(true));
+        assert_eq!(refusal["policy_indeterminate"], json!(true));
+        assert!(refusal.get("policy_denied").is_none());
+        assert_eq!(
+            refusal["refusal"]["store"],
+            json!("environment_local_declaration")
+        );
+        // The recovery text must name an affordance that EXISTS. There is no route that updates
+        // spec.guardrails, so "repair the declaration" would have been a lie.
+        let recovery = refusal["refusal"]["recovery"].as_str().unwrap();
+        assert!(
+            recovery.contains("delete and recreate") && recovery.contains("out of band"),
+            "recovery must name a real repair path, got: {recovery}"
+        );
+        assert!(
+            recovery.contains("NO route"),
+            "recovery must say no update route exists, got: {recovery}"
+        );
+    }
+
+    /// 10a. An indeterminate policy refuses WITHOUT claiming a policy rule matched. The previous
+    /// response hardcoded `policy_denied: true` and "blocked by environment guardrail policy" for
+    /// a state in which no policy had been read at all.
+    #[test]
+    fn an_indeterminate_policy_refuses_without_claiming_a_matched_rule() {
+        let directory = temp();
+        std::fs::write(directory.path().join("guardrail-policy.json"), b"{ corrupt").unwrap();
+        let env = admit("env_1", &json!({}));
+
+        let refusal = refuse(&directory, &env, "echo harmless").expect("must refuse");
+
+        assert_eq!(refusal["denied"], json!(true));
+        assert_eq!(refusal["policy_indeterminate"], json!(true));
+        assert!(
+            refusal.get("policy_denied").is_none(),
+            "an unresolvable policy is not a matched denial: {refusal}"
+        );
+        assert!(refusal["refusal"].get("rule").is_none());
+        assert!(refusal["refusal"].get("matched").is_none());
+        assert!(!refusal["refusal"]["recovery"].as_str().unwrap().is_empty());
+        assert!(refusal["stderr"]
+            .as_str()
+            .unwrap()
+            .contains("INDETERMINATE"));
+        assert_eq!(refusal["exit_code"], json!(126));
+    }
+
+    /// 10b. A denial whose audit write fails is STILL a denial, and the evidence loss is reported
+    /// separately from the enforcement fact — never as `audited: true`, never as permission.
+    #[test]
+    fn a_denial_whose_audit_write_fails_remains_a_denial_and_exposes_the_gap() {
+        let directory = temp();
+        // A regular FILE where the audit family directory belongs: the audit write cannot commit.
+        std::fs::write(
+            directory.path().join("operability-audit"),
+            b"not a directory",
+        )
+        .unwrap();
+        let env = admit("env_1", &json!({}));
+
+        let refusal = refuse(&directory, &env, "rm -rf /").expect("must still refuse");
+
+        assert_eq!(refusal["denied"], json!(true));
+        assert_eq!(refusal["policy_denied"], json!(true));
+        assert_eq!(refusal["denial"]["matched"], json!("rm -rf /"));
+        assert_eq!(refusal["audit_durability"]["audited"], json!(false));
+        assert_eq!(refusal["audit_durability"]["state"], json!("not_committed"));
+        assert!(!refusal["audit_durability"]["recovery"]
+            .as_str()
+            .unwrap()
+            .is_empty());
+    }
+
+    #[test]
+    fn a_durable_denial_audit_is_reported_durable_and_recorded() {
+        let directory = temp();
+        let env = admit("env_1", &json!({}));
+
+        let refusal = refuse(&directory, &env, "rm -rf /").expect("must refuse");
+
+        assert_eq!(refusal["audit_durability"]["audited"], json!(true));
+        assert_eq!(refusal["audit_durability"]["state"], json!("durable"));
+        let audits = read_record_dir(directory.path().to_str().unwrap(), "operability-audit");
+        assert_eq!(audits.len(), 1);
+        assert_eq!(audits[0]["kind"], json!("guardrail_denied"));
+        assert_eq!(audits[0]["environment_ref"], json!("env_1"));
     }
 }

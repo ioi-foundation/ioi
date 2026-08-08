@@ -15748,7 +15748,12 @@ fn actor_can_administer_tenant(
     ))
 }
 
-fn require_authenticated_org_admin(
+/// The server-resolved authenticated organization-administrator crossing. VISIBILITY ONLY beyond
+/// this module: `operability_routes::set_global_guardrail_policy` authorizes the
+/// command-execution guardrail policy mutation through this exact path rather than duplicating
+/// role or membership logic, so there is one answer to "may this principal make this crossing"
+/// and it is never read out of the request being decided.
+pub(crate) fn require_authenticated_org_admin(
     data_dir: &str,
     headers: &HeaderMap,
 ) -> Result<Value, (StatusCode, Json<Value>)> {
