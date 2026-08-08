@@ -3,6 +3,7 @@
 Status: canonical architecture authority.
 Doctrine status: canonical
 Implementation status: mixed (each enum states its code grounding)
+Last implementation audit: 2026-08-08 (three code anchors verified present with claimed symbols; remaining groundings self-mark as planned).
 Canonical owner: this file for the canonical member set and spelling of cross-component enumerations that previously drifted.
 Supersedes: divergent local redefinitions of risk classes, execution venues /
 privacy modes, provider account kinds, Goal Space controls, Hypervisor product-

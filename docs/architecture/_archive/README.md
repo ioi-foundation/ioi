@@ -3,6 +3,7 @@
 Status: archive index; nothing here is authority.
 Doctrine status: archived
 Implementation status: n/a
+Canonical owner: none; this index is history navigation, not authority. Subject doctrine remains with the owners in [`source-of-truth-map.md`](../_meta/source-of-truth-map.md).
 
 Verbatim historical material moved out of the canonical reading path on
 2026-07-05 so canon files stay current-state. Three classes:
