@@ -642,14 +642,18 @@ pub(crate) async fn handle_approval_get(
 // (`identity-access-and-metering.md`) rules that a request body never selects the acting
 // principal — the server-resolved authenticated principal is the only admissible reviewer.
 //
-// Two rules, both fail-closed:
-//   1. A request-carried `reviewer_ref` is REFUSED, never ignored. Silently dropping it would let
+// Three rules, all fail-closed:
+//   1. A request-carried identity field is REFUSED, never ignored. Silently dropping one would let
 //      a caller believe it had attributed the decision while the record said otherwise, and the
 //      surfaces that send one today would go on lying instead of being fixed.
 //   2. The reviewer is resolved server-side through the canonical request-identity seam. That
 //      holds even where the deployment's broad auth posture is permissive: `resolve_principal`
 //      mints nothing for an unauthenticated request, so no posture can produce an anonymous
 //      governance reviewer.
+//   3. Authorization is settled BEFORE the target record is read. Loading first would make this
+//      route an unauthenticated record-existence oracle: a missing id answers "not found" while a
+//      real one answers 401, so an anonymous caller could enumerate which approval ids exist by
+//      reading the difference. Whether a governance record exists is itself privileged.
 
 /// A typed refusal as DATA (status + stable code + message) rather than a rendered response, so
 /// the gates below stay pure and unit-testable without constructing an axum request.
@@ -663,21 +667,45 @@ fn refused(r: GovernanceRefusal) -> (StatusCode, Json<Value>) {
     )
 }
 
-/// PURE request gate: a client may never name the reviewer. Refuses on the KEY BEING PRESENT, not
-/// on its value, so `null`, `""`, and a value that happens to match the caller are refused alike.
+/// Identity/attribution fields the SERVER owns. A request that carries any of them is trying to
+/// name who acted, which canon forbids outright: "Request bodies never select the acting principal,
+/// owner, role, or authority." Every name here is a real attribution field in this estate's code or
+/// canon — `reviewer_ref` is what this record and its receipt carry, `principal_ref` is what the
+/// identity seam resolves, `acting_principal_ref`/`is_impersonated` are what `resolve_principal`
+/// sets on an impersonated request, `changed_by_principal_ref` is canon's named actor field on
+/// transition receipts, and `actor_ref` is the estate's generic actor name. This is deliberately
+/// NOT a guess-list: an invented name would refuse a field nothing writes, and `required_authority_refs`
+/// is excluded on purpose — it names WHAT authority a crossing needs, never WHO is acting, and it
+/// stays a legitimately patchable metadata field.
+const CLIENT_PROHIBITED_IDENTITY_FIELDS: &[&str] = &[
+    "reviewer_ref",
+    "principal_ref",
+    "acting_principal_ref",
+    "changed_by_principal_ref",
+    "actor_ref",
+    "is_impersonated",
+];
+
+/// PURE request gate: a client may never name who acted. Refuses on the KEY BEING PRESENT, not on
+/// its value, so `null`, `""`, and a value that happens to match the caller are refused alike.
 /// "Accept it when it matches" would make the check depend on the very identity the request is
 /// trying to assert, and would leave forged attribution one impersonation away from working.
-/// Runs BEFORE the record load, so a forged patch reaches no record and no transition builder.
-fn reject_client_supplied_reviewer(body: &Value) -> Result<(), GovernanceRefusal> {
-    if body.get("reviewer_ref").is_none() {
+/// Runs before identity resolution AND before the record load, so a forged patch reaches no
+/// identity substrate, no record, and no transition builder.
+fn reject_client_supplied_identity(body: &Value) -> Result<(), GovernanceRefusal> {
+    let Some(field) = CLIENT_PROHIBITED_IDENTITY_FIELDS
+        .iter()
+        .find(|field| body.get(**field).is_some())
+    else {
         return Ok(());
-    }
+    };
     Err((
         StatusCode::BAD_REQUEST,
         "governance_reviewer_ref_not_client_settable".to_string(),
-        "reviewer_ref is derived from the authenticated caller and cannot be supplied by the \
-         request; remove it and re-send"
-            .to_string(),
+        format!(
+            "'{field}' is derived from the authenticated caller and cannot be supplied by the \
+             request; remove it and re-send"
+        ),
     ))
 }
 
@@ -711,6 +739,35 @@ fn resolve_governance_reviewer(
     super::substrate_store::resolve_request_identity(data_dir, headers)
         .map(|identity| identity.principal_ref)
         .map_err(reviewer_identity_refusal)
+}
+
+/// The transition this patch requests, if any. ONE definition of "is this a mutation?", shared by
+/// the authorization decision and the lane the handler actually takes, so the two can never
+/// disagree about which request needed a reviewer.
+fn requested_transition(body: &Value) -> Option<&str> {
+    body.get("transition").and_then(|v| v.as_str())
+}
+
+/// Settle EVERYTHING the request alone decides — prohibited fields, then which lane, then the
+/// caller's identity — before the handler is allowed to touch the target record. Returns the
+/// server-derived reviewer for a transition, or `None` for a metadata-only patch (which keeps its
+/// existing authorization posture: this cut narrows attribution, it does not newly gate metadata).
+///
+/// Taking `data_dir` for the identity seam but never reading a governance record is the point: a
+/// refusal from here cannot depend on whether the id exists, so the 401 an anonymous caller gets
+/// is identical for a real approval and an invented one. Ordering within it is load-bearing —
+/// a prohibited field is a pure statement about the request's shape and is refused first (400),
+/// so a forged body is rejected the same way whether or not the caller could authenticate.
+fn prepare_approval_patch_identity(
+    data_dir: &str,
+    headers: &HeaderMap,
+    body: &Value,
+) -> Result<Option<String>, GovernanceRefusal> {
+    reject_client_supplied_identity(body)?;
+    if requested_transition(body).is_none() {
+        return Ok(None);
+    }
+    resolve_governance_reviewer(data_dir, headers).map(Some)
 }
 
 /// Apply an approval transition to `prev`, producing (updated record, transition receipt).
@@ -812,8 +869,11 @@ fn finalize_approval_transition(
 /// `HeaderMap` is extracted BEFORE `Json` because the body extractor consumes the request; the
 /// headers are read only by the canonical identity seam and never copied into a record or receipt.
 ///
-/// Refusal statuses: the two GOV-ATTR-1 gates carry real HTTP statuses (400 forged reviewer, 401
-/// unauthenticated, 503 identity substrate down). The pre-existing lanes keep this handler's
+/// ORDER IS THE CONTRACT: prohibited fields → lane → authorization → *then* the record. Nothing
+/// above the load may depend on the record existing, or the refusal itself leaks whether it does.
+///
+/// Refusal statuses: the GOV-ATTR-1 gates carry real HTTP statuses (400 client-supplied identity,
+/// 401 unauthenticated, 503 identity substrate down). The pre-existing lanes keep this handler's
 /// 200-shaped `ok:false` convention verbatim — re-statusing not-found / invalid-transition /
 /// persist-failed is a separate contract change and is not smuggled in here.
 pub(crate) async fn handle_approval_patch(
@@ -822,13 +882,11 @@ pub(crate) async fn handle_approval_patch(
     headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
-    // GOV-ATTR-1 gate 1, for BOTH lanes and before the record is even loaded: a request may not
-    // name the reviewer. Placed ahead of identity resolution because it is a pure statement about
-    // the request's shape — the body is malformed no matter who sent it — and because a refusal
-    // that needs no substrate read cannot be weakened by substrate trouble.
-    if let Err(r) = reject_client_supplied_reviewer(&body) {
-        return refused(r);
-    }
+    // Everything the request alone decides, settled before a single record byte is read.
+    let authorized_reviewer = match prepare_approval_patch_identity(&st.data_dir, &headers, &body) {
+        Ok(authorized_reviewer) => authorized_reviewer,
+        Err(r) => return refused(r),
+    };
     let Some(mut a) = load(&st.data_dir, KIND_APPROVAL, &id) else {
         return (
             StatusCode::OK,
@@ -840,14 +898,14 @@ pub(crate) async fn handle_approval_patch(
     // TRANSITION lane (receipted): validate → build record+receipt → finalize atomically-with-
     // restore. A transition request patches NOTHING else in the same call, so the receipt is the
     // whole truth of what changed. A refused transition alters no status/revision/history/refs.
-    if let Some(t) = body.get("transition").and_then(|v| v.as_str()) {
-        // GOV-ATTR-1 gate 2: a governance transition is authority-bearing, so it REQUIRES an
-        // authenticated caller regardless of the deployment's broad auth posture. Resolved before
-        // the builder runs, so an unauthenticated or unresolvable request writes nothing.
-        let reviewer_ref = match resolve_governance_reviewer(&st.data_dir, &headers) {
-            Ok(reviewer_ref) => reviewer_ref,
-            Err(r) => return refused(r),
-        };
+    //
+    // `authorized_reviewer` is `Some` exactly when a transition was requested and its caller
+    // authenticated — both read through `requested_transition`, so the two agree by construction.
+    // The `unwrap_or_default()` below cannot fire; if it ever did, `""` is not a valid transition
+    // and `next_approval_status` refuses it, so even the impossible state fails closed rather than
+    // silently degrading a transition into an unreceipted metadata patch.
+    if let Some(reviewer_ref) = authorized_reviewer {
+        let t = requested_transition(&body).unwrap_or_default();
         let now = iso_now();
         let receipt_id = format!("atr_{:x}", nanos());
         return match apply_approval_transition(&a, t, &reviewer_ref, &now, &receipt_id) {
@@ -878,9 +936,10 @@ pub(crate) async fn handle_approval_patch(
             ),
         };
     }
-    // Non-transition metadata patch (legacy lane, semantics otherwise unchanged: no receipt, no
-    // revision bump). `reviewer_ref` is GONE from the patchable set — gate 1 already refuses a body
-    // carrying it, and leaving it listed would restore the forgery the moment that gate moved.
+    // Non-transition metadata patch (legacy lane, semantics and authorization posture otherwise
+    // unchanged: no receipt, no revision bump, no new auth requirement). `reviewer_ref` is GONE
+    // from the patchable set — the identity gate already refuses a body carrying it, and leaving
+    // it listed would restore the forgery the moment that gate moved.
     for key in [
         "request_kind",
         "reason",
@@ -2030,7 +2089,7 @@ mod governance_tests {
             json!({ "reviewer_ref": FORGED_PRINCIPAL }),
             json!({ "reason": "r", "reviewer_ref": FORGED_PRINCIPAL }),
         ] {
-            let (status, code, message) = reject_client_supplied_reviewer(&forged).expect_err(
+            let (status, code, message) = reject_client_supplied_identity(&forged).expect_err(
                 &format!("a body carrying reviewer_ref must be refused: {forged}"),
             );
             assert_eq!(
@@ -2059,10 +2118,101 @@ mod governance_tests {
             json!({ "reviewer_refs": ["user://a"] }),
         ] {
             assert!(
-                reject_client_supplied_reviewer(&admissible).is_ok(),
+                reject_client_supplied_identity(&admissible).is_ok(),
                 "must pass the gate: {admissible}"
             );
         }
+    }
+
+    #[test]
+    fn every_server_owned_identity_field_is_refused_from_the_body() {
+        // Not just `reviewer_ref`: a body may not name WHO ACTED under any of the estate's
+        // attribution field names, or the forgery just moves to the next spelling. Each is refused
+        // under the same stable code, and the message names the offending field so a caller can
+        // fix the request rather than guess which key was the problem.
+        for field in CLIENT_PROHIBITED_IDENTITY_FIELDS {
+            let mut body = json!({ "transition": "approve" });
+            body[*field] = json!(FORGED_PRINCIPAL);
+            let (status, code, message) = reject_client_supplied_identity(&body)
+                .expect_err(&format!("'{field}' must be refused from the body"));
+            assert_eq!(status, StatusCode::BAD_REQUEST);
+            assert_eq!(code, "governance_reviewer_ref_not_client_settable");
+            assert!(
+                message.contains(field),
+                "the refusal names the offending field: {message}"
+            );
+        }
+        // `required_authority_refs` names WHAT authority a crossing needs, never WHO is acting, so
+        // it stays patchable — refusing it would break the metadata lane this cut preserves.
+        assert!(reject_client_supplied_identity(
+            &json!({ "required_authority_refs": ["authority://x"] })
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn transition_authorization_is_settled_before_any_record_is_read() {
+        // The oracle this closes: loading the record first made a missing id answer "not found"
+        // and a real id answer 401, so an anonymous caller could enumerate which approval ids
+        // exist by reading the difference. Whether a governance record exists is itself
+        // privileged. Proven BEHAVIOURALLY — by what the pre-load path returns — rather than by
+        // asserting anything about source order.
+        let dir = std::env::temp_dir().join(format!("ioi-appr-preload-{:x}", nanos()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let data_dir = dir.to_str().unwrap();
+        let transition = json!({ "transition": "approve" });
+
+        // (a) Empty data dir — NO approval record exists at all. An unauthenticated transition
+        // still answers 401, never "not found", so the absence is never confirmed to the caller.
+        let absent =
+            prepare_approval_patch_identity(data_dir, &HeaderMap::new(), &transition).unwrap_err();
+        assert_eq!(absent.0, StatusCode::UNAUTHORIZED);
+        assert_eq!(absent.1, "request_principal_required");
+
+        // (b) Now a REAL approval record sits in that same data dir. The identity seam reads this
+        // directory too, so this is a real assertion rather than a tautology: its refusal must be
+        // invariant to which governance records are present. Same status, code, and message.
+        persist_record(data_dir, KIND_APPROVAL, "appr_real", &legacy_pending()).unwrap();
+        let present =
+            prepare_approval_patch_identity(data_dir, &HeaderMap::new(), &transition).unwrap_err();
+        assert_eq!(
+            present, absent,
+            "an existing record and an absent one must be indistinguishable to an unauthenticated \
+             caller — any difference here IS the enumeration oracle"
+        );
+
+        // (c) A prohibited identity field is refused BEFORE authentication: with no credentials at
+        // all the answer is still 400, not 401, so that ordering is visible in the response itself.
+        let forged = prepare_approval_patch_identity(
+            data_dir,
+            &HeaderMap::new(),
+            &json!({ "transition": "approve", "reviewer_ref": FORGED_PRINCIPAL }),
+        )
+        .unwrap_err();
+        assert_eq!(forged.0, StatusCode::BAD_REQUEST);
+        assert_eq!(forged.1, "governance_reviewer_ref_not_client_settable");
+
+        // (d) A metadata-only patch keeps its existing posture: no identity demanded, so the
+        // handler proceeds to the record exactly as it did before this cut.
+        assert_eq!(
+            prepare_approval_patch_identity(data_dir, &HeaderMap::new(), &json!({ "reason": "r" }))
+                .unwrap(),
+            None,
+            "this cut narrows attribution; it does not newly gate metadata patches"
+        );
+        // (e) ...but a metadata-only patch carrying a prohibited field is still refused with no
+        // record read, so the field cannot be planted for a later decision to inherit.
+        assert_eq!(
+            prepare_approval_patch_identity(
+                data_dir,
+                &HeaderMap::new(),
+                &json!({ "reason": "r", "reviewer_ref": FORGED_PRINCIPAL })
+            )
+            .unwrap_err()
+            .1,
+            "governance_reviewer_ref_not_client_settable"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
