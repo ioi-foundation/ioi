@@ -201,6 +201,10 @@ fn ensure_policy_seed(st: &DaemonState) {
             "failure_policy": "require_all",
         })),
     ];
+    // CLASSIFIED bootstrap, deliberately tolerant: seeding is idempotent and every consumer
+    // resolves the policy through load_policy, which already refuses fail-closed when it is
+    // absent. A lost seed therefore surfaces as a refused launch, not as a launch under a policy
+    // nobody wrote.
     for record in seeds {
         let id = text(&record, "policy_id").to_string();
         let _ = persist_record(&st.data_dir, POLICY_KIND, &id, &record);
@@ -343,7 +347,15 @@ pub(crate) async fn handle_policies_create(
     });
     match policy_payload(&body, Some(&base)) {
         Ok(record) => {
-            let _ = persist_record(&st.data_dir, POLICY_KIND, &id, &record);
+            // Launch resolves this policy fail-closed by id; a 201 over a discarded write returns
+            // a policy_ref that no launch can resolve.
+            if persist_record(&st.data_dir, POLICY_KIND, &id, &record).is_err() {
+                return bad(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "ioi_agent_policy_persistence_failed",
+                    "the launch policy could not be durably recorded",
+                );
+            }
             (
                 StatusCode::CREATED,
                 Json(json!({ "ok": true, "policy": record })),
@@ -410,7 +422,15 @@ pub(crate) async fn handle_policies_patch(
         record["status"] = json!(status);
     }
     let pid = text(&record, "policy_id").to_string();
-    let _ = persist_record(&st.data_dir, POLICY_KIND, &pid, &record);
+    // `status` is the fail-closed launch selector: disabling a policy only takes effect if the
+    // patch is written, so a discarded write reported a disabled policy that still launches.
+    if persist_record(&st.data_dir, POLICY_KIND, &pid, &record).is_err() {
+        return bad(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "ioi_agent_policy_persistence_failed",
+            "the launch policy could not be durably recorded",
+        );
+    }
     (
         StatusCode::OK,
         Json(json!({ "ok": true, "policy": record })),
@@ -436,7 +456,16 @@ pub(crate) async fn handle_policies_delete(
         );
     }
     let pid = text(&existing, "policy_id").to_string();
-    let _ = super::remove_record(&st.data_dir, POLICY_KIND, &pid);
+    // The policy was loaded a few lines above, so it existed: a false here is a failed deletion,
+    // not an absent record, and reporting `deleted` for it would leave a launchable policy behind
+    // a successful ack.
+    if !super::remove_record(&st.data_dir, POLICY_KIND, &pid) {
+        return bad(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "ioi_agent_policy_persistence_failed",
+            "the launch policy could not be removed and still exists",
+        );
+    }
     (StatusCode::OK, Json(json!({ "ok": true, "deleted": pid })))
 }
 
@@ -476,7 +505,13 @@ pub(crate) async fn handle_policies_clone(
         obj.insert("created_at".into(), json!(iso_now()));
         obj.insert("updated_at".into(), json!(iso_now()));
     }
-    let _ = persist_record(&st.data_dir, POLICY_KIND, &new_id, &clone);
+    if persist_record(&st.data_dir, POLICY_KIND, &new_id, &clone).is_err() {
+        return bad(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "ioi_agent_policy_persistence_failed",
+            "the launch policy could not be durably recorded",
+        );
+    }
     (
         StatusCode::CREATED,
         Json(json!({ "ok": true, "policy": clone })),
@@ -834,11 +869,13 @@ pub(crate) fn bind_policy_rollout(
     let mut policy = load_policy(st, policy_id)?;
     policy["rollout"] = rollout;
     policy["updated_at"] = json!(iso_now());
-    let _ = persist_record(&st.data_dir, POLICY_KIND, policy_id, &policy);
+    // Already returns Option, so a lost write has an honest representation: None. Discarding it
+    // reported a promoted or rolled-back rollout the policy record never carried.
+    persist_record(&st.data_dir, POLICY_KIND, policy_id, &policy).ok()?;
     Some(policy)
 }
 
-fn rollout_receipt(st: &DaemonState, action: &str, policy: &Value) -> String {
+fn rollout_receipt(st: &DaemonState, action: &str, policy: &Value) -> Option<String> {
     let policy_id = text(policy, "policy_id");
     let receipt_ref = format!("receipt://hypervisor/policy-rollout/{policy_id}-{action}");
     let rollout = policy.get("rollout").cloned().unwrap_or(json!({}));
@@ -866,11 +903,14 @@ fn rollout_receipt(st: &DaemonState, action: &str, policy: &Value) -> String {
         "at": iso_now(),
         "runtimeTruthSource": "daemon-runtime",
     });
-    let _ = persist_record(&st.data_dir, "receipts", &receipt_ref, &receipt);
-    receipt_ref
+    // Returns None when the receipt did not land rather than a ref that resolves to nothing.
+    persist_record(&st.data_dir, "receipts", &receipt_ref, &receipt)
+        .ok()
+        .map(|_| receipt_ref)
 }
 
-fn patch_release_control(st: &DaemonState, control_ref: &str, fields: Value) {
+#[must_use]
+fn patch_release_control(st: &DaemonState, control_ref: &str, fields: Value) -> bool {
     let id = control_ref
         .trim_start_matches("release-control://")
         .to_string();
@@ -884,8 +924,10 @@ fn patch_release_control(st: &DaemonState, control_ref: &str, fields: Value) {
             }
         }
         control["updated_at"] = json!(iso_now());
-        let _ = persist_record(&st.data_dir, GOV_RELEASE_KIND, &id, &control);
+        // Reports whether the governance release control actually took the patch.
+        return persist_record(&st.data_dir, GOV_RELEASE_KIND, &id, &control).is_ok();
     }
+    false
 }
 
 /// Promote: the learned variant becomes normal behavior for EVERY context that uses the base
@@ -911,13 +953,24 @@ pub(crate) async fn handle_policy_rollout_promote(
     policy["rollout"]["state"] = json!("promoted");
     policy["rollout"]["promoted_at"] = json!(iso_now());
     policy["updated_at"] = json!(iso_now());
-    let _ = persist_record(&st.data_dir, POLICY_KIND, &id, &policy);
+    // The overlay selects the learned variant from this record. Reporting `promoted` over a
+    // discarded write left every context still running base behaviour.
+    if persist_record(&st.data_dir, POLICY_KIND, &id, &policy).is_err() {
+        return bad(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "policy_rollout_persistence_failed",
+            "the promotion could not be durably recorded and is NOT in force",
+        );
+    }
     let control_ref = policy
         .pointer("/rollout/release_control_ref")
         .and_then(Value::as_str)
         .unwrap_or("")
         .to_string();
-    patch_release_control(
+    // The release control and the receipt are evidence for a promotion that has already taken
+    // effect in the policy record, so neither may fail the call closed — but neither may be
+    // silently lost either, since the receipt_ref is handed to the caller.
+    let release_control_patched = patch_release_control(
         &st,
         &control_ref,
         json!({ "rollout_mode": "full", "promoted_at": iso_now() }),
@@ -925,7 +978,10 @@ pub(crate) async fn handle_policy_rollout_promote(
     let receipt_ref = rollout_receipt(&st, "promote", &policy);
     (
         StatusCode::OK,
-        Json(json!({ "ok": true, "policy": policy, "receipt_refs": [receipt_ref] })),
+        Json(
+            json!({ "ok": true, "policy": policy, "receipt_refs": [receipt_ref],
+            "release_control_patched": release_control_patched }),
+        ),
     )
 }
 
@@ -958,13 +1014,22 @@ pub(crate) async fn handle_policy_rollout_rollback(
     policy["rollout"]["rolled_back_at"] = json!(iso_now());
     policy["status"] = json!("disabled"); // fail-closed: explicit selection of a rolled-back variant refuses
     policy["updated_at"] = json!(iso_now());
-    let _ = persist_record(&st.data_dir, POLICY_KIND, &id, &policy);
+    // The fail-closed `disabled` status only fails closed if it is written. Reporting a rollback
+    // over a discarded write left the rolled-back variant active and still overlay-selected —
+    // the operator is told the bad variant is withdrawn while it keeps serving.
+    if persist_record(&st.data_dir, POLICY_KIND, &id, &policy).is_err() {
+        return bad(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "policy_rollout_persistence_failed",
+            "the rollback could not be durably recorded and is NOT in force",
+        );
+    }
     let control_ref = policy
         .pointer("/rollout/release_control_ref")
         .and_then(Value::as_str)
         .unwrap_or("")
         .to_string();
-    patch_release_control(
+    let release_control_patched = patch_release_control(
         &st,
         &control_ref,
         json!({ "rollback_state": "rolled_back", "rollback_requested": true, "rolled_back_at": iso_now() }),
@@ -972,7 +1037,10 @@ pub(crate) async fn handle_policy_rollout_rollback(
     let receipt_ref = rollout_receipt(&st, "rollback", &policy);
     (
         StatusCode::OK,
-        Json(json!({ "ok": true, "policy": policy, "receipt_refs": [receipt_ref] })),
+        Json(
+            json!({ "ok": true, "policy": policy, "receipt_refs": [receipt_ref],
+            "release_control_patched": release_control_patched }),
+        ),
     )
 }
 
@@ -1368,7 +1436,12 @@ pub(crate) async fn handle_ioi_agent_launch(
                     object.insert("outcome".into(), outcome.clone());
                     object.insert("executed_at".into(), json!(iso_now()));
                 }
-                let _ = persist_record(&st.data_dir, LAUNCH_KIND, &launch_id_in, &launch);
+                // CLASSIFIED already-happened effect: the launch has executed and its
+                // invocations cannot be un-run, so this must not fail the call closed. The
+                // outcome record is how the result is later resumed and reconciled, though, so
+                // its durability is surfaced rather than swallowed.
+                let outcome_durable =
+                    persist_record(&st.data_dir, LAUNCH_KIND, &launch_id_in, &launch).is_ok();
                 return (
                     StatusCode::OK,
                     Json(json!({
@@ -1376,6 +1449,7 @@ pub(crate) async fn handle_ioi_agent_launch(
                         "agent": "ioi-agent",
                         "headline": "IOI Agent withheld the write — assurance policy unmet",
                         "launch_id": launch_id_in,
+                        "outcome_durable": outcome_durable,
                         "execution_kind": "goal_run",
                         "strategy": text(&launch, "strategy"),
                         "session_ref": session_ref,
@@ -1448,7 +1522,11 @@ pub(crate) async fn handle_ioi_agent_launch(
             object.insert("outcome".into(), outcome.clone());
             object.insert("executed_at".into(), json!(finished));
         }
-        let _ = persist_record(&st.data_dir, LAUNCH_KIND, &launch_id_in, &launch);
+        // CLASSIFIED already-happened effect, same as the withheld-write branch above: the launch
+        // has executed and cannot be un-run, so this must not fail closed — but the outcome record
+        // is what later resume and reconciliation read, so report its durability.
+        let outcome_durable =
+            persist_record(&st.data_dir, LAUNCH_KIND, &launch_id_in, &launch).is_ok();
 
         let grid = text(&launch, "goal_run_id");
         let final_files = if kind == "goal_run" {
@@ -1466,6 +1544,7 @@ pub(crate) async fn handle_ioi_agent_launch(
                 "agent": "ioi-agent",
                 "headline": "IOI Agent coordinated this work",
                 "launch_id": launch_id_in,
+                "outcome_durable": outcome_durable,
                 "execution_kind": kind,
                 "strategy": text(&launch, "strategy"),
                 "session_ref": session_ref,
@@ -1789,7 +1868,15 @@ pub(crate) async fn handle_ioi_agent_launch(
         "created_at": iso_now(),
         "runtimeTruthSource": "daemon-runtime",
     });
-    let _ = persist_record(&st.data_dir, LAUNCH_KIND, &launch_id, &record);
+    // Written BEFORE anything executes, so this one CAN fail closed and must: the launch_id it
+    // mints is the handle every later phase resumes and reconciles against.
+    if persist_record(&st.data_dir, LAUNCH_KIND, &launch_id, &record).is_err() {
+        return bad(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "ioi_agent_launch_persistence_failed",
+            "the launch could not be durably recorded and was not started",
+        );
+    }
 
     // A rollout blocked by DEPLOYMENT POSTURE (not mere non-membership) is a security decision —
     // receipt it so the Work Ledger shows what was refused and why.
@@ -1821,6 +1908,10 @@ pub(crate) async fn handle_ioi_agent_launch(
             "at": iso_now(),
             "runtimeTruthSource": "daemon-runtime",
         });
+        // CLASSIFIED audit, deliberately tolerant: the 403 refusal below stands either way and
+        // this receipt_ref is never handed to the caller, so escalating an authorization refusal
+        // into a 500 because an audit write failed would report the wrong defect. The residual
+        // exposure is a Work Ledger gap, not an authority gap, and is recorded as such.
         let _ = persist_record(&st.data_dir, "receipts", &receipt_ref, &receipt);
     }
 

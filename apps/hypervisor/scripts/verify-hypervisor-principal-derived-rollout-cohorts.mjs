@@ -9,12 +9,20 @@
 // reference by cohort:// (raw member refs still honored but explicitly DEPRECATED);
 // canary bucketing hashes the derived stable seed; every explanation names its source
 // and matched cohort/member; receipts + Work Ledger cite cohort refs.
-// Usage: node apps/hypervisor/scripts/verify-hypervisor-principal-derived-rollout-cohorts.mjs
+// GOV-ATTR-1: the gate ApprovalRequest in that chain is DECIDED by the same authenticated session —
+// the request body names no reviewer, and the record must report the session's server-derived
+// `user://<principal_id>`. Canon: `identity-access-and-metering.md`.
+// Usage: IOI_HYPERVISOR_DAEMON_SESSION=<operator session token> \
+//          node apps/hypervisor/scripts/verify-hypervisor-principal-derived-rollout-cohorts.mjs
 
 import { chromium } from "playwright";
 
 const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
 const SHELL = (process.env.IOI_HYPERVISOR_APP_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
+// An authenticated operator session; the existing external-daemon credential convention from
+// `scripts/smoke-product-surfaces.mjs`. Provisioning a principal is org-admin governed even on
+// loopback, so there is no anonymous fixture shortcut to reach for.
+const OPERATOR_SESSION = (process.env.IOI_HYPERVISOR_DAEMON_SESSION || "").trim();
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
@@ -34,11 +42,22 @@ async function run() {
   const tag = Date.now().toString(16);
 
   // ── Real identity: principal + login session (the derivation source, not caller text) ──
+  // Provisioning a principal is org-admin governed EVEN ON LOOPBACK, so the fixture is created
+  // through a real operator session and then logs in for itself through the public login endpoint.
+  if (!OPERATOR_SESSION) throw new Error("identity fixture unavailable: set IOI_HYPERVISOR_DAEMON_SESSION to an authenticated operator session token (provisioning a principal is org-admin governed even on loopback)");
+  const OPERATOR = { authorization: `Bearer ${OPERATOR_SESSION}` };
   const principalId = `usr_vfyroll${tag}`;
-  await jd("POST", "/v1/hypervisor/principals", { email: `roll-${tag}@local`, name: `Roll ${tag}`, password: `pw-${tag}`, principal_id: principalId });
-  const login = (await jd("POST", "/v1/hypervisor/auth/login", { email: `roll-${tag}@local`, password: `pw-${tag}` })).j || {};
+  const password = `roll-${tag}-principal-pass`;
+  const created = await jd("POST", "/v1/hypervisor/principals", { email: `roll-${tag}@local`, name: `Roll ${tag}`, password, principal_id: principalId }, OPERATOR);
+  const login = (await jd("POST", "/v1/hypervisor/auth/login", { email: `roll-${tag}@local`, password })).j || {};
   const AUTH = { authorization: `Bearer ${login.session_token || ""}` };
+  // Ask the daemon WHO this session is; the reviewer ref asserted below is its answer, not a value
+  // assembled here. An unadmitted fixture would decide anonymously, so it fails the verifier now.
+  const who = login.session_token ? (await jd("GET", "/v1/hypervisor/auth/whoami", undefined, AUTH)).j || {} : {};
+  const derivedPrincipalId = who.authenticated === true ? String(who.principal?.principal_id || "") : "";
+  const REVIEWER_REF = `user://${derivedPrincipalId}`;
   ok("real principal + login session created", !!login.session_token && login.principal?.principal_id === principalId);
+  if (!derivedPrincipalId) throw new Error(`identity fixture NOT admitted (create ${created.status}, whoami ${JSON.stringify(who).slice(0, 200)}) — the rollout derivation and the gate decision cannot cross the real identity seam`);
 
   // ── Daemon-known project (a caller-named project counts only when it RESOLVES) ──
   await jd("POST", "/v1/hypervisor/projects", { project_name: `vfyroll-${tag}`, repository_url: `https://github.com/ioi-foundation/vfyroll-${tag}` });
@@ -69,7 +88,12 @@ async function run() {
   await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${prop.improvement_id}/simulate`, { save: true });
   await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${prop.improvement_id}/approve`);
   const appr = (await jd("POST", "/v1/hypervisor/governance/approval-requests", { subject_ref: prop.proposal_ref, request_kind: "improvement_apply", reason: `vfyroll-${tag}` })).j?.approval_request || {};
-  await jd("PATCH", `/v1/hypervisor/governance/approval-requests/${appr.id}`, { transition: "approve", reviewer_ref: "principal://verifier" });
+  // The gate approval is DECIDED by that same session — no reviewer named in the body (GOV-ATTR-1).
+  await jd("PATCH", `/v1/hypervisor/governance/approval-requests/${appr.id}`, { transition: "approve" }, AUTH);
+  const apprDecided = (await jd("GET", `/v1/hypervisor/governance/approval-requests/${appr.id}`)).j?.approval_request || {};
+  ok("the gate approval is attributed to the SERVER-DERIVED principal of the deciding session",
+    apprDecided.status === "approved" && apprDecided.reviewer_ref === REVIEWER_REF,
+    `reviewer ${apprDecided.reviewer_ref} · expected ${REVIEWER_REF}`);
   const badCohortRC = await jd("POST", "/v1/hypervisor/governance/release-controls", { release_target_ref: prop.proposal_ref, rollout_mode: "cohort", cohort_refs: ["cohort://coh_missing"] });
   const rawRC = (await jd("POST", "/v1/hypervisor/governance/release-controls", { release_target_ref: prop.proposal_ref, rollout_mode: "cohort", cohort_refs: [`project://${projectId}`], reason: `vfyroll-${tag}-raw` })).j?.release_control || {};
   const rel = (await jd("POST", "/v1/hypervisor/governance/release-controls", { release_target_ref: prop.proposal_ref, rollout_mode: "cohort", cohort_refs: [cohort.ref], reason: `vfyroll-${tag}` })).j?.release_control || {};
@@ -186,7 +210,7 @@ async function run() {
   await jd("DELETE", `/v1/hypervisor/governance/release-controls/${rel.id}`);
   await jd("DELETE", `/v1/hypervisor/governance/release-controls/${rawRC.id}`);
   await jd("DELETE", `/v1/hypervisor/governance/cohorts/${cohort.id}`);
-  await jd("DELETE", `/v1/hypervisor/principals/${principalId}`);
+  await jd("DELETE", `/v1/hypervisor/principals/${principalId}`, undefined, OPERATOR);
   const gone = (await jd("GET", "/v1/hypervisor/governance/cohorts")).j?.cohorts || [];
   ok("fixtures cleaned", !gone.some((c) => c.id === cohort.id));
 }

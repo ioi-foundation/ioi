@@ -17,7 +17,7 @@ use std::sync::Arc;
 
 use axum::extract::State;
 use axum::extract::{Path as AxumPath, Query};
-use axum::http::StatusCode;
+use axum::http::{HeaderMap, StatusCode};
 use axum::Json;
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -404,6 +404,29 @@ fn bad(code: &str, message: &str) -> (StatusCode, Json<Value>) {
         Json(json!({ "ok": false, "error": { "code": code, "message": message } })),
     )
 }
+/// A governance control write that did not durably land, for the handlers that carry status codes.
+///
+/// These records are read back as authority. `handle_kill_enforce` reloads the KillSwitch and
+/// refuses unless `state == "tripped"`, so a trip returned over a discarded write reported the
+/// switch tripped while the record stayed `armed` — and enforcement would then refuse it with
+/// `kill_switch_not_tripped`. A control that reports engaged and cannot be enforced is worse than
+/// one that reports its failure.
+fn governance_persist_failed(control: &str) -> (StatusCode, Json<Value>) {
+    (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        Json(json!({ "ok": false, "error": {
+            "code": "governance_persistence_failed",
+            "message": format!("the {control} could not be durably recorded and is NOT in force")
+        }})),
+    )
+}
+/// Same, for the patch handlers, whose whole failure convention is a 200-shaped `ok:false`.
+fn governance_persist_failed_json(control: &str) -> Json<Value> {
+    Json(json!({ "ok": false, "error": {
+        "code": "governance_persistence_failed",
+        "message": format!("the {control} change could not be durably recorded and is NOT in force")
+    }}))
+}
 fn split_ref(r: &str) -> Option<(&str, &str)> {
     r.split_once("://")
         .filter(|(s, rest)| !s.is_empty() && !rest.is_empty())
@@ -597,7 +620,9 @@ pub(crate) async fn handle_approval_create(
         .as_object_mut()
         .unwrap()
         .extend(control_common(&body).as_object().unwrap().clone());
-    let _ = persist_record(&st.data_dir, KIND_APPROVAL, &id, &record);
+    if persist_record(&st.data_dir, KIND_APPROVAL, &id, &record).is_err() {
+        return governance_persist_failed("approval");
+    }
     (
         StatusCode::CREATED,
         Json(json!({ "ok": true, "approval_request": record })),
@@ -609,15 +634,156 @@ pub(crate) async fn handle_approval_get(
 ) -> Json<Value> {
     g_get(&st.data_dir, KIND_APPROVAL, "approval_request", &id)
 }
+// ---- reviewer attribution (GOV-ATTR-1) ---------------------------------------------------------
+//
+// A governance decision's reviewer is WHO DECIDED. Attribution a client can choose is not
+// attribution at all: the transition receipt is read back as durable proof of who approved, so a
+// request-carried `reviewer_ref` let any caller sign a decision as anyone. Canon
+// (`identity-access-and-metering.md`) rules that a request body never selects the acting
+// principal — the server-resolved authenticated principal is the only admissible reviewer.
+//
+// Three rules, all fail-closed:
+//   1. A request-carried identity field is REFUSED, never ignored. Silently dropping one would let
+//      a caller believe it had attributed the decision while the record said otherwise, and the
+//      surfaces that send one today would go on lying instead of being fixed.
+//   2. The reviewer is resolved server-side through the canonical request-identity seam. That
+//      holds even where the deployment's broad auth posture is permissive: `resolve_principal`
+//      mints nothing for an unauthenticated request, so no posture can produce an anonymous
+//      governance reviewer.
+//   3. Authorization is settled BEFORE the target record is read. Loading first would make this
+//      route an unauthenticated record-existence oracle: a missing id answers "not found" while a
+//      real one answers 401, so an anonymous caller could enumerate which approval ids exist by
+//      reading the difference. Whether a governance record exists is itself privileged.
+
+/// A typed refusal as DATA (status + stable code + message) rather than a rendered response, so
+/// the gates below stay pure and unit-testable without constructing an axum request.
+type GovernanceRefusal = (StatusCode, String, String);
+
+fn refused(r: GovernanceRefusal) -> (StatusCode, Json<Value>) {
+    let (status, code, message) = r;
+    (
+        status,
+        Json(json!({ "ok": false, "error": { "code": code, "message": message } })),
+    )
+}
+
+/// Identity/attribution fields the SERVER owns. A request that carries any of them is trying to
+/// name who acted, which canon forbids outright: "Request bodies never select the acting principal,
+/// owner, role, or authority." Every name here is a real attribution field in this estate's code or
+/// canon — `reviewer_ref` is what this record and its receipt carry, `principal_ref` is what the
+/// identity seam resolves, `acting_principal_ref`/`is_impersonated` are what `resolve_principal`
+/// sets on an impersonated request, `changed_by_principal_ref` is canon's named actor field on
+/// transition receipts, and `actor_ref` is the estate's generic actor name. This is deliberately
+/// NOT a guess-list: an invented name would refuse a field nothing writes, and `required_authority_refs`
+/// is excluded on purpose — it names WHAT authority a crossing needs, never WHO is acting, and it
+/// stays a legitimately patchable metadata field.
+const CLIENT_PROHIBITED_IDENTITY_FIELDS: &[&str] = &[
+    "reviewer_ref",
+    "principal_ref",
+    "acting_principal_ref",
+    "changed_by_principal_ref",
+    "actor_ref",
+    "is_impersonated",
+];
+
+/// PURE request gate: a client may never name who acted. Refuses on the KEY BEING PRESENT, not on
+/// its value, so `null`, `""`, and a value that happens to match the caller are refused alike.
+/// "Accept it when it matches" would make the check depend on the very identity the request is
+/// trying to assert, and would leave forged attribution one impersonation away from working.
+/// Runs before identity resolution AND before the record load, so a forged patch reaches no
+/// identity substrate, no record, and no transition builder.
+fn reject_client_supplied_identity(body: &Value) -> Result<(), GovernanceRefusal> {
+    let Some(field) = CLIENT_PROHIBITED_IDENTITY_FIELDS
+        .iter()
+        .find(|field| body.get(**field).is_some())
+    else {
+        return Ok(());
+    };
+    Err((
+        StatusCode::BAD_REQUEST,
+        "governance_reviewer_ref_not_client_settable".to_string(),
+        format!(
+            "'{field}' is derived from the authenticated caller and cannot be supplied by the \
+             request; remove it and re-send"
+        ),
+    ))
+}
+
+/// PURE: carry the identity seam's own refusal out under its own code, choosing the status that
+/// keeps the failure modes distinguishable. A missing/unresolvable principal is 401 ("authenticate"),
+/// substrate trouble is 503 ("ask again"). Collapsing 503 into 401 would tell an already-authenticated
+/// operator to log in again while identity storage was simply down — and collapsing 401 into 503
+/// would invite a retry loop around a request that can never succeed as sent.
+fn reviewer_identity_refusal(
+    refusal: super::substrate_store::RequestScopeRefusal,
+) -> GovernanceRefusal {
+    use super::substrate_store::RequestScopeRefusal;
+    let status = match &refusal {
+        RequestScopeRefusal::AuthenticationRequired
+        | RequestScopeRefusal::PrincipalIdentityInvalid => StatusCode::UNAUTHORIZED,
+        RequestScopeRefusal::TenantAuthorityRequired
+        | RequestScopeRefusal::ResourceScopeRequired
+        | RequestScopeRefusal::ResourceOwnerMismatch => StatusCode::FORBIDDEN,
+        RequestScopeRefusal::SubstrateUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
+    };
+    (status, refusal.code().to_string(), refusal.message())
+}
+
+/// Resolve the acting reviewer through THE canonical request-identity seam — no second resolver
+/// and no client-settable identity header. Returns the principal ref ONLY; the headers that proved
+/// it (cookies, bearer tokens) stay here and never reach a record or a receipt.
+fn resolve_governance_reviewer(
+    data_dir: &str,
+    headers: &HeaderMap,
+) -> Result<String, GovernanceRefusal> {
+    super::substrate_store::resolve_request_identity(data_dir, headers)
+        .map(|identity| identity.principal_ref)
+        .map_err(reviewer_identity_refusal)
+}
+
+/// The transition this patch requests, if any. ONE definition of "is this a mutation?", shared by
+/// the authorization decision and the lane the handler actually takes, so the two can never
+/// disagree about which request needed a reviewer.
+fn requested_transition(body: &Value) -> Option<&str> {
+    body.get("transition").and_then(|v| v.as_str())
+}
+
+/// Settle EVERYTHING the request alone decides — prohibited fields, then which lane, then the
+/// caller's identity — before the handler is allowed to touch the target record. Returns the
+/// server-derived reviewer for a transition, or `None` for a metadata-only patch (which keeps its
+/// existing authorization posture: this cut narrows attribution, it does not newly gate metadata).
+///
+/// Taking `data_dir` for the identity seam but never reading a governance record is the point: a
+/// refusal from here cannot depend on whether the id exists, so the 401 an anonymous caller gets
+/// is identical for a real approval and an invented one. Ordering within it is load-bearing —
+/// a prohibited field is a pure statement about the request's shape and is refused first (400),
+/// so a forged body is rejected the same way whether or not the caller could authenticate.
+fn prepare_approval_patch_identity(
+    data_dir: &str,
+    headers: &HeaderMap,
+    body: &Value,
+) -> Result<Option<String>, GovernanceRefusal> {
+    reject_client_supplied_identity(body)?;
+    if requested_transition(body).is_none() {
+        return Ok(None);
+    }
+    resolve_governance_reviewer(data_dir, headers).map(Some)
+}
+
 /// Apply an approval transition to `prev`, producing (updated record, transition receipt).
 /// PURE (no I/O): validation happens BEFORE any mutation and a rejected transition returns Err
 /// touching nothing. Legacy records without revision/history/receipt_refs migrate lazily here
 /// (implicit revision 1, empty history) and stay readable. The receipt carries ONLY record-derived
 /// fields + the transition — never request headers, cookies, tokens, or arbitrary form data.
+///
+/// `reviewer_ref` is the SERVER-DERIVED principal ref of the authenticated caller, taken as `&str`
+/// rather than an optional request `Value` so a client-chosen reviewer is not merely rejected by
+/// the handler but unrepresentable here: there is no argument shape a request body can occupy, and
+/// no branch that leaves the decided record's reviewer null.
 fn apply_approval_transition(
     prev: &Value,
     transition: &str,
-    reviewer_ref: Option<&Value>,
+    reviewer_ref: &str,
     now: &str,
     receipt_id: &str,
 ) -> Result<(Value, Value), (String, String)> {
@@ -641,7 +807,7 @@ fn apply_approval_transition(
         "transition": transition,
         "previous_status": cur,
         "resulting_status": next,
-        "reviewer_ref": reviewer_ref.cloned().unwrap_or(Value::Null),
+        "reviewer_ref": reviewer_ref,
         "required_authority_refs": prev.get("required_authority_refs").cloned().unwrap_or_else(|| json!([])),
         "outcome": "ok",
         "at": now,
@@ -649,9 +815,10 @@ fn apply_approval_transition(
     let mut a = prev.clone();
     a["status"] = json!(next);
     a["decided_at"] = json!(now);
-    if let Some(rv) = reviewer_ref {
-        a["reviewer_ref"] = rv.clone();
-    }
+    // Unconditional: a decided record always names its server-derived reviewer. The old
+    // `if let Some(..)` left `reviewer_ref` null whenever the caller omitted it, so the record
+    // and its receipt disagreed about whether anyone was accountable for the decision.
+    a["reviewer_ref"] = json!(reviewer_ref);
     a["revision"] = json!(revision);
     let mut hist = a
         .get("history")
@@ -699,23 +866,49 @@ fn finalize_approval_transition(
     }
 }
 
+/// `HeaderMap` is extracted BEFORE `Json` because the body extractor consumes the request; the
+/// headers are read only by the canonical identity seam and never copied into a record or receipt.
+///
+/// ORDER IS THE CONTRACT: prohibited fields → lane → authorization → *then* the record. Nothing
+/// above the load may depend on the record existing, or the refusal itself leaks whether it does.
+///
+/// Refusal statuses: the GOV-ATTR-1 gates carry real HTTP statuses (400 client-supplied identity,
+/// 401 unauthenticated, 503 identity substrate down). The pre-existing lanes keep this handler's
+/// 200-shaped `ok:false` convention verbatim — re-statusing not-found / invalid-transition /
+/// persist-failed is a separate contract change and is not smuggled in here.
 pub(crate) async fn handle_approval_patch(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
-) -> Json<Value> {
+) -> (StatusCode, Json<Value>) {
+    // Everything the request alone decides, settled before a single record byte is read.
+    let authorized_reviewer = match prepare_approval_patch_identity(&st.data_dir, &headers, &body) {
+        Ok(authorized_reviewer) => authorized_reviewer,
+        Err(r) => return refused(r),
+    };
     let Some(mut a) = load(&st.data_dir, KIND_APPROVAL, &id) else {
-        return Json(
-            json!({ "ok": false, "reason": "approval_request not found", "error": { "code": "approval_not_found", "message": "approval_request not found" } }),
+        return (
+            StatusCode::OK,
+            Json(
+                json!({ "ok": false, "reason": "approval_request not found", "error": { "code": "approval_not_found", "message": "approval_request not found" } }),
+            ),
         );
     };
     // TRANSITION lane (receipted): validate → build record+receipt → finalize atomically-with-
     // restore. A transition request patches NOTHING else in the same call, so the receipt is the
     // whole truth of what changed. A refused transition alters no status/revision/history/refs.
-    if let Some(t) = body.get("transition").and_then(|v| v.as_str()) {
+    //
+    // `authorized_reviewer` is `Some` exactly when a transition was requested and its caller
+    // authenticated — both read through `requested_transition`, so the two agree by construction.
+    // The `unwrap_or_default()` below cannot fire; if it ever did, `""` is not a valid transition
+    // and `next_approval_status` refuses it, so even the impossible state fails closed rather than
+    // silently degrading a transition into an unreceipted metadata patch.
+    if let Some(reviewer_ref) = authorized_reviewer {
+        let t = requested_transition(&body).unwrap_or_default();
         let now = iso_now();
         let receipt_id = format!("atr_{:x}", nanos());
-        return match apply_approval_transition(&a, t, body.get("reviewer_ref"), &now, &receipt_id) {
+        return match apply_approval_transition(&a, t, &reviewer_ref, &now, &receipt_id) {
             Ok((updated, receipt)) => match finalize_approval_transition(
                 &st.data_dir,
                 &id,
@@ -724,23 +917,32 @@ pub(crate) async fn handle_approval_patch(
                 &receipt_id,
                 &receipt,
             ) {
-                Ok(()) => Json(
-                    json!({ "ok": true, "approval_request": updated, "transition_receipt": receipt }),
+                Ok(()) => (
+                    StatusCode::OK,
+                    Json(
+                        json!({ "ok": true, "approval_request": updated, "transition_receipt": receipt }),
+                    ),
                 ),
-                Err(m) => Json(
-                    json!({ "ok": false, "error": { "code": "governance_transition_persist_failed", "message": m } }),
+                Err(m) => (
+                    StatusCode::OK,
+                    Json(
+                        json!({ "ok": false, "error": { "code": "governance_transition_persist_failed", "message": m } }),
+                    ),
                 ),
             },
-            Err((code, message)) => {
-                Json(json!({ "ok": false, "error": { "code": code, "message": message } }))
-            }
+            Err((code, message)) => (
+                StatusCode::OK,
+                Json(json!({ "ok": false, "error": { "code": code, "message": message } })),
+            ),
         };
     }
-    // Non-transition metadata patch (legacy lane, semantics unchanged: no receipt, no revision bump).
+    // Non-transition metadata patch (legacy lane, semantics and authorization posture otherwise
+    // unchanged: no receipt, no revision bump, no new auth requirement). `reviewer_ref` is GONE
+    // from the patchable set — the identity gate already refuses a body carrying it, and leaving
+    // it listed would restore the forgery the moment that gate moved.
     for key in [
         "request_kind",
         "reason",
-        "reviewer_ref",
         "enforcement_preview",
         "would_call",
         "required_authority_refs",
@@ -750,8 +952,13 @@ pub(crate) async fn handle_approval_patch(
         }
     }
     a["updated_at"] = json!(iso_now());
-    let _ = persist_record(&st.data_dir, KIND_APPROVAL, &id, &a);
-    Json(json!({ "ok": true, "approval_request": a }))
+    if persist_record(&st.data_dir, KIND_APPROVAL, &id, &a).is_err() {
+        return (StatusCode::OK, governance_persist_failed_json("approval"));
+    }
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "approval_request": a })),
+    )
 }
 pub(crate) async fn handle_approval_delete(
     State(st): State<Arc<DaemonState>>,
@@ -1061,7 +1268,9 @@ pub(crate) async fn handle_release_create(
         .as_object_mut()
         .unwrap()
         .extend(control_common(&body).as_object().unwrap().clone());
-    let _ = persist_record(&st.data_dir, KIND_RELEASE, &id, &record);
+    if persist_record(&st.data_dir, KIND_RELEASE, &id, &record).is_err() {
+        return governance_persist_failed("release");
+    }
     (
         StatusCode::CREATED,
         Json(json!({ "ok": true, "release_control": record })),
@@ -1131,7 +1340,9 @@ pub(crate) async fn handle_release_patch(
         }
     }
     r["updated_at"] = json!(iso_now());
-    let _ = persist_record(&st.data_dir, KIND_RELEASE, &id, &r);
+    if persist_record(&st.data_dir, KIND_RELEASE, &id, &r).is_err() {
+        return governance_persist_failed_json("release");
+    }
     Json(json!({ "ok": true, "release_control": r }))
 }
 pub(crate) async fn handle_release_delete(
@@ -1233,7 +1444,9 @@ pub(crate) async fn handle_cohort_create(
         "evidence_refs": str_refs(&body, "evidence_refs"),
         "created_at": now, "updated_at": now
     });
-    let _ = persist_record(&st.data_dir, KIND_COHORT, &id, &record);
+    if persist_record(&st.data_dir, KIND_COHORT, &id, &record).is_err() {
+        return governance_persist_failed("cohort");
+    }
     (
         StatusCode::CREATED,
         Json(json!({ "ok": true, "cohort": record })),
@@ -1285,7 +1498,9 @@ pub(crate) async fn handle_cohort_patch(
         }
     }
     c["updated_at"] = json!(iso_now());
-    let _ = persist_record(&st.data_dir, KIND_COHORT, &id, &c);
+    if persist_record(&st.data_dir, KIND_COHORT, &id, &c).is_err() {
+        return governance_persist_failed_json("cohort");
+    }
     Json(json!({ "ok": true, "cohort": c }))
 }
 pub(crate) async fn handle_cohort_delete(
@@ -1325,7 +1540,9 @@ pub(crate) async fn handle_kill_create(
         .as_object_mut()
         .unwrap()
         .extend(control_common(&body).as_object().unwrap().clone());
-    let _ = persist_record(&st.data_dir, KIND_KILL, &id, &record);
+    if persist_record(&st.data_dir, KIND_KILL, &id, &record).is_err() {
+        return governance_persist_failed("kill switch");
+    }
     (
         StatusCode::CREATED,
         Json(json!({ "ok": true, "kill_switch": record })),
@@ -1380,7 +1597,9 @@ pub(crate) async fn handle_kill_patch(
         }
     }
     k["updated_at"] = json!(iso_now());
-    let _ = persist_record(&st.data_dir, KIND_KILL, &id, &k);
+    if persist_record(&st.data_dir, KIND_KILL, &id, &k).is_err() {
+        return governance_persist_failed_json("kill switch");
+    }
     Json(json!({ "ok": true, "kill_switch": k }))
 }
 pub(crate) async fn handle_kill_delete(
@@ -1588,7 +1807,9 @@ pub(crate) async fn handle_gate_create(
         .as_object_mut()
         .unwrap()
         .extend(control_common(&body).as_object().unwrap().clone());
-    let _ = persist_record(&st.data_dir, KIND_GATE, &id, &record);
+    if persist_record(&st.data_dir, KIND_GATE, &id, &record).is_err() {
+        return governance_persist_failed("gate");
+    }
     (
         StatusCode::CREATED,
         Json(json!({ "ok": true, "improvement_gate": record })),
@@ -1630,7 +1851,9 @@ pub(crate) async fn handle_gate_patch(
         }
     }
     g["updated_at"] = json!(iso_now());
-    let _ = persist_record(&st.data_dir, KIND_GATE, &id, &g);
+    if persist_record(&st.data_dir, KIND_GATE, &id, &g).is_err() {
+        return governance_persist_failed_json("gate");
+    }
     Json(json!({ "ok": true, "improvement_gate": g }))
 }
 pub(crate) async fn handle_gate_delete(
@@ -1674,13 +1897,17 @@ mod governance_tests {
         })
     }
 
+    /// The server-derived principal ref the identity seam would return; the ONLY admissible
+    /// reviewer identity. Shaped like `resolve_request_identity`'s output (`user://<principal_id>`).
+    const SERVER_PRINCIPAL: &str = "user://principal-real";
+
     #[test]
     fn approval_transition_accepted_builds_record_and_receipt() {
         let prev = legacy_pending();
         let (a, r) = apply_approval_transition(
             &prev,
             "approve",
-            Some(&json!("agent://rev")),
+            SERVER_PRINCIPAL,
             "2026-02-01T00:00:00Z",
             "atr_test1",
         )
@@ -1689,7 +1916,7 @@ mod governance_tests {
         // one history entry, one receipt ref — all pointing at the same receipt.
         assert_eq!(a["status"], json!("approved"));
         assert_eq!(a["revision"], json!(2));
-        assert_eq!(a["reviewer_ref"], json!("agent://rev"));
+        assert_eq!(a["reviewer_ref"], json!(SERVER_PRINCIPAL));
         let hist = a["history"].as_array().unwrap();
         assert_eq!(hist.len(), 1);
         assert_eq!(hist[0]["op"], json!("approve"));
@@ -1732,20 +1959,32 @@ mod governance_tests {
     #[test]
     fn approval_transition_refused_touches_nothing_and_duplicates_refuse() {
         let prev = legacy_pending();
-        let (approved, _r1) =
-            apply_approval_transition(&prev, "approve", None, "2026-02-01T00:00:00Z", "atr_a")
-                .unwrap();
+        let (approved, _r1) = apply_approval_transition(
+            &prev,
+            "approve",
+            SERVER_PRINCIPAL,
+            "2026-02-01T00:00:00Z",
+            "atr_a",
+        )
+        .unwrap();
         // Duplicate approve on the already-approved record: typed refusal, zero mutation.
-        let err =
-            apply_approval_transition(&approved, "approve", None, "2026-02-02T00:00:00Z", "atr_b")
-                .unwrap_err();
+        let err = apply_approval_transition(
+            &approved,
+            "approve",
+            SERVER_PRINCIPAL,
+            "2026-02-02T00:00:00Z",
+            "atr_b",
+        )
+        .unwrap_err();
         assert_eq!(err.0, "governance_transition_invalid");
         // Pure fn: the input record is untouched by a refusal (revision/history/refs intact).
         assert_eq!(approved["revision"], json!(2));
         assert_eq!(approved["history"].as_array().unwrap().len(), 1);
         assert_eq!(approved["receipt_refs"].as_array().unwrap().len(), 1);
         // Unknown vocabulary refuses too.
-        assert!(apply_approval_transition(&prev, "escalate", None, "t", "atr_c").is_err());
+        assert!(
+            apply_approval_transition(&prev, "escalate", SERVER_PRINCIPAL, "t", "atr_c").is_err()
+        );
     }
 
     #[test]
@@ -1756,7 +1995,9 @@ mod governance_tests {
             hist.push(json!({ "revision": i, "op": "seed", "at": "t", "summary": "s", "receipt_ref": format!("agentgres://x/{i}") }));
         }
         rec["history"] = Value::Array(hist);
-        let (a, _r) = apply_approval_transition(&rec, "approve", None, "t2", "atr_bound").unwrap();
+        let (a, _r) =
+            apply_approval_transition(&rec, "approve", SERVER_PRINCIPAL, "t2", "atr_bound")
+                .unwrap();
         let h = a["history"].as_array().unwrap();
         assert_eq!(h.len(), 50, "history is bounded to the newest 50 entries");
         assert_eq!(
@@ -1776,7 +2017,7 @@ mod governance_tests {
         let prev = legacy_pending();
         persist_record(data_dir, KIND_APPROVAL, "appr_t1", &prev).unwrap();
         let (updated, receipt) =
-            apply_approval_transition(&prev, "approve", None, "t", "atr_fail").unwrap();
+            apply_approval_transition(&prev, "approve", SERVER_PRINCIPAL, "t", "atr_fail").unwrap();
         // Block the receipts dir: a plain file where the directory must go.
         std::fs::write(dir.join(KIND_APPROVAL_RECEIPT), b"blocker").unwrap();
         let err = finalize_approval_transition(
@@ -1794,6 +2035,10 @@ mod governance_tests {
             on_disk.get("revision").is_none(),
             "no revision bump survived"
         );
+        assert!(
+            on_disk["reviewer_ref"].is_null(),
+            "no reviewer attribution survived a transition that did not land"
+        );
         // And the happy path works once the blocker is gone: record + receipt both persist.
         std::fs::remove_file(dir.join(KIND_APPROVAL_RECEIPT)).unwrap();
         finalize_approval_transition(data_dir, "appr_t1", &prev, &updated, "atr_fail", &receipt)
@@ -1806,7 +2051,285 @@ mod governance_tests {
             load(data_dir, KIND_APPROVAL_RECEIPT, "atr_fail").unwrap()["transition"],
             json!("approve")
         );
+        // GOV-ATTR-1 at the DURABLE layer: what a later read treats as proof of who decided is
+        // the server-derived principal, in the record and in the receipt alike.
+        assert_eq!(
+            load(data_dir, KIND_APPROVAL, "appr_t1").unwrap()["reviewer_ref"],
+            json!(SERVER_PRINCIPAL),
+            "the persisted record names the server-derived reviewer"
+        );
+        assert_eq!(
+            load(data_dir, KIND_APPROVAL_RECEIPT, "atr_fail").unwrap()["reviewer_ref"],
+            json!(SERVER_PRINCIPAL),
+            "and so does the durable receipt"
+        );
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    // ---- GOV-ATTR-1: the reviewer is the authenticated caller, resolved server-side -------------
+
+    /// A reviewer identity a request might try to assert. Never admissible.
+    const FORGED_PRINCIPAL: &str = "user://attacker-chosen";
+
+    #[test]
+    fn request_carried_reviewer_ref_is_refused_in_every_form() {
+        // The KEY BEING PRESENT is the whole test — value-insensitive, so no shape slips through.
+        // `null`, `""`, and a value matching the real caller are all refused: accepting a match
+        // would make the gate depend on the identity the request is trying to assert.
+        for forged in [
+            json!({ "transition": "approve", "reviewer_ref": FORGED_PRINCIPAL }),
+            json!({ "transition": "approve", "reviewer_ref": SERVER_PRINCIPAL }),
+            json!({ "transition": "approve", "reviewer_ref": Value::Null }),
+            json!({ "transition": "approve", "reviewer_ref": "" }),
+            json!({ "transition": "approve", "reviewer_ref": { "id": "x" } }),
+            json!({ "transition": "reject", "reviewer_ref": FORGED_PRINCIPAL }),
+            json!({ "transition": "revoke", "reviewer_ref": FORGED_PRINCIPAL }),
+            // Metadata-only lane (no `transition`): equally refused, so the field cannot be
+            // planted by one call and left standing for a later decision to inherit.
+            json!({ "reviewer_ref": FORGED_PRINCIPAL }),
+            json!({ "reason": "r", "reviewer_ref": FORGED_PRINCIPAL }),
+        ] {
+            let (status, code, message) = reject_client_supplied_identity(&forged).expect_err(
+                &format!("a body carrying reviewer_ref must be refused: {forged}"),
+            );
+            assert_eq!(
+                status,
+                StatusCode::BAD_REQUEST,
+                "refusal is a 400-class error"
+            );
+            assert_eq!(code, "governance_reviewer_ref_not_client_settable");
+            assert!(
+                message.contains("authenticated caller"),
+                "the refusal says WHY, so a caller can fix the request: {message}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_body_that_names_no_reviewer_passes_the_gate() {
+        // The gate refuses forgery ONLY; it must not break either patch lane.
+        for admissible in [
+            json!({ "transition": "approve" }),
+            json!({ "transition": "revoke" }),
+            json!({ "reason": "r", "request_kind": "k" }),
+            json!({ "required_authority_refs": ["authority://x"] }),
+            json!({}),
+            // A near-miss key is a different field and must not be refused as if it were this one.
+            json!({ "reviewer_refs": ["user://a"] }),
+        ] {
+            assert!(
+                reject_client_supplied_identity(&admissible).is_ok(),
+                "must pass the gate: {admissible}"
+            );
+        }
+    }
+
+    #[test]
+    fn every_server_owned_identity_field_is_refused_from_the_body() {
+        // Not just `reviewer_ref`: a body may not name WHO ACTED under any of the estate's
+        // attribution field names, or the forgery just moves to the next spelling. Each is refused
+        // under the same stable code, and the message names the offending field so a caller can
+        // fix the request rather than guess which key was the problem.
+        for field in CLIENT_PROHIBITED_IDENTITY_FIELDS {
+            let mut body = json!({ "transition": "approve" });
+            body[*field] = json!(FORGED_PRINCIPAL);
+            let (status, code, message) = reject_client_supplied_identity(&body)
+                .expect_err(&format!("'{field}' must be refused from the body"));
+            assert_eq!(status, StatusCode::BAD_REQUEST);
+            assert_eq!(code, "governance_reviewer_ref_not_client_settable");
+            assert!(
+                message.contains(field),
+                "the refusal names the offending field: {message}"
+            );
+        }
+        // `required_authority_refs` names WHAT authority a crossing needs, never WHO is acting, so
+        // it stays patchable — refusing it would break the metadata lane this cut preserves.
+        assert!(reject_client_supplied_identity(
+            &json!({ "required_authority_refs": ["authority://x"] })
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn transition_authorization_is_settled_before_any_record_is_read() {
+        // The oracle this closes: loading the record first made a missing id answer "not found"
+        // and a real id answer 401, so an anonymous caller could enumerate which approval ids
+        // exist by reading the difference. Whether a governance record exists is itself
+        // privileged. Proven BEHAVIOURALLY — by what the pre-load path returns — rather than by
+        // asserting anything about source order.
+        let dir = std::env::temp_dir().join(format!("ioi-appr-preload-{:x}", nanos()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let data_dir = dir.to_str().unwrap();
+        let transition = json!({ "transition": "approve" });
+
+        // (a) Empty data dir — NO approval record exists at all. An unauthenticated transition
+        // still answers 401, never "not found", so the absence is never confirmed to the caller.
+        let absent =
+            prepare_approval_patch_identity(data_dir, &HeaderMap::new(), &transition).unwrap_err();
+        assert_eq!(absent.0, StatusCode::UNAUTHORIZED);
+        assert_eq!(absent.1, "request_principal_required");
+
+        // (b) Now a REAL approval record sits in that same data dir. The identity seam reads this
+        // directory too, so this is a real assertion rather than a tautology: its refusal must be
+        // invariant to which governance records are present. Same status, code, and message.
+        persist_record(data_dir, KIND_APPROVAL, "appr_real", &legacy_pending()).unwrap();
+        let present =
+            prepare_approval_patch_identity(data_dir, &HeaderMap::new(), &transition).unwrap_err();
+        assert_eq!(
+            present, absent,
+            "an existing record and an absent one must be indistinguishable to an unauthenticated \
+             caller — any difference here IS the enumeration oracle"
+        );
+
+        // (c) A prohibited identity field is refused BEFORE authentication: with no credentials at
+        // all the answer is still 400, not 401, so that ordering is visible in the response itself.
+        let forged = prepare_approval_patch_identity(
+            data_dir,
+            &HeaderMap::new(),
+            &json!({ "transition": "approve", "reviewer_ref": FORGED_PRINCIPAL }),
+        )
+        .unwrap_err();
+        assert_eq!(forged.0, StatusCode::BAD_REQUEST);
+        assert_eq!(forged.1, "governance_reviewer_ref_not_client_settable");
+
+        // (d) A metadata-only patch keeps its existing posture: no identity demanded, so the
+        // handler proceeds to the record exactly as it did before this cut.
+        assert_eq!(
+            prepare_approval_patch_identity(data_dir, &HeaderMap::new(), &json!({ "reason": "r" }))
+                .unwrap(),
+            None,
+            "this cut narrows attribution; it does not newly gate metadata patches"
+        );
+        // (e) ...but a metadata-only patch carrying a prohibited field is still refused with no
+        // record read, so the field cannot be planted for a later decision to inherit.
+        assert_eq!(
+            prepare_approval_patch_identity(
+                data_dir,
+                &HeaderMap::new(),
+                &json!({ "reason": "r", "reviewer_ref": FORGED_PRINCIPAL })
+            )
+            .unwrap_err()
+            .1,
+            "governance_reviewer_ref_not_client_settable"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn transition_attributes_only_the_server_derived_principal() {
+        // The builder takes `&str`, so a request `Value` cannot even be passed to it. What is left
+        // to prove is the OUTPUT: both the record and the durable receipt name the caller, and a
+        // stale/forged reviewer already sitting in the stored record is OVERWRITTEN, not inherited.
+        // A pre-gate record could carry anything; the decision landing now was made by the
+        // authenticated caller, whatever the old bytes claimed.
+        let mut poisoned = legacy_pending();
+        poisoned["reviewer_ref"] = json!(FORGED_PRINCIPAL);
+        let (record, receipt) = apply_approval_transition(
+            &poisoned,
+            "approve",
+            SERVER_PRINCIPAL,
+            "2026-02-01T00:00:00Z",
+            "atr_attr",
+        )
+        .unwrap();
+        assert_eq!(record["reviewer_ref"], json!(SERVER_PRINCIPAL));
+        assert_eq!(receipt["reviewer_ref"], json!(SERVER_PRINCIPAL));
+        assert!(
+            !record["reviewer_ref"].is_null() && !receipt["reviewer_ref"].is_null(),
+            "a decided record and its receipt always name who decided"
+        );
+        for (label, doc) in [("record", &record), ("receipt", &receipt)] {
+            assert!(
+                !serde_json::to_string(doc)
+                    .unwrap()
+                    .contains(FORGED_PRINCIPAL),
+                "{label} still carries the pre-existing forged reviewer"
+            );
+        }
+    }
+
+    #[test]
+    fn unauthenticated_transition_gets_no_anonymous_reviewer() {
+        // Through the REAL canonical seam: an empty data dir (no sessions, no API tokens) reached
+        // with no auth headers is the most permissive posture there is, and it must still refuse.
+        // Canon: "an unenforced local auth gate is never an implicit administrator credential"
+        // (identity-access-and-metering.md). A permissive posture minting `user://anonymous` here
+        // would put an unaccountable name on durable proof of a governance decision.
+        let dir = std::env::temp_dir().join(format!("ioi-appr-anon-{:x}", nanos()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let data_dir = dir.to_str().unwrap();
+        for headers in [
+            HeaderMap::new(),
+            // A bearer that resolves to nobody mints nobody — the token is not the principal.
+            HeaderMap::from_iter([(
+                axum::http::header::AUTHORIZATION,
+                "Bearer not-a-real-token".parse().unwrap(),
+            )]),
+            // Nor does a cookie that names no live session.
+            HeaderMap::from_iter([(
+                axum::http::header::COOKIE,
+                "ioi_session=not-a-real-session".parse().unwrap(),
+            )]),
+        ] {
+            let (status, code, _message) =
+                resolve_governance_reviewer(data_dir, &headers).unwrap_err();
+            assert_eq!(status, StatusCode::UNAUTHORIZED);
+            assert_eq!(code, "request_principal_required");
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn identity_refusals_stay_fail_closed_and_distinguishable() {
+        use super::super::substrate_store::RequestScopeRefusal;
+        // Every seam refusal keeps ITS OWN code, and a substrate outage stays a 503 rather than
+        // being flattened into "log in again" — an authenticated operator told to re-authenticate
+        // while identity storage is merely down cannot act on that, and would keep retrying.
+        let cases = [
+            (
+                RequestScopeRefusal::AuthenticationRequired,
+                StatusCode::UNAUTHORIZED,
+                "request_principal_required",
+            ),
+            (
+                RequestScopeRefusal::PrincipalIdentityInvalid,
+                StatusCode::UNAUTHORIZED,
+                "request_principal_invalid",
+            ),
+            (
+                RequestScopeRefusal::TenantAuthorityRequired,
+                StatusCode::FORBIDDEN,
+                "request_tenant_authority_required",
+            ),
+            (
+                RequestScopeRefusal::ResourceScopeRequired,
+                StatusCode::FORBIDDEN,
+                "request_resource_scope_required",
+            ),
+            (
+                RequestScopeRefusal::ResourceOwnerMismatch,
+                StatusCode::FORBIDDEN,
+                "request_resource_owner_mismatch",
+            ),
+            (
+                RequestScopeRefusal::SubstrateUnavailable("identity store unreadable".into()),
+                StatusCode::SERVICE_UNAVAILABLE,
+                "request_scope_substrate_unavailable",
+            ),
+        ];
+        for (refusal, want_status, want_code) in cases {
+            let (status, code, message) = reviewer_identity_refusal(refusal);
+            assert_eq!(status, want_status, "status for {want_code}");
+            assert_eq!(code, want_code);
+            assert!(
+                !status.is_success(),
+                "{want_code} must never render as success"
+            );
+            assert!(
+                !message.is_empty(),
+                "{want_code} carries an operator-readable message"
+            );
+        }
     }
 
     #[test]

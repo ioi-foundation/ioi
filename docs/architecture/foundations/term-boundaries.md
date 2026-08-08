@@ -6,7 +6,7 @@ Supersedes: the `Terminology Boundary Table` that was carried as an H3 subsectio
 Superseded by: none.
 Last alignment pass: 2026-07-25.
 Doctrine status: canonical
-Implementation status: mixed (a terminology contract over subjects at every maturity level; the deprecated-alias register is enforced by `npm run check:architecture-docs`)
+Implementation status: mixed (a terminology contract over subjects at every maturity level; the deprecated-alias register is a review obligation with no machine enforcement — see `Deprecated and Forbidden Aliases` below)
 Implementation refs:
   - `scripts/check-architecture-docs.mjs`
 Last implementation audit: 2026-07-25
@@ -287,8 +287,19 @@ evidence about the other.
 
 ## Deprecated and Forbidden Aliases
 
-`npm run check:architecture-docs` fails closed on these outside an explicit
-alias, legacy, historical, migration, or watchlist context.
+**No checker enforces this register today — enforcement is an open gap.**
+A forbidden spelling outside an explicit alias, legacy, historical, migration,
+or watchlist context is still a defect; until the gap closes, the rule binds
+reviewers rather than CI.
+
+The gate that failed closed here lived in the pre-2026-08-05
+`check-architecture-docs.mjs` as a `staleLinePatterns` list, and it covered only
+the `cap:*` / capgrant family — the rest of the table below was never machine-checked.
+That script was deleted with the rest of the proof apparatus on 2026-08-05, and the
+2026-08-07 restoration did not carry the rule forward. Today
+`npm run check:architecture-docs` reads no term list at all: it checks link
+resolution, stale link labels, the two status-axis fields, `Implementation refs:`
+existence, and the work-item records.
 
 | Forbidden | Use instead | Why |
 | --- | --- | --- |

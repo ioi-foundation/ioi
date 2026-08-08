@@ -1031,24 +1031,151 @@ fn new_webhook_token() -> String {
     )
 }
 
+/// The rotation write, extracted from the Axum adapter so its failure path is directly testable.
+/// `automation` is the record the adapter just loaded; `token` is INJECTED so tests fix the secret
+/// instead of asserting over a freshly minted random one.
+///
+/// One record, one write, no receipt and no second effect: nothing happens before the write except
+/// generating the candidate token in memory, so a failed write needs no compensation — it only must
+/// not be acknowledged. Acknowledgement is the whole point here. The plaintext is shown EXACTLY
+/// ONCE and never persisted, so returning `ok:true` over a discarded write handed the operator a
+/// secret that authenticates nowhere while the superseded token stayed valid:
+/// `handle_automation_webhook` authorises inbound triggers by comparing `sha256(presented)` against
+/// the stored `webhook_token_hash`, so the durable hash — not the response — decides what opens the
+/// trigger. A rotation reported as done while the old credential still works is a false
+/// security-control acknowledgement, which is worse than a rotation that visibly failed.
+///
+/// The write goes through `durable_fs::persist_record_durable` rather than the legacy
+/// `persist_record` because a credential rotation needs the two failure modes told apart, and only
+/// the temp-sibling → fsync → rename → directory-fsync writer can tell them apart:
+///   * `NotCommitted` — THIS candidate did not commit. On its own that proves nothing about what
+///     is current: a concurrent writer may have rotated between the adapter's load and this
+///     failure, so "the old token still works" would be a guess. The prior hash is captured before
+///     mutation and re-read after the refusal, and only when the durable state still matches what
+///     this request read does the HTTP 500 claim continuity. Otherwise the state is ambiguous and
+///     gets the 503 lane below.
+///   * `RenamedDurabilityUnconfirmed` — the rename ALREADY replaced the old record in the live
+///     view and only the directory fsync failed. HTTP 503, and the honest report is
+///     unknown-but-possibly-applied: no plaintext is issued (there is none the caller can trust),
+///     and the response must NOT claim the old token still works, because it very likely does not.
+///
+/// Every non-OK lane issues NO plaintext and tells the caller to rotate again, because rotating
+/// again is the only operation that converges the automation on a token the caller knows.
+///
+/// A NOTE ON IDS: `persist_record_durable` REFUSES a record id that is not filesystem-safe instead
+/// of normalizing it, because normalizing would let two distinct ids collide on one file. The
+/// legacy `persist_record` normalized silently. `load` normalizes with the same character set, so
+/// for every id that passes the guard the two agree on exactly one file; an id outside it now
+/// refuses the rotation rather than rotating into a shared file. That is a refusal, never a false
+/// success.
+fn record_rotated_webhook_token(
+    data_dir: &str,
+    id: &str,
+    mut automation: Value,
+    token: &str,
+) -> (StatusCode, Value) {
+    use super::durable_fs::PersistFailure;
+    let token_hash = sha256_hex_str(token);
+    // Captured BEFORE mutation: the trigger-token state this request actually read. `None` is a
+    // real state (a spec that has never had a token), distinct from "the record is unreadable".
+    let prior_hash = automation
+        .get("webhook_token_hash")
+        .and_then(|v| v.as_str())
+        .map(str::to_string);
+    automation["webhook_token_hash"] = json!(token_hash);
+    automation["webhook_url"] = json!(format!("/v1/hypervisor/automations/{id}/webhook"));
+    if automation.get("trigger_kind").and_then(|v| v.as_str()) != Some("time") {
+        automation["trigger_kind"] = json!("webhook"); // don't clobber an existing schedule
+    }
+    automation["updated_at"] = json!(iso_now());
+    match super::durable_fs::persist_record_durable(data_dir, "automations", id, &automation) {
+        Ok(()) => {}
+        Err(PersistFailure::NotCommitted(_)) => {
+            // The candidate did not commit. Whether the PRIOR token is still current is a separate
+            // question this failure does not answer, so re-read and compare against what this
+            // request loaded. A vanished/unreadable record is NOT "unchanged" — it is unknown.
+            let unchanged = load(data_dir, "automations", id).is_some_and(|r| {
+                r.get("webhook_token_hash")
+                    .and_then(|v| v.as_str())
+                    .map(str::to_string)
+                    == prior_hash
+            });
+            if !unchanged {
+                return (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    json!({ "ok": false, "error": {
+                        "code": "automation_webhook_rotation_state_ambiguous",
+                        "message": "the rotated webhook trigger token was not committed, and this automation's durable trigger-token state no longer matches the state this request read — a concurrent rotation or an unreadable record. No token was issued, and NEITHER the old nor the new token may be assumed current. Rotate again to converge."
+                    }}),
+                );
+            }
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                json!({ "ok": false, "error": {
+                    "code": "automation_webhook_rotation_persistence_failed",
+                    "message": "the rotated webhook trigger token could not be durably recorded — no rotation occurred, no new token was issued, and this automation's trigger token is unchanged from the one this request read. Rotate again to retry."
+                }}),
+            );
+        }
+        Err(PersistFailure::RenamedDurabilityUnconfirmed(_)) => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                json!({ "ok": false, "error": {
+                    "code": "automation_webhook_rotation_durability_unconfirmed",
+                    "message": "the rotated webhook trigger token is visible but its durability is UNCONFIRMED — the rotation may or may not have applied, no usable token was issued, and the previously issued token must NOT be assumed still valid. Rotate again to converge on a known token."
+                }}),
+            );
+        }
+    }
+    // Acknowledge from the RELOADED durable record, never from the in-memory candidate — the same
+    // read shape `handle_automation_webhook` authenticates against. A committed write that does not
+    // read back as current is ambiguous in exactly the same way, and gets the same treatment: no
+    // plaintext, and no claim about which token now opens the trigger.
+    let reloaded = load(data_dir, "automations", id);
+    if reloaded
+        .as_ref()
+        .and_then(|r| r.get("webhook_token_hash"))
+        .and_then(|v| v.as_str())
+        != Some(token_hash.as_str())
+    {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            json!({ "ok": false, "error": {
+                "code": "automation_webhook_rotation_unconfirmed",
+                "message": "the write reported committed but the rotated webhook trigger token did not read back as this automation's current token — the rotation is not acknowledged, no token was issued, and neither token may be assumed current. Rotate again to converge."
+            }}),
+        );
+    }
+    let webhook_url = reloaded
+        .as_ref()
+        .and_then(|r| r.get("webhook_url"))
+        .cloned()
+        .unwrap_or(Value::Null);
+    (
+        StatusCode::OK,
+        json!({ "ok": true, "webhook_token": token, "webhook_url": webhook_url }),
+    )
+}
+
 /// POST /v1/hypervisor/automations/:id/webhook-rotate — (re)mint the opaque trigger token (also
-/// enables webhook triggering on an existing automation). Hash stored at rest; plaintext returned ONCE.
+/// enables webhook triggering on an existing automation). Hash stored at rest; plaintext returned
+/// ONCE, and only once the new hash is durably recorded and reads back as current.
 pub(crate) async fn handle_automation_webhook_rotate(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
-) -> Json<Value> {
-    let Some(mut a) = load(&st.data_dir, "automations", &id) else {
-        return Json(json!({ "ok": false, "reason": "automation not found" }));
+) -> (StatusCode, Json<Value>) {
+    let Some(a) = load(&st.data_dir, "automations", &id) else {
+        // PRESERVED VERBATIM. This packet changes the durability contract, not the not-found
+        // contract; the return type had to name a status, and naming OK keeps the existing wire
+        // response byte-for-byte rather than silently broadening it to 404.
+        return (
+            StatusCode::OK,
+            Json(json!({ "ok": false, "reason": "automation not found" })),
+        );
     };
-    let tok = new_webhook_token();
-    a["webhook_token_hash"] = json!(sha256_hex_str(&tok));
-    a["webhook_url"] = json!(format!("/v1/hypervisor/automations/{id}/webhook"));
-    if a.get("trigger_kind").and_then(|v| v.as_str()) != Some("time") {
-        a["trigger_kind"] = json!("webhook"); // don't clobber an existing schedule
-    }
-    a["updated_at"] = json!(iso_now());
-    let _ = persist_record(&st.data_dir, "automations", &id, &a);
-    Json(json!({ "ok": true, "webhook_token": tok, "webhook_url": a["webhook_url"] }))
+    let (status, payload) =
+        record_rotated_webhook_token(&st.data_dir, &id, a, &new_webhook_token());
+    (status, Json(payload))
 }
 
 /// GET /v1/hypervisor/automations/:id/webhook-events — recent inbound trigger events (audit trail)
@@ -2256,4 +2383,209 @@ pub(crate) async fn handle_warm_pool_claim(
     Json(
         json!({ "ok": true, "environment_id": claimed_env, "claim_kind": "warm_claim", "remaining": pool["ready"].as_array().map(|a| a.len()).unwrap_or(0) }),
     )
+}
+
+#[cfg(test)]
+mod webhook_rotation_durability_tests {
+    use super::*;
+
+    // Every fault below is DETERMINISTIC, UID-INDEPENDENT and PROCESS-LOCAL. No chmod: root
+    // bypasses mode-bit denial, so a permission fault would pass vacuously when the suite runs as
+    // root. No env var and no cwd change, so nothing here can race the rest of the suite.
+    // `persist_record_durable`'s RenamedDurabilityUnconfirmed lane is deliberately NOT exercised
+    // here — its only injection point is a process-global env var owned by durable_fs, whose own
+    // tests already cover it. This module covers the two NotCommitted outcomes and the success lane.
+    //
+    // "automations" is in neither PROMOTED_DOMAINS nor REQUIRED_ADMISSION_DOMAINS, so the write
+    // takes the daemon-file path: it can refuse at the id guard, at create_dir_all, at the temp
+    // sibling, or at the rename. A promoted family would admit through the substrate engine and
+    // its failure points would differ.
+
+    const ID: &str = "aut_rotation";
+    /// Loadable but NOT durably writable: `load` normalizes `@` to `_` and reads
+    /// `aut_rotation.json`, while `persist_record_durable` REFUSES the id outright — before it
+    /// opens anything — because normalizing it would let two distinct ids collide on one file.
+    /// That gives a persist failure whose prior record is provably, byte-for-byte untouched, which
+    /// no path shadow can do here: any shadow that breaks the write also breaks the read of the
+    /// same filename-keyed record.
+    const UNWRITABLE_ID: &str = "aut@rotation";
+    const OLD_TOKEN: &str = "whk_the_previously_issued_token";
+    const NEW_TOKEN: &str = "whk_the_candidate_token_under_test";
+
+    fn prior_automation() -> Value {
+        json!({
+            "id": ID, "project_id": "prj_1", "name": "nightly",
+            "trigger_kind": "webhook", "enabled": true,
+            "webhook_token_hash": sha256_hex_str(OLD_TOKEN),
+            "webhook_url": format!("/v1/hypervisor/automations/{ID}/webhook"),
+        })
+    }
+
+    fn seed(data_dir: &str, id: &str, record: &Value) {
+        super::super::durable_fs::persist_record_durable(data_dir, "automations", id, record)
+            .unwrap();
+    }
+
+    /// Does `presented` open the trigger, judged the way `handle_automation_webhook` judges it —
+    /// `sha256(presented)` against the DURABLE `webhook_token_hash`, never against the response.
+    fn token_opens_trigger(data_dir: &str, id: &str, presented: &str) -> bool {
+        load(data_dir, "automations", id)
+            .and_then(|a| {
+                a.get("webhook_token_hash")
+                    .and_then(|v| v.as_str())
+                    .map(str::to_string)
+            })
+            .is_some_and(|want| !want.is_empty() && sha256_hex_str(presented) == want)
+    }
+
+    /// Is the candidate token durable ANYWHERE in the family? The defect being closed is a
+    /// plaintext token that authenticates nowhere, so "no record carries its hash" is the fact.
+    fn candidate_hash_is_durable_anywhere(data_dir: &str) -> bool {
+        let candidate = sha256_hex_str(NEW_TOKEN);
+        read_record_dir(data_dir, "automations").iter().any(|r| {
+            r.get("webhook_token_hash").and_then(|v| v.as_str()) == Some(candidate.as_str())
+        })
+    }
+
+    /// THE 500 LANE — the refusal that may truthfully claim continuity, because the prior record
+    /// is verified still present and still carrying the hash this request read.
+    #[test]
+    fn a_refused_rotation_that_left_the_record_intact_keeps_the_prior_token_current() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        seed(data_dir, ID, &prior_automation());
+        // Readable at the point the adapter loads it, under the id the adapter was called with.
+        let loaded = load(data_dir, "automations", UNWRITABLE_ID).expect("readable");
+        assert_eq!(
+            loaded["webhook_token_hash"],
+            json!(sha256_hex_str(OLD_TOKEN))
+        );
+
+        let (status, body) =
+            record_rotated_webhook_token(data_dir, UNWRITABLE_ID, loaded, NEW_TOKEN);
+
+        assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(body["ok"], json!(false));
+        assert_eq!(
+            body["error"]["code"],
+            json!("automation_webhook_rotation_persistence_failed")
+        );
+        // The whole defect in one assertion: no plaintext leaves a refused rotation.
+        assert!(
+            body.get("webhook_token").is_none(),
+            "a refused rotation must not return a token, got {body}"
+        );
+        // The continuity claim the 500 message makes is TRUE and verified, not assumed:
+        assert!(token_opens_trigger(data_dir, UNWRITABLE_ID, OLD_TOKEN));
+        // ...and the candidate opens nothing, anywhere.
+        assert!(!token_opens_trigger(data_dir, UNWRITABLE_ID, NEW_TOKEN));
+        assert!(!candidate_hash_is_durable_anywhere(data_dir));
+    }
+
+    /// THE 503 LANE — the same `NotCommitted` failure, but the durable state can no longer be
+    /// confirmed to match what the request read, so continuity is NOT claimed. Here the rename
+    /// target is shadowed by a directory: the temp sibling is written and fsynced, the rename
+    /// fails, and the record is then unreadable — which is exactly the "unknown, not unchanged"
+    /// case a concurrent rotation would also produce.
+    #[test]
+    fn a_refused_rotation_over_an_unreadable_record_refuses_to_claim_either_token() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        let family = directory.path().join("automations");
+        std::fs::create_dir_all(&family).unwrap();
+        // A SIBLING automation the refusal must not touch.
+        seed(
+            data_dir,
+            "aut_sibling",
+            &json!({ "id": "aut_sibling", "webhook_token_hash": sha256_hex_str("whk_sibling") }),
+        );
+        seed(data_dir, ID, &prior_automation());
+        let loaded = load(data_dir, "automations", ID).expect("readable");
+        std::fs::remove_file(family.join(format!("{ID}.json"))).unwrap();
+        std::fs::create_dir_all(family.join(format!("{ID}.json"))).unwrap();
+
+        let (status, body) = record_rotated_webhook_token(data_dir, ID, loaded, NEW_TOKEN);
+
+        assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(body["ok"], json!(false));
+        assert_eq!(
+            body["error"]["code"],
+            json!("automation_webhook_rotation_state_ambiguous")
+        );
+        assert!(body.get("webhook_token").is_none());
+        // No token was issued and none became durable — the ambiguity is about WHICH token is
+        // current, never about the candidate having leaked into the durable record.
+        assert!(!candidate_hash_is_durable_anywhere(data_dir));
+        // The refusal is confined to the record it targeted.
+        assert!(token_opens_trigger(data_dir, "aut_sibling", "whk_sibling"));
+    }
+
+    /// A second, distinct syscall reaching the same honest refusal: a regular FILE where the family
+    /// directory belongs fails `create_dir_all`, so no temp sibling is ever created. Nothing is
+    /// readable afterwards, so this is the ambiguous lane too — the handler cannot confirm
+    /// continuity it cannot read.
+    #[test]
+    fn a_family_directory_shadowed_by_a_file_refuses_and_records_nothing() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        std::fs::write(directory.path().join("automations"), b"not a directory").unwrap();
+
+        let (status, body) =
+            record_rotated_webhook_token(data_dir, ID, prior_automation(), NEW_TOKEN);
+
+        assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(
+            body["error"]["code"],
+            json!("automation_webhook_rotation_state_ambiguous")
+        );
+        assert!(body.get("webhook_token").is_none());
+        assert!(load(data_dir, "automations", ID).is_none());
+        assert!(!token_opens_trigger(data_dir, ID, NEW_TOKEN));
+    }
+
+    /// THE SUCCESS LANE — plaintext exactly once, and only after the new hash reads back as current.
+    #[test]
+    fn a_durable_rotation_is_acknowledged_from_the_reloaded_record() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        seed(data_dir, ID, &prior_automation());
+        assert!(token_opens_trigger(data_dir, ID, OLD_TOKEN));
+
+        let (status, body) = record_rotated_webhook_token(
+            data_dir,
+            ID,
+            load(data_dir, "automations", ID).unwrap(),
+            NEW_TOKEN,
+        );
+
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["ok"], json!(true));
+        assert_eq!(body["webhook_token"], json!(NEW_TOKEN));
+        // Projected from the RELOADED record, never from the in-memory candidate.
+        assert_eq!(
+            body["webhook_url"],
+            json!(format!("/v1/hypervisor/automations/{ID}/webhook"))
+        );
+        // The returned token opens the trigger, judged exactly as the webhook route judges it.
+        assert!(token_opens_trigger(data_dir, ID, NEW_TOKEN));
+        // Rotation means REPLACEMENT: the superseded token stops opening the trigger.
+        assert!(!token_opens_trigger(data_dir, ID, OLD_TOKEN));
+    }
+
+    #[test]
+    fn rotation_does_not_clobber_an_existing_time_trigger() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        let mut scheduled = prior_automation();
+        scheduled["trigger_kind"] = json!("time");
+
+        let (status, _) = record_rotated_webhook_token(data_dir, ID, scheduled, NEW_TOKEN);
+
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(
+            load(data_dir, "automations", ID).unwrap()["trigger_kind"],
+            json!("time")
+        );
+        assert!(token_opens_trigger(data_dir, ID, NEW_TOKEN));
+    }
 }

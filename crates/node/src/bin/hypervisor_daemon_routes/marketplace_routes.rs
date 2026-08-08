@@ -25,9 +25,12 @@ use axum::Json;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 
+use agentgres::event_stream::AdmissionRefusal;
+
 use super::mutation_event_foundation::{
-    admit_owner_scoped_write, admitted_stamp, replay_stable_id, require_write_caller,
-    MutationCommit, WriteCaller,
+    admit_owner_scoped_write, admitted_history_for_caller, admitted_stamp, mutation_refusal_reply,
+    prior_admission_for_key, replay_stable_id, require_write_caller, MutationCommit,
+    MutationRefusal, WriteCaller,
 };
 use super::{iso_now, persist_record, read_record_dir, remove_record, sha256_hex_str, DaemonState};
 
@@ -1134,8 +1137,19 @@ pub(crate) async fn handle_candidate_delete(
 /// Link or unlink a candidate's admission review.
 ///
 /// This swallowed every failure — malformed ref, missing candidate, failed write — and returned
-/// unit. `publish_gates` reads `admission_review_ref`, so a silent failure here decides publish
-/// eligibility from a backlink that was never written.
+/// unit, so a caller was told its review had been linked when nothing had been written.
+///
+/// What the backlink IS, precisely, because a stale comment here claimed otherwise: it is this
+/// plane's read-model answer to "which review does this candidate carry", served by candidate GET
+/// and list and overwritten by `handle_candidate_publish` from its own resolution. It is NOT the
+/// publish gate — `publish_gates` scans the review records for one whose `candidate_ref` matches
+/// with `decision == "admitted"`, so publish eligibility does not depend on this field at all. It
+/// still fails closed, because a read model that answers wrongly is a defect on its own terms; but
+/// a clobber here is an ordering and read-model fault, never an authority one.
+///
+/// LAST-WRITER-WINS, and a candidate may carry several reviews. Callers must therefore decide
+/// whether they are entitled to write it: a fresh create is, and a REPLAY of an older create is
+/// not.
 fn link_candidate_review(
     data_dir: &str,
     candidate_ref: &str,
@@ -1178,6 +1192,47 @@ pub(crate) async fn handle_review_list(State(st): State<Arc<DaemonState>>) -> Js
     Json(json!({ "ok": true, "admission_reviews": items }))
 }
 
+// ---- reviewer attribution (P-MKT-ATTR-1) -------------------------------------------------------
+//
+// An admission review's `reviewer_ref` is WHO REVIEWED, and an admitted review is a publish gate:
+// `publish_reasons` reads it back as `no_admitted_admission_review`. Attribution a client chooses is
+// not attribution at all. Canon (`identity-access-and-metering.md`) is flat about it — "Request
+// bodies never select the acting principal, owner, role, or authority."
+//
+// Both handlers already resolve the acting principal (`require_write_caller`) and every admitted
+// mutation is fingerprinted and scope-bound to it, so the record was the ONLY place a different name
+// could survive: event truth said one principal, the projection a later read treats as proof said
+// another. Two rules close that, both fail-closed:
+//
+//   1. A body carrying `reviewer_ref` is REFUSED, never ignored. Silently dropping it would let a
+//      caller believe it had attributed the review while the record said otherwise, and any surface
+//      sending one would go on lying instead of being fixed.
+//   2. The reviewer written is `caller.identity.principal_ref`, set into the SAME bytes that are
+//      admitted, so the event payload and the projection name one principal by construction.
+//
+// NONCLAIM: this packet closes ATTRIBUTION only. WHO MAY review an admission review still has no
+// canonical role/authority owner, so nothing here decides that — any principal authorized for the
+// owner tenant may still create and advance a review, exactly as before.
+
+/// Refuse a body that names who reviewed. Refuses on the KEY BEING PRESENT, not on its value, so
+/// `null`, `""`, and a value that happens to match the caller are refused alike: "accept it when it
+/// matches" would make the gate depend on the very identity the request is trying to assert.
+///
+/// `reviewer_ref` is the only name checked, and deliberately so. It is the one attribution field
+/// this plane writes; refusing invented spellings would refuse fields nothing here persists, and the
+/// record is built key-by-key so no other body field can reach it. If this record ever gains a
+/// second actor field, that field belongs in this gate on the same day.
+fn reject_client_supplied_reviewer(body: &Value) -> Result<(), (StatusCode, Json<Value>)> {
+    if body.get("reviewer_ref").is_none() {
+        return Ok(());
+    }
+    Err(bad(
+        "marketplace_reviewer_ref_not_client_settable",
+        "'reviewer_ref' is derived from the authenticated caller and cannot be supplied by the \
+         request; remove it and re-send",
+    ))
+}
+
 /// POST /v1/hypervisor/marketplace/admission-reviews — review a candidate. `admitted` != `published`.
 pub(crate) async fn handle_review_create(
     State(st): State<Arc<DaemonState>>,
@@ -1189,40 +1244,75 @@ pub(crate) async fn handle_review_create(
         Ok(caller) => caller,
         Err(response) => return response,
     };
-    let candidate_ref = str_field(&body, "candidate_ref");
+    // ORDER IS THE FIX. Everything decidable from the request is decided — and a retry is answered
+    // from admitted truth — BEFORE the posture read below. `governance_snapshot` reads live gate
+    // state and stamps its own wall clock, so a retry that re-derived it presented different bytes
+    // under the same idempotency key and was refused 409 instead of replaying.
+    match begin_admission_review_create(&st.data_dir, &caller, &body) {
+        ReviewCreateStep::Answered(response) => response,
+        ReviewCreateStep::Fresh(command) => {
+            let gov = governance_snapshot(&st.base_url).await;
+            finish_admission_review_create(&st.data_dir, &caller, &command, gov)
+        }
+    }
+}
+
+/// What a create still owes after everything decidable without the server's posture read.
+enum ReviewCreateStep {
+    /// Refused, or replayed from the fact this caller's key already admitted. Either way the
+    /// posture read is not owed: it would only be discarded.
+    Answered((StatusCode, Json<Value>)),
+    /// A command with no prior admission. The caller supplies the posture and finishes it.
+    Fresh(Value),
+}
+
+/// The stable half of an admission-review create: everything this command decides from the request
+/// and its authenticated caller, and nothing a server derives on its behalf.
+///
+/// Two submissions are the SAME COMMAND exactly when this value is equal. The governance posture
+/// snapshot and the two clocks are deliberately outside it: they are read from live state at create
+/// time, so a retry cannot reproduce them, and treating them as identity made every retry a
+/// different command. They are still written and still admitted — posture at review time is
+/// evidence — they are simply not what makes a command itself.
+fn admission_review_command(
+    data_dir: &str,
+    caller: &WriteCaller,
+    body: &Value,
+) -> Result<Value, (StatusCode, Json<Value>)> {
+    // A body may not name who reviewed. Refused here — before the candidate is resolved, before any
+    // event is admitted, before any projection or candidate backlink is written, and before the
+    // replay probe below can answer anything — so a forged create leaves nothing to reconcile and a
+    // forged RETRY is refused rather than served from the original's success.
+    reject_client_supplied_reviewer(body)?;
+    let candidate_ref = str_field(body, "candidate_ref");
     if candidate_ref.is_empty() {
-        return bad(
+        return Err(bad(
             "marketplace_candidate_ref_required",
             "An admission review must declare a candidate_ref.",
-        );
+        ));
     }
     if let Err((c, m)) = resolve_scheme_ref(
-        &st.data_dir,
+        data_dir,
         candidate_ref,
         "marketplace-publish",
         KIND_CANDIDATE,
         "candidate_ref",
     ) {
-        return bad(&c, &m);
+        return Err(bad(&c, &m));
     }
-    let decision = {
-        let d = body
-            .get("decision")
-            .and_then(|v| v.as_str())
-            .unwrap_or("pending");
-        if !ADMISSION_DECISIONS.contains(&d) {
-            return bad(
-                "marketplace_decision_invalid",
-                &format!("decision must be one of {ADMISSION_DECISIONS:?}"),
-            );
-        }
-        d.to_string()
-    };
-    let gov = governance_snapshot(&st.base_url).await;
+    let decision = body
+        .get("decision")
+        .and_then(|v| v.as_str())
+        .unwrap_or("pending");
+    if !ADMISSION_DECISIONS.contains(&decision) {
+        return Err(bad(
+            "marketplace_decision_invalid",
+            &format!("decision must be one of {ADMISSION_DECISIONS:?}"),
+        ));
+    }
     // Content-derived, not clock-derived: a retried create must resolve to one resource.
     let id = replay_stable_id("madm", &caller.owner_ref, &caller.idempotency_key);
-    let now = iso_now();
-    let record = json!({
+    Ok(json!({
         "schema_version": "ioi.hypervisor.marketplace-admission-review.v1",
         "object": "ioi.hypervisor.marketplace_admission_review",
         "id": id,
@@ -1232,15 +1322,214 @@ pub(crate) async fn handle_review_create(
         "decision": decision,
         // Explicit: admission is a gate review, not a publish. Nothing goes live from here.
         "admits_but_not_publishes": true,
-        "reviewer_ref": body.get("reviewer_ref").cloned().unwrap_or(Value::Null),
-        "findings": str_refs(&body, "findings"),
-        "governance_posture_snapshot": gov,
-        "created_at": now,
-        "updated_at": now
-    });
+        // THE reviewer: the server-resolved principal this write is admitted as. It rides the
+        // command, so the admitted event and the projection carry one identical name.
+        "reviewer_ref": caller.identity.principal_ref,
+        "findings": str_refs(body, "findings")
+    }))
+}
+
+/// The stable command an admitted create payload carries, with the server-derived posture removed.
+/// One definition, used on both sides of the replay comparison, so what counts as "the same command"
+/// cannot drift from what `admission_review_command` actually writes.
+fn command_without_posture(payload: &Value) -> Value {
+    let mut copy = payload.clone();
+    if let Some(map) = copy.as_object_mut() {
+        map.remove("governance_posture_snapshot");
+    }
+    copy
+}
+
+/// Decide a create as far as the request alone allows: refuse it, replay it from admitted truth, or
+/// hand back the command that still needs a posture read.
+fn begin_admission_review_create(
+    data_dir: &str,
+    caller: &WriteCaller,
+    body: &Value,
+) -> ReviewCreateStep {
+    let command = match admission_review_command(data_dir, caller, body) {
+        Ok(command) => command,
+        Err(response) => return ReviewCreateStep::Answered(response),
+    };
+    match replay_created_admission_review(data_dir, caller, &command) {
+        Err(response) => ReviewCreateStep::Answered(response),
+        Ok(Some(response)) => ReviewCreateStep::Answered(response),
+        Ok(None) => ReviewCreateStep::Fresh(command),
+    }
+}
+
+/// Answer a create from the fact this caller's key already admitted, if there is one.
+///
+/// `Ok(None)` means nothing was admitted under this key and the create proceeds unchanged.
+fn replay_created_admission_review(
+    data_dir: &str,
+    caller: &WriteCaller,
+    command: &Value,
+) -> Result<Option<(StatusCode, Json<Value>)>, (StatusCode, Json<Value>)> {
+    let id = str_field(command, "id").to_string();
+    let history = admitted_history_for_caller(
+        data_dir,
+        caller,
+        MARKETPLACE_NAMESPACE,
+        KIND_REVIEW,
+        &format!("marketplace-admission-review://{id}"),
+    )?;
+    let Some(prior) = history
+        .iter()
+        .find(|entry| entry.operation.idem_key == caller.idempotency_key)
+    else {
+        return Ok(None);
+    };
+    if prior.operation.op_kind != "marketplace.review.create" {
+        // This key's prior fact is some other operation on this stream. Leave it to
+        // `admit_owner_scoped_write`, which produces the substrate's own refusal exactly as today.
+        return Ok(None);
+    }
+    if command_without_posture(&prior.operation.payload) != *command {
+        // Same key, genuinely different command. Excluding the posture from replay identity must
+        // not become permission to replay a stale success for a command the caller changed, so this
+        // answers with the substrate's own refusal — same status, same code, same message.
+        return Err(mutation_refusal_reply(MutationRefusal::Admission(
+            AdmissionRefusal::SameKeyDifferentBytes {
+                idem_key: caller.idempotency_key.clone(),
+            },
+        )));
+    }
+    // TERMINAL-TRUTH FENCE, and it runs before ANY write on this path.
+    //
+    // A delete admitted after this create is the stream's last word on whether the resource exists.
+    // Replaying the create over it would rebuild the projection and re-link the candidate — an
+    // admitted removal undone by a retry of the command that preceded it. The old moved-posture
+    // 409 hid this: the retry never reached the substrate's replay, so the repair was unreachable.
+    // Reading the history early makes it reachable, so the fence lands with it rather than after it.
+    //
+    // This is the same rule the delete path now applies from the other side: an admitted terminal
+    // transition decides existence, and no earlier fact may be replayed over it. Refused rather than
+    // answered 200 with the created record: that record is gone, and `removed:true` is what the
+    // delete's own key already replays. A new review needs a new key, which mints a new resource.
+    if let Some(terminal) = history.iter().find(|entry| {
+        entry.seq > prior.seq && entry.operation.op_kind == "marketplace.review.delete"
+    }) {
+        return Err((
+            StatusCode::CONFLICT,
+            Json(json!({ "ok": false, "error": {
+                "code": "marketplace_review_removed",
+                "message": "this idempotency key's review was admitted and has since been deleted; \
+                            replaying the create would undo an admitted removal — use a new \
+                            idempotency_key to review this candidate again"
+            }, "admitted_head": terminal.head })),
+        ));
+    }
+    let review_ref = format!("marketplace-admission://{id}");
+    // The CURRENT projection when there is one. This is the resource the command created, and
+    // anything since is a later admitted fact — a patched decision above all. Re-projecting
+    // create-time bytes here would silently undo that patch, which is precisely what a replay must
+    // be incapable of.
+    //
+    // A replay over a live projection therefore writes NOTHING AT ALL — not the review, and not its
+    // candidate. A candidate may carry several reviews, and `admission_review_ref` is last-writer
+    // -wins, so re-linking here let an old key's retry drag the candidate's backlink back to review
+    // A after review B had superseded it, and bump `updated_at` while doing it. That is the same
+    // clobber the current-projection rule exists to forbid, one record over.
+    if let Some(record) = load(data_dir, KIND_REVIEW, &id) {
+        return Ok(Some((
+            StatusCode::OK,
+            Json(json!({ "ok": true, "replayed": true, "admission_review": record })),
+        )));
+    }
+    // Admitted with no projection: the original create's projection write failed, or the read model
+    // was lost. Rebuild CURRENT nonterminal truth — never the create's own bytes.
+    //
+    // Rebuilding from `prior` restored the decision, findings and reviewer as they were at create
+    // time and, worse, re-projected the CREATE's head over a stream that had moved. Every later
+    // patch and the delete read that stale head, presented it, and were refused
+    // event_stream_expected_head_conflict forever: a repair that wedges the record it repaired.
+    // The last admitted nonterminal entry is the record's current state, so that is what is
+    // projected — with `created_at` still owned by the original create, because that is the one
+    // field the latest entry cannot tell us.
+    let latest = history
+        .iter()
+        .max_by_key(|entry| entry.seq)
+        .expect("the history contains at least this caller's admitted create");
+    // Classify before projecting. An operation this route cannot interpret must not be silently
+    // rendered as a review — and must not fall back to the create bytes either, which is exactly
+    // the stale-state failure above wearing a different cause.
+    if !matches!(
+        latest.operation.op_kind.as_str(),
+        "marketplace.review.create" | "marketplace.review.patch"
+    ) {
+        return Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "error": {
+                "code": "marketplace_review_history_unclassified",
+                "message": format!(
+                    "the review's admitted history ends in '{}', which this plane cannot project \
+                     onto a review; the read model cannot be repaired from it",
+                    latest.operation.op_kind
+                )
+            }, "admitted_head": latest.head })),
+        ));
+    }
+    let mut repaired = latest.operation.payload.clone();
+    // NOT COVERED BY A TEST, and it cannot be: `admit_owner_scoped_write` records
+    // `recorded_at_ms: 0` for every mutation on this path, so the create's stamp and the latest
+    // entry's stamp are the same string and no assertion can tell them apart. The provenance is
+    // right by construction — `created_at` is the one field only the original create can answer —
+    // but a reader should not mistake this line for a proven one. Changing what the shared write
+    // path records is estate-wide and out of this packet.
+    repaired["created_at"] = json!(admitted_stamp(prior.operation.recorded_at_ms));
+    repaired["updated_at"] = json!(admitted_stamp(latest.operation.recorded_at_ms));
+    repaired["admitted_head"] = json!(latest.head);
+    project_or_fail(
+        data_dir,
+        KIND_REVIEW,
+        &id,
+        &repaired,
+        "marketplace_review_persistence_failed",
+    )?;
+    // Repair may RESTORE a backlink; it may never take one. The candidate is only written when its
+    // link is absent — the state the lost projection plausibly lost with it. A link already naming
+    // this review is already correct, and a link naming a DIFFERENT review is current truth about a
+    // newer review: an old create's repair does not get to overwrite it or touch `updated_at`.
+    let candidate_ref = str_field(command, "candidate_ref");
+    let linked = split_ref(candidate_ref)
+        .and_then(|(_, cid)| load(data_dir, KIND_CANDIDATE, cid))
+        .and_then(|candidate| {
+            candidate
+                .get("admission_review_ref")
+                .and_then(|v| v.as_str())
+                .map(str::to_string)
+        });
+    if linked.is_none() {
+        // Fail closed exactly as the first attempt does: the backlink is this plane's read-model
+        // answer to "which review does this candidate carry", and reporting 200 over a write that
+        // did not land would answer it wrongly for every later read.
+        link_candidate_review(data_dir, candidate_ref, Some(&review_ref))?;
+    }
+    Ok(Some((
+        StatusCode::OK,
+        Json(json!({ "ok": true, "replayed": true, "admission_review": repaired })),
+    )))
+}
+
+/// Admit and project a create whose command has no prior admission. The governance posture arrives
+/// as a value because it is the handler's only await; the reviewer arrives only inside `caller`, so
+/// there is no argument shape a request body could occupy.
+fn finish_admission_review_create(
+    data_dir: &str,
+    caller: &WriteCaller,
+    command: &Value,
+    gov: Value,
+) -> (StatusCode, Json<Value>) {
+    let id = str_field(command, "id").to_string();
+    let now = iso_now();
+    let mut record = command.clone();
+    record["governance_posture_snapshot"] = gov;
+    record["created_at"] = json!(now);
+    record["updated_at"] = json!(now);
     let commit = match admit_owner_scoped_write(
-        &st.data_dir,
-        &caller,
+        data_dir,
+        caller,
         MARKETPLACE_NAMESPACE,
         KIND_REVIEW,
         &format!("marketplace-admission-review://{id}"),
@@ -1251,10 +1540,9 @@ pub(crate) async fn handle_review_create(
         Ok(commit) => commit,
         Err(response) => return response,
     };
-    let mut record = record;
     project_created(&mut record, &commit);
     if let Err(response) = project_or_fail(
-        &st.data_dir,
+        data_dir,
         KIND_REVIEW,
         &id,
         &record,
@@ -1262,12 +1550,13 @@ pub(crate) async fn handle_review_create(
     ) {
         return response;
     }
-    // Link the review onto its candidate so blocked_reasons can reflect an admitted review. This
-    // must not be best-effort: a review the candidate never learns about is a review that cannot
-    // gate publish, and reporting 201 would say the opposite.
+    // Link the review onto its candidate. A FRESH create is the one caller entitled to take this
+    // last-writer-wins field: it is the newest review this candidate carries. It must not be
+    // best-effort — reporting 201 over a link that did not land makes every later read of the
+    // candidate answer wrongly about which review it holds.
     if let Err(response) = link_candidate_review(
-        &st.data_dir,
-        candidate_ref,
+        data_dir,
+        str_field(command, "candidate_ref"),
         Some(&format!("marketplace-admission://{id}")),
     ) {
         return response;
@@ -1302,7 +1591,25 @@ pub(crate) async fn handle_review_patch(
         Ok(caller) => caller,
         Err(response) => return response,
     };
-    let Some(mut r) = load(&st.data_dir, KIND_REVIEW, &id) else {
+    patch_admission_review(&st.data_dir, &id, &caller, &body)
+}
+
+/// Everything a patch decides once its caller is authenticated. Same split, and the same reason, as
+/// `create_admission_review`.
+fn patch_admission_review(
+    data_dir: &str,
+    id: &str,
+    caller: &WriteCaller,
+    body: &Value,
+) -> (StatusCode, Json<Value>) {
+    // Before the record is even LOADED. A forged patch must be refused identically whether or not
+    // the id exists: answering 400 for a real review and 404 for an invented one would turn this
+    // refusal into an existence oracle for another tenant's records. A patch that names no reviewer
+    // still reaches the load below and still answers the auth-before-load 404.
+    if let Err(response) = reject_client_supplied_reviewer(body) {
+        return response;
+    }
+    let Some(mut r) = load(data_dir, KIND_REVIEW, id) else {
         return (
             StatusCode::NOT_FOUND,
             Json(json!({ "ok": false, "reason": "admission review not found" })),
@@ -1318,18 +1625,23 @@ pub(crate) async fn handle_review_patch(
             );
         }
     }
-    for key in ["decision", "reviewer_ref", "findings"] {
+    for key in ["decision", "findings"] {
         if let Some(v) = body.get(key) {
             r[key] = v.clone();
         }
     }
+    // Attribution is rewritten from the caller on EVERY admitted patch, not merged from the stored
+    // record. Whoever advanced this review is its reviewer of record for the state that results, so
+    // a stale name — including one a pre-cut body planted — is overwritten rather than inherited.
+    // This lands BEFORE the payload is hashed below, so the event and the projection agree.
+    r["reviewer_ref"] = json!(caller.identity.principal_ref);
     let expected_head = match require_head(&r) {
         Ok(head) => head,
         Err(response) => return response,
     };
     let commit = match admit_owner_scoped_write(
-        &st.data_dir,
-        &caller,
+        data_dir,
+        caller,
         MARKETPLACE_NAMESPACE,
         KIND_REVIEW,
         &format!("marketplace-admission-review://{id}"),
@@ -1342,9 +1654,9 @@ pub(crate) async fn handle_review_patch(
     };
     project_admission(&mut r, &commit);
     if let Err(response) = project_or_fail(
-        &st.data_dir,
+        data_dir,
         KIND_REVIEW,
-        &id,
+        id,
         &r,
         "marketplace_review_persistence_failed",
     ) {
@@ -1368,13 +1680,44 @@ pub(crate) async fn handle_review_delete(
         Ok(caller) => caller,
         Err(response) => return response,
     };
-    let Some(existing) = load(&st.data_dir, KIND_REVIEW, &id) else {
-        return (
-            StatusCode::NOT_FOUND,
-            Json(
-                json!({ "ok": false, "error": { "code": "marketplace_review_not_found", "message": "review not found" } }),
+    delete_admission_review(&st.data_dir, &id, &caller)
+}
+
+/// Everything a delete decides once its caller is authenticated. Split out of the handler, and
+/// taking the already-resolved `caller`, for the same reason as create and patch: the replay
+/// contract is exercised against THE code the route runs, not a re-stated copy of it.
+fn delete_admission_review(
+    data_dir: &str,
+    id: &str,
+    caller: &WriteCaller,
+) -> (StatusCode, Json<Value>) {
+    let Some(existing) = load(data_dir, KIND_REVIEW, id) else {
+        // An absent projection is not proof this record never existed — the first attempt of THIS
+        // command is what removed it. The substrate's replay scan would have matched, since the
+        // delete payload carries no clock and `expected_head` is normalized out of replay identity,
+        // but the old 404 returned before admission was ever reached, so the scan never ran. Ask the
+        // admitted history first, and only then answer that there was nothing to delete.
+        return match prior_admission_for_key(
+            data_dir,
+            caller,
+            MARKETPLACE_NAMESPACE,
+            KIND_REVIEW,
+            &format!("marketplace-admission-review://{id}"),
+        ) {
+            Err(response) => response,
+            Ok(Some(prior)) if prior.operation.op_kind == "marketplace.review.delete" => (
+                StatusCode::OK,
+                Json(json!({ "ok": true, "removed": true, "replayed": true, "id": id })),
             ),
-        );
+            // Never existed, another principal's id, or a key whose prior fact was a create: each
+            // answers exactly what it answered before, byte for byte.
+            Ok(_) => (
+                StatusCode::NOT_FOUND,
+                Json(
+                    json!({ "ok": false, "error": { "code": "marketplace_review_not_found", "message": "review not found" } }),
+                ),
+            ),
+        };
     };
     // Deletion is a transition. Dropping the projection without admitting a terminal event leaves
     // the stream asserting the record still exists.
@@ -1383,8 +1726,8 @@ pub(crate) async fn handle_review_delete(
         Err(response) => return response,
     };
     let commit = match admit_owner_scoped_write(
-        &st.data_dir,
-        &caller,
+        data_dir,
+        caller,
         MARKETPLACE_NAMESPACE,
         KIND_REVIEW,
         &format!("marketplace-admission-review://{id}"),
@@ -1395,14 +1738,14 @@ pub(crate) async fn handle_review_delete(
         Ok(commit) => commit,
         Err(response) => return response,
     };
-    // The candidate backlink is part of this transition, not a side effect: publish gating reads
-    // admission_review_ref, so a swallowed unlink leaves a candidate pointing at a deleted review.
+    // The candidate backlink is part of this transition, not a side effect: a swallowed unlink
+    // leaves the candidate's read model pointing at a review that no longer exists.
     if let Some(candidate_ref) = existing.get("candidate_ref").and_then(|v| v.as_str()) {
-        if let Err(response) = link_candidate_review(&st.data_dir, candidate_ref, None) {
+        if let Err(response) = link_candidate_review(data_dir, candidate_ref, None) {
             return response;
         }
     }
-    if !remove_record(&st.data_dir, KIND_REVIEW, &id) {
+    if !remove_record(data_dir, KIND_REVIEW, id) {
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!({ "ok": false, "error": {
@@ -1746,5 +2089,1539 @@ mod marketplace_tests {
         let h = histogram(&items, "listing_kind");
         assert_eq!(h.get("agent"), Some(&2));
         assert_eq!(h.get("domain_app"), Some(&1));
+    }
+
+    // ---- P-MKT-ATTR-1: the reviewer is the authenticated caller, resolved server-side -----------
+    //
+    // These drive `create_admission_review` / `patch_admission_review` — the exact functions the
+    // routes call once identity is admitted — against a real tempdir and the real Agentgres
+    // admission chain, so "the event and the projection agree" is read back from durable truth
+    // rather than asserted about source order.
+
+    use super::super::mutation_event_foundation::stream_tail;
+    use super::super::substrate_store::{
+        read_event_stream_history, read_event_stream_operation, request_identity_for_test,
+        reset_handle_for_test,
+    };
+
+    /// The server-derived principal the identity seam would return; the ONLY admissible reviewer.
+    /// Shaped like `resolve_request_identity`'s output (`user://<principal_id>`).
+    const REVIEWER_PRINCIPAL: &str = "user://reviewer-real";
+    /// A reviewer identity a request might try to assert. Never admissible.
+    const FORGED_PRINCIPAL: &str = "user://attacker-chosen";
+    const TEST_OWNER: &str = "org://local";
+
+    fn test_caller(principal_ref: &str, idempotency_key: &str) -> WriteCaller {
+        WriteCaller {
+            identity: request_identity_for_test(principal_ref, [TEST_OWNER.to_string()]),
+            owner_ref: TEST_OWNER.to_string(),
+            idempotency_key: idempotency_key.to_string(),
+        }
+    }
+
+    /// The handler derives this from the governance overview on every call. Pinning it here is what
+    /// lets a replay present byte-identical material — see `governance_snapshot_carries_wall_clock`.
+    fn pinned_governance_snapshot() -> Value {
+        json!({
+            "auth_enforced": true,
+            "governance_gaps": 0,
+            "wallet_required_crossings": 0,
+            "authority_grants_active": 0,
+            "at": "2026-01-01T00:00:00Z"
+        })
+    }
+
+    fn seed_candidate(data_dir: &str, id: &str) -> String {
+        persist_record(
+            data_dir,
+            KIND_CANDIDATE,
+            id,
+            &json!({ "id": id, "ref": format!("marketplace-publish://{id}") }),
+        )
+        .unwrap();
+        format!("marketplace-publish://{id}")
+    }
+
+    fn review_tail(id: &str) -> String {
+        stream_tail(KIND_REVIEW, &format!("marketplace-admission-review://{id}"))
+    }
+
+    /// The payload of the review's CURRENT admitted event, read back from the durable log. This is
+    /// "event truth"; `load(.., KIND_REVIEW, id)` is "projection truth". The defect this packet
+    /// closes was the two disagreeing about who reviewed.
+    fn admitted_event_payload(data_dir: &str, id: &str) -> Option<Value> {
+        read_event_stream_operation(data_dir, MARKETPLACE_NAMESPACE, &review_tail(id))
+            .expect("the marketplace stream is readable")
+            .map(|exact| exact.operation.payload)
+    }
+
+    fn admitted_event_count(data_dir: &str, id: &str) -> usize {
+        read_event_stream_history(data_dir, MARKETPLACE_NAMESPACE, &review_tail(id))
+            .expect("the marketplace stream is readable")
+            .len()
+    }
+
+    /// Every shape a forged attribution can take. The KEY BEING PRESENT is the refusal — `null`,
+    /// `""`, a non-string, and a value that happens to match the real caller are all refused, so no
+    /// shape slips through and the gate never depends on the identity being asserted.
+    fn forged_reviewer_values() -> Vec<Value> {
+        vec![
+            json!(FORGED_PRINCIPAL),
+            json!(REVIEWER_PRINCIPAL),
+            Value::Null,
+            json!(""),
+            json!({ "id": "x" }),
+        ]
+    }
+
+    #[test]
+    fn a_body_that_names_no_reviewer_passes_the_gate() {
+        // The gate refuses forgery ONLY; it must not break any legitimate create or patch body.
+        for admissible in [
+            json!({ "candidate_ref": "marketplace-publish://mpub_1", "decision": "admitted" }),
+            json!({ "decision": "needs_changes", "findings": ["finding://a"] }),
+            json!({}),
+            // A near-miss key is a different field and must not be refused as if it were this one.
+            json!({ "reviewer_refs": ["user://a"] }),
+        ] {
+            assert!(
+                reject_client_supplied_reviewer(&admissible).is_ok(),
+                "must pass the gate: {admissible}"
+            );
+        }
+        for forged in forged_reviewer_values() {
+            let (status, Json(reply)) =
+                reject_client_supplied_reviewer(&json!({ "reviewer_ref": forged.clone() }))
+                    .expect_err(&format!(
+                        "a body carrying reviewer_ref must be refused: {forged}"
+                    ));
+            assert_eq!(status, StatusCode::BAD_REQUEST);
+            assert_eq!(
+                reply["error"]["code"],
+                json!("marketplace_reviewer_ref_not_client_settable")
+            );
+            assert!(
+                reply["error"]["message"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .contains("authenticated caller"),
+                "the refusal says WHY so a caller can fix the request: {reply}"
+            );
+        }
+    }
+
+    #[test]
+    fn forged_reviewer_refuses_a_create_before_any_admission_or_projection() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        reset_handle_for_test();
+        let candidate_ref = seed_candidate(data_dir, "mpub_forged_create");
+        let caller = test_caller(REVIEWER_PRINCIPAL, "create-forged-1");
+        let id = replay_stable_id("madm", &caller.owner_ref, &caller.idempotency_key);
+
+        for forged in forged_reviewer_values() {
+            let body = json!({
+                "candidate_ref": candidate_ref,
+                "decision": "admitted",
+                "reviewer_ref": forged.clone()
+            });
+            let (status, Json(reply)) =
+                create_admission_review(data_dir, &caller, &body, pinned_governance_snapshot());
+            assert_eq!(
+                status,
+                StatusCode::BAD_REQUEST,
+                "a create naming its own reviewer must be refused: {forged}"
+            );
+            assert_eq!(
+                reply["error"]["code"],
+                json!("marketplace_reviewer_ref_not_client_settable")
+            );
+            assert_eq!(reply["ok"], json!(false));
+        }
+
+        // Refused BEFORE anything durable happened: no admitted event, no projection, and no
+        // candidate backlink — so a forged create leaves nothing for a later read to trust.
+        assert_eq!(
+            admitted_event_count(data_dir, &id),
+            0,
+            "a refused create admitted an event"
+        );
+        assert!(
+            load(data_dir, KIND_REVIEW, &id).is_none(),
+            "a refused create projected a review"
+        );
+        assert!(read_record_dir(data_dir, KIND_REVIEW).is_empty());
+        assert!(
+            load(data_dir, KIND_CANDIDATE, "mpub_forged_create")
+                .unwrap()
+                .get("admission_review_ref")
+                .is_none(),
+            "a refused create linked a review onto the candidate"
+        );
+    }
+
+    #[test]
+    fn create_projects_the_server_principal_the_admitted_event_binds() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        reset_handle_for_test();
+        let candidate_ref = seed_candidate(data_dir, "mpub_ok");
+        let caller = test_caller(REVIEWER_PRINCIPAL, "create-ok-1");
+
+        let (status, Json(reply)) = create_admission_review(
+            data_dir,
+            &caller,
+            &json!({ "candidate_ref": candidate_ref, "decision": "admitted" }),
+            pinned_governance_snapshot(),
+        );
+        assert_eq!(status, StatusCode::CREATED);
+        let id = reply["admission_review"]["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+
+        // Response, projection, and the admitted event's own payload name ONE principal, and it is
+        // the caller the write was admitted as — never a body field, which is the whole defect.
+        let projected = load(data_dir, KIND_REVIEW, &id).expect("the review is projected");
+        let event = admitted_event_payload(data_dir, &id).expect("the create admitted an event");
+        for (label, value) in [
+            ("response", &reply["admission_review"]["reviewer_ref"]),
+            ("projection", &projected["reviewer_ref"]),
+            ("admitted event", &event["reviewer_ref"]),
+        ] {
+            assert_eq!(
+                value,
+                &json!(REVIEWER_PRINCIPAL),
+                "{label} does not name the server-resolved principal"
+            );
+        }
+        assert_eq!(
+            projected["reviewer_ref"], event["reviewer_ref"],
+            "projection truth and event truth disagree about who reviewed"
+        );
+        // The rest of the create is unchanged: the review still gates publish through its candidate.
+        assert_eq!(projected["decision"], json!("admitted"));
+        assert_eq!(
+            load(data_dir, KIND_CANDIDATE, "mpub_ok").unwrap()["admission_review_ref"],
+            json!(format!("marketplace-admission://{id}"))
+        );
+    }
+
+    #[test]
+    fn create_replay_is_one_resource_and_keeps_the_same_reviewer() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        reset_handle_for_test();
+        let candidate_ref = seed_candidate(data_dir, "mpub_replay");
+        let caller = test_caller(REVIEWER_PRINCIPAL, "create-replay-1");
+        let body = json!({ "candidate_ref": candidate_ref, "decision": "pending" });
+
+        let (first_status, Json(first)) =
+            create_admission_review(data_dir, &caller, &body, pinned_governance_snapshot());
+        let (second_status, Json(second)) =
+            create_admission_review(data_dir, &caller, &body, pinned_governance_snapshot());
+
+        assert_eq!(first_status, StatusCode::CREATED);
+        assert_eq!(first["replayed"], json!(false));
+        assert_eq!(
+            second_status,
+            StatusCode::OK,
+            "a retried create must replay, not mint a second resource"
+        );
+        assert_eq!(second["replayed"], json!(true));
+        assert_eq!(first["admission_review"], second["admission_review"]);
+        assert_eq!(
+            second["admission_review"]["reviewer_ref"],
+            json!(REVIEWER_PRINCIPAL),
+            "a replay must not weaken attribution"
+        );
+        // One resource, one admitted event: the retry appended nothing.
+        assert_eq!(read_record_dir(data_dir, KIND_REVIEW).len(), 1);
+        let id = first["admission_review"]["id"].as_str().unwrap();
+        assert_eq!(admitted_event_count(data_dir, id), 1);
+        assert_eq!(
+            admitted_event_payload(data_dir, id).unwrap()["reviewer_ref"],
+            json!(REVIEWER_PRINCIPAL)
+        );
+    }
+
+    #[test]
+    fn forged_reviewer_refuses_a_patch_before_any_mutation() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        reset_handle_for_test();
+        let candidate_ref = seed_candidate(data_dir, "mpub_forged_patch");
+        let caller = test_caller(REVIEWER_PRINCIPAL, "create-for-patch-1");
+        let (_, Json(created)) = create_admission_review(
+            data_dir,
+            &caller,
+            &json!({ "candidate_ref": candidate_ref, "decision": "pending" }),
+            pinned_governance_snapshot(),
+        );
+        let id = created["admission_review"]["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let before = load(data_dir, KIND_REVIEW, &id).unwrap();
+        let events_before = admitted_event_count(data_dir, &id);
+
+        for forged in forged_reviewer_values() {
+            let (status, Json(reply)) = patch_admission_review(
+                data_dir,
+                &id,
+                &test_caller(REVIEWER_PRINCIPAL, "patch-forged-1"),
+                &json!({ "decision": "rejected", "reviewer_ref": forged.clone() }),
+            );
+            assert_eq!(
+                status,
+                StatusCode::BAD_REQUEST,
+                "a patch naming its own reviewer must be refused: {forged}"
+            );
+            assert_eq!(
+                reply["error"]["code"],
+                json!("marketplace_reviewer_ref_not_client_settable")
+            );
+        }
+
+        // Nothing moved: same bytes on disk, same head, no new event. The decision did not advance
+        // and no reviewer was installed.
+        assert_eq!(
+            load(data_dir, KIND_REVIEW, &id).unwrap(),
+            before,
+            "a refused patch changed the projection"
+        );
+        assert_eq!(
+            admitted_event_count(data_dir, &id),
+            events_before,
+            "a refused patch admitted an event"
+        );
+
+        // The refusal cannot be used as an existence oracle: a forged patch to an id that does not
+        // exist answers the SAME 400, while a patch that names no reviewer keeps the 404.
+        let (absent_forged, Json(absent_reply)) = patch_admission_review(
+            data_dir,
+            "madm_does_not_exist",
+            &test_caller(REVIEWER_PRINCIPAL, "patch-forged-absent"),
+            &json!({ "decision": "rejected", "reviewer_ref": FORGED_PRINCIPAL }),
+        );
+        assert_eq!(absent_forged, StatusCode::BAD_REQUEST);
+        assert_eq!(
+            absent_reply["error"]["code"],
+            json!("marketplace_reviewer_ref_not_client_settable")
+        );
+        let (absent_clean, _) = patch_admission_review(
+            data_dir,
+            "madm_does_not_exist",
+            &test_caller(REVIEWER_PRINCIPAL, "patch-clean-absent"),
+            &json!({ "decision": "rejected" }),
+        );
+        assert_eq!(
+            absent_clean,
+            StatusCode::NOT_FOUND,
+            "the auth-before-load 404 must survive for a body that forges nothing"
+        );
+    }
+
+    #[test]
+    fn patch_binds_the_acting_principal_and_never_inherits_a_stored_reviewer() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        reset_handle_for_test();
+        let candidate_ref = seed_candidate(data_dir, "mpub_patch");
+        let caller = test_caller(REVIEWER_PRINCIPAL, "create-for-attr-1");
+        let (_, Json(created)) = create_admission_review(
+            data_dir,
+            &caller,
+            &json!({ "candidate_ref": candidate_ref, "decision": "pending" }),
+            pinned_governance_snapshot(),
+        );
+        let id = created["admission_review"]["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+
+        // POISON the projection the way a pre-cut body could: a reviewer nobody authenticated,
+        // sitting in the record the patch is about to read.
+        let mut poisoned = load(data_dir, KIND_REVIEW, &id).unwrap();
+        poisoned["reviewer_ref"] = json!(FORGED_PRINCIPAL);
+        persist_record(data_dir, KIND_REVIEW, &id, &poisoned).unwrap();
+
+        let (status, Json(reply)) = patch_admission_review(
+            data_dir,
+            &id,
+            &test_caller(REVIEWER_PRINCIPAL, "patch-attr-1"),
+            &json!({ "decision": "admitted" }),
+        );
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(reply["admission_review"]["decision"], json!("admitted"));
+
+        let projected = load(data_dir, KIND_REVIEW, &id).unwrap();
+        let event = admitted_event_payload(data_dir, &id).expect("the patch admitted an event");
+        for (label, value) in [
+            ("response", &reply["admission_review"]["reviewer_ref"]),
+            ("projection", &projected["reviewer_ref"]),
+            ("admitted event", &event["reviewer_ref"]),
+        ] {
+            assert_eq!(
+                value,
+                &json!(REVIEWER_PRINCIPAL),
+                "{label} does not name the acting principal"
+            );
+        }
+        for (label, document) in [("projection", &projected), ("admitted event", &event)] {
+            assert!(
+                !serde_json::to_string(document)
+                    .unwrap()
+                    .contains(FORGED_PRINCIPAL),
+                "{label} still carries the pre-cut reviewer"
+            );
+        }
+
+        // A patch that changes nothing else STILL re-attributes: re-poison, patch with an empty
+        // body, and the acting principal is back. Attribution is never merged from stored bytes.
+        let mut repoisoned = load(data_dir, KIND_REVIEW, &id).unwrap();
+        repoisoned["reviewer_ref"] = json!(FORGED_PRINCIPAL);
+        persist_record(data_dir, KIND_REVIEW, &id, &repoisoned).unwrap();
+        let (status, Json(reply)) = patch_admission_review(
+            data_dir,
+            &id,
+            &test_caller(REVIEWER_PRINCIPAL, "patch-attr-2"),
+            &json!({}),
+        );
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(
+            reply["admission_review"]["reviewer_ref"],
+            json!(REVIEWER_PRINCIPAL)
+        );
+        assert_eq!(
+            load(data_dir, KIND_REVIEW, &id).unwrap()["reviewer_ref"],
+            json!(REVIEWER_PRINCIPAL)
+        );
+
+        // The decision vocabulary is untouched by this cut, and a refused transition attributes
+        // nothing: the projection keeps the reviewer and decision it already had.
+        let admitted_state = load(data_dir, KIND_REVIEW, &id).unwrap();
+        let (status, Json(reply)) = patch_admission_review(
+            data_dir,
+            &id,
+            &test_caller(REVIEWER_PRINCIPAL, "patch-bad-vocab"),
+            &json!({ "decision": "published" }),
+        );
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        assert_eq!(
+            reply["error"]["code"],
+            json!("marketplace_decision_invalid")
+        );
+        assert_eq!(load(data_dir, KIND_REVIEW, &id).unwrap(), admitted_state);
+    }
+
+    #[test]
+    fn a_second_principal_cannot_take_over_the_attribution() {
+        // Attribution cannot be handed off by patching as someone else: the resource scope was
+        // bound to the creating principal, so a different caller is refused at the scope seam and
+        // the recorded reviewer never changes.
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        reset_handle_for_test();
+        let candidate_ref = seed_candidate(data_dir, "mpub_intruder");
+        let (_, Json(created)) = create_admission_review(
+            data_dir,
+            &test_caller(REVIEWER_PRINCIPAL, "create-for-intruder-1"),
+            &json!({ "candidate_ref": candidate_ref, "decision": "pending" }),
+            pinned_governance_snapshot(),
+        );
+        let id = created["admission_review"]["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+
+        let (status, _) = patch_admission_review(
+            data_dir,
+            &id,
+            &test_caller("user://intruder", "patch-intruder-1"),
+            &json!({ "decision": "admitted" }),
+        );
+        assert_eq!(status, StatusCode::FORBIDDEN);
+        assert_eq!(
+            load(data_dir, KIND_REVIEW, &id).unwrap()["reviewer_ref"],
+            json!(REVIEWER_PRINCIPAL)
+        );
+        assert_eq!(
+            admitted_event_payload(data_dir, &id).unwrap()["reviewer_ref"],
+            json!(REVIEWER_PRINCIPAL)
+        );
+    }
+
+    #[test]
+    fn the_governance_posture_is_evidence_in_the_payload_and_not_replay_identity() {
+        // Replaces the test that PINNED this packet's defect. The nested `at: iso_now()` and the
+        // live gate counts still survive `without_clock` into the admitted payload — deliberately,
+        // because posture at review time is evidence and stripping it would delete the evidence to
+        // fix the retry. What changed is what "the same command" means: the posture is excluded from
+        // BOTH sides of the replay comparison, so two creates a second apart are one command with
+        // one piece of evidence attached, not two different commands.
+        let mut record = json!({
+            "id": "madm_x",
+            "decision": "admitted",
+            "governance_posture_snapshot": { "governance_gaps": 0, "at": "2026-01-01T00:00:00Z" },
+            "created_at": "2026-01-01T00:00:00Z",
+            "updated_at": "2026-01-01T00:00:00Z",
+            "admitted_head": "sha256:0"
+        });
+        let stripped = without_clock(&record);
+        assert!(stripped.get("created_at").is_none());
+        assert!(stripped.get("updated_at").is_none());
+        assert!(stripped.get("admitted_head").is_none());
+        assert_eq!(
+            stripped["governance_posture_snapshot"]["at"],
+            json!("2026-01-01T00:00:00Z"),
+            "the posture must remain in the admitted payload as evidence"
+        );
+
+        // The payload still differs a second later — that is exactly why the substrate alone cannot
+        // decide this — but the COMMAND does not.
+        let first_command = command_without_posture(&stripped);
+        record["governance_posture_snapshot"]["at"] = json!("2026-01-01T00:00:01Z");
+        record["governance_posture_snapshot"]["governance_gaps"] = json!(3);
+        let drifted = without_clock(&record);
+        assert_ne!(drifted, stripped, "the posture drifts between submissions");
+        assert_eq!(
+            command_without_posture(&drifted),
+            first_command,
+            "posture drift must not make a retry a different command"
+        );
+        assert!(
+            first_command.get("governance_posture_snapshot").is_none(),
+            "the posture must not be part of replay identity"
+        );
+        assert_eq!(first_command["decision"], json!("admitted"));
+    }
+
+    // ---- P-MKT-REPLAY-1: exact replay for admission-review create and delete -------------------
+    //
+    // Every test below drives the production functions the routes call — `handle_review_create` is
+    // `begin_admission_review_create` + the posture read + `finish_admission_review_create`, and
+    // `handle_review_delete` is `delete_admission_review` — against a real tempdir and the real
+    // Agentgres chain, so a replay is read back from durable truth rather than asserted about
+    // source order.
+
+    /// `handle_review_create`'s own body with its ONE await replaced by a supplied posture, so a
+    /// test can control the value the handler reads from live governance state. Nothing else about
+    /// the sequence is restated: both branches call the production functions the route calls.
+    fn create_admission_review(
+        data_dir: &str,
+        caller: &WriteCaller,
+        body: &Value,
+        gov: Value,
+    ) -> (StatusCode, Json<Value>) {
+        match begin_admission_review_create(data_dir, caller, body) {
+            ReviewCreateStep::Answered(response) => response,
+            ReviewCreateStep::Fresh(command) => {
+                finish_admission_review_create(data_dir, caller, &command, gov)
+            }
+        }
+    }
+
+    /// A posture that has MOVED since the previous submission — a later clock and different live
+    /// gate counts. This is what `governance_snapshot` actually does between two HTTP retries, and
+    /// what made the retry byte-different under one key.
+    fn moved_governance_snapshot() -> Value {
+        json!({
+            "auth_enforced": true,
+            "governance_gaps": 4,
+            "wallet_required_crossings": 2,
+            "authority_grants_active": 7,
+            "at": "2026-06-15T12:34:56Z"
+        })
+    }
+
+    /// The request-scope stream tails currently bound. A probe must never add one: asking "did I
+    /// already do this?" is a read, and a read that reserves a scope is a write wearing a question.
+    fn bound_scope_tails(data_dir: &str) -> Vec<String> {
+        super::super::substrate_store::list_event_stream_tails(data_dir, "request-resource-scopes")
+            .unwrap_or_default()
+    }
+
+    fn create_body(candidate_ref: &str, decision: &str) -> Value {
+        json!({ "candidate_ref": candidate_ref, "decision": decision })
+    }
+
+    #[test]
+    fn create_retry_over_a_moving_governance_snapshot_replays_one_review() {
+        // THE test that fails before this packet. Two submissions of one command, with a posture
+        // that moved in between: 201 then 200, one resource, one admitted event, identical bytes.
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        reset_handle_for_test();
+        let candidate_ref = seed_candidate(data_dir, "mpub_moving");
+        let caller = test_caller(REVIEWER_PRINCIPAL, "create-moving-1");
+        let body = create_body(&candidate_ref, "admitted");
+
+        let (first_status, Json(first)) =
+            create_admission_review(data_dir, &caller, &body, pinned_governance_snapshot());
+        let (second_status, Json(second)) =
+            create_admission_review(data_dir, &caller, &body, moved_governance_snapshot());
+
+        assert_eq!(first_status, StatusCode::CREATED);
+        assert_eq!(first["replayed"], json!(false));
+        assert_eq!(
+            second_status,
+            StatusCode::OK,
+            "a retry over a moved posture must replay, not conflict: {second}"
+        );
+        assert_eq!(second["replayed"], json!(true));
+        assert_eq!(
+            first["admission_review"], second["admission_review"],
+            "the replay returned different bytes than the admitted original"
+        );
+        // The posture the review carries is the one admitted with it, not the one the retry read.
+        assert_eq!(
+            second["admission_review"]["governance_posture_snapshot"],
+            pinned_governance_snapshot()
+        );
+
+        let id = first["admission_review"]["id"].as_str().unwrap();
+        assert_eq!(read_record_dir(data_dir, KIND_REVIEW).len(), 1);
+        assert_eq!(
+            admitted_event_count(data_dir, id),
+            1,
+            "the retry appended a second event"
+        );
+        assert_eq!(
+            load(data_dir, KIND_REVIEW, id).unwrap(),
+            first["admission_review"],
+            "the retry rewrote the projection"
+        );
+        reset_handle_for_test();
+    }
+
+    #[test]
+    fn create_retry_under_a_changed_command_still_refuses_by_name() {
+        // Excluding the posture from replay identity must not let a genuinely different command
+        // borrow an admitted key's success. The refusal keeps its own name and its own status.
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        reset_handle_for_test();
+        let first_candidate = seed_candidate(data_dir, "mpub_changed_a");
+        let second_candidate = seed_candidate(data_dir, "mpub_changed_b");
+        let caller = test_caller(REVIEWER_PRINCIPAL, "create-changed-1");
+
+        let (status, Json(created)) = create_admission_review(
+            data_dir,
+            &caller,
+            &create_body(&first_candidate, "pending"),
+            pinned_governance_snapshot(),
+        );
+        assert_eq!(status, StatusCode::CREATED);
+        let id = created["admission_review"]["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let before = load(data_dir, KIND_REVIEW, &id).unwrap();
+
+        for changed in [
+            create_body(&second_candidate, "pending"),
+            create_body(&first_candidate, "rejected"),
+            json!({ "candidate_ref": first_candidate, "decision": "pending", "findings": ["finding://a"] }),
+        ] {
+            let (status, Json(reply)) =
+                create_admission_review(data_dir, &caller, &changed, moved_governance_snapshot());
+            assert_eq!(
+                status,
+                StatusCode::CONFLICT,
+                "a changed command under an admitted key must refuse: {changed}"
+            );
+            assert_eq!(
+                reply["code"],
+                json!("event_stream_same_key_different_bytes"),
+                "the refusal must keep the substrate's own name: {reply}"
+            );
+            assert_eq!(reply["ok"], json!(false));
+        }
+        assert_eq!(admitted_event_count(data_dir, &id), 1);
+        assert_eq!(
+            load(data_dir, KIND_REVIEW, &id).unwrap(),
+            before,
+            "a refused retry changed the projection"
+        );
+        reset_handle_for_test();
+    }
+
+    #[test]
+    fn create_retry_after_a_patch_returns_current_truth_and_writes_nothing() {
+        // The latent clobber the create fix would otherwise activate: a replay must answer with the
+        // resource as it stands, never re-project the bytes the create first wrote over a decision
+        // someone has since advanced.
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        reset_handle_for_test();
+        let candidate_ref = seed_candidate(data_dir, "mpub_patched");
+        let caller = test_caller(REVIEWER_PRINCIPAL, "create-patched-1");
+        let body = create_body(&candidate_ref, "pending");
+        let (_, Json(created)) =
+            create_admission_review(data_dir, &caller, &body, pinned_governance_snapshot());
+        let id = created["admission_review"]["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+
+        let (patch_status, _) = patch_admission_review(
+            data_dir,
+            &id,
+            &test_caller(REVIEWER_PRINCIPAL, "patch-after-create-1"),
+            &json!({ "decision": "admitted" }),
+        );
+        assert_eq!(patch_status, StatusCode::OK);
+        let patched = load(data_dir, KIND_REVIEW, &id).unwrap();
+        assert_eq!(patched["decision"], json!("admitted"));
+
+        let (status, Json(replay)) =
+            create_admission_review(data_dir, &caller, &body, moved_governance_snapshot());
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(replay["replayed"], json!(true));
+        assert_eq!(
+            replay["admission_review"], patched,
+            "the replay answered with create-time bytes instead of current truth"
+        );
+        assert_eq!(
+            load(data_dir, KIND_REVIEW, &id).unwrap(),
+            patched,
+            "the replay overwrote the patched projection"
+        );
+        assert_eq!(
+            admitted_event_count(data_dir, &id),
+            2,
+            "the replay admitted an event"
+        );
+        reset_handle_for_test();
+    }
+
+    #[test]
+    fn create_retry_carrying_a_reviewer_ref_is_still_refused() {
+        // Attribution is refused on the KEY BEING PRESENT, before the replay probe can answer
+        // anything — otherwise a forged retry would be served the original's success.
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        reset_handle_for_test();
+        let candidate_ref = seed_candidate(data_dir, "mpub_retry_forged");
+        let caller = test_caller(REVIEWER_PRINCIPAL, "create-retry-forged-1");
+        let body = create_body(&candidate_ref, "pending");
+        let (_, Json(created)) =
+            create_admission_review(data_dir, &caller, &body, pinned_governance_snapshot());
+        let id = created["admission_review"]["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let before = load(data_dir, KIND_REVIEW, &id).unwrap();
+
+        for forged in forged_reviewer_values() {
+            let mut retry = body.clone();
+            retry["reviewer_ref"] = forged.clone();
+            let (status, Json(reply)) =
+                create_admission_review(data_dir, &caller, &retry, moved_governance_snapshot());
+            assert_eq!(
+                status,
+                StatusCode::BAD_REQUEST,
+                "a retry naming its own reviewer must be refused: {forged}"
+            );
+            assert_eq!(
+                reply["error"]["code"],
+                json!("marketplace_reviewer_ref_not_client_settable")
+            );
+        }
+        assert_eq!(admitted_event_count(data_dir, &id), 1);
+        assert_eq!(load(data_dir, KIND_REVIEW, &id).unwrap(), before);
+        reset_handle_for_test();
+    }
+
+    #[test]
+    fn create_replay_repairs_a_projection_lost_after_admission() {
+        // The create's admission is durable and its projection is not. A retry must rebuild the
+        // read model from the admitted payload and that operation's OWN stamp and head — never a
+        // clock — and the rebuilt record must be the record that was lost.
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        reset_handle_for_test();
+        let candidate_ref = seed_candidate(data_dir, "mpub_repair");
+        let caller = test_caller(REVIEWER_PRINCIPAL, "create-repair-1");
+        let body = create_body(&candidate_ref, "admitted");
+        let (_, Json(created)) =
+            create_admission_review(data_dir, &caller, &body, pinned_governance_snapshot());
+        let id = created["admission_review"]["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let original = load(data_dir, KIND_REVIEW, &id).unwrap();
+        assert!(remove_record(data_dir, KIND_REVIEW, &id));
+
+        let (status, Json(replay)) =
+            create_admission_review(data_dir, &caller, &body, moved_governance_snapshot());
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(replay["replayed"], json!(true));
+        assert_eq!(
+            load(data_dir, KIND_REVIEW, &id).unwrap(),
+            original,
+            "the repaired projection is not the record that was admitted"
+        );
+        assert_eq!(replay["admission_review"], original);
+        assert_eq!(admitted_event_count(data_dir, &id), 1);
+        // The candidate backlink is fail-closed on the replay path too, so publish gating still
+        // resolves after a repair.
+        assert_eq!(
+            load(data_dir, KIND_CANDIDATE, "mpub_repair").unwrap()["admission_review_ref"],
+            json!(format!("marketplace-admission://{id}"))
+        );
+        reset_handle_for_test();
+    }
+
+    #[test]
+    fn delete_retry_replays_the_admitted_removal() {
+        // The delete this packet closes: a double-submitted form presents one key twice and must be
+        // told the removal happened, not that the record never existed.
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        reset_handle_for_test();
+        let candidate_ref = seed_candidate(data_dir, "mpub_delete");
+        let (_, Json(created)) = create_admission_review(
+            data_dir,
+            &test_caller(REVIEWER_PRINCIPAL, "create-for-delete-1"),
+            &create_body(&candidate_ref, "admitted"),
+            pinned_governance_snapshot(),
+        );
+        let id = created["admission_review"]["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let deleter = test_caller(REVIEWER_PRINCIPAL, "delete-review-1");
+
+        let (first_status, Json(first)) = delete_admission_review(data_dir, &id, &deleter);
+        assert_eq!(first_status, StatusCode::OK);
+        assert_eq!(first["removed"], json!(true));
+        assert_eq!(first["replayed"], json!(false));
+        assert!(load(data_dir, KIND_REVIEW, &id).is_none());
+
+        let (second_status, Json(second)) = delete_admission_review(data_dir, &id, &deleter);
+        assert_eq!(
+            second_status,
+            StatusCode::OK,
+            "a retried delete must replay the admitted removal: {second}"
+        );
+        assert_eq!(second["removed"], json!(true));
+        assert_eq!(second["replayed"], json!(true));
+        assert_eq!(second["id"], json!(id));
+        assert_eq!(
+            admitted_event_count(data_dir, &id),
+            2,
+            "the retry admitted a second terminal event"
+        );
+        assert!(load(data_dir, KIND_REVIEW, &id).is_none());
+        // The unlink is not undone by a replay: the candidate still points at nothing.
+        assert_eq!(
+            load(data_dir, KIND_CANDIDATE, "mpub_delete").unwrap()["admission_review_ref"],
+            Value::Null
+        );
+        reset_handle_for_test();
+    }
+
+    #[test]
+    fn a_create_replay_never_writes_the_candidate_a_newer_review_now_owns() {
+        // F13. A candidate may carry several reviews and `admission_review_ref` is last-writer-wins,
+        // so an OLD key's retry must not drag the backlink away from the review that superseded it.
+        // The impact is read-model and ordering, not authority — `publish_gates` scans the review
+        // records rather than this field — but "the current projection wins" has to hold for the
+        // records a replay touches, not only the one it returns.
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        reset_handle_for_test();
+        let candidate_ref = seed_candidate(data_dir, "mpub_two_reviews");
+        let caller_a = test_caller(REVIEWER_PRINCIPAL, "create-review-a");
+        let body_a = create_body(&candidate_ref, "pending");
+        let (_, Json(review_a)) =
+            create_admission_review(data_dir, &caller_a, &body_a, pinned_governance_snapshot());
+        let id_a = review_a["admission_review"]["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let (status_b, Json(review_b)) = create_admission_review(
+            data_dir,
+            &test_caller(REVIEWER_PRINCIPAL, "create-review-b"),
+            &create_body(&candidate_ref, "admitted"),
+            pinned_governance_snapshot(),
+        );
+        assert_eq!(status_b, StatusCode::CREATED);
+        let id_b = review_b["admission_review"]["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        assert_ne!(id_a, id_b, "two keys must mint two reviews");
+
+        // B is the review the candidate currently carries. These are the bytes that must survive.
+        let candidate_before = load(data_dir, KIND_CANDIDATE, "mpub_two_reviews").unwrap();
+        assert_eq!(
+            candidate_before["admission_review_ref"],
+            json!(format!("marketplace-admission://{id_b}"))
+        );
+
+        let (status, Json(replay)) =
+            create_admission_review(data_dir, &caller_a, &body_a, moved_governance_snapshot());
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(replay["replayed"], json!(true));
+        assert_eq!(
+            replay["admission_review"], review_a["admission_review"],
+            "A's replay must still answer with A"
+        );
+        // ZERO writes to the candidate: not the backlink, not `updated_at`, not one byte.
+        assert_eq!(
+            load(data_dir, KIND_CANDIDATE, "mpub_two_reviews").unwrap(),
+            candidate_before,
+            "an old create's replay rewrote the candidate a newer review owns"
+        );
+        // Both reviews and both streams are untouched.
+        assert_eq!(
+            load(data_dir, KIND_REVIEW, &id_a).unwrap(),
+            review_a["admission_review"]
+        );
+        assert_eq!(
+            load(data_dir, KIND_REVIEW, &id_b).unwrap(),
+            review_b["admission_review"]
+        );
+        assert_eq!(admitted_event_count(data_dir, &id_a), 1);
+        assert_eq!(admitted_event_count(data_dir, &id_b), 1);
+        reset_handle_for_test();
+    }
+
+    #[test]
+    fn repair_restores_an_absent_backlink_and_never_takes_a_newer_ones() {
+        // F13, repair branch. Restoring a link the lost projection plausibly lost with it is the
+        // point of a repair; taking one that already names another review is the clobber. All three
+        // states are pinned so neither half can drift into the other.
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        reset_handle_for_test();
+        let candidate_ref = seed_candidate(data_dir, "mpub_backlink");
+        let caller = test_caller(REVIEWER_PRINCIPAL, "create-backlink-1");
+        let body = create_body(&candidate_ref, "admitted");
+        let (_, Json(created)) =
+            create_admission_review(data_dir, &caller, &body, pinned_governance_snapshot());
+        let id = created["admission_review"]["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let review_ref = json!(format!("marketplace-admission://{id}"));
+
+        // SAME: the link already names this review. A repair must not touch the candidate at all.
+        let same_before = load(data_dir, KIND_CANDIDATE, "mpub_backlink").unwrap();
+        assert_eq!(same_before["admission_review_ref"], review_ref);
+        assert!(remove_record(data_dir, KIND_REVIEW, &id));
+        assert_eq!(
+            create_admission_review(data_dir, &caller, &body, moved_governance_snapshot()).0,
+            StatusCode::OK
+        );
+        assert_eq!(
+            load(data_dir, KIND_CANDIDATE, "mpub_backlink").unwrap(),
+            same_before,
+            "a repair rewrote a backlink that was already correct"
+        );
+
+        // ABSENT: the link is gone. This is the one state a repair may write.
+        let mut unlinked = load(data_dir, KIND_CANDIDATE, "mpub_backlink").unwrap();
+        unlinked["admission_review_ref"] = Value::Null;
+        persist_record(data_dir, KIND_CANDIDATE, "mpub_backlink", &unlinked).unwrap();
+        assert!(remove_record(data_dir, KIND_REVIEW, &id));
+        assert_eq!(
+            create_admission_review(data_dir, &caller, &body, moved_governance_snapshot()).0,
+            StatusCode::OK
+        );
+        assert_eq!(
+            load(data_dir, KIND_CANDIDATE, "mpub_backlink").unwrap()["admission_review_ref"],
+            review_ref,
+            "a repair left the candidate with no review at all"
+        );
+
+        // DIFFERENT: the link names a newer review. Current truth wins; the repair keeps its hands
+        // off the candidate entirely, `updated_at` included.
+        let mut other = load(data_dir, KIND_CANDIDATE, "mpub_backlink").unwrap();
+        other["admission_review_ref"] = json!("marketplace-admission://madm_some_newer_review");
+        other["updated_at"] = json!("2030-01-01T00:00:00Z");
+        persist_record(data_dir, KIND_CANDIDATE, "mpub_backlink", &other).unwrap();
+        assert!(remove_record(data_dir, KIND_REVIEW, &id));
+        assert_eq!(
+            create_admission_review(data_dir, &caller, &body, moved_governance_snapshot()).0,
+            StatusCode::OK
+        );
+        assert_eq!(
+            load(data_dir, KIND_CANDIDATE, "mpub_backlink").unwrap(),
+            other,
+            "a repair took a backlink that named a newer review"
+        );
+        assert!(
+            load(data_dir, KIND_REVIEW, &id).is_some(),
+            "the review is repaired regardless"
+        );
+        assert_eq!(admitted_event_count(data_dir, &id), 1);
+        reset_handle_for_test();
+    }
+
+    #[test]
+    fn repair_rebuilds_current_truth_after_a_patch_and_does_not_wedge_the_stream() {
+        // F14. Rebuilding from the CREATE restored the create-time decision, findings and head over
+        // a stream that had already moved. The stale head was the real damage: every later patch and
+        // the delete read it, presented it, and were refused event_stream_expected_head_conflict —
+        // permanently. A repair must project the LATEST admitted nonterminal entry.
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        reset_handle_for_test();
+        let candidate_ref = seed_candidate(data_dir, "mpub_patched_repair");
+        let creator = test_caller(REVIEWER_PRINCIPAL, "create-patched-repair-1");
+        let body = create_body(&candidate_ref, "pending");
+        let (_, Json(created)) =
+            create_admission_review(data_dir, &creator, &body, pinned_governance_snapshot());
+        let id = created["admission_review"]["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let created_head = created["admission_review"]["admitted_head"].clone();
+
+        let (patch_status, _) = patch_admission_review(
+            data_dir,
+            &id,
+            &test_caller(REVIEWER_PRINCIPAL, "patch-before-repair-1"),
+            &json!({ "decision": "admitted", "findings": ["finding://patched"] }),
+        );
+        assert_eq!(patch_status, StatusCode::OK);
+        let patched = load(data_dir, KIND_REVIEW, &id).unwrap();
+        assert_ne!(
+            patched["admitted_head"], created_head,
+            "the patch moved the head"
+        );
+
+        // Lose the read model, then retry the ORIGINAL create key.
+        assert!(remove_record(data_dir, KIND_REVIEW, &id));
+        let (status, Json(replay)) =
+            create_admission_review(data_dir, &creator, &body, moved_governance_snapshot());
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(replay["replayed"], json!(true));
+
+        // CURRENT truth, byte for byte: the patched decision and findings, the patch's head and
+        // `updated_at`, and the ORIGINAL create's `created_at` — the one field the latest entry
+        // cannot supply.
+        let restored = load(data_dir, KIND_REVIEW, &id).unwrap();
+        assert_eq!(
+            restored, patched,
+            "the repair restored create-time bytes over a patched review"
+        );
+        assert_eq!(replay["admission_review"], patched);
+        assert_eq!(restored["decision"], json!("admitted"));
+        assert_eq!(restored["findings"], json!(["finding://patched"]));
+        assert_eq!(restored["reviewer_ref"], json!(REVIEWER_PRINCIPAL));
+        assert_eq!(
+            restored["created_at"],
+            created["admission_review"]["created_at"]
+        );
+        assert_eq!(
+            admitted_event_count(data_dir, &id),
+            2,
+            "the repair admitted an event"
+        );
+
+        // NOT WEDGED. The repaired record carries the stream's real head, so the next correctly
+        // headed successor is admitted instead of conflicting — which is what the old repair broke.
+        let (next_patch, Json(next_reply)) = patch_admission_review(
+            data_dir,
+            &id,
+            &test_caller(REVIEWER_PRINCIPAL, "patch-after-repair-1"),
+            &json!({ "decision": "needs_changes" }),
+        );
+        assert_eq!(
+            next_patch,
+            StatusCode::OK,
+            "a patch after the repair was refused: {next_reply}"
+        );
+        assert_eq!(admitted_event_count(data_dir, &id), 3);
+        let (delete_status, Json(delete_reply)) = delete_admission_review(
+            data_dir,
+            &id,
+            &test_caller(REVIEWER_PRINCIPAL, "delete-after-repair-1"),
+        );
+        assert_eq!(
+            delete_status,
+            StatusCode::OK,
+            "a delete after the repair was refused: {delete_reply}"
+        );
+        assert!(load(data_dir, KIND_REVIEW, &id).is_none());
+        reset_handle_for_test();
+    }
+
+    #[test]
+    fn a_repair_refuses_typed_when_the_history_ends_in_an_operation_it_cannot_project() {
+        // F14, fail-closed half. Falling back to the create bytes for an entry this plane cannot
+        // interpret is the same stale-state failure wearing a different cause, so an unclassifiable
+        // history refuses by name and writes nothing. Unreachable through the routes today — only
+        // create/patch/delete are admitted here, and delete is already fenced — so it is driven
+        // straight at the stream, which is the only way to prove the guard exists at all.
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        reset_handle_for_test();
+        let candidate_ref = seed_candidate(data_dir, "mpub_unclassified");
+        let caller = test_caller(REVIEWER_PRINCIPAL, "create-unclassified-1");
+        let body = create_body(&candidate_ref, "admitted");
+        let (_, Json(created)) =
+            create_admission_review(data_dir, &caller, &body, pinned_governance_snapshot());
+        let id = created["admission_review"]["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let head = created["admission_review"]["admitted_head"]
+            .as_str()
+            .unwrap()
+            .to_string();
+
+        admit_owner_scoped_write(
+            data_dir,
+            // Its OWN key. The create's key is spoken for, and re-presenting it here would refuse
+            // as same-key-different-bytes long before the stream saw a new operation kind.
+            &test_caller(REVIEWER_PRINCIPAL, "future-op-1"),
+            MARKETPLACE_NAMESPACE,
+            KIND_REVIEW,
+            &format!("marketplace-admission-review://{id}"),
+            "marketplace.review.some_future_transition",
+            Some(&head),
+            &json!({ "id": id, "future": true }),
+        )
+        .expect("the stream accepts a successor this route does not know");
+        assert!(remove_record(data_dir, KIND_REVIEW, &id));
+
+        let (status, Json(reply)) =
+            create_admission_review(data_dir, &caller, &body, moved_governance_snapshot());
+        assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR, "{reply}");
+        assert_eq!(
+            reply["error"]["code"],
+            json!("marketplace_review_history_unclassified")
+        );
+        assert!(reply["error"]["message"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("marketplace.review.some_future_transition"));
+        assert!(
+            load(data_dir, KIND_REVIEW, &id).is_none(),
+            "a refused repair projected a review anyway"
+        );
+        assert_eq!(admitted_event_count(data_dir, &id), 2);
+        reset_handle_for_test();
+    }
+
+    #[test]
+    fn a_create_key_re_presented_after_the_delete_resurrects_nothing() {
+        // MERGE BLOCKER, fenced. Reading the admitted history early is what makes create replay
+        // possible at all, and it is also what makes this reachable: before the fix the retry took
+        // the moved-posture 409 and never got near the repair. An admitted delete is the stream's
+        // last word, so the create it followed may not be replayed over it — no projection, no
+        // candidate backlink, no event, and no 200 claiming a review that is gone.
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        reset_handle_for_test();
+        let candidate_ref = seed_candidate(data_dir, "mpub_resurrect");
+        let creator = test_caller(REVIEWER_PRINCIPAL, "create-resurrect-1");
+        let body = create_body(&candidate_ref, "admitted");
+        let (_, Json(created)) =
+            create_admission_review(data_dir, &creator, &body, pinned_governance_snapshot());
+        let id = created["admission_review"]["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        assert_eq!(
+            delete_admission_review(
+                data_dir,
+                &id,
+                &test_caller(REVIEWER_PRINCIPAL, "delete-resurrect-1")
+            )
+            .0,
+            StatusCode::OK
+        );
+        let events_after_delete = admitted_event_count(data_dir, &id);
+        assert_eq!(events_after_delete, 2);
+
+        // The create key, re-presented exactly. Twice, so the refusal is not a one-shot.
+        for attempt in 0..2 {
+            let (status, Json(reply)) =
+                create_admission_review(data_dir, &creator, &body, moved_governance_snapshot());
+            assert_eq!(
+                status,
+                StatusCode::CONFLICT,
+                "attempt {attempt} replayed a create over an admitted removal: {reply}"
+            );
+            assert_eq!(reply["error"]["code"], json!("marketplace_review_removed"));
+            assert_eq!(reply["ok"], json!(false));
+            assert!(
+                reply["admitted_head"].is_string(),
+                "the refusal must name the terminal head it deferred to: {reply}"
+            );
+            assert!(
+                reply.get("admission_review").is_none(),
+                "the refusal returned a record that no longer exists: {reply}"
+            );
+        }
+
+        // NOTHING was recreated: no projection, no candidate backlink, no event.
+        assert!(
+            load(data_dir, KIND_REVIEW, &id).is_none(),
+            "a create retry resurrected the review projection"
+        );
+        assert!(read_record_dir(data_dir, KIND_REVIEW).is_empty());
+        assert_eq!(
+            load(data_dir, KIND_CANDIDATE, "mpub_resurrect").unwrap()["admission_review_ref"],
+            Value::Null,
+            "a create retry re-linked a deleted review onto its candidate"
+        );
+        assert_eq!(
+            admitted_event_count(data_dir, &id),
+            events_after_delete,
+            "a create retry admitted an event after the terminal delete"
+        );
+        // The delete's OWN key still replays: the removal remains the fact both sides agree on.
+        let (delete_status, Json(delete_replay)) = delete_admission_review(
+            data_dir,
+            &id,
+            &test_caller(REVIEWER_PRINCIPAL, "delete-resurrect-1"),
+        );
+        assert_eq!(delete_status, StatusCode::OK);
+        assert_eq!(delete_replay["removed"], json!(true));
+        assert_eq!(delete_replay["replayed"], json!(true));
+
+        // A FRESH key is the supported way to review this candidate again, and it mints its own
+        // resource on its own stream rather than reopening the closed one.
+        let (fresh_status, Json(fresh)) = create_admission_review(
+            data_dir,
+            &test_caller(REVIEWER_PRINCIPAL, "create-resurrect-2"),
+            &body,
+            moved_governance_snapshot(),
+        );
+        assert_eq!(fresh_status, StatusCode::CREATED);
+        assert_ne!(fresh["admission_review"]["id"], json!(id));
+        assert_eq!(admitted_event_count(data_dir, &id), events_after_delete);
+        reset_handle_for_test();
+    }
+
+    #[test]
+    fn a_create_retry_whose_candidate_was_deleted_is_refused_before_the_probe() {
+        // The other deletion the replay path must weigh: the review's candidate. Command validation
+        // runs first and is unchanged, so a retry against a candidate that no longer resolves is
+        // refused before the history is read — and, decisively, before `link_candidate_review`
+        // could write a backlink onto a record that is gone.
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        reset_handle_for_test();
+        let candidate_ref = seed_candidate(data_dir, "mpub_gone");
+        let caller = test_caller(REVIEWER_PRINCIPAL, "create-candidate-gone-1");
+        let body = create_body(&candidate_ref, "admitted");
+        let (_, Json(created)) =
+            create_admission_review(data_dir, &caller, &body, pinned_governance_snapshot());
+        let id = created["admission_review"]["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let projected = load(data_dir, KIND_REVIEW, &id).unwrap();
+        assert!(remove_record(data_dir, KIND_CANDIDATE, "mpub_gone"));
+
+        let (status, Json(reply)) =
+            create_admission_review(data_dir, &caller, &body, moved_governance_snapshot());
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{reply}");
+        assert_eq!(reply["error"]["code"], json!("marketplace_ref_unresolved"));
+        assert_eq!(
+            load(data_dir, KIND_REVIEW, &id).unwrap(),
+            projected,
+            "a refused retry rewrote the review"
+        );
+        assert!(load(data_dir, KIND_CANDIDATE, "mpub_gone").is_none());
+        assert_eq!(admitted_event_count(data_dir, &id), 1);
+
+        // Same for the repair branch: with the projection ALSO gone there is still no write, so a
+        // vanished candidate can never be recreated by a retry.
+        assert!(remove_record(data_dir, KIND_REVIEW, &id));
+        let (repair_status, _) =
+            create_admission_review(data_dir, &caller, &body, moved_governance_snapshot());
+        assert_eq!(repair_status, StatusCode::BAD_REQUEST);
+        assert!(load(data_dir, KIND_REVIEW, &id).is_none());
+        assert!(load(data_dir, KIND_CANDIDATE, "mpub_gone").is_none());
+        assert_eq!(admitted_event_count(data_dir, &id), 1);
+        reset_handle_for_test();
+    }
+
+    #[test]
+    fn delete_completes_after_an_admitted_removal_whose_projection_survived() {
+        // The already-correct half of the delete path, pinned so the probe cannot regress it: when
+        // the terminal event admitted but the projection removal failed, the record still carries
+        // its pre-delete head, so the retry takes the PRESENT-projection branch, replays through
+        // the substrate, and finishes the unlink and removal.
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        reset_handle_for_test();
+        let candidate_ref = seed_candidate(data_dir, "mpub_torn_delete");
+        let (_, Json(created)) = create_admission_review(
+            data_dir,
+            &test_caller(REVIEWER_PRINCIPAL, "create-for-torn-1"),
+            &create_body(&candidate_ref, "admitted"),
+            pinned_governance_snapshot(),
+        );
+        let id = created["admission_review"]["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let before_delete = load(data_dir, KIND_REVIEW, &id).unwrap();
+        let deleter = test_caller(REVIEWER_PRINCIPAL, "delete-torn-1");
+        assert_eq!(
+            delete_admission_review(data_dir, &id, &deleter).0,
+            StatusCode::OK
+        );
+        // Exactly the state a failed `remove_record` leaves behind: admitted, still projected, and
+        // still carrying the head it read before the delete.
+        persist_record(data_dir, KIND_REVIEW, &id, &before_delete).unwrap();
+
+        let (status, Json(reply)) = delete_admission_review(data_dir, &id, &deleter);
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(reply["removed"], json!(true));
+        assert_eq!(reply["replayed"], json!(true));
+        assert!(load(data_dir, KIND_REVIEW, &id).is_none());
+        assert_eq!(admitted_event_count(data_dir, &id), 2);
+        reset_handle_for_test();
+    }
+
+    #[test]
+    fn delete_of_an_id_that_never_existed_is_still_not_found() {
+        // The probe must not turn a miss into an existence oracle, a scope binding, or an event.
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        reset_handle_for_test();
+        let candidate_ref = seed_candidate(data_dir, "mpub_absent");
+        assert_eq!(
+            create_admission_review(
+                data_dir,
+                &test_caller(REVIEWER_PRINCIPAL, "create-for-absent-1"),
+                &create_body(&candidate_ref, "pending"),
+                pinned_governance_snapshot(),
+            )
+            .0,
+            StatusCode::CREATED
+        );
+        let tails_before = bound_scope_tails(data_dir);
+        assert!(!tails_before.is_empty(), "the create bound its own scope");
+
+        for unknown in ["madm_never_existed", "madm_00000000000000000"] {
+            let (status, Json(reply)) = delete_admission_review(
+                data_dir,
+                unknown,
+                &test_caller(REVIEWER_PRINCIPAL, "delete-absent-1"),
+            );
+            assert_eq!(status, StatusCode::NOT_FOUND, "{reply}");
+            assert_eq!(
+                reply["error"]["code"],
+                json!("marketplace_review_not_found")
+            );
+            assert_eq!(reply["error"]["message"], json!("review not found"));
+            assert_eq!(reply["ok"], json!(false));
+            assert_eq!(admitted_event_count(data_dir, unknown), 0);
+        }
+        assert_eq!(
+            bound_scope_tails(data_dir),
+            tails_before,
+            "a refused delete bound a request scope for an id that never existed"
+        );
+        reset_handle_for_test();
+    }
+
+    #[test]
+    fn delete_after_removal_under_a_different_key_is_not_found() {
+        // Replay is bound to the caller's OWN key. A second, different delete command for a record
+        // that is already gone is a delete of nothing, exactly as before.
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        reset_handle_for_test();
+        let candidate_ref = seed_candidate(data_dir, "mpub_other_key");
+        let (_, Json(created)) = create_admission_review(
+            data_dir,
+            &test_caller(REVIEWER_PRINCIPAL, "create-for-other-key-1"),
+            &create_body(&candidate_ref, "pending"),
+            pinned_governance_snapshot(),
+        );
+        let id = created["admission_review"]["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        assert_eq!(
+            delete_admission_review(
+                data_dir,
+                &id,
+                &test_caller(REVIEWER_PRINCIPAL, "delete-first-key")
+            )
+            .0,
+            StatusCode::OK
+        );
+
+        let (status, Json(reply)) = delete_admission_review(
+            data_dir,
+            &id,
+            &test_caller(REVIEWER_PRINCIPAL, "delete-second-key"),
+        );
+        assert_eq!(status, StatusCode::NOT_FOUND);
+        assert_eq!(
+            reply["error"]["code"],
+            json!("marketplace_review_not_found")
+        );
+        // A foreign principal presenting the SAME key is also told nothing: the probe answers None
+        // rather than confirming another principal's id exists.
+        let (foreign_status, Json(foreign)) = delete_admission_review(
+            data_dir,
+            &id,
+            &test_caller("user://intruder", "delete-first-key"),
+        );
+        assert_eq!(foreign_status, StatusCode::NOT_FOUND);
+        assert_eq!(
+            foreign["error"]["code"],
+            json!("marketplace_review_not_found")
+        );
+        assert_eq!(
+            admitted_event_count(data_dir, &id),
+            2,
+            "a refused delete admitted an event"
+        );
+        reset_handle_for_test();
+    }
+
+    #[test]
+    fn replay_survives_a_restart_for_both_create_and_delete() {
+        // Neither replay may be served from process memory. Dropping the handle between attempts
+        // forces both answers to be reconstructed from the durable log.
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        reset_handle_for_test();
+        let candidate_ref = seed_candidate(data_dir, "mpub_restart");
+        let caller = test_caller(REVIEWER_PRINCIPAL, "create-restart-1");
+        let body = create_body(&candidate_ref, "admitted");
+        let (first_status, Json(created)) =
+            create_admission_review(data_dir, &caller, &body, pinned_governance_snapshot());
+        assert_eq!(first_status, StatusCode::CREATED);
+        let id = created["admission_review"]["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+
+        reset_handle_for_test();
+        let (status, Json(replay)) =
+            create_admission_review(data_dir, &caller, &body, moved_governance_snapshot());
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(replay["replayed"], json!(true));
+        assert_eq!(replay["admission_review"], created["admission_review"]);
+        assert_eq!(admitted_event_count(data_dir, &id), 1);
+
+        let deleter = test_caller(REVIEWER_PRINCIPAL, "delete-restart-1");
+        assert_eq!(
+            delete_admission_review(data_dir, &id, &deleter).0,
+            StatusCode::OK
+        );
+        reset_handle_for_test();
+        let (delete_status, Json(delete_replay)) = delete_admission_review(data_dir, &id, &deleter);
+        assert_eq!(delete_status, StatusCode::OK);
+        assert_eq!(delete_replay["replayed"], json!(true));
+        assert_eq!(delete_replay["removed"], json!(true));
+        assert_eq!(admitted_event_count(data_dir, &id), 2);
+        reset_handle_for_test();
+    }
+
+    #[test]
+    fn a_delete_still_binds_the_exact_head_and_refuses_a_record_with_none() {
+        // Compare-and-swap is untouched by the probe. A successor still presents the exact admitted
+        // head, and a projection that predates admitted mutation is refused rather than advanced.
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        reset_handle_for_test();
+        let candidate_ref = seed_candidate(data_dir, "mpub_head");
+        let caller = test_caller(REVIEWER_PRINCIPAL, "create-for-head-1");
+        let (_, Json(created)) = create_admission_review(
+            data_dir,
+            &caller,
+            &create_body(&candidate_ref, "pending"),
+            pinned_governance_snapshot(),
+        );
+        let id = created["admission_review"]["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let at_create = load(data_dir, KIND_REVIEW, &id).unwrap();
+
+        // Advance the stream, then hand the delete a projection carrying the head it has moved past.
+        assert_eq!(
+            patch_admission_review(
+                data_dir,
+                &id,
+                &test_caller(REVIEWER_PRINCIPAL, "patch-for-head-1"),
+                &json!({ "decision": "admitted" })
+            )
+            .0,
+            StatusCode::OK
+        );
+        persist_record(data_dir, KIND_REVIEW, &id, &at_create).unwrap();
+        let (status, Json(reply)) = delete_admission_review(
+            data_dir,
+            &id,
+            &test_caller(REVIEWER_PRINCIPAL, "delete-stale-head-1"),
+        );
+        assert_eq!(status, StatusCode::CONFLICT, "{reply}");
+        assert_eq!(reply["code"], json!("event_stream_expected_head_conflict"));
+        assert!(load(data_dir, KIND_REVIEW, &id).is_some());
+
+        // A record written before this plane bound identity carries no head at all.
+        persist_record(
+            data_dir,
+            KIND_REVIEW,
+            "madm_headless",
+            &json!({ "id": "madm_headless", "candidate_ref": candidate_ref }),
+        )
+        .unwrap();
+        let (headless_status, Json(headless)) = delete_admission_review(
+            data_dir,
+            "madm_headless",
+            &test_caller(REVIEWER_PRINCIPAL, "delete-headless-1"),
+        );
+        assert_eq!(headless_status, StatusCode::BAD_REQUEST);
+        assert_eq!(
+            headless["error"]["code"],
+            json!("marketplace_expected_head_required")
+        );
+        reset_handle_for_test();
+    }
+
+    #[test]
+    fn a_create_replay_cannot_be_borrowed_by_another_principal() {
+        // The probe is authorization-bound and answers a foreign caller `None`, so a borrowed key
+        // reaches the same scope refusal it reached before rather than being served a replay.
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        reset_handle_for_test();
+        let candidate_ref = seed_candidate(data_dir, "mpub_borrow");
+        let body = create_body(&candidate_ref, "admitted");
+        let (_, Json(created)) = create_admission_review(
+            data_dir,
+            &test_caller(REVIEWER_PRINCIPAL, "shared-looking-key"),
+            &body,
+            pinned_governance_snapshot(),
+        );
+        let id = created["admission_review"]["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+
+        let (status, _) = create_admission_review(
+            data_dir,
+            &test_caller("user://intruder", "shared-looking-key"),
+            &body,
+            moved_governance_snapshot(),
+        );
+        assert_eq!(status, StatusCode::FORBIDDEN);
+        assert_eq!(admitted_event_count(data_dir, &id), 1);
+        assert_eq!(
+            load(data_dir, KIND_REVIEW, &id).unwrap()["reviewer_ref"],
+            json!(REVIEWER_PRINCIPAL)
+        );
+        reset_handle_for_test();
     }
 }

@@ -42,6 +42,7 @@
     "generate:architecture-contracts": "node scripts/generate-architecture-contracts.mjs --write",
     "check:architecture-contracts": "node scripts/generate-architecture-contracts.mjs --check",
     "check:mutation-foundation": "node scripts/audit-daemon-mutation-foundation.mjs --check",
+    "check:mutation-handlers": "node scripts/audit-daemon-mutation-handlers.mjs --check",
     "check:ioi-ai-vendor": "node scripts/generate-ioi-ai-vendor-manifest.mjs --check",
     "smoke:implementation-daemon": "node scripts/smoke-implementation-daemon.mjs",
     "smoke:package-registry": "node scripts/smoke-package-registry.mjs",
@@ -57,7 +58,8 @@
     "build:all": "npm run build --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
-    "check:architecture-docs": "node scripts/check-architecture-docs.mjs"
+    "check:architecture-docs": "node scripts/check-architecture-docs.mjs",
+    "check:work-items": "node scripts/check-architecture-docs.mjs --work-items"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",

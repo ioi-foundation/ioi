@@ -2719,7 +2719,7 @@
       "title": "Approvals",
       "reference_route": "http://localhost:9225/workspace/approvals-app/",
       "ioi_route": "/__ioi/governance/approvals",
-      "primary_workflow": "Decide an approval request: filter/select a pending request in the inbox -> inspect its record (subject, request id, reason, blast radius, created) -> approve (optional reviewer_ref, no confirm) / reject (confirm) / revoke (confirm, on approved) through the governed PATCH transition, which returns a durable approval-transition receipt and lands a typed success/refusal banner linked to the /__ioi/work-ledger proof stream. NOT a create surface — requests are minted by other flows; the inbox is the review-and-decide plane.",
+      "primary_workflow": "Decide an approval request: filter/select a pending request in the inbox -> inspect its record (subject, request id, reason, blast radius, created) -> approve (no confirm) / reject (confirm) / revoke (confirm, on approved) through the governed PATCH transition, which returns a durable approval-transition receipt and lands a typed success/refusal banner linked to the /__ioi/work-ledger proof stream. NOT a create surface — requests are minted by other flows; the inbox is the review-and-decide plane.",
       "reference_reached_states": [
         "initial-inbox-landing (faceted sidebar + 'No requests found.')",
         "status-multiselect-popover (9 states: Open/Approved/Changes-requested/Action-required/Pending-approval/Draft/Closed/Rejected-and-closed/Completed — WORKS in capture)",
@@ -2975,7 +2975,7 @@
           "label": "Approve action",
           "reference": "approve the request",
           "outcome": "governed_receipted_action",
-          "reason": "real governed transition pending->approved through EXISTING daemon authority; no confirm; carries optional reviewer_ref; fails closed if the declared receipt schema_version is absent",
+          "reason": "real governed transition pending->approved through EXISTING daemon authority; no confirm; fails closed if the declared receipt schema_version is absent",
           "binding": "POST /__ioi/governance/approvals/:id/transition -> PATCH /v1/hypervisor/governance/approval-requests/:id {transition:approve} ; receipt ioi.hypervisor.governance.approval-transition-receipt.v1",
           "implemented": true
         },
@@ -3004,9 +3004,8 @@
           "region": "detail",
           "label": "Reviewer attribution input",
           "reference": "(reference: assignee/approver identity)",
-          "outcome": "local_view_interaction",
-          "reason": "free-text attribution passed to the approve transition; NOT authenticated identity (no identity plane binds it to a principal) — truthful named gap on identity",
-          "binding": "client:ap-inp reviewer_ref (allowlisted action field)",
+          "outcome": "disabled_missing_authority",
+          "reason": "no attribution input is rendered and none can be: reviewer attribution is derived server-side from the authenticated caller (canon identity-access-and-metering.md — request bodies never select the acting principal), the action declares an EMPTY field allowlist, and the daemon refuses a client-named reviewer_ref with the typed governance_reviewer_ref_not_client_settable; separately, no pre-decision reviewer-assignment plane exists on the daemon, so attribution is decision-time only",
           "implemented": true
         },
         {
@@ -3167,7 +3166,7 @@
           "GET /v1/hypervisor/work-ledger (proof stream the success banner links to)"
         ],
         "actions": [
-          "PATCH /v1/hypervisor/governance/approval-requests/:id {transition: approve|reject|revoke, reviewer_ref?} — the WIRED governed transition (surface approve/reject/revoke)",
+          "PATCH /v1/hypervisor/governance/approval-requests/:id {transition: approve|reject|revoke} — the WIRED governed transition (surface approve/reject/revoke); the reviewer is derived from the authenticated caller and a request body that names one is refused with the typed governance_reviewer_ref_not_client_settable",
           "POST /v1/hypervisor/governance/approval-requests — create EXISTS (used by verify-hypervisor-approvals-queue.mjs) but NOT surfaced in the inbox (approvals is a review surface, not a create surface)",
           "DELETE /v1/hypervisor/governance/approval-requests/:id — EXISTS (verifier cleanup) but NOT surfaced (admin cleanup, not a user workflow)"
         ],
@@ -3185,10 +3184,9 @@
         "full-text/query search param on the list endpoint — blocks request search",
         "threaded-comment/discussion plane — blocks detail comments",
         "SLA/escalation timer plane — blocks SLA/escalation",
-        "audit-export endpoint (work-ledger proof stream is the read-only substitute) — blocks audit exports",
-        "authenticated identity binding for reviewer_ref (currently free-text attribution, not a real principal)"
+        "audit-export endpoint (work-ledger proof stream is the read-only substitute) — blocks audit exports"
       ],
-      "security_credential_implications": "The act workflow crosses GOVERNANCE authority only — approve/reject/revoke are receipted state transitions; no credential, wallet, secret, or irreversible-deletion surface is involved. Safety properties already in place: (1) fail-closed receipts — a 200 without transition_receipt.receipt_ref matching schema_version ioi.hypervisor.governance.approval-transition-receipt.v1 is downgraded to a failure, so a mutation without proof is never trusted; (2) confirmation posture — reject/revoke require an explicit confirm checkbox that the SERVER re-enforces (confirmation_required typed refusal), approve submits directly; (3) allowlisted fields — only reviewer_ref is forwarded (bounded 2000 chars); (4) same-origin bounded return path (safeReturnPath) — the module never controls the raw redirect. Residual truthful gaps: reviewer_ref is unauthenticated free-text attribution (no identity plane binds it to a principal); revoke (approved->revoked) is the most consequential transition but is confirm-gated + receipted. No new credential/wallet exposure is introduced by the recommended cut.",
+      "security_credential_implications": "The act workflow crosses GOVERNANCE authority only — approve/reject/revoke are receipted state transitions; no credential, wallet, secret, or irreversible-deletion surface is involved. Safety properties already in place: (1) fail-closed receipts — a 200 without transition_receipt.receipt_ref matching schema_version ioi.hypervisor.governance.approval-transition-receipt.v1 is downgraded to a failure, so a mutation without proof is never trusted; (2) confirmation posture — reject/revoke require an explicit confirm checkbox that the SERVER re-enforces (confirmation_required typed refusal), approve submits directly; (3) no client field is forwarded — the action declares an EMPTY field allowlist, so the transition is the whole request; reviewer attribution is derived server-side from the authenticated caller and a body that names a reviewer_ref is refused with the typed governance_reviewer_ref_not_client_settable; (4) same-origin bounded return path (safeReturnPath) — the module never controls the raw redirect. Residual truthful gaps: revoke (approved->revoked) is the most consequential transition but is confirm-gated + receipted. No new credential/wallet exposure is introduced by the recommended cut.",
       "recommended_next_pr": {
         "title": "Approvals Interaction-Fidelity Atlas — control matrix + parity verifier (act already green)",
         "scope": "Approvals is ALREADY operational_state=act (approve/reject/revoke governed + receipted), so the next cut is the #66-equivalent interaction-fidelity pass, NOT new authority. Add surfaces/approvals/control-matrix.mjs enumerating every reference control (quick filters, Status/Request-type/Created-by/Assigned/Project/Users-groups/Groups facets, Search, Sort, row-select, detail record fields + subject link, approve/reject/revoke, the 5 detail named gaps, success/refusal banners) each mapped to exactly one outcome with its binding (href/param, PATCH route + receipt family) or a reason naming the exact missing daemon contract. Add scripts/verify-hypervisor-app-parity-approvals interaction assertions and promote registry interaction_parity_state none->atlas_verified. Uses EXISTING daemon authority only; no new contracts designed here.",

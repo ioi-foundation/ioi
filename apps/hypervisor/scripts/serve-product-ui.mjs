@@ -5931,8 +5931,11 @@ const govDform = (fam, id) => `<form class="inline" method="post" action="/__ioi
 const govRefs = (arr) => (arr && arr.length) ? arr.map((r) => `<code>${CX_ESC(r)}</code>`).join(" ") : "—";
 function govApprovalCard(a) {
   const id = a.id || ""; const stp = a.status === "approved" ? "ok" : a.status === "pending" ? "warn" : "muted";
+  // No reviewer input (P-IDENT-1A): attribution belongs to the authenticated caller the daemon
+  // adjudicates, not to a free-text box any poster could fill with any name. The Reviewer row
+  // below still displays it, projected from the daemon record.
   const actions = a.status === "pending"
-    ? govTform("approvals", id, "approve", "Approve", "", `<input name="reviewer_ref" placeholder="reviewer" style="width:120px;padding:6px 8px;border-radius:8px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit;margin-right:6px">`) + " " + govTform("approvals", id, "reject", "Reject", "ghost")
+    ? govTform("approvals", id, "approve", "Approve", "") + " " + govTform("approvals", id, "reject", "Reject", "ghost")
     : a.status === "approved" ? govTform("approvals", id, "revoke", "Revoke", "ghost") : "";
   return `<div class="card" style="display:block"><div class="row" style="justify-content:space-between;margin:0 0 8px"><div><b>${CX_ESC(a.request_kind || "approval")}</b> <span class="pill ${stp}">${CX_ESC(a.status || "")}</span> <code>${CX_ESC(id)}</code></div>${govDform("approvals", id)}</div>
     <dl class="wlgrid"><dt class="wlk">Target</dt><dd class="wlv">${CX_ESC(a.subject_ref || "—")}</dd><dt class="wlk">Reason</dt><dd class="wlv">${CX_ESC(a.reason || "—")}</dd><dt class="wlk">Reviewer</dt><dd class="wlv">${CX_ESC(a.reviewer_ref || "—")}${a.decided_at ? " · " + CX_ESC(a.decided_at) : ""}</dd><dt class="wlk">Authority refs</dt><dd class="wlv">${govRefs(a.required_authority_refs)}</dd></dl>
@@ -6023,8 +6026,10 @@ function govApprovalsQueue(records) {
     if (!wc && !ar) return `<span class="sub" style="margin:0">none declared</span>`;
     return `${wc ? `<span class="pill warn">${wc} call${wc > 1 ? "s" : ""}</span>` : ""} ${ar ? `<span class="pill muted">${ar} authorit${ar > 1 ? "ies" : "y"}</span>` : ""}`;
   };
+  // No reviewer input (P-IDENT-1A) — see govApprovalCard. The drawer's Decision block still shows
+  // the Reviewer the daemon recorded.
   const decide = (a) => a.status === "pending"
-    ? govTform("approvals", a.id, "approve", "Approve", "", `<input name="reviewer_ref" placeholder="reviewer" style="width:96px;padding:5px 8px;border-radius:8px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit;font-size:11.5px;margin-right:4px">`) + " " + govTform("approvals", a.id, "reject", "Reject", "ghost")
+    ? govTform("approvals", a.id, "approve", "Approve", "") + " " + govTform("approvals", a.id, "reject", "Reject", "ghost")
     : a.status === "approved" ? govTform("approvals", a.id, "revoke", "Revoke", "ghost") : `<span class="sub" style="margin:0">terminal</span>`;
   const rows = records.map((a, i) => `<tr class="wlrow" data-aq="${CX_ESC(a.status || "")}" data-i="${i}" onclick="aqOpen(${i})" style="${a.status !== "pending" ? "display:none" : ""}">
       <td><b>${CX_ESC(a.request_kind || "approval")}</b><div style="color:#878a93;font-size:11px;margin-top:1px">${CX_ESC(String(a.reason || "").slice(0, 64) || "no reason recorded")} · <code style="font-size:10px">${CX_ESC(a.id || "")}</code></div></td>
@@ -6358,6 +6363,96 @@ function renderMarketplaceListingForm(existing, opts) {
     <script>(function(){var k=document.getElementById('mp-kind'),s=document.getElementById('mp-subject');if(!k||!s)return;function f(){var kk=k.value;Array.prototype.forEach.call(s.options,function(o){if(!o.value){return;}o.hidden=(o.getAttribute('data-kind')!==kk);});var cur=s.options[s.selectedIndex];if(!cur||cur.hidden){for(var i=0;i<s.options.length;i++){if(s.options[i].value&&!s.options[i].hidden){s.selectedIndex=i;return;}}}}k.addEventListener('change',f);f();})();</script>`;
   return automationsShell(`${isEdit ? "Edit" : "Draft"} listing`, inner);
 }
+// ---- admission-review callers (P-MKT-CALL-1) ---------------------------------------------------
+//
+// An admission review is an OWNER-SCOPED daemon mutation. `require_write_caller` authenticates the
+// request FIRST, then requires the body to name the single org://|project:// that owns the record
+// and an idempotency_key that makes a retry resolve to one resource. The same plane also refuses a
+// body carrying `reviewer_ref` (P-MKT-ATTR-1): WHO reviewed is derived from the authenticated
+// caller, so these callers send the decision and nothing about identity.
+//
+// The owner is ASKED FOR, not invented. Neither the review record, its candidate, nor its listing
+// projects an owner_ref, so there is nothing here to read one from; defaulting to a constant like
+// `org://local` would be the product choosing an owner scope on the operator's behalf — the same
+// forgery as choosing the reviewer, one field over. The daemon independently refuses an owner the
+// caller holds no authority over (403) and refuses a scope bound to another principal, so this
+// field is a declaration the server adjudicates, never a grant.
+const MP_OWNER_HINT = "The single org:// or project:// that owns this review. The daemon admits the write under it and refuses a caller who holds no authority over it.";
+const MP_OWNER_INPUT_STYLE = "padding:8px;border-radius:8px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit";
+const mpOwnerInput = (extraStyle) => `<input name="owner_ref" placeholder="org://… or project://…" required title="${CX_ESC(MP_OWNER_HINT)}" style="${MP_OWNER_INPUT_STYLE}${extraStyle || ""}">`;
+// Content-derived, mirroring the daemon's own rule: `replay_stable_id` mints the review id from
+// (owner_ref, idempotency_key), so a wall-clock key would make a double-submitted form two reviews.
+// Create and delete hash DIFFERENT material on purpose — both admit onto ONE event stream, where a
+// key re-presented with different bytes is refused as a conflict rather than replayed.
+function mpReviewIdempotencyKey(command) {
+  return `marketplace-admission-review:${crypto.createHash("sha256").update(JSON.stringify(command)).digest("hex").slice(0, 32)}`;
+}
+// RETRACTED. Both replay gaps these callers used to report are CLOSED in the daemon, so the two
+// NONCLAIMs that stood here would now be false. What the keys below buy has changed with them:
+//
+//   1. A create now replays. `handle_review_create` decides its whole command from the request and
+//      answers a retry from the durable admitted history BEFORE reading governance posture, so the
+//      posture's live counts and nested `at` are evidence in the payload rather than replay
+//      identity. A double-submitted form presents the same key and gets 200 `{ok:true,
+//      replayed:true}` with the review as it currently stands — not a second review, and no longer
+//      409 `event_stream_same_key_different_bytes`. A genuinely CHANGED command under that key
+//      still takes that 409.
+//   2. A delete now replays. `delete_admission_review` consults the admitted history for this
+//      caller's key before treating an absent projection as never-existing, so a re-submitted
+//      delete gets 200 `{ok:true, removed:true, replayed:true}` instead of 404. An id that never
+//      existed, and a different key after the removal, both still answer 404.
+//
+// ONE NEW REFUSAL these callers must surface rather than launder. A create key re-presented AFTER
+// its review was deleted answers 409 `marketplace_review_removed` — replaying the create over an
+// admitted removal would resurrect the record, so the daemon refuses instead of returning a review
+// that is gone. `mpMutationRefusal` already renders it (nested `{error:{code,message}}`), and the
+// remedy is a new command: the create form's key is content-derived, so reviewing the candidate
+// again with any different decision mints a new key and a new review.
+//
+// PROOF, bounded: `mutation_event_foundation::prior_admission_for_key` plus the create/delete
+// replay tests in `marketplace_routes::marketplace_tests`, which drive the production functions
+// against the real Agentgres chain. `mpMutationLanded` below already accepts both shapes (2xx and
+// `ok:true`), so no call site here changes — the keys are now load-bearing by REPLAY rather than by
+// refusal, which is the behaviour these callers were written against.
+//
+// STILL NONCLAIMED, and still reported rather than hidden: the sibling marketplace mutations
+// (candidate create/publish, listing/candidate/offer delete) carry the same two defect classes and
+// have no replay; two SIMULTANEOUS submissions of one key still leave the loser a 409
+// `event_stream_expected_head_conflict` that converges only on its own retry; and a substrate read
+// failure during the replay probe surfaces as 409 rather than 503.
+
+// Both mutations need the daemon's STATUS as well as its body: a `.json()`-only call site cannot
+// tell 201 from 403, which is how these two came to redirect a refusal as if the write had landed.
+async function mpDaemonMutation(path, init) {
+  try {
+    const response = await daemonFetch(path, init);
+    return { status: response.status, body: await response.json().catch(() => ({})) };
+  } catch (error) {
+    return { status: 0, body: { code: "daemon_unreachable", message: String((error && error.message) || error) } };
+  }
+}
+// A write LANDED only when the transport succeeded AND the plane said so. Both halves are load
+// bearing and neither implies the other: this daemon answers 200 with `{"ok": false}` on a delete
+// that removed nothing (`g_del`), so a status-only test reports a phantom removal; and a body-only
+// test would accept an `ok` field off a 500 or a proxy's error page. Fail closed on the pair.
+const mpMutationLanded = (result) => result.status >= 200 && result.status < 300 && result.body?.ok === true;
+// Render a refusal as a refusal. This plane answers in two shapes — typed route errors nest
+// {error:{code,message}} while the shared mutation foundation answers {code,message} at the top
+// level — so read both: an identity or owner-scope refusal reported as "invalid" is a lie about
+// which contract was broken. The daemon's own status is carried out rather than flattened to 200.
+function mpMutationRefusal(title, result, back) {
+  const nested = (result.body && result.body.error) || {};
+  const code = nested.code || (result.body && result.body.code) || "";
+  const message = nested.message || nested.reason || (result.body && (result.body.message || result.body.reason)) || "";
+  const blocked = (nested.blocked_reasons || []).join(", ");
+  return {
+    // Carry the daemon's own refusal status. A success-shaped answer that is not `ok` (a 200
+    // `{"ok": false}`, or an unreachable daemon's synthetic 0) has no refusal status to carry, so
+    // it becomes 502: the shell cannot honour it and will not launder it into a 200 either.
+    status: result.status >= 400 && result.status <= 599 ? result.status : 502,
+    html: automationsShell(title, `<div class="empty" data-error-code="${CX_ESC(code)}"><b>${CX_ESC(title)}</b>${code ? ` — <code>${CX_ESC(code)}</code>` : ""}<div style="margin-top:6px">${CX_ESC(message || "the daemon refused the request and returned no message")}</div>${blocked ? `<div style="margin-top:6px">${CX_ESC(blocked)}</div>` : ""}</div><p><a href="${CX_ESC(back)}">← back</a></p>`),
+  };
+}
 function renderMarketplaceListingDetail(listing, candidates, reviewsByCandidate, offers, gov) {
   const enc = encodeURIComponent; const l = listing || {};
   const lid = l.id || ""; const st = mpStoreOf(l.listing_kind);
@@ -6378,7 +6473,11 @@ function renderMarketplaceListingDetail(listing, candidates, reviewsByCandidate,
     const published = c.publish_state === "published";
     const reasons = (c.blocked_reasons || []).map((r) => `<span class="pill" style="color:#e06a6a;border-color:#5c2a2a;background:#2a1212">${CX_ESC(r)}</span>`).join(" ");
     const g = c.governance_posture_snapshot || {};
-    const revRows = reviews.map((rv) => `<tr><td><span class="pill ${rv.decision === "admitted" ? "ok" : rv.decision === "rejected" ? "warn" : "muted"}">${CX_ESC(rv.decision || "")}</span></td><td>${(rv.findings || []).map((f) => `<code>${CX_ESC(f)}</code>`).join(" ") || "—"}</td><td><form class="inline" method="post" action="/__ioi/marketplace/reviews/${enc(rv.id)}/delete"><input type="hidden" name="listing_id" value="${enc(lid)}"><button class="act ghost" type="submit">✕</button></form></td></tr>`).join("");
+    // Reviewer is PROJECTED, never posted: the daemon writes `caller.identity.principal_ref` into
+    // the same bytes it admits, so this cell is the record's own answer to who reviewed. A review
+    // written before that cut can carry no reviewer at all, which is shown as absent rather than
+    // filled in from the viewer.
+    const revRows = reviews.map((rv) => `<tr><td><span class="pill ${rv.decision === "admitted" ? "ok" : rv.decision === "rejected" ? "warn" : "muted"}">${CX_ESC(rv.decision || "")}</span></td><td>${rv.reviewer_ref ? `<code title="server-derived — the principal the daemon authenticated for the write that last advanced this review">${CX_ESC(rv.reviewer_ref)}</code>` : `<span class="sub" style="margin:0" title="this record carries no reviewer; nothing here supplies one">unattributed</span>`}</td><td>${(rv.findings || []).map((f) => `<code>${CX_ESC(f)}</code>`).join(" ") || "—"}</td><td><form class="inline" method="post" action="/__ioi/marketplace/reviews/${enc(rv.id)}/delete" style="gap:6px"><input type="hidden" name="listing_id" value="${enc(lid)}">${mpOwnerInput(";width:150px;font-size:11px")}<button class="act ghost" type="submit">✕</button></form></td></tr>`).join("");
     const pubPill = published
       ? `<span class="pill ok">published</span>`
       : c.publishable ? `<span class="pill ok">publishable</span>` : `<span class="pill" style="color:#e06a6a;border-color:#5c2a2a;background:#2a1212">not publishable</span>`;
@@ -6388,16 +6487,18 @@ function renderMarketplaceListingDetail(listing, candidates, reviewsByCandidate,
          <dl class="wlgrid" style="margin:0 0 8px"><dt class="wlk">Runtime</dt><dd class="wlv"><code>${CX_ESC(c.published_runtime_ref || "")}</code></dd><dt class="wlk">Release</dt><dd class="wlv"><code>${CX_ESC(c.release_control_ref || "")}</code></dd><dt class="wlk">Admission</dt><dd class="wlv"><code>${CX_ESC(c.admission_review_ref || "")}</code></dd><dt class="wlk">Receipts</dt><dd class="wlv">${(c.publish_receipt_refs || []).map((r) => `<code>${CX_ESC(r)}</code>`).join(" ") || "—"}</dd></dl>`
       : `<div class="chips" style="margin:0 0 8px"><span class="chiplabel">Blocked reasons</span>${reasons || `<span class="sub" style="margin:0">none — ready to publish</span>`}</div>
          <div class="chips" style="margin:0 0 10px"><span class="chiplabel">Governance @ candidacy</span>${govChips(g)}</div>`;
-    const reviewForm = published ? "" : `<form method="post" action="/__ioi/marketplace/candidates/${enc(c.id)}/reviews" class="row" style="gap:8px;margin-top:8px"><input type="hidden" name="listing_id" value="${enc(lid)}">
-        <select name="decision" style="padding:8px;border-radius:8px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit"><option value="pending">pending</option><option value="needs_changes">needs_changes</option><option value="admitted">admitted</option><option value="rejected">rejected</option></select>
-        <button class="act ghost" type="submit">Submit admission review</button></form>`;
+    const reviewForm = published ? "" : `<form method="post" action="/__ioi/marketplace/candidates/${enc(c.id)}/reviews" class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap"><input type="hidden" name="listing_id" value="${enc(lid)}">
+        <select name="decision" style="${MP_OWNER_INPUT_STYLE}"><option value="pending">pending</option><option value="needs_changes">needs_changes</option><option value="admitted">admitted</option><option value="rejected">rejected</option></select>
+        ${mpOwnerInput(";min-width:220px")}
+        <button class="act ghost" type="submit">Submit admission review</button>
+        <div class="sub" style="margin:0;flex-basis:100%">${CX_ESC(MP_OWNER_HINT)} No reviewer is asked for — the daemon records the principal it authenticated for this submission.</div></form>`;
     const publishBtn = (!published && c.publishable) ? `<form class="inline" method="post" action="/__ioi/marketplace/candidates/${enc(c.id)}/publish"><input type="hidden" name="listing_id" value="${enc(lid)}"><button class="act" type="submit">Publish (runtime-backed)</button></form>` : "";
     return `<div class="card" style="display:block">
       <div class="row" style="justify-content:space-between;margin:0 0 8px"><div><b>Publish candidate</b> <code>${CX_ESC(c.id)}</code> <span class="pill muted">publish_state: ${CX_ESC(c.publish_state || "candidate")}</span> ${pubPill}</div>
         ${published ? "" : `<form class="inline" method="post" action="/__ioi/marketplace/candidates/${enc(c.id)}/delete"><input type="hidden" name="listing_id" value="${enc(lid)}"><button class="act ghost" type="submit">Delete candidate</button></form>`}</div>
       ${publishedBlock}
       <h4 style="margin:6px 0;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#878a93">Admission reviews</h4>
-      ${reviews.length ? `<table><tbody>${revRows}</tbody></table>` : `<div class="sub" style="margin:0 0 8px">No reviews yet.</div>`}
+      ${reviews.length ? `<table><thead><tr><th>Decision</th><th>Reviewer</th><th>Findings</th><th>Owner scope · delete</th></tr></thead><tbody>${revRows}</tbody></table>` : `<div class="sub" style="margin:0 0 8px">No reviews yet.</div>`}
       <div class="row" style="margin-top:8px;gap:8px">${publishBtn}</div>${reviewForm}
     </div>`;
   }).join("");
@@ -7321,6 +7422,58 @@ function safeReturnPath(raw, fallback) {
   try { decodeURIComponent(raw); } catch { return fallback; }
   return raw;
 }
+// W1.1 / DEF-IDENT-1 — the NARROWED daemon capability handed to module actions.
+//
+// `daemonFetch` deliberately merges `init.headers` LAST: the login/logout/whoami and raw-proxy
+// lanes in this file must be able to set an explicit Cookie or replay a proxied header set. That
+// makes the bare helper the wrong thing to hand a surface module — module code could pass
+// `headers: { authorization: "Bearer …" }` (author an identity) or `headers: { cookie: "" }`
+// (clear one) and the caller's envelope would be replaced by module-chosen bytes. Identity would
+// then be a value the module supplies, which is the whole defect this closes.
+//
+// So the capability binds THIS request's identity at hand-off and refuses any module-supplied
+// header in the identity envelope — set or cleared, any casing. Content type and other transport
+// headers still pass through, because a module legitimately declares how it encodes its own body.
+// A violation THROWS rather than being silently stripped: a module reaching for identity headers
+// is a contract breach worth surfacing, and the runtime already contains a thrown module action as
+// a route-local 500 with zero mutation. The module still never sees the request, the headers, the
+// cookie, or a principal string — it cannot name a caller, only act as the one already admitted.
+function moduleActionDaemonCapability() {
+  const boundReq = reqCtx.getStore()?.req || null;
+  // Fail closed on an unbound scope. An identity-less daemon call is not "anonymous" in effect:
+  // under local-development posture the daemon adjudicates it as the loopback operator, so issuing
+  // a capability with nothing to carry would silently PROMOTE the action. There is no caller to act
+  // as, so there is no capability to hand out.
+  if (!boundReq) {
+    throw new Error("module action capability requested outside a bound request scope — refusing to issue an unidentified daemon capability");
+  }
+  return function daemonFetchForModule(pathOrUrl, init = {}) {
+    // Daemon-relative paths ONLY. `daemonFetch` treats anything starting with `http` as an absolute
+    // destination, so an absolute URL here would ship the bound Authorization/Cookie to a host the
+    // MODULE named; `//host/path` is protocol-relative and does the same. The capability is a right
+    // to speak to the daemon as this caller, not a right to spend the caller's credentials anywhere.
+    const path = String(pathOrUrl);
+    if (!path.startsWith("/") || path.startsWith("//") || /[\s\\]/.test(path)) {
+      throw new Error(`module action capability refuses destination '${path.slice(0, 80)}' — daemon-relative paths only; the caller's identity envelope never leaves the daemon`);
+    }
+    // `init.headers` may be a plain object, an array of [name, value] tuples, or a Headers instance.
+    // Reading Object.keys() off the latter two sees nothing useful, so an identity header smuggled
+    // in as a tuple or a Headers entry would sail through unjudged. Normalize FIRST, then judge —
+    // and hand `daemonFetch` a plain object, because it merges `...init.headers` and spreading a
+    // Headers instance yields {}, which would silently drop every header the module legitimately set.
+    const normalized = new Headers(init.headers || {});
+    const authored = DAEMON_IDENTITY_HEADERS.filter((name) => normalized.has(name));
+    if (authored.length) {
+      throw new Error(`surface module attempted to set identity-envelope header(s) [${authored.join(", ")}] on a daemon call — the action capability carries the request's identity and nothing else`);
+    }
+    const headers = {};
+    normalized.forEach((value, name) => { headers[name] = value; });
+    // `req` is dropped from the module's init and re-supplied from the bound request, so a module
+    // cannot hand in a fabricated request object to source an envelope from either.
+    const { req: _moduleSuppliedReq, headers: _moduleHeaders, ...rest } = init;
+    return daemonFetch(path, { ...rest, headers, req: boundReq });
+  };
+}
 async function runSurfaceAction(hit, res, body) {
   try {
     const p = new URLSearchParams(body.toString("utf8").slice(0, 16384)); // bounded parse
@@ -7349,7 +7502,14 @@ async function runSurfaceAction(hit, res, body) {
     // forward a corrupt artifact, so the bound is declared, never lucked into.
     const fieldCap = Math.min(Number(action.fieldMax) || 2000, 8192);
     for (const f of action.fields || []) { const v = p.get(f); if (v !== null && v !== "") fields[f] = String(v).slice(0, fieldCap); }
-    const result = await hit.impl.handleAction({ action, id: hit.recordId, fields, daemon: DAEMON, url: new URL(hit.surface.route + (p.get("ontology") ? `?ontology=${encodeURIComponent(p.get("ontology"))}` : ""), "http://x") });
+    // W1.1 / DEF-IDENT-1 — module MUTATIONS carry the caller's identity. The context gets the
+    // NARROWED capability above, never the raw request and never the bare helper. It is built here,
+    // inside the per-request AsyncLocalStorage scope (bound in the server callback and preserved
+    // across these awaits), so it closes over THIS request: the module's daemon call is built from
+    // the same bounded identity envelope every other call in this file uses, and the module can
+    // neither replace it nor clear it. A module that calls global `fetch` instead reaches the
+    // daemon with no identity at all, which is exactly what this closes for the Approvals lane.
+    const result = await hit.impl.handleAction({ action, id: hit.recordId, fields, daemon: DAEMON, daemonFetch: moduleActionDaemonCapability(), url: new URL(hit.surface.route + (p.get("ontology") ? `?ontology=${encodeURIComponent(p.get("ontology"))}` : ""), "http://x") });
     if (!result || typeof result !== "object" || !["success", "refusal", "failure"].includes(result.kind)) {
       return refuse("action_result_invalid", "the module returned no typed result — failing closed");
     }
@@ -9482,7 +9642,11 @@ async function handleEstateRequest(req, res, body) {
       if (govAct && req.method === "POST") {
         const [, family, gid, transition] = govAct;
         const path = family === "approvals" ? "approval-requests" : "release-controls";
-        const r = await daemonFetch(`/v1/hypervisor/governance/${path}/${encodeURIComponent(gid)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ transition, reviewer_ref: "principal://operator" }) }).catch(() => null);
+        // The body is the transition and nothing else (P-IDENT-1A). This used to assert
+        // `reviewer_ref: "principal://operator"` — a constant standing in for whoever happened to
+        // be clicking, which attributed every Studio decision to a principal nobody authenticated.
+        // `daemonFetch` already carries the real caller's envelope; the daemon attributes from that.
+        const r = await daemonFetch(`/v1/hypervisor/governance/${path}/${encodeURIComponent(gid)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ transition }) }).catch(() => null);
         const j = r ? await r.json().catch(() => ({})) : {};
         if (!r || j.ok === false) {
           res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
@@ -10189,6 +10353,14 @@ async function handleEstateRequest(req, res, body) {
       const segs = pathname.slice("/__ioi/governance/".length).split("/");
       const fam = segs[0];
       const cfg = GOV_FAMS[fam];
+      // IDENTITY (P-IDENT-1A) — this LEGACY monolithic governance lane authors no reviewer. A
+      // posted `reviewer_ref` is not read into any transition payload here, and the surfaces that
+      // feed this route render no reviewer input, so the transition body carries the decision only.
+      // Every call below goes through `daemonFetch`, which builds the caller's bounded identity
+      // envelope from the ambient request, so the daemon attributes the decision to the caller it
+      // authenticated. NONCLAIM: this closes AUTHORSHIP, not enforcement — these routes are still
+      // the flat pre-extraction handlers with no action-descriptor contract, no declared receipt
+      // check, and no confirmation posture. That is the governance-family extraction's job.
       if (cfg && req.method === "POST") {
         const api = `/v1/hypervisor/governance/${cfg.api}`;
         const p = new URLSearchParams(body.toString());
@@ -10216,8 +10388,9 @@ async function handleEstateRequest(req, res, body) {
         const id = decodeURIComponent(segs[1]);
         const action = segs[2] || "";
         if (action === "transition") {
+          // A posted `reviewer_ref` is NEVER read into the patch (P-IDENT-1A): identity is not a
+          // form field. `trip_reason` stays — it is kill-switch cause text, not an identity claim.
           const patch = { transition: (p.get("transition") || "").trim() };
-          const rv = (p.get("reviewer_ref") || "").trim(); if (rv) patch.reviewer_ref = rv;
           const tr = (p.get("trip_reason") || "").trim(); if (tr) patch.trip_reason = tr;
           const r = await daemonFetch(`${api}/${encodeURIComponent(id)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(patch) }).then((x) => x.json()).catch(() => ({}));
           if (r && r.ok === false && r.error) { res.writeHead(200, HTMLH); res.end(automationsShell("Governance", `<div class="empty">Transition failed: ${CX_ESC(r.error.message || "invalid")}</div><p><a href="${CX_ESC(back)}">← back</a></p>`)); return; }
@@ -10322,7 +10495,22 @@ async function handleEstateRequest(req, res, body) {
       if (action === "delete") {
         await daemonFetch(`/v1/hypervisor/marketplace/publish-candidates/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
       } else if (action === "reviews") {
-        await daemonFetch(`/v1/hypervisor/marketplace/admission-reviews`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ candidate_ref: `marketplace-publish://${id}`, decision: (p.get("decision") || "pending").trim() }) }).catch(() => {});
+        // P-MKT-CALL-1. The body is the DECISION plus the owner scope and the retry key the
+        // owner-scoped mutation contract requires — and nothing about identity: the caller is the
+        // browser session `daemonFetch` already carries, and the reviewer is derived from it.
+        // Nothing is pre-validated here: the daemon owns this contract, and answering its 401 or
+        // its 400 as if the product had decided would restate a rule that lives elsewhere.
+        const command = { op: "marketplace.review.create", owner_ref: (p.get("owner_ref") || "").trim(), candidate_ref: `marketplace-publish://${id}`, decision: (p.get("decision") || "pending").trim() };
+        const result = await mpDaemonMutation(`/v1/hypervisor/marketplace/admission-reviews`, {
+          method: "POST", headers: { "content-type": "application/json" },
+          body: JSON.stringify({ candidate_ref: command.candidate_ref, decision: command.decision, owner_ref: command.owner_ref, idempotency_key: mpReviewIdempotencyKey(command) }),
+        });
+        if (!mpMutationLanded(result)) {
+          const refusal = mpMutationRefusal("Admission review refused", result, back);
+          res.writeHead(refusal.status, HTMLH);
+          res.end(refusal.html);
+          return;
+        }
       } else if (action === "publish") {
         const r = await daemonFetch(`/v1/hypervisor/marketplace/publish-candidates/${encodeURIComponent(id)}/publish`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }).then((x) => x.json()).catch(() => ({}));
         if (r && r.ok === false && r.error) {
@@ -10339,8 +10527,23 @@ async function handleEstateRequest(req, res, body) {
       const [rawId] = pathname.slice("/__ioi/marketplace/reviews/".length).split("/");
       const id = decodeURIComponent(rawId);
       const p = new URLSearchParams(body.toString());
-      await daemonFetch(`/v1/hypervisor/marketplace/admission-reviews/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
-      res.writeHead(302, { Location: `/__ioi/marketplace/listings/${encodeURIComponent(p.get("listing_id") || "")}`, "Cache-Control": "no-cache" });
+      const back = `/__ioi/marketplace/listings/${encodeURIComponent(p.get("listing_id") || "")}`;
+      // P-MKT-CALL-1. Deleting a review is a governed transition, not a hole in the record: the
+      // daemon admits a terminal event and unlinks the candidate backlink publish gating reads, so
+      // it requires the same owner scope and retry key a create does. A bodyless DELETE reached the
+      // typed refusal and was thrown away, and the redirect below reported it as removed.
+      const command = { op: "marketplace.review.delete", owner_ref: (p.get("owner_ref") || "").trim(), review_id: id };
+      const result = await mpDaemonMutation(`/v1/hypervisor/marketplace/admission-reviews/${encodeURIComponent(id)}`, {
+        method: "DELETE", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ owner_ref: command.owner_ref, idempotency_key: mpReviewIdempotencyKey(command) }),
+      });
+      if (!mpMutationLanded(result)) {
+        const refusal = mpMutationRefusal("Admission review not deleted", result, back);
+        res.writeHead(refusal.status, HTMLH);
+        res.end(refusal.html);
+        return;
+      }
+      res.writeHead(302, { Location: back, "Cache-Control": "no-cache" });
       return res.end();
     }
     if (pathname.startsWith("/__ioi/marketplace/offers/") && req.method === "POST") {

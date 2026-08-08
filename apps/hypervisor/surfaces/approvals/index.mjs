@@ -68,19 +68,32 @@ export function render(model, ctx) {
 // input fields · required context · authority plane/operation · expected receipt family ·
 // confirmation posture · success return policy · refusal behavior. The runtime enforces it; the
 // module only speaks to the daemon.
+// The field allowlist is EMPTY on purpose (P-IDENT-1A): the transition is the whole decision, and
+// reviewer attribution is the daemon's to derive from the authenticated caller. A client-typed
+// `reviewer_ref` was self-vouching attribution — anyone who could post the form could name anyone
+// as the reviewer — so it is no longer accepted, forwarded, or rendered. An empty allowlist is
+// declared rather than omitted so the contract states plainly that NO client field crosses.
 export const actions = [
-  { id: "approve", method: "POST", route: "/:id/transition", transition: "approve", from: "pending", to: "approved", fields: ["reviewer_ref"], context: ["id"], authority: { plane: "governance.approval-requests", operation: "PATCH /v1/hypervisor/governance/approval-requests/:id" }, receipt: "ioi.hypervisor.governance.approval-transition-receipt.v1", confirm: false, success: "return-to-surface", refusal: "typed-banner" },
-  { id: "reject", method: "POST", route: "/:id/transition", transition: "reject", from: "pending", to: "rejected", fields: ["reviewer_ref"], context: ["id"], authority: { plane: "governance.approval-requests", operation: "PATCH /v1/hypervisor/governance/approval-requests/:id" }, receipt: "ioi.hypervisor.governance.approval-transition-receipt.v1", confirm: true, success: "return-to-surface", refusal: "typed-banner" },
-  { id: "revoke", method: "POST", route: "/:id/transition", transition: "revoke", from: "approved", to: "revoked", fields: ["reviewer_ref"], context: ["id"], authority: { plane: "governance.approval-requests", operation: "PATCH /v1/hypervisor/governance/approval-requests/:id" }, receipt: "ioi.hypervisor.governance.approval-transition-receipt.v1", confirm: true, success: "return-to-surface", refusal: "typed-banner" },
+  { id: "approve", method: "POST", route: "/:id/transition", transition: "approve", from: "pending", to: "approved", fields: [], context: ["id"], authority: { plane: "governance.approval-requests", operation: "PATCH /v1/hypervisor/governance/approval-requests/:id" }, receipt: "ioi.hypervisor.governance.approval-transition-receipt.v1", confirm: false, success: "return-to-surface", refusal: "typed-banner" },
+  { id: "reject", method: "POST", route: "/:id/transition", transition: "reject", from: "pending", to: "rejected", fields: [], context: ["id"], authority: { plane: "governance.approval-requests", operation: "PATCH /v1/hypervisor/governance/approval-requests/:id" }, receipt: "ioi.hypervisor.governance.approval-transition-receipt.v1", confirm: true, success: "return-to-surface", refusal: "typed-banner" },
+  { id: "revoke", method: "POST", route: "/:id/transition", transition: "revoke", from: "approved", to: "revoked", fields: [], context: ["id"], authority: { plane: "governance.approval-requests", operation: "PATCH /v1/hypervisor/governance/approval-requests/:id" }, receipt: "ioi.hypervisor.governance.approval-transition-receipt.v1", confirm: true, success: "return-to-surface", refusal: "typed-banner" },
 ];
 
 // One typed result, always: success carries the authoritative record + receipt ref; refusal
 // carries the daemon's typed code/message with state untouched; failure claims nothing.
-export async function handleAction({ action, id, fields, daemon }) {
-  const payload = { transition: action.transition };
-  if (fields.reviewer_ref) payload.reviewer_ref = fields.reviewer_ref;
-  const r = await fetch(`${daemon}/v1/hypervisor/governance/approval-requests/${encodeURIComponent(id)}`, {
-    method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(payload),
+// IDENTITY (P-IDENT-1A): the transition crosses on the runtime-supplied `daemonFetch` — a narrowed,
+// request-bound daemon capability. It carries the caller's identity envelope, refuses to let this
+// module set or clear any part of it, and refuses any destination but the daemon. So this module
+// never sees the request, its headers, or a principal, and builds no identity of its own; it cannot
+// name a caller, only act as the one already admitted. Its absence is a typed FAILURE, not a quiet
+// fall back to global `fetch`: an unidentified mutation would be adjudicated as the loopback
+// development principal, which is precisely the defect being closed.
+export async function handleAction({ action, id, daemonFetch }) {
+  if (typeof daemonFetch !== "function") {
+    return { kind: "failure", http: 500, code: "identity_capability_missing", message: "the action runtime supplied no request-scoped daemon capability — refusing to transition without the caller's identity" };
+  }
+  const r = await daemonFetch(`/v1/hypervisor/governance/approval-requests/${encodeURIComponent(id)}`, {
+    method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ transition: action.transition }),
   }).then((x) => x.json()).catch(() => null);
   if (!r) return { kind: "failure", http: 502, code: "daemon_unavailable", message: "the daemon did not answer — nothing was changed" };
   if (r.ok !== true) return { kind: "refusal", http: 409, code: (r.error && r.error.code) || "governance_refused", message: (r.error && r.error.message) || r.reason || "refused — state unchanged" };
@@ -175,8 +188,11 @@ function renderApprovalsPort(records, statusFilter, opts) {
   // runtime re-enforces server-side with a typed confirmation_required refusal). Approve submits
   // directly. Every form posts return= (this inbox state); embedded mode adds embed= upstream.
   const CONFIRM = (a, t, to) => `<label class="ap-confirm"><input type="checkbox" name="confirm" value="1" required> confirm ${t} — ${esc(a.status)} → ${to}, recorded with a transition receipt</label>`;
+  // No reviewer input: attribution is not a thing the decider types. The decision carries only the
+  // transition; the daemon attributes it to the authenticated caller and the record projects it back
+  // in the Reviewer row below.
   const decide = (a) => a.status === "pending"
-    ? govTform("approvals", a.id, "approve", "Approve", "primary", `<input name="reviewer_ref" placeholder="reviewer" class="ap-inp">` + RET) + govTform("approvals", a.id, "reject", "Reject", "ghost", CONFIRM(a, "reject", "rejected") + RET)
+    ? govTform("approvals", a.id, "approve", "Approve", "primary", RET) + govTform("approvals", a.id, "reject", "Reject", "ghost", CONFIRM(a, "reject", "rejected") + RET)
     : a.status === "approved" ? govTform("approvals", a.id, "revoke", "Revoke", "ghost", CONFIRM(a, "revoke", "revoked") + RET) : `<span class="ap-muted">terminal — no further transition</span>`;
   // Action-result banner (#ap-result — the runtime's redirect anchor): success shows the
   // authoritative status + the durable transition receipt ref + proof links; refusal shows the
@@ -195,6 +211,7 @@ function renderApprovalsPort(records, statusFilter, opts) {
     <div class="ap-drow"><span>Reason</span>${esc(selected.reason || "—")}</div>
     <div class="ap-drow"><span>Blast radius</span>${blast(selected)}</div>
     <div class="ap-drow"><span>Created</span>${esc(selected.created_at || "")}</div>
+    <div class="ap-drow"><span>Reviewer</span>${selected.reviewer_ref ? `${esc(selected.reviewer_ref)}${selected.decided_at ? ` · ${esc(selected.decided_at)}` : ""}` : `<span class="ap-muted">${esc(selected.status === "pending" ? "undecided" : "not attributed")}</span>`}</div>
     <div class="ap-dactions">${decide(selected)}</div>
     <a class="ap-dclose" href="/__ioi/governance/approvals${view ? `?status=${view}` : ""}">Close</a>
     <div class="ap-dgaps">Named gaps: reviewer assignment · delegation · threaded comments · SLA/escalation · audit exports — reference-only lanes.</div>
@@ -255,7 +272,6 @@ function renderApprovalsPort(records, statusFilter, opts) {
     .ap-pill.muted{color:#6b7178;border-color:#e0e3e8;background:#f3f4f6}
     .ap-muted{color:#8b9099}.ap-code{font-family:ui-monospace,monospace;font-size:11px;color:#6b7178;background:#f1f3f6;padding:1px 5px;border-radius:4px}
     .ap-empty{color:#8b9099;padding:24px;border:1px dashed #d8dbe0;border-radius:12px;background:#fff}
-    .ap-inp{width:96px;padding:6px 9px;border-radius:7px;border:1px solid #d6dae0;background:#fff;color:#1a1d21;font:inherit;font-size:12px;margin-right:4px}
     form.inline{display:inline}
     .act{padding:6px 13px;border-radius:7px;border:1px solid #d6dae0;background:#fff;color:#3a3f46;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;margin-right:4px}
     .act.primary{background:#2f6fd8;color:#fff;border-color:#2f6fd8}.act.ghost:hover{border-color:#b6bcc4}

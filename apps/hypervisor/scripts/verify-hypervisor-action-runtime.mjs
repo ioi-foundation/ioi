@@ -12,9 +12,17 @@
 //   revision+1, ONE history entry, ONE durable receipt matching subject/transition/statuses →
 //   reload shows authoritative truth → duplicate approve = typed refusal + zero mutation →
 //   revoke (confirmed) = second independent receipt → reject on a separate fixture → malformed
-//   transition/reviewer/return/record lanes → fixtures deleted, receipt-file delta exact.
+//   transition/return/record lanes → fixtures deleted, receipt-file delta exact.
 //
-// Usage: node apps/hypervisor/scripts/verify-hypervisor-action-runtime.mjs
+// GOV-ATTR-1: every transition below is submitted BY a real authenticated principal — provisioned
+// through an operator session, logged in for itself, and carrying the product shell's own
+// `ioi_session` cookie — and NAMES NO REVIEWER in the form. Canon
+// (`identity-access-and-metering.md`): "request bodies never select the acting principal" — so the
+// durable receipt must attribute the decision to the server-derived `user://<principal_id>` of that
+// session, never to form input.
+//
+// Usage: IOI_HYPERVISOR_DAEMON_SESSION=<operator session token> \
+//          node apps/hypervisor/scripts/verify-hypervisor-action-runtime.mjs
 // Exit 0 = pass · 1 = fail · 2 = blocked (daemon/serve down).
 
 import { spawn } from "node:child_process";
@@ -31,11 +39,38 @@ const FAULT_PORT = 4606, FAULT_UI_PORT = 9406;
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
-const jd = (method, p, body) => fetch(`${DAEMON}${p}`, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }).then((r) => r.json()).catch(() => ({}));
+const jd = (method, p, body, headers) => fetch(`${DAEMON}${p}`, { method, headers: { "content-type": "application/json", ...(headers || {}) }, body: body ? JSON.stringify(body) : undefined }).then((r) => r.json()).catch(() => ({}));
 // POST a form WITHOUT following the redirect; return {status, location}.
-async function formPost(url, data) {
-  const r = await fetch(url, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams(data).toString(), redirect: "manual" });
+async function formPost(url, data, headers) {
+  const r = await fetch(url, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded", ...(headers || {}) }, body: new URLSearchParams(data).toString(), redirect: "manual" });
   return { status: r.status, location: r.headers.get("location") || "", text: r.status === 200 ? await r.text() : "" };
+}
+// Admit the principal whose session performs every transition. Its server-derived ref is the only
+// reviewer this verifier may assert — a fabricated header or a form-named principal would rebuild
+// exactly the forgery GOV-ATTR-1 closed. Admission ladder, existing endpoints only —
+//   1. an operator session from IOI_HYPERVISOR_DAEMON_SESSION (the same external-daemon credential
+//      `scripts/smoke-product-surfaces.mjs` already requires); principal creation is org-admin
+//      governed EVEN ON LOOPBACK, so there is no anonymous fixture shortcut to reach for;
+//   2. that operator provisions a dedicated reviewer principal, which logs in for itself;
+//   3. `whoami` reports who that session IS — the expected reviewer ref is the daemon's own answer.
+// Admission is load-bearing: an unadmitted fixture would exercise an anonymous decision instead of
+// the identity seam, so it fails the verifier outright rather than degrading into a skip.
+const OPERATOR_SESSION = (process.env.IOI_HYPERVISOR_DAEMON_SESSION || "").trim();
+async function admitReviewer(tag) {
+  if (!OPERATOR_SESSION) throw new Error("reviewer identity fixture unavailable: set IOI_HYPERVISOR_DAEMON_SESSION to an authenticated operator session token (provisioning a principal is org-admin governed even on loopback)");
+  const operator = { authorization: `Bearer ${OPERATOR_SESSION}` };
+  const principalId = `usr_vfyart${tag}`;
+  const email = `vfyart-${tag}@local`;
+  const password = `vfyart-${tag}-reviewer-pass`;
+  const created = await jd("POST", "/v1/hypervisor/principals", { email, password, principal_id: principalId }, operator);
+  const login = await jd("POST", "/v1/hypervisor/auth/login", { email, password });
+  const token = login.session_token || "";
+  const who = token ? await jd("GET", "/v1/hypervisor/auth/whoami", undefined, { authorization: `Bearer ${token}` }) : {};
+  const derived = who.authenticated === true ? String(who.principal?.principal_id || "") : "";
+  if (!derived) throw new Error(`reviewer identity fixture NOT admitted (create ${JSON.stringify(created).slice(0, 120)}, whoami ${JSON.stringify(who).slice(0, 200)}) — the approvals E2E cannot cross the real identity seam`);
+  // The same-origin session cookie the product shell mints at login; serve forwards it to the
+  // daemon inside its bounded identity envelope.
+  return { principalId: derived, ref: `user://${derived}`, cookie: { cookie: `ioi_session=${token}` }, operator };
 }
 const page = (url) => fetch(url).then(async (r) => ({ status: r.status, text: await r.text() })).catch(() => ({ status: 0, text: "" }));
 const receiptCount = () => { try { return readdirSync(join(DATA_DIR, "governance-approval-transition-receipts")).length; } catch { return 0; } };
@@ -59,13 +94,19 @@ async function run() {
   const SENTINEL = `never-forward-${process.pid}`;
   const rc0 = receiptCount();
   const base = `${SERVE}/__ioi/governance/approvals`;
+  const reviewer = await admitReviewer(Date.now().toString(16));
+  ok("real principal + login session admitted as the acting reviewer", !!reviewer.ref, reviewer.ref);
+  // Every transition in this walk goes out as that principal. A refusal must be a refusal FOR AN
+  // AUTHENTICATED CALLER — an anonymous 401 wearing a refusal's clothes would prove nothing.
+  const tform = (url, data) => formPost(url, data, reviewer.cookie);
   const fx = (await jd("POST", "/v1/hypervisor/governance/approval-requests", { subject_ref: `automation://act-rt-${process.pid}`, request_kind: "e2e", reason: "action-runtime e2e" })).approval_request;
   const fx2 = (await jd("POST", "/v1/hypervisor/governance/approval-requests", { subject_ref: `automation://act-rt2-${process.pid}`, request_kind: "e2e", reason: "reject lane" })).approval_request;
   try {
     const inbox = await page(`${base}?req=${encodeURIComponent(fx.id)}`);
     ok("the ported inbox renders the pending fixture with its transition forms", inbox.status === 200 && inbox.text.includes(fx.id) && inbox.text.includes('name="transition" value="approve"') && inbox.text.includes('name="confirm"'), "confirmation metadata visible on reject");
-    // Approve through the rendered form contract (with an undeclared sentinel field).
-    const ap = await formPost(`${base}/${encodeURIComponent(fx.id)}/transition`, { transition: "approve", reviewer_ref: "agent://verifier", secret_note: SENTINEL, return: `/__ioi/governance/approvals?req=${fx.id}` });
+    // Approve through the rendered form contract (with an undeclared sentinel field) — naming no
+    // reviewer, so the only identity in play is the session's.
+    const ap = await tform(`${base}/${encodeURIComponent(fx.id)}/transition`, { transition: "approve", secret_note: SENTINEL, return: `/__ioi/governance/approvals?req=${fx.id}` });
     ok("approve → 303 PRG redirect carrying acted/receipt/record/result + the banner anchor", ap.status === 303 && /acted=approve/.test(ap.location) && /receipt=agentgres/.test(ap.location) && ap.location.endsWith("#ap-result"), ap.location.slice(0, 120));
     const after = (await jd("GET", `/v1/hypervisor/governance/approval-requests/${fx.id}`)).approval_request;
     ok("pending → approved; revision incremented EXACTLY once (1→2)", after.status === "approved" && after.revision === 2);
@@ -77,34 +118,35 @@ async function run() {
     const { readFileSync } = await import("node:fs");
     let rec = null;
     try { rec = JSON.parse(readFileSync(join(DATA_DIR, "governance-approval-transition-receipts", `${rid}.json`), "utf8")); } catch { /* */ }
-    ok("the durable receipt matches subject/transition/previous/resulting status + reviewer", !!rec && rec.subject_ref === fx.subject_ref && rec.transition === "approve" && rec.previous_status === "pending" && rec.resulting_status === "approved" && rec.reviewer_ref === "agent://verifier", rec ? rec.receipt_ref : "receipt file missing");
+    ok("the durable receipt matches subject/transition/previous/resulting status + the SERVER-DERIVED reviewer", !!rec && rec.subject_ref === fx.subject_ref && rec.transition === "approve" && rec.previous_status === "pending" && rec.resulting_status === "approved" && rec.reviewer_ref === reviewer.ref, rec ? `${rec.receipt_ref} · reviewer ${rec.reviewer_ref} · expected ${reviewer.ref}` : "receipt file missing");
+    ok("the decided RECORD carries the same server-derived reviewer as its receipt", after.reviewer_ref === reviewer.ref, `record reviewer ${after.reviewer_ref} · expected ${reviewer.ref}`);
     // Reload: authoritative truth + success banner renders from the redirect params.
     const banner = await page(`${SERVE}${new URL(ap.location, SERVE).pathname}${new URL(ap.location, SERVE).search}`);
     ok("the redirect target renders the success banner with the receipt ref (result UX)", banner.text.includes("ap-banner ap-ok") && banner.text.includes(rref) && banner.text.includes("proof stream"));
     // Duplicate approve → typed refusal, zero mutation.
-    const dup = await formPost(`${base}/${encodeURIComponent(fx.id)}/transition`, { transition: "approve", return: `/__ioi/governance/approvals?req=${fx.id}` });
+    const dup = await tform(`${base}/${encodeURIComponent(fx.id)}/transition`, { transition: "approve", return: `/__ioi/governance/approvals?req=${fx.id}` });
     const afterDup = (await jd("GET", `/v1/hypervisor/governance/approval-requests/${fx.id}`)).approval_request;
     ok("duplicate approve → typed refusal (governance_transition_invalid) with ZERO mutation", /refused=governance_transition_invalid/.test(dup.location) && afterDup.revision === 2 && (afterDup.receipt_refs || []).length === 1);
     const dupPage = await page(`${SERVE}${new URL(dup.location, SERVE).pathname}${new URL(dup.location, SERVE).search}`);
     ok("refusal banner renders the typed code + 'state unchanged' (no success color, no receipt)", dupPage.text.includes("ap-banner ap-no") && dupPage.text.includes("governance_transition_invalid") && dupPage.text.includes("state unchanged") && !dupPage.text.includes("ap-banner ap-ok"));
     // Revoke without confirmation → refusal + zero mutation; with confirmation → second receipt.
-    const rv0 = await formPost(`${base}/${encodeURIComponent(fx.id)}/transition`, { transition: "revoke", return: `/__ioi/governance/approvals?req=${fx.id}` });
+    const rv0 = await tform(`${base}/${encodeURIComponent(fx.id)}/transition`, { transition: "revoke", return: `/__ioi/governance/approvals?req=${fx.id}` });
     const afterRv0 = (await jd("GET", `/v1/hypervisor/governance/approval-requests/${fx.id}`)).approval_request;
     ok("revoke without confirmation → confirmation_required refusal, ZERO mutation", /refused=confirmation_required/.test(rv0.location) && afterRv0.status === "approved" && afterRv0.revision === 2);
-    const rv1 = await formPost(`${base}/${encodeURIComponent(fx.id)}/transition`, { transition: "revoke", confirm: "1", return: `/__ioi/governance/approvals?req=${fx.id}` });
+    const rv1 = await tform(`${base}/${encodeURIComponent(fx.id)}/transition`, { transition: "revoke", confirm: "1", return: `/__ioi/governance/approvals?req=${fx.id}` });
     const afterRv1 = (await jd("GET", `/v1/hypervisor/governance/approval-requests/${fx.id}`)).approval_request;
     ok("confirmed revoke → approved→revoked with a SECOND independent receipt (revision 3)", /acted=revoke/.test(rv1.location) && afterRv1.status === "revoked" && afterRv1.revision === 3 && (afterRv1.receipt_refs || []).length === 2 && afterRv1.receipt_refs[1] !== afterRv1.receipt_refs[0]);
     // Reject lane on the separate pending fixture (confirmed).
-    const rj = await formPost(`${base}/${encodeURIComponent(fx2.id)}/transition`, { transition: "reject", confirm: "1", return: `/__ioi/governance/approvals?req=${fx2.id}` });
+    const rj = await tform(`${base}/${encodeURIComponent(fx2.id)}/transition`, { transition: "reject", confirm: "1", return: `/__ioi/governance/approvals?req=${fx2.id}` });
     const afterRj = (await jd("GET", `/v1/hypervisor/governance/approval-requests/${fx2.id}`)).approval_request;
     ok("confirmed reject → pending→rejected with its own receipt", /acted=reject/.test(rj.location) && afterRj.status === "rejected" && (afterRj.receipt_refs || []).length === 1);
     // Malformed lanes: unknown transition · unknown record · hostile returns.
-    const bad1 = await formPost(`${base}/${encodeURIComponent(fx2.id)}/transition`, { transition: "escalate", return: `/__ioi/governance/approvals` });
+    const bad1 = await tform(`${base}/${encodeURIComponent(fx2.id)}/transition`, { transition: "escalate", return: `/__ioi/governance/approvals` });
     ok("unknown transition fails closed (action_unknown), never forwarded to the daemon", /refused=action_unknown/.test(bad1.location));
-    const bad2 = await formPost(`${base}/appr_does_not_exist/transition`, { transition: "approve" });
+    const bad2 = await tform(`${base}/appr_does_not_exist/transition`, { transition: "approve" });
     ok("unknown record fails closed with the daemon's typed not-found", /refused=approval_not_found/.test(bad2.location));
     for (const evil of ["https://evil.example/x", "//evil.example", "/__ioi/x\"><script>alert(1)</script>", "/etc/passwd", "/__ioi/a\r\nSet-Cookie:x=1"]) {
-      const r = await formPost(`${base}/${encodeURIComponent(fx2.id)}/transition`, { transition: "escalate", return: evil });
+      const r = await tform(`${base}/${encodeURIComponent(fx2.id)}/transition`, { transition: "escalate", return: evil });
       const loc = r.location || "";
       if (!(loc.startsWith(`${SERVE}/__ioi/governance/approvals?`) || loc.startsWith("/__ioi/governance/approvals?")) || loc.includes("<script>") || loc.includes("evil.example") || /\r|\n/.test(loc)) {
         ok(`hostile return rejected (${evil.slice(0, 24)}…)`, false, loc.slice(0, 100));
@@ -118,7 +160,7 @@ async function run() {
     const inboxHtml = (await page(`${base}?req=${encodeURIComponent(fx.id)}`)).text;
     ok("undeclared form fields are NEVER forwarded (sentinel absent from record, receipt, HTML, redirect)", !JSON.stringify(finalRec).includes(SENTINEL) && !(rec && JSON.stringify(rec).includes(SENTINEL)) && !inboxHtml.includes(SENTINEL) && !ap.location.includes(SENTINEL));
     // Embed survival through action + redirect.
-    const em = await formPost(`${base}/${encodeURIComponent(fx2.id)}/transition`, { transition: "escalate", embed: "1", return: `/__ioi/governance/approvals?req=${fx2.id}` });
+    const em = await tform(`${base}/${encodeURIComponent(fx2.id)}/transition`, { transition: "escalate", embed: "1", return: `/__ioi/governance/approvals?req=${fx2.id}` });
     ok("embedded mode survives the action redirect (embed=1 on the PRG Location)", /embed=1/.test(em.location));
     ok("standalone mode stays standalone (no embed leaks into non-embedded redirects)", !/embed=1/.test(bad1.location));
     // Exact receipt-file delta: approve + revoke + reject = exactly 3 new durable receipts.
@@ -126,6 +168,7 @@ async function run() {
   } finally {
     await jd("DELETE", `/v1/hypervisor/governance/approval-requests/${fx.id}`);
     await jd("DELETE", `/v1/hypervisor/governance/approval-requests/${fx2.id}`);
+    await jd("DELETE", `/v1/hypervisor/principals/${encodeURIComponent(reviewer.principalId)}`, undefined, reviewer.operator);
   }
   ok("fixtures deleted — baseline restored", !JSON.stringify(await jd("GET", "/v1/hypervisor/governance/approval-requests")).includes(`act-rt-${process.pid}`));
 

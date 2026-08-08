@@ -4,10 +4,10 @@ Status: canonical architecture authority.
 Canonical owner: this file for cross-plane operability, degraded-mode, recovery, and platform SRE doctrine.
 Supersedes: implicit or component-local assumptions that a healthy daemon implies a healthy platform.
 Superseded by: none.
-Last alignment pass: 2026-07-26.
+Last alignment pass: 2026-08-08.
 Doctrine status: canonical
-Implementation status: planned (the canonical fault matrix is machine-readable target fixture data; the deterministic evaluator, plane observers, scheduler, recovery controllers, and estate-wide probes are not implemented on current master; the `TemporalVerificationProfile` and `TemporalValidityEvaluation` wire contracts are registered in this tree — registry entries, v1 schemas, invariants, fixtures, generated projections — with the HypervisorOS node-attestation plane as their first consumer and no independent evaluator runtime yet)
-Last implementation audit: 2026-07-20
+Implementation status: planned (the canonical fault matrix is machine-readable target fixture data; the deterministic evaluator, plane observers, scheduler, recovery controllers, and estate-wide probes are not implemented on current master; the `TemporalVerificationProfile` and `TemporalValidityEvaluation` wire contracts are registered in this tree — registry entries, v1 schemas, invariants, fixtures, generated projections — with the HypervisorOS node-attestation plane as their first consumer and no independent evaluator runtime yet; the command-execution guardrail policy's failure-state table and mutation order ARE implemented for the mounted `POST /v1/hypervisor/exec` primitive and its `GET`/`POST /v1/hypervisor/guardrails` route, proven by module tests and by no conformance fixture, while every other command-capable daemon path remains outside that guard — see the command-execution guardrail policy section)
+Last implementation audit: 2026-08-08
 
 ## Canonical Definition
 
@@ -828,7 +828,11 @@ It must cover at least:
   outside-domain namespace floor;
 - bounded disconnected continuation and holdover exhaustion;
 - an authentic historical checkpoint whose currentness is unknown;
-- provider loss for provider-required work; and
+- provider loss for provider-required work;
+- an indeterminate command-execution guardrail policy at the scoped execution
+  primitive;
+- a command-execution guardrail policy mutation whose persistence, reload, or
+  audit write fails; and
 - an unknown effect that cannot become success.
 
 The conformance profile is
@@ -857,6 +861,10 @@ Also not built or claimed:
 - live key distribution/activation/revocation across verifier processes;
 - deployed mixed-version rollouts, billing/proof reconciliation controllers,
   or telemetry-sink canary probes;
+- command-execution guardrail enforcement on any command-capable path other
+  than the mounted `POST /v1/hypervisor/exec` primitive (see the command-execution
+  guardrail policy section below, which now records what that one path does
+  satisfy and which paths remain unguarded);
 - platform-wide SLO values for any production deployment; or
 - evidence that a modeled decision repaired, fenced, restored, or reconciled a
   plane.
@@ -889,6 +897,17 @@ contract only, not production operability or a reference implementation.
 - **PO-9:** a `TemporalValidityEvaluation` supplies typed evidence to an
   existing PEP; it never creates authority, current truth, writer state,
   fencing, or effect permission.
+- **PO-10:** a command-execution guardrail policy composes by narrowing only;
+  an environment-local declaration may add denials and may never subtract one,
+  and the absence of a denial is never a grant of execution authority.
+- **PO-11:** an unreadable or malformed persisted command-execution guardrail
+  policy is indeterminate — command execution is denied and the conservative
+  built-in default is never silently substituted for it.
+- **PO-12:** a command-execution guardrail policy mutation is authorized before
+  any write and acknowledged only from the reloaded durable projection;
+  persistence failure is a typed refusal that leaves the prior policy active,
+  and audit failure after activation is an audit-durability gap on an active
+  policy, never `audited` and never an atomic failure.
 
 ## Workload-isolation operability
 
@@ -903,3 +922,217 @@ revokes broker leases, blocks output admission, quarantines the boundary, and
 opens cleanup/recovery obligations. Daemon restart reconciles owned processes,
 sockets, CIDs, networks, volumes, credentials, and leases before admitting new
 work; inability to reattach safely causes quarantine or verified teardown.
+
+## Command-execution guardrail policy
+
+The daemon runs agent and operator command strings through one scoped execution
+primitive bound to an environment's workspace. The policy deciding which
+command strings that primitive refuses is a
+`CommandExecutionGuardrailPolicy`. It is a deny instrument, and this section is
+its semantic and enforcement owner.
+
+**Term boundary.** Canon already uses `guardrail` in an evaluation sense — a
+scorecard's `objective_and_guardrail_policy_ref` and
+`scorecard_and_guardrail_refs` are quality bounds on a measured run, owned by
+Evaluations and Foundry. That is a different object with a different owner. The
+command-execution sense is therefore always written in full, and an unqualified
+`guardrail policy` is not a contract term on any surface. Neither sense is
+registered with the vocabulary or term-boundary owners; registering both is an
+open gap those owners hold, not one this file closes.
+
+### Three owners, not one
+
+- **Platform Operability owns the semantic and enforcement contract**: what a
+  policy means, how it composes, which failure states exist, and what each
+  failure state must do. That owner is this file.
+- **The authority plane owns who may change it.** Setting a policy is a
+  `truth_mutation` and resolves through the ordinary policy/authority ring:
+  identity answers *who is calling*, and the authority ring answers *may this
+  principal make this crossing*
+  ([`identity-access-and-metering.md`](../hypervisor/identity-access-and-metering.md)).
+  The daemon enforces and projects that decision. It does not invent one, and it
+  never reads the answer out of the request it is deciding
+  (`INV-1`, `INV-37`, [`invariants.md`](../../foundations/invariants.md)).
+- **The scoped execution primitive is the final local enforcement point.** The
+  decision is taken there, against the command string that will actually run. A
+  guardrail evaluated in a caller, a UI, an agent harness, a planner, or an
+  upstream route is advice; only the primitive's refusal is enforcement. This is
+  why the deny test reads the whole command string rather than a parsed intent:
+  `bash -c "<denied>"` is still that command string.
+
+Receipts and audit records bind facts about these decisions. They confer no
+authority, and neither their presence nor their absence changes what was
+enforced.
+
+### Composition narrows, and never the other way
+
+```text
+effective policy = the active global policy, further narrowed by the
+                   environment's own declared additions
+```
+
+1. The **active global policy** is the operator-set persisted policy when one is
+   durably present, and otherwise the named conservative built-in default. The
+   default is what stands in for an *absent* policy. It is not a floor beneath
+   an authorized one: an owner who durably sets a different policy has made a
+   governed change, and the default does not silently re-add itself underneath
+   that change.
+2. **Environment-local declarations may only add denials.** They cannot remove,
+   relax, scope-except, or override a global denial, and there is no
+   environment-local allow-list, exemption, or escape hatch. An environment able
+   to exempt itself would be authoring its own authority.
+3. **Composition is monotonic in the deny direction.** The effective policy is
+   always at least as restrictive as the active global policy. A composition
+   step that can silently *drop* an environment's additions — because the global
+   policy was shaped unexpectedly, a key was absent, or a merge target did not
+   exist — is a widening defect even when every input was well-formed.
+4. **A guardrail grants nothing.** `not denied` is not `permitted`. Passing the
+   deny test removes one refusal; it creates no execution authority, grant,
+   lease, isolation, or assurance. The primitive still requires its own local
+   execution grant, its declared isolation floor
+   ([ADR 0027](../../../decisions/0027-require-workload-bound-isolation-for-autonomous-execution.md)),
+   its workspace bound, and every other applicable gate. A veto that did not
+   fire has said nothing.
+
+### Failure states
+
+Each row is a state the enforcement point or the mutation path can actually
+observe. The required disposition is normative. The exact stable code strings
+stay implementation-level, because canon does not yet own them and this section
+does not mint them.
+
+| Observed state | Required disposition |
+| --- | --- |
+| **No persisted policy** | The named conservative built-in default becomes the active policy. The projection states its source — built-in default versus operator-set — and the resulting posture, so absence is legible as absence. |
+| **Persisted policy unreadable or malformed** | Indeterminate. Command execution is **denied** at the primitive, and the built-in default is never substituted for it. The refusal names the indeterminacy and the operator recovery required to clear it. |
+| **Mutation cannot be serialized or persisted** | Typed refusal. The prior active policy remains active and unchanged; a failed mutation may not truncate, empty, or partially overwrite the policy it failed to replace. |
+| **Persistence reports success but reload fails or disagrees** | Typed ambiguity, and no success claim. The acknowledged policy is the reloaded durable projection or there is no acknowledgement; the submitted candidate is never the acknowledged policy. |
+| **Policy durable, audit write fails** | The policy **is** active and is reported active, carrying an explicit audit-durability state and the recovery obligation it leaves open. Never `audited: true`, and never an atomic-failure claim. |
+| **Caller lacks authority** | Refusal before any write, any audit record, and any projection change. The policy plane is byte-identical afterwards. |
+
+The second row inverts the obvious implementation, deliberately. Substituting
+the built-in default for a policy that cannot be read answers "what did the
+operator require?" with a guess whose relationship to the real requirement is
+unknown — exactly the normalization this file already forbids, where `unknown`,
+missing, or malformed evidence is never resolved to `healthy`. A corrupt policy
+file and no policy file are different states and must not present identically.
+
+The fifth row inverts the obvious *refusal*. Once the policy is durable it is
+enforcing, so reporting the mutation as failed would invite a caller to retry an
+already-applied change, or to believe the prior policy still stands while the
+new one is deciding every command.
+
+### Mutation order
+
+```text
+authorize   resolve the authenticated principal and its policy-mutation
+            authority; refuse here, before any write
+
+persist     commit the exact policy durably; failure is a typed refusal and
+            the prior policy stays active and unchanged
+
+reload      re-read the persisted bytes and re-project them; acknowledge that
+            projection, never the candidate that was submitted
+
+audit       record the change as an already-happened fact; its failure is an
+            audit-durability gap on an active policy, not a rollback
+```
+
+The boundary between `reload` and `audit` is the boundary between *not yet true*
+and *already true*. Everything before it may fail closed with the prior policy
+intact. Nothing after it may be reported as though the change had not happened.
+
+The same split governs the enforcement point. A denial that was enforced but
+whose audit record did not persist is still a denial: enforcement is the fact,
+the record is evidence of the fact, and losing the evidence is a named
+observability gap — never a reason to admit the command.
+
+### Current posture
+
+`GET`/`POST /v1/hypervisor/guardrails` and the deny test at the mounted
+`POST /v1/hypervisor/exec` primitive now implement the failure-state table above
+for that one path. The five gaps previously recorded here are closed **at that
+path only**:
+
+- an unreadable, malformed, non-regular, or symlinked persisted policy is
+  indeterminate at both the read route and the enforcement point — command
+  execution is denied and the built-in default is never substituted, so failure
+  state 2 no longer presents as failure state 1;
+- the mutation path persists durably, refuses typed on a persistence failure,
+  and acknowledges the **reloaded** projection rather than the submitted
+  candidate; the raw file write that could emit an empty file on a serialization
+  failure — and thereby *widen* the effective policy — is gone;
+- the audit outcome is reported as an explicit audit-durability state, never
+  `audited: true` over a failed or unconfirmed write, and never as an
+  atomic-failure claim about a policy that is already active;
+- a denial key absent from a *legacy-store* policy composes an empty base, so an
+  environment's own additions land instead of being dropped, and the read route
+  names the normalized absent key rather than re-adding the built-in list
+  underneath an authorized change. This case is legacy-only by construction: a
+  policy write is a full replacement carrying both keys, so a durable record
+  missing one is malformed rather than an operator choice;
+- the mutation resolves an authenticated organization administrator through the
+  existing authority path before the request body is deserialized, so an ambient
+  caller can no longer rewrite the deny-list under any deployment posture, and
+  the resulting audit record names the server-resolved principal that authorized
+  the change.
+
+A policy write is a **full replacement**. A submission carrying only one denial
+key is refused rather than completed from the built-in default: completing it
+would let an operator who meant to add one executable denial silently lose their
+custom command denials to the default list, which is exactly the "the default
+does not silently re-add itself underneath that change" rule above. An
+environment-local declaration is likewise validated at environment creation and
+refused there, because the enforcement point treats a malformed declaration as
+indeterminate and no route exists that can repair one afterwards.
+
+**Coverage is `/exec` only, and this is not a comprehensive deny-list.**
+`run_task`, environment health/readiness command execution, `supervisor_routes`
+command execution, and `provider_routes` command execution do not route through
+this guard today, so no policy set here constrains them. That is a
+higher-severity open gap than any of the five above: a deny instrument enforced
+at one primitive while other command-capable paths execute freely is an
+enforcement gap, not a partial rollout. Routing those paths through the
+primitive changes execution behaviour and is owned separately.
+
+Two further consequences are recorded rather than hidden. Reading the
+pre-durable-family policy file strictly means a deployment whose
+`guardrail-policy.json` is itself a **symlink** now becomes indeterminate and
+denies all scoped command execution; the migration is to place a regular file
+there, or to set a policy through the mutation route, which writes the durable
+record the read path prefers. The daemon *data directory* is resolved normally
+on both the legacy and durable lanes, so a symlink-mounted data directory —
+containers, atomic-swap release directories — is unaffected; strictness that
+applied to one lane and not the other would have bought no containment while
+denying execution estate-wide. And the matcher itself is unchanged on purpose:
+its case-sensitivity split, its substring-matching limits, and its
+quote-splitting of executable tokens are the shipped enforcement line, and
+moving that line inside a change about where the policy is *stored* would be the
+silent semantic drift this section exists to prevent.
+
+One pre-existing risk this section does **not** close: a refused command string
+is written verbatim into the operability-audit record and echoed in the refusal
+response. A command carrying an inline credential is therefore persisted and
+returned in the clear. Redaction is a separate contract with its own owner, and
+inventing one inside a persistence change would be the wrong place to decide
+what a secret looks like — recorded here as an open risk rather than silently
+broadened into.
+
+The mutation-side properties are the ones tracked in
+[`mutation-event-foundation-coverage.v1.json`](../../_meta/mutation-event-foundation-coverage.v1.json)
+— specifically "no success response before required durability confirmation" and
+"typed recovery for ambiguous persistence, receipt, event, and multi-effect
+failures". That file records exactly which properties remain unsatisfied for
+these handlers: caller idempotency, expected-head compare-and-swap, Agentgres
+admission with a hash-linked receipt, restart replay from admitted truth, and
+cross-principal borrowing refusal are all still open, and the policy write is an
+unguarded replace that two concurrent setters can lose an update through.
+
+Not owned or claimed by this section: a registered wire contract, schema ref, or
+policy URI for `CommandExecutionGuardrailPolicy`; the exact stable refusal code
+strings, which remain implementation-level; a content-hash or in-guest
+executable veto; and any assignment of this policy's custody to Agentgres rather
+than the daemon's local files. The canonical fault matrix still carries no
+command-execution guardrail cases, so the two conformance cases named above
+remain an open fixture gap — module tests in the daemon are not conformance
+fixtures — and nothing here is evidence of production deployment.

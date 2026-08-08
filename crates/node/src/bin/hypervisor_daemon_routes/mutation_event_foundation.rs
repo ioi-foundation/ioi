@@ -630,6 +630,137 @@ mod tests {
         ));
         super::super::substrate_store::reset_handle_for_test();
     }
+
+    fn probe_caller(principal: &str, key: &str) -> WriteCaller {
+        WriteCaller {
+            identity: super::super::substrate_store::request_identity_for_test(
+                principal,
+                ["org://one".to_string()],
+            ),
+            owner_ref: "org://one".to_string(),
+            idempotency_key: key.to_string(),
+        }
+    }
+
+    #[test]
+    fn the_prior_admission_probe_answers_only_this_callers_key_and_writes_nothing() {
+        const NAMESPACE: &str = "mutation-foundation-probe-test";
+        const KIND: &str = "probe-object";
+        const RESOURCE: &str = "probe://object/1";
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        super::super::substrate_store::reset_handle_for_test();
+        let owner = probe_caller("user://one", "probe-one");
+        let tails = || {
+            super::super::substrate_store::list_event_stream_tails(
+                data_dir,
+                "request-resource-scopes",
+            )
+            .unwrap_or_default()
+        };
+        let events = || {
+            super::super::substrate_store::read_event_stream_history(
+                data_dir,
+                NAMESPACE,
+                &stream_tail(KIND, RESOURCE),
+            )
+            .unwrap_or_default()
+            .len()
+        };
+
+        // Nothing is bound yet. The probe must answer "no" without reserving the scope it just
+        // asked about — otherwise asking the question would be the write.
+        assert!(
+            prior_admission_for_key(data_dir, &owner, NAMESPACE, KIND, RESOURCE)
+                .unwrap()
+                .is_none()
+        );
+        assert!(tails().is_empty(), "a probe bound a request scope");
+        assert_eq!(events(), 0, "a probe admitted an event");
+
+        let payload = json!({"value": 1});
+        let admitted = admit_owner_scoped_write(
+            data_dir,
+            &owner,
+            NAMESPACE,
+            KIND,
+            RESOURCE,
+            "probe.created",
+            None,
+            &payload,
+        )
+        .unwrap();
+        let scope_tails = tails();
+        assert_eq!(scope_tails.len(), 1);
+
+        let found = prior_admission_for_key(data_dir, &owner, NAMESPACE, KIND, RESOURCE)
+            .unwrap()
+            .expect("this caller's key is admitted on this stream");
+        assert_eq!(found.head, admitted.projection.head);
+        assert_eq!(found.operation.op_kind, "probe.created");
+        assert_eq!(found.operation.payload, payload);
+
+        // A different key on the same stream is not this caller's prior fact.
+        assert!(prior_admission_for_key(
+            data_dir,
+            &probe_caller("user://one", "probe-two"),
+            NAMESPACE,
+            KIND,
+            RESOURCE
+        )
+        .unwrap()
+        .is_none());
+
+        // A different principal gets `None`, not 403: a status here would answer "this id exists"
+        // to a caller the not-found path already refuses to tell.
+        assert!(prior_admission_for_key(
+            data_dir,
+            &probe_caller("user://intruder", "probe-one"),
+            NAMESPACE,
+            KIND,
+            RESOURCE
+        )
+        .unwrap()
+        .is_none());
+
+        // Every probe above, hit and miss alike, left the substrate exactly as it found it.
+        assert_eq!(tails(), scope_tails);
+        assert_eq!(events(), 1);
+        super::super::substrate_store::reset_handle_for_test();
+    }
+
+    #[test]
+    fn the_prior_admission_probe_replays_from_durable_truth_after_a_restart() {
+        const NAMESPACE: &str = "mutation-foundation-probe-restart-test";
+        const KIND: &str = "probe-object";
+        const RESOURCE: &str = "probe://object/restart";
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        super::super::substrate_store::reset_handle_for_test();
+        let owner = probe_caller("user://one", "probe-restart");
+        let payload = json!({"value": "restart"});
+        let admitted = admit_owner_scoped_write(
+            data_dir,
+            &owner,
+            NAMESPACE,
+            KIND,
+            RESOURCE,
+            "probe.created",
+            None,
+            &payload,
+        )
+        .unwrap();
+
+        // Drop the process-local handle: the probe must reconstruct the answer from the log, which
+        // is the only reason it can be trusted to decide a retry after a daemon restart.
+        super::super::substrate_store::reset_handle_for_test();
+        let found = prior_admission_for_key(data_dir, &owner, NAMESPACE, KIND, RESOURCE)
+            .unwrap()
+            .expect("the admitted key survives a restart");
+        assert_eq!(found.head, admitted.projection.head);
+        assert_eq!(found.operation.payload, payload);
+        super::super::substrate_store::reset_handle_for_test();
+    }
 }
 
 // =================================================================================================
@@ -791,6 +922,91 @@ pub(crate) fn admit_owner_scoped_write(
         },
     )
     .map_err(mutation_refusal_reply)
+}
+
+/// One resource's admitted history, as this caller is entitled to see it.
+///
+/// Handlers read this BEFORE deriving anything a retry cannot reproduce — a clock, a re-read of live
+/// posture — and before treating an absent projection as proof the resource never existed. Both are
+/// the same mistake: deciding "this is a fresh command" from something that is not admitted truth.
+/// The history answers two different questions a replay must ask together — *did my key already
+/// admit something* and *what has the stream done since* — so it is returned whole rather than
+/// forcing a second scan for the second question.
+///
+/// PURE READ. It binds no scope and admits no operation, so probing a path that then refuses leaves
+/// nothing behind. An authorization mismatch answers EMPTY rather than 403: the question is "what
+/// have I already done here?", "nothing" is both the safe answer and exactly what the caller's
+/// existing not-found path already says, and a status here would be a fresh existence oracle for
+/// another principal's id. Only a substrate failure surfaces as a typed refusal.
+///
+/// The scan lives here, once. Agentgres bounds history reads deliberately, and a per-route copy of
+/// this is the drift class this module exists to prevent.
+pub(crate) fn admitted_history_for_caller(
+    data_dir: &str,
+    caller: &WriteCaller,
+    owner_namespace: &str,
+    resource_kind: &str,
+    resource_ref: &str,
+) -> Result<Vec<ExactProjection>, (axum::http::StatusCode, axum::Json<Value>)> {
+    use super::substrate_store::RequestScopeRefusal;
+    let scope =
+        match super::substrate_store::read_request_scope(data_dir, resource_kind, resource_ref) {
+            Ok(Some(scope)) => scope,
+            // No scope was ever reserved for this resource, so nothing was ever admitted under it.
+            Ok(None) => return Ok(Vec::new()),
+            Err(error @ RequestScopeRefusal::SubstrateUnavailable(_)) => {
+                return Err(scope_refusal_reply(error))
+            }
+            // A scope that does not project is one this probe cannot vouch for. Answering empty leaves
+            // the caller on its existing path, which re-reads the same scope through
+            // `bind_request_resource_scope` and refuses there — one refusal, from the seam that owns it.
+            Err(_) => return Ok(Vec::new()),
+        };
+    if validate_scope_fields(
+        &caller.identity.principal_ref,
+        &caller.identity.tenant_refs,
+        &scope,
+        resource_kind,
+        resource_ref,
+    )
+    .is_err()
+        || scope.owner_ref != caller.owner_ref
+    {
+        return Ok(Vec::new());
+    }
+    read_owner_scoped_history(
+        data_dir,
+        &caller.identity,
+        &scope,
+        resource_kind,
+        resource_ref,
+        owner_namespace,
+        &stream_tail(resource_kind, resource_ref),
+    )
+    .map_err(mutation_refusal_reply)
+}
+
+/// The operation this caller's key already admitted on this resource's stream, if any.
+///
+/// A key admits at most once per stream — a second submission under it either replays or is refused
+/// — so the first match is the only match, exactly as the substrate's own scan reads it. Callers
+/// that must also weigh what the stream did AFTER that operation read the history directly.
+pub(crate) fn prior_admission_for_key(
+    data_dir: &str,
+    caller: &WriteCaller,
+    owner_namespace: &str,
+    resource_kind: &str,
+    resource_ref: &str,
+) -> Result<Option<ExactProjection>, (axum::http::StatusCode, axum::Json<Value>)> {
+    Ok(admitted_history_for_caller(
+        data_dir,
+        caller,
+        owner_namespace,
+        resource_kind,
+        resource_ref,
+    )?
+    .into_iter()
+    .find(|entry| entry.operation.idem_key == caller.idempotency_key))
 }
 
 /// Render an admitted transition's own timestamp. Callers must project this rather than calling the

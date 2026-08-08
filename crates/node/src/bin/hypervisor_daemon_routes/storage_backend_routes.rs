@@ -548,32 +548,575 @@ pub(crate) async fn handle_storage_backend_patch(
     )
 }
 
+// ── Backend account destruction ─────────────────────────────────────────────────────────────
+// Deleting a backend destroys TWO daemon-owned things: the account record and the sealed bearer
+// credential bound to it. The credential is the LIVE bearer-resolution path — `live_config` opens
+// `sealed_token` on every live store, fetch, and preflight — not cleanup. It is therefore removed
+// FIRST, so that for every credential THIS DELETION OBSERVED, no acknowledged or partially failed
+// run can leave a live, resolvable credential orphaned behind an account no listing shows and no
+// delete path can reach again.
+//
+// THAT GUARANTEE IS SCOPED TO WHAT THE VAULT WALK SAW, and is NOT a concurrency claim. Nothing here
+// holds a lock. A credential bound by `handle_storage_backend_credential` AFTER this deletion has
+// classified the vault, but BEFORE the account record is unlinked, is not observed by the walk and
+// IS orphaned exactly as before — it survives, still resolves, and its account is gone. Closing
+// that window needs a lock or a compare-and-swap on the account record, neither of which exists on
+// this plane; it is an explicit nonclaim recorded in the mutation coverage registry, not a
+// guarantee this ordering provides.
+
+/// The typed disposition of ONE slot unlink, mapped from `durable_fs::UnlinkOutcome`.
+///
+/// `RemovedDurable` and `AlreadyAbsent` are kept DISTINCT rather than folded into one
+/// confirmed-absence variant, because they support different claims and only one of them is
+/// causal. Folding them is how a count of "credentials revoked by this request" comes to include
+/// slots this request never touched.
+///
+/// Extracted from the effect lanes so the dispositions that have NO deterministic, uid-independent
+/// injection on these unpromoted daemon-file families are asserted DIRECTLY from constructed
+/// variants rather than only reviewed: `DurabilityUnconfirmed`, whose only injection point is a
+/// process-global env var owned by `durable_fs`, and `NotPerformed` on the credential lane, which
+/// no path shadow can reach because every shadow that breaks a slot's unlink also breaks the
+/// strict read that classifies it, and that read refuses first.
+#[derive(Debug, PartialEq, Eq)]
+enum SlotUnlink {
+    /// THIS request unlinked the slot AND the parent-directory fsync confirmed its absence. This
+    /// is the only disposition that supports a causal claim: the credential was revoked here.
+    RemovedDurable,
+    /// The unlink returned ENOENT: the name was not in the live namespace at the moment THIS
+    /// request attempted to unlink it. The slot is absent — but this request did NOT remove it, and
+    /// no fsync of that absence was performed here, so its durability rests on whatever actor did.
+    /// Note the tense: the strict read that classified this slot ALSO ran during this request, so
+    /// the slot may have gone away between the two; `AlreadyAbsent` never licenses the claim that
+    /// it was absent BEFORE this request began. Counted and narrated separately from
+    /// `RemovedDurable` for exactly that reason.
+    AlreadyAbsent,
+    /// Removed-but-unconfirmed, or durably restored after an unconfirmed removal. Never a success
+    /// claim in EITHER direction: this is not "gone" and it is not "unchanged".
+    DurabilityUnconfirmed(String),
+    /// The unlink did not happen. The slot provably still occupies its name.
+    NotPerformed(String),
+}
+
+fn classify_unlink(outcome: std::io::Result<super::durable_fs::UnlinkOutcome>) -> SlotUnlink {
+    use super::durable_fs::UnlinkOutcome;
+    match outcome {
+        Ok(UnlinkOutcome::Durable) => SlotUnlink::RemovedDurable,
+        Ok(UnlinkOutcome::Absent) => SlotUnlink::AlreadyAbsent,
+        Ok(UnlinkOutcome::RemovedDurabilityUnconfirmed(error)) => SlotUnlink::DurabilityUnconfirmed(
+            format!("the slot is absent from the live namespace but the directory fsync did not confirm it ({error})"),
+        ),
+        Ok(UnlinkOutcome::ReplayAnchorRestoredAfterUnconfirmedRemoval(error)) => {
+            SlotUnlink::DurabilityUnconfirmed(format!(
+                "the removal was unconfirmed and a byte-exact replay anchor was durably restored in its place ({error})"
+            ))
+        }
+        Err(error) => SlotUnlink::NotPerformed(error.to_string()),
+    }
+}
+
+/// Open a daemon record family as a walk root, FOLLOWING a symlinked family directory exactly as
+/// the production readers do.
+///
+/// `durable_fs::open_family_dir_pinned` adds `O_NOFOLLOW`, which refuses a symlinked family. Using
+/// it here would have denied EVERY deletion in any deployment that symlinks a record family — a
+/// container volume mount, or an atomic-swap release directory — while `read_record_dir`,
+/// `load_account` and `live_config` all followed that same symlink happily and kept working. That
+/// asymmetry buys no containment: whoever can replace `data_dir/<family>` equally controls its
+/// contents. This is the same ruling the command-execution guardrail closure reached for a
+/// symlinked data directory.
+///
+/// CONTAINMENT IS RETAINED WHERE IT MATTERS: no terminal slot under the returned descriptor is
+/// ever FOLLOWED, and the two lanes get there differently.
+///   * The credential lane READS every slot first, through `durable_fs::read_slot_strict`, which
+///     opens `O_NOFOLLOW` — so a symlinked credential slot refuses the whole deletion rather than
+///     being read, classified, or removed through.
+///   * The account lane does NOT pre-read its slot: it goes straight to
+///     `durable_fs::unlink_durable_at`, which is `unlinkat(dirfd, name, 0)`. That is not
+///     `O_NOFOLLOW` and it does not refuse a symlink — it removes the SYMLINK ENTRY ITSELF and
+///     never touches or deletes whatever it points at. A symlinked account slot is therefore
+///     safely unlinked rather than refused, and the reloaded-absence gate below still decides the
+///     acknowledgement from `load_account`, so the answer stays honest either way.
+/// Both families this is called with are compile-time constants and single non-traversing
+/// components.
+fn open_record_family(data_dir: &str, family: &str) -> std::io::Result<std::fs::File> {
+    use std::os::unix::fs::OpenOptionsExt;
+    std::fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_DIRECTORY | libc::O_CLOEXEC)
+        .open(Path::new(data_dir).join(family))
+}
+
+/// What the credential purge actually established, split by whether THIS request caused it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+struct PurgeTally {
+    /// Slots this request unlinked and fsync-confirmed. The only causal count.
+    revoked: u64,
+    /// Slots that were already gone when this request looked. Confirmed absent, not revoked here.
+    already_absent: u64,
+}
+
+/// The posture EVERY deletion response carries — refusals AND success — so no caller has to know
+/// which lane it came from to learn what this request did.
+///
+/// The purge is a LOOP over one slot at a time and is therefore NOT atomic: slot two's unlink can
+/// fail after slot one's already fsynced. A response that said "nothing was deleted" there would be
+/// false about a destruction that cannot be undone.
+///
+/// The state vocabulary, over `revoked` (caused here) and `unconfirmed` (in doubt):
+///   * `none` — nothing was revoked here and nothing is in doubt.
+///   * `partial_confirmed` — `revoked` credentials were destroyed here AND at least one bound
+///     credential provably remains; the purge stopped part-way.
+///   * `ambiguous` — nothing confirmed revoked, and one removal is visible-but-unconfirmed. NOT
+///     `none`: reporting "nothing happened" over an outstanding unconfirmed removal is the same
+///     class of false claim in the opposite direction.
+///   * `partial_ambiguous` — both at once, so the true number destroyed here is `revoked` or
+///     `revoked + 1`.
+///   * `already_completed` — the purge finished: every bound slot it found is absent.
+fn purge_state(revoked: u64, unconfirmed: u64, complete: bool) -> &'static str {
+    if unconfirmed > 0 {
+        if revoked > 0 {
+            "partial_ambiguous"
+        } else {
+            "ambiguous"
+        }
+    } else if complete {
+        "already_completed"
+    } else if revoked > 0 {
+        "partial_confirmed"
+    } else {
+        "none"
+    }
+}
+
+fn with_purge_posture(
+    response: (StatusCode, Value),
+    tally: PurgeTally,
+    unconfirmed: u64,
+    complete: bool,
+) -> (StatusCode, Value) {
+    let (status, mut body) = response;
+    body["credential_revocation"] = json!(purge_state(tally.revoked, unconfirmed, complete));
+    body["credentials_revoked"] = json!(tally.revoked);
+    body["credentials_already_absent"] = json!(tally.already_absent);
+    body["credentials_unconfirmed"] = json!(unconfirmed);
+    (status, body)
+}
+
+/// The WHOLE consequence sentence, GENERATED from the tally AND the unconfirmed count, rather
+/// than spliced in front of a fixed tail.
+///
+/// Splicing is what produced the defect this replaces: a zero-count refusal opened with "No sealed
+/// credential was removed" and then inherited a tail asserting "so this purge is PARTIAL and the
+/// vault is not in the state it started in", and the account lane opened with "This backend had no
+/// bound credential to revoke" and inherited "the revocation already happened and will not be
+/// undone". Every clause that asserts something about what changed is produced HERE, so a
+/// zero-count response can never carry a partial-purge claim and a nonzero-count response can never
+/// carry a nothing-happened claim.
+///
+/// `unconfirmed` is load-bearing and NOT decoration. A visible-but-unconfirmed removal means the
+/// vault MAY already differ, so no arm reachable with `unconfirmed > 0` may describe the vault as
+/// unchanged or as exactly-as-found — including the zero-confirmed arm, which otherwise reads as a
+/// nothing-happened claim over a removal that very likely landed.
+///
+/// `complete` distinguishes a purge that stopped part-way from one that finished.
+fn purge_consequence(tally: PurgeTally, unconfirmed: u64, complete: bool) -> String {
+    // NOTE ON TENSE: a slot is `AlreadyAbsent` because the unlink returned ENOENT DURING this
+    // request — the strict read that classified it also ran during this request, so the slot may
+    // have gone away between the two. The honest statement is that it was absent when this request
+    // attempted its unlink, NOT that it was absent before this request began.
+    let already = match tally.already_absent {
+        0 => String::new(),
+        1 => " (a further 1 bound slot was absent when this request attempted its unlink, so this request did not remove it)".to_string(),
+        many => format!(" (a further {many} bound slots were absent when this request attempted their unlinks, so this request did not remove them)"),
+    };
+    if unconfirmed > 0 {
+        // AMBIGUOUS. The vault is never describable as unchanged from here.
+        return match tally.revoked {
+            0 => format!("No sealed credential was CONFIRMED revoked by this request, and the removal named above is VISIBLE but UNCONFIRMED — so the vault MAY already have changed and must NOT be assumed unchanged{already}"),
+            confirmed => format!(
+                "{confirmed} sealed credential{plural} bound to this backend {verb} durably revoked by this request and {are} not restored{already}, and a further removal is VISIBLE but UNCONFIRMED — so this purge is PARTIAL AND AMBIGUOUS: the number destroyed here is {confirmed} or {upper}",
+                plural = if confirmed == 1 { "" } else { "s" },
+                verb = if confirmed == 1 { "WAS" } else { "WERE" },
+                are = if confirmed == 1 { "is" } else { "are" },
+                upper = confirmed + 1,
+            ),
+        };
+    }
+    match (tally.revoked, complete) {
+        (0, false) => match tally.already_absent {
+            0 => "No sealed credential was revoked by this request and no slot was removed, so this backend's vault is exactly as this deletion found it".to_string(),
+            1 => "No sealed credential was revoked by this request — 1 bound slot was already absent when this request attempted its unlink — so this request itself removed nothing".to_string(),
+            many => format!("No sealed credential was revoked by this request — {many} bound slots were already absent when this request attempted their unlinks — so this request itself removed nothing"),
+        },
+        (0, true) => match tally.already_absent {
+            0 => "This backend had no bound sealed credential, so nothing was revoked by this request".to_string(),
+            1 => "This backend's 1 bound sealed-credential slot was already absent when this request attempted its unlink, so nothing was revoked by this request".to_string(),
+            many => format!("This backend's {many} bound sealed-credential slots were already absent when this request attempted their unlinks, so nothing was revoked by this request"),
+        },
+        (1, false) => format!("1 sealed credential bound to this backend WAS durably revoked by this request and is not restored{already}, so this purge is PARTIAL and the vault is not in the state it started in"),
+        (many, false) => format!("{many} sealed credentials bound to this backend WERE durably revoked by this request and are not restored{already}, so this purge is PARTIAL and the vault is not in the state it started in"),
+        (1, true) => format!("This backend's 1 sealed credential WAS durably revoked by this request and is not restored{already}"),
+        (many, true) => format!("This backend's {many} sealed credentials WERE durably revoked by this request and are not restored{already}"),
+    }
+}
+
+fn deletion_refusal(status: StatusCode, code: &str, message: String) -> (StatusCode, Value) {
+    (
+        status,
+        json!({ "ok": false, "error": { "code": code, "message": message } }),
+    )
+}
+
+/// A refusal raised BEFORE any unlink was attempted: the tally is empty by construction.
+fn refusal_before_any_unlink(
+    status: StatusCode,
+    code: &str,
+    message: String,
+) -> (StatusCode, Value) {
+    with_purge_posture(
+        deletion_refusal(status, code, message),
+        PurgeTally::default(),
+        0,
+        false,
+    )
+}
+
+/// Map a credential-slot unlink disposition onto this plane's refusal; `None` means the slot is
+/// absent and the purge may continue. `tally` is what this request has established BEFORE reaching
+/// `slot`.
+fn credential_slot_refusal(
+    disposition: &SlotUnlink,
+    slot: &str,
+    tally: PurgeTally,
+) -> Option<(StatusCode, Value)> {
+    match disposition {
+        SlotUnlink::RemovedDurable | SlotUnlink::AlreadyAbsent => None,
+        // Visible-but-unconfirmed removal. The bearer may or may not survive a crash, so neither
+        // "revoked" nor "still bound" is sayable, and the account MUST NOT be destroyed on top of
+        // that: a surviving credential behind a missing account is unreachable.
+        SlotUnlink::DurabilityUnconfirmed(detail) => Some(with_purge_posture(
+            deletion_refusal(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "storage_backend_credential_revocation_durability_unconfirmed",
+                format!("the sealed credential at '{slot}' has an UNCONFIRMED removal ({detail}) — it may or may not still resolve as this backend's live bearer. {consequence}. The backend account was NOT deleted, deliberately, so every remaining credential stays reachable through it. Delete again to converge.", consequence = purge_consequence(tally, 1, false)),
+            ),
+            tally,
+            1,
+            false,
+        )),
+        SlotUnlink::NotPerformed(detail) => Some(with_purge_posture(
+            deletion_refusal(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "storage_backend_credential_revocation_failed",
+                format!("the sealed credential at '{slot}' could not be removed ({detail}) — it still resolves as this backend's live bearer. {consequence}. The backend account was NOT deleted, so the remaining credentials stay reachable through it. Delete again to retry.", consequence = purge_consequence(tally, 0, false)),
+            ),
+            tally,
+            0,
+            false,
+        )),
+    }
+}
+
+/// Map the account-record unlink disposition onto this plane's refusal; `None` means the record's
+/// name is absent and the reloaded-absence gate may run.
+fn account_deletion_refusal(
+    disposition: &SlotUnlink,
+    tally: PurgeTally,
+) -> Option<(StatusCode, Value)> {
+    let consequence = purge_consequence(tally, 0, true);
+    match disposition {
+        SlotUnlink::RemovedDurable | SlotUnlink::AlreadyAbsent => None,
+        SlotUnlink::DurabilityUnconfirmed(detail) => Some(with_purge_posture(
+            deletion_refusal(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "storage_backend_account_deletion_durability_unconfirmed",
+                format!("{consequence}. The account record's removal is UNCONFIRMED ({detail}) — the deletion may or may not have applied and is NOT acknowledged. Delete again to converge."),
+            ),
+            tally,
+            0,
+            true,
+        )),
+        SlotUnlink::NotPerformed(detail) => Some(with_purge_posture(
+            deletion_refusal(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "storage_backend_account_deletion_failed",
+                format!("{consequence}. The account record could not be removed ({detail}), so the backend still exists and can no longer authenticate. Delete again to retry."),
+            ),
+            tally,
+            0,
+            true,
+        )),
+    }
+}
+
+/// Does a sealed bearer credential for this account still resolve through the PRODUCTION reader —
+/// the same `read_record_dir` family scan and `connector_id` match `live_config` performs before
+/// it opens a token? A credential this still finds is live, whatever the unlinks reported.
+fn account_credential_resolves(data_dir: &str, account_id: &str) -> bool {
+    read_record_dir(data_dir, CREDENTIAL_VAULT)
+        .into_iter()
+        .any(|c| c["connector_id"].as_str() == Some(account_id))
+}
+
+/// Remove every sealed credential bound to `account_id`, returning what was established, SPLIT by
+/// whether this request caused it.
+///
+/// The vault is walked with `durable_fs`'s pinned enumeration and STRICT slot reads, so the walk
+/// inherits the shared boundary's rule that only `ENOENT` means empty. The shipped walk used
+/// `read_dir` + `read_to_string` + `from_str` and SKIPPED every unreadable entry and every parse
+/// failure, so an unreadable vault, an unreadable slot, and a malformed slot were all silently
+/// indistinguishable from "no credential is bound" — and the response then claimed the backend was
+/// deleted over them. An absent vault or an absent slot is genuinely absent; an UNREADABLE one is
+/// unknown, and unknown fails closed.
+///
+/// EVERY slot is classified BEFORE any slot is unlinked, so a classification refusal leaves the
+/// vault exactly as it was found rather than half-purged.
+fn revoke_account_credentials(
+    data_dir: &str,
+    account_id: &str,
+) -> Result<PurgeTally, (StatusCode, Value)> {
+    let vault = match open_record_family(data_dir, CREDENTIAL_VAULT) {
+        Ok(directory) => directory,
+        // ONLY ENOENT is absence: a vault that was never created holds no bearer, so there is
+        // nothing to remove and the tally is honestly empty.
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(PurgeTally::default())
+        }
+        Err(error) => {
+            return Err(refusal_before_any_unlink(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "storage_backend_credential_vault_unpinnable",
+                format!("the sealed-credential vault could not be opened as a directory ({error}) — an unreadable vault is NOT an empty one, so this backend's bearer cannot be proven gone. No credential was removed and the backend account remains. Repair the vault and delete again."),
+            ))
+        }
+    };
+    let names = super::durable_fs::enumerate_pinned(&vault).map_err(|error| {
+        refusal_before_any_unlink(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "storage_backend_credential_vault_unreadable",
+            format!("the sealed-credential vault could not be enumerated ({error}) — a partial listing is never served as the whole vault, so this backend's bearer cannot be proven gone. No credential was removed and the backend account remains. Delete again to retry."),
+        )
+    })?;
+
+    let mut targets: Vec<String> = Vec::new();
+    for name in names {
+        // The SAME record selection the live bearer path uses: `read_record_dir` admits only
+        // entries whose extension is exactly `json`, so an entry that reader can never resolve as
+        // a bearer is classified — not unclassifiable — and is left alone.
+        if Path::new(&name).extension().and_then(|e| e.to_str()) != Some("json") {
+            continue;
+        }
+        let slot = super::durable_fs::read_slot_strict(&vault, &name).map_err(|error| {
+            refusal_before_any_unlink(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "storage_backend_credential_slot_unreadable",
+                format!("the sealed-credential slot '{name}' is occupied but not readable as a regular file ({error}) — a symlink, a directory, or an unreadable occupant cannot be proven to be some OTHER backend's credential, so this deletion refuses rather than treating it as absent. No credential was removed and the backend account remains. Repair the slot and delete again."),
+            )
+        })?;
+        // Only ENOENT reaches here as `None`: the name went away between enumeration and the read,
+        // which is absence, and an absent slot holds no bearer.
+        let Some((_pinned, bytes)) = slot else {
+            continue;
+        };
+        let record: Value = serde_json::from_slice(&bytes).map_err(|error| {
+            refusal_before_any_unlink(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "storage_backend_credential_slot_malformed",
+                format!("the sealed-credential slot '{name}' is not valid JSON ({error}) — it cannot be proven to belong to another backend, so this deletion refuses rather than skipping it. No credential was removed and the backend account remains. Repair or remove the slot and delete again."),
+            )
+        })?;
+        match record.get("connector_id").and_then(Value::as_str) {
+            Some(bound) if bound == account_id => targets.push(name),
+            Some(_) => {}
+            None => {
+                return Err(refusal_before_any_unlink(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "storage_backend_credential_slot_unclassifiable",
+                    format!("the sealed-credential slot '{name}' names no connector_id, so it cannot be shown to belong to a DIFFERENT backend — refusing rather than guessing which credentials this deletion is allowed to leave live. No credential was removed and the backend account remains. Repair or remove the slot and delete again."),
+                ))
+            }
+        }
+    }
+
+    // NOT ATOMIC, and the refusals must not pretend otherwise: this loop unlinks and fsyncs one
+    // slot at a time, so a failure at slot N leaves slots 1..N-1 destroyed. The tally is threaded
+    // into every refusal, and `RemovedDurable` is counted apart from `AlreadyAbsent` so the causal
+    // count never absorbs slots this request did not touch.
+    let mut tally = PurgeTally::default();
+    for name in &targets {
+        let disposition = classify_unlink(super::durable_fs::unlink_durable_at(
+            &vault,
+            name,
+            CREDENTIAL_VAULT,
+        ));
+        if let Some(refusal) = credential_slot_refusal(&disposition, name, tally) {
+            return Err(refusal);
+        }
+        match disposition {
+            SlotUnlink::RemovedDurable => tally.revoked += 1,
+            SlotUnlink::AlreadyAbsent => tally.already_absent += 1,
+            SlotUnlink::DurabilityUnconfirmed(_) | SlotUnlink::NotPerformed(_) => unreachable!(
+                "credential_slot_refusal returns Some for every disposition except absence"
+            ),
+        }
+    }
+    // Reloaded through the production reader, never from the unlink outcomes: a credential the
+    // bearer path can still resolve is live, whatever the syscalls reported. This is REACHABLE,
+    // not defensive — `durable_fs::enumerate_pinned` silently drops directory entries whose names
+    // are not valid UTF-8, while `read_record_dir` reads them by OsString, so such a slot is
+    // invisible to the purge above and fully live to the bearer path below.
+    if account_credential_resolves(data_dir, account_id) {
+        return Err(with_purge_posture(
+            deletion_refusal(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "storage_backend_credential_revocation_unconfirmed",
+                format!("every sealed-credential slot this purge could enumerate for '{account_id}' is now absent, but the live bearer path STILL resolves one — the revocation is not acknowledged and the backend account was NOT deleted. {consequence}. Delete again to retry; if it keeps refusing, the surviving credential is not reachable by this walk (for example its filename is not valid UTF-8) and must be removed out of band.", consequence = purge_consequence(tally, 0, false)),
+            ),
+            tally,
+            0,
+            false,
+        ));
+    }
+    Ok(tally)
+}
+
+/// Delete a storage-backend account and every sealed credential bound to it, acknowledging ONLY
+/// from reloaded absence. Daemon-state-free so every lane is directly testable; the Axum handler
+/// below is the adapter.
+///
+/// The shipped handler discarded both `std::fs::remove_file` results and returned `ok:true`
+/// unconditionally. Two consequences, in ascending severity. The account record could survive its
+/// own deletion while the caller was told it was gone. Worse, the ACCOUNT was removed first and the
+/// credential second, and the credential removal could fail silently: the sealed bearer then stayed
+/// on disk, bound by `connector_id` to an account no listing shows — `handle_storage_backends_list`
+/// enumerates accounts, and every credential affordance this plane has is keyed on a loadable
+/// account — so the surviving credential was permanently unreachable through the API. That is a
+/// credential leak reported as a successful destruction.
+///
+/// ORDER IS LOAD-BEARING and is asserted in both directions: credentials first, then the account.
+/// Its guarantee is bounded by what the vault walk observed; see the nonclaim at the top of this
+/// section for the unlocked concurrent-bind window it does not close.
+///
+/// This function uses `durable_fs::unlink_durable_at` rather than `remove_file` because "the name
+/// is gone from the live namespace" and "the removal is on disk" are different facts and a
+/// destruction acknowledgement may only be made on the second.
+pub(crate) fn delete_storage_backend_account(
+    data_dir: &str,
+    id_or_ref: &str,
+) -> (StatusCode, Value) {
+    let Some(account) = load_account(data_dir, id_or_ref) else {
+        // PRESERVED VERBATIM. This packet changes the destruction contract, not the not-found
+        // contract; the return type had to name a status, and naming OK keeps the shipped wire
+        // response byte-for-byte rather than silently broadening it to 404.
+        return (
+            StatusCode::OK,
+            json!({ "ok": false, "reason": "no such storage backend" }),
+        );
+    };
+    let account_id = text(&account, "account_id").to_string();
+    if account_id.is_empty() {
+        return refusal_before_any_unlink(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "storage_backend_account_unidentified",
+            format!("the record matched by '{id_or_ref}' carries no account_id, so neither its own record slot nor the credentials bound to it can be named — refusing rather than deleting a guessed target. Nothing was deleted."),
+        );
+    }
+    // A PROMOTED family is substrate-owned truth: `persist_record`/`read_record_dir` route it into
+    // the Agentgres engine and write NO legacy JSON file, so unlinking daemon files would delete
+    // nothing while reporting a destruction. Fail closed instead of pretending.
+    for family in [CREDENTIAL_VAULT, ACCOUNT_KIND] {
+        if super::substrate_store::is_promoted(family) {
+            return refusal_before_any_unlink(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "storage_backend_deletion_substrate_owned",
+                format!("record family '{family}' is promoted to the Agentgres substrate, whose truth this raw daemon-file deletion cannot remove — deleting the legacy files would report a destruction that did not happen. Nothing was deleted. This route needs a substrate-admitted deletion before it can serve promoted families."),
+            );
+        }
+    }
+
+    // ── EFFECT 1: the live bearer ───────────────────────────────────────────────────────────
+    let tally = match revoke_account_credentials(data_dir, &account_id) {
+        Ok(tally) => tally,
+        Err(refusal) => return refusal,
+    };
+
+    // ── EFFECT 2: the account record ────────────────────────────────────────────────────────
+    // The SAME filename normalization the writer applies: `persist_record` maps every byte outside
+    // [A-Za-z0-9_-] to `_` before joining `.json`, so this names exactly the file the account was
+    // written to. A record that is loadable but does NOT live at that name is not deleted here —
+    // it is caught by the reloaded-absence gate below and refused, never acknowledged.
+    let target = format!("{}.json", safe(&account_id));
+    let mut account_slot = "already_absent";
+    match open_record_family(data_dir, ACCOUNT_KIND) {
+        Ok(accounts) => {
+            let disposition = classify_unlink(super::durable_fs::unlink_durable_at(
+                &accounts,
+                &target,
+                ACCOUNT_KIND,
+            ));
+            if let Some(refusal) = account_deletion_refusal(&disposition, tally) {
+                return refusal;
+            }
+            if disposition == SlotUnlink::RemovedDurable {
+                account_slot = "removed_durable";
+            }
+        }
+        // ONLY ENOENT is absence: no family directory means no record slot to unlink. The gate
+        // below still has to prove the account no longer resolves before anything is acknowledged.
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => {
+            return with_purge_posture(
+                deletion_refusal(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "storage_backend_account_family_unpinnable",
+                    format!("{consequence}. The account record family could not be opened as a directory ({error}), so the account record was not removed and the backend still exists. Delete again to retry.", consequence = purge_consequence(tally, 0, true)),
+                ),
+                tally,
+                0,
+                true,
+            )
+        }
+    }
+
+    // ── Acknowledge from the RELOADED absence, never from the unlink outcomes ───────────────
+    // Both the canonical account id and the ref the caller presented are re-resolved through
+    // `load_account`, the same production reader every other route on this plane uses.
+    if load_account(data_dir, &account_id).is_some() || load_account(data_dir, id_or_ref).is_some()
+    {
+        return with_purge_posture(
+            deletion_refusal(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "storage_backend_deletion_unconfirmed",
+                format!("both removals reported done, but '{account_id}' STILL resolves as a storage backend — the deletion is not acknowledged. This happens when the record does not live at the filename the writer would give it. {consequence}. Delete again to retry, or repair the record's slot out of band.", consequence = purge_consequence(tally, 0, true)),
+            ),
+            tally,
+            0,
+            true,
+        );
+    }
+    with_purge_posture(
+        (
+            StatusCode::OK,
+            json!({
+                "ok": true,
+                "deleted": account_id,
+                "account_slot": account_slot,
+                "note": "archive objects/incidents/receipts remain as evidence — deleting a backend never deletes daemon truth",
+            }),
+        ),
+        tally,
+        0,
+        true,
+    )
+}
+
 /// DELETE /v1/hypervisor/storage-backends/{id}.
 pub(crate) async fn handle_storage_backend_delete(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
-) -> Json<Value> {
-    let Some(account) = load_account(&st.data_dir, &id) else {
-        return Json(json!({ "ok": false, "reason": "no such storage backend" }));
-    };
-    let account_id = text(&account, "account_id").to_string();
-    let dir = Path::new(&st.data_dir).join(ACCOUNT_KIND);
-    let _ = std::fs::remove_file(dir.join(format!("{account_id}.json")));
-    let cred_dir = Path::new(&st.data_dir).join(CREDENTIAL_VAULT);
-    if let Ok(entries) = std::fs::read_dir(&cred_dir) {
-        for entry in entries.flatten() {
-            if let Ok(raw) = std::fs::read_to_string(entry.path()) {
-                if let Ok(rec) = serde_json::from_str::<Value>(&raw) {
-                    if rec["connector_id"].as_str() == Some(account_id.as_str()) {
-                        let _ = std::fs::remove_file(entry.path());
-                    }
-                }
-            }
-        }
-    }
-    Json(
-        json!({ "ok": true, "deleted": account_id, "note": "archive objects/incidents/receipts remain as evidence — deleting a backend never deletes daemon truth" }),
-    )
+) -> (StatusCode, Json<Value>) {
+    let (status, payload) = delete_storage_backend_account(&st.data_dir, &id);
+    (status, Json(payload))
 }
 
 /// POST /v1/hypervisor/storage-backends/{id}/credential — bind a sealed bearer (ipfs/filecoin live).
@@ -1730,6 +2273,1222 @@ mod m2_contract_tests {
         });
         validate_architecture_contract(REPAIR_CONTRACT, &unverified)
             .expect_err("repaired without commitment/state-root/verification is unrepresentable");
+    }
+}
+
+/// The destruction contract for `DELETE /v1/hypervisor/storage-backends/{id}`.
+///
+/// Every fault below is DETERMINISTIC, UID-INDEPENDENT and PROCESS-LOCAL. chmod is deliberately NOT
+/// used: root bypasses mode-bit denial, so a permission-based fault would pass vacuously whenever
+/// the suite runs as root. No env var and no cwd change is used either, which also rules out
+/// `durable_fs`'s process-global `IOI_TEST_FORCE_UNLINK_DIRSYNC_UNCONFIRMED` seam — nothing here can
+/// race the rest of the suite. Every fault is a PATH SHADOW or a constructed variant, and every
+/// postcondition is judged through the production readers rather than through the response.
+///
+/// `storage-backend-accounts` and `storage-credentials` are in neither `PROMOTED_DOMAINS` nor
+/// `REQUIRED_ADMISSION_DOMAINS`, so both take the daemon-file path; a promoted family would route
+/// through the substrate engine and its failure points would differ (see the promotion guard).
+#[cfg(test)]
+mod storage_backend_deletion_tests {
+    use super::*;
+
+    const ALPHA: &str = "sba_alpha";
+    const BETA: &str = "sba_beta";
+    const ALPHA_TOKEN: &str = "ipfs_live_bearer_for_alpha";
+    const BETA_TOKEN: &str = "ipfs_live_bearer_for_beta";
+    const SHIPPED_NOTE: &str = "archive objects/incidents/receipts remain as evidence — deleting a backend never deletes daemon truth";
+
+    fn temp() -> tempfile::TempDir {
+        tempfile::tempdir().expect("temp dir")
+    }
+
+    /// A live-mode account, so `live_config` — the real bearer-resolution path — applies.
+    fn live_account(id: &str) -> Value {
+        json!({
+            "schema_version": "ioi.hypervisor.storage-backend-account.v1",
+            "account_id": id,
+            "account_ref": format!("storage-backend://{id}"),
+            "display_name": "ipfs backend",
+            "kind": "ipfs",
+            "status": "verified",
+            "endpoint": { "mode": "live", "endpoint": "https://gateway.invalid/" },
+            "capabilities": kind_capabilities("ipfs"),
+            "created_at": iso_now(), "updated_at": iso_now(),
+            "runtimeTruthSource": "daemon-runtime",
+        })
+    }
+
+    /// Seed through the PRODUCTION writer, under the record id the writer would be handed.
+    fn seed_account(data_dir: &str, record_id: &str, account: &Value) {
+        persist_record(data_dir, ACCOUNT_KIND, record_id, account).expect("account seeded");
+    }
+
+    /// Byte-for-byte the record `handle_storage_backend_credential` persists, sealed with the same
+    /// wallet-secret discipline, through the same writer.
+    fn seed_credential(data_dir: &str, record_id: &str, account_id: &str, token: &str) {
+        let sealed = seal_scm_token(token).expect("token seals");
+        let credential = json!({
+            "schema_version": "ioi.hypervisor.storage-credential.v1",
+            "connector_id": account_id, "scheme": "bearer",
+            "sealed_token": sealed, "key_source": scm_key_source(),
+            "bound_at": iso_now(),
+        });
+        persist_record(data_dir, CREDENTIAL_VAULT, record_id, &credential)
+            .expect("credential seeded");
+    }
+
+    /// THE LIVE BEARER PATH ITSELF. `live_config` is what `store_bytes`, `fetch_bytes` and
+    /// `handle_storage_backend_preflight` call to turn a sealed vault record into an Authorization
+    /// header. A credential is revoked when, and only when, this stops yielding a token.
+    fn live_bearer(data_dir: &str, account: &Value) -> Option<String> {
+        live_config(data_dir, account)
+            .expect("endpoint configured")
+            .1
+    }
+
+    /// Byte-exact contents of the evidence families a backend deletion must never touch.
+    fn evidence_snapshot(root: &Path) -> Vec<(String, String, Vec<u8>)> {
+        let mut out = Vec::new();
+        for family in [ARCHIVE_KIND, INCIDENT_KIND, REPAIR_KIND, RECEIPT_KIND] {
+            let Ok(entries) = std::fs::read_dir(root.join(family)) else {
+                continue;
+            };
+            for entry in entries.flatten() {
+                out.push((
+                    family.to_string(),
+                    entry.file_name().to_string_lossy().to_string(),
+                    std::fs::read(entry.path()).unwrap_or_default(),
+                ));
+            }
+        }
+        out.sort();
+        out
+    }
+
+    fn seed_evidence(data_dir: &str, account_ref: &Value) {
+        persist_record(
+            data_dir,
+            ARCHIVE_KIND,
+            "sao_keep",
+            &json!({
+                "archive_id": "sao_keep", "archive_ref": "storage-archive://sao_keep",
+                "backend_ref": account_ref, "state_root": "sha256:deadbeef",
+            }),
+        )
+        .expect("archive seeded");
+        persist_record(data_dir, INCIDENT_KIND, "aai_keep", &json!({
+            "incident_id": "aai_keep", "incident_ref": "artifact-availability-incident://aai_keep",
+            "backend_ref": account_ref, "status": "open",
+        }))
+        .expect("incident seeded");
+        persist_record(
+            data_dir,
+            RECEIPT_KIND,
+            "stc_keep",
+            &json!({
+                "receipt_id": "stc_keep", "receipt_ref": "agentgres://storage-receipt/stc_keep",
+                "backend": "ipfs", "op": "export", "outcome": "ok",
+            }),
+        )
+        .expect("receipt seeded");
+    }
+
+    // ── The preserved wire response ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn an_absent_backend_preserves_the_shipped_wire_response() {
+        let directory = temp();
+        let data_dir = directory.path().to_str().expect("utf8");
+
+        let (status, body) = delete_storage_backend_account(data_dir, "sba_never_existed");
+
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(
+            body,
+            json!({ "ok": false, "reason": "no such storage backend" })
+        );
+    }
+
+    // ── Success lanes ───────────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn a_clean_delete_is_acknowledged_only_after_reloaded_absence() {
+        let directory = temp();
+        let data_dir = directory.path().to_str().expect("utf8");
+        let account = live_account(ALPHA);
+        seed_account(data_dir, ALPHA, &account);
+        seed_credential(data_dir, ALPHA, ALPHA, ALPHA_TOKEN);
+        seed_evidence(data_dir, &account["account_ref"]);
+        let evidence_before = evidence_snapshot(directory.path());
+        assert_eq!(
+            live_bearer(data_dir, &account).as_deref(),
+            Some(ALPHA_TOKEN)
+        );
+
+        let (status, body) = delete_storage_backend_account(data_dir, ALPHA);
+
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["ok"], json!(true));
+        assert_eq!(body["deleted"], json!(ALPHA));
+        assert_eq!(body["note"], json!(SHIPPED_NOTE));
+        // S4: SUCCESS carries the same posture every refusal does, so a caller never has to infer
+        // what happened from the status code alone.
+        assert_eq!(body["credential_revocation"], json!("already_completed"));
+        assert_eq!(body["credentials_revoked"], json!(1));
+        assert_eq!(body["credentials_already_absent"], json!(0));
+        assert_eq!(body["credentials_unconfirmed"], json!(0));
+        assert_eq!(body["account_slot"], json!("removed_durable"));
+        // The acknowledgement is judged from the RELOADED readers, not from the response.
+        assert!(load_account(data_dir, ALPHA).is_none());
+        assert!(load_account(data_dir, "storage-backend://sba_alpha").is_none());
+        assert!(!account_credential_resolves(data_dir, ALPHA));
+        // The strongest form of "revoked": the live bearer path yields nothing.
+        assert!(live_bearer(data_dir, &account).is_none());
+        assert_eq!(
+            evidence_snapshot(directory.path()),
+            evidence_before,
+            "deleting a backend must leave archive/incident/repair/receipt evidence byte-identical"
+        );
+    }
+
+    #[test]
+    fn a_backend_with_no_credential_bound_succeeds_reporting_zero() {
+        let directory = temp();
+        let data_dir = directory.path().to_str().expect("utf8");
+        seed_account(data_dir, ALPHA, &live_account(ALPHA));
+        // No vault family exists at all — absence is already revoked.
+        assert!(!directory.path().join(CREDENTIAL_VAULT).exists());
+
+        let (status, body) = delete_storage_backend_account(data_dir, ALPHA);
+
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["credential_revocation"], json!("already_completed"));
+        assert_eq!(body["credentials_revoked"], json!(0));
+        assert_eq!(body["credentials_already_absent"], json!(0));
+        assert_eq!(body["credentials_unconfirmed"], json!(0));
+        assert_eq!(body["account_slot"], json!("removed_durable"));
+        assert!(load_account(data_dir, ALPHA).is_none());
+    }
+
+    #[test]
+    fn a_vault_holding_only_other_backends_credentials_reports_zero_and_touches_nothing() {
+        let directory = temp();
+        let data_dir = directory.path().to_str().expect("utf8");
+        let beta = live_account(BETA);
+        seed_account(data_dir, ALPHA, &live_account(ALPHA));
+        seed_account(data_dir, BETA, &beta);
+        seed_credential(data_dir, BETA, BETA, BETA_TOKEN);
+
+        let (status, body) = delete_storage_backend_account(data_dir, ALPHA);
+
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["credentials_revoked"], json!(0));
+        assert_eq!(live_bearer(data_dir, &beta).as_deref(), Some(BETA_TOKEN));
+    }
+
+    #[test]
+    fn a_sibling_backends_credential_survives_the_deletion() {
+        let directory = temp();
+        let data_dir = directory.path().to_str().expect("utf8");
+        let alpha = live_account(ALPHA);
+        let beta = live_account(BETA);
+        seed_account(data_dir, ALPHA, &alpha);
+        seed_account(data_dir, BETA, &beta);
+        seed_credential(data_dir, ALPHA, ALPHA, ALPHA_TOKEN);
+        seed_credential(data_dir, BETA, BETA, BETA_TOKEN);
+
+        let (status, body) =
+            delete_storage_backend_account(data_dir, "storage-backend://sba_alpha");
+
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["deleted"], json!(ALPHA));
+        assert_eq!(body["credentials_revoked"], json!(1));
+        assert!(live_bearer(data_dir, &alpha).is_none());
+        // The refusal to over-delete is the point: beta keeps its account AND its live bearer.
+        assert!(load_account(data_dir, BETA).is_some());
+        assert_eq!(live_bearer(data_dir, &beta).as_deref(), Some(BETA_TOKEN));
+    }
+
+    /// The vault walk selects records exactly as `read_record_dir` — and therefore `live_config` —
+    /// does: only an entry whose extension is `json` can ever resolve as a bearer, so an entry that
+    /// reader can never reach is left alone rather than destroyed on suspicion.
+    #[test]
+    fn a_non_json_vault_entry_is_neither_deleted_nor_treated_as_unclassifiable() {
+        let directory = temp();
+        let data_dir = directory.path().to_str().expect("utf8");
+        seed_account(data_dir, ALPHA, &live_account(ALPHA));
+        seed_credential(data_dir, ALPHA, ALPHA, ALPHA_TOKEN);
+        let stray = directory.path().join(CREDENTIAL_VAULT).join("notes.txt");
+        std::fs::write(&stray, b"operator scratch, not a record").expect("stray written");
+
+        let (status, body) = delete_storage_backend_account(data_dir, ALPHA);
+
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["credentials_revoked"], json!(1));
+        assert_eq!(
+            std::fs::read(&stray).expect("stray survives"),
+            b"operator scratch, not a record"
+        );
+    }
+
+    /// Reader, writer, and this deletion must agree on ONE filename for an id that normalizes.
+    #[test]
+    fn an_unsafe_looking_id_proves_reader_writer_and_delete_normalization_agree() {
+        let directory = temp();
+        let data_dir = directory.path().to_str().expect("utf8");
+        let unsafe_id = "sba_../../etc/passwd";
+        let mut account = live_account(unsafe_id);
+        account["account_ref"] = json!(format!("storage-backend://{unsafe_id}"));
+        // The production writer chooses the filename; nothing here hand-picks it.
+        seed_account(data_dir, unsafe_id, &account);
+        seed_credential(data_dir, unsafe_id, unsafe_id, ALPHA_TOKEN);
+        let written = directory
+            .path()
+            .join(ACCOUNT_KIND)
+            .join(format!("{}.json", safe(unsafe_id)));
+        assert!(written.exists(), "the writer normalized to {written:?}");
+        // Canaries a traversing delete would reach if normalization disagreed anywhere.
+        std::fs::write(directory.path().join("passwd"), b"canary").expect("canary written");
+        seed_account(data_dir, BETA, &live_account(BETA));
+        // The reader resolves the record by FIELD, from that same normalized file.
+        assert!(load_account(data_dir, unsafe_id).is_some());
+
+        let (status, body) = delete_storage_backend_account(data_dir, unsafe_id);
+
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["deleted"], json!(unsafe_id));
+        assert_eq!(body["credentials_revoked"], json!(1));
+        assert!(!written.exists(), "the delete removed the writer's file");
+        assert!(load_account(data_dir, unsafe_id).is_none());
+        assert!(!account_credential_resolves(data_dir, unsafe_id));
+        assert_eq!(
+            std::fs::read(directory.path().join("passwd")).expect("canary survives"),
+            b"canary"
+        );
+        assert!(load_account(data_dir, BETA).is_some());
+    }
+
+    // ── Credential-lane refusals: nothing is destroyed and the bearer stays reachable ────────
+
+    /// THE ORDER PROOF, DIRECTION ONE. The canonical credential target is shadowed by a directory
+    /// while a legacy-named slot still holds the account's resolvable bearer — `live_config` matches
+    /// on the `connector_id` FIELD, not on a filename. The refusal must land BEFORE any unlink, so
+    /// the account survives and the bearer keeps resolving.
+    #[test]
+    fn a_credential_slot_shadowed_by_a_directory_refuses_before_any_unlink() {
+        let directory = temp();
+        let data_dir = directory.path().to_str().expect("utf8");
+        let account = live_account(ALPHA);
+        seed_account(data_dir, ALPHA, &account);
+        seed_credential(data_dir, "alpha-legacy-slot", ALPHA, ALPHA_TOKEN);
+        std::fs::create_dir_all(
+            directory
+                .path()
+                .join(CREDENTIAL_VAULT)
+                .join(format!("{ALPHA}.json")),
+        )
+        .expect("directory shadow");
+        assert_eq!(
+            live_bearer(data_dir, &account).as_deref(),
+            Some(ALPHA_TOKEN)
+        );
+
+        let (status, body) = delete_storage_backend_account(data_dir, ALPHA);
+
+        assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(body["ok"], json!(false));
+        assert_eq!(
+            body["error"]["code"],
+            json!("storage_backend_credential_slot_unreadable")
+        );
+        assert!(load_account(data_dir, ALPHA).is_some(), "account remains");
+        assert_eq!(
+            live_bearer(data_dir, &account).as_deref(),
+            Some(ALPHA_TOKEN),
+            "the live bearer must still resolve — nothing was unlinked"
+        );
+    }
+
+    #[test]
+    fn a_vault_family_shadowed_by_a_file_refuses_before_the_account_is_destroyed() {
+        let directory = temp();
+        let data_dir = directory.path().to_str().expect("utf8");
+        seed_account(data_dir, ALPHA, &live_account(ALPHA));
+        let shadow = directory.path().join(CREDENTIAL_VAULT);
+        std::fs::write(&shadow, b"not a directory").expect("family shadow");
+
+        let (status, body) = delete_storage_backend_account(data_dir, ALPHA);
+
+        assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(
+            body["error"]["code"],
+            json!("storage_backend_credential_vault_unpinnable")
+        );
+        assert!(load_account(data_dir, ALPHA).is_some(), "account remains");
+        assert_eq!(
+            std::fs::read(&shadow).expect("shadow read"),
+            b"not a directory"
+        );
+    }
+
+    #[test]
+    fn a_malformed_vault_slot_refuses_and_leaves_its_bytes_unchanged() {
+        let directory = temp();
+        let data_dir = directory.path().to_str().expect("utf8");
+        let account = live_account(ALPHA);
+        seed_account(data_dir, ALPHA, &account);
+        seed_credential(data_dir, ALPHA, ALPHA, ALPHA_TOKEN);
+        let malformed = directory.path().join(CREDENTIAL_VAULT).join("broken.json");
+        std::fs::write(&malformed, b"{ this was never JSON").expect("malformed slot");
+
+        let (status, body) = delete_storage_backend_account(data_dir, ALPHA);
+
+        assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(
+            body["error"]["code"],
+            json!("storage_backend_credential_slot_malformed")
+        );
+        assert_eq!(
+            std::fs::read(&malformed).expect("malformed slot read"),
+            b"{ this was never JSON"
+        );
+        assert!(load_account(data_dir, ALPHA).is_some());
+        assert_eq!(
+            live_bearer(data_dir, &account).as_deref(),
+            Some(ALPHA_TOKEN)
+        );
+    }
+
+    #[test]
+    fn an_unclassifiable_vault_slot_refuses_and_leaves_its_bytes_unchanged() {
+        let directory = temp();
+        let data_dir = directory.path().to_str().expect("utf8");
+        let account = live_account(ALPHA);
+        seed_account(data_dir, ALPHA, &account);
+        seed_credential(data_dir, ALPHA, ALPHA, ALPHA_TOKEN);
+        let anonymous = directory
+            .path()
+            .join(CREDENTIAL_VAULT)
+            .join("anonymous.json");
+        let bytes = serde_json::to_vec_pretty(&json!({
+            "schema_version": "ioi.hypervisor.storage-credential.v1",
+            "scheme": "bearer", "sealed_token": "deadbeef",
+        }))
+        .expect("bytes");
+        std::fs::write(&anonymous, &bytes).expect("unclassifiable slot");
+
+        let (status, body) = delete_storage_backend_account(data_dir, ALPHA);
+
+        assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(
+            body["error"]["code"],
+            json!("storage_backend_credential_slot_unclassifiable")
+        );
+        assert_eq!(std::fs::read(&anonymous).expect("slot read"), bytes);
+        assert!(load_account(data_dir, ALPHA).is_some());
+        assert_eq!(
+            live_bearer(data_dir, &account).as_deref(),
+            Some(ALPHA_TOKEN)
+        );
+    }
+
+    // ── Account-lane refusals: the revocation already happened and the response says so ──────
+
+    /// THE ORDER PROOF, DIRECTION TWO. The account record is loadable (from a legacy-named slot)
+    /// but its writer-named slot is shadowed by a directory, so the account unlink fails AFTER the
+    /// credential purge has already succeeded. Swapping the effect order breaks `credential gone`.
+    #[test]
+    fn an_account_slot_shadowed_by_a_directory_refuses_after_the_credential_is_already_revoked() {
+        let directory = temp();
+        let data_dir = directory.path().to_str().expect("utf8");
+        let account = live_account(ALPHA);
+        seed_account(data_dir, "alpha-legacy-slot", &account);
+        seed_credential(data_dir, ALPHA, ALPHA, ALPHA_TOKEN);
+        std::fs::create_dir_all(
+            directory
+                .path()
+                .join(ACCOUNT_KIND)
+                .join(format!("{ALPHA}.json")),
+        )
+        .expect("directory shadow");
+        assert_eq!(
+            live_bearer(data_dir, &account).as_deref(),
+            Some(ALPHA_TOKEN)
+        );
+
+        let (status, body) = delete_storage_backend_account(data_dir, ALPHA);
+
+        assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(
+            body["error"]["code"],
+            json!("storage_backend_account_deletion_failed")
+        );
+        // The credential effect ALREADY happened, is reported as such, and is not undone.
+        assert_eq!(body["credential_revocation"], json!("already_completed"));
+        assert_eq!(body["credentials_revoked"], json!(1));
+        assert!(live_bearer(data_dir, &account).is_none(), "credential gone");
+        assert!(!account_credential_resolves(data_dir, ALPHA));
+        // ...and the account is still there, so the refusal is not a partial success claim.
+        assert!(load_account(data_dir, ALPHA).is_some(), "account remains");
+        let message = body["error"]["message"].as_str().expect("message");
+        assert!(
+            message.contains("Delete again to retry"),
+            "recovery must name the retry that converges, got: {message}"
+        );
+        assert!(
+            message.contains("revoked"),
+            "recovery must say the revocation already happened, got: {message}"
+        );
+    }
+
+    /// THE RELOAD GATE. Both unlinks report done — the writer-named account slot genuinely is not
+    /// there — but the record still resolves through the production reader from a legacy-named
+    /// slot. Acknowledging here would report a destruction that did not happen.
+    #[test]
+    fn an_account_that_still_resolves_after_both_unlinks_is_never_acknowledged_deleted() {
+        let directory = temp();
+        let data_dir = directory.path().to_str().expect("utf8");
+        let account = live_account(ALPHA);
+        seed_account(data_dir, "alpha-legacy-slot", &account);
+        seed_credential(data_dir, ALPHA, ALPHA, ALPHA_TOKEN);
+        assert!(!directory
+            .path()
+            .join(ACCOUNT_KIND)
+            .join(format!("{ALPHA}.json"))
+            .exists());
+
+        let (status, body) = delete_storage_backend_account(data_dir, ALPHA);
+
+        assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(
+            body["error"]["code"],
+            json!("storage_backend_deletion_unconfirmed")
+        );
+        assert_eq!(body["credential_revocation"], json!("already_completed"));
+        assert_eq!(body["credentials_revoked"], json!(1));
+        assert!(body.get("deleted").is_none(), "no destruction was claimed");
+        assert!(
+            load_account(data_dir, ALPHA).is_some(),
+            "the record that survived is exactly why this refused"
+        );
+    }
+
+    // ── Directly-asserted mappings for the lanes no uid-independent fault can reach ──────────
+
+    /// `Durable` and `Absent` map to DISTINCT dispositions. Folding them is how a count of
+    /// `credentials revoked by this request` comes to include slots this request never touched.
+    #[test]
+    fn durable_and_absent_are_distinct_dispositions_and_only_durable_is_causal() {
+        use super::super::durable_fs::UnlinkOutcome;
+        assert_eq!(
+            classify_unlink(Ok(UnlinkOutcome::Durable)),
+            SlotUnlink::RemovedDurable
+        );
+        assert_eq!(
+            classify_unlink(Ok(UnlinkOutcome::Absent)),
+            SlotUnlink::AlreadyAbsent
+        );
+        assert_ne!(SlotUnlink::RemovedDurable, SlotUnlink::AlreadyAbsent);
+        assert!(matches!(
+            classify_unlink(Ok(UnlinkOutcome::RemovedDurabilityUnconfirmed(
+                std::io::Error::other("directory fsync failed")
+            ))),
+            SlotUnlink::DurabilityUnconfirmed(_)
+        ));
+        assert!(matches!(
+            classify_unlink(Ok(
+                UnlinkOutcome::ReplayAnchorRestoredAfterUnconfirmedRemoval(std::io::Error::other(
+                    "restored"
+                ))
+            )),
+            SlotUnlink::DurabilityUnconfirmed(_)
+        ));
+        assert!(matches!(
+            classify_unlink(Err(std::io::Error::other("EISDIR"))),
+            SlotUnlink::NotPerformed(_)
+        ));
+        // Both absence dispositions let the purge continue; neither refuses.
+        let empty = PurgeTally::default();
+        assert!(credential_slot_refusal(&SlotUnlink::RemovedDurable, "s.json", empty).is_none());
+        assert!(credential_slot_refusal(&SlotUnlink::AlreadyAbsent, "s.json", empty).is_none());
+        assert!(account_deletion_refusal(&SlotUnlink::RemovedDurable, empty).is_none());
+        assert!(account_deletion_refusal(&SlotUnlink::AlreadyAbsent, empty).is_none());
+    }
+
+    /// A slot found absent is NOT counted as revoked and is NOT narrated as one, and the prose
+    /// never claims it was absent BEFORE this request: the strict read that classified it also ran
+    /// during this request, so all that is knowable is that it was gone when the unlink ran.
+    #[test]
+    fn a_slot_found_absent_is_counted_and_narrated_apart_from_one_this_request_revoked() {
+        let found = PurgeTally {
+            revoked: 0,
+            already_absent: 2,
+        };
+        let (_, body) =
+            credential_slot_refusal(&SlotUnlink::NotPerformed("EISDIR".into()), "s.json", found)
+                .expect("refuses");
+        assert_eq!(body["credential_revocation"], json!("none"));
+        assert_eq!(body["credentials_revoked"], json!(0));
+        assert_eq!(body["credentials_already_absent"], json!(2));
+        let message = body["error"]["message"].as_str().expect("message");
+        assert!(
+            message.contains("No sealed credential was revoked by this request"),
+            "found-absent slots are not revocations, got: {message}"
+        );
+        assert!(
+            message.contains("absent when this request attempted their unlinks"),
+            "tense must not claim absence predates the request, got: {message}"
+        );
+        assert!(
+            !message.contains("before this request"),
+            "AlreadyAbsent never licenses a `before this request` claim, got: {message}"
+        );
+
+        // Mixed: one destroyed here, one merely found gone — the counts stay separate.
+        let mixed = PurgeTally {
+            revoked: 1,
+            already_absent: 1,
+        };
+        let (_, body) = account_deletion_refusal(&SlotUnlink::NotPerformed("EISDIR".into()), mixed)
+            .expect("refuses");
+        assert_eq!(body["credentials_revoked"], json!(1));
+        assert_eq!(body["credentials_already_absent"], json!(1));
+        let message = body["error"]["message"].as_str().expect("message");
+        assert!(
+            message.contains("1 sealed credential WAS durably revoked by this request"),
+            "got: {message}"
+        );
+        assert!(
+            message.contains(
+                "a further 1 bound slot was absent when this request attempted its unlink"
+            ),
+            "got: {message}"
+        );
+    }
+
+    /// The credential lane's two refusal dispositions. `NotPerformed` has no path-shadow injection
+    /// here BY CONSTRUCTION — every shadow that breaks a slot's unlink also breaks the strict read
+    /// that classifies it, and that read refuses first — and `DurabilityUnconfirmed`'s only
+    /// injection point is a process-global env var this suite refuses to use. Both are asserted
+    /// from constructed variants instead of left to review.
+    ///
+    /// THE ZERO-CONFIRMED CONSEQUENCE IS THE POINT. A refusal with nothing confirmed revoked must
+    /// not inherit a partial-purge tail, and — separately — a refusal with an UNCONFIRMED removal
+    /// outstanding must not inherit a nothing-changed tail. Both directions are asserted
+    /// negatively, because a spliced tail is exactly how each one got said.
+    #[test]
+    fn zero_confirmed_refusals_claim_neither_a_partial_purge_nor_an_unchanged_vault() {
+        let empty = PurgeTally::default();
+
+        // NotPerformed at zero: nothing was removed, and the vault really is as found.
+        let (status, body) = credential_slot_refusal(
+            &SlotUnlink::NotPerformed("EISDIR".into()),
+            "sba_a.json",
+            empty,
+        )
+        .expect("not-performed refuses");
+        assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(
+            body["error"]["code"],
+            json!("storage_backend_credential_revocation_failed")
+        );
+        assert_eq!(body["credential_revocation"], json!("none"));
+        assert_eq!(body["credentials_revoked"], json!(0));
+        assert_eq!(body["credentials_already_absent"], json!(0));
+        assert_eq!(body["credentials_unconfirmed"], json!(0));
+        assert!(body.get("deleted").is_none());
+        let message = body["error"]["message"].as_str().expect("message");
+        assert!(
+            message.contains("vault is exactly as this deletion found it"),
+            "got: {message}"
+        );
+        assert!(
+            !message.contains("PARTIAL"),
+            "a zero-confirmed refusal must not claim a partial purge, got: {message}"
+        );
+        assert!(
+            !message.contains("not in the state it started in"),
+            "a zero-confirmed refusal must not claim the vault changed, got: {message}"
+        );
+
+        // DurabilityUnconfirmed at zero: nothing CONFIRMED, but a removal is outstanding, so the
+        // vault must never be described as unchanged.
+        let (status, body) = credential_slot_refusal(
+            &SlotUnlink::DurabilityUnconfirmed("unconfirmed".into()),
+            "sba_a.json",
+            empty,
+        )
+        .expect("unconfirmed refuses");
+        assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(
+            body["error"]["code"],
+            json!("storage_backend_credential_revocation_durability_unconfirmed")
+        );
+        assert_eq!(body["credential_revocation"], json!("ambiguous"));
+        assert_eq!(body["credentials_revoked"], json!(0));
+        assert_eq!(body["credentials_unconfirmed"], json!(1));
+        assert!(body.get("deleted").is_none());
+        let message = body["error"]["message"].as_str().expect("message");
+        assert!(
+            message.contains("MAY already have changed"),
+            "an outstanding unconfirmed removal must be stated, got: {message}"
+        );
+        assert!(
+            !message.contains("exactly as this deletion found it"),
+            "an unconfirmed removal makes `exactly as found` false, got: {message}"
+        );
+        assert!(
+            !message.contains("no slot was removed"),
+            "an unconfirmed removal makes `no slot was removed` false, got: {message}"
+        );
+        assert!(
+            !message.contains("PARTIAL AND AMBIGUOUS"),
+            "nothing is confirmed here, so it is not a partial purge, got: {message}"
+        );
+    }
+
+    /// THE PARTIAL-PURGE CONTRACT. The purge is a LOOP: slot two can fail after slot one has
+    /// already fsynced. A refusal claiming nothing changed would be false about a destruction that
+    /// already happened and cannot be undone. Both later-slot branches are asserted over a REAL
+    /// prior-confirmed count. The end-to-end partial lane IS proven behaviourally, by
+    /// `a_credential_the_purge_cannot_enumerate_leaves_an_honest_partial_revocation`.
+    #[test]
+    fn a_later_slot_refusal_reports_the_exact_count_already_durably_revoked() {
+        let one = PurgeTally {
+            revoked: 1,
+            already_absent: 0,
+        };
+        let (status, body) = credential_slot_refusal(
+            &SlotUnlink::NotPerformed("EISDIR".into()),
+            "sba_alpha-second.json",
+            one,
+        )
+        .expect("not-performed refuses");
+        assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(
+            body["error"]["code"],
+            json!("storage_backend_credential_revocation_failed")
+        );
+        // PARTIAL, CONFIRMED: one credential is durably gone and at least one provably remains.
+        assert_eq!(body["credential_revocation"], json!("partial_confirmed"));
+        assert_eq!(body["credentials_revoked"], json!(1));
+        assert_eq!(body["credentials_unconfirmed"], json!(0));
+        let message = body["error"]["message"].as_str().expect("message");
+        assert!(
+            message.contains(
+                "1 sealed credential bound to this backend WAS durably revoked by this request"
+            ),
+            "a partial purge must not read as unchanged, got: {message}"
+        );
+        assert!(message.contains("this purge is PARTIAL"), "got: {message}");
+        assert!(
+            !message.contains("exactly as this deletion found it"),
+            "a confirmed removal makes `exactly as found` false, got: {message}"
+        );
+        assert!(
+            message.contains("account was NOT deleted"),
+            "the account is the retry anchor and must be named, got: {message}"
+        );
+
+        let two = PurgeTally {
+            revoked: 2,
+            already_absent: 0,
+        };
+        let (status, body) = credential_slot_refusal(
+            &SlotUnlink::DurabilityUnconfirmed("unconfirmed".into()),
+            "sba_alpha-third.json",
+            two,
+        )
+        .expect("unconfirmed refuses");
+        assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(
+            body["error"]["code"],
+            json!("storage_backend_credential_revocation_durability_unconfirmed")
+        );
+        // PARTIAL AND AMBIGUOUS: two durably gone, plus one whose durability is unknown — the true
+        // number removed is two or three, and the message says exactly that instead of guessing.
+        assert_eq!(body["credential_revocation"], json!("partial_ambiguous"));
+        assert_eq!(body["credentials_revoked"], json!(2));
+        assert_eq!(body["credentials_unconfirmed"], json!(1));
+        let message = body["error"]["message"].as_str().expect("message");
+        assert!(
+            message.contains("2 sealed credentials bound to this backend WERE durably revoked"),
+            "got: {message}"
+        );
+        assert!(
+            message.contains("PARTIAL AND AMBIGUOUS: the number destroyed here is 2 or 3"),
+            "the ambiguity must be stated as a range, got: {message}"
+        );
+        assert!(
+            message.contains("account was NOT deleted"),
+            "got: {message}"
+        );
+    }
+
+    /// THE END-TO-END PARTIAL LANE, deterministic and real. `durable_fs::enumerate_pinned` drops
+    /// directory entries whose names are not valid UTF-8, while `read_record_dir` — and therefore
+    /// `live_config` — reads them by `OsString`. A second credential bound to the same account
+    /// under such a name is INVISIBLE to the purge and fully live to the bearer path: the first
+    /// slot is durably revoked, the reload gate catches the survivor, and the refusal must report
+    /// exactly one confirmed revocation with the account left standing as the retry anchor.
+    #[test]
+    fn a_credential_the_purge_cannot_enumerate_leaves_an_honest_partial_revocation() {
+        use std::os::unix::ffi::OsStrExt;
+        let directory = temp();
+        let data_dir = directory.path().to_str().expect("utf8");
+        let account = live_account(ALPHA);
+        seed_account(data_dir, ALPHA, &account);
+        seed_credential(data_dir, ALPHA, ALPHA, ALPHA_TOKEN);
+        let enumerable = directory
+            .path()
+            .join(CREDENTIAL_VAULT)
+            .join(format!("{ALPHA}.json"));
+        // A second, equally live credential for the SAME account under a non-UTF-8 filename.
+        let hidden = directory
+            .path()
+            .join(CREDENTIAL_VAULT)
+            .join(std::ffi::OsStr::from_bytes(b"sba_alpha-\xff.json"));
+        std::fs::copy(&enumerable, &hidden).expect("second credential seeded");
+        assert!(account_credential_resolves(data_dir, ALPHA));
+
+        let (status, body) = delete_storage_backend_account(data_dir, ALPHA);
+
+        assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(
+            body["error"]["code"],
+            json!("storage_backend_credential_revocation_unconfirmed")
+        );
+        // The exact partial state: one confirmed removal, none found absent, none in doubt.
+        assert_eq!(body["credential_revocation"], json!("partial_confirmed"));
+        assert_eq!(body["credentials_revoked"], json!(1));
+        assert_eq!(body["credentials_already_absent"], json!(0));
+        assert_eq!(body["credentials_unconfirmed"], json!(0));
+        assert!(body.get("deleted").is_none(), "no destruction was claimed");
+        // The enumerable slot really is gone — this is a PARTIAL purge, not a no-op.
+        assert!(!enumerable.exists());
+        // ...and the survivor is exactly why it refused, still live to the bearer path.
+        assert_eq!(
+            live_bearer(data_dir, &account).as_deref(),
+            Some(ALPHA_TOKEN)
+        );
+        // The account is the retry anchor and MUST remain, or the survivor becomes unreachable.
+        assert!(load_account(data_dir, ALPHA).is_some(), "account remains");
+        let message = body["error"]["message"].as_str().expect("message");
+        assert!(
+            message.contains(
+                "1 sealed credential bound to this backend WAS durably revoked by this request"
+            ),
+            "got: {message}"
+        );
+        assert!(
+            message.contains("not valid UTF-8"),
+            "recovery must name a repair that exists, got: {message}"
+        );
+    }
+
+    /// The account lane's refusal arms — a 503 ambiguity and a 500, both of which still report the
+    /// completed purge, because the operator's next action depends on knowing it happened.
+    #[test]
+    fn account_deletion_refusals_report_the_completed_revocation_and_never_acknowledge() {
+        let two = PurgeTally {
+            revoked: 2,
+            already_absent: 0,
+        };
+        let (status, body) = account_deletion_refusal(
+            &SlotUnlink::DurabilityUnconfirmed("unconfirmed".into()),
+            two,
+        )
+        .expect("unconfirmed refuses");
+        assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(
+            body["error"]["code"],
+            json!("storage_backend_account_deletion_durability_unconfirmed")
+        );
+        assert_eq!(body["credential_revocation"], json!("already_completed"));
+        assert_eq!(body["credentials_revoked"], json!(2));
+        assert_eq!(body["credentials_unconfirmed"], json!(0));
+        assert!(body.get("deleted").is_none());
+
+        let one = PurgeTally {
+            revoked: 1,
+            already_absent: 0,
+        };
+        let (status, body) =
+            account_deletion_refusal(&SlotUnlink::NotPerformed("EISDIR".into()), one)
+                .expect("not-performed refuses");
+        assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(
+            body["error"]["code"],
+            json!("storage_backend_account_deletion_failed")
+        );
+        assert_eq!(body["credentials_revoked"], json!(1));
+
+        // At ZERO the account lane must not claim a revocation happened either.
+        let (_, body) = account_deletion_refusal(
+            &SlotUnlink::NotPerformed("EISDIR".into()),
+            PurgeTally::default(),
+        )
+        .expect("not-performed refuses");
+        assert_eq!(body["credential_revocation"], json!("already_completed"));
+        assert_eq!(body["credentials_revoked"], json!(0));
+        let message = body["error"]["message"].as_str().expect("message");
+        assert!(
+            message.contains("had no bound sealed credential, so nothing was revoked"),
+            "got: {message}"
+        );
+        assert!(
+            !message.contains("WAS durably revoked") && !message.contains("WERE durably revoked"),
+            "a zero purge must not claim a revocation, got: {message}"
+        );
+    }
+
+    /// The promotion guard is INERT today, and this pins why: if either family is ever promoted,
+    /// this test fails and forces the guard — and this whole raw-file deletion — to be re-read
+    /// before a substrate-owned record can be "deleted" by unlinking legacy JSON that no longer
+    /// carries its truth.
+    #[test]
+    fn neither_deleted_family_is_promoted_to_the_substrate_today() {
+        assert!(!super::super::substrate_store::is_promoted(ACCOUNT_KIND));
+        assert!(!super::super::substrate_store::is_promoted(
+            CREDENTIAL_VAULT
+        ));
+    }
+
+    // ── Source-shape pins for the claims no injectable fault can catch ──────────────────────
+
+    fn production_fn<'a>(source: &'a str, signature: &str) -> &'a str {
+        let start = source
+            .find(signature)
+            .unwrap_or_else(|| panic!("the production function `{signature}` is gone"));
+        let rest = &source[start..];
+        let end = rest.find("\n}\n").map(|i| i + 3).unwrap_or(rest.len());
+        &rest[..end]
+    }
+
+    /// Both destructions must go through the pinned, durability-honest unlink, and the credential
+    /// must be revoked BEFORE the account family is even opened.
+    ///
+    /// The account lane's revert to a discarded `remove_file` is caught behaviourally by
+    /// `an_account_slot_shadowed_by_a_directory_refuses_after_the_credential_is_already_revoked`
+    /// (a discarded failure would fall through to a 503 instead of the typed 500). The CREDENTIAL
+    /// lane's revert has no such behavioural catch on this family — see the disposition test above
+    /// — so it is pinned here, in the same spirit as
+    /// `managed_runtime_routes::restore_effects_are_admitted_before_they_are_performed`.
+    #[test]
+    fn both_destructions_use_the_pinned_durable_unlink_in_credential_first_order() {
+        let source = include_str!("storage_backend_routes.rs");
+
+        let revoke = production_fn(source, "fn revoke_account_credentials");
+        assert!(
+            revoke.contains("unlink_durable_at("),
+            "credential revocation must unlink through durable_fs, never a raw remove"
+        );
+        assert!(
+            !revoke.contains("remove_file"),
+            "a discarded remove_file cannot tell a failed revocation from a completed one"
+        );
+        assert!(
+            revoke.contains("enumerate_pinned(") && revoke.contains("read_slot_strict("),
+            "the vault walk must use the pinned enumeration and strict slot reads"
+        );
+        // The purge is NOT atomic, so every later-slot refusal must carry the tally this request
+        // has already established. Passing a constant here would make a partial purge read as
+        // unchanged, and that lane has no end-to-end injection to catch it.
+        assert!(
+            revoke.contains("credential_slot_refusal(&disposition, name, tally)"),
+            "a later-slot refusal must report the exact tally already established"
+        );
+
+        let delete = production_fn(source, "pub(crate) fn delete_storage_backend_account");
+        assert!(
+            delete.contains("unlink_durable_at("),
+            "the account record must unlink through durable_fs, never a raw remove"
+        );
+        assert!(
+            !delete.contains("remove_file"),
+            "a discarded remove_file cannot tell a failed deletion from a completed one"
+        );
+        let revoked_at = delete
+            .find("revoke_account_credentials(data_dir")
+            .expect("the credential effect is gone");
+        let account_at = delete
+            .find("open_record_family(data_dir, ACCOUNT_KIND)")
+            .expect("the account effect is gone");
+        assert!(
+            revoked_at < account_at,
+            "credentials must be revoked before the account record is destroyed — otherwise a \
+             surviving credential is orphaned behind a missing account and is unreachable"
+        );
+        assert!(
+            delete.contains("load_account(data_dir, &account_id).is_some()"),
+            "the acknowledgement must be gated on reloaded absence"
+        );
+    }
+
+    /// THE CONCURRENCY NONCLAIM. Nothing on this plane holds a lock, so the credentials-first
+    /// ordering only protects credentials the vault walk OBSERVED. A credential bound after
+    /// classification but before the account unlink is still orphaned. That window has no test
+    /// because it has no deterministic single-process injection, so the nonclaim is pinned in the
+    /// source instead of being left to a reader's charity.
+    #[test]
+    fn the_ordering_guarantee_names_its_unlocked_concurrent_bind_window() {
+        let source = include_str!("storage_backend_routes.rs");
+        let start = source
+            .find("// ── Backend account destruction")
+            .expect("destruction section");
+        let header = &source[start..start + 2000];
+        assert!(
+            header.contains("is NOT a concurrency claim") && header.contains("Nothing here"),
+            "the ordering guarantee must state that it is not a concurrency claim"
+        );
+        assert!(
+            header.contains("IS orphaned exactly as before"),
+            "the surviving concurrent-bind window must be named, not implied"
+        );
+    }
+
+    /// Every refusal code this route can emit is either behaviourally covered, asserted from a
+    /// constructed variant, or ENUMERATED as noncoverage with its reason. A new code that is in
+    /// none of the three lists fails this test, so noncoverage cannot accrue silently.
+    #[test]
+    fn every_refusal_code_is_covered_or_explicitly_enumerated_as_noncoverage() {
+        // Reached by a deterministic path shadow or real data state in this module.
+        const BEHAVIOURAL: &[&str] = &[
+            "storage_backend_account_unidentified",
+            "storage_backend_credential_vault_unpinnable",
+            "storage_backend_credential_slot_unreadable",
+            "storage_backend_credential_slot_malformed",
+            "storage_backend_credential_slot_unclassifiable",
+            "storage_backend_credential_revocation_unconfirmed",
+            "storage_backend_account_deletion_failed",
+            "storage_backend_deletion_unconfirmed",
+        ];
+        // Asserted from constructed variants against the extracted refusal builders. No
+        // path-shadow injection exists: every shadow that breaks a slot's unlink also breaks the
+        // strict read that classifies it, and `DurabilityUnconfirmed`'s only injection point is a
+        // process-global env var this suite refuses to use.
+        const CONSTRUCTED: &[&str] = &[
+            "storage_backend_credential_revocation_failed",
+            "storage_backend_credential_revocation_durability_unconfirmed",
+            "storage_backend_account_deletion_durability_unconfirmed",
+        ];
+        // NOT EXERCISED AT ALL, with the reason each one is unreachable here:
+        //  * vault_unreadable — `enumerate_pinned` fails only inside fdopendir/readdir, which has
+        //    no uid-independent injection; the pin and the slot reads absorb every path shadow.
+        //  * account_family_unpinnable — any family state that stops `open_record_family` also
+        //    stops `read_record_dir`, so `load_account` returns None and the request answers
+        //    not-found first. Pinned by
+        //    `an_unopenable_account_family_answers_not_found_rather_than_reaching_its_refusal`.
+        //  * deletion_substrate_owned — PROMOTED_DOMAINS is a compile-time constant; pinned by
+        //    `neither_deleted_family_is_promoted_to_the_substrate_today`.
+        const ENUMERATED_NONCOVERAGE: &[&str] = &[
+            "storage_backend_credential_vault_unreadable",
+            "storage_backend_account_family_unpinnable",
+            "storage_backend_deletion_substrate_owned",
+        ];
+
+        let source = include_str!("storage_backend_routes.rs");
+        let start = source
+            .find("// ── Backend account destruction")
+            .expect("destruction section");
+        let end = source
+            .find("/// POST /v1/hypervisor/storage-backends/{id}/credential")
+            .expect("section end");
+        let mut emitted: Vec<String> = Vec::new();
+        for chunk in source[start..end].split("\"storage_backend_").skip(1) {
+            let code = format!(
+                "storage_backend_{}",
+                &chunk[..chunk.find('"').expect("closing quote")]
+            );
+            if !emitted.contains(&code) {
+                emitted.push(code);
+            }
+        }
+        assert!(
+            !emitted.is_empty(),
+            "no refusal codes found — scraper broke"
+        );
+        for code in &emitted {
+            let code = code.as_str();
+            let known = BEHAVIOURAL.contains(&code)
+                || CONSTRUCTED.contains(&code)
+                || ENUMERATED_NONCOVERAGE.contains(&code);
+            assert!(
+                known,
+                "refusal code `{code}` is in none of the three coverage lists — cover it or \
+                 enumerate it as noncoverage with a reason"
+            );
+        }
+        for code in BEHAVIOURAL
+            .iter()
+            .chain(CONSTRUCTED)
+            .chain(ENUMERATED_NONCOVERAGE)
+        {
+            assert!(
+                emitted.iter().any(|e| e == code),
+                "coverage list names `{code}`, which this route no longer emits — prune the list"
+            );
+        }
+    }
+
+    // ── Symlinked record families: compatibility WITHOUT losing terminal containment ─────────
+
+    /// S2 REGRESSION GUARD. `durable_fs::open_family_dir_pinned` adds `O_NOFOLLOW`, which refuses a
+    /// SYMLINKED family directory — while `read_record_dir`, `load_account` and `live_config` all
+    /// follow that same symlink and keep working. Using it here would have denied EVERY deletion in
+    /// any deployment that symlinks a record family (a container volume mount, an atomic-swap
+    /// release directory) while every other route on the plane carried on. Both families are
+    /// asserted, because the account family is the one a deployment is most likely to relocate.
+    #[test]
+    fn a_symlinked_record_family_deletes_exactly_as_a_real_one_does() {
+        let directory = temp();
+        let root = directory.path();
+        let data_dir = root.to_str().expect("utf8");
+        // Both families live somewhere else entirely and are reached through symlinks.
+        let elsewhere = root.join("relocated");
+        std::fs::create_dir_all(elsewhere.join(ACCOUNT_KIND)).expect("relocated accounts");
+        std::fs::create_dir_all(elsewhere.join(CREDENTIAL_VAULT)).expect("relocated vault");
+        std::os::unix::fs::symlink(elsewhere.join(ACCOUNT_KIND), root.join(ACCOUNT_KIND))
+            .expect("account family symlink");
+        std::os::unix::fs::symlink(
+            elsewhere.join(CREDENTIAL_VAULT),
+            root.join(CREDENTIAL_VAULT),
+        )
+        .expect("vault symlink");
+
+        let account = live_account(ALPHA);
+        seed_account(data_dir, ALPHA, &account);
+        seed_credential(data_dir, ALPHA, ALPHA, ALPHA_TOKEN);
+        // The production readers follow the symlink, so the account and its bearer both resolve.
+        assert!(load_account(data_dir, ALPHA).is_some());
+        assert_eq!(
+            live_bearer(data_dir, &account).as_deref(),
+            Some(ALPHA_TOKEN)
+        );
+
+        let (status, body) = delete_storage_backend_account(data_dir, ALPHA);
+
+        assert_eq!(status, StatusCode::OK, "body: {body}");
+        assert_eq!(body["credentials_revoked"], json!(1));
+        assert_eq!(body["account_slot"], json!("removed_durable"));
+        assert!(load_account(data_dir, ALPHA).is_none());
+        assert!(live_bearer(data_dir, &account).is_none());
+        // The records really left the relocated directories, not some path beside the symlink.
+        assert!(!elsewhere
+            .join(ACCOUNT_KIND)
+            .join(format!("{ALPHA}.json"))
+            .exists());
+        assert!(!elsewhere
+            .join(CREDENTIAL_VAULT)
+            .join(format!("{ALPHA}.json"))
+            .exists());
+    }
+
+    /// ...and the containment that matters is RETAINED. Following the family directory does not
+    /// license following a terminal SLOT: `read_slot_strict` opens every slot `O_NOFOLLOW`, so a
+    /// symlinked credential record refuses rather than being read — and unlinked — through.
+    ///
+    /// SCOPED TO THE CREDENTIAL LANE, which is the lane that pre-reads. The account lane has no
+    /// such read and does not refuse a symlinked slot; `unlink_durable_at` is `unlinkat(.., 0)`,
+    /// which removes the symlink entry itself and never follows it to a target. That is safe for a
+    /// different reason, and it is not what this test proves.
+    #[test]
+    fn a_symlinked_credential_slot_still_refuses_inside_a_symlinked_family() {
+        let directory = temp();
+        let root = directory.path();
+        let data_dir = root.to_str().expect("utf8");
+        let elsewhere = root.join("relocated");
+        std::fs::create_dir_all(elsewhere.join(CREDENTIAL_VAULT)).expect("relocated vault");
+        std::os::unix::fs::symlink(
+            elsewhere.join(CREDENTIAL_VAULT),
+            root.join(CREDENTIAL_VAULT),
+        )
+        .expect("vault symlink");
+        let account = live_account(ALPHA);
+        seed_account(data_dir, ALPHA, &account);
+        seed_credential(data_dir, "alpha-legacy-slot", ALPHA, ALPHA_TOKEN);
+        // A slot that is a SYMLINK to the real credential record.
+        std::os::unix::fs::symlink(
+            elsewhere
+                .join(CREDENTIAL_VAULT)
+                .join("alpha-legacy-slot.json"),
+            elsewhere
+                .join(CREDENTIAL_VAULT)
+                .join(format!("{ALPHA}.json")),
+        )
+        .expect("slot symlink");
+
+        let (status, body) = delete_storage_backend_account(data_dir, ALPHA);
+
+        assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(
+            body["error"]["code"],
+            json!("storage_backend_credential_slot_unreadable")
+        );
+        assert_eq!(body["credentials_revoked"], json!(0));
+        assert!(load_account(data_dir, ALPHA).is_some(), "account remains");
+        assert_eq!(
+            live_bearer(data_dir, &account).as_deref(),
+            Some(ALPHA_TOKEN)
+        );
+    }
+
+    // ── Remaining refusal codes ──────────────────────────────────────────────────────────────
+
+    /// S3. A record that resolves by ref but carries no account_id names no deletion target, so it
+    /// refuses rather than unlinking a guessed one — `safe("")` would have targeted `.json`.
+    #[test]
+    fn a_record_with_no_account_id_refuses_rather_than_deleting_a_guessed_target() {
+        let directory = temp();
+        let data_dir = directory.path().to_str().expect("utf8");
+        let anonymous = json!({
+            "schema_version": "ioi.hypervisor.storage-backend-account.v1",
+            "account_ref": "storage-backend://sba_anonymous",
+            "kind": "ipfs",
+            "status": "verified",
+        });
+        seed_account(data_dir, "anonymous", &anonymous);
+        std::fs::write(directory.path().join(ACCOUNT_KIND).join(".json"), b"decoy")
+            .expect("decoy written");
+
+        let (status, body) =
+            delete_storage_backend_account(data_dir, "storage-backend://sba_anonymous");
+
+        assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(
+            body["error"]["code"],
+            json!("storage_backend_account_unidentified")
+        );
+        assert_eq!(body["credential_revocation"], json!("none"));
+        assert_eq!(body["credentials_revoked"], json!(0));
+        // Nothing was unlinked — including the file `safe("")` would have named.
+        assert!(load_account(data_dir, "storage-backend://sba_anonymous").is_some());
+        assert_eq!(
+            std::fs::read(directory.path().join(ACCOUNT_KIND).join(".json")).expect("decoy"),
+            b"decoy"
+        );
+    }
+
+    /// S3, the enumerated-noncoverage pin. `storage_backend_account_family_unpinnable` is
+    /// UNREACHABLE, and this proves the reason rather than asserting it in a comment: any account
+    /// family state that stops `open_record_family` also stops `read_record_dir`, so `load_account`
+    /// finds nothing and the request answers the preserved not-found response long before that
+    /// refusal could be built. If a future change makes the lane reachable, this test fails and the
+    /// coverage lists must be revisited.
+    #[test]
+    fn an_unopenable_account_family_answers_not_found_rather_than_reaching_its_refusal() {
+        let directory = temp();
+        let data_dir = directory.path().to_str().expect("utf8");
+        std::fs::write(directory.path().join(ACCOUNT_KIND), b"not a directory")
+            .expect("family shadow");
+
+        let (status, body) = delete_storage_backend_account(data_dir, ALPHA);
+
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(
+            body,
+            json!({ "ok": false, "reason": "no such storage backend" })
+        );
     }
 }
 

@@ -10,14 +10,25 @@
 // unauthenticated when exposed, posture-blocked rollout decisions are receipted into the
 // Work Ledger, and Governance/Operations/New-Session surfaces state the posture honestly.
 // Exposure is simulated with x-forwarded-host (the daemon's own detection lane).
-// Usage: node apps/hypervisor/scripts/verify-hypervisor-auth-gated-rollout-posture.mjs
+// GOV-ATTR-1: the gate ApprovalRequest this chain needs is DECIDED by the member session — the
+// request body names no reviewer, and the record must report that session's server-derived
+// `user://<principal_id>`. Canon: `identity-access-and-metering.md`.
+// Usage: IOI_HYPERVISOR_DAEMON_SESSION=<operator session token> \
+//          node apps/hypervisor/scripts/verify-hypervisor-auth-gated-rollout-posture.mjs
 
 import http from "node:http";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 
 const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
 const SHELL = (process.env.IOI_HYPERVISOR_APP_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
 const EXPOSED = { "x-forwarded-host": "hv.example.com" };
+// An authenticated operator session; the existing external-daemon credential convention from
+// `scripts/smoke-product-surfaces.mjs`. Needed because provisioning a principal is org-admin
+// governed even on loopback — there is no anonymous fixture shortcut, and inventing one is exactly
+// the self-vouching this cut removes.
+const OPERATOR_SESSION = (process.env.IOI_HYPERVISOR_DAEMON_SESSION || "").trim();
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
@@ -45,23 +56,86 @@ function jd(method, url, body, headers) {
     req.end();
   });
 }
+// ── Static self-check: no anonymous enforcement-mode mutation may re-enter this file ────────────
+//
+// Setting the daemon's enforcement mode is org-admin gated. Sent anonymously it is a 401 no-op, and
+// a no-op is invisible at runtime: the posture simply stays put, so the "exposed_untrusted" block
+// would keep passing while measuring local_development, and the restore path would keep "succeeding"
+// while leaving authentication disabled. There is no observation point that catches that from the
+// outside — which is exactly why the guard reads this file's OWN source instead.
+//
+// Each reference is expanded to its ENCLOSING call and deduplicated by source offset, so a path
+// named twice inside one call (the recovery fetch and its operator-facing error message) counts
+// once, and a fixed character window can never smear a nearby mutation onto a neighbouring read.
+const SOURCE = readFileSync(fileURLToPath(import.meta.url), "utf8");
+function enclosingCall(source, at) {
+  const open = Math.max(source.lastIndexOf("jd(", at), source.lastIndexOf("fetch(", at));
+  if (open < 0) return { start: -1, text: "" };
+  let depth = 0;
+  for (let i = source.indexOf("(", open); i >= 0 && i < source.length; i++) {
+    if (source[i] === "(") depth++;
+    else if (source[i] === ")" && --depth === 0) return { start: open, text: source.slice(open, i + 1) };
+  }
+  return { start: open, text: source.slice(open) };
+}
+const AUTH_POLICY_CALLS = [...new Map(
+  [...SOURCE.matchAll(/\/v1\/hypervisor\/auth\/policy/g)]
+    .map((m) => enclosingCall(SOURCE, m.index))
+    .filter((call) => call.start >= 0)
+    .map((call) => [call.start, call.text]),
+).values()];
+// Mutations only — reads are ungated and deliberately stay anonymous so the posture they report is
+// the posture an unauthenticated caller sees.
+const AUTH_POLICY_MUTATIONS = AUTH_POLICY_CALLS.filter((text) => /"PUT"|method:\s*"PUT"/.test(text));
+const AUTHORIZED_MUTATIONS = AUTH_POLICY_MUTATIONS.filter((text) => /OPERATOR/.test(text));
+// The count is pinned, not merely compared: a NEW mutation site has to be added deliberately and
+// re-counted here, so growth cannot slip in unexamined, and an empty scan cannot pass vacuously.
+const EXPECTED_POLICY_MUTATIONS = 3;
+
 const BASE = "ioi-agent-policy://pol_fast_local";
 const preview = async (extra, headers) => jd("POST", "/v1/goal-orchestration/ioi-agent/launch-preview", {
   goal: "posture probe for rollout trust", strategy: "direct", policy_ref: BASE, ...extra,
 }, headers);
 
 async function run() {
+  // Runs FIRST and needs no daemon: if a policy mutation ever loses its operator authorization, the
+  // failure must be named here rather than dissolving into a silently unchanged posture downstream.
+  ok("every enforcement-mode mutation in this verifier carries the operator authorization (static self-check)",
+    AUTH_POLICY_MUTATIONS.length === EXPECTED_POLICY_MUTATIONS && AUTHORIZED_MUTATIONS.length === AUTH_POLICY_MUTATIONS.length,
+    `${AUTH_POLICY_MUTATIONS.length}/${EXPECTED_POLICY_MUTATIONS} mutation sites found · ${AUTHORIZED_MUTATIONS.length} carry operator authority`);
+
   const tag = Date.now().toString(16);
 
   // ── Fixtures (built in local posture): member + outsider principals, project, cohort, variant ──
+  // Provisioning a principal is org-admin governed EVEN ON LOOPBACK, so the fixtures are created
+  // through a real operator session (IOI_HYPERVISOR_DAEMON_SESSION — the same external-daemon
+  // credential `scripts/smoke-product-surfaces.mjs` already requires), then each principal logs in
+  // for itself through the public login endpoint.
+  if (!OPERATOR_SESSION) throw new Error("identity fixtures unavailable: set IOI_HYPERVISOR_DAEMON_SESSION to an authenticated operator session token (provisioning a principal is org-admin governed even on loopback)");
+  const OPERATOR = { authorization: `Bearer ${OPERATOR_SESSION}` };
   const memberId = `usr_member${tag}`;
   const outsiderId = `usr_outsider${tag}`;
-  await jd("POST", "/v1/hypervisor/principals", { email: `member-${tag}@local`, password: `pw-${tag}`, principal_id: memberId });
-  await jd("POST", "/v1/hypervisor/principals", { email: `outsider-${tag}@local`, password: `pw-${tag}`, principal_id: outsiderId });
-  const memberTok = (await jd("POST", "/v1/hypervisor/auth/login", { email: `member-${tag}@local`, password: `pw-${tag}` })).j.session_token || "";
-  const outsiderTok = (await jd("POST", "/v1/hypervisor/auth/login", { email: `outsider-${tag}@local`, password: `pw-${tag}` })).j.session_token || "";
+  const memberCreate = await jd("POST", "/v1/hypervisor/principals", { email: `member-${tag}@local`, password: `member-${tag}-pass`, principal_id: memberId }, OPERATOR);
+  await jd("POST", "/v1/hypervisor/principals", { email: `outsider-${tag}@local`, password: `outsider-${tag}-pass`, principal_id: outsiderId }, OPERATOR);
+  const memberLogin = (await jd("POST", "/v1/hypervisor/auth/login", { email: `member-${tag}@local`, password: `member-${tag}-pass` })).j || {};
+  const outsiderLogin = (await jd("POST", "/v1/hypervisor/auth/login", { email: `outsider-${tag}@local`, password: `outsider-${tag}-pass` })).j || {};
+  const memberTok = memberLogin.session_token || "";
+  const outsiderTok = outsiderLogin.session_token || "";
   const MEMBER = { authorization: `Bearer ${memberTok}` };
   const OUTSIDER = { authorization: `Bearer ${outsiderTok}` };
+  // GOV-ATTR-1 — the member session is also the identity that DECIDES the governance approval this
+  // fixture chain needs. Canon (`identity-access-and-metering.md`): request bodies never select the
+  // acting principal, so the transition below names no reviewer and the daemon must attribute it to
+  // the server-derived ref of this session. `whoami` is asked WHO that session is, so the expected
+  // reviewer ref is the daemon's own answer rather than a value assembled here. Fail outright
+  // rather than let an unadmitted fixture turn the decision into an anonymous one that proves
+  // nothing.
+  const memberWho = memberTok ? (await jd("GET", "/v1/hypervisor/auth/whoami", undefined, MEMBER)).j || {} : {};
+  const memberPrincipalId = memberWho.authenticated === true ? String(memberWho.principal?.principal_id || "") : "";
+  const MEMBER_REVIEWER_REF = `user://${memberPrincipalId}`;
+  if (!memberPrincipalId || !outsiderTok) {
+    throw new Error(`identity fixtures NOT admitted (member create ${memberCreate.status}, member whoami ${JSON.stringify(memberWho).slice(0, 200)}, outsider token ${outsiderTok ? "present" : "absent"}) — the posture walk cannot cross the real identity seam`);
+  }
   const cohort = (await jd("POST", "/v1/hypervisor/governance/cohorts", {
     display_name: `Posture team ${tag}`, scope: "personal", member_refs: [`principal://${memberId}`],
   })).j?.cohort || {};
@@ -73,7 +147,12 @@ async function run() {
   await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${prop.improvement_id}/simulate`, { save: true });
   await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${prop.improvement_id}/approve`);
   const appr = (await jd("POST", "/v1/hypervisor/governance/approval-requests", { subject_ref: prop.proposal_ref, request_kind: "improvement_apply", reason: `vfyauth-${tag}` })).j?.approval_request || {};
-  await jd("PATCH", `/v1/hypervisor/governance/approval-requests/${appr.id}`, { transition: "approve", reviewer_ref: "principal://verifier" });
+  // The approval is DECIDED by the member session — no reviewer named in the body (GOV-ATTR-1).
+  await jd("PATCH", `/v1/hypervisor/governance/approval-requests/${appr.id}`, { transition: "approve" }, MEMBER);
+  const apprDecided = (await jd("GET", `/v1/hypervisor/governance/approval-requests/${appr.id}`)).j?.approval_request || {};
+  ok("the gate approval is attributed to the SERVER-DERIVED principal of the deciding session",
+    apprDecided.status === "approved" && apprDecided.reviewer_ref === MEMBER_REVIEWER_REF,
+    `reviewer ${apprDecided.reviewer_ref} · expected ${MEMBER_REVIEWER_REF}`);
   const rel = (await jd("POST", "/v1/hypervisor/governance/release-controls", { release_target_ref: prop.proposal_ref, rollout_mode: "cohort", cohort_refs: [cohort.ref], reason: `vfyauth-${tag}` })).j?.release_control || {};
   await jd("PATCH", `/v1/hypervisor/governance/release-controls/${rel.id}`, { transition: "open" });
   await jd("PATCH", `/v1/hypervisor/intelligence/improvement-proposals/${prop.improvement_id}`, { approval_request_ref: appr.ref, release_control_ref: rel.ref });
@@ -123,7 +202,14 @@ async function run() {
     && (managedOverride.policy_rollout_skipped || []).some((x) => x.variant_policy_ref === variantRef && x.reason_code === "rollout_explicit_override_disallowed"));
 
   // ── exposed_untrusted (enforcement explicitly off while exposed) ──
-  await jd("PUT", "/v1/hypervisor/auth/policy", { mode: "never" });
+  // Setting the enforcement mode is an org-admin-gated MUTATION, so it goes out as the operator.
+  // Unauthenticated it is a 401 no-op: the posture never changes, every assertion below then
+  // measures local_development while claiming to measure exposed_untrusted, and the verifier
+  // reports a pass for a world it never entered.
+  const untrustedSet = await jd("PUT", "/v1/hypervisor/auth/policy", { mode: "never" }, OPERATOR);
+  ok("operator authority actually set the enforcement mode to never (posture change is real)",
+    untrustedSet.status === 200 && untrustedSet.j?.policy?.mode === "never",
+    `status ${untrustedSet.status} · mode ${untrustedSet.j?.policy?.mode}`);
   try {
     const untrusted = (await preview({}, EXPOSED)).j;
     ok("exposed_untrusted posture is declared with an honest warning",
@@ -149,7 +235,10 @@ async function run() {
       && enforcement.deployment_posture === "exposed_untrusted"
       && (enforcement.blocked || []).some((x) => x.reason_code === "rollout_explicit_override_disallowed"));
   } finally {
-    await jd("PUT", "/v1/hypervisor/auth/policy", { mode: "auto" });
+    // Restoring the posture is the same gated mutation as setting it. Anonymous, this leaves the
+    // deployment enforcing `never` after the run — the verifier would have disabled authentication
+    // on the daemon it was asked to prove enforces it.
+    await jd("PUT", "/v1/hypervisor/auth/policy", { mode: "auto" }, OPERATOR);
   }
   const restored = (await jd("GET", "/v1/hypervisor/auth/policy")).j || {};
   ok("auth mode restored to auto (local posture back)", restored.policy?.mode === "auto" && restored.deployment_auth_posture === "local_development");
@@ -195,8 +284,8 @@ async function run() {
   await jd("DELETE", `/v1/hypervisor/governance/approval-requests/${appr.id}`);
   await jd("DELETE", `/v1/hypervisor/governance/release-controls/${rel.id}`);
   await jd("DELETE", `/v1/hypervisor/governance/cohorts/${cohort.id}`);
-  await jd("DELETE", `/v1/hypervisor/principals/${memberId}`);
-  await jd("DELETE", `/v1/hypervisor/principals/${outsiderId}`);
+  await jd("DELETE", `/v1/hypervisor/principals/${memberId}`, undefined, OPERATOR);
+  await jd("DELETE", `/v1/hypervisor/principals/${outsiderId}`, undefined, OPERATOR);
   const finalPol = (await jd("GET", "/v1/hypervisor/auth/policy")).j || {};
   ok("fixtures cleaned + local posture intact", finalPol.deployment_auth_posture === "local_development");
 }
@@ -208,7 +297,21 @@ run().then(() => {
   console.log(`auth-gated rollout posture readiness: ${fail ? "FAIL" : "OK"}`);
   process.exit(fail ? 1 : 0);
 }).catch(async (e) => {
-  await fetch(`${DAEMON}/v1/hypervisor/auth/policy`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ mode: "auto" }) }).catch(() => {});
+  // Crash recovery restores the enforcement mode, which is the SAME org-admin-gated mutation as
+  // setting it — the operator authorization is not optional here just because the run is failing.
+  // Anonymous, this swallowed a 401 and left the daemon enforcing `never`: the one path that runs
+  // precisely when something already went wrong was the one that could not put the posture back.
+  // The outcome is reported rather than discarded, because a restore that did not land is a
+  // standing posture change on the deployment and the operator has to know to undo it by hand.
+  const restored = await fetch(`${DAEMON}/v1/hypervisor/auth/policy`, {
+    method: "PUT",
+    headers: { "content-type": "application/json", ...(OPERATOR_SESSION ? { authorization: `Bearer ${OPERATOR_SESSION}` } : {}) },
+    body: JSON.stringify({ mode: "auto" }),
+  }).then((r) => r.ok).catch(() => false);
+  if (!restored) console.error(`POSTURE NOT RESTORED — the daemon may still be enforcing mode 'never'. Re-send PUT /v1/hypervisor/auth/policy {"mode":"auto"} with an operator session (IOI_HYPERVISOR_DAEMON_SESSION).`);
+  // Print what was decided before the crash. The static self-check runs first and needs no daemon,
+  // so discarding the results here would hide the one assertion that still had an answer.
+  for (const r of results) console.log(`  ${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? `  (${r.detail})` : ""}`);
   console.error("verifier crashed:", e);
   process.exit(1);
 });
