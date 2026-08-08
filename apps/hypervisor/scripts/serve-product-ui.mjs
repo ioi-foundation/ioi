@@ -5931,8 +5931,11 @@ const govDform = (fam, id) => `<form class="inline" method="post" action="/__ioi
 const govRefs = (arr) => (arr && arr.length) ? arr.map((r) => `<code>${CX_ESC(r)}</code>`).join(" ") : "—";
 function govApprovalCard(a) {
   const id = a.id || ""; const stp = a.status === "approved" ? "ok" : a.status === "pending" ? "warn" : "muted";
+  // No reviewer input (P-IDENT-1A): attribution belongs to the authenticated caller the daemon
+  // adjudicates, not to a free-text box any poster could fill with any name. The Reviewer row
+  // below still displays it, projected from the daemon record.
   const actions = a.status === "pending"
-    ? govTform("approvals", id, "approve", "Approve", "", `<input name="reviewer_ref" placeholder="reviewer" style="width:120px;padding:6px 8px;border-radius:8px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit;margin-right:6px">`) + " " + govTform("approvals", id, "reject", "Reject", "ghost")
+    ? govTform("approvals", id, "approve", "Approve", "") + " " + govTform("approvals", id, "reject", "Reject", "ghost")
     : a.status === "approved" ? govTform("approvals", id, "revoke", "Revoke", "ghost") : "";
   return `<div class="card" style="display:block"><div class="row" style="justify-content:space-between;margin:0 0 8px"><div><b>${CX_ESC(a.request_kind || "approval")}</b> <span class="pill ${stp}">${CX_ESC(a.status || "")}</span> <code>${CX_ESC(id)}</code></div>${govDform("approvals", id)}</div>
     <dl class="wlgrid"><dt class="wlk">Target</dt><dd class="wlv">${CX_ESC(a.subject_ref || "—")}</dd><dt class="wlk">Reason</dt><dd class="wlv">${CX_ESC(a.reason || "—")}</dd><dt class="wlk">Reviewer</dt><dd class="wlv">${CX_ESC(a.reviewer_ref || "—")}${a.decided_at ? " · " + CX_ESC(a.decided_at) : ""}</dd><dt class="wlk">Authority refs</dt><dd class="wlv">${govRefs(a.required_authority_refs)}</dd></dl>
@@ -6023,8 +6026,10 @@ function govApprovalsQueue(records) {
     if (!wc && !ar) return `<span class="sub" style="margin:0">none declared</span>`;
     return `${wc ? `<span class="pill warn">${wc} call${wc > 1 ? "s" : ""}</span>` : ""} ${ar ? `<span class="pill muted">${ar} authorit${ar > 1 ? "ies" : "y"}</span>` : ""}`;
   };
+  // No reviewer input (P-IDENT-1A) — see govApprovalCard. The drawer's Decision block still shows
+  // the Reviewer the daemon recorded.
   const decide = (a) => a.status === "pending"
-    ? govTform("approvals", a.id, "approve", "Approve", "", `<input name="reviewer_ref" placeholder="reviewer" style="width:96px;padding:5px 8px;border-radius:8px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit;font-size:11.5px;margin-right:4px">`) + " " + govTform("approvals", a.id, "reject", "Reject", "ghost")
+    ? govTform("approvals", a.id, "approve", "Approve", "") + " " + govTform("approvals", a.id, "reject", "Reject", "ghost")
     : a.status === "approved" ? govTform("approvals", a.id, "revoke", "Revoke", "ghost") : `<span class="sub" style="margin:0">terminal</span>`;
   const rows = records.map((a, i) => `<tr class="wlrow" data-aq="${CX_ESC(a.status || "")}" data-i="${i}" onclick="aqOpen(${i})" style="${a.status !== "pending" ? "display:none" : ""}">
       <td><b>${CX_ESC(a.request_kind || "approval")}</b><div style="color:#878a93;font-size:11px;margin-top:1px">${CX_ESC(String(a.reason || "").slice(0, 64) || "no reason recorded")} · <code style="font-size:10px">${CX_ESC(a.id || "")}</code></div></td>
@@ -9541,7 +9546,11 @@ async function handleEstateRequest(req, res, body) {
       if (govAct && req.method === "POST") {
         const [, family, gid, transition] = govAct;
         const path = family === "approvals" ? "approval-requests" : "release-controls";
-        const r = await daemonFetch(`/v1/hypervisor/governance/${path}/${encodeURIComponent(gid)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ transition, reviewer_ref: "principal://operator" }) }).catch(() => null);
+        // The body is the transition and nothing else (P-IDENT-1A). This used to assert
+        // `reviewer_ref: "principal://operator"` — a constant standing in for whoever happened to
+        // be clicking, which attributed every Studio decision to a principal nobody authenticated.
+        // `daemonFetch` already carries the real caller's envelope; the daemon attributes from that.
+        const r = await daemonFetch(`/v1/hypervisor/governance/${path}/${encodeURIComponent(gid)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ transition }) }).catch(() => null);
         const j = r ? await r.json().catch(() => ({})) : {};
         if (!r || j.ok === false) {
           res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
@@ -10248,13 +10257,14 @@ async function handleEstateRequest(req, res, body) {
       const segs = pathname.slice("/__ioi/governance/".length).split("/");
       const fam = segs[0];
       const cfg = GOV_FAMS[fam];
-      // NONCLAIM (P-IDENT-1A) — this LEGACY monolithic governance lane is NOT covered by the
-      // Approvals identity fix. It still accepts a client-typed `reviewer_ref` below and the
-      // agent-studio variant still hardcodes `principal://operator`, so attribution here remains
-      // self-vouching. Its daemon calls do carry the caller's envelope (they use `daemonFetch`),
-      // but nothing stops the body from naming a different reviewer. Closing it is DEF-IDENT-1 /
-      // the governance-family extraction, not this packet: only the extracted Approvals surface's
-      // action lane is claimed.
+      // IDENTITY (P-IDENT-1A) — this LEGACY monolithic governance lane authors no reviewer. A
+      // posted `reviewer_ref` is not read into any transition payload here, and the surfaces that
+      // feed this route render no reviewer input, so the transition body carries the decision only.
+      // Every call below goes through `daemonFetch`, which builds the caller's bounded identity
+      // envelope from the ambient request, so the daemon attributes the decision to the caller it
+      // authenticated. NONCLAIM: this closes AUTHORSHIP, not enforcement — these routes are still
+      // the flat pre-extraction handlers with no action-descriptor contract, no declared receipt
+      // check, and no confirmation posture. That is the governance-family extraction's job.
       if (cfg && req.method === "POST") {
         const api = `/v1/hypervisor/governance/${cfg.api}`;
         const p = new URLSearchParams(body.toString());
@@ -10282,8 +10292,9 @@ async function handleEstateRequest(req, res, body) {
         const id = decodeURIComponent(segs[1]);
         const action = segs[2] || "";
         if (action === "transition") {
+          // A posted `reviewer_ref` is NEVER read into the patch (P-IDENT-1A): identity is not a
+          // form field. `trip_reason` stays — it is kill-switch cause text, not an identity claim.
           const patch = { transition: (p.get("transition") || "").trim() };
-          const rv = (p.get("reviewer_ref") || "").trim(); if (rv) patch.reviewer_ref = rv;
           const tr = (p.get("trip_reason") || "").trim(); if (tr) patch.trip_reason = tr;
           const r = await daemonFetch(`${api}/${encodeURIComponent(id)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(patch) }).then((x) => x.json()).catch(() => ({}));
           if (r && r.ok === false && r.error) { res.writeHead(200, HTMLH); res.end(automationsShell("Governance", `<div class="empty">Transition failed: ${CX_ESC(r.error.message || "invalid")}</div><p><a href="${CX_ESC(back)}">← back</a></p>`)); return; }
