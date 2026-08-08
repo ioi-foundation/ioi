@@ -20,10 +20,14 @@
 //     + region geometry, both sides valid.
 //   - DAEMON TRUTH: a real fixture ApprovalRequest renders; the Quick-filters counts match the daemon.
 //   - ACTIONS WORK: the on-select detail exposes the real transition; approving drives pending→approved
-//     and returns to the port.
+//     and returns to the port — as a REAL authenticated principal (GOV-ATTR-1): the form names no
+//     reviewer and carries the product shell's own `ioi_session` cookie, so the decided record must
+//     report the server-derived `user://<principal_id>`. Canon: request bodies never select the
+//     acting principal (`identity-access-and-metering.md`).
 //   - NAMED GAPS + DISCOVERABILITY: unwired facets disabled in place; Governance links the inbox; clean.
 //
-// Usage: node apps/hypervisor/scripts/verify-hypervisor-app-parity-approvals.mjs
+// Usage: IOI_HYPERVISOR_DAEMON_SESSION=<operator session token> \
+//          node apps/hypervisor/scripts/verify-hypervisor-app-parity-approvals.mjs
 // Exit 2 = BLOCKED.
 
 import { spawnSync } from "node:child_process";
@@ -38,9 +42,36 @@ const appRoot = path.resolve(here, "..");
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
-const jd = async (method, p, body) => { const r = await fetch(`${DAEMON}${p}`, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, j: await r.json().catch(() => ({})) }; };
+const jd = async (method, p, body, headers) => { const r = await fetch(`${DAEMON}${p}`, { method, headers: { "content-type": "application/json", ...(headers || {}) }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, j: await r.json().catch(() => ({})) }; };
 // Retry once: a long harness spawn can leave an idle keep-alive socket that resets on the next fetch.
 const page = async (url) => { for (let i = 0; i < 2; i++) { try { const r = await fetch(url); return { status: r.status, text: await r.text() }; } catch { if (i) return { status: 0, text: "" }; } } };
+// Admit the principal whose session approves through the ported inbox. Its server-derived ref is
+// the only reviewer this verifier may assert; naming one in the form would rebuild the forgery
+// GOV-ATTR-1 closed. Admission ladder, existing endpoints only —
+//   1. an operator session from IOI_HYPERVISOR_DAEMON_SESSION (the same external-daemon credential
+//      `scripts/smoke-product-surfaces.mjs` already requires); principal creation is org-admin
+//      governed EVEN ON LOOPBACK, so there is no anonymous fixture shortcut to reach for;
+//   2. that operator provisions a dedicated reviewer principal, which logs in for itself;
+//   3. `whoami` reports who that session IS — the expected reviewer ref is the daemon's own answer.
+// Admission is load-bearing: an unadmitted fixture would approve anonymously and prove nothing
+// about the identity seam, so it fails the verifier outright rather than degrading into a skip.
+const OPERATOR_SESSION = (process.env.IOI_HYPERVISOR_DAEMON_SESSION || "").trim();
+async function admitReviewer(tag) {
+  if (!OPERATOR_SESSION) throw new Error("reviewer identity fixture unavailable: set IOI_HYPERVISOR_DAEMON_SESSION to an authenticated operator session token (provisioning a principal is org-admin governed even on loopback)");
+  const operator = { authorization: `Bearer ${OPERATOR_SESSION}` };
+  const principalId = `usr_vfyapp${tag}`;
+  const email = `vfyapp-${tag}@local`;
+  const password = `vfyapp-${tag}-reviewer-pass`;
+  const created = await jd("POST", "/v1/hypervisor/principals", { email, password, principal_id: principalId }, operator);
+  const login = (await jd("POST", "/v1/hypervisor/auth/login", { email, password })).j || {};
+  const token = login.session_token || "";
+  const who = token ? (await jd("GET", "/v1/hypervisor/auth/whoami", undefined, { authorization: `Bearer ${token}` })).j || {} : {};
+  const derived = who.authenticated === true ? String(who.principal?.principal_id || "") : "";
+  if (!derived) throw new Error(`reviewer identity fixture NOT admitted (create ${created.status}, whoami ${JSON.stringify(who).slice(0, 200)}) — the approve walk cannot cross the real identity seam`);
+  // The same-origin session cookie the product shell mints at login; serve forwards it to the
+  // daemon inside its bounded identity envelope.
+  return { principalId: derived, ref: `user://${derived}`, cookie: `ioi_session=${token}`, operator };
+}
 
 async function run() {
   const up = await fetch(`${DAEMON}/v1/hypervisor/governance/approval-requests`).then((r) => r.ok).catch(() => false);
@@ -61,7 +92,9 @@ async function run() {
   const ref = await page(`${SERVE}/__apps/approvals`);
   ok("reference /__apps/approvals boots the Approvals app (non-errored)", ref.status === 200 && /Approvals/i.test(ref.text) && !/an error occurred|something went wrong|failed to load/i.test(ref.text));
 
-  // Fixture: one real pending ApprovalRequest.
+  // Fixtures: one real pending ApprovalRequest + the real principal whose session decides it.
+  const reviewer = await admitReviewer(Date.now().toString(16));
+  ok("real principal + login session admitted as the deciding identity", !!reviewer.ref, reviewer.ref);
   const KIND = "app_parity_port";
   const created = await jd("POST", "/v1/hypervisor/governance/approval-requests", { subject_ref: "authority-action://app-parity-approvals-port-fixture", request_kind: KIND, reason: "app-parity approvals PORT fixture", required_authority_refs: ["authority-action://parity-a"], would_call: ["tool://parity-x", "tool://parity-y"] });
   const fix = created.j.approval_request;
@@ -99,11 +132,13 @@ async function run() {
   // 5. ACTIONS WORK — the on-select detail exposes the real transition; approving drives it + returns.
   const detail = await page(`${SERVE}/__ioi/governance/approvals?status=pending&req=${encodeURIComponent(fix.id)}`);
   ok("selecting a request opens the right detail (full subject + REAL approve transition form, return-aware)", /class="ap-detail"/.test(detail.text) && detail.text.includes("authority-action://app-parity-approvals-port-fixture") && new RegExp(`action="/__ioi/governance/approvals/${fix.id}/transition"`).test(detail.text) && /name="transition" value="approve"/.test(detail.text) && detail.text.includes('name="return"'));
-  const form = new URLSearchParams({ transition: "approve", reviewer_ref: "agent://verifier", return: "/__ioi/governance/approvals" });
-  const act = await fetch(`${SERVE}/__ioi/governance/approvals/${encodeURIComponent(fix.id)}/transition`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: form.toString(), redirect: "manual" }).catch(() => null);
+  const form = new URLSearchParams({ transition: "approve", return: "/__ioi/governance/approvals" });
+  const act = await fetch(`${SERVE}/__ioi/governance/approvals/${encodeURIComponent(fix.id)}/transition`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded", cookie: reviewer.cookie }, body: form.toString(), redirect: "manual" }).catch(() => null);
   const loc = act ? (act.headers.get("location") || "") : "";
   const after = (await jd("GET", `/v1/hypervisor/governance/approval-requests/${fix.id}`)).j.approval_request;
   ok("Approve through the ported inbox drives the real daemon transition (pending → approved) and returns to the port", act && (act.status === 302 || act.status === 303) && loc.includes("/__ioi/governance/approvals") && after?.status === "approved", `redirect ${loc} · now ${after?.status}`);
+  // The decision is attributed to WHO DECIDED — the principal the session resolved to, server-side.
+  ok("the decided record names the SERVER-DERIVED reviewer of the authenticated session (no form-chosen identity)", after?.reviewer_ref === reviewer.ref, `reviewer ${after?.reviewer_ref} · expected ${reviewer.ref}`);
   // SECURITY: a malicious `return` must NOT reflect unescaped into the failure-render page (no XSS). A
   // transition on a bogus id fails → the failure page echoes the (escaped) back link.
   const xss = await fetch(`${SERVE}/__ioi/governance/approvals/${encodeURIComponent("appr_does_not_exist")}/transition`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ transition: "approve", return: `/__ioi/x"><script>alert(1)</script>` }).toString(), redirect: "manual" }).then(async (r) => ({ status: r.status, text: await r.text().catch(() => "") })).catch(() => ({ status: 0, text: "" }));
@@ -138,6 +173,7 @@ async function run() {
 
   // 9. Cleanup.
   if (fix?.id) await jd("DELETE", `/v1/hypervisor/governance/approval-requests/${fix.id}`);
+  await jd("DELETE", `/v1/hypervisor/principals/${encodeURIComponent(reviewer.principalId)}`, undefined, reviewer.operator);
 }
 
 run().then(() => {

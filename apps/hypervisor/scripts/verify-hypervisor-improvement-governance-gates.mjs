@@ -9,7 +9,11 @@
 // their existing behavior, receipts + Work Ledger cite the full governance chain, and the
 // Agent Studio panel walks the whole gate (posture chip, disabled Apply, one-click
 // request/approve/release). Runs two REAL direct launches to seed replay subjects (≈30s).
-// Usage: node apps/hypervisor/scripts/verify-hypervisor-improvement-governance-gates.mjs
+// GOV-ATTR-1: the gate ApprovalRequest is DECIDED by a real authenticated principal — the request
+// body names no reviewer, and the record must report that session's server-derived
+// `user://<principal_id>`. Canon: `identity-access-and-metering.md`.
+// Usage: IOI_HYPERVISOR_DAEMON_SESSION=<operator session token> \
+//          node apps/hypervisor/scripts/verify-hypervisor-improvement-governance-gates.mjs
 
 import http from "node:http";
 import path from "node:path";
@@ -26,13 +30,13 @@ const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
 // node:http, not fetch: synchronous ioi-agent launches legitimately run longer than undici's
 // fixed 300s headers timeout under host load (the 600s driver budget) — goalrun convention.
-function jd(method, url, body) {
+function jd(method, url, body, headers) {
   const target = new URL(url.startsWith("http") ? url : `${DAEMON}${url}`);
   const payload = body ? JSON.stringify(body) : null;
   return new Promise((resolve, reject) => {
     const req = http.request(
       { hostname: target.hostname, port: target.port, path: target.pathname + target.search, method,
-        headers: { "content-type": "application/json", ...(payload ? { "content-length": Buffer.byteLength(payload) } : {}) } },
+        headers: { "content-type": "application/json", ...(headers || {}), ...(payload ? { "content-length": Buffer.byteLength(payload) } : {}) } },
       (res) => {
         let raw = "";
         res.on("data", (c) => { raw += c; });
@@ -47,6 +51,32 @@ function jd(method, url, body) {
     if (payload) req.write(payload);
     req.end();
   });
+}
+// An authenticated operator session; the existing external-daemon credential convention from
+// `scripts/smoke-product-surfaces.mjs`. Provisioning a principal is org-admin governed even on
+// loopback, so there is no anonymous fixture shortcut to reach for.
+const OPERATOR_SESSION = (process.env.IOI_HYPERVISOR_DAEMON_SESSION || "").trim();
+// GOV-ATTR-1 — a governance decision's reviewer is WHO DECIDED. Canon
+// (`identity-access-and-metering.md`): "Request bodies never select the acting principal." So the
+// gate approval below is approved BY a real principal: provisioned through the operator session,
+// logged in for itself, and asked via `whoami` who it is — the expected reviewer ref is the
+// daemon's own answer, never a value assembled here. Admission is load-bearing: an unadmitted
+// fixture would approve anonymously and prove nothing about the identity seam, so it fails the
+// verifier outright.
+async function admitReviewer(tag) {
+  if (!OPERATOR_SESSION) throw new Error("reviewer identity fixture unavailable: set IOI_HYPERVISOR_DAEMON_SESSION to an authenticated operator session token (provisioning a principal is org-admin governed even on loopback)");
+  const operator = { authorization: `Bearer ${OPERATOR_SESSION}` };
+  const principalId = `usr_vfygov${tag}`;
+  const email = `vfygov-${tag}@local`;
+  const password = `vfygov-${tag}-reviewer-pass`;
+  const created = await jd("POST", "/v1/hypervisor/principals", { email, password, principal_id: principalId }, operator);
+  const login = (await jd("POST", "/v1/hypervisor/auth/login", { email, password })).j || {};
+  const token = login.session_token || "";
+  const session = { authorization: `Bearer ${token}` };
+  const who = token ? (await jd("GET", "/v1/hypervisor/auth/whoami", undefined, session)).j || {} : {};
+  const derived = who.authenticated === true ? String(who.principal?.principal_id || "") : "";
+  if (!derived) throw new Error(`reviewer identity fixture NOT admitted (create ${created.status}, whoami ${JSON.stringify(who).slice(0, 200)}) — the gate approval cannot cross the real identity seam`);
+  return { principalId: derived, ref: `user://${derived}`, headers: session, operator };
 }
 const launch = async (goal) => {
   const a = await jd("POST", "/v1/goal-orchestration/ioi-agent/launch", { goal, strategy: "direct" });
@@ -66,6 +96,8 @@ const HIGH_IMPACT_SUGGESTED = {
 
 async function run() {
   const tag = Date.now().toString(16);
+  const reviewer = await admitReviewer(tag);
+  ok("real principal + login session admitted as the deciding identity", !!reviewer.ref, reviewer.ref);
   await jd("POST", "/v1/hypervisor/harness-profiles/hp_opencode/enable");
   const l1 = await launch(`vfygov${tag} exercise the governance gate once`);
   const l2 = await launch(`vfygov${tag} exercise the governance gate again`);
@@ -107,7 +139,12 @@ async function run() {
     bindPending.status === 200 && pendingBlocked.status === 409 && pendingBlocked.j?.error?.code === "approval_not_approved");
 
   // ── release_control_required → release_control_not_open (release may target the SIM report) ──
-  await jd("PATCH", `/v1/hypervisor/governance/approval-requests/${apprA.id}`, { transition: "approve", reviewer_ref: "principal://verifier" });
+  // The approval is DECIDED by the admitted reviewer session; the body names nobody (GOV-ATTR-1).
+  await jd("PATCH", `/v1/hypervisor/governance/approval-requests/${apprA.id}`, { transition: "approve" }, reviewer.headers);
+  const apprADecided = (await jd("GET", `/v1/hypervisor/governance/approval-requests/${apprA.id}`)).j?.approval_request || {};
+  ok("the gate approval is attributed to the SERVER-DERIVED principal of the deciding session",
+    apprADecided.status === "approved" && apprADecided.reviewer_ref === reviewer.ref,
+    `reviewer ${apprADecided.reviewer_ref} · expected ${reviewer.ref}`);
   const noRel = await apply(propA.improvement_id);
   ok("approved approval alone blocks: release_control_required", noRel.status === 409 && noRel.j?.error?.code === "release_control_required");
   const relA = (await jd("POST", "/v1/hypervisor/governance/release-controls", { release_target_ref: simRef, reason: `vfygov-${tag}` })).j?.release_control || {};
@@ -223,6 +260,7 @@ async function run() {
   for (const [family, id] of controls) {
     if (id) await jd("DELETE", `/v1/hypervisor/governance/${family}/${id}`);
   }
+  await jd("DELETE", `/v1/hypervisor/principals/${encodeURIComponent(reviewer.principalId)}`, undefined, reviewer.operator);
   await jd("POST", "/v1/hypervisor/harness-profiles/hp_opencode/disable");
   const fin = await jd("GET", "/v1/hypervisor/harness-profiles");
   ok("fixtures cleaned + drivers restored",
