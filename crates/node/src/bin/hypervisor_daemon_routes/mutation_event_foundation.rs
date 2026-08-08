@@ -247,6 +247,46 @@ pub(crate) fn read_owner_scoped_history(
         .map_err(MutationRefusal::Admission)
 }
 
+/// The operation a caller's key already admitted on ONE explicitly named stream, if any.
+///
+/// This is the [`prior_admission_for_key`] shape for callers that keep their objects on a legacy,
+/// content-addressed, or otherwise hand-derived stream tail rather than the generic
+/// `stream_tail(resource_kind, resource_ref)` — the Foundry factory being the standing example,
+/// whose tails are `hash_tail("recipe"|"dataset"|"program", ref)` so its list/inventory reads keep
+/// working. The caller has ALREADY authorized (existing stream) or bound (genesis) the `scope` it
+/// passes here, so this does the same scope-validated, pure history read the WriteCaller variant
+/// does and returns the FIRST entry admitted under `idempotency_key`.
+///
+/// A key admits at most once per stream — a second submission under it either replays or is refused
+/// — so the first match is the only match, exactly as the substrate's own whole-stream scan reads
+/// it. PURE READ: it binds no scope and admits nothing, so a probe on a path that then refuses
+/// leaves the substrate exactly as it found it. It does NOT replace the substrate's own key
+/// enforcement; it exists only so a caller can keep a plane-specific refusal CODE for the
+/// same-key/different-bytes case while inheriting one shared, scope-validated read.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn prior_admission_for_key_on_stream(
+    data_dir: &str,
+    identity: &RequestIdentity,
+    scope: &RequestResourceScope,
+    resource_kind: &str,
+    resource_ref: &str,
+    owner_namespace: &str,
+    stream_tail: &str,
+    idempotency_key: &str,
+) -> Result<Option<ExactProjection>, MutationRefusal> {
+    Ok(read_owner_scoped_history(
+        data_dir,
+        identity,
+        scope,
+        resource_kind,
+        resource_ref,
+        owner_namespace,
+        stream_tail,
+    )?
+    .into_iter()
+    .find(|entry| entry.operation.idem_key == idempotency_key))
+}
+
 /// Verify that a persisted checkpoint still names an exact retained event.
 /// A missing sequence or changed head is a typed resync requirement, never an
 /// empty successful delivery.
@@ -628,6 +668,90 @@ mod tests {
             admitted.projection.seq,
             &format!("sha256:{}", "0".repeat(64))
         ));
+        super::super::substrate_store::reset_handle_for_test();
+    }
+
+    #[test]
+    fn on_stream_probe_answers_only_this_key_on_the_named_tail_and_writes_nothing() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        super::super::substrate_store::reset_handle_for_test();
+        let identity = super::super::substrate_store::request_identity_for_test(
+            "user://one",
+            ["org://one".to_string()],
+        );
+        let scope = scope("user://one", "org://one");
+        let namespace = "mutation-foundation-on-stream-probe-test";
+        let payload = json!({"value": 1});
+        let admitted = admit_owner_scoped_mutation(
+            data_dir,
+            true,
+            request(
+                &identity,
+                &scope,
+                namespace,
+                &payload,
+                "on-stream-one",
+                None,
+            ),
+        )
+        .unwrap();
+
+        // The named tail ("object-1") is the legacy hand-derived tail the request() helper uses; a
+        // scope-validated read of it finds this caller's key.
+        let found = prior_admission_for_key_on_stream(
+            data_dir,
+            &identity,
+            &scope,
+            "test-object",
+            "test://object/1",
+            namespace,
+            "object-1",
+            "on-stream-one",
+        )
+        .unwrap()
+        .expect("this caller's key is admitted on the named stream");
+        assert_eq!(found.head, admitted.projection.head);
+        assert_eq!(found.operation.payload, payload);
+
+        // A different key on the same stream is not this caller's prior fact.
+        assert!(prior_admission_for_key_on_stream(
+            data_dir,
+            &identity,
+            &scope,
+            "test-object",
+            "test://object/1",
+            namespace,
+            "object-1",
+            "on-stream-two",
+        )
+        .unwrap()
+        .is_none());
+
+        // A resource kind that does not match the bound scope is a typed refusal, never a silent read
+        // of someone else's stream.
+        assert!(matches!(
+            prior_admission_for_key_on_stream(
+                data_dir,
+                &identity,
+                &scope,
+                "different-kind",
+                "test://object/1",
+                namespace,
+                "object-1",
+                "on-stream-one",
+            ),
+            Err(MutationRefusal::Scope(
+                RequestScopeRefusal::ResourceScopeRequired
+            ))
+        ));
+
+        // The probe left the stream exactly one event long: it admitted nothing.
+        let history = super::super::substrate_store::read_event_stream_history(
+            data_dir, namespace, "object-1",
+        )
+        .unwrap();
+        assert_eq!(history.len(), 1);
         super::super::substrate_store::reset_handle_for_test();
     }
 

@@ -202,26 +202,65 @@ fn require_nonempty(values: &[String], field: &str) -> Result<(), Reply> {
     }
 }
 
-fn append(
+/// Map a shared-boundary refusal onto this plane's existing reply vocabulary. Admission refusals go
+/// through the plane's own `admission_error` (409 head/same-key, 400 non-canonical, 503 otherwise —
+/// deliberately NOT the package plane's 502), and scope refusals through the plane's `scope_refusal`,
+/// so re-homing onto the shared admit changes no status code a caller already depends on.
+fn mutation_refusal(error: super::mutation_event_foundation::MutationRefusal) -> Reply {
+    use super::mutation_event_foundation::MutationRefusal;
+    match error {
+        MutationRefusal::Scope(error) => scope_refusal(error),
+        MutationRefusal::Admission(error) => admission_error(error),
+        error @ (MutationRefusal::IdempotencyKeyInvalid
+        | MutationRefusal::GenesisExpectedHeadPresent
+        | MutationRefusal::SuccessorExpectedHeadRequired) => {
+            bad(StatusCode::BAD_REQUEST, error.code(), error.message())
+        }
+        error @ MutationRefusal::RequestFingerprintFailed(_) => bad(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            error.code(),
+            error.message(),
+        ),
+    }
+}
+
+/// Admit one Foundry mutation through the shared owner-scoped boundary. `genesis` is expected-absent;
+/// a successor MUST carry the exact `expected_head`. The plane keeps its legacy hand-derived
+/// `stream_tail` (so list/inventory reads still resolve) while inheriting the substrate's single
+/// definition of request identity, idempotency, and durability confirmation.
+#[allow(clippy::too_many_arguments)]
+fn admit(
     data_dir: &str,
-    tail: &str,
+    genesis: bool,
+    identity: &super::substrate_store::RequestIdentity,
+    scope: &super::substrate_store::RequestResourceScope,
+    resource_kind: &str,
+    resource_ref: &str,
+    stream_tail: &str,
     op_kind: &str,
     expected_head: Option<&str>,
     payload: &Value,
+    recorded_at_ms: u64,
     idempotency_key: &str,
-) -> Result<(ExactProjection, bool), Reply> {
-    let admitted = super::substrate_store::admit_event_stream_operation(
+) -> Result<super::mutation_event_foundation::MutationCommit, Reply> {
+    super::mutation_event_foundation::admit_owner_scoped_mutation(
         data_dir,
-        NAMESPACE,
-        tail,
-        op_kind,
-        expected_head,
-        payload,
-        now_ms(),
-        idempotency_key,
+        genesis,
+        super::mutation_event_foundation::ScopedMutation {
+            identity,
+            scope,
+            resource_kind,
+            resource_ref,
+            owner_namespace: NAMESPACE,
+            stream_tail,
+            op_kind,
+            expected_head,
+            payload,
+            idempotency_key,
+            recorded_at_ms,
+        },
     )
-    .map_err(admission_error)?;
-    Ok((admitted.projection, admitted.replayed))
+    .map_err(mutation_refusal)
 }
 
 fn read_head(data_dir: &str, tail: &str) -> Result<ExactProjection, Reply> {
@@ -513,6 +552,26 @@ fn validate_recipe_request(request: &RecipeRevisionRequest) -> Result<(), Reply>
     Ok(())
 }
 
+/// The content commitment for a recipe revision: a JCS digest of the whole request with only the
+/// concurrency precondition (`expected_head`) and the retry key (`idempotency_key`) removed. Because
+/// it hashes EVERY remaining field, a same-key resubmission that changed any operator, ref, or seed
+/// yields a different hash, which is exactly what makes the prior-key probe's content-hash compare a
+/// complete request-identity check rather than a partial one.
+fn recipe_content_hash(request: &RecipeRevisionRequest) -> Result<String, Reply> {
+    let mut content = serde_json::to_value(request).unwrap_or(Value::Null);
+    if let Some(object) = content.as_object_mut() {
+        object.remove("expected_head");
+        object.remove("idempotency_key");
+    }
+    jcs_digest(&content).map_err(|error| {
+        bad(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "foundry_recipe_hash_failed",
+            error,
+        )
+    })
+}
+
 pub(crate) async fn handle_recipes_create(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
@@ -529,20 +588,9 @@ pub(crate) async fn handle_recipes_create(
     if let Err(reply) = validate_recipe_request(&request) {
         return reply;
     }
-    let mut content = serde_json::to_value(&request).unwrap_or(Value::Null);
-    if let Some(object) = content.as_object_mut() {
-        object.remove("expected_head");
-        object.remove("idempotency_key");
-    }
-    let content_hash = match jcs_digest(&content) {
+    let content_hash = match recipe_content_hash(&request) {
         Ok(hash) => hash,
-        Err(error) => {
-            return bad(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "foundry_recipe_hash_failed",
-                error,
-            )
-        }
+        Err(reply) => return reply,
     };
     let tail = hash_tail("recipe", &request.recipe_id);
     let current =
@@ -552,7 +600,10 @@ pub(crate) async fn handle_recipes_create(
         Ok(current) => current,
         Err(reply) => return reply,
     };
-    if let Some(existing) = &current {
+    // Capture the exact scope this handler already authorizes (existing stream) or binds (genesis).
+    // The prior-key probe and the admit both replay-check against THIS scope rather than re-reading
+    // one, so the idempotency answer and the write share a single scope proof.
+    let scope = if let Some(existing) = &current {
         let owner_ref = existing.operation.payload["owner_ref"]
             .as_str()
             .unwrap_or_default();
@@ -561,27 +612,64 @@ pub(crate) async fn handle_recipes_create(
                 super::substrate_store::RequestScopeRefusal::ResourceOwnerMismatch,
             );
         }
-        if let Err(reply) = authorize_scope(
+        match authorize_scope(
             &st.data_dir,
             &identity,
             RECIPE_SCOPE_KIND,
             &request.recipe_id,
             Some(owner_ref),
         ) {
-            return reply;
+            Ok(scope) => scope,
+            Err(reply) => return reply,
         }
-    } else if let Err(reply) = bind_scope(
+    } else {
+        match bind_scope(
+            &st.data_dir,
+            &identity,
+            RECIPE_SCOPE_KIND,
+            &request.recipe_id,
+            &request.owner_ref,
+            &request.idempotency_key,
+        ) {
+            Ok(scope) => scope,
+            Err(reply) => return reply,
+        }
+    };
+    recipes_create_core(
         &st.data_dir,
         &identity,
-        RECIPE_SCOPE_KIND,
-        &request.recipe_id,
-        &request.owner_ref,
-        &request.idempotency_key,
-    ) {
-        return reply;
-    }
+        &scope,
+        &request,
+        &content_hash,
+        &tail,
+        current,
+    )
+}
+
+/// Post-scope core of recipe-revision admission. Kept as a sync function taking an already-authorized
+/// scope so the idempotency arms — replay, same-key/different-bytes refusal, genesis/successor
+/// compare-and-swap — are exercisable without minting a real HTTP identity, while the handler above
+/// retains its identity and scope proofs.
+fn recipes_create_core(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    scope: &super::substrate_store::RequestResourceScope,
+    request: &RecipeRevisionRequest,
+    content_hash: &str,
+    tail: &str,
+    current: Option<ExactProjection>,
+) -> Reply {
     if current.is_some() {
-        match prior_idempotent_projection(&st.data_dir, &tail, &request.idempotency_key) {
+        match super::mutation_event_foundation::prior_admission_for_key_on_stream(
+            data_dir,
+            identity,
+            scope,
+            RECIPE_SCOPE_KIND,
+            &request.recipe_id,
+            NAMESPACE,
+            tail,
+            &request.idempotency_key,
+        ) {
             Ok(Some(prior))
                 if prior.operation.op_kind == "event_stream.foundry_recipe_revision_admitted"
                     && prior.operation.payload["recipe_id"] == request.recipe_id
@@ -603,7 +691,7 @@ pub(crate) async fn handle_recipes_create(
                 )
             }
             Ok(None) => {}
-            Err(reply) => return reply,
+            Err(refusal) => return mutation_refusal(refusal),
         }
     }
     let (revision, expected_head) = match current {
@@ -662,17 +750,25 @@ pub(crate) async fn handle_recipes_create(
         "content_hash":content_hash,
         "status":"ready",
     });
-    match append(
-        &st.data_dir,
-        &tail,
+    match admit(
+        data_dir,
+        expected_head.is_none(),
+        identity,
+        scope,
+        RECIPE_SCOPE_KIND,
+        &request.recipe_id,
+        tail,
         "event_stream.foundry_recipe_revision_admitted",
         expected_head.as_deref(),
         &payload,
+        now_ms(),
         &request.idempotency_key,
     ) {
-        Ok((exact, replayed)) => (
+        Ok(commit) => (
             StatusCode::CREATED,
-            Json(json!({"ok":true,"recipe":projection_value(&exact,Some(replayed))})),
+            Json(
+                json!({"ok":true,"recipe":projection_value(&commit.projection,Some(commit.replayed))}),
+            ),
         ),
         Err(reply) => reply,
     }
@@ -1069,7 +1165,7 @@ pub(crate) async fn handle_recipe_run(
     // the artifact for it. The ref is content-addressed, so the bytes are identical either way and
     // nothing is corrupted — but the refusal now costs no disk, and the effect follows the
     // authorization that permits it rather than preceding it.
-    if let Err(reply) = bind_scope(
+    let dataset_scope = match bind_scope(
         &st.data_dir,
         &identity,
         DATASET_SCOPE_KIND,
@@ -1077,8 +1173,9 @@ pub(crate) async fn handle_recipe_run(
         &recipe_scope.owner_ref,
         &request.idempotency_key,
     ) {
-        return reply;
-    }
+        Ok(scope) => scope,
+        Err(reply) => return reply,
+    };
     if let Err(error) = durable_write(
         &artifact_path(&st.data_dir, DATA_DIR, &content_hash),
         &bytes,
@@ -1089,17 +1186,25 @@ pub(crate) async fn handle_recipe_run(
             error.to_string(),
         );
     }
-    match append(
+    match admit(
         &st.data_dir,
+        true,
+        &identity,
+        &dataset_scope,
+        DATASET_SCOPE_KIND,
+        &snapshot_ref,
         &tail,
         "event_stream.foundry_dataset_materialized",
         None,
         &payload,
+        now_ms(),
         &request.idempotency_key,
     ) {
-        Ok((exact, replayed)) => (
+        Ok(commit) => (
             StatusCode::CREATED,
-            Json(json!({"ok":true,"dataset_snapshot":projection_value(&exact,Some(replayed))})),
+            Json(
+                json!({"ok":true,"dataset_snapshot":projection_value(&commit.projection,Some(commit.replayed))}),
+            ),
         ),
         Err(reply) => reply,
     }
@@ -1323,28 +1428,29 @@ pub(crate) async fn handle_program_create(
         "last_action_idempotency_key":request.idempotency_key,
     });
     let tail = hash_tail("program", &request.program_id);
-    match super::substrate_store::read_event_stream_operation(&st.data_dir, NAMESPACE, &tail) {
-        Ok(Some(current)) => {
-            let owner_ref = current.operation.payload["owner_ref"]
-                .as_str()
-                .unwrap_or_default();
-            if owner_ref != request.owner_ref {
-                return scope_refusal(
-                    super::substrate_store::RequestScopeRefusal::ResourceOwnerMismatch,
-                );
+    let program_scope =
+        match super::substrate_store::read_event_stream_operation(&st.data_dir, NAMESPACE, &tail) {
+            Ok(Some(current)) => {
+                let owner_ref = current.operation.payload["owner_ref"]
+                    .as_str()
+                    .unwrap_or_default();
+                if owner_ref != request.owner_ref {
+                    return scope_refusal(
+                        super::substrate_store::RequestScopeRefusal::ResourceOwnerMismatch,
+                    );
+                }
+                match authorize_scope(
+                    &st.data_dir,
+                    &identity,
+                    PROGRAM_SCOPE_KIND,
+                    &request.program_id,
+                    Some(owner_ref),
+                ) {
+                    Ok(scope) => scope,
+                    Err(reply) => return reply,
+                }
             }
-            if let Err(reply) = authorize_scope(
-                &st.data_dir,
-                &identity,
-                PROGRAM_SCOPE_KIND,
-                &request.program_id,
-                Some(owner_ref),
-            ) {
-                return reply;
-            }
-        }
-        Ok(None) => {
-            if let Err(reply) = bind_scope(
+            Ok(None) => match bind_scope(
                 &st.data_dir,
                 &identity,
                 PROGRAM_SCOPE_KIND,
@@ -1352,22 +1458,30 @@ pub(crate) async fn handle_program_create(
                 &request.owner_ref,
                 &request.idempotency_key,
             ) {
-                return reply;
-            }
-        }
-        Err(error) => return admission_error(error),
-    }
-    match append(
+                Ok(scope) => scope,
+                Err(reply) => return reply,
+            },
+            Err(error) => return admission_error(error),
+        };
+    match admit(
         &st.data_dir,
+        true,
+        &identity,
+        &program_scope,
+        PROGRAM_SCOPE_KIND,
+        &request.program_id,
         &tail,
         "event_stream.foundry_program_admitted",
         None,
         &payload,
+        now_ms(),
         &request.idempotency_key,
     ) {
-        Ok((exact, replayed)) => (
+        Ok(commit) => (
             StatusCode::CREATED,
-            Json(json!({"ok":true,"program":projection_value(&exact,Some(replayed))})),
+            Json(
+                json!({"ok":true,"program":projection_value(&commit.projection,Some(commit.replayed))}),
+            ),
         ),
         Err(reply) => reply,
     }
@@ -1458,18 +1572,6 @@ fn program_action_op_kind(action: &str) -> Option<&'static str> {
         "reconcile" => Some("event_stream.foundry_program_reconciled"),
         _ => None,
     }
-}
-
-fn prior_idempotent_projection(
-    data_dir: &str,
-    tail: &str,
-    idempotency_key: &str,
-) -> Result<Option<ExactProjection>, Reply> {
-    let history = super::substrate_store::read_event_stream_history(data_dir, NAMESPACE, tail)
-        .map_err(admission_error)?;
-    Ok(history
-        .into_iter()
-        .find(|exact| exact.operation.idem_key == idempotency_key))
 }
 
 fn checkpoint_record(
@@ -1658,16 +1760,57 @@ pub(crate) async fn handle_program_action(
         Ok(value) => value,
         Err(reply) => return reply,
     };
-    if let Err(reply) = authorize_scope(
+    let program_scope = match authorize_scope(
         &st.data_dir,
         &identity,
         PROGRAM_SCOPE_KIND,
         &id,
         current.operation.payload["owner_ref"].as_str(),
     ) {
-        return reply;
-    }
-    match prior_idempotent_projection(&st.data_dir, &tail, &request.idempotency_key) {
+        Ok(scope) => scope,
+        Err(reply) => return reply,
+    };
+    program_action_core(
+        &st.data_dir,
+        &identity,
+        &program_scope,
+        &id,
+        &action,
+        &request,
+        requested_op_kind,
+        action_identity,
+        &tail,
+        current,
+    )
+}
+
+/// Post-scope core of a program transition. The idempotent-replay arm, the same-key/different-bytes
+/// refusal, the head compare-and-swap, and the bounded step compute all run here over an
+/// already-authorized scope, so the transition semantics are exercisable directly while the handler
+/// keeps its identity and scope proofs.
+#[allow(clippy::too_many_arguments)]
+fn program_action_core(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    scope: &super::substrate_store::RequestResourceScope,
+    id: &str,
+    action: &str,
+    request: &ProgramActionRequest,
+    requested_op_kind: &str,
+    action_identity: Value,
+    tail: &str,
+    current: ExactProjection,
+) -> Reply {
+    match super::mutation_event_foundation::prior_admission_for_key_on_stream(
+        data_dir,
+        identity,
+        scope,
+        PROGRAM_SCOPE_KIND,
+        id,
+        NAMESPACE,
+        tail,
+        &request.idempotency_key,
+    ) {
         Ok(Some(exact))
             if exact.operation.op_kind == requested_op_kind
                 && exact.operation.payload["last_action_request"] == action_identity =>
@@ -1685,7 +1828,7 @@ pub(crate) async fn handle_program_action(
             )
         }
         Ok(None) => {}
-        Err(reply) => return reply,
+        Err(refusal) => return mutation_refusal(refusal),
     }
     if current.head != request.expected_head {
         return bad(
@@ -1698,7 +1841,7 @@ pub(crate) async fn handle_program_action(
         .as_str()
         .unwrap_or_default();
     let mut next = current.operation.payload.clone();
-    let op_kind = match action.as_str() {
+    let op_kind = match action {
         "start" if status == "admitted" => {
             next["status"] = json!("running");
             "event_stream.foundry_program_started"
@@ -1717,7 +1860,7 @@ pub(crate) async fn handle_program_action(
         }
         "step" if status == "running" => {
             next = match train_step(
-                &st.data_dir,
+                data_dir,
                 &next,
                 request
                     .max_rows
@@ -1731,7 +1874,7 @@ pub(crate) async fn handle_program_action(
         "reconcile" if matches!(status, "running" | "paused" | "completed") => {
             if !next["current_checkpoint"].is_null() {
                 if let Err(reply) =
-                    verify_checkpoint_projection(&st.data_dir, &next["current_checkpoint"], &next)
+                    verify_checkpoint_projection(data_dir, &next["current_checkpoint"], &next)
                 {
                     return reply;
                 }
@@ -1750,19 +1893,25 @@ pub(crate) async fn handle_program_action(
     next["revision"] = json!(next["revision"].as_u64().unwrap_or(0) + 1);
     next["last_action_request"] = action_identity;
     next["last_action_idempotency_key"] = json!(request.idempotency_key);
-    match append(
-        &st.data_dir,
-        &tail,
+    match admit(
+        data_dir,
+        false,
+        identity,
+        scope,
+        PROGRAM_SCOPE_KIND,
+        id,
+        tail,
         op_kind,
         Some(&current.head),
         &next,
-        next["last_action_idempotency_key"]
-            .as_str()
-            .unwrap_or_default(),
+        now_ms(),
+        &request.idempotency_key,
     ) {
-        Ok((exact, replayed)) => (
+        Ok(commit) => (
             StatusCode::OK,
-            Json(json!({"ok":true,"program":projection_value(&exact,Some(replayed))})),
+            Json(
+                json!({"ok":true,"program":projection_value(&commit.projection,Some(commit.replayed))}),
+            ),
         ),
         Err(reply) => reply,
     }
@@ -1950,16 +2099,18 @@ pub(crate) async fn handle_checkpoint_verify_restore(
     };
     let program_id = current.operation.payload["program_id"]
         .as_str()
-        .unwrap_or_default();
-    if let Err(reply) = authorize_scope(
+        .unwrap_or_default()
+        .to_owned();
+    let program_scope = match authorize_scope(
         &st.data_dir,
         &identity,
         PROGRAM_SCOPE_KIND,
-        program_id,
+        &program_id,
         current.operation.payload["owner_ref"].as_str(),
     ) {
-        return reply;
-    }
+        Ok(scope) => scope,
+        Err(reply) => return reply,
+    };
     if current.head != request.expected_program_head {
         return bad(
             StatusCode::CONFLICT,
@@ -1983,18 +2134,24 @@ pub(crate) async fn handle_checkpoint_verify_restore(
     {
         next["current_checkpoint"]["restore_verified"] = json!(true);
     }
-    match append(
+    match admit(
         &st.data_dir,
+        false,
+        &identity,
+        &program_scope,
+        PROGRAM_SCOPE_KIND,
+        &program_id,
         &tail,
         "event_stream.foundry_checkpoint_restore_verified",
         Some(&current.head),
         &next,
+        now_ms(),
         &request.idempotency_key,
     ) {
-        Ok((exact, replayed)) => (
+        Ok(commit) => (
             StatusCode::OK,
             Json(
-                json!({"ok":true,"program":projection_value(&exact,Some(replayed)),"verification":next["restore_verification"]}),
+                json!({"ok":true,"program":projection_value(&commit.projection,Some(commit.replayed)),"verification":next["restore_verification"]}),
             ),
         ),
         Err(reply) => reply,
@@ -2299,15 +2456,16 @@ pub(crate) async fn handle_program_qualify(
         Ok(value) => value,
         Err(reply) => return reply,
     };
-    if let Err(reply) = authorize_scope(
+    let program_scope = match authorize_scope(
         &st.data_dir,
         &identity,
         PROGRAM_SCOPE_KIND,
         &id,
         current.operation.payload["owner_ref"].as_str(),
     ) {
-        return reply;
-    }
+        Ok(scope) => scope,
+        Err(reply) => return reply,
+    };
     if current.head != request.expected_head {
         return bad(
             StatusCode::CONFLICT,
@@ -2339,18 +2497,24 @@ pub(crate) async fn handle_program_qualify(
         safe(&id),
         request.idempotency_key
     ));
-    match append(
+    match admit(
         &st.data_dir,
+        false,
+        &identity,
+        &program_scope,
+        PROGRAM_SCOPE_KIND,
+        &id,
         &tail,
         "event_stream.foundry_program_qualified",
         Some(&current.head),
         &next,
+        now_ms(),
         &request.idempotency_key,
     ) {
-        Ok((exact, replayed)) => (
+        Ok(commit) => (
             StatusCode::OK,
             Json(
-                json!({"ok":true,"program":projection_value(&exact,Some(replayed)),"qualification":next["qualification"]}),
+                json!({"ok":true,"program":projection_value(&commit.projection,Some(commit.replayed)),"qualification":next["qualification"]}),
             ),
         ),
         Err(reply) => reply,
@@ -2585,5 +2749,246 @@ mod tests {
         }))
         .unwrap_err();
         assert!(error.to_string().contains("unknown field `gpu`"));
+    }
+
+    fn recipe_request(recipe_id: &str, owner: &str, key: &str) -> RecipeRevisionRequest {
+        RecipeRevisionRequest {
+            recipe_id: recipe_id.to_owned(),
+            owner_ref: owner.to_owned(),
+            predecessor_recipe_ref: None,
+            expected_head: None,
+            data_recipe_ref: "data-recipe://test/one".into(),
+            source_snapshot_refs: vec!["snapshot://test/a".into()],
+            institutional_learning_boundary_ref: "learning-boundary://test/one".into(),
+            learning_source_rights_claim_refs: vec!["rights://test/a".into()],
+            tokenizer_ref: "tokenizer://test/one".into(),
+            sequence_format_ref: "format://test/one".into(),
+            packing_policy_ref: "policy://test/pack".into(),
+            loss_mask_policy_ref: "policy://test/mask".into(),
+            harness_variant_refs: vec!["harness://test/a".into()],
+            environment_profile_ref: "profile://test/one".into(),
+            operators: operators(),
+            split_seed: 7,
+            idempotency_key: key.to_owned(),
+        }
+    }
+
+    // The re-homed recipe-create scan must still refuse a same-key/different-bytes resubmission with
+    // this plane's own conflict code, still replay a byte-identical retry after a daemon restart, and
+    // still refuse a stale successor head. The shared prior-key probe changed HOW the prior fact is
+    // read (scope-validated, one seam) but not the four arms that decide on it.
+    #[test]
+    fn recipe_create_core_preserves_scan_refusal_semantics() {
+        let dir = tempfile::tempdir().unwrap();
+        let data_dir = dir.path().to_str().unwrap();
+        super::super::substrate_store::reset_handle_for_test();
+        let identity = super::super::substrate_store::request_identity_for_test(
+            "user://one",
+            ["org://local".to_string()],
+        );
+        let recipe_id = "foundry-recipe://test/one";
+        let request = recipe_request(recipe_id, "org://local", "recipe-key-1");
+        let content_hash = recipe_content_hash(&request).unwrap();
+        let tail = hash_tail("recipe", recipe_id);
+        let scope = bind_scope(
+            data_dir,
+            &identity,
+            RECIPE_SCOPE_KIND,
+            recipe_id,
+            "org://local",
+            &request.idempotency_key,
+        )
+        .unwrap();
+
+        let (status, Json(body)) = recipes_create_core(
+            data_dir,
+            &identity,
+            &scope,
+            &request,
+            &content_hash,
+            &tail,
+            None,
+        );
+        assert_eq!(status, StatusCode::CREATED);
+        assert_eq!(body["ok"], true);
+        assert_eq!(body["recipe"]["agentgres"]["replayed"], false);
+        let genesis_head = body["recipe"]["agentgres"]["head"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+
+        // Byte-identical retry AFTER a restart replays the original fact from the durable log, never a
+        // second admission.
+        super::super::substrate_store::reset_handle_for_test();
+        let current =
+            super::super::substrate_store::read_event_stream_operation(data_dir, NAMESPACE, &tail)
+                .unwrap();
+        let (status, Json(body)) = recipes_create_core(
+            data_dir,
+            &identity,
+            &scope,
+            &request,
+            &content_hash,
+            &tail,
+            current.clone(),
+        );
+        assert_eq!(status, StatusCode::CREATED);
+        assert_eq!(body["recipe"]["agentgres"]["replayed"], true);
+        assert_eq!(body["recipe"]["agentgres"]["head"], genesis_head);
+
+        // Same key, changed seed (=> changed content hash): refused as a payload conflict, never
+        // swallowed as a replay.
+        let mut changed = recipe_request(recipe_id, "org://local", "recipe-key-1");
+        changed.split_seed = 99;
+        let changed_hash = recipe_content_hash(&changed).unwrap();
+        assert_ne!(changed_hash, content_hash);
+        let (status, Json(body)) = recipes_create_core(
+            data_dir,
+            &identity,
+            &scope,
+            &changed,
+            &changed_hash,
+            &tail,
+            current.clone(),
+        );
+        assert_eq!(status, StatusCode::CONFLICT);
+        assert_eq!(
+            body["error"]["code"],
+            "foundry_idempotency_payload_conflict"
+        );
+
+        // A fresh key naming a stale expected head is a head conflict, not a silent successor.
+        let mut successor = recipe_request(recipe_id, "org://local", "recipe-key-2");
+        successor.expected_head = Some(format!("sha256:{}", "0".repeat(64)));
+        successor.predecessor_recipe_ref = Some(format!("{recipe_id}/revision/1"));
+        let successor_hash = recipe_content_hash(&successor).unwrap();
+        let (status, Json(body)) = recipes_create_core(
+            data_dir,
+            &identity,
+            &scope,
+            &successor,
+            &successor_hash,
+            &tail,
+            current,
+        );
+        assert_eq!(status, StatusCode::CONFLICT);
+        assert_eq!(
+            body["error"]["code"],
+            "foundry_recipe_expected_head_conflict"
+        );
+        super::super::substrate_store::reset_handle_for_test();
+    }
+
+    fn admitted_program(
+        data_dir: &str,
+        identity: &super::super::substrate_store::RequestIdentity,
+        program_id: &str,
+    ) -> super::super::substrate_store::RequestResourceScope {
+        let scope = bind_scope(
+            data_dir,
+            identity,
+            PROGRAM_SCOPE_KIND,
+            program_id,
+            "org://local",
+            "program-create",
+        )
+        .unwrap();
+        let payload = json!({
+            "schema_version":"ioi.foundry-training-program.v1",
+            "program_id": program_id,
+            "owner_ref":"org://local",
+            "revision": 1,
+            "status":"admitted",
+            "last_action_idempotency_key":"program-create",
+        });
+        let tail = hash_tail("program", program_id);
+        admit(
+            data_dir,
+            true,
+            identity,
+            &scope,
+            PROGRAM_SCOPE_KIND,
+            program_id,
+            &tail,
+            "event_stream.foundry_program_admitted",
+            None,
+            &payload,
+            1,
+            "program-create",
+        )
+        .unwrap();
+        scope
+    }
+
+    // The re-homed program-action scan keeps the same arms: an idempotent replay for the identical
+    // action, this plane's payload-conflict code for a same-key/different-action resubmission, and a
+    // head conflict for a fresh key on a stale head.
+    #[test]
+    fn program_action_core_preserves_scan_refusal_semantics() {
+        let dir = tempfile::tempdir().unwrap();
+        let data_dir = dir.path().to_str().unwrap();
+        super::super::substrate_store::reset_handle_for_test();
+        let identity = super::super::substrate_store::request_identity_for_test(
+            "user://one",
+            ["org://local".to_string()],
+        );
+        let program_id = "trainpipe://test/run";
+        let scope = admitted_program(data_dir, &identity, program_id);
+
+        let start = |key: &str, max_rows: Option<u64>, expected_head: &str| -> Reply {
+            let (tail, current) = program_head(data_dir, program_id).unwrap();
+            let request = ProgramActionRequest {
+                expected_head: expected_head.to_owned(),
+                idempotency_key: key.to_owned(),
+                max_rows,
+            };
+            let action_identity = json!({"action":"start","max_rows": request.max_rows});
+            program_action_core(
+                data_dir,
+                &identity,
+                &scope,
+                program_id,
+                "start",
+                &request,
+                program_action_op_kind("start").unwrap(),
+                action_identity,
+                &tail,
+                current,
+            )
+        };
+
+        let head0 = program_head(data_dir, program_id).unwrap().1.head;
+        let (status, Json(body)) = start("act-1", None, &head0);
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["program"]["status"], "running");
+        assert_eq!(body["program"]["agentgres"]["replayed"], false);
+        let running_head = body["program"]["agentgres"]["head"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+
+        // Byte-identical retry AFTER a restart replays with the same head.
+        super::super::substrate_store::reset_handle_for_test();
+        let (status, Json(body)) = start("act-1", None, &head0);
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["program"]["agentgres"]["replayed"], true);
+        assert_eq!(body["program"]["agentgres"]["head"], running_head);
+
+        // Same key, different max_rows names a different logical action → payload conflict.
+        let (status, Json(body)) = start("act-1", Some(9), &head0);
+        assert_eq!(status, StatusCode::CONFLICT);
+        assert_eq!(
+            body["error"]["code"],
+            "foundry_idempotency_payload_conflict"
+        );
+
+        // A fresh key against a stale expected head → head conflict (probe misses, CAS refuses).
+        let (status, Json(body)) = start("act-2", None, &format!("sha256:{}", "0".repeat(64)));
+        assert_eq!(status, StatusCode::CONFLICT);
+        assert_eq!(
+            body["error"]["code"],
+            "foundry_program_expected_head_conflict"
+        );
+        super::super::substrate_store::reset_handle_for_test();
     }
 }
