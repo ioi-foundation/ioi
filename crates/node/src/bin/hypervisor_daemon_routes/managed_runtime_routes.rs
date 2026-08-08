@@ -2052,6 +2052,19 @@ pub(crate) async fn handle_environment_backup_create(
         Ok(request) => request,
         Err(reply) => return reply,
     };
+    capture_environment_backup(&st.data_dir, &identity, &environment_id, &request)
+}
+
+/// Capture one environment backup for `environment_id`. Split out of the async handler (marketplace
+/// `begin_`/`finish_` pattern) with the identity already resolved and the request already parsed, so
+/// the capture + canonical admission + census projection run against a real tempdir and the real
+/// Agentgres chain in test. Behaviour is byte-identical to the pre-split handler.
+fn capture_environment_backup(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    environment_id: &str,
+    request: &BackupCreateRequest,
+) -> Reply {
     if !matches!(
         request.trigger.as_str(),
         "manual" | "scheduled" | "webhook" | "pre_change" | "shutdown" | "policy"
@@ -2099,8 +2112,8 @@ pub(crate) async fn handle_environment_backup_create(
         );
     }
     let profile_scope = match authorize_scope(
-        &st.data_dir,
-        &identity,
+        data_dir,
+        identity,
         STORAGE_PROFILE_SCOPE_KIND,
         &request.storage_profile_ref,
         None,
@@ -2111,13 +2124,13 @@ pub(crate) async fn handle_environment_backup_create(
     if request.actor_ref != profile_scope.owner_ref {
         return scope_refusal(super::substrate_store::RequestScopeRefusal::ResourceOwnerMismatch);
     }
-    let profile = match storage_profile(&st.data_dir, &request.storage_profile_ref) {
+    let profile = match storage_profile(data_dir, &request.storage_profile_ref) {
         Ok(profile) => profile,
         Err(reply) => return reply,
     };
     if let Err(reply) = authorize_scope(
-        &st.data_dir,
-        &identity,
+        data_dir,
+        identity,
         STORAGE_PROFILE_SCOPE_KIND,
         &request.storage_profile_ref,
         profile["owner_ref"].as_str(),
@@ -2135,8 +2148,8 @@ pub(crate) async fn handle_environment_backup_create(
         );
     };
     let instance_scope = match authorize_scope(
-        &st.data_dir,
-        &identity,
+        data_dir,
+        identity,
         INSTANCE_SCOPE_KIND,
         instance_ref,
         Some(&profile_scope.owner_ref),
@@ -2147,7 +2160,7 @@ pub(crate) async fn handle_environment_backup_create(
     if instance_scope.tenant_ref != profile_scope.tenant_ref {
         return scope_refusal(super::substrate_store::RequestScopeRefusal::ResourceOwnerMismatch);
     }
-    let (_, instance) = match find_instance(&st.data_dir, instance_ref) {
+    let (_, instance) = match find_instance(data_dir, instance_ref) {
         Ok(instance) => instance,
         Err(reply) => return reply,
     };
@@ -2168,7 +2181,7 @@ pub(crate) async fn handle_environment_backup_create(
             "the target environment is not the authenticated principal's admitted managed instance environment",
         );
     }
-    let environment = match environment_record(&st.data_dir, &environment_id) {
+    let environment = match environment_record(data_dir, environment_id) {
         Ok(environment) => environment,
         Err(reply) => return reply,
     };
@@ -2211,7 +2224,7 @@ pub(crate) async fn handle_environment_backup_create(
         }
     };
     let state_root = digest(&bytes);
-    if let Err(error) = durable_write(&material_path(&st.data_dir, &state_root), &bytes) {
+    if let Err(error) = durable_write(&material_path(data_dir, &state_root), &bytes) {
         return bad(
             StatusCode::INTERNAL_SERVER_ERROR,
             "managed_backup_material_persist_failed",
@@ -2241,9 +2254,9 @@ pub(crate) async fn handle_environment_backup_create(
     // profile's owner scope, so it crosses the boundary under that profile scope. The tail is the
     // content-addressed capture coordinate and need not derive from the scope's resource ref.
     let (capture, _) = match admit(
-        &st.data_dir,
+        data_dir,
         true,
-        &identity,
+        identity,
         &profile_scope,
         STORAGE_PROFILE_SCOPE_KIND,
         &request.storage_profile_ref,
@@ -2266,7 +2279,7 @@ pub(crate) async fn handle_environment_backup_create(
     );
     let backup_id = format!(
         "{}-{}",
-        safe(&environment_id),
+        safe(environment_id),
         &state_root.trim_start_matches("sha256:")[..16]
     );
     let declaration = BackupDeclaration {
@@ -2310,12 +2323,12 @@ pub(crate) async fn handle_environment_backup_create(
     backup["key_epoch_ref"] = profile.get("key_epoch_ref").cloned().unwrap_or(Value::Null);
     backup["retention_policy_ref"] = profile["retention_policy_ref"].clone();
     backup["authority_grant_refs"] = json!(request.authority_grant_refs);
-    backup["evidence_refs"] = json!([agentgres::refs::event_stream_operation_ref(
-        PERSISTENCE_NAMESPACE,
-        &capture_tail,
-        capture.seq,
-        &capture.head
-    )]);
+    // The capture's admission evidence is its hash-linked receipt. `receipt://` is one of the
+    // `hypervisor-environment-backup/v1` evidence schemes; the agentgres `operation` ref used here
+    // before is `agentgres://…`, which the contract's `evidence_refs` pattern rejects — a defect the
+    // first end-to-end backup exercised, since no prior test compiled a real backup record through
+    // this validation. The operation coordinate remains recoverable from the receipt's batch/root.
+    backup["evidence_refs"] = json!([receipt_ref]);
     backup["manifest_root"] = match backup_manifest_root(&backup) {
         Ok(root) => json!(root),
         Err(error) => {
@@ -2328,8 +2341,8 @@ pub(crate) async fn handle_environment_backup_create(
     };
     let backup_ref = backup["backup_ref"].as_str().unwrap_or_default();
     if let Err(reply) = bind_scope(
-        &st.data_dir,
-        &identity,
+        data_dir,
+        identity,
         BACKUP_SCOPE_KIND,
         backup_ref,
         &profile_scope.owner_ref,
@@ -2361,7 +2374,7 @@ pub(crate) async fn handle_environment_backup_create(
     };
     let key = format!("hveb_{}", root.trim_start_matches("sha256:"));
     if let Err(error) =
-        super::substrate_store::admit_required(&st.data_dir, BACKUP_FAMILY, &key, &backup)
+        super::substrate_store::admit_required(data_dir, BACKUP_FAMILY, &key, &backup)
     {
         return bad(
             StatusCode::CONFLICT,
@@ -2372,7 +2385,7 @@ pub(crate) async fn handle_environment_backup_create(
     // The Agentgres admission above is canonical and has already succeeded. This is its record
     // projection, so a failure here is a divergence to replay, not a lost backup — say which,
     // because "persist failed" alone reads as though the backup never happened.
-    if let Err(error) = persist_record(&st.data_dir, BACKUP_FAMILY, &key, &backup) {
+    if let Err(error) = persist_record(data_dir, BACKUP_FAMILY, &key, &backup) {
         return bad(
             StatusCode::INTERNAL_SERVER_ERROR,
             "managed_backup_projection_persist_failed",
@@ -2381,7 +2394,7 @@ pub(crate) async fn handle_environment_backup_create(
             ),
         );
     }
-    match verify_backup(&st.data_dir, &backup) {
+    match verify_backup(data_dir, &backup) {
         Ok(verification) => (
             StatusCode::CREATED,
             Json(json!({"ok":true,"backup":backup,"verification":verification})),
@@ -2689,6 +2702,82 @@ fn authorized_instance_for_environment(
     Ok(matches.remove(0))
 }
 
+/// Points at which a restore filesystem effect can be interrupted between an admitted transition and
+/// the effect it promises. Used only by the in-process convergence tests, and modeled on
+/// `agentgres::event_stream::force_durability_failure_for_this_thread`: the fault seam ships WITH the
+/// state machine, because a resume path whose interruption is unreachable in test is a recovery
+/// nobody has watched happen. In production every `restore_effect_interrupted` call compiles to a
+/// no-op — the injection body is `#[cfg(test)]`.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum RestoreEffectPoint {
+    PrepareBeforeUntar,
+    PrepareAfterUntar,
+    CancelBeforeRemoval,
+    ApplyBeforeRenames,
+    ApplyAfterFirstRename,
+    ApplyAfterRenames,
+}
+
+#[cfg(test)]
+thread_local! {
+    static RESTORE_EFFECT_FAULT: std::cell::Cell<Option<RestoreEffectPoint>> =
+        const { std::cell::Cell::new(None) };
+}
+
+#[cfg(test)]
+#[must_use = "the guard clears the thread-local restore fault when dropped"]
+struct ForcedRestoreEffectFault;
+
+#[cfg(test)]
+impl Drop for ForcedRestoreEffectFault {
+    fn drop(&mut self) {
+        RESTORE_EFFECT_FAULT.with(|cell| cell.set(None));
+    }
+}
+
+/// Arm an interruption at `point` for the CURRENT THREAD only. Returns a guard that clears it, so a
+/// forced fault cannot leak into another test running in parallel.
+#[cfg(test)]
+fn force_restore_effect_fault_for_this_thread(
+    point: RestoreEffectPoint,
+) -> ForcedRestoreEffectFault {
+    RESTORE_EFFECT_FAULT.with(|cell| cell.set(Some(point)));
+    ForcedRestoreEffectFault
+}
+
+/// Stop and refuse at `point` when a test has armed exactly that interruption on this thread,
+/// simulating a crash after the preceding admitted transition but before this effect runs. The
+/// refusal is unreachable in production: the `#[cfg(test)]` body is absent from release builds.
+#[inline]
+fn restore_effect_interrupted(point: RestoreEffectPoint) -> Result<(), Reply> {
+    #[cfg(test)]
+    if RESTORE_EFFECT_FAULT.with(std::cell::Cell::get) == Some(point) {
+        return Err(bad(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "managed_restore_effect_interrupted",
+            "test-forced restore effect interruption",
+        ));
+    }
+    let _ = point;
+    Ok(())
+}
+
+/// The rollback custody directory for one plan: the sibling of the workspace that holds the
+/// pre-restore bytes while an apply is in flight, named per plan so it never collides with another
+/// plan's rollback.
+fn restore_rollback_path(workspace: &Path, plan_id: &str) -> Result<PathBuf, Reply> {
+    workspace
+        .parent()
+        .map(|parent| parent.join(format!(".ioi-managed-restore-rollback-{}", safe(plan_id))))
+        .ok_or_else(|| {
+            bad(
+                StatusCode::CONFLICT,
+                "managed_restore_workspace_parent_missing",
+                "target workspace has no parent",
+            )
+        })
+}
+
 pub(crate) async fn handle_restore_plan_prepare(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
@@ -2703,6 +2792,26 @@ pub(crate) async fn handle_restore_plan_prepare(
         Ok(request) => request,
         Err(reply) => return reply,
     };
+    prepare_restore_plan(&st.data_dir, &identity, &id, &request)
+}
+
+/// Prepare a restore plan as a two-event transition: a `restore_plan_preparing` genesis admitted
+/// BEFORE the staging untar (so an interrupted prepare is a resumable intent, never staged bytes with
+/// no admitted plan), then a `restore_plan_prepared` successor admitted only once the bytes are
+/// staged. Re-presenting the same key resumes rather than restarts: it re-stages when the staging is
+/// gone and admits the prepared successor, replays a plan already prepared, and — the terminal-truth
+/// fence — refuses a key whose plan is already cancelled or completed instead of staging bytes and
+/// replaying a create over an admitted terminal.
+///
+/// Split out of the async handler (marketplace `begin_`/`finish_` pattern) so the state machine runs
+/// against a real tempdir and the real Agentgres chain in test, with the identity already resolved,
+/// rather than only through the axum layer.
+fn prepare_restore_plan(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    backup_id: &str,
+    request: &RestorePlanRequest,
+) -> Reply {
     if let Err(reply) = require_nonempty(&request.authority_grant_refs, "authority_grant_refs") {
         return reply;
     }
@@ -2717,16 +2826,16 @@ pub(crate) async fn handle_restore_plan_prepare(
             "idempotency_key is required",
         );
     }
-    let (backup, backup_scope) = match authorized_backup_by_id(&st.data_dir, &identity, &id) {
+    let (backup, backup_scope) = match authorized_backup_by_id(data_dir, identity, backup_id) {
         Ok(value) => value,
         Err(reply) => return reply,
     };
-    if let Err(reply) = verify_backup(&st.data_dir, &backup) {
+    if let Err(reply) = verify_backup(data_dir, &backup) {
         return reply;
     }
     let target_scope = match authorized_instance_for_environment(
-        &st.data_dir,
-        &identity,
+        data_dir,
+        identity,
         &request.target_environment_id,
     ) {
         Ok(scope) => scope,
@@ -2735,7 +2844,7 @@ pub(crate) async fn handle_restore_plan_prepare(
     if target_scope.tenant_ref != backup_scope.tenant_ref {
         return scope_refusal(super::substrate_store::RequestScopeRefusal::ResourceOwnerMismatch);
     }
-    let target = match environment_record(&st.data_dir, &request.target_environment_id) {
+    let target = match environment_record(data_dir, &request.target_environment_id) {
         Ok(target) => target,
         Err(reply) => return reply,
     };
@@ -2762,36 +2871,73 @@ pub(crate) async fn handle_restore_plan_prepare(
         Ok(staging) => staging,
         Err(reply) => return reply,
     };
-    if staging.exists() {
-        return bad(
-            StatusCode::CONFLICT,
-            "managed_restore_staging_exists",
-            "a restore staging directory already exists and must be reconciled",
-        );
-    }
     let state_root = backup["source_state_root_ref"]
         .as_str()
         .and_then(|value| value.strip_prefix("state-root://"))
-        .unwrap_or_default();
-    let bytes = match std::fs::read(material_path(&st.data_dir, state_root)) {
-        Ok(bytes) => bytes,
-        Err(error) => {
-            return bad(
-                StatusCode::CONFLICT,
-                "managed_restore_material_unavailable",
-                error.to_string(),
-            )
-        }
+        .unwrap_or_default()
+        .to_owned();
+    let tail = restore_tail(&plan_id);
+
+    // Read the admitted plan FIRST, before staging, the material read, or any admission. A stream
+    // that already reached a terminal transition is answered here so a re-presented key over a
+    // cancelled or completed plan stages nothing and admits nothing (the terminal-truth fence), and a
+    // plan already past `prepared` replays its current fact rather than re-running the untar.
+    let existing = match super::substrate_store::read_event_stream_operation(
+        data_dir,
+        PERSISTENCE_NAMESPACE,
+        &tail,
+    ) {
+        Ok(existing) => existing,
+        Err(error) => return admission_error(error),
     };
-    if let Err(error) = super::microvm::untar_into(&staging, &bytes) {
-        let _ = std::fs::remove_dir_all(&staging);
-        return bad(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "managed_restore_prepare_failed",
-            error,
-        );
+    if let Some(current) = &existing {
+        match current.operation.payload["status"]
+            .as_str()
+            .unwrap_or_default()
+        {
+            "cancelled" | "completed" => {
+                return (
+                    StatusCode::CONFLICT,
+                    Json(json!({
+                        "ok": false,
+                        "error": {
+                            "code": "managed_restore_plan_terminal",
+                            "message": "this idempotency key's restore plan is already cancelled or completed; a new restore of this backup needs a new idempotency_key"
+                        },
+                        "admitted_head": current.head
+                    })),
+                );
+            }
+            "prepared" => {
+                return (
+                    StatusCode::CREATED,
+                    Json(json!({"ok":true,"restore_plan":projection_value(current,Some(true))})),
+                );
+            }
+            "applying" | "cancelling" => {
+                return (
+                    StatusCode::OK,
+                    Json(json!({"ok":true,"restore_plan":projection_value(current,Some(true))})),
+                );
+            }
+            // "preparing": an interrupted prepare. Fall through to resume — re-stage if the bytes are
+            // gone, then admit the prepared successor against the preparing genesis head.
+            _ => {}
+        }
     }
-    let payload = json!({
+
+    let scope = match bind_scope(
+        data_dir,
+        identity,
+        RESTORE_SCOPE_KIND,
+        &plan_id,
+        &backup_scope.owner_ref,
+        &request.idempotency_key,
+    ) {
+        Ok(scope) => scope,
+        Err(reply) => return reply,
+    };
+    let base = json!({
         "schema_version":"ioi.managed-restore-plan.v1",
         "plan_id":plan_id,
         "backup_ref":backup["backup_ref"],
@@ -2799,47 +2945,91 @@ pub(crate) async fn handle_restore_plan_prepare(
         "source_state_root":state_root,
         "target_environment_id":request.target_environment_id,
         "authority_grant_refs":request.authority_grant_refs,
-        "status":"prepared",
-        "preparation_verified":true,
     });
-    let tail = restore_tail(&plan_id);
-    let scope = match bind_scope(
-        &st.data_dir,
-        &identity,
-        RESTORE_SCOPE_KIND,
-        &plan_id,
-        &backup_scope.owner_ref,
-        &request.idempotency_key,
-    ) {
-        Ok(scope) => scope,
-        Err(reply) => {
-            let _ = std::fs::remove_dir_all(&staging);
-            return reply;
+
+    // GENESIS admitted BEFORE staging. If the untar then fails or the process is interrupted, the
+    // plan exists as `preparing` over the source root it named, and a retry re-stages from it: the
+    // orphan-staging dead-end (staged bytes with no admitted plan, refused forever as
+    // staging_exists) can no longer occur.
+    let preparing_head = match &existing {
+        Some(current) => current.head.clone(),
+        None => {
+            let mut preparing = base.clone();
+            preparing["status"] = json!("preparing");
+            match admit(
+                data_dir,
+                true,
+                identity,
+                &scope,
+                RESTORE_SCOPE_KIND,
+                &plan_id,
+                PERSISTENCE_NAMESPACE,
+                &tail,
+                "event_stream.restore_plan_preparing",
+                None,
+                &preparing,
+                now_ms(),
+                &format!("{}.preparing", request.idempotency_key),
+            ) {
+                Ok((exact, _)) => exact.head,
+                Err(reply) => return reply,
+            }
         }
     };
+
+    if let Err(reply) = restore_effect_interrupted(RestoreEffectPoint::PrepareBeforeUntar) {
+        return reply;
+    }
+    if !staging.exists() {
+        let bytes = match std::fs::read(material_path(data_dir, &state_root)) {
+            Ok(bytes) => bytes,
+            Err(error) => {
+                return bad(
+                    StatusCode::CONFLICT,
+                    "managed_restore_material_unavailable",
+                    error.to_string(),
+                )
+            }
+        };
+        if let Err(error) = super::microvm::untar_into(&staging, &bytes) {
+            let _ = std::fs::remove_dir_all(&staging);
+            return bad(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "managed_restore_prepare_failed",
+                error,
+            );
+        }
+    }
+    if let Err(reply) = restore_effect_interrupted(RestoreEffectPoint::PrepareAfterUntar) {
+        return reply;
+    }
+
+    // SUCCESSOR: the staged bytes are present, so record the plan as prepared. Its expected_head is
+    // the preparing genesis; a retry that already admitted prepared replays it here (the boundary's
+    // whole-stream idempotency matches the `.prepared` key regardless of the compare-and-swap head).
+    let mut prepared = base;
+    prepared["status"] = json!("prepared");
+    prepared["preparation_verified"] = json!(true);
     match admit(
-        &st.data_dir,
-        true,
-        &identity,
+        data_dir,
+        false,
+        identity,
         &scope,
         RESTORE_SCOPE_KIND,
         &plan_id,
         PERSISTENCE_NAMESPACE,
         &tail,
         "event_stream.restore_plan_prepared",
-        None,
-        &payload,
+        Some(&preparing_head),
+        &prepared,
         now_ms(),
-        &request.idempotency_key,
+        &format!("{}.prepared", request.idempotency_key),
     ) {
         Ok((exact, replayed)) => (
             StatusCode::CREATED,
             Json(json!({"ok":true,"restore_plan":projection_value(&exact,Some(replayed))})),
         ),
-        Err(reply) => {
-            let _ = std::fs::remove_dir_all(staging);
-            reply
-        }
+        Err(reply) => reply,
     }
 }
 
@@ -2860,12 +3050,35 @@ pub(crate) async fn handle_restore_plan_action(
         Ok(identity) => identity,
         Err(reply) => return reply,
     };
-    let scope = match authorize_scope(&st.data_dir, &identity, RESTORE_SCOPE_KIND, &plan_id, None) {
-        Ok(scope) => scope,
-        Err(reply) => return reply,
-    };
     let request: RestoreActionRequest = match parse(body, "managed_restore_action_invalid") {
         Ok(request) => request,
+        Err(reply) => return reply,
+    };
+    act_on_restore_plan(&st.data_dir, &identity, &plan_id, &action, &request)
+}
+
+/// Apply or cancel a restore plan through a resume state machine keyed on (admitted status, caller
+/// key, on-disk observation) rather than the flat `status == "prepared"` gate the plane shipped.
+///
+/// * `prepared` + matching expected_head -> the initial transition (admit `cancelling`/`applying`,
+///   perform the effects, admit `cancelled`/`completed`).
+/// * `cancelling`/`applying` under THIS key -> resume: re-attempt the missing effect and admit the
+///   terminal transition. A caller's stale expected_head is intentionally ignored here — the caller
+///   key that owns the in-flight transition is the authority, not a head that a partial attempt
+///   already moved.
+/// * a terminal transition (`cancelled`/`completed`) under THIS key -> replay the terminal response
+///   and admit NOTHING, because no earlier fact may be re-admitted over the stream's last word.
+/// * anything else (a foreign key, or a plan not yet prepared) -> the plane's existing
+///   `managed_restore_plan_not_prepared` 409.
+fn act_on_restore_plan(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    plan_id: &str,
+    action: &str,
+    request: &RestoreActionRequest,
+) -> Reply {
+    let scope = match authorize_scope(data_dir, identity, RESTORE_SCOPE_KIND, plan_id, None) {
+        Ok(scope) => scope,
         Err(reply) => return reply,
     };
     // Reject an empty key before any staging or workspace effect runs, mirroring the sibling
@@ -2878,36 +3091,28 @@ pub(crate) async fn handle_restore_plan_action(
             "idempotency_key is required",
         );
     }
-    if !matches!(action.as_str(), "apply" | "cancel") {
+    if !matches!(action, "apply" | "cancel") {
         return bad(
             StatusCode::NOT_FOUND,
             "managed_restore_action_unknown",
             "action must be apply or cancel",
         );
     }
-    let tail = restore_tail(&plan_id);
-    let current = match read_head(&st.data_dir, PERSISTENCE_NAMESPACE, &tail) {
+    let tail = restore_tail(plan_id);
+    let current = match read_head(data_dir, PERSISTENCE_NAMESPACE, &tail) {
         Ok(current) => current,
         Err(reply) => return reply,
     };
-    if current.head != request.expected_head {
-        return bad(
-            StatusCode::CONFLICT,
-            "managed_restore_expected_head_conflict",
-            "expected_head is not the current Agentgres head",
-        );
-    }
-    if current.operation.payload["status"] != "prepared" {
-        return bad(
-            StatusCode::CONFLICT,
-            "managed_restore_plan_not_prepared",
-            "only a prepared restore plan may be applied or cancelled",
-        );
-    }
+    let status = current.operation.payload["status"]
+        .as_str()
+        .unwrap_or_default()
+        .to_owned();
+    let ak = request.idempotency_key.as_str();
+
     let environment_id = current.operation.payload["target_environment_id"]
         .as_str()
         .unwrap_or_default();
-    let environment = match environment_record(&st.data_dir, environment_id) {
+    let environment = match environment_record(data_dir, environment_id) {
         Ok(environment) => environment,
         Err(reply) => return reply,
     };
@@ -2924,172 +3129,354 @@ pub(crate) async fn handle_restore_plan_action(
             )
         }
     };
-    let staging = match restore_staging_path(&workspace, &plan_id) {
+    let staging = match restore_staging_path(&workspace, plan_id) {
         Ok(staging) => staging,
         Err(reply) => return reply,
     };
-    if action == "cancel" {
-        // Admit the INTENT before destroying the staged bytes. Deleting first meant that if the
-        // cancelled append then failed, the plan still read "prepared" while the bytes it promised
-        // were already gone — a plan no apply could satisfy and no reader could tell was doomed.
-        let mut cancelling = current.operation.payload.clone();
-        cancelling["status"] = json!("cancelling");
-        let (cancelling_exact, _) = match admit(
-            &st.data_dir,
-            false,
-            &identity,
-            &scope,
-            RESTORE_SCOPE_KIND,
-            &plan_id,
-            PERSISTENCE_NAMESPACE,
-            &tail,
-            "event_stream.restore_plan_cancelling",
-            Some(&current.head),
-            &cancelling,
-            now_ms(),
-            &format!("{}.cancelling", request.idempotency_key),
-        ) {
-            Ok(value) => value,
-            Err(reply) => return reply,
-        };
-        if let Err(error) = std::fs::remove_dir_all(&staging) {
-            if error.kind() != std::io::ErrorKind::NotFound {
-                // The intent is admitted and the bytes are still there. Say so: a retry of this
-                // cancel resumes from `cancelling` rather than starting over.
-                return bad(
-                    StatusCode::CONFLICT,
-                    "managed_restore_cancel_cleanup_failed",
-                    error.to_string(),
-                );
-            }
-        }
-        let mut cancelled = cancelling_exact.operation.payload.clone();
-        cancelled["status"] = json!("cancelled");
-        // Per-transition key suffix, aligned with the cancelling/applying/completed successors. The
-        // bare key this event previously reused collided with the prepared genesis whenever a caller
-        // reused one idempotency key across prepare and cancel: same key, different bytes, refused.
-        return match admit(
-            &st.data_dir,
-            false,
-            &identity,
-            &scope,
-            RESTORE_SCOPE_KIND,
-            &plan_id,
-            PERSISTENCE_NAMESPACE,
-            &tail,
-            "event_stream.restore_plan_cancelled",
-            Some(&cancelling_exact.head),
-            &cancelled,
-            now_ms(),
-            &format!("{}.cancelled", request.idempotency_key),
-        ) {
-            Ok((exact, replayed)) => (
-                StatusCode::OK,
-                Json(json!({"ok":true,"restore_plan":projection_value(&exact,Some(replayed))})),
-            ),
-            Err(reply) => reply,
-        };
-    }
-    if !staging.is_dir() {
-        return bad(
-            StatusCode::CONFLICT,
-            "managed_restore_staging_missing",
-            "prepared restore bytes are missing; prepare again under a successor plan",
-        );
-    }
-    let mut applying = current.operation.payload.clone();
-    applying["status"] = json!("applying");
-    let (applying_exact, _) = match admit(
-        &st.data_dir,
-        false,
-        &identity,
-        &scope,
-        RESTORE_SCOPE_KIND,
-        &plan_id,
-        PERSISTENCE_NAMESPACE,
-        &tail,
-        "event_stream.restore_plan_applying",
-        Some(&current.head),
-        &applying,
-        now_ms(),
-        &format!("{}.applying", request.idempotency_key),
-    ) {
-        Ok(value) => value,
+    let rollback = match restore_rollback_path(&workspace, plan_id) {
+        Ok(rollback) => rollback,
         Err(reply) => return reply,
     };
-    let rollback = workspace
-        .parent()
-        .unwrap_or(Path::new("."))
-        .join(format!(".ioi-managed-restore-rollback-{}", safe(&plan_id)));
-    if rollback.exists() {
-        return bad(
+
+    let not_prepared = || {
+        bad(
             StatusCode::CONFLICT,
-            "managed_restore_rollback_obligation_exists",
-            "an unresolved rollback target already exists",
-        );
-    }
-    if let Err(error) = std::fs::rename(&workspace, &rollback) {
-        return bad(
+            "managed_restore_plan_not_prepared",
+            "only a prepared restore plan may be applied or cancelled",
+        )
+    };
+    let head_conflict = || {
+        bad(
             StatusCode::CONFLICT,
-            "managed_restore_writer_fence_failed",
-            error.to_string(),
-        );
+            "managed_restore_expected_head_conflict",
+            "expected_head is not the current Agentgres head",
+        )
+    };
+
+    match action {
+        "cancel" => match status.as_str() {
+            "prepared" => {
+                if current.head != request.expected_head {
+                    return head_conflict();
+                }
+                // Admit the INTENT before destroying the staged bytes. Deleting first meant that if
+                // the cancelled append then failed, the plan still read "prepared" while the bytes it
+                // promised were already gone.
+                let cancelling = match admit_restore_successor(
+                    data_dir,
+                    identity,
+                    &scope,
+                    plan_id,
+                    &tail,
+                    "event_stream.restore_plan_cancelling",
+                    &current,
+                    "cancelling",
+                    &format!("{ak}.cancelling"),
+                ) {
+                    Ok(exact) => exact,
+                    Err(reply) => return reply,
+                };
+                finalize_cancel(
+                    data_dir,
+                    identity,
+                    &scope,
+                    plan_id,
+                    &tail,
+                    &cancelling,
+                    &staging,
+                    ak,
+                )
+            }
+            "cancelling" if current.operation.idem_key == format!("{ak}.cancelling") => {
+                finalize_cancel(
+                    data_dir, identity, &scope, plan_id, &tail, &current, &staging, ak,
+                )
+            }
+            "cancelled" if current.operation.idem_key == format!("{ak}.cancelled") => (
+                StatusCode::OK,
+                Json(json!({"ok":true,"restore_plan":projection_value(&current,Some(true))})),
+            ),
+            _ => not_prepared(),
+        },
+        // "apply"
+        _ => match status.as_str() {
+            "prepared" => {
+                if current.head != request.expected_head {
+                    return head_conflict();
+                }
+                if !staging.is_dir() {
+                    return bad(
+                        StatusCode::CONFLICT,
+                        "managed_restore_staging_missing",
+                        "prepared restore bytes are missing; prepare again under a successor plan",
+                    );
+                }
+                let applying = match admit_restore_successor(
+                    data_dir,
+                    identity,
+                    &scope,
+                    plan_id,
+                    &tail,
+                    "event_stream.restore_plan_applying",
+                    &current,
+                    "applying",
+                    &format!("{ak}.applying"),
+                ) {
+                    Ok(exact) => exact,
+                    Err(reply) => return reply,
+                };
+                finalize_apply(
+                    data_dir, identity, &scope, plan_id, &tail, &applying, &workspace, &staging,
+                    &rollback, ak,
+                )
+            }
+            "applying" if current.operation.idem_key == format!("{ak}.applying") => finalize_apply(
+                data_dir, identity, &scope, plan_id, &tail, &current, &workspace, &staging,
+                &rollback, ak,
+            ),
+            "completed"
+                if current.operation.idem_key == format!("{ak}.completed")
+                    || current.operation.idem_key == format!("{ak}.rollback_retained") =>
+            {
+                // Terminal replay: admit NOTHING. Releasing the retained rollback material is a
+                // filesystem effect (not an admission) and is idempotent, so a replay after a
+                // completed append whose durability was unconfirmed — the append landed, the release
+                // did not — still discharges the retained copy.
+                if rollback.exists() {
+                    let _ = std::fs::remove_dir_all(&rollback);
+                }
+                (
+                    StatusCode::OK,
+                    Json(json!({
+                        "ok": true,
+                        "restore_plan": projection_value(&current, Some(true)),
+                        "cleanup_obligation": rollback_obligation_from_payload(&current.operation.payload)
+                    })),
+                )
+            }
+            _ => not_prepared(),
+        },
     }
-    if let Err(error) = std::fs::rename(&staging, &workspace) {
-        let rollback_result = std::fs::rename(&rollback, &workspace);
-        return bad(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "managed_restore_apply_failed",
-            format!("{error}; rollback={rollback_result:?}"),
-        );
-    }
-    // Admit the completion BEFORE discarding the rollback material, not after. The old order
-    // deleted the only copy of the pre-restore workspace and THEN tried to record that the restore
-    // had completed: if that append failed, the plan was still "applying", the workspace already
-    // held the restored bytes, and the material needed to undo it had been destroyed — the one
-    // state from which neither finishing nor rolling back is possible.
-    let mut completed = applying_exact.operation.payload.clone();
-    completed["status"] = json!("completed");
-    completed["applied_state_root"] = current.operation.payload["source_state_root"].clone();
-    completed["rollback_material_path"] = json!(rollback.to_string_lossy());
-    let (completed_exact, replayed) = match admit(
-        &st.data_dir,
+}
+
+/// Admit one restore-plan successor: clone the current admitted payload, stamp the new status, and
+/// compare-and-swap against the current head under a per-transition key suffix. The suffix keeps each
+/// transition from colliding with the genesis or a sibling transition under one reused caller key.
+#[allow(clippy::too_many_arguments)]
+fn admit_restore_successor(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    scope: &super::substrate_store::RequestResourceScope,
+    plan_id: &str,
+    tail: &str,
+    op_kind: &str,
+    from: &ExactProjection,
+    status: &str,
+    idempotency_key: &str,
+) -> Result<ExactProjection, Reply> {
+    let mut payload = from.operation.payload.clone();
+    payload["status"] = json!(status);
+    admit(
+        data_dir,
         false,
-        &identity,
-        &scope,
+        identity,
+        scope,
         RESTORE_SCOPE_KIND,
-        &plan_id,
+        plan_id,
         PERSISTENCE_NAMESPACE,
-        &tail,
+        tail,
+        op_kind,
+        Some(&from.head),
+        &payload,
+        now_ms(),
+        idempotency_key,
+    )
+    .map(|(exact, _)| exact)
+}
+
+/// Finish a cancel from an admitted `cancelling` intent: destroy the staged bytes, then admit the
+/// terminal `cancelled`. A crash between the intent and here resumes from `cancelling`.
+#[allow(clippy::too_many_arguments)]
+fn finalize_cancel(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    scope: &super::substrate_store::RequestResourceScope,
+    plan_id: &str,
+    tail: &str,
+    cancelling: &ExactProjection,
+    staging: &Path,
+    ak: &str,
+) -> Reply {
+    if let Err(reply) = restore_effect_interrupted(RestoreEffectPoint::CancelBeforeRemoval) {
+        return reply;
+    }
+    if let Err(error) = std::fs::remove_dir_all(staging) {
+        if error.kind() != std::io::ErrorKind::NotFound {
+            // The intent is admitted and the bytes are still there. Say so: a retry of this cancel
+            // resumes from `cancelling` rather than starting over.
+            return bad(
+                StatusCode::CONFLICT,
+                "managed_restore_cancel_cleanup_failed",
+                error.to_string(),
+            );
+        }
+    }
+    match admit_restore_successor(
+        data_dir,
+        identity,
+        scope,
+        plan_id,
+        tail,
+        "event_stream.restore_plan_cancelled",
+        cancelling,
+        "cancelled",
+        &format!("{ak}.cancelled"),
+    ) {
+        Ok(exact) => (
+            StatusCode::OK,
+            Json(json!({"ok":true,"restore_plan":projection_value(&exact,Some(false))})),
+        ),
+        Err(reply) => reply,
+    }
+}
+
+/// Finish an apply from an admitted `applying` intent: perform the workspace/staging renames that are
+/// still outstanding (each guarded by its on-disk observation so a resume performs only the steps a
+/// prior interrupted apply did not), admit `completed` WHILE the rollback material still exists, then
+/// discharge the retained material — recording a durable `restore_plan_rollback_retained` successor
+/// if it cannot be removed, rather than the response-only JSON the old apply returned.
+#[allow(clippy::too_many_arguments)]
+fn finalize_apply(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    scope: &super::substrate_store::RequestResourceScope,
+    plan_id: &str,
+    tail: &str,
+    applying: &ExactProjection,
+    workspace: &Path,
+    staging: &Path,
+    rollback: &Path,
+    ak: &str,
+) -> Reply {
+    if let Err(reply) = restore_effect_interrupted(RestoreEffectPoint::ApplyBeforeRenames) {
+        return reply;
+    }
+    // Writer fence: move the live workspace aside into the rollback custody dir. Skipped when a prior
+    // attempt already did it (workspace gone) or a foreign rollback is present.
+    if workspace.exists() && !rollback.exists() {
+        if let Err(error) = std::fs::rename(workspace, rollback) {
+            return bad(
+                StatusCode::CONFLICT,
+                "managed_restore_writer_fence_failed",
+                error.to_string(),
+            );
+        }
+        if let Err(reply) = restore_effect_interrupted(RestoreEffectPoint::ApplyAfterFirstRename) {
+            return reply;
+        }
+    }
+    // Promote the staged bytes into the workspace. Skipped when a prior attempt already did it.
+    if staging.is_dir() {
+        if let Err(error) = std::fs::rename(staging, workspace) {
+            let rollback_result = std::fs::rename(rollback, workspace);
+            return bad(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "managed_restore_apply_failed",
+                format!("{error}; rollback={rollback_result:?}"),
+            );
+        }
+    }
+    if let Err(reply) = restore_effect_interrupted(RestoreEffectPoint::ApplyAfterRenames) {
+        return reply;
+    }
+    // Admit completion BEFORE discarding the rollback material. The completed event durably records
+    // the rollback material path and a retention obligation, so the obligation is admitted truth
+    // rather than a number in a response body a restart forgets.
+    let mut completed = applying.operation.payload.clone();
+    completed["status"] = json!("completed");
+    completed["applied_state_root"] = applying.operation.payload["source_state_root"].clone();
+    completed["rollback_material_path"] = json!(rollback.to_string_lossy());
+    completed["rollback_retention"] = json!("retained_until_released");
+    let completed_exact = match admit(
+        data_dir,
+        false,
+        identity,
+        scope,
+        RESTORE_SCOPE_KIND,
+        plan_id,
+        PERSISTENCE_NAMESPACE,
+        tail,
         "event_stream.restore_plan_completed",
-        Some(&applying_exact.head),
+        Some(&applying.head),
         &completed,
         now_ms(),
-        &format!("{}.completed", request.idempotency_key),
+        &format!("{ak}.completed"),
     ) {
-        Ok(value) => value,
+        Ok((exact, _)) => exact,
         Err(reply) => return reply,
     };
-    // The restore is durable now. Failing to remove the rollback copy is a disk-space obligation,
-    // not a failed restore, so it is recorded and reported — never returned as a 500 over state
-    // that did in fact complete.
-    let cleanup_obligation = match std::fs::remove_dir_all(&rollback) {
-        Ok(()) => Value::Null,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Value::Null,
-        Err(error) => json!({
-            "code": "managed_restore_rollback_material_retained",
-            "path": rollback.to_string_lossy(),
-            "message": error.to_string()
-        }),
+    // The restore is durable. Release the retained rollback copy; if it cannot be removed, admit a
+    // `restore_plan_rollback_retained` successor so the retained-material obligation is durable — not
+    // a 500 over a restore that did in fact complete, and not a response-only field a reader must
+    // trust the reply for.
+    let (head_exact, cleanup_obligation) = match std::fs::remove_dir_all(rollback) {
+        Ok(()) => (completed_exact, Value::Null),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            (completed_exact, Value::Null)
+        }
+        Err(error) => {
+            let mut retained = completed_exact.operation.payload.clone();
+            retained["rollback_retention"] = json!("retained");
+            retained["rollback_retained_reason"] = json!(error.to_string());
+            match admit(
+                data_dir,
+                false,
+                identity,
+                scope,
+                RESTORE_SCOPE_KIND,
+                plan_id,
+                PERSISTENCE_NAMESPACE,
+                tail,
+                "event_stream.restore_plan_rollback_retained",
+                Some(&completed_exact.head),
+                &retained,
+                now_ms(),
+                &format!("{ak}.rollback_retained"),
+            ) {
+                Ok((exact, _)) => {
+                    let obligation = rollback_obligation_from_payload(&exact.operation.payload);
+                    (exact, obligation)
+                }
+                Err(reply) => return reply,
+            }
+        }
     };
     (
         StatusCode::OK,
         Json(json!({
             "ok": true,
-            "restore_plan": projection_value(&completed_exact, Some(replayed)),
+            "restore_plan": projection_value(&head_exact, Some(false)),
             "cleanup_obligation": cleanup_obligation
         })),
     )
+}
+
+/// The response-visible cleanup obligation derived from a completed plan's admitted payload. A plan
+/// carrying `rollback_retention == "retained"` names retained material a caller still owes disk to;
+/// any other value is a discharged (or never-retained) obligation.
+fn rollback_obligation_from_payload(payload: &Value) -> Value {
+    if payload["rollback_retention"] == json!("retained") {
+        json!({
+            "code": "managed_restore_rollback_material_retained",
+            "path": payload["rollback_material_path"],
+            "message": payload
+                .get("rollback_retained_reason")
+                .cloned()
+                .unwrap_or(Value::Null)
+        })
+    } else {
+        Value::Null
+    }
 }
 
 #[cfg(test)]
@@ -3149,44 +3536,6 @@ mod tests {
         let production = &source[..source.find("#[cfg(test)]").unwrap_or(source.len())];
         assert!(!production.contains("user://local-operator"));
         assert!(!production.contains("x-ioi-principal"));
-    }
-
-    /// Both restore effects must be admitted BEFORE they are performed, because neither is
-    /// reversible from the state that a failure in between would leave behind.
-    ///
-    /// This asserts source order rather than driving a real restore, because forcing a rename or a
-    /// remove_dir_all to fail mid-transition needs a fixture corpus, and a check that carries its
-    /// own fixtures is one this repo does not keep. The two orderings below are the entire
-    /// invariant, so a refactor that reverses either fails here loudly.
-    #[test]
-    fn restore_effects_are_admitted_before_they_are_performed() {
-        let source = include_str!("managed_runtime_routes.rs");
-        let handler = source
-            .split("pub(crate) async fn handle_restore_plan_action")
-            .nth(1)
-            .expect("restore action handler");
-        let handler = &handler[..handler.find("\n#[cfg(test)]").unwrap_or(handler.len())];
-
-        let at = |needle: &str| {
-            handler
-                .find(needle)
-                .unwrap_or_else(|| panic!("restore action handler no longer contains {needle}"))
-        };
-
-        // Cancel: the staged bytes are the only copy of the prepared restore. Deleting them before
-        // the cancellation is durable leaves a plan reading "prepared" over bytes that are gone.
-        assert!(
-            at("event_stream.restore_plan_cancelling") < at("remove_dir_all(&staging)"),
-            "cancel must admit its intent before deleting the staged restore bytes"
-        );
-
-        // Apply: the rollback directory is the only copy of the pre-restore workspace. Deleting it
-        // before the completion is durable leaves the plan "applying", the workspace restored, and
-        // nothing left to undo it with.
-        assert!(
-            at("event_stream.restore_plan_completed") < at("remove_dir_all(&rollback)"),
-            "apply must admit completion before discarding the rollback material"
-        );
     }
 
     fn policy(profile: &str, idle_semantics: &str) -> RuntimePolicy {
@@ -3313,5 +3662,718 @@ mod tests {
         let bytes =
             std::fs::read(material_path(dir.path().to_str().unwrap(), &state_root)).unwrap();
         assert_ne!(digest(&bytes), state_root);
+    }
+
+    // ==================== restore state-machine convergence battery ====================
+    //
+    // Every test below drives the production functions the routes call — `prepare_restore_plan`,
+    // `act_on_restore_plan`, and `capture_environment_backup` — against a real tempdir and the real
+    // Agentgres chain, with a full backup/restore corpus, so convergence is read back from durable
+    // truth rather than asserted about source order. The interruptions are injected with the
+    // thread-local `force_restore_effect_fault_for_this_thread` (mid-effect) and agentgres'
+    // `force_durability_failure_for_this_thread` (mid-append), and `reset_handle_for_test` stands in
+    // for a restart by forcing the next read to rebuild from the durable log alone.
+
+    use super::super::substrate_store::{
+        list_event_stream_tails, read_event_stream_history, read_event_stream_operation,
+        request_identity_for_test, reset_handle_for_test, RequestIdentity,
+    };
+    use std::sync::Mutex;
+
+    /// `force_durability_failure_for_this_thread` is thread-local, but the durability battery is
+    /// serialized under this mutex to match the sibling discipline in `mutation_event_foundation`.
+    static RESTORE_DURABILITY_FAULT: Mutex<()> = Mutex::new(());
+
+    const TENANT: &str = "org://acme";
+    const PRINCIPAL: &str = "user://acme-operator";
+
+    /// A bootable backup/restore corpus: a real Agentgres substrate with a `local_private` storage
+    /// profile, a managed instance whose `compute_session.environment_ref` names the target
+    /// environment, an on-disk environment record with a materialized workspace, and a completed
+    /// backup whose material bytes match the admitted state root and which satisfies the
+    /// `hypervisor-environment-backup/v1` contract and `verify_required_exact`. The deep-dive
+    /// confirmed no end-to-end backup/restore fixture existed; the state machine tests need one.
+    struct RestoreFixture {
+        _dir: tempfile::TempDir,
+        data_dir: String,
+        identity: RequestIdentity,
+        backup_id: String,
+        environment_id: String,
+        workspace: std::path::PathBuf,
+    }
+
+    impl RestoreFixture {
+        fn prepare(&self, key: &str) -> (StatusCode, Value) {
+            let (status, Json(body)) = prepare_restore_plan(
+                &self.data_dir,
+                &self.identity,
+                &self.backup_id,
+                &RestorePlanRequest {
+                    target_environment_id: self.environment_id.clone(),
+                    authority_grant_refs: vec!["grant://acme/1".into()],
+                    idempotency_key: key.into(),
+                },
+            );
+            (status, body)
+        }
+
+        fn action(
+            &self,
+            plan_id: &str,
+            action: &str,
+            key: &str,
+            expected_head: &str,
+        ) -> (StatusCode, Value) {
+            let (status, Json(body)) = act_on_restore_plan(
+                &self.data_dir,
+                &self.identity,
+                plan_id,
+                action,
+                &RestoreActionRequest {
+                    expected_head: expected_head.into(),
+                    idempotency_key: key.into(),
+                },
+            );
+            (status, body)
+        }
+
+        fn restore_events(&self, plan_id: &str) -> Vec<String> {
+            read_event_stream_history(
+                &self.data_dir,
+                PERSISTENCE_NAMESPACE,
+                &restore_tail(plan_id),
+            )
+            .expect("restore stream is readable")
+            .into_iter()
+            .map(|exact| exact.operation.op_kind)
+            .collect()
+        }
+
+        fn restore_status(&self, plan_id: &str) -> String {
+            read_event_stream_operation(
+                &self.data_dir,
+                PERSISTENCE_NAMESPACE,
+                &restore_tail(plan_id),
+            )
+            .expect("restore stream is readable")
+            .expect("the plan exists")
+            .operation
+            .payload["status"]
+                .as_str()
+                .unwrap_or_default()
+                .to_owned()
+        }
+
+        fn staging(&self, plan_id: &str) -> std::path::PathBuf {
+            restore_staging_path(&self.workspace, plan_id).unwrap()
+        }
+
+        fn rollback(&self, plan_id: &str) -> std::path::PathBuf {
+            restore_rollback_path(&self.workspace, plan_id).unwrap()
+        }
+
+        fn workspace_bytes(&self) -> String {
+            std::fs::read_to_string(self.workspace.join("data.txt")).unwrap_or_default()
+        }
+
+        /// Change the live workspace AFTER the backup so a completed restore is observable: apply must
+        /// revert `data.txt` from this drift back to the captured bytes. Kept out of the builder so the
+        /// backup exact-retry test can re-tar an unchanged workspace and genuinely replay.
+        fn drift_workspace(&self) {
+            std::fs::write(self.workspace.join("data.txt"), "drifted after backup").unwrap();
+        }
+    }
+
+    /// The single admitted restore plan's id, read from durable truth. The interruption tests cannot
+    /// read it from a refused prepare's body, so they recover it here.
+    fn sole_restore_plan_id(data_dir: &str) -> String {
+        let tails = list_event_stream_tails(data_dir, PERSISTENCE_NAMESPACE)
+            .expect("persistence tails are enumerable");
+        let restore_tails: Vec<String> = tails
+            .into_iter()
+            .filter(|tail| tail.starts_with("restore-plan."))
+            .collect();
+        assert_eq!(restore_tails.len(), 1, "expected exactly one restore plan");
+        read_event_stream_operation(data_dir, PERSISTENCE_NAMESPACE, &restore_tails[0])
+            .expect("readable")
+            .expect("the plan exists")
+            .operation
+            .payload["plan_id"]
+            .as_str()
+            .expect("plan carries an id")
+            .to_owned()
+    }
+
+    /// Count admitted capture events across every `backup-capture.*` stream, to prove an exact backup
+    /// retry admits no second capture.
+    fn capture_event_count(data_dir: &str) -> usize {
+        list_event_stream_tails(data_dir, PERSISTENCE_NAMESPACE)
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|tail| tail.starts_with("backup-capture."))
+            .filter_map(|tail| {
+                read_event_stream_history(data_dir, PERSISTENCE_NAMESPACE, &tail).ok()
+            })
+            .map(|history| history.len())
+            .sum()
+    }
+
+    fn plan_id_of(body: &Value) -> String {
+        body["restore_plan"]["plan_id"]
+            .as_str()
+            .unwrap_or_else(|| panic!("prepare response carries no plan_id: {body}"))
+            .to_owned()
+    }
+
+    fn head_of(body: &Value) -> String {
+        body["restore_plan"]["agentgres"]["head"]
+            .as_str()
+            .unwrap_or_else(|| panic!("prepare response carries no head: {body}"))
+            .to_owned()
+    }
+
+    /// The original workspace content the backup captures; the restore reverts a later drift back to
+    /// exactly this.
+    const BACKED_UP_BYTES: &str = "hello restore";
+
+    fn build_restore_fixture() -> RestoreFixture {
+        let dir = tempfile::tempdir().unwrap();
+        let data_dir = dir.path().to_str().unwrap().to_owned();
+        reset_handle_for_test();
+        let identity = request_identity_for_test(PRINCIPAL, [TENANT.to_string()]);
+        let environment_id = "env-acme-1".to_owned();
+        let workspace = std::path::Path::new(&data_dir).join("workspace");
+        std::fs::create_dir_all(&workspace).unwrap();
+        std::fs::write(workspace.join("data.txt"), BACKED_UP_BYTES).unwrap();
+
+        // Environment record: a non-microvm workspace the backup captures and the restore targets.
+        std::fs::create_dir_all(std::path::Path::new(&data_dir).join("environments")).unwrap();
+        std::fs::write(
+            std::path::Path::new(&data_dir)
+                .join("environments")
+                .join(format!("{}.json", safe(&environment_id))),
+            serde_json::to_vec(&json!({
+                "status": { "workspace_root": workspace.to_string_lossy(), "substrate": "container" },
+                "spec": { "environment_class_id": "container" }
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+
+        // Storage profile (local_private) owned by the tenant, admitted through the shared boundary.
+        let profile_ref = "storage-profile://acme/primary";
+        let profile_scope = bind_scope(
+            &data_dir,
+            &identity,
+            STORAGE_PROFILE_SCOPE_KIND,
+            profile_ref,
+            TENANT,
+            "fixture-profile",
+        )
+        .unwrap();
+        let profile_payload = json!({
+            "schema_version": "ioi.storage-profile.v1",
+            "storage_profile_ref": profile_ref,
+            "owner_ref": TENANT,
+            "backend_class": "local_private",
+            "destination_ref": "storage://acme/local",
+            "custody_policy_ref": "policy://acme/custody",
+            "encryption_ref": Value::Null,
+            "key_epoch_ref": Value::Null,
+            "retention_policy_ref": "policy://acme/retention",
+        });
+        admit(
+            &data_dir,
+            true,
+            &identity,
+            &profile_scope,
+            STORAGE_PROFILE_SCOPE_KIND,
+            profile_ref,
+            PERSISTENCE_NAMESPACE,
+            &hash_tail("storage-profile", profile_ref),
+            "event_stream.storage_profile_created",
+            None,
+            &profile_payload,
+            now_ms(),
+            "fixture-profile",
+        )
+        .unwrap();
+
+        // Managed instance whose compute session names the target environment.
+        let instance_id = "agent://acme/worker-1";
+        let instance_scope = bind_scope(
+            &data_dir,
+            &identity,
+            INSTANCE_SCOPE_KIND,
+            instance_id,
+            TENANT,
+            "fixture-instance",
+        )
+        .unwrap();
+        let instance_payload = json!({
+            "schema_version": "ioi.managed-worker-instance-state.v1",
+            "instance_id": instance_id,
+            "owner_ref": TENANT,
+            "compute_session": { "environment_ref": format!("environment://local/{environment_id}") },
+        });
+        admit(
+            &data_dir,
+            true,
+            &identity,
+            &instance_scope,
+            INSTANCE_SCOPE_KIND,
+            instance_id,
+            RUNTIME_NAMESPACE,
+            &hash_tail("instance", instance_id),
+            "event_stream.managed_worker_created",
+            None,
+            &instance_payload,
+            now_ms(),
+            "fixture-instance",
+        )
+        .unwrap();
+
+        // Drive the real capture path to produce a contract-valid backup + its material bytes.
+        let backup_request = BackupCreateRequest {
+            storage_profile_ref: profile_ref.into(),
+            backup_policy_ref: "policy://acme/backups".into(),
+            trigger: "manual".into(),
+            actor_ref: TENANT.into(),
+            instance_ref: Some(instance_id.into()),
+            system_ref: None,
+            schedule_or_change_plan_ref: None,
+            authority_grant_refs: vec!["grant://acme/1".into()],
+            idempotency_key: "fixture-backup".into(),
+        };
+        let (status, Json(body)) =
+            capture_environment_backup(&data_dir, &identity, &environment_id, &backup_request);
+        assert_eq!(status, StatusCode::CREATED, "fixture backup failed: {body}");
+        let backup_ref = body["backup"]["backup_ref"].as_str().unwrap().to_owned();
+        let backup_id = backup_ref.rsplit('/').next().unwrap().to_owned();
+
+        RestoreFixture {
+            _dir: dir,
+            data_dir,
+            identity,
+            backup_id,
+            environment_id,
+            workspace,
+        }
+    }
+
+    #[test]
+    fn prepare_exact_retry_stages_once_across_a_handle_reset() {
+        let fx = build_restore_fixture();
+        let (status, body) = fx.prepare("plan-1");
+        assert_eq!(status, StatusCode::CREATED);
+        let plan_id = plan_id_of(&body);
+        assert_eq!(fx.restore_status(&plan_id), "prepared");
+        assert_eq!(
+            fx.restore_events(&plan_id),
+            vec![
+                "event_stream.restore_plan_preparing".to_string(),
+                "event_stream.restore_plan_prepared".to_string()
+            ],
+            "a fresh prepare admits exactly the preparing genesis and the prepared successor"
+        );
+        assert!(fx.staging(&plan_id).is_dir());
+
+        // Restart, then retry the exact same key. It must replay from the durable log: no third
+        // event, no re-stage.
+        reset_handle_for_test();
+        let (retry_status, retry_body) = fx.prepare("plan-1");
+        assert_eq!(retry_status, StatusCode::CREATED);
+        assert_eq!(
+            retry_body["restore_plan"]["agentgres"]["replayed"],
+            json!(true)
+        );
+        assert_eq!(
+            fx.restore_events(&plan_id).len(),
+            2,
+            "an exact retry of a prepared plan admitted a new event"
+        );
+    }
+
+    #[test]
+    fn prepare_interrupted_before_untar_restages_and_converges() {
+        let fx = build_restore_fixture();
+        // Crash after the preparing genesis is admitted, before the untar: an intent over a source
+        // root, with no staged bytes.
+        let guard =
+            force_restore_effect_fault_for_this_thread(RestoreEffectPoint::PrepareBeforeUntar);
+        let (status, body) = fx.prepare("plan-2");
+        drop(guard);
+        assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(
+            body["error"]["code"],
+            json!("managed_restore_effect_interrupted")
+        );
+        let plan_id = sole_restore_plan_id(&fx.data_dir);
+        assert_eq!(
+            fx.restore_status(&plan_id),
+            "preparing",
+            "the genesis intent is admitted, the prepared successor is not"
+        );
+        assert!(!fx.staging(&plan_id).exists(), "the untar never ran");
+        assert_eq!(
+            fx.restore_events(&plan_id),
+            vec!["event_stream.restore_plan_preparing".to_string()]
+        );
+
+        // Restart and resume. The prepared successor must be admitted over re-staged bytes.
+        reset_handle_for_test();
+        let (resume_status, resume_body) = fx.prepare("plan-2");
+        assert_eq!(resume_status, StatusCode::CREATED);
+        assert_eq!(plan_id_of(&resume_body), plan_id);
+        assert_eq!(fx.restore_status(&plan_id), "prepared");
+        assert!(
+            fx.staging(&plan_id).is_dir(),
+            "resume must re-stage the bytes"
+        );
+        assert_eq!(
+            fx.restore_events(&plan_id),
+            vec![
+                "event_stream.restore_plan_preparing".to_string(),
+                "event_stream.restore_plan_prepared".to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn prepare_interrupted_after_untar_admits_prepared_without_restaging() {
+        let fx = build_restore_fixture();
+        // Crash after the untar, before the prepared successor: staged bytes with a plan still
+        // reading `preparing`.
+        let guard =
+            force_restore_effect_fault_for_this_thread(RestoreEffectPoint::PrepareAfterUntar);
+        let (status, _) = fx.prepare("plan-3");
+        drop(guard);
+        assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+        let plan_id = sole_restore_plan_id(&fx.data_dir);
+        assert_eq!(fx.restore_status(&plan_id), "preparing");
+        assert!(
+            fx.staging(&plan_id).is_dir(),
+            "the untar ran, the successor did not admit"
+        );
+
+        // Tamper the staged bytes: a resume that wrongly re-untars would revert this marker back to
+        // the captured content, so its survival proves the untar was skipped.
+        std::fs::write(
+            fx.staging(&plan_id).join("data.txt"),
+            "resumed-without-restage",
+        )
+        .unwrap();
+        reset_handle_for_test();
+        let (resume_status, resume_body) = fx.prepare("plan-3");
+        assert_eq!(resume_status, StatusCode::CREATED, "{resume_body}");
+        assert_eq!(plan_id_of(&resume_body), plan_id);
+        assert_eq!(fx.restore_status(&plan_id), "prepared");
+        assert_eq!(
+            std::fs::read_to_string(fx.staging(&plan_id).join("data.txt")).unwrap(),
+            "resumed-without-restage",
+            "resume must NOT re-untar over already-staged bytes"
+        );
+    }
+
+    #[test]
+    fn cancel_interrupted_after_intent_removes_staging_and_converges() {
+        let fx = build_restore_fixture();
+        let (_, body) = fx.prepare("plan-4");
+        let plan_id = plan_id_of(&body);
+        let head = head_of(&body);
+        assert!(fx.staging(&plan_id).is_dir());
+
+        // Crash after the cancelling intent is admitted, before the staged bytes are removed.
+        let guard =
+            force_restore_effect_fault_for_this_thread(RestoreEffectPoint::CancelBeforeRemoval);
+        let (status, _) = fx.action(&plan_id, "cancel", "act-4", &head);
+        drop(guard);
+        assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(fx.restore_status(&plan_id), "cancelling");
+        assert!(
+            fx.staging(&plan_id).is_dir(),
+            "the intent is admitted but the bytes are still there"
+        );
+
+        // Restart and retry: resume from `cancelling`, remove the bytes, admit `cancelled`.
+        reset_handle_for_test();
+        let (resume_status, resume_body) = fx.action(&plan_id, "cancel", "act-4", &head);
+        assert_eq!(resume_status, StatusCode::OK, "{resume_body}");
+        assert_eq!(fx.restore_status(&plan_id), "cancelled");
+        assert!(
+            !fx.staging(&plan_id).exists(),
+            "resume must remove the staged bytes"
+        );
+    }
+
+    #[test]
+    fn cancel_exact_retry_after_completion_replays_with_zero_new_events() {
+        let fx = build_restore_fixture();
+        let (_, body) = fx.prepare("plan-5");
+        let plan_id = plan_id_of(&body);
+        let head = head_of(&body);
+        let (status, _) = fx.action(&plan_id, "cancel", "act-5", &head);
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(fx.restore_status(&plan_id), "cancelled");
+        let events_before = fx.restore_events(&plan_id).len();
+
+        reset_handle_for_test();
+        let (retry_status, retry_body) = fx.action(&plan_id, "cancel", "act-5", &head);
+        assert_eq!(retry_status, StatusCode::OK);
+        assert_eq!(
+            retry_body["restore_plan"]["agentgres"]["replayed"],
+            json!(true)
+        );
+        assert_eq!(
+            fx.restore_events(&plan_id).len(),
+            events_before,
+            "a terminal-cancel replay admitted a new event"
+        );
+    }
+
+    #[test]
+    fn apply_interrupted_before_renames_converges() {
+        let fx = build_restore_fixture();
+        fx.drift_workspace();
+        let (_, body) = fx.prepare("plan-6");
+        let plan_id = plan_id_of(&body);
+        let head = head_of(&body);
+
+        let guard =
+            force_restore_effect_fault_for_this_thread(RestoreEffectPoint::ApplyBeforeRenames);
+        let (status, _) = fx.action(&plan_id, "apply", "act-6", &head);
+        drop(guard);
+        assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(fx.restore_status(&plan_id), "applying");
+        assert!(fx.staging(&plan_id).is_dir());
+        assert!(
+            !fx.rollback(&plan_id).exists(),
+            "no rename ran, so no rollback yet"
+        );
+        assert_eq!(fx.workspace_bytes(), "drifted after backup");
+
+        reset_handle_for_test();
+        let (resume_status, resume_body) = fx.action(&plan_id, "apply", "act-6", &head);
+        assert_eq!(resume_status, StatusCode::OK, "{resume_body}");
+        assert_eq!(fx.restore_status(&plan_id), "completed");
+        assert_eq!(
+            fx.workspace_bytes(),
+            BACKED_UP_BYTES,
+            "the restore reverted the drift"
+        );
+        assert!(
+            !fx.rollback(&plan_id).exists(),
+            "the rollback copy was released"
+        );
+    }
+
+    #[test]
+    fn apply_interrupted_after_first_rename_converges() {
+        let fx = build_restore_fixture();
+        fx.drift_workspace();
+        let (_, body) = fx.prepare("plan-7");
+        let plan_id = plan_id_of(&body);
+        let head = head_of(&body);
+
+        // Crash between the writer-fence rename (workspace -> rollback) and the promote rename
+        // (staging -> workspace).
+        let guard =
+            force_restore_effect_fault_for_this_thread(RestoreEffectPoint::ApplyAfterFirstRename);
+        let (status, _) = fx.action(&plan_id, "apply", "act-7", &head);
+        drop(guard);
+        assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+        assert!(
+            !fx.workspace.exists(),
+            "the workspace was moved to the rollback custody dir"
+        );
+        assert!(fx.rollback(&plan_id).exists());
+        assert!(fx.staging(&plan_id).is_dir());
+
+        reset_handle_for_test();
+        let (resume_status, resume_body) = fx.action(&plan_id, "apply", "act-7", &head);
+        assert_eq!(resume_status, StatusCode::OK, "{resume_body}");
+        assert_eq!(fx.restore_status(&plan_id), "completed");
+        assert_eq!(fx.workspace_bytes(), BACKED_UP_BYTES);
+        assert!(!fx.rollback(&plan_id).exists());
+    }
+
+    #[test]
+    fn completed_append_durability_fault_leaves_rollback_then_converges() {
+        let _serialized = RESTORE_DURABILITY_FAULT.lock().unwrap();
+        let fx = build_restore_fixture();
+        fx.drift_workspace();
+        let (_, body) = fx.prepare("plan-8");
+        let plan_id = plan_id_of(&body);
+        let head = head_of(&body);
+
+        // Phase 1: reach the state where both renames are done but completion is not yet admitted.
+        let guard =
+            force_restore_effect_fault_for_this_thread(RestoreEffectPoint::ApplyAfterRenames);
+        let (status, _) = fx.action(&plan_id, "apply", "act-8", &head);
+        drop(guard);
+        assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(fx.restore_status(&plan_id), "applying");
+        assert!(fx.rollback(&plan_id).exists());
+
+        // Phase 2: the completed append lands but its durability is unconfirmed. The caller sees an
+        // error and the rollback material is left on disk.
+        reset_handle_for_test();
+        let durability = agentgres::event_stream::force_durability_failure_for_this_thread();
+        let (fault_status, _) = fx.action(&plan_id, "apply", "act-8", &head);
+        drop(durability);
+        assert_eq!(fault_status, StatusCode::SERVICE_UNAVAILABLE);
+        assert!(
+            fx.rollback(&plan_id).exists(),
+            "a completed-append durability fault must leave the rollback copy on disk"
+        );
+
+        // Phase 3: retry with durability restored. The plan converges to completed and the retained
+        // rollback material is discharged.
+        reset_handle_for_test();
+        let (converge_status, converge_body) = fx.action(&plan_id, "apply", "act-8", &head);
+        assert_eq!(converge_status, StatusCode::OK, "{converge_body}");
+        assert_eq!(fx.restore_status(&plan_id), "completed");
+        assert!(
+            !fx.rollback(&plan_id).exists(),
+            "convergence must release the rollback copy"
+        );
+        assert_eq!(fx.workspace_bytes(), BACKED_UP_BYTES);
+        let completed = fx
+            .restore_events(&plan_id)
+            .into_iter()
+            .filter(|kind| kind == "event_stream.restore_plan_completed")
+            .count();
+        assert_eq!(completed, 1, "convergence admitted a second completion");
+    }
+
+    #[test]
+    fn terminal_truth_fence_refuses_prepare_after_a_terminal_transition() {
+        // After completion.
+        let fx = build_restore_fixture();
+        let (_, body) = fx.prepare("plan-9");
+        let plan_id = plan_id_of(&body);
+        let head = head_of(&body);
+        assert_eq!(
+            fx.action(&plan_id, "apply", "act-9", &head).0,
+            StatusCode::OK
+        );
+        assert_eq!(fx.restore_status(&plan_id), "completed");
+        let events_before = fx.restore_events(&plan_id).len();
+        let staging_before = fx.staging(&plan_id).exists();
+
+        let (fence_status, fence_body) = fx.prepare("plan-9");
+        assert_eq!(fence_status, StatusCode::CONFLICT);
+        assert_eq!(
+            fence_body["error"]["code"],
+            json!("managed_restore_plan_terminal")
+        );
+        assert_eq!(
+            fx.restore_events(&plan_id).len(),
+            events_before,
+            "the terminal fence admitted a new event"
+        );
+        assert_eq!(
+            fx.staging(&plan_id).exists(),
+            staging_before,
+            "the terminal fence staged new bytes"
+        );
+
+        // After cancellation, the same fence applies.
+        let fx2 = build_restore_fixture();
+        let (_, body2) = fx2.prepare("plan-9c");
+        let plan_id2 = plan_id_of(&body2);
+        let head2 = head_of(&body2);
+        assert_eq!(
+            fx2.action(&plan_id2, "cancel", "act-9c", &head2).0,
+            StatusCode::OK
+        );
+        assert_eq!(fx2.restore_status(&plan_id2), "cancelled");
+        let events_before2 = fx2.restore_events(&plan_id2).len();
+        let (fence_status2, fence_body2) = fx2.prepare("plan-9c");
+        assert_eq!(fence_status2, StatusCode::CONFLICT);
+        assert_eq!(
+            fence_body2["error"]["code"],
+            json!("managed_restore_plan_terminal")
+        );
+        assert_eq!(fx2.restore_events(&plan_id2).len(), events_before2);
+    }
+
+    #[test]
+    fn restore_transition_exact_retry_replays_across_a_restart() {
+        // A completed apply is a shared-boundary successor transition; retrying its exact command
+        // after a restart must replay it and admit nothing new.
+        let fx = build_restore_fixture();
+        let (_, body) = fx.prepare("plan-10");
+        let plan_id = plan_id_of(&body);
+        let head = head_of(&body);
+        assert_eq!(
+            fx.action(&plan_id, "apply", "act-10", &head).0,
+            StatusCode::OK
+        );
+        let events_before = fx.restore_events(&plan_id).len();
+
+        reset_handle_for_test();
+        let (retry_status, retry_body) = fx.action(&plan_id, "apply", "act-10", &head);
+        assert_eq!(retry_status, StatusCode::OK);
+        assert_eq!(
+            retry_body["restore_plan"]["agentgres"]["replayed"],
+            json!(true)
+        );
+        assert_eq!(fx.restore_status(&plan_id), "completed");
+        assert_eq!(
+            fx.restore_events(&plan_id).len(),
+            events_before,
+            "a completed-apply replay across a restart admitted a new transition"
+        );
+        // A terminal replay must run NO effects: re-running the apply would move the restored
+        // workspace back into rollback and then delete it.
+        assert_eq!(
+            fx.workspace_bytes(),
+            BACKED_UP_BYTES,
+            "the replay must not touch the workspace"
+        );
+    }
+
+    #[test]
+    fn backup_capture_exact_retry_writes_one_material_and_one_event() {
+        // The fixture captured one backup under `fixture-backup` over an undrifted workspace.
+        // Re-driving the exact capture after a restart must replay: no second capture event, no
+        // second material file. (The workspace is deliberately NOT drifted here, so the re-tar is
+        // byte-identical and the state root matches.)
+        let fx = build_restore_fixture();
+        assert_eq!(
+            capture_event_count(&fx.data_dir),
+            1,
+            "the fixture captured exactly one backup"
+        );
+        let request = BackupCreateRequest {
+            storage_profile_ref: "storage-profile://acme/primary".into(),
+            backup_policy_ref: "policy://acme/backups".into(),
+            trigger: "manual".into(),
+            actor_ref: TENANT.into(),
+            instance_ref: Some("agent://acme/worker-1".into()),
+            system_ref: None,
+            schedule_or_change_plan_ref: None,
+            authority_grant_refs: vec!["grant://acme/1".into()],
+            idempotency_key: "fixture-backup".into(),
+        };
+        reset_handle_for_test();
+        let (status, Json(body)) =
+            capture_environment_backup(&fx.data_dir, &fx.identity, &fx.environment_id, &request);
+        assert_eq!(status, StatusCode::CREATED, "{body}");
+        assert_eq!(body["ok"], json!(true));
+        assert_eq!(
+            capture_event_count(&fx.data_dir),
+            1,
+            "an exact backup retry admitted a second capture event"
+        );
+        let material_files =
+            std::fs::read_dir(std::path::Path::new(&fx.data_dir).join(BACKUP_MATERIAL_DIR))
+                .unwrap()
+                .count();
+        assert_eq!(
+            material_files, 1,
+            "an exact backup retry wrote a second material file"
+        );
     }
 }
