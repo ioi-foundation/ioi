@@ -4560,8 +4560,8 @@ not mutate host state directly.
   daemon and Agentgres admission path.
 - No application surface may become a private runtime loop beside the
   Hypervisor Daemon.
-- Home, Systems, Projects, Applications, and Work must register as core
-  workspaces, not applications. Automations remains an owner application with a
+- Home, Systems, Projects, Applications, Work, and Settings must register as
+  core workspaces, not applications. Automations remains an owner application with a
   first-class shell placement; Sessions remains a typed execution object and
   Work view, not a peer application registration.
 - `New Session` must create only a bounded Session. New System, Goal, Project,
@@ -4597,8 +4597,8 @@ not mutate host state directly.
   navigation, search, catalog, command-palette, or launch row may point to an
   unregistered or orphan route.
 - `permanent_shell` is reserved for the Automations owner registration in
-  taxonomy v2. Home, Systems, Projects, Applications, and Work derive from core
-  workspace registrations; no tool, extension, substrate, or other owner
+  taxonomy v2. Home, Systems, Projects, Applications, Work, and Settings derive
+  from core workspace registrations; no tool, extension, substrate, or other owner
   application may self-promote into the permanent rail through metadata.
 - Raw capture/review routes under `/__apps` are development evidence only and
   must never appear as production product inventory. `Ported apps`, `Harvested
