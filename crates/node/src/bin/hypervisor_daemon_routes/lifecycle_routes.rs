@@ -7439,6 +7439,22 @@ pub(crate) async fn handle_subagent_spawn(
         .and_then(|v| v.as_str())
         .unwrap_or_default()
         .to_string();
+    // ADR 0034: the delegation edge is admitted by the WorkLifecycle kernel
+    // BEFORE any child object exists, so a refused delegation leaves no agent,
+    // run, or subagent record behind. This surface owns no delegation bound of
+    // its own; depth, fanout, budget, and ancestor limits are the kernel's.
+    super::work_lifecycle_routes::admit_delegation_edge(
+        st.data_dir.as_str(),
+        &format!("work_run://{thread_id}"),
+        "work_run",
+        "running",
+        "work_run",
+        &format!("work_run://{child_agent_id}"),
+        // A spawned subagent may have produced external effects by the time it
+        // is cancelled; its termination is not a free rollback.
+        "compensatable",
+    )?;
+
     let plan_agent: AgentCreateStateUpdateRequest = serde_json::from_value(json!({
         "schema_version": AGENT_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
         "agent": child_agent,
@@ -7720,10 +7736,28 @@ pub(crate) async fn handle_subagents_propagate_cancel(
         .unwrap_or("agent_studio")
         .to_string();
     let now = iso_now();
+    // ADR 0034 sub-ruling 5: "what are this parent's children?" is answered by
+    // the work-owning graph, not by scanning child records for a parent field.
+    // A record whose parent_thread_id happens to match is not an admitted
+    // delegation edge.
+    let admitted_children: BTreeSet<String> = super::work_lifecycle_routes::active_children_of(
+        st.data_dir.as_str(),
+        &format!("work_run://{thread_id}"),
+    )?
+    .into_iter()
+    .filter_map(|(relation_kind, child_ref)| {
+        (relation_kind == "work_run")
+            .then(|| child_ref.strip_prefix("work_run://").map(str::to_string))
+            .flatten()
+    })
+    .collect();
+
     let candidates: Vec<Value> = read_record_dir(&st.data_dir, "subagents")
         .into_iter()
         .filter(|sub| {
-            sub.get("parent_thread_id").and_then(|v| v.as_str()) == Some(thread_id.as_str())
+            sub.get("subagent_id")
+                .and_then(|v| v.as_str())
+                .is_some_and(|id| admitted_children.contains(id))
         })
         .collect();
     let mut canceled = Vec::new();

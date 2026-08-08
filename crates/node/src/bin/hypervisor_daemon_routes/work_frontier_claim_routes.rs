@@ -3414,6 +3414,25 @@ pub(crate) async fn handle_claim_acquire(
         }),
         &intent_tail,
     );
+    // ADR 0034 / INV-35: a claim lease delegates consumable capacity, so it is
+    // a work-owning admission edge. The frontier item's concurrency ceiling is
+    // an atomic slot per active claim — not a copy of one remaining allowance
+    // handed to every concurrent sibling. Admitted before the single durable
+    // write below, so a refused claim persists nothing.
+    if let Err(super::AppError(_, message)) = super::work_lifecycle_routes::admit_delegation_edge(
+        state.data_dir.as_str(),
+        &format!("work_run://{frontier_ref}"),
+        "work_run",
+        "running",
+        "work_run",
+        &format!("work_run://{claim_ref}"),
+        // A claim that has begun work may have produced effects; releasing it
+        // is not a free rollback.
+        "compensatable",
+    ) {
+        return classify(verr("work_claim_delegation_refused", message));
+    }
+
     match persist_and_complete_intent_locked(&state.data_dir, &intent_tail, &intent) {
         Ok(()) => (
             StatusCode::CREATED,
