@@ -43,7 +43,7 @@ import { managerLink, managerResourceLink, objectSetLink, sourcesLink, pipelineN
 import { ioiGlobalRailHtml, IOI_GRAIL_CSS } from "../surfaces/chrome.mjs";
 import { mintTestGrant, awaitingWalletAuthority } from "./lib/wallet-authority.mjs";
 import { handleSystemGenesisSurfaces } from "./system-genesis-surfaces.mjs";
-import { v2RouteFor, RETIRED_UI_ROUTES, renderV2RouteShellPage, renderRetiredUiRoutePage, retiredUiRouteRefusal } from "./v2-route-shell.mjs";
+import { resolveV2Route, retiredUiRouteFor, renderV2RouteShellPage, renderRetiredUiRoutePage, retiredUiRouteRefusal } from "./v2-route-shell.mjs";
 import { projectDomainAppRuntimeModel } from "./domain-app-runtime-model.mjs";
 
 // Build the current conversation entries for a run, in the exact NDJSON shape the SPA's V1 pane
@@ -8528,29 +8528,42 @@ async function handleEstateRequest(req, res, body) {
     // (/sessions) answer the daemon's typed 410 semantics instead of soft-404ing into the SPA —
     // a link to the canonical replacement, never a redirect alias.
     if (req.method === "GET") {
-      const retiredReplacement = RETIRED_UI_ROUTES[pathname];
-      if (retiredReplacement) {
+      // W1.3: a retired root retires its subtree — /sessions/<id> answers the same typed 410,
+      // deep link carried onto the canonical replacement. A link, never a redirect alias.
+      const retired = retiredUiRouteFor(pathname);
+      if (retired) {
         if ((req.headers["accept"] || "").includes("text/html")) {
           res.writeHead(410, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
-          res.end(renderRetiredUiRoutePage(pathname, retiredReplacement));
+          res.end(renderRetiredUiRoutePage(retired.requested, retired.replacement));
         } else {
           res.writeHead(410, { "Content-Type": "application/json", "Cache-Control": "no-store" });
-          res.end(JSON.stringify(retiredUiRouteRefusal(pathname, retiredReplacement)));
+          res.end(JSON.stringify(retiredUiRouteRefusal(retired.requested, retired.replacement)));
         }
         return;
       }
-      const v2Route = v2RouteFor(pathname);
-      if (v2Route && v2Route.disposition !== "vendor_spa") {
+      // W1.3 deep-link grammar: longest-prefix segment-boundary resolution over the canonical
+      // route table (was exact-root-only). Vendored subtrees (/projects, /settings/<section>)
+      // fall through untouched; everything else under a canonical root resolves typed.
+      const resolved = resolveV2Route(pathname);
+      if (resolved) {
+        const requestUrl = new URL(req.url, "http://x");
         // W0.2: the page's estate-navigation band renders the compiled product-surface
         // projection (surface-compiler.mjs) — daemon registration records, never a hand list.
-        const compiled = await compileProductSurfaces({ headers: daemonRequestHeaders(req) });
+        // Embedded renders (?embed=1) omit estate chrome and skip the compile entirely.
+        const embed = requestUrl.searchParams.get("embed") === "1";
+        const compiled = embed ? null : await compileProductSurfaces({ headers: daemonRequestHeaders(req) });
         res.writeHead(200, {
           "Content-Type": "text/html; charset=utf-8",
           "Cache-Control": "no-cache",
-          "X-IOI-Surface-Route": v2Route.route,
-          "X-IOI-Surface-Owner": v2Route.kind,
+          "X-IOI-Surface-Route": resolved.row.route,
+          "X-IOI-Surface-Owner": resolved.row.kind,
+          ...(resolved.subpath ? { "X-IOI-Surface-Subpath": resolved.subpath } : {}),
         });
-        res.end(renderV2RouteShellPage(v2Route, compiled));
+        res.end(renderV2RouteShellPage(resolved.row, compiled, {
+          subpath: resolved.subpath,
+          embed,
+          query: requestUrl.searchParams.toString(),
+        }));
         return;
       }
     }

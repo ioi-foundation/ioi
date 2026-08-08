@@ -22,6 +22,7 @@
     "dryrun:hypervisor-code-editor-adapter-host:wayland": "bash apps/hypervisor/scripts/dry-run-desktop.sh wayland",
     "test:hypervisor-app-harness": "node --test scripts/lib/hypervisor-app-harness-contract.test.mjs",
     "test:hypervisor-app-clients": "node --test apps/hypervisor/surfaces/read-authority-clients.test.mjs",
+    "test:hypervisor-route-shell": "node --test apps/hypervisor/scripts/v2-route-shell.test.mjs",
     "test:hypervisor-app-events": "node --test apps/hypervisor/surfaces/event-client.test.mjs",
     "test:hypervisor-scm-publication-client": "node --test scripts/lib/hypervisor-scm-publication-client.test.mjs",
     "test:hypervisor-domain-app-runtime": "node --test apps/hypervisor/scripts/domain-app-runtime-model.test.mjs",

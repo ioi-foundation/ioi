@@ -11,11 +11,16 @@
 // simulated body (docs/architecture/_meta/doc-classes.md status doctrine applies).
 //
 // Row shape:
-//   route          canonical path (exact match)
+//   route          canonical path (exact match owns the root; W1.3 adds segment-boundary
+//                  deep-link resolution — see resolveV2Route)
 //   surface        display name from the route ledger
 //   kind           owner kind: core workspace | owner application | substrate | typed Work view |
 //                  one-click action | authentication entry | reserved owner application
 //   rule           the route-ledger rule column, verbatim where present
+//   deep_links     "passthrough" → subpaths under this root are NOT captured (vendored
+//                  sections keep serving, e.g. /settings/members). Absent → subpaths resolve
+//                  to this row's shell page with the deep link named honestly (W1.3);
+//                  vendor_spa rows fall through structurally regardless.
 //   waves          this surface's wave assignments — advisory labels from the private
 //                  implementation program (gitignored); nothing tracked depends on them
 //   build_state    named build state — what is real NOW, what wave builds the rest
@@ -117,6 +122,7 @@ export const V2_ROUTE_TABLE = [
     route: "/settings",
     surface: "Settings",
     kind: "core workspace (projection-only, writes-through-owners)",
+    deep_links: "passthrough",
     rule: "core workspace; panes project canonical owner records",
     waves: "W0.5 · W4",
     build_state: "shell-only at the root (W0.1) — the vendored Settings sections keep serving at /settings/<section>; W0.5 lands identity truth, Wave 4 completes the workspace (surfaces/settings.md §5)",
@@ -259,6 +265,19 @@ export const V2_ROUTE_TABLE = [
     ],
   },
   {
+    route: "/packages/marketplace",
+    surface: "Packages / Marketplace",
+    kind: "optional mode (owner application: Packages)",
+    rule: "Marketplace is the optional mode at /packages/marketplace",
+    waves: "W1.3 (route resolves) · W3 (re-files over the registry)",
+    build_state:
+      "route resolves as of W1.3 (DEF-ROUTE-1 closed: the ledger rule named this path without a route behind it). The marketplace object plane serves admission-only draft listings today; the mode re-files over the package registry in Wave 3",
+    serving_today: [
+      { href: "/__ioi/marketplace", label: "Marketplace readout", note: "draft listing/publish/admission object plane (admission-only)" },
+      { href: "/__ioi/marketplace/listings", label: "Marketplace listings", note: "protected ported seed (daemon-wired); re-files over the registry in Wave 3" },
+    ],
+  },
+  {
     route: "/developer-workspace",
     surface: "Developer Workspace",
     kind: "owner application",
@@ -329,6 +348,50 @@ export const RETIRED_UI_ROUTES = {
 const BY_ROUTE = new Map(V2_ROUTE_TABLE.map((r) => [r.route, r]));
 export function v2RouteFor(pathname) {
   return BY_ROUTE.get(pathname) || null;
+}
+
+// W1.3 deep-link grammar. Route lookup was exact-root-only, so no detail or deep-link
+// path under any canonical surface resolved (G-7, definition-of-done.md). Resolution is
+// longest-prefix on SEGMENT boundaries ("/data" owns "/data/sources", never "/database"):
+//   exact row match                       → { row, subpath: "" }   (unchanged behavior)
+//   subpath under a row                   → { row, subpath }       (the owner's shell page
+//                                            renders the deep link honestly — typed, named,
+//                                            never a soft-404 into the SPA)
+//   subpath under deep_links:"passthrough"→ null                   (vendored sections keep
+//                                            serving, e.g. /settings/members)
+//   anything under a vendor_spa row       → null                   (the SPA owns it)
+// Back-stack preservation is structural: resolution never redirects (ADR 0022 Decision 2 —
+// no aliases), so history entries are always the requested path itself. Hash fragments never
+// reach the server and ride the client untouched; query strings pass through to the renderer.
+export function resolveV2Route(pathname) {
+  const exact = BY_ROUTE.get(pathname);
+  if (exact) {
+    if (exact.disposition === "vendor_spa") return null;
+    return { row: exact, subpath: "" };
+  }
+  let prefix = pathname;
+  for (;;) {
+    const cut = prefix.lastIndexOf("/");
+    if (cut <= 0) return null;
+    prefix = prefix.slice(0, cut);
+    const row = BY_ROUTE.get(prefix);
+    if (!row) continue;
+    if (row.disposition === "vendor_spa" || row.deep_links === "passthrough") return null;
+    return { row, subpath: pathname.slice(prefix.length + 1) };
+  }
+}
+
+// W1.3: a retired root retires its whole subtree — /sessions/<id> answers the same typed 410
+// as /sessions, with the deep link carried onto the canonical replacement. A link, never a
+// redirect alias.
+export function retiredUiRouteFor(pathname) {
+  for (const [retired, replacement] of Object.entries(RETIRED_UI_ROUTES)) {
+    if (pathname === retired) return { requested: pathname, replacement };
+    if (pathname.startsWith(`${retired}/`)) {
+      return { requested: pathname, replacement: `${replacement}${pathname.slice(retired.length)}` };
+    }
+  }
+  return null;
 }
 
 // The exact refusal record shape the daemon emits for a retired route
@@ -408,21 +471,33 @@ function navBand(row, compiled) {
     ${wraps((compiled.applications || []).map(link))}${down}`;
 }
 
-// The honest W0.1 surface shell page. States what exists; fabricates nothing. `compiled` is the
-// W0.2 compiled product-surface projection feeding the navigation band.
-export function renderV2RouteShellPage(row, compiled) {
+// The honest surface shell page. States what exists; fabricates nothing. `compiled` is the
+// W0.2 compiled product-surface projection feeding the navigation band. `options` (W1.3):
+//   subpath  the deep-link remainder under the canonical root ("" for the root itself) —
+//            named honestly in the registration grid, never soft-404ed
+//   embed    render without estate chrome (brand, navigation band, footer) for embedding;
+//            the body content is identical — embedding changes chrome, never truth
+//   query    the requested query string (no leading "?"), preserved verbatim on the page
+export function renderV2RouteShellPage(row, compiled, options = {}) {
   const esc = escHtml;
+  const { subpath = "", embed = false, query = "" } = options;
   const reserved = row.disposition === "reserved";
+  const requestedPath = subpath ? `${row.route}/${subpath}` : row.route;
+  const requested = query ? `${requestedPath}?${query}` : requestedPath;
   const serving = (row.serving_today || [])
     .map((s) => `<a class="card" href="${esc(s.href)}"><div class="main"><div class="name">${esc(s.label)}</div><div class="meta">${esc(s.note)}</div></div><span class="pill muted">${esc(s.href)}</span></a>`)
     .join("");
   const servingBlock = serving
     ? `${serving}<p class="sub" style="margin-top:10px">These lanes keep serving untouched; they rehome into this route at this surface's Wave&nbsp;1 build / Wave&nbsp;4 cutover — nothing is deleted or redirected at W0.1.</p>`
     : `<div class="empty">Nothing serves this surface today. This page states that honestly — no fixture rows, no fabricated counts, no placeholder data.</div>`;
+  const deepLinkRows = subpath
+    ? `<dt>Requested deep link</dt><dd><code>${esc(requested)}</code></dd>
+      <dt>Deep-link state</dt><dd>resolves to this surface's canonical root (W1.3 deep-link grammar); detail rendering for <code>${esc(subpath)}</code> lands with this surface's wave build — the lanes below are what serve this surface today</dd>`
+    : "";
   return pageShell(
     row.surface,
-    `<main data-ioi-surface-route="${esc(row.route)}" data-ioi-surface-owner="${esc(row.kind)}">
-    <div class="brand">IOI Hypervisor · v2 route shell (W0.1)</div>
+    `<main data-ioi-surface-route="${esc(row.route)}" data-ioi-surface-owner="${esc(row.kind)}"${subpath ? ` data-ioi-surface-subpath="${esc(subpath)}"` : ""}${embed ? ' data-ioi-embed="1"' : ""}>
+    ${embed ? "" : '<div class="brand">IOI Hypervisor · v2 route shell (W0.1)</div>'}
     <h1>${esc(row.surface)}${reserved ? '<span class="pill warn">reserved · nonlaunchable</span>' : ""}</h1>
     <p class="sub">${
       reserved
@@ -431,7 +506,7 @@ export function renderV2RouteShellPage(row, compiled) {
     }</p>
     <h2>Registration</h2>
     <dl class="grid">
-      <dt>Canonical route</dt><dd><code>${esc(row.route)}</code></dd>
+      <dt>Canonical route</dt><dd><code>${esc(row.route)}</code></dd>${deepLinkRows}
       <dt>Owner kind</dt><dd>${esc(row.kind)}</dd>
       <dt>Route-ledger rule</dt><dd>${esc(row.rule)}</dd>
       <dt>Wave assignments</dt><dd>${esc(row.waves)}</dd>
@@ -439,9 +514,9 @@ export function renderV2RouteShellPage(row, compiled) {
     </dl>
     <h2>Serving this surface today</h2>
     ${servingBlock}
-    <h2>Estate navigation — compiled product-surface projection (W0.2)</h2>
+    ${embed ? "" : `<h2>Estate navigation — compiled product-surface projection (W0.2)</h2>
     ${navBand(row, compiled)}
-    <div class="foot">Route declared in the canonical target-route ledger (core-clients-surfaces.md § Canonical Target Routes) and resolved by the W0.1 route table (<code>apps/hypervisor/scripts/v2-route-shell.mjs</code>); navigation compiled by <code>apps/hypervisor/scripts/surface-compiler.mjs</code>. <a href="/ai">← Home</a></div>
+    <div class="foot">Route declared in the canonical target-route ledger (core-clients-surfaces.md § Canonical Target Routes) and resolved by the route table (<code>apps/hypervisor/scripts/v2-route-shell.mjs</code>); navigation compiled by <code>apps/hypervisor/scripts/surface-compiler.mjs</code>. <a href="/ai">← Home</a></div>`}
     </main>`,
   );
 }
