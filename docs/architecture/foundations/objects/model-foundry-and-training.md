@@ -53,6 +53,30 @@ capability, independent Evaluations judgment, package/registry production, or
 route activation. The larger envelopes below remain planned and must receive
 successor wire versions rather than widening these bounded v1 objects in place.
 
+### Foundry artifact-intent durability obligations
+
+Two of the five families above materialize a content-addressed blob on the
+local filesystem before their admitted event: `FoundryDatasetSnapshot` writes
+the dataset material blob, and each `FoundryCheckpointArtifact` step writes the
+checkpoint blob. A `FoundryArtifactIntent` is a durable obligation admitted
+BEFORE the blob is written and BEFORE the parent event, so a post-materialization
+admission failure leaves a recoverable, collectable record rather than an orphan
+blob that nothing references. It is not one of the five object families — it
+carries no model, dataset, or measurement meaning — it is the recovery-and-cleanup
+record that binds each artifact effect to an admitted intent.
+
+An artifact intent is keyed by the caller's own idempotency key, so an exact
+retry replays it rather than recording a second obligation, and its identity is
+content-addressed on the exact artifact hash it commits (the trailing segment of
+`intent_ref` equals that hash), so it can never name a different blob. Discharge
+is derived, never stored: an intent is discharged once its parent event
+(materialization or checkpoint) is admitted under the same key on the parent
+stream. Cleanup is conservative because these blobs are content-addressed and may
+be shared: an intent is abandoned only through a terminal `abandoned` successor
+admitted while the parent key is still absent, and the blob is deleted only on
+that path after a no-other-referent check — never on a timer. A missing blob at
+abandon time is not an error.
+
 ## ModelCapacityProfileEnvelope
 
 ```yaml

@@ -7065,6 +7065,21 @@ export type FoundryQualifiedMeasurementV1 = {
     };
 };
 
+export type FoundryArtifactIntentV1 = {
+  schema_version: "ioi.foundry-artifact-intent.v1";
+  intent_ref: string;
+  artifact_family: "foundry-dataset-artifacts" | "foundry-checkpoint-artifacts";
+  artifact_hash: string;
+  artifact_ref: string;
+  parent_kind: "dataset-snapshot" | "training-program";
+  parent_stream_tail: string;
+  parent_resource_ref: string;
+  parent_op_kind: "event_stream.foundry_dataset_materialized" | "event_stream.foundry_program_checkpointed";
+  parent_idempotency_key: string;
+  owner_ref: string;
+  status: "pending";
+};
+
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
 
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = 0 as const;
@@ -11962,6 +11977,22 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": false,
     "expected_failure": "schema",
     "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/foundry-artifact-intent/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/foundry-artifact-intent-v1/positive-pending-dataset.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/foundry-artifact-intent/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/foundry-artifact-intent-v1/negative-intent-ref-hash-mismatch.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "foundry_artifact_intent.intent_ref.binds_artifact_hash"
   }
 ] as const;
 
@@ -18825,6 +18856,20 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/foundry-artifact-intent-v1/positive-pending-dataset.json",
+    "contract_id": "schema://ioi/components/hypervisor/foundry-artifact-intent/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/foundry-artifact-intent-v1/positive-pending-dataset.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/foundry-artifact-intent-v1/negative-intent-ref-hash-mismatch.json",
+    "contract_id": "schema://ioi/components/hypervisor/foundry-artifact-intent/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/foundry-artifact-intent-v1/negative-intent-ref-hash-mismatch.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
     "id": "mutation:sequence-zero-receipt-timestamp-detached",
     "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
     "source_fixture_path": null,
@@ -19742,6 +19787,8 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:contribution|attempt|finding|work-result|outcome-delta)://[^\\s]{1,500}$",
   "^(?:contribution|receipt)://[^\\s]{1,500}$",
   "^(?:cost|ledger|policy)://[^\\s]{1,500}$",
+  "^(?:dataset-snapshot|trainpipe)://[^\\s]{1,500}$",
+  "^(?:dataset|program)[.][0-9a-f]{64}$",
   "^(?:decision|dispute)://[^\\s]+$",
   "^(?:decision|dispute)://[^\\s]{1,500}$",
   "^(?:decision|work-claim|receipt)://[^\\s]{1,500}$",
@@ -19961,6 +20008,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^artifact-availability-incident://[^\\s]+$",
   "^artifact-availability-incident://aai_[0-9a-f]+$",
   "^artifact-repair-receipt://arr_[0-9a-f]+$",
+  "^artifact://(?:foundry-dataset|foundry-checkpoint)/[0-9a-f]{64}$",
   "^artifact://[^\\s]+$",
   "^artifact://[^\\s]{1,240}$",
   "^artifact://[^\\s]{1,248}$",
@@ -20051,6 +20099,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^failure-domain://[^\\s]{1,248}$",
   "^fee-basis://[^\\s]{1,248}$",
   "^finding://[^\\s]{1,500}$",
+  "^foundry-artifact-intent://(?:foundry-dataset-artifacts|foundry-checkpoint-artifacts)/(?:dataset|program)[.][0-9a-f]{64}/[0-9a-f]{64}$",
   "^foundry-recipe://[^\\s]{1,440}/revision/[1-9][0-9]*$",
   "^foundry-recipe://[^\\s]{1,500}$",
   "^frontier://[^\\s]{1,500}$",
@@ -20462,7 +20511,8 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/hypervisor/foundry-dataset-snapshot/v1": "sha256:e6bb2de2420013ae71b7fbc14748de13128f429e4120d4ef2dc4eacdf66723c3",
   "schema://ioi/components/hypervisor/foundry-training-program/v1": "sha256:389c0eec02944b340660f0070b982a16b75e3fb3a942e5af116cfd7f6d3b5eb1",
   "schema://ioi/components/hypervisor/foundry-checkpoint-artifact/v1": "sha256:01f3a640cd573a50d6088b6b48f05440931208718c956e886cac9253cfb578e2",
-  "schema://ioi/components/hypervisor/foundry-qualified-measurement/v1": "sha256:de7a97b715688c7510c6c1bb2935c24ee24bf99db285742412631246568f6c94"
+  "schema://ioi/components/hypervisor/foundry-qualified-measurement/v1": "sha256:de7a97b715688c7510c6c1bb2935c24ee24bf99db285742412631246568f6c94",
+  "schema://ioi/components/hypervisor/foundry-artifact-intent/v1": "sha256:90a68419c1347290914c48a0565e575777b0e940e09beaef621a9956aafaf883"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -74431,6 +74481,89 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         }
       }
     }
+  },
+  "schema://ioi/components/hypervisor/foundry-artifact-intent/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/foundry-artifact-intent/v1",
+    "title": "FoundryArtifactIntent",
+    "description": "Durable pending obligation admitted BEFORE a content-addressed Foundry artifact blob is materialized and BEFORE its parent event (dataset materialization or program checkpoint). It binds the blob to a recoverable admitted intent so a post-materialization admission failure leaves a collectable record rather than an orphan. The intent identity embeds the artifact hash, so an intent can never name a blob other than the one it commits.",
+    "x-ioi-schema-version": "ioi.foundry-artifact-intent.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "intent_ref",
+      "artifact_family",
+      "artifact_hash",
+      "artifact_ref",
+      "parent_kind",
+      "parent_stream_tail",
+      "parent_resource_ref",
+      "parent_op_kind",
+      "parent_idempotency_key",
+      "owner_ref",
+      "status"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.foundry-artifact-intent.v1"
+      },
+      "intent_ref": {
+        "type": "string",
+        "pattern": "^foundry-artifact-intent://(?:foundry-dataset-artifacts|foundry-checkpoint-artifacts)/(?:dataset|program)[.][0-9a-f]{64}/[0-9a-f]{64}$"
+      },
+      "artifact_family": {
+        "enum": [
+          "foundry-dataset-artifacts",
+          "foundry-checkpoint-artifacts"
+        ]
+      },
+      "artifact_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "artifact_ref": {
+        "type": "string",
+        "pattern": "^artifact://(?:foundry-dataset|foundry-checkpoint)/[0-9a-f]{64}$"
+      },
+      "parent_kind": {
+        "enum": [
+          "dataset-snapshot",
+          "training-program"
+        ]
+      },
+      "parent_stream_tail": {
+        "type": "string",
+        "pattern": "^(?:dataset|program)[.][0-9a-f]{64}$"
+      },
+      "parent_resource_ref": {
+        "type": "string",
+        "pattern": "^(?:dataset-snapshot|trainpipe)://[^\\s]{1,500}$"
+      },
+      "parent_op_kind": {
+        "enum": [
+          "event_stream.foundry_dataset_materialized",
+          "event_stream.foundry_program_checkpointed"
+        ]
+      },
+      "parent_idempotency_key": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "owner_ref": {
+        "type": "string",
+        "pattern": "^(?:wallet|org|project)://[^\\s]{1,500}$"
+      },
+      "status": {
+        "const": "pending"
+      }
+    },
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      }
+    }
   }
 };
 const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
@@ -82712,7 +82845,20 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
   "schema://ioi/components/hypervisor/foundry-dataset-snapshot/v1": [],
   "schema://ioi/components/hypervisor/foundry-training-program/v1": [],
   "schema://ioi/components/hypervisor/foundry-checkpoint-artifact/v1": [],
-  "schema://ioi/components/hypervisor/foundry-qualified-measurement/v1": []
+  "schema://ioi/components/hypervisor/foundry-qualified-measurement/v1": [],
+  "schema://ioi/components/hypervisor/foundry-artifact-intent/v1": [
+    {
+      "rule_id": "foundry_artifact_intent.intent_ref.binds_artifact_hash",
+      "description": "The intent identity is content-addressed on the exact artifact it commits: the trailing path segment of intent_ref equals the hex of artifact_hash. An intent can therefore never name a blob other than the one whose durability it records, which is what makes an admitted intent a trustworthy cleanup obligation for its blob.",
+      "expression": {
+        "operator": "field_suffix_equals_prefixed_field",
+        "source_path": "$.intent_ref",
+        "delimiter": "/",
+        "target_path": "$.artifact_hash",
+        "target_prefix": "sha256:"
+      }
+    }
+  ]
 };
 
 export function architectureContractSchemaHash(contractId: string): string | null {
@@ -84553,4 +84699,10 @@ export function validateFoundryQualifiedMeasurementV1(
   value: unknown,
 ): value is FoundryQualifiedMeasurementV1 {
   return validateArchitectureContract("schema://ioi/components/hypervisor/foundry-qualified-measurement/v1", value).ok;
+}
+
+export function validateFoundryArtifactIntentV1(
+  value: unknown,
+): value is FoundryArtifactIntentV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/foundry-artifact-intent/v1", value).ok;
 }

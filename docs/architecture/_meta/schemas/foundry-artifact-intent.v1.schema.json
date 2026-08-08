@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/foundry-artifact-intent/v1",
+  "title": "FoundryArtifactIntent",
+  "description": "Durable pending obligation admitted BEFORE a content-addressed Foundry artifact blob is materialized and BEFORE its parent event (dataset materialization or program checkpoint). It binds the blob to a recoverable admitted intent so a post-materialization admission failure leaves a collectable record rather than an orphan. The intent identity embeds the artifact hash, so an intent can never name a blob other than the one it commits.",
+  "x-ioi-schema-version": "ioi.foundry-artifact-intent.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "intent_ref", "artifact_family", "artifact_hash", "artifact_ref", "parent_kind", "parent_stream_tail", "parent_resource_ref", "parent_op_kind", "parent_idempotency_key", "owner_ref", "status"],
+  "properties": {
+    "schema_version": { "const": "ioi.foundry-artifact-intent.v1" },
+    "intent_ref": { "type": "string", "pattern": "^foundry-artifact-intent://(?:foundry-dataset-artifacts|foundry-checkpoint-artifacts)/(?:dataset|program)[.][0-9a-f]{64}/[0-9a-f]{64}$" },
+    "artifact_family": { "enum": ["foundry-dataset-artifacts", "foundry-checkpoint-artifacts"] },
+    "artifact_hash": { "$ref": "#/$defs/hash" },
+    "artifact_ref": { "type": "string", "pattern": "^artifact://(?:foundry-dataset|foundry-checkpoint)/[0-9a-f]{64}$" },
+    "parent_kind": { "enum": ["dataset-snapshot", "training-program"] },
+    "parent_stream_tail": { "type": "string", "pattern": "^(?:dataset|program)[.][0-9a-f]{64}$" },
+    "parent_resource_ref": { "type": "string", "pattern": "^(?:dataset-snapshot|trainpipe)://[^\\s]{1,500}$" },
+    "parent_op_kind": { "enum": ["event_stream.foundry_dataset_materialized", "event_stream.foundry_program_checkpointed"] },
+    "parent_idempotency_key": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "owner_ref": { "type": "string", "pattern": "^(?:wallet|org|project)://[^\\s]{1,500}$" },
+    "status": { "const": "pending" }
+  },
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+  }
+}
