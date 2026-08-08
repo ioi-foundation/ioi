@@ -102,13 +102,26 @@ fn provider_receipt(
     env_ref: &str,
     op: &str,
     outcome: &str,
-) -> String {
+) -> Option<String> {
     provider_receipt_ext(data_dir, provider, env_ref, op, outcome, &json!({}))
 }
 
 /// Enriched provider receipt — BYO account operations cite the account, the capability-lease
 /// descriptor (never a secret), the grant, credential source, and the cost estimate. Written on
 /// SUCCESS AND FAILURE alike: a refused crossing is evidence too.
+/// A provider-account write that did not durably land. These records carry credential bindings and
+/// the verified/unverified posture that a preflight verdict establishes, so returning them as
+/// admitted state over a lost write misreports the account's authority posture.
+fn provider_account_persist_failed(what: &str) -> (StatusCode, Json<Value>) {
+    (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        Json(json!({ "ok": false, "error": {
+            "code": "provider_account_persistence_failed",
+            "message": format!("the provider account {what} could not be durably recorded")
+        }})),
+    )
+}
+
 fn provider_receipt_ext(
     data_dir: &str,
     provider: &str,
@@ -116,7 +129,7 @@ fn provider_receipt_ext(
     op: &str,
     outcome: &str,
     extra: &Value,
-) -> String {
+) -> Option<String> {
     let id = format!("prc_{:x}", nanos());
     let receipt_ref = format!("agentgres://provider-receipt/{id}");
     let mut rec = json!({
@@ -131,8 +144,13 @@ fn provider_receipt_ext(
             }
         }
     }
-    let _ = persist_record(data_dir, "provider-receipts", &id, &rec);
-    receipt_ref
+    // Returns None when the receipt did not land, so no caller can cite a `receipt_ref` that
+    // resolves to nothing — the defect authority_routes was closed for. Callers embedding this in a
+    // response serialize None as null, which is honest; callers for whom the receipt IS the
+    // evidence of an authority change refuse instead.
+    persist_record(data_dir, "provider-receipts", &id, &rec)
+        .ok()
+        .map(|_| receipt_ref)
 }
 
 /// The EnvironmentProvider adapter trait. Methods return JSON evidence (ProviderOperationRef /
@@ -5318,7 +5336,9 @@ pub(crate) async fn handle_provider_account_create(
         "created_at": now, "updated_at": now,
         "runtimeTruthSource": "daemon-runtime",
     });
-    let _ = persist_record(&st.data_dir, ACCOUNT_KIND, &id, &record);
+    if persist_record(&st.data_dir, ACCOUNT_KIND, &id, &record).is_err() {
+        return provider_account_persist_failed("could not be created and");
+    }
     (
         StatusCode::CREATED,
         Json(json!({ "ok": true, "account": record })),
@@ -5364,7 +5384,11 @@ pub(crate) async fn handle_provider_account_patch(
     }
     account["updated_at"] = json!(iso_now());
     let aid = text(&account, "account_id").to_string();
-    let _ = persist_record(&st.data_dir, ACCOUNT_KIND, &aid, &account);
+    // An endpoint change resets a `verified` account to `unverified` so posture must be re-proven.
+    // Discarding this write kept the old verified verdict against the new endpoint.
+    if persist_record(&st.data_dir, ACCOUNT_KIND, &aid, &account).is_err() {
+        return provider_account_persist_failed("patch");
+    }
     (
         StatusCode::OK,
         Json(json!({ "ok": true, "account": account })),
@@ -5480,11 +5504,17 @@ pub(crate) async fn handle_provider_account_credential(
             }
         }
     }
-    let _ = persist_record(&st.data_dir, CREDENTIAL_VAULT, &cred_id, &record);
+    // The vault record is what every provider operation resolves at use time; the account fields
+    // are the projection of that binding. Neither may be assumed.
+    if persist_record(&st.data_dir, CREDENTIAL_VAULT, &cred_id, &record).is_err() {
+        return provider_account_persist_failed("credential could not be sealed and");
+    }
     account["credential_binding_ref"] = json!(format!("credential://{CREDENTIAL_VAULT}/{cred_id}"));
     account["status"] = json!("unverified");
     account["updated_at"] = json!(iso_now());
-    let _ = persist_record(&st.data_dir, ACCOUNT_KIND, &aid, &account);
+    if persist_record(&st.data_dir, ACCOUNT_KIND, &aid, &account).is_err() {
+        return provider_account_persist_failed("credential binding");
+    }
     let receipt = provider_receipt_ext(
         &st.data_dir,
         &kind,
@@ -5509,13 +5539,31 @@ pub(crate) async fn handle_provider_account_credential_revoke(
         return Json(json!({ "ok": false, "error": { "code": "provider_account_not_found" } }));
     };
     let aid = text(&account, "account_id").to_string();
-    let removed = load_account_credential(&st.data_dir, &aid)
+    // Vault removal is the ACTUAL revocation: every provider operation resolves the credential
+    // through load_account_credential, not through the account's status. `removed` previously
+    // conflated "no credential was bound" with "removal failed" and was returned alongside an
+    // unconditional ok:true, so a credential that could not be deleted was reported revoked while
+    // remaining fully resolvable.
+    let existing = load_account_credential(&st.data_dir, &aid);
+    let had_credential = existing.is_some();
+    let removed = existing
         .map(|c| super::remove_record(&st.data_dir, CREDENTIAL_VAULT, text(&c, "credential_id")))
         .unwrap_or(false);
+    if had_credential && !removed {
+        return Json(json!({ "ok": false, "error": {
+            "code": "provider_credential_revocation_failed",
+            "message": "the sealed credential could not be removed and is still resolvable"
+        }}));
+    }
     account["credential_binding_ref"] = Value::Null;
     account["status"] = json!("revoked");
     account["updated_at"] = json!(iso_now());
-    let _ = persist_record(&st.data_dir, ACCOUNT_KIND, &aid, &account);
+    if persist_record(&st.data_dir, ACCOUNT_KIND, &aid, &account).is_err() {
+        return Json(json!({ "ok": false, "error": {
+            "code": "provider_account_persistence_failed",
+            "message": "the credential was removed but the account still reads as bound; re-run revoke to converge"
+        }}));
+    }
     let receipt = provider_receipt_ext(
         &st.data_dir,
         text(&account, "kind"),
@@ -5577,7 +5625,12 @@ pub(crate) async fn handle_provider_account_preflight(
     account["preflight"] = json!({ "admit": admit, "evidence": evidence, "at": iso_now() });
     account["status"] = json!(if admit { "verified" } else { "unverified" });
     account["updated_at"] = json!(iso_now());
-    let _ = persist_record(&st.data_dir, ACCOUNT_KIND, &aid, &account);
+    // Preflight is what MOVES the account to `verified`. Returning that verdict over a discarded
+    // write reported a verified account no later read would agree with — and the patch handler
+    // relies on the stored `verified` status to know when a posture must be re-proven.
+    if persist_record(&st.data_dir, ACCOUNT_KIND, &aid, &account).is_err() {
+        return provider_account_persist_failed("preflight verdict");
+    }
     let receipt = provider_receipt_ext(
         &st.data_dir,
         &kind,

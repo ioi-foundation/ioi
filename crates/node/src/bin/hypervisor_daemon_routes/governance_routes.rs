@@ -404,6 +404,29 @@ fn bad(code: &str, message: &str) -> (StatusCode, Json<Value>) {
         Json(json!({ "ok": false, "error": { "code": code, "message": message } })),
     )
 }
+/// A governance control write that did not durably land, for the handlers that carry status codes.
+///
+/// These records are read back as authority. `handle_kill_enforce` reloads the KillSwitch and
+/// refuses unless `state == "tripped"`, so a trip returned over a discarded write reported the
+/// switch tripped while the record stayed `armed` — and enforcement would then refuse it with
+/// `kill_switch_not_tripped`. A control that reports engaged and cannot be enforced is worse than
+/// one that reports its failure.
+fn governance_persist_failed(control: &str) -> (StatusCode, Json<Value>) {
+    (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        Json(json!({ "ok": false, "error": {
+            "code": "governance_persistence_failed",
+            "message": format!("the {control} could not be durably recorded and is NOT in force")
+        }})),
+    )
+}
+/// Same, for the patch handlers, whose whole failure convention is a 200-shaped `ok:false`.
+fn governance_persist_failed_json(control: &str) -> Json<Value> {
+    Json(json!({ "ok": false, "error": {
+        "code": "governance_persistence_failed",
+        "message": format!("the {control} change could not be durably recorded and is NOT in force")
+    }}))
+}
 fn split_ref(r: &str) -> Option<(&str, &str)> {
     r.split_once("://")
         .filter(|(s, rest)| !s.is_empty() && !rest.is_empty())
@@ -597,7 +620,9 @@ pub(crate) async fn handle_approval_create(
         .as_object_mut()
         .unwrap()
         .extend(control_common(&body).as_object().unwrap().clone());
-    let _ = persist_record(&st.data_dir, KIND_APPROVAL, &id, &record);
+    if persist_record(&st.data_dir, KIND_APPROVAL, &id, &record).is_err() {
+        return governance_persist_failed("approval");
+    }
     (
         StatusCode::CREATED,
         Json(json!({ "ok": true, "approval_request": record })),
@@ -750,7 +775,9 @@ pub(crate) async fn handle_approval_patch(
         }
     }
     a["updated_at"] = json!(iso_now());
-    let _ = persist_record(&st.data_dir, KIND_APPROVAL, &id, &a);
+    if persist_record(&st.data_dir, KIND_APPROVAL, &id, &a).is_err() {
+        return governance_persist_failed_json("approval");
+    }
     Json(json!({ "ok": true, "approval_request": a }))
 }
 pub(crate) async fn handle_approval_delete(
@@ -1061,7 +1088,9 @@ pub(crate) async fn handle_release_create(
         .as_object_mut()
         .unwrap()
         .extend(control_common(&body).as_object().unwrap().clone());
-    let _ = persist_record(&st.data_dir, KIND_RELEASE, &id, &record);
+    if persist_record(&st.data_dir, KIND_RELEASE, &id, &record).is_err() {
+        return governance_persist_failed("release");
+    }
     (
         StatusCode::CREATED,
         Json(json!({ "ok": true, "release_control": record })),
@@ -1131,7 +1160,9 @@ pub(crate) async fn handle_release_patch(
         }
     }
     r["updated_at"] = json!(iso_now());
-    let _ = persist_record(&st.data_dir, KIND_RELEASE, &id, &r);
+    if persist_record(&st.data_dir, KIND_RELEASE, &id, &r).is_err() {
+        return governance_persist_failed_json("release");
+    }
     Json(json!({ "ok": true, "release_control": r }))
 }
 pub(crate) async fn handle_release_delete(
@@ -1233,7 +1264,9 @@ pub(crate) async fn handle_cohort_create(
         "evidence_refs": str_refs(&body, "evidence_refs"),
         "created_at": now, "updated_at": now
     });
-    let _ = persist_record(&st.data_dir, KIND_COHORT, &id, &record);
+    if persist_record(&st.data_dir, KIND_COHORT, &id, &record).is_err() {
+        return governance_persist_failed("cohort");
+    }
     (
         StatusCode::CREATED,
         Json(json!({ "ok": true, "cohort": record })),
@@ -1285,7 +1318,9 @@ pub(crate) async fn handle_cohort_patch(
         }
     }
     c["updated_at"] = json!(iso_now());
-    let _ = persist_record(&st.data_dir, KIND_COHORT, &id, &c);
+    if persist_record(&st.data_dir, KIND_COHORT, &id, &c).is_err() {
+        return governance_persist_failed_json("cohort");
+    }
     Json(json!({ "ok": true, "cohort": c }))
 }
 pub(crate) async fn handle_cohort_delete(
@@ -1325,7 +1360,9 @@ pub(crate) async fn handle_kill_create(
         .as_object_mut()
         .unwrap()
         .extend(control_common(&body).as_object().unwrap().clone());
-    let _ = persist_record(&st.data_dir, KIND_KILL, &id, &record);
+    if persist_record(&st.data_dir, KIND_KILL, &id, &record).is_err() {
+        return governance_persist_failed("kill switch");
+    }
     (
         StatusCode::CREATED,
         Json(json!({ "ok": true, "kill_switch": record })),
@@ -1380,7 +1417,9 @@ pub(crate) async fn handle_kill_patch(
         }
     }
     k["updated_at"] = json!(iso_now());
-    let _ = persist_record(&st.data_dir, KIND_KILL, &id, &k);
+    if persist_record(&st.data_dir, KIND_KILL, &id, &k).is_err() {
+        return governance_persist_failed_json("kill switch");
+    }
     Json(json!({ "ok": true, "kill_switch": k }))
 }
 pub(crate) async fn handle_kill_delete(
@@ -1588,7 +1627,9 @@ pub(crate) async fn handle_gate_create(
         .as_object_mut()
         .unwrap()
         .extend(control_common(&body).as_object().unwrap().clone());
-    let _ = persist_record(&st.data_dir, KIND_GATE, &id, &record);
+    if persist_record(&st.data_dir, KIND_GATE, &id, &record).is_err() {
+        return governance_persist_failed("gate");
+    }
     (
         StatusCode::CREATED,
         Json(json!({ "ok": true, "improvement_gate": record })),
@@ -1630,7 +1671,9 @@ pub(crate) async fn handle_gate_patch(
         }
     }
     g["updated_at"] = json!(iso_now());
-    let _ = persist_record(&st.data_dir, KIND_GATE, &id, &g);
+    if persist_record(&st.data_dir, KIND_GATE, &id, &g).is_err() {
+        return governance_persist_failed_json("gate");
+    }
     Json(json!({ "ok": true, "improvement_gate": g }))
 }
 pub(crate) async fn handle_gate_delete(
