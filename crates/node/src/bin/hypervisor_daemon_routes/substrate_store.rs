@@ -2879,7 +2879,12 @@ fn project_request_scope(
     })
 }
 
-fn read_request_scope(
+/// Read the immutable scope a resource was reserved under, without binding one.
+///
+/// `pub(crate)` for `mutation_event_foundation::prior_admission_for_key`, which must decide whether
+/// a caller may be told about its own prior admission BEFORE any write path runs. A probe that bound
+/// a scope would make asking "did I already do this?" a mutation.
+pub(crate) fn read_request_scope(
     data_dir: &str,
     resource_kind: &str,
     resource_ref: &str,

@@ -17,17 +17,17 @@
 // cleanup that does not remove its fixture is REPORTED, never presented as success); immutable proof
 // records (receipts, killed runtime) are intentionally retained.
 //
-// NONCLAIM — two daemon-side gaps this walk reports rather than fixes:
-//   1. An admission-review CREATE cannot actually replay. Its record carries a nested
-//      `governance_posture_snapshot.at = iso_now()` and the daemon's `without_clock` strips only
-//      top-level clock fields, so a real HTTP retry presents different bytes under the same key and
-//      is refused 409 rather than resolving to the one review. The 200 branch accepted below is
-//      therefore currently unreachable in practice; it is accepted because it is the correct
-//      outcome, not because it has been observed here.
-//   2. An admission-review DELETE cannot replay either: the handler loads the record before
-//      admitting its terminal event and removes the projection on success, so a retried delete
-//      answers 404. Its idempotency key can never be presented a second time.
-// Both live in the daemon's marketplace / mutation-foundation lane, outside this script.
+// RETRACTED — the two admission-review replay gaps this walk used to report are closed in the
+// daemon, so this script no longer accepts a 200 it has never seen: it PRESENTS the same key twice
+// for both the create and the delete and asserts the replay outright (steps 6 and 10b). A create
+// retry must answer 200 `replayed:true` at the same ref; a delete retry must answer 200
+// `removed:true, replayed:true`.
+//
+// STILL NONCLAIMED: only the admission-review create and delete replay. The sibling marketplace
+// mutations (candidate create/publish, listing/candidate/offer delete) carry the same defect classes
+// and are not exercised for replay here; two SIMULTANEOUS submissions of one key still leave the
+// loser a 409 `event_stream_expected_head_conflict`; and nothing in this walk speaks to WHO MAY
+// review, which has no canonical owner.
 
 import { createHash } from "node:crypto";
 
@@ -160,6 +160,19 @@ async function run() {
   ok("admission review -> admitted", (rev.status === 201 || rev.status === 200) && rev.j?.ok === true && rev.j?.admission_review?.decision === "admitted", `status ${rev.status} replayed ${rev.j?.replayed}`);
   ok("reviewer is the daemon's answer for this session, not a value this walk supplied", rev.j?.admission_review?.reviewer_ref === REVIEWER_REF, `${rev.j?.admission_review?.reviewer_ref || "absent"} vs ${REVIEWER_REF}`);
 
+  // EXACT REPLAY, create. The same command under the same key, presented a second time over real
+  // HTTP — which is what a double-submitted form does. The daemon reads live governance posture into
+  // this record, so this is the retry that used to be refused 409 for presenting different bytes.
+  // Asserted as 200 SPECIFICALLY, not `200 || 201`: a second 201 would be a second review.
+  const revReplay = await jd("POST", "/v1/hypervisor/marketplace/admission-reviews", { candidate_ref: cRef, decision: "admitted", owner_ref: OWNER_REF, idempotency_key: idempotencyKey(reviewCommand) });
+  ok("re-presenting the create key replays the one review (200, replayed:true, same ref)", revReplay.status === 200 && revReplay.j?.ok === true && revReplay.j?.replayed === true && strip(revReplay.j?.admission_review?.ref) === revId, `status ${revReplay.status} replayed ${revReplay.j?.replayed} ref ${strip(revReplay.j?.admission_review?.ref)} vs ${revId}`);
+  // A CHANGED command under that same key must still refuse by its own name. Replay identity
+  // excludes the server's posture snapshot; it does not excuse a different decision.
+  const revConflict = await jd("POST", "/v1/hypervisor/marketplace/admission-reviews", { candidate_ref: cRef, decision: "rejected", owner_ref: OWNER_REF, idempotency_key: idempotencyKey(reviewCommand) });
+  ok("a changed command under the admitted key still refuses 409 by name", revConflict.status === 409 && revConflict.j?.code === "event_stream_same_key_different_bytes", `status ${revConflict.status} code ${revConflict.j?.code || revConflict.j?.error?.code || "none"}`);
+  const revStill = await jd("GET", `/v1/hypervisor/marketplace/admission-reviews/${revId}`);
+  ok("neither the replay nor the refusal moved the review's decision", revStill.j?.admission_review?.decision === "admitted", revStill.j?.admission_review?.decision);
+
   const prel = await jd("POST", "/v1/hypervisor/governance/release-controls", { release_target_ref: cRef });
   const prelRef = prel.j?.release_control?.ref;
   cleanup.push(["DELETE", `/v1/hypervisor/governance/release-controls/${strip(prelRef)}`]);
@@ -206,6 +219,27 @@ async function run() {
   // 9. Published metadata durable after kill.
   const listingAfterKill = await jd("GET", `/v1/hypervisor/marketplace/listings/${lId}`);
   ok("published Marketplace metadata intact after kill", listingAfterKill.j?.listing?.public_state === "published");
+
+  // 9b. EXACT REPLAY, delete. Presented twice under one key, which is what a double-submitted delete
+  // form does. Run here rather than in cleanup because a retry is the assertion, not housekeeping —
+  // and the cleanup entry for this review stays queued regardless, so a throw before this point
+  // still removes the fixture (and a third presentation of the key replays again).
+  const revDeleteKey = idempotencyKey({ op: "marketplace.review.delete", owner_ref: OWNER_REF, review_id: revId });
+  const revDel1 = await jd("DELETE", `/v1/hypervisor/marketplace/admission-reviews/${revId}`, { owner_ref: OWNER_REF, idempotency_key: revDeleteKey });
+  ok("admission review delete removes it (200, removed:true)", revDel1.status === 200 && revDel1.j?.ok === true && revDel1.j?.removed === true && revDel1.j?.replayed === false, `status ${revDel1.status} replayed ${revDel1.j?.replayed}`);
+  const revDel2 = await jd("DELETE", `/v1/hypervisor/marketplace/admission-reviews/${revId}`, { owner_ref: OWNER_REF, idempotency_key: revDeleteKey });
+  ok("re-presenting the delete key replays the admitted removal (200, removed:true, replayed:true)", revDel2.status === 200 && revDel2.j?.ok === true && revDel2.j?.removed === true && revDel2.j?.replayed === true, `status ${revDel2.status} replayed ${revDel2.j?.replayed} code ${revDel2.j?.error?.code || "none"}`);
+  // A DIFFERENT key for a record that is already gone is a delete of nothing, and still says so.
+  const revDelOther = await jd("DELETE", `/v1/hypervisor/marketplace/admission-reviews/${revId}`, { owner_ref: OWNER_REF, idempotency_key: `${revDeleteKey}-other` });
+  ok("a different delete key after removal is still not found", revDelOther.status === 404 && revDelOther.j?.error?.code === "marketplace_review_not_found", `status ${revDelOther.status} code ${revDelOther.j?.error?.code || "none"}`);
+  // And the CREATE key, re-presented now, must not resurrect what the delete removed. Replaying a
+  // create over an admitted terminal transition would undo it, so the daemon refuses and the record
+  // stays gone — asserted here, not assumed, because reading admitted history early is exactly what
+  // makes this path reachable.
+  const revResurrect = await jd("POST", "/v1/hypervisor/marketplace/admission-reviews", { candidate_ref: cRef, decision: "admitted", owner_ref: OWNER_REF, idempotency_key: idempotencyKey(reviewCommand) });
+  ok("re-presenting the create key after the delete refuses 409 and resurrects nothing", revResurrect.status === 409 && revResurrect.j?.error?.code === "marketplace_review_removed" && !revResurrect.j?.admission_review, `status ${revResurrect.status} code ${revResurrect.j?.error?.code || "none"}`);
+  const revGone = await jd("GET", `/v1/hypervisor/marketplace/admission-reviews/${revId}`);
+  ok("the deleted review is still gone after the refused create retry", revGone.j?.ok === false, JSON.stringify(revGone.j || {}).slice(0, 120));
 
   // 10. Work Ledger reachability: the governed-lifecycle proofs must surface in the proof stream.
   const wl = await jd("GET", "/v1/hypervisor/work-ledger");

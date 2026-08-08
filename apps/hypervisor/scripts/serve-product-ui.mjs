@@ -6387,22 +6387,39 @@ const mpOwnerInput = (extraStyle) => `<input name="owner_ref" placeholder="org:/
 function mpReviewIdempotencyKey(command) {
   return `marketplace-admission-review:${crypto.createHash("sha256").update(JSON.stringify(command)).digest("hex").slice(0, 32)}`;
 }
-// NONCLAIM — two daemon-side gaps these callers are built to REPORT, not to hide, and neither is
-// touched here (the writable scope is this file and the lifecycle verifier):
+// RETRACTED. Both replay gaps these callers used to report are CLOSED in the daemon, so the two
+// NONCLAIMs that stood here would now be false. What the keys below buy has changed with them:
 //
-//   1. A create is not actually replayable. `governance_posture_snapshot` carries a nested
-//      `at: iso_now()` and the daemon's `without_clock` strips only TOP-LEVEL clock fields, so a
-//      genuine HTTP retry presents different bytes under the same key and is refused 409
-//      `event_stream_same_key_different_bytes` instead of resolving to the one review. The
-//      content-derived key below is still correct and still load-bearing — it is what keeps the
-//      retry from minting a SECOND review — but "same logical request resolves once" currently
-//      holds by refusal, not by replay.
-//   2. A delete is not replayable either. `handle_review_delete` LOADS the record before admitting
-//      its terminal event and removes the projection on success, so a retried delete answers 404
-//      rather than replaying the admitted transition. Its key can never be presented twice.
+//   1. A create now replays. `handle_review_create` decides its whole command from the request and
+//      answers a retry from the durable admitted history BEFORE reading governance posture, so the
+//      posture's live counts and nested `at` are evidence in the payload rather than replay
+//      identity. A double-submitted form presents the same key and gets 200 `{ok:true,
+//      replayed:true}` with the review as it currently stands — not a second review, and no longer
+//      409 `event_stream_same_key_different_bytes`. A genuinely CHANGED command under that key
+//      still takes that 409.
+//   2. A delete now replays. `delete_admission_review` consults the admitted history for this
+//      caller's key before treating an absent projection as never-existing, so a re-submitted
+//      delete gets 200 `{ok:true, removed:true, replayed:true}` instead of 404. An id that never
+//      existed, and a different key after the removal, both still answer 404.
 //
-// Both belong to the daemon's marketplace/mutation-foundation lane. Until they close, the honest
-// product behaviour is the one below: surface the daemon's own status and code.
+// ONE NEW REFUSAL these callers must surface rather than launder. A create key re-presented AFTER
+// its review was deleted answers 409 `marketplace_review_removed` — replaying the create over an
+// admitted removal would resurrect the record, so the daemon refuses instead of returning a review
+// that is gone. `mpMutationRefusal` already renders it (nested `{error:{code,message}}`), and the
+// remedy is a new command: the create form's key is content-derived, so reviewing the candidate
+// again with any different decision mints a new key and a new review.
+//
+// PROOF, bounded: `mutation_event_foundation::prior_admission_for_key` plus the create/delete
+// replay tests in `marketplace_routes::marketplace_tests`, which drive the production functions
+// against the real Agentgres chain. `mpMutationLanded` below already accepts both shapes (2xx and
+// `ok:true`), so no call site here changes — the keys are now load-bearing by REPLAY rather than by
+// refusal, which is the behaviour these callers were written against.
+//
+// STILL NONCLAIMED, and still reported rather than hidden: the sibling marketplace mutations
+// (candidate create/publish, listing/candidate/offer delete) carry the same two defect classes and
+// have no replay; two SIMULTANEOUS submissions of one key still leave the loser a 409
+// `event_stream_expected_head_conflict` that converges only on its own retry; and a substrate read
+// failure during the replay probe surfaces as 409 rather than 503.
 
 // Both mutations need the daemon's STATUS as well as its body: a `.json()`-only call site cannot
 // tell 201 from 403, which is how these two came to redirect a refusal as if the write had landed.
