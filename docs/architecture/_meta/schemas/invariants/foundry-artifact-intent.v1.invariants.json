@@ -1,0 +1,18 @@
+{
+  "$id": "invariant://ioi/components/hypervisor/foundry-artifact-intent/content-addressed-identity/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/components/hypervisor/foundry-artifact-intent/v1",
+  "rules": [
+    {
+      "rule_id": "foundry_artifact_intent.intent_ref.binds_artifact_hash",
+      "description": "The intent identity is content-addressed on the exact artifact it commits: the trailing path segment of intent_ref equals the hex of artifact_hash. An intent can therefore never name a blob other than the one whose durability it records, which is what makes an admitted intent a trustworthy cleanup obligation for its blob.",
+      "expression": {
+        "operator": "field_suffix_equals_prefixed_field",
+        "source_path": "$.intent_ref",
+        "delimiter": "/",
+        "target_path": "$.artifact_hash",
+        "target_prefix": "sha256:"
+      }
+    }
+  ]
+}

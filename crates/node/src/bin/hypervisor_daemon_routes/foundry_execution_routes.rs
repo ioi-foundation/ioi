@@ -34,6 +34,11 @@ const PORTABLE_SAFE_INTEGER_MAX: u64 = 9_007_199_254_740_991;
 const RECIPE_SCOPE_KIND: &str = "foundry-recipe";
 const DATASET_SCOPE_KIND: &str = "foundry-dataset-snapshot";
 const PROGRAM_SCOPE_KIND: &str = "foundry-training-program";
+const ARTIFACT_INTENT_SCOPE_KIND: &str = "foundry-artifact-intent";
+const ARTIFACT_INTENT_RECORDED: &str = "event_stream.foundry_artifact_intent_recorded";
+const ARTIFACT_INTENT_ABANDONED: &str = "event_stream.foundry_artifact_intent_abandoned";
+const DATASET_PARENT_OP: &str = "event_stream.foundry_dataset_materialized";
+const CHECKPOINT_PARENT_OP: &str = "event_stream.foundry_program_checkpointed";
 
 type Reply = (StatusCode, Json<Value>);
 
@@ -338,6 +343,166 @@ fn artifact_path(data_dir: &str, family: &str, hash: &str) -> PathBuf {
     Path::new(data_dir)
         .join(family)
         .join(format!("{}.json", hash.trim_start_matches("sha256:")))
+}
+
+// ---- Foundry artifact-intent durability obligations -------------------------------------------
+//
+// Two Foundry effects materialize a content-addressed blob on the local filesystem before their
+// admitted event: the dataset material (handle_recipe_run) and each per-step checkpoint (program
+// `step`). A blob written before its parent event is admitted is an orphan if that admission then
+// fails. An artifact intent is a durable obligation admitted BEFORE the blob and BEFORE the parent
+// event, keyed by the caller's own idempotency key so an exact retry replays it rather than
+// recording a second obligation. Discharge is DERIVED, never stored: the intent is discharged once
+// its parent event is admitted under the same key on the parent stream. The intent lives on its own
+// hash_tail("artifact-intent", intent_ref) stream in the SAME namespace, so the existing recipe./
+// dataset./program. list routes never see it. The identity is content-addressed on the exact
+// artifact hash (INV: the trailing segment of intent_ref equals that hash), so an intent can never
+// name a blob other than the one whose durability it records.
+
+struct ArtifactIntentSpec<'a> {
+    family: &'a str,
+    parent_kind: &'a str,
+    parent_stream_tail: &'a str,
+    parent_resource_ref: &'a str,
+    parent_op_kind: &'a str,
+    artifact_hash: &'a str,
+    artifact_ref: &'a str,
+    owner_ref: &'a str,
+    idempotency_key: &'a str,
+}
+
+fn artifact_intent_ref(family: &str, parent_stream_tail: &str, artifact_hash: &str) -> String {
+    format!(
+        "foundry-artifact-intent://{family}/{parent_stream_tail}/{}",
+        artifact_hash.trim_start_matches("sha256:")
+    )
+}
+
+fn artifact_intent_payload(spec: &ArtifactIntentSpec<'_>, intent_ref: &str) -> Value {
+    json!({
+        "schema_version":"ioi.foundry-artifact-intent.v1",
+        "intent_ref":intent_ref,
+        "artifact_family":spec.family,
+        "artifact_hash":spec.artifact_hash,
+        "artifact_ref":spec.artifact_ref,
+        "parent_kind":spec.parent_kind,
+        "parent_stream_tail":spec.parent_stream_tail,
+        "parent_resource_ref":spec.parent_resource_ref,
+        "parent_op_kind":spec.parent_op_kind,
+        "parent_idempotency_key":spec.idempotency_key,
+        "owner_ref":spec.owner_ref,
+        "status":"pending",
+    })
+}
+
+/// Bind the intent's owner scope and admit the genesis `foundry_artifact_intent_recorded` event
+/// BEFORE the blob is written. Keyed by the caller's own idempotency key: an exact retry replays the
+/// same recorded obligation rather than recording a second one, and the intent scope reservation is
+/// a pure read on that retry because the scope already exists.
+fn record_artifact_intent(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    spec: &ArtifactIntentSpec<'_>,
+) -> Result<super::mutation_event_foundation::MutationCommit, Reply> {
+    let intent_ref = artifact_intent_ref(spec.family, spec.parent_stream_tail, spec.artifact_hash);
+    let tail = hash_tail("artifact-intent", &intent_ref);
+    let scope = bind_scope(
+        data_dir,
+        identity,
+        ARTIFACT_INTENT_SCOPE_KIND,
+        &intent_ref,
+        spec.owner_ref,
+        spec.idempotency_key,
+    )?;
+    let payload = artifact_intent_payload(spec, &intent_ref);
+    admit(
+        data_dir,
+        true,
+        identity,
+        &scope,
+        ARTIFACT_INTENT_SCOPE_KIND,
+        &intent_ref,
+        &tail,
+        ARTIFACT_INTENT_RECORDED,
+        None,
+        &payload,
+        now_ms(),
+        spec.idempotency_key,
+    )
+}
+
+/// The intent's parent effect is admitted iff the parent stream's history contains an entry admitted
+/// under the intent's own idempotency key. This is the ONE derivation of "discharged": the parent
+/// event (dataset materialization or program checkpoint) carries the same caller key on the parent
+/// stream. A pure read; it admits nothing.
+fn parent_effect_admitted(
+    data_dir: &str,
+    parent_stream_tail: &str,
+    parent_idempotency_key: &str,
+) -> Result<bool, Reply> {
+    let history =
+        super::substrate_store::read_event_stream_history(data_dir, NAMESPACE, parent_stream_tail)
+            .map_err(admission_error)?;
+    Ok(history
+        .iter()
+        .any(|entry| entry.operation.idem_key == parent_idempotency_key))
+}
+
+/// A content-addressed blob may be shared across intents and admitted records, so it is deleted only
+/// after proving no OTHER referent names it. Conservative by construction: a non-abandoned intent on
+/// a different stream, a materialized dataset snapshot with the same content hash, or any program
+/// checkpoint with the same artifact hash all retain the blob. This is a global content-identity
+/// check, not an owner-scoped read: a blob another tenant still references must never be collected.
+fn blob_has_other_referent(
+    data_dir: &str,
+    this_intent_ref: &str,
+    family: &str,
+    artifact_hash: &str,
+) -> Result<bool, Reply> {
+    let tails =
+        super::substrate_store::list_event_stream_tails(data_dir, NAMESPACE).map_err(|error| {
+            bad(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "foundry_inventory_unavailable",
+                error.to_string(),
+            )
+        })?;
+    for tail in tails {
+        if tail.starts_with("artifact-intent.") {
+            let Some(head) =
+                super::substrate_store::read_event_stream_operation(data_dir, NAMESPACE, &tail)
+                    .map_err(admission_error)?
+            else {
+                continue;
+            };
+            if head.operation.op_kind != ARTIFACT_INTENT_ABANDONED
+                && head.operation.payload["artifact_hash"] == artifact_hash
+                && head.operation.payload["intent_ref"] != this_intent_ref
+            {
+                return Ok(true);
+            }
+        } else if family == DATA_DIR && tail.starts_with("dataset.") {
+            let Some(head) =
+                super::substrate_store::read_event_stream_operation(data_dir, NAMESPACE, &tail)
+                    .map_err(admission_error)?
+            else {
+                continue;
+            };
+            if head.operation.payload["content_hash"] == artifact_hash {
+                return Ok(true);
+            }
+        } else if family == CHECKPOINT_DIR && tail.starts_with("program.") {
+            let history =
+                super::substrate_store::read_event_stream_history(data_dir, NAMESPACE, &tail)
+                    .map_err(admission_error)?;
+            if history.iter().any(|entry| {
+                entry.operation.payload["current_checkpoint"]["artifact_hash"] == artifact_hash
+            }) {
+                return Ok(true);
+            }
+        }
+    }
+    Ok(false)
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
@@ -1089,36 +1254,49 @@ pub(crate) async fn handle_recipe_run(
             "recipe head or content hash has changed",
         );
     }
+    recipe_run_core(&st.data_dir, &identity, &recipe_scope, &recipe, request)
+}
+
+/// The pure materialization of a recipe run: run the recipe's operators, assign splits, and encode
+/// the deterministic dataset bytes and its content-addressed coordinates. It writes nothing and
+/// admits nothing, so the intent -> write -> parent effect sequence can be driven step by step over
+/// its output.
+struct PreparedDataset {
+    snapshot_ref: String,
+    content_hash: String,
+    tail: String,
+    payload: Value,
+    bytes: Vec<u8>,
+}
+
+fn recipe_run_prepare(
+    recipe: &ExactProjection,
+    request: &RecipeRunRequest,
+) -> Result<PreparedDataset, Reply> {
     let operators: Vec<RecipeOperator> =
-        match serde_json::from_value(recipe.operation.payload["operators"].clone()) {
-            Ok(operators) => operators,
-            Err(error) => {
-                return bad(
-                    StatusCode::CONFLICT,
-                    "foundry_recipe_projection_invalid",
-                    error.to_string(),
-                )
-            }
-        };
-    let rows = match run_operators(request.input_rows, &operators) {
+        serde_json::from_value(recipe.operation.payload["operators"].clone()).map_err(|error| {
+            bad(
+                StatusCode::CONFLICT,
+                "foundry_recipe_projection_invalid",
+                error.to_string(),
+            )
+        })?;
+    let rows = match run_operators(request.input_rows.clone(), &operators) {
         Ok(rows) if !rows.is_empty() => rows,
         Ok(_) => {
-            return bad(
+            return Err(bad(
                 StatusCode::UNPROCESSABLE_ENTITY,
                 "foundry_recipe_empty_output",
                 "recipe removed every row; no snapshot was admitted",
-            )
+            ))
         }
-        Err(reply) => return reply,
+        Err(reply) => return Err(reply),
     };
     let split_seed = recipe.operation.payload["split_seed"].as_u64().unwrap_or(0);
     let mut counts = BTreeMap::new();
     let mut material_rows = Vec::with_capacity(rows.len());
     for row in rows {
-        let split = match split_name(&row, split_seed, &request.splits) {
-            Ok(split) => split,
-            Err(reply) => return reply,
-        };
+        let split = split_name(&row, split_seed, &request.splits)?;
         *counts.entry(split.to_owned()).or_insert(0u64) += 1;
         material_rows.push(json!({"split":split,"row":row}));
     }
@@ -1130,16 +1308,13 @@ pub(crate) async fn handle_recipe_run(
         "splits":request.splits,
         "rows":material_rows,
     });
-    let bytes = match jcs_bytes(&material) {
-        Ok(bytes) => bytes,
-        Err(error) => {
-            return bad(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "foundry_dataset_encode_failed",
-                error,
-            )
-        }
-    };
+    let bytes = jcs_bytes(&material).map_err(|error| {
+        bad(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "foundry_dataset_encode_failed",
+            error,
+        )
+    })?;
     let content_hash = digest(&bytes);
     let snapshot_ref = format!(
         "dataset-snapshot://foundry/{}",
@@ -1160,25 +1335,48 @@ pub(crate) async fn handle_recipe_run(
         "status":"materialized",
     });
     let tail = hash_tail("dataset", &snapshot_ref);
-    // Bind the dataset's owner scope BEFORE materializing bytes. The write used to come first, so a
-    // snapshot ref already owned by another tenant was detected only after this daemon had written
-    // the artifact for it. The ref is content-addressed, so the bytes are identical either way and
-    // nothing is corrupted — but the refusal now costs no disk, and the effect follows the
-    // authorization that permits it rather than preceding it.
-    let dataset_scope = match bind_scope(
-        &st.data_dir,
-        &identity,
-        DATASET_SCOPE_KIND,
-        &snapshot_ref,
-        &recipe_scope.owner_ref,
-        &request.idempotency_key,
-    ) {
-        Ok(scope) => scope,
-        Err(reply) => return reply,
+    Ok(PreparedDataset {
+        snapshot_ref,
+        content_hash,
+        tail,
+        payload,
+        bytes,
+    })
+}
+
+/// Admit the dataset artifact INTENT, write the blob, then admit the parent materialization — in
+/// that exact order. The blob is impossible to write without a durable admitted intent recording
+/// that it should be collected if the parent admission fails, and an exact retry replays the intent,
+/// no-ops the write, and replays the parent.
+fn commit_dataset_artifact(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    dataset_scope: &super::substrate_store::RequestResourceScope,
+    prepared: &PreparedDataset,
+    owner_ref: &str,
+    idempotency_key: &str,
+) -> Reply {
+    let artifact_ref = format!(
+        "artifact://foundry-dataset/{}",
+        prepared.content_hash.trim_start_matches("sha256:")
+    );
+    let intent = ArtifactIntentSpec {
+        family: DATA_DIR,
+        parent_kind: "dataset-snapshot",
+        parent_stream_tail: &prepared.tail,
+        parent_resource_ref: &prepared.snapshot_ref,
+        parent_op_kind: DATASET_PARENT_OP,
+        artifact_hash: &prepared.content_hash,
+        artifact_ref: &artifact_ref,
+        owner_ref,
+        idempotency_key,
     };
+    if let Err(reply) = record_artifact_intent(data_dir, identity, &intent) {
+        return reply;
+    }
     if let Err(error) = durable_write(
-        &artifact_path(&st.data_dir, DATA_DIR, &content_hash),
-        &bytes,
+        &artifact_path(data_dir, DATA_DIR, &prepared.content_hash),
+        &prepared.bytes,
     ) {
         return bad(
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -1187,18 +1385,18 @@ pub(crate) async fn handle_recipe_run(
         );
     }
     match admit(
-        &st.data_dir,
+        data_dir,
         true,
-        &identity,
-        &dataset_scope,
+        identity,
+        dataset_scope,
         DATASET_SCOPE_KIND,
-        &snapshot_ref,
-        &tail,
-        "event_stream.foundry_dataset_materialized",
+        &prepared.snapshot_ref,
+        &prepared.tail,
+        DATASET_PARENT_OP,
         None,
-        &payload,
+        &prepared.payload,
         now_ms(),
-        &request.idempotency_key,
+        idempotency_key,
     ) {
         Ok(commit) => (
             StatusCode::CREATED,
@@ -1208,6 +1406,41 @@ pub(crate) async fn handle_recipe_run(
         ),
         Err(reply) => reply,
     }
+}
+
+/// Post-authorization core of a recipe run. Materializes the dataset, binds the dataset scope BEFORE
+/// any bytes are written (a snapshot ref owned by another tenant is refused at no disk cost), then
+/// commits the artifact through the admitted-intent effect sequence.
+fn recipe_run_core(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    recipe_scope: &super::substrate_store::RequestResourceScope,
+    recipe: &ExactProjection,
+    request: RecipeRunRequest,
+) -> Reply {
+    let prepared = match recipe_run_prepare(recipe, &request) {
+        Ok(prepared) => prepared,
+        Err(reply) => return reply,
+    };
+    let dataset_scope = match bind_scope(
+        data_dir,
+        identity,
+        DATASET_SCOPE_KIND,
+        &prepared.snapshot_ref,
+        &recipe_scope.owner_ref,
+        &request.idempotency_key,
+    ) {
+        Ok(scope) => scope,
+        Err(reply) => return reply,
+    };
+    commit_dataset_artifact(
+        data_dir,
+        identity,
+        &dataset_scope,
+        &prepared,
+        &recipe_scope.owner_ref,
+        &request.idempotency_key,
+    )
 }
 
 pub(crate) async fn handle_dataset_snapshots_list(
@@ -1598,7 +1831,16 @@ fn checkpoint_record(
     })
 }
 
-fn train_step(data_dir: &str, program: &Value, max_rows: u64) -> Result<Value, Reply> {
+/// Pure compute for one bounded training step. It reads the immutable dataset material and folds
+/// token counts forward, then builds the next program head and the checkpoint bytes — but it does
+/// NOT write the checkpoint blob. Writing is the caller's, sequenced AFTER the artifact intent is
+/// admitted, so a checkpoint blob can never be materialized without a durable admitted obligation.
+/// Returns `(next_program_head, checkpoint_bytes, checkpoint_hash)`.
+fn train_step_compute(
+    data_dir: &str,
+    program: &Value,
+    max_rows: u64,
+) -> Result<(Value, Vec<u8>, String), Reply> {
     let snapshot = dataset_snapshot(
         data_dir,
         program["dataset_snapshot_ref"].as_str().unwrap_or_default(),
@@ -1662,17 +1904,6 @@ fn train_step(data_dir: &str, program: &Value, max_rows: u64) -> Result<Value, R
         )
     })?;
     let checkpoint_hash = digest(&bytes);
-    durable_write(
-        &artifact_path(data_dir, CHECKPOINT_DIR, &checkpoint_hash),
-        &bytes,
-    )
-    .map_err(|error| {
-        bad(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "foundry_checkpoint_persist_failed",
-            error.to_string(),
-        )
-    })?;
     let program_tail = hash_tail(
         "program",
         program["program_id"].as_str().unwrap_or_default(),
@@ -1711,7 +1942,7 @@ fn train_step(data_dir: &str, program: &Value, max_rows: u64) -> Result<Value, R
     } else {
         "running"
     });
-    Ok(next)
+    Ok((next, bytes, checkpoint_hash))
 }
 
 pub(crate) async fn handle_program_action(
@@ -1859,16 +2090,47 @@ fn program_action_core(
             "event_stream.foundry_program_cancelled"
         }
         "step" if status == "running" => {
-            next = match train_step(
-                data_dir,
-                &next,
-                request
-                    .max_rows
-                    .unwrap_or(next["checkpoint_every_rows"].as_u64().unwrap_or(1)),
-            ) {
-                Ok(next) => next,
-                Err(reply) => return reply,
+            let max_rows = request
+                .max_rows
+                .unwrap_or(next["checkpoint_every_rows"].as_u64().unwrap_or(1));
+            let (stepped, bytes, checkpoint_hash) =
+                match train_step_compute(data_dir, &next, max_rows) {
+                    Ok(value) => value,
+                    Err(reply) => return reply,
+                };
+            // The checkpoint blob is bound to a durable admitted intent BEFORE it is written and
+            // BEFORE the checkpointed successor. One blob per step, so each step records its own
+            // content-addressed intent keyed by this transition's idempotency key; an exact retry
+            // replays that intent, the write is a no-op, and the successor replays.
+            let artifact_ref = format!(
+                "artifact://foundry-checkpoint/{}",
+                checkpoint_hash.trim_start_matches("sha256:")
+            );
+            let intent = ArtifactIntentSpec {
+                family: CHECKPOINT_DIR,
+                parent_kind: "training-program",
+                parent_stream_tail: tail,
+                parent_resource_ref: id,
+                parent_op_kind: CHECKPOINT_PARENT_OP,
+                artifact_hash: &checkpoint_hash,
+                artifact_ref: &artifact_ref,
+                owner_ref: &scope.owner_ref,
+                idempotency_key: &request.idempotency_key,
             };
+            if let Err(reply) = record_artifact_intent(data_dir, identity, &intent) {
+                return reply;
+            }
+            if let Err(error) = durable_write(
+                &artifact_path(data_dir, CHECKPOINT_DIR, &checkpoint_hash),
+                &bytes,
+            ) {
+                return bad(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "foundry_checkpoint_persist_failed",
+                    error.to_string(),
+                );
+            }
+            next = stepped;
             "event_stream.foundry_program_checkpointed"
         }
         "reconcile" if matches!(status, "running" | "paused" | "completed") => {
@@ -2561,6 +2823,279 @@ pub(crate) async fn handle_qualification_proposals_list(
     )
 }
 
+/// Owner-filtered projection of the artifact-intent obligations. State is DERIVED, never a stored
+/// status a stale read could disagree with: `abandoned` when the intent's head is the terminal
+/// abandonment, `discharged` when the parent effect is admitted under the intent's key, otherwise
+/// `pending`.
+pub(crate) async fn handle_artifact_intents_list(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+) -> Reply {
+    let identity = match request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(reply) => return reply,
+    };
+    let allowed = match authorized_refs(&st.data_dir, &identity, ARTIFACT_INTENT_SCOPE_KIND) {
+        Ok(allowed) => allowed,
+        Err(reply) => return reply,
+    };
+    let tails = match super::substrate_store::list_event_stream_tails(&st.data_dir, NAMESPACE) {
+        Ok(tails) => tails,
+        Err(error) => {
+            return bad(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "foundry_inventory_unavailable",
+                error.to_string(),
+            )
+        }
+    };
+    let mut intents = Vec::new();
+    for tail in tails
+        .into_iter()
+        .filter(|tail| tail.starts_with("artifact-intent."))
+    {
+        let head = match read_head(&st.data_dir, &tail) {
+            Ok(head) => head,
+            Err(reply) => return reply,
+        };
+        let intent_ref = head.operation.payload["intent_ref"]
+            .as_str()
+            .unwrap_or_default();
+        if !allowed.contains(intent_ref) {
+            continue;
+        }
+        if let Err(reply) = authorize_scope(
+            &st.data_dir,
+            &identity,
+            ARTIFACT_INTENT_SCOPE_KIND,
+            intent_ref,
+            head.operation.payload["owner_ref"].as_str(),
+        ) {
+            return reply;
+        }
+        let state = if head.operation.op_kind == ARTIFACT_INTENT_ABANDONED {
+            "abandoned"
+        } else {
+            let parent_tail = head.operation.payload["parent_stream_tail"]
+                .as_str()
+                .unwrap_or_default();
+            let parent_key = head.operation.payload["parent_idempotency_key"]
+                .as_str()
+                .unwrap_or_default();
+            match parent_effect_admitted(&st.data_dir, parent_tail, parent_key) {
+                Ok(true) => "discharged",
+                Ok(false) => "pending",
+                Err(reply) => return reply,
+            }
+        };
+        let intent_id = tail.trim_start_matches("artifact-intent.").to_owned();
+        let mut projection = projection_value(&head, None);
+        if let Some(object) = projection.as_object_mut() {
+            object.insert("intent_id".into(), json!(intent_id));
+            object.insert("state".into(), json!(state));
+        }
+        intents.push(projection);
+    }
+    intents.sort_by(|a, b| a["intent_ref"].as_str().cmp(&b["intent_ref"].as_str()));
+    (
+        StatusCode::OK,
+        Json(json!({"ok":true,"artifact_intents":intents})),
+    )
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ArtifactIntentAbandonRequest {
+    expected_intent_head: String,
+    idempotency_key: String,
+}
+
+pub(crate) async fn handle_artifact_intent_abandon(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    AxumPath(intent_id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> Reply {
+    let identity = match request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(reply) => return reply,
+    };
+    let request: ArtifactIntentAbandonRequest =
+        match parse(body, "foundry_artifact_intent_abandon_invalid") {
+            Ok(request) => request,
+            Err(reply) => return reply,
+        };
+    if request.idempotency_key.trim().is_empty() {
+        return bad(
+            StatusCode::BAD_REQUEST,
+            "foundry_idempotency_key_required",
+            "idempotency_key is required",
+        );
+    }
+    let tail = format!("artifact-intent.{intent_id}");
+    let current = match read_head(&st.data_dir, &tail) {
+        Ok(current) => current,
+        Err(reply) => return reply,
+    };
+    let intent_ref = current.operation.payload["intent_ref"]
+        .as_str()
+        .unwrap_or_default()
+        .to_owned();
+    let intent_scope = match authorize_scope(
+        &st.data_dir,
+        &identity,
+        ARTIFACT_INTENT_SCOPE_KIND,
+        &intent_ref,
+        current.operation.payload["owner_ref"].as_str(),
+    ) {
+        Ok(scope) => scope,
+        Err(reply) => return reply,
+    };
+    artifact_intent_abandon_core(
+        &st.data_dir,
+        &identity,
+        &intent_scope,
+        &intent_ref,
+        &tail,
+        current,
+        &request,
+    )
+}
+
+/// Post-scope core of an abandonment. Admits the terminal `foundry_artifact_intent_abandoned`
+/// successor BEFORE deleting the blob — the abandoned record IS the recoverable intent, and
+/// collection is the effect that follows it — but only after proving the parent effect is absent,
+/// so a discharged intent can never strand a referenced blob.
+fn artifact_intent_abandon_core(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    intent_scope: &super::substrate_store::RequestResourceScope,
+    intent_ref: &str,
+    intent_tail: &str,
+    current: ExactProjection,
+    request: &ArtifactIntentAbandonRequest,
+) -> Reply {
+    let record = current.operation.payload.clone();
+    let family = record["artifact_family"].as_str().unwrap_or_default();
+    let artifact_hash = record["artifact_hash"].as_str().unwrap_or_default();
+    // Already terminal: idempotent. Re-run collection so a retry can finish a deletion that a prior
+    // attempt left as a cleanup obligation, and return the abandoned record.
+    if current.operation.op_kind == ARTIFACT_INTENT_ABANDONED {
+        let collection = match collect_abandoned_blob(data_dir, intent_ref, family, artifact_hash) {
+            Ok(collection) => collection,
+            Err(reply) => return reply,
+        };
+        return (
+            StatusCode::OK,
+            Json(json!({
+                "ok":true,
+                "artifact_intent":projection_value(&current, Some(true)),
+                "collection":collection
+            })),
+        );
+    }
+    if current.head != request.expected_intent_head {
+        return bad(
+            StatusCode::CONFLICT,
+            "foundry_artifact_intent_expected_head_conflict",
+            "expected_intent_head is not the current Agentgres head",
+        );
+    }
+    // The obligation may be abandoned ONLY while its parent effect is absent. If the parent event is
+    // admitted the artifact materialized and the intent is discharged; abandoning it would strand a
+    // referenced blob. An admitted parent decides existence — no earlier abandonment may be recorded
+    // over it.
+    let parent_tail = record["parent_stream_tail"].as_str().unwrap_or_default();
+    let parent_key = record["parent_idempotency_key"]
+        .as_str()
+        .unwrap_or_default();
+    match parent_effect_admitted(data_dir, parent_tail, parent_key) {
+        Ok(true) => {
+            return bad(
+                StatusCode::CONFLICT,
+                "foundry_artifact_intent_discharged",
+                "the artifact intent's parent effect is admitted; a discharged intent cannot be abandoned",
+            )
+        }
+        Ok(false) => {}
+        Err(reply) => return reply,
+    }
+    let mut next = record.clone();
+    next["status"] = json!("abandoned");
+    next["abandon_idempotency_key"] = json!(request.idempotency_key);
+    match admit(
+        data_dir,
+        false,
+        identity,
+        intent_scope,
+        ARTIFACT_INTENT_SCOPE_KIND,
+        intent_ref,
+        intent_tail,
+        ARTIFACT_INTENT_ABANDONED,
+        Some(&current.head),
+        &next,
+        now_ms(),
+        &request.idempotency_key,
+    ) {
+        Ok(commit) => {
+            let collection =
+                match collect_abandoned_blob(data_dir, intent_ref, family, artifact_hash) {
+                    Ok(collection) => collection,
+                    Err(reply) => return reply,
+                };
+            (
+                StatusCode::OK,
+                Json(json!({
+                    "ok":true,
+                    "artifact_intent":projection_value(&commit.projection, Some(commit.replayed)),
+                    "collection":collection
+                })),
+            )
+        }
+        Err(reply) => reply,
+    }
+}
+
+/// Conservative collection of an abandoned intent's blob. Content-addressed blobs may be shared, so
+/// a blob still named by another live intent or an admitted record is RETAINED, never deleted. A
+/// blob already gone is not an error. A deletion that fails for another reason leaves the abandoned
+/// record standing and reports a retained cleanup obligation rather than failing the abandonment.
+fn collect_abandoned_blob(
+    data_dir: &str,
+    intent_ref: &str,
+    family: &str,
+    artifact_hash: &str,
+) -> Result<Value, Reply> {
+    if blob_has_other_referent(data_dir, intent_ref, family, artifact_hash)? {
+        return Ok(json!({
+            "blob_deleted":false,
+            "retained":"shared_referent",
+            "artifact_family":family,
+            "artifact_hash":artifact_hash
+        }));
+    }
+    match std::fs::remove_file(artifact_path(data_dir, family, artifact_hash)) {
+        Ok(()) => Ok(json!({
+            "blob_deleted":true,
+            "artifact_family":family,
+            "artifact_hash":artifact_hash
+        })),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(json!({
+            "blob_deleted":false,
+            "retained":"already_absent",
+            "artifact_family":family,
+            "artifact_hash":artifact_hash
+        })),
+        Err(error) => Ok(json!({
+            "blob_deleted":false,
+            "retained":"cleanup_obligation",
+            "reason":error.to_string(),
+            "artifact_family":family,
+            "artifact_hash":artifact_hash
+        })),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2582,6 +3117,8 @@ mod tests {
             "handle_checkpoints_list",
             "handle_program_qualify",
             "handle_qualification_proposals_list",
+            "handle_artifact_intents_list",
+            "handle_artifact_intent_abandon",
         ] {
             let marker = format!("pub(crate) async fn {handler}");
             let start = source
@@ -2989,6 +3526,578 @@ mod tests {
             body["error"]["code"],
             "foundry_program_expected_head_conflict"
         );
+        super::super::substrate_store::reset_handle_for_test();
+    }
+
+    // The durability fault hook is thread-local, but the process-global writer handle is shared, so
+    // the delicate window in which an admission is faulted and then retried is serialized here.
+    static FAULT_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    fn blob_file_count(data_dir: &str, family: &str) -> usize {
+        std::fs::read_dir(Path::new(data_dir).join(family))
+            .map(|entries| {
+                entries
+                    .filter_map(Result::ok)
+                    .filter(|entry| entry.file_name().to_string_lossy().ends_with(".json"))
+                    .count()
+            })
+            .unwrap_or(0)
+    }
+
+    fn admitted_recipe(
+        data_dir: &str,
+        identity: &super::super::substrate_store::RequestIdentity,
+        recipe_id: &str,
+    ) -> ExactProjection {
+        let request = recipe_request(recipe_id, "org://local", "recipe-create-key");
+        let content_hash = recipe_content_hash(&request).unwrap();
+        let tail = hash_tail("recipe", recipe_id);
+        let scope = bind_scope(
+            data_dir,
+            identity,
+            RECIPE_SCOPE_KIND,
+            recipe_id,
+            "org://local",
+            &request.idempotency_key,
+        )
+        .unwrap();
+        let (status, _) = recipes_create_core(
+            data_dir,
+            identity,
+            &scope,
+            &request,
+            &content_hash,
+            &tail,
+            None,
+        );
+        assert_eq!(status, StatusCode::CREATED);
+        read_head(data_dir, &tail).unwrap()
+    }
+
+    fn recipe_run_request(key: &str) -> RecipeRunRequest {
+        RecipeRunRequest {
+            expected_recipe_head: String::new(),
+            expected_recipe_content_hash: String::new(),
+            rights_grant_refs: vec!["rights://test/grant".into()],
+            input_rows: vec![json!({"text":"alpha beta"}), json!({"text":"gamma delta"})],
+            splits: SplitBasisPoints {
+                train: 10000,
+                validation: 0,
+                test: 0,
+            },
+            idempotency_key: key.into(),
+        }
+    }
+
+    // The happy path: recipe_run_core admits the artifact intent BEFORE the blob and the parent, so a
+    // completed run leaves the blob present and the intent DISCHARGED (its parent materialized under
+    // the same key). Mutation check: swapping the intent admission to AFTER durable_write in
+    // commit_dataset_artifact leaves the intent stream empty here, failing the recorded-op assertion.
+    #[test]
+    fn recipe_run_binds_the_dataset_blob_to_a_discharged_intent() {
+        let dir = tempfile::tempdir().unwrap();
+        let data_dir = dir.path().to_str().unwrap();
+        super::super::substrate_store::reset_handle_for_test();
+        let identity = super::super::substrate_store::request_identity_for_test(
+            "user://one",
+            ["org://local".to_string()],
+        );
+        let recipe_id = "foundry-recipe://test/run";
+        let recipe = admitted_recipe(data_dir, &identity, recipe_id);
+        let recipe_scope =
+            authorize_scope(data_dir, &identity, RECIPE_SCOPE_KIND, recipe_id, None).unwrap();
+        let request = recipe_run_request("run-key-1");
+        let prepared = recipe_run_prepare(&recipe, &request).unwrap();
+        let intent_ref = artifact_intent_ref(DATA_DIR, &prepared.tail, &prepared.content_hash);
+        let intent_tail = hash_tail("artifact-intent", &intent_ref);
+
+        let (status, Json(body)) =
+            recipe_run_core(data_dir, &identity, &recipe_scope, &recipe, request);
+        assert_eq!(status, StatusCode::CREATED);
+        assert_eq!(body["dataset_snapshot"]["status"], "materialized");
+
+        let intent_head = read_head(data_dir, &intent_tail).unwrap();
+        assert_eq!(intent_head.operation.op_kind, ARTIFACT_INTENT_RECORDED);
+        assert_eq!(
+            intent_head.operation.payload["artifact_hash"],
+            prepared.content_hash
+        );
+        // The parent materialized under the intent's key: discharged.
+        assert!(parent_effect_admitted(data_dir, &prepared.tail, "run-key-1").unwrap());
+        assert!(artifact_path(data_dir, DATA_DIR, &prepared.content_hash).exists());
+        super::super::substrate_store::reset_handle_for_test();
+    }
+
+    // Post-materialization admission-failure recovery. The intent is admitted and the blob written,
+    // then the parent materialization ALONE is faulted: the caller sees a typed durability refusal,
+    // the blob is present, and the intent's head is still the pending genesis (never abandoned). An
+    // exact retry converges — the intent replays, the write no-ops, the parent is admitted — with no
+    // duplicate intent, blob, or parent event. Mutation check: deleting the record_artifact_intent
+    // call in commit_dataset_artifact makes the "single intent event" assertion after retry fail
+    // (zero intent events), and moving durable_write BEFORE record_artifact_intent makes the
+    // "blob present, intent pending" pair unprovable because the fault would land on the intent.
+    #[test]
+    fn artifact_intent_recovers_a_post_materialization_durability_failure() {
+        let _serial = FAULT_TEST_LOCK.lock().unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let data_dir = dir.path().to_str().unwrap();
+        super::super::substrate_store::reset_handle_for_test();
+        let identity = super::super::substrate_store::request_identity_for_test(
+            "user://one",
+            ["org://local".to_string()],
+        );
+        let recipe_id = "foundry-recipe://test/run";
+        let recipe = admitted_recipe(data_dir, &identity, recipe_id);
+        let recipe_scope =
+            authorize_scope(data_dir, &identity, RECIPE_SCOPE_KIND, recipe_id, None).unwrap();
+        let request = recipe_run_request("run-key-fault");
+        let prepared = recipe_run_prepare(&recipe, &request).unwrap();
+        let intent_ref = artifact_intent_ref(DATA_DIR, &prepared.tail, &prepared.content_hash);
+        let intent_tail = hash_tail("artifact-intent", &intent_ref);
+        let blob = artifact_path(data_dir, DATA_DIR, &prepared.content_hash);
+
+        // Intent + blob succeed; the parent admission alone faults.
+        let dataset_scope = bind_scope(
+            data_dir,
+            &identity,
+            DATASET_SCOPE_KIND,
+            &prepared.snapshot_ref,
+            &recipe_scope.owner_ref,
+            "run-key-fault",
+        )
+        .unwrap();
+        let artifact_ref = format!(
+            "artifact://foundry-dataset/{}",
+            prepared.content_hash.trim_start_matches("sha256:")
+        );
+        let spec = ArtifactIntentSpec {
+            family: DATA_DIR,
+            parent_kind: "dataset-snapshot",
+            parent_stream_tail: &prepared.tail,
+            parent_resource_ref: &prepared.snapshot_ref,
+            parent_op_kind: DATASET_PARENT_OP,
+            artifact_hash: &prepared.content_hash,
+            artifact_ref: &artifact_ref,
+            owner_ref: &recipe_scope.owner_ref,
+            idempotency_key: "run-key-fault",
+        };
+        let intent_commit = record_artifact_intent(data_dir, &identity, &spec).unwrap();
+        assert!(!intent_commit.replayed);
+        durable_write(&blob, &prepared.bytes).unwrap();
+
+        let forced = agentgres::event_stream::force_durability_failure_for_this_thread();
+        let faulted = admit(
+            data_dir,
+            true,
+            &identity,
+            &dataset_scope,
+            DATASET_SCOPE_KIND,
+            &prepared.snapshot_ref,
+            &prepared.tail,
+            DATASET_PARENT_OP,
+            None,
+            &prepared.payload,
+            now_ms(),
+            "run-key-fault",
+        );
+        drop(forced);
+        let (status, Json(body)) = match faulted {
+            Ok(_) => panic!("a forced durability fault must not return success"),
+            Err(reply) => reply,
+        };
+        assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(body["error"]["code"], "event_stream_durability_unconfirmed");
+        // Blob present, intent PENDING (head is the recorded genesis, not abandoned).
+        assert!(blob.exists());
+        let intent_head = read_head(data_dir, &intent_tail).unwrap();
+        assert_eq!(intent_head.operation.op_kind, ARTIFACT_INTENT_RECORDED);
+        assert_eq!(
+            super::super::substrate_store::read_event_stream_history(
+                data_dir,
+                NAMESPACE,
+                &intent_tail
+            )
+            .unwrap()
+            .len(),
+            1
+        );
+        assert_eq!(blob_file_count(data_dir, DATA_DIR), 1);
+
+        // Exact retry converges: intent replays, write no-ops, parent admitted, discharged.
+        let (status, Json(body)) = commit_dataset_artifact(
+            data_dir,
+            &identity,
+            &dataset_scope,
+            &prepared,
+            &recipe_scope.owner_ref,
+            "run-key-fault",
+        );
+        assert_eq!(status, StatusCode::CREATED);
+        assert_eq!(body["dataset_snapshot"]["agentgres"]["replayed"], true);
+        assert!(parent_effect_admitted(data_dir, &prepared.tail, "run-key-fault").unwrap());
+        // No duplicate intent, blob, or parent event.
+        assert_eq!(
+            super::super::substrate_store::read_event_stream_history(
+                data_dir,
+                NAMESPACE,
+                &intent_tail
+            )
+            .unwrap()
+            .len(),
+            1
+        );
+        assert_eq!(blob_file_count(data_dir, DATA_DIR), 1);
+        assert_eq!(
+            super::super::substrate_store::read_event_stream_history(
+                data_dir,
+                NAMESPACE,
+                &prepared.tail
+            )
+            .unwrap()
+            .len(),
+            1
+        );
+        super::super::substrate_store::reset_handle_for_test();
+    }
+
+    // A pending intent whose parent never materialized (a crash between the blob write and the parent
+    // admission) is a genuine orphan: abandon admits the terminal successor and collects the blob.
+    // Mutation check: removing the remove_file call in collect_abandoned_blob leaves the blob on disk
+    // and fails the final assertion; refusing to admit the abandon successor fails the op_kind check.
+    #[test]
+    fn abandon_collects_an_orphan_intent_and_records_collectability() {
+        let dir = tempfile::tempdir().unwrap();
+        let data_dir = dir.path().to_str().unwrap();
+        super::super::substrate_store::reset_handle_for_test();
+        let identity = super::super::substrate_store::request_identity_for_test(
+            "user://one",
+            ["org://local".to_string()],
+        );
+        let content_hash = digest(b"orphan-bytes");
+        let snapshot_ref = format!(
+            "dataset-snapshot://foundry/{}",
+            content_hash.trim_start_matches("sha256:")
+        );
+        let parent_tail = hash_tail("dataset", &snapshot_ref);
+        let artifact_ref = format!(
+            "artifact://foundry-dataset/{}",
+            content_hash.trim_start_matches("sha256:")
+        );
+        let spec = ArtifactIntentSpec {
+            family: DATA_DIR,
+            parent_kind: "dataset-snapshot",
+            parent_stream_tail: &parent_tail,
+            parent_resource_ref: &snapshot_ref,
+            parent_op_kind: DATASET_PARENT_OP,
+            artifact_hash: &content_hash,
+            artifact_ref: &artifact_ref,
+            owner_ref: "org://local",
+            idempotency_key: "orphan-key",
+        };
+        record_artifact_intent(data_dir, &identity, &spec).unwrap();
+        let blob = artifact_path(data_dir, DATA_DIR, &content_hash);
+        durable_write(&blob, b"orphan-bytes").unwrap();
+        assert!(blob.exists());
+
+        let intent_ref = artifact_intent_ref(DATA_DIR, &parent_tail, &content_hash);
+        let intent_tail = hash_tail("artifact-intent", &intent_ref);
+        let intent_scope = authorize_scope(
+            data_dir,
+            &identity,
+            ARTIFACT_INTENT_SCOPE_KIND,
+            &intent_ref,
+            Some("org://local"),
+        )
+        .unwrap();
+        let current = read_head(data_dir, &intent_tail).unwrap();
+        let request = ArtifactIntentAbandonRequest {
+            expected_intent_head: current.head.clone(),
+            idempotency_key: "abandon-key".into(),
+        };
+        let (status, Json(body)) = artifact_intent_abandon_core(
+            data_dir,
+            &identity,
+            &intent_scope,
+            &intent_ref,
+            &intent_tail,
+            current,
+            &request,
+        );
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["artifact_intent"]["status"], "abandoned");
+        assert_eq!(body["collection"]["blob_deleted"], true);
+        let head = read_head(data_dir, &intent_tail).unwrap();
+        assert_eq!(head.operation.op_kind, ARTIFACT_INTENT_ABANDONED);
+        assert!(!blob.exists());
+        super::super::substrate_store::reset_handle_for_test();
+    }
+
+    // A discharged intent — its parent materialized — cannot be abandoned: abandoning it would strand
+    // a referenced blob. Mutation check: dropping the parent_effect_admitted guard in
+    // artifact_intent_abandon_core lets the abandon through, failing the CONFLICT assertion.
+    #[test]
+    fn abandon_refuses_a_discharged_intent() {
+        let dir = tempfile::tempdir().unwrap();
+        let data_dir = dir.path().to_str().unwrap();
+        super::super::substrate_store::reset_handle_for_test();
+        let identity = super::super::substrate_store::request_identity_for_test(
+            "user://one",
+            ["org://local".to_string()],
+        );
+        let recipe_id = "foundry-recipe://test/run";
+        let recipe = admitted_recipe(data_dir, &identity, recipe_id);
+        let recipe_scope =
+            authorize_scope(data_dir, &identity, RECIPE_SCOPE_KIND, recipe_id, None).unwrap();
+        let request = recipe_run_request("run-key-2");
+        let prepared = recipe_run_prepare(&recipe, &request).unwrap();
+        let (status, _) = recipe_run_core(data_dir, &identity, &recipe_scope, &recipe, request);
+        assert_eq!(status, StatusCode::CREATED);
+
+        let intent_ref = artifact_intent_ref(DATA_DIR, &prepared.tail, &prepared.content_hash);
+        let intent_tail = hash_tail("artifact-intent", &intent_ref);
+        let intent_scope = authorize_scope(
+            data_dir,
+            &identity,
+            ARTIFACT_INTENT_SCOPE_KIND,
+            &intent_ref,
+            Some("org://local"),
+        )
+        .unwrap();
+        let current = read_head(data_dir, &intent_tail).unwrap();
+        let abandon = ArtifactIntentAbandonRequest {
+            expected_intent_head: current.head.clone(),
+            idempotency_key: "abandon-key".into(),
+        };
+        let (status, Json(body)) = artifact_intent_abandon_core(
+            data_dir,
+            &identity,
+            &intent_scope,
+            &intent_ref,
+            &intent_tail,
+            current,
+            &abandon,
+        );
+        assert_eq!(status, StatusCode::CONFLICT);
+        assert_eq!(body["error"]["code"], "foundry_artifact_intent_discharged");
+        // The discharged blob is retained.
+        assert!(artifact_path(data_dir, DATA_DIR, &prepared.content_hash).exists());
+        super::super::substrate_store::reset_handle_for_test();
+    }
+
+    // Two checkpoint intents from different programs can name the SAME content-addressed blob.
+    // Abandoning one must RETAIN the blob while the other still references it, and only collect it
+    // once the last referent is abandoned. Mutation check: making blob_has_other_referent always
+    // return false deletes the shared blob on the first abandon, failing the "still exists" assertion.
+    #[test]
+    fn abandon_retains_a_blob_with_another_referent_then_collects_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let data_dir = dir.path().to_str().unwrap();
+        super::super::substrate_store::reset_handle_for_test();
+        let identity = super::super::substrate_store::request_identity_for_test(
+            "user://one",
+            ["org://local".to_string()],
+        );
+        let content_hash = digest(b"shared-checkpoint-bytes");
+        let artifact_ref = format!(
+            "artifact://foundry-checkpoint/{}",
+            content_hash.trim_start_matches("sha256:")
+        );
+        let program_a_tail = hash_tail("program", "trainpipe://prog-a");
+        let program_b_tail = hash_tail("program", "trainpipe://prog-b");
+        let record = |program_tail: &str, program_id: &str, key: &str| {
+            let spec = ArtifactIntentSpec {
+                family: CHECKPOINT_DIR,
+                parent_kind: "training-program",
+                parent_stream_tail: program_tail,
+                parent_resource_ref: program_id,
+                parent_op_kind: CHECKPOINT_PARENT_OP,
+                artifact_hash: &content_hash,
+                artifact_ref: &artifact_ref,
+                owner_ref: "org://local",
+                idempotency_key: key,
+            };
+            record_artifact_intent(data_dir, &identity, &spec).unwrap();
+        };
+        record(&program_a_tail, "trainpipe://prog-a", "step-a");
+        record(&program_b_tail, "trainpipe://prog-b", "step-b");
+        let blob = artifact_path(data_dir, CHECKPOINT_DIR, &content_hash);
+        durable_write(&blob, b"shared-checkpoint-bytes").unwrap();
+
+        let abandon = |program_tail: &str, key: &str| -> Value {
+            let intent_ref = artifact_intent_ref(CHECKPOINT_DIR, program_tail, &content_hash);
+            let intent_tail = hash_tail("artifact-intent", &intent_ref);
+            let intent_scope = authorize_scope(
+                data_dir,
+                &identity,
+                ARTIFACT_INTENT_SCOPE_KIND,
+                &intent_ref,
+                Some("org://local"),
+            )
+            .unwrap();
+            let current = read_head(data_dir, &intent_tail).unwrap();
+            let request = ArtifactIntentAbandonRequest {
+                expected_intent_head: current.head.clone(),
+                idempotency_key: key.into(),
+            };
+            let (status, Json(body)) = artifact_intent_abandon_core(
+                data_dir,
+                &identity,
+                &intent_scope,
+                &intent_ref,
+                &intent_tail,
+                current,
+                &request,
+            );
+            assert_eq!(status, StatusCode::OK);
+            body
+        };
+
+        // Abandoning A retains the blob: B still references it.
+        let body = abandon(&program_a_tail, "abandon-a");
+        assert_eq!(body["collection"]["blob_deleted"], false);
+        assert_eq!(body["collection"]["retained"], "shared_referent");
+        assert!(blob.exists());
+
+        // Abandoning the last referent B collects it.
+        let body = abandon(&program_b_tail, "abandon-b");
+        assert_eq!(body["collection"]["blob_deleted"], true);
+        assert!(!blob.exists());
+        super::super::substrate_store::reset_handle_for_test();
+    }
+
+    fn admitted_running_program(
+        data_dir: &str,
+        identity: &super::super::substrate_store::RequestIdentity,
+        program_id: &str,
+        snapshot_ref: &str,
+        dataset_content_hash: &str,
+        recipe_content_hash: &str,
+    ) -> (
+        super::super::substrate_store::RequestResourceScope,
+        String,
+        ExactProjection,
+    ) {
+        let scope = bind_scope(
+            data_dir,
+            identity,
+            PROGRAM_SCOPE_KIND,
+            program_id,
+            "org://local",
+            "program-create",
+        )
+        .unwrap();
+        let payload = json!({
+            "schema_version":"ioi.foundry-training-program.v1",
+            "program_id": program_id,
+            "owner_ref":"org://local",
+            "dataset_snapshot_ref": snapshot_ref,
+            "dataset_content_hash": dataset_content_hash,
+            "recipe_content_hash": recipe_content_hash,
+            "trainer_backend_profile_ref":"trainer-backend://ioi/reference-token-frequency/v1",
+            "text_field":"text",
+            "checkpoint_every_rows": 10,
+            "seed": 0,
+            "revision": 1,
+            "status":"running",
+            "data_cursor": 0,
+            "processed_rows": 0,
+            "processed_tokens": 0,
+            "token_counts": [],
+            "checkpoint_refs": [],
+            "current_checkpoint": Value::Null,
+            "last_action_idempotency_key":"program-create",
+        });
+        let tail = hash_tail("program", program_id);
+        admit(
+            data_dir,
+            true,
+            identity,
+            &scope,
+            PROGRAM_SCOPE_KIND,
+            program_id,
+            &tail,
+            "event_stream.foundry_program_admitted",
+            None,
+            &payload,
+            1,
+            "program-create",
+        )
+        .unwrap();
+        let head = read_head(data_dir, &tail).unwrap();
+        (scope, tail, head)
+    }
+
+    // The checkpoint site is bound too: a program step admits a checkpoint intent BEFORE the blob and
+    // the checkpointed successor, so a completed step leaves the checkpoint blob present and the
+    // intent discharged. Mutation check: removing record_artifact_intent from the step arm leaves the
+    // checkpoint intent stream empty, failing the recorded-op assertion.
+    #[test]
+    fn program_step_binds_the_checkpoint_blob_to_a_discharged_intent() {
+        let dir = tempfile::tempdir().unwrap();
+        let data_dir = dir.path().to_str().unwrap();
+        super::super::substrate_store::reset_handle_for_test();
+        let identity = super::super::substrate_store::request_identity_for_test(
+            "user://one",
+            ["org://local".to_string()],
+        );
+        let recipe_id = "foundry-recipe://test/step";
+        let recipe = admitted_recipe(data_dir, &identity, recipe_id);
+        let recipe_scope =
+            authorize_scope(data_dir, &identity, RECIPE_SCOPE_KIND, recipe_id, None).unwrap();
+        let recipe_content_hash = recipe.operation.payload["content_hash"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let run = recipe_run_request("ds-key");
+        let prepared = recipe_run_prepare(&recipe, &run).unwrap();
+        let (status, _) = recipe_run_core(data_dir, &identity, &recipe_scope, &recipe, run);
+        assert_eq!(status, StatusCode::CREATED);
+
+        let program_id = "trainpipe://test/step";
+        let (program_scope, program_tail, program_head) = admitted_running_program(
+            data_dir,
+            &identity,
+            program_id,
+            &prepared.snapshot_ref,
+            &prepared.content_hash,
+            &recipe_content_hash,
+        );
+        let request = ProgramActionRequest {
+            expected_head: program_head.head.clone(),
+            idempotency_key: "step-key".into(),
+            max_rows: None,
+        };
+        let action_identity = json!({"action":"step","max_rows": request.max_rows});
+        let (status, Json(body)) = program_action_core(
+            data_dir,
+            &identity,
+            &program_scope,
+            program_id,
+            "step",
+            &request,
+            program_action_op_kind("step").unwrap(),
+            action_identity,
+            &program_tail,
+            program_head,
+        );
+        assert_eq!(status, StatusCode::OK);
+        let checkpoint_hash = body["program"]["current_checkpoint"]["artifact_hash"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        assert!(artifact_path(data_dir, CHECKPOINT_DIR, &checkpoint_hash).exists());
+
+        let intent_ref = artifact_intent_ref(CHECKPOINT_DIR, &program_tail, &checkpoint_hash);
+        let intent_tail = hash_tail("artifact-intent", &intent_ref);
+        let intent_head = read_head(data_dir, &intent_tail).unwrap();
+        assert_eq!(intent_head.operation.op_kind, ARTIFACT_INTENT_RECORDED);
+        assert_eq!(
+            intent_head.operation.payload["artifact_family"],
+            CHECKPOINT_DIR
+        );
+        // The checkpointed successor is admitted under the step key: the checkpoint intent is
+        // discharged.
+        assert!(parent_effect_admitted(data_dir, &program_tail, "step-key").unwrap());
         super::super::substrate_store::reset_handle_for_test();
     }
 }

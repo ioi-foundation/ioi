@@ -208,6 +208,7 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/foundry-training-program/v1", "sha256:389c0eec02944b340660f0070b982a16b75e3fb3a942e5af116cfd7f6d3b5eb1"),
     ("schema://ioi/components/hypervisor/foundry-checkpoint-artifact/v1", "sha256:01f3a640cd573a50d6088b6b48f05440931208718c956e886cac9253cfb578e2"),
     ("schema://ioi/components/hypervisor/foundry-qualified-measurement/v1", "sha256:de7a97b715688c7510c6c1bb2935c24ee24bf99db285742412631246568f6c94"),
+    ("schema://ioi/components/hypervisor/foundry-artifact-intent/v1", "sha256:90a68419c1347290914c48a0565e575777b0e940e09beaef621a9956aafaf883"),
 ];
 
 pub fn architecture_contract_schema_hash(contract_id: &str) -> Option<&'static str> {
@@ -76740,6 +76741,151 @@ impl<'de> serde::Deserialize<'de>
     }
 }
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct FoundryArtifactIntentV1 {
+    pub schema_version: FoundryArtifactIntentV1SchemaVersion,
+    pub intent_ref: String,
+    pub artifact_family: FoundryArtifactIntentV1ArtifactFamily,
+    pub artifact_hash: String,
+    pub artifact_ref: String,
+    pub parent_kind: FoundryArtifactIntentV1ParentKind,
+    pub parent_stream_tail: String,
+    pub parent_resource_ref: String,
+    pub parent_op_kind: FoundryArtifactIntentV1ParentOpKind,
+    pub parent_idempotency_key: String,
+    pub owner_ref: String,
+    pub status: FoundryArtifactIntentV1Status,
+}
+
+impl<'de> serde::Deserialize<'de> for FoundryArtifactIntentV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/foundry-artifact-intent/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/foundry-artifact-intent/v1","title":"FoundryArtifactIntent","description":"Durable pending obligation admitted BEFORE a content-addressed Foundry artifact blob is materialized and BEFORE its parent event (dataset materialization or program checkpoint). It binds the blob to a recoverable admitted intent so a post-materialization admission failure leaves a collectable record rather than an orphan. The intent identity embeds the artifact hash, so an intent can never name a blob other than the one it commits.","x-ioi-schema-version":"ioi.foundry-artifact-intent.v1","type":"object","additionalProperties":false,"required":["schema_version","intent_ref","artifact_family","artifact_hash","artifact_ref","parent_kind","parent_stream_tail","parent_resource_ref","parent_op_kind","parent_idempotency_key","owner_ref","status"],"properties":{"schema_version":{"const":"ioi.foundry-artifact-intent.v1"},"intent_ref":{"type":"string","pattern":"^foundry-artifact-intent://(?:foundry-dataset-artifacts|foundry-checkpoint-artifacts)/(?:dataset|program)[.][0-9a-f]{64}/[0-9a-f]{64}$"},"artifact_family":{"enum":["foundry-dataset-artifacts","foundry-checkpoint-artifacts"]},"artifact_hash":{"$ref":"#/$defs/hash"},"artifact_ref":{"type":"string","pattern":"^artifact://(?:foundry-dataset|foundry-checkpoint)/[0-9a-f]{64}$"},"parent_kind":{"enum":["dataset-snapshot","training-program"]},"parent_stream_tail":{"type":"string","pattern":"^(?:dataset|program)[.][0-9a-f]{64}$"},"parent_resource_ref":{"type":"string","pattern":"^(?:dataset-snapshot|trainpipe)://[^\\s]{1,500}$"},"parent_op_kind":{"enum":["event_stream.foundry_dataset_materialized","event_stream.foundry_program_checkpointed"]},"parent_idempotency_key":{"type":"string","minLength":1,"maxLength":256},"owner_ref":{"type":"string","pattern":"^(?:wallet|org|project)://[^\\s]{1,500}$"},"status":{"const":"pending"}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<FoundryArtifactIntentV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            intent_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"intent_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"intent_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            artifact_family: serde_json::from_value::<FoundryArtifactIntentV1ArtifactFamily>(
+                object
+                    .remove(r#"artifact_family"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"artifact_family"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            artifact_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"artifact_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"artifact_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            artifact_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"artifact_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"artifact_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            parent_kind: serde_json::from_value::<FoundryArtifactIntentV1ParentKind>(
+                object
+                    .remove(r#"parent_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"parent_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            parent_stream_tail: serde_json::from_value::<String>(
+                object
+                    .remove(r#"parent_stream_tail"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"parent_stream_tail"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            parent_resource_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"parent_resource_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"parent_resource_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            parent_op_kind: serde_json::from_value::<FoundryArtifactIntentV1ParentOpKind>(
+                object
+                    .remove(r#"parent_op_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"parent_op_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            parent_idempotency_key: serde_json::from_value::<String>(
+                object
+                    .remove(r#"parent_idempotency_key"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"parent_idempotency_key"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<FoundryArtifactIntentV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FoundryArtifactIntentV1SchemaVersion {
+    #[serde(rename = r#"ioi.foundry-artifact-intent.v1"#)]
+    IoiFoundryArtifactIntentV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FoundryArtifactIntentV1ArtifactFamily {
+    #[serde(rename = r#"foundry-dataset-artifacts"#)]
+    FoundryDatasetArtifacts,
+    #[serde(rename = r#"foundry-checkpoint-artifacts"#)]
+    FoundryCheckpointArtifacts,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FoundryArtifactIntentV1ParentKind {
+    #[serde(rename = r#"dataset-snapshot"#)]
+    DatasetSnapshot,
+    #[serde(rename = r#"training-program"#)]
+    TrainingProgram,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FoundryArtifactIntentV1ParentOpKind {
+    #[serde(rename = r#"event_stream.foundry_dataset_materialized"#)]
+    EventStreamFoundryDatasetMaterialized,
+    #[serde(rename = r#"event_stream.foundry_program_checkpointed"#)]
+    EventStreamFoundryProgramCheckpointed,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FoundryArtifactIntentV1Status {
+    #[serde(rename = r#"pending"#)]
+    Pending,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GoldenFixture {
     pub contract_id: &'static str,
@@ -81638,6 +81784,22 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_schema_accept: false,
         expected_failure: Some("schema"),
         expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/foundry-artifact-intent/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/foundry-artifact-intent-v1/positive-pending-dataset.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/foundry-artifact-intent/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/foundry-artifact-intent-v1/negative-intent-ref-hash-mismatch.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("foundry_artifact_intent.intent_ref.binds_artifact_hash"),
     },
 ];
 
@@ -89947,6 +90109,28 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/foundry-artifact-intent-v1/positive-pending-dataset.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/foundry-artifact-intent/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/foundry-artifact-intent-v1/positive-pending-dataset.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/foundry-artifact-intent-v1/negative-intent-ref-hash-mismatch.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/foundry-artifact-intent/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/foundry-artifact-intent-v1/negative-intent-ref-hash-mismatch.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"mutation:sequence-zero-receipt-timestamp-detached"#,
         contract_id: r#"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2"#,
         source_fixture_path: None,
@@ -91506,6 +91690,7 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/foundry-training-program/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/foundry-training-program/v1","title":"FoundryTrainingProgram","description":"Restart-safe bounded reference-training program state. It records immutable dataset and recipe commitments, closed deterministic token-count rows, complete checkpoint projections, restore verification, and proposal-only qualification without claiming production trainer capability.","x-ioi-schema-version":"ioi.foundry-training-program.v1","type":"object","additionalProperties":false,"required":["schema_version","program_id","owner_ref","foundry_spec_ref","dataset_snapshot_ref","dataset_content_hash","recipe_content_hash","training_mode","trainer_backend_profile_ref","backend_scope","text_field","checkpoint_every_rows","seed","authority_grant_refs","rights_grant_refs","revision","status","data_cursor","processed_rows","processed_tokens","token_counts","checkpoint_refs","current_checkpoint","restore_verification","qualification","last_action_idempotency_key"],"properties":{"schema_version":{"const":"ioi.foundry-training-program.v1"},"program_id":{"type":"string","pattern":"^trainpipe://[^\\s]{1,500}$"},"owner_ref":{"type":"string","pattern":"^(?:wallet|org|project)://[^\\s]{1,500}$"},"foundry_spec_ref":{"$ref":"#/$defs/nullableRef"},"dataset_snapshot_ref":{"type":"string","pattern":"^dataset-snapshot://[^\\s]{1,500}$"},"dataset_content_hash":{"$ref":"#/$defs/hash"},"recipe_content_hash":{"$ref":"#/$defs/hash"},"training_mode":{"enum":["sft","adapter"]},"trainer_backend_profile_ref":{"const":"trainer-backend://ioi/reference-token-frequency/v1"},"backend_scope":{"const":"bounded_reference_pipeline_only"},"text_field":{"type":"string","minLength":1,"maxLength":500},"checkpoint_every_rows":{"$ref":"#/$defs/positiveInteger"},"seed":{"$ref":"#/$defs/nonnegativeInteger"},"authority_grant_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/nonempty"}},"rights_grant_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/nonempty"}},"revision":{"$ref":"#/$defs/positiveInteger"},"status":{"enum":["admitted","running","paused","completed","cancelled"]},"data_cursor":{"$ref":"#/$defs/nonnegativeInteger"},"processed_rows":{"$ref":"#/$defs/nonnegativeInteger"},"processed_tokens":{"$ref":"#/$defs/nonnegativeInteger"},"token_counts":{"$ref":"#/$defs/tokenCountRows"},"checkpoint_refs":{"type":"array","items":{"type":"string","pattern":"^checkpoint://[^\\s]{1,500}$"}},"current_checkpoint":{"anyOf":[{"$ref":"#/$defs/checkpointProjection"},{"type":"null"}]},"restore_verification":{"anyOf":[{"$ref":"#/$defs/restoreVerification"},{"type":"null"}]},"qualification":{"anyOf":[{"$ref":"#/$defs/qualification"},{"type":"null"}]},"last_action_idempotency_key":{"type":"string","minLength":1,"maxLength":500},"last_action_request":{"$ref":"#/$defs/actionRequest"},"reconciliation":{"$ref":"#/$defs/reconciliation"},"qualification_proposal_ref":{"type":"string","pattern":"^qualification-proposal://foundry/[^\\s]{1,500}$"}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nonempty":{"type":"string","minLength":1},"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"nullableRef":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"nonnegativeInteger":{"type":"integer","minimum":0,"maximum":9007199254740991},"positiveInteger":{"type":"integer","minimum":1,"maximum":9007199254740991},"tokenCountRows":{"type":"array","uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["token","count"],"properties":{"token":{"type":"string","minLength":1},"count":{"$ref":"#/$defs/positiveInteger"}}}},"checkpointProjection":{"type":"object","additionalProperties":false,"required":["checkpoint_ref","artifact_ref","artifact_hash","data_cursor","global_step","token_count","complete","restore_verified"],"properties":{"checkpoint_ref":{"type":"string","pattern":"^checkpoint://foundry/[^\\s]{1,500}$"},"artifact_ref":{"type":"string","pattern":"^artifact://foundry-checkpoint/[0-9a-f]{64}$"},"artifact_hash":{"$ref":"#/$defs/hash"},"data_cursor":{"$ref":"#/$defs/nonnegativeInteger"},"global_step":{"$ref":"#/$defs/nonnegativeInteger"},"token_count":{"$ref":"#/$defs/nonnegativeInteger"},"complete":{"const":true},"restore_verified":{"type":"boolean"}}},"restoreVerification":{"type":"object","additionalProperties":false,"required":["verified","checkpoint_ref","artifact_hash","data_cursor","model_state_hash","optimizer_state_hash","scheduler_state_hash","rng_state_hash"],"properties":{"verified":{"const":true},"checkpoint_ref":{"type":"string","pattern":"^checkpoint://foundry/[^\\s]{1,500}$"},"artifact_hash":{"$ref":"#/$defs/hash"},"data_cursor":{"$ref":"#/$defs/nonnegativeInteger"},"model_state_hash":{"$ref":"#/$defs/hash"},"optimizer_state_hash":{"$ref":"#/$defs/hash"},"scheduler_state_hash":{"$ref":"#/$defs/hash"},"rng_state_hash":{"$ref":"#/$defs/hash"}}},"actionRequest":{"type":"object","additionalProperties":false,"required":["action","max_rows"],"properties":{"action":{"enum":["start","step","pause","resume","cancel","reconcile"]},"max_rows":{"anyOf":[{"$ref":"#/$defs/positiveInteger"},{"type":"null"}]}}},"reconciliation":{"type":"object","additionalProperties":false,"required":["status","checkpoint_ref"],"properties":{"status":{"const":"satisfied"},"checkpoint_ref":{"anyOf":[{"type":"string","pattern":"^checkpoint://foundry/[^\\s]{1,500}$"},{"type":"null"}]}}},"workloadFingerprint":{"type":"object","additionalProperties":false,"required":["runtime_node_ref","environment_ref","trainer_backend_profile_ref","hardware_architecture","logical_cpu_count","memory_bytes","operating_system","daemon_release_ref"],"properties":{"runtime_node_ref":{"type":"string","pattern":"^runtime://[^\\s]{1,500}$"},"environment_ref":{"type":"string","pattern":"^environment://[^\\s]{1,500}$"},"trainer_backend_profile_ref":{"const":"trainer-backend://ioi/reference-token-frequency/v1"},"hardware_architecture":{"enum":["x86_64","aarch64"]},"logical_cpu_count":{"type":"integer","minimum":1,"maximum":65535},"memory_bytes":{"$ref":"#/$defs/positiveInteger"},"operating_system":{"enum":["linux","macos","windows"]},"daemon_release_ref":{"type":"string","pattern":"^release://[^\\s]{1,500}$"}}},"qualification":{"type":"object","additionalProperties":false,"required":["schema_version","verdict","quality","measurement","promotion_boundary"],"properties":{"schema_version":{"const":"ioi.foundry-qualified-measurement.v1"},"verdict":{"enum":["qualified","rejected"]},"quality":{"type":"object","additionalProperties":false,"required":["token_coverage","mean_negative_log_likelihood","gate"],"properties":{"token_coverage":{"type":"number","minimum":0,"maximum":1},"mean_negative_log_likelihood":{"type":"number","minimum":0,"maximum":1000000000000},"gate":{"type":"object","additionalProperties":false,"required":["minimum_token_coverage","maximum_mean_negative_log_likelihood"],"properties":{"minimum_token_coverage":{"type":"number","minimum":0,"maximum":1},"maximum_mean_negative_log_likelihood":{"type":"number","minimum":0,"maximum":1000000000000}}}}},"measurement":{"type":"object","additionalProperties":false,"required":["phase","token_numerator","denominator","scope","raw_tokens","effective_tokens","elapsed_nanoseconds","tokens_per_second","includes_compilation","includes_loading","includes_evaluation","includes_checkpoint","includes_failure_and_recovery","hardware_software_topology_fingerprint","cost_basis_ref","failure_schedule_ref"],"properties":{"phase":{"const":"evaluation"},"token_numerator":{"const":"loss_bearing"},"denominator":{"const":"full_wall_clock"},"scope":{"const":"daemon_cpu_process"},"raw_tokens":{"$ref":"#/$defs/positiveInteger"},"effective_tokens":{"$ref":"#/$defs/positiveInteger"},"elapsed_nanoseconds":{"$ref":"#/$defs/positiveInteger"},"tokens_per_second":{"type":"number","minimum":0,"maximum":1000000000000000},"includes_compilation":{"const":false},"includes_loading":{"const":true},"includes_evaluation":{"const":true},"includes_checkpoint":{"const":false},"includes_failure_and_recovery":{"const":false},"hardware_software_topology_fingerprint":{"$ref":"#/$defs/workloadFingerprint"},"cost_basis_ref":{"type":"string","pattern":"^(?:cost|ledger|policy)://[^\\s]{1,500}$"},"failure_schedule_ref":{"type":"string","pattern":"^(?:schedule|policy|artifact)://[^\\s]{1,500}$"}}},"promotion_boundary":{"type":"object","additionalProperties":false,"required":["proposal_only","governance_approval_required","runtime_activation_performed"],"properties":{"proposal_only":{"const":true},"governance_approval_required":{"const":true},"runtime_activation_performed":{"const":false}}}}}}}"##),
     ("schema://ioi/components/hypervisor/foundry-checkpoint-artifact/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/foundry-checkpoint-artifact/v1","title":"FoundryCheckpointArtifact","description":"Complete content-addressed restart state for the bounded reference trainer. Token counts are deterministic strictly sorted closed rows, never an open JSON map.","x-ioi-schema-version":"ioi.foundry-checkpoint-artifact.v1","type":"object","additionalProperties":false,"required":["schema_version","program_id","dataset_snapshot_ref","dataset_content_hash","recipe_content_hash","trainer_backend_profile_ref","model_state","optimizer_state","scheduler_state","rng_state","data_cursor","global_step","token_count","status"],"properties":{"schema_version":{"const":"ioi.foundry-checkpoint-artifact.v1"},"program_id":{"type":"string","pattern":"^trainpipe://[^\\s]{1,500}$"},"dataset_snapshot_ref":{"type":"string","pattern":"^dataset-snapshot://[^\\s]{1,500}$"},"dataset_content_hash":{"$ref":"#/$defs/hash"},"recipe_content_hash":{"$ref":"#/$defs/hash"},"trainer_backend_profile_ref":{"const":"trainer-backend://ioi/reference-token-frequency/v1"},"model_state":{"type":"object","additionalProperties":false,"required":["token_counts","total_tokens"],"properties":{"token_counts":{"$ref":"#/$defs/tokenCountRows"},"total_tokens":{"$ref":"#/$defs/nonnegativeInteger"}}},"optimizer_state":{"type":"object","additionalProperties":false,"required":["kind","updates"],"properties":{"kind":{"const":"count_accumulator"},"updates":{"$ref":"#/$defs/nonnegativeInteger"}}},"scheduler_state":{"type":"object","additionalProperties":false,"required":["kind","next_row"],"properties":{"kind":{"const":"row_cursor"},"next_row":{"$ref":"#/$defs/nonnegativeInteger"}}},"rng_state":{"type":"object","additionalProperties":false,"required":["algorithm","seed"],"properties":{"algorithm":{"const":"fixed_seed_no_rng_training"},"seed":{"$ref":"#/$defs/nonnegativeInteger"}}},"data_cursor":{"$ref":"#/$defs/nonnegativeInteger"},"global_step":{"$ref":"#/$defs/nonnegativeInteger"},"token_count":{"$ref":"#/$defs/nonnegativeInteger"},"status":{"const":"complete"}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nonnegativeInteger":{"type":"integer","minimum":0,"maximum":9007199254740991},"tokenCountRows":{"type":"array","uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["token","count"],"properties":{"token":{"type":"string","minLength":1},"count":{"type":"integer","minimum":1,"maximum":9007199254740991}}}}}}"##),
     ("schema://ioi/components/hypervisor/foundry-qualified-measurement/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/foundry-qualified-measurement/v1","title":"FoundryQualifiedMeasurement","description":"Fully dimensioned bounded-reference evaluation measurement and quality verdict. Its promotion boundary is proposal-only and can never perform runtime activation.","x-ioi-schema-version":"ioi.foundry-qualified-measurement.v1","type":"object","additionalProperties":false,"required":["schema_version","verdict","quality","measurement","promotion_boundary"],"properties":{"schema_version":{"const":"ioi.foundry-qualified-measurement.v1"},"verdict":{"enum":["qualified","rejected"]},"quality":{"type":"object","additionalProperties":false,"required":["token_coverage","mean_negative_log_likelihood","gate"],"properties":{"token_coverage":{"type":"number","minimum":0,"maximum":1},"mean_negative_log_likelihood":{"type":"number","minimum":0,"maximum":1000000000000},"gate":{"type":"object","additionalProperties":false,"required":["minimum_token_coverage","maximum_mean_negative_log_likelihood"],"properties":{"minimum_token_coverage":{"type":"number","minimum":0,"maximum":1},"maximum_mean_negative_log_likelihood":{"type":"number","minimum":0,"maximum":1000000000000}}}}},"measurement":{"type":"object","additionalProperties":false,"required":["phase","token_numerator","denominator","scope","raw_tokens","effective_tokens","elapsed_nanoseconds","tokens_per_second","includes_compilation","includes_loading","includes_evaluation","includes_checkpoint","includes_failure_and_recovery","hardware_software_topology_fingerprint","cost_basis_ref","failure_schedule_ref"],"properties":{"phase":{"const":"evaluation"},"token_numerator":{"const":"loss_bearing"},"denominator":{"const":"full_wall_clock"},"scope":{"const":"daemon_cpu_process"},"raw_tokens":{"$ref":"#/$defs/positiveInteger"},"effective_tokens":{"$ref":"#/$defs/positiveInteger"},"elapsed_nanoseconds":{"$ref":"#/$defs/positiveInteger"},"tokens_per_second":{"type":"number","minimum":0,"maximum":1000000000000000},"includes_compilation":{"const":false},"includes_loading":{"const":true},"includes_evaluation":{"const":true},"includes_checkpoint":{"const":false},"includes_failure_and_recovery":{"const":false},"hardware_software_topology_fingerprint":{"$ref":"#/$defs/workloadFingerprint"},"cost_basis_ref":{"type":"string","pattern":"^(?:cost|ledger|policy)://[^\\s]{1,500}$"},"failure_schedule_ref":{"type":"string","pattern":"^(?:schedule|policy|artifact)://[^\\s]{1,500}$"}}},"promotion_boundary":{"type":"object","additionalProperties":false,"required":["proposal_only","governance_approval_required","runtime_activation_performed"],"properties":{"proposal_only":{"const":true},"governance_approval_required":{"const":true},"runtime_activation_performed":{"const":false}}}},"$defs":{"positiveInteger":{"type":"integer","minimum":1,"maximum":9007199254740991},"workloadFingerprint":{"type":"object","additionalProperties":false,"required":["runtime_node_ref","environment_ref","trainer_backend_profile_ref","hardware_architecture","logical_cpu_count","memory_bytes","operating_system","daemon_release_ref"],"properties":{"runtime_node_ref":{"type":"string","pattern":"^runtime://[^\\s]{1,500}$"},"environment_ref":{"type":"string","pattern":"^environment://[^\\s]{1,500}$"},"trainer_backend_profile_ref":{"const":"trainer-backend://ioi/reference-token-frequency/v1"},"hardware_architecture":{"enum":["x86_64","aarch64"]},"logical_cpu_count":{"type":"integer","minimum":1,"maximum":65535},"memory_bytes":{"type":"integer","minimum":1,"maximum":9007199254740991},"operating_system":{"enum":["linux","macos","windows"]},"daemon_release_ref":{"type":"string","pattern":"^release://[^\\s]{1,500}$"}}}}}"##),
+    ("schema://ioi/components/hypervisor/foundry-artifact-intent/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/foundry-artifact-intent/v1","title":"FoundryArtifactIntent","description":"Durable pending obligation admitted BEFORE a content-addressed Foundry artifact blob is materialized and BEFORE its parent event (dataset materialization or program checkpoint). It binds the blob to a recoverable admitted intent so a post-materialization admission failure leaves a collectable record rather than an orphan. The intent identity embeds the artifact hash, so an intent can never name a blob other than the one it commits.","x-ioi-schema-version":"ioi.foundry-artifact-intent.v1","type":"object","additionalProperties":false,"required":["schema_version","intent_ref","artifact_family","artifact_hash","artifact_ref","parent_kind","parent_stream_tail","parent_resource_ref","parent_op_kind","parent_idempotency_key","owner_ref","status"],"properties":{"schema_version":{"const":"ioi.foundry-artifact-intent.v1"},"intent_ref":{"type":"string","pattern":"^foundry-artifact-intent://(?:foundry-dataset-artifacts|foundry-checkpoint-artifacts)/(?:dataset|program)[.][0-9a-f]{64}/[0-9a-f]{64}$"},"artifact_family":{"enum":["foundry-dataset-artifacts","foundry-checkpoint-artifacts"]},"artifact_hash":{"$ref":"#/$defs/hash"},"artifact_ref":{"type":"string","pattern":"^artifact://(?:foundry-dataset|foundry-checkpoint)/[0-9a-f]{64}$"},"parent_kind":{"enum":["dataset-snapshot","training-program"]},"parent_stream_tail":{"type":"string","pattern":"^(?:dataset|program)[.][0-9a-f]{64}$"},"parent_resource_ref":{"type":"string","pattern":"^(?:dataset-snapshot|trainpipe)://[^\\s]{1,500}$"},"parent_op_kind":{"enum":["event_stream.foundry_dataset_materialized","event_stream.foundry_program_checkpointed"]},"parent_idempotency_key":{"type":"string","minLength":1,"maxLength":256},"owner_ref":{"type":"string","pattern":"^(?:wallet|org|project)://[^\\s]{1,500}$"},"status":{"const":"pending"}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"##),
 ];
 
 const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
@@ -91674,6 +91859,7 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/foundry-training-program/v1", r#"[]"#),
     ("schema://ioi/components/hypervisor/foundry-checkpoint-artifact/v1", r#"[]"#),
     ("schema://ioi/components/hypervisor/foundry-qualified-measurement/v1", r#"[]"#),
+    ("schema://ioi/components/hypervisor/foundry-artifact-intent/v1", r#"[{"rule_id":"foundry_artifact_intent.intent_ref.binds_artifact_hash","description":"The intent identity is content-addressed on the exact artifact it commits: the trailing path segment of intent_ref equals the hex of artifact_hash. An intent can therefore never name a blob other than the one whose durability it records, which is what makes an admitted intent a trustworthy cleanup obligation for its blob.","expression":{"operator":"field_suffix_equals_prefixed_field","source_path":"$.intent_ref","delimiter":"/","target_path":"$.artifact_hash","target_prefix":"sha256:"}}]"#),
 ];
 
 const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
@@ -91868,6 +92054,14 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:cost|ledger|policy)://[^\s]{1,500}$"#,
         r#"^(?:cost|ledger|policy)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^(?:dataset-snapshot|trainpipe)://[^\s]{1,500}$"#,
+        r#"^(?:dataset-snapshot|trainpipe)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^(?:dataset|program)[.][0-9a-f]{64}$"#,
+        r#"^(?:dataset|program)[.][0-9a-f]{64}$"#,
     ),
     (
         r#"^(?:decision|dispute)://[^\s]+$"#,
@@ -92695,6 +92889,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^artifact-repair-receipt://arr_[0-9a-f]+$"#,
     ),
     (
+        r#"^artifact://(?:foundry-dataset|foundry-checkpoint)/[0-9a-f]{64}$"#,
+        r#"^artifact://(?:foundry-dataset|foundry-checkpoint)/[0-9a-f]{64}$"#,
+    ),
+    (
         r#"^artifact://[^\s]+$"#,
         r#"^artifact://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
@@ -93053,6 +93251,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^finding://[^\s]{1,500}$"#,
         r#"^finding://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^foundry-artifact-intent://(?:foundry-dataset-artifacts|foundry-checkpoint-artifacts)/(?:dataset|program)[.][0-9a-f]{64}/[0-9a-f]{64}$"#,
+        r#"^foundry-artifact-intent://(?:foundry-dataset-artifacts|foundry-checkpoint-artifacts)/(?:dataset|program)[.][0-9a-f]{64}/[0-9a-f]{64}$"#,
     ),
     (
         r#"^foundry-recipe://[^\s]{1,440}/revision/[1-9][0-9]*$"#,
@@ -95726,6 +95928,8 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/foundry-checkpoint-artifact-v1/negative-legacy-token-map.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/foundry-checkpoint-artifact-v1/negative-legacy-token-map.json"))),
     ("docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v1/positive-proposal-only.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v1/positive-proposal-only.json"))),
     ("docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v1/negative-open-fingerprint.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v1/negative-open-fingerprint.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/foundry-artifact-intent-v1/positive-pending-dataset.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/foundry-artifact-intent-v1/positive-pending-dataset.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/foundry-artifact-intent-v1/negative-intent-ref-hash-mismatch.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/foundry-artifact-intent-v1/negative-intent-ref-hash-mismatch.json"))),
     ];
     const RAW_STRING_DELIMITER_REGRESSION_SCHEMA: &str =
         r####"{"const":"schema-controlled\"###literal"}"####;
@@ -96554,6 +96758,11 @@ mod tests {
         },
         "schema://ioi/components/hypervisor/foundry-qualified-measurement/v1" => {
             serde_json::from_value::<FoundryQualifiedMeasurementV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/foundry-artifact-intent/v1" => {
+            serde_json::from_value::<FoundryArtifactIntentV1>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -97388,6 +97597,11 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/components/hypervisor/foundry-artifact-intent/v1" => {
+            let projection = serde_json::from_value::<FoundryArtifactIntentV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
             _ => Err(format!("unknown projection: {contract_id}")),
         }
     }
@@ -97524,8 +97738,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            611,
-            "the registered golden corpus must remain the explicit 611-fixture bar",
+            613,
+            "the registered golden corpus must remain the explicit 613-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -97767,7 +97981,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 601,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 605,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }
