@@ -195,7 +195,15 @@ function discardedWrites(code, raw, start, end) {
       if (m.index < start || m.index >= end) continue;
       const open = code.indexOf("(", m.index + (m[0].endsWith("(") ? m[0].length - 1 : 0));
       const args = callArgs(raw, open);
-      found.push({ form, offset: m.index, kind: (args[1] || "").trim() });
+      // A write that has been deliberately classified as tolerable carries its reasoning in a
+      // `CLASSIFIED` comment directly above it. Without this the checker can never go green:
+      // MEF-GAP-001's acceptance explicitly allows "intentionally best-effort" as an outcome, and
+      // a gate that cannot represent its own allowed outcomes is not a gate. It also stops the
+      // call-graph closure dragging read-only handlers in — handle_policies_get merely calls
+      // ensure_policy_seed, whose tolerated write is classified at its site.
+      const preceding = raw.slice(Math.max(0, m.index - 600), m.index);
+      const classified = /\/\/[^\n]*\bCLASSIFIED\b/u.test(preceding.split("\n").slice(-12).join("\n"));
+      found.push({ form, offset: m.index, kind: (args[1] || "").trim(), classified });
     }
   }
   return found.sort((a, b) => a.offset - b.offset);
@@ -275,6 +283,7 @@ const readBack = (kind) => {
 
 const byModule = {};
 const distinctWriteSites = new Set();
+let classifiedTolerated = 0;
 let handlersWithDiscards = 0;
 let bothTests = 0;
 let neverReadBack = 0;
@@ -313,7 +322,10 @@ for (const [sourcePath, { raw, code }] of files) {
     const viaHelpers = reachableWrites(span.name).filter(
       (w) => w.offset < span.start || w.offset >= span.end,
     );
-    const writes = [...inline, ...viaHelpers];
+    const allWrites = [...inline, ...viaHelpers];
+    classifiedTolerated += allWrites.filter((w) => w.classified).length;
+    // Classified writes are a recorded disposition, not an open candidate.
+    const writes = allWrites.filter((w) => !w.classified);
     if (writes.length === 0) continue;
     handlersWithDiscards += 1;
     // An inline write is judged from its own position; a write inside a helper has no position in
@@ -371,6 +383,8 @@ const output = {
     // discarded write is reached by every handler that calls it. The actionable unit is the write
     // SITE, so both are reported and neither is presented as the other.
     distinct_write_sites: distinctWriteSites.size,
+    // Writes carrying a `CLASSIFIED` comment: a recorded disposition, not an open candidate.
+    classified_tolerated_reaches: classifiedTolerated,
   },
   registry_delta: {
     registry_both_tests_hold: declaredSet.size,

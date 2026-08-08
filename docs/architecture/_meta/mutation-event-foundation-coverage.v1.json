@@ -232,12 +232,13 @@
       "handler_level_classification": {
         "method": "MEF-GAP-001's discriminator, MECHANIZED per handler rather than hand-maintained: (1) a SUCCESS response is reachable after a discarded write, AND (2) the written record kind is read back as state elsewhere. Superseding the hand-built list because it drifted in both directions \u2014 see classifier_coverage_defect. Still a CANDIDATE SET: each handler needs its own reading before it is called a defect. The handler count is EXPOSURE and double-counts by design (one shared helper is reached by many handlers); distinct_write_sites is the actionable unit.",
         "totals": {
-          "handlers_with_discarded_writes": 164,
-          "both_tests_hold": 138,
+          "handlers_with_discarded_writes": 154,
+          "both_tests_hold": 128,
           "success_but_kind_never_read_back": 9,
-          "distinct_write_sites": 178,
-          "closed_by_this_program_so_far": 24,
-          "superseded_hand_count": 68
+          "distinct_write_sites": 165,
+          "closed_by_this_program_so_far": 34,
+          "superseded_hand_count": 68,
+          "classified_tolerated_reaches": 6
         },
         "sample_verified_by_hand": [
           "authority_routes::handle_authority_grant \u2014 takes no headers at all, discards the authority-grant write, and returns the grant with a live status and an expiry. `authority-grants` is read back by preflight, so a caller can be told `granted` while no later check can find the grant; a `denied` decision that fails to write leaves no audit trail, in a handler whose own comment claims a complete one.",
@@ -354,18 +355,6 @@
             "handle_eval_suite_create",
             "handle_eval_suite_patch"
           ],
-          "ioi_agent_routes.rs": [
-            "handle_ioi_agent_launch",
-            "handle_ioi_agent_launch_preview",
-            "handle_policies_clone",
-            "handle_policies_create",
-            "handle_policies_delete",
-            "handle_policies_get",
-            "handle_policies_list",
-            "handle_policies_patch",
-            "handle_policy_rollout_promote",
-            "handle_policy_rollout_rollback"
-          ],
           "lifecycle_routes.rs": [
             "handle_auth_logout",
             "handle_auth_oidc_callback",
@@ -454,7 +443,8 @@
             "handle_projection_explain \u2014 likewise reads only."
           ]
         },
-        "generated_by": "scripts/audit-daemon-mutation-handlers.mjs (npm run check:mutation-handlers)"
+        "generated_by": "scripts/audit-daemon-mutation-handlers.mjs (npm run check:mutation-handlers)",
+        "classified_disposition_marker": "A discarded write whose tolerance is a RECORDED DECISION carries `CLASSIFIED` in a comment directly above it, and the checker excludes it while still counting it. MEF-GAP-001's acceptance explicitly allows 'intentionally best-effort' as an outcome, so a gate with no way to express its own allowed outcomes could never go green. It also stops the call-graph closure dragging in read-only handlers: handle_policies_get merely calls ensure_policy_seed, whose tolerated bootstrap write is classified at its own site."
       },
       "progress": [
         "The gap asked for a handler-level classification instead of module-name grandfathering, and that classification now exists above. 284 census indicators resolve to 128 handlers with discarded writes: 92 meet both halves of the discriminator, 29 carry some checked failure path and cannot be judged mechanically, and 7 write a record kind nothing reads back.",
@@ -467,10 +457,11 @@
         "CLOSED 2026-08-07 \u2014 governance_routes, all ten control writes (approval, release, cohort, kill switch, gate; create and patch each). Zero discarded persists remain in the module. The severe one is the kill switch: handle_kill_enforce reloads the record and refuses unless state == 'tripped', so a trip returned over a discarded write reported the switch tripped while the record stayed armed \u2014 and enforcement would then refuse it with kill_switch_not_tripped. A safety control that reports engaged and cannot be enforced. Six of the ten were absent from the census; see classifier_coverage_defect.",
         "CLOSED 2026-08-07 \u2014 the provider ACCOUNT plane in provider_routes: account_create, account_patch, credential bind, credential_revoke, and preflight. provider_receipt_ext returned a receipt_ref String after discarding its own write; it now returns Option<String>, so a non-durable receipt serializes as null instead of a ref that resolves to nothing, and the account-plane callers refuse outright. Revocation was the severe path: provider operations resolve credentials through load_account_credential against the vault, NOT through the account's status, so vault removal is the actual revocation \u2014 and `removed` conflated 'no credential was bound' with 'removal failed' while ok:true was returned unconditionally, so a credential that could not be deleted was reported revoked and stayed fully resolvable. Preflight is what moves an account to `verified`, and the patch handler relies on that stored verdict to know when posture must be re-proven.",
         "PROVEN AGAINST A LIVE DAEMON \u2014 with the KillSwitch record read-only, PATCH transition=trip refuses governance_persistence_failed and the on-disk state remains `armed`; with the record writable the same call returns ok:true and the disk reads `tripped`.",
-        "CENSUS CORRECTED 2026-08-08. The hand-maintained list said 68; mechanizing the discriminator finds 138 handlers meeting both tests across 178 distinct write sites. The list was wrong in BOTH directions: it under-counted by missing implicit-200 handlers and writes held in helpers, and it over-counted by listing two handlers that contain no write at all. The classifier is now tracked tooling with a --check mode, validated against ground truth \u2014 every handler this program has already fixed is correctly absent from its output, and it independently caught a discarded one-time-consume this program had missed in the OAuth callback."
+        "CENSUS CORRECTED 2026-08-08. The hand-maintained list said 68; mechanizing the discriminator finds 138 handlers meeting both tests across 178 distinct write sites. The list was wrong in BOTH directions: it under-counted by missing implicit-200 handlers and writes held in helpers, and it over-counted by listing two handlers that contain no write at all. The classifier is now tracked tooling with a --check mode, validated against ground truth \u2014 every handler this program has already fixed is correctly absent from its output, and it independently caught a discarded one-time-consume this program had missed in the OAuth callback.",
+        "CLOSED 2026-08-08 \u2014 ioi_agent_routes, the agent launch-policy and rollout plane. The severe pair is promote/rollback: rollback sets status=disabled as an explicit fail-closed, so a discarded write left the rolled-back variant ACTIVE and still overlay-selected \u2014 the operator is told the bad variant is withdrawn while it keeps serving. Three helpers were returning success-shaped values over swallowed writes and are now honest: set_rollout returns None, rollout_receipt returns Option<String> instead of a ref that resolves to nothing, and patch_release_control returns bool and is #[must_use]. policies_delete reported `deleted` for a policy it had just loaded and failed to remove. The launch record's `prepared` write happens BEFORE execution and now fails closed; the two post-execution outcome writes cannot, since the invocations have already run, so they surface outcome_durable instead."
       ],
       "still_open": [
-        "138 handlers across 25 modules meet both tests, over 178 distinct write sites. Largest concentrations: lifecycle_routes (19), ioi_intelligence_routes (18), orchestration_routes (11), ioi_agent_routes (10), model_routes (9). Regenerate with npm run check:mutation-handlers rather than editing the list by hand.",
+        "128 handlers across 24 modules meet both tests, over 165 distinct write sites. Largest concentrations: lifecycle_routes (19), ioi_intelligence_routes (18), orchestration_routes (11), model_routes (9), harness_routes (7). Regenerate with npm run check:mutation-handlers rather than editing by hand.",
         "29 handlers cannot be classified mechanically because they mix checked and discarded writes; these need reading before any claim is made about them.",
         "authority_routes still takes NO request identity on grant, revoke, or harness-binding create. The writes now fail closed, but the routes remain unauthenticated \u2014 that is a separate and larger change than this fix, and it is not claimed here.",
         "The classification itself under-counts \u2014 see classifier_coverage_defect. Four handlers in the connector family alone were absent from the census because test (1) was mechanized to require the response to embed the written record. Re-run it with that test widened before treating 84 as the remaining total.",
@@ -481,7 +472,7 @@
   ],
   "direct_persistence_indicator_census": {
     "indicator": "explicitly discarded direct persist_record result",
-    "total_occurrences": 241,
+    "total_occurrences": 230,
     "source_files": 37,
     "classification": "audit indicator only; includes possible projections, cleanup, fixtures, and compatibility paths until individually classified",
     "regenerator": "node scripts/audit-daemon-mutation-foundation.mjs",
@@ -492,7 +483,6 @@
       "crates/node/src/bin/hypervisor_daemon_routes/provider_routes.rs": 19,
       "crates/node/src/bin/hypervisor_daemon_routes/storage_backend_routes.rs": 18,
       "crates/node/src/bin/hypervisor_daemon_routes/orchestration_routes.rs": 16,
-      "crates/node/src/bin/hypervisor_daemon_routes/ioi_agent_routes.rs": 13,
       "crates/node/src/bin/hypervisor_daemon_routes/connector_execution_routes.rs": 12,
       "crates/node/src/bin/hypervisor_daemon_routes/environment_routes.rs": 7,
       "crates/node/src/bin/hypervisor_daemon_routes/connector_session_routes.rs": 6,
@@ -510,6 +500,7 @@
       "crates/node/src/bin/hypervisor_daemon_routes/binding_routes.rs": 2,
       "crates/node/src/bin/hypervisor_daemon_routes/eval_suite_routes.rs": 2,
       "crates/node/src/bin/hypervisor_daemon_routes/feedback_routes.rs": 2,
+      "crates/node/src/bin/hypervisor_daemon_routes/ioi_agent_routes.rs": 2,
       "crates/node/src/bin/hypervisor_daemon_routes/operability_routes.rs": 2,
       "crates/node/src/bin/hypervisor_daemon_routes/state_machine_routes.rs": 2,
       "crates/node/src/bin/hypervisor_daemon_routes/akash_candidate_source.rs": 1,
