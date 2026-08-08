@@ -43,6 +43,7 @@
     "check:architecture-contracts": "node scripts/generate-architecture-contracts.mjs --check",
     "check:mutation-foundation": "node scripts/audit-daemon-mutation-foundation.mjs --check",
     "check:mutation-handlers": "node scripts/audit-daemon-mutation-handlers.mjs --check",
+    "check:admission-evidence": "node scripts/audit-admission-evidence-provenance.mjs --check",
     "check:ioi-ai-vendor": "node scripts/generate-ioi-ai-vendor-manifest.mjs --check",
     "smoke:implementation-daemon": "node scripts/smoke-implementation-daemon.mjs",
     "smoke:package-registry": "node scripts/smoke-package-registry.mjs",
