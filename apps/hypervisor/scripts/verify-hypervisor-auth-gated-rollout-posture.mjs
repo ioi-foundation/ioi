@@ -17,6 +17,8 @@
 //          node apps/hypervisor/scripts/verify-hypervisor-auth-gated-rollout-posture.mjs
 
 import http from "node:http";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 
 const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
@@ -54,12 +56,54 @@ function jd(method, url, body, headers) {
     req.end();
   });
 }
+// ── Static self-check: no anonymous enforcement-mode mutation may re-enter this file ────────────
+//
+// Setting the daemon's enforcement mode is org-admin gated. Sent anonymously it is a 401 no-op, and
+// a no-op is invisible at runtime: the posture simply stays put, so the "exposed_untrusted" block
+// would keep passing while measuring local_development, and the restore path would keep "succeeding"
+// while leaving authentication disabled. There is no observation point that catches that from the
+// outside — which is exactly why the guard reads this file's OWN source instead.
+//
+// Each reference is expanded to its ENCLOSING call and deduplicated by source offset, so a path
+// named twice inside one call (the recovery fetch and its operator-facing error message) counts
+// once, and a fixed character window can never smear a nearby mutation onto a neighbouring read.
+const SOURCE = readFileSync(fileURLToPath(import.meta.url), "utf8");
+function enclosingCall(source, at) {
+  const open = Math.max(source.lastIndexOf("jd(", at), source.lastIndexOf("fetch(", at));
+  if (open < 0) return { start: -1, text: "" };
+  let depth = 0;
+  for (let i = source.indexOf("(", open); i >= 0 && i < source.length; i++) {
+    if (source[i] === "(") depth++;
+    else if (source[i] === ")" && --depth === 0) return { start: open, text: source.slice(open, i + 1) };
+  }
+  return { start: open, text: source.slice(open) };
+}
+const AUTH_POLICY_CALLS = [...new Map(
+  [...SOURCE.matchAll(/\/v1\/hypervisor\/auth\/policy/g)]
+    .map((m) => enclosingCall(SOURCE, m.index))
+    .filter((call) => call.start >= 0)
+    .map((call) => [call.start, call.text]),
+).values()];
+// Mutations only — reads are ungated and deliberately stay anonymous so the posture they report is
+// the posture an unauthenticated caller sees.
+const AUTH_POLICY_MUTATIONS = AUTH_POLICY_CALLS.filter((text) => /"PUT"|method:\s*"PUT"/.test(text));
+const AUTHORIZED_MUTATIONS = AUTH_POLICY_MUTATIONS.filter((text) => /OPERATOR/.test(text));
+// The count is pinned, not merely compared: a NEW mutation site has to be added deliberately and
+// re-counted here, so growth cannot slip in unexamined, and an empty scan cannot pass vacuously.
+const EXPECTED_POLICY_MUTATIONS = 3;
+
 const BASE = "ioi-agent-policy://pol_fast_local";
 const preview = async (extra, headers) => jd("POST", "/v1/goal-orchestration/ioi-agent/launch-preview", {
   goal: "posture probe for rollout trust", strategy: "direct", policy_ref: BASE, ...extra,
 }, headers);
 
 async function run() {
+  // Runs FIRST and needs no daemon: if a policy mutation ever loses its operator authorization, the
+  // failure must be named here rather than dissolving into a silently unchanged posture downstream.
+  ok("every enforcement-mode mutation in this verifier carries the operator authorization (static self-check)",
+    AUTH_POLICY_MUTATIONS.length === EXPECTED_POLICY_MUTATIONS && AUTHORIZED_MUTATIONS.length === AUTH_POLICY_MUTATIONS.length,
+    `${AUTH_POLICY_MUTATIONS.length}/${EXPECTED_POLICY_MUTATIONS} mutation sites found · ${AUTHORIZED_MUTATIONS.length} carry operator authority`);
+
   const tag = Date.now().toString(16);
 
   // ── Fixtures (built in local posture): member + outsider principals, project, cohort, variant ──
@@ -158,7 +202,14 @@ async function run() {
     && (managedOverride.policy_rollout_skipped || []).some((x) => x.variant_policy_ref === variantRef && x.reason_code === "rollout_explicit_override_disallowed"));
 
   // ── exposed_untrusted (enforcement explicitly off while exposed) ──
-  await jd("PUT", "/v1/hypervisor/auth/policy", { mode: "never" });
+  // Setting the enforcement mode is an org-admin-gated MUTATION, so it goes out as the operator.
+  // Unauthenticated it is a 401 no-op: the posture never changes, every assertion below then
+  // measures local_development while claiming to measure exposed_untrusted, and the verifier
+  // reports a pass for a world it never entered.
+  const untrustedSet = await jd("PUT", "/v1/hypervisor/auth/policy", { mode: "never" }, OPERATOR);
+  ok("operator authority actually set the enforcement mode to never (posture change is real)",
+    untrustedSet.status === 200 && untrustedSet.j?.policy?.mode === "never",
+    `status ${untrustedSet.status} · mode ${untrustedSet.j?.policy?.mode}`);
   try {
     const untrusted = (await preview({}, EXPOSED)).j;
     ok("exposed_untrusted posture is declared with an honest warning",
@@ -184,7 +235,10 @@ async function run() {
       && enforcement.deployment_posture === "exposed_untrusted"
       && (enforcement.blocked || []).some((x) => x.reason_code === "rollout_explicit_override_disallowed"));
   } finally {
-    await jd("PUT", "/v1/hypervisor/auth/policy", { mode: "auto" });
+    // Restoring the posture is the same gated mutation as setting it. Anonymous, this leaves the
+    // deployment enforcing `never` after the run — the verifier would have disabled authentication
+    // on the daemon it was asked to prove enforces it.
+    await jd("PUT", "/v1/hypervisor/auth/policy", { mode: "auto" }, OPERATOR);
   }
   const restored = (await jd("GET", "/v1/hypervisor/auth/policy")).j || {};
   ok("auth mode restored to auto (local posture back)", restored.policy?.mode === "auto" && restored.deployment_auth_posture === "local_development");
@@ -243,7 +297,21 @@ run().then(() => {
   console.log(`auth-gated rollout posture readiness: ${fail ? "FAIL" : "OK"}`);
   process.exit(fail ? 1 : 0);
 }).catch(async (e) => {
-  await fetch(`${DAEMON}/v1/hypervisor/auth/policy`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ mode: "auto" }) }).catch(() => {});
+  // Crash recovery restores the enforcement mode, which is the SAME org-admin-gated mutation as
+  // setting it — the operator authorization is not optional here just because the run is failing.
+  // Anonymous, this swallowed a 401 and left the daemon enforcing `never`: the one path that runs
+  // precisely when something already went wrong was the one that could not put the posture back.
+  // The outcome is reported rather than discarded, because a restore that did not land is a
+  // standing posture change on the deployment and the operator has to know to undo it by hand.
+  const restored = await fetch(`${DAEMON}/v1/hypervisor/auth/policy`, {
+    method: "PUT",
+    headers: { "content-type": "application/json", ...(OPERATOR_SESSION ? { authorization: `Bearer ${OPERATOR_SESSION}` } : {}) },
+    body: JSON.stringify({ mode: "auto" }),
+  }).then((r) => r.ok).catch(() => false);
+  if (!restored) console.error(`POSTURE NOT RESTORED — the daemon may still be enforcing mode 'never'. Re-send PUT /v1/hypervisor/auth/policy {"mode":"auto"} with an operator session (IOI_HYPERVISOR_DAEMON_SESSION).`);
+  // Print what was decided before the crash. The static self-check runs first and needs no daemon,
+  // so discarding the results here would hide the one assertion that still had an answer.
+  for (const r of results) console.log(`  ${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? `  (${r.detail})` : ""}`);
   console.error("verifier crashed:", e);
   process.exit(1);
 });
