@@ -13314,11 +13314,16 @@ pub(crate) async fn handle_connector_oauth_callback(
             );
         }
     }
-    let _ = remove_record(&st.data_dir, "oauth-pending", &state);
+    // Consuming the pending record is what makes `state` one-time. The exchange has already
+    // happened so this must not fail the call closed, but a silently-failed consume leaves a
+    // replayable state token with its sealed verifier intact, so it is reported rather than
+    // swallowed.
+    let state_consumed = remove_record(&st.data_dir, "oauth-pending", &state);
     (
         StatusCode::OK,
         Json(
-            json!({ "ok": true, "connected": true, "connector_id": connector_id, "credential_kind": cred["kind"] }),
+            json!({ "ok": true, "connected": true, "connector_id": connector_id, "credential_kind": cred["kind"],
+                "state_consumed": state_consumed }),
         ),
     )
 }
@@ -13553,11 +13558,13 @@ pub(crate) async fn handle_connector_device_poll(
                 );
             }
         }
-        let _ = remove_record(&st.data_dir, "oauth-device-pending", &id);
+        // Same one-time-consume reasoning as the authcode callback: report, never swallow.
+        let device_state_consumed = remove_record(&st.data_dir, "oauth-device-pending", &id);
         return (
             StatusCode::OK,
             Json(
-                json!({ "ok": true, "connected": true, "connector_id": id, "credential_kind": cred["kind"] }),
+                json!({ "ok": true, "connected": true, "connector_id": id, "credential_kind": cred["kind"],
+                    "state_consumed": device_state_consumed }),
             ),
         );
     }
