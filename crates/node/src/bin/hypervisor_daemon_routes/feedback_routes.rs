@@ -167,7 +167,15 @@ pub(crate) async fn handle_feedback_create(
         "converted_to_ref": Value::Null,
         "created_at": now, "updated_at": now
     });
-    let _ = persist_record(&st.data_dir, KIND_FEEDBACK, &id, &record);
+    if persist_record(&st.data_dir, KIND_FEEDBACK, &id, &record).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "feedback_entry_persistence_failed",
+                "message": "the feedback entry did not commit — nothing was recorded" }),
+            ),
+        );
+    }
     (
         StatusCode::CREATED,
         Json(json!({ "ok": true, "feedback_entry": record })),
@@ -238,7 +246,15 @@ pub(crate) async fn handle_feedback_patch(
         }
     }
     e["updated_at"] = json!(iso_now());
-    let _ = persist_record(&st.data_dir, KIND_FEEDBACK, &id, &e);
+    if persist_record(&st.data_dir, KIND_FEEDBACK, &id, &e).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "feedback_entry_persistence_failed",
+                "message": "the feedback entry update did not commit — the transition was not saved" }),
+            ),
+        );
+    }
     (
         StatusCode::OK,
         Json(json!({ "ok": true, "feedback_entry": e })),

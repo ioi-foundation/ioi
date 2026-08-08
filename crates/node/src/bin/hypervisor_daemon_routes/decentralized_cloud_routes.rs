@@ -92,6 +92,8 @@ pub(crate) fn ensure_default_intent(data_dir: &str) -> Value {
             "note": "standing default intent for the Let-Hypervisor-choose advisory lane",
         }),
     );
+    // CLASSIFIED — bootstrap seed: the deterministic `cri_default` intent is re-ensured on every
+    // call, so a dropped write self-heals on the next call; no durable ref depends on this write.
     let _ = persist_record(data_dir, INTENT_KIND, "cri_default", &record);
     record
 }
@@ -742,7 +744,7 @@ async fn refresh_candidates(
     intent: &Value,
     ttl_secs: u64,
     inbound: &axum::http::HeaderMap,
-) -> (Vec<Value>, Vec<Value>) {
+) -> std::io::Result<(Vec<Value>, Vec<Value>)> {
     let classes = live_classes(&st.base_url, inbound).await;
     let batch = format!("batch_{:x}", nanos());
     let intent_ref = text(intent, "intent_ref");
@@ -754,7 +756,9 @@ async fn refresh_candidates(
             let id = text(&old, "candidate_id").to_string();
             old["status"] = json!("superseded");
             old["placement_eligible"] = json!(false);
-            let _ = persist_record(&st.data_dir, CANDIDATE_KIND, &id, &old);
+            // W1.2 / MEF-GAP-008 — a discarded supersede leaves the prior batch ACTIVE alongside the
+            // new one, so ranking reads stale quotes. Fail on the first error.
+            persist_record(&st.data_dir, CANDIDATE_KIND, &id, &old)?;
         }
     }
     let vast_outcome = super::vast_candidate_source::fetch_offers(st).await;
@@ -781,9 +785,9 @@ async fn refresh_candidates(
         &k8s_outcome,
     );
     for c in &candidates {
-        let _ = persist_record(&st.data_dir, CANDIDATE_KIND, text(c, "candidate_id"), c);
+        persist_record(&st.data_dir, CANDIDATE_KIND, text(c, "candidate_id"), c)?;
     }
-    (candidates, rejected)
+    Ok((candidates, rejected))
 }
 
 // ===================================== endpoints ================================================
@@ -818,13 +822,34 @@ pub(crate) async fn handle_intent_create(
     }
     let id = format!("cri_{:x}", nanos());
     let record = intent_record(&id, &body);
-    let _ = persist_record(&st.data_dir, INTENT_KIND, &id, &record);
+    // W1.2 / MEF-GAP-008 — persist the intent BEFORE deriving candidates: a candidate batch that
+    // references an intent no reader can find is not honest evidence.
+    if persist_record(&st.data_dir, INTENT_KIND, &id, &record).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "cloud_resource_intent_persistence_failed",
+            "message": "the cloud resource intent did not commit — no intent was created and no candidates were derived" }),
+            ),
+        );
+    }
     let ttl = body
         .get("ttl_seconds")
         .and_then(Value::as_u64)
         .unwrap_or(DEFAULT_TTL_SECS)
         .clamp(5, 3600);
-    let (candidates, rejected) = refresh_candidates(&st, &record, ttl, &inbound).await;
+    let (candidates, rejected) = match refresh_candidates(&st, &record, ttl, &inbound).await {
+        Ok(v) => v,
+        Err(_) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    json!({ "ok": false, "code": "cloud_candidate_persistence_failed",
+                "message": "the candidate batch did not commit — the intent exists but no candidates were derived" }),
+                ),
+            )
+        }
+    };
     (
         StatusCode::CREATED,
         Json(json!({ "ok": true, "intent": record,
@@ -899,7 +924,18 @@ pub(crate) async fn handle_candidates_refresh(
         .and_then(Value::as_u64)
         .unwrap_or(DEFAULT_TTL_SECS)
         .clamp(5, 3600);
-    let (candidates, rejected) = refresh_candidates(&st, &intent, ttl, &inbound).await;
+    let (candidates, rejected) = match refresh_candidates(&st, &intent, ttl, &inbound).await {
+        Ok(v) => v,
+        Err(_) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    json!({ "ok": false, "code": "cloud_candidate_persistence_failed",
+                "message": "the candidate refresh did not commit — the requote did not persist" }),
+                ),
+            )
+        }
+    };
     (
         StatusCode::OK,
         Json(json!({ "ok": true, "intent_ref": intent["intent_ref"],
@@ -961,7 +997,7 @@ pub(crate) async fn advisory_for(
     intent: &Value,
     persist: bool,
     inbound: &axum::http::HeaderMap,
-) -> Value {
+) -> Result<Value, (String, String)> {
     let intent_ref = text(intent, "intent_ref").to_string();
     let mut candidates = candidates_for(&st.data_dir, &intent_ref);
     let active_exists = candidates.iter().any(|c| c["status"] == "active");
@@ -981,7 +1017,16 @@ pub(crate) async fn advisory_for(
                 || text(a, "created_at") > latest_observed.as_str()
         });
     if !active_exists || facts_changed {
-        let (fresh, _) = refresh_candidates(st, intent, DEFAULT_TTL_SECS, &inbound).await;
+        // W1.2 / MEF-GAP-008 — stale coverage cannot advise silently; a failed candidate refresh
+        // must surface, never rank stale quotes.
+        let (fresh, _) = refresh_candidates(st, intent, DEFAULT_TTL_SECS, &inbound)
+            .await
+            .map_err(|_| {
+                (
+                    "cloud_candidate_persistence_failed".to_string(),
+                    "the advisory could not refresh candidates durably — refusing rather than ranking stale quotes".to_string(),
+                )
+            })?;
         candidates = fresh.into_iter().map(with_read_status).collect();
     }
     let eligible: Vec<&Value> = candidates
@@ -1082,9 +1127,17 @@ pub(crate) async fn advisory_for(
         "at": iso_now(),
     });
     if persist {
-        let _ = persist_record(&st.data_dir, ADVISORY_KIND, &advisory_id, &advisory);
+        // W1.2 / MEF-GAP-008 — durable refs point at this advisory (venue policy stores advisory_ref;
+        // venue_receipts_expected promises it), so a discarded write would leave those refs dangling.
+        persist_record(&st.data_dir, ADVISORY_KIND, &advisory_id, &advisory).map_err(|_| {
+            (
+                "cloud_placement_advisory_persistence_failed".to_string(),
+                "the placement advisory did not commit — durable refs to it would dangle"
+                    .to_string(),
+            )
+        })?;
     }
-    advisory
+    Ok(advisory)
 }
 
 /// GET /v1/hypervisor/cloud-candidates/placement-advisory[?intent_ref=…] — intent_ref optional:
@@ -1108,6 +1161,11 @@ pub(crate) async fn handle_placement_advisory(
         },
         None => ensure_default_intent(&st.data_dir),
     };
-    let advisory = advisory_for(&st, &intent, true, &inbound).await;
-    (StatusCode::OK, Json(advisory))
+    match advisory_for(&st, &intent, true, &inbound).await {
+        Ok(advisory) => (StatusCode::OK, Json(advisory)),
+        Err((code, message)) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "code": code, "message": message })),
+        ),
+    }
 }

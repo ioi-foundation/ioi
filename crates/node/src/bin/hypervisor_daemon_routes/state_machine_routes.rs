@@ -475,7 +475,15 @@ pub(crate) async fn handle_state_machine_create(
         "history": [ json!({ "op": "create", "at": now, "summary": format!("defined ({} state(s), {} transition(s)) — {}", v.states.len(), v.transitions.len(), v.health) }) ],
         "created_at": now, "updated_at": now
     });
-    let _ = persist_record(&st.data_dir, KIND_STATE_MACHINE, &id, &record);
+    if persist_record(&st.data_dir, KIND_STATE_MACHINE, &id, &record).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "state_machine_persistence_failed",
+            "message": "the state-machine definition did not commit — nothing was created" }),
+            ),
+        );
+    }
     (
         StatusCode::CREATED,
         Json(json!({ "ok": true, "state_machine": record })),
@@ -558,7 +566,15 @@ pub(crate) async fn handle_state_machine_patch(
     if let Some(h) = e.get_mut("history").and_then(Value::as_array_mut) {
         h.push(json!({ "op": "patch", "at": now, "summary": format!("edited — {health_now}") }));
     }
-    let _ = persist_record(&st.data_dir, KIND_STATE_MACHINE, &id, &e);
+    if persist_record(&st.data_dir, KIND_STATE_MACHINE, &id, &e).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "state_machine_persistence_failed",
+            "message": "the state-machine edit did not commit — no change was recorded" }),
+            ),
+        );
+    }
     (
         StatusCode::OK,
         Json(json!({ "ok": true, "state_machine": e })),

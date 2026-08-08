@@ -45,7 +45,7 @@ fn emit_receipt(
     subject: &str,
     decision: &str,
     reason: &str,
-) -> String {
+) -> std::io::Result<String> {
     let id = format!("rrc_{:x}", nanos());
     let receipt_ref = format!("agentgres://resource-receipt/{id}");
     let rec = json!({
@@ -53,8 +53,10 @@ fn emit_receipt(
         "receipt_id": id, "receipt_ref": receipt_ref,
         "event": event, "subject": subject, "decision": decision, "reason": reason, "at": iso_now()
     });
-    let _ = persist_record(data_dir, "resource-receipts", &id, &rec);
-    receipt_ref
+    // W1.2 / MEF-GAP-008 — a discarded receipt write breaks the resource decision audit trail; the
+    // caller must fail closed rather than return a decision whose receipt no reader will find.
+    persist_record(data_dir, "resource-receipts", &id, &rec)?;
+    Ok(receipt_ref)
 }
 
 /// Sum of CPU/memory currently committed to a pool by admitted (non-released) allocation decisions.
@@ -83,7 +85,7 @@ fn pool_usage(data_dir: &str, pool_id: &str) -> (i64, i64, i64) {
 pub(crate) async fn handle_pool_create(
     State(st): State<Arc<DaemonState>>,
     Json(body): Json<Value>,
-) -> Json<Value> {
+) -> (StatusCode, Json<Value>) {
     let _guard = RESOURCE_MUTATION_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
@@ -104,8 +106,16 @@ pub(crate) async fn handle_pool_create(
         "quota": body.get("quota").cloned().unwrap_or_else(|| json!({ "max_concurrent": 100, "rate_per_min": 1000 })),
         "created_at": iso_now()
     });
-    let _ = persist_record(&st.data_dir, "resource-pools", &id, &record);
-    Json(json!({ "pool": record }))
+    if persist_record(&st.data_dir, "resource-pools", &id, &record).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "resource_pool_persistence_failed",
+                "message": "the resource pool did not commit — no pool was created" }),
+            ),
+        );
+    }
+    (StatusCode::OK, Json(json!({ "pool": record })))
 }
 
 /// GET /v1/hypervisor/resource/pools — pools with LIVE computed usage + availability.
@@ -134,7 +144,7 @@ pub(crate) async fn handle_pools_list(State(st): State<Arc<DaemonState>>) -> Jso
 pub(crate) async fn handle_budget_create(
     State(st): State<Arc<DaemonState>>,
     Json(body): Json<Value>,
-) -> Json<Value> {
+) -> (StatusCode, Json<Value>) {
     let id = body
         .get("budget_id")
         .and_then(|v| v.as_str())
@@ -151,8 +161,16 @@ pub(crate) async fn handle_budget_create(
         "authority_required": body.get("authority_required").and_then(|v| v.as_bool()).unwrap_or_else(|| s(&body, "scope", "local_free") == "external_spend"),
         "created_at": iso_now()
     });
-    let _ = persist_record(&st.data_dir, "resource-budgets", &id, &record);
-    Json(json!({ "budget": record }))
+    if persist_record(&st.data_dir, "resource-budgets", &id, &record).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "resource_budget_persistence_failed",
+                "message": "the budget did not commit — no budget was created" }),
+            ),
+        );
+    }
+    (StatusCode::OK, Json(json!({ "budget": record })))
 }
 
 /// GET /v1/hypervisor/resource/budgets — budgets with remaining.
@@ -399,14 +417,35 @@ pub(crate) async fn handle_allocate(
             if let Some(mut victim) = load(data_dir, "allocation-decisions", "decision_id", vid) {
                 victim["state"] = json!("preempted");
                 victim["preempted_at"] = json!(iso_now());
-                let _ = persist_record(data_dir, "allocation-decisions", vid, &victim);
-                emit_receipt(
+                // W1.2 / MEF-GAP-008 — discarding the victim's release admits the new allocation
+                // while the victim stays `admitted` in pool_usage (:65-77) → the pool double-counts
+                // capacity. Fail closed instead of granting an over-subscription.
+                if persist_record(data_dir, "allocation-decisions", vid, &victim).is_err() {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(
+                            json!({ "ok": false, "code": "resource_allocation_decision_persistence_failed",
+                            "message": "the preempted victim's release did not commit — no new allocation was admitted, so the pool cannot double-count capacity" }),
+                        ),
+                    );
+                }
+                if emit_receipt(
                     data_dir,
                     "preempted",
                     vid,
                     "preempt",
                     "lower_priority_preempted",
-                );
+                )
+                .is_err()
+                {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(
+                            json!({ "ok": false, "code": "resource_receipt_persistence_failed",
+                            "message": "the preemption receipt did not commit — the preemption is refused rather than left unreceipted" }),
+                        ),
+                    );
+                }
             }
         }
     }
@@ -416,6 +455,8 @@ pub(crate) async fn handle_allocate(
             budget["spent"] = json!(i(&budget, "spent") + estimated_cost);
             // Discarding this silently under-counts spend: the allocation is granted and the
             // budget never records it, so the next request sees headroom that does not exist.
+            // NOTE (W1.2): a budget-persist failure AFTER a successful victim-preempt persist above
+            // strands the preempted victim with nothing admitted — fail-closed but lossy, accepted.
             if persist_record(data_dir, "resource-budgets", &budget_ref, &budget).is_err() {
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
@@ -427,7 +468,18 @@ pub(crate) async fn handle_allocate(
             }
         }
     }
-    let receipt = emit_receipt(data_dir, "allocation_decision", &req_id, decision, reason);
+    let receipt = match emit_receipt(data_dir, "allocation_decision", &req_id, decision, reason) {
+        Ok(r) => r,
+        Err(_) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    json!({ "ok": false, "code": "resource_receipt_persistence_failed",
+                    "message": "the allocation decision receipt did not commit — no decision was recorded" }),
+                ),
+            )
+        }
+    };
     let decision_record = json!({
         "schema_version": "ioi.hypervisor.resource-allocation-decision.v1",
         "decision_id": dec_id,
@@ -461,22 +513,48 @@ pub(crate) async fn handle_allocate(
 pub(crate) async fn handle_release(
     State(st): State<Arc<DaemonState>>,
     Json(body): Json<Value>,
-) -> Json<Value> {
+) -> (StatusCode, Json<Value>) {
     let dec_id = s(&body, "decision_id", "");
     let Some(mut d) = load(&st.data_dir, "allocation-decisions", "decision_id", &dec_id) else {
-        return Json(json!({ "ok": false, "reason": format!("decision '{dec_id}' not found") }));
+        return (
+            StatusCode::OK,
+            Json(json!({ "ok": false, "reason": format!("decision '{dec_id}' not found") })),
+        );
     };
     d["state"] = json!("released");
     d["released_at"] = json!(iso_now());
-    let _ = persist_record(&st.data_dir, "allocation-decisions", &dec_id, &d);
-    emit_receipt(
+    // W1.2 / MEF-GAP-008 — if the release does not commit, do NOT emit the released receipt: a
+    // receipt for a release that is not durable is a false audit record.
+    if persist_record(&st.data_dir, "allocation-decisions", &dec_id, &d).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "resource_allocation_decision_persistence_failed",
+                "message": "the release did not commit — the allocation stays admitted rather than being falsely reported released" }),
+            ),
+        );
+    }
+    if emit_receipt(
         &st.data_dir,
         "released",
         &dec_id,
         "release",
         "operator_release",
-    );
-    Json(json!({ "ok": true, "decision_id": dec_id, "state": "released" }))
+    )
+    .is_err()
+    {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "resource_receipt_persistence_failed",
+                "message": "the release receipt did not commit — refused rather than left unreceipted" }),
+            ),
+        );
+    }
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "decision_id": dec_id, "state": "released" })),
+    )
 }
 
 /// GET /v1/hypervisor/resource/work-queue — the WorkQueue: queued allocation decisions in priority
@@ -498,7 +576,7 @@ pub(crate) async fn handle_work_queue(State(st): State<Arc<DaemonState>>) -> Jso
 pub(crate) async fn handle_catchup(
     State(st): State<Arc<DaemonState>>,
     Json(body): Json<Value>,
-) -> Json<Value> {
+) -> (StatusCode, Json<Value>) {
     let data_dir = &st.data_dir;
     let id = format!("cat_{:x}", nanos());
     let missed = s(&body, "missed_schedule_ref", "");
@@ -517,20 +595,41 @@ pub(crate) async fn handle_catchup(
         }
         _ => json!({ "verified_work_delta": "full", "note": "full catch-up scheduled" }),
     };
-    let receipt = emit_receipt(
+    let receipt = match emit_receipt(
         data_dir,
         "catchup_decision",
         &missed,
         &policy,
         "scheduler_catchup",
-    );
+    ) {
+        Ok(r) => r,
+        Err(_) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    json!({ "ok": false, "code": "resource_receipt_persistence_failed",
+                    "message": "the catchup decision receipt did not commit — no decision was recorded" }),
+                ),
+            )
+        }
+    };
     let record = json!({
         "schema_version": "ioi.hypervisor.scheduler-catchup-decision.v1",
         "catchup_id": id, "missed_schedule_ref": missed, "work_ref": work_ref,
         "policy": policy, "expected_impact": impact, "receipt_ref": receipt, "decided_at": iso_now()
     });
-    let _ = persist_record(data_dir, "scheduler-catchup-policies", &id, &record);
-    Json(json!({ "catchup": record }))
+    // W1.2 / MEF-GAP-008 — the catchup record is the returned product (it embeds receipt_ref);
+    // returning it while the write failed hands back a decision no reader will find.
+    if persist_record(data_dir, "scheduler-catchup-policies", &id, &record).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "resource_catchup_decision_persistence_failed",
+                "message": "the scheduler catchup decision did not commit — no decision was recorded" }),
+            ),
+        );
+    }
+    (StatusCode::OK, Json(json!({ "catchup": record })))
 }
 
 /// GET /v1/hypervisor/resource/receipts — the resource decision audit trail (most recent first).

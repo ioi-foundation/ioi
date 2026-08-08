@@ -22,6 +22,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use axum::extract::{Path as AxumPath, Query, State};
+use axum::http::StatusCode;
 use axum::Json;
 use ioi_services::agentic::runtime::kernel::emergency_containment::{
     admit_isolated_execution, DeclaredIsolation, ExecutionLocus, IsolatedSubstrate,
@@ -69,6 +70,7 @@ fn emit_receipt(data_dir: &str, kind: &str, subject: &str, event: &str) -> Strin
     let id = format!("brc_{:x}", nanos());
     let receipt_ref = format!("agentgres://{kind}-receipt/{id}");
     let rec = json!({ "schema_version": "ioi.hypervisor.binding-receipt.v1", "receipt_id": id, "receipt_ref": receipt_ref, "subject": subject, "event": event, "at": iso_now() });
+    // CLASSIFIED — best-effort telemetry: binding-receipts are never read back (evidence trail only)
     let _ = persist_record(data_dir, "binding-receipts", &id, &rec);
     receipt_ref
 }
@@ -94,7 +96,7 @@ fn binding_view(data_dir: &str, mut binding: Value) -> Value {
 pub(crate) async fn handle_binding_create(
     State(st): State<Arc<DaemonState>>,
     Json(body): Json<Value>,
-) -> Json<Value> {
+) -> (StatusCode, Json<Value>) {
     let data_dir = &st.data_dir;
     let id = format!("bind_{:x}", nanos());
     let env_ref = sstr(&body, "environment_ref").unwrap_or_default();
@@ -130,8 +132,21 @@ pub(crate) async fn handle_binding_create(
         "state_root_ref": format!("state_root:{id}"),
         "created_at": iso_now()
     });
-    let _ = persist_record(data_dir, "session-execution-bindings", &id, &record);
-    Json(json!({ "binding": binding_view(data_dir, record) }))
+    // The binding is read back by GET :id / events / input / lifecycle via load_binding; a
+    // discarded write hands the caller a binding_ref no subsequent read can resolve.
+    if persist_record(data_dir, "session-execution-bindings", &id, &record).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "session_execution_binding_persistence_failed",
+                "message": "the session execution binding did not commit — nothing was bound" }),
+            ),
+        );
+    }
+    (
+        StatusCode::OK,
+        Json(json!({ "binding": binding_view(data_dir, record) })),
+    )
 }
 
 fn load_binding(data_dir: &str, id: &str) -> Option<Value> {
@@ -219,6 +234,7 @@ fn binding_lifecycle(data_dir: &str, id: &str, action: &str, env_route: &str) ->
         .get("environment_ref")
         .and_then(|v| v.as_str())
         .unwrap_or("");
+    // CLASSIFIED — best-effort telemetry: receipt-only delegation pointer; the environment route owns lifecycle truth
     let receipt = emit_receipt(data_dir, "binding", id, action);
     Json(
         json!({ "ok": true, "binding": id, "action": action, "environment_ref": env_ref,
@@ -482,6 +498,7 @@ pub(crate) async fn handle_terminal_create(
 
     let id = format!("term_{:x}", nanos());
     let log_dir = Path::new(&st.data_dir).join("terminals");
+    // CLASSIFIED — best-effort telemetry: PTY truth is process-local (st.terminals); log/receipt are evidence trail only
     let _ = std::fs::create_dir_all(&log_dir);
     let log_path = log_dir
         .join(format!("{id}.log"))
@@ -511,6 +528,7 @@ pub(crate) async fn handle_terminal_create(
                     }
                 }
                 use std::io::Write;
+                // CLASSIFIED — best-effort telemetry: PTY truth is process-local (st.terminals); the log is an evidence trail only
                 if let Ok(mut f) = std::fs::OpenOptions::new()
                     .create(true)
                     .append(true)
@@ -522,6 +540,7 @@ pub(crate) async fn handle_terminal_create(
         });
     }
 
+    // CLASSIFIED — best-effort telemetry: PTY truth is process-local (st.terminals); log/receipt are evidence trail only
     let receipt = emit_receipt(&st.data_dir, "terminal", &id, "open");
     let session = TerminalSession {
         master_fd: master,
@@ -645,6 +664,7 @@ pub(crate) async fn handle_terminal_close(
             unsafe {
                 libc::close(t.master_fd);
             }
+            // CLASSIFIED — best-effort telemetry: PTY truth is process-local (st.terminals); log/receipt are evidence trail only
             let receipt = emit_receipt(&st.data_dir, "terminal", &id, "close");
             Json(
                 json!({ "ok": true, "terminal_id": id, "closed": true, "environment_ref": t.environment_ref, "log_ref": t.log_path, "receipt_ref": receipt }),

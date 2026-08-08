@@ -1794,6 +1794,9 @@ pub(crate) async fn handle_odk_descriptor_list(
     Query(q): Query<HashMap<String, String>>,
 ) -> Json<Value> {
     let mut items = read_record_dir(&st.data_dir, KIND_SD);
+    // Surviving tombstones (status == "deleted") are the durable record of a deletion, not a live
+    // descriptor — they must never surface in the read-model list.
+    items.retain(|d| d["status"] != "deleted");
     if let Some(cp) = q
         .get("composition_pattern")
         .map(|s| s.trim())
@@ -2064,6 +2067,7 @@ pub(crate) async fn handle_odk_descriptor_delete(
     if reply.0 == StatusCode::OK {
         // The admitted tombstone is the record of the deletion; the read-model row goes only
         // after it is durable, so a failed admission never loses the descriptor.
+        // CLASSIFIED — rollback/cleanup: read-model row removal after the admitted tombstone is durable; discard tolerates idempotent replays where the row is already gone
         let _ = remove_record(&st.data_dir, KIND_SD, &id);
     }
     reply

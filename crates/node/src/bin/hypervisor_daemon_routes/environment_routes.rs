@@ -376,13 +376,16 @@ fn ensure_git_repo(ws: &str) -> Result<String, AppError> {
 /// UNCOMMITTED working-tree files (the git repo's HEAD is the empty init commit), so they surface
 /// as the environment's initial uncommitted changes — just like the reference. No-op if a
 /// `.devcontainer` already exists (repo-detected or already scaffolded).
-fn scaffold_devcontainer(ws: &str) {
+/// Seed the default Dev Container files into the workspace working tree. Returns whether the
+/// devcontainer is present after this call (already existed, or both seed files were written) so
+/// the caller does not assert "devcontainer scaffolded" over a write that did not land.
+fn scaffold_devcontainer(ws: &str) -> bool {
     let dc_dir = std::path::Path::new(ws).join(".devcontainer");
     if dc_dir.exists() {
-        return;
+        return true;
     }
     if std::fs::create_dir_all(&dc_dir).is_err() {
-        return;
+        return false;
     }
     let devcontainer_json = r#"// The Dev Container format allows you to configure your environment. At the heart of it
 // is a Docker image or Dockerfile which controls the tools available in your environment.
@@ -410,8 +413,12 @@ fn scaffold_devcontainer(ws: &str) {
 # RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
 #     && apt-get -y install --no-install-recommends <your-package-list-here>
 "#;
-    let _ = std::fs::write(dc_dir.join("devcontainer.json"), devcontainer_json);
-    let _ = std::fs::write(dc_dir.join("Dockerfile"), dockerfile);
+    // CLASSIFIED — bootstrap seed: these are uncommitted working-tree seed files (the `from scratch`
+    // baseline), re-seedable and never a truth claim. Measure the writes and return the result so
+    // the caller conditions its "devcontainer scaffolded" component message on what actually landed.
+    let wrote_json = std::fs::write(dc_dir.join("devcontainer.json"), devcontainer_json).is_ok();
+    let wrote_dockerfile = std::fs::write(dc_dir.join("Dockerfile"), dockerfile).is_ok();
+    wrote_json && wrote_dockerfile
 }
 
 // ---- WS-3: typed Services / Tasks / Ports (tasks run as REAL processes) ----
@@ -461,10 +468,17 @@ fn run_task(ws: &str, log_dir: &std::path::Path, task: &Value) -> Value {
         Err(e) => ("failed", -1, format!("spawn error: {e}")),
     };
     let log_path = log_dir.join(format!("{task_ref}.log"));
-    let _ = std::fs::write(&log_path, &log);
+    // CLASSIFIED — best-effort telemetry: the task ran as a REAL process and its phase/exit_code are
+    // the truth; the log file is a convenience artifact. Null the returned log_ref when the write
+    // failed so no reader cites a log path that does not exist.
+    let log_ref = if std::fs::write(&log_path, &log).is_ok() {
+        json!(log_path.to_string_lossy())
+    } else {
+        Value::Null
+    };
     json!({ "task_ref": task_ref, "name": name, "command": command, "trigger": trigger,
         "lifecycle": lifecycle, "phase": phase, "exit_code": exit_code,
-        "started_at": started_at, "ended_at": iso_now(), "log_ref": log_path.to_string_lossy() })
+        "started_at": started_at, "ended_at": iso_now(), "log_ref": log_ref })
 }
 
 /// Run a resolution's tasks (prebuild → environment_start order) as real processes.
@@ -1271,7 +1285,18 @@ pub(crate) async fn handle_agent_run_upsert(
         short_hash(&serde_json::to_string(&canon).unwrap_or_default())
     );
     body["state_root"] = json!(state_root);
-    let _ = persist_record(&st.data_dir, "agent-run-transcripts", &id, &body);
+    // W1.2 / MEF-GAP-008 — the response returns a tamper-evident state_root for a record that MUST
+    // be durable; a discarded write hands the caller a handle no reader (agent_run_get,
+    // orchestration) will ever resolve. Refuse before returning the state_root.
+    if persist_record(&st.data_dir, "agent-run-transcripts", &id, &body).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "agent_run_transcript_persistence_failed",
+                "message": "the run-transcript did not commit — the returned state_root would resolve to nothing" }),
+            ),
+        );
+    }
     (
         StatusCode::OK,
         Json(
@@ -1744,14 +1769,36 @@ fn record_cleanup_disposition(st: &DaemonState, env: &mut Value, disposition: &V
         .as_array_mut()
         .expect("cleanup_obligations initialized as an array above")
         .push(obligation.clone());
-    // Durable beyond the environment record: an obligation must survive parent deletion.
+    // Durable beyond the environment record: an obligation must survive parent deletion. That
+    // standalone copy is the record's stated purpose, so W1.2 / MEF-GAP-008 refuses to assert it
+    // silently — deletion CARVE-OUT never refuses, so on a lost write the loss is MEASURED onto the
+    // obligation (durable_copy_persisted:false) and observed rather than pretended.
     if let Some(id) = disposition["cleanup_obligation_ref"].as_str() {
-        let _ = persist_record(
+        if persist_record(
             &st.data_dir,
             "cleanup-obligations",
             &safe_id(id),
             &obligation,
-        );
+        )
+        .is_err()
+        {
+            if let Some(last) = env["status"]["cleanup_obligations"]
+                .as_array_mut()
+                .and_then(|a| a.last_mut())
+            {
+                last["durable_copy_persisted"] = json!(false);
+                last["durable_copy_error"] =
+                    json!("environment_cleanup_obligation_persistence_failed");
+            }
+            observe(
+                env,
+                "cleanup",
+                "provisioner",
+                "error",
+                "error",
+                &format!("cleanup obligation {id} could NOT be recorded as a standalone durable copy (environment_cleanup_obligation_persistence_failed); it survives only on this env record and a parent deletion would orphan the resource"),
+            );
+        }
     }
 }
 
@@ -1857,14 +1904,21 @@ fn recover_environment(st: &DaemonState, env: &mut Value, id: &str) -> Result<Va
         .map_err(|e| app(format!("persist attempt: {e}")))?;
     let receipt = json!({ "id": receipt_id, "kind": "environment_recovery", "redaction": "redacted", "createdAt": now,
         "details": { "incident_ref": incident_id, "attempt_ref": attempt_id, "outcome": outcome, "recovery_mode": "rebuild_from_recipe" } });
-    let _ = persist_record(&st.data_dir, "receipts", &receipt_id, &receipt);
+    // W1.2 / MEF-GAP-008 — the attempt (persisted above) cites this receipt in receipt_refs and it
+    // is read back (lifecycle/operability/orchestration). A lost write leaves the attempt pointing
+    // at a receipt no reader resolves. Refuse.
+    persist_record(&st.data_dir, "receipts", &receipt_id, &receipt)
+        .map_err(|e| app(format!("persist recovery receipt {receipt_id} (cited by attempt {attempt_id}.receipt_refs): {e}")))?;
 
     incident["status"] = json!(if outcome == "recovered" {
         "recovered"
     } else {
         "failed_closed"
     });
-    let _ = persist_record(&st.data_dir, "incidents", &incident_id, &incident);
+    // W1.2 / MEF-GAP-008 — a lost status update leaves this incident stuck "recovering" forever
+    // (read back by handle_incidents_list) while recovery reports a terminal outcome. Refuse.
+    persist_record(&st.data_dir, "incidents", &incident_id, &incident)
+        .map_err(|e| app(format!("persist incident {incident_id} status ({outcome}): recovery executed but the incident would read 'recovering' forever: {e}")))?;
 
     if outcome == "recovered" {
         set_phase(env, "running");
@@ -1956,6 +2010,7 @@ pub(crate) async fn handle_environment_classes(State(st): State<Arc<DaemonState>
             let mut record = seed;
             record["schema_version"] = json!("ioi.hypervisor.environment-class.v1");
             record["created_at"] = json!(iso_now());
+            // CLASSIFIED — bootstrap seed: the projection re-reads the family in the same handler and recomputes enablement per read; a lost seed yields an empty honest list and reseeds on the next read
             let _ = super::persist_record(&st.data_dir, "environment-classes", &id, &record);
         }
     }
@@ -2479,12 +2534,17 @@ pub(crate) async fn handle_environment_action(
                     env["status"]["base_commit"] = json!(base);
                     // Scaffold the default Dev Container (.devcontainer/{devcontainer.json,Dockerfile})
                     // as uncommitted working-tree files — the `from scratch` baseline.
-                    scaffold_devcontainer(&ws);
+                    // W1.2 / MEF-GAP-008 — condition the component message on the measured seed result.
+                    let scaffolded = scaffold_devcontainer(&ws);
                     set_component(
                         &mut env,
                         "workspace_content",
                         "ready",
-                        "git initialized + devcontainer scaffolded",
+                        if scaffolded {
+                            "git initialized + devcontainer scaffolded"
+                        } else {
+                            "git initialized (devcontainer scaffold incomplete)"
+                        },
                     );
                     observe(
                         &mut env,
@@ -2912,8 +2972,19 @@ pub(crate) async fn handle_environment_action(
             let dir = std::path::Path::new(&st.data_dir)
                 .join("environments")
                 .join(safe_id(&id));
-            let _ = std::fs::remove_dir_all(&dir);
-            env["status"]["workspace_root"] = Value::Null;
+            // W1.2 / MEF-GAP-008 — MEASURE the removal (the b6c19c766 false-destruction-ack shape): a
+            // failed remove_dir_all must not be acknowledged as "scoped workspace removed", and the
+            // workspace_root pointer is nulled ONLY when the files are actually gone (ENOENT counts),
+            // so leftover files stay findable rather than stranded behind a null pointer.
+            let workspace_removed = match std::fs::remove_dir_all(&dir) {
+                Ok(()) => true,
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => true,
+                Err(_) => false,
+            };
+            if workspace_removed {
+                env["status"]["workspace_root"] = Value::Null;
+            }
+            env["status"]["workspace_removed"] = json!(workspace_removed);
             for c in COMPONENTS {
                 set_component(&mut env, c, "pending", "deleted");
             }
@@ -2928,7 +2999,12 @@ pub(crate) async fn handle_environment_action(
                 "state_wiped",
                 "info",
                 &format!(
-                    "environment deleted (scoped workspace removed; microVM teardown: {outcome})"
+                    "environment deleted ({workspace}; microVM teardown: {outcome})",
+                    workspace = if workspace_removed {
+                        "scoped workspace removed"
+                    } else {
+                        "scoped workspace removal FAILED — files may remain on disk (workspace_root retained)"
+                    }
                 ),
             );
         }
@@ -3214,8 +3290,16 @@ pub(crate) async fn handle_idle_sweep(State(st): State<Arc<DaemonState>>) -> Jso
         };
         if let Some(reason) = reason {
             stop_environment(&st, &mut env, &id, "timeout", &reason);
-            let _ = persist_env(&st.data_dir, &env);
-            stopped.push(json!({ "environment_id": id, "reason": reason }));
+            // W1.2 / MEF-GAP-008 — teardown already ran (measured, honest); record the per-env
+            // outcome rather than discarding the write. A lost env record would leave the sweep
+            // reporting a stop no reader sees; a per-item outcome keeps one failure from failing the
+            // whole sweep (teardown-first order means the record reports a measured outcome).
+            if persist_env(&st.data_dir, &env).is_ok() {
+                stopped
+                    .push(json!({ "environment_id": id, "reason": reason, "outcome": "stopped" }));
+            } else {
+                stopped.push(json!({ "environment_id": id, "reason": reason, "outcome": "environment_record_persistence_failed" }));
+            }
         }
     }
     Json(json!({ "stopped": stopped, "swept_at": iso_now() }))
@@ -3747,14 +3831,23 @@ pub(crate) async fn handle_env_config(
                     recompute_readiness(&mut env);
                     persist_env(&st.data_dir, &env)?;
                     let rid = format!("erc_{:x}", nanos());
-                    let _ = persist_record(
+                    // W1.2 / MEF-GAP-008 — null the returned receipt_ref if the receipt did not
+                    // persist (provider_receipt_ext pattern); no response cites a receipt that
+                    // resolves to nothing.
+                    let receipt_ref = if persist_record(
                         &st.data_dir,
                         "environment-receipts",
                         &rid,
                         &json!({ "environment_ref": env_id, "event": "rebuild_failed", "reason": "invalid_devcontainer_config", "at": iso_now() }),
-                    );
+                    )
+                    .is_ok()
+                    {
+                        json!(format!("agentgres://environment-receipt/{rid}"))
+                    } else {
+                        Value::Null
+                    };
                     return Ok(Json(
-                        json!({ "ok": false, "op": "rebuild", "environment_id": env_id, "state": "failed", "reason": "invalid_devcontainer_config", "recoverable": true, "receipt_ref": format!("agentgres://environment-receipt/{rid}") }),
+                        json!({ "ok": false, "op": "rebuild", "environment_id": env_id, "state": "failed", "reason": "invalid_devcontainer_config", "recoverable": true, "receipt_ref": receipt_ref }),
                     ));
                 }
             }
@@ -3802,17 +3895,25 @@ pub(crate) async fn handle_env_config(
             env["status"]["rebuild"] = json!({ "state": "succeeded", "from_recipe": prior, "to_recipe": new_recipe_ref, "readiness_mode": gate["readiness_mode"], "at": iso_now() });
             persist_env(&st.data_dir, &env)?;
             let rid = format!("erc_{:x}", nanos());
-            let _ = persist_record(
+            // W1.2 / MEF-GAP-008 — null the returned receipt_ref if the receipt did not persist
+            // (provider_receipt_ext pattern); no response cites a receipt that resolves to nothing.
+            let receipt_ref = if persist_record(
                 &st.data_dir,
                 "environment-receipts",
                 &rid,
                 &json!({ "environment_ref": env_id, "event": "rebuild_succeeded", "recipe_ref": new_recipe_ref, "readiness_mode": gate["readiness_mode"], "at": iso_now() }),
-            );
+            )
+            .is_ok()
+            {
+                json!(format!("agentgres://environment-receipt/{rid}"))
+            } else {
+                Value::Null
+            };
             Ok(Json(json!({
                 "ok": true, "op": "rebuild", "environment_id": env_id, "state": "succeeded",
                 "recipe_ref": new_recipe_ref, "resolution_ref": resolution["resolution_ref"], "readiness_gate_ref": gate["gate_ref"],
                 "readiness_mode": gate["readiness_mode"], "lifecycle": "daemon_environment_lifecycle",
-                "receipt_ref": format!("agentgres://environment-receipt/{rid}"),
+                "receipt_ref": receipt_ref,
                 "events_stream": format!("/v1/hypervisor/env-events/{env_id}")
             })))
         }

@@ -344,6 +344,8 @@ fn run_receipt(data_dir: &str, run_ref: &str, op: &str, outcome: &str, summary: 
         "schema_version": RECEIPT_SCHEMA, "receipt_id": id, "receipt_ref": receipt_ref,
         "materializing_run_ref": run_ref, "op": op, "outcome": outcome, "summary": summary, "at": iso_now()
     });
+    // CLASSIFIED — best-effort telemetry/receipt mirror: read back only by the history
+    // listing as an audit trail; the run record carries the authoritative history entries.
     let _ = persist_record(data_dir, RECEIPT_DIR, &id, &rec);
     rec
 }
@@ -511,7 +513,17 @@ pub(crate) async fn handle_mrun_create(
         "updated_at": now
     });
     apply_inputs(&mut record, &inputs);
-    let _ = persist_record(&st.data_dir, RECORD_DIR, &id, &record);
+    // W1.2 / MEF-GAP-008 — this write was discarded. The run record gates lease acquisition
+    // and execution; a 201 whose persist failed hands back an id every later step 404s on.
+    if persist_record(&st.data_dir, RECORD_DIR, &id, &record).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "materializing_run_persistence_failed",
+                "message": "the run was NOT admitted — nothing was committed" }),
+            ),
+        );
+    }
     (
         StatusCode::CREATED,
         Json(json!({ "ok": true, "materializing_run": record })),
@@ -692,7 +704,20 @@ pub(crate) async fn handle_mrun_acquire_lease(
                 &format!("lease {lease_id} obtained from the gateway"),
                 receipt.get("receipt_ref").cloned().unwrap_or(Value::Null),
             );
-            let _ = persist_record(&st.data_dir, RECORD_DIR, &id, &record);
+            // W1.2 / MEF-GAP-008 — this write was discarded, AFTER the gateway had already
+            // minted a real lease and consumed the wallet grant. A lost persist leaves the run
+            // "planned" on disk while the caller holds a lease_obtained response — session and
+            // execute refuse, and re-acquire burns a SECOND grant. The external effect cannot
+            // be reordered after the persist; the failure names the partial effect honestly.
+            if persist_record(&st.data_dir, RECORD_DIR, &id, &record).is_err() {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(
+                        json!({ "ok": false, "code": "materializing_run_persistence_failed",
+                        "message": format!("the gateway minted lease {lease_id} but the run record did NOT commit — the run does NOT hold its lease; the minted lease is orphaned in the gateway audit trail") }),
+                    ),
+                );
+            }
             (
                 StatusCode::OK,
                 Json(json!({ "ok": true, "materializing_run": record })),
@@ -749,7 +774,17 @@ pub(crate) async fn handle_mrun_release_lease(
         &format!("lease {lease_id} released"),
         receipt.get("receipt_ref").cloned().unwrap_or(Value::Null),
     );
-    let _ = persist_record(&st.data_dir, RECORD_DIR, &id, &record);
+    // W1.2 / MEF-GAP-008 — this write was discarded. A lost persist leaves the run
+    // lease_obtained and still EXECUTABLE while the caller was told the lease was released.
+    if persist_record(&st.data_dir, RECORD_DIR, &id, &record).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "materializing_run_persistence_failed",
+                "message": "the lease was NOT released — the run still holds it" }),
+            ),
+        );
+    }
     (
         StatusCode::OK,
         Json(json!({ "ok": true, "materializing_run": record })),
@@ -790,7 +825,17 @@ pub(crate) async fn handle_mrun_cancel(
         "MaterializingRun cancelled before any crossing",
         receipt.get("receipt_ref").cloned().unwrap_or(Value::Null),
     );
-    let _ = persist_record(&st.data_dir, RECORD_DIR, &id, &record);
+    // W1.2 / MEF-GAP-008 — this write was discarded. A "cancelled" run that stays planned
+    // on disk can still acquire a lease.
+    if persist_record(&st.data_dir, RECORD_DIR, &id, &record).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "materializing_run_persistence_failed",
+                "message": "the run was NOT cancelled — it remains planned" }),
+            ),
+        );
+    }
     (
         StatusCode::OK,
         Json(json!({ "ok": true, "materializing_run": record })),
@@ -803,14 +848,20 @@ pub(crate) async fn handle_mrun_patch(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
     Json(patch): Json<Value>,
-) -> Json<Value> {
+) -> (StatusCode, Json<Value>) {
     let Some(existing) = load_run(&st.data_dir, &id) else {
-        return Json(json!({ "ok": false, "reason": "materializing run not found" }));
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "ok": false, "reason": "materializing run not found" })),
+        );
     };
     let status = s(&existing, "status", "");
     if status == "cancelled" || status == "lease_released" {
-        return Json(
-            json!({ "ok": false, "error": { "code": "materializing_run_terminal_immutable", "message": format!("a {status} run is immutable") } }),
+        return (
+            StatusCode::CONFLICT,
+            Json(
+                json!({ "ok": false, "error": { "code": "materializing_run_terminal_immutable", "message": format!("a {status} run is immutable") } }),
+            ),
         );
     }
     let scope_keys = [
@@ -830,8 +881,11 @@ pub(crate) async fn handle_mrun_patch(
             "materializing_run_scope_frozen",
             "scope-affecting patch refused — the obtained lease's scope is frozen",
         );
-        return Json(
-            json!({ "ok": false, "error": { "code": "materializing_run_scope_frozen", "message": "the lease is obtained — its scope is frozen; release it to re-plan" } }),
+        return (
+            StatusCode::CONFLICT,
+            Json(
+                json!({ "ok": false, "error": { "code": "materializing_run_scope_frozen", "message": "the lease is obtained — its scope is frozen; release it to re-plan" } }),
+            ),
         );
     }
     let mut record = existing;
@@ -861,7 +915,10 @@ pub(crate) async fn handle_mrun_patch(
                     &e.0,
                     &e.1,
                 );
-                return Json(json!({ "ok": false, "error": { "code": e.0, "message": e.1 } }));
+                return (
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                    Json(json!({ "ok": false, "error": { "code": e.0, "message": e.1 } })),
+                );
             }
         };
         apply_inputs(&mut record, &inputs);
@@ -896,8 +953,22 @@ pub(crate) async fn handle_mrun_patch(
         },
         receipt.get("receipt_ref").cloned().unwrap_or(Value::Null),
     );
-    let _ = persist_record(&st.data_dir, RECORD_DIR, &id, &record);
-    Json(json!({ "ok": true, "materializing_run": record }))
+    // W1.2 / MEF-GAP-008 — this write was discarded. A "successful" re-narrow whose persist
+    // failed leaves the WIDER scope on disk; a later acquire-lease mints at the scope the
+    // caller believed removed — quiet scope-widening relative to caller belief.
+    if persist_record(&st.data_dir, RECORD_DIR, &id, &record).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "materializing_run_persistence_failed",
+                "message": "the re-narrowed run did NOT commit — the prior (wider) scope stands" }),
+            ),
+        );
+    }
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "materializing_run": record })),
+    )
 }
 
 /// DELETE — receipted removal.

@@ -142,6 +142,8 @@ fn link_project_automation(data_dir: &str, project_id: &str, automation_id: &str
     }
     project["automation_refs"] = json!(refs);
     project["updated_at"] = json!(iso_now());
+    // CLASSIFIED — derived projection: project.automation_refs is a denormalized index over the
+    // automations' own project_id; list truth filters automations directly, so a dropped write self-heals.
     let _ = persist_record(data_dir, "projects", project_id, &project);
 }
 
@@ -238,7 +240,17 @@ pub(crate) async fn handle_automation_create(
         record["webhook_url"] = json!(format!("/v1/hypervisor/automations/{id}/webhook"));
         fresh_token = Some(tok);
     }
-    let _ = persist_record(&st.data_dir, "automations", &id, &record);
+    // W1.2 / MEF-GAP-008 — check the spec committed BEFORE returning the once-shown webhook token:
+    // a token issued for an automation that did not persist can never be used.
+    if persist_record(&st.data_dir, "automations", &id, &record).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "automation_persistence_failed",
+            "message": "the automation did not commit — no spec was created and no webhook token was issued" }),
+            ),
+        );
+    }
     link_project_automation(&st.data_dir, project_id, &id, true);
     let mut resp = json!({ "ok": true, "automation": record });
     if let Some(tok) = fresh_token {
@@ -291,14 +303,20 @@ pub(crate) async fn handle_automation_patch(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
     Json(body): Json<Value>,
-) -> Json<Value> {
+) -> (StatusCode, Json<Value>) {
     let Some(mut a) = load(&st.data_dir, "automations", &id) else {
-        return Json(json!({ "ok": false, "reason": "automation not found" }));
+        return (
+            StatusCode::OK,
+            Json(json!({ "ok": false, "reason": "automation not found" })),
+        );
     };
     if let Some(spec) = body.get("schedule_spec") {
         if let Err(e) = super::validate_schedule_spec(spec) {
-            return Json(
-                json!({ "ok": false, "error": { "code": "schedule_spec_invalid", "message": e } }),
+            return (
+                StatusCode::OK,
+                Json(
+                    json!({ "ok": false, "error": { "code": "schedule_spec_invalid", "message": e } }),
+                ),
             );
         }
     }
@@ -337,8 +355,18 @@ pub(crate) async fn handle_automation_patch(
         a["next_run_at"] = Value::Null;
     }
     a["updated_at"] = json!(iso_now());
-    let _ = persist_record(&st.data_dir, "automations", &id, &a);
-    Json(json!({ "ok": true, "automation": a }))
+    // W1.2 / MEF-GAP-008 — CRITICAL: a discarded `enabled:false` patch returns 200 "paused" while the
+    // scheduler keeps firing the spec. Fail closed so pause is honest.
+    if persist_record(&st.data_dir, "automations", &id, &a).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "automation_persistence_failed",
+            "message": "the automation edit did not commit — no change was applied (a reported pause would be false)" }),
+            ),
+        );
+    }
+    (StatusCode::OK, Json(json!({ "ok": true, "automation": a })))
 }
 
 /// DELETE /v1/hypervisor/automations/:id — remove the spec + unlink it from the project's
@@ -1238,7 +1266,7 @@ pub(crate) async fn handle_automation_webhook(
         .unwrap_or_default();
 
     // Record a trigger receipt (audit). Returns the receipt_id.
-    let record_event = |accepted: bool, reason: &str, run_ref: Value| -> String {
+    let record_event = |accepted: bool, reason: &str, run_ref: Value| -> std::io::Result<String> {
         let rid = format!("whk_evt_{}", uuid::Uuid::new_v4().simple());
         let ev = json!({
             "schema_version": "ioi.hypervisor.webhook-trigger-receipt.v1",
@@ -1246,11 +1274,23 @@ pub(crate) async fn handle_automation_webhook(
             "received_at": received_at, "headers_hash": headers_hash, "payload_hash": payload_hash,
             "payload_bytes": body.len(), "accepted": accepted, "reason": reason, "run_ref": run_ref,
         });
-        let _ = persist_record(&st.data_dir, "webhook-trigger-events", &rid, &ev);
-        rid
+        // W1.2 / MEF-GAP-008 — the trigger receipt IS the security audit trail; a discarded write
+        // must fail the caller, never drop the audit record silently.
+        persist_record(&st.data_dir, "webhook-trigger-events", &rid, &ev)?;
+        Ok(rid)
     };
     let reject = |status: StatusCode, reason: &str| {
-        record_event(false, reason, Value::Null);
+        // A rejection receipt is the security audit trail — if it cannot be written, fail closed
+        // (500) rather than rejecting off the record.
+        if record_event(false, reason, Value::Null).is_err() {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    json!({ "ok": false, "code": "automation_webhook_receipt_persistence_failed",
+                "message": "the webhook rejection could not be receipted — refusing without an audit record is not allowed", "request_id": request_id }),
+                ),
+            );
+        }
         (
             status,
             Json(json!({ "ok": false, "reason": reason, "request_id": request_id })),
@@ -1300,7 +1340,20 @@ pub(crate) async fn handle_automation_webhook(
         return reject(StatusCode::TOO_MANY_REQUESTS, "max_concurrency");
     }
     // Accept: record the receipt, then fire the manual-run path async; backfill run_ref when it starts.
-    let receipt_id = record_event(true, "accepted", Value::Null);
+    // W1.2 / MEF-GAP-008 — receipt precedes effect: if the acceptance cannot be receipted, return 500
+    // and do NOT spawn the run.
+    let receipt_id = match record_event(true, "accepted", Value::Null) {
+        Ok(r) => r,
+        Err(_) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    json!({ "ok": false, "code": "automation_webhook_receipt_persistence_failed",
+                "message": "the webhook acceptance could not be receipted — the run is not started (receipt precedes effect)", "request_id": request_id }),
+                ),
+            )
+        }
+    };
     let base = st.base_url.clone();
     let data_dir = st.data_dir.clone();
     let id2 = id.clone();
@@ -1326,6 +1379,8 @@ pub(crate) async fn handle_automation_webhook(
             {
                 if let Some(mut rec) = load(&data_dir, "webhook-trigger-events", &receipt) {
                     rec["run_ref"] = json!(exec_id);
+                    // CLASSIFIED — best-effort telemetry: no response left to gate; the execution
+                    // record is the durable truth, this only backfills run_ref onto the receipt.
                     let _ = persist_record(&data_dir, "webhook-trigger-events", &receipt, &rec);
                 }
             }
@@ -1362,7 +1417,14 @@ pub(crate) async fn handle_automation_start(
         "executor_identity": automation["executor_identity"], "environment_id": Value::Null,
         "step_results": [], "counts": counts, "started_at": iso_now(), "finished_at": Value::Null
     });
-    let _ = persist_record(&st.data_dir, "automation-executions", &exec_id, &exec);
+    // W1.2 / MEF-GAP-008 — this running exec is the concurrency-gate input; a discarded write means
+    // unbounded concurrency. Fail closed via the existing AppError 500 lane.
+    if persist_record(&st.data_dir, "automation-executions", &exec_id, &exec).is_err() {
+        return Err(AppError(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "automation_execution_persistence_failed: the initial running execution did not commit — the run was not started".to_string(),
+        ));
+    }
 
     // 1) fresh environment (real env create + start over loopback).
     let spec = json!({ "spec": { "environment_class_id": automation["environment_class_id"], "recipe_ref": automation["recipe_ref"], "project_id": automation["project_id"] } });
@@ -1387,7 +1449,14 @@ pub(crate) async fn handle_automation_start(
     if env_id.is_empty() {
         exec["status"] = json!("failed");
         exec["finished_at"] = json!(iso_now());
-        let _ = persist_record(&st.data_dir, "automation-executions", &exec_id, &exec);
+        // W1.2 / MEF-GAP-008 — the terminal `failed` state must be durable; a discarded write leaves
+        // the exec "running" forever (holding a concurrency slot). Fail closed.
+        if persist_record(&st.data_dir, "automation-executions", &exec_id, &exec).is_err() {
+            return Err(AppError(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "automation_execution_persistence_failed: the failed-execution record did not commit".to_string(),
+            ));
+        }
         return Ok(Json(
             json!({ "ok": false, "reason": "env create failed", "execution": exec }),
         ));
@@ -1519,11 +1588,19 @@ pub(crate) async fn handle_automation_start(
                     "review_state": "proposed", "base_ref": base_ref, "head_ref": git(&ws, &["rev-parse", "HEAD"]).trim(),
                     "changed_files": files, "diffstat": stat.trim(), "diff": diff, "host_mutation": false, "at": iso_now()
                 });
-                let _ = persist_record(&st.data_dir, "automation-proposals", &pid, &proposal);
-                (
-                    "done",
-                    json!({ "proposal_ref": format!("agentgres://automation-proposal/{pid}"), "proposal_id": pid, "changed_files": proposal["changed_files"], "diffstat": stat.trim() }),
-                )
+                // W1.2 / MEF-GAP-008 — fail the STEP (not the whole run) if the proposal work product
+                // does not commit: a returned proposal_ref must resolve to a persisted proposal.
+                if persist_record(&st.data_dir, "automation-proposals", &pid, &proposal).is_err() {
+                    (
+                        "failed",
+                        json!({ "code": "automation_proposal_persistence_failed", "message": "the proposal did not commit — the step is failed rather than reporting a proposal no reader can find", "proposal_ref": format!("agentgres://automation-proposal/{pid}") }),
+                    )
+                } else {
+                    (
+                        "done",
+                        json!({ "proposal_ref": format!("agentgres://automation-proposal/{pid}"), "proposal_id": pid, "changed_files": proposal["changed_files"], "diffstat": stat.trim() }),
+                    )
+                }
             }
             other => (
                 "failed",
@@ -1544,7 +1621,14 @@ pub(crate) async fn handle_automation_start(
     exec["step_results"] = json!(results);
     exec["status"] = json!(if failed { "failed" } else { "done" });
     exec["finished_at"] = json!(iso_now());
-    let _ = persist_record(&st.data_dir, "automation-executions", &exec_id, &exec);
+    // W1.2 / MEF-GAP-008 — a discarded final write leaves the exec "running" forever; do NOT POST the
+    // transcript if it fails. Fail closed via the AppError 500 lane.
+    if persist_record(&st.data_dir, "automation-executions", &exec_id, &exec).is_err() {
+        return Err(AppError(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "automation_execution_persistence_failed: the final execution record did not commit — the run transcript was not posted".to_string(),
+        ));
+    }
 
     // Record a durable, tamper-evident run transcript (the agent-run-transcript plane computes a
     // state_root over it) so the manual run shows in the Run Timeline / Work Ledger with proof.
@@ -1578,16 +1662,32 @@ pub(crate) async fn handle_automation_start(
 pub(crate) async fn handle_automation_cancel(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
-) -> Json<Value> {
+) -> (StatusCode, Json<Value>) {
     let Some(mut exec) = load(&st.data_dir, "automation-executions", &id) else {
-        return Json(json!({ "ok": false, "reason": "execution not found" }));
+        return (
+            StatusCode::OK,
+            Json(json!({ "ok": false, "reason": "execution not found" })),
+        );
     };
     if exec["status"] == "running" {
         exec["status"] = json!("stopped");
         exec["finished_at"] = json!(iso_now());
     }
-    let _ = persist_record(&st.data_dir, "automation-executions", &id, &exec);
-    Json(json!({ "ok": true, "status": exec["status"] }))
+    // W1.2 / MEF-GAP-008 — a 200 "stopped" over a discarded write leaves a durably-running exec and a
+    // leaked concurrency slot. Fail closed.
+    if persist_record(&st.data_dir, "automation-executions", &id, &exec).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "automation_execution_persistence_failed",
+            "message": "the cancel did not commit — the execution stays running rather than being falsely reported stopped" }),
+            ),
+        );
+    }
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "status": exec["status"] })),
+    )
 }
 
 // ============================ L. RUNNER PLACEMENT + METRICS + WARM POOLS ==========================
@@ -1693,7 +1793,15 @@ pub(crate) async fn handle_placement_resolve(
         "claim_kind": if warm { "warm_claim" } else if recipe_cached { "prebuild_hit" } else { "cold_start" },
         "at": iso_now()
     });
-    let _ = persist_record(&st.data_dir, "placement-decisions", &did, &decision);
+    // W1.2 / MEF-GAP-008 — placement metrics read placement-decisions back; a discarded write returns
+    // a decision no reader will find. Fail closed via the AppError 500 lane.
+    if persist_record(&st.data_dir, "placement-decisions", &did, &decision).is_err() {
+        return Err(AppError(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "runner_placement_decision_persistence_failed: the placement decision did not commit"
+                .to_string(),
+        ));
+    }
     if chosen.is_none() {
         return Ok(Json(
             json!({ "ok": false, "reason": "no eligible runner for the request (all candidates rejected with honest reasons)", "decision": decision }),
@@ -2037,21 +2145,37 @@ pub(crate) async fn live_environment_classes(
 pub(crate) async fn handle_placement_venues(
     State(st): State<Arc<DaemonState>>,
     inbound: axum::http::HeaderMap,
-) -> Json<Value> {
+) -> (StatusCode, Json<Value>) {
     let classes = live_environment_classes(&st.base_url, &inbound).await;
     let mut venues = compose_venues(&st.data_dir, &classes);
     let intent = super::decentralized_cloud_routes::ensure_default_intent(&st.data_dir);
-    let advisory =
-        super::decentralized_cloud_routes::advisory_for(&st, &intent, false, &inbound).await;
+    // W1.2 / MEF-GAP-008 — advisory_for refreshes candidates durably; surface a write failure rather
+    // than composing venues over a silently-failed refresh.
+    let advisory = match super::decentralized_cloud_routes::advisory_for(
+        &st, &intent, false, &inbound,
+    )
+    .await
+    {
+        Ok(a) => a,
+        Err((code, message)) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "ok": false, "code": code, "message": message })),
+            )
+        }
+    };
     attach_choose_advisory(&mut venues, &advisory);
-    Json(json!({
-        "schema_version": "ioi.hypervisor.placement-venues.v1",
-        "venues": venues,
-        "fee_bases": fee_bases_taxonomy(),
-        "spend_rule": "BYO provider spend is customer-borne; the hypervisor records, governs, estimates, and reconciles — it does not hide markup inside provider cost",
-        "no_fee_objects": "this plane mints no fee object, no quote, and no RoutingDecisionReceipt",
-        "at": iso_now(),
-    }))
+    (
+        StatusCode::OK,
+        Json(json!({
+            "schema_version": "ioi.hypervisor.placement-venues.v1",
+            "venues": venues,
+            "fee_bases": fee_bases_taxonomy(),
+            "spend_rule": "BYO provider spend is customer-borne; the hypervisor records, governs, estimates, and reconciles — it does not hide markup inside provider cost",
+            "no_fee_objects": "this plane mints no fee object, no quote, and no RoutingDecisionReceipt",
+            "at": iso_now(),
+        })),
+    )
 }
 
 pub(crate) fn load_venue_policy(data_dir: &str) -> Value {
@@ -2134,7 +2258,17 @@ pub(crate) async fn handle_venue_policy_put(
     if advisory {
         let intent = super::decentralized_cloud_routes::ensure_default_intent(&st.data_dir);
         advisory_block =
-            super::decentralized_cloud_routes::advisory_for(&st, &intent, true, &inbound).await;
+            match super::decentralized_cloud_routes::advisory_for(&st, &intent, true, &inbound)
+                .await
+            {
+                Ok(a) => a,
+                Err((code, message)) => {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(json!({ "ok": false, "code": code, "message": message })),
+                    )
+                }
+            };
     }
     let prior = load_venue_policy(&st.data_dir);
     let mut history = prior
@@ -2163,7 +2297,17 @@ pub(crate) async fn handle_venue_policy_put(
         "chosen_at": iso_now(),
         "history": history,
     });
-    let _ = persist_record(&st.data_dir, VENUE_POLICY_KIND, "current", &record);
+    // W1.2 / MEF-GAP-008 — CRITICAL governing-policy honesty: the venue policy is read back as the
+    // durable chosen venue; a discarded write leaves the prior policy in force while reporting the new one.
+    if persist_record(&st.data_dir, VENUE_POLICY_KIND, "current", &record).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "placement_venue_policy_persistence_failed",
+            "message": "the venue policy did not commit — the prior policy stays in force rather than being falsely reported changed" }),
+            ),
+        );
+    }
     (
         StatusCode::OK,
         Json(
@@ -2225,7 +2369,7 @@ pub(crate) async fn handle_placement_preview(
     State(st): State<Arc<DaemonState>>,
     inbound: axum::http::HeaderMap,
     Query(q): Query<HashMap<String, String>>,
-) -> Json<Value> {
+) -> (StatusCode, Json<Value>) {
     let policy = load_venue_policy(&st.data_dir);
     let venue = q
         .get("venue")
@@ -2258,25 +2402,38 @@ pub(crate) async fn handle_placement_preview(
                 .find(|p| p["account_ref"].as_str() == Some(account_ref.as_str()))
                 .cloned()
         });
+    // W1.2 / MEF-GAP-008 — advisory_for refreshes candidates durably; surface a write failure rather
+    // than previewing over a silently-failed refresh.
     let advisory = if venue == "hypervisor_choose" {
         let intent = super::decentralized_cloud_routes::ensure_default_intent(&st.data_dir);
-        super::decentralized_cloud_routes::advisory_for(&st, &intent, false, &inbound).await
+        match super::decentralized_cloud_routes::advisory_for(&st, &intent, false, &inbound).await {
+            Ok(a) => a,
+            Err((code, message)) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({ "ok": false, "code": code, "message": message })),
+                )
+            }
+        }
     } else {
         Value::Null
     };
-    Json(json!({
-        "schema_version": "ioi.hypervisor.placement-preview.v1",
-        "policy": policy,
-        "venue": venue,
-        "venue_card": venue_card,
-        "provider_card": provider_card,
-        "advisory": advisory,
-        "fee": venue_fee(&venue),
-        "receipts_expected": venue_receipts_expected(&venue, &st.data_dir),
-        "quote": Value::Null,
-        "quote_policy": "no invented quotes — provider quotes land with each adapter, as provider evidence",
-        "at": iso_now(),
-    }))
+    (
+        StatusCode::OK,
+        Json(json!({
+            "schema_version": "ioi.hypervisor.placement-preview.v1",
+            "policy": policy,
+            "venue": venue,
+            "venue_card": venue_card,
+            "provider_card": provider_card,
+            "advisory": advisory,
+            "fee": venue_fee(&venue),
+            "receipts_expected": venue_receipts_expected(&venue, &st.data_dir),
+            "quote": Value::Null,
+            "quote_policy": "no invented quotes — provider quotes land with each adapter, as provider evidence",
+            "at": iso_now(),
+        })),
+    )
 }
 
 fn warm_pool_for(data_dir: &str, project: &str, class: &str) -> Option<Value> {
@@ -2345,7 +2502,14 @@ pub(crate) async fn handle_warm_pool_create(
         "warm_pool_id": id, "project_id": project, "class": class, "size": size,
         "ready": ready, "claimed": [], "created_at": iso_now()
     });
-    let _ = persist_record(&st.data_dir, "warm-pools", &id, &pool);
+    // W1.2 / MEF-GAP-008 — the envs at `ready` are already created + started; a discarded pool write
+    // orphans them. Fail closed and list the started env ids so they are not lost silently.
+    if persist_record(&st.data_dir, "warm-pools", &id, &pool).is_err() {
+        return Err(AppError(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("warm_pool_persistence_failed: the warm pool did not commit — these already-started environments are orphaned and need teardown: {}", json!(ready)),
+        ));
+    }
     Ok(Json(json!({ "ok": true, "warm_pool": pool })))
 }
 
@@ -2357,14 +2521,20 @@ pub(crate) async fn handle_warm_pool_list(State(st): State<Arc<DaemonState>>) ->
 pub(crate) async fn handle_warm_pool_claim(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
-) -> Json<Value> {
+) -> (StatusCode, Json<Value>) {
     let Some(mut pool) = load(&st.data_dir, "warm-pools", &id) else {
-        return Json(json!({ "ok": false, "reason": "warm pool not found" }));
+        return (
+            StatusCode::OK,
+            Json(json!({ "ok": false, "reason": "warm pool not found" })),
+        );
     };
     let mut ready = pool["ready"].as_array().cloned().unwrap_or_default();
     if ready.is_empty() {
-        return Json(
-            json!({ "ok": false, "reason": "warm pool exhausted (no pre-started env to claim)", "fail_closed": true }),
+        return (
+            StatusCode::OK,
+            Json(
+                json!({ "ok": false, "reason": "warm pool exhausted (no pre-started env to claim)", "fail_closed": true }),
+            ),
         );
     }
     let claimed_env = ready.remove(0);
@@ -2372,16 +2542,30 @@ pub(crate) async fn handle_warm_pool_claim(
     if let Some(c) = pool["claimed"].as_array_mut() {
         c.push(claimed_env.clone());
     }
-    let _ = persist_record(&st.data_dir, "warm-pools", &id, &pool);
+    // W1.2 / MEF-GAP-008 — CRITICAL: persist the pool transition BEFORE minting the claim; a discarded
+    // pool write would let a second caller double-claim the same env. On failure do NOT return the
+    // environment_id.
+    if persist_record(&st.data_dir, "warm-pools", &id, &pool).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "code": "warm_pool_persistence_failed",
+            "message": "the pool claim transition did not commit — no environment was claimed (avoids a double-claim of the same env)" })),
+        );
+    }
     let cid = format!("wc_{:x}", nanos());
+    // CLASSIFIED — best-effort telemetry: only the metrics counter reads warm-claims; the pool write
+    // above is the authoritative transition.
     let _ = persist_record(
         &st.data_dir,
         "warm-claims",
         &cid,
         &json!({ "claim_id": cid, "warm_pool_id": id, "environment_id": claimed_env, "at": iso_now() }),
     );
-    Json(
-        json!({ "ok": true, "environment_id": claimed_env, "claim_kind": "warm_claim", "remaining": pool["ready"].as_array().map(|a| a.len()).unwrap_or(0) }),
+    (
+        StatusCode::OK,
+        Json(
+            json!({ "ok": true, "environment_id": claimed_env, "claim_kind": "warm_claim", "remaining": pool["ready"].as_array().map(|a| a.len()).unwrap_or(0) }),
+        ),
     )
 }
 

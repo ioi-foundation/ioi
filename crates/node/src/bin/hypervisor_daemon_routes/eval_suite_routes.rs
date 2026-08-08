@@ -271,7 +271,15 @@ pub(crate) async fn handle_eval_suite_create(
         "authority_note": "inert declaration — no EvalRun/scoring/judge; candidate_refs are named handoffs only",
         "created_at": now, "updated_at": now
     });
-    let _ = persist_record(&st.data_dir, KIND_EVAL_SUITE, &id, &record);
+    if persist_record(&st.data_dir, KIND_EVAL_SUITE, &id, &record).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "eval_suite_persistence_failed",
+                "message": "the eval suite did not commit — nothing was created" }),
+            ),
+        );
+    }
     (
         StatusCode::CREATED,
         Json(json!({ "ok": true, "eval_suite": record })),
@@ -385,7 +393,15 @@ pub(crate) async fn handle_eval_suite_patch(
         e["candidate_refs"] = json!(cr);
     }
     e["updated_at"] = json!(iso_now());
-    let _ = persist_record(&st.data_dir, KIND_EVAL_SUITE, &id, &e);
+    if persist_record(&st.data_dir, KIND_EVAL_SUITE, &id, &e).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "eval_suite_persistence_failed",
+                "message": "the eval suite update did not commit — the change was not saved" }),
+            ),
+        );
+    }
     (StatusCode::OK, Json(json!({ "ok": true, "eval_suite": e })))
 }
 

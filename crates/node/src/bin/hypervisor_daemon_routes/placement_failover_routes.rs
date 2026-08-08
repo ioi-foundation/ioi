@@ -207,7 +207,7 @@ fn mint_decision(
     decision_mode: &str,
     failover_run_ref: Option<&str>,
     failover_policy: Value,
-) -> (Value, Value) {
+) -> Result<(Value, Value), (String, String)> {
     let selected = &ranked.eligible[0];
     let alternatives: Vec<Value> = ranked.eligible[1..]
         .iter()
@@ -285,9 +285,21 @@ fn mint_decision(
         "at": super::iso_now(),
     });
     decision["receipt_ref"] = receipt["receipt_ref"].clone();
-    let _ = super::persist_record(data_dir, DECISION_KIND, &id, &decision);
-    let _ = super::persist_record(data_dir, DECISION_RECEIPT_KIND, &rid, &receipt);
-    (decision, receipt)
+    // W1.2 / MEF-GAP-008 — decision-then-receipt order; both must commit. The receipt-failure error
+    // names the persisted decision_ref so the caller can point at the now-unevidenced decision.
+    if super::persist_record(data_dir, DECISION_KIND, &id, &decision).is_err() {
+        return Err((
+            "placement_decision_persistence_failed".to_string(),
+            format!("the placement decision {decision_ref} did not commit — no decision or receipt was recorded"),
+        ));
+    }
+    if super::persist_record(data_dir, DECISION_RECEIPT_KIND, &rid, &receipt).is_err() {
+        return Err((
+            "placement_decision_receipt_persistence_failed".to_string(),
+            format!("placement decision {decision_ref} committed but its challengeable receipt did not — the decision is not honestly evidenced"),
+        ));
+    }
+    Ok((decision, receipt))
 }
 
 /// POST /v1/hypervisor/placement/decisions — explicit optimized-placement
@@ -304,7 +316,15 @@ pub(crate) async fn handle_placement_decide(
         .and_then(|r| dcr::load_intent(&data_dir, r))
         .unwrap_or_else(|| dcr::ensure_default_intent(&data_dir));
     // Refresh-through-advisory keeps decision inputs fresh + persisted.
-    let advisory = dcr::advisory_for(&st, &intent, false, &inbound).await;
+    let advisory = match dcr::advisory_for(&st, &intent, false, &inbound).await {
+        Ok(a) => a,
+        Err((code, message)) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "ok": false, "code": code, "message": message })),
+            )
+        }
+    };
     let ranked = rank_candidates(&data_dir, &text(&intent, "intent_ref"), None, false);
     if ranked.eligible.is_empty() {
         return (
@@ -322,7 +342,16 @@ pub(crate) async fn handle_placement_decide(
         .get("failover_policy")
         .cloned()
         .unwrap_or(json!({ "mode": "manual", "replacement_rule": "different_provider_class_with_full_lifecycle" }));
-    let (decision, receipt) = mint_decision(&data_dir, &intent, &ranked, "decision", None, policy);
+    let (decision, receipt) =
+        match mint_decision(&data_dir, &intent, &ranked, "decision", None, policy) {
+            Ok(v) => v,
+            Err((code, message)) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({ "ok": false, "code": code, "message": message })),
+                )
+            }
+        };
     (
         StatusCode::OK,
         Json(json!({ "ok": true, "decision": decision, "receipt": receipt })),
@@ -442,7 +471,17 @@ pub(crate) async fn handle_failover_plan_create(
         "created_at": super::iso_now(),
         "authority": "none — a failover plan is preparation evidence; every mutation it leads to is wallet-gated at execution time",
     });
-    let _ = super::persist_record(&data_dir, FAILOVER_PLAN_KIND, &id, &plan);
+    // W1.2 / MEF-GAP-008 — load_plan / run_core / evaluate_all all read this plan back; a discarded
+    // write hands back a plan_ref that resolves to nothing. Fail closed.
+    if super::persist_record(&data_dir, FAILOVER_PLAN_KIND, &id, &plan).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "failover_plan_persistence_failed",
+            "message": "the failover plan did not commit — no plan was created" }),
+            ),
+        );
+    }
     (StatusCode::OK, Json(json!({"ok": true, "plan": plan})))
 }
 
@@ -470,8 +509,8 @@ fn push_event(run: &mut Value, phase: &str, status: &str, detail: Value) {
     }
 }
 
-fn persist_run(data_dir: &str, run: &Value) {
-    let _ = super::persist_record(data_dir, FAILOVER_RUN_KIND, &text(run, "run_id"), run);
+fn persist_run(data_dir: &str, run: &Value) -> std::io::Result<()> {
+    super::persist_record(data_dir, FAILOVER_RUN_KIND, &text(run, "run_id"), run)
 }
 
 fn phase_done(run: &Value, phase: &str) -> bool {
@@ -493,7 +532,17 @@ fn awaiting(run: &mut Value, data_dir: &str, gate: &str, challenge: &Value) -> (
         "challenge": challenge,
         "note": "mint the grant against approval.policy_hash/request_hash and repost /v1/hypervisor/failover/run with run_ref + the grant key above",
     });
-    persist_run(data_dir, run);
+    // W1.2 / MEF-GAP-008 — a non-durable authority park lets the wallet-gated provider op replay on
+    // the next post; if the park does not commit, fail closed (500) rather than returning it.
+    if persist_run(data_dir, run).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            json!({ "ok": false, "code": "failover_run_persistence_failed",
+            "message": format!("the awaiting-authority park for gate '{gate}' did not commit — refusing rather than leaving a non-durable park a wallet-gated provider op could replay"),
+            "run_ref": text(run, "run_ref"),
+            "receipt_refs": run.get("receipt_refs").cloned().unwrap_or(json!([])) }),
+        );
+    }
     (StatusCode::OK, json!({"ok": true, "run": run.clone()}))
 }
 
@@ -501,7 +550,16 @@ fn refuse(run: &mut Value, data_dir: &str, reason: &str, detail: String) -> (Sta
     run["status"] = json!("refused");
     run["refusal"] = json!({ "reason": reason, "detail": detail, "at": super::iso_now() });
     push_event(run, "refused", reason, json!({ "detail": detail }));
-    persist_run(data_dir, run);
+    // W1.2 / MEF-GAP-008 — a non-durable refusal could be replayed as a fresh run; commit it or 500.
+    if persist_run(data_dir, run).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            json!({ "ok": false, "code": "failover_run_persistence_failed",
+            "message": format!("the refusal '{reason}' did not commit — refusing durably rather than leaving a non-durable park"),
+            "run_ref": text(run, "run_ref"),
+            "receipt_refs": run.get("receipt_refs").cloned().unwrap_or(json!([])) }),
+        );
+    }
     (
         StatusCode::CONFLICT,
         json!({"ok": false, "reason": reason, "run": run.clone()}),
@@ -622,7 +680,15 @@ pub(crate) async fn failover_run_core(st: &Arc<DaemonState>, body: Value) -> (St
                 "note": "failure conditions may be detected or accepted by name; injection is only supported where safe (ssh/loopback/akash simulator)",
             }),
         );
-        persist_run(&data_dir, &r);
+        // W1.2 / MEF-GAP-008 — a non-durable run cannot be resumed or reconciled; fail closed.
+        if persist_run(&data_dir, &r).is_err() {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                json!({ "ok": false, "code": "failover_run_persistence_failed",
+                "message": "the failover run did not commit at creation — nothing was started",
+                "run_ref": text(&r, "run_ref") }),
+            );
+        }
         r
     };
 
@@ -734,7 +800,18 @@ pub(crate) async fn failover_run_core(st: &Arc<DaemonState>, body: Value) -> (St
                 }
             }
         }
-        persist_run(&data_dir, &run);
+        // W1.2 / MEF-GAP-008 — a discarded phase write leaves the run not durably advanced; phases
+        // are idempotent (phase_done gates each), so a retried post resumes safely. Fail closed and
+        // carry the provider receipt_refs minted so far so nothing is lost silently.
+        if persist_run(&data_dir, &run).is_err() {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                json!({ "ok": false, "code": "failover_run_persistence_failed",
+                "message": "a failover run phase did not commit — the run is not durably advanced; retry the post to resume",
+                "run_ref": text(&run, "run_ref"),
+                "receipt_refs": run.get("receipt_refs").cloned().unwrap_or(json!([])) }),
+            );
+        }
     }
 
     // ---- phase: replacement_selected -----------------------------------
@@ -767,14 +844,24 @@ pub(crate) async fn failover_run_core(st: &Arc<DaemonState>, body: Value) -> (St
                 format!("no placement-eligible full_lifecycle candidate outside class '{old_kind}' ({} rejected with reasons)", ranked.rejected.len()));
         }
         let policy = json!({ "mode": "failover", "replacement_rule": "different_provider_class_with_full_lifecycle", "excluded_class": old_kind });
-        let (decision, receipt) = mint_decision(
+        let (decision, receipt) = match mint_decision(
             &data_dir,
             &intent,
             &ranked,
             "failover_replacement",
             Some(&text(&run, "run_ref")),
             policy,
-        );
+        ) {
+            Ok(v) => v,
+            Err((code, message)) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    json!({ "ok": false, "code": code, "message": message,
+                    "run_ref": text(&run, "run_ref"),
+                    "receipt_refs": run.get("receipt_refs").cloned().unwrap_or(json!([])) }),
+                )
+            }
+        };
         run["decision_ref"] = decision["decision_ref"].clone();
         run["replacement"] = json!({
             "candidate_ref": decision["selected_candidate_ref"],
@@ -797,7 +884,18 @@ pub(crate) async fn failover_run_core(st: &Arc<DaemonState>, body: Value) -> (St
                 "rejected": decision["rejected_candidates"].as_array().map(|a| a.len()).unwrap_or(0),
             }),
         );
-        persist_run(&data_dir, &run);
+        // W1.2 / MEF-GAP-008 — a discarded phase write leaves the run not durably advanced; phases
+        // are idempotent (phase_done gates each), so a retried post resumes safely. Fail closed and
+        // carry the provider receipt_refs minted so far so nothing is lost silently.
+        if persist_run(&data_dir, &run).is_err() {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                json!({ "ok": false, "code": "failover_run_persistence_failed",
+                "message": "a failover run phase did not commit — the run is not durably advanced; retry the post to resume",
+                "run_ref": text(&run, "run_ref"),
+                "receipt_refs": run.get("receipt_refs").cloned().unwrap_or(json!([])) }),
+            );
+        }
     }
 
     // ---- phase: replacement_created -------------------------------------
@@ -839,7 +937,18 @@ pub(crate) async fn failover_run_core(st: &Arc<DaemonState>, body: Value) -> (St
                 "provider_native_evidence": resp.get("evidence").cloned().unwrap_or(Value::Null),
             }),
         );
-        persist_run(&data_dir, &run);
+        // W1.2 / MEF-GAP-008 — a discarded phase write leaves the run not durably advanced; phases
+        // are idempotent (phase_done gates each), so a retried post resumes safely. Fail closed and
+        // carry the provider receipt_refs minted so far so nothing is lost silently.
+        if persist_run(&data_dir, &run).is_err() {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                json!({ "ok": false, "code": "failover_run_persistence_failed",
+                "message": "a failover run phase did not commit — the run is not durably advanced; retry the post to resume",
+                "run_ref": text(&run, "run_ref"),
+                "receipt_refs": run.get("receipt_refs").cloned().unwrap_or(json!([])) }),
+            );
+        }
     }
 
     // ---- phase: started (endpoints proven, never assumed) ------------------
@@ -877,7 +986,18 @@ pub(crate) async fn failover_run_core(st: &Arc<DaemonState>, body: Value) -> (St
                 "endpoint_evidence": resp.get("evidence").and_then(|e| e.get("endpoint")).cloned().unwrap_or(Value::Null),
             }),
         );
-        persist_run(&data_dir, &run);
+        // W1.2 / MEF-GAP-008 — a discarded phase write leaves the run not durably advanced; phases
+        // are idempotent (phase_done gates each), so a retried post resumes safely. Fail closed and
+        // carry the provider receipt_refs minted so far so nothing is lost silently.
+        if persist_run(&data_dir, &run).is_err() {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                json!({ "ok": false, "code": "failover_run_persistence_failed",
+                "message": "a failover run phase did not commit — the run is not durably advanced; retry the post to resume",
+                "run_ref": text(&run, "run_ref"),
+                "receipt_refs": run.get("receipt_refs").cloned().unwrap_or(json!([])) }),
+            );
+        }
     }
 
     // ---- phase: restored --------------------------------------------------
@@ -929,7 +1049,18 @@ pub(crate) async fn failover_run_core(st: &Arc<DaemonState>, body: Value) -> (St
                 "receipt_ref": resp.get("receipt_ref").cloned().unwrap_or(Value::Null),
             }),
         );
-        persist_run(&data_dir, &run);
+        // W1.2 / MEF-GAP-008 — a discarded phase write leaves the run not durably advanced; phases
+        // are idempotent (phase_done gates each), so a retried post resumes safely. Fail closed and
+        // carry the provider receipt_refs minted so far so nothing is lost silently.
+        if persist_run(&data_dir, &run).is_err() {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                json!({ "ok": false, "code": "failover_run_persistence_failed",
+                "message": "a failover run phase did not commit — the run is not durably advanced; retry the post to resume",
+                "run_ref": text(&run, "run_ref"),
+                "receipt_refs": run.get("receipt_refs").cloned().unwrap_or(json!([])) }),
+            );
+        }
     }
 
     // ---- phase: old_closed -------------------------------------------------
@@ -979,7 +1110,18 @@ pub(crate) async fn failover_run_core(st: &Arc<DaemonState>, body: Value) -> (St
                 );
             }
         }
-        persist_run(&data_dir, &run);
+        // W1.2 / MEF-GAP-008 — a discarded phase write leaves the run not durably advanced; phases
+        // are idempotent (phase_done gates each), so a retried post resumes safely. Fail closed and
+        // carry the provider receipt_refs minted so far so nothing is lost silently.
+        if persist_run(&data_dir, &run).is_err() {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                json!({ "ok": false, "code": "failover_run_persistence_failed",
+                "message": "a failover run phase did not commit — the run is not durably advanced; retry the post to resume",
+                "run_ref": text(&run, "run_ref"),
+                "receipt_refs": run.get("receipt_refs").cloned().unwrap_or(json!([])) }),
+            );
+        }
     }
 
     let warned = run
@@ -992,7 +1134,17 @@ pub(crate) async fn failover_run_core(st: &Arc<DaemonState>, body: Value) -> (St
         "restored"
     });
     run["completed_at"] = json!(super::iso_now());
-    persist_run(&data_dir, &run);
+    // W1.2 / MEF-GAP-008 — the terminal `restored` status is the run's completion truth; if it does
+    // not commit, the run stays mid-phase durably. Fail closed rather than report a false completion.
+    if persist_run(&data_dir, &run).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            json!({ "ok": false, "code": "failover_run_persistence_failed",
+            "message": "the failover run completion did not commit — the run is not durably marked restored",
+            "run_ref": text(&run, "run_ref"),
+            "receipt_refs": run.get("receipt_refs").cloned().unwrap_or(json!([])) }),
+        );
+    }
     (StatusCode::OK, json!({"ok": true, "run": run}))
 }
 
@@ -1026,8 +1178,8 @@ fn load_plan(data_dir: &str, id_or_ref: &str) -> Option<Value> {
         })
 }
 
-fn persist_plan(data_dir: &str, plan: &Value) {
-    let _ = super::persist_record(data_dir, FAILOVER_PLAN_KIND, &text(plan, "plan_id"), plan);
+fn persist_plan(data_dir: &str, plan: &Value) -> std::io::Result<()> {
+    super::persist_record(data_dir, FAILOVER_PLAN_KIND, &text(plan, "plan_id"), plan)
 }
 
 /// Evidence detector: map real daemon records to a named failure condition.
@@ -1190,7 +1342,15 @@ pub(crate) async fn handle_failover_plan_arm(
         "authority_note": "arming is detection + preparation authority only; every provider mutation of a triggered run still crosses the wallet gate",
     });
     plan["trigger_state"] = json!("armed");
-    persist_plan(&data_dir, &plan);
+    if persist_plan(&data_dir, &plan).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "failover_plan_persistence_failed",
+            "message": "arming did not commit — the plan is not durably armed" }),
+            ),
+        );
+    }
     (StatusCode::OK, Json(json!({"ok": true, "plan": plan})))
 }
 
@@ -1211,7 +1371,17 @@ pub(crate) async fn handle_failover_plan_disarm(
         t["enabled"] = json!(false);
         t["disarmed_at"] = json!(super::iso_now());
     }
-    persist_plan(&data_dir, &plan);
+    // W1.2 / MEF-GAP-008 — CRITICAL fail-closed: a discarded disarm leaves the auto-trigger LIVE
+    // while reporting disarmed. Refuse rather than silently keep an armed plan.
+    if persist_plan(&data_dir, &plan).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "failover_plan_persistence_failed",
+            "message": "disarm did not commit — the auto-trigger may still be live; treat the plan as ARMED" }),
+            ),
+        );
+    }
     (StatusCode::OK, Json(json!({"ok": true, "plan": plan})))
 }
 
@@ -1249,7 +1419,8 @@ async fn evaluate_plan(st: &Arc<DaemonState>, plan: &Value) -> Value {
     else {
         let mut p = plan.clone();
         p["last_evaluated_at"] = json!(super::iso_now());
-        persist_plan(&data_dir, &p);
+        // CLASSIFIED — best-effort telemetry: last_evaluated_at is advisory bookkeeping; no decision reads it.
+        let _ = persist_plan(&data_dir, &p);
         return json!({ "plan_ref": plan_ref, "outcome": "no_qualifying_evidence", "conditions": conditions });
     };
     // TRIGGER: same run core, same wallet gates; run parks at the first
@@ -1286,7 +1457,21 @@ async fn evaluate_plan(st: &Arc<DaemonState>, plan: &Value) -> Value {
     if !run_ref.is_empty() {
         p["last_trigger"]["run_ref"] = json!(run_ref);
     }
-    persist_plan(&data_dir, &p);
+    // W1.2 / MEF-GAP-008 — the trigger_state flip to `triggered` is cooldown truth: if it does not
+    // commit, the plan still reads `armed` and could re-trigger. There is no HTTP response to gate
+    // here (evaluate_plan returns a Value), so surface the failure honestly in the evaluation result.
+    if persist_plan(&data_dir, &p).is_err() {
+        return json!({
+            "plan_ref": plan_ref,
+            "outcome": "triggered_but_plan_state_uncommitted",
+            "code": "failover_plan_persistence_failed",
+            "condition": condition,
+            "evidence_refs": evidence_refs,
+            "run_ref": run_ref,
+            "run_status": run_status,
+            "warning": "the run was triggered but the plan's trigger_state flip to `triggered` did not commit — the plan still reads `armed`; the active-run guard blocks a duplicate while this run is live, but re-arm/cooldown truth is at risk",
+        });
+    }
     json!({
         "plan_ref": plan_ref,
         "outcome": "triggered",

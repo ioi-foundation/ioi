@@ -278,15 +278,43 @@ fn validate_inputs(data_dir: &str, body: &Value) -> Result<RunInputs, VErr> {
     })
 }
 
-fn run_receipt(data_dir: &str, run_ref: &str, op: &str, outcome: &str, summary: &str) -> Value {
+fn run_receipt(
+    data_dir: &str,
+    run_ref: &str,
+    op: &str,
+    outcome: &str,
+    summary: &str,
+) -> std::io::Result<Value> {
     let id = format!("trr_{:x}", nanos());
     let receipt_ref = format!("agentgres://transformation-run-receipt/{id}");
     let rec = json!({
         "schema_version": RECEIPT_SCHEMA, "receipt_id": id, "receipt_ref": receipt_ref,
         "transformation_run_ref": run_ref, "op": op, "outcome": outcome, "summary": summary, "at": iso_now()
     });
-    let _ = persist_record(data_dir, RECEIPT_DIR, &id, &rec);
-    rec
+    // W1.2 / MEF-GAP-008 — every act on a run is receipted; a discarded receipt breaks that
+    // invariant, so the caller fails closed rather than returning an unreceipted effect.
+    persist_record(data_dir, RECEIPT_DIR, &id, &rec)?;
+    Ok(rec)
+}
+/// The uniform 500 for a dropped run receipt (W1.2 / MEF-GAP-008).
+fn receipt_persist_failed() -> (StatusCode, Json<Value>) {
+    (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        Json(
+            json!({ "ok": false, "code": "transformation_run_receipt_persistence_failed",
+        "message": "the run receipt did not commit — refused rather than returning an unreceipted effect" }),
+        ),
+    )
+}
+/// The uniform 500 for a dropped run record write (W1.2 / MEF-GAP-008).
+fn run_persist_failed() -> (StatusCode, Json<Value>) {
+    (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        Json(
+            json!({ "ok": false, "code": "transformation_run_persistence_failed",
+        "message": "the transformation run did not commit — no state change was recorded" }),
+        ),
+    )
 }
 /// Append a history entry + receipt ref to a run record (bounded history).
 fn push_history(record: &mut Value, op: &str, summary: &str, receipt_ref: Value) {
@@ -312,13 +340,25 @@ fn push_history(record: &mut Value, op: &str, summary: &str, receipt_ref: Value)
 }
 fn bad(data_dir: &str, op: &str, err: VErr) -> (StatusCode, Json<Value>) {
     // Failed validation is itself receipted (the audit trail records what was refused and why).
-    let _ = run_receipt(
+    // W1.2 / MEF-GAP-008 — the overview claims every failed validation is receipted, so a dropped
+    // rejection receipt fails closed (500) rather than rejecting off the record.
+    if run_receipt(
         data_dir,
         "transformation-run://unadmitted",
         op,
         &err.0,
         &err.1,
-    );
+    )
+    .is_err()
+    {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "transformation_run_receipt_persistence_failed",
+            "message": "the rejection was not receipted — the audit trail requires every failed validation to be receipted" }),
+            ),
+        );
+    }
     (
         StatusCode::BAD_REQUEST,
         Json(json!({ "ok": false, "error": { "code": err.0, "message": err.1 } })),
@@ -420,13 +460,16 @@ pub(crate) async fn handle_run_create(
     let id = format!("trun_{:x}", nanos());
     let now = iso_now();
     let rref = format!("transformation-run://{id}");
-    let receipt = run_receipt(
+    let receipt = match run_receipt(
         &st.data_dir,
         &rref,
         "created",
         "ok",
         "TransformationRun plan admitted",
-    );
+    ) {
+        Ok(r) => r,
+        Err(_) => return receipt_persist_failed(),
+    };
     let receipt_ref = receipt.get("receipt_ref").cloned().unwrap_or(Value::Null);
     let record = json!({
         "schema_version": RUN_SCHEMA,
@@ -455,7 +498,9 @@ pub(crate) async fn handle_run_create(
         "created_at": now.clone(),
         "updated_at": now
     });
-    let _ = persist_record(&st.data_dir, RECORD_DIR, &id, &record);
+    if persist_record(&st.data_dir, RECORD_DIR, &id, &record).is_err() {
+        return run_persist_failed();
+    }
     (
         StatusCode::CREATED,
         Json(json!({ "ok": true, "transformation_run": record })),
@@ -495,7 +540,10 @@ pub(crate) async fn handle_run_dry_run(
     });
     match validate_inputs(&st.data_dir, &revalidation_body) {
         Err((code, msg)) => {
-            let receipt = run_receipt(&st.data_dir, &rref, "dry_run_blocked", &code, &msg);
+            let receipt = match run_receipt(&st.data_dir, &rref, "dry_run_blocked", &code, &msg) {
+                Ok(r) => r,
+                Err(_) => return receipt_persist_failed(),
+            };
             let summary = format!("blocked: {code}");
             record["status"] = json!("blocked");
             record["blocked_reasons"] = json!([{ "code": code, "message": msg }]);
@@ -506,7 +554,9 @@ pub(crate) async fn handle_run_dry_run(
                 &summary,
                 receipt.get("receipt_ref").cloned().unwrap_or(Value::Null),
             );
-            let _ = persist_record(&st.data_dir, RECORD_DIR, &id, &record);
+            if persist_record(&st.data_dir, RECORD_DIR, &id, &record).is_err() {
+                return run_persist_failed();
+            }
             (
                 StatusCode::OK,
                 Json(json!({ "ok": true, "transformation_run": record })),
@@ -539,13 +589,16 @@ pub(crate) async fn handle_run_dry_run(
                 "receipts_before_output": true
             });
             // Receipt FIRST, then the plan lands on the record — output is never registered unreceipted.
-            let receipt = run_receipt(
+            let receipt = match run_receipt(
                 &st.data_dir,
                 &rref,
                 "dry_run",
                 "ok",
                 "dry-run plan validated against the current gate",
-            );
+            ) {
+                Ok(r) => r,
+                Err(_) => return receipt_persist_failed(),
+            };
             record["status"] = json!("dry_run_ready");
             record["plan"] = plan;
             record["blocked_reasons"] = json!([]);
@@ -556,7 +609,9 @@ pub(crate) async fn handle_run_dry_run(
                 "dry-run plan validated against the current gate",
                 receipt.get("receipt_ref").cloned().unwrap_or(Value::Null),
             );
-            let _ = persist_record(&st.data_dir, RECORD_DIR, &id, &record);
+            if persist_record(&st.data_dir, RECORD_DIR, &id, &record).is_err() {
+                return run_persist_failed();
+            }
             (
                 StatusCode::OK,
                 Json(json!({ "ok": true, "transformation_run": record })),
@@ -585,13 +640,16 @@ pub(crate) async fn handle_run_cancel(
         );
     }
     let rref = s(&record, "ref", "");
-    let receipt = run_receipt(
+    let receipt = match run_receipt(
         &st.data_dir,
         &rref,
         "cancelled",
         "ok",
         "TransformationRun plan cancelled",
-    );
+    ) {
+        Ok(r) => r,
+        Err(_) => return receipt_persist_failed(),
+    };
     record["status"] = json!("cancelled");
     record["updated_at"] = json!(iso_now());
     push_history(
@@ -600,7 +658,9 @@ pub(crate) async fn handle_run_cancel(
         "TransformationRun plan cancelled",
         receipt.get("receipt_ref").cloned().unwrap_or(Value::Null),
     );
-    let _ = persist_record(&st.data_dir, RECORD_DIR, &id, &record);
+    if persist_record(&st.data_dir, RECORD_DIR, &id, &record).is_err() {
+        return run_persist_failed();
+    }
     (
         StatusCode::OK,
         Json(json!({ "ok": true, "transformation_run": record })),
@@ -613,13 +673,19 @@ pub(crate) async fn handle_run_patch(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
     Json(patch): Json<Value>,
-) -> Json<Value> {
+) -> (StatusCode, Json<Value>) {
     let Some(existing) = load_run(&st.data_dir, &id) else {
-        return Json(json!({ "ok": false, "reason": "transformation run not found" }));
+        return (
+            StatusCode::OK,
+            Json(json!({ "ok": false, "reason": "transformation run not found" })),
+        );
     };
     if s(&existing, "status", "") == "cancelled" {
-        return Json(
-            json!({ "ok": false, "error": { "code": "transformation_run_cancelled_immutable", "message": "a cancelled run is immutable" } }),
+        return (
+            StatusCode::OK,
+            Json(
+                json!({ "ok": false, "error": { "code": "transformation_run_cancelled_immutable", "message": "a cancelled run is immutable" } }),
+            ),
         );
     }
     let plan_keys = [
@@ -650,14 +716,22 @@ pub(crate) async fn handle_run_patch(
     let inputs = match validate_inputs(&st.data_dir, &merged) {
         Ok(i) => i,
         Err(e) => {
-            let _ = run_receipt(
+            // W1.2 / MEF-GAP-008 — the rejection receipt is the audit trail; fail closed if it drops.
+            if run_receipt(
                 &st.data_dir,
                 &s(&existing, "ref", ""),
                 "patch_rejected",
                 &e.0,
                 &e.1,
+            )
+            .is_err()
+            {
+                return receipt_persist_failed();
+            }
+            return (
+                StatusCode::OK,
+                Json(json!({ "ok": false, "error": { "code": e.0, "message": e.1 } })),
             );
-            return Json(json!({ "ok": false, "error": { "code": e.0, "message": e.1 } }));
         }
     };
     let mut record = existing;
@@ -692,7 +766,7 @@ pub(crate) async fn handle_run_patch(
     let rev = record.get("revision").and_then(|v| v.as_u64()).unwrap_or(1) + 1;
     record["revision"] = json!(rev);
     record["updated_at"] = json!(iso_now());
-    let receipt = run_receipt(
+    let receipt = match run_receipt(
         &st.data_dir,
         &s(&record, "ref", ""),
         "patched",
@@ -702,7 +776,10 @@ pub(crate) async fn handle_run_patch(
         } else {
             "metadata edit"
         },
-    );
+    ) {
+        Ok(r) => r,
+        Err(_) => return receipt_persist_failed(),
+    };
     push_history(
         &mut record,
         "patched",
@@ -713,29 +790,49 @@ pub(crate) async fn handle_run_patch(
         },
         receipt.get("receipt_ref").cloned().unwrap_or(Value::Null),
     );
-    let _ = persist_record(&st.data_dir, RECORD_DIR, &id, &record);
-    Json(json!({ "ok": true, "transformation_run": record }))
+    if persist_record(&st.data_dir, RECORD_DIR, &id, &record).is_err() {
+        return run_persist_failed();
+    }
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "transformation_run": record })),
+    )
 }
 
 /// DELETE — receipted removal of the plan record.
 pub(crate) async fn handle_run_delete(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
-) -> Json<Value> {
+) -> (StatusCode, Json<Value>) {
     let rref = load_run(&st.data_dir, &id)
         .and_then(|r| r.get("ref").and_then(|v| v.as_str()).map(str::to_string))
         .unwrap_or_else(|| format!("transformation-run://{id}"));
     let removed = remove_record(&st.data_dir, RECORD_DIR, &id);
     if removed {
-        let _ = run_receipt(
+        // W1.2 / MEF-GAP-008 — receipted removal is the declared effect: the record IS gone, so the
+        // 500 states removed:true honestly while flagging the missing deletion receipt.
+        if run_receipt(
             &st.data_dir,
             &rref,
             "deleted",
             "ok",
             "TransformationRun plan removed",
-        );
+        )
+        .is_err()
+        {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    json!({ "ok": false, "code": "transformation_run_receipt_persistence_failed",
+                "message": "the plan record was removed but its deletion receipt did not commit — receipted removal is the declared effect", "removed": true, "id": id }),
+                ),
+            );
+        }
     }
-    Json(json!({ "ok": removed, "removed": removed, "id": id }))
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": removed, "removed": removed, "id": id })),
+    )
 }
 
 #[cfg(test)]

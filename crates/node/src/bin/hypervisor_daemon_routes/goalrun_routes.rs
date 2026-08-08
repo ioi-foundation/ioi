@@ -11229,6 +11229,7 @@ pub(crate) async fn handle_goal_run_reconcile(
         ("goal_run_output_staging_failed", &staging_errors),
     ] {
         if !errors.is_empty() {
+            // CLASSIFIED — rollback/cleanup: plane-owned staging scratch; every failure lane deliberately PRESERVES staging as the immutable declared input (#72 r5 f3), and on terminal success no truth claim rests on the directory being gone.
             let _ = std::fs::remove_dir_all(&staging_root);
             return reconcile_abort(
                 &st.data_dir,
@@ -11310,6 +11311,7 @@ pub(crate) async fn handle_goal_run_reconcile(
                 &format!("the attempt declaration is {}; the declared attempt and its staging are preserved, the target workspace was NOT touched", f.detail()),
             );
         }
+        // CLASSIFIED — rollback/cleanup: plane-owned staging scratch; every failure lane deliberately PRESERVES staging as the immutable declared input (#72 r5 f3), and on terminal success no truth claim rests on the directory being gone.
         let _ = std::fs::remove_dir_all(&staging_root);
         return reconcile_abort(
             &st.data_dir,
@@ -11693,6 +11695,7 @@ pub(crate) async fn handle_goal_run_reconcile(
     };
     // TERMINAL SUCCESS: only now is the staged attempt released (#72 round 5 finding 3 —
     // staging is preserved through every failure and crash as the immutable declared input).
+    // CLASSIFIED — rollback/cleanup: plane-owned staging scratch; every failure lane deliberately PRESERVES staging as the immutable declared input (#72 r5 f3), and on terminal success no truth claim rests on the directory being gone.
     let _ = std::fs::remove_dir_all(&staging_root);
 
     (

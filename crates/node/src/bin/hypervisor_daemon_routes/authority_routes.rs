@@ -16,10 +16,53 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use axum::extract::State;
+use axum::http::{HeaderMap, StatusCode};
 use axum::Json;
 use serde_json::{json, Value};
 
 use super::{iso_now, persist_record, read_record_dir, DaemonState};
+
+/// Resolve the authority subject SERVER-SIDE from the request posture — INV-37: the subject of an
+/// authority grant/revoke is NEVER caller-asserted. Without this the subject was copied from the
+/// body, so an unauthenticated caller could mint a grant with `resources:["environment:X"]` and any
+/// subject, which `supervisor_routes::lease_binds_env` then turns into a working env-ops WebSocket
+/// lease token (the measured escalation this fix closes). local_development ⇒ the server operator
+/// constant; authenticated_managed ⇒ the authenticated principal (`user://<principal_id>`) or a
+/// typed 401; exposed_untrusted ⇒ a typed 403.
+fn resolve_authority_subject(
+    data_dir: &str,
+    headers: &HeaderMap,
+    code_auth_required: &str,
+    code_exposed: &str,
+) -> Result<String, (StatusCode, Json<Value>)> {
+    match super::lifecycle_routes::deployment_auth_posture(data_dir, headers) {
+        "local_development" => Ok("user://local-operator".to_string()),
+        "exposed_untrusted" => Err((
+            StatusCode::FORBIDDEN,
+            Json(json!({ "ok": false, "error": {
+                "code": code_exposed,
+                "message": "authority mutations are refused from an untrusted exposed surface; authenticate through the managed control plane"
+            }, "at": iso_now() })),
+        )),
+        // authenticated_managed
+        _ => super::lifecycle_routes::resolve_principal(data_dir, headers)
+            .and_then(|p| {
+                p.get("principal_id")
+                    .and_then(Value::as_str)
+                    .filter(|id| !id.is_empty())
+                    .map(|id| format!("user://{id}"))
+            })
+            .ok_or_else(|| {
+                (
+                    StatusCode::UNAUTHORIZED,
+                    Json(json!({ "ok": false, "error": {
+                        "code": code_auth_required,
+                        "message": "authority mutations require an authenticated principal in the managed posture; none was resolved"
+                    }, "at": iso_now() })),
+                )
+            }),
+    }
+}
 
 /// Enterprise policy spend ceiling — a real, enforced denial threshold for portable grants.
 const MAX_ENTERPRISE_SPEND: i64 = 100_000;
@@ -517,14 +560,37 @@ pub(crate) async fn handle_authority_providers(State(_st): State<Arc<DaemonState
 /// `wallet.network://`; otherwise under the live enterprise issuer.
 pub(crate) async fn handle_authority_grant(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
-) -> Json<Value> {
+) -> (StatusCode, Json<Value>) {
     let data_dir = &st.data_dir;
-    let subject = body
+    // INV-37 — the subject is ALWAYS server-resolved from the request posture, NEVER the body.
+    let subject = match resolve_authority_subject(
+        data_dir,
+        &headers,
+        "authority_grant_authentication_required",
+        "authority_grant_exposed_untrusted",
+    ) {
+        Ok(subject) => subject,
+        Err(refusal) => return refusal,
+    };
+    // A body `subject` may only ECHO the resolved principal (display metadata); a conflicting value
+    // is a client attempt to set identity and is refused (mirrors reject_client_supplied_identity).
+    let requested_subject = body
         .get("subject")
         .and_then(|v| v.as_str())
-        .unwrap_or("operator")
-        .to_string();
+        .map(str::to_owned);
+    if let Some(requested) = &requested_subject {
+        if requested != &subject {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "ok": false, "error": {
+                    "code": "authority_grant_subject_not_client_settable",
+                    "message": format!("'subject' is derived from the authenticated caller ({subject}) and cannot be set to '{requested}' by the request; remove it and re-send")
+                }, "at": iso_now() })),
+            );
+        }
+    }
     let action = body
         .get("action")
         .and_then(|v| v.as_str())
@@ -607,6 +673,7 @@ pub(crate) async fn handle_authority_grant(
         "authority_provider_ref": provider,
         "provider": provider,
         "subject": subject,
+        "requested_subject": requested_subject,
         "action": action,
         "resources": resources,
         "budget": budget,
@@ -628,42 +695,67 @@ pub(crate) async fn handle_authority_grant(
     // no later check could find the grant; and a `denied` decision left no audit trail at all,
     // under a comment promising a complete one. A decision that cannot be recorded was not made.
     if persist_record(data_dir, "authority-grants", &grant_id, &record).is_err() {
-        return Json(json!({
-            "ok": false,
-            "error": {
-                "code": "authority_grant_persistence_failed",
-                "message": "the authority decision could not be durably recorded and is therefore not in force"
-            },
-            "at": iso_now(),
-        }));
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "ok": false,
+                "error": {
+                    "code": "authority_grant_persistence_failed",
+                    "message": "the authority decision could not be durably recorded and is therefore not in force"
+                },
+                "at": iso_now(),
+            })),
+        );
     }
 
-    Json(json!({
-        "grant": record,
-        "status": live_grant_status(&record),
-    }))
+    (
+        StatusCode::OK,
+        Json(json!({
+            "grant": record,
+            "status": live_grant_status(&record),
+        })),
+    )
 }
 
 /// POST /v1/hypervisor/authority/revoke — revoke a live grant by `grant_id` or `grant_ref`.
 /// Marks the grant revoked (persisted) and emits a revoke receipt; subsequent preflight refuses.
 pub(crate) async fn handle_authority_revoke(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
-) -> Json<Value> {
+) -> (StatusCode, Json<Value>) {
     let data_dir = &st.data_dir;
+    // INV-37 — resolve the acting principal server-side. Revoke is a denial-of-authority primitive:
+    // today ANY caller can revoke ANY grant. Bind it to the issuer/subject (or local dev) below.
+    let posture = super::lifecycle_routes::deployment_auth_posture(data_dir, &headers);
+    let actor = match resolve_authority_subject(
+        data_dir,
+        &headers,
+        "authority_revoke_authentication_required",
+        "authority_revoke_exposed_untrusted",
+    ) {
+        Ok(actor) => actor,
+        Err(refusal) => return refusal,
+    };
     let key = body
         .get("grant_id")
         .and_then(|v| v.as_str())
         .or_else(|| body.get("grant_ref").and_then(|v| v.as_str()))
         .unwrap_or("");
     let Some(mut grant) = load_grant(data_dir, key) else {
-        return Json(
-            json!({ "ok": false, "reason": format!("grant '{key}' not found"), "at": iso_now() }),
+        return (
+            StatusCode::OK,
+            Json(
+                json!({ "ok": false, "reason": format!("grant '{key}' not found"), "at": iso_now() }),
+            ),
         );
     };
     if grant.get("decision").and_then(|v| v.as_str()) != Some("granted") {
-        return Json(
-            json!({ "ok": false, "reason": "only granted authority can be revoked", "decision": grant.get("decision"), "at": iso_now() }),
+        return (
+            StatusCode::OK,
+            Json(
+                json!({ "ok": false, "reason": "only granted authority can be revoked", "decision": grant.get("decision"), "at": iso_now() }),
+            ),
         );
     }
     let grant_id = grant
@@ -686,6 +778,18 @@ pub(crate) async fn handle_authority_revoke(
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string();
+    // INV-37 permission — only the grant's issuing principal (its server-resolved `subject`) may
+    // revoke it; local_development trusts the single local operator. Otherwise any caller could
+    // strip another principal's authority.
+    if posture != "local_development" && actor != subject {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(json!({ "ok": false, "error": {
+                "code": "authority_revoke_not_permitted",
+                "message": format!("only the grant's issuing principal ({subject}) may revoke it; the authenticated caller is {actor}")
+            }, "grant_ref": grant_ref, "at": iso_now() })),
+        );
+    }
     grant["revoked"] = json!(true);
     grant["revoked_at"] = json!(iso_now());
     let receipt_ref = emit_receipt(
@@ -706,18 +810,24 @@ pub(crate) async fn handle_authority_revoke(
     // a "revoked" receipt and then discarding this write left a grant that every preflight would
     // still honour, with a receipt on file saying it had been revoked.
     if persist_record(data_dir, "authority-grants", &grant_id, &grant).is_err() {
-        return Json(json!({
-            "ok": false,
-            "error": {
-                "code": "authority_revoke_persistence_failed",
-                "message": "the revocation could not be durably recorded; the grant is still in force"
-            },
-            "grant_ref": grant_ref,
-            "at": iso_now(),
-        }));
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "ok": false,
+                "error": {
+                    "code": "authority_revoke_persistence_failed",
+                    "message": "the revocation could not be durably recorded; the grant is still in force"
+                },
+                "grant_ref": grant_ref,
+                "at": iso_now(),
+            })),
+        );
     }
-    Json(
-        json!({ "ok": true, "grant_ref": grant_ref, "status": "revoked", "receipt_ref": receipt_ref, "at": iso_now() }),
+    (
+        StatusCode::OK,
+        Json(
+            json!({ "ok": true, "grant_ref": grant_ref, "status": "revoked", "receipt_ref": receipt_ref, "at": iso_now() }),
+        ),
     )
 }
 
@@ -896,6 +1006,37 @@ pub(crate) async fn handle_authority_preflight(
                     false,
                     receipt,
                 );
+            }
+            // W1.2 / INV-37 — the grant's resources must actually cover the named environment;
+            // without this an environment-scoped effect admits on a grant bound to a DIFFERENT
+            // environment (the supervisor lease seam then mints an env-ops token). Mirror the
+            // supervisor_routes::lease_binds_env resource shape.
+            if !environment_id.is_empty() {
+                let covers_env = grant
+                    .get("resources")
+                    .and_then(|r| r.as_array())
+                    .map(|arr| {
+                        arr.iter().any(|x| {
+                            x.as_str() == Some(format!("environment:{environment_id}").as_str())
+                                || x.as_str() == Some(environment_id.as_str())
+                        })
+                    })
+                    .unwrap_or(false);
+                if !covers_env {
+                    let receipt = emit_receipt(
+                        data_dir,
+                        "preflight_block",
+                        &grant_ref,
+                        &environment_id,
+                        &effect,
+                        "grant resources do not cover the environment",
+                    );
+                    return block(
+                        &format!("grant does not cover environment '{environment_id}'; its resources bind a different scope"),
+                        false,
+                        receipt,
+                    );
+                }
             }
             let receipt = emit_receipt(
                 data_dir,

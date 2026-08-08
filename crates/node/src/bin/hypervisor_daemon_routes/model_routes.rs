@@ -718,10 +718,13 @@ fn route_receipt(
     op: &str,
     outcome: &str,
     admission_id: Option<&str>,
-) -> String {
+) -> std::io::Result<String> {
     let id = format!("mrr_{:x}", nanos());
     let receipt_ref = format!("agentgres://model-route-receipt/{id}");
-    let _ = persist_record(
+    // The receipt_ref is embedded on the mutated route record and read back by GET :id; a
+    // discarded write hands the record a receipt no reader can find. Effectful callers map this
+    // to a typed 500; the bootstrap-seed caller keeps it best-effort (CLASSIFIED there).
+    persist_record(
         data_dir,
         RECEIPT_DIR,
         &id,
@@ -730,8 +733,8 @@ fn route_receipt(
             "route_ref": route_ref, "op": op, "outcome": outcome,
             "admission_id": admission_id, "at": iso_now()
         }),
-    );
-    receipt_ref
+    )?;
+    Ok(receipt_ref)
 }
 
 /// Post an agent-run-transcript for an effectful registry op so the transcript plane computes a
@@ -1321,6 +1324,7 @@ pub(crate) fn ensure_seed(data_dir: &str) {
             )]);
         }
     }
+    // CLASSIFIED — bootstrap seed: idempotent, retried every read; strict lane re-censuses (:224-232)
     let receipt = route_receipt(
         data_dir,
         &s(&record, "route_ref", ""),
@@ -1329,17 +1333,20 @@ pub(crate) fn ensure_seed(data_dir: &str) {
         record
             .pointer("/admission/last_admission_id")
             .and_then(|v| v.as_str()),
-    );
+    )
+    .unwrap_or_default();
     record["receipt_refs"] = json!([receipt]);
+    // CLASSIFIED — bootstrap seed: idempotent, retried every read; strict lane re-censuses (:224-232)
     let _ = persist_record(data_dir, RECORD_DIR, SEED_ROUTE_ID, &record);
 }
 
-fn save_route(data_dir: &str, route: &mut Value) {
+fn save_route(data_dir: &str, route: &mut Value) -> std::io::Result<()> {
     route["updated_at"] = json!(iso_now());
     if let Some(id) = route.get("route_id").and_then(|v| v.as_str()) {
         let id = id.to_string();
-        let _ = persist_record(data_dir, RECORD_DIR, &id, route);
+        persist_record(data_dir, RECORD_DIR, &id, route)?;
     }
+    Ok(())
 }
 
 /// Persist a fresh availability probe onto a route WITHOUT clobbering a concurrent edit: under the
@@ -1352,20 +1359,22 @@ fn persist_availability_locked(
     id: &str,
     availability: Value,
     receipt: Option<&str>,
-) -> Option<Value> {
+) -> std::io::Result<Option<Value>> {
     let _guard = st
         .model_route_lock
         .lock()
         .unwrap_or_else(|e| e.into_inner());
-    let mut route = load_route_record(&st.data_dir, id)?;
+    let Some(mut route) = load_route_record(&st.data_dir, id) else {
+        return Ok(None);
+    };
     route["availability"] = availability;
     if let Some(r) = receipt {
         if let Some(refs) = route["receipt_refs"].as_array_mut() {
             refs.push(json!(r));
         }
     }
-    save_route(&st.data_dir, &mut route);
-    Some(route)
+    save_route(&st.data_dir, &mut route)?;
+    Ok(Some(route))
 }
 
 fn with_staleness(mut route: Value) -> Value {
@@ -1395,7 +1404,12 @@ pub(crate) async fn handle_model_routes_list(
             let id = s(&r, "route_id", "");
             let availability = probe_route(&r).await;
             // Reload-under-lock so a concurrent PATCH/mutation in the probe window is not clobbered.
-            let updated = persist_availability_locked(&st, &id, availability, None).unwrap_or(r);
+            // A persist failure (or a vanished record) falls back to the last DURABLE record `r`
+            // rather than surfacing an un-persisted probe as truth on this read projection.
+            let updated = persist_availability_locked(&st, &id, availability, None)
+                .ok()
+                .flatten()
+                .unwrap_or(r);
             refreshed.push(with_staleness(updated));
         }
         routes = refreshed;
@@ -1631,7 +1645,9 @@ pub(crate) async fn handle_model_route_create(
             );
         }
     }
-    let receipt = route_receipt(
+    // Mirror the M4 checked order: the receipt commits first (its ref is embedded on the record),
+    // then the record — a 201 is returned only when both durable effects landed.
+    let receipt = match route_receipt(
         &st.data_dir,
         &s(&record, "route_ref", ""),
         "registered",
@@ -1639,14 +1655,35 @@ pub(crate) async fn handle_model_route_create(
         record
             .pointer("/custody/custody_admission_ref")
             .and_then(|v| v.as_str()),
-    );
+    ) {
+        Ok(receipt) => receipt,
+        Err(_) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    json!({ "ok": false, "code": "model_route_receipt_persistence_failed",
+                    "message": "the registration receipt did not commit — the route was not registered" }),
+                ),
+            );
+        }
+    };
     record["receipt_refs"] = json!([receipt]);
-    let _ = persist_record(
+    if persist_record(
         &st.data_dir,
         RECORD_DIR,
         &s(&record, "route_id", ""),
         &record,
-    );
+    )
+    .is_err()
+    {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "model_route_persistence_failed",
+                "message": "the model route did not commit — nothing was registered" }),
+            ),
+        );
+    }
     (StatusCode::CREATED, Json(json!({ "route": record })))
 }
 
@@ -1689,12 +1726,12 @@ pub(crate) async fn handle_model_route_patch(
     AxumPath(id): AxumPath<String>,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
-    let Some(mut route) = load_route_record(&st.data_dir, &id) else {
+    if load_route_record(&st.data_dir, &id).is_none() {
         return (
             StatusCode::NOT_FOUND,
             Json(json!({ "error": { "code": "not_found", "route": id } })),
         );
-    };
+    }
     if body
         .get("api_key")
         .or_else(|| body.get("secret"))
@@ -1708,6 +1745,19 @@ pub(crate) async fn handle_model_route_patch(
             ),
         );
     }
+    // Serialize the whole read-modify-write under the registry lock (like lifecycle_flip) so a
+    // concurrent flip / select-default landing in the mutate window is not clobbered. No .await
+    // is taken while the guard is held.
+    let _guard = st
+        .model_route_lock
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    let Some(mut route) = load_route_record(&st.data_dir, &id) else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": { "code": "not_found", "route": id } })),
+        );
+    };
     let credential_change =
         body.get("credential_posture").is_some() || body.get("env_key_name").is_some();
     if credential_change {
@@ -1750,17 +1800,36 @@ pub(crate) async fn handle_model_route_patch(
             route["availability"] = json!({ "state": "declared", "probe": Value::Null });
         }
     }
-    let receipt = route_receipt(
+    let receipt = match route_receipt(
         &st.data_dir,
         &s(&route, "route_ref", ""),
         "patched",
         "ok",
         None,
-    );
+    ) {
+        Ok(receipt) => receipt,
+        Err(_) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    json!({ "ok": false, "code": "model_route_receipt_persistence_failed",
+                    "message": "the patch receipt did not commit — no change was recorded" }),
+                ),
+            );
+        }
+    };
     if let Some(refs) = route["receipt_refs"].as_array_mut() {
         refs.push(json!(receipt));
     }
-    save_route(&st.data_dir, &mut route);
+    if save_route(&st.data_dir, &mut route).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "model_route_persistence_failed",
+                "message": "the model route patch did not commit — nothing changed" }),
+            ),
+        );
+    }
     (StatusCode::OK, Json(json!({ "route": route })))
 }
 
@@ -1805,10 +1874,30 @@ pub(crate) async fn handle_model_route_delete(
         );
     }
     let removed = remove_record(&st.data_dir, RECORD_DIR, &id);
-    let receipt = route_receipt(&st.data_dir, &route_ref, "deleted", "ok", None);
+    if !removed {
+        // The route resolved above; a false removal means the delete did not take effect. Do not
+        // emit a "deleted"/ok receipt or a 200 over a record that is still present.
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "code": "model_route_delete_failed",
+                "message": "the model route record was not removed — nothing was deleted" })),
+        );
+    }
+    let receipt = match route_receipt(&st.data_dir, &route_ref, "deleted", "ok", None) {
+        Ok(receipt) => receipt,
+        Err(_) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    json!({ "ok": false, "code": "model_route_receipt_persistence_failed",
+                    "message": "the route was removed but the deletion receipt did not commit" }),
+                ),
+            );
+        }
+    };
     (
         StatusCode::OK,
-        Json(json!({ "ok": removed, "route_ref": route_ref, "receipt_ref": receipt })),
+        Json(json!({ "ok": true, "route_ref": route_ref, "receipt_ref": receipt })),
     )
 }
 
@@ -1831,9 +1920,29 @@ pub(crate) async fn handle_model_route_probe(
         .get("state")
         .and_then(|v| v.as_str())
         .unwrap_or("declared");
-    let receipt = route_receipt(&st.data_dir, &route_ref, "probed", state, None);
-    // Reload-under-lock so a PATCH that landed during the network probe is not clobbered.
-    persist_availability_locked(&st, &id, availability.clone(), Some(&receipt));
+    let receipt = match route_receipt(&st.data_dir, &route_ref, "probed", state, None) {
+        Ok(receipt) => receipt,
+        Err(_) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    json!({ "ok": false, "code": "model_route_receipt_persistence_failed",
+                    "message": "the probe receipt did not commit — no availability was recorded" }),
+                ),
+            );
+        }
+    };
+    // Reload-under-lock so a PATCH that landed during the network probe is not clobbered. The
+    // probe result is authoritative registry truth: refuse rather than return un-persisted state.
+    if persist_availability_locked(&st, &id, availability.clone(), Some(&receipt)).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "model_route_probe_persistence_failed",
+                "message": "the availability probe did not commit — the route's posture is unchanged" }),
+            ),
+        );
+    }
     let transcript_run = post_op_transcript(&st.base_url, "probe", &route_ref, &availability).await;
     (
         StatusCode::OK,
@@ -1862,13 +1971,24 @@ async fn lifecycle_flip(
     match compose_mutation_admission(&route, mutation_kind, None, None) {
         Ok(admission) => {
             let route_ref = s(&route, "route_ref", "");
-            let receipt = route_receipt(
+            let receipt = match route_receipt(
                 &st.data_dir,
                 &route_ref,
                 mutation_kind,
                 "ok",
                 admission.get("admission_id").and_then(|v| v.as_str()),
-            );
+            ) {
+                Ok(receipt) => receipt,
+                Err(_) => {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(
+                            json!({ "ok": false, "code": "model_route_receipt_persistence_failed",
+                            "message": "the lifecycle receipt did not commit — the route was not changed" }),
+                        ),
+                    );
+                }
+            };
             // Reload-under-lock and apply the flip on fresh state so a concurrent mutation isn't lost.
             let route = {
                 let _guard = st
@@ -1881,7 +2001,15 @@ async fn lifecycle_flip(
                 if let Some(refs) = fresh["receipt_refs"].as_array_mut() {
                     refs.push(json!(receipt));
                 }
-                save_route(&st.data_dir, &mut fresh);
+                if save_route(&st.data_dir, &mut fresh).is_err() {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(
+                            json!({ "ok": false, "code": "model_route_persistence_failed",
+                            "message": "the lifecycle flip did not commit — the route's status is unchanged" }),
+                        ),
+                    );
+                }
                 fresh
             };
             let transcript_run = post_op_transcript(
@@ -1941,13 +2069,24 @@ pub(crate) async fn handle_model_route_select_default(
     match compose_mutation_admission(&route, "select_route", None, None) {
         Ok(admission) => {
             let route_ref = s(&route, "route_ref", "");
-            let receipt = route_receipt(
+            let receipt = match route_receipt(
                 &st.data_dir,
                 &route_ref,
                 "select_route",
                 "ok",
                 admission.get("admission_id").and_then(|v| v.as_str()),
-            );
+            ) {
+                Ok(receipt) => receipt,
+                Err(_) => {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(
+                            json!({ "ok": false, "code": "model_route_receipt_persistence_failed",
+                            "message": "the select-default receipt did not commit — the default was not changed" }),
+                        ),
+                    );
+                }
+            };
             // Hold the registry lock across clear-others + set-self so two concurrent
             // select-default calls cannot each observe the old default and both win (the
             // exactly-one invariant). No .await inside the guarded region.
@@ -1956,14 +2095,34 @@ pub(crate) async fn handle_model_route_select_default(
                     .model_route_lock
                     .lock()
                     .unwrap_or_else(|e| e.into_inner());
+                // Track the defaults we clear so a set-self failure can restore them: a partial
+                // failure that clears the old default but never sets the new one would leave ZERO
+                // defaults and the strict lane refuses the whole registry (:225-232).
+                let mut cleared: Vec<Value> = Vec::new();
                 for mut other in read_record_dir(&st.data_dir, RECORD_DIR) {
                     if other.get("default_route").and_then(|v| v.as_bool()) == Some(true)
                         && s(&other, "route_id", "") != id
                     {
                         other["default_route"] = json!(false);
                         let other_ref = s(&other, "route_ref", "");
-                        route_receipt(&st.data_dir, &other_ref, "default_cleared", "ok", None);
-                        save_route(&st.data_dir, &mut other);
+                        // CLASSIFIED — best-effort telemetry: the flag flip is proven by the save
+                        // below + the exactly-one census; the cleared-receipt is an evidence trail.
+                        let _ =
+                            route_receipt(&st.data_dir, &other_ref, "default_cleared", "ok", None);
+                        if save_route(&st.data_dir, &mut other).is_err() {
+                            for prior in cleared.iter_mut() {
+                                prior["default_route"] = json!(true);
+                                let _ = save_route(&st.data_dir, prior);
+                            }
+                            return (
+                                StatusCode::INTERNAL_SERVER_ERROR,
+                                Json(
+                                    json!({ "ok": false, "code": "model_route_persistence_failed",
+                                    "message": "clearing a prior default route did not commit — the default was not changed" }),
+                                ),
+                            );
+                        }
+                        cleared.push(other);
                     }
                 }
                 let mut fresh = load_route_record(&st.data_dir, &id).unwrap_or(route);
@@ -1972,7 +2131,19 @@ pub(crate) async fn handle_model_route_select_default(
                 if let Some(refs) = fresh["receipt_refs"].as_array_mut() {
                     refs.push(json!(receipt));
                 }
-                save_route(&st.data_dir, &mut fresh);
+                if save_route(&st.data_dir, &mut fresh).is_err() {
+                    for prior in cleared.iter_mut() {
+                        prior["default_route"] = json!(true);
+                        let _ = save_route(&st.data_dir, prior);
+                    }
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(
+                            json!({ "ok": false, "code": "model_route_persistence_failed",
+                            "message": "selecting the new default route did not commit — the prior default was restored" }),
+                        ),
+                    );
+                }
                 fresh
             };
             let transcript_run =
@@ -2003,7 +2174,7 @@ pub(crate) async fn handle_model_route_bind_session(
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     ensure_seed(&st.data_dir);
-    let Some(mut route) = load_route_record(&st.data_dir, &id) else {
+    let Some(route) = load_route_record(&st.data_dir, &id) else {
         return (
             StatusCode::NOT_FOUND,
             Json(json!({ "error": { "code": "not_found", "route": id } })),
@@ -2047,10 +2218,28 @@ pub(crate) async fn handle_model_route_bind_session(
             } })),
         );
     }
-    // Inline REAL probe — a binding must never be minted against stale availability.
+    // Inline REAL probe — a binding must never be minted against stale availability. Persist the
+    // fresh probe under the registry lock (reload-modify-save) so a concurrent flip is not lost,
+    // and refuse rather than bind against an un-persisted availability.
     let availability = probe_route(&route).await;
-    route["availability"] = availability.clone();
-    save_route(&st.data_dir, &mut route);
+    let route = match persist_availability_locked(&st, &id, availability.clone(), None) {
+        Ok(Some(route)) => route,
+        Ok(None) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(json!({ "error": { "code": "not_found", "route": id } })),
+            );
+        }
+        Err(_) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    json!({ "ok": false, "code": "model_route_persistence_failed",
+                    "message": "the bind-time availability probe did not commit — the session was not bound" }),
+                ),
+            );
+        }
+    };
     let state = availability
         .get("state")
         .and_then(|v| v.as_str())
@@ -2069,13 +2258,24 @@ pub(crate) async fn handle_model_route_bind_session(
         Ok(admission) => {
             let binding_id = format!("mrb_{:x}", nanos());
             let route_ref = s(&route, "route_ref", "");
-            let receipt = route_receipt(
+            let receipt = match route_receipt(
                 &st.data_dir,
                 &route_ref,
                 "bind_session_route",
                 "ok",
                 admission.get("admission_id").and_then(|v| v.as_str()),
-            );
+            ) {
+                Ok(receipt) => receipt,
+                Err(_) => {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(
+                            json!({ "ok": false, "code": "model_route_receipt_persistence_failed",
+                            "message": "the bind receipt did not commit — the session was not bound" }),
+                        ),
+                    );
+                }
+            };
             let binding = json!({
                 "schema_version": BINDING_SCHEMA,
                 "binding_id": binding_id,
@@ -2092,7 +2292,17 @@ pub(crate) async fn handle_model_route_bind_session(
                 "transport": transport,
                 "created_at": iso_now()
             });
-            let _ = persist_record(&st.data_dir, BINDING_DIR, &binding_id, &binding);
+            // The binding is consumed by sessions/:id/execute and guards route deletion; a 201 over
+            // a discarded write hands the session a binding no execute path can find.
+            if persist_record(&st.data_dir, BINDING_DIR, &binding_id, &binding).is_err() {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(
+                        json!({ "ok": false, "code": "model_route_session_binding_persistence_failed",
+                        "message": "the session binding did not commit — the session was not bound" }),
+                    ),
+                );
+            }
             let transcript_run = post_op_transcript(
                 &st.base_url,
                 "bind_session_route",

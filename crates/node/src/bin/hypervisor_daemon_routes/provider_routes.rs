@@ -122,6 +122,29 @@ fn provider_account_persist_failed(what: &str) -> (StatusCode, Json<Value>) {
     )
 }
 
+/// A provider-op durable write that did not land AFTER the external provider effect already
+/// executed. The response names the op, the receipt (may be null if it too did not persist), and
+/// the provider-native evidence ids, so the caller can reconcile a resource that exists but has no
+/// daemon handle — never a silent 2xx over a lost record.
+fn provider_op_persist_failed(
+    code: &str,
+    op: &str,
+    provider: &str,
+    env_ref: &str,
+    receipt: &Option<String>,
+    provider_native: Value,
+    what_happened: &str,
+) -> (StatusCode, Json<Value>) {
+    (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        Json(json!({
+            "ok": false, "code": code, "op": op, "provider": provider, "environment_ref": env_ref,
+            "receipt_ref": receipt, "provider_native": provider_native,
+            "message": format!("{what_happened} — the external provider effect ALREADY happened but this record did not commit, so the resource is not reconcilable through the daemon (receipt {rcpt}). Retry the op or reconcile from the provider console.", rcpt = receipt.as_deref().unwrap_or("<receipt-not-persisted>")),
+        })),
+    )
+}
+
 fn provider_receipt_ext(
     data_dir: &str,
     provider: &str,
@@ -902,7 +925,11 @@ impl EnvironmentProvider for SshProvider {
             "path": file.to_string_lossy(),
             "at": iso_now(),
         });
-        let _ = persist_record(data_dir, MATERIAL_KIND, &material_id, &record);
+        // W1.2 / MEF-GAP-008 — the response claims admitted:true and restore resolves the material by
+        // this record; the custody tar was already written to disk, so a lost record orphans those
+        // bytes (present but not admitted — restore would refuse them). Refuse and name the file.
+        persist_record(data_dir, MATERIAL_KIND, &material_id, &record)
+            .map_err(|e| format!("provider_operation_persistence_failed — snapshot material record {material_id} did not commit; custody bytes are written at {} but not daemon-admitted: {e}", file.to_string_lossy()))?;
         Ok(
             json!({ "restore_material_ref": material_ref, "state_root": state_root, "custody": "daemon", "bytes": tar_bytes.len(), "admitted": true }),
         )
@@ -1099,9 +1126,12 @@ impl VastProvider {
     fn instance(&self, data_dir: &str, env_ref: &str) -> Option<Value> {
         load_vast_instance(data_dir, self.account_id(), env_ref)
     }
-    fn save_instance(&self, data_dir: &str, instance: &Value) {
+    fn save_instance(&self, data_dir: &str, instance: &Value) -> Result<(), String> {
         let id = text(instance, "record_id").to_string();
-        let _ = persist_record(data_dir, VAST_INSTANCE_KIND, &id, instance);
+        // W1.2 / MEF-GAP-008 — this record is the ONLY daemon handle to a JUST-CREATED (paid)
+        // provider machine; a lost write orphans it from its own observe/stop/delete lane.
+        persist_record(data_dir, VAST_INSTANCE_KIND, &id, instance)
+            .map_err(|e| format!("provider_operation_persistence_failed — instance record {id} did not commit; the provider machine may exist with no daemon handle: {e}"))
     }
     /// The BYO SSH lane over THIS instance's endpoint — the same workspace mutation + daemon
     /// custody contract as baremetal_ssh (materials attribute to the REAL vast account).
@@ -1219,7 +1249,7 @@ impl EnvironmentProvider for VastProvider {
                     "note": "SIMULATED marketplace id — evidence only, never restore truth; no real Vast instance exists" },
                 "created_at": iso_now(),
             });
-            self.save_instance(data_dir, &instance);
+            self.save_instance(data_dir, &instance)?;
             // Bootstrap the workspace root over the REAL ssh lane (readiness proof included).
             let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
             let bootstrap = lane.create(data_dir, env_ref, plan)?;
@@ -1292,7 +1322,7 @@ impl EnvironmentProvider for VastProvider {
                 "created_at": iso_now(),
                 "containment_note": "teardown handle persisted immediately after the billable lease; delete stays callable even if provisioning fails below",
             });
-            self.save_instance(data_dir, &teardown_handle);
+            self.save_instance(data_dir, &teardown_handle)?;
 
             // Ephemeral per-instance ssh keypair: private key SEALED onto the record (never
             // plaintext), public key attached to the Vast account for this lease.
@@ -1366,7 +1396,7 @@ impl EnvironmentProvider for VastProvider {
                 "provider_native": { "instance_id": native_id, "note": "provider-native id — evidence only, never restore truth" },
                 "created_at": iso_now(),
             });
-            self.save_instance(data_dir, &instance);
+            self.save_instance(data_dir, &instance)?;
             return Ok(json!({
                 "provider_operation_ref": format!("provider-account://{}/op/create/{}", self.account_id(), safe(env_ref)),
                 "instance": { "instance_id": instance["instance_id"], "status": "provisioned", "execution_mode": "live" },
@@ -1460,7 +1490,7 @@ impl EnvironmentProvider for VastProvider {
                                      "ssh_host": host, "ssh_port": port, "proven_at": iso_now() });
             inst["ssh"] = json!({ "host": host, "port": port, "user": "root" });
             inst["ssh_ready_evidence"] = boot_evidence.clone();
-            self.save_instance(data_dir, &inst);
+            self.save_instance(data_dir, &inst)?;
         }
         // Bootstrap the remote workspace ONCE (simulator did it at create), then the readiness
         // probe — a REAL ssh round-trip either way.
@@ -1473,7 +1503,7 @@ impl EnvironmentProvider for VastProvider {
         }
         lane.start(data_dir, env_ref)?;
         inst["status"] = json!("running");
-        self.save_instance(data_dir, &inst);
+        self.save_instance(data_dir, &inst)?;
         Ok(
             json!({ "provider_operation_ref": format!("provider-account://{}/op/start/{}", self.account_id(), safe(env_ref)),
                    "instance_id": inst["instance_id"], "status": "running", "ssh_ready": true,
@@ -1491,7 +1521,7 @@ impl EnvironmentProvider for VastProvider {
         let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
         let stopped = lane.stop(data_dir, env_ref)?;
         inst["status"] = json!("stopped");
-        self.save_instance(data_dir, &inst);
+        self.save_instance(data_dir, &inst)?;
         Ok(
             json!({ "provider_operation_ref": format!("provider-account://{}/op/stop/{}", self.account_id(), safe(env_ref)),
                    "instance_id": inst["instance_id"], "status": "stopped", "lane": stopped }),
@@ -1595,7 +1625,7 @@ impl EnvironmentProvider for VastProvider {
         inst["status"] = json!(teardown_state);
         inst["torn_down_at"] = json!(iso_now());
         inst["deletion_disposition"] = deletion_disposition.clone();
-        self.save_instance(data_dir, &inst);
+        self.save_instance(data_dir, &inst)?;
         Ok(
             json!({ "provider_operation_ref": format!("provider-account://{}/op/delete/{}", self.account_id(), safe(env_ref)),
                    "instance_id": inst["instance_id"], "teardown_state": teardown_state,
@@ -1674,9 +1704,12 @@ impl RunPodProvider {
     fn instance(&self, data_dir: &str, env_ref: &str) -> Option<Value> {
         load_runpod_instance(data_dir, self.account_id(), env_ref)
     }
-    fn save_instance(&self, data_dir: &str, instance: &Value) {
+    fn save_instance(&self, data_dir: &str, instance: &Value) -> Result<(), String> {
         let id = text(instance, "record_id").to_string();
-        let _ = persist_record(data_dir, RUNPOD_INSTANCE_KIND, &id, instance);
+        // W1.2 / MEF-GAP-008 — this record is the ONLY daemon handle to a JUST-CREATED (paid)
+        // provider machine; a lost write orphans it from its own observe/stop/delete lane.
+        persist_record(data_dir, RUNPOD_INSTANCE_KIND, &id, instance)
+            .map_err(|e| format!("provider_operation_persistence_failed — instance record {id} did not commit; the provider machine may exist with no daemon handle: {e}"))
     }
     /// The BYO SSH lane over this pod's endpoint — identical custody contract to Vast/BYO.
     fn ssh_lane(&self, data_dir: &str, env_ref: &str) -> Result<(SshProvider, KeyGuard), String> {
@@ -1788,7 +1821,7 @@ impl EnvironmentProvider for RunPodProvider {
                     "note": "SIMULATED pod id — evidence only, never restore truth; no real RunPod pod exists" },
                 "created_at": iso_now(),
             });
-            self.save_instance(data_dir, &instance);
+            self.save_instance(data_dir, &instance)?;
             let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
             let bootstrap = lane.create(data_dir, env_ref, plan)?;
             return Ok(json!({
@@ -1895,7 +1928,7 @@ impl EnvironmentProvider for RunPodProvider {
                 "provider_native": { "pod_id": native_id, "note": "provider-native pod id — evidence only, never restore truth" },
                 "created_at": iso_now(),
             });
-            self.save_instance(data_dir, &instance);
+            self.save_instance(data_dir, &instance)?;
             return Ok(json!({
                 "provider_operation_ref": format!("provider-account://{}/op/create/{}", self.account_id(), safe(env_ref)),
                 "instance": { "instance_id": instance["instance_id"], "status": "provisioned", "execution_mode": "live" },
@@ -1987,7 +2020,7 @@ impl EnvironmentProvider for RunPodProvider {
                                      "ssh_host": host, "ssh_port": port, "proven_at": iso_now() });
             inst["ssh"] = json!({ "host": host, "port": port, "user": "root" });
             inst["ssh_ready_evidence"] = boot_evidence.clone();
-            self.save_instance(data_dir, &inst);
+            self.save_instance(data_dir, &inst)?;
         }
         let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
         if inst.get("workspace_bootstrapped").and_then(Value::as_bool) != Some(true) {
@@ -1998,7 +2031,7 @@ impl EnvironmentProvider for RunPodProvider {
         }
         lane.start(data_dir, env_ref)?;
         inst["status"] = json!("running");
-        self.save_instance(data_dir, &inst);
+        self.save_instance(data_dir, &inst)?;
         Ok(
             json!({ "provider_operation_ref": format!("provider-account://{}/op/start/{}", self.account_id(), safe(env_ref)),
                    "instance_id": inst["instance_id"], "status": "running", "ssh_ready": true,
@@ -2016,7 +2049,7 @@ impl EnvironmentProvider for RunPodProvider {
         let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
         let stopped = lane.stop(data_dir, env_ref)?;
         inst["status"] = json!("stopped");
-        self.save_instance(data_dir, &inst);
+        self.save_instance(data_dir, &inst)?;
         Ok(
             json!({ "provider_operation_ref": format!("provider-account://{}/op/stop/{}", self.account_id(), safe(env_ref)),
                    "instance_id": inst["instance_id"], "status": "stopped", "lane": stopped }),
@@ -2104,7 +2137,7 @@ impl EnvironmentProvider for RunPodProvider {
         inst["status"] = json!(teardown_state);
         inst["torn_down_at"] = json!(iso_now());
         inst["deletion_disposition"] = deletion_disposition.clone();
-        self.save_instance(data_dir, &inst);
+        self.save_instance(data_dir, &inst)?;
         Ok(
             json!({ "provider_operation_ref": format!("provider-account://{}/op/delete/{}", self.account_id(), safe(env_ref)),
                    "instance_id": inst["instance_id"], "teardown_state": teardown_state,
@@ -2183,9 +2216,12 @@ impl LambdaProvider {
     fn instance(&self, data_dir: &str, env_ref: &str) -> Option<Value> {
         load_lambda_instance(data_dir, self.account_id(), env_ref)
     }
-    fn save_instance(&self, data_dir: &str, instance: &Value) {
+    fn save_instance(&self, data_dir: &str, instance: &Value) -> Result<(), String> {
         let id = text(instance, "record_id").to_string();
-        let _ = persist_record(data_dir, LAMBDA_INSTANCE_KIND, &id, instance);
+        // W1.2 / MEF-GAP-008 — this record is the ONLY daemon handle to a JUST-CREATED (paid)
+        // provider machine; a lost write orphans it from its own observe/stop/delete lane.
+        persist_record(data_dir, LAMBDA_INSTANCE_KIND, &id, instance)
+            .map_err(|e| format!("provider_operation_persistence_failed — instance record {id} did not commit; the provider machine may exist with no daemon handle: {e}"))
     }
     fn ssh_lane(&self, data_dir: &str, env_ref: &str) -> Result<(SshProvider, KeyGuard), String> {
         let inst = self
@@ -2318,7 +2354,7 @@ impl EnvironmentProvider for LambdaProvider {
                     "note": "SIMULATED VM/disk ids — evidence only, never restore truth; no real Lambda VM exists" },
                 "created_at": iso_now(),
             });
-            self.save_instance(data_dir, &instance);
+            self.save_instance(data_dir, &instance)?;
             let (ssh_ready, bootstrap) = if boot_delay {
                 (false, Value::Null) // workspace bootstrap deferred to start (post-boot)
             } else {
@@ -2432,7 +2468,7 @@ impl EnvironmentProvider for LambdaProvider {
                 "provider_native": { "instance_id": native_id, "note": "provider-native VM id — evidence only, never restore truth" },
                 "created_at": iso_now(),
             });
-            self.save_instance(data_dir, &instance);
+            self.save_instance(data_dir, &instance)?;
             return Ok(json!({
                 "provider_operation_ref": format!("provider-account://{}/op/create/{}", self.account_id(), safe(env_ref)),
                 "instance": { "instance_id": instance["instance_id"], "status": "provisioned", "execution_mode": "live" },
@@ -2525,7 +2561,7 @@ impl EnvironmentProvider for LambdaProvider {
                 inst["ssh"] = sim_ssh;
             }
             inst["ssh_ready_evidence"] = boot_evidence.clone();
-            self.save_instance(data_dir, &inst);
+            self.save_instance(data_dir, &inst)?;
         }
         let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
         if inst.get("workspace_bootstrapped").and_then(Value::as_bool) != Some(true) {
@@ -2537,7 +2573,7 @@ impl EnvironmentProvider for LambdaProvider {
         }
         lane.start(data_dir, env_ref)?;
         inst["status"] = json!("running");
-        self.save_instance(data_dir, &inst);
+        self.save_instance(data_dir, &inst)?;
         Ok(
             json!({ "provider_operation_ref": format!("provider-account://{}/op/start/{}", self.account_id(), safe(env_ref)),
                    "instance_id": inst["instance_id"], "status": "running", "ssh_ready": true,
@@ -2557,7 +2593,7 @@ impl EnvironmentProvider for LambdaProvider {
         let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
         let stopped = lane.stop(data_dir, env_ref)?;
         inst["status"] = json!("workspace_stopped_vm_running");
-        self.save_instance(data_dir, &inst);
+        self.save_instance(data_dir, &inst)?;
         Ok(
             json!({ "provider_operation_ref": format!("provider-account://{}/op/stop/{}", self.account_id(), safe(env_ref)),
                    "instance_id": inst["instance_id"], "status": "workspace_stopped_vm_running",
@@ -2650,7 +2686,7 @@ impl EnvironmentProvider for LambdaProvider {
         inst["status"] = json!(teardown_state);
         inst["torn_down_at"] = json!(iso_now());
         inst["deletion_disposition"] = deletion_disposition.clone();
-        self.save_instance(data_dir, &inst);
+        self.save_instance(data_dir, &inst)?;
         Ok(
             json!({ "provider_operation_ref": format!("provider-account://{}/op/delete/{}", self.account_id(), safe(env_ref)),
                    "instance_id": inst["instance_id"], "teardown_state": teardown_state,
@@ -2715,9 +2751,12 @@ impl GcpProvider {
     fn instance(&self, data_dir: &str, env_ref: &str) -> Option<Value> {
         load_gcp_instance(data_dir, self.account_id(), env_ref)
     }
-    fn save_instance(&self, data_dir: &str, inst: &Value) {
+    fn save_instance(&self, data_dir: &str, inst: &Value) -> Result<(), String> {
         let id = text(inst, "record_id").to_string();
-        let _ = persist_record(data_dir, GCP_INSTANCE_KIND, &id, inst);
+        // W1.2 / MEF-GAP-008 — this record is the ONLY daemon handle to a JUST-CREATED (paid)
+        // provider machine; a lost write orphans it from its own observe/stop/delete lane.
+        persist_record(data_dir, GCP_INSTANCE_KIND, &id, inst)
+            .map_err(|e| format!("provider_operation_persistence_failed — instance record {id} did not commit; the provider machine may exist with no daemon handle: {e}"))
     }
     fn push_event(inst: &mut Value, kind: &str, detail: String) {
         let mut events = inst
@@ -2892,7 +2931,7 @@ impl EnvironmentProvider for GcpProvider {
             .unwrap_or("?")
             .to_string();
         Self::push_event(&mut inst, "instances_insert_accepted", format!("{} in {zone} ({posture_label}) — Cloud Audit Log refs land with the live harness (the audit log is the customer's)", text(plan, "machine_type")));
-        self.save_instance(data_dir, &inst);
+        self.save_instance(data_dir, &inst)?;
         Ok(json!({
             "provider_operation_ref": format!("provider-account://{}/op/create/{}", self.account_id(), safe(env_ref)),
             "instance": { "instance_name": instance_name, "status": "PROVISIONING", "execution_mode": "simulated_control_plane" },
@@ -2934,7 +2973,7 @@ impl EnvironmentProvider for GcpProvider {
                 "boot_proven",
                 "ssh readiness proven through the reachable network/firewall posture".into(),
             );
-            self.save_instance(data_dir, &inst);
+            self.save_instance(data_dir, &inst)?;
         }
         let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
         if inst.get("workspace_bootstrapped").and_then(Value::as_bool) != Some(true) {
@@ -2953,7 +2992,7 @@ impl EnvironmentProvider for GcpProvider {
                 "workspace running".into()
             },
         );
-        self.save_instance(data_dir, &inst);
+        self.save_instance(data_dir, &inst)?;
         Ok(
             json!({ "provider_operation_ref": format!("provider-account://{}/op/start/{}", self.account_id(), safe(env_ref)),
                    "instance_name": inst["instance_name"], "status": "RUNNING", "ssh_ready": true,
@@ -2979,7 +3018,7 @@ impl EnvironmentProvider for GcpProvider {
             "state TERMINATED — vCPU/RAM billing halts; Persistent Disk keeps billing until delete"
                 .into(),
         );
-        self.save_instance(data_dir, &inst);
+        self.save_instance(data_dir, &inst)?;
         Ok(
             json!({ "provider_operation_ref": format!("provider-account://{}/op/stop/{}", self.account_id(), safe(env_ref)),
                    "instance_name": inst["instance_name"], "status": "TERMINATED",
@@ -2997,7 +3036,7 @@ impl EnvironmentProvider for GcpProvider {
         lane.start(data_dir, env_ref)?;
         inst["status"] = json!("RUNNING");
         Self::push_event(&mut inst, "instance_reset", "in-place reset — endpoint retained (a stop/start cycle, by contrast, changes an ephemeral external IP)".into());
-        self.save_instance(data_dir, &inst);
+        self.save_instance(data_dir, &inst)?;
         Ok(
             json!({ "provider_operation_ref": format!("provider-account://{}/op/restart/{}", self.account_id(), safe(env_ref)),
                    "instance_name": inst["instance_name"], "status": "RUNNING",
@@ -3020,7 +3059,7 @@ impl EnvironmentProvider for GcpProvider {
         }
         inst["last_native_snapshot"] = native;
         Self::push_event(&mut inst, "snapshot_taken", "daemon-custody snapshot admitted; Persistent-Disk-style native name recorded as evidence".into());
-        self.save_instance(data_dir, &inst);
+        self.save_instance(data_dir, &inst)?;
         Ok(evidence)
     }
     fn restore(&self, data_dir: &str, env_ref: &str, material_ref: &str) -> Result<Value, String> {
@@ -3077,7 +3116,7 @@ impl EnvironmentProvider for GcpProvider {
             "instance_deleted",
             "delete always — boot disk auto-deleted with the instance per posture".into(),
         );
-        self.save_instance(data_dir, &inst);
+        self.save_instance(data_dir, &inst)?;
         Ok(
             json!({ "provider_operation_ref": format!("provider-account://{}/op/delete/{}", self.account_id(), safe(env_ref)),
                    "instance_name": inst["instance_name"], "teardown_state": teardown_state,
@@ -3173,9 +3212,12 @@ impl K8sProvider {
     fn workload(&self, data_dir: &str, env_ref: &str) -> Option<Value> {
         load_k8s_workload(data_dir, self.account_id(), env_ref)
     }
-    fn save_workload(&self, data_dir: &str, w: &Value) {
+    fn save_workload(&self, data_dir: &str, w: &Value) -> Result<(), String> {
         let id = text(w, "record_id").to_string();
-        let _ = persist_record(data_dir, K8S_WORKLOAD_KIND, &id, w);
+        // W1.2 / MEF-GAP-008 — this record is the ONLY daemon handle to a JUST-CREATED cluster
+        // workload; a lost write orphans it from its own observe/stop/delete lane.
+        persist_record(data_dir, K8S_WORKLOAD_KIND, &id, w)
+            .map_err(|e| format!("provider_operation_persistence_failed — workload record {id} did not commit; the cluster workload may exist with no daemon handle: {e}"))
     }
     fn push_event(w: &mut Value, kind: &str, detail: String) {
         let mut events = w
@@ -3400,7 +3442,7 @@ impl EnvironmentProvider for K8sProvider {
             "created_at": iso_now(),
         });
         Self::push_event(&mut w, "workload_admitted", format!("{workload_class} admitted in namespace '{namespace}' under quota (cpu {cpu_req}m / mem {mem_req}GB / gpu {gpu_req})"));
-        self.save_workload(data_dir, &w);
+        self.save_workload(data_dir, &w)?;
         Ok(json!({
             "provider_operation_ref": format!("provider-account://{}/op/create/{}", self.account_id(), safe(env_ref)),
             "workload": { "workload_name": workload_name, "workload_class": workload_class, "namespace": w["namespace"], "status": "Pending", "execution_mode": "simulated_control_plane" },
@@ -3442,7 +3484,7 @@ impl EnvironmentProvider for K8sProvider {
             "workload_ready",
             "readiness probe round-tripped through the exec lane".into(),
         );
-        self.save_workload(data_dir, &w);
+        self.save_workload(data_dir, &w)?;
         Ok(
             json!({ "provider_operation_ref": format!("provider-account://{}/op/start/{}", self.account_id(), safe(env_ref)),
                    "workload_name": w["workload_name"], "status": "Running", "ready": true,
@@ -3462,7 +3504,7 @@ impl EnvironmentProvider for K8sProvider {
                 command.chars().take(60).collect::<String>()
             ),
         );
-        self.save_workload(data_dir, &w);
+        self.save_workload(data_dir, &w)?;
         if code != 0 {
             return Err(format!("k8s exec failed (exit {code}): {stderr}"));
         }
@@ -3478,7 +3520,7 @@ impl EnvironmentProvider for K8sProvider {
             .ok_or("k8s_workload_absent")?;
         w["status"] = json!("Stopped");
         Self::push_event(&mut w, "workload_stopped", "workload stopped — customer/operator cluster: no metered spend lane by default; PVC persists per its storage class (cluster posture, not restore truth)".into());
-        self.save_workload(data_dir, &w);
+        self.save_workload(data_dir, &w)?;
         Ok(
             json!({ "provider_operation_ref": format!("provider-account://{}/op/stop/{}", self.account_id(), safe(env_ref)),
                    "workload_name": w["workload_name"], "status": "Stopped",
@@ -3523,10 +3565,13 @@ impl EnvironmentProvider for K8sProvider {
             "custody": "daemon", "path": file.to_string_lossy(),
             "at": iso_now(),
         });
-        let _ = persist_record(data_dir, MATERIAL_KIND, &material_id, &record);
+        // W1.2 / MEF-GAP-008 — admitted:true rests on this record and restore resolves by it; the
+        // custody tar is already on disk, so a lost record orphans those bytes. Refuse.
+        persist_record(data_dir, MATERIAL_KIND, &material_id, &record)
+            .map_err(|e| format!("provider_operation_persistence_failed — snapshot material record {material_id} did not commit; custody bytes are written at {} but not daemon-admitted: {e}", file.to_string_lossy()))?;
         let mut w2 = w.clone();
         Self::push_event(&mut w2, "snapshot_taken", "workload fs streamed to daemon custody; VolumeSnapshot-style native name recorded as evidence".into());
-        self.save_workload(data_dir, &w2);
+        self.save_workload(data_dir, &w2)?;
         Ok(
             json!({ "restore_material_ref": material_ref, "state_root": state_root, "custody": "daemon",
                    "bytes": tar_bytes.len(), "admitted": true,
@@ -3581,7 +3626,7 @@ impl EnvironmentProvider for K8sProvider {
             "restored",
             format!("workload fs restored from daemon custody ({material_ref})"),
         );
-        self.save_workload(data_dir, &w2);
+        self.save_workload(data_dir, &w2)?;
         Ok(
             json!({ "provider_operation_ref": format!("provider-account://{}/op/restore/{}", self.account_id(), safe(env_ref)),
                    "restored_from": material_ref, "state_root_verified": admitted }),
@@ -3657,7 +3702,7 @@ impl EnvironmentProvider for K8sProvider {
             "workload_deleted",
             "delete always — workload, PVC, and service removed per teardown policy".into(),
         );
-        self.save_workload(data_dir, &w);
+        self.save_workload(data_dir, &w)?;
         Ok(
             json!({ "provider_operation_ref": format!("provider-account://{}/op/delete/{}", self.account_id(), safe(env_ref)),
                    "workload_name": w["workload_name"], "teardown_state": teardown_state,
@@ -3712,9 +3757,12 @@ impl AzureProvider {
     fn instance(&self, data_dir: &str, env_ref: &str) -> Option<Value> {
         load_azure_instance(data_dir, self.account_id(), env_ref)
     }
-    fn save_instance(&self, data_dir: &str, inst: &Value) {
+    fn save_instance(&self, data_dir: &str, inst: &Value) -> Result<(), String> {
         let id = text(inst, "record_id").to_string();
-        let _ = persist_record(data_dir, AZURE_INSTANCE_KIND, &id, inst);
+        // W1.2 / MEF-GAP-008 — this record is the ONLY daemon handle to a JUST-CREATED (paid)
+        // provider machine; a lost write orphans it from its own observe/stop/delete lane.
+        persist_record(data_dir, AZURE_INSTANCE_KIND, &id, inst)
+            .map_err(|e| format!("provider_operation_persistence_failed — instance record {id} did not commit; the provider machine may exist with no daemon handle: {e}"))
     }
     fn push_event(inst: &mut Value, kind: &str, detail: String) {
         let mut events = inst
@@ -3903,7 +3951,7 @@ impl EnvironmentProvider for AzureProvider {
             .unwrap_or("?")
             .to_string();
         Self::push_event(&mut inst, "vm_create_accepted", format!("{} in {location} ({posture_label}) — Activity Log refs land with the live harness (the Activity Log is the customer's)", text(plan, "vm_size")));
-        self.save_instance(data_dir, &inst);
+        self.save_instance(data_dir, &inst)?;
         Ok(json!({
             "provider_operation_ref": format!("provider-account://{}/op/create/{}", self.account_id(), safe(env_ref)),
             "instance": { "vm_name": vm_name, "status": "Creating", "execution_mode": "simulated_control_plane" },
@@ -3942,7 +3990,7 @@ impl EnvironmentProvider for AzureProvider {
                 "boot_proven",
                 "ssh readiness proven through the reachable VNet/NSG posture".into(),
             );
-            self.save_instance(data_dir, &inst);
+            self.save_instance(data_dir, &inst)?;
         }
         let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
         if inst.get("workspace_bootstrapped").and_then(Value::as_bool) != Some(true) {
@@ -3961,7 +4009,7 @@ impl EnvironmentProvider for AzureProvider {
                 "workspace running".into()
             },
         );
-        self.save_instance(data_dir, &inst);
+        self.save_instance(data_dir, &inst)?;
         Ok(
             json!({ "provider_operation_ref": format!("provider-account://{}/op/start/{}", self.account_id(), safe(env_ref)),
                    "vm_name": inst["vm_name"], "status": "VM running", "ssh_ready": true,
@@ -3982,7 +4030,7 @@ impl EnvironmentProvider for AzureProvider {
         let stopped = lane.stop(data_dir, env_ref)?;
         inst["status"] = json!("VM deallocated");
         Self::push_event(&mut inst, "vm_deallocated", "DEALLOCATED (not merely stopped) — compute billing halts; a merely-stopped VM would keep billing compute; managed disks keep billing until delete".into());
-        self.save_instance(data_dir, &inst);
+        self.save_instance(data_dir, &inst)?;
         Ok(
             json!({ "provider_operation_ref": format!("provider-account://{}/op/stop/{}", self.account_id(), safe(env_ref)),
                    "vm_name": inst["vm_name"], "status": "VM deallocated",
@@ -3999,7 +4047,7 @@ impl EnvironmentProvider for AzureProvider {
         lane.start(data_dir, env_ref)?;
         inst["status"] = json!("VM running");
         Self::push_event(&mut inst, "vm_restarted", "in-place restart — endpoint retained, no deallocation (a deallocate/start cycle, by contrast, changes a dynamic public IP)".into());
-        self.save_instance(data_dir, &inst);
+        self.save_instance(data_dir, &inst)?;
         Ok(
             json!({ "provider_operation_ref": format!("provider-account://{}/op/restart/{}", self.account_id(), safe(env_ref)),
                    "vm_name": inst["vm_name"], "status": "VM running",
@@ -4025,7 +4073,7 @@ impl EnvironmentProvider for AzureProvider {
             "daemon-custody snapshot admitted; managed-disk-style native name recorded as evidence"
                 .into(),
         );
-        self.save_instance(data_dir, &inst);
+        self.save_instance(data_dir, &inst)?;
         Ok(evidence)
     }
     fn restore(&self, data_dir: &str, env_ref: &str, material_ref: &str) -> Result<Value, String> {
@@ -4080,7 +4128,7 @@ impl EnvironmentProvider for AzureProvider {
             "vm_deleted",
             "delete always — managed OS disk deleted with the VM per delete option".into(),
         );
-        self.save_instance(data_dir, &inst);
+        self.save_instance(data_dir, &inst)?;
         Ok(
             json!({ "provider_operation_ref": format!("provider-account://{}/op/delete/{}", self.account_id(), safe(env_ref)),
                    "vm_name": inst["vm_name"], "teardown_state": teardown_state,
@@ -4157,9 +4205,12 @@ impl AwsProvider {
     fn instance(&self, data_dir: &str, env_ref: &str) -> Option<Value> {
         load_aws_instance(data_dir, self.account_id(), env_ref)
     }
-    fn save_instance(&self, data_dir: &str, inst: &Value) {
+    fn save_instance(&self, data_dir: &str, inst: &Value) -> Result<(), String> {
         let id = text(inst, "record_id").to_string();
-        let _ = persist_record(data_dir, AWS_INSTANCE_KIND, &id, inst);
+        // W1.2 / MEF-GAP-008 — this record is the ONLY daemon handle to a JUST-CREATED (paid)
+        // provider machine; a lost write orphans it from its own observe/stop/delete lane.
+        persist_record(data_dir, AWS_INSTANCE_KIND, &id, inst)
+            .map_err(|e| format!("provider_operation_persistence_failed — instance record {id} did not commit; the provider machine may exist with no daemon handle: {e}"))
     }
     fn push_event(inst: &mut Value, kind: &str, detail: String) {
         let mut events = inst
@@ -4321,7 +4372,7 @@ impl EnvironmentProvider for AwsProvider {
             .unwrap_or("?")
             .to_string();
         Self::push_event(&mut inst, "run_instances_accepted", format!("{} in {} ({posture_label}) — audit refs land with the live harness (CloudTrail is the customer's trail)", text(plan, "instance_type"), text(plan, "region")));
-        self.save_instance(data_dir, &inst);
+        self.save_instance(data_dir, &inst)?;
         Ok(json!({
             "provider_operation_ref": format!("provider-account://{}/op/create/{}", self.account_id(), safe(env_ref)),
             "instance": { "instance_id": instance_id, "status": "pending", "execution_mode": "simulated_control_plane" },
@@ -4364,7 +4415,7 @@ impl EnvironmentProvider for AwsProvider {
                 "boot_proven",
                 "ssh readiness proven through the reachable network posture".into(),
             );
-            self.save_instance(data_dir, &inst);
+            self.save_instance(data_dir, &inst)?;
         }
         let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
         if inst.get("workspace_bootstrapped").and_then(Value::as_bool) != Some(true) {
@@ -4383,7 +4434,7 @@ impl EnvironmentProvider for AwsProvider {
                 "workspace running".into()
             },
         );
-        self.save_instance(data_dir, &inst);
+        self.save_instance(data_dir, &inst)?;
         Ok(
             json!({ "provider_operation_ref": format!("provider-account://{}/op/start/{}", self.account_id(), safe(env_ref)),
                    "instance_id": inst["instance_id"], "status": "running", "ssh_ready": true,
@@ -4408,7 +4459,7 @@ impl EnvironmentProvider for AwsProvider {
             "instance-hours stop accruing; EBS root volume storage keeps billing until terminate"
                 .into(),
         );
-        self.save_instance(data_dir, &inst);
+        self.save_instance(data_dir, &inst)?;
         Ok(
             json!({ "provider_operation_ref": format!("provider-account://{}/op/stop/{}", self.account_id(), safe(env_ref)),
                    "instance_id": inst["instance_id"], "status": "stopped",
@@ -4426,7 +4477,7 @@ impl EnvironmentProvider for AwsProvider {
         lane.start(data_dir, env_ref)?;
         inst["status"] = json!("running");
         Self::push_event(&mut inst, "instance_rebooted", "in-place reboot — endpoint retained (a stop/start cycle, by contrast, can change the public IP)".into());
-        self.save_instance(data_dir, &inst);
+        self.save_instance(data_dir, &inst)?;
         Ok(
             json!({ "provider_operation_ref": format!("provider-account://{}/op/restart/{}", self.account_id(), safe(env_ref)),
                    "instance_id": inst["instance_id"], "status": "running",
@@ -4455,7 +4506,7 @@ impl EnvironmentProvider for AwsProvider {
             "snapshot_taken",
             "daemon-custody snapshot admitted; EBS-style native id recorded as evidence".into(),
         );
-        self.save_instance(data_dir, &inst);
+        self.save_instance(data_dir, &inst)?;
         Ok(evidence)
     }
     fn restore(&self, data_dir: &str, env_ref: &str, material_ref: &str) -> Result<Value, String> {
@@ -4512,7 +4563,7 @@ impl EnvironmentProvider for AwsProvider {
             "instance_terminated",
             "terminate always — root volume deleted on termination per posture".into(),
         );
-        self.save_instance(data_dir, &inst);
+        self.save_instance(data_dir, &inst)?;
         Ok(
             json!({ "provider_operation_ref": format!("provider-account://{}/op/delete/{}", self.account_id(), safe(env_ref)),
                    "instance_id": inst["instance_id"], "teardown_state": teardown_state,
@@ -4626,9 +4677,13 @@ impl AkashProvider {
     fn deployment(&self, data_dir: &str, env_ref: &str) -> Option<Value> {
         load_akash_deployment(data_dir, self.account_id(), env_ref)
     }
-    fn save_deployment(&self, data_dir: &str, dep: &Value) {
+    fn save_deployment(&self, data_dir: &str, dep: &Value) -> Result<(), String> {
         let id = text(dep, "record_id").to_string();
-        let _ = persist_record(data_dir, AKASH_DEPLOYMENT_KIND, &id, dep);
+        // W1.2 / MEF-GAP-008 — the deployment record is the ONLY daemon handle to a just-provisioned
+        // (customer-borne paid, in live mode) DePIN deployment; a lost write orphans it from its own
+        // start/stop/close lane and from spend reconciliation.
+        persist_record(data_dir, AKASH_DEPLOYMENT_KIND, &id, dep)
+            .map_err(|e| format!("provider_operation_persistence_failed — deployment record {id} did not commit; the deployment/lease may exist with no daemon handle: {e}"))
     }
     fn push_event(dep: &mut Value, kind: &str, detail: String) {
         let mut events = dep
@@ -4645,9 +4700,12 @@ impl AkashProvider {
             .into_iter()
             .find(|l| text(l, "deployment_ref") == deployment_ref)
     }
-    fn save_lease(&self, data_dir: &str, lease: &Value) {
+    fn save_lease(&self, data_dir: &str, lease: &Value) -> Result<(), String> {
         let id = text(lease, "record_id").to_string();
-        let _ = persist_record(data_dir, AKASH_LEASE_KIND, &id, lease);
+        // W1.2 / MEF-GAP-008 — the lease record tracks customer-borne spend that accrues until the
+        // lease is closed; a lost write hides an accruing lease from spend reconciliation.
+        persist_record(data_dir, AKASH_LEASE_KIND, &id, lease)
+            .map_err(|e| format!("provider_spend_exposure_persistence_failed — lease record {id} did not commit; an accruing lease may be invisible to spend reconciliation: {e}"))
     }
     /// Exec/custody lane: available ONLY because the deployment's SDL declares an ssh service
     /// and ONLY after endpoint readiness is proven. Never assumed.
@@ -4752,7 +4810,10 @@ impl AkashProvider {
             "note": "SIMULATED bid selection — provider-native bid ids are evidence only, never authority",
             "at": iso_now(),
         });
-        let _ = persist_record(data_dir, AKASH_BID_KIND, &bid_id, &bid);
+        // W1.2 / MEF-GAP-008 — the deployment record (saved below) cites this bid_ref; a lost bid
+        // write leaves the deployment pointing at evidence no reader resolves. Refuse before saving.
+        persist_record(data_dir, AKASH_BID_KIND, &bid_id, &bid)
+            .map_err(|e| format!("provider_operation_persistence_failed — akash bid record {bid_id} did not commit: {e}"))?;
         // Lease record — open, priced, evidence only.
         let lease_id = format!("aklease_{stamp:x}");
         let lease = json!({
@@ -4766,7 +4827,10 @@ impl AkashProvider {
             "note": "SIMULATED lease — provider-native lease ids are evidence only, never authority",
             "opened_at": iso_now(),
         });
-        let _ = persist_record(data_dir, AKASH_LEASE_KIND, &lease_id, &lease);
+        // W1.2 / MEF-GAP-008 — the lease is customer-borne accruing spend and the deployment cites
+        // its lease_ref; a lost write hides the lease from spend reconciliation. Refuse before saving.
+        persist_record(data_dir, AKASH_LEASE_KIND, &lease_id, &lease)
+            .map_err(|e| format!("provider_spend_exposure_persistence_failed — akash lease record {lease_id} (customer-borne accruing spend) did not commit: {e}"))?;
         let mut dep = json!({
             "schema_version": "ioi.hypervisor.akash-deployment.v1",
             "record_id": record_id, "deployment_ref": deployment_ref, "dseq": dseq,
@@ -4808,7 +4872,7 @@ impl AkashProvider {
                 format!("fresh deployment replacing {}", old.as_str().unwrap_or("?")),
             );
         }
-        self.save_deployment(data_dir, &dep);
+        self.save_deployment(data_dir, &dep)?;
         Ok(json!({
             "provider_operation_ref": format!("provider-account://{}/op/create/{}", self.account_id(), safe(env_ref)),
             "deployment": { "deployment_ref": deployment_ref, "dseq": dseq, "status": "deployment_created", "execution_mode": "simulated_control_plane" },
@@ -4880,7 +4944,10 @@ impl EnvironmentProvider for AkashProvider {
             "note": "restore admits ONLY by daemon-recorded sha256 state_root — deployment persistent storage and archive bytes alone are never restore truth",
             "at": iso_now(),
         });
-        let _ = persist_record(data_dir, AKASH_REDEPLOY_KIND, &plan_id, &record);
+        // W1.2 / MEF-GAP-008 — the fresh deployment is already provisioned above; a lost redeploy-plan
+        // write drops the old→new lineage/restore binding. Refuse rather than return success without it.
+        persist_record(data_dir, AKASH_REDEPLOY_KIND, &plan_id, &record)
+            .map_err(|e| format!("provider_operation_persistence_failed — akash redeploy-plan {plan_id} did not commit; the new deployment exists but its restore lineage is unrecorded: {e}"))?;
         if let Some(o) = evidence.as_object_mut() {
             o.insert("redeploy_plan_ref".into(), record["plan_ref"].clone());
             o.insert("redeployed_from".into(), json!(old_ref));
@@ -4919,7 +4986,10 @@ impl EnvironmentProvider for AkashProvider {
                 "authority_note": "lease-assigned IP/ports are EVIDENCE, not authority — ingress beyond the SDL expose list requires the lifecycle + wallet authority",
                 "proven_at": iso_now(),
             });
-            let _ = persist_record(data_dir, AKASH_ENDPOINT_KIND, &ep_id, &endpoint);
+            // W1.2 / MEF-GAP-008 — the deployment (saved below) cites this endpoint_ref; a lost write
+            // leaves it pointing at proven-endpoint evidence no reader resolves. Refuse.
+            persist_record(data_dir, AKASH_ENDPOINT_KIND, &ep_id, &endpoint)
+                .map_err(|e| format!("provider_operation_persistence_failed — akash endpoint record {ep_id} did not commit: {e}"))?;
             endpoint_evidence = endpoint.clone();
             dep["ssh"] = sim_ssh;
             dep["endpoint_ready"] = json!(true);
@@ -4929,7 +4999,7 @@ impl EnvironmentProvider for AkashProvider {
                 "endpoint_ready",
                 format!("lease endpoint proven ({})", text(&endpoint, "ip")),
             );
-            self.save_deployment(data_dir, &dep);
+            self.save_deployment(data_dir, &dep)?;
         }
         let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
         if dep.get("workspace_bootstrapped").and_then(Value::as_bool) != Some(true) {
@@ -4943,7 +5013,7 @@ impl EnvironmentProvider for AkashProvider {
             "workspace_started",
             "workspace lane running over the SDL-declared ssh service".into(),
         );
-        self.save_deployment(data_dir, &dep);
+        self.save_deployment(data_dir, &dep)?;
         Ok(
             json!({ "provider_operation_ref": format!("provider-account://{}/op/start/{}", self.account_id(), safe(env_ref)),
                    "deployment_ref": dep["deployment_ref"], "status": "running",
@@ -4967,7 +5037,7 @@ impl EnvironmentProvider for AkashProvider {
             "workspace_stopped",
             "workspace halted; the lease stays open and accruing".into(),
         );
-        self.save_deployment(data_dir, &dep);
+        self.save_deployment(data_dir, &dep)?;
         Ok(
             json!({ "provider_operation_ref": format!("provider-account://{}/op/stop/{}", self.account_id(), safe(env_ref)),
                    "deployment_ref": dep["deployment_ref"], "status": "workspace_stopped_lease_open",
@@ -5023,11 +5093,11 @@ impl EnvironmentProvider for AkashProvider {
             lease["closure_note"] = json!(
                 "SIMULATED provider-side revocation — the bid_lease_revocation risk, exercised"
             );
-            self.save_lease(data_dir, &lease);
+            self.save_lease(data_dir, &lease)?;
         }
         dep["status"] = json!("lease_lost");
         Self::push_event(&mut dep, "lease_revoked_by_provider", "SIMULATED lease revocation — workspace lost; deployment persistent storage is gone with the lease (it was never restore truth)".into());
-        self.save_deployment(data_dir, &dep);
+        self.save_deployment(data_dir, &dep)?;
         Ok(
             json!({ "provider_operation_ref": format!("provider-account://{}/op/inject_outage/{}", self.account_id(), safe(env_ref)),
                    "deployment_ref": dep["deployment_ref"], "lease_state": "closed_by_provider",
@@ -5072,7 +5142,7 @@ impl EnvironmentProvider for AkashProvider {
             if text(&lease, "state") == "open" {
                 lease["state"] = json!("closed");
                 lease["closed_at"] = json!(iso_now());
-                self.save_lease(data_dir, &lease);
+                self.save_lease(data_dir, &lease)?;
             }
         }
         // CARVE-OUT: record the EXACT deletion outcome. `teardown_state` was unconditionally
@@ -5096,7 +5166,7 @@ impl EnvironmentProvider for AkashProvider {
             "closed",
             "deployment closed; lease billing ends with closure".into(),
         );
-        self.save_deployment(data_dir, &dep);
+        self.save_deployment(data_dir, &dep)?;
         Ok(
             json!({ "provider_operation_ref": format!("provider-account://{}/op/delete/{}", self.account_id(), safe(env_ref)),
                    "deployment_ref": dep["deployment_ref"], "teardown_state": teardown_state,
@@ -5398,17 +5468,104 @@ pub(crate) async fn handle_provider_account_patch(
 pub(crate) async fn handle_provider_account_delete(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
-) -> Json<Value> {
+) -> (StatusCode, Json<Value>) {
     let Some(account) = load_account(&st.data_dir, &id) else {
-        return Json(json!({ "ok": false, "error": { "code": "provider_account_not_found" } }));
+        // PRESERVED: OK-with-ok:false keeps the shipped not-found wire response rather than
+        // silently broadening it to 404.
+        return (
+            StatusCode::OK,
+            Json(json!({ "ok": false, "error": { "code": "provider_account_not_found" } })),
+        );
     };
     let aid = text(&account, "account_id").to_string();
-    let removed = super::remove_record(&st.data_dir, ACCOUNT_KIND, &aid);
+    let account_ref = text(&account, "account_ref").to_string();
+
+    // W1.2 / MEF-GAP-008 — REFUSE while an open spend exposure references this account: the sealed
+    // credential is the ONLY key that can tear down a live, customer-borne paid instance, so
+    // deleting it would strand accruing spend with no teardown path (closed_with_warning is included
+    // — it explicitly flags that the exposure MAY still accrue on the customer's account).
+    let open_exposures: Vec<Value> = read_record_dir(&st.data_dir, EXPOSURE_KIND)
+        .into_iter()
+        .filter(|e| {
+            text(e, "account_ref") == account_ref
+                && matches!(text(e, "status"), "open" | "closed_with_warning")
+        })
+        .collect();
+    if !open_exposures.is_empty() {
+        let refs: Vec<Value> = open_exposures
+            .iter()
+            .map(|e| e["exposure_ref"].clone())
+            .collect();
+        return (
+            StatusCode::CONFLICT,
+            Json(json!({
+                "ok": false,
+                "code": "provider_account_delete_open_spend_exposure",
+                "message": format!("{} unresolved spend exposure(s) still reference this account — its credential is the only key that can tear down the live paid instance(s); close the deployment(s)/lease(s) first (delete the environment or run the provider delete op), then delete the account. Nothing was deleted.", open_exposures.len()),
+                "open_exposure_refs": refs,
+                "account_id": aid,
+            })),
+        );
+    }
+
+    // ── EFFECT 1: the live bearer credential FIRST (the b6c19c766 order) ──────────────────────
+    // A failed credential removal must NOT be acknowledged as a successful destruction: the sealed
+    // live secret would survive on disk, bound by connector_id to an account no listing shows and
+    // no delete path can reach again — a credential leak reported as a destruction.
     if let Some(cred) = load_account_credential(&st.data_dir, &aid) {
         let cid = text(&cred, "credential_id").to_string();
-        let _ = super::remove_record(&st.data_dir, CREDENTIAL_VAULT, &cid);
+        if !super::remove_record(&st.data_dir, CREDENTIAL_VAULT, &cid) {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "ok": false,
+                    "code": "provider_credential_removal_failed",
+                    "message": format!("the sealed credential '{cid}' could not be removed — refusing to delete the account, which would orphan a live, resolvable secret behind an account no listing shows. Nothing was deleted."),
+                    "account_id": aid,
+                })),
+            );
+        }
+        // Confirm the credential no longer RESOLVES before touching the account record — the ack is
+        // from reloaded absence, never from the remove outcome.
+        if load_account_credential(&st.data_dir, &aid).is_some() {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(json!({
+                    "ok": false,
+                    "code": "provider_credential_removal_unconfirmed",
+                    "message": "the credential removal reported done but the credential STILL resolves — refusing to delete the account. Delete again to retry.",
+                    "account_id": aid,
+                })),
+            );
+        }
     }
-    Json(json!({ "ok": removed, "removed": removed, "account_id": aid }))
+
+    // ── EFFECT 2: the account record ─────────────────────────────────────────────────────────
+    // CLASSIFIED — the remove outcome is intentionally not the gate; acknowledgement below rests on
+    // the RELOADED absence, which fails closed (503) if the account still resolves.
+    let _ = super::remove_record(&st.data_dir, ACCOUNT_KIND, &aid);
+
+    // ── Acknowledge ONLY from the RELOADED absence, never from the remove outcomes ───────────
+    if load_account(&st.data_dir, &aid).is_some() || load_account(&st.data_dir, &id).is_some() {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({
+                "ok": false,
+                "code": "provider_account_deletion_unconfirmed",
+                "message": format!("the account '{aid}' STILL resolves after removal — the deletion is not acknowledged (this happens when the record does not live at the file the writer would give it, e.g. a promoted substrate family). Delete again to retry."),
+                "account_id": aid,
+            })),
+        );
+    }
+    (
+        StatusCode::OK,
+        Json(json!({
+            "ok": true,
+            "removed": true,
+            "account_id": aid,
+            "note": "credential removed first (confirmed absent) then the account record — no live bearer is orphaned; provider-operation and spend-exposure records remain as evidence",
+        })),
+    )
 }
 
 // ---- ProviderCredentialBinding — sealed material, presence-provable, never exported ----------
@@ -6219,7 +6376,20 @@ pub(crate) async fn handle_provider_op(
                     "grant_ref": grant_ref, "budget_discovery": budget_note, "cost_estimate": cost_estimate,
                     "receipt_ref": receipt, "at": iso_now()
                 });
-                let _ = persist_record(data_dir, "provider-operations", &op_id, &record);
+                // W1.2 / MEF-GAP-008 — the provider op ALREADY executed against the provider; a lost
+                // admitted-operation record orphans a live (paid) resource from its own observe/stop/
+                // delete lane. Refuse, naming the effect + receipt + provider-native ids.
+                if persist_record(data_dir, "provider-operations", &op_id, &record).is_err() {
+                    return provider_op_persist_failed(
+                        "provider_operation_persistence_failed",
+                        op,
+                        &kind,
+                        &env_ref,
+                        &receipt,
+                        evidence.get("provider_native").cloned().unwrap_or(Value::Null),
+                        "the provider op executed against the provider but its admitted-operation record did not commit",
+                    );
+                }
                 // ── Spend exposure accounting (customer-borne; estimates only, never a bill) ──
                 if matches!(op, "create" | "redeploy")
                     && !vast_gate.is_null()
@@ -6248,7 +6418,20 @@ pub(crate) async fn handle_provider_op(
                         "estimate_note": "quote-backed ESTIMATE authorized by the grant — no actual provider bill exists here; spend is customer-borne on the customer's own account",
                         "opened_at": iso_now(),
                     });
-                    let _ = persist_record(data_dir, EXPOSURE_KIND, &exp_id, &exposure);
+                    // W1.2 / MEF-GAP-008 — CRITICAL: a live, customer-borne paid instance was just
+                    // provisioned; a lost spend-exposure record makes it INVISIBLE to spend
+                    // reconciliation and budget headroom. Refuse, naming the live resource.
+                    if persist_record(data_dir, EXPOSURE_KIND, &exp_id, &exposure).is_err() {
+                        return provider_op_persist_failed(
+                            "provider_spend_exposure_persistence_failed",
+                            op,
+                            &kind,
+                            &env_ref,
+                            &receipt,
+                            evidence.get("provider_native").cloned().unwrap_or(Value::Null),
+                            "a live, customer-borne paid instance was provisioned but its spend-exposure record did not commit — it is now INVISIBLE to spend reconciliation and budget headroom",
+                        );
+                    }
                 } else if matches!(
                     kind.as_str(),
                     "vast" | "runpod" | "lambda_cloud" | "akash" | "aws" | "gcp" | "azure" | "k8s"
@@ -6290,7 +6473,19 @@ pub(crate) async fn handle_provider_op(
                                 exposure["warning"] = json!("INCOMPLETE TEARDOWN — the provider-native destroy did not confirm; verify the provider console (exposure may still accrue on the customer's account)");
                             }
                         }
-                        let _ = persist_record(data_dir, EXPOSURE_KIND, &exp_id, &exposure);
+                        // W1.2 / MEF-GAP-008 — a lost update/close leaves the exposure OPEN forever
+                        // (or drops a close_with_warning). Refuse so spend reconciliation is not stale.
+                        if persist_record(data_dir, EXPOSURE_KIND, &exp_id, &exposure).is_err() {
+                            return provider_op_persist_failed(
+                                "provider_spend_exposure_persistence_failed",
+                                op,
+                                &kind,
+                                &env_ref,
+                                &receipt,
+                                evidence.get("provider_native").cloned().unwrap_or(Value::Null),
+                                "the exposure update/close did not commit — a delete may leave the exposure OPEN forever, or a close_with_warning was lost; spend reconciliation is now stale",
+                            );
+                        }
                     }
                 }
                 (
@@ -6395,7 +6590,22 @@ pub(crate) async fn handle_provider_op(
                 "operation_id": op_id, "provider": provider_id, "environment_ref": env_ref,
                 "op": op, "evidence": evidence, "receipt_ref": receipt, "at": iso_now()
             });
-            let _ = persist_record(data_dir, "provider-operations", &op_id, &record);
+            // W1.2 / MEF-GAP-008 — the legacy-adapter op executed; a lost admitted-operation record
+            // orphans the resource from its own lifecycle lane. Refuse, naming the effect + receipt.
+            if persist_record(data_dir, "provider-operations", &op_id, &record).is_err() {
+                return provider_op_persist_failed(
+                    "provider_operation_persistence_failed",
+                    op,
+                    provider_id,
+                    &env_ref,
+                    &receipt,
+                    evidence
+                        .get("provider_native")
+                        .cloned()
+                        .unwrap_or(Value::Null),
+                    "the provider op executed but its admitted-operation record did not commit",
+                );
+            }
             (
                 StatusCode::OK,
                 Json(
