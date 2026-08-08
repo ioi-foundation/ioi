@@ -267,27 +267,67 @@ fn read_head(data_dir: &str, namespace: &str, tail: &str) -> Result<ExactProject
         })
 }
 
-fn append(
+/// Map a shared-boundary refusal to this plane's existing wire contract. `Admission` is routed to
+/// the plane's own `admission_error` (503 default preserved), `Scope` to `scope_refusal`, so
+/// adopting the boundary does not silently re-status a refusal a caller already handles.
+fn mutation_refusal(error: super::mutation_event_foundation::MutationRefusal) -> Reply {
+    use super::mutation_event_foundation::MutationRefusal;
+    match error {
+        MutationRefusal::Scope(error) => scope_refusal(error),
+        MutationRefusal::Admission(error) => admission_error(error),
+        error @ (MutationRefusal::IdempotencyKeyInvalid
+        | MutationRefusal::GenesisExpectedHeadPresent
+        | MutationRefusal::SuccessorExpectedHeadRequired) => {
+            bad(StatusCode::BAD_REQUEST, error.code(), error.message())
+        }
+        error @ MutationRefusal::RequestFingerprintFailed(_) => bad(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            error.code(),
+            error.message(),
+        ),
+    }
+}
+
+/// The one write path for this plane. Every event-stream mutation crosses the shared owner-scoped
+/// admission boundary carrying the immutable scope the handler already bound or authorized, so the
+/// principal/tenant/resource proof and idempotency-key validation are enforced identically for all
+/// twelve sites rather than reimplemented per call. `recorded_at_ms` is response-visible only and is
+/// excluded from replay identity by the boundary's fingerprint.
+#[allow(clippy::too_many_arguments)]
+fn admit(
     data_dir: &str,
+    genesis: bool,
+    identity: &super::substrate_store::RequestIdentity,
+    scope: &super::substrate_store::RequestResourceScope,
+    resource_kind: &str,
+    resource_ref: &str,
     namespace: &str,
     tail: &str,
     op_kind: &str,
     expected_head: Option<&str>,
     payload: &Value,
+    recorded_at_ms: u64,
     idempotency_key: &str,
 ) -> Result<(ExactProjection, bool), Reply> {
-    let admitted = super::substrate_store::admit_event_stream_operation(
+    let commit = super::mutation_event_foundation::admit_owner_scoped_mutation(
         data_dir,
-        namespace,
-        tail,
-        op_kind,
-        expected_head,
-        payload,
-        now_ms(),
-        idempotency_key,
+        genesis,
+        super::mutation_event_foundation::ScopedMutation {
+            identity,
+            scope,
+            resource_kind,
+            resource_ref,
+            owner_namespace: namespace,
+            stream_tail: tail,
+            op_kind,
+            expected_head,
+            payload,
+            idempotency_key,
+            recorded_at_ms,
+        },
     )
-    .map_err(admission_error)?;
-    Ok((admitted.projection, admitted.replayed))
+    .map_err(mutation_refusal)?;
+    Ok((commit.projection, commit.replayed))
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -533,7 +573,7 @@ pub(crate) async fn handle_instances_create(
         "instance",
         payload["instance_id"].as_str().unwrap_or_default(),
     );
-    match super::substrate_store::read_event_stream_operation(
+    let scope = match super::substrate_store::read_event_stream_operation(
         &st.data_dir,
         RUNTIME_NAMESPACE,
         &tail,
@@ -547,37 +587,43 @@ pub(crate) async fn handle_instances_create(
                     super::substrate_store::RequestScopeRefusal::ResourceOwnerMismatch,
                 );
             }
-            if let Err(reply) = authorize_scope(
+            match authorize_scope(
                 &st.data_dir,
                 &identity,
                 INSTANCE_SCOPE_KIND,
                 &request.instance_id,
                 Some(owner_ref),
             ) {
-                return reply;
+                Ok(scope) => scope,
+                Err(reply) => return reply,
             }
         }
-        Ok(None) => {
-            if let Err(reply) = bind_scope(
-                &st.data_dir,
-                &identity,
-                INSTANCE_SCOPE_KIND,
-                &request.instance_id,
-                &request.owner_ref,
-                &request.idempotency_key,
-            ) {
-                return reply;
-            }
-        }
+        Ok(None) => match bind_scope(
+            &st.data_dir,
+            &identity,
+            INSTANCE_SCOPE_KIND,
+            &request.instance_id,
+            &request.owner_ref,
+            &request.idempotency_key,
+        ) {
+            Ok(scope) => scope,
+            Err(reply) => return reply,
+        },
         Err(error) => return admission_error(error),
-    }
-    match append(
+    };
+    match admit(
         &st.data_dir,
+        true,
+        &identity,
+        &scope,
+        INSTANCE_SCOPE_KIND,
+        &request.instance_id,
         RUNTIME_NAMESPACE,
         &tail,
         "event_stream.managed_worker_created",
         None,
         &payload,
+        now_ms(),
         &request.idempotency_key,
     ) {
         Ok((exact, replayed)) => (
@@ -1223,15 +1269,16 @@ pub(crate) async fn handle_instance_transition(
         Ok(value) => value,
         Err(reply) => return reply,
     };
-    if let Err(reply) = authorize_scope(
+    let scope = match authorize_scope(
         &st.data_dir,
         &identity,
         INSTANCE_SCOPE_KIND,
         &id,
         current_exact.operation.payload["owner_ref"].as_str(),
     ) {
-        return reply;
-    }
+        Ok(scope) => scope,
+        Err(reply) => return reply,
+    };
     let current = current_exact.operation.payload.clone();
     let request_hash = match transition_request_identity(&request) {
         Ok(hash) => hash,
@@ -1324,13 +1371,19 @@ pub(crate) async fn handle_instance_transition(
             "to_state": request.to_state,
             "request": request,
         });
-        match append(
+        match admit(
             &st.data_dir,
+            false,
+            &identity,
+            &scope,
+            INSTANCE_SCOPE_KIND,
+            &id,
             RUNTIME_NAMESPACE,
             &tail,
             "event_stream.managed_worker_transition_proposed",
             Some(&current_exact.head),
             &proposal,
+            now_ms(),
             &format!(
                 "{}.proposal",
                 proposal["pending_transition"]["idempotency_key"]
@@ -1389,13 +1442,19 @@ pub(crate) async fn handle_instance_transition(
                 "error_status": reply.0.as_u16(),
                 "error_response": reply.1.0.clone(),
             });
-            match append(
+            match admit(
                 &st.data_dir,
+                false,
+                &identity,
+                &scope,
+                INSTANCE_SCOPE_KIND,
+                &id,
                 RUNTIME_NAMESPACE,
                 &tail,
                 "event_stream.managed_worker_transition_rejected",
                 Some(&proposal_exact.head),
                 &rejected,
+                now_ms(),
                 &format!("{}.rejected", retained_request.idempotency_key),
             ) {
                 Ok(_) => return reply,
@@ -1403,13 +1462,19 @@ pub(crate) async fn handle_instance_transition(
             }
         }
     };
-    match append(
+    match admit(
         &st.data_dir,
+        false,
+        &identity,
+        &scope,
+        INSTANCE_SCOPE_KIND,
+        &id,
         RUNTIME_NAMESPACE,
         &tail,
         "event_stream.managed_worker_transition_committed",
         Some(&proposal_exact.head),
         &next,
+        now_ms(),
         &format!("{}.commit", retained_request.idempotency_key),
     ) {
         Ok((exact, replayed)) => (
@@ -1453,15 +1518,16 @@ pub(crate) async fn handle_runtime_policy_put(
         Ok(value) => value,
         Err(reply) => return reply,
     };
-    if let Err(reply) = authorize_scope(
+    let scope = match authorize_scope(
         &st.data_dir,
         &identity,
         INSTANCE_SCOPE_KIND,
         &id,
         current.operation.payload["owner_ref"].as_str(),
     ) {
-        return reply;
-    }
+        Ok(scope) => scope,
+        Err(reply) => return reply,
+    };
     if current.head != request.expected_head {
         return bad(
             StatusCode::CONFLICT,
@@ -1484,13 +1550,19 @@ pub(crate) async fn handle_runtime_policy_put(
     next["revision"] = json!(next["revision"].as_u64().unwrap_or(0) + 1);
     next["runtime_policy"] = policy;
     next["runtime_policy_hash"] = json!(policy_hash);
-    match append(
+    match admit(
         &st.data_dir,
+        false,
+        &identity,
+        &scope,
+        INSTANCE_SCOPE_KIND,
+        &id,
         RUNTIME_NAMESPACE,
         &tail,
         "event_stream.managed_worker_runtime_policy_revised",
         Some(&current.head),
         &next,
+        now_ms(),
         &request.idempotency_key,
     ) {
         Ok((exact, replayed)) => (
@@ -1602,7 +1674,7 @@ pub(crate) async fn handle_storage_profiles_create(
             )
         }
     };
-    match super::substrate_store::read_event_stream_operation(
+    let scope = match super::substrate_store::read_event_stream_operation(
         &st.data_dir,
         PERSISTENCE_NAMESPACE,
         &tail,
@@ -1616,37 +1688,43 @@ pub(crate) async fn handle_storage_profiles_create(
                     super::substrate_store::RequestScopeRefusal::ResourceOwnerMismatch,
                 );
             }
-            if let Err(reply) = authorize_scope(
+            match authorize_scope(
                 &st.data_dir,
                 &identity,
                 STORAGE_PROFILE_SCOPE_KIND,
                 &request.storage_profile_ref,
                 Some(owner_ref),
             ) {
-                return reply;
+                Ok(scope) => scope,
+                Err(reply) => return reply,
             }
         }
-        Ok(None) => {
-            if let Err(reply) = bind_scope(
-                &st.data_dir,
-                &identity,
-                STORAGE_PROFILE_SCOPE_KIND,
-                &request.storage_profile_ref,
-                &request.owner_ref,
-                &request.idempotency_key,
-            ) {
-                return reply;
-            }
-        }
+        Ok(None) => match bind_scope(
+            &st.data_dir,
+            &identity,
+            STORAGE_PROFILE_SCOPE_KIND,
+            &request.storage_profile_ref,
+            &request.owner_ref,
+            &request.idempotency_key,
+        ) {
+            Ok(scope) => scope,
+            Err(reply) => return reply,
+        },
         Err(error) => return admission_error(error),
-    }
-    match append(
+    };
+    match admit(
         &st.data_dir,
+        true,
+        &identity,
+        &scope,
+        STORAGE_PROFILE_SCOPE_KIND,
+        &request.storage_profile_ref,
         PERSISTENCE_NAMESPACE,
         &tail,
         "event_stream.storage_profile_created",
         None,
         &payload,
+        now_ms(),
         &request.idempotency_key,
     ) {
         Ok((exact, replayed)) => (
@@ -2159,13 +2237,22 @@ pub(crate) async fn handle_environment_backup_create(
             request.idempotency_key, state_root
         ),
     );
-    let (capture, _) = match append(
+    // The capture stream has no scope of its own: it is an event on the already-authorized storage
+    // profile's owner scope, so it crosses the boundary under that profile scope. The tail is the
+    // content-addressed capture coordinate and need not derive from the scope's resource ref.
+    let (capture, _) = match admit(
         &st.data_dir,
+        true,
+        &identity,
+        &profile_scope,
+        STORAGE_PROFILE_SCOPE_KIND,
+        &request.storage_profile_ref,
         PERSISTENCE_NAMESPACE,
         &capture_tail,
         "event_stream.backup_capture_completed",
         None,
         &capture_payload,
+        now_ms(),
         &request.idempotency_key,
     ) {
         Ok(value) => value,
@@ -2619,6 +2706,17 @@ pub(crate) async fn handle_restore_plan_prepare(
     if let Err(reply) = require_nonempty(&request.authority_grant_refs, "authority_grant_refs") {
         return reply;
     }
+    // Reject an empty key before the derived plan id, the untar, and the scope bind consume it. The
+    // shared boundary refuses it too, but only after those effects have run; mirroring the sibling
+    // create/transition/backup handlers keeps the derived plan id from being minted off a key that
+    // provides no idempotency.
+    if request.idempotency_key.trim().is_empty() {
+        return bad(
+            StatusCode::BAD_REQUEST,
+            "managed_restore_idempotency_key_required",
+            "idempotency_key is required",
+        );
+    }
     let (backup, backup_scope) = match authorized_backup_by_id(&st.data_dir, &identity, &id) {
         Ok(value) => value,
         Err(reply) => return reply,
@@ -2705,7 +2803,7 @@ pub(crate) async fn handle_restore_plan_prepare(
         "preparation_verified":true,
     });
     let tail = restore_tail(&plan_id);
-    if let Err(reply) = bind_scope(
+    let scope = match bind_scope(
         &st.data_dir,
         &identity,
         RESTORE_SCOPE_KIND,
@@ -2713,16 +2811,25 @@ pub(crate) async fn handle_restore_plan_prepare(
         &backup_scope.owner_ref,
         &request.idempotency_key,
     ) {
-        let _ = std::fs::remove_dir_all(&staging);
-        return reply;
-    }
-    match append(
+        Ok(scope) => scope,
+        Err(reply) => {
+            let _ = std::fs::remove_dir_all(&staging);
+            return reply;
+        }
+    };
+    match admit(
         &st.data_dir,
+        true,
+        &identity,
+        &scope,
+        RESTORE_SCOPE_KIND,
+        &plan_id,
         PERSISTENCE_NAMESPACE,
         &tail,
         "event_stream.restore_plan_prepared",
         None,
         &payload,
+        now_ms(),
         &request.idempotency_key,
     ) {
         Ok((exact, replayed)) => (
@@ -2753,14 +2860,24 @@ pub(crate) async fn handle_restore_plan_action(
         Ok(identity) => identity,
         Err(reply) => return reply,
     };
-    if let Err(reply) = authorize_scope(&st.data_dir, &identity, RESTORE_SCOPE_KIND, &plan_id, None)
-    {
-        return reply;
-    }
+    let scope = match authorize_scope(&st.data_dir, &identity, RESTORE_SCOPE_KIND, &plan_id, None) {
+        Ok(scope) => scope,
+        Err(reply) => return reply,
+    };
     let request: RestoreActionRequest = match parse(body, "managed_restore_action_invalid") {
         Ok(request) => request,
         Err(reply) => return reply,
     };
+    // Reject an empty key before any staging or workspace effect runs, mirroring the sibling
+    // handlers. The shared boundary refuses it too, but the cancel/apply effects are ordered around
+    // the admits, so the guard belongs before them, not inside the write.
+    if request.idempotency_key.trim().is_empty() {
+        return bad(
+            StatusCode::BAD_REQUEST,
+            "managed_restore_idempotency_key_required",
+            "idempotency_key is required",
+        );
+    }
     if !matches!(action.as_str(), "apply" | "cancel") {
         return bad(
             StatusCode::NOT_FOUND,
@@ -2817,13 +2934,19 @@ pub(crate) async fn handle_restore_plan_action(
         // were already gone — a plan no apply could satisfy and no reader could tell was doomed.
         let mut cancelling = current.operation.payload.clone();
         cancelling["status"] = json!("cancelling");
-        let (cancelling_exact, _) = match append(
+        let (cancelling_exact, _) = match admit(
             &st.data_dir,
+            false,
+            &identity,
+            &scope,
+            RESTORE_SCOPE_KIND,
+            &plan_id,
             PERSISTENCE_NAMESPACE,
             &tail,
             "event_stream.restore_plan_cancelling",
             Some(&current.head),
             &cancelling,
+            now_ms(),
             &format!("{}.cancelling", request.idempotency_key),
         ) {
             Ok(value) => value,
@@ -2842,14 +2965,23 @@ pub(crate) async fn handle_restore_plan_action(
         }
         let mut cancelled = cancelling_exact.operation.payload.clone();
         cancelled["status"] = json!("cancelled");
-        return match append(
+        // Per-transition key suffix, aligned with the cancelling/applying/completed successors. The
+        // bare key this event previously reused collided with the prepared genesis whenever a caller
+        // reused one idempotency key across prepare and cancel: same key, different bytes, refused.
+        return match admit(
             &st.data_dir,
+            false,
+            &identity,
+            &scope,
+            RESTORE_SCOPE_KIND,
+            &plan_id,
             PERSISTENCE_NAMESPACE,
             &tail,
             "event_stream.restore_plan_cancelled",
             Some(&cancelling_exact.head),
             &cancelled,
-            &request.idempotency_key,
+            now_ms(),
+            &format!("{}.cancelled", request.idempotency_key),
         ) {
             Ok((exact, replayed)) => (
                 StatusCode::OK,
@@ -2867,13 +2999,19 @@ pub(crate) async fn handle_restore_plan_action(
     }
     let mut applying = current.operation.payload.clone();
     applying["status"] = json!("applying");
-    let (applying_exact, _) = match append(
+    let (applying_exact, _) = match admit(
         &st.data_dir,
+        false,
+        &identity,
+        &scope,
+        RESTORE_SCOPE_KIND,
+        &plan_id,
         PERSISTENCE_NAMESPACE,
         &tail,
         "event_stream.restore_plan_applying",
         Some(&current.head),
         &applying,
+        now_ms(),
         &format!("{}.applying", request.idempotency_key),
     ) {
         Ok(value) => value,
@@ -2914,13 +3052,19 @@ pub(crate) async fn handle_restore_plan_action(
     completed["status"] = json!("completed");
     completed["applied_state_root"] = current.operation.payload["source_state_root"].clone();
     completed["rollback_material_path"] = json!(rollback.to_string_lossy());
-    let (completed_exact, replayed) = match append(
+    let (completed_exact, replayed) = match admit(
         &st.data_dir,
+        false,
+        &identity,
+        &scope,
+        RESTORE_SCOPE_KIND,
+        &plan_id,
         PERSISTENCE_NAMESPACE,
         &tail,
         "event_stream.restore_plan_completed",
         Some(&applying_exact.head),
         &completed,
+        now_ms(),
         &format!("{}.completed", request.idempotency_key),
     ) {
         Ok(value) => value,
