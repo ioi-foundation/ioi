@@ -74,6 +74,7 @@ fn profile_receipt(
 ) -> String {
     let id = format!("hpr_{:x}", nanos());
     let receipt_ref = format!("agentgres://harness-profile-receipt/{id}");
+    // CLASSIFIED — best-effort telemetry: harness-profile receipts (RECEIPT_DIR) are never read back
     let _ = persist_record(
         data_dir,
         RECEIPT_DIR,
@@ -495,7 +496,8 @@ pub(crate) fn ensure_seed(data_dir: &str) {
                     refs.push(json!(receipt));
                 }
                 let mut fresh = existing;
-                save_profile(data_dir, &mut fresh);
+                // CLASSIFIED — bootstrap seed: idempotent, retried every read; strict lane re-censuses (:710-721)
+                let _ = save_profile(data_dir, &mut fresh);
             }
             continue;
         }
@@ -525,16 +527,18 @@ pub(crate) fn ensure_seed(data_dir: &str) {
                 .and_then(|v| v.as_str()),
         );
         record["receipt_refs"] = json!([receipt]);
+        // CLASSIFIED — bootstrap seed: idempotent, retried every read; strict lane re-censuses (:710-721)
         let _ = persist_record(data_dir, RECORD_DIR, &id, &record);
     }
 }
 
-fn save_profile(data_dir: &str, profile: &mut Value) {
+fn save_profile(data_dir: &str, profile: &mut Value) -> std::io::Result<()> {
     profile["updated_at"] = json!(iso_now());
     if let Some(id) = profile.get("profile_id").and_then(|v| v.as_str()) {
         let id = id.to_string();
-        let _ = persist_record(data_dir, RECORD_DIR, &id, profile);
+        persist_record(data_dir, RECORD_DIR, &id, profile)?;
     }
+    Ok(())
 }
 
 /// Persist a fresh runnability probe onto a profile WITHOUT clobbering a concurrent edit:
@@ -545,20 +549,22 @@ fn persist_runnability_locked(
     id: &str,
     runnability: Value,
     receipt: Option<&str>,
-) -> Option<Value> {
+) -> std::io::Result<Option<Value>> {
     let _guard = st
         .harness_profile_lock
         .lock()
         .unwrap_or_else(|e| e.into_inner());
-    let mut profile = load_profile_record(&st.data_dir, id)?;
+    let Some(mut profile) = load_profile_record(&st.data_dir, id) else {
+        return Ok(None);
+    };
     profile["runnability"] = runnability;
     if let Some(r) = receipt {
         if let Some(refs) = profile["receipt_refs"].as_array_mut() {
             refs.push(json!(r));
         }
     }
-    save_profile(&st.data_dir, &mut profile);
-    Some(profile)
+    save_profile(&st.data_dir, &mut profile)?;
+    Ok(Some(profile))
 }
 
 fn sorted_profiles(data_dir: &str) -> Vec<Value> {
@@ -714,9 +720,19 @@ pub(crate) fn live_profiles_strict(st: &DaemonState) -> Result<Vec<Value>, Strin
             .and_then(Value::as_str)
             .ok_or_else(|| "strict harness-profile census lost profile_id".to_string())?;
         let runnability = probe_profile(profile);
-        persist_runnability_locked(st, profile_id, runnability, None).ok_or_else(|| {
-            format!("harness-profile '{profile_id}' disappeared while its live fact was persisted")
-        })?;
+        match persist_runnability_locked(st, profile_id, runnability, None) {
+            Ok(Some(_)) => {}
+            Ok(None) => {
+                return Err(format!(
+                    "harness-profile '{profile_id}' disappeared while its live fact was persisted"
+                ))
+            }
+            Err(error) => {
+                return Err(format!(
+                    "harness-profile '{profile_id}' live runnability did not commit ({error})"
+                ))
+            }
+        }
     }
     let mut refreshed = strict_profile_census(&st.data_dir)?;
     refreshed.sort_by(|a, b| s(a, "profile_id", "").cmp(&s(b, "profile_id", "")));
@@ -790,7 +806,12 @@ pub(crate) async fn handle_harness_profiles_list(
         for p in profiles {
             let id = s(&p, "profile_id", "");
             let runnability = probe_profile(&p);
-            let updated = persist_runnability_locked(&st, &id, runnability, None).unwrap_or(p);
+            // A persist failure (or a vanished record) falls back to the last DURABLE record `p`
+            // rather than surfacing an un-persisted probe as truth on this read projection.
+            let updated = persist_runnability_locked(&st, &id, runnability, None)
+                .ok()
+                .flatten()
+                .unwrap_or(p);
             refreshed.push(updated);
         }
         profiles = refreshed;
@@ -881,7 +902,16 @@ pub(crate) async fn handle_harness_profile_probe(
     let runnability = probe_profile(&profile);
     let state = ps(&runnability, "/state", "not_probed");
     let receipt = profile_receipt(&st.data_dir, &profile_ref, "probed", &state, None);
-    persist_runnability_locked(&st, &id, runnability.clone(), Some(&receipt));
+    // The probed runnability is authoritative host truth: refuse rather than return un-persisted state.
+    if persist_runnability_locked(&st, &id, runnability.clone(), Some(&receipt)).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "harness_profile_runnability_persistence_failed",
+                "message": "the runnability probe did not commit — the profile's posture is unchanged" }),
+            ),
+        );
+    }
     let transcript_run =
         post_op_transcript(&st.base_url, "probe", &profile_ref, &runnability).await;
     (
@@ -934,7 +964,15 @@ async fn lifecycle_flip(
                 if let Some(refs) = fresh["receipt_refs"].as_array_mut() {
                     refs.push(json!(receipt));
                 }
-                save_profile(&st.data_dir, &mut fresh);
+                if save_profile(&st.data_dir, &mut fresh).is_err() {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(
+                            json!({ "ok": false, "code": "harness_profile_persistence_failed",
+                            "message": "the lifecycle flip did not commit — the profile's status is unchanged" }),
+                        ),
+                    );
+                }
                 fresh
             };
             let transcript_run = post_op_transcript(
@@ -1011,6 +1049,10 @@ pub(crate) async fn handle_harness_profile_select_default(
                     .harness_profile_lock
                     .lock()
                     .unwrap_or_else(|e| e.into_inner());
+                // Track the defaults we clear so a set-self failure can restore them: a partial
+                // failure that clears the old default but never sets the new one would leave ZERO
+                // defaults and the strict lane refuses the whole registry.
+                let mut cleared: Vec<Value> = Vec::new();
                 for mut other in read_record_dir(&st.data_dir, RECORD_DIR) {
                     if other.get("default_profile").and_then(|v| v.as_bool()) == Some(true)
                         && s(&other, "profile_id", "") != id
@@ -1018,7 +1060,20 @@ pub(crate) async fn handle_harness_profile_select_default(
                         other["default_profile"] = json!(false);
                         let other_ref = s(&other, "profile_ref", "");
                         profile_receipt(&st.data_dir, &other_ref, "default_cleared", "ok", None);
-                        save_profile(&st.data_dir, &mut other);
+                        if save_profile(&st.data_dir, &mut other).is_err() {
+                            for prior in cleared.iter_mut() {
+                                prior["default_profile"] = json!(true);
+                                let _ = save_profile(&st.data_dir, prior);
+                            }
+                            return (
+                                StatusCode::INTERNAL_SERVER_ERROR,
+                                Json(
+                                    json!({ "ok": false, "code": "harness_profile_persistence_failed",
+                                    "message": "clearing a prior default profile did not commit — the default was not changed" }),
+                                ),
+                            );
+                        }
+                        cleared.push(other);
                     }
                 }
                 let mut fresh = load_profile_record(&st.data_dir, &id).unwrap_or(profile);
@@ -1027,7 +1082,19 @@ pub(crate) async fn handle_harness_profile_select_default(
                 if let Some(refs) = fresh["receipt_refs"].as_array_mut() {
                     refs.push(json!(receipt));
                 }
-                save_profile(&st.data_dir, &mut fresh);
+                if save_profile(&st.data_dir, &mut fresh).is_err() {
+                    for prior in cleared.iter_mut() {
+                        prior["default_profile"] = json!(true);
+                        let _ = save_profile(&st.data_dir, prior);
+                    }
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(
+                            json!({ "ok": false, "code": "harness_profile_persistence_failed",
+                            "message": "selecting the new default profile did not commit — the prior default was restored" }),
+                        ),
+                    );
+                }
                 fresh
             };
             let transcript_run =
@@ -1174,8 +1241,16 @@ pub(crate) fn bind_profile_for_session_recoverable(
             if !commit {
                 return Ok(json!({"binding": Value::Null, "transcript_recorded": false}));
             }
-            let mut profile =
-                persist_runnability_locked(st, id, runnability.clone(), None).unwrap_or(profile);
+            let mut profile = match persist_runnability_locked(st, id, runnability.clone(), None) {
+                Ok(Some(profile)) => profile,
+                _ => {
+                    return Err((
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        json!({ "ok": false, "code": "harness_profile_persistence_failed",
+                            "message": "the bind-time runnability probe did not commit — the session was not bound" }),
+                    ))
+                }
+            };
             let profile_ref = s(&profile, "profile_ref", "");
             let binding_id = format!("hpb_{:x}", nanos());
             let receipt = profile_receipt(
@@ -1205,7 +1280,9 @@ pub(crate) fn bind_profile_for_session_recoverable(
                 "created_at": iso_now(),
                 "runtimeTruthSource": "daemon-runtime"
             });
-            let _ = persist_record(&st.data_dir, BINDING_DIR, &binding_id, &binding);
+            // Stamp the profile's admission history under the lock BEFORE the binding is written,
+            // so the binding — the record session execution consumes — is the LAST durable effect:
+            // a 500 here means the session was not bound, with no orphan binding left behind.
             {
                 let _guard = st
                     .harness_profile_lock
@@ -1216,11 +1293,24 @@ pub(crate) fn bind_profile_for_session_recoverable(
                     if let Some(refs) = fresh["receipt_refs"].as_array_mut() {
                         refs.push(json!(receipt.clone()));
                     }
-                    save_profile(&st.data_dir, &mut fresh);
+                    if save_profile(&st.data_dir, &mut fresh).is_err() {
+                        return Err((
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            json!({ "ok": false, "code": "harness_profile_persistence_failed",
+                                "message": "the profile admission stamp did not commit — the session was not bound" }),
+                        ));
+                    }
                     profile = fresh;
                 }
             }
             let _ = &profile;
+            if persist_record(&st.data_dir, BINDING_DIR, &binding_id, &binding).is_err() {
+                return Err((
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    json!({ "ok": false, "code": "harness_profile_session_binding_persistence_failed",
+                        "message": "the harness session binding did not commit — the session was not bound" }),
+                ));
+            }
             Ok(json!({
                 "binding": binding,
                 "transcript_recorded": false,

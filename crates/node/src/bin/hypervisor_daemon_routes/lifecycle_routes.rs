@@ -2574,12 +2574,23 @@ fn workflow_edit_proposal_decision(
         .unwrap_or_default()
         .to_string();
     record["decision"] = json!(decision);
-    let _ = persist_record(
+    // W1.2 / MEF-GAP-008 — this write was discarded. The decision is read back and GATES the
+    // file mutation (handle_workflow_edit_apply); a lost write leaves the proposal "pending" so
+    // apply stays blocked, but the caller was told approved/rejected — a 2xx without its effect.
+    if persist_record(
         &st.data_dir,
         "workflow_edit_proposals",
         &proposal_id,
         &record,
-    );
+    )
+    .is_err()
+    {
+        return Some(Json(json!({
+            "ok": false,
+            "code": "workflow_edit_proposal_persistence_failed",
+            "message": "the decision did not commit — the proposal remains pending",
+        })));
+    }
     Some(Json(json!({
         "decision": decision,
         "approval_id": approval_id,
@@ -2848,9 +2859,13 @@ pub(crate) async fn handle_mcp_validate(
 /// context_compaction is reported null here.
 pub(crate) async fn handle_compaction_policy(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(thread_id): AxumPath<String>,
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
+    // INV-37 — resolve the acting principal server-side before the thread read.
+    let actor_ref = resolve_acting_principal_ref(&st.data_dir, &headers, &body)
+        .map_err(|(code, body)| AppError(code, body.to_string()))?;
     if read_agent_for_thread(&st, &thread_id).is_none() {
         return Err(AppError(
             StatusCode::NOT_FOUND,
@@ -2911,7 +2926,7 @@ pub(crate) async fn handle_compaction_policy(
         "workflow_graph_id": obj.get("workflow_graph_id").and_then(|v| v.as_str()),
         "workflow_node_id": obj.get("workflow_node_id").and_then(|v| v.as_str()).unwrap_or("runtime.compaction-policy"),
         "source": obj.get("source").and_then(|v| v.as_str()).unwrap_or("react_flow"),
-        "actor": obj.get("actor").and_then(|v| v.as_str()).unwrap_or("operator"),
+        "actor": actor_ref,
         "event_kind": obj.get("event_kind").and_then(|v| v.as_str()).unwrap_or("RuntimeCompactionPolicy.Evaluate"),
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
@@ -2949,9 +2964,13 @@ pub(crate) async fn handle_compaction_policy(
 /// kernel and admit the resulting decision event onto the persisted event log.
 pub(crate) async fn handle_context_budget(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(thread_id): AxumPath<String>,
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
+    // INV-37 — resolve the acting principal server-side before the thread read.
+    let actor_ref = resolve_acting_principal_ref(&st.data_dir, &headers, &body)
+        .map_err(|(code, body)| AppError(code, body.to_string()))?;
     if read_agent_for_thread(&st, &thread_id).is_none() {
         return Err(AppError(
             StatusCode::NOT_FOUND,
@@ -2997,7 +3016,7 @@ pub(crate) async fn handle_context_budget(
         "turn_id": obj.get("turn_id").and_then(|v| v.as_str()),
         "run_id": obj.get("run_id").and_then(|v| v.as_str()),
         "source": obj.get("source").and_then(|v| v.as_str()).unwrap_or("react_flow"),
-        "actor": obj.get("actor").and_then(|v| v.as_str()).unwrap_or("operator"),
+        "actor": actor_ref,
         "event_kind": obj.get("event_kind").and_then(|v| v.as_str()).unwrap_or("RuntimeContextBudget.Evaluate"),
         "component_kind": "context_budget",
         "workflow_graph_id": obj.get("workflow_graph_id").and_then(|v| v.as_str()),
@@ -3034,9 +3053,14 @@ pub(crate) async fn handle_context_budget(
 /// `run_id` in the body targets that run instead.
 pub(crate) async fn handle_compact(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(thread_id): AxumPath<String>,
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
+    // INV-37 — resolve the acting principal server-side BEFORE the thread read (which is otherwise
+    // a thread-existence oracle), and refuse a caller-supplied actor/requested_by.
+    let actor_ref = resolve_acting_principal_ref(&st.data_dir, &headers, &body)
+        .map_err(|(code, body)| AppError(code, body.to_string()))?;
     let Some(agent) = read_agent_for_thread(&st, &thread_id) else {
         return Err(AppError(
             StatusCode::NOT_FOUND,
@@ -3122,8 +3146,8 @@ pub(crate) async fn handle_compact(
         "workspace_root": workspace_root,
         "event_stream_id": event_stream_id,
         "source": source,
-        "actor": body.get("actor").and_then(|v| v.as_str()).unwrap_or("operator"),
-        "requested_by": body.get("requested_by").and_then(|v| v.as_str()).unwrap_or("operator"),
+        "actor": actor_ref.clone(),
+        "requested_by": actor_ref.clone(),
         "reason": reason,
         "scope": scope,
         "workflow_graph_id": body.get("workflow_graph_id").and_then(|v| v.as_str()),
@@ -3296,9 +3320,15 @@ pub(crate) async fn handle_diagnostics_repair_execute(
 /// the agent (or run) record. Default target is the agent; a `run_id` targets that run.
 pub(crate) async fn handle_approval_request(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(thread_id): AxumPath<String>,
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
+    // INV-37 — the caller-passed actor_ref is the delegation-edge shape this invariant forbids.
+    // Resolve the actor server-side before the thread read; adjacent receipt_refs stay client-
+    // presented (they are grants the kernel verifies, not attribution).
+    let actor_ref = resolve_acting_principal_ref(&st.data_dir, &headers, &body)
+        .map_err(|(code, body)| AppError(code, body.to_string()))?;
     let Some(agent) = read_agent_for_thread(&st, &thread_id) else {
         return Err(AppError(
             StatusCode::NOT_FOUND,
@@ -3366,7 +3396,7 @@ pub(crate) async fn handle_approval_request(
         "action": body.get("action").and_then(|v| v.as_str()),
         "scope": body.get("scope").and_then(|v| v.as_str()),
         "authority_scope_requirements": scope_reqs,
-        "actor_ref": body.get("actor_ref").and_then(|v| v.as_str()),
+        "actor_ref": actor_ref,
         "source": source,
         "lease_id": body.get("lease_id").and_then(|v| v.as_str()),
         "lease_ttl_ms": body.get("lease_ttl_ms").and_then(|v| v.as_u64()),
@@ -7183,15 +7213,20 @@ pub(crate) async fn handle_project_create(
         .and_then(|value| value.as_str())
         .unwrap_or("project:repository")
         .to_string();
-    // Persist the project record (best-effort; if the write fails we still return a projection
-    // that includes the just-created record so the app reflects the create).
-    let _ = persist_record(&st.data_dir, "projects", &project_id, &record);
-    let mut records = read_record_dir(&st.data_dir, "projects");
-    if !records.iter().any(|item| {
-        item.get("project_id").and_then(|value| value.as_str()) == Some(project_id.as_str())
-    }) {
-        records.push(record.clone());
+    // W1.2 / MEF-GAP-008 — this write was discarded and the projection then pushed the unpersisted
+    // record into the response (7204 old), masking the failure from a read-after-write probe. The
+    // record is read back as gating state (automation create, environment binds); fail closed.
+    if persist_record(&st.data_dir, "projects", &project_id, &record).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "project_record_persistence_failed",
+                "message": "the project did not commit — nothing was created" }),
+            ),
+        );
     }
+    let records = read_record_dir(&st.data_dir, "projects");
+    let mut records = records;
     records.sort_by(|a, b| {
         let a_id = a
             .get("project_id")
@@ -8604,9 +8639,13 @@ fn emit_workspace_trust_warning(
 /// event, which the daemon admits onto the unified log.
 pub(crate) async fn handle_workspace_trust_acknowledge(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath((thread_id, warning_id)): AxumPath<(String, String)>,
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
+    // INV-37 — resolve the acting principal server-side before the thread read.
+    let actor_ref = resolve_acting_principal_ref(&st.data_dir, &headers, &body)
+        .map_err(|(code, body)| AppError(code, body.to_string()))?;
     let Some(agent) = read_agent_for_thread(&st, &thread_id) else {
         return Err(AppError(
             StatusCode::NOT_FOUND,
@@ -8624,7 +8663,7 @@ pub(crate) async fn handle_workspace_trust_acknowledge(
         "source_event_id": body.get("source_event_id").and_then(|v| v.as_str()),
         "reason": body.get("reason").and_then(|v| v.as_str()),
         "source": body.get("source").and_then(|v| v.as_str()).unwrap_or("runtime_thread_control"),
-        "actor": body.get("actor").and_then(|v| v.as_str()).unwrap_or("operator"),
+        "actor": actor_ref,
         "workflow_node_id": body.get("workflow_node_id").and_then(|v| v.as_str()).unwrap_or("runtime.workspace-trust"),
         "state_dir": st.data_dir,
         "created_at": now,
@@ -12493,7 +12532,19 @@ pub(crate) async fn authorize_capability_lease(
         "credential_source": credential_source,
         "issued_at": iso_now(),
     });
-    let _ = persist_record(&st.data_dir, "capability-leases", &lease_id, &descriptor);
+    // W1.2 / MEF-GAP-008 — this write was discarded. The lease descriptor IS the authority
+    // audit trail (served by handle_capability_lease_list); an authority crossing must never
+    // execute without its durable descriptor, so refuse before returning the lease.
+    if persist_record(&st.data_dir, "capability-leases", &lease_id, &descriptor).is_err() {
+        return Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            json!({
+                "ok": false,
+                "code": "capability_lease_persistence_failed",
+                "message": format!("lease {lease_id} was authorized but its audit descriptor did not commit — the crossing is refused"),
+            }),
+        ));
+    }
 
     Ok(AuthorizedCapabilityLease {
         descriptor,
@@ -13591,6 +13642,20 @@ pub(crate) async fn handle_connector_invoke(
     headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    // INV-37 — resolve the calling PRINCIPAL BEFORE the connector record read; the record read used
+    // to answer 400 "unknown connector_id" first, a record-existence oracle for callers who would
+    // fail the principal-scope gate below. Identity scopes WHO may request the crossing; it does NOT
+    // replace the wallet authority that authorizes the crossing itself.
+    let caller = resolve_principal(&st.data_dir, &headers);
+    let caller_id = caller
+        .as_ref()
+        .and_then(|p| p["principal_id"].as_str())
+        // The bare principal id is the join key for principal-lease-grants and the receipt subject.
+        // Unauthenticated requests only reach here in local dev (inbound auth middleware refuses
+        // them under enforcement, and principal-scoped connectors additionally refuse `caller ==
+        // None` below); attribute those to the local operator, never an out-of-namespace literal.
+        .unwrap_or("local-operator")
+        .to_string();
     let Some(connector) = read_record_dir(&st.data_dir, "connectors")
         .into_iter()
         .find(|c| c["connector_id"].as_str() == Some(id.as_str()))
@@ -13600,15 +13665,6 @@ pub(crate) async fn handle_connector_invoke(
             Json(json!({ "ok": false, "reason": "unknown connector_id" })),
         );
     };
-    // The calling PRINCIPAL (identity) — attributed on the receipt and, when the connector is
-    // principal-scoped, checked against a per-principal lease grant. Identity scopes WHO may request
-    // the crossing; it does NOT replace the wallet authority that authorizes the crossing itself.
-    let caller = resolve_principal(&st.data_dir, &headers);
-    let caller_id = caller
-        .as_ref()
-        .and_then(|p| p["principal_id"].as_str())
-        .unwrap_or("unattributed")
-        .to_string();
     let service = connector["service"]
         .as_str()
         .unwrap_or("service")
@@ -14254,10 +14310,31 @@ pub(crate) async fn handle_secret_create(
         "created_at": created_at,
         "updated_at": now,
     });
-    let _ = persist_record(&st.data_dir, "secrets", &secret_id, &record);
-    // Sealed value lives in a SEPARATE record, never surfaced by any read.
+    // W1.2 / MEF-GAP-008 (security) — sealed VALUE first, then metadata. A value without metadata
+    // is an invisible orphan; metadata without a value is a listed secret that can never resolve.
+    // ok:true over an undurable sealed value is a silently lost credential.
     let cred = json!({ "secret_id": secret_id, "sealed_value": sealed, "key_source": key_source, "sealed": true, "updated_at": now });
-    let _ = persist_record(&st.data_dir, "secret-values", &secret_id, &cred);
+    if persist_record(&st.data_dir, "secret-values", &secret_id, &cred).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "secret_value_persistence_failed",
+                "message": "the sealed secret value did not commit — nothing was stored" }),
+            ),
+        );
+    }
+    if persist_record(&st.data_dir, "secrets", &secret_id, &record).is_err() {
+        // Metadata failed after the value committed: remove the orphan value (deterministic id →
+        // idempotent retry), then fail closed.
+        let _ = remove_record(&st.data_dir, "secret-values", &secret_id);
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "secret_record_persistence_failed",
+                "message": "the secret metadata did not commit — the value was rolled back; nothing was stored" }),
+            ),
+        );
+    }
     (
         StatusCode::OK,
         Json(json!({ "ok": true, "secret": record })),
@@ -14299,11 +14376,29 @@ pub(crate) async fn handle_secret_update_value(
     };
     let key_source = scm_key_source();
     let now = iso_now();
+    // W1.2 / MEF-GAP-008 (security) — value first, then metadata. Rotation silently failing while
+    // returning ok:true leaves the OLD (possibly leaked) value live.
     let cred = json!({ "secret_id": id, "sealed_value": sealed, "key_source": key_source, "sealed": true, "updated_at": now });
-    let _ = persist_record(&st.data_dir, "secret-values", &id, &cred);
+    if persist_record(&st.data_dir, "secret-values", &id, &cred).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "secret_value_persistence_failed",
+                "message": "the rotated secret value did not commit — the prior value still stands" }),
+            ),
+        );
+    }
     record["updated_at"] = json!(now);
     record["key_source"] = json!(key_source);
-    let _ = persist_record(&st.data_dir, "secrets", &id, &record);
+    if persist_record(&st.data_dir, "secrets", &id, &record).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "secret_record_persistence_failed",
+                "message": "the secret value rotated but its metadata did not commit — retry to converge" }),
+            ),
+        );
+    }
     (
         StatusCode::OK,
         Json(json!({ "ok": true, "secret": record })),
@@ -14314,10 +14409,26 @@ pub(crate) async fn handle_secret_update_value(
 pub(crate) async fn handle_secret_delete(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
-) -> Json<Value> {
+) -> (StatusCode, Json<Value>) {
     let removed = remove_record(&st.data_dir, "secrets", &id);
-    let _ = remove_record(&st.data_dir, "secret-values", &id);
-    Json(json!({ "ok": true, "secret_id": id, "removed": removed }))
+    // W1.2 / MEF-GAP-008 (honesty) — the sealed value is the byte that actually holds the secret;
+    // a discarded removal can leave it on disk while the caller was told the secret was deleted.
+    let values_removed = remove_record(&st.data_dir, "secret-values", &id);
+    if removed && !values_removed {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "secret_value_persistence_failed",
+                "message": "the metadata was removed but the sealed value could not be — the secret is NOT fully deleted; retry" }),
+            ),
+        );
+    }
+    (
+        StatusCode::OK,
+        Json(
+            json!({ "ok": true, "secret_id": id, "removed": removed, "values_removed": values_removed }),
+        ),
+    )
 }
 
 // ============================================================================================
@@ -15246,6 +15357,8 @@ pub(crate) fn ensure_identity_foundation(data_dir: &str) -> Result<(), String> {
 /// startup calls `ensure_identity_foundation` and fails readiness on error; later calls do not
 /// turn a persistence failure into a successful identity response.
 fn ensure_operator(data_dir: &str) {
+    // CLASSIFIED — bootstrap seed: a failed seed fails closed downstream (find_principal misses →
+    // 401); production startup calls ensure_identity_foundation directly and fails readiness.
     let _ = ensure_identity_foundation(data_dir);
 }
 fn find_principal(data_dir: &str, id: &str) -> Option<Value> {
@@ -15443,6 +15556,46 @@ pub(crate) fn session_allows_route(data_dir: &str, headers: &HeaderMap, path: &s
 
 /// Resolve the calling principal from a session cookie (ioi_session=) or a Bearer token (session
 /// token OR an API access token whose hash we stored). Returns the public principal record.
+/// INV-37 — the acting principal is RESOLVED from the session, never ASSERTED by the caller. A body
+/// that carries any WHO-attribution field is refused (a caller may not name who acted); the ref is
+/// derived from the resolved principal, falling back to the local-dev operator only when none
+/// resolves (the sanctioned unauthenticated local lane, never an ad-hoc constant). Callers pass the
+/// returned ref wherever an `actor`/`requested_by`/`actor_ref` once defaulted to a literal.
+pub(crate) fn resolve_acting_principal_ref(
+    data_dir: &str,
+    headers: &HeaderMap,
+    body: &Value,
+) -> Result<String, (StatusCode, Value)> {
+    for who in [
+        "actor",
+        "actor_ref",
+        "requested_by",
+        "acting_principal_ref",
+        "principal_ref",
+        "reviewer_ref",
+        "changed_by",
+        "is_impersonated",
+    ] {
+        if body.get(who).map(|v| !v.is_null()).unwrap_or(false) {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                json!({
+                    "ok": false,
+                    "code": "identity_not_client_settable",
+                    "message": format!("`{who}` is resolved server-side and may not be supplied by the caller"),
+                }),
+            ));
+        }
+    }
+    Ok(resolve_principal(data_dir, headers)
+        .and_then(|p| {
+            p.get("principal_id")
+                .and_then(Value::as_str)
+                .map(|id| format!("user://{id}"))
+        })
+        .unwrap_or_else(|| "user://local-operator".to_string()))
+}
+
 pub(crate) fn resolve_principal(data_dir: &str, headers: &HeaderMap) -> Option<Value> {
     // 1) session cookie
     let mut session_tok: Option<String> = None;
@@ -16890,7 +17043,10 @@ fn issue_session_with_context(
     let principal = match principal_public_with_memberships(data_dir, p) {
         Ok(principal) => principal,
         Err(message) => {
-            remove_record(data_dir, "sessions", &sid);
+            // CLASSIFIED — rollback/cleanup: compensating delete after a 503; only the token hash
+            // is stored and the plaintext was never returned, so an orphaned record is unclaimable
+            // and expires.
+            let _ = remove_record(data_dir, "sessions", &sid);
             return (
                 StatusCode::SERVICE_UNAVAILABLE,
                 json!({ "ok": false, "reason": "membership_registry_unavailable", "detail": message }),
@@ -16907,7 +17063,7 @@ fn issue_session_with_context(
 pub(crate) async fn handle_auth_logout(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
-) -> Json<Value> {
+) -> (StatusCode, Json<Value>) {
     let mut tok: Option<String> = None;
     if let Some(cookie) = headers.get("cookie").and_then(|c| c.to_str().ok()) {
         for part in cookie.split(';') {
@@ -16930,11 +17086,22 @@ pub(crate) async fn handle_auth_logout(
             .find(|s| s["token_hash"].as_str() == Some(h.as_str()))
         {
             if let Some(sid) = s["session_id"].as_str() {
-                remove_record(&st.data_dir, "sessions", sid);
+                // W1.2 / MEF-GAP-008 (security) — the session was FOUND, so a false return means
+                // revocation FAILED and the token is still valid. Fail closed: the caller must not
+                // believe they are logged out while the session persists.
+                if !remove_record(&st.data_dir, "sessions", sid) {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(
+                            json!({ "ok": false, "code": "auth_session_revocation_failed",
+                            "message": "the session could not be revoked — you are NOT logged out; retry" }),
+                        ),
+                    );
+                }
             }
         }
     }
-    Json(json!({ "ok": true }))
+    (StatusCode::OK, Json(json!({ "ok": true })))
 }
 
 /// GET /v1/hypervisor/auth/whoami — the authenticated principal (401 if none and auth required;
@@ -17088,6 +17255,9 @@ pub(crate) async fn handle_auth_bootstrap(
             })),
         );
     }
+    // CLASSIFIED — rollback/cleanup: bootstrap-token hygiene; replay is independently refused
+    // because login_possible() is true once the operator password durably persisted, so a
+    // lingering token record is inert.
     remove_record(&st.data_dir, "auth-bootstrap", "bootstrap");
     let (status, sess) = issue_session(&st.data_dir, OPERATOR_ID, "bootstrap");
     (status, Json(sess))
@@ -17289,7 +17459,10 @@ pub(crate) async fn handle_principal_delete(
         .filter(|s| s["principal_id"].as_str() == Some(id.as_str()))
     {
         if let Some(sid) = s["session_id"].as_str() {
-            remove_record(&st.data_dir, "sessions", sid);
+            // CLASSIFIED — rollback/cleanup (defense-in-depth): resolve_principal re-checks
+            // status=="active", so a surviving session cannot authenticate after the checked
+            // principal write; that write is the load-bearing gate.
+            let _ = remove_record(&st.data_dir, "sessions", sid);
         }
     }
     let purge = q
@@ -17820,7 +17993,15 @@ pub(crate) async fn handle_auth_oidc_callback(
         Ok(receipt) => receipt,
         Err(error) => return membership_error_response(error),
     };
-    remove_record(&st.data_dir, "oauth-pending", state);
+    // W1.2 / MEF-GAP-008 (security) — consume the single-use login artifact before issuing the
+    // session; a discarded removal leaves the PKCE verifier + nonce replayable. Fail closed.
+    if !remove_record(&st.data_dir, "oauth-pending", state) {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "code": "oauth_pending_consume_failed",
+                "message": "the single-use login state could not be consumed — no session issued; restart sign-in" })),
+        );
+    }
     let (status, sess) = issue_session(&st.data_dir, principal_id, &format!("sso:{sso_id}"));
     let mut response = sess;
     if status == StatusCode::OK {
@@ -18226,7 +18407,9 @@ pub(crate) async fn handle_scim_user_patch(
                 .filter(|s| s["principal_id"].as_str() == Some(id.as_str()))
             {
                 if let Some(sid) = s["session_id"].as_str() {
-                    remove_record(&st.data_dir, "sessions", sid);
+                    // CLASSIFIED — rollback/cleanup (defense-in-depth): resolve_principal
+                    // re-checks status=="active"; the checked principal write is the gate.
+                    let _ = remove_record(&st.data_dir, "sessions", sid);
                 }
             }
         }
@@ -18714,7 +18897,17 @@ pub(crate) async fn handle_domain_verification_create(
     let id = format!("dv_{}", short_hash(&domain));
     let token = format!("ioi-domain-verification={}", gen_opaque("v"));
     let rec = json!({ "id": id, "domain_verification_id": id, "domain": domain, "verification_token": token, "record_name": "@", "record_type": "TXT", "verified": false, "created_at": iso_now() });
-    let _ = persist_record(&st.data_dir, "domain-verifications", &id, &rec);
+    // W1.2 / MEF-GAP-008 — a lost write tells the caller to publish a DNS TXT token that verify
+    // will never find.
+    if persist_record(&st.data_dir, "domain-verifications", &id, &rec).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "domain_verification_persistence_failed",
+                "message": "the verification challenge did not commit — nothing to verify against" }),
+            ),
+        );
+    }
     (
         StatusCode::OK,
         Json(json!({ "ok": true, "domain_verification": rec })),
@@ -18740,7 +18933,16 @@ pub(crate) async fn handle_domain_verification_verify(
     let verified = txts.iter().any(|t| t.contains(token));
     rec["verified"] = json!(verified);
     rec["checked_at"] = json!(iso_now());
-    let _ = persist_record(&st.data_dir, "domain-verifications", &id, &rec);
+    // W1.2 / MEF-GAP-008 — the response says verified:true while a lost write means no read agrees.
+    if persist_record(&st.data_dir, "domain-verifications", &id, &rec).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "domain_verification_persistence_failed",
+                "message": "the verification result did not commit — re-run verification" }),
+            ),
+        );
+    }
     (
         StatusCode::OK,
         Json(json!({ "ok": true, "verified": verified, "domain_verification": rec })),
@@ -18768,7 +18970,7 @@ pub(crate) async fn handle_custom_domain_get(State(st): State<Arc<DaemonState>>)
 pub(crate) async fn handle_custom_domain_set(
     State(st): State<Arc<DaemonState>>,
     Json(body): Json<Value>,
-) -> Json<Value> {
+) -> (StatusCode, Json<Value>) {
     let domain = body
         .get("domain")
         .and_then(Value::as_str)
@@ -18776,12 +18978,40 @@ pub(crate) async fn handle_custom_domain_set(
         .trim()
         .to_lowercase();
     if domain.is_empty() {
-        remove_record(&st.data_dir, "custom-domain", "custom-domain");
-        return Json(json!({ "ok": true, "custom_domain": Value::Null }));
+        // W1.2 / MEF-GAP-008 — the record was found-or-absent; a false return means the domain
+        // survives a claimed clear.
+        if read_record_dir(&st.data_dir, "custom-domain")
+            .iter()
+            .any(|c| c["id"].as_str() == Some("custom-domain"))
+            && !remove_record(&st.data_dir, "custom-domain", "custom-domain")
+        {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    json!({ "ok": false, "code": "custom_domain_persistence_failed",
+                    "message": "the custom domain was NOT cleared — it remains set" }),
+                ),
+            );
+        }
+        return (
+            StatusCode::OK,
+            Json(json!({ "ok": true, "custom_domain": Value::Null })),
+        );
     }
     let rec = json!({ "id": "custom-domain", "domain": domain, "updated_at": iso_now() });
-    let _ = persist_record(&st.data_dir, "custom-domain", "custom-domain", &rec);
-    Json(json!({ "ok": true, "custom_domain": domain }))
+    if persist_record(&st.data_dir, "custom-domain", "custom-domain", &rec).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "custom_domain_persistence_failed",
+                "message": "the custom domain did NOT commit" }),
+            ),
+        );
+    }
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "custom_domain": domain })),
+    )
 }
 
 // ============================================================================================
@@ -18991,7 +19221,9 @@ pub(crate) async fn handle_budget_set(
 /// POST /v1/hypervisor/budget/reconcile — recompute used vs budget; if auto-funding is enabled and
 /// the balance is below threshold, replenish the budget to (used + target) and record a wallet
 /// funding ledger entry. This is the wallet-native reframe of SaaS "auto top-up".
-pub(crate) async fn handle_budget_reconcile(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+pub(crate) async fn handle_budget_reconcile(
+    State(st): State<Arc<DaemonState>>,
+) -> (StatusCode, Json<Value>) {
     let mut b = load_budget(&st.data_dir);
     let used = all_time_consumption(&st.data_dir);
     let mut budget = b
@@ -19021,21 +19253,43 @@ pub(crate) async fn handle_budget_reconcile(State(st): State<Arc<DaemonState>>) 
             "id": ev_id, "kind": "budget-auto-fund", "credential_source": "wallet.network",
             "amount_ocu": amount, "target_ocu": target, "used_ocu": round6(used), "at": iso_now()
         });
-        let _ = persist_record(&st.data_dir, "ledgers", &ev_id, &ev);
+        // W1.2 / MEF-GAP-008 — funding ledger (evidence) before budget policy (the ceiling read
+        // back by load_budget/budget_with_balance). A lost policy write returns a raised budget no
+        // read will honor; a reconcile-twice can then mint a second funding event.
+        if persist_record(&st.data_dir, "ledgers", &ev_id, &ev).is_err() {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    json!({ "ok": false, "code": "budget_funding_ledger_persistence_failed",
+                    "message": "the funding event did not commit — the budget was not raised" }),
+                ),
+            );
+        }
         budget = new_budget;
         b["budget_ocu"] = json!(round6(budget));
         b["updated_at"] = json!(iso_now());
-        let _ = persist_record(&st.data_dir, "budget", "policy", &b);
+        if persist_record(&st.data_dir, "budget", "policy", &b).is_err() {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    json!({ "ok": false, "code": "budget_policy_persistence_failed",
+                    "message": "the funding event committed but the budget ceiling did not — reconcile again to converge" }),
+                ),
+            );
+        }
         available = round6((budget - used).max(0.0));
         funded = true;
         funding_ref = json!(ev_id);
     }
-    Json(json!({
-        "ok": true,
-        "reconciled": { "used_ocu": round6(used), "budget_ocu": round6(budget), "available_ocu": available, "threshold_ocu": threshold, "auto_fund_enabled": auto },
-        "funded": funded,
-        "funding_event_ref": funding_ref,
-    }))
+    (
+        StatusCode::OK,
+        Json(json!({
+            "ok": true,
+            "reconciled": { "used_ocu": round6(used), "budget_ocu": round6(budget), "available_ocu": available, "threshold_ocu": threshold, "auto_fund_enabled": auto },
+            "funded": funded,
+            "funding_event_ref": funding_ref,
+        })),
+    )
 }
 
 #[cfg(test)]
@@ -20072,7 +20326,10 @@ pub(crate) async fn handle_scm_abandon_pull_request(
         "error": error,
         "abandoned_at": iso_now(),
     });
-    let _ = persist_record(&st.data_dir, "scm-abandon-receipts", &receipt_id, &receipt);
+    // CLASSIFIED — best-effort audit receipt: nothing reads scm-abandon-receipts back and the PR
+    // close already happened; must not fail closed, must report durability.
+    let receipt_durable =
+        persist_record(&st.data_dir, "scm-abandon-receipts", &receipt_id, &receipt).is_ok();
     if !closed {
         return (
             StatusCode::BAD_GATEWAY,
@@ -20081,7 +20338,7 @@ pub(crate) async fn handle_scm_abandon_pull_request(
     }
     (
         StatusCode::OK,
-        Json(json!({ "ok": true, "receipt": receipt })),
+        Json(json!({ "ok": true, "receipt": receipt, "receipt_durable": receipt_durable })),
     )
 }
 
@@ -20172,7 +20429,16 @@ pub(crate) async fn handle_scm_connect_github(
             );
         };
         let cred = json!({ "connector_id": connector_id, "sealed_token": sealed, "key_source": key_source, "sealed": true, "bound_at": iso_now() });
-        let _ = persist_record(&st.data_dir, "scm-credentials", &connector_id, &cred);
+        // W1.2 / MEF-GAP-008 — sealed token first, then connector (host lane).
+        if persist_record(&st.data_dir, "scm-credentials", &connector_id, &cred).is_err() {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    json!({ "ok": false, "code": "scm_credential_persistence_failed",
+                    "message": "the sealed credential did not commit — GitHub is not connected" }),
+                ),
+            );
+        }
         let connector = json!({
             "schema_version": "ioi.hypervisor.scm-connector.v1",
             "connector_id": connector_id, "kind": "github", "name": format!("github:@{login}"),
@@ -20180,7 +20446,15 @@ pub(crate) async fn handle_scm_connect_github(
             "auth_posture": "token-lease:bound", "credential_key_source": key_source,
             "connected_login": login, "host_level": true, "created_at": iso_now(),
         });
-        let _ = persist_record(&st.data_dir, "scm-connectors", &connector_id, &connector);
+        if persist_record(&st.data_dir, "scm-connectors", &connector_id, &connector).is_err() {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    json!({ "ok": false, "code": "scm_connector_persistence_failed",
+                    "message": "the credential committed but its connector record did not — reconnect to rebuild it" }),
+                ),
+            );
+        }
         return (
             StatusCode::OK,
             Json(
@@ -20198,7 +20472,17 @@ pub(crate) async fn handle_scm_connect_github(
         );
     };
     let cred = json!({ "connector_id": connector_id, "sealed_token": sealed, "key_source": key_source, "sealed": true, "bound_at": iso_now() });
-    let _ = persist_record(&st.data_dir, "scm-credentials", &connector_id, &cred);
+    // W1.2 / MEF-GAP-008 — sealed token first, then connector. "Connected" over a discarded
+    // sealed token means publish later 428s while connect claimed success.
+    if persist_record(&st.data_dir, "scm-credentials", &connector_id, &cred).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "scm_credential_persistence_failed",
+                "message": "the sealed credential did not commit — GitHub is not connected" }),
+            ),
+        );
+    }
     let connector = json!({
         "schema_version": "ioi.hypervisor.scm-connector.v1",
         "connector_id": connector_id,
@@ -20211,7 +20495,15 @@ pub(crate) async fn handle_scm_connect_github(
         "connected_login": login,
         "created_at": iso_now(),
     });
-    let _ = persist_record(&st.data_dir, "scm-connectors", &connector_id, &connector);
+    if persist_record(&st.data_dir, "scm-connectors", &connector_id, &connector).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "scm_connector_persistence_failed",
+                "message": "the credential committed but its connector record did not — reconnect to rebuild it" }),
+            ),
+        );
+    }
     (
         StatusCode::OK,
         Json(
@@ -20554,7 +20846,18 @@ pub(crate) async fn handle_github_app_conversion(
         "sealed_client_secret": sealed_secret, "app_id": app_id, "installation_id": Value::Null,
         "key_source": key_source, "sealed": true, "bound_at": iso_now(),
     });
-    let _ = persist_record(&st.data_dir, "scm-credentials", &connector_id, &cred);
+    // W1.2 / MEF-GAP-008 (highest severity) — this sealed write was discarded. The GitHub App
+    // manifest conversion is ONE-TIME: if the sealed private key + client secret do not commit,
+    // the key is unrecoverable, yet the handler used to return ok:true. Fail closed and say so.
+    if persist_record(&st.data_dir, "scm-credentials", &connector_id, &cred).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "scm_credential_persistence_failed",
+                "message": "the GitHub App exists at GitHub but its sealed private key did not commit — regenerate the key from the App's settings and retry" }),
+            ),
+        );
+    }
     let connector = json!({
         "schema_version": "ioi.hypervisor.scm-connector.v1",
         "connector_id": connector_id, "kind": "github-app",
@@ -20564,7 +20867,15 @@ pub(crate) async fn handle_github_app_conversion(
         "connected_login": owner_login, "app_id": app_id, "app_slug": slug, "client_id": client_id,
         "html_url": html_url, "installation_id": Value::Null, "host_level": true, "created_at": iso_now(),
     });
-    let _ = persist_record(&st.data_dir, "scm-connectors", &connector_id, &connector);
+    if persist_record(&st.data_dir, "scm-connectors", &connector_id, &connector).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "scm_connector_persistence_failed",
+                "message": "the App key committed but its connector record did not — reconnect to rebuild the connector" }),
+            ),
+        );
+    }
     let install_url = format!("https://github.com/apps/{slug}/installations/new");
     (
         StatusCode::OK,
@@ -20627,14 +20938,34 @@ pub(crate) async fn handle_github_app_installation(
     let connector_id = connector["connector_id"].as_str().unwrap_or("").to_string();
     connector["installation_id"] = json!(installation_id);
     connector["auth_posture"] = json!("token-lease:bound");
-    let _ = persist_record(&st.data_dir, "scm-connectors", &connector_id, &connector);
+    // W1.2 / MEF-GAP-008 — this write was discarded; a lost binding returns ok+verified while
+    // the connector stays unbound and publish refuses.
+    if persist_record(&st.data_dir, "scm-connectors", &connector_id, &connector).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "scm_connector_persistence_failed",
+                "message": "the installation binding did not commit on the connector — retry the installation capture" }),
+            ),
+        );
+    }
     // mirror installation_id onto the sealed cred record (the gateway reads it there to mint tokens)
     if let Some(mut cred) = read_record_dir(&st.data_dir, "scm-credentials")
         .into_iter()
         .find(|c| c["connector_id"].as_str() == Some(connector_id.as_str()))
     {
         cred["installation_id"] = json!(installation_id);
-        let _ = persist_record(&st.data_dir, "scm-credentials", &connector_id, &cred);
+        // W1.2 / MEF-GAP-008 — this write was discarded. A silent mirror failure returned
+        // ok+verified while publish-time token minting reads a credential with no installation_id.
+        if persist_record(&st.data_dir, "scm-credentials", &connector_id, &cred).is_err() {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    json!({ "ok": false, "code": "scm_credential_persistence_failed",
+                    "message": "the installation binding did not commit — the App is installed at GitHub but token minting will fail; retry the installation capture" }),
+                ),
+            );
+        }
         // verify by minting a token (proves the sealed pem + installation are usable). Never returned.
         let app_id = cred["app_id"].as_str().unwrap_or("").to_string();
         let verified = match cred["sealed_pem"].as_str().and_then(open_scm_token) {
@@ -22203,7 +22534,16 @@ pub(crate) mod runtime_host {
             "runtime_host_status": "hosted",
             "created_at": now,
         });
-        let _ = super::persist_record(&st.data_dir, "agents", &agent_id, &agent_record);
+        // W1.2 / MEF-GAP-008 — this write was discarded. read_agent_for_thread gates every
+        // /v1/threads/:id/* handler; a host session over a lost linkage emits events into a
+        // thread no reader can enumerate.
+        if super::persist_record(&st.data_dir, "agents", &agent_id, &agent_record).is_err() {
+            return host_error(
+                &session_ref,
+                "runtime_host_agent_persistence_failed",
+                "the session→thread linkage did not commit — no events would resolve",
+            );
+        }
         let _ = std::fs::create_dir_all(&workspace_path);
 
         // Persistent transcript/memory runtime (the lifecycle ops append the seed +

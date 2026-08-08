@@ -108,6 +108,7 @@ pub(crate) fn ensure_default_space(st: &DaemonState) -> Value {
         "updated_at": iso_now(),
         "runtimeTruthSource": "daemon-runtime",
     });
+    // CLASSIFIED — bootstrap seed: created on first read, rebuilt-and-retried on every subsequent call (:90-96 re-reads before writing); a lost write self-heals next request
     let _ = persist_record(&st.data_dir, SPACE_KIND, "ms_workspace_default", &record);
     record
 }
@@ -315,6 +316,7 @@ struct Family {
     ref_scheme: &'static str,
     schema: &'static str,
     plural: &'static str,
+    persist_code: &'static str,
 }
 
 const ENTRY_FAMILY: Family = Family {
@@ -325,6 +327,7 @@ const ENTRY_FAMILY: Family = Family {
     ref_scheme: "memory-entry://",
     schema: "ioi.hypervisor.memory-entry.v1",
     plural: "entries",
+    persist_code: "memory_entry_persistence_failed",
 };
 const SKILL_FAMILY: Family = Family {
     kind: SKILL_KIND,
@@ -334,6 +337,7 @@ const SKILL_FAMILY: Family = Family {
     ref_scheme: "skill-entry://",
     schema: "ioi.hypervisor.skill-entry.v1",
     plural: "skills",
+    persist_code: "skill_entry_persistence_failed",
 };
 const AFFINITY_FAMILY: Family = Family {
     kind: AFFINITY_KIND,
@@ -343,6 +347,7 @@ const AFFINITY_FAMILY: Family = Family {
     ref_scheme: "automation-affinity://",
     schema: "ioi.hypervisor.automation-affinity.v1",
     plural: "affinities",
+    persist_code: "automation_affinity_persistence_failed",
 };
 
 fn family_list(st: &DaemonState, family: &Family, query: &HashMap<String, String>) -> Value {
@@ -417,7 +422,13 @@ fn family_create(
     if let Err(rejection) = validate(body, &mut record) {
         return rejection;
     }
-    let _ = persist_record(&st.data_dir, family.kind, &id, &record);
+    if persist_record(&st.data_dir, family.kind, &id, &record).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "code": family.persist_code,
+                "message": "the intelligence record did not commit — nothing was created" })),
+        );
+    }
     (
         StatusCode::CREATED,
         Json(json!({ "ok": true, "record": record })),
@@ -453,7 +464,13 @@ fn family_patch(
     }
     record["updated_at"] = json!(iso_now());
     let rid = text(&record, family.id_key).to_string();
-    let _ = persist_record(&st.data_dir, family.kind, &rid, &record);
+    if persist_record(&st.data_dir, family.kind, &rid, &record).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "code": family.persist_code,
+                "message": "the intelligence record update did not commit — the change was not saved" })),
+        );
+    }
     (
         StatusCode::OK,
         Json(json!({ "ok": true, "record": record })),
@@ -551,7 +568,15 @@ pub(crate) async fn handle_spaces_create(
         "updated_at": iso_now(),
         "runtimeTruthSource": "daemon-runtime",
     });
-    let _ = persist_record(&st.data_dir, SPACE_KIND, &id, &record);
+    if persist_record(&st.data_dir, SPACE_KIND, &id, &record).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "memory_space_persistence_failed",
+                "message": "the memory space did not commit — nothing was created" }),
+            ),
+        );
+    }
     (
         StatusCode::CREATED,
         Json(json!({ "ok": true, "space": record })),
@@ -857,7 +882,12 @@ pub(crate) async fn handle_projection_preview(
 }
 
 /// Create a durable, receipted MemoryProjection (the record an invocation actually references).
-pub(crate) async fn create_projection(st: &DaemonState, body: &Value) -> Value {
+/// Fallible core: both writes are checked, and the receipt persists BEFORE the record that embeds
+/// its ref, so a success never names a receipt no reader can find.
+async fn create_projection_checked(
+    st: &DaemonState,
+    body: &Value,
+) -> Result<Value, (StatusCode, Json<Value>)> {
     let (entries, skills, affinities) = gather_projection_inputs(st).await;
     let ctx = build_projection_context(st, body).await;
     let space = ensure_default_space(st);
@@ -889,7 +919,6 @@ pub(crate) async fn create_projection(st: &DaemonState, body: &Value) -> Value {
         "created_at": iso_now(),
         "runtimeTruthSource": "daemon-runtime",
     });
-    let _ = persist_record(&st.data_dir, PROJECTION_KIND, &id, &record);
     let receipt = json!({
         "id": receipt_ref,
         "kind": "hypervisor.memory-projection",
@@ -902,19 +931,50 @@ pub(crate) async fn create_projection(st: &DaemonState, body: &Value) -> Value {
         "at": iso_now(),
         "runtimeTruthSource": "daemon-runtime",
     });
-    let _ = persist_record(&st.data_dir, "receipts", &receipt_ref, &receipt);
-    record
+    // Receipt first: the record embeds receipt_refs, so its cited receipt must be durable before
+    // the record that points at it.
+    if persist_record(&st.data_dir, "receipts", &receipt_ref, &receipt).is_err() {
+        return Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "memory_projection_receipt_persistence_failed",
+                "message": "the projection receipt did not commit — no projection was created" }),
+            ),
+        ));
+    }
+    if persist_record(&st.data_dir, PROJECTION_KIND, &id, &record).is_err() {
+        return Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "memory_projection_persistence_failed",
+                "message": "the projection did not commit — nothing was created" }),
+            ),
+        ));
+    }
+    Ok(record)
+}
+
+/// Best-effort projection for in-process context injection (ioi_agent_routes callers). A
+/// persistence failure there is not the caller's to surface — the empty projection degrades
+/// gracefully (no dangling ref); handle_projections_create uses the checked path and returns the
+/// honest typed error.
+pub(crate) async fn create_projection(st: &DaemonState, body: &Value) -> Value {
+    create_projection_checked(st, body)
+        .await
+        .unwrap_or_else(|_| json!({}))
 }
 
 pub(crate) async fn handle_projections_create(
     State(st): State<Arc<DaemonState>>,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
-    let record = create_projection(&st, &body).await;
-    (
-        StatusCode::CREATED,
-        Json(json!({ "ok": true, "projection": record })),
-    )
+    match create_projection_checked(&st, &body).await {
+        Ok(record) => (
+            StatusCode::CREATED,
+            Json(json!({ "ok": true, "projection": record })),
+        ),
+        Err(response) => response,
+    }
 }
 
 pub(crate) async fn handle_projections_list(
@@ -1308,7 +1368,14 @@ pub(crate) async fn handle_vault_import(
         });
         stored["runtimeTruthSource"] = json!("daemon-runtime");
         stored["imported_at"] = json!(iso_now());
-        let _ = persist_record(&st.data_dir, kind, &rid, &stored);
+        // The count must follow the durable write, not precede it: a discarded write here would
+        // report an imported record that no reader can find. On failure the file is a rejection.
+        if persist_record(&st.data_dir, kind, &rid, &stored).is_err() {
+            rejected.push(
+                json!({ "path": path, "reason_code": "memory_vault_import_persistence_failed" }),
+            );
+            continue;
+        }
         imported[family] = json!(imported[family].as_u64().unwrap_or(0) + 1);
     }
     (
@@ -1459,7 +1526,15 @@ pub(crate) async fn handle_proposals_create(
         "created_at": iso_now(),
         "runtimeTruthSource": "daemon-runtime",
     });
-    let _ = persist_record(&st.data_dir, PROPOSAL_KIND, &id, &record);
+    if persist_record(&st.data_dir, PROPOSAL_KIND, &id, &record).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "memory_mutation_proposal_persistence_failed",
+                "message": "the mutation proposal did not commit — nothing was recorded" }),
+            ),
+        );
+    }
     (
         StatusCode::CREATED,
         Json(json!({ "ok": true, "proposal": record })),
@@ -1562,14 +1637,38 @@ pub(crate) async fn handle_proposal_approve(
         "at": iso_now(),
         "runtimeTruthSource": "daemon-runtime",
     });
-    let _ = persist_record(&st.data_dir, "receipts", &receipt_ref, &receipt);
+    // Receipt persists BEFORE the proposal record that cites it. The applied change (family_create/
+    // family_patch above) is already durable, so a lost receipt must fail the request, carrying
+    // applied_ref so the operator knows the mutation itself landed.
+    if persist_record(&st.data_dir, "receipts", &receipt_ref, &receipt).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "memory_mutation_receipt_persistence_failed",
+                "applied_ref": applied_ref,
+                "message": "the mutation was applied but its context_mutation receipt did not commit" }),
+            ),
+        );
+    }
     if let Some(object) = proposal.as_object_mut() {
         object.insert("review_state".into(), json!("approved"));
         object.insert("applied_ref".into(), json!(applied_ref));
         object.insert("receipt_refs".into(), json!([receipt_ref]));
         object.insert("reviewed_at".into(), json!(iso_now()));
     }
-    let _ = persist_record(&st.data_dir, PROPOSAL_KIND, &id, &proposal);
+    // Residual hazard (recorded, not repaired here): this proposal write carries no idempotency key,
+    // so a lost write followed by a retry can duplicate the applied entry. Building an idempotency
+    // key is out of this cut's scope — do not add new machinery.
+    if persist_record(&st.data_dir, PROPOSAL_KIND, &id, &proposal).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "memory_mutation_proposal_persistence_failed",
+                "applied_ref": applied_ref,
+                "message": "the mutation and its receipt committed but the proposal review-state did not — the proposal still reads as proposed" }),
+            ),
+        );
+    }
     (
         StatusCode::OK,
         Json(json!({ "ok": true, "proposal": proposal })),
@@ -1600,7 +1699,15 @@ pub(crate) async fn handle_proposal_reject(
         object.insert("review_reason".into(), json!(text(&body, "reason")));
         object.insert("reviewed_at".into(), json!(iso_now()));
     }
-    let _ = persist_record(&st.data_dir, PROPOSAL_KIND, &id, &proposal);
+    if persist_record(&st.data_dir, PROPOSAL_KIND, &id, &proposal).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "memory_mutation_proposal_persistence_failed",
+                "message": "the proposal rejection did not commit — the proposal still reads as proposed" }),
+            ),
+        );
+    }
     (
         StatusCode::OK,
         Json(json!({ "ok": true, "proposal": proposal })),
@@ -2031,7 +2138,17 @@ async fn lifecycle_transition(
         successor["supersedes_ref"] = json!(text(&record, family.ref_key));
         successor["updated_at"] = json!(iso_now());
         let sid = text(&successor, family.id_key).to_string();
-        let _ = persist_record(&st.data_dir, family.kind, &sid, &successor);
+        // Fail-closed at the first failed write: the successor's back-reference must be durable
+        // before the transition proceeds, or nothing was superseded.
+        if persist_record(&st.data_dir, family.kind, &sid, &successor).is_err() {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    json!({ "ok": false, "code": "memory_lifecycle_successor_persistence_failed",
+                    "message": "the superseding record's back-reference did not commit — nothing was superseded" }),
+                ),
+            );
+        }
         superseded_by = json!(new_ref);
     }
     let receipt_ref = format!(
@@ -2053,7 +2170,17 @@ async fn lifecycle_transition(
         "at": iso_now(),
         "runtimeTruthSource": "daemon-runtime",
     });
-    let _ = persist_record(&st.data_dir, "receipts", &receipt_ref, &receipt);
+    // Receipt before record: the record's lifecycle_history embeds this receipt_ref, so the receipt
+    // must be durable before the record that cites it.
+    if persist_record(&st.data_dir, "receipts", &receipt_ref, &receipt).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "memory_lifecycle_receipt_persistence_failed",
+                "message": "the lifecycle receipt did not commit — the transition was not recorded" }),
+            ),
+        );
+    }
     let mut history = record
         .get("lifecycle_history")
         .and_then(Value::as_array)
@@ -2075,7 +2202,15 @@ async fn lifecycle_transition(
         object.insert("updated_at".into(), json!(iso_now()));
     }
     let rid = text(&record, family.id_key).to_string();
-    let _ = persist_record(&st.data_dir, family.kind, &rid, &record);
+    if persist_record(&st.data_dir, family.kind, &rid, &record).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "memory_lifecycle_record_persistence_failed",
+                "message": "the lifecycle transition did not commit — the record's quality state was not saved" }),
+            ),
+        );
+    }
     (
         StatusCode::OK,
         Json(json!({ "ok": true, "record": record, "receipt_ref": receipt_ref })),
@@ -2521,7 +2656,15 @@ pub(crate) async fn handle_improvements_create(
         "created_at": iso_now(),
         "runtimeTruthSource": "daemon-runtime",
     });
-    let _ = persist_record(&st.data_dir, IMPROVEMENT_KIND, &id, &record);
+    if persist_record(&st.data_dir, IMPROVEMENT_KIND, &id, &record).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "improvement_proposal_persistence_failed",
+                "message": "the improvement proposal did not commit — nothing was recorded" }),
+            ),
+        );
+    }
     (
         StatusCode::CREATED,
         Json(json!({ "ok": true, "proposal": record })),
@@ -2561,7 +2704,15 @@ async fn improvement_state_change(
             }
         }
     }
-    let _ = persist_record(&st.data_dir, IMPROVEMENT_KIND, id, &proposal);
+    if persist_record(&st.data_dir, IMPROVEMENT_KIND, id, &proposal).is_err() {
+        return Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "improvement_proposal_persistence_failed",
+                "message": "the improvement proposal state change did not commit — the transition was not saved" }),
+            ),
+        ));
+    }
     Ok(proposal)
 }
 
@@ -2909,7 +3060,17 @@ pub(crate) async fn handle_improvement_patch(
         }
     }
     proposal["updated_at"] = json!(iso_now());
-    let _ = persist_record(&st.data_dir, IMPROVEMENT_KIND, &id, &proposal);
+    // Check the write BEFORE computing/attaching the gate: the gate is a derived projection on the
+    // response, never durable truth, so a failed persist must not return a 200 carrying it.
+    if persist_record(&st.data_dir, IMPROVEMENT_KIND, &id, &proposal).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "improvement_proposal_persistence_failed",
+                "message": "the improvement proposal update did not commit — the change was not saved" }),
+            ),
+        );
+    }
     let gate = gate_projection(&st, &proposal);
     if let Some(object) = proposal.as_object_mut() {
         object.insert("gate".into(), gate);
@@ -3189,7 +3350,19 @@ async fn finish_apply(
         "at": iso_now(),
         "runtimeTruthSource": "daemon-runtime",
     });
-    let _ = persist_record(&st.data_dir, "receipts", &receipt_ref, &receipt);
+    // The real external effect (policy create/patch) already landed before finish_apply. A receipt
+    // that will not commit must fail the request, but carry applied_ref so the operator knows the
+    // mutation itself is live.
+    if persist_record(&st.data_dir, "receipts", &receipt_ref, &receipt).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "improvement_receipt_persistence_failed",
+                "applied_ref": applied_ref,
+                "message": "the improvement was applied but its receipt did not commit — the change is live" }),
+            ),
+        );
+    }
     match improvement_state_change(
         st,
         &id,
@@ -3594,7 +3767,16 @@ pub(crate) async fn handle_improvement_simulate(
         {
             targets.push(json!(format!("simulation-report://{sim_id}")));
         }
-        let _ = persist_record(&st.data_dir, SIMULATION_KIND, &sim_id, &report);
+        // report → receipt → stamp; fail-closed at each write.
+        if persist_record(&st.data_dir, SIMULATION_KIND, &sim_id, &report).is_err() {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    json!({ "ok": false, "code": "simulation_report_persistence_failed",
+                    "message": "the simulation report did not commit — nothing was saved" }),
+                ),
+            );
+        }
         let receipt = json!({
             "id": receipt_ref,
             "kind": "hypervisor.simulation-report",
@@ -3606,7 +3788,15 @@ pub(crate) async fn handle_improvement_simulate(
             "at": iso_now(),
             "runtimeTruthSource": "daemon-runtime",
         });
-        let _ = persist_record(&st.data_dir, "receipts", &receipt_ref, &receipt);
+        if persist_record(&st.data_dir, "receipts", &receipt_ref, &receipt).is_err() {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    json!({ "ok": false, "code": "simulation_receipt_persistence_failed",
+                    "message": "the simulation report saved but its receipt did not commit" }),
+                ),
+            );
+        }
         if let Some(object) = proposal.as_object_mut() {
             object.insert(
                 "latest_simulation_ref".into(),
@@ -3618,7 +3808,15 @@ pub(crate) async fn handle_improvement_simulate(
             );
             object.insert("latest_simulation_high_impact".into(), json!(high_impact));
         }
-        let _ = persist_record(&st.data_dir, IMPROVEMENT_KIND, &id, &proposal);
+        if persist_record(&st.data_dir, IMPROVEMENT_KIND, &id, &proposal).is_err() {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    json!({ "ok": false, "code": "improvement_proposal_persistence_failed",
+                    "message": "the simulation report and receipt saved but the proposal's latest_simulation stamp did not commit" }),
+                ),
+            );
+        }
     }
     (
         StatusCode::OK,

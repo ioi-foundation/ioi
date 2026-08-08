@@ -4684,7 +4684,11 @@ async fn scheduler_tick(
         else {
             let mut up = a.clone();
             up["next_run_at"] = json!(next_target());
-            let _ = persist_record(data_dir, "automations", id, &up);
+            // W1.2 / MEF-GAP-008 — no HTTP response here; a lost next_run_at init just re-initializes
+            // next tick, but log it rather than discard silently.
+            if let Err(error) = persist_record(data_dir, "automations", id, &up) {
+                tracing::warn!(%id, "scheduler next_run_at initialization persist failed — re-initialized next tick: {error}");
+            }
             next_run_initialized += 1;
             continue;
         };
@@ -4708,12 +4712,19 @@ async fn scheduler_tick(
             })
             .count() as i64;
         if running >= max_conc {
-            let _ = persist_record(data_dir, "automations", id, &up);
+            // W1.2 / MEF-GAP-008 — a lost next_run_at advance lets this occurrence refire next tick.
+            if let Err(error) = persist_record(data_dir, "automations", id, &up) {
+                tracing::warn!(%id, "scheduler misfire-skip next_run_at advance persist failed — occurrence may refire: {error}");
+            }
             misfire_skips += 1;
             continue;
         }
         up["last_run_at"] = json!(now);
-        let _ = persist_record(data_dir, "automations", id, &up);
+        // W1.2 / MEF-GAP-008 — advancing next_run_at + stamping last_run_at BEFORE dispatch is the
+        // at-least-once guard; a lost stamp lets the scheduler refire. Log rather than discard.
+        if let Err(error) = persist_record(data_dir, "automations", id, &up) {
+            tracing::warn!(%id, "scheduler last_run_at/next_run_at stamp persist failed BEFORE dispatch — at-least-once refire possible: {error}");
+        }
         fired_dispatches += 1;
         // Fire through the manual-run path. Spawn so the tick stays fast; apply failure_policy on result.
         let url = format!("{base_url}/v1/hypervisor/automations/{id}/runs");
@@ -4744,7 +4755,11 @@ async fn scheduler_tick(
                 if let Some(mut rec) = load_record(&data_dir, "automations", &id) {
                     rec["enabled"] = json!(false);
                     rec["updated_at"] = json!(iso_now());
-                    let _ = persist_record(&data_dir, "automations", &id, &rec);
+                    // W1.2 / MEF-GAP-008 — this is the pause-honesty write: a lost disable keeps the
+                    // automation enabled and firing despite failure_policy=disable. Log the failure.
+                    if let Err(error) = persist_record(&data_dir, "automations", &id, &rec) {
+                        tracing::warn!(%id, "scheduler failure-policy disable persist failed — the automation stays ENABLED and will keep firing: {error}");
+                    }
                 }
             }
         });

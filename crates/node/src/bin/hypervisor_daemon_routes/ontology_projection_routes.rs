@@ -447,15 +447,21 @@ fn project_health(inputs: &ProjInputs) -> Value {
     })
 }
 
-fn proj_receipt(data_dir: &str, proj_ref: &str, op: &str, outcome: &str, summary: &str) -> Value {
+fn proj_receipt(
+    data_dir: &str,
+    proj_ref: &str,
+    op: &str,
+    outcome: &str,
+    summary: &str,
+) -> std::io::Result<Value> {
     let id = format!("opr_{:x}", nanos());
     let receipt_ref = format!("agentgres://ontology-projection-receipt/{id}");
     let rec = json!({
         "schema_version": RECEIPT_SCHEMA, "receipt_id": id, "receipt_ref": receipt_ref,
         "ontology_projection_ref": proj_ref, "op": op, "outcome": outcome, "summary": summary, "at": iso_now()
     });
-    let _ = persist_record(data_dir, RECEIPT_DIR, &id, &rec);
-    rec
+    persist_record(data_dir, RECEIPT_DIR, &id, &rec)?;
+    Ok(rec)
 }
 fn push_history(record: &mut Value, op: &str, summary: &str, receipt_ref: Value) {
     let rev = record.get("revision").and_then(|v| v.as_u64()).unwrap_or(1);
@@ -528,6 +534,7 @@ fn apply_inputs(record: &mut Value, inputs: &ProjInputs) {
     record["blocked_reasons"] = json!([]);
 }
 fn bad(data_dir: &str, op: &str, err: VErr) -> (StatusCode, Json<Value>) {
+    // CLASSIFIED — best-effort telemetry: refusal receipt uncited by any durable record
     let _ = proj_receipt(
         data_dir,
         "ontology-projection://unadmitted",
@@ -664,13 +671,24 @@ pub(crate) async fn handle_projection_create(
     let id = format!("oproj_{:x}", nanos());
     let now = iso_now();
     let pref = format!("ontology-projection://{id}");
-    let receipt = proj_receipt(
+    let receipt = match proj_receipt(
         &st.data_dir,
         &pref,
         "created",
         "ok",
         "OntologyProjection declared",
-    );
+    ) {
+        Ok(receipt) => receipt,
+        Err(_) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    json!({ "ok": false, "code": "odk_ontology_projection_receipt_persistence_failed",
+                    "message": "the creation receipt did not commit — the projection was not declared" }),
+                ),
+            );
+        }
+    };
     let receipt_ref = receipt.get("receipt_ref").cloned().unwrap_or(Value::Null);
     let mut record = json!({
         "schema_version": PROJ_SCHEMA,
@@ -686,7 +704,15 @@ pub(crate) async fn handle_projection_create(
         "updated_at": now
     });
     apply_inputs(&mut record, &inputs);
-    let _ = persist_record(&st.data_dir, RECORD_DIR, &id, &record);
+    if persist_record(&st.data_dir, RECORD_DIR, &id, &record).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "odk_ontology_projection_persistence_failed",
+                "message": "the projection did not commit — nothing was declared" }),
+            ),
+        );
+    }
     (
         StatusCode::CREATED,
         Json(json!({ "ok": true, "ontology_projection": record })),
@@ -698,13 +724,19 @@ pub(crate) async fn handle_projection_patch(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
     Json(patch): Json<Value>,
-) -> Json<Value> {
+) -> (StatusCode, Json<Value>) {
     let Some(existing) = find_by_id(&st.data_dir, RECORD_DIR, &id) else {
-        return Json(json!({ "ok": false, "reason": "ontology projection not found" }));
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "ok": false, "reason": "ontology projection not found" })),
+        );
     };
     if s(&existing, "status", "") == "retired" {
-        return Json(
-            json!({ "ok": false, "error": { "code": "projection_retired_immutable", "message": "a retired projection is immutable" } }),
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(
+                json!({ "ok": false, "error": { "code": "projection_retired_immutable", "message": "a retired projection is immutable" } }),
+            ),
         );
     }
     let mut merged = body_of(&existing);
@@ -732,6 +764,7 @@ pub(crate) async fn handle_projection_patch(
     let inputs = match validate_inputs(&st.data_dir, &merged) {
         Ok(i) => i,
         Err(e) => {
+            // CLASSIFIED — best-effort telemetry: refusal receipt uncited by any durable record
             let _ = proj_receipt(
                 &st.data_dir,
                 &s(&existing, "ref", ""),
@@ -739,7 +772,10 @@ pub(crate) async fn handle_projection_patch(
                 &e.0,
                 &e.1,
             );
-            return Json(json!({ "ok": false, "error": { "code": e.0, "message": e.1 } }));
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "ok": false, "error": { "code": e.0, "message": e.1 } })),
+            );
         }
     };
     let mut record = existing;
@@ -753,21 +789,43 @@ pub(crate) async fn handle_projection_patch(
     let rev = record.get("revision").and_then(|v| v.as_u64()).unwrap_or(1) + 1;
     record["revision"] = json!(rev);
     record["updated_at"] = json!(iso_now());
-    let receipt = proj_receipt(
+    let receipt = match proj_receipt(
         &st.data_dir,
         &s(&record, "ref", ""),
         "patched",
         "ok",
         "OntologyProjection re-declared",
-    );
+    ) {
+        Ok(receipt) => receipt,
+        Err(_) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    json!({ "ok": false, "code": "odk_ontology_projection_receipt_persistence_failed",
+                    "message": "the patch receipt did not commit — the projection was not re-declared" }),
+                ),
+            );
+        }
+    };
     push_history(
         &mut record,
         "patched",
         "OntologyProjection re-declared",
         receipt.get("receipt_ref").cloned().unwrap_or(Value::Null),
     );
-    let _ = persist_record(&st.data_dir, RECORD_DIR, &id, &record);
-    Json(json!({ "ok": true, "ontology_projection": record }))
+    if persist_record(&st.data_dir, RECORD_DIR, &id, &record).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "odk_ontology_projection_persistence_failed",
+                "message": "the projection patch did not commit — the change was not saved" }),
+            ),
+        );
+    }
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "ontology_projection": record })),
+    )
 }
 
 /// POST /:id/recheck — re-validate against CURRENT declared truth; drift → blocked, named.
@@ -792,7 +850,18 @@ pub(crate) async fn handle_projection_recheck(
     let pref = s(&record, "ref", "");
     match validate_inputs(&st.data_dir, &body_of(&record)) {
         Err((code, msg)) => {
-            let receipt = proj_receipt(&st.data_dir, &pref, "recheck_blocked", &code, &msg);
+            let receipt = match proj_receipt(&st.data_dir, &pref, "recheck_blocked", &code, &msg) {
+                Ok(receipt) => receipt,
+                Err(_) => {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(
+                            json!({ "ok": false, "code": "odk_ontology_projection_receipt_persistence_failed",
+                            "message": "the recheck-blocked receipt did not commit — the projection was not marked blocked" }),
+                        ),
+                    );
+                }
+            };
             let summary = format!("blocked: {code}");
             record["status"] = json!("blocked");
             record["blocked_reasons"] = json!([{ "code": code, "message": msg }]);
@@ -803,20 +872,39 @@ pub(crate) async fn handle_projection_recheck(
                 &summary,
                 receipt.get("receipt_ref").cloned().unwrap_or(Value::Null),
             );
-            let _ = persist_record(&st.data_dir, RECORD_DIR, &id, &record);
+            if persist_record(&st.data_dir, RECORD_DIR, &id, &record).is_err() {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(
+                        json!({ "ok": false, "code": "odk_ontology_projection_persistence_failed",
+                        "message": "the recheck-blocked state did not commit — the projection was not marked blocked" }),
+                    ),
+                );
+            }
             (
                 StatusCode::OK,
                 Json(json!({ "ok": true, "ontology_projection": record })),
             )
         }
         Ok(inputs) => {
-            let receipt = proj_receipt(
+            let receipt = match proj_receipt(
                 &st.data_dir,
                 &pref,
                 "recheck",
                 "ok",
                 "projection re-validated against the current ladder",
-            );
+            ) {
+                Ok(receipt) => receipt,
+                Err(_) => {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(
+                            json!({ "ok": false, "code": "odk_ontology_projection_receipt_persistence_failed",
+                            "message": "the recheck receipt did not commit — the projection was not re-validated" }),
+                        ),
+                    );
+                }
+            };
             apply_inputs(&mut record, &inputs);
             record["updated_at"] = json!(iso_now());
             push_history(
@@ -825,7 +913,15 @@ pub(crate) async fn handle_projection_recheck(
                 "projection re-validated against the current ladder",
                 receipt.get("receipt_ref").cloned().unwrap_or(Value::Null),
             );
-            let _ = persist_record(&st.data_dir, RECORD_DIR, &id, &record);
+            if persist_record(&st.data_dir, RECORD_DIR, &id, &record).is_err() {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(
+                        json!({ "ok": false, "code": "odk_ontology_projection_persistence_failed",
+                        "message": "the recheck result did not commit — the re-validation was not saved" }),
+                    ),
+                );
+            }
             (
                 StatusCode::OK,
                 Json(json!({ "ok": true, "ontology_projection": record })),
@@ -853,13 +949,24 @@ pub(crate) async fn handle_projection_retire(
             ),
         );
     }
-    let receipt = proj_receipt(
+    let receipt = match proj_receipt(
         &st.data_dir,
         &s(&record, "ref", ""),
         "retired",
         "ok",
         "OntologyProjection retired",
-    );
+    ) {
+        Ok(receipt) => receipt,
+        Err(_) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    json!({ "ok": false, "code": "odk_ontology_projection_receipt_persistence_failed",
+                    "message": "the retirement receipt did not commit — the projection was not retired" }),
+                ),
+            );
+        }
+    };
     record["status"] = json!("retired");
     record["updated_at"] = json!(iso_now());
     push_history(
@@ -868,7 +975,15 @@ pub(crate) async fn handle_projection_retire(
         "OntologyProjection retired",
         receipt.get("receipt_ref").cloned().unwrap_or(Value::Null),
     );
-    let _ = persist_record(&st.data_dir, RECORD_DIR, &id, &record);
+    if persist_record(&st.data_dir, RECORD_DIR, &id, &record).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "odk_ontology_projection_persistence_failed",
+                "message": "the retirement did not commit — the projection was not retired" }),
+            ),
+        );
+    }
     (
         StatusCode::OK,
         Json(json!({ "ok": true, "ontology_projection": record })),
@@ -879,21 +994,36 @@ pub(crate) async fn handle_projection_retire(
 pub(crate) async fn handle_projection_delete(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
-) -> Json<Value> {
+) -> (StatusCode, Json<Value>) {
     let pref = find_by_id(&st.data_dir, RECORD_DIR, &id)
         .and_then(|r| r.get("ref").and_then(|v| v.as_str()).map(str::to_string))
         .unwrap_or_else(|| format!("ontology-projection://{id}"));
     let removed = remove_record(&st.data_dir, RECORD_DIR, &id);
-    if removed {
-        let _ = proj_receipt(
+    if removed
+        && proj_receipt(
             &st.data_dir,
             &pref,
             "deleted",
             "ok",
             "OntologyProjection removed",
+        )
+        .is_err()
+    {
+        // The destructive half already landed; the caller must know the row is gone even though its
+        // deletion receipt did not commit.
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "odk_ontology_projection_receipt_persistence_failed",
+                "removed": true, "id": id,
+                "message": "the projection row was removed but its deletion receipt did not commit" }),
+            ),
         );
     }
-    Json(json!({ "ok": removed, "removed": removed, "id": id }))
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": removed, "removed": removed, "id": id })),
+    )
 }
 
 #[cfg(test)]

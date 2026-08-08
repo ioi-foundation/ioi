@@ -108,13 +108,22 @@ fn kind_capabilities(kind: &str) -> Value {
     }
 }
 
+/// A storage-plane durable write that did not land. The house refusal shape (code + honest
+/// message); callers name the external effect / committed evidence the lost write leaves behind.
+fn storage_persist_failed(code: &str, message: String) -> (StatusCode, Json<Value>) {
+    (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        Json(json!({ "ok": false, "code": code, "message": message })),
+    )
+}
+
 fn storage_receipt(
     data_dir: &str,
     backend: &str,
     op: &str,
     outcome: &str,
     extra: &Value,
-) -> String {
+) -> Option<String> {
     let id = format!("stc_{:x}", nanos());
     let receipt_ref = format!("agentgres://storage-receipt/{id}");
     let mut rec = json!({
@@ -129,8 +138,13 @@ fn storage_receipt(
             }
         }
     }
-    let _ = persist_record(data_dir, RECEIPT_KIND, &id, &rec);
-    receipt_ref
+    // W1.2 / MEF-GAP-008 — Option-return on a failed persist (provider_receipt_ext is the
+    // template): no response may cite a `receipt_ref` that resolves to nothing. Callers that
+    // embed the receipt as evidence serialize None as null (honest); a caller for whom the
+    // receipt IS the recorded effect refuses instead.
+    persist_record(data_dir, RECEIPT_KIND, &id, &rec)
+        .ok()
+        .map(|_| receipt_ref)
 }
 
 fn load_account(data_dir: &str, id_or_ref: &str) -> Option<Value> {
@@ -171,7 +185,7 @@ fn open_incident(
     kind: &str,
     detail: String,
     evidence: Value,
-) -> String {
+) -> Option<String> {
     let archive_ref = text(archive, "archive_ref");
     // One OPEN incident per (archive, kind) — repeat detections accrete evidence, not rows.
     if let Some(mut existing) = read_record_dir(data_dir, INCIDENT_KIND)
@@ -183,6 +197,7 @@ fn open_incident(
         })
     {
         let id = text(&existing, "incident_id").to_string();
+        let existing_ref = text(&existing, "incident_ref").to_string();
         let mut seen = existing
             .get("detections")
             .and_then(Value::as_u64)
@@ -191,8 +206,11 @@ fn open_incident(
         existing["detections"] = json!(seen);
         existing["last_evidence"] = evidence;
         existing["last_detected_at"] = json!(iso_now());
-        let _ = persist_record(data_dir, INCIDENT_KIND, &id, &existing);
-        return text(&existing, "incident_ref").to_string();
+        // W1.2 / MEF-GAP-008 — a lost accretion write drops this detection from the durable
+        // incident; return None so the caller refuses rather than citing an unrecorded update.
+        return persist_record(data_dir, INCIDENT_KIND, &id, &existing)
+            .ok()
+            .map(|_| existing_ref);
     }
     let id = format!("aai_{:x}", nanos());
     let incident_ref = format!("artifact-availability-incident://{id}");
@@ -207,8 +225,12 @@ fn open_incident(
         "truth_note": "an availability incident quarantines the BYTES, not the artifact meaning — the daemon material record and admitted state_root remain the truth to repair against",
         "opened_at": iso_now(),
     });
-    let _ = persist_record(data_dir, INCIDENT_KIND, &id, &record);
-    incident_ref
+    // W1.2 / MEF-GAP-008 — an availability incident that did not commit quarantines nothing:
+    // the impaired archive would still list `available` and repair targeting (open_incidents_for)
+    // would never find it. Return None so the caller refuses with storage_incident_persistence_failed.
+    persist_record(data_dir, INCIDENT_KIND, &id, &record)
+        .ok()
+        .map(|_| incident_ref)
 }
 
 // ── Backend byte stores ─────────────────────────────────────────────────────────────────────
@@ -512,7 +534,14 @@ pub(crate) async fn handle_storage_backend_create(
         "created_at": now, "updated_at": now,
         "runtimeTruthSource": "daemon-runtime",
     });
-    let _ = persist_record(&st.data_dir, ACCOUNT_KIND, &id, &record);
+    // W1.2 / MEF-GAP-008 — a discarded account write returns a backend the caller can act on
+    // (bind credentials, gate exports) yet no reader will ever find. Refuse before claiming CREATED.
+    if persist_record(&st.data_dir, ACCOUNT_KIND, &id, &record).is_err() {
+        return storage_persist_failed(
+            "storage_backend_account_persistence_failed",
+            "the storage backend account did not commit — nothing was created".into(),
+        );
+    }
     (
         StatusCode::CREATED,
         Json(json!({ "ok": true, "backend": record })),
@@ -541,7 +570,14 @@ pub(crate) async fn handle_storage_backend_patch(
     }
     account["updated_at"] = json!(iso_now());
     let account_id = text(&account, "account_id").to_string();
-    let _ = persist_record(&st.data_dir, ACCOUNT_KIND, &account_id, &account);
+    // W1.2 / MEF-GAP-008 — an endpoint/mode change resets status to `unverified`; a lost write
+    // leaves the account reading stale `verified` with the export gate open on a changed endpoint.
+    if persist_record(&st.data_dir, ACCOUNT_KIND, &account_id, &account).is_err() {
+        return storage_persist_failed(
+            "storage_backend_account_persistence_failed",
+            "the backend patch did not commit — the account still reflects its prior endpoint and verification status".into(),
+        );
+    }
     (
         StatusCode::OK,
         Json(json!({ "ok": true, "backend": account })),
@@ -1151,10 +1187,26 @@ pub(crate) async fn handle_storage_backend_credential(
         "sealed_token": sealed, "key_source": scm_key_source(),
         "bound_at": iso_now(),
     });
-    let _ = persist_record(&st.data_dir, CREDENTIAL_VAULT, &account_id, &cred);
+    // W1.2 / MEF-GAP-008 — ORDER IS LOAD-BEARING: the sealed bearer (the live bearer-resolution
+    // path) is the durable secret; write it FIRST and refuse if it does not land, so the response
+    // never claims a binding over a vault that holds nothing.
+    if persist_record(&st.data_dir, CREDENTIAL_VAULT, &account_id, &cred).is_err() {
+        return storage_persist_failed(
+            "storage_credential_persistence_failed",
+            "the sealed bearer credential did not commit — no credential was bound".into(),
+        );
+    }
     account["credential_binding_ref"] = json!(format!("storage-credential://{account_id}"));
     account["updated_at"] = json!(iso_now());
-    let _ = persist_record(&st.data_dir, ACCOUNT_KIND, &account_id, &account);
+    // The credential IS durably bound above; a lost account-pointer write is a SAFE split because
+    // `live_config` resolves the credential by connector_id, not through this pointer — but the
+    // response must not claim the binding landed on the account. Refuse honestly and name the split.
+    if persist_record(&st.data_dir, ACCOUNT_KIND, &account_id, &account).is_err() {
+        return storage_persist_failed(
+            "storage_backend_account_persistence_failed",
+            "the sealed credential committed to the vault (and is already resolvable by connector_id for live ops), but the account's credential_binding_ref pointer did not commit — retry the bind to record the pointer".into(),
+        );
+    }
     (
         StatusCode::OK,
         Json(
@@ -1255,7 +1307,15 @@ pub(crate) async fn handle_storage_backend_preflight(
             account["preflight"] =
                 json!({ "admitted": true, "evidence": evidence, "at": iso_now() });
             account["updated_at"] = json!(iso_now());
-            let _ = persist_record(&st.data_dir, ACCOUNT_KIND, &account_id, &account);
+            // W1.2 / MEF-GAP-008 — the probe verified the backend; a lost write leaves the account
+            // reading `unverified` with export still gated. Refuse rather than report a status the
+            // durable record does not carry.
+            if persist_record(&st.data_dir, ACCOUNT_KIND, &account_id, &account).is_err() {
+                return storage_persist_failed(
+                    "storage_backend_account_persistence_failed",
+                    "the backend preflight verified but the verified status did not commit — the account still reads unverified; retry preflight".into(),
+                );
+            }
             (
                 StatusCode::OK,
                 Json(
@@ -1268,7 +1328,14 @@ pub(crate) async fn handle_storage_backend_preflight(
             account["preflight"] =
                 json!({ "admitted": false, "evidence": { "reason": reason }, "at": iso_now() });
             account["updated_at"] = json!(iso_now());
-            let _ = persist_record(&st.data_dir, ACCOUNT_KIND, &account_id, &account);
+            // W1.2 / MEF-GAP-008 — the probe failed; a lost write drops the recorded unverified
+            // evidence. Refuse so the account's durable posture matches the response.
+            if persist_record(&st.data_dir, ACCOUNT_KIND, &account_id, &account).is_err() {
+                return storage_persist_failed(
+                    "storage_backend_account_persistence_failed",
+                    "the backend preflight failed and the unverified status did not commit — retry preflight".into(),
+                );
+            }
             (
                 StatusCode::CONFLICT,
                 Json(json!({ "ok": false, "reason": reason })),
@@ -1512,7 +1579,20 @@ async fn op_export(st: &Arc<DaemonState>, body: &Value) -> (StatusCode, Json<Val
         "receipt_refs": [receipt],
         "exported_at": iso_now(),
     });
-    let _ = persist_record(data_dir, ARCHIVE_KIND, &id, &record);
+    // W1.2 / MEF-GAP-008 — store_bytes ALREADY committed the sealed archive bytes to the backend
+    // (possibly live IPFS): those bytes cannot be unwritten. A lost archive record orphans them —
+    // no listable archive, no verify/restore lane. Name the stored commitment + receipt rather than
+    // implying nothing happened; the content-addressed store makes a retried export idempotent.
+    if persist_record(data_dir, ARCHIVE_KIND, &id, &record).is_err() {
+        return storage_persist_failed(
+            "storage_archive_persistence_failed",
+            format!(
+                "the sealed archive bytes were already stored at {stored} (receipt {rcpt}), but the archive object record did not commit — those bytes are orphaned evidence, not a listable archive; retry export to re-record (the store is content-addressed, so no bytes are duplicated)",
+                stored = text(&commitment, "address"),
+                rcpt = receipt.as_deref().unwrap_or("<receipt-not-persisted>"),
+            ),
+        );
+    }
     (
         StatusCode::OK,
         Json(json!({ "ok": true, "op": "export", "archive": record, "receipt_ref": receipt })),
@@ -1541,18 +1621,32 @@ async fn op_verify(st: &Arc<DaemonState>, body: &Value) -> (StatusCode, Json<Val
     let commitment = archive.get("commitment").cloned().unwrap_or(Value::Null);
     let outcome = match fetch_bytes(data_dir, &account, &commitment) {
         Err((incident_kind, detail)) => {
-            let incident_ref = open_incident(
+            // W1.2 / MEF-GAP-008 — refuse if the availability incident did not commit: without it
+            // the impaired archive would still list `available` and repair could never find it.
+            let Some(incident_ref) = open_incident(
                 data_dir,
                 &account,
                 &archive,
                 &incident_kind,
                 detail.clone(),
                 json!({ "op": "verify", "error": detail }),
-            );
+            ) else {
+                return storage_persist_failed(
+                    "storage_incident_persistence_failed",
+                    format!("verify of {archive_ref} could not fetch the bytes ({detail}) and the availability incident did not commit — nothing quarantined this archive; retry verify"),
+                );
+            };
             archive["status"] = json!("impaired");
             archive["last_verify"] =
                 json!({ "ok": false, "incident_ref": incident_ref, "at": iso_now() });
-            let _ = persist_record(data_dir, ARCHIVE_KIND, &archive_id, &archive);
+            // The incident committed; if the impaired MARK does not, degrade to a typed refusal that
+            // NAMES the incident that DID commit rather than reporting a status the record lacks.
+            if persist_record(data_dir, ARCHIVE_KIND, &archive_id, &archive).is_err() {
+                return storage_persist_failed(
+                    "storage_archive_persistence_failed",
+                    format!("availability incident {incident_ref} committed for {archive_ref}, but the archive could not be marked impaired — the incident is the durable quarantine truth (repair targets it); retry verify to re-mark"),
+                );
+            }
             let receipt = storage_receipt(
                 data_dir,
                 &kind,
@@ -1575,18 +1669,31 @@ async fn op_verify(st: &Arc<DaemonState>, body: &Value) -> (StatusCode, Json<Val
             let expected = text(&commitment, "stored_sha256");
             if actual != expected {
                 let detail = format!("stored bytes hash {actual} but the admitted commitment is {expected} — replica is stale or corrupt (a fetchable object is not a valid object)");
-                let incident_ref = open_incident(
+                // W1.2 / MEF-GAP-008 — same lane: a lost hash-mismatch incident leaves a corrupt
+                // archive listing `available`. Refuse if it did not commit.
+                let Some(incident_ref) = open_incident(
                     data_dir,
                     &account,
                     &archive,
                     "hash_mismatch",
                     detail.clone(),
                     json!({ "op": "verify", "actual": actual, "expected": expected }),
-                );
+                ) else {
+                    return storage_persist_failed(
+                        "storage_incident_persistence_failed",
+                        format!("verify of {archive_ref} detected a commitment hash mismatch but the incident did not commit — nothing quarantined the corrupt replica; retry verify"),
+                    );
+                };
                 archive["status"] = json!("impaired");
                 archive["last_verify"] =
                     json!({ "ok": false, "incident_ref": incident_ref, "at": iso_now() });
-                let _ = persist_record(data_dir, ARCHIVE_KIND, &archive_id, &archive);
+                // The incident committed; if the impaired MARK does not, refuse naming the incident.
+                if persist_record(data_dir, ARCHIVE_KIND, &archive_id, &archive).is_err() {
+                    return storage_persist_failed(
+                        "storage_archive_persistence_failed",
+                        format!("hash-mismatch incident {incident_ref} committed for {archive_ref}, but the archive could not be marked impaired — the incident is the durable quarantine truth; retry verify to re-mark"),
+                    );
+                }
                 let receipt = storage_receipt(
                     data_dir,
                     &kind,
@@ -1610,7 +1717,14 @@ async fn op_verify(st: &Arc<DaemonState>, body: &Value) -> (StatusCode, Json<Val
                 {
                     archive["status"] = json!("available");
                 }
-                let _ = persist_record(data_dir, ARCHIVE_KIND, &archive_id, &archive);
+                // W1.2 / MEF-GAP-008 — verify succeeded and may clear an impaired mark; a lost write
+                // would report `ok` while the archive keeps its stale status. Refuse.
+                if persist_record(data_dir, ARCHIVE_KIND, &archive_id, &archive).is_err() {
+                    return storage_persist_failed(
+                        "storage_archive_persistence_failed",
+                        format!("verify of {archive_ref} succeeded but the verified status did not commit — the archive keeps its prior status; retry verify"),
+                    );
+                }
                 let receipt = storage_receipt(
                     data_dir,
                     &kind,
@@ -1706,7 +1820,11 @@ async fn op_restore(st: &Arc<DaemonState>, body: &Value) -> (StatusCode, Json<Va
     };
     let refuse = |outcome: &str, incident: Option<(&str, String)>, reason: String| {
         let mut archive = archive.clone();
-        let incident_ref = incident.map(|(ikind, detail)| {
+        let mut impaired_recorded = false;
+        // W1.2 / MEF-GAP-008 — flatten to a real incident_ref: `and_then` yields None (not a phantom
+        // ref) when the incident did not commit, and the impaired MARK is MEASURED, not asserted —
+        // the committed incident is the durable quarantine that open_incidents_for gates repair on.
+        let incident_ref = incident.and_then(|(ikind, detail)| {
             let r = open_incident(
                 data_dir,
                 &account,
@@ -1715,9 +1833,12 @@ async fn op_restore(st: &Arc<DaemonState>, body: &Value) -> (StatusCode, Json<Va
                 detail,
                 json!({ "op": "restore", "error": reason }),
             );
-            let archive_id = text(&archive, "archive_id").to_string();
-            archive["status"] = json!("impaired");
-            let _ = persist_record(data_dir, ARCHIVE_KIND, &archive_id, &archive);
+            if r.is_some() {
+                let archive_id = text(&archive, "archive_id").to_string();
+                archive["status"] = json!("impaired");
+                impaired_recorded =
+                    persist_record(data_dir, ARCHIVE_KIND, &archive_id, &archive).is_ok();
+            }
             r
         });
         let receipt = storage_receipt(
@@ -1734,7 +1855,7 @@ async fn op_restore(st: &Arc<DaemonState>, body: &Value) -> (StatusCode, Json<Va
         (
             StatusCode::CONFLICT,
             Json(
-                json!({ "ok": false, "op": "restore", "reason": reason, "incident_ref": incident_ref, "receipt_ref": receipt }),
+                json!({ "ok": false, "op": "restore", "reason": reason, "incident_ref": incident_ref, "receipt_ref": receipt, "archive_impaired_recorded": impaired_recorded }),
             ),
         )
     };
@@ -1838,7 +1959,14 @@ async fn op_repair(st: &Arc<DaemonState>, body: &Value) -> (StatusCode, Json<Val
             "incident_refs": incidents.iter().map(|i| i["incident_ref"].clone()).collect::<Vec<_>>(),
             "at": iso_now(),
         });
-        let _ = persist_record(data_dir, REPAIR_KIND, &repair_id, &record);
+        // W1.2 / MEF-GAP-008 — the repair-failed receipt is the durable evidence of the attempt; if
+        // even it does not commit, refuse rather than return a CONFLICT that leaves no trace.
+        if persist_record(data_dir, REPAIR_KIND, &repair_id, &record).is_err() {
+            return storage_persist_failed(
+                "storage_repair_receipt_persistence_failed",
+                format!("repair of {archive_ref} failed ({reason}) and the repair-failed receipt {repair_ref} could not be recorded — no durable evidence of the attempt exists; retry"),
+            );
+        }
         let receipt = storage_receipt(
             data_dir,
             &kind,
@@ -1891,15 +2019,32 @@ async fn op_repair(st: &Arc<DaemonState>, body: &Value) -> (StatusCode, Json<Val
     archive["status"] = json!("available");
     archive["repaired_at"] = json!(iso_now());
     archive["repair_ref"] = json!(repair_ref);
-    let _ = persist_record(data_dir, ARCHIVE_KIND, &archive_id, &archive);
+    // W1.2 / MEF-GAP-008 — store_bytes already committed the replacement bytes; if the commitment
+    // swap does not land, the archive still points at the impaired commitment while the new bytes
+    // sit orphaned. Refuse BEFORE closing incidents or minting the receipt, naming the orphan.
+    if persist_record(data_dir, ARCHIVE_KIND, &archive_id, &archive).is_err() {
+        return storage_persist_failed(
+            "storage_archive_persistence_failed",
+            format!(
+                "repair of {archive_ref} sealed and stored replacement bytes at {stored}, but the archive's commitment swap did not commit — the archive still points at the old (impaired) commitment while the new bytes are orphaned; incidents were left open and no repair receipt was minted; retry repair (the store is content-addressed)",
+                stored = text(&new_commitment, "address"),
+            ),
+        );
+    }
     let mut closed: Vec<Value> = Vec::new();
+    let mut close_failed: Vec<Value> = Vec::new();
     for mut incident in incidents {
         let iid = text(&incident, "incident_id").to_string();
         incident["status"] = json!("repaired");
         incident["repair_ref"] = json!(repair_ref);
         incident["closed_at"] = json!(iso_now());
-        let _ = persist_record(data_dir, INCIDENT_KIND, &iid, &incident);
-        closed.push(incident["incident_ref"].clone());
+        // W1.2 / MEF-GAP-008 — per-row checked: only claim an incident closed if its close
+        // committed; a lost close leaves it open (it would re-impair the archive on next verify).
+        if persist_record(data_dir, INCIDENT_KIND, &iid, &incident).is_ok() {
+            closed.push(incident["incident_ref"].clone());
+        } else {
+            close_failed.push(incident["incident_ref"].clone());
+        }
     }
     let record = json!({
         "schema_version": "ioi.hypervisor.artifact-repair-receipt.v1",
@@ -1913,7 +2058,19 @@ async fn op_repair(st: &Arc<DaemonState>, body: &Value) -> (StatusCode, Json<Val
         "admission_note": "the replacement commitment preserves meaning ONLY because it is linked here to the same material_ref, state_root, and receipt chain — a new CID alone repairs nothing",
         "at": iso_now(),
     });
-    let _ = persist_record(data_dir, REPAIR_KIND, &repair_id, &record);
+    // W1.2 / MEF-GAP-008 — the archive IS repaired (bytes swapped, incidents closed above); if the
+    // repair receipt does not commit, the repair happened without its durable receipt. Refuse so no
+    // success response cites a repair_ref that resolves to nothing.
+    if persist_record(data_dir, REPAIR_KIND, &repair_id, &record).is_err() {
+        return storage_persist_failed(
+            "storage_repair_receipt_persistence_failed",
+            format!(
+                "the archive {archive_ref} was repaired (commitment swapped to {stored}, {n} incident(s) closed) but the repair receipt {repair_ref} did not commit — retry to record it",
+                stored = text(&new_commitment, "address"),
+                n = closed.len(),
+            ),
+        );
+    }
     let receipt = storage_receipt(
         data_dir,
         &kind,
@@ -1927,7 +2084,7 @@ async fn op_repair(st: &Arc<DaemonState>, body: &Value) -> (StatusCode, Json<Val
     (
         StatusCode::OK,
         Json(
-            json!({ "ok": true, "op": "repair", "outcome": "repaired", "repair_ref": repair_ref, "repair": record, "receipt_ref": receipt }),
+            json!({ "ok": true, "op": "repair", "outcome": "repaired", "repair_ref": repair_ref, "repair": record, "receipt_ref": receipt, "incidents_close_failed": close_failed }),
         ),
     )
 }
@@ -2107,7 +2264,8 @@ mod m2_contract_tests {
             "export",
             "ok",
             &json!({ "backend_ref": account["account_ref"] }),
-        );
+        )
+        .expect("test receipt persists to the temp dir");
         let archive = export_shaped_archive(
             &account,
             &state_root,
@@ -2134,7 +2292,8 @@ mod m2_contract_tests {
             "export",
             "ok",
             &json!({ "backend_ref": account["account_ref"] }),
-        );
+        )
+        .expect("test receipt persists to the temp dir");
         let archive = export_shaped_archive(
             &account,
             &sha256_bytes(b"corruptible bytes"),
@@ -2156,7 +2315,8 @@ mod m2_contract_tests {
             "hash_mismatch",
             format!("stored bytes hash {actual} but the admitted commitment is {expected}"),
             json!({ "op": "verify", "actual": actual, "expected": expected }),
-        );
+        )
+        .expect("test incident persists to the temp dir");
         let incident = read_record_dir(data_dir, INCIDENT_KIND)
             .into_iter()
             .find(|record| text(record, "incident_ref") == incident_ref)
@@ -2173,7 +2333,8 @@ mod m2_contract_tests {
             "hash_mismatch",
             "re-detected".to_string(),
             json!({ "op": "restore" }),
-        );
+        )
+        .expect("test incident accretion persists to the temp dir");
         assert_eq!(
             second_ref, incident_ref,
             "one open incident per (archive, kind)"
@@ -2198,7 +2359,8 @@ mod m2_contract_tests {
             &kind,
             "backend object unreadable at its recorded address".to_string(),
             json!({ "op": "verify" }),
-        );
+        )
+        .expect("test loss incident persists to the temp dir");
         assert_ne!(
             loss_ref, incident_ref,
             "a distinct failure kind opens its own incident"
@@ -2226,7 +2388,8 @@ mod m2_contract_tests {
             "export",
             "ok",
             &json!({ "backend_ref": account["account_ref"] }),
-        );
+        )
+        .expect("test receipt persists to the temp dir");
         let archive = export_shaped_archive(
             &account,
             &sha256_bytes(b"close discipline"),
@@ -2241,7 +2404,8 @@ mod m2_contract_tests {
             "decrypt_failure",
             "sealed archive bytes did not decrypt".to_string(),
             json!({ "op": "restore" }),
-        );
+        )
+        .expect("test incident persists to the temp dir");
         let mut incident = read_record_dir(data_dir, INCIDENT_KIND)
             .into_iter()
             .find(|record| text(record, "incident_ref") == incident_ref)
