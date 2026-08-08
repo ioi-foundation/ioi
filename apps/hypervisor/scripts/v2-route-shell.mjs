@@ -6,9 +6,9 @@
 // layer dispatches GETs on these exact paths through `v2RouteFor()` and renders the honest
 // surface shell page: surface name · canonical route · owner kind · what already serves it
 // today (legacy readouts keep serving untouched until each surface's Wave 1 rehome / Wave 4
-// cutover) · named build state. NO fixture data, NO fabricated rows, NO fake counts — the
-// "honest absence" pattern from the run charter's standing rules
-// (internal-docs/overhaul/2026-08-05-hypervisor-bring-to-life-run.md).
+// cutover) · named build state. NO fixture data, NO fabricated rows, NO fake counts — a
+// surface with nothing real behind it renders honest absence and says so, never a
+// simulated body (docs/architecture/_meta/doc-classes.md status doctrine applies).
 //
 // Row shape:
 //   route          canonical path (exact match)
@@ -16,7 +16,8 @@
 //   kind           owner kind: core workspace | owner application | substrate | typed Work view |
 //                  one-click action | authentication entry | reserved owner application
 //   rule           the route-ledger rule column, verbatim where present
-//   waves          this surface's wave assignments (internal-docs/implementation/surfaces/_index.md)
+//   waves          this surface's wave assignments — advisory labels from the private
+//                  implementation program (gitignored); nothing tracked depends on them
 //   build_state    named build state — what is real NOW, what wave builds the rest
 //   serving_today  [{ href, label, note }] — the live lanes that serve this surface today;
 //                  empty array == honest absence (nothing serves it; the page says so)
