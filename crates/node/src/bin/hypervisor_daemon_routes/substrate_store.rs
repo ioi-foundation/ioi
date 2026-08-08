@@ -2778,17 +2778,56 @@ fn scoped_digest_bytes(bytes: &[u8]) -> String {
     format!("{:x}", sha2::Sha256::digest(bytes))
 }
 
+/// DEF-IDENT-2 — read the tenant scope the canonical resolver already computed; never re-query it.
+///
+/// `lifecycle_routes::resolve_principal` projects tenant visibility from the *current* membership
+/// heads (so revocation is immediate) and then narrows that projection to the single tenant a
+/// portal-exchanged session was admitted for, refusing outright when that membership is no longer
+/// live. Rebuilding the set here from `resolve_principal_tenant_refs` re-derived every active
+/// membership and discarded the narrowing, so a session minted for one tenant authorized every
+/// tenant its principal belongs to. That is the widening this function must not reintroduce.
+///
+/// The parser takes no `data_dir` by construction: a malformed projection has nothing to fall back
+/// to, so it can only refuse. Stored principal `tenant_refs` are never trusted — `principal_public`
+/// strips that mutable record field before the server-owned projection is written over it.
+fn resolved_principal_tenant_scope(
+    projection: Option<&Value>,
+) -> Result<BTreeSet<String>, RequestScopeRefusal> {
+    let entries = projection
+        .and_then(Value::as_array)
+        .ok_or(RequestScopeRefusal::PrincipalIdentityInvalid)?;
+    let mut tenant_refs = BTreeSet::new();
+    for entry in entries {
+        let tenant_ref = entry
+            .as_str()
+            .filter(|tenant_ref| !tenant_ref.is_empty())
+            .ok_or(RequestScopeRefusal::PrincipalIdentityInvalid)?;
+        // A canonical projection is deduplicated at the source. Collapsing a duplicate silently
+        // would accept bytes this seam cannot vouch for, so refuse rather than normalize.
+        if !tenant_refs.insert(tenant_ref.to_owned()) {
+            return Err(RequestScopeRefusal::PrincipalIdentityInvalid);
+        }
+    }
+    Ok(tenant_refs)
+}
+
 pub(crate) fn resolve_request_identity(
     data_dir: &str,
     headers: &HeaderMap,
 ) -> Result<RequestIdentity, RequestScopeRefusal> {
     let principal = super::lifecycle_routes::resolve_principal(data_dir, headers)
         .ok_or(RequestScopeRefusal::AuthenticationRequired)?;
+    // The removed membership query used to re-assert the canonical local ref shape at this seam.
+    // Keep that guard here so dropping the query cannot widen which principal ids are admitted.
     let principal_id = principal
         .get("principal_id")
         .and_then(Value::as_str)
         .filter(|value| {
-            !value.is_empty() && value.len() <= 480 && !value.chars().any(char::is_whitespace)
+            !value.is_empty()
+                && value.len() <= 480
+                && !value.chars().any(|character| {
+                    character.is_whitespace() || matches!(character, '/' | '?' | '#' | '\\')
+                })
         })
         .ok_or(RequestScopeRefusal::PrincipalIdentityInvalid)?;
     let correlation_seed = ["x-ioi-correlation-id", "x-request-id", "traceparent"]
@@ -2798,9 +2837,7 @@ pub(crate) fn resolve_request_identity(
         .map(scoped_digest)
         .unwrap_or_else(|| scoped_digest(principal_id));
     let principal_ref = format!("user://{principal_id}");
-    let tenant_refs =
-        super::lifecycle_routes::resolve_principal_tenant_refs(data_dir, &principal_ref)
-            .map_err(RequestScopeRefusal::SubstrateUnavailable)?;
+    let tenant_refs = resolved_principal_tenant_scope(principal.get("tenant_refs"))?;
     Ok(RequestIdentity {
         principal_ref,
         tenant_refs,
@@ -3253,11 +3290,27 @@ mod tests {
         })
     }
 
+    const SCOPED_TENANT: &str = "org://acme/alpha";
+    const SIBLING_TENANT: &str = "org://acme/beta";
+
     fn authenticated_headers(
         data_dir: &str,
         principal_id: &str,
         token: &str,
         tenant_refs: &[&str],
+    ) -> HeaderMap {
+        authenticated_headers_scoped(data_dir, principal_id, token, tenant_refs, None)
+    }
+
+    /// A portal-exchanged session records the single tenant it was admitted for; an ordinary daemon
+    /// login or API token records no source scope at all. `source_tenant_ref` selects between those
+    /// two shapes so a principal holding several live memberships can be exercised either way.
+    fn authenticated_headers_scoped(
+        data_dir: &str,
+        principal_id: &str,
+        token: &str,
+        tenant_refs: &[&str],
+        source_tenant_ref: Option<&str>,
     ) -> HeaderMap {
         super::super::persist_record(
             data_dir,
@@ -3295,18 +3348,22 @@ mod tests {
             )
             .unwrap();
         }
+        let mut session = json!({
+            "session_id":format!("session-{principal_id}"),
+            "token_hash":scoped_digest(token),
+            "principal_id":principal_id,
+            "source":"test",
+            "created_at":"2026-01-01T00:00:00Z",
+            "expires_at":"9999-12-31T23:59:59Z",
+        });
+        if let Some(source_tenant_ref) = source_tenant_ref {
+            session["source_tenant_ref"] = json!(source_tenant_ref);
+        }
         super::super::persist_record(
             data_dir,
             "sessions",
             &format!("session-{principal_id}"),
-            &json!({
-                "session_id":format!("session-{principal_id}"),
-                "token_hash":scoped_digest(token),
-                "principal_id":principal_id,
-                "source":"test",
-                "created_at":"2026-01-01T00:00:00Z",
-                "expires_at":"9999-12-31T23:59:59Z",
-            }),
+            &session,
         )
         .unwrap();
         let mut headers = HeaderMap::new();
@@ -3329,6 +3386,192 @@ mod tests {
             resolve_request_identity(data_dir, &headers),
             Err(RequestScopeRefusal::AuthenticationRequired)
         ));
+    }
+
+    /// DEF-IDENT-2 enforcement. A one-membership principal makes this vacuous: the narrowed and the
+    /// re-queried sets coincide. Two live memberships are what separate them.
+    #[test]
+    fn scoped_session_cannot_authorize_a_sibling_tenant() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        let headers = authenticated_headers_scoped(
+            data_dir,
+            "scoped-principal",
+            "token-scoped",
+            &[SCOPED_TENANT, SIBLING_TENANT],
+            Some(SCOPED_TENANT),
+        );
+
+        let identity = resolve_request_identity(data_dir, &headers).unwrap();
+
+        assert_eq!(identity.principal_ref, "user://scoped-principal");
+        assert_eq!(
+            identity.tenant_refs,
+            BTreeSet::from([SCOPED_TENANT.to_string()])
+        );
+        assert!(identity.authorizes_tenant(SCOPED_TENANT));
+        assert!(!identity.authorizes_tenant(SIBLING_TENANT));
+        // The mutation-authority seam itself, not just the predicate it consults. This refusal is
+        // decided before any substrate read, so it is exact without an engine handle.
+        assert!(matches!(
+            bind_request_resource_scope(
+                data_dir,
+                &identity,
+                "foundry-training-program",
+                "trainpipe://acme/sibling",
+                SIBLING_TENANT,
+                SIBLING_TENANT,
+                "scoped-create-1",
+            ),
+            Err(RequestScopeRefusal::TenantAuthorityRequired)
+        ));
+    }
+
+    /// Narrowing must not become a blanket narrowing: an unscoped session or API token still sees
+    /// every tenant its current memberships admit, because `resolve_principal` projects them all.
+    #[test]
+    fn unscoped_session_retains_full_current_membership() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        let headers = authenticated_headers(
+            data_dir,
+            "unscoped-principal",
+            "token-unscoped",
+            &[SCOPED_TENANT, SIBLING_TENANT],
+        );
+
+        let identity = resolve_request_identity(data_dir, &headers).unwrap();
+
+        let expected = BTreeSet::from([SCOPED_TENANT.to_string(), SIBLING_TENANT.to_string()]);
+        assert_eq!(identity.tenant_refs, expected);
+        assert!(identity.authorizes_tenant(SCOPED_TENANT));
+        assert!(identity.authorizes_tenant(SIBLING_TENANT));
+        // The projection an unscoped caller receives is exactly current membership truth.
+        assert_eq!(
+            identity.tenant_refs,
+            super::super::lifecycle_routes::resolve_principal_tenant_refs(
+                data_dir,
+                &identity.principal_ref,
+            )
+            .unwrap()
+        );
+    }
+
+    /// Revocation is immediate: the scoped membership is re-checked on every request, not trusted
+    /// until session expiry. The still-live sibling must not be substituted for the revoked scope.
+    #[test]
+    fn revoked_scoped_membership_refuses_at_request_identity_resolution() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        let headers = authenticated_headers_scoped(
+            data_dir,
+            "revoked-principal",
+            "token-revoked",
+            &[SCOPED_TENANT, SIBLING_TENANT],
+            Some(SCOPED_TENANT),
+        );
+        let principal_ref = "user://revoked-principal";
+        assert_eq!(
+            resolve_request_identity(data_dir, &headers)
+                .unwrap()
+                .tenant_refs,
+            BTreeSet::from([SCOPED_TENANT.to_string()])
+        );
+
+        super::super::lifecycle_routes::apply_membership_transition(
+            data_dir,
+            principal_ref,
+            principal_ref,
+            SCOPED_TENANT,
+            "organization",
+            "revoked",
+            1,
+            "test-revoke-scoped-principal-alpha",
+            "test revocation",
+            "admin_api",
+        )
+        .unwrap();
+
+        assert!(matches!(
+            resolve_request_identity(data_dir, &headers),
+            Err(RequestScopeRefusal::AuthenticationRequired)
+        ));
+        // The refusal is the revoked scope, not an emptied principal: the sibling is still live and
+        // was not promoted into the request identity.
+        assert_eq!(
+            super::super::lifecycle_routes::resolve_principal_tenant_refs(data_dir, principal_ref)
+                .unwrap(),
+            BTreeSet::from([SIBLING_TENANT.to_string()])
+        );
+    }
+
+    /// The parser takes no `data_dir`, so by construction a malformed projection has no membership
+    /// query to fall back to. Every rejected shape must refuse under one stable identity code.
+    #[test]
+    fn malformed_resolved_tenant_projection_never_rewidens() {
+        for malformed in [
+            Value::Null,
+            json!(SCOPED_TENANT),
+            json!({"tenant_refs": [SCOPED_TENANT]}),
+            json!([SCOPED_TENANT, ""]),
+            json!([SCOPED_TENANT, SCOPED_TENANT]),
+            json!([SCOPED_TENANT, 7]),
+            json!([SCOPED_TENANT, null]),
+            json!([SCOPED_TENANT, [SIBLING_TENANT]]),
+        ] {
+            let refusal = resolved_principal_tenant_scope(Some(&malformed))
+                .expect_err(&format!("{malformed} must refuse"));
+            assert!(matches!(
+                refusal,
+                RequestScopeRefusal::PrincipalIdentityInvalid
+            ));
+            assert_eq!(refusal.code(), "request_principal_invalid");
+        }
+        assert!(matches!(
+            resolved_principal_tenant_scope(None),
+            Err(RequestScopeRefusal::PrincipalIdentityInvalid)
+        ));
+        // A well-formed projection keeps set semantics and is order-independent.
+        assert_eq!(
+            resolved_principal_tenant_scope(Some(&json!([SIBLING_TENANT, SCOPED_TENANT]))).unwrap(),
+            BTreeSet::from([SCOPED_TENANT.to_string(), SIBLING_TENANT.to_string()])
+        );
+        // An empty projection authorizes nothing; it never widens back to a membership set.
+        assert!(resolved_principal_tenant_scope(Some(&json!([])))
+            .unwrap()
+            .is_empty());
+    }
+
+    /// Load-bearing proof for the two regressions above: run the pre-fix derivation against the
+    /// identical persisted state and show it yields the sibling tenant. Restoring that second
+    /// membership lookup therefore flips `scoped_session_cannot_authorize_a_sibling_tenant`.
+    #[test]
+    fn restoring_the_membership_requery_would_reauthorize_the_sibling_tenant() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        let headers = authenticated_headers_scoped(
+            data_dir,
+            "probe-principal",
+            "token-probe",
+            &[SCOPED_TENANT, SIBLING_TENANT],
+            Some(SCOPED_TENANT),
+        );
+
+        let identity = resolve_request_identity(data_dir, &headers).unwrap();
+        let rewidened = super::super::lifecycle_routes::resolve_principal_tenant_refs(
+            data_dir,
+            &identity.principal_ref,
+        )
+        .unwrap();
+
+        assert_eq!(
+            rewidened,
+            BTreeSet::from([SCOPED_TENANT.to_string(), SIBLING_TENANT.to_string()])
+        );
+        assert_ne!(identity.tenant_refs, rewidened);
+        let defective = request_identity_for_test(&identity.principal_ref, rewidened);
+        assert!(defective.authorizes_tenant(SIBLING_TENANT));
+        assert!(!identity.authorizes_tenant(SIBLING_TENANT));
     }
 
     #[test]
