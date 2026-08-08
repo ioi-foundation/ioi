@@ -18937,12 +18937,16 @@ pub(crate) async fn handle_budget_get(State(st): State<Arc<DaemonState>>) -> Jso
     Json(json!({ "ok": true, "budget": budget_with_balance(&st.data_dir) }))
 }
 
-/// PUT /v1/hypervisor/budget — set the budget ceiling + wallet auto-funding policy.
-pub(crate) async fn handle_budget_set(
-    State(st): State<Arc<DaemonState>>,
-    Json(body): Json<Value>,
-) -> Json<Value> {
-    let mut b = load_budget(&st.data_dir);
+/// The budget-policy write, extracted from the Axum adapter so its failure path is
+/// directly testable.
+///
+/// One record, one write, no receipt and no second effect: nothing happens before
+/// `persist_record`, so a failed write needs no compensation — it only must not be
+/// acknowledged. `handle_budget_reconcile` reads this policy to decide whether to
+/// replenish from wallet.network, so returning `ok:true` over a discarded write
+/// reported `auto_fund_enabled: false` as applied while funding continued.
+fn apply_budget_policy_update(data_dir: &str, body: &Value) -> (StatusCode, Value) {
+    let mut b = load_budget(data_dir);
     for k in ["budget_ocu", "threshold_ocu", "target_ocu"] {
         if let Some(v) = body.get(k).and_then(Value::as_f64) {
             b[k] = json!(v);
@@ -18956,8 +18960,29 @@ pub(crate) async fn handle_budget_set(
     }
     b["id"] = json!("policy");
     b["updated_at"] = json!(iso_now());
-    let _ = persist_record(&st.data_dir, "budget", "policy", &b);
-    Json(json!({ "ok": true, "budget": budget_with_balance(&st.data_dir) }))
+    if persist_record(data_dir, "budget", "policy", &b).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            json!({ "ok": false, "error": {
+                "code": "budget_policy_persistence_failed",
+                "message": "the budget ceiling and auto-funding policy could not be durably recorded and were not applied"
+            }}),
+        );
+    }
+    // Acknowledge from the reloaded projection, never from the in-memory candidate.
+    (
+        StatusCode::OK,
+        json!({ "ok": true, "budget": budget_with_balance(data_dir) }),
+    )
+}
+
+/// PUT /v1/hypervisor/budget — set the budget ceiling + wallet auto-funding policy.
+pub(crate) async fn handle_budget_set(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let (status, payload) = apply_budget_policy_update(&st.data_dir, &body);
+    (status, Json(payload))
 }
 
 /// POST /v1/hypervisor/budget/reconcile — recompute used vs budget; if auto-funding is enabled and
@@ -19008,6 +19033,97 @@ pub(crate) async fn handle_budget_reconcile(State(st): State<Arc<DaemonState>>) 
         "funded": funded,
         "funding_event_ref": funding_ref,
     }))
+}
+
+#[cfg(test)]
+mod budget_policy_durability_tests {
+    use super::*;
+
+    /// On the unpromoted daemon-file path that `"budget"` takes today, `persist_record`
+    /// can only fail at `create_dir_all` or at `fs::write`; a promoted family would admit
+    /// through the substrate engine instead and its failure points would differ. Both
+    /// faults below are path shadows rather than permission bits, so they hold for EVERY
+    /// uid: root bypasses mode-bit denial, so a `chmod`-based fault would pass vacuously
+    /// when the suite runs as root.
+    fn prior_policy(auto_fund_enabled: bool) -> Value {
+        json!({
+            "id": "policy", "budget_ocu": 1000.0, "auto_fund_enabled": auto_fund_enabled,
+            "threshold_ocu": 20.0, "target_ocu": 1000.0, "wallet_ref": Value::Null
+        })
+    }
+
+    #[test]
+    fn genesis_write_refuses_when_the_family_dir_is_shadowed_by_a_file() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        // A regular FILE where the family directory belongs — `create_dir_all` errors.
+        std::fs::write(directory.path().join("budget"), b"not a directory").unwrap();
+
+        let (status, body) = apply_budget_policy_update(data_dir, &json!({ "budget_ocu": 25.0 }));
+
+        assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(body["ok"], json!(false));
+        assert_eq!(
+            body["error"]["code"],
+            json!("budget_policy_persistence_failed")
+        );
+        // Nothing was recorded, so the documented default still stands.
+        assert_eq!(load_budget(data_dir)["budget_ocu"], json!(1000.0));
+    }
+
+    #[test]
+    fn disabling_auto_funding_over_a_failed_write_refuses_and_leaves_funding_enabled() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        let family = directory.path().join("budget");
+        std::fs::create_dir_all(&family).unwrap();
+        // `load_budget` matches on `id == "policy"`, NOT on filename, so the prior policy
+        // stays readable from `seed.json` while the write target itself is unusable.
+        std::fs::write(
+            family.join("seed.json"),
+            serde_json::to_vec(&prior_policy(true)).unwrap(),
+        )
+        .unwrap();
+        // A DIRECTORY at the write target — `fs::write` errors.
+        std::fs::create_dir_all(family.join("policy.json")).unwrap();
+        assert_eq!(load_budget(data_dir)["auto_fund_enabled"], json!(true));
+
+        let (status, body) =
+            apply_budget_policy_update(data_dir, &json!({ "auto_fund_enabled": false }));
+
+        assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(body["ok"], json!(false));
+        assert_eq!(
+            body["error"]["code"],
+            json!("budget_policy_persistence_failed")
+        );
+        // The enforcement consequence, not merely the response shape:
+        // `handle_budget_reconcile` reads this field to decide whether to replenish
+        // from wallet.network, and it must still see funding enabled.
+        assert_eq!(load_budget(data_dir)["auto_fund_enabled"], json!(true));
+    }
+
+    #[test]
+    fn a_durable_write_is_acknowledged_from_the_reloaded_projection() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+
+        let (status, body) = apply_budget_policy_update(
+            data_dir,
+            &json!({ "budget_ocu": 250.0, "auto_fund_enabled": true, "wallet_ref": "wallet://ops" }),
+        );
+
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["ok"], json!(true));
+        assert_eq!(body["budget"]["budget_ocu"], json!(250.0));
+        assert_eq!(body["budget"]["auto_fund_enabled"], json!(true));
+        assert_eq!(body["budget"]["wallet_ref"], json!("wallet://ops"));
+        // The acknowledgement was projected from disk, so a later read must agree.
+        let reread = load_budget(data_dir);
+        assert_eq!(reread["budget_ocu"], json!(250.0));
+        assert_eq!(reread["auto_fund_enabled"], json!(true));
+        assert_eq!(reread["wallet_ref"], json!("wallet://ops"));
+    }
 }
 
 // ---- OIDC login config (BYO OIDC IdP for org login) — management surface; client_secret SEALED,

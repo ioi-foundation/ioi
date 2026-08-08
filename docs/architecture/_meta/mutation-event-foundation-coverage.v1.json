@@ -232,11 +232,11 @@
       "handler_level_classification": {
         "method": "MEF-GAP-001's discriminator, MECHANIZED per handler rather than hand-maintained: (1) a SUCCESS response is reachable after a discarded write, AND (2) the written record kind is read back as state elsewhere. Superseding the hand-built list because it drifted in both directions \u2014 see classifier_coverage_defect. Still a CANDIDATE SET: each handler needs its own reading before it is called a defect. The handler count is EXPOSURE and double-counts by design (one shared helper is reached by many handlers); distinct_write_sites is the actionable unit.",
         "totals": {
-          "handlers_with_discarded_writes": 154,
-          "both_tests_hold": 128,
+          "handlers_with_discarded_writes": 153,
+          "both_tests_hold": 127,
           "success_but_kind_never_read_back": 9,
-          "distinct_write_sites": 165,
-          "closed_by_this_program_so_far": 34,
+          "distinct_write_sites": 164,
+          "closed_by_this_program_so_far": 35,
           "superseded_hand_count": 68,
           "classified_tolerated_reaches": 6
         },
@@ -359,7 +359,6 @@
             "handle_auth_logout",
             "handle_auth_oidc_callback",
             "handle_budget_reconcile",
-            "handle_budget_set",
             "handle_connector_invoke",
             "handle_custom_domain_set",
             "handle_domain_verification_create",
@@ -458,10 +457,14 @@
         "CLOSED 2026-08-07 \u2014 the provider ACCOUNT plane in provider_routes: account_create, account_patch, credential bind, credential_revoke, and preflight. provider_receipt_ext returned a receipt_ref String after discarding its own write; it now returns Option<String>, so a non-durable receipt serializes as null instead of a ref that resolves to nothing, and the account-plane callers refuse outright. Revocation was the severe path: provider operations resolve credentials through load_account_credential against the vault, NOT through the account's status, so vault removal is the actual revocation \u2014 and `removed` conflated 'no credential was bound' with 'removal failed' while ok:true was returned unconditionally, so a credential that could not be deleted was reported revoked and stayed fully resolvable. Preflight is what moves an account to `verified`, and the patch handler relies on that stored verdict to know when posture must be re-proven.",
         "PROVEN AGAINST A LIVE DAEMON \u2014 with the KillSwitch record read-only, PATCH transition=trip refuses governance_persistence_failed and the on-disk state remains `armed`; with the record writable the same call returns ok:true and the disk reads `tripped`.",
         "CENSUS CORRECTED 2026-08-08. The hand-maintained list said 68; mechanizing the discriminator finds 138 handlers meeting both tests across 178 distinct write sites. The list was wrong in BOTH directions: it under-counted by missing implicit-200 handlers and writes held in helpers, and it over-counted by listing two handlers that contain no write at all. The classifier is now tracked tooling with a --check mode, validated against ground truth \u2014 every handler this program has already fixed is correctly absent from its output, and it independently caught a discarded one-time-consume this program had missed in the OAuth callback.",
+        "CLOSED 2026-08-08 \u2014 lifecycle_routes::handle_budget_set, the deployment-local budget policy. Canonical owner: components/hypervisor/identity-access-and-metering.md, which owns 'the deployment-local meter and budget enforcement projection' and defines Budget as 'a ceiling + a wallet-backed auto-funding policy'. Selected because it is a single canonical write with no receipt and no second effect: one singleton record ('budget'/'policy'), and nothing happens before the write, so a failed write needs no compensation and cannot strand a durable false-success receipt the way a receipt-before-record handler would. handle_budget_reconcile reads this policy to decide whether to replenish from wallet.network, so returning ok:true over a discarded write reported auto_fund_enabled:false as applied while funding continued \u2014 a spend control reported disengaged that keeps spending. The write behaviour is extracted into apply_budget_policy_update so its failure path is directly testable, and handle_budget_set is now only the Axum adapter. A failed persist returns HTTP 500 ok:false budget_policy_persistence_failed and the prior policy stands; a durable persist returns HTTP 200 acknowledged from the RELOADED projection, never from the in-memory candidate. CLOSES completion properties 5 (no success response before required durability confirmation) and 7 (typed recovery for ambiguous persistence failure) FOR THIS HANDLER ONLY.",
+        "PROVEN BY DETERMINISTIC, UID-INDEPENDENT FAULT INJECTION \u2014 lifecycle_routes::budget_policy_durability_tests calls the extracted production function directly. On the unpromoted daemon-file path that 'budget' takes today, persist_record can fail only at create_dir_all or at fs::write — a promoted family would admit through the substrate engine instead and its failure points would differ — and both faults are PATH SHADOWS rather than permission bits: a regular file where the family directory belongs (genesis), and a directory at the write target while the prior policy stays readable from a differently-named file in the same family \u2014 load_budget matches on id == 'policy', not on filename (successor). Disabling auto-funding under the successor fault returns HTTP 500 with the typed code while load_budget still reports auto_fund_enabled: true, which asserts the enforcement consequence rather than only the response shape. A durable write returns HTTP 200 and a re-read agrees with the acknowledgement. chmod is deliberately NOT used: root bypasses mode-bit denial, so a chmod-based fault would make these assertions pass vacuously whenever the suite runs as root.",
         "CLOSED 2026-08-08 \u2014 ioi_agent_routes, the agent launch-policy and rollout plane. The severe pair is promote/rollback: rollback sets status=disabled as an explicit fail-closed, so a discarded write left the rolled-back variant ACTIVE and still overlay-selected \u2014 the operator is told the bad variant is withdrawn while it keeps serving. Three helpers were returning success-shaped values over swallowed writes and are now honest: set_rollout returns None, rollout_receipt returns Option<String> instead of a ref that resolves to nothing, and patch_release_control returns bool and is #[must_use]. policies_delete reported `deleted` for a policy it had just loaded and failed to remove. The launch record's `prepared` write happens BEFORE execution and now fails closed; the two post-execution outcome writes cannot, since the invocations have already run, so they surface outcome_durable instead."
       ],
       "still_open": [
-        "128 handlers across 24 modules meet both tests, over 165 distinct write sites. Largest concentrations: lifecycle_routes (19), ioi_intelligence_routes (18), orchestration_routes (11), model_routes (9), harness_routes (7). Regenerate with npm run check:mutation-handlers rather than editing by hand.",
+        "127 handlers across 24 modules meet both tests, over 164 distinct write sites. Largest concentrations: lifecycle_routes (18), ioi_intelligence_routes (18), orchestration_routes (11), model_routes (9), harness_routes (7). Regenerate with npm run check:mutation-handlers rather than editing by hand.",
+        "NOT CLAIMED FOR handle_budget_set — six of the eight completion properties remain unsatisfied, and this packet changed none of them. Property 1 (authenticated principal, exact owner/tenant scope): lifecycle handlers do not each call authorize; the daemon's inbound auth middleware covers every /v1/* route only when authentication policy is enforced, and that enforcement is policy-gated with default OFF, so this handler establishes no explicit authenticated owner/tenant scope of its own. Property 2 (caller-owned idempotency key): absent. Property 3 (expected-absent genesis or expected-head compare-and-swap): absent, and handle_budget_reconcile performs an unguarded read-modify-write against the SAME 'budget'/'policy' singleton, so a concurrent set and reconcile silently clobber one another. Property 4 (Agentgres-admitted operation and hash-linked receipt): 'budget' is in neither PROMOTED_DOMAINS nor REQUIRED_ADMISSION_DOMAINS, so this remains a direct daemon-file write emitting no admitted operation, receipt, or event, and the current path admits none of these facts through Agentgres. Property 6 (restart replay from durable admitted truth): absent. Property 8 (cross-principal receipt and idempotency-key borrowing refusal): absent. Field validation is likewise unchanged: the handler still accepts any f64 for budget_ocu, threshold_ocu and target_ocu, and this packet deliberately did not alter validation.",
+        "handle_budget_reconcile remains OPEN and was deliberately not touched. It writes two kinds ('ledgers' then 'budget') and performs the funding effect itself, so it needs the already-happened-effect classification rather than a reflexive fail-closed. Recording that here so a later packet does not fail it closed by reflex.",
         "29 handlers cannot be classified mechanically because they mix checked and discarded writes; these need reading before any claim is made about them.",
         "authority_routes still takes NO request identity on grant, revoke, or harness-binding create. The writes now fail closed, but the routes remain unauthenticated \u2014 that is a separate and larger change than this fix, and it is not claimed here.",
         "The classification itself under-counts \u2014 see classifier_coverage_defect. Four handlers in the connector family alone were absent from the census because test (1) was mechanized to require the response to embed the written record. Re-run it with that test widened before treating 84 as the remaining total.",
@@ -472,13 +475,13 @@
   ],
   "direct_persistence_indicator_census": {
     "indicator": "explicitly discarded direct persist_record result",
-    "total_occurrences": 230,
+    "total_occurrences": 229,
     "source_files": 37,
     "classification": "audit indicator only; includes possible projections, cleanup, fixtures, and compatibility paths until individually classified",
     "regenerator": "node scripts/audit-daemon-mutation-foundation.mjs",
     "by_source": {
       "crates/node/src/bin/hypervisor-daemon.rs": 32,
-      "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs": 23,
+      "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs": 22,
       "crates/node/src/bin/hypervisor_daemon_routes/ioi_intelligence_routes.rs": 21,
       "crates/node/src/bin/hypervisor_daemon_routes/provider_routes.rs": 19,
       "crates/node/src/bin/hypervisor_daemon_routes/storage_backend_routes.rs": 18,
