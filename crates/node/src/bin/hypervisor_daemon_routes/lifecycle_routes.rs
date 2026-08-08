@@ -11,8 +11,6 @@
 //! middleware protects every `/v1/*` route by default when authentication policy
 //! is enforced. Only the explicit bootstrap/readiness and independently
 //! token-authenticated webhook paths bypass that principal gate.
-//!
-//! See `internal-docs/implementation/hypervisor-unified-rust-daemon-lifecycle-migration.md`.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fs;
