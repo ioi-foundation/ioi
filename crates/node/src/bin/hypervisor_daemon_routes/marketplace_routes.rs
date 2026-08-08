@@ -1137,8 +1137,19 @@ pub(crate) async fn handle_candidate_delete(
 /// Link or unlink a candidate's admission review.
 ///
 /// This swallowed every failure — malformed ref, missing candidate, failed write — and returned
-/// unit. `publish_gates` reads `admission_review_ref`, so a silent failure here decides publish
-/// eligibility from a backlink that was never written.
+/// unit, so a caller was told its review had been linked when nothing had been written.
+///
+/// What the backlink IS, precisely, because a stale comment here claimed otherwise: it is this
+/// plane's read-model answer to "which review does this candidate carry", served by candidate GET
+/// and list and overwritten by `handle_candidate_publish` from its own resolution. It is NOT the
+/// publish gate — `publish_gates` scans the review records for one whose `candidate_ref` matches
+/// with `decision == "admitted"`, so publish eligibility does not depend on this field at all. It
+/// still fails closed, because a read model that answers wrongly is a defect on its own terms; but
+/// a clobber here is an ordering and read-model fault, never an authority one.
+///
+/// LAST-WRITER-WINS, and a candidate may carry several reviews. Callers must therefore decide
+/// whether they are entitled to write it: a fresh create is, and a REPLAY of an older create is
+/// not.
 fn link_candidate_review(
     data_dir: &str,
     candidate_ref: &str,
@@ -1409,42 +1420,95 @@ fn replay_created_admission_review(
             }, "admitted_head": terminal.head })),
         ));
     }
+    let review_ref = format!("marketplace-admission://{id}");
     // The CURRENT projection when there is one. This is the resource the command created, and
     // anything since is a later admitted fact — a patched decision above all. Re-projecting
     // create-time bytes here would silently undo that patch, which is precisely what a replay must
     // be incapable of.
-    let record = match load(data_dir, KIND_REVIEW, &id) {
-        Some(record) => record,
-        None => {
-            // Admitted with no projection: the original create's projection write failed, or the
-            // read model was lost. Rebuild from the admitted payload and this operation's OWN stamp
-            // — never a clock — and fail closed if the repair cannot be written.
-            let mut repaired = prior.operation.payload.clone();
-            let stamp = admitted_stamp(prior.operation.recorded_at_ms);
-            repaired["created_at"] = json!(stamp);
-            repaired["updated_at"] = json!(stamp);
-            repaired["admitted_head"] = json!(prior.head);
-            project_or_fail(
-                data_dir,
-                KIND_REVIEW,
-                &id,
-                &repaired,
-                "marketplace_review_persistence_failed",
-            )?;
-            repaired
-        }
-    };
-    // The candidate backlink is fail-closed here for the same reason it is on the first attempt:
-    // publish gating reads `admission_review_ref`, so answering 200 over a backlink that was never
-    // written would report a gate this review does not hold.
-    link_candidate_review(
+    //
+    // A replay over a live projection therefore writes NOTHING AT ALL — not the review, and not its
+    // candidate. A candidate may carry several reviews, and `admission_review_ref` is last-writer
+    // -wins, so re-linking here let an old key's retry drag the candidate's backlink back to review
+    // A after review B had superseded it, and bump `updated_at` while doing it. That is the same
+    // clobber the current-projection rule exists to forbid, one record over.
+    if let Some(record) = load(data_dir, KIND_REVIEW, &id) {
+        return Ok(Some((
+            StatusCode::OK,
+            Json(json!({ "ok": true, "replayed": true, "admission_review": record })),
+        )));
+    }
+    // Admitted with no projection: the original create's projection write failed, or the read model
+    // was lost. Rebuild CURRENT nonterminal truth — never the create's own bytes.
+    //
+    // Rebuilding from `prior` restored the decision, findings and reviewer as they were at create
+    // time and, worse, re-projected the CREATE's head over a stream that had moved. Every later
+    // patch and the delete read that stale head, presented it, and were refused
+    // event_stream_expected_head_conflict forever: a repair that wedges the record it repaired.
+    // The last admitted nonterminal entry is the record's current state, so that is what is
+    // projected — with `created_at` still owned by the original create, because that is the one
+    // field the latest entry cannot tell us.
+    let latest = history
+        .iter()
+        .max_by_key(|entry| entry.seq)
+        .expect("the history contains at least this caller's admitted create");
+    // Classify before projecting. An operation this route cannot interpret must not be silently
+    // rendered as a review — and must not fall back to the create bytes either, which is exactly
+    // the stale-state failure above wearing a different cause.
+    if !matches!(
+        latest.operation.op_kind.as_str(),
+        "marketplace.review.create" | "marketplace.review.patch"
+    ) {
+        return Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "error": {
+                "code": "marketplace_review_history_unclassified",
+                "message": format!(
+                    "the review's admitted history ends in '{}', which this plane cannot project \
+                     onto a review; the read model cannot be repaired from it",
+                    latest.operation.op_kind
+                )
+            }, "admitted_head": latest.head })),
+        ));
+    }
+    let mut repaired = latest.operation.payload.clone();
+    // NOT COVERED BY A TEST, and it cannot be: `admit_owner_scoped_write` records
+    // `recorded_at_ms: 0` for every mutation on this path, so the create's stamp and the latest
+    // entry's stamp are the same string and no assertion can tell them apart. The provenance is
+    // right by construction — `created_at` is the one field only the original create can answer —
+    // but a reader should not mistake this line for a proven one. Changing what the shared write
+    // path records is estate-wide and out of this packet.
+    repaired["created_at"] = json!(admitted_stamp(prior.operation.recorded_at_ms));
+    repaired["updated_at"] = json!(admitted_stamp(latest.operation.recorded_at_ms));
+    repaired["admitted_head"] = json!(latest.head);
+    project_or_fail(
         data_dir,
-        str_field(command, "candidate_ref"),
-        Some(&format!("marketplace-admission://{id}")),
+        KIND_REVIEW,
+        &id,
+        &repaired,
+        "marketplace_review_persistence_failed",
     )?;
+    // Repair may RESTORE a backlink; it may never take one. The candidate is only written when its
+    // link is absent — the state the lost projection plausibly lost with it. A link already naming
+    // this review is already correct, and a link naming a DIFFERENT review is current truth about a
+    // newer review: an old create's repair does not get to overwrite it or touch `updated_at`.
+    let candidate_ref = str_field(command, "candidate_ref");
+    let linked = split_ref(candidate_ref)
+        .and_then(|(_, cid)| load(data_dir, KIND_CANDIDATE, cid))
+        .and_then(|candidate| {
+            candidate
+                .get("admission_review_ref")
+                .and_then(|v| v.as_str())
+                .map(str::to_string)
+        });
+    if linked.is_none() {
+        // Fail closed exactly as the first attempt does: the backlink is this plane's read-model
+        // answer to "which review does this candidate carry", and reporting 200 over a write that
+        // did not land would answer it wrongly for every later read.
+        link_candidate_review(data_dir, candidate_ref, Some(&review_ref))?;
+    }
     Ok(Some((
         StatusCode::OK,
-        Json(json!({ "ok": true, "replayed": true, "admission_review": record })),
+        Json(json!({ "ok": true, "replayed": true, "admission_review": repaired })),
     )))
 }
 
@@ -1486,9 +1550,10 @@ fn finish_admission_review_create(
     ) {
         return response;
     }
-    // Link the review onto its candidate so blocked_reasons can reflect an admitted review. This
-    // must not be best-effort: a review the candidate never learns about is a review that cannot
-    // gate publish, and reporting 201 would say the opposite.
+    // Link the review onto its candidate. A FRESH create is the one caller entitled to take this
+    // last-writer-wins field: it is the newest review this candidate carries. It must not be
+    // best-effort — reporting 201 over a link that did not land makes every later read of the
+    // candidate answer wrongly about which review it holds.
     if let Err(response) = link_candidate_review(
         data_dir,
         str_field(command, "candidate_ref"),
@@ -1673,8 +1738,8 @@ fn delete_admission_review(
         Ok(commit) => commit,
         Err(response) => return response,
     };
-    // The candidate backlink is part of this transition, not a side effect: publish gating reads
-    // admission_review_ref, so a swallowed unlink leaves a candidate pointing at a deleted review.
+    // The candidate backlink is part of this transition, not a side effect: a swallowed unlink
+    // leaves the candidate's read model pointing at a review that no longer exists.
     if let Some(candidate_ref) = existing.get("candidate_ref").and_then(|v| v.as_str()) {
         if let Err(response) = link_candidate_review(data_dir, candidate_ref, None) {
             return response;
@@ -2855,6 +2920,293 @@ mod marketplace_tests {
             load(data_dir, KIND_CANDIDATE, "mpub_delete").unwrap()["admission_review_ref"],
             Value::Null
         );
+        reset_handle_for_test();
+    }
+
+    #[test]
+    fn a_create_replay_never_writes_the_candidate_a_newer_review_now_owns() {
+        // F13. A candidate may carry several reviews and `admission_review_ref` is last-writer-wins,
+        // so an OLD key's retry must not drag the backlink away from the review that superseded it.
+        // The impact is read-model and ordering, not authority — `publish_gates` scans the review
+        // records rather than this field — but "the current projection wins" has to hold for the
+        // records a replay touches, not only the one it returns.
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        reset_handle_for_test();
+        let candidate_ref = seed_candidate(data_dir, "mpub_two_reviews");
+        let caller_a = test_caller(REVIEWER_PRINCIPAL, "create-review-a");
+        let body_a = create_body(&candidate_ref, "pending");
+        let (_, Json(review_a)) =
+            create_admission_review(data_dir, &caller_a, &body_a, pinned_governance_snapshot());
+        let id_a = review_a["admission_review"]["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let (status_b, Json(review_b)) = create_admission_review(
+            data_dir,
+            &test_caller(REVIEWER_PRINCIPAL, "create-review-b"),
+            &create_body(&candidate_ref, "admitted"),
+            pinned_governance_snapshot(),
+        );
+        assert_eq!(status_b, StatusCode::CREATED);
+        let id_b = review_b["admission_review"]["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        assert_ne!(id_a, id_b, "two keys must mint two reviews");
+
+        // B is the review the candidate currently carries. These are the bytes that must survive.
+        let candidate_before = load(data_dir, KIND_CANDIDATE, "mpub_two_reviews").unwrap();
+        assert_eq!(
+            candidate_before["admission_review_ref"],
+            json!(format!("marketplace-admission://{id_b}"))
+        );
+
+        let (status, Json(replay)) =
+            create_admission_review(data_dir, &caller_a, &body_a, moved_governance_snapshot());
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(replay["replayed"], json!(true));
+        assert_eq!(
+            replay["admission_review"], review_a["admission_review"],
+            "A's replay must still answer with A"
+        );
+        // ZERO writes to the candidate: not the backlink, not `updated_at`, not one byte.
+        assert_eq!(
+            load(data_dir, KIND_CANDIDATE, "mpub_two_reviews").unwrap(),
+            candidate_before,
+            "an old create's replay rewrote the candidate a newer review owns"
+        );
+        // Both reviews and both streams are untouched.
+        assert_eq!(
+            load(data_dir, KIND_REVIEW, &id_a).unwrap(),
+            review_a["admission_review"]
+        );
+        assert_eq!(
+            load(data_dir, KIND_REVIEW, &id_b).unwrap(),
+            review_b["admission_review"]
+        );
+        assert_eq!(admitted_event_count(data_dir, &id_a), 1);
+        assert_eq!(admitted_event_count(data_dir, &id_b), 1);
+        reset_handle_for_test();
+    }
+
+    #[test]
+    fn repair_restores_an_absent_backlink_and_never_takes_a_newer_ones() {
+        // F13, repair branch. Restoring a link the lost projection plausibly lost with it is the
+        // point of a repair; taking one that already names another review is the clobber. All three
+        // states are pinned so neither half can drift into the other.
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        reset_handle_for_test();
+        let candidate_ref = seed_candidate(data_dir, "mpub_backlink");
+        let caller = test_caller(REVIEWER_PRINCIPAL, "create-backlink-1");
+        let body = create_body(&candidate_ref, "admitted");
+        let (_, Json(created)) =
+            create_admission_review(data_dir, &caller, &body, pinned_governance_snapshot());
+        let id = created["admission_review"]["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let review_ref = json!(format!("marketplace-admission://{id}"));
+
+        // SAME: the link already names this review. A repair must not touch the candidate at all.
+        let same_before = load(data_dir, KIND_CANDIDATE, "mpub_backlink").unwrap();
+        assert_eq!(same_before["admission_review_ref"], review_ref);
+        assert!(remove_record(data_dir, KIND_REVIEW, &id));
+        assert_eq!(
+            create_admission_review(data_dir, &caller, &body, moved_governance_snapshot()).0,
+            StatusCode::OK
+        );
+        assert_eq!(
+            load(data_dir, KIND_CANDIDATE, "mpub_backlink").unwrap(),
+            same_before,
+            "a repair rewrote a backlink that was already correct"
+        );
+
+        // ABSENT: the link is gone. This is the one state a repair may write.
+        let mut unlinked = load(data_dir, KIND_CANDIDATE, "mpub_backlink").unwrap();
+        unlinked["admission_review_ref"] = Value::Null;
+        persist_record(data_dir, KIND_CANDIDATE, "mpub_backlink", &unlinked).unwrap();
+        assert!(remove_record(data_dir, KIND_REVIEW, &id));
+        assert_eq!(
+            create_admission_review(data_dir, &caller, &body, moved_governance_snapshot()).0,
+            StatusCode::OK
+        );
+        assert_eq!(
+            load(data_dir, KIND_CANDIDATE, "mpub_backlink").unwrap()["admission_review_ref"],
+            review_ref,
+            "a repair left the candidate with no review at all"
+        );
+
+        // DIFFERENT: the link names a newer review. Current truth wins; the repair keeps its hands
+        // off the candidate entirely, `updated_at` included.
+        let mut other = load(data_dir, KIND_CANDIDATE, "mpub_backlink").unwrap();
+        other["admission_review_ref"] = json!("marketplace-admission://madm_some_newer_review");
+        other["updated_at"] = json!("2030-01-01T00:00:00Z");
+        persist_record(data_dir, KIND_CANDIDATE, "mpub_backlink", &other).unwrap();
+        assert!(remove_record(data_dir, KIND_REVIEW, &id));
+        assert_eq!(
+            create_admission_review(data_dir, &caller, &body, moved_governance_snapshot()).0,
+            StatusCode::OK
+        );
+        assert_eq!(
+            load(data_dir, KIND_CANDIDATE, "mpub_backlink").unwrap(),
+            other,
+            "a repair took a backlink that named a newer review"
+        );
+        assert!(
+            load(data_dir, KIND_REVIEW, &id).is_some(),
+            "the review is repaired regardless"
+        );
+        assert_eq!(admitted_event_count(data_dir, &id), 1);
+        reset_handle_for_test();
+    }
+
+    #[test]
+    fn repair_rebuilds_current_truth_after_a_patch_and_does_not_wedge_the_stream() {
+        // F14. Rebuilding from the CREATE restored the create-time decision, findings and head over
+        // a stream that had already moved. The stale head was the real damage: every later patch and
+        // the delete read it, presented it, and were refused event_stream_expected_head_conflict —
+        // permanently. A repair must project the LATEST admitted nonterminal entry.
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        reset_handle_for_test();
+        let candidate_ref = seed_candidate(data_dir, "mpub_patched_repair");
+        let creator = test_caller(REVIEWER_PRINCIPAL, "create-patched-repair-1");
+        let body = create_body(&candidate_ref, "pending");
+        let (_, Json(created)) =
+            create_admission_review(data_dir, &creator, &body, pinned_governance_snapshot());
+        let id = created["admission_review"]["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let created_head = created["admission_review"]["admitted_head"].clone();
+
+        let (patch_status, _) = patch_admission_review(
+            data_dir,
+            &id,
+            &test_caller(REVIEWER_PRINCIPAL, "patch-before-repair-1"),
+            &json!({ "decision": "admitted", "findings": ["finding://patched"] }),
+        );
+        assert_eq!(patch_status, StatusCode::OK);
+        let patched = load(data_dir, KIND_REVIEW, &id).unwrap();
+        assert_ne!(
+            patched["admitted_head"], created_head,
+            "the patch moved the head"
+        );
+
+        // Lose the read model, then retry the ORIGINAL create key.
+        assert!(remove_record(data_dir, KIND_REVIEW, &id));
+        let (status, Json(replay)) =
+            create_admission_review(data_dir, &creator, &body, moved_governance_snapshot());
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(replay["replayed"], json!(true));
+
+        // CURRENT truth, byte for byte: the patched decision and findings, the patch's head and
+        // `updated_at`, and the ORIGINAL create's `created_at` — the one field the latest entry
+        // cannot supply.
+        let restored = load(data_dir, KIND_REVIEW, &id).unwrap();
+        assert_eq!(
+            restored, patched,
+            "the repair restored create-time bytes over a patched review"
+        );
+        assert_eq!(replay["admission_review"], patched);
+        assert_eq!(restored["decision"], json!("admitted"));
+        assert_eq!(restored["findings"], json!(["finding://patched"]));
+        assert_eq!(restored["reviewer_ref"], json!(REVIEWER_PRINCIPAL));
+        assert_eq!(
+            restored["created_at"],
+            created["admission_review"]["created_at"]
+        );
+        assert_eq!(
+            admitted_event_count(data_dir, &id),
+            2,
+            "the repair admitted an event"
+        );
+
+        // NOT WEDGED. The repaired record carries the stream's real head, so the next correctly
+        // headed successor is admitted instead of conflicting — which is what the old repair broke.
+        let (next_patch, Json(next_reply)) = patch_admission_review(
+            data_dir,
+            &id,
+            &test_caller(REVIEWER_PRINCIPAL, "patch-after-repair-1"),
+            &json!({ "decision": "needs_changes" }),
+        );
+        assert_eq!(
+            next_patch,
+            StatusCode::OK,
+            "a patch after the repair was refused: {next_reply}"
+        );
+        assert_eq!(admitted_event_count(data_dir, &id), 3);
+        let (delete_status, Json(delete_reply)) = delete_admission_review(
+            data_dir,
+            &id,
+            &test_caller(REVIEWER_PRINCIPAL, "delete-after-repair-1"),
+        );
+        assert_eq!(
+            delete_status,
+            StatusCode::OK,
+            "a delete after the repair was refused: {delete_reply}"
+        );
+        assert!(load(data_dir, KIND_REVIEW, &id).is_none());
+        reset_handle_for_test();
+    }
+
+    #[test]
+    fn a_repair_refuses_typed_when_the_history_ends_in_an_operation_it_cannot_project() {
+        // F14, fail-closed half. Falling back to the create bytes for an entry this plane cannot
+        // interpret is the same stale-state failure wearing a different cause, so an unclassifiable
+        // history refuses by name and writes nothing. Unreachable through the routes today — only
+        // create/patch/delete are admitted here, and delete is already fenced — so it is driven
+        // straight at the stream, which is the only way to prove the guard exists at all.
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        reset_handle_for_test();
+        let candidate_ref = seed_candidate(data_dir, "mpub_unclassified");
+        let caller = test_caller(REVIEWER_PRINCIPAL, "create-unclassified-1");
+        let body = create_body(&candidate_ref, "admitted");
+        let (_, Json(created)) =
+            create_admission_review(data_dir, &caller, &body, pinned_governance_snapshot());
+        let id = created["admission_review"]["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let head = created["admission_review"]["admitted_head"]
+            .as_str()
+            .unwrap()
+            .to_string();
+
+        admit_owner_scoped_write(
+            data_dir,
+            // Its OWN key. The create's key is spoken for, and re-presenting it here would refuse
+            // as same-key-different-bytes long before the stream saw a new operation kind.
+            &test_caller(REVIEWER_PRINCIPAL, "future-op-1"),
+            MARKETPLACE_NAMESPACE,
+            KIND_REVIEW,
+            &format!("marketplace-admission-review://{id}"),
+            "marketplace.review.some_future_transition",
+            Some(&head),
+            &json!({ "id": id, "future": true }),
+        )
+        .expect("the stream accepts a successor this route does not know");
+        assert!(remove_record(data_dir, KIND_REVIEW, &id));
+
+        let (status, Json(reply)) =
+            create_admission_review(data_dir, &caller, &body, moved_governance_snapshot());
+        assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR, "{reply}");
+        assert_eq!(
+            reply["error"]["code"],
+            json!("marketplace_review_history_unclassified")
+        );
+        assert!(reply["error"]["message"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("marketplace.review.some_future_transition"));
+        assert!(
+            load(data_dir, KIND_REVIEW, &id).is_none(),
+            "a refused repair projected a review anyway"
+        );
+        assert_eq!(admitted_event_count(data_dir, &id), 2);
         reset_handle_for_test();
     }
 
