@@ -48,3 +48,4 @@ artifact is oversight reporting only, never closure authority.
 - [ADR 0031: GoalRun Execution Composes Thread Orchestration](./0031-goalrun-execution-composes-thread-orchestration.md) (refines ADRs 0017, 0022, 0029, and 0030)
 - [ADR 0032: Define "Independently Implemented Client" By Named Axes](./0032-independently-implemented-client-definition.md) (refines ADRs 0002 and 0013)
 - [ADR 0033: License The Protocol Surface Permissively And Define The Licensed Work By Manifest](./0033-licensing-split-surface-and-license-manifest.md) (refines ADR 0015; external counsel review advised before public release relies on it)
+- [ADR 0034: Thread Fork Is The Delegation Primitive; Subagents Are Its Surface](./0034-thread-fork-is-the-delegation-primitive-subagents-are-its-surface.md) (refines ADRs 0031 and 0022; agent-proposed under program authority and owner-reversible — review before the WorkLifecycle client interface freezes)
