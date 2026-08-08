@@ -6363,6 +6363,79 @@ function renderMarketplaceListingForm(existing, opts) {
     <script>(function(){var k=document.getElementById('mp-kind'),s=document.getElementById('mp-subject');if(!k||!s)return;function f(){var kk=k.value;Array.prototype.forEach.call(s.options,function(o){if(!o.value){return;}o.hidden=(o.getAttribute('data-kind')!==kk);});var cur=s.options[s.selectedIndex];if(!cur||cur.hidden){for(var i=0;i<s.options.length;i++){if(s.options[i].value&&!s.options[i].hidden){s.selectedIndex=i;return;}}}}k.addEventListener('change',f);f();})();</script>`;
   return automationsShell(`${isEdit ? "Edit" : "Draft"} listing`, inner);
 }
+// ---- admission-review callers (P-MKT-CALL-1) ---------------------------------------------------
+//
+// An admission review is an OWNER-SCOPED daemon mutation. `require_write_caller` authenticates the
+// request FIRST, then requires the body to name the single org://|project:// that owns the record
+// and an idempotency_key that makes a retry resolve to one resource. The same plane also refuses a
+// body carrying `reviewer_ref` (P-MKT-ATTR-1): WHO reviewed is derived from the authenticated
+// caller, so these callers send the decision and nothing about identity.
+//
+// The owner is ASKED FOR, not invented. Neither the review record, its candidate, nor its listing
+// projects an owner_ref, so there is nothing here to read one from; defaulting to a constant like
+// `org://local` would be the product choosing an owner scope on the operator's behalf — the same
+// forgery as choosing the reviewer, one field over. The daemon independently refuses an owner the
+// caller holds no authority over (403) and refuses a scope bound to another principal, so this
+// field is a declaration the server adjudicates, never a grant.
+const MP_OWNER_HINT = "The single org:// or project:// that owns this review. The daemon admits the write under it and refuses a caller who holds no authority over it.";
+const MP_OWNER_INPUT_STYLE = "padding:8px;border-radius:8px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit";
+const mpOwnerInput = (extraStyle) => `<input name="owner_ref" placeholder="org://… or project://…" required title="${CX_ESC(MP_OWNER_HINT)}" style="${MP_OWNER_INPUT_STYLE}${extraStyle || ""}">`;
+// Content-derived, mirroring the daemon's own rule: `replay_stable_id` mints the review id from
+// (owner_ref, idempotency_key), so a wall-clock key would make a double-submitted form two reviews.
+// Create and delete hash DIFFERENT material on purpose — both admit onto ONE event stream, where a
+// key re-presented with different bytes is refused as a conflict rather than replayed.
+function mpReviewIdempotencyKey(command) {
+  return `marketplace-admission-review:${crypto.createHash("sha256").update(JSON.stringify(command)).digest("hex").slice(0, 32)}`;
+}
+// NONCLAIM — two daemon-side gaps these callers are built to REPORT, not to hide, and neither is
+// touched here (the writable scope is this file and the lifecycle verifier):
+//
+//   1. A create is not actually replayable. `governance_posture_snapshot` carries a nested
+//      `at: iso_now()` and the daemon's `without_clock` strips only TOP-LEVEL clock fields, so a
+//      genuine HTTP retry presents different bytes under the same key and is refused 409
+//      `event_stream_same_key_different_bytes` instead of resolving to the one review. The
+//      content-derived key below is still correct and still load-bearing — it is what keeps the
+//      retry from minting a SECOND review — but "same logical request resolves once" currently
+//      holds by refusal, not by replay.
+//   2. A delete is not replayable either. `handle_review_delete` LOADS the record before admitting
+//      its terminal event and removes the projection on success, so a retried delete answers 404
+//      rather than replaying the admitted transition. Its key can never be presented twice.
+//
+// Both belong to the daemon's marketplace/mutation-foundation lane. Until they close, the honest
+// product behaviour is the one below: surface the daemon's own status and code.
+
+// Both mutations need the daemon's STATUS as well as its body: a `.json()`-only call site cannot
+// tell 201 from 403, which is how these two came to redirect a refusal as if the write had landed.
+async function mpDaemonMutation(path, init) {
+  try {
+    const response = await daemonFetch(path, init);
+    return { status: response.status, body: await response.json().catch(() => ({})) };
+  } catch (error) {
+    return { status: 0, body: { code: "daemon_unreachable", message: String((error && error.message) || error) } };
+  }
+}
+// A write LANDED only when the transport succeeded AND the plane said so. Both halves are load
+// bearing and neither implies the other: this daemon answers 200 with `{"ok": false}` on a delete
+// that removed nothing (`g_del`), so a status-only test reports a phantom removal; and a body-only
+// test would accept an `ok` field off a 500 or a proxy's error page. Fail closed on the pair.
+const mpMutationLanded = (result) => result.status >= 200 && result.status < 300 && result.body?.ok === true;
+// Render a refusal as a refusal. This plane answers in two shapes — typed route errors nest
+// {error:{code,message}} while the shared mutation foundation answers {code,message} at the top
+// level — so read both: an identity or owner-scope refusal reported as "invalid" is a lie about
+// which contract was broken. The daemon's own status is carried out rather than flattened to 200.
+function mpMutationRefusal(title, result, back) {
+  const nested = (result.body && result.body.error) || {};
+  const code = nested.code || (result.body && result.body.code) || "";
+  const message = nested.message || nested.reason || (result.body && (result.body.message || result.body.reason)) || "";
+  const blocked = (nested.blocked_reasons || []).join(", ");
+  return {
+    // Carry the daemon's own refusal status. A success-shaped answer that is not `ok` (a 200
+    // `{"ok": false}`, or an unreachable daemon's synthetic 0) has no refusal status to carry, so
+    // it becomes 502: the shell cannot honour it and will not launder it into a 200 either.
+    status: result.status >= 400 && result.status <= 599 ? result.status : 502,
+    html: automationsShell(title, `<div class="empty" data-error-code="${CX_ESC(code)}"><b>${CX_ESC(title)}</b>${code ? ` — <code>${CX_ESC(code)}</code>` : ""}<div style="margin-top:6px">${CX_ESC(message || "the daemon refused the request and returned no message")}</div>${blocked ? `<div style="margin-top:6px">${CX_ESC(blocked)}</div>` : ""}</div><p><a href="${CX_ESC(back)}">← back</a></p>`),
+  };
+}
 function renderMarketplaceListingDetail(listing, candidates, reviewsByCandidate, offers, gov) {
   const enc = encodeURIComponent; const l = listing || {};
   const lid = l.id || ""; const st = mpStoreOf(l.listing_kind);
@@ -6383,7 +6456,11 @@ function renderMarketplaceListingDetail(listing, candidates, reviewsByCandidate,
     const published = c.publish_state === "published";
     const reasons = (c.blocked_reasons || []).map((r) => `<span class="pill" style="color:#e06a6a;border-color:#5c2a2a;background:#2a1212">${CX_ESC(r)}</span>`).join(" ");
     const g = c.governance_posture_snapshot || {};
-    const revRows = reviews.map((rv) => `<tr><td><span class="pill ${rv.decision === "admitted" ? "ok" : rv.decision === "rejected" ? "warn" : "muted"}">${CX_ESC(rv.decision || "")}</span></td><td>${(rv.findings || []).map((f) => `<code>${CX_ESC(f)}</code>`).join(" ") || "—"}</td><td><form class="inline" method="post" action="/__ioi/marketplace/reviews/${enc(rv.id)}/delete"><input type="hidden" name="listing_id" value="${enc(lid)}"><button class="act ghost" type="submit">✕</button></form></td></tr>`).join("");
+    // Reviewer is PROJECTED, never posted: the daemon writes `caller.identity.principal_ref` into
+    // the same bytes it admits, so this cell is the record's own answer to who reviewed. A review
+    // written before that cut can carry no reviewer at all, which is shown as absent rather than
+    // filled in from the viewer.
+    const revRows = reviews.map((rv) => `<tr><td><span class="pill ${rv.decision === "admitted" ? "ok" : rv.decision === "rejected" ? "warn" : "muted"}">${CX_ESC(rv.decision || "")}</span></td><td>${rv.reviewer_ref ? `<code title="server-derived — the principal the daemon authenticated for the write that last advanced this review">${CX_ESC(rv.reviewer_ref)}</code>` : `<span class="sub" style="margin:0" title="this record carries no reviewer; nothing here supplies one">unattributed</span>`}</td><td>${(rv.findings || []).map((f) => `<code>${CX_ESC(f)}</code>`).join(" ") || "—"}</td><td><form class="inline" method="post" action="/__ioi/marketplace/reviews/${enc(rv.id)}/delete" style="gap:6px"><input type="hidden" name="listing_id" value="${enc(lid)}">${mpOwnerInput(";width:150px;font-size:11px")}<button class="act ghost" type="submit">✕</button></form></td></tr>`).join("");
     const pubPill = published
       ? `<span class="pill ok">published</span>`
       : c.publishable ? `<span class="pill ok">publishable</span>` : `<span class="pill" style="color:#e06a6a;border-color:#5c2a2a;background:#2a1212">not publishable</span>`;
@@ -6393,16 +6470,18 @@ function renderMarketplaceListingDetail(listing, candidates, reviewsByCandidate,
          <dl class="wlgrid" style="margin:0 0 8px"><dt class="wlk">Runtime</dt><dd class="wlv"><code>${CX_ESC(c.published_runtime_ref || "")}</code></dd><dt class="wlk">Release</dt><dd class="wlv"><code>${CX_ESC(c.release_control_ref || "")}</code></dd><dt class="wlk">Admission</dt><dd class="wlv"><code>${CX_ESC(c.admission_review_ref || "")}</code></dd><dt class="wlk">Receipts</dt><dd class="wlv">${(c.publish_receipt_refs || []).map((r) => `<code>${CX_ESC(r)}</code>`).join(" ") || "—"}</dd></dl>`
       : `<div class="chips" style="margin:0 0 8px"><span class="chiplabel">Blocked reasons</span>${reasons || `<span class="sub" style="margin:0">none — ready to publish</span>`}</div>
          <div class="chips" style="margin:0 0 10px"><span class="chiplabel">Governance @ candidacy</span>${govChips(g)}</div>`;
-    const reviewForm = published ? "" : `<form method="post" action="/__ioi/marketplace/candidates/${enc(c.id)}/reviews" class="row" style="gap:8px;margin-top:8px"><input type="hidden" name="listing_id" value="${enc(lid)}">
-        <select name="decision" style="padding:8px;border-radius:8px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit"><option value="pending">pending</option><option value="needs_changes">needs_changes</option><option value="admitted">admitted</option><option value="rejected">rejected</option></select>
-        <button class="act ghost" type="submit">Submit admission review</button></form>`;
+    const reviewForm = published ? "" : `<form method="post" action="/__ioi/marketplace/candidates/${enc(c.id)}/reviews" class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap"><input type="hidden" name="listing_id" value="${enc(lid)}">
+        <select name="decision" style="${MP_OWNER_INPUT_STYLE}"><option value="pending">pending</option><option value="needs_changes">needs_changes</option><option value="admitted">admitted</option><option value="rejected">rejected</option></select>
+        ${mpOwnerInput(";min-width:220px")}
+        <button class="act ghost" type="submit">Submit admission review</button>
+        <div class="sub" style="margin:0;flex-basis:100%">${CX_ESC(MP_OWNER_HINT)} No reviewer is asked for — the daemon records the principal it authenticated for this submission.</div></form>`;
     const publishBtn = (!published && c.publishable) ? `<form class="inline" method="post" action="/__ioi/marketplace/candidates/${enc(c.id)}/publish"><input type="hidden" name="listing_id" value="${enc(lid)}"><button class="act" type="submit">Publish (runtime-backed)</button></form>` : "";
     return `<div class="card" style="display:block">
       <div class="row" style="justify-content:space-between;margin:0 0 8px"><div><b>Publish candidate</b> <code>${CX_ESC(c.id)}</code> <span class="pill muted">publish_state: ${CX_ESC(c.publish_state || "candidate")}</span> ${pubPill}</div>
         ${published ? "" : `<form class="inline" method="post" action="/__ioi/marketplace/candidates/${enc(c.id)}/delete"><input type="hidden" name="listing_id" value="${enc(lid)}"><button class="act ghost" type="submit">Delete candidate</button></form>`}</div>
       ${publishedBlock}
       <h4 style="margin:6px 0;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#878a93">Admission reviews</h4>
-      ${reviews.length ? `<table><tbody>${revRows}</tbody></table>` : `<div class="sub" style="margin:0 0 8px">No reviews yet.</div>`}
+      ${reviews.length ? `<table><thead><tr><th>Decision</th><th>Reviewer</th><th>Findings</th><th>Owner scope · delete</th></tr></thead><tbody>${revRows}</tbody></table>` : `<div class="sub" style="margin:0 0 8px">No reviews yet.</div>`}
       <div class="row" style="margin-top:8px;gap:8px">${publishBtn}</div>${reviewForm}
     </div>`;
   }).join("");
@@ -10399,7 +10478,22 @@ async function handleEstateRequest(req, res, body) {
       if (action === "delete") {
         await daemonFetch(`/v1/hypervisor/marketplace/publish-candidates/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
       } else if (action === "reviews") {
-        await daemonFetch(`/v1/hypervisor/marketplace/admission-reviews`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ candidate_ref: `marketplace-publish://${id}`, decision: (p.get("decision") || "pending").trim() }) }).catch(() => {});
+        // P-MKT-CALL-1. The body is the DECISION plus the owner scope and the retry key the
+        // owner-scoped mutation contract requires — and nothing about identity: the caller is the
+        // browser session `daemonFetch` already carries, and the reviewer is derived from it.
+        // Nothing is pre-validated here: the daemon owns this contract, and answering its 401 or
+        // its 400 as if the product had decided would restate a rule that lives elsewhere.
+        const command = { op: "marketplace.review.create", owner_ref: (p.get("owner_ref") || "").trim(), candidate_ref: `marketplace-publish://${id}`, decision: (p.get("decision") || "pending").trim() };
+        const result = await mpDaemonMutation(`/v1/hypervisor/marketplace/admission-reviews`, {
+          method: "POST", headers: { "content-type": "application/json" },
+          body: JSON.stringify({ candidate_ref: command.candidate_ref, decision: command.decision, owner_ref: command.owner_ref, idempotency_key: mpReviewIdempotencyKey(command) }),
+        });
+        if (!mpMutationLanded(result)) {
+          const refusal = mpMutationRefusal("Admission review refused", result, back);
+          res.writeHead(refusal.status, HTMLH);
+          res.end(refusal.html);
+          return;
+        }
       } else if (action === "publish") {
         const r = await daemonFetch(`/v1/hypervisor/marketplace/publish-candidates/${encodeURIComponent(id)}/publish`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }).then((x) => x.json()).catch(() => ({}));
         if (r && r.ok === false && r.error) {
@@ -10416,8 +10510,23 @@ async function handleEstateRequest(req, res, body) {
       const [rawId] = pathname.slice("/__ioi/marketplace/reviews/".length).split("/");
       const id = decodeURIComponent(rawId);
       const p = new URLSearchParams(body.toString());
-      await daemonFetch(`/v1/hypervisor/marketplace/admission-reviews/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
-      res.writeHead(302, { Location: `/__ioi/marketplace/listings/${encodeURIComponent(p.get("listing_id") || "")}`, "Cache-Control": "no-cache" });
+      const back = `/__ioi/marketplace/listings/${encodeURIComponent(p.get("listing_id") || "")}`;
+      // P-MKT-CALL-1. Deleting a review is a governed transition, not a hole in the record: the
+      // daemon admits a terminal event and unlinks the candidate backlink publish gating reads, so
+      // it requires the same owner scope and retry key a create does. A bodyless DELETE reached the
+      // typed refusal and was thrown away, and the redirect below reported it as removed.
+      const command = { op: "marketplace.review.delete", owner_ref: (p.get("owner_ref") || "").trim(), review_id: id };
+      const result = await mpDaemonMutation(`/v1/hypervisor/marketplace/admission-reviews/${encodeURIComponent(id)}`, {
+        method: "DELETE", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ owner_ref: command.owner_ref, idempotency_key: mpReviewIdempotencyKey(command) }),
+      });
+      if (!mpMutationLanded(result)) {
+        const refusal = mpMutationRefusal("Admission review not deleted", result, back);
+        res.writeHead(refusal.status, HTMLH);
+        res.end(refusal.html);
+        return;
+      }
+      res.writeHead(302, { Location: back, "Cache-Control": "no-cache" });
       return res.end();
     }
     if (pathname.startsWith("/__ioi/marketplace/offers/") && req.method === "POST") {
