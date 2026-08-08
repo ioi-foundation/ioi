@@ -12,7 +12,7 @@
 //   revision+1, ONE history entry, ONE durable receipt matching subject/transition/statuses →
 //   reload shows authoritative truth → duplicate approve = typed refusal + zero mutation →
 //   revoke (confirmed) = second independent receipt → reject on a separate fixture → malformed
-//   transition/reviewer/return/record lanes → fixtures deleted, receipt-file delta exact.
+//   transition/return/record lanes → fixtures deleted, receipt-file delta exact.
 //
 // GOV-ATTR-1: every transition below is submitted BY a real authenticated principal — provisioned
 // through an operator session, logged in for itself, and carrying the product shell's own
