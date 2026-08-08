@@ -7321,6 +7321,58 @@ function safeReturnPath(raw, fallback) {
   try { decodeURIComponent(raw); } catch { return fallback; }
   return raw;
 }
+// W1.1 / DEF-IDENT-1 — the NARROWED daemon capability handed to module actions.
+//
+// `daemonFetch` deliberately merges `init.headers` LAST: the login/logout/whoami and raw-proxy
+// lanes in this file must be able to set an explicit Cookie or replay a proxied header set. That
+// makes the bare helper the wrong thing to hand a surface module — module code could pass
+// `headers: { authorization: "Bearer …" }` (author an identity) or `headers: { cookie: "" }`
+// (clear one) and the caller's envelope would be replaced by module-chosen bytes. Identity would
+// then be a value the module supplies, which is the whole defect this closes.
+//
+// So the capability binds THIS request's identity at hand-off and refuses any module-supplied
+// header in the identity envelope — set or cleared, any casing. Content type and other transport
+// headers still pass through, because a module legitimately declares how it encodes its own body.
+// A violation THROWS rather than being silently stripped: a module reaching for identity headers
+// is a contract breach worth surfacing, and the runtime already contains a thrown module action as
+// a route-local 500 with zero mutation. The module still never sees the request, the headers, the
+// cookie, or a principal string — it cannot name a caller, only act as the one already admitted.
+function moduleActionDaemonCapability() {
+  const boundReq = reqCtx.getStore()?.req || null;
+  // Fail closed on an unbound scope. An identity-less daemon call is not "anonymous" in effect:
+  // under local-development posture the daemon adjudicates it as the loopback operator, so issuing
+  // a capability with nothing to carry would silently PROMOTE the action. There is no caller to act
+  // as, so there is no capability to hand out.
+  if (!boundReq) {
+    throw new Error("module action capability requested outside a bound request scope — refusing to issue an unidentified daemon capability");
+  }
+  return function daemonFetchForModule(pathOrUrl, init = {}) {
+    // Daemon-relative paths ONLY. `daemonFetch` treats anything starting with `http` as an absolute
+    // destination, so an absolute URL here would ship the bound Authorization/Cookie to a host the
+    // MODULE named; `//host/path` is protocol-relative and does the same. The capability is a right
+    // to speak to the daemon as this caller, not a right to spend the caller's credentials anywhere.
+    const path = String(pathOrUrl);
+    if (!path.startsWith("/") || path.startsWith("//") || /[\s\\]/.test(path)) {
+      throw new Error(`module action capability refuses destination '${path.slice(0, 80)}' — daemon-relative paths only; the caller's identity envelope never leaves the daemon`);
+    }
+    // `init.headers` may be a plain object, an array of [name, value] tuples, or a Headers instance.
+    // Reading Object.keys() off the latter two sees nothing useful, so an identity header smuggled
+    // in as a tuple or a Headers entry would sail through unjudged. Normalize FIRST, then judge —
+    // and hand `daemonFetch` a plain object, because it merges `...init.headers` and spreading a
+    // Headers instance yields {}, which would silently drop every header the module legitimately set.
+    const normalized = new Headers(init.headers || {});
+    const authored = DAEMON_IDENTITY_HEADERS.filter((name) => normalized.has(name));
+    if (authored.length) {
+      throw new Error(`surface module attempted to set identity-envelope header(s) [${authored.join(", ")}] on a daemon call — the action capability carries the request's identity and nothing else`);
+    }
+    const headers = {};
+    normalized.forEach((value, name) => { headers[name] = value; });
+    // `req` is dropped from the module's init and re-supplied from the bound request, so a module
+    // cannot hand in a fabricated request object to source an envelope from either.
+    const { req: _moduleSuppliedReq, headers: _moduleHeaders, ...rest } = init;
+    return daemonFetch(path, { ...rest, headers, req: boundReq });
+  };
+}
 async function runSurfaceAction(hit, res, body) {
   try {
     const p = new URLSearchParams(body.toString("utf8").slice(0, 16384)); // bounded parse
@@ -7349,7 +7401,14 @@ async function runSurfaceAction(hit, res, body) {
     // forward a corrupt artifact, so the bound is declared, never lucked into.
     const fieldCap = Math.min(Number(action.fieldMax) || 2000, 8192);
     for (const f of action.fields || []) { const v = p.get(f); if (v !== null && v !== "") fields[f] = String(v).slice(0, fieldCap); }
-    const result = await hit.impl.handleAction({ action, id: hit.recordId, fields, daemon: DAEMON, url: new URL(hit.surface.route + (p.get("ontology") ? `?ontology=${encodeURIComponent(p.get("ontology"))}` : ""), "http://x") });
+    // W1.1 / DEF-IDENT-1 — module MUTATIONS carry the caller's identity. The context gets the
+    // NARROWED capability above, never the raw request and never the bare helper. It is built here,
+    // inside the per-request AsyncLocalStorage scope (bound in the server callback and preserved
+    // across these awaits), so it closes over THIS request: the module's daemon call is built from
+    // the same bounded identity envelope every other call in this file uses, and the module can
+    // neither replace it nor clear it. A module that calls global `fetch` instead reaches the
+    // daemon with no identity at all, which is exactly what this closes for the Approvals lane.
+    const result = await hit.impl.handleAction({ action, id: hit.recordId, fields, daemon: DAEMON, daemonFetch: moduleActionDaemonCapability(), url: new URL(hit.surface.route + (p.get("ontology") ? `?ontology=${encodeURIComponent(p.get("ontology"))}` : ""), "http://x") });
     if (!result || typeof result !== "object" || !["success", "refusal", "failure"].includes(result.kind)) {
       return refuse("action_result_invalid", "the module returned no typed result — failing closed");
     }
@@ -10189,6 +10248,13 @@ async function handleEstateRequest(req, res, body) {
       const segs = pathname.slice("/__ioi/governance/".length).split("/");
       const fam = segs[0];
       const cfg = GOV_FAMS[fam];
+      // NONCLAIM (P-IDENT-1A) — this LEGACY monolithic governance lane is NOT covered by the
+      // Approvals identity fix. It still accepts a client-typed `reviewer_ref` below and the
+      // agent-studio variant still hardcodes `principal://operator`, so attribution here remains
+      // self-vouching. Its daemon calls do carry the caller's envelope (they use `daemonFetch`),
+      // but nothing stops the body from naming a different reviewer. Closing it is DEF-IDENT-1 /
+      // the governance-family extraction, not this packet: only the extracted Approvals surface's
+      // action lane is claimed.
       if (cfg && req.method === "POST") {
         const api = `/v1/hypervisor/governance/${cfg.api}`;
         const p = new URLSearchParams(body.toString());
