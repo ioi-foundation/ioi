@@ -1,0 +1,31 @@
+{
+  "$id": "invariant://ioi/foundations/download-intent/rights-bound-exact-delivery/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/download-intent/v1",
+  "rules": [
+    {
+      "rule_id": "download_intent.payload.exact_commitment",
+      "description": "The intent commits to the exact payload bytes; delivery re-verifies against this commitment, so a substituted payload cannot be served under a minted intent.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.artifact.payload_sha256"
+      }
+    },
+    {
+      "rule_id": "download_intent.principal.bound",
+      "description": "The intent is bound to exactly one principal; the id is not a bearer token and delivery re-authenticates on every fetch.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.principal_ref"
+      }
+    },
+    {
+      "rule_id": "download_intent.rights.recorded",
+      "description": "Minting records the exact admission scope that authorized it, so the rights basis of every intent is auditable rather than implied.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.rights.scope_kind"
+      }
+    }
+  ]
+}

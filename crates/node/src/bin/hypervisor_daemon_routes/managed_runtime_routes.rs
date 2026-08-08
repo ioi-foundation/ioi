@@ -34,7 +34,7 @@ const EXPORT_TOKEN_DIR: &str = "managed-backup-export-tokens";
 const PORTABLE_SAFE_INTEGER_MAX: u64 = 9_007_199_254_740_991;
 const INSTANCE_SCOPE_KIND: &str = "managed-worker-instance";
 const STORAGE_PROFILE_SCOPE_KIND: &str = "managed-storage-profile";
-const BACKUP_SCOPE_KIND: &str = "managed-environment-backup";
+pub(crate) const BACKUP_SCOPE_KIND: &str = "managed-environment-backup";
 const RESTORE_SCOPE_KIND: &str = "managed-restore-plan";
 
 type Reply = (StatusCode, Json<Value>);
@@ -128,7 +128,7 @@ fn bind_scope(
     .map_err(scope_refusal)
 }
 
-fn authorize_scope(
+pub(crate) fn authorize_scope(
     data_dir: &str,
     identity: &super::substrate_store::RequestIdentity,
     kind: &str,
@@ -1884,7 +1884,7 @@ fn durable_write(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     std::fs::File::open(parent)?.sync_all()
 }
 
-fn material_path(data_dir: &str, state_root: &str) -> PathBuf {
+pub(crate) fn material_path(data_dir: &str, state_root: &str) -> PathBuf {
     Path::new(data_dir)
         .join(BACKUP_MATERIAL_DIR)
         .join(format!("{}.tar", state_root.trim_start_matches("sha256:")))
@@ -1926,7 +1926,7 @@ fn backup_by_id(data_dir: &str, id: &str) -> Result<Value, Reply> {
     Ok(matches.into_iter().next().unwrap_or(Value::Null))
 }
 
-fn authorized_backup_by_id(
+pub(crate) fn authorized_backup_by_id(
     data_dir: &str,
     identity: &super::substrate_store::RequestIdentity,
     id: &str,
@@ -1949,7 +1949,7 @@ fn authorized_backup_by_id(
     Ok((backup, scope))
 }
 
-fn verify_backup(data_dir: &str, backup: &Value) -> Result<Value, Reply> {
+pub(crate) fn verify_backup(data_dir: &str, backup: &Value) -> Result<Value, Reply> {
     ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
         "schema://ioi/components/hypervisor/hypervisor-environment-backup/v1",
         backup,
@@ -4375,5 +4375,156 @@ mod tests {
             material_files, 1,
             "an exact backup retry wrote a second material file"
         );
+    }
+}
+
+/// Cross-plane test support: one admitted, contract-valid backup with real material bytes,
+/// built through the REAL capture path — the record is compiled, admitted through the shared
+/// mutation boundary, and byte-verified exactly as production does; no fixture corpus.
+/// Consumed by the download-intent plane's tests.
+#[cfg(test)]
+pub(crate) mod backup_fixture {
+    use super::*;
+    use serde_json::json;
+
+    pub(crate) const FIXTURE_TENANT: &str = "org://acme";
+    pub(crate) const FIXTURE_PRINCIPAL: &str = "user://acme-operator";
+    pub(crate) const FIXTURE_WORKSPACE_BYTES: &str = "hello download intent";
+
+    pub(crate) struct AdmittedBackupFixture {
+        pub(crate) _dir: tempfile::TempDir,
+        pub(crate) data_dir: String,
+        pub(crate) identity: super::super::substrate_store::RequestIdentity,
+        pub(crate) backup_id: String,
+        pub(crate) backup_ref: String,
+        pub(crate) state_root: String,
+    }
+
+    pub(crate) fn admitted_backup_fixture() -> AdmittedBackupFixture {
+        let dir = tempfile::tempdir().unwrap();
+        let data_dir = dir.path().to_str().unwrap().to_owned();
+        super::super::substrate_store::reset_handle_for_test();
+        let identity = super::super::substrate_store::request_identity_for_test(
+            FIXTURE_PRINCIPAL,
+            [FIXTURE_TENANT.to_string()],
+        );
+        let environment_id = "env-acme-dl".to_owned();
+        let workspace = std::path::Path::new(&data_dir).join("workspace");
+        std::fs::create_dir_all(&workspace).unwrap();
+        std::fs::write(workspace.join("data.txt"), FIXTURE_WORKSPACE_BYTES).unwrap();
+
+        std::fs::create_dir_all(std::path::Path::new(&data_dir).join("environments")).unwrap();
+        std::fs::write(
+            std::path::Path::new(&data_dir)
+                .join("environments")
+                .join(format!("{}.json", safe(&environment_id))),
+            serde_json::to_vec(&json!({
+                "status": { "workspace_root": workspace.to_string_lossy(), "substrate": "container" },
+                "spec": { "environment_class_id": "container" }
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+
+        let profile_ref = "storage-profile://acme/download-primary";
+        let profile_scope = bind_scope(
+            &data_dir,
+            &identity,
+            STORAGE_PROFILE_SCOPE_KIND,
+            profile_ref,
+            FIXTURE_TENANT,
+            "dl-fixture-profile",
+        )
+        .unwrap();
+        let profile_payload = json!({
+            "schema_version": "ioi.storage-profile.v1",
+            "storage_profile_ref": profile_ref,
+            "owner_ref": FIXTURE_TENANT,
+            "backend_class": "local_private",
+            "destination_ref": "storage://acme/local",
+            "custody_policy_ref": "policy://acme/custody",
+            "encryption_ref": Value::Null,
+            "key_epoch_ref": Value::Null,
+            "retention_policy_ref": "policy://acme/retention",
+        });
+        admit(
+            &data_dir,
+            true,
+            &identity,
+            &profile_scope,
+            STORAGE_PROFILE_SCOPE_KIND,
+            profile_ref,
+            PERSISTENCE_NAMESPACE,
+            &hash_tail("storage-profile", profile_ref),
+            "event_stream.storage_profile_created",
+            None,
+            &profile_payload,
+            now_ms(),
+            "dl-fixture-profile",
+        )
+        .unwrap();
+
+        let instance_id = "agent://acme/dl-worker-1";
+        let instance_scope = bind_scope(
+            &data_dir,
+            &identity,
+            INSTANCE_SCOPE_KIND,
+            instance_id,
+            FIXTURE_TENANT,
+            "dl-fixture-instance",
+        )
+        .unwrap();
+        let instance_payload = json!({
+            "schema_version": "ioi.managed-worker-instance-state.v1",
+            "instance_id": instance_id,
+            "owner_ref": FIXTURE_TENANT,
+            "compute_session": { "environment_ref": format!("environment://local/{environment_id}") },
+        });
+        admit(
+            &data_dir,
+            true,
+            &identity,
+            &instance_scope,
+            INSTANCE_SCOPE_KIND,
+            instance_id,
+            RUNTIME_NAMESPACE,
+            &hash_tail("instance", instance_id),
+            "event_stream.managed_worker_created",
+            None,
+            &instance_payload,
+            now_ms(),
+            "dl-fixture-instance",
+        )
+        .unwrap();
+
+        let backup_request = BackupCreateRequest {
+            storage_profile_ref: profile_ref.into(),
+            backup_policy_ref: "policy://acme/backups".into(),
+            trigger: "manual".into(),
+            actor_ref: FIXTURE_TENANT.into(),
+            instance_ref: Some(instance_id.into()),
+            system_ref: None,
+            schedule_or_change_plan_ref: None,
+            authority_grant_refs: vec!["grant://acme/1".into()],
+            idempotency_key: "dl-fixture-backup".into(),
+        };
+        let (status, Json(body)) =
+            capture_environment_backup(&data_dir, &identity, &environment_id, &backup_request);
+        assert_eq!(status, StatusCode::CREATED, "fixture backup failed: {body}");
+        let backup_ref = body["backup"]["backup_ref"].as_str().unwrap().to_owned();
+        let backup_id = backup_ref.rsplit('/').next().unwrap().to_owned();
+        let state_root = body["verification"]["state_root"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+
+        AdmittedBackupFixture {
+            _dir: dir,
+            data_dir,
+            identity,
+            backup_id,
+            backup_ref,
+            state_root,
+        }
     }
 }

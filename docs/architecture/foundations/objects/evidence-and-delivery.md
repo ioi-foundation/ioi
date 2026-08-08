@@ -1,13 +1,13 @@
 # Event, Receipt, Artifact, and Delivery Objects
 
 Status: canonical low-level reference.
-Canonical owner: this file for the shared object shapes of runtime events, receipt envelopes, the shared `ReceiptObligation` element, artifact envelopes, and delivery envelopes.
+Canonical owner: this file for the shared object shapes of runtime events, receipt envelopes, the shared `ReceiptObligation` element, artifact envelopes, delivery envelopes, and download intents.
 Supersedes: the same object definitions when they were carried inside the single `common-objects-and-envelopes.md` file.
 Superseded by: none.
-Last alignment pass: 2026-07-25.
+Last alignment pass: 2026-08-08.
 Doctrine status: canonical
-Implementation status: mixed (`ReceiptEnvelope` v1, `ReceiptCheckpoint` v1, and `ReceiptProofBundle` v1 have registered schemas, invariants, adversarial fixtures, and generated projections; production receipt-proof cryptographic verifiers/CLIs, daemon/Agentgres checkpoint emission, network key discovery, and public transparency remain planned)
-Last implementation audit: 2026-07-25
+Implementation status: mixed (`ReceiptEnvelope` v1, `ReceiptCheckpoint` v1, `ReceiptProofBundle` v1, and `DownloadIntent` v1 have registered schemas, invariants, adversarial fixtures, and generated projections; production receipt-proof cryptographic verifiers/CLIs, daemon/Agentgres checkpoint emission, network key discovery, and public transparency remain planned)
+Last implementation audit: 2026-08-08
 
 ## Purpose
 
@@ -234,3 +234,48 @@ DeliveryEnvelope:
   settlement_status: not_requested | intent_created | pending | settled | paid | refunded | slashed | failed
   acceptance_deadline: optional
 ```
+
+## DownloadIntent
+
+```yaml
+DownloadIntent:
+  schema_version: ioi.foundations.download_intent.v1
+  intent_id: download-intent://...
+  artifact:
+    artifact_kind: managed_backup_export        # extensible only by an owner ruling here
+    artifact_ref: string                        # the exact owning resource, e.g. backup://...
+    payload_sha256: sha256:...                  # exact bytes commitment; delivery re-verifies
+    media_type: string
+  principal_ref: user://... | principal://...
+  owner_ref: org://... | project://...
+  rights:
+    scope_kind: string                          # the admission scope kind that authorized minting
+    resource_ref: string                        # the resource that scope was checked against
+  expires_at_ms: integer
+  status: active | revoked                      # expiry is derived from expires_at_ms at read time,
+                                                # never stored — a stored "expired" goes stale
+  revocation:
+    revoked_at: timestamp
+    revoked_by: principal ref                   # resolved server-side (INV-37), never caller-supplied
+  delivery:
+    supports_ranges: boolean                    # HTTP Range / resume posture
+    delivery_admissions: integer                # count of admitted content deliveries (audit)
+```
+
+A `DownloadIntent` is the short-lived, rights-bound authorization to fetch one
+exact artifact payload. It composes with `ArtifactEnvelope` identity rather than
+replacing it: the intent commits to the exact `payload_sha256`, and delivery
+re-hashes the bytes against that commitment before serving — a payload that no
+longer matches is a typed conflict, never a silent substitution.
+
+The intent id is **not a bearer token**. Delivery re-resolves request identity
+and re-checks the principal binding, owner scope, expiry, and revocation on
+every fetch, so an intent id appearing in a log or a shared URL grants nothing
+by itself. Minting requires the same admission scope the underlying artifact
+family enforces (`rights.scope_kind`/`rights.resource_ref` record which one);
+revocation stops all future deliveries and is admitted to the intent's own
+owner-scoped stream; every content delivery is admitted to that stream **before**
+bytes are served, so the audit trail cannot claim less than what was delivered.
+Range and resume delivery never bypass the hash commitment: a range is served
+from the same verified payload, and completion of a range grants nothing about
+the whole.

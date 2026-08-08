@@ -1,0 +1,29 @@
+{
+  "schema_version": "ioi.foundations.download_intent.v1",
+  "intent_id": "download-intent://dlint_02d4f6a8c0e2b4d6f",
+  "artifact": {
+    "artifact_kind": "managed_backup_export",
+    "artifact_ref": "backup://mwr_77aa/2026-08-01T00-00-00Z",
+    "payload_sha256": "sha256:0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0",
+    "media_type": "application/x-tar"
+  },
+  "principal_ref": "user://local-operator",
+  "owner_ref": "project://demo-estate",
+  "rights": {
+    "scope_kind": "managed-backup",
+    "resource_ref": "backup://mwr_77aa/2026-08-01T00-00-00Z"
+  },
+  "expires_at_ms": 1786500000000,
+  "status": "revoked",
+  "revocation": {
+    "revoked_at": "2026-08-08T13:00:00.000Z",
+    "revoked_by": "user://local-operator"
+  },
+  "delivery": {
+    "supports_ranges": true,
+    "delivery_admissions": 0
+  },
+  "created_at": "2026-08-08T12:30:00.000Z",
+  "updated_at": "2026-08-08T13:00:00.000Z",
+  "admitted_head": "sha256:9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b"
+}

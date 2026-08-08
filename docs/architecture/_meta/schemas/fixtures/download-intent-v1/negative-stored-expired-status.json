@@ -1,0 +1,23 @@
+{
+  "schema_version": "ioi.foundations.download_intent.v1",
+  "intent_id": "download-intent://dlint_bad11111111111111",
+  "artifact": {
+    "artifact_kind": "managed_backup_export",
+    "artifact_ref": "backup://mwr_bad1/2026-08-08T00-00-00Z",
+    "payload_sha256": "sha256:4a5c9d2e8f1b3a7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c",
+    "media_type": "application/x-tar"
+  },
+  "principal_ref": "user://local-operator",
+  "owner_ref": "org://acme",
+  "rights": {
+    "scope_kind": "managed-backup",
+    "resource_ref": "backup://mwr_bad1/2026-08-08T00-00-00Z"
+  },
+  "expires_at_ms": 1700000000000,
+  "status": "expired",
+  "revocation": null,
+  "delivery": {
+    "supports_ranges": true,
+    "delivery_admissions": 1
+  }
+}
