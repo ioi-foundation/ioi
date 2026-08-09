@@ -15,7 +15,7 @@
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use axum::extract::State;
+use axum::extract::{Query, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::Json;
 use serde_json::{json, Value};
@@ -1076,7 +1076,22 @@ pub(crate) async fn handle_authority_preflight(
 
 /// GET /v1/hypervisor/authority/receipts — the authority audit trail (granted/denied/revoked/
 /// preflight admit/block), most recent first by id.
-pub(crate) async fn handle_authority_receipts(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+/// W1.3 pagination (the shared read client's negotiated mechanic): `?limit=` bounds the page,
+/// `?after=` resumes past a receipt_id from a prior page. Order is receipt_id-descending and
+/// deterministic, so `after` is a stable resume token, not a byte offset. Without `limit` the
+/// full list returns exactly as before and NO page object is emitted — a client that asked for
+/// pagination and receives no page object must treat pagination as not negotiated, never as
+/// "everything fit".
+#[derive(serde::Deserialize)]
+pub(crate) struct AuthorityReceiptsPageQuery {
+    limit: Option<u64>,
+    after: Option<String>,
+}
+
+pub(crate) async fn handle_authority_receipts(
+    State(st): State<Arc<DaemonState>>,
+    Query(page): Query<AuthorityReceiptsPageQuery>,
+) -> Json<Value> {
     let mut receipts = read_record_dir(&st.data_dir, "authority-receipts");
     receipts.sort_by(|a, b| {
         b.get("receipt_id")
@@ -1084,9 +1099,45 @@ pub(crate) async fn handle_authority_receipts(State(st): State<Arc<DaemonState>>
             .unwrap_or("")
             .cmp(a.get("receipt_id").and_then(|v| v.as_str()).unwrap_or(""))
     });
-    Json(json!({
+    let total = receipts.len();
+    if let Some(after) = page
+        .after
+        .as_deref()
+        .map(str::trim)
+        .filter(|a| !a.is_empty())
+    {
+        receipts.retain(|receipt| {
+            receipt
+                .get("receipt_id")
+                .and_then(|v| v.as_str())
+                .is_some_and(|id| id < after)
+        });
+    }
+    let mut body = json!({
         "schema_version": "ioi.hypervisor.authority-receipts.v1",
-        "receipts": receipts,
         "at": iso_now()
-    }))
+    });
+    if let Some(limit) = page.limit {
+        let limit = limit.clamp(1, 500) as usize;
+        let has_more = receipts.len() > limit;
+        receipts.truncate(limit);
+        let next_after = if has_more {
+            receipts
+                .last()
+                .and_then(|receipt| receipt.get("receipt_id"))
+                .and_then(|v| v.as_str())
+                .map(str::to_owned)
+        } else {
+            None
+        };
+        body["page"] = json!({
+            "limit": limit,
+            "after": page.after,
+            "next_after": next_after,
+            "has_more": has_more,
+            "total": total,
+        });
+    }
+    body["receipts"] = json!(receipts);
+    Json(body)
 }

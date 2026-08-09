@@ -69,6 +69,26 @@ const stub = createServer(async (req, res) => {
   if (req.url === "/v1/cross/no-receipt") {
     return json(200, { ok: true });
   }
+  // W1.3 negotiation stubs — schema-versioned payload and a paginating list (the daemon's
+  // authority/receipts shape: page object only when limit was asked for).
+  if (req.url?.startsWith("/v1/versioned")) {
+    return json(200, { schema_version: "ioi.hypervisor.authority-receipts.v1", receipts: [] });
+  }
+  if (req.url?.startsWith("/v1/paged")) {
+    const params = new URL(req.url, "http://x").searchParams;
+    const limit = Number(params.get("limit") || 0);
+    const after = params.get("after");
+    const all = ["r3", "r2", "r1"];
+    let rows = after ? all.filter((id) => id < after) : all;
+    if (!limit) return json(200, { schema_version: "v", receipts: rows });
+    const has_more = rows.length > limit;
+    rows = rows.slice(0, limit);
+    return json(200, {
+      schema_version: "v",
+      receipts: rows,
+      page: { limit, after, next_after: has_more ? rows[rows.length - 1] : null, has_more, total: all.length },
+    });
+  }
   return json(404, { error: { code: "route_unknown", message: "stub has no such route" } });
 });
 
@@ -139,6 +159,67 @@ test("read: fan-out degrades independently — one down plane never poisons the 
   assert.equal(map.good.ok, true);
   assert.equal(map.gone.kind, "not_found");
   assert.equal(map.down.kind, "refusal");
+});
+
+// ------------------------------ W1.3: negotiation, pagination, cancellation ------------------------------
+
+test("schema: a matching expectSchema delivers the payload; the declaration rides the request header", async () => {
+  const r = await createReadClient({ daemon }).read("/v1/versioned", {
+    expectSchema: "ioi.hypervisor.authority-receipts.v1",
+  });
+  assert.equal(r.ok, true);
+  assert.equal(r.kind, "read");
+  const sent = seen.at(-1);
+  assert.equal(sent.path, "/v1/versioned");
+});
+
+test("schema: a mismatched schema_version is a typed schema_mismatch with NO payload delivered", async () => {
+  const r = await createReadClient({ daemon }).read("/v1/versioned", { expectSchema: "ioi.hypervisor.authority-receipts.v2" });
+  assert.equal(r.ok, false);
+  assert.equal(r.kind, "schema_mismatch");
+  assert.equal(r.code, "schema_version_mismatch");
+  assert.equal(r.expected, "ioi.hypervisor.authority-receipts.v2");
+  assert.equal(r.actual, "ioi.hypervisor.authority-receipts.v1");
+  assert.ok(!("payload" in r), "data under an unnegotiated contract must not be delivered");
+});
+
+test("page: the daemon's page object rides the result verbatim; next_after resumes past it", async () => {
+  const client = createReadClient({ daemon });
+  const first = await client.readPage("/v1/paged", { limit: 2 });
+  assert.equal(first.ok, true);
+  assert.deepEqual(first.payload.receipts, ["r3", "r2"]);
+  assert.equal(first.page.has_more, true);
+  assert.equal(first.page.next_after, "r2");
+  const second = await client.readPage("/v1/paged", { limit: 2, after: first.page.next_after });
+  assert.deepEqual(second.payload.receipts, ["r1"]);
+  assert.equal(second.page.has_more, false);
+  assert.equal(second.page.next_after, null);
+});
+
+test("page: a daemon that ignores pagination yields a typed non-negotiation, never a silent full list", async () => {
+  const r = await createReadClient({ daemon }).read("/v1/versioned", { page: { limit: 5 } });
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.page, { negotiated: false });
+});
+
+test("cancel: an aborted read is a typed cancelled — distinct from timeout and unavailability", async () => {
+  const controller = new AbortController();
+  const pending = createReadClient({ daemon, timeoutMs: 5000 }).read("/v1/slow", { signal: controller.signal });
+  setTimeout(() => controller.abort(), 50);
+  const r = await pending;
+  assert.equal(r.ok, false);
+  assert.equal(r.kind, "cancelled");
+  assert.equal(r.code, "read_cancelled");
+  assert.ok(!("payload" in r));
+});
+
+test("cancel: an already-aborted signal cancels before any fetch happens", async () => {
+  const controller = new AbortController();
+  controller.abort();
+  const before = seen.length;
+  const r = await createReadClient({ daemon }).read("/v1/ok", { signal: controller.signal });
+  assert.equal(r.kind, "cancelled");
+  assert.equal(seen.length, before, "no request may reach the daemon after the caller cancelled");
 });
 
 test("read: browser lane defaults to same-origin, serve lane to the daemon URL", () => {

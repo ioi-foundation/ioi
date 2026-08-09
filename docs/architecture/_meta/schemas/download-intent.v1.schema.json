@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/download-intent/v1",
+  "title": "DownloadIntent",
+  "x-ioi-schema-version": "ioi.foundations.download_intent.v1",
+  "description": "Short-lived, rights-bound authorization to fetch one exact artifact payload. Composes with ArtifactEnvelope identity: the intent commits to the exact payload_sha256 and delivery re-verifies the bytes against that commitment before serving. The intent id is NOT a bearer token — delivery re-resolves request identity and re-checks principal binding, owner scope, expiry, and revocation on every fetch. Revocation stops all future deliveries; every content delivery is admitted to the intent's owner-scoped stream BEFORE bytes are served, so the audit trail cannot claim less than what was delivered. Expiry is derived from expires_at_ms at read time, never stored as a status.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "intent_id",
+    "artifact",
+    "principal_ref",
+    "owner_ref",
+    "rights",
+    "expires_at_ms",
+    "status",
+    "delivery"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "ioi.foundations.download_intent.v1"
+    },
+    "intent_id": {
+      "type": "string",
+      "pattern": "^download-intent://[A-Za-z0-9._:-]+$"
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_kind", "artifact_ref", "payload_sha256", "media_type"],
+      "properties": {
+        "artifact_kind": {
+          "type": "string",
+          "enum": ["managed_backup_export"],
+          "description": "The artifact family this intent delivers from. Extensible only by an owner ruling in evidence-and-delivery.md — an unlisted kind is refused at mint, not interpreted."
+        },
+        "artifact_ref": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The exact owning resource the payload belongs to, e.g. backup://..."
+        },
+        "payload_sha256": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "description": "Exact bytes commitment. Delivery re-hashes the payload against this before serving; a mismatch is a typed conflict, never a silent substitution."
+        },
+        "media_type": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "principal_ref": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The principal the intent is bound to. Delivery refuses any other authenticated principal."
+    },
+    "owner_ref": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The owning org:// or project:// scope the intent was admitted under."
+    },
+    "rights": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scope_kind", "resource_ref"],
+      "properties": {
+        "scope_kind": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The admission scope kind that authorized minting — the same scope the underlying artifact family enforces."
+        },
+        "resource_ref": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The resource that scope was checked against."
+        }
+      }
+    },
+    "expires_at_ms": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991,
+      "description": "Epoch milliseconds. Delivery compares against the live clock; expiry is never stored as a status because a stored status goes stale."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["active", "revoked"],
+      "description": "Lifecycle. Revocation stops future deliveries; it never rewrites the admitted delivery history."
+    },
+    "revocation": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["revoked_at", "revoked_by"],
+          "properties": {
+            "revoked_at": {
+              "type": "string",
+              "minLength": 1
+            },
+            "revoked_by": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Resolved server-side (INV-37), never caller-supplied."
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "delivery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["supports_ranges", "delivery_admissions"],
+      "properties": {
+        "supports_ranges": {
+          "type": "boolean",
+          "description": "HTTP Range / resume posture. Ranges serve from the same hash-verified payload; a completed range grants nothing about the whole."
+        },
+        "delivery_admissions": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991,
+          "description": "Count of admitted content deliveries. Admitted BEFORE bytes are served."
+        }
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "description": "Projection of the admitted mint transition's own timestamp — never the wall clock."
+    },
+    "updated_at": {
+      "type": "string",
+      "description": "Projection of the latest admitted transition's timestamp."
+    },
+    "admitted_head": {
+      "type": "string",
+      "description": "Head of the intent's owner-scoped admission stream, projected for CAS on successors."
+    }
+  }
+}

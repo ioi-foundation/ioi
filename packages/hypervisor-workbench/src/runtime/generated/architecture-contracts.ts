@@ -6795,6 +6795,36 @@ export type RuntimeAssignmentV1 = {
   status: "admitted" | "active" | "closed" | "completed";
 };
 
+export type DownloadIntentV1 = {
+  schema_version: "ioi.foundations.download_intent.v1";
+  intent_id: string;
+  artifact: {
+      artifact_kind: "managed_backup_export";
+      artifact_ref: string;
+      payload_sha256: string;
+      media_type: string;
+    };
+  principal_ref: string;
+  owner_ref: string;
+  rights: {
+      scope_kind: string;
+      resource_ref: string;
+    };
+  expires_at_ms: number;
+  status: "active" | "revoked";
+  revocation?: {
+      revoked_at: string;
+      revoked_by: string;
+    } | null;
+  delivery: {
+      supports_ranges: boolean;
+      delivery_admissions: number;
+    };
+  created_at?: string;
+  updated_at?: string;
+  admitted_head?: string;
+};
+
 export type ComputeSessionV1 = {
   schema_version: "ioi.compute-session.v1";
   compute_session_ref: string;
@@ -11845,6 +11875,38 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
   {
     "contract_id": "schema://ioi/foundations/runtime-assignment/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/runtime-assignment-v1/negative-open-placement.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/download-intent/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/download-intent-v1/positive-active-range-capable.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/download-intent/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/download-intent-v1/positive-revoked.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/download-intent/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/download-intent-v1/negative-unhashed-payload.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/download-intent/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/download-intent-v1/negative-stored-expired-status.json",
     "expected": "reject",
     "expected_schema_accept": false,
     "expected_failure": "schema",
@@ -18744,6 +18806,34 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/download-intent-v1/positive-active-range-capable.json",
+    "contract_id": "schema://ioi/foundations/download-intent/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/download-intent-v1/positive-active-range-capable.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/download-intent-v1/positive-revoked.json",
+    "contract_id": "schema://ioi/foundations/download-intent/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/download-intent-v1/positive-revoked.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/download-intent-v1/negative-unhashed-payload.json",
+    "contract_id": "schema://ioi/foundations/download-intent/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/download-intent-v1/negative-unhashed-payload.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/download-intent-v1/negative-stored-expired-status.json",
+    "contract_id": "schema://ioi/foundations/download-intent/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/download-intent-v1/negative-stored-expired-status.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/compute-session-v1/positive-ready.json",
     "contract_id": "schema://ioi/components/daemon-runtime/compute-session/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/compute-session-v1/positive-ready.json",
@@ -20075,6 +20165,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^dissolution-receipt://[^\\s]{1,248}$",
   "^doc://\\S*$",
   "^domain://[^\\s]{1,500}$",
+  "^download-intent://[A-Za-z0-9._:-]+$",
   "^effect://[^\\s]+$",
   "^effect://[^\\s]{1,500}$",
   "^embodied-resource-group-revision://[^\\s]+$",
@@ -20504,6 +20595,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/daemon-runtime/managed-worker-runtime-policy/v1": "sha256:d7effb315d112dc5945e1f1e4f6e65818cd76a51d7090533da6e1b2f81c7769f",
   "schema://ioi/components/daemon-runtime/managed-worker-instance-state/v1": "sha256:a267d51ea7c58fbd52c516c37e42e7bc6db2077787781b7eea8405da9dcebe2c",
   "schema://ioi/foundations/runtime-assignment/v1": "sha256:c4fd87258db991ed9c185e99806426813e38ec2c86a2cc1f0c8a61edb75a4c54",
+  "schema://ioi/foundations/download-intent/v1": "sha256:6605d7acd24a8cc550cef7f0ac62fdbbaaf47fecdb871aad2c6a019a6a1e1917",
   "schema://ioi/components/daemon-runtime/compute-session/v1": "sha256:ed6f3f8e7a51cab064c06d906da7e8eddc5c1cb520512b7916f2a252b8775267",
   "schema://ioi/components/storage-backends/managed-storage-profile/v1": "sha256:0a168d32033c6a52de020cc5e5dccb24c3a0766e0aeef56a41518adffae2cc58",
   "schema://ioi/components/hypervisor/managed-restore-plan/v1": "sha256:6a498f0b7d088394dbb949d64ecb2f89a7cd982885f52e1d0839faba284c5845",
@@ -72842,6 +72934,171 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     }
   },
+  "schema://ioi/foundations/download-intent/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/download-intent/v1",
+    "title": "DownloadIntent",
+    "x-ioi-schema-version": "ioi.foundations.download_intent.v1",
+    "description": "Short-lived, rights-bound authorization to fetch one exact artifact payload. Composes with ArtifactEnvelope identity: the intent commits to the exact payload_sha256 and delivery re-verifies the bytes against that commitment before serving. The intent id is NOT a bearer token — delivery re-resolves request identity and re-checks principal binding, owner scope, expiry, and revocation on every fetch. Revocation stops all future deliveries; every content delivery is admitted to the intent's owner-scoped stream BEFORE bytes are served, so the audit trail cannot claim less than what was delivered. Expiry is derived from expires_at_ms at read time, never stored as a status.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "intent_id",
+      "artifact",
+      "principal_ref",
+      "owner_ref",
+      "rights",
+      "expires_at_ms",
+      "status",
+      "delivery"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.foundations.download_intent.v1"
+      },
+      "intent_id": {
+        "type": "string",
+        "pattern": "^download-intent://[A-Za-z0-9._:-]+$"
+      },
+      "artifact": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "artifact_kind",
+          "artifact_ref",
+          "payload_sha256",
+          "media_type"
+        ],
+        "properties": {
+          "artifact_kind": {
+            "type": "string",
+            "enum": [
+              "managed_backup_export"
+            ],
+            "description": "The artifact family this intent delivers from. Extensible only by an owner ruling in evidence-and-delivery.md — an unlisted kind is refused at mint, not interpreted."
+          },
+          "artifact_ref": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The exact owning resource the payload belongs to, e.g. backup://..."
+          },
+          "payload_sha256": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "description": "Exact bytes commitment. Delivery re-hashes the payload against this before serving; a mismatch is a typed conflict, never a silent substitution."
+          },
+          "media_type": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "principal_ref": {
+        "type": "string",
+        "minLength": 1,
+        "description": "The principal the intent is bound to. Delivery refuses any other authenticated principal."
+      },
+      "owner_ref": {
+        "type": "string",
+        "minLength": 1,
+        "description": "The owning org:// or project:// scope the intent was admitted under."
+      },
+      "rights": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "scope_kind",
+          "resource_ref"
+        ],
+        "properties": {
+          "scope_kind": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The admission scope kind that authorized minting — the same scope the underlying artifact family enforces."
+          },
+          "resource_ref": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The resource that scope was checked against."
+          }
+        }
+      },
+      "expires_at_ms": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 9007199254740991,
+        "description": "Epoch milliseconds. Delivery compares against the live clock; expiry is never stored as a status because a stored status goes stale."
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "active",
+          "revoked"
+        ],
+        "description": "Lifecycle. Revocation stops future deliveries; it never rewrites the admitted delivery history."
+      },
+      "revocation": {
+        "anyOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "revoked_at",
+              "revoked_by"
+            ],
+            "properties": {
+              "revoked_at": {
+                "type": "string",
+                "minLength": 1
+              },
+              "revoked_by": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Resolved server-side (INV-37), never caller-supplied."
+              }
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "delivery": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "supports_ranges",
+          "delivery_admissions"
+        ],
+        "properties": {
+          "supports_ranges": {
+            "type": "boolean",
+            "description": "HTTP Range / resume posture. Ranges serve from the same hash-verified payload; a completed range grants nothing about the whole."
+          },
+          "delivery_admissions": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Count of admitted content deliveries. Admitted BEFORE bytes are served."
+          }
+        }
+      },
+      "created_at": {
+        "type": "string",
+        "description": "Projection of the admitted mint transition's own timestamp — never the wall clock."
+      },
+      "updated_at": {
+        "type": "string",
+        "description": "Projection of the latest admitted transition's timestamp."
+      },
+      "admitted_head": {
+        "type": "string",
+        "description": "Head of the intent's owner-scoped admission stream, projected for CAS on successors."
+      }
+    }
+  },
   "schema://ioi/components/daemon-runtime/compute-session/v1": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "schema://ioi/components/daemon-runtime/compute-session/v1",
@@ -82838,6 +83095,32 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
   "schema://ioi/components/daemon-runtime/managed-worker-runtime-policy/v1": [],
   "schema://ioi/components/daemon-runtime/managed-worker-instance-state/v1": [],
   "schema://ioi/foundations/runtime-assignment/v1": [],
+  "schema://ioi/foundations/download-intent/v1": [
+    {
+      "rule_id": "download_intent.payload.exact_commitment",
+      "description": "The intent commits to the exact payload bytes; delivery re-verifies against this commitment, so a substituted payload cannot be served under a minted intent.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.artifact.payload_sha256"
+      }
+    },
+    {
+      "rule_id": "download_intent.principal.bound",
+      "description": "The intent is bound to exactly one principal; the id is not a bearer token and delivery re-authenticates on every fetch.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.principal_ref"
+      }
+    },
+    {
+      "rule_id": "download_intent.rights.recorded",
+      "description": "Minting records the exact admission scope that authorized it, so the rights basis of every intent is auditable rather than implied.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.rights.scope_kind"
+      }
+    }
+  ],
   "schema://ioi/components/daemon-runtime/compute-session/v1": [],
   "schema://ioi/components/storage-backends/managed-storage-profile/v1": [],
   "schema://ioi/components/hypervisor/managed-restore-plan/v1": [],
@@ -84651,6 +84934,12 @@ export function validateRuntimeAssignmentV1(
   value: unknown,
 ): value is RuntimeAssignmentV1 {
   return validateArchitectureContract("schema://ioi/foundations/runtime-assignment/v1", value).ok;
+}
+
+export function validateDownloadIntentV1(
+  value: unknown,
+): value is DownloadIntentV1 {
+  return validateArchitectureContract("schema://ioi/foundations/download-intent/v1", value).ok;
 }
 
 export function validateComputeSessionV1(

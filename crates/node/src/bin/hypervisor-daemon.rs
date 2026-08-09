@@ -56,6 +56,8 @@ mod data_source_routes;
 mod decentralized_cloud_routes;
 #[path = "hypervisor_daemon_routes/domain_apps_routes.rs"]
 mod domain_apps_routes;
+#[path = "hypervisor_daemon_routes/download_intent_routes.rs"]
+mod download_intent_routes;
 #[path = "hypervisor_daemon_routes/durable_fs.rs"]
 mod durable_fs;
 #[path = "hypervisor_daemon_routes/editor_host.rs"]
@@ -1280,6 +1282,26 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/backup-exports/:token",
             get(managed_runtime_routes::handle_backup_export_download),
+        )
+        // W1.3 — DownloadIntent plane (schema://ioi/foundations/download-intent/v1): short-lived,
+        // rights-bound, hash-committed, range-capable delivery with pre-serve delivery admission.
+        // The intent id is NOT a bearer token; every route re-authenticates. The legacy one-off
+        // backup-export token lane above keeps serving untouched until its surface cutover.
+        .route(
+            "/v1/hypervisor/download-intents",
+            post(download_intent_routes::handle_download_intent_create),
+        )
+        .route(
+            "/v1/hypervisor/download-intents/:id",
+            get(download_intent_routes::handle_download_intent_get),
+        )
+        .route(
+            "/v1/hypervisor/download-intents/:id/revoke",
+            post(download_intent_routes::handle_download_intent_revoke),
+        )
+        .route(
+            "/v1/hypervisor/download-intents/:id/content",
+            get(download_intent_routes::handle_download_intent_content),
         )
         .route(
             "/v1/hypervisor/backups/:id/restore-plans",

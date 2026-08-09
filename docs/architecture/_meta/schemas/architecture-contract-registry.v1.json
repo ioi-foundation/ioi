@@ -8270,6 +8270,59 @@
       "negative_fixture_refs": [{ "path": "fixtures/runtime-assignment-v1/negative-open-placement.json", "expected_failure": "schema" }]
     },
     {
+      "contract_id": "schema://ioi/foundations/download-intent/v1",
+      "canonical_name": "DownloadIntent",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/evidence-and-delivery.md#downloadintent",
+      "schema_version": "ioi.foundations.download_intent.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": null,
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "download-intent.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/download-intent/rights-bound-exact-delivery/v1",
+          "path": "invariants/download-intent.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "DownloadIntentV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "DownloadIntentV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/download-intent-v1/positive-active-range-capable.json",
+        "fixtures/download-intent-v1/positive-revoked.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/download-intent-v1/negative-unhashed-payload.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/download-intent-v1/negative-stored-expired-status.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
       "contract_id": "schema://ioi/components/daemon-runtime/compute-session/v1",
       "canonical_name": "ComputeSession",
       "canonical_owner_ref": "canon://docs/architecture/foundations/objects/work-execution.md#bounded-managed-runtime-wire-contracts",
