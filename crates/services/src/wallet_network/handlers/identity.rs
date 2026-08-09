@@ -43,39 +43,42 @@ pub(crate) fn create_identity(
     Ok(())
 }
 
+/// SUPERSEDED (W1.6 lane B, P0). This operation stored a caller-supplied `OwnerAnchor` — its
+/// `link_signature` included — after checking only that network and address were non-empty. It
+/// verified NOTHING: not the signature, the message, the chain, a nonce, the domain, expiry, or
+/// replay state. That is exactly the standing-access defect INV-40 forbids ("an unverified
+/// ownership claim is inadmissible as a factor"), and it is a P0 blocker to fix before any public
+/// exposure.
+///
+/// Per the wallet-interoperability packet, the replacement is NOT a wrapper around this path: an
+/// external wallet becomes a `web3_wallet` factor only through the verified challenge/proof
+/// pipeline (`WalletAuthenticationChallenge` -> `WalletOwnershipProof`, registered contracts).
+/// That verifying flow (EVM SIWE and ERC-1271/6492) lands in lane B steps 3-4. Until then this
+/// operation FAILS CLOSED: it admits nothing, because admitting an unverified anchor is precisely
+/// the defect being removed. Any owner anchor that predates verification is inert — a future
+/// verified-linking flow must re-prove it; nothing here promotes it.
 pub(crate) fn link_owner(
     state: &mut dyn StateAccess,
     ctx: &TxContext<'_>,
     owner: OwnerAnchor,
 ) -> Result<(), TransactionError> {
-    if owner.network.trim().is_empty() || owner.address.trim().is_empty() {
-        return Err(TransactionError::Invalid(
-            "owner anchor requires non-empty network and address".to_string(),
-        ));
-    }
-    let mut identity = require_identity(state)?;
-    let mut replaced = false;
-    for existing in &mut identity.owner_anchors {
-        if existing.network.eq_ignore_ascii_case(&owner.network)
-            && existing.address.eq_ignore_ascii_case(&owner.address)
-        {
-            *existing = owner.clone();
-            replaced = true;
-            break;
-        }
-    }
-    if !replaced {
-        identity.owner_anchors.push(owner.clone());
-    }
-    identity.updated_at_ms = block_timestamp_ms(ctx);
-    store_typed(state, IDENTITY_KEY, &identity)?;
-
+    // Emit an audit event for the refused attempt BEFORE refusing, so the invalidation of the
+    // unverified path is observable in the same immutable trail every other vault action uses.
     let mut meta = base_audit_metadata(ctx);
     meta.insert("network".to_string(), owner.network.clone());
     meta.insert("address".to_string(), owner.address.clone());
-    meta.insert("replaced".to_string(), replaced.to_string());
+    meta.insert("disposition".to_string(), "refused_unverified".to_string());
+    meta.insert(
+        "superseded_by".to_string(),
+        "wallet-ownership-proof pipeline (INV-40)".to_string(),
+    );
     append_audit_event(state, ctx, VaultAuditEventKind::OwnerLinked, meta)?;
-    Ok(())
+    Err(TransactionError::Invalid(
+        "link_owner@v1 is superseded and admits nothing: an external wallet becomes a web3_wallet \
+         factor only through the verified WalletAuthenticationChallenge -> WalletOwnershipProof \
+         pipeline (INV-40). An unverified owner anchor is inadmissible as a factor."
+            .to_string(),
+    ))
 }
 
 pub(crate) fn store_secret_record(
