@@ -1,0 +1,627 @@
+{
+  "schema_version": "ioi.hypervisor.seed-interaction-route-graph.v1",
+  "surface": "data",
+  "slug": "sources",
+  "owned_route": "/__ioi/data/sources",
+  "capture_route": null,
+  "runtime": {
+    "serve_url": "http://127.0.0.1:4173",
+    "capture_url": null
+  },
+  "captured_at": "2026-08-09T16:10:16.935Z",
+  "quarantine": {
+    "network_policy": "local-only",
+    "corpus_mutation": "denied",
+    "html_injection": "denied",
+    "spa_fallback": "denied",
+    "allowed_origins": [
+      "http://127.0.0.1:4173",
+      "http://127.0.0.1:9225"
+    ],
+    "violations": []
+  },
+  "nodes": [
+    {
+      "id": "n0",
+      "kind": "route",
+      "signature": "/__ioi/data/sources#open=0|H1:Data Connection|H3:Data Connection|H2:Declared source catalog 0 the real DataSource registry — new|H3:By kind|H3:By credential posture|H3:Sync activity (real)",
+      "url": "/__ioi/data/sources",
+      "title": "Data Connection",
+      "entry_edge": null,
+      "controls": 16,
+      "disabled_controls": 0,
+      "screenshot": {
+        "sha256": "2f9e9890fc89f264f5c61fc2ad5a2b5166693a5e0d53f518214fb3cf3030fac0",
+        "posture": "1440x900-light"
+      },
+      "console_errors": [],
+      "posture_matrix": [
+        {
+          "sha256": "2f9e9890fc89f264f5c61fc2ad5a2b5166693a5e0d53f518214fb3cf3030fac0",
+          "posture": "1440x900-dark"
+        },
+        {
+          "sha256": "c3d4d6ee9260f01b780e0cd1fc388431ff673035d2fe8f30e26492a12a372c47",
+          "posture": "390x844-light-reduced-motion"
+        }
+      ]
+    },
+    {
+      "id": "n1",
+      "kind": "route",
+      "signature": "/__ioi/data/sources?declare=1#open=0|H1:Data Connection|H3:Data Connection|H2:Declare a new data source a validated, receipted registry re|H2:Declared source catalog 0 the real DataSource registry — new|H3:By kind|H3:By credential posture|H3:Sync activity (real)",
+      "url": "/__ioi/data/sources?declare=1",
+      "title": "Data Connection",
+      "entry_edge": {
+        "from": "n0",
+        "control": {
+          "index": 6,
+          "tag": "a",
+          "role": null,
+          "href": "/__ioi/data/sources?declare=1",
+          "disabled": false,
+          "label": "New source"
+        }
+      },
+      "controls": 20,
+      "disabled_controls": 0,
+      "screenshot": {
+        "sha256": "dc9526742d9e5042bbfebc9938b4240da7d365559c31795fed369b20ccce63a7",
+        "posture": "1440x900-light"
+      },
+      "console_errors": [],
+      "posture_matrix": [
+        {
+          "sha256": "dc9526742d9e5042bbfebc9938b4240da7d365559c31795fed369b20ccce63a7",
+          "posture": "1440x900-dark"
+        },
+        {
+          "sha256": "2782eb29afaa7b8ea9dccfc2198d3a2d18c489d8115bdbafceada387fea57ca5",
+          "posture": "390x844-light-reduced-motion"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 0,
+        "tag": "a",
+        "role": null,
+        "href": "/ai",
+        "disabled": false,
+        "label": "Home"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 1,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/odk",
+        "disabled": false,
+        "label": "Ontology"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 2,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/home",
+        "disabled": false,
+        "label": "Applications"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 3,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/home",
+        "disabled": false,
+        "label": "View all"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": "visited",
+      "control": {
+        "index": 4,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/data/sources",
+        "disabled": false,
+        "label": "Data Connection"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n0",
+      "to": "visited",
+      "control": {
+        "index": 5,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/data/sources",
+        "disabled": false,
+        "label": "Sources"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n0",
+      "to": "n1",
+      "control": {
+        "index": 6,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/data/sources?declare=1",
+        "disabled": false,
+        "label": "New source"
+      },
+      "action": "goto",
+      "outcome": "navigated"
+    },
+    {
+      "from": "n0",
+      "to": "visited",
+      "control": {
+        "index": 7,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/data/sources?declare=1",
+        "disabled": false,
+        "label": "Connect to external system — DECLARES a validated, receipted source record (POST"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 8,
+        "tag": "a",
+        "role": null,
+        "href": "#sources-catalog",
+        "disabled": false,
+        "label": "View all"
+      },
+      "action": "goto",
+      "outcome": "error",
+      "detail": "no response"
+    },
+    {
+      "from": "n0",
+      "to": "visited",
+      "control": {
+        "index": 9,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/data/sources?declare=1",
+        "disabled": false,
+        "label": "New source"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 10,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/pipeline",
+        "disabled": false,
+        "label": "Data ladder"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 11,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/pipeline",
+        "disabled": false,
+        "label": "ODK ladder"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 12,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/pipeline",
+        "disabled": false,
+        "label": "Data ladder (Pipeline Builder)"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 13,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/odk",
+        "disabled": false,
+        "label": "ODK builder"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 14,
+        "tag": "a",
+        "role": null,
+        "href": "http://localhost:9225/workspace/data-ingestion-app/",
+        "disabled": false,
+        "label": "Data Connection capture"
+      },
+      "action": "goto",
+      "outcome": "boundary-external-origin"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 15,
+        "tag": "a",
+        "role": null,
+        "href": "/__apps/sources",
+        "disabled": false,
+        "label": "/__apps/sources proxy lane ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": "back-stack",
+      "control": null,
+      "action": "back",
+      "outcome": "navigated"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 0,
+        "tag": "a",
+        "role": null,
+        "href": "/ai",
+        "disabled": false,
+        "label": "Home"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 1,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/odk",
+        "disabled": false,
+        "label": "Ontology"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 2,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/home",
+        "disabled": false,
+        "label": "Applications"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 3,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/home",
+        "disabled": false,
+        "label": "View all"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": "visited",
+      "control": {
+        "index": 4,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/data/sources",
+        "disabled": false,
+        "label": "Data Connection"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n1",
+      "to": "visited",
+      "control": {
+        "index": 5,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/data/sources",
+        "disabled": false,
+        "label": "Sources"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n1",
+      "to": "visited",
+      "control": {
+        "index": 6,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/data/sources?declare=1",
+        "disabled": false,
+        "label": "New source"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n1",
+      "to": "n1",
+      "control": {
+        "index": 7,
+        "tag": "select",
+        "role": null,
+        "href": null,
+        "disabled": false,
+        "label": "postgres — endpoint requiredmysql — endpoint requiredrest_api — endpoint require"
+      },
+      "action": "click",
+      "outcome": "state-change"
+    },
+    {
+      "from": "n1",
+      "to": "n1",
+      "control": {
+        "index": 8,
+        "tag": "select",
+        "role": null,
+        "href": null,
+        "disabled": false,
+        "label": "no_credentials_requiredwallet_credential_leaseprovider_vault_tokencustomer_bound"
+      },
+      "action": "click",
+      "outcome": "noop"
+    },
+    {
+      "from": "n1",
+      "to": "n1",
+      "control": {
+        "index": 9,
+        "tag": "button",
+        "role": null,
+        "href": null,
+        "disabled": false,
+        "label": "Declare source"
+      },
+      "action": "click",
+      "outcome": "noop"
+    },
+    {
+      "from": "n1",
+      "to": "visited",
+      "control": {
+        "index": 10,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/data/sources",
+        "disabled": false,
+        "label": "Close"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n1",
+      "to": "visited",
+      "control": {
+        "index": 11,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/data/sources?declare=1",
+        "disabled": false,
+        "label": "Connect to external system — DECLARES a validated, receipted source record (POST"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 12,
+        "tag": "a",
+        "role": null,
+        "href": "#sources-catalog",
+        "disabled": false,
+        "label": "View all"
+      },
+      "action": "goto",
+      "outcome": "error",
+      "detail": "no response"
+    },
+    {
+      "from": "n1",
+      "to": "visited",
+      "control": {
+        "index": 13,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/data/sources?declare=1",
+        "disabled": false,
+        "label": "New source"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 14,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/pipeline",
+        "disabled": false,
+        "label": "Data ladder"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 15,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/pipeline",
+        "disabled": false,
+        "label": "ODK ladder"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 16,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/pipeline",
+        "disabled": false,
+        "label": "Data ladder (Pipeline Builder)"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 17,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/odk",
+        "disabled": false,
+        "label": "ODK builder"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 18,
+        "tag": "a",
+        "role": null,
+        "href": "http://localhost:9225/workspace/data-ingestion-app/",
+        "disabled": false,
+        "label": "Data Connection capture"
+      },
+      "action": "goto",
+      "outcome": "boundary-external-origin"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 19,
+        "tag": "a",
+        "role": null,
+        "href": "/__apps/sources",
+        "disabled": false,
+        "label": "/__apps/sources proxy lane ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": "back-stack",
+      "control": null,
+      "action": "back",
+      "outcome": "navigated"
+    }
+  ],
+  "blockers": [
+    {
+      "kind": "unreachable-route",
+      "node": "n0",
+      "reason": "/__ioi/data/sources: no response"
+    },
+    {
+      "kind": "unreachable-route",
+      "node": "n1",
+      "reason": "/__ioi/data/sources: no response"
+    }
+  ],
+  "replay": {
+    "walked_all_edges": true,
+    "walked_at": "2026-08-09T16:10:19.433Z",
+    "problems": []
+  },
+  "complete_interaction_route_graph": false,
+  "shots_dir": ".artifacts/seed-graph-shots/data/sources",
+  "content_address": "f57710997daeff9fec3583955763a45b89f90bd7f77ed1f6fa4f1fa5e0aef2c6"
+}

@@ -1,0 +1,910 @@
+{
+  "schema_version": "ioi.hypervisor.seed-interaction-route-graph.v1",
+  "surface": "governance",
+  "slug": "approvals",
+  "owned_route": "/__ioi/governance/approvals",
+  "capture_route": null,
+  "runtime": {
+    "serve_url": "http://127.0.0.1:4173",
+    "capture_url": null
+  },
+  "captured_at": "2026-08-09T16:38:45.607Z",
+  "quarantine": {
+    "network_policy": "local-only",
+    "corpus_mutation": "denied",
+    "html_injection": "denied",
+    "spa_fallback": "denied",
+    "allowed_origins": [
+      "http://127.0.0.1:4173",
+      "http://localhost:4173",
+      "http://127.0.0.1:9225",
+      "http://localhost:9225"
+    ],
+    "violations": []
+  },
+  "nodes": [
+    {
+      "id": "n0",
+      "kind": "route",
+      "signature": "/__ioi/governance/approvals#open=0|H2:Your inbox (0)",
+      "url": "/__ioi/governance/approvals",
+      "title": "Approvals inbox",
+      "entry_edge": null,
+      "controls": 18,
+      "disabled_controls": 5,
+      "screenshot": {
+        "sha256": "4490c84bfd4224e2018a1533c160f614ebc86e8f0ed0901db3b10c3e0ca6a4be",
+        "posture": "1440x900-light"
+      },
+      "console_errors": [],
+      "posture_matrix": [
+        {
+          "sha256": "4490c84bfd4224e2018a1533c160f614ebc86e8f0ed0901db3b10c3e0ca6a4be",
+          "posture": "1440x900-dark"
+        },
+        {
+          "sha256": "c27f33d8fd53218b9ed23d0ca899ef4ae947cd1559da8229644403d81ceb3662",
+          "posture": "390x844-light-reduced-motion"
+        }
+      ]
+    },
+    {
+      "id": "n1",
+      "kind": "route",
+      "signature": "/__ioi/governance/approvals?status=pending#open=0|H2:Your inbox (0)",
+      "url": "/__ioi/governance/approvals?status=pending",
+      "title": "Approvals inbox",
+      "entry_edge": {
+        "from": "n0",
+        "control": {
+          "index": 6,
+          "tag": "a",
+          "role": null,
+          "href": "/__ioi/governance/approvals?status=pending",
+          "disabled": false,
+          "label": "Your inbox0"
+        }
+      },
+      "controls": 18,
+      "disabled_controls": 5,
+      "screenshot": {
+        "sha256": "4490c84bfd4224e2018a1533c160f614ebc86e8f0ed0901db3b10c3e0ca6a4be",
+        "posture": "1440x900-light"
+      },
+      "console_errors": [],
+      "posture_matrix": [
+        {
+          "sha256": "4490c84bfd4224e2018a1533c160f614ebc86e8f0ed0901db3b10c3e0ca6a4be",
+          "posture": "1440x900-dark"
+        },
+        {
+          "sha256": "c27f33d8fd53218b9ed23d0ca899ef4ae947cd1559da8229644403d81ceb3662",
+          "posture": "390x844-light-reduced-motion"
+        }
+      ]
+    },
+    {
+      "id": "n2",
+      "kind": "route",
+      "signature": "/__ioi/governance/approvals?status=all#open=0|H2:All requests (0)",
+      "url": "/__ioi/governance/approvals?status=all",
+      "title": "Approvals inbox",
+      "entry_edge": {
+        "from": "n0",
+        "control": {
+          "index": 7,
+          "tag": "a",
+          "role": null,
+          "href": "/__ioi/governance/approvals?status=all",
+          "disabled": false,
+          "label": "All requests0"
+        }
+      },
+      "controls": 18,
+      "disabled_controls": 5,
+      "screenshot": {
+        "sha256": "4268ee24e4d24e9f6f52570ec89f1462fec58f75de1f0eb85f105c2ae00dfd32",
+        "posture": "1440x900-light"
+      },
+      "console_errors": [],
+      "posture_matrix": [
+        {
+          "sha256": "4268ee24e4d24e9f6f52570ec89f1462fec58f75de1f0eb85f105c2ae00dfd32",
+          "posture": "1440x900-dark"
+        },
+        {
+          "sha256": "5a31aa6f11c3e72c2ae0e58970057d1ef995421b5b28d15a15b70f77ca4540fc",
+          "posture": "390x844-light-reduced-motion"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 0,
+        "tag": "a",
+        "role": null,
+        "href": "/ai",
+        "disabled": false,
+        "label": "Home"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 1,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/odk",
+        "disabled": false,
+        "label": "Ontology"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 2,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/home",
+        "disabled": false,
+        "label": "Applications"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 3,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/home",
+        "disabled": false,
+        "label": "View all"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": "visited",
+      "control": {
+        "index": 4,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/governance/approvals",
+        "disabled": false,
+        "label": "Approvals"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 5,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/governance?tab=approvals",
+        "disabled": false,
+        "label": "⇱"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": "n1",
+      "control": {
+        "index": 6,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/governance/approvals?status=pending",
+        "disabled": false,
+        "label": "Your inbox0"
+      },
+      "action": "goto",
+      "outcome": "navigated"
+    },
+    {
+      "from": "n0",
+      "to": "n2",
+      "control": {
+        "index": 7,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/governance/approvals?status=all",
+        "disabled": false,
+        "label": "All requests0"
+      },
+      "action": "goto",
+      "outcome": "navigated"
+    },
+    {
+      "from": "n0",
+      "to": "visited",
+      "control": {
+        "index": 8,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/governance/approvals",
+        "disabled": false,
+        "label": "Clear"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 9,
+        "tag": "select",
+        "role": null,
+        "href": null,
+        "disabled": true,
+        "label": "Access requests"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n0",
+      "to": "n0",
+      "control": {
+        "index": 10,
+        "tag": "select",
+        "role": null,
+        "href": null,
+        "disabled": false,
+        "label": "All requestsPending approvalApprovedRejectedRevoked"
+      },
+      "action": "click",
+      "outcome": "noop"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 11,
+        "tag": "select",
+        "role": null,
+        "href": null,
+        "disabled": true,
+        "label": "Select user"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 12,
+        "tag": "select",
+        "role": null,
+        "href": null,
+        "disabled": true,
+        "label": "Select project"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 13,
+        "tag": "select",
+        "role": null,
+        "href": null,
+        "disabled": true,
+        "label": "Select user or group"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 14,
+        "tag": "select",
+        "role": null,
+        "href": null,
+        "disabled": true,
+        "label": "Select group"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 15,
+        "tag": "a",
+        "role": null,
+        "href": "/governance/approvals",
+        "disabled": false,
+        "label": "governance approval request 0 →"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 16,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/sessions",
+        "disabled": false,
+        "label": "thread approval 0 →"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 17,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/marketplace",
+        "disabled": false,
+        "label": "marketplace admission review 0 →"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": "back-stack",
+      "control": null,
+      "action": "back",
+      "outcome": "navigated"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 0,
+        "tag": "a",
+        "role": null,
+        "href": "/ai",
+        "disabled": false,
+        "label": "Home"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 1,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/odk",
+        "disabled": false,
+        "label": "Ontology"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 2,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/home",
+        "disabled": false,
+        "label": "Applications"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 3,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/home",
+        "disabled": false,
+        "label": "View all"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": "visited",
+      "control": {
+        "index": 4,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/governance/approvals",
+        "disabled": false,
+        "label": "Approvals"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 5,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/governance?tab=approvals",
+        "disabled": false,
+        "label": "⇱"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": "visited",
+      "control": {
+        "index": 6,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/governance/approvals?status=pending",
+        "disabled": false,
+        "label": "Your inbox0"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n1",
+      "to": "visited",
+      "control": {
+        "index": 7,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/governance/approvals?status=all",
+        "disabled": false,
+        "label": "All requests0"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n1",
+      "to": "visited",
+      "control": {
+        "index": 8,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/governance/approvals",
+        "disabled": false,
+        "label": "Clear"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 9,
+        "tag": "select",
+        "role": null,
+        "href": null,
+        "disabled": true,
+        "label": "Access requests"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n1",
+      "to": "n1",
+      "control": {
+        "index": 10,
+        "tag": "select",
+        "role": null,
+        "href": null,
+        "disabled": false,
+        "label": "All requestsPending approvalApprovedRejectedRevoked"
+      },
+      "action": "click",
+      "outcome": "noop"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 11,
+        "tag": "select",
+        "role": null,
+        "href": null,
+        "disabled": true,
+        "label": "Select user"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 12,
+        "tag": "select",
+        "role": null,
+        "href": null,
+        "disabled": true,
+        "label": "Select project"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 13,
+        "tag": "select",
+        "role": null,
+        "href": null,
+        "disabled": true,
+        "label": "Select user or group"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 14,
+        "tag": "select",
+        "role": null,
+        "href": null,
+        "disabled": true,
+        "label": "Select group"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 15,
+        "tag": "a",
+        "role": null,
+        "href": "/governance/approvals",
+        "disabled": false,
+        "label": "governance approval request 0 →"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 16,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/sessions",
+        "disabled": false,
+        "label": "thread approval 0 →"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 17,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/marketplace",
+        "disabled": false,
+        "label": "marketplace admission review 0 →"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": "back-stack",
+      "control": null,
+      "action": "back",
+      "outcome": "navigated"
+    },
+    {
+      "from": "n2",
+      "to": null,
+      "control": {
+        "index": 0,
+        "tag": "a",
+        "role": null,
+        "href": "/ai",
+        "disabled": false,
+        "label": "Home"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n2",
+      "to": null,
+      "control": {
+        "index": 1,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/odk",
+        "disabled": false,
+        "label": "Ontology"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n2",
+      "to": null,
+      "control": {
+        "index": 2,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/home",
+        "disabled": false,
+        "label": "Applications"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n2",
+      "to": null,
+      "control": {
+        "index": 3,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/home",
+        "disabled": false,
+        "label": "View all"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n2",
+      "to": "visited",
+      "control": {
+        "index": 4,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/governance/approvals",
+        "disabled": false,
+        "label": "Approvals"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n2",
+      "to": null,
+      "control": {
+        "index": 5,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/governance?tab=approvals",
+        "disabled": false,
+        "label": "⇱"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n2",
+      "to": "visited",
+      "control": {
+        "index": 6,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/governance/approvals?status=pending",
+        "disabled": false,
+        "label": "Your inbox0"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n2",
+      "to": "visited",
+      "control": {
+        "index": 7,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/governance/approvals?status=all",
+        "disabled": false,
+        "label": "All requests0"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n2",
+      "to": "visited",
+      "control": {
+        "index": 8,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/governance/approvals",
+        "disabled": false,
+        "label": "Clear"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n2",
+      "to": null,
+      "control": {
+        "index": 9,
+        "tag": "select",
+        "role": null,
+        "href": null,
+        "disabled": true,
+        "label": "Access requests"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n2",
+      "to": "n2",
+      "control": {
+        "index": 10,
+        "tag": "select",
+        "role": null,
+        "href": null,
+        "disabled": false,
+        "label": "All requestsPending approvalApprovedRejectedRevoked"
+      },
+      "action": "click",
+      "outcome": "noop"
+    },
+    {
+      "from": "n2",
+      "to": null,
+      "control": {
+        "index": 11,
+        "tag": "select",
+        "role": null,
+        "href": null,
+        "disabled": true,
+        "label": "Select user"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n2",
+      "to": null,
+      "control": {
+        "index": 12,
+        "tag": "select",
+        "role": null,
+        "href": null,
+        "disabled": true,
+        "label": "Select project"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n2",
+      "to": null,
+      "control": {
+        "index": 13,
+        "tag": "select",
+        "role": null,
+        "href": null,
+        "disabled": true,
+        "label": "Select user or group"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n2",
+      "to": null,
+      "control": {
+        "index": 14,
+        "tag": "select",
+        "role": null,
+        "href": null,
+        "disabled": true,
+        "label": "Select group"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n2",
+      "to": null,
+      "control": {
+        "index": 15,
+        "tag": "a",
+        "role": null,
+        "href": "/governance/approvals",
+        "disabled": false,
+        "label": "governance approval request 0 →"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n2",
+      "to": null,
+      "control": {
+        "index": 16,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/sessions",
+        "disabled": false,
+        "label": "thread approval 0 →"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n2",
+      "to": null,
+      "control": {
+        "index": 17,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/marketplace",
+        "disabled": false,
+        "label": "marketplace admission review 0 →"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n2",
+      "to": "back-stack",
+      "control": null,
+      "action": "back",
+      "outcome": "navigated"
+    }
+  ],
+  "blockers": [],
+  "replay": {
+    "walked_all_edges": true,
+    "walked_at": "2026-08-09T16:38:48.978Z",
+    "problems": []
+  },
+  "complete_interaction_route_graph": true,
+  "shots_dir": ".artifacts/seed-graph-shots/governance/approvals",
+  "content_address": "0b954f903a038f33fb19f08ab9a4827093a8ec3c7e4c7c8a00ad53525e524aa1"
+}

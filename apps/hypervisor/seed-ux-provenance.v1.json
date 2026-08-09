@@ -28,7 +28,13 @@
       "baseline_status": "blocked-no-valid-seed",
       "graph_mapping_status": "blocked-no-provenance-source",
       "seed_graph_ready_for_rehome": false,
-      "greenfield_authorization": null,
+      "greenfield_authorization": {
+        "type": "greenfield-authorized-non-parity",
+        "authorized_by": "owner — 2026-08-09 program-repair commissioning (owner-reversible)",
+        "authorized_on": "2026-08-09",
+        "scope": "canon-first UX iteration at the canonical route, per docs/architecture/components/hypervisor/core-clients-surfaces.md",
+        "limits": "greenfield work can never claim seed preservation or parity; the blocked-no-valid-seed baseline stands as the historical record; two recovery passes (history + Palantir corpus) promoted zero candidates and a later-recovered genuine seed re-opens the parity lane and supersedes this authorization"
+      },
       "graph_recovery_status": "searched-zero-sources-promoted-blocked-no-valid-seed",
       "sources": []
     },
@@ -39,7 +45,13 @@
       "baseline_status": "blocked-no-valid-seed",
       "graph_mapping_status": "blocked-no-provenance-source",
       "seed_graph_ready_for_rehome": false,
-      "greenfield_authorization": null,
+      "greenfield_authorization": {
+        "type": "greenfield-authorized-non-parity",
+        "authorized_by": "owner — 2026-08-09 program-repair commissioning (owner-reversible)",
+        "authorized_on": "2026-08-09",
+        "scope": "canon-first UX iteration at the canonical route, per docs/architecture/components/hypervisor/core-clients-surfaces.md",
+        "limits": "greenfield work can never claim seed preservation or parity; the blocked-no-valid-seed baseline stands as the historical record; two recovery passes (history + Palantir corpus) promoted zero candidates and a later-recovered genuine seed re-opens the parity lane and supersedes this authorization"
+      },
       "graph_recovery_status": "searched-zero-sources-promoted-blocked-no-valid-seed",
       "sources": []
     },
@@ -50,7 +62,13 @@
       "baseline_status": "blocked-no-valid-seed",
       "graph_mapping_status": "blocked-no-provenance-source",
       "seed_graph_ready_for_rehome": false,
-      "greenfield_authorization": null,
+      "greenfield_authorization": {
+        "type": "greenfield-authorized-non-parity",
+        "authorized_by": "owner — 2026-08-09 program-repair commissioning (owner-reversible)",
+        "authorized_on": "2026-08-09",
+        "scope": "canon-first UX iteration at the canonical route, per docs/architecture/components/hypervisor/core-clients-surfaces.md",
+        "limits": "greenfield work can never claim seed preservation or parity; the blocked-no-valid-seed baseline stands as the historical record; two recovery passes (history + Palantir corpus) promoted zero candidates and a later-recovered genuine seed re-opens the parity lane and supersedes this authorization"
+      },
       "graph_recovery_status": "searched-zero-sources-promoted-blocked-no-valid-seed",
       "sources": []
     },
@@ -61,7 +79,13 @@
       "baseline_status": "blocked-no-valid-seed",
       "graph_mapping_status": "blocked-no-provenance-source",
       "seed_graph_ready_for_rehome": false,
-      "greenfield_authorization": null,
+      "greenfield_authorization": {
+        "type": "greenfield-authorized-non-parity",
+        "authorized_by": "owner — 2026-08-09 program-repair commissioning (owner-reversible)",
+        "authorized_on": "2026-08-09",
+        "scope": "canon-first UX iteration at the canonical route, per docs/architecture/components/hypervisor/core-clients-surfaces.md",
+        "limits": "greenfield work can never claim seed preservation or parity; the blocked-no-valid-seed baseline stands as the historical record; two recovery passes (history + Palantir corpus) promoted zero candidates and a later-recovered genuine seed re-opens the parity lane and supersedes this authorization"
+      },
       "graph_recovery_status": "searched-zero-sources-promoted-blocked-no-valid-seed",
       "sources": []
     },
@@ -83,10 +107,10 @@
           "provenance_source": "apps/hypervisor/ported-seed-preservation.v1.json",
           "visual_evidence_status": "selected-provenance-qualified-protected-matrix-present",
           "graph": {
-            "evidence_level": "explored_control_graph",
-            "complete_interaction_route_graph": false
+            "evidence_level": "complete_interaction_route_graph",
+            "complete_interaction_route_graph": true
           },
-          "graph_file": null,
+          "graph_file": "seed-graphs/work/jobs.v1.json",
           "class": "substrate_bound",
           "owner_mapping_note": "retired owner name: surface-registry.mjs still labels /__ioi/missions with the retired owner 'Missions'; canonical owner is Work per the estate ledger and core-clients-surfaces.md. The registry rename lands with the Work surface packet, not here."
         },
@@ -98,10 +122,10 @@
           "provenance_source": "apps/hypervisor/ported-seed-preservation.v1.json",
           "visual_evidence_status": "blocked-missing-capture-corrupted-protected-variant-excluded",
           "graph": {
-            "evidence_level": "explored_control_graph",
-            "complete_interaction_route_graph": false
+            "evidence_level": "complete_interaction_route_graph",
+            "complete_interaction_route_graph": true
           },
-          "graph_file": null,
+          "graph_file": "seed-graphs/work/incidents.v1.json",
           "class": "daemon_wired",
           "owner_mapping_note": "retired owner name: surface-registry.mjs still labels /__ioi/missions/incidents with the retired owner 'Missions'; canonical owner is Work per the estate ledger and core-clients-surfaces.md. The registry rename lands with the Work surface packet, not here."
         },
@@ -113,10 +137,10 @@
           "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
           "visual_evidence_status": "selected-provenance-qualified-stable-matrix-present",
           "graph": {
-            "evidence_level": "explored_control_graph",
-            "complete_interaction_route_graph": false
+            "evidence_level": "complete_interaction_route_graph",
+            "complete_interaction_route_graph": true
           },
-          "graph_file": null,
+          "graph_file": "seed-graphs/work/jobs.retained.v1.json",
           "disposition": "rebind",
           "audit_route_disposition": "retained-seed"
         },
@@ -145,7 +169,13 @@
       "baseline_status": "blocked-no-valid-seed",
       "graph_mapping_status": "blocked-no-provenance-source",
       "seed_graph_ready_for_rehome": false,
-      "greenfield_authorization": null,
+      "greenfield_authorization": {
+        "type": "greenfield-authorized-non-parity",
+        "authorized_by": "owner — 2026-08-09 program-repair commissioning (owner-reversible)",
+        "authorized_on": "2026-08-09",
+        "scope": "canon-first UX iteration at the canonical route, per docs/architecture/components/hypervisor/core-clients-surfaces.md",
+        "limits": "greenfield work can never claim seed preservation or parity; the blocked-no-valid-seed baseline stands as the historical record; two recovery passes (history + Palantir corpus) promoted zero candidates and a later-recovered genuine seed re-opens the parity lane and supersedes this authorization"
+      },
       "graph_recovery_status": "searched-zero-sources-promoted-blocked-no-valid-seed",
       "sources": []
     },
@@ -167,10 +197,10 @@
           "provenance_source": "apps/hypervisor/ported-seed-preservation.v1.json",
           "visual_evidence_status": "selected-provenance-qualified-protected-matrix-present",
           "graph": {
-            "evidence_level": "explored_control_graph",
-            "complete_interaction_route_graph": false
+            "evidence_level": "complete_interaction_route_graph",
+            "complete_interaction_route_graph": true
           },
-          "graph_file": null,
+          "graph_file": "seed-graphs/studio/designer.v1.json",
           "class": "daemon_wired"
         },
         {
@@ -186,7 +216,8 @@
           },
           "graph_file": null,
           "disposition": "rebind",
-          "audit_route_disposition": "retained-seed"
+          "audit_route_disposition": "retained-seed",
+          "graph_capture_note": "graph capture failed: the solution-designer canvas hangs the quarantined crawl past the 500s budget (repeated timeouts at 25- and 80-node caps); graph unrecovered, source stays blocked."
         },
         {
           "kind": "retained-harvest-capture",
@@ -304,10 +335,10 @@
           "provenance_source": "apps/hypervisor/ported-seed-preservation.v1.json",
           "visual_evidence_status": "selected-provenance-qualified-protected-matrix-present",
           "graph": {
-            "evidence_level": "explored_control_graph",
-            "complete_interaction_route_graph": false
+            "evidence_level": "complete_interaction_route_graph",
+            "complete_interaction_route_graph": true
           },
-          "graph_file": null,
+          "graph_file": "seed-graphs/automations/machinery.v1.json",
           "class": "daemon_wired",
           "owner_mapping_note": "OQ-2 open dual-owner record: surface-registry.mjs declares Studio; the 2026-08-09 audit's canonical reading is Automations; neither side is picked to unblock work. manifest.v1.json open_questions OQ-2 and docs/architecture/_meta/canon-to-code-delta.md carry the record."
         },
@@ -319,10 +350,10 @@
           "provenance_source": "apps/hypervisor/ported-seed-preservation.v1.json",
           "visual_evidence_status": "selected-provenance-qualified-protected-matrix-present",
           "graph": {
-            "evidence_level": "explored_control_graph",
-            "complete_interaction_route_graph": false
+            "evidence_level": "complete_interaction_route_graph",
+            "complete_interaction_route_graph": true
           },
-          "graph_file": null,
+          "graph_file": "seed-graphs/automations/monitors.v1.json",
           "class": "daemon_wired"
         },
         {
@@ -338,7 +369,8 @@
           },
           "graph_file": null,
           "disposition": "pattern-harvest",
-          "audit_route_disposition": "retained-seed"
+          "audit_route_disposition": "retained-seed",
+          "graph_capture_note": "graph capture quarantine-inadmissible (AUD-WS-005 true positive): the retained capture app issued 15 POST /graphql-gateway/api/graphql corpus-mutation attempts plus release-notes and log-beacon writes; all were aborted and recorded. The violation-bearing graph stays on disk as typed evidence (seed-graphs/automations/monitors.retained.v1.json) and is never a graph_file."
         },
         {
           "kind": "retained-harvest-capture",
@@ -348,10 +380,10 @@
           "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
           "visual_evidence_status": "selected-provenance-qualified-stable-matrix-present",
           "graph": {
-            "evidence_level": "explored_control_graph",
-            "complete_interaction_route_graph": false
+            "evidence_level": "complete_interaction_route_graph",
+            "complete_interaction_route_graph": true
           },
-          "graph_file": null,
+          "graph_file": "seed-graphs/automations/machinery.retained.v1.json",
           "disposition": "pattern-harvest",
           "audit_route_disposition": "retained-seed",
           "owner_mapping_note": "audit correction: current canonical process-graph owner is Automations; estate sweep carries the older Studio mesh assignment"
@@ -376,10 +408,10 @@
           "provenance_source": "apps/hypervisor/ported-seed-preservation.v1.json",
           "visual_evidence_status": "selected-provenance-qualified-protected-matrix-present",
           "graph": {
-            "evidence_level": "explored_control_graph",
-            "complete_interaction_route_graph": false
+            "evidence_level": "complete_interaction_route_graph",
+            "complete_interaction_route_graph": true
           },
-          "graph_file": null,
+          "graph_file": "seed-graphs/ontology/schema.v1.json",
           "class": "daemon_wired"
         },
         {
@@ -390,10 +422,10 @@
           "provenance_source": "apps/hypervisor/ported-seed-preservation.v1.json",
           "visual_evidence_status": "selected-provenance-qualified-protected-matrix-present",
           "graph": {
-            "evidence_level": "explored_control_graph",
-            "complete_interaction_route_graph": false
+            "evidence_level": "complete_interaction_route_graph",
+            "complete_interaction_route_graph": true
           },
-          "graph_file": null,
+          "graph_file": "seed-graphs/ontology/explorer.v1.json",
           "class": "daemon_wired"
         },
         {
@@ -404,10 +436,10 @@
           "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
           "visual_evidence_status": "selected-provenance-qualified-stable-matrix-present",
           "graph": {
-            "evidence_level": "explored_control_graph",
-            "complete_interaction_route_graph": false
+            "evidence_level": "complete_interaction_route_graph",
+            "complete_interaction_route_graph": true
           },
-          "graph_file": null,
+          "graph_file": "seed-graphs/ontology/schema.retained.v1.json",
           "disposition": "pattern-harvest",
           "audit_route_disposition": "retained-seed"
         },
@@ -482,7 +514,7 @@
             "evidence_level": "explored_control_graph",
             "complete_interaction_route_graph": false
           },
-          "graph_file": null,
+          "graph_file": "seed-graphs/data/sources.v1.json",
           "class": "daemon_wired"
         },
         {
@@ -496,7 +528,7 @@
             "evidence_level": "explored_control_graph",
             "complete_interaction_route_graph": false
           },
-          "graph_file": null,
+          "graph_file": "seed-graphs/data/pipeline.v1.json",
           "class": "daemon_wired"
         },
         {
@@ -542,7 +574,7 @@
             "evidence_level": "explored_control_graph",
             "complete_interaction_route_graph": false
           },
-          "graph_file": null,
+          "graph_file": "seed-graphs/data/pipeline.retained.v1.json",
           "disposition": "pattern-harvest",
           "audit_route_disposition": "retained-seed"
         },
@@ -585,8 +617,8 @@
       "owner": "Governance",
       "canonical_route": "/governance",
       "baseline_status": "provenance-qualified-executable-seed-present",
-      "graph_mapping_status": "blocked-explored-control-graph-not-complete",
-      "seed_graph_ready_for_rehome": false,
+      "graph_mapping_status": "complete-interaction-route-graphs-present",
+      "seed_graph_ready_for_rehome": true,
       "greenfield_authorization": null,
       "graph_recovery_status": "required-for-every-summary-only-source",
       "sources": [
@@ -598,10 +630,10 @@
           "provenance_source": "apps/hypervisor/ported-seed-preservation.v1.json",
           "visual_evidence_status": "selected-provenance-qualified-protected-matrix-present",
           "graph": {
-            "evidence_level": "explored_control_graph",
-            "complete_interaction_route_graph": false
+            "evidence_level": "complete_interaction_route_graph",
+            "complete_interaction_route_graph": true
           },
-          "graph_file": null,
+          "graph_file": "seed-graphs/governance/approvals.v1.json",
           "class": "daemon_wired"
         },
         {
@@ -612,10 +644,10 @@
           "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
           "visual_evidence_status": "selected-provenance-qualified-stable-matrix-present",
           "graph": {
-            "evidence_level": "explored_control_graph",
-            "complete_interaction_route_graph": false
+            "evidence_level": "complete_interaction_route_graph",
+            "complete_interaction_route_graph": true
           },
-          "graph_file": null,
+          "graph_file": "seed-graphs/governance/approvals.retained.v1.json",
           "disposition": "rehome",
           "audit_route_disposition": "rehomed"
         }
@@ -639,10 +671,10 @@
           "provenance_source": "apps/hypervisor/ported-seed-preservation.v1.json",
           "visual_evidence_status": "selected-provenance-qualified-protected-matrix-present",
           "graph": {
-            "evidence_level": "summary_only",
-            "complete_interaction_route_graph": false
+            "evidence_level": "complete_interaction_route_graph",
+            "complete_interaction_route_graph": true
           },
-          "graph_file": null,
+          "graph_file": "seed-graphs/provenance/lineage.v1.json",
           "class": "substrate_bound"
         },
         {
@@ -653,10 +685,10 @@
           "provenance_source": "apps/hypervisor/ported-seed-preservation.v1.json",
           "visual_evidence_status": "selected-provenance-qualified-protected-matrix-present",
           "graph": {
-            "evidence_level": "summary_only",
-            "complete_interaction_route_graph": false
+            "evidence_level": "complete_interaction_route_graph",
+            "complete_interaction_route_graph": true
           },
-          "graph_file": null,
+          "graph_file": "seed-graphs/provenance/vertex.v1.json",
           "class": "substrate_bound"
         },
         {
@@ -667,10 +699,10 @@
           "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
           "visual_evidence_status": "selected-provenance-qualified-stable-matrix-present",
           "graph": {
-            "evidence_level": "summary_only",
-            "complete_interaction_route_graph": false
+            "evidence_level": "complete_interaction_route_graph",
+            "complete_interaction_route_graph": true
           },
-          "graph_file": null,
+          "graph_file": "seed-graphs/provenance/lineage.retained.v1.json",
           "disposition": "rebind",
           "audit_route_disposition": "retained-seed"
         },
@@ -687,7 +719,8 @@
           },
           "graph_file": null,
           "disposition": "pattern-harvest",
-          "audit_route_disposition": "retained-seed"
+          "audit_route_disposition": "retained-seed",
+          "graph_capture_note": "graph capture failed: the vertex monocle canvas hangs the quarantined crawl past the capture budget; graph unrecovered, source stays blocked."
         },
         {
           "kind": "explicit-dormant-reference",
@@ -723,10 +756,10 @@
           "provenance_source": "apps/hypervisor/ported-seed-preservation.v1.json",
           "visual_evidence_status": "selected-provenance-qualified-protected-matrix-present",
           "graph": {
-            "evidence_level": "explored_control_graph",
-            "complete_interaction_route_graph": false
+            "evidence_level": "complete_interaction_route_graph",
+            "complete_interaction_route_graph": true
           },
-          "graph_file": null,
+          "graph_file": "seed-graphs/evaluations/evalsuites.v1.json",
           "class": "daemon_wired"
         },
         {
@@ -784,8 +817,8 @@
       "owner": "Improvement",
       "canonical_route": "/improvement",
       "baseline_status": "provenance-qualified-executable-seed-present",
-      "graph_mapping_status": "blocked-explored-control-graph-not-complete",
-      "seed_graph_ready_for_rehome": false,
+      "graph_mapping_status": "complete-interaction-route-graphs-present",
+      "seed_graph_ready_for_rehome": true,
       "greenfield_authorization": null,
       "graph_recovery_status": "required-for-every-summary-only-source",
       "sources": [
@@ -797,10 +830,10 @@
           "provenance_source": "apps/hypervisor/ported-seed-preservation.v1.json",
           "visual_evidence_status": "selected-provenance-qualified-protected-matrix-present",
           "graph": {
-            "evidence_level": "explored_control_graph",
-            "complete_interaction_route_graph": false
+            "evidence_level": "complete_interaction_route_graph",
+            "complete_interaction_route_graph": true
           },
-          "graph_file": null,
+          "graph_file": "seed-graphs/improvement/changes.v1.json",
           "class": "daemon_wired"
         },
         {
@@ -811,10 +844,10 @@
           "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
           "visual_evidence_status": "selected-provenance-qualified-stable-matrix-present",
           "graph": {
-            "evidence_level": "explored_control_graph",
-            "complete_interaction_route_graph": false
+            "evidence_level": "complete_interaction_route_graph",
+            "complete_interaction_route_graph": true
           },
-          "graph_file": null,
+          "graph_file": "seed-graphs/improvement/changes.retained.v1.json",
           "disposition": "rebind",
           "audit_route_disposition": "retained-seed"
         }
@@ -838,10 +871,10 @@
           "provenance_source": "apps/hypervisor/ported-seed-preservation.v1.json",
           "visual_evidence_status": "selected-provenance-qualified-protected-matrix-present",
           "graph": {
-            "evidence_level": "explored_control_graph",
-            "complete_interaction_route_graph": false
+            "evidence_level": "complete_interaction_route_graph",
+            "complete_interaction_route_graph": true
           },
-          "graph_file": null,
+          "graph_file": "seed-graphs/foundry/models.v1.json",
           "class": "daemon_wired"
         },
         {
@@ -896,10 +929,10 @@
           "provenance_source": "apps/hypervisor/ported-seed-preservation.v1.json",
           "visual_evidence_status": "selected-provenance-qualified-protected-matrix-present",
           "graph": {
-            "evidence_level": "explored_control_graph",
-            "complete_interaction_route_graph": false
+            "evidence_level": "complete_interaction_route_graph",
+            "complete_interaction_route_graph": true
           },
-          "graph_file": null,
+          "graph_file": "seed-graphs/packages/listings.v1.json",
           "class": "daemon_wired",
           "owner_mapping_note": "retired owner name: surface-registry.mjs still labels /__ioi/marketplace/listings with the folded owner 'Marketplace'; canonical owner is Packages (marketplace is a Packages mode). The registry rename lands with the Packages surface packet, not here."
         },
@@ -911,10 +944,10 @@
           "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
           "visual_evidence_status": "selected-provenance-qualified-stable-matrix-present",
           "graph": {
-            "evidence_level": "explored_control_graph",
-            "complete_interaction_route_graph": false
+            "evidence_level": "complete_interaction_route_graph",
+            "complete_interaction_route_graph": true
           },
-          "graph_file": null,
+          "graph_file": "seed-graphs/packages/listings.retained.v1.json",
           "disposition": "rebind",
           "audit_route_disposition": "retained-seed"
         },
@@ -986,10 +1019,10 @@
           "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
           "visual_evidence_status": "selected-provenance-qualified-stable-matrix-present",
           "graph": {
-            "evidence_level": "summary_only",
-            "complete_interaction_route_graph": false
+            "evidence_level": "complete_interaction_route_graph",
+            "complete_interaction_route_graph": true
           },
-          "graph_file": null,
+          "graph_file": "seed-graphs/developer-workspace/notepad.v1.json",
           "disposition": "retire-at-cutover",
           "audit_route_disposition": "retained-seed"
         },
