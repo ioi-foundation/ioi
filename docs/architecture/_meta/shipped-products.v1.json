@@ -85,6 +85,8 @@
           "/home",
           "/improvement",
           "/ontology",
+          "/ontology/explore",
+          "/ontology/schema",
           "/operations",
           "/packages",
           "/packages/marketplace",
@@ -98,8 +100,8 @@
           "/work/new-session",
           "/work/sessions"
         ],
-        "expected_count": 39,
-        "sha256": "43eec1951682d25356b7778d47e61c48ef9bae9002d94dc14318789abc8ac95e",
+        "expected_count": 41,
+        "sha256": "2b1d944966a7462290769199821e264ace0bc62722c8036f58ec569874494d4c",
         "browser_verification_id": "served-surface-smoke"
       },
       "state_authority_mode": "daemon_authoritative_projection",

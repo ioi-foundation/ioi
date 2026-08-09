@@ -21,13 +21,13 @@ export const meta = {
 // projection yields null (an honest "unavailable" inspector state), never a fabricated array.
 export async function load(ctx) {
   const base = await loadOntologyModel(ctx.daemon);
-  const J = (p) => fetch(`${ctx.daemon}${p}`).then((r) => r.json()).catch(() => null);
-  const [cm, pv] = await Promise.all([
-    J("/v1/hypervisor/odk/connector-mappings"),
-    J("/v1/hypervisor/odk/policy-bound-data-views"),
-  ]);
-  base.lists.connector_mappings = cm && Array.isArray(cm.connector_mappings) ? cm.connector_mappings : (cm === null ? null : []);
-  base.lists.policy_views = pv && Array.isArray(pv.policy_bound_data_views) ? pv.policy_bound_data_views : (pv === null ? null : []);
+  // W2.1 (brief §5 PR 3): the resource read rides the shared read-projection client too. A
+  // degraded plane stays NULL (the honest "unavailable" inspector state) — typed now, so the
+  // reason is knowable; an ok read with no rows stays [] (honest empty). No behavior change.
+  const { createReadClient } = await import("../read-client.mjs");
+  const cm = await createReadClient({ daemon: ctx.daemon }).read("/v1/hypervisor/odk/connector-mappings");
+  base.lists.connector_mappings = cm.ok ? (Array.isArray(cm.payload.connector_mappings) ? cm.payload.connector_mappings : []) : null;
+  base.lists.policy_views = base.degraded && base.degraded.policy_views ? null : base.lists.policy_views;
   base.vocab = (base.overview && base.overview.odk_vocabulary) || { base_value_types: ["string", "integer", "double", "boolean", "timestamp", "enum"], link_cardinalities: ["one_to_one", "one_to_many", "many_to_many"], action_kinds: ["create_object", "modify_object", "delete_object", "function"] };
   return base;
 }

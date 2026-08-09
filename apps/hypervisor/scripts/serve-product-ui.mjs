@@ -36,7 +36,7 @@ import { MON_APP_TILE_URI, MON_WIZ_STRIP_URI, MON_CARDS_STRIP_URI } from "./moni
 import { CHG_APP_TILE_URI } from "./changes-assets.mjs";
 import { EVL_APP_TILE_URI, EVL_HERO_URI } from "./evalsuites-assets.mjs";
 import { compileProductSurfaces } from "./surface-compiler.mjs";
-import { bindSurface, boundSurface, boundActionRoute, embeddableRoutes, surfaceBySlug } from "./surface-registry.mjs";
+import { bindSurface, boundSurface, boundActionRoute, canonicalSurfaceRoute, embeddableRoutes, surfaceBySlug } from "./surface-registry.mjs";
 import { canonicalTimelineRef, escHtml } from "../surfaces/kit.mjs";
 import { readJsonWithDeadline } from "../surfaces/plane-read.mjs";
 import { managerLink, managerResourceLink, objectSetLink, sourcesLink, pipelineNodeLink, lineageLink as semLineageLink, vertexLink as semVertexLink, provenanceReceiptLink, provenanceSetLink, semanticBreadcrumb } from "../surfaces/ontology-context.mjs";
@@ -8544,7 +8544,10 @@ async function handleEstateRequest(req, res, body) {
       // W1.3 deep-link grammar: longest-prefix segment-boundary resolution over the canonical
       // route table (was exact-root-only). Vendored subtrees (/projects, /settings/<section>)
       // fall through untouched; everything else under a canonical root resolves typed.
-      const resolved = resolveV2Route(pathname);
+      // W2.1 rehome: a canonical route a bound surface module owns is SERVED by that module
+      // (registry dispatch below), never shadowed by the shell page. An unbound canonical
+      // route still renders the honest shell.
+      const resolved = canonicalSurfaceRoute(pathname) ? null : resolveV2Route(pathname);
       if (resolved) {
         const requestUrl = new URL(req.url, "http://x");
         // W0.2: the page's estate-navigation band renders the compiled product-surface
