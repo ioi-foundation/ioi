@@ -24,32 +24,36 @@ export const meta = {
 // Daemon-truth loaders — the exact fetch set the serve's flat branch (then its #55 inline
 // binding) performed; a dead daemon yields honest empty lists, never fabricated rows.
 export async function load(ctx) {
-  const J = (p) => fetch(`${ctx.daemon}${p}`).then((r) => r.json()).catch(() => ({}));
-  const [o, ds, cm, pv, tr, op, lp, mr, cs, ms, cn] = await Promise.all([
-    J("/v1/hypervisor/odk/domain-ontologies"),
-    J("/v1/hypervisor/data-sources"),
-    J("/v1/hypervisor/odk/connector-mappings"),
-    J("/v1/hypervisor/odk/policy-bound-data-views"),
-    J("/v1/hypervisor/odk/transformation-runs"),
-    J("/v1/hypervisor/odk/ontology-projections"),
-    J("/v1/hypervisor/odk/capability-lease-plans"),
-    J("/v1/hypervisor/odk/materializing-runs"),
-    J("/v1/hypervisor/odk/connector-sessions"),
-    J("/v1/hypervisor/odk/materialized-object-sets"),
-    J("/v1/hypervisor/connectors"),
-  ]);
+  // W2.1 (brief §5 PR 4): the eleven pipeline reads ride the shared read-projection client;
+  // a degraded plane stays an honest [] (identical behavior), typed on `degraded`.
+  const { createReadClient } = await import("../read-client.mjs");
+  const r = await createReadClient({ daemon: ctx.daemon }).readMany({
+    o: "/v1/hypervisor/odk/domain-ontologies",
+    ds: "/v1/hypervisor/data-sources",
+    cm: "/v1/hypervisor/odk/connector-mappings",
+    pv: "/v1/hypervisor/odk/policy-bound-data-views",
+    tr: "/v1/hypervisor/odk/transformation-runs",
+    op: "/v1/hypervisor/odk/ontology-projections",
+    lp: "/v1/hypervisor/odk/capability-lease-plans",
+    mr: "/v1/hypervisor/odk/materializing-runs",
+    cs: "/v1/hypervisor/odk/connector-sessions",
+    ms: "/v1/hypervisor/odk/materialized-object-sets",
+    cn: "/v1/hypervisor/connectors",
+  });
+  const P = (k) => (r[k].ok ? r[k].payload : {});
   return {
-    ontologies: o.ontologies || [],
-    data_sources: ds.data_sources || [],
-    connector_mappings: cm.connector_mappings || [],
-    policy_views: pv.policy_bound_data_views || [],
-    transformation_runs: tr.transformation_runs || [],
-    ontology_projections: op.ontology_projections || [],
-    capability_lease_plans: lp.capability_lease_plans || [],
-    materializing_runs: mr.materializing_runs || [],
-    connector_sessions: cs.connector_sessions || [],
-    materialized_sets: ms.materialized_object_sets || [],
-    connectors: cn.connectors || [],
+    ontologies: P("o").ontologies || [],
+    data_sources: P("ds").data_sources || [],
+    connector_mappings: P("cm").connector_mappings || [],
+    policy_views: P("pv").policy_bound_data_views || [],
+    transformation_runs: P("tr").transformation_runs || [],
+    ontology_projections: P("op").ontology_projections || [],
+    capability_lease_plans: P("lp").capability_lease_plans || [],
+    materializing_runs: P("mr").materializing_runs || [],
+    connector_sessions: P("cs").connector_sessions || [],
+    materialized_sets: P("ms").materialized_object_sets || [],
+    connectors: P("cn").connectors || [],
+    degraded: Object.fromEntries(Object.entries(r).filter(([, x]) => !x.ok).map(([k, x]) => [k, { code: x.code, message: x.message }])),
   };
 }
 
