@@ -29,19 +29,26 @@ export const meta = {
 };
 
 export async function load(ctx) {
-  const J = (p) => fetch(`${ctx.daemon}${p}`).then((r) => r.json()).catch(() => null);
-  const [ds, mr, cm, ov] = await Promise.all([
-    J("/v1/hypervisor/data-sources"),
-    J("/v1/hypervisor/odk/materializing-runs"),
-    J("/v1/hypervisor/odk/connector-mappings"),
-    J("/v1/hypervisor/data-sources/overview"),
-  ]);
+  // W2.1 (brief §5 PR 4): the four reads ride the shared read-projection client. Honest-empty
+  // and fail-closed semantics are preserved exactly — a degraded plane yields [] for the lists
+  // and null for the declaration vocabulary (which the form fails closed on), and each plane's
+  // typed outcome is carried on `degraded` so a pane can name WHY, not just render absence.
+  const { createReadClient } = await import("../read-client.mjs");
+  const r = await createReadClient({ daemon: ctx.daemon }).readMany({
+    ds: "/v1/hypervisor/data-sources",
+    mr: "/v1/hypervisor/odk/materializing-runs",
+    cm: "/v1/hypervisor/odk/connector-mappings",
+    ov: "/v1/hypervisor/data-sources/overview",
+  });
+  const P = (k) => (r[k].ok ? r[k].payload : null);
+  const ov = P("ov");
   return {
-    sources: (ds && ds.data_sources) || [],
-    runs: (mr && mr.materializing_runs) || [],
-    mappings: (cm && cm.connector_mappings) || [],
+    sources: (P("ds") && P("ds").data_sources) || [],
+    runs: (P("mr") && P("mr").materializing_runs) || [],
+    mappings: (P("cm") && P("cm").connector_mappings) || [],
     // The declaration vocabulary is DAEMON TRUTH: null when unreachable — the form fails closed.
     overview: ov && Array.isArray(ov.source_kinds) ? ov : null,
+    degraded: Object.fromEntries(Object.entries(r).filter(([, x]) => !x.ok).map(([k, x]) => [k, { code: x.code, message: x.message }])),
   };
 }
 

@@ -76,6 +76,8 @@
           "/applications",
           "/automations",
           "/data",
+          "/data/recipes",
+          "/data/sources",
           "/developer-console",
           "/developer-workspace",
           "/environments",
@@ -101,8 +103,8 @@
           "/work/new-session",
           "/work/sessions"
         ],
-        "expected_count": 42,
-        "sha256": "c71a83cdbd86e9b80511a814a07d68875693536576f9d8ad94ade1cf640e7679",
+        "expected_count": 44,
+        "sha256": "0039ab67da056eed82bec11c0c631f14e18665dcc89e2a455568d0ac95dc454c",
         "browser_verification_id": "served-surface-smoke"
       },
       "state_authority_mode": "daemon_authoritative_projection",

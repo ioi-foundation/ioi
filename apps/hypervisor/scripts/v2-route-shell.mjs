@@ -188,10 +188,12 @@ export const V2_ROUTE_TABLE = [
     kind: "owner application",
     rule: "—",
     waves: "W1 · W2 · W3 (sources CRUD)",
-    build_state: "shell-only (W0.1) — Wave 1 read-first build (surfaces/data.md §5)",
+    build_state: "W2.1 rehome step 1 — Data Connection serves canonically at /data/sources and the Pipeline/Recipe Builder at /data/recipes (same modules; legacy /__ioi lanes serving until the W4 cutover); reads ride the shared client. Wave 1 read-first build continues per surfaces/data.md §5",
     serving_today: [
-      { href: "/__ioi/data/sources", label: "Data Connection", note: "protected ported seed (daemon-wired)" },
-      { href: "/__ioi/pipeline", label: "Pipeline Builder", note: "protected ported seed (daemon-wired, workflow-complete)" },
+      { href: "/data/sources", label: "Data Connection (canonical)", note: "rehomed source-declaration module at the canonical route" },
+      { href: "/data/recipes", label: "Recipe / Pipeline Builder (canonical)", note: "rehomed pipeline module at the canonical route" },
+      { href: "/__ioi/data/sources", label: "Data Connection (legacy lane)", note: "keeps serving until the W4 cutover" },
+      { href: "/__ioi/pipeline", label: "Pipeline Builder (legacy lane)", note: "keeps serving until the W4 cutover" },
     ],
   },
   {
