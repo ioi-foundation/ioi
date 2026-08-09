@@ -1,0 +1,12 @@
+{
+  "schema_version": "ioi.wallet_network.wallet_ownership_proof.v1",
+  "proof_id": "wallet-ownership-proof://wop_bad0000000000000",
+  "challenge_ref": "wallet-auth-challenge://wac_bad0000000000000",
+  "account": "0xnotcaip10",
+  "signature_kind": "eoa_secp256k1",
+  "signature": "0x00",
+  "verification": {
+    "verified_at": "2026-08-09T12:02:00.000Z",
+    "verifier_profile_ref": "siwx://evm/erc4361/v1"
+  }
+}

@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/wallet-network/wallet-ownership-proof/v1",
+  "title": "WalletOwnershipProof",
+  "x-ioi-schema-version": "ioi.wallet_network.wallet_ownership_proof.v1",
+  "description": "The verified proof that an external wallet controls a CAIP-10 account, produced by verifying a signature against a WalletAuthenticationChallenge. Registered target contract for the wallet-interoperability packet (W1.6); INV-40 governs. A verified proof yields a web3_wallet AuthFactor and NOTHING else — it is authentication evidence, never an AuthorityGrant, and grants no effect authority. Factor identity is chain-qualified: the same address on two chains is two factors. ERC-1271/6492 signatures record the exact contract-wallet state observed.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "proof_id",
+    "challenge_ref",
+    "account",
+    "signature_kind",
+    "signature",
+    "verification"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "ioi.wallet_network.wallet_ownership_proof.v1"
+    },
+    "proof_id": {
+      "type": "string",
+      "pattern": "^wallet-ownership-proof://[A-Za-z0-9._:-]+$"
+    },
+    "challenge_ref": {
+      "type": "string",
+      "pattern": "^wallet-auth-challenge://[A-Za-z0-9._:-]+$",
+      "description": "The exact challenge this proof answers; its nonce is consumed atomically at verification."
+    },
+    "account": {
+      "type": "string",
+      "pattern": "^caip10:[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}:[-.%a-zA-Z0-9]{1,128}$",
+      "description": "CAIP-10 account proven; the factor identity is chain-qualified."
+    },
+    "signature_kind": {
+      "type": "string",
+      "enum": [
+        "eoa_secp256k1",
+        "erc1271_contract",
+        "erc6492_counterfactual"
+      ]
+    },
+    "signature": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Opaque signature bytes (hex/base64); never a blind-signing artifact."
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "verified_at",
+        "verifier_profile_ref"
+      ],
+      "properties": {
+        "verified_at": {
+          "type": "string",
+          "minLength": 1
+        },
+        "verifier_profile_ref": {
+          "type": "string",
+          "pattern": "^siwx://[a-z0-9]+/[a-z0-9]+/v[0-9]+$"
+        },
+        "contract_wallet_state_ref": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Exact contract-wallet state observed for erc1271/erc6492; null for EOA."
+        }
+      }
+    },
+    "yields_factor_id": {
+      "type": "string",
+      "description": "The web3_wallet AuthFactor id this proof produced. A proof yields a factor and NOTHING else (INV-40)."
+    }
+  }
+}

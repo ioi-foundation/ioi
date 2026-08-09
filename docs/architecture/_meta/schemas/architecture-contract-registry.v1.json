@@ -8467,6 +8467,103 @@
       ]
     },
     {
+      "contract_id": "schema://ioi/components/wallet-network/wallet-authentication-challenge/v1",
+      "canonical_name": "WalletAuthenticationChallenge",
+      "canonical_owner_ref": "canon://docs/architecture/components/wallet-network/api-authority-scopes.md#wallet-authentication-challenge-and-ownership-proof",
+      "schema_version": "ioi.wallet_network.wallet_authentication_challenge.v1",
+      "maturity": "planned",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": null,
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "wallet-authentication-challenge.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/components/wallet-network/wallet-authentication-challenge/single-use-bound/v1",
+          "path": "invariants/wallet-authentication-challenge.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "WalletAuthenticationChallengeV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "WalletAuthenticationChallengeV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/wallet-authentication-challenge-v1/positive-issued-evm.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/wallet-authentication-challenge-v1/negative-no-session-binding.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/components/wallet-network/wallet-ownership-proof/v1",
+      "canonical_name": "WalletOwnershipProof",
+      "canonical_owner_ref": "canon://docs/architecture/components/wallet-network/api-authority-scopes.md#wallet-authentication-challenge-and-ownership-proof",
+      "schema_version": "ioi.wallet_network.wallet_ownership_proof.v1",
+      "maturity": "planned",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": null,
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "wallet-ownership-proof.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/components/wallet-network/wallet-ownership-proof/verified-account-bound/v1",
+          "path": "invariants/wallet-ownership-proof.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "WalletOwnershipProofV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "WalletOwnershipProofV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/wallet-ownership-proof-v1/positive-eoa.json",
+        "fixtures/wallet-ownership-proof-v1/positive-erc1271.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/wallet-ownership-proof-v1/negative-unverified.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
       "contract_id": "schema://ioi/components/daemon-runtime/compute-session/v1",
       "canonical_name": "ComputeSession",
       "canonical_owner_ref": "canon://docs/architecture/foundations/objects/work-execution.md#bounded-managed-runtime-wire-contracts",

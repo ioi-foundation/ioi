@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/wallet-network/wallet-authentication-challenge/v1",
+  "title": "WalletAuthenticationChallenge",
+  "x-ioi-schema-version": "ioi.wallet_network.wallet_authentication_challenge.v1",
+  "description": "The server-minted, single-use, domain/chain/session-bound challenge an external wallet signs to prove account ownership (SIWx). Registered target contract for the wallet-interoperability packet (W1.6); doctrine §Wallet Interoperability and INV-40 govern. A challenge is authentication material, never authority: signing it yields a web3_wallet AuthFactor and nothing else. The nonce is single-use and consumed ATOMICALLY at verification and never lives in an eventually-consistent store; domain, uri, chain, and the bound product session must match at verification or the proof fails typed.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "challenge_id",
+    "siwx_profile_ref",
+    "chain_id",
+    "domain",
+    "uri",
+    "nonce",
+    "product_session_binding_hash",
+    "issued_at",
+    "expires_at",
+    "statement"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "ioi.wallet_network.wallet_authentication_challenge.v1"
+    },
+    "challenge_id": {
+      "type": "string",
+      "pattern": "^wallet-auth-challenge://[A-Za-z0-9._:-]+$"
+    },
+    "siwx_profile_ref": {
+      "type": "string",
+      "pattern": "^siwx://[a-z0-9]+/[a-z0-9]+/v[0-9]+$",
+      "description": "The one audited SIWx adapter profile this challenge is issued under (EVM ERC-4361 first)."
+    },
+    "chain_id": {
+      "type": "string",
+      "pattern": "^caip2:[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}$",
+      "description": "CAIP-2 chain id; a challenge is scoped to exactly one chain."
+    },
+    "requested_account": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^caip10:[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}:[-.%a-zA-Z0-9]{1,128}$"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The CAIP-10 account the challenge targets, or null for discover-then-bind."
+    },
+    "domain": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Exact relying origin; verification refuses a mismatch (anti-phishing)."
+    },
+    "uri": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Exact request URI; verification refuses a mismatch (anti-replay)."
+    },
+    "nonce": {
+      "type": "string",
+      "minLength": 8,
+      "description": "Single-use, atomically consumed at verification. Never stored in an eventually-consistent store."
+    },
+    "product_session_binding_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "Binds the challenge to the exact product session that requested it."
+    },
+    "issued_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "expires_at": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Short expiry; verification refuses an expired challenge."
+    },
+    "statement": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable sign-in statement shown in the wallet."
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "issued",
+        "consumed",
+        "expired",
+        "invalidated"
+      ],
+      "description": "Lifecycle. A provider-side account or chain change invalidates an in-flight challenge."
+    }
+  }
+}

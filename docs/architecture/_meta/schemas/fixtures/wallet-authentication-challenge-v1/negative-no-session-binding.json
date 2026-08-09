@@ -1,0 +1,14 @@
+{
+  "schema_version": "ioi.wallet_network.wallet_authentication_challenge.v1",
+  "challenge_id": "wallet-auth-challenge://wac_bad0000000000000",
+  "siwx_profile_ref": "siwx://evm/erc4361/v1",
+  "chain_id": "caip2:eip155:1",
+  "requested_account": null,
+  "domain": "wallet.network",
+  "uri": "https://wallet.network/auth/wallet",
+  "nonce": "a1b2c3d4e5f60718293a4b5c6d7e8f90",
+  "product_session_binding_hash": "not-a-hash",
+  "issued_at": "2026-08-09T12:00:00.000Z",
+  "expires_at": "2026-08-09T12:05:00.000Z",
+  "statement": "Sign in."
+}
