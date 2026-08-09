@@ -60,6 +60,8 @@ mod domain_apps_routes;
 mod download_intent_routes;
 #[path = "hypervisor_daemon_routes/durable_fs.rs"]
 mod durable_fs;
+#[path = "hypervisor_daemon_routes/economics_routes.rs"]
+mod economics_routes;
 #[path = "hypervisor_daemon_routes/editor_host.rs"]
 mod editor_host;
 #[path = "hypervisor_daemon_routes/editor_proxy.rs"]
@@ -2955,6 +2957,78 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/authority/receipts",
             get(authority_routes::handle_authority_receipts),
+        )
+        // W1.4 — the commercial economics plane: the managed-work billing kernel binding the
+        // REGISTERED canon shapes (economics-and-settlement.md; billing-ledger-bundle v1).
+        // RateCard/Plan -> immutable WorkQuote -> finite CreditHold -> append-only usage chain
+        // -> typed OverrunDecision -> exactly-one spend-authority-gated FinalDebit -> downward-
+        // only BillingAdjustment -> contract-validated bundle export + integer reconciliation.
+        // NON-CLAIM: no settlement, escrow, payout, or exchange executes here — those rails are
+        // wallet.network-side by doctrine; amounts are INTEGER micro work credits / currency
+        // minor, never floats.
+        .route(
+            "/v1/hypervisor/economics/rate-cards",
+            post(economics_routes::handle_rate_card_create),
+        )
+        .route(
+            "/v1/hypervisor/economics/rate-cards/:id",
+            get(economics_routes::handle_rate_card_get),
+        )
+        .route(
+            "/v1/hypervisor/economics/plans",
+            post(economics_routes::handle_plan_create),
+        )
+        .route(
+            "/v1/hypervisor/economics/plans/:id",
+            get(economics_routes::handle_plan_get),
+        )
+        .route(
+            "/v1/hypervisor/economics/quotes",
+            post(economics_routes::handle_quote_create),
+        )
+        .route(
+            "/v1/hypervisor/economics/quotes/:id",
+            get(economics_routes::handle_quote_get),
+        )
+        .route(
+            "/v1/hypervisor/economics/quotes/:id/funding-preflight",
+            get(economics_routes::handle_funding_preflight),
+        )
+        .route(
+            "/v1/hypervisor/economics/quotes/:id/ledger-bundle",
+            get(economics_routes::handle_ledger_bundle),
+        )
+        .route(
+            "/v1/hypervisor/economics/holds",
+            post(economics_routes::handle_hold_create),
+        )
+        .route(
+            "/v1/hypervisor/economics/holds/:id",
+            get(economics_routes::handle_hold_get),
+        )
+        .route(
+            "/v1/hypervisor/economics/holds/:id/release",
+            post(economics_routes::handle_hold_release),
+        )
+        .route(
+            "/v1/hypervisor/economics/usage",
+            post(economics_routes::handle_usage_append),
+        )
+        .route(
+            "/v1/hypervisor/economics/overrun-decisions",
+            post(economics_routes::handle_overrun_create),
+        )
+        .route(
+            "/v1/hypervisor/economics/final-debits",
+            post(economics_routes::handle_final_debit_create),
+        )
+        .route(
+            "/v1/hypervisor/economics/adjustments",
+            post(economics_routes::handle_adjustment_create),
+        )
+        .route(
+            "/v1/hypervisor/economics/reconciliation",
+            get(economics_routes::handle_reconciliation),
         )
         // T5: Resource Management — pools/budgets + the allocation decision engine + work queue +
         // scheduler catch-up. Every allocation yields a typed decision + visible reason + receipt.
