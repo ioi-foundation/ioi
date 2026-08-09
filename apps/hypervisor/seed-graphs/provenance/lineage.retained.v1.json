@@ -1,0 +1,1821 @@
+{
+  "schema_version": "ioi.hypervisor.seed-interaction-route-graph.v1",
+  "surface": "provenance",
+  "slug": "lineage",
+  "owned_route": "/__apps/lineage",
+  "capture_route": "/workspace/monocle/",
+  "runtime": {
+    "serve_url": "http://127.0.0.1:4173",
+    "capture_url": "http://127.0.0.1:9225"
+  },
+  "captured_at": "2026-08-09T16:47:47.718Z",
+  "quarantine": {
+    "network_policy": "local-only",
+    "corpus_mutation": "denied",
+    "html_injection": "denied",
+    "spa_fallback": "denied",
+    "allowed_origins": [
+      "http://127.0.0.1:4173",
+      "http://localhost:4173",
+      "http://127.0.0.1:9225",
+      "http://localhost:9225"
+    ],
+    "violations": []
+  },
+  "nodes": [
+    {
+      "id": "n0",
+      "kind": "route",
+      "signature": "/workspace/monocle/graph?coloring=monocle.color.resource-type#open=2|DIV:Applications",
+      "url": "/workspace/monocle/graph?coloring=monocle.color.resource-type",
+      "title": "Data Lineage",
+      "entry_edge": null,
+      "controls": 58,
+      "disabled_controls": 19,
+      "screenshot": {
+        "sha256": "eec73078bd9f3c6362ea3072fa8fc3116d686346e60e0b92ed8a7b43d29b9701",
+        "posture": "1440x900-light"
+      },
+      "console_errors": [
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+      ],
+      "posture_matrix": [
+        {
+          "sha256": "233ba9dd6c71ceaef1566d7362d3fba0ffa27a6fea79a2d8cbeec76c77a74d35",
+          "posture": "1440x900-dark"
+        },
+        {
+          "sha256": "01cc016be4944272fc620228a44e10213042fd93af276e14cf62fcc368ea20a6",
+          "posture": "390x844-light-reduced-motion"
+        }
+      ]
+    },
+    {
+      "id": "n1",
+      "kind": "state",
+      "signature": "/workspace/monocle/graph?coloring=monocle.color.resource-type#open=1|DIV:Applications",
+      "url": "/workspace/monocle/graph?coloring=monocle.color.resource-type",
+      "title": "Data Lineage",
+      "entry_edge": {
+        "from": "n0",
+        "control": {
+          "index": 2,
+          "tag": "button",
+          "role": null,
+          "href": null,
+          "disabled": false,
+          "label": "Collapse Foundry sidebar"
+        }
+      },
+      "controls": 57,
+      "disabled_controls": 19,
+      "screenshot": {
+        "sha256": "46b68b987552eb000d1b7d9b970b74210def70c35b5c8693825b09e8d742527e",
+        "posture": "1440x900-light"
+      },
+      "console_errors": [
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+      ]
+    },
+    {
+      "id": "n2",
+      "kind": "route",
+      "signature": "/workspace/monocle#open=1|DIV:What's newUser budgets for AI usageJune 10, 2026Enterprise a",
+      "url": "/workspace/monocle",
+      "title": "IOI",
+      "entry_edge": {
+        "from": "n0",
+        "control": {
+          "index": 13,
+          "tag": "a",
+          "role": null,
+          "href": "/workspace/monocle",
+          "disabled": false,
+          "label": "Data Lineage Home"
+        }
+      },
+      "controls": 2,
+      "disabled_controls": 0,
+      "screenshot": {
+        "sha256": "c3f82ca67ced9ec060391786d6f5628fdc5259de4d5deeb397a55364921b8e9a",
+        "posture": "1440x900-light"
+      },
+      "console_errors": [
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+      ],
+      "posture_matrix": [
+        {
+          "sha256": "233ba9dd6c71ceaef1566d7362d3fba0ffa27a6fea79a2d8cbeec76c77a74d35",
+          "posture": "1440x900-dark"
+        },
+        {
+          "sha256": "01cc016be4944272fc620228a44e10213042fd93af276e14cf62fcc368ea20a6",
+          "posture": "390x844-light-reduced-motion"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 0,
+        "tag": "button",
+        "role": null,
+        "href": null,
+        "disabled": false,
+        "label": "Skip to content"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 1,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/aip",
+        "disabled": false,
+        "label": "Home"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": "n1",
+      "control": {
+        "index": 2,
+        "tag": "button",
+        "role": null,
+        "href": null,
+        "disabled": false,
+        "label": "Collapse Foundry sidebar"
+      },
+      "action": "click",
+      "outcome": "state-change"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 3,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/aip",
+        "disabled": false,
+        "label": "Home"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 4,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Search…ctrl + J"
+      },
+      "action": "click",
+      "outcome": "blocked-write-attempt",
+      "detail": {
+        "url": "http://127.0.0.1:4173/graphql-gateway/api/graphql?q=NotificationsPopoverQuery",
+        "method": "POST"
+      }
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 5,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Notifications"
+      },
+      "action": "click",
+      "outcome": "blocked-write-attempt",
+      "detail": {
+        "url": "http://127.0.0.1:4173/log-receiver/api/beacon",
+        "method": "POST"
+      }
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 6,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Gift IconWhat's New"
+      },
+      "action": "click",
+      "outcome": "blocked-write-attempt",
+      "detail": {
+        "url": "http://127.0.0.1:4173/graphql-gateway/api/graphql?q=RecentsPopoverQuery",
+        "method": "POST"
+      }
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 7,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Recent"
+      },
+      "action": "click",
+      "outcome": "blocked-write-attempt",
+      "detail": {
+        "url": "http://127.0.0.1:4173/graphql-gateway/api/graphql?q=RecentsPopoverQuery",
+        "method": "POST"
+      }
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 8,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/compass",
+        "disabled": false,
+        "label": "Files"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 9,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/hubble",
+        "disabled": false,
+        "label": "Ontology"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 10,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Applications"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 11,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Support"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 12,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Account"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n0",
+      "to": "n2",
+      "control": {
+        "index": 13,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/monocle",
+        "disabled": false,
+        "label": "Data Lineage Home"
+      },
+      "action": "goto",
+      "outcome": "navigated"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 14,
+        "tag": "button",
+        "role": null,
+        "href": null,
+        "disabled": true,
+        "label": "Workflow Lineage"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 15,
+        "tag": "button",
+        "role": null,
+        "href": null,
+        "disabled": false,
+        "label": "Main"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 16,
+        "tag": "button",
+        "role": null,
+        "href": null,
+        "disabled": false,
+        "label": "Fallback branches"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 17,
+        "tag": "button",
+        "role": null,
+        "href": null,
+        "disabled": false,
+        "label": "Keyboard shortcuts"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 18,
+        "tag": "button",
+        "role": null,
+        "href": null,
+        "disabled": false,
+        "label": "User settings"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 19,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": true,
+        "label": "000"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 20,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": true,
+        "label": "Save as"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 21,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": true,
+        "label": "Save and Load Options"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 22,
+        "tag": "a",
+        "role": "button",
+        "href": "https://www.palantir.com/docs/foundry/data-lineage/overview/",
+        "disabled": false,
+        "label": "Read documentation"
+      },
+      "action": "goto",
+      "outcome": "boundary-external-origin"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 23,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Layout actions"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 24,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": true,
+        "label": "Undo"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 25,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": true,
+        "label": "Redo"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 26,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": true,
+        "label": "Remove trash/off-branch nodes"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 27,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Select nodes"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 28,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": true,
+        "label": "Add parents or children"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 29,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": true,
+        "label": "Color nodes"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 30,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Find nodes on graph"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 31,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": true,
+        "label": "Remove selected nodes"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 32,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Snap node positions to grid"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 33,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Add text node"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 34,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": true,
+        "label": "Animate edges between nodes"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 35,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": true,
+        "label": "Layout nodes by current color"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 36,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": true,
+        "label": "Group nodes by current color"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 37,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Legend view"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 38,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": true,
+        "label": ""
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 39,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Toggle minimap"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 40,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Zoom in (scroll up)"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 41,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Zoom out (scroll down)"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 42,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Zoom to fit (↑)"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 43,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": true,
+        "label": "0 nodes selected"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 44,
+        "tag": "div",
+        "role": "tab",
+        "href": null,
+        "disabled": true,
+        "label": "Preview"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 45,
+        "tag": "div",
+        "role": "tab",
+        "href": null,
+        "disabled": true,
+        "label": "SQL scratchpad"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 46,
+        "tag": "div",
+        "role": "tab",
+        "href": null,
+        "disabled": true,
+        "label": "History"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 47,
+        "tag": "div",
+        "role": "tab",
+        "href": null,
+        "disabled": true,
+        "label": "Code"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 48,
+        "tag": "div",
+        "role": "tab",
+        "href": null,
+        "disabled": false,
+        "label": "Build timeline"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 49,
+        "tag": "div",
+        "role": "tab",
+        "href": null,
+        "disabled": false,
+        "label": "Data health"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 50,
+        "tag": "button",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Expand bottom bar"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 51,
+        "tag": "div",
+        "role": "tab",
+        "href": null,
+        "disabled": false,
+        "label": "Search Foundry"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 52,
+        "tag": "div",
+        "role": "tab",
+        "href": null,
+        "disabled": false,
+        "label": "View node properties"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 53,
+        "tag": "div",
+        "role": "tab",
+        "href": null,
+        "disabled": false,
+        "label": "Manage builds"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 54,
+        "tag": "div",
+        "role": "tab",
+        "href": null,
+        "disabled": false,
+        "label": "Manage schedules"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 55,
+        "tag": "div",
+        "role": "tab",
+        "href": null,
+        "disabled": false,
+        "label": "Access information"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 56,
+        "tag": "div",
+        "role": "tab",
+        "href": null,
+        "disabled": false,
+        "label": "Related items"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 57,
+        "tag": "button",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Expand sidebar"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n0",
+      "to": "back-stack",
+      "control": null,
+      "action": "back",
+      "outcome": "navigated"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 0,
+        "tag": "button",
+        "role": null,
+        "href": null,
+        "disabled": false,
+        "label": "Skip to content"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 1,
+        "tag": "button",
+        "role": null,
+        "href": null,
+        "disabled": false,
+        "label": "Open Foundry sidebar"
+      },
+      "action": "click",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 2,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/aip",
+        "disabled": false,
+        "label": ""
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 3,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": ""
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 4,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": ""
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 5,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Gift Icon"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 6,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": ""
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 7,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/compass",
+        "disabled": false,
+        "label": ""
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 8,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/hubble",
+        "disabled": false,
+        "label": ""
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 9,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": ""
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 10,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": ""
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 11,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": ""
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": "visited",
+      "control": {
+        "index": 12,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/monocle",
+        "disabled": false,
+        "label": "Data Lineage Home"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 13,
+        "tag": "button",
+        "role": null,
+        "href": null,
+        "disabled": true,
+        "label": "Workflow Lineage"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 14,
+        "tag": "button",
+        "role": null,
+        "href": null,
+        "disabled": false,
+        "label": "Main"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 15,
+        "tag": "button",
+        "role": null,
+        "href": null,
+        "disabled": false,
+        "label": "Fallback branches"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 16,
+        "tag": "button",
+        "role": null,
+        "href": null,
+        "disabled": false,
+        "label": "Keyboard shortcuts"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 17,
+        "tag": "button",
+        "role": null,
+        "href": null,
+        "disabled": false,
+        "label": "User settings"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 18,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": true,
+        "label": "000"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 19,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": true,
+        "label": "Save as"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 20,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": true,
+        "label": "Save and Load Options"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 21,
+        "tag": "a",
+        "role": "button",
+        "href": "https://www.palantir.com/docs/foundry/data-lineage/overview/",
+        "disabled": false,
+        "label": "Read documentation"
+      },
+      "action": "goto",
+      "outcome": "boundary-external-origin"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 22,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Layout actions"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 23,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": true,
+        "label": "Undo"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 24,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": true,
+        "label": "Redo"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 25,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": true,
+        "label": "Remove trash/off-branch nodes"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 26,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Select nodes"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 27,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": true,
+        "label": "Add parents or children"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 28,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": true,
+        "label": "Color nodes"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 29,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Find nodes on graph"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 30,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": true,
+        "label": "Remove selected nodes"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 31,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Snap node positions to grid"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 32,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Add text node"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 33,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": true,
+        "label": "Animate edges between nodes"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 34,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": true,
+        "label": "Layout nodes by current color"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 35,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": true,
+        "label": "Group nodes by current color"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 36,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Legend view"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 37,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": true,
+        "label": ""
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 38,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Toggle minimap"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 39,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Zoom in (scroll up)"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 40,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Zoom out (scroll down)"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 41,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Zoom to fit (↑)"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 42,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": true,
+        "label": "0 nodes selected"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 43,
+        "tag": "div",
+        "role": "tab",
+        "href": null,
+        "disabled": true,
+        "label": "Preview"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 44,
+        "tag": "div",
+        "role": "tab",
+        "href": null,
+        "disabled": true,
+        "label": "SQL scratchpad"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 45,
+        "tag": "div",
+        "role": "tab",
+        "href": null,
+        "disabled": true,
+        "label": "History"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 46,
+        "tag": "div",
+        "role": "tab",
+        "href": null,
+        "disabled": true,
+        "label": "Code"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 47,
+        "tag": "div",
+        "role": "tab",
+        "href": null,
+        "disabled": false,
+        "label": "Build timeline"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 48,
+        "tag": "div",
+        "role": "tab",
+        "href": null,
+        "disabled": false,
+        "label": "Data health"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 49,
+        "tag": "button",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Expand bottom bar"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 50,
+        "tag": "div",
+        "role": "tab",
+        "href": null,
+        "disabled": false,
+        "label": "Search Foundry"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 51,
+        "tag": "div",
+        "role": "tab",
+        "href": null,
+        "disabled": false,
+        "label": "View node properties"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 52,
+        "tag": "div",
+        "role": "tab",
+        "href": null,
+        "disabled": false,
+        "label": "Manage builds"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 53,
+        "tag": "div",
+        "role": "tab",
+        "href": null,
+        "disabled": false,
+        "label": "Manage schedules"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 54,
+        "tag": "div",
+        "role": "tab",
+        "href": null,
+        "disabled": false,
+        "label": "Access information"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 55,
+        "tag": "div",
+        "role": "tab",
+        "href": null,
+        "disabled": false,
+        "label": "Related items"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 56,
+        "tag": "button",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Expand sidebar"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": "back-stack",
+      "control": null,
+      "action": "back",
+      "outcome": "navigated"
+    },
+    {
+      "from": "n2",
+      "to": "n2",
+      "control": {
+        "index": 0,
+        "tag": "a",
+        "role": null,
+        "href": "#main-content",
+        "disabled": false,
+        "label": "Skip to main content"
+      },
+      "action": "goto",
+      "outcome": "navigated"
+    },
+    {
+      "from": "n2",
+      "to": null,
+      "control": {
+        "index": 1,
+        "tag": "a",
+        "role": null,
+        "href": "/",
+        "disabled": false,
+        "label": "Back to dashboard"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n2",
+      "to": "back-stack",
+      "control": null,
+      "action": "back",
+      "outcome": "navigated"
+    }
+  ],
+  "blockers": [],
+  "replay": {
+    "walked_all_edges": true,
+    "walked_at": "2026-08-09T16:47:52.658Z",
+    "problems": []
+  },
+  "complete_interaction_route_graph": true,
+  "shots_dir": ".artifacts/seed-graph-shots/provenance/lineage",
+  "content_address": "ed9858d10fb2706a653de63317a0ce96a7845b0a60011cd98a8041ebf6ff5f56"
+}

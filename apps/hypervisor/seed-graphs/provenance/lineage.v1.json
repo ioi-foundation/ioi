@@ -1,0 +1,280 @@
+{
+  "schema_version": "ioi.hypervisor.seed-interaction-route-graph.v1",
+  "surface": "provenance",
+  "slug": "lineage",
+  "owned_route": "/__ioi/lineage",
+  "capture_route": null,
+  "runtime": {
+    "serve_url": "http://127.0.0.1:4173",
+    "capture_url": null
+  },
+  "captured_at": "2026-08-09T16:42:08.059Z",
+  "quarantine": {
+    "network_policy": "local-only",
+    "corpus_mutation": "denied",
+    "html_injection": "denied",
+    "spa_fallback": "denied",
+    "allowed_origins": [
+      "http://127.0.0.1:4173",
+      "http://localhost:4173",
+      "http://127.0.0.1:9225",
+      "http://localhost:9225"
+    ],
+    "violations": []
+  },
+  "nodes": [
+    {
+      "id": "n0",
+      "kind": "route",
+      "signature": "/__ioi/lineage#open=0|H1:Data lineage",
+      "url": "/__ioi/lineage",
+      "title": "Data lineage · Hypervisor",
+      "entry_edge": null,
+      "controls": 6,
+      "disabled_controls": 0,
+      "screenshot": {
+        "sha256": "09a0d906a67759e05a8b2621d884368c4ffcdf9631fcc04d38fe6230d94d8b59",
+        "posture": "1440x900-light"
+      },
+      "console_errors": [],
+      "posture_matrix": [
+        {
+          "sha256": "09a0d906a67759e05a8b2621d884368c4ffcdf9631fcc04d38fe6230d94d8b59",
+          "posture": "1440x900-dark"
+        },
+        {
+          "sha256": "656f5fce6cc879721c51ad4f7cebc627f73efd7d7fa1b402d29b89286384a4bf",
+          "posture": "390x844-light-reduced-motion"
+        }
+      ]
+    },
+    {
+      "id": "n1",
+      "kind": "route",
+      "signature": "/__ioi/lineage?ontology=ont_18ca2757d28a20f7#open=0|H1:Data lineage",
+      "url": "/__ioi/lineage?ontology=ont_18ca2757d28a20f7",
+      "title": "Data lineage · Hypervisor",
+      "entry_edge": {
+        "from": "n0",
+        "control": {
+          "index": 3,
+          "tag": "a",
+          "role": null,
+          "href": "/__ioi/lineage?ontology=ont_18ca2757d28a20f7",
+          "disabled": false,
+          "label": "probe-reencode"
+        }
+      },
+      "controls": 6,
+      "disabled_controls": 0,
+      "screenshot": {
+        "sha256": "09a0d906a67759e05a8b2621d884368c4ffcdf9631fcc04d38fe6230d94d8b59",
+        "posture": "1440x900-light"
+      },
+      "console_errors": [],
+      "posture_matrix": [
+        {
+          "sha256": "09a0d906a67759e05a8b2621d884368c4ffcdf9631fcc04d38fe6230d94d8b59",
+          "posture": "1440x900-dark"
+        },
+        {
+          "sha256": "656f5fce6cc879721c51ad4f7cebc627f73efd7d7fa1b402d29b89286384a4bf",
+          "posture": "390x844-light-reduced-motion"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 0,
+        "tag": "a",
+        "role": null,
+        "href": "/__apps/lineage",
+        "disabled": false,
+        "label": "Monocle lineage ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 1,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/vertex?ontology=ont_18ca2757d28a20f7",
+        "disabled": false,
+        "label": "Explore graph"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 2,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/pipeline?ontology=ont_18ca2757d28a20f7",
+        "disabled": false,
+        "label": "Open pipeline"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": "n1",
+      "control": {
+        "index": 3,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/lineage?ontology=ont_18ca2757d28a20f7",
+        "disabled": false,
+        "label": "probe-reencode"
+      },
+      "action": "goto",
+      "outcome": "navigated"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 4,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/pipeline?ontology=ont_18ca2757d28a20f7",
+        "disabled": false,
+        "label": "Pipeline Builder"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 5,
+        "tag": "a",
+        "role": null,
+        "href": "/__apps/lineage",
+        "disabled": false,
+        "label": "Monocle reference capture ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": "back-stack",
+      "control": null,
+      "action": "back",
+      "outcome": "navigated"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 0,
+        "tag": "a",
+        "role": null,
+        "href": "/__apps/lineage",
+        "disabled": false,
+        "label": "Monocle lineage ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 1,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/vertex?ontology=ont_18ca2757d28a20f7",
+        "disabled": false,
+        "label": "Explore graph"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 2,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/pipeline?ontology=ont_18ca2757d28a20f7",
+        "disabled": false,
+        "label": "Open pipeline"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": "visited",
+      "control": {
+        "index": 3,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/lineage?ontology=ont_18ca2757d28a20f7",
+        "disabled": false,
+        "label": "probe-reencode"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 4,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/pipeline?ontology=ont_18ca2757d28a20f7",
+        "disabled": false,
+        "label": "Pipeline Builder"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 5,
+        "tag": "a",
+        "role": null,
+        "href": "/__apps/lineage",
+        "disabled": false,
+        "label": "Monocle reference capture ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": "back-stack",
+      "control": null,
+      "action": "back",
+      "outcome": "navigated"
+    }
+  ],
+  "blockers": [],
+  "replay": {
+    "walked_all_edges": true,
+    "walked_at": "2026-08-09T16:42:10.651Z",
+    "problems": []
+  },
+  "complete_interaction_route_graph": true,
+  "shots_dir": ".artifacts/seed-graph-shots/provenance/lineage",
+  "content_address": "a5e9a92ddb4554ed6ac8e7900fe701247524810763f29a5f92e00bb85a695ed0"
+}

@@ -1,0 +1,2123 @@
+{
+  "schema_version": "ioi.hypervisor.seed-interaction-route-graph.v1",
+  "surface": "data",
+  "slug": "pipeline",
+  "owned_route": "/__apps/pipeline",
+  "capture_route": "/workspace/builder/",
+  "runtime": {
+    "serve_url": "http://127.0.0.1:4173",
+    "capture_url": "http://127.0.0.1:9225"
+  },
+  "captured_at": "2026-08-09T16:42:40.569Z",
+  "quarantine": {
+    "network_policy": "local-only",
+    "corpus_mutation": "denied",
+    "html_injection": "denied",
+    "spa_fallback": "denied",
+    "allowed_origins": [
+      "http://127.0.0.1:4173",
+      "http://localhost:4173",
+      "http://127.0.0.1:9225",
+      "http://localhost:9225"
+    ],
+    "violations": []
+  },
+  "nodes": [
+    {
+      "id": "n0",
+      "kind": "route",
+      "signature": "/__apps/pipeline#open=2|DIV:Applications",
+      "url": "/__apps/pipeline",
+      "title": "Pipeline Builder",
+      "entry_edge": null,
+      "controls": 18,
+      "disabled_controls": 0,
+      "screenshot": {
+        "sha256": "c68f1c489214de8306b84aebea3edafc32b6c4618ccecdb71f82ce85cab27317",
+        "posture": "1440x900-light"
+      },
+      "console_errors": [
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "r",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+      ],
+      "posture_matrix": [
+        {
+          "sha256": "40ec228e5af425926e9b5f34f8d7aba5ed87b52dae2451374031c83fdb60a4f4",
+          "posture": "1440x900-dark"
+        },
+        {
+          "sha256": "4c292e147e2e7a4cc117e56f8be6b69dd3be2d511c4ddd900a6481b733155ce1",
+          "posture": "390x844-light-reduced-motion"
+        }
+      ]
+    },
+    {
+      "id": "n1",
+      "kind": "state",
+      "signature": "/__apps/pipeline#open=1|DIV:Applications",
+      "url": "/__apps/pipeline",
+      "title": "Pipeline Builder",
+      "entry_edge": {
+        "from": "n0",
+        "control": {
+          "index": 2,
+          "tag": "button",
+          "role": null,
+          "href": null,
+          "disabled": false,
+          "label": "Collapse Foundry sidebar"
+        }
+      },
+      "controls": 17,
+      "disabled_controls": 0,
+      "screenshot": {
+        "sha256": "0198e37de9b1d11bc94b6204c6581c4202225356fbd7983e9856b3379d8e6080",
+        "posture": "1440x900-light"
+      },
+      "console_errors": [
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+      ]
+    },
+    {
+      "id": "n2",
+      "kind": "state",
+      "signature": "/__apps/pipeline#open=2|DIV:Applications|UL:",
+      "url": "/__apps/pipeline",
+      "title": "Pipeline Builder",
+      "entry_edge": {
+        "from": "n0",
+        "control": {
+          "index": 10,
+          "tag": "div",
+          "role": "button",
+          "href": null,
+          "disabled": false,
+          "label": "Applications"
+        }
+      },
+      "controls": 20,
+      "disabled_controls": 3,
+      "screenshot": {
+        "sha256": "9b5244bddf646e1c40128a293541dcb463395578062be2eb1823b627c61a3f06",
+        "posture": "1440x900-light"
+      },
+      "console_errors": [
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "r",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+      ]
+    },
+    {
+      "id": "n3",
+      "kind": "route",
+      "signature": "/workspace/builder/#open=2|DIV:Applications",
+      "url": "/workspace/builder/",
+      "title": "Pipeline Builder",
+      "entry_edge": {
+        "from": "n0",
+        "control": {
+          "index": 12,
+          "tag": "div",
+          "role": "button",
+          "href": null,
+          "disabled": false,
+          "label": "Account"
+        }
+      },
+      "controls": 17,
+      "disabled_controls": 0,
+      "screenshot": {
+        "sha256": "c1314c0eb7da4167bbbcb5925eec84d05334ddc278f1e8e810ce26f5e06b3233",
+        "posture": "1440x900-light"
+      },
+      "console_errors": [
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+      ],
+      "posture_matrix": [
+        {
+          "sha256": "233ba9dd6c71ceaef1566d7362d3fba0ffa27a6fea79a2d8cbeec76c77a74d35",
+          "posture": "1440x900-dark"
+        },
+        {
+          "sha256": "01cc016be4944272fc620228a44e10213042fd93af276e14cf62fcc368ea20a6",
+          "posture": "390x844-light-reduced-motion"
+        }
+      ]
+    },
+    {
+      "id": "n4",
+      "kind": "route",
+      "signature": "/workspace/builder#open=1|DIV:What's newUser budgets for AI usageJune 10, 2026Enterprise a",
+      "url": "/workspace/builder",
+      "title": "IOI",
+      "entry_edge": {
+        "from": "n0",
+        "control": {
+          "index": 13,
+          "tag": "a",
+          "role": null,
+          "href": "/workspace/builder",
+          "disabled": false,
+          "label": "Pipeline Builder Home"
+        }
+      },
+      "controls": 2,
+      "disabled_controls": 0,
+      "screenshot": {
+        "sha256": "c3f82ca67ced9ec060391786d6f5628fdc5259de4d5deeb397a55364921b8e9a",
+        "posture": "1440x900-light"
+      },
+      "console_errors": [
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "r",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+      ],
+      "posture_matrix": [
+        {
+          "sha256": "233ba9dd6c71ceaef1566d7362d3fba0ffa27a6fea79a2d8cbeec76c77a74d35",
+          "posture": "1440x900-dark"
+        },
+        {
+          "sha256": "01cc016be4944272fc620228a44e10213042fd93af276e14cf62fcc368ea20a6",
+          "posture": "390x844-light-reduced-motion"
+        }
+      ]
+    },
+    {
+      "id": "n5",
+      "kind": "state",
+      "signature": "/__apps/pipeline#open=4|DIV:Applications|UL:Loading projectsLoading projectsLoading projects",
+      "url": "/__apps/pipeline",
+      "title": "Pipeline Builder",
+      "entry_edge": {
+        "from": "n0",
+        "control": {
+          "index": 14,
+          "tag": "a",
+          "role": "button",
+          "href": null,
+          "disabled": false,
+          "label": "Recents"
+        }
+      },
+      "controls": 20,
+      "disabled_controls": 3,
+      "screenshot": {
+        "sha256": "a22e12928b521c560842901e6375326fff7375b20434b1bee1717fa6733931b6",
+        "posture": "1440x900-light"
+      },
+      "console_errors": [
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "r",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+      ]
+    },
+    {
+      "id": "n6",
+      "kind": "route",
+      "signature": "/workspace/builder/create-pipeline#open=2|DIV:Applications",
+      "url": "/workspace/builder/create-pipeline",
+      "title": "Pipeline Builder",
+      "entry_edge": {
+        "from": "n0",
+        "control": {
+          "index": 16,
+          "tag": "a",
+          "role": "button",
+          "href": null,
+          "disabled": false,
+          "label": "Created by…"
+        }
+      },
+      "controls": 19,
+      "disabled_controls": 1,
+      "screenshot": {
+        "sha256": "275875dca8217424364aa15c85eaf94838cee8b4421315f341372c4e426935d3",
+        "posture": "1440x900-light"
+      },
+      "console_errors": [
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "%c ERROR %c foundry.objects.async-select.SelectComponentMechanism %cFailed to fetch options for the given query. padding: 2px 0px; background: #E47A2E; color: #f5f8fa; border-radius: 10px; font-weight"
+      ],
+      "posture_matrix": [
+        {
+          "sha256": "233ba9dd6c71ceaef1566d7362d3fba0ffa27a6fea79a2d8cbeec76c77a74d35",
+          "posture": "1440x900-dark"
+        },
+        {
+          "sha256": "01cc016be4944272fc620228a44e10213042fd93af276e14cf62fcc368ea20a6",
+          "posture": "390x844-light-reduced-motion"
+        }
+      ]
+    },
+    {
+      "id": "n7",
+      "kind": "route",
+      "signature": "/workspace/builder/create-pipeline#open=1|DIV:What's newUser budgets for AI usageJune 10, 2026Enterprise a",
+      "url": "/workspace/builder/create-pipeline",
+      "title": "IOI",
+      "entry_edge": {
+        "from": "n0",
+        "control": {
+          "index": 17,
+          "tag": "a",
+          "role": "button",
+          "href": "/workspace/builder/create-pipeline",
+          "disabled": false,
+          "label": "New pipeline"
+        }
+      },
+      "controls": 2,
+      "disabled_controls": 0,
+      "screenshot": {
+        "sha256": "c3f82ca67ced9ec060391786d6f5628fdc5259de4d5deeb397a55364921b8e9a",
+        "posture": "1440x900-light"
+      },
+      "console_errors": [
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "r",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+      ],
+      "posture_matrix": [
+        {
+          "sha256": "233ba9dd6c71ceaef1566d7362d3fba0ffa27a6fea79a2d8cbeec76c77a74d35",
+          "posture": "1440x900-dark"
+        },
+        {
+          "sha256": "01cc016be4944272fc620228a44e10213042fd93af276e14cf62fcc368ea20a6",
+          "posture": "390x844-light-reduced-motion"
+        }
+      ]
+    },
+    {
+      "id": "n8",
+      "kind": "route",
+      "signature": "/workspace/builder/#open=1|DIV:What's newUser budgets for AI usageJune 10, 2026Enterprise a",
+      "url": "/workspace/builder/",
+      "title": "IOI",
+      "entry_edge": {
+        "from": "n6",
+        "control": {
+          "index": 17,
+          "tag": "a",
+          "role": "button",
+          "href": "/workspace/builder/",
+          "disabled": false,
+          "label": "Back"
+        }
+      },
+      "controls": 2,
+      "disabled_controls": 0,
+      "screenshot": {
+        "sha256": "c3f82ca67ced9ec060391786d6f5628fdc5259de4d5deeb397a55364921b8e9a",
+        "posture": "1440x900-light"
+      },
+      "console_errors": [
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "r",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+      ],
+      "posture_matrix": [
+        {
+          "sha256": "233ba9dd6c71ceaef1566d7362d3fba0ffa27a6fea79a2d8cbeec76c77a74d35",
+          "posture": "1440x900-dark"
+        },
+        {
+          "sha256": "01cc016be4944272fc620228a44e10213042fd93af276e14cf62fcc368ea20a6",
+          "posture": "390x844-light-reduced-motion"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 0,
+        "tag": "button",
+        "role": null,
+        "href": null,
+        "disabled": false,
+        "label": "Skip to content"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 1,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/aip",
+        "disabled": false,
+        "label": "Home"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": "n1",
+      "control": {
+        "index": 2,
+        "tag": "button",
+        "role": null,
+        "href": null,
+        "disabled": false,
+        "label": "Collapse Foundry sidebar"
+      },
+      "action": "click",
+      "outcome": "state-change"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 3,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/aip",
+        "disabled": false,
+        "label": "Home"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 4,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Search…ctrl + J"
+      },
+      "action": "click",
+      "outcome": "blocked-write-attempt",
+      "detail": {
+        "url": "http://127.0.0.1:4173/graphql-gateway/api/graphql?q=NotificationsPopoverQuery",
+        "method": "POST"
+      }
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 5,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Notifications"
+      },
+      "action": "click",
+      "outcome": "blocked-write-attempt",
+      "detail": {
+        "url": "http://127.0.0.1:4173/log-receiver/api/beacon",
+        "method": "POST"
+      }
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 6,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Gift IconWhat's New"
+      },
+      "action": "click",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 7,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Recent"
+      },
+      "action": "click",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 8,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/compass",
+        "disabled": false,
+        "label": "Files"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 9,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/hubble",
+        "disabled": false,
+        "label": "Ontology"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": "n2",
+      "control": {
+        "index": 10,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Applications"
+      },
+      "action": "click",
+      "outcome": "state-change"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 11,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Support"
+      },
+      "action": "click",
+      "outcome": "blocked-write-attempt",
+      "detail": {
+        "url": "http://127.0.0.1:4173/graphql-gateway/api/graphql?q=AccountEntryPopoverContentQuery",
+        "method": "POST"
+      }
+    },
+    {
+      "from": "n0",
+      "to": "n3",
+      "control": {
+        "index": 12,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Account"
+      },
+      "action": "click",
+      "outcome": "navigated"
+    },
+    {
+      "from": "n0",
+      "to": "n4",
+      "control": {
+        "index": 13,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/builder",
+        "disabled": false,
+        "label": "Pipeline Builder Home"
+      },
+      "action": "goto",
+      "outcome": "navigated"
+    },
+    {
+      "from": "n0",
+      "to": "n5",
+      "control": {
+        "index": 14,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Recents"
+      },
+      "action": "click",
+      "outcome": "state-change"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 15,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Project"
+      },
+      "action": "click",
+      "outcome": "blocked-write-attempt",
+      "detail": {
+        "url": "http://127.0.0.1:4173/graphql-gateway/api/graphql/batch",
+        "method": "POST"
+      }
+    },
+    {
+      "from": "n0",
+      "to": "n6",
+      "control": {
+        "index": 16,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Created by…"
+      },
+      "action": "click",
+      "outcome": "navigated"
+    },
+    {
+      "from": "n0",
+      "to": "n7",
+      "control": {
+        "index": 17,
+        "tag": "a",
+        "role": "button",
+        "href": "/workspace/builder/create-pipeline",
+        "disabled": false,
+        "label": "New pipeline"
+      },
+      "action": "goto",
+      "outcome": "navigated"
+    },
+    {
+      "from": "n0",
+      "to": "back-stack",
+      "control": null,
+      "action": "back",
+      "outcome": "navigated"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 0,
+        "tag": "button",
+        "role": null,
+        "href": null,
+        "disabled": false,
+        "label": "Skip to content"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 1,
+        "tag": "button",
+        "role": null,
+        "href": null,
+        "disabled": false,
+        "label": "Open Foundry sidebar"
+      },
+      "action": "click",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 2,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/aip",
+        "disabled": false,
+        "label": ""
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 3,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": ""
+      },
+      "action": "click",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 4,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": ""
+      },
+      "action": "click",
+      "outcome": "blocked-write-attempt",
+      "detail": {
+        "url": "http://127.0.0.1:4173/graphql-gateway/api/graphql?q=UseTitleSearchQuery",
+        "method": "POST"
+      }
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 5,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Gift Icon"
+      },
+      "action": "click",
+      "outcome": "blocked-write-attempt",
+      "detail": {
+        "url": "http://127.0.0.1:4173/graphql-gateway/api/graphql?q=NotificationsPopoverQuery",
+        "method": "POST"
+      }
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 6,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": ""
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 7,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/compass",
+        "disabled": false,
+        "label": ""
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 8,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/hubble",
+        "disabled": false,
+        "label": ""
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 9,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": ""
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 10,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": ""
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 11,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": ""
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": "visited",
+      "control": {
+        "index": 12,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/builder",
+        "disabled": false,
+        "label": "Pipeline Builder Home"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 13,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Recents"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 14,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Project"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 15,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Created by…"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": "visited",
+      "control": {
+        "index": 16,
+        "tag": "a",
+        "role": "button",
+        "href": "/workspace/builder/create-pipeline",
+        "disabled": false,
+        "label": "New pipeline"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n1",
+      "to": "back-stack",
+      "control": null,
+      "action": "back",
+      "outcome": "navigated"
+    },
+    {
+      "from": "n2",
+      "to": null,
+      "control": {
+        "index": 0,
+        "tag": "button",
+        "role": null,
+        "href": null,
+        "disabled": false,
+        "label": "Skip to content"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n2",
+      "to": null,
+      "control": {
+        "index": 1,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/aip",
+        "disabled": false,
+        "label": "Home"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n2",
+      "to": "n2",
+      "control": {
+        "index": 2,
+        "tag": "button",
+        "role": null,
+        "href": null,
+        "disabled": false,
+        "label": "Collapse Foundry sidebar"
+      },
+      "action": "click",
+      "outcome": "noop"
+    },
+    {
+      "from": "n2",
+      "to": null,
+      "control": {
+        "index": 3,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/aip",
+        "disabled": false,
+        "label": "Home"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n2",
+      "to": null,
+      "control": {
+        "index": 4,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Search…ctrl + J"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n2",
+      "to": null,
+      "control": {
+        "index": 5,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Notifications"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n2",
+      "to": null,
+      "control": {
+        "index": 6,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Recent"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n2",
+      "to": null,
+      "control": {
+        "index": 7,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/compass",
+        "disabled": false,
+        "label": "Files"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n2",
+      "to": null,
+      "control": {
+        "index": 8,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/hubble",
+        "disabled": false,
+        "label": "Ontology"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n2",
+      "to": null,
+      "control": {
+        "index": 9,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Applications"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n2",
+      "to": null,
+      "control": {
+        "index": 10,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Support"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n2",
+      "to": null,
+      "control": {
+        "index": 11,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Account"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n2",
+      "to": "visited",
+      "control": {
+        "index": 12,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/builder",
+        "disabled": false,
+        "label": "Pipeline Builder Home"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n2",
+      "to": null,
+      "control": {
+        "index": 13,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Recents"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n2",
+      "to": null,
+      "control": {
+        "index": 14,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Project"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n2",
+      "to": null,
+      "control": {
+        "index": 15,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Created by…"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n2",
+      "to": "visited",
+      "control": {
+        "index": 16,
+        "tag": "a",
+        "role": "button",
+        "href": "/workspace/builder/create-pipeline",
+        "disabled": false,
+        "label": "New pipeline"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n2",
+      "to": null,
+      "control": {
+        "index": 17,
+        "tag": "a",
+        "role": "menuitem",
+        "href": null,
+        "disabled": true,
+        "label": ""
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n2",
+      "to": null,
+      "control": {
+        "index": 18,
+        "tag": "a",
+        "role": "menuitem",
+        "href": null,
+        "disabled": true,
+        "label": ""
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n2",
+      "to": null,
+      "control": {
+        "index": 19,
+        "tag": "a",
+        "role": "menuitem",
+        "href": null,
+        "disabled": true,
+        "label": ""
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n2",
+      "to": "back-stack",
+      "control": null,
+      "action": "back",
+      "outcome": "navigated"
+    },
+    {
+      "from": "n3",
+      "to": null,
+      "control": {
+        "index": 0,
+        "tag": "button",
+        "role": null,
+        "href": null,
+        "disabled": false,
+        "label": "Skip to content"
+      },
+      "action": "click",
+      "outcome": "blocked-write-attempt",
+      "detail": {
+        "url": "http://127.0.0.1:4173/graphql-gateway/api/graphql/batch",
+        "method": "POST"
+      }
+    },
+    {
+      "from": "n3",
+      "to": null,
+      "control": {
+        "index": 1,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/aip",
+        "disabled": false,
+        "label": "Home"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n3",
+      "to": "n1",
+      "control": {
+        "index": 2,
+        "tag": "button",
+        "role": null,
+        "href": null,
+        "disabled": false,
+        "label": "Collapse Foundry sidebar"
+      },
+      "action": "click",
+      "outcome": "navigated"
+    },
+    {
+      "from": "n3",
+      "to": null,
+      "control": {
+        "index": 3,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/aip",
+        "disabled": false,
+        "label": "Home"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n3",
+      "to": null,
+      "control": {
+        "index": 4,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Search…ctrl + J"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n3",
+      "to": null,
+      "control": {
+        "index": 5,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Notifications"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n3",
+      "to": null,
+      "control": {
+        "index": 6,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Recent"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n3",
+      "to": null,
+      "control": {
+        "index": 7,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/compass",
+        "disabled": false,
+        "label": "Files"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n3",
+      "to": null,
+      "control": {
+        "index": 8,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/hubble",
+        "disabled": false,
+        "label": "Ontology"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n3",
+      "to": null,
+      "control": {
+        "index": 9,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Applications"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n3",
+      "to": null,
+      "control": {
+        "index": 10,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Support"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n3",
+      "to": null,
+      "control": {
+        "index": 11,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Account"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n3",
+      "to": "visited",
+      "control": {
+        "index": 12,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/builder",
+        "disabled": false,
+        "label": "Pipeline Builder Home"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n3",
+      "to": null,
+      "control": {
+        "index": 13,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Recents"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n3",
+      "to": null,
+      "control": {
+        "index": 14,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Project"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n3",
+      "to": null,
+      "control": {
+        "index": 15,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Created by…"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n3",
+      "to": "visited",
+      "control": {
+        "index": 16,
+        "tag": "a",
+        "role": "button",
+        "href": "/workspace/builder/create-pipeline",
+        "disabled": false,
+        "label": "New pipeline"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n3",
+      "to": "back-stack",
+      "control": null,
+      "action": "back",
+      "outcome": "navigated"
+    },
+    {
+      "from": "n4",
+      "to": "n4",
+      "control": {
+        "index": 0,
+        "tag": "a",
+        "role": null,
+        "href": "#main-content",
+        "disabled": false,
+        "label": "Skip to main content"
+      },
+      "action": "goto",
+      "outcome": "navigated"
+    },
+    {
+      "from": "n4",
+      "to": null,
+      "control": {
+        "index": 1,
+        "tag": "a",
+        "role": null,
+        "href": "/",
+        "disabled": false,
+        "label": "Back to dashboard"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n4",
+      "to": "back-stack",
+      "control": null,
+      "action": "back",
+      "outcome": "navigated"
+    },
+    {
+      "from": "n5",
+      "to": null,
+      "control": {
+        "index": 0,
+        "tag": "button",
+        "role": null,
+        "href": null,
+        "disabled": false,
+        "label": "Skip to content"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n5",
+      "to": null,
+      "control": {
+        "index": 1,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/aip",
+        "disabled": false,
+        "label": "Home"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n5",
+      "to": null,
+      "control": {
+        "index": 2,
+        "tag": "button",
+        "role": null,
+        "href": null,
+        "disabled": false,
+        "label": "Collapse Foundry sidebar"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n5",
+      "to": null,
+      "control": {
+        "index": 3,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/aip",
+        "disabled": false,
+        "label": "Home"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n5",
+      "to": null,
+      "control": {
+        "index": 4,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Search…ctrl + J"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n5",
+      "to": null,
+      "control": {
+        "index": 5,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Notifications"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n5",
+      "to": null,
+      "control": {
+        "index": 6,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Recent"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n5",
+      "to": null,
+      "control": {
+        "index": 7,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/compass",
+        "disabled": false,
+        "label": "Files"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n5",
+      "to": null,
+      "control": {
+        "index": 8,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/hubble",
+        "disabled": false,
+        "label": "Ontology"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n5",
+      "to": null,
+      "control": {
+        "index": 9,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Applications"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n5",
+      "to": null,
+      "control": {
+        "index": 10,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Support"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n5",
+      "to": null,
+      "control": {
+        "index": 11,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Account"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n5",
+      "to": "visited",
+      "control": {
+        "index": 12,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/builder",
+        "disabled": false,
+        "label": "Pipeline Builder Home"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n5",
+      "to": null,
+      "control": {
+        "index": 13,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Recents"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n5",
+      "to": null,
+      "control": {
+        "index": 14,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Project"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n5",
+      "to": null,
+      "control": {
+        "index": 15,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Created by…"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n5",
+      "to": "visited",
+      "control": {
+        "index": 16,
+        "tag": "a",
+        "role": "button",
+        "href": "/workspace/builder/create-pipeline",
+        "disabled": false,
+        "label": "New pipeline"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n5",
+      "to": null,
+      "control": {
+        "index": 17,
+        "tag": "a",
+        "role": "menuitem",
+        "href": null,
+        "disabled": true,
+        "label": "Loading projects"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n5",
+      "to": null,
+      "control": {
+        "index": 18,
+        "tag": "a",
+        "role": "menuitem",
+        "href": null,
+        "disabled": true,
+        "label": "Loading projects"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n5",
+      "to": null,
+      "control": {
+        "index": 19,
+        "tag": "a",
+        "role": "menuitem",
+        "href": null,
+        "disabled": true,
+        "label": "Loading projects"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n5",
+      "to": "back-stack",
+      "control": null,
+      "action": "back",
+      "outcome": "navigated"
+    },
+    {
+      "from": "n6",
+      "to": null,
+      "control": {
+        "index": 0,
+        "tag": "button",
+        "role": null,
+        "href": null,
+        "disabled": false,
+        "label": "Skip to content"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n6",
+      "to": null,
+      "control": {
+        "index": 1,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/aip",
+        "disabled": false,
+        "label": "Home"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n6",
+      "to": "n1",
+      "control": {
+        "index": 2,
+        "tag": "button",
+        "role": null,
+        "href": null,
+        "disabled": false,
+        "label": "Collapse Foundry sidebar"
+      },
+      "action": "click",
+      "outcome": "navigated"
+    },
+    {
+      "from": "n6",
+      "to": null,
+      "control": {
+        "index": 3,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/aip",
+        "disabled": false,
+        "label": "Home"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n6",
+      "to": null,
+      "control": {
+        "index": 4,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Search…ctrl + J"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n6",
+      "to": null,
+      "control": {
+        "index": 5,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Notifications"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n6",
+      "to": null,
+      "control": {
+        "index": 6,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Recent"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n6",
+      "to": null,
+      "control": {
+        "index": 7,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/compass",
+        "disabled": false,
+        "label": "Files"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n6",
+      "to": null,
+      "control": {
+        "index": 8,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/hubble",
+        "disabled": false,
+        "label": "Ontology"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n6",
+      "to": null,
+      "control": {
+        "index": 9,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Applications"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n6",
+      "to": null,
+      "control": {
+        "index": 10,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Support"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n6",
+      "to": null,
+      "control": {
+        "index": 11,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Account"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n6",
+      "to": null,
+      "control": {
+        "index": 12,
+        "tag": "button",
+        "role": null,
+        "href": null,
+        "disabled": false,
+        "label": "Select location"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n6",
+      "to": null,
+      "control": {
+        "index": 13,
+        "tag": "button",
+        "role": null,
+        "href": null,
+        "disabled": false,
+        "label": "Create project"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n6",
+      "to": null,
+      "control": {
+        "index": 14,
+        "tag": "button",
+        "role": null,
+        "href": null,
+        "disabled": false,
+        "label": "Compare types"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n6",
+      "to": null,
+      "control": {
+        "index": 15,
+        "tag": "a",
+        "role": null,
+        "href": "/docs/foundry/building-pipelines/create-faster-pipeline-pb/",
+        "disabled": false,
+        "label": "Learn More"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n6",
+      "to": null,
+      "control": {
+        "index": 16,
+        "tag": "a",
+        "role": null,
+        "href": "/docs/foundry/building-pipelines/create-external-pipeline-pb/",
+        "disabled": false,
+        "label": "Learn More"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n6",
+      "to": "n8",
+      "control": {
+        "index": 17,
+        "tag": "a",
+        "role": "button",
+        "href": "/workspace/builder/",
+        "disabled": false,
+        "label": "Back"
+      },
+      "action": "goto",
+      "outcome": "navigated"
+    },
+    {
+      "from": "n6",
+      "to": null,
+      "control": {
+        "index": 18,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": true,
+        "label": "Create pipeline"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n6",
+      "to": "back-stack",
+      "control": null,
+      "action": "back",
+      "outcome": "navigated"
+    },
+    {
+      "from": "n7",
+      "to": null,
+      "control": {
+        "index": 0,
+        "tag": "a",
+        "role": null,
+        "href": "#main-content",
+        "disabled": false,
+        "label": "Skip to main content"
+      },
+      "action": "goto",
+      "outcome": "error",
+      "detail": "no response"
+    },
+    {
+      "from": "n7",
+      "to": null,
+      "control": {
+        "index": 1,
+        "tag": "a",
+        "role": null,
+        "href": "/",
+        "disabled": false,
+        "label": "Back to dashboard"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n7",
+      "to": "back-stack",
+      "control": null,
+      "action": "back",
+      "outcome": "navigated"
+    },
+    {
+      "from": "n8",
+      "to": "n8",
+      "control": {
+        "index": 0,
+        "tag": "a",
+        "role": null,
+        "href": "#main-content",
+        "disabled": false,
+        "label": "Skip to main content"
+      },
+      "action": "goto",
+      "outcome": "navigated"
+    },
+    {
+      "from": "n8",
+      "to": null,
+      "control": {
+        "index": 1,
+        "tag": "a",
+        "role": null,
+        "href": "/",
+        "disabled": false,
+        "label": "Back to dashboard"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n8",
+      "to": "back-stack",
+      "control": null,
+      "action": "back",
+      "outcome": "navigated"
+    }
+  ],
+  "blockers": [
+    {
+      "kind": "unreachable-route",
+      "node": "n7",
+      "reason": "/workspace/builder/create-pipeline: no response"
+    }
+  ],
+  "replay": {
+    "walked_all_edges": true,
+    "walked_at": "2026-08-09T16:42:56.045Z",
+    "problems": []
+  },
+  "complete_interaction_route_graph": false,
+  "shots_dir": ".artifacts/seed-graph-shots/data/pipeline",
+  "content_address": "1805550b845ee2a956e1abe947a55fd3f3c239189cb356c7dd5759b4d8740793"
+}

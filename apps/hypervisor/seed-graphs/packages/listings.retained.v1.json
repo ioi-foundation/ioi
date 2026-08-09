@@ -1,0 +1,723 @@
+{
+  "schema_version": "ioi.hypervisor.seed-interaction-route-graph.v1",
+  "surface": "packages",
+  "slug": "listings",
+  "owned_route": "/__apps/listings",
+  "capture_route": "/workspace/marketplace/",
+  "runtime": {
+    "serve_url": "http://127.0.0.1:4173",
+    "capture_url": "http://127.0.0.1:9225"
+  },
+  "captured_at": "2026-08-09T16:47:25.167Z",
+  "quarantine": {
+    "network_policy": "local-only",
+    "corpus_mutation": "denied",
+    "html_injection": "denied",
+    "spa_fallback": "denied",
+    "allowed_origins": [
+      "http://127.0.0.1:4173",
+      "http://localhost:4173",
+      "http://127.0.0.1:9225",
+      "http://localhost:9225"
+    ],
+    "violations": []
+  },
+  "nodes": [
+    {
+      "id": "n0",
+      "kind": "route",
+      "signature": "/workspace/marketplace/home#open=2|H2:Marketplace|H3:Stores|DIV:Applications",
+      "url": "/workspace/marketplace/home",
+      "title": "Marketplace",
+      "entry_edge": null,
+      "controls": 19,
+      "disabled_controls": 0,
+      "screenshot": {
+        "sha256": "df955982d0c8c3a3019d0712c4ac99d889a2b20889edf7a2b2974a79f483d32c",
+        "posture": "1440x900-light"
+      },
+      "console_errors": [
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+      ],
+      "posture_matrix": [
+        {
+          "sha256": "233ba9dd6c71ceaef1566d7362d3fba0ffa27a6fea79a2d8cbeec76c77a74d35",
+          "posture": "1440x900-dark"
+        },
+        {
+          "sha256": "01cc016be4944272fc620228a44e10213042fd93af276e14cf62fcc368ea20a6",
+          "posture": "390x844-light-reduced-motion"
+        }
+      ]
+    },
+    {
+      "id": "n1",
+      "kind": "state",
+      "signature": "/workspace/marketplace/home#open=1|H2:Marketplace|H3:Stores|DIV:Applications",
+      "url": "/workspace/marketplace/home",
+      "title": "Marketplace",
+      "entry_edge": {
+        "from": "n0",
+        "control": {
+          "index": 2,
+          "tag": "button",
+          "role": null,
+          "href": null,
+          "disabled": false,
+          "label": "Collapse Foundry sidebar"
+        }
+      },
+      "controls": 18,
+      "disabled_controls": 0,
+      "screenshot": {
+        "sha256": "93bcd42dde1fd0ef2a295abb6b6404d3c2423c573ad85cfa6c36e3d87c19d395",
+        "posture": "1440x900-light"
+      },
+      "console_errors": [
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+      ]
+    },
+    {
+      "id": "n2",
+      "kind": "route",
+      "signature": "/workspace/marketplace#open=1|DIV:What's newUser budgets for AI usageJune 10, 2026Enterprise a",
+      "url": "/workspace/marketplace",
+      "title": "IOI",
+      "entry_edge": {
+        "from": "n0",
+        "control": {
+          "index": 13,
+          "tag": "a",
+          "role": null,
+          "href": "/workspace/marketplace",
+          "disabled": false,
+          "label": "Marketplace home page"
+        }
+      },
+      "controls": 2,
+      "disabled_controls": 0,
+      "screenshot": {
+        "sha256": "c3f82ca67ced9ec060391786d6f5628fdc5259de4d5deeb397a55364921b8e9a",
+        "posture": "1440x900-light"
+      },
+      "console_errors": [
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+        "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+      ],
+      "posture_matrix": [
+        {
+          "sha256": "233ba9dd6c71ceaef1566d7362d3fba0ffa27a6fea79a2d8cbeec76c77a74d35",
+          "posture": "1440x900-dark"
+        },
+        {
+          "sha256": "01cc016be4944272fc620228a44e10213042fd93af276e14cf62fcc368ea20a6",
+          "posture": "390x844-light-reduced-motion"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 0,
+        "tag": "button",
+        "role": null,
+        "href": null,
+        "disabled": false,
+        "label": "Skip to content"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 1,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/aip",
+        "disabled": false,
+        "label": "Home"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": "n1",
+      "control": {
+        "index": 2,
+        "tag": "button",
+        "role": null,
+        "href": null,
+        "disabled": false,
+        "label": "Collapse Foundry sidebar"
+      },
+      "action": "click",
+      "outcome": "state-change"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 3,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/aip",
+        "disabled": false,
+        "label": "Home"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 4,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Search…ctrl + J"
+      },
+      "action": "click",
+      "outcome": "blocked-write-attempt",
+      "detail": {
+        "url": "http://127.0.0.1:4173/graphql-gateway/api/graphql?q=NotificationsPopoverQuery",
+        "method": "POST"
+      }
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 5,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Notifications"
+      },
+      "action": "click",
+      "outcome": "blocked-write-attempt",
+      "detail": {
+        "url": "http://127.0.0.1:4173/log-receiver/api/beacon",
+        "method": "POST"
+      }
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 6,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Gift IconWhat's New"
+      },
+      "action": "click",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 7,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Recent"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 8,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/compass",
+        "disabled": false,
+        "label": "Files"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 9,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/hubble",
+        "disabled": false,
+        "label": "Ontology"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 10,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Applications"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 11,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Support"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 12,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Account"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n0",
+      "to": "n2",
+      "control": {
+        "index": 13,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/marketplace",
+        "disabled": false,
+        "label": "Marketplace home page"
+      },
+      "action": "goto",
+      "outcome": "navigated"
+    },
+    {
+      "from": "n0",
+      "to": "visited",
+      "control": {
+        "index": 14,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/marketplace",
+        "disabled": false,
+        "label": "Marketplace"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 15,
+        "tag": "button",
+        "role": null,
+        "href": null,
+        "disabled": false,
+        "label": "Installations"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 16,
+        "tag": "button",
+        "role": null,
+        "href": null,
+        "disabled": false,
+        "label": "Help"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 17,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Show column options"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 18,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/dev-ops",
+        "disabled": false,
+        "label": "DevOps"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": "back-stack",
+      "control": null,
+      "action": "back",
+      "outcome": "navigated"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 0,
+        "tag": "button",
+        "role": null,
+        "href": null,
+        "disabled": false,
+        "label": "Skip to content"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 1,
+        "tag": "button",
+        "role": null,
+        "href": null,
+        "disabled": false,
+        "label": "Open Foundry sidebar"
+      },
+      "action": "click",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 2,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/aip",
+        "disabled": false,
+        "label": ""
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 3,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": ""
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 4,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": ""
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 5,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Gift Icon"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 6,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": ""
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 7,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/compass",
+        "disabled": false,
+        "label": ""
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 8,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/hubble",
+        "disabled": false,
+        "label": ""
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 9,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": ""
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 10,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": ""
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 11,
+        "tag": "div",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": ""
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": "visited",
+      "control": {
+        "index": 12,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/marketplace",
+        "disabled": false,
+        "label": "Marketplace home page"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n1",
+      "to": "visited",
+      "control": {
+        "index": 13,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/marketplace",
+        "disabled": false,
+        "label": "Marketplace"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 14,
+        "tag": "button",
+        "role": null,
+        "href": null,
+        "disabled": false,
+        "label": "Installations"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 15,
+        "tag": "button",
+        "role": null,
+        "href": null,
+        "disabled": false,
+        "label": "Help"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 16,
+        "tag": "a",
+        "role": "button",
+        "href": null,
+        "disabled": false,
+        "label": "Show column options"
+      },
+      "action": "click",
+      "outcome": "unclickable"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 17,
+        "tag": "a",
+        "role": null,
+        "href": "/workspace/dev-ops",
+        "disabled": false,
+        "label": "DevOps"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": "back-stack",
+      "control": null,
+      "action": "back",
+      "outcome": "navigated"
+    },
+    {
+      "from": "n2",
+      "to": "n2",
+      "control": {
+        "index": 0,
+        "tag": "a",
+        "role": null,
+        "href": "#main-content",
+        "disabled": false,
+        "label": "Skip to main content"
+      },
+      "action": "goto",
+      "outcome": "navigated"
+    },
+    {
+      "from": "n2",
+      "to": null,
+      "control": {
+        "index": 1,
+        "tag": "a",
+        "role": null,
+        "href": "/",
+        "disabled": false,
+        "label": "Back to dashboard"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n2",
+      "to": "back-stack",
+      "control": null,
+      "action": "back",
+      "outcome": "navigated"
+    }
+  ],
+  "blockers": [],
+  "replay": {
+    "walked_all_edges": true,
+    "walked_at": "2026-08-09T16:47:32.234Z",
+    "problems": []
+  },
+  "complete_interaction_route_graph": true,
+  "shots_dir": ".artifacts/seed-graph-shots/packages/listings",
+  "content_address": "3ff71d6c8618c1f0744f8bc21782b844a167bc43c70d26ab62705e01da2bf61d"
+}
