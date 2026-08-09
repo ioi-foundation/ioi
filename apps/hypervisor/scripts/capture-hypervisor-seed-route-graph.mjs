@@ -86,7 +86,18 @@ if (!ownedRoute && !flag("--replay")) die(1, "--owned-route is required for capt
 
 const { chromium } = await import("playwright").catch(() => die(2, "playwright is not installed in this checkout"));
 
-const allowedOrigins = new Set([new URL(SERVE).origin, new URL(CAPTURE).origin]);
+// localhost and 127.0.0.1 are the same quarantine boundary — the historical
+// capture corpus embeds absolute localhost asset URLs, so both spellings of an
+// allowed origin are admitted; everything else stays outbound.
+const originVariants = (u) => {
+  const url = new URL(u);
+  const hosts = new Set([url.hostname]);
+  if (url.hostname === "127.0.0.1") hosts.add("localhost");
+  if (url.hostname === "localhost") hosts.add("127.0.0.1");
+  return [...hosts].map((h) => `${url.protocol}//${h}${url.port ? `:${url.port}` : ""}`);
+};
+const allowedOrigins = new Set([...originVariants(SERVE), ...originVariants(CAPTURE)]);
+const captureOrigins = new Set(originVariants(CAPTURE));
 const allowServeWrites = flag("--allow-serve-writes");
 const quarantine = {
   network_policy: "local-only",
@@ -120,7 +131,7 @@ function installQuarantine(context, blockedWrites) {
     }
     const method = req.method().toUpperCase();
     if (method !== "GET" && method !== "HEAD") {
-      if (url.origin === new URL(CAPTURE).origin) {
+      if (captureOrigins.has(url.origin)) {
         quarantine.violations.push({ kind: "corpus-mutation-attempt", url: req.url(), method });
         return route.abort("blockedbyclient");
       }
