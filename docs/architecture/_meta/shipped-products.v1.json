@@ -87,6 +87,7 @@
           "/ontology",
           "/operations",
           "/packages",
+          "/packages/marketplace",
           "/projects",
           "/provenance",
           "/settings",
@@ -97,8 +98,8 @@
           "/work/new-session",
           "/work/sessions"
         ],
-        "expected_count": 38,
-        "sha256": "d9983eb29679334cd211561448009aa20095f39d96542afd0db101fd1ecddcf4",
+        "expected_count": 39,
+        "sha256": "43eec1951682d25356b7778d47e61c48ef9bae9002d94dc14318789abc8ac95e",
         "browser_verification_id": "served-surface-smoke"
       },
       "state_authority_mode": "daemon_authoritative_projection",
@@ -329,7 +330,7 @@
           {
             "path": "apps/hypervisor-web/src/site/WorkerTraining.jsx",
             "contains": [
-              "fixture result \u00b7 not production"
+              "fixture result · not production"
             ]
           }
         ]
