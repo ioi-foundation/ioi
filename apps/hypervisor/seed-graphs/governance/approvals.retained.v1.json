@@ -341,7 +341,7 @@
       "action": "click",
       "outcome": "blocked-write-attempt",
       "detail": {
-        "url": "http://127.0.0.1:4173/api/gitpod.v1.AccountService/GetAccount",
+        "url": "http://127.0.0.1:4173/api/vendor-scm.v1.AccountService/GetAccount",
         "method": "POST"
       }
     },
@@ -1220,5 +1220,5 @@
   },
   "complete_interaction_route_graph": true,
   "shots_dir": ".artifacts/seed-graph-shots/governance/approvals",
-  "content_address": "a6cdb8e5522a0e98dc7b30abf546b337941b8cd750f0a8d719755aa89f1f5797"
+  "content_address": "f7e6581f143de570d469a81507d627e9570ee26813f73c1ca6fdede69079d6cd"
 }

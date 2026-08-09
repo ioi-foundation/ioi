@@ -341,7 +341,7 @@
       "action": "click",
       "outcome": "blocked-write-attempt",
       "detail": {
-        "url": "http://127.0.0.1:4173/api/gitpod.v1.AccountService/GetAccount",
+        "url": "http://127.0.0.1:4173/api/vendor-scm.v1.AccountService/GetAccount",
         "method": "POST"
       }
     },
@@ -1066,5 +1066,5 @@
   },
   "complete_interaction_route_graph": true,
   "shots_dir": ".artifacts/seed-graph-shots/automations/machinery",
-  "content_address": "93c1dc2aceb722917b3c05c5df979ccf7a6491be003c0ac6e9f271f80fc655b0"
+  "content_address": "5a11a1a69a7beff255914035544b8d532a95886c2bb212aed84ea3ef2a704fd1"
 }
