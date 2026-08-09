@@ -7389,21 +7389,27 @@ function embedSurfaceHtml(html) {
 // Metadata-only surfaces still use flat handlers while they are migrated, so every successful
 // registry surface response passes through this single boundary: one body marker plus matching
 // response headers. The browser smoke binds all three coordinates back to SURFACES.
-function sendOwnedSurfaceHtml(res, surfaceOrSlug, rendered, headers = {}) {
+function sendOwnedSurfaceHtml(res, surfaceOrSlug, rendered, headers = {}, servedRoute = null) {
   const surface = typeof surfaceOrSlug === "string" ? surfaceBySlug(surfaceOrSlug) : surfaceOrSlug;
   if (!surface) throw new Error(`sendOwnedSurfaceHtml: unknown surface '${surfaceOrSlug}'`);
+  // W2.1 rehome: the ownership marker names the route that actually SERVED this render — a
+  // module mounted at its canonical route marks the canonical path, its legacy mount marks the
+  // legacy path. One surface, two truthful mounts; the marker never claims the other one.
+  const route = servedRoute && (servedRoute === surface.route || servedRoute === surface.canonical_route)
+    ? servedRoute
+    : surface.route;
   const html = String(rendered);
   if (!/<body(?:\s|>)/i.test(html)) throw new Error(`sendOwnedSurfaceHtml: '${surface.slug}' rendered no document body`);
   if (/\bdata-ioi-surface-(?:route|owner)=/i.test(html)) throw new Error(`sendOwnedSurfaceHtml: '${surface.slug}' rendered a duplicate ownership marker`);
   const marked = html.replace(
     /<body\b/i,
-    `<body data-ioi-surface-route="${surface.route}" data-ioi-surface-owner="${surface.owner}"`,
+    `<body data-ioi-surface-route="${route}" data-ioi-surface-owner="${surface.owner}"`,
   );
   res.writeHead(200, {
     "Content-Type": "text/html; charset=utf-8",
     "Cache-Control": "no-cache",
     ...headers,
-    "X-IOI-Surface-Route": surface.route,
+    "X-IOI-Surface-Route": route,
     "X-IOI-Surface-Owner": surface.owner,
   });
   res.end(marked);
@@ -10109,7 +10115,7 @@ async function handleEstateRequest(req, res, body) {
         const rendered = hit.impl.render(model, ctx);
         // ctx.embed gates the module's own rail emission; the estate-wide embed choke point
         // (handleEstateRequest head) owns link threading — applying it here too would double it.
-        sendOwnedSurfaceHtml(res, hit.surface, rendered);
+        sendOwnedSurfaceHtml(res, hit.surface, rendered, {}, pathname);
         return;
       }
     }
