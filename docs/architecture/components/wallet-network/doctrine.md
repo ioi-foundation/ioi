@@ -4,9 +4,9 @@ Status: canonical architecture authority.
 Canonical owner: this file for wallet.network authority doctrine; wallet product, exchange, route-source, exposure, protection, approval-inbox, and receipt doctrine lives in [`product-exchange-risk.md`](./product-exchange-risk.md); low-level scope APIs live in [`api-authority-scopes.md`](./api-authority-scopes.md).
 Supersedes: older generic capability-grant wording when it conflicts with `scope:*` authority grants.
 Superseded by: none.
-Last alignment pass: 2026-07-19.
+Last alignment pass: 2026-08-09.
 Doctrine status: canonical
-Implementation status: partial (capability-lease authority, sealed credentials, approval gates, the principal-to-approval-authority resolver, and exact grant-hash-keyed effect consumption with immutable replay receipts are live on named qualified owner paths; all affected shared-verifier and governed-authority registrations now route structural evidence through independent issuer resolution, deterministic atomic consumption, opaque admission revalidation, and retained route/final-invoker, concurrency, crash, denial, and replay proof; embedded account/factor/passkey/recovery APIs, guardian surfaces, key shards, and MPC vault are planned; the closed approval-ceremony context, temporal profile/evaluation input, review/effect-admission receipt profiles, context-bound v3 grant, and WalletReceipt v2 are target successor contracts)
+Implementation status: partial (capability-lease authority, sealed credentials, approval gates, the principal-to-approval-authority resolver, and exact grant-hash-keyed effect consumption with immutable replay receipts are live on named qualified owner paths; all affected shared-verifier and governed-authority registrations now route structural evidence through independent issuer resolution, deterministic atomic consumption, opaque admission revalidation, and retained route/final-invoker, concurrency, crash, denial, and replay proof; embedded account/factor/passkey/recovery APIs, guardian surfaces, key shards, and MPC vault are planned; the closed approval-ceremony context, temporal profile/evaluation input, review/effect-admission receipt profiles, context-bound v3 grant, and WalletReceipt v2 are target successor contracts; the wallet-interoperability surfaces — inbound external-wallet sign-in, outbound provider service, OIDC federation — are planned target contracts with no implementation, and the predecessor link_owner@v1 anchor store is superseded by them before any exposure)
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/`
   - `crates/types/src/app/wallet_network/principal_authority.rs`
@@ -520,6 +520,70 @@ A frictionless login creates a native wallet.network account with a Level 1 auth
 The external login is an authentication factor, not the root identity.
 Provider brands are adapter and product metadata; the stable protocol kind is a
 provider-neutral federated identity factor bound to an exact issuer and subject.
+
+## Wallet Interoperability and External Wallet Sign-In
+
+Status: **planned, not implemented.** This section is the binding contract for
+the wallet-interoperability packet; nothing below is live today, and the current
+`link_owner@v1` control-plane operation is a predecessor that MUST be superseded
+before any public exposure (see the delta ledger).
+
+wallet.network supports external-wallet interoperability as **three separated
+product surfaces that never share implicit authority**:
+
+1. **Inbound wallet authentication** — an external wallet (injected provider,
+   or a WalletConnect-class pairing transport) proves account ownership through
+   a standardized signed challenge, and the verified account becomes a
+   `web3_wallet` authentication factor on a wallet.network account. The
+   external wallet's keys remain in the external wallet.
+2. **Outbound wallet/provider service** — wallet.network MAY later act as a
+   wallet for external dapps (a WalletKit-class provider). Every inbound
+   signing or transaction request compiles into the EXISTING typed review,
+   policy, approval, exact-effect binding, and receipt pipeline — a dapp
+   request is never a new authority path.
+3. **Federated sign-in provider** — wallet.network MAY later expose OIDC or a
+   signed identity assertion so third-party applications can offer "Continue
+   with wallet.network." The relying application always owns its own product
+   session.
+
+The chain of custody, each link distinct and none implied by another
+(INV-40):
+
+```text
+wallet discovery / pairing            # a transport channel; proves NOTHING
+  -> negotiated accounts/chains/methods
+  -> domain-, nonce-, chain- and time-bound ownership proof (SIWx)
+  -> verified web3_wallet AuthFactor  # authentication evidence, never authority
+  -> ordinary product session
+  -> separate approval/grant for any consequential action
+```
+
+**Connect is not authenticate. Authenticate is not a product session. A
+product session is not an AuthorityGrant.** A pairing or provider connection
+establishes a channel and a negotiated session only; a wallet ownership proof
+is authentication evidence exactly as a federated login is — it never becomes
+an `AuthorityGrant`, and consequential effects continue to cross the
+capability-lease and approval pipeline unchanged.
+
+**Supported wallets, never "any wallet."** The product promise is: *connect and
+sign in with supported wallets while your keys remain in your wallet.* Support
+is a published compatibility matrix (wallet x chain x platform x method), not a
+universal claim. Chain families are admitted one audited profile at a time
+through an SIWx adapter registry; the first profile is EVM (injected-provider
+discovery and provider-interface standards, WalletConnect-class transport,
+ERC-4361 authentication, ERC-1271 for deployed contract wallets, ERC-6492
+where counterfactual accounts are admitted, CAIP-2/CAIP-10 identifiers
+internally). An unlisted wallet, chain, or method is refused typed, not
+interpreted.
+
+**Placement.** Public wallet authentication lands at the gateway/identity seam
+beside the existing sign-in and factor APIs. It does not create a daemon
+`/wallet/*` route family — the W1.4 ruling stands: the wallet remains an
+external signer reached through the capability-lease gateway. Edge
+infrastructure may coordinate challenges, nonces, and pairing transport, but
+edge components never hold user wallet keys, native wallet.network roots, or
+authority decisions; eventually-consistent stores never hold nonces or
+revocation state.
 
 ## Account Security and Authority Factor Taxonomy
 
