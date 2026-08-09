@@ -45,14 +45,29 @@ export const meta = {
 };
 
 export async function load(ctx) {
-  const ap = await fetch(`${ctx.daemon}/v1/hypervisor/governance/approval-requests`).then((x) => x.json()).catch(() => ({}));
-  return { records: ap.approval_requests || [] };
+  // W2.1 (brief §5 PR 3): reads ride the shared read client. The decision-capable plane is
+  // governance approval-requests (the transitions this surface executes); the unified
+  // approvals-inbox projection is loaded ALONGSIDE it so the inbox shows every decision plane's
+  // pending work — read-only, minting no authority (the projection's own contract). A degraded
+  // inbox is a typed absence, never a fabricated empty.
+  const { createReadClient } = await import("../read-client.mjs");
+  const client = createReadClient({ daemon: ctx.daemon });
+  const results = await client.readMany({
+    approvals: "/v1/hypervisor/governance/approval-requests",
+    inbox: "/v1/hypervisor/governance/approvals-inbox",
+  });
+  return {
+    records: results.approvals.ok ? results.approvals.payload.approval_requests || [] : [],
+    inbox: results.inbox.ok ? results.inbox.payload : null,
+    inboxDegraded: results.inbox.ok ? null : { code: results.inbox.code, message: results.inbox.message },
+  };
 }
 
 export function render(model, ctx) {
   const sp = ctx.url.searchParams;
   return renderApprovalsPort(model.records, sp.get("status") || "", {
     selected: sp.get("req") || "", embed: ctx.embed,
+    inbox: model.inbox, inboxDegraded: model.inboxDegraded,
     banner: {
       acted: sp.get("acted") || "",
       receipt: sp.get("receipt") || "",
@@ -62,6 +77,33 @@ export function render(model, ctx) {
       result: sp.get("result") || "",
     },
   });
+}
+
+// The unified cross-plane band (W2.1): every source plane's pending count from the
+// approvals-inbox projection, each linking to that plane's own surface. Read-only — decisions
+// execute on each plane's route, never here. Honest absence when the projection is degraded.
+function crossPlaneBand(inbox, degraded, esc) {
+  if (degraded) {
+    return `<div class="ap-xplane ap-xdeg" data-testid="ap-crossplane"><span class="ap-xlabel">Cross-plane inbox</span><span class="ap-xnote">the unified approvals-inbox projection is unavailable (<code>${esc(degraded.code || "unavailable")}</code>) — this surface shows only the governance approval-requests plane; nothing is fabricated.</span></div>`;
+  }
+  if (!inbox || !Array.isArray(inbox.planes)) return "";
+  const PLANE_HREF = {
+    governance_approval_request: "/governance/approvals",
+    marketplace_admission_review: "/__ioi/marketplace",
+    domain_app_mount: "/__ioi/domain-apps",
+    foundry_run: "/__ioi/foundry",
+    improvement_change: "/__ioi/improvement/changes",
+    thread_approval: "/__ioi/sessions",
+    memory_promotion: "/__ioi/vertex",
+  };
+  const chips = inbox.planes.map((pl) => {
+    const key = pl.plane || pl.source_plane || "";
+    const n = pl.pending ?? pl.pending_total ?? pl.count ?? 0;
+    const href = PLANE_HREF[key] || null;
+    const label = `${esc(String(key).replace(/_/g, " "))} <b>${esc(String(n))}</b>`;
+    return href ? `<a class="ap-xchip" href="${esc(href)}">${label} →</a>` : `<span class="ap-xchip ap-xnolink" title="no owning surface bound yet">${label}</span>`;
+  }).join("");
+  return `<div class="ap-xplane" data-testid="ap-crossplane"><span class="ap-xlabel">Cross-plane inbox <span class="ap-xtot">${esc(String(inbox.pending_total ?? 0))} pending</span></span><span class="ap-xchips">${chips || '<span class="ap-xnote">no pending decisions on any plane.</span>'}</span><span class="ap-xreadonly">read-only projection — each decision executes on its own plane's route</span></div>`;
 }
 
 // The action-descriptor contract: id · method · route pattern · allowed transition · allowlisted
@@ -169,6 +211,7 @@ function renderApprovalsPort(records, statusFilter, opts) {
   const rowHref = (a) => `/__ioi/governance/approvals?${view ? `status=${view}&` : ""}req=${enc(a.id)}`;
   const listHeading = view === "pending" ? "Your inbox" : view === "all" ? "All requests" : (STATUSES.find(([v]) => v === view) || [, "Requests"])[1];
   const list = `<main class="ap-list" role="main">
+    ${crossPlaneBand(opts.inbox, opts.inboxDegraded, esc)}
     <div class="ap-listhd"><h2>${esc(listHeading)} <span class="ap-n">(${rows.length})</span></h2>
       <div class="ap-listtools"><span class="ap-search" title="Full-text request search is a named gap">${svg('<circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/>')} Search for requests…</span><span class="ap-sort" title="Sort is a named gap">Sort: Recently created ▾</span></div>
     </div>
@@ -249,6 +292,15 @@ function renderApprovalsPort(records, statusFilter, opts) {
     .ap-fsel[disabled]{background:#eef1f5;color:#3a3f46;cursor:not-allowed}
     .ap-fcheck{display:flex;align-items:center;gap:8px;font-size:14px;color:#1c2127;margin-top:20px}.ap-fcheck.gap{cursor:not-allowed}
     .ap-list{flex:1 1 auto;overflow:auto;padding:18px 22px;background:#f4f5f7}
+    .ap-xplane{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin:0 0 14px;padding:9px 12px;border:1px solid #d8dee5;border-radius:8px;background:#f6f8fb}
+    .ap-xdeg{background:#fdf7ec;border-color:#e8c48d}
+    .ap-xlabel{font-size:12px;font-weight:700;color:#394b59;text-transform:uppercase;letter-spacing:.03em}
+    .ap-xtot{margin-left:6px;font-weight:600;color:#215db0;text-transform:none;letter-spacing:0}
+    .ap-xchips{display:inline-flex;flex-wrap:wrap;gap:6px}
+    .ap-xchip{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:999px;background:#fff;border:1px solid #cdd6e0;color:#215db0;font-size:12px;text-decoration:none}
+    .ap-xchip.ap-xnolink{color:#5f6b7c;cursor:default}
+    .ap-xreadonly{margin-left:auto;font-size:11px;color:#7b8494}
+    .ap-xnote{font-size:11.5px;color:#7b6320}
     .ap-listhd{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 14px}
     .ap-list h2{font-size:15px;margin:0;font-weight:600}.ap-n{color:#9aa0a8;font-weight:400}
     .ap-listtools{display:flex;align-items:center;gap:12px}

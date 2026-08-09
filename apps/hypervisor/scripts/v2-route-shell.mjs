@@ -200,10 +200,11 @@ export const V2_ROUTE_TABLE = [
     kind: "owner application",
     rule: "—",
     waves: "W0.6 (unified inbox) · W1 · W2",
-    build_state: "shell-only (W0.1) — W0.6 folds the disjoint decision planes into one approvals inbox; Wave 1 read-first build (surfaces/governance.md §5)",
+    build_state: "W2.1 rehome step 1 — Approvals serves canonically at /governance/approvals (same module; legacy /__ioi lane serving until the W4 cutover) and now shows the unified cross-plane approvals-inbox projection. Wave 1 read-first cockpit build continues per surfaces/governance.md §5",
     serving_today: [
+      { href: "/governance/approvals", label: "Approvals (canonical)", note: "rehomed transition-capable inbox; folds every decision plane via the approvals-inbox projection, decisions execute on each plane's own route" },
       { href: "/__ioi/governance", label: "Governance cockpit readout", note: "read projection + named gaps over governance object planes" },
-      { href: "/__ioi/governance/approvals", label: "Approvals", note: "protected ported seed (daemon-wired, transition-capable)" },
+      { href: "/__ioi/governance/approvals", label: "Approvals (legacy lane)", note: "keeps serving until the W4 cutover" },
     ],
   },
   {
