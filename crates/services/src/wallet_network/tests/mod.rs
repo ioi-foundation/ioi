@@ -482,6 +482,7 @@ mod channel;
 mod connector_auth;
 mod connector_config;
 mod delegation;
+mod identity_owner_link;
 mod mail_operations;
 mod principal_authority;
 mod replay_and_receipts;
