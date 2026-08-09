@@ -1,0 +1,1596 @@
+{
+  "schema_version": "ioi.hypervisor.seed-interaction-route-graph.v1",
+  "surface": "improvement",
+  "slug": "changes",
+  "owned_route": "/__ioi/improvement/changes",
+  "capture_route": null,
+  "runtime": {
+    "serve_url": "http://127.0.0.1:4173",
+    "capture_url": null
+  },
+  "captured_at": "2026-08-09T16:43:22.328Z",
+  "quarantine": {
+    "network_policy": "local-only",
+    "corpus_mutation": "denied",
+    "html_injection": "denied",
+    "spa_fallback": "denied",
+    "allowed_origins": [
+      "http://127.0.0.1:4173",
+      "http://localhost:4173",
+      "http://127.0.0.1:9225",
+      "http://localhost:9225"
+    ],
+    "violations": []
+  },
+  "nodes": [
+    {
+      "id": "n0",
+      "kind": "route",
+      "signature": "/__ioi/improvement/changes#open=0|H1:Upgrade Assistant",
+      "url": "/__ioi/improvement/changes",
+      "title": "Upgrade Assistant",
+      "entry_edge": null,
+      "controls": 13,
+      "disabled_controls": 0,
+      "screenshot": {
+        "sha256": "73af5225fd24927a82de4a6d71fed55fb24b0eff8a8d40699652599fbc06477d",
+        "posture": "1440x900-light"
+      },
+      "console_errors": [],
+      "posture_matrix": [
+        {
+          "sha256": "73af5225fd24927a82de4a6d71fed55fb24b0eff8a8d40699652599fbc06477d",
+          "posture": "1440x900-dark"
+        },
+        {
+          "sha256": "bb03d9f92b19ea784cc6e75e616de2104c4b53672558a3f9688425f358286bd5",
+          "posture": "390x844-light-reduced-motion"
+        }
+      ]
+    },
+    {
+      "id": "n1",
+      "kind": "route",
+      "signature": "/__ioi/improvement/changes?lane=active#open=0|H1:Upgrade Assistant",
+      "url": "/__ioi/improvement/changes?lane=active",
+      "title": "Upgrade Assistant",
+      "entry_edge": {
+        "from": "n0",
+        "control": {
+          "index": 5,
+          "tag": "a",
+          "role": null,
+          "href": "/__ioi/improvement/changes?lane=active",
+          "disabled": false,
+          "label": "Active"
+        }
+      },
+      "controls": 13,
+      "disabled_controls": 0,
+      "screenshot": {
+        "sha256": "73af5225fd24927a82de4a6d71fed55fb24b0eff8a8d40699652599fbc06477d",
+        "posture": "1440x900-light"
+      },
+      "console_errors": [],
+      "posture_matrix": [
+        {
+          "sha256": "73af5225fd24927a82de4a6d71fed55fb24b0eff8a8d40699652599fbc06477d",
+          "posture": "1440x900-dark"
+        },
+        {
+          "sha256": "bb03d9f92b19ea784cc6e75e616de2104c4b53672558a3f9688425f358286bd5",
+          "posture": "390x844-light-reduced-motion"
+        }
+      ]
+    },
+    {
+      "id": "n2",
+      "kind": "route",
+      "signature": "/__ioi/improvement/changes?lane=pastdue#open=0|H1:Upgrade Assistant",
+      "url": "/__ioi/improvement/changes?lane=pastdue",
+      "title": "Upgrade Assistant",
+      "entry_edge": {
+        "from": "n0",
+        "control": {
+          "index": 6,
+          "tag": "a",
+          "role": null,
+          "href": "/__ioi/improvement/changes?lane=pastdue",
+          "disabled": false,
+          "label": "Past due"
+        }
+      },
+      "controls": 13,
+      "disabled_controls": 0,
+      "screenshot": {
+        "sha256": "255feae1cd8a8e43e7cc296bb925e1e40ce7ec692dfb47df1f83243ce89afd83",
+        "posture": "1440x900-light"
+      },
+      "console_errors": [],
+      "posture_matrix": [
+        {
+          "sha256": "255feae1cd8a8e43e7cc296bb925e1e40ce7ec692dfb47df1f83243ce89afd83",
+          "posture": "1440x900-dark"
+        },
+        {
+          "sha256": "cf4697a6dbfacedf87909e296877ed70a3cfa275551858744f794e8172f5640e",
+          "posture": "390x844-light-reduced-motion"
+        }
+      ]
+    },
+    {
+      "id": "n3",
+      "kind": "route",
+      "signature": "/__ioi/improvement/changes?lane=archived#open=0|H1:Upgrade Assistant",
+      "url": "/__ioi/improvement/changes?lane=archived",
+      "title": "Upgrade Assistant",
+      "entry_edge": {
+        "from": "n0",
+        "control": {
+          "index": 7,
+          "tag": "a",
+          "role": null,
+          "href": "/__ioi/improvement/changes?lane=archived",
+          "disabled": false,
+          "label": "Archived"
+        }
+      },
+      "controls": 13,
+      "disabled_controls": 0,
+      "screenshot": {
+        "sha256": "5b6b39a4c60a5db21eec7699a6b4a79849b0a639c36e82b757e7814434a451b3",
+        "posture": "1440x900-light"
+      },
+      "console_errors": [],
+      "posture_matrix": [
+        {
+          "sha256": "5b6b39a4c60a5db21eec7699a6b4a79849b0a639c36e82b757e7814434a451b3",
+          "posture": "1440x900-dark"
+        },
+        {
+          "sha256": "69fd01f65a7775b4096abadda7911113f1e3b3b8052e648e47b7b9b810c31cd9",
+          "posture": "390x844-light-reduced-motion"
+        }
+      ]
+    },
+    {
+      "id": "n4",
+      "kind": "route",
+      "signature": "/__ioi/improvement/changes?lane=active&filter=all#open=0|H1:Upgrade Assistant",
+      "url": "/__ioi/improvement/changes?lane=active&filter=all",
+      "title": "Upgrade Assistant",
+      "entry_edge": {
+        "from": "n0",
+        "control": {
+          "index": 8,
+          "tag": "a",
+          "role": null,
+          "href": "/__ioi/improvement/changes?lane=active&filter=all",
+          "disabled": false,
+          "label": "All upgrades0"
+        }
+      },
+      "controls": 13,
+      "disabled_controls": 0,
+      "screenshot": {
+        "sha256": "0345c53eeee4f3159dc559fe9d48076e31e603979e3423ff2fe07d31475c21bf",
+        "posture": "1440x900-light"
+      },
+      "console_errors": [],
+      "posture_matrix": [
+        {
+          "sha256": "0345c53eeee4f3159dc559fe9d48076e31e603979e3423ff2fe07d31475c21bf",
+          "posture": "1440x900-dark"
+        },
+        {
+          "sha256": "9c356502515111da680dfbe3d865e3ad76f28227a65e5d059ed1a0e19c7ffa9a",
+          "posture": "390x844-light-reduced-motion"
+        }
+      ]
+    },
+    {
+      "id": "n5",
+      "kind": "route",
+      "signature": "/__ioi/improvement/changes?lane=pastdue&filter=all#open=0|H1:Upgrade Assistant",
+      "url": "/__ioi/improvement/changes?lane=pastdue&filter=all",
+      "title": "Upgrade Assistant",
+      "entry_edge": {
+        "from": "n2",
+        "control": {
+          "index": 8,
+          "tag": "a",
+          "role": null,
+          "href": "/__ioi/improvement/changes?lane=pastdue&filter=all",
+          "disabled": false,
+          "label": "All upgrades0"
+        }
+      },
+      "controls": 13,
+      "disabled_controls": 0,
+      "screenshot": {
+        "sha256": "492d0774bc03b009877477119759171507f65456cf99ac466f7a0b7eaa86b663",
+        "posture": "1440x900-light"
+      },
+      "console_errors": [],
+      "posture_matrix": [
+        {
+          "sha256": "492d0774bc03b009877477119759171507f65456cf99ac466f7a0b7eaa86b663",
+          "posture": "1440x900-dark"
+        },
+        {
+          "sha256": "1b6f41e7843dc8a929d7b4abc806d04d4df2168320c99dafba3f3e24701bfb86",
+          "posture": "390x844-light-reduced-motion"
+        }
+      ]
+    },
+    {
+      "id": "n6",
+      "kind": "route",
+      "signature": "/__ioi/improvement/changes?lane=archived&filter=all#open=0|H1:Upgrade Assistant",
+      "url": "/__ioi/improvement/changes?lane=archived&filter=all",
+      "title": "Upgrade Assistant",
+      "entry_edge": {
+        "from": "n3",
+        "control": {
+          "index": 8,
+          "tag": "a",
+          "role": null,
+          "href": "/__ioi/improvement/changes?lane=archived&filter=all",
+          "disabled": false,
+          "label": "All upgrades0"
+        }
+      },
+      "controls": 13,
+      "disabled_controls": 0,
+      "screenshot": {
+        "sha256": "8d92f3af88037f58c1b033bc7e180486b6b8cb18dd92aa7d0a9ca3fe561bc249",
+        "posture": "1440x900-light"
+      },
+      "console_errors": [],
+      "posture_matrix": [
+        {
+          "sha256": "8d92f3af88037f58c1b033bc7e180486b6b8cb18dd92aa7d0a9ca3fe561bc249",
+          "posture": "1440x900-dark"
+        },
+        {
+          "sha256": "7a77458171f2b993a7b6983089d9f3d8537df0ea922ad7876d82408ef18f1804",
+          "posture": "390x844-light-reduced-motion"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 0,
+        "tag": "a",
+        "role": null,
+        "href": "/ai",
+        "disabled": false,
+        "label": "Home"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 1,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/odk",
+        "disabled": false,
+        "label": "Ontology"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 2,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/home",
+        "disabled": false,
+        "label": "Applications"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 3,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/home",
+        "disabled": false,
+        "label": "View all"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": "visited",
+      "control": {
+        "index": 4,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/improvement/changes",
+        "disabled": false,
+        "label": "Upgrade Assistant"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n0",
+      "to": "n1",
+      "control": {
+        "index": 5,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/improvement/changes?lane=active",
+        "disabled": false,
+        "label": "Active"
+      },
+      "action": "goto",
+      "outcome": "navigated"
+    },
+    {
+      "from": "n0",
+      "to": "n2",
+      "control": {
+        "index": 6,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/improvement/changes?lane=pastdue",
+        "disabled": false,
+        "label": "Past due"
+      },
+      "action": "goto",
+      "outcome": "navigated"
+    },
+    {
+      "from": "n0",
+      "to": "n3",
+      "control": {
+        "index": 7,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/improvement/changes?lane=archived",
+        "disabled": false,
+        "label": "Archived"
+      },
+      "action": "goto",
+      "outcome": "navigated"
+    },
+    {
+      "from": "n0",
+      "to": "n4",
+      "control": {
+        "index": 8,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/improvement/changes?lane=active&filter=all",
+        "disabled": false,
+        "label": "All upgrades0"
+      },
+      "action": "goto",
+      "outcome": "navigated"
+    },
+    {
+      "from": "n0",
+      "to": "visited",
+      "control": {
+        "index": 9,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/improvement/changes?lane=active",
+        "disabled": false,
+        "label": "Upgrades requiring my action0"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 10,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/agent-studio#improvement-proposals",
+        "disabled": false,
+        "label": "owner surface (Agent Studio) →"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 11,
+        "tag": "a",
+        "role": null,
+        "href": "http://localhost:9225/workspace/upgrade-assistant/",
+        "disabled": false,
+        "label": "Upgrade Assistant capture"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 12,
+        "tag": "a",
+        "role": null,
+        "href": "/__apps/changes",
+        "disabled": false,
+        "label": "/__apps/changes proxy lane ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": "back-stack",
+      "control": null,
+      "action": "back",
+      "outcome": "navigated"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 0,
+        "tag": "a",
+        "role": null,
+        "href": "/ai",
+        "disabled": false,
+        "label": "Home"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 1,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/odk",
+        "disabled": false,
+        "label": "Ontology"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 2,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/home",
+        "disabled": false,
+        "label": "Applications"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 3,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/home",
+        "disabled": false,
+        "label": "View all"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": "visited",
+      "control": {
+        "index": 4,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/improvement/changes",
+        "disabled": false,
+        "label": "Upgrade Assistant"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n1",
+      "to": "visited",
+      "control": {
+        "index": 5,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/improvement/changes?lane=active",
+        "disabled": false,
+        "label": "Active"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n1",
+      "to": "visited",
+      "control": {
+        "index": 6,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/improvement/changes?lane=pastdue",
+        "disabled": false,
+        "label": "Past due"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n1",
+      "to": "visited",
+      "control": {
+        "index": 7,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/improvement/changes?lane=archived",
+        "disabled": false,
+        "label": "Archived"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n1",
+      "to": "visited",
+      "control": {
+        "index": 8,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/improvement/changes?lane=active&filter=all",
+        "disabled": false,
+        "label": "All upgrades0"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n1",
+      "to": "visited",
+      "control": {
+        "index": 9,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/improvement/changes?lane=active",
+        "disabled": false,
+        "label": "Upgrades requiring my action0"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 10,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/agent-studio#improvement-proposals",
+        "disabled": false,
+        "label": "owner surface (Agent Studio) →"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 11,
+        "tag": "a",
+        "role": null,
+        "href": "http://localhost:9225/workspace/upgrade-assistant/",
+        "disabled": false,
+        "label": "Upgrade Assistant capture"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 12,
+        "tag": "a",
+        "role": null,
+        "href": "/__apps/changes",
+        "disabled": false,
+        "label": "/__apps/changes proxy lane ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": "back-stack",
+      "control": null,
+      "action": "back",
+      "outcome": "navigated"
+    },
+    {
+      "from": "n2",
+      "to": null,
+      "control": {
+        "index": 0,
+        "tag": "a",
+        "role": null,
+        "href": "/ai",
+        "disabled": false,
+        "label": "Home"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n2",
+      "to": null,
+      "control": {
+        "index": 1,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/odk",
+        "disabled": false,
+        "label": "Ontology"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n2",
+      "to": null,
+      "control": {
+        "index": 2,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/home",
+        "disabled": false,
+        "label": "Applications"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n2",
+      "to": null,
+      "control": {
+        "index": 3,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/home",
+        "disabled": false,
+        "label": "View all"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n2",
+      "to": "visited",
+      "control": {
+        "index": 4,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/improvement/changes",
+        "disabled": false,
+        "label": "Upgrade Assistant"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n2",
+      "to": "visited",
+      "control": {
+        "index": 5,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/improvement/changes?lane=active",
+        "disabled": false,
+        "label": "Active"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n2",
+      "to": "visited",
+      "control": {
+        "index": 6,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/improvement/changes?lane=pastdue",
+        "disabled": false,
+        "label": "Past due"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n2",
+      "to": "visited",
+      "control": {
+        "index": 7,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/improvement/changes?lane=archived",
+        "disabled": false,
+        "label": "Archived"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n2",
+      "to": "n5",
+      "control": {
+        "index": 8,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/improvement/changes?lane=pastdue&filter=all",
+        "disabled": false,
+        "label": "All upgrades0"
+      },
+      "action": "goto",
+      "outcome": "navigated"
+    },
+    {
+      "from": "n2",
+      "to": "visited",
+      "control": {
+        "index": 9,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/improvement/changes?lane=pastdue",
+        "disabled": false,
+        "label": "Upgrades requiring my action0"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n2",
+      "to": null,
+      "control": {
+        "index": 10,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/agent-studio#improvement-proposals",
+        "disabled": false,
+        "label": "owner surface (Agent Studio) →"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n2",
+      "to": null,
+      "control": {
+        "index": 11,
+        "tag": "a",
+        "role": null,
+        "href": "http://localhost:9225/workspace/upgrade-assistant/",
+        "disabled": false,
+        "label": "Upgrade Assistant capture"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n2",
+      "to": null,
+      "control": {
+        "index": 12,
+        "tag": "a",
+        "role": null,
+        "href": "/__apps/changes",
+        "disabled": false,
+        "label": "/__apps/changes proxy lane ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n2",
+      "to": "back-stack",
+      "control": null,
+      "action": "back",
+      "outcome": "navigated"
+    },
+    {
+      "from": "n3",
+      "to": null,
+      "control": {
+        "index": 0,
+        "tag": "a",
+        "role": null,
+        "href": "/ai",
+        "disabled": false,
+        "label": "Home"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n3",
+      "to": null,
+      "control": {
+        "index": 1,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/odk",
+        "disabled": false,
+        "label": "Ontology"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n3",
+      "to": null,
+      "control": {
+        "index": 2,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/home",
+        "disabled": false,
+        "label": "Applications"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n3",
+      "to": null,
+      "control": {
+        "index": 3,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/home",
+        "disabled": false,
+        "label": "View all"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n3",
+      "to": "visited",
+      "control": {
+        "index": 4,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/improvement/changes",
+        "disabled": false,
+        "label": "Upgrade Assistant"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n3",
+      "to": "visited",
+      "control": {
+        "index": 5,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/improvement/changes?lane=active",
+        "disabled": false,
+        "label": "Active"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n3",
+      "to": "visited",
+      "control": {
+        "index": 6,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/improvement/changes?lane=pastdue",
+        "disabled": false,
+        "label": "Past due"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n3",
+      "to": "visited",
+      "control": {
+        "index": 7,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/improvement/changes?lane=archived",
+        "disabled": false,
+        "label": "Archived"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n3",
+      "to": "n6",
+      "control": {
+        "index": 8,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/improvement/changes?lane=archived&filter=all",
+        "disabled": false,
+        "label": "All upgrades0"
+      },
+      "action": "goto",
+      "outcome": "navigated"
+    },
+    {
+      "from": "n3",
+      "to": "visited",
+      "control": {
+        "index": 9,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/improvement/changes?lane=archived",
+        "disabled": false,
+        "label": "Upgrades requiring my action0"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n3",
+      "to": null,
+      "control": {
+        "index": 10,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/agent-studio#improvement-proposals",
+        "disabled": false,
+        "label": "owner surface (Agent Studio) →"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n3",
+      "to": null,
+      "control": {
+        "index": 11,
+        "tag": "a",
+        "role": null,
+        "href": "http://localhost:9225/workspace/upgrade-assistant/",
+        "disabled": false,
+        "label": "Upgrade Assistant capture"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n3",
+      "to": null,
+      "control": {
+        "index": 12,
+        "tag": "a",
+        "role": null,
+        "href": "/__apps/changes",
+        "disabled": false,
+        "label": "/__apps/changes proxy lane ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n3",
+      "to": "back-stack",
+      "control": null,
+      "action": "back",
+      "outcome": "navigated"
+    },
+    {
+      "from": "n4",
+      "to": null,
+      "control": {
+        "index": 0,
+        "tag": "a",
+        "role": null,
+        "href": "/ai",
+        "disabled": false,
+        "label": "Home"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n4",
+      "to": null,
+      "control": {
+        "index": 1,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/odk",
+        "disabled": false,
+        "label": "Ontology"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n4",
+      "to": null,
+      "control": {
+        "index": 2,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/home",
+        "disabled": false,
+        "label": "Applications"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n4",
+      "to": null,
+      "control": {
+        "index": 3,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/home",
+        "disabled": false,
+        "label": "View all"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n4",
+      "to": "visited",
+      "control": {
+        "index": 4,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/improvement/changes",
+        "disabled": false,
+        "label": "Upgrade Assistant"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n4",
+      "to": "visited",
+      "control": {
+        "index": 5,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/improvement/changes?lane=active&filter=all",
+        "disabled": false,
+        "label": "Active"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n4",
+      "to": "visited",
+      "control": {
+        "index": 6,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/improvement/changes?lane=pastdue&filter=all",
+        "disabled": false,
+        "label": "Past due"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n4",
+      "to": "visited",
+      "control": {
+        "index": 7,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/improvement/changes?lane=archived&filter=all",
+        "disabled": false,
+        "label": "Archived"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n4",
+      "to": "visited",
+      "control": {
+        "index": 8,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/improvement/changes?lane=active&filter=all",
+        "disabled": false,
+        "label": "All upgrades0"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n4",
+      "to": "visited",
+      "control": {
+        "index": 9,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/improvement/changes?lane=active",
+        "disabled": false,
+        "label": "Upgrades requiring my action0"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n4",
+      "to": null,
+      "control": {
+        "index": 10,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/agent-studio#improvement-proposals",
+        "disabled": false,
+        "label": "owner surface (Agent Studio) →"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n4",
+      "to": null,
+      "control": {
+        "index": 11,
+        "tag": "a",
+        "role": null,
+        "href": "http://localhost:9225/workspace/upgrade-assistant/",
+        "disabled": false,
+        "label": "Upgrade Assistant capture"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n4",
+      "to": null,
+      "control": {
+        "index": 12,
+        "tag": "a",
+        "role": null,
+        "href": "/__apps/changes",
+        "disabled": false,
+        "label": "/__apps/changes proxy lane ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n4",
+      "to": "back-stack",
+      "control": null,
+      "action": "back",
+      "outcome": "navigated"
+    },
+    {
+      "from": "n5",
+      "to": null,
+      "control": {
+        "index": 0,
+        "tag": "a",
+        "role": null,
+        "href": "/ai",
+        "disabled": false,
+        "label": "Home"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n5",
+      "to": null,
+      "control": {
+        "index": 1,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/odk",
+        "disabled": false,
+        "label": "Ontology"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n5",
+      "to": null,
+      "control": {
+        "index": 2,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/home",
+        "disabled": false,
+        "label": "Applications"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n5",
+      "to": null,
+      "control": {
+        "index": 3,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/home",
+        "disabled": false,
+        "label": "View all"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n5",
+      "to": "visited",
+      "control": {
+        "index": 4,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/improvement/changes",
+        "disabled": false,
+        "label": "Upgrade Assistant"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n5",
+      "to": "visited",
+      "control": {
+        "index": 5,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/improvement/changes?lane=active&filter=all",
+        "disabled": false,
+        "label": "Active"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n5",
+      "to": "visited",
+      "control": {
+        "index": 6,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/improvement/changes?lane=pastdue&filter=all",
+        "disabled": false,
+        "label": "Past due"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n5",
+      "to": "visited",
+      "control": {
+        "index": 7,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/improvement/changes?lane=archived&filter=all",
+        "disabled": false,
+        "label": "Archived"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n5",
+      "to": "visited",
+      "control": {
+        "index": 8,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/improvement/changes?lane=pastdue&filter=all",
+        "disabled": false,
+        "label": "All upgrades0"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n5",
+      "to": "visited",
+      "control": {
+        "index": 9,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/improvement/changes?lane=pastdue",
+        "disabled": false,
+        "label": "Upgrades requiring my action0"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n5",
+      "to": null,
+      "control": {
+        "index": 10,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/agent-studio#improvement-proposals",
+        "disabled": false,
+        "label": "owner surface (Agent Studio) →"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n5",
+      "to": null,
+      "control": {
+        "index": 11,
+        "tag": "a",
+        "role": null,
+        "href": "http://localhost:9225/workspace/upgrade-assistant/",
+        "disabled": false,
+        "label": "Upgrade Assistant capture"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n5",
+      "to": null,
+      "control": {
+        "index": 12,
+        "tag": "a",
+        "role": null,
+        "href": "/__apps/changes",
+        "disabled": false,
+        "label": "/__apps/changes proxy lane ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n5",
+      "to": "back-stack",
+      "control": null,
+      "action": "back",
+      "outcome": "navigated"
+    },
+    {
+      "from": "n6",
+      "to": null,
+      "control": {
+        "index": 0,
+        "tag": "a",
+        "role": null,
+        "href": "/ai",
+        "disabled": false,
+        "label": "Home"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n6",
+      "to": null,
+      "control": {
+        "index": 1,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/odk",
+        "disabled": false,
+        "label": "Ontology"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n6",
+      "to": null,
+      "control": {
+        "index": 2,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/home",
+        "disabled": false,
+        "label": "Applications"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n6",
+      "to": null,
+      "control": {
+        "index": 3,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/home",
+        "disabled": false,
+        "label": "View all"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n6",
+      "to": "visited",
+      "control": {
+        "index": 4,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/improvement/changes",
+        "disabled": false,
+        "label": "Upgrade Assistant"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n6",
+      "to": "visited",
+      "control": {
+        "index": 5,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/improvement/changes?lane=active&filter=all",
+        "disabled": false,
+        "label": "Active"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n6",
+      "to": "visited",
+      "control": {
+        "index": 6,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/improvement/changes?lane=pastdue&filter=all",
+        "disabled": false,
+        "label": "Past due"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n6",
+      "to": "visited",
+      "control": {
+        "index": 7,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/improvement/changes?lane=archived&filter=all",
+        "disabled": false,
+        "label": "Archived"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n6",
+      "to": "visited",
+      "control": {
+        "index": 8,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/improvement/changes?lane=archived&filter=all",
+        "disabled": false,
+        "label": "All upgrades0"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n6",
+      "to": "visited",
+      "control": {
+        "index": 9,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/improvement/changes?lane=archived",
+        "disabled": false,
+        "label": "Upgrades requiring my action0"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n6",
+      "to": null,
+      "control": {
+        "index": 10,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/agent-studio#improvement-proposals",
+        "disabled": false,
+        "label": "owner surface (Agent Studio) →"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n6",
+      "to": null,
+      "control": {
+        "index": 11,
+        "tag": "a",
+        "role": null,
+        "href": "http://localhost:9225/workspace/upgrade-assistant/",
+        "disabled": false,
+        "label": "Upgrade Assistant capture"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n6",
+      "to": null,
+      "control": {
+        "index": 12,
+        "tag": "a",
+        "role": null,
+        "href": "/__apps/changes",
+        "disabled": false,
+        "label": "/__apps/changes proxy lane ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n6",
+      "to": "back-stack",
+      "control": null,
+      "action": "back",
+      "outcome": "navigated"
+    }
+  ],
+  "blockers": [],
+  "replay": {
+    "walked_all_edges": true,
+    "walked_at": "2026-08-09T16:43:29.777Z",
+    "problems": []
+  },
+  "complete_interaction_route_graph": true,
+  "shots_dir": ".artifacts/seed-graph-shots/improvement/changes",
+  "content_address": "5cfccbb538fee3aea5be5ac85ac6614f0bbb581b7e84726cfaeafa395a32a017"
+}

@@ -1,0 +1,208 @@
+{
+  "schema_version": "ioi.hypervisor.seed-interaction-route-graph.v1",
+  "surface": "evaluations",
+  "slug": "evalsuites",
+  "owned_route": "/__ioi/evaluations/evalsuites",
+  "capture_route": null,
+  "runtime": {
+    "serve_url": "http://127.0.0.1:4173",
+    "capture_url": null
+  },
+  "captured_at": "2026-08-09T16:18:13.566Z",
+  "quarantine": {
+    "network_policy": "local-only",
+    "corpus_mutation": "denied",
+    "html_injection": "denied",
+    "spa_fallback": "denied",
+    "allowed_origins": [
+      "http://127.0.0.1:4173",
+      "http://127.0.0.1:9225"
+    ],
+    "violations": []
+  },
+  "nodes": [
+    {
+      "id": "n0",
+      "kind": "route",
+      "signature": "/__ioi/evaluations/evalsuites#open=0|H1:AIP Evals|H3:AIP Evals|H2:Suite library truth 0 the real eval-suite plane — every reco|H3:By health (declared-completeness)|H3:By status|H3:Declared suites (0, full records)",
+      "url": "/__ioi/evaluations/evalsuites",
+      "title": "AIP Evals",
+      "entry_edge": null,
+      "controls": 10,
+      "disabled_controls": 0,
+      "screenshot": {
+        "sha256": "bcdb52f0605bf44722531ad6095a6db94f8981bde56e63ccbcc31800e4f76c16",
+        "posture": "1440x900-light"
+      },
+      "console_errors": [],
+      "posture_matrix": [
+        {
+          "sha256": "bcdb52f0605bf44722531ad6095a6db94f8981bde56e63ccbcc31800e4f76c16",
+          "posture": "1440x900-dark"
+        },
+        {
+          "sha256": "6e86d96dd384b07032f140c209cf4b42132fe6f8a10ed0ec1fcf4053accdc81b",
+          "posture": "390x844-light-reduced-motion"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 0,
+        "tag": "a",
+        "role": null,
+        "href": "/ai",
+        "disabled": false,
+        "label": "Home"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 1,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/odk",
+        "disabled": false,
+        "label": "Ontology"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 2,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/home",
+        "disabled": false,
+        "label": "Applications"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 3,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/home",
+        "disabled": false,
+        "label": "View all"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": "visited",
+      "control": {
+        "index": 4,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/evaluations/evalsuites",
+        "disabled": false,
+        "label": "AIP Evals"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 5,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/evaluations",
+        "disabled": false,
+        "label": "Evaluations substrate"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 6,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/evaluations",
+        "disabled": false,
+        "label": "Evaluations owner surface →"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 7,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/feedback",
+        "disabled": false,
+        "label": "Feedback & Annotations"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 8,
+        "tag": "a",
+        "role": null,
+        "href": "http://localhost:9225/workspace/evals/",
+        "disabled": false,
+        "label": "AIP Evals capture"
+      },
+      "action": "goto",
+      "outcome": "boundary-external-origin"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 9,
+        "tag": "a",
+        "role": null,
+        "href": "/__apps/evalsuites",
+        "disabled": false,
+        "label": "/__apps/evalsuites proxy lane ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": "back-stack",
+      "control": null,
+      "action": "back",
+      "outcome": "navigated"
+    }
+  ],
+  "blockers": [],
+  "replay": {
+    "walked_all_edges": true,
+    "walked_at": "2026-08-09T16:18:14.944Z",
+    "problems": []
+  },
+  "complete_interaction_route_graph": true,
+  "shots_dir": ".artifacts/seed-graph-shots/evaluations/evalsuites",
+  "content_address": "5e2c624a789ef56af2b4dc7ad2b598689cc3ea3554f86b6ecab6580d4630e508"
+}

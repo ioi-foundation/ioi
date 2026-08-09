@@ -1,0 +1,460 @@
+{
+  "schema_version": "ioi.hypervisor.seed-interaction-route-graph.v1",
+  "surface": "ontology",
+  "slug": "explorer",
+  "owned_route": "/__ioi/ontology/explorer",
+  "capture_route": null,
+  "runtime": {
+    "serve_url": "http://127.0.0.1:4173",
+    "capture_url": null
+  },
+  "captured_at": "2026-08-09T16:08:59.214Z",
+  "quarantine": {
+    "network_policy": "local-only",
+    "corpus_mutation": "denied",
+    "html_injection": "denied",
+    "spa_fallback": "denied",
+    "allowed_origins": [
+      "http://127.0.0.1:4173",
+      "http://127.0.0.1:9225"
+    ],
+    "violations": []
+  },
+  "nodes": [
+    {
+      "id": "n0",
+      "kind": "route",
+      "signature": "/__ioi/ontology/explorer#open=0|H2:Object Explorer search|H3:Object type catalog",
+      "url": "/__ioi/ontology/explorer",
+      "title": "Object Explorer",
+      "entry_edge": null,
+      "controls": 10,
+      "disabled_controls": 0,
+      "screenshot": {
+        "sha256": "9c2c85483a38511cd2faa4034f5caceb22c86a5b06a6f9c5375693e3e8180223",
+        "posture": "1440x900-light"
+      },
+      "console_errors": [],
+      "posture_matrix": [
+        {
+          "sha256": "9c2c85483a38511cd2faa4034f5caceb22c86a5b06a6f9c5375693e3e8180223",
+          "posture": "1440x900-dark"
+        },
+        {
+          "sha256": "93db0f5a53a6f63f06ee43cbe222e43babb930f8c2e35a6b52264caa43c2069c",
+          "posture": "390x844-light-reduced-motion"
+        }
+      ]
+    },
+    {
+      "id": "n1",
+      "kind": "route",
+      "signature": "/__ioi/ontology/explorer?objectType=widget&ontology=ont_18ca2757d28a20f7#open=0|H2:Object Explorer search|H3:Object type catalog",
+      "url": "/__ioi/ontology/explorer?objectType=widget&ontology=ont_18ca2757d28a20f7",
+      "title": "Object Explorer",
+      "entry_edge": {
+        "from": "n0",
+        "control": {
+          "index": 5,
+          "tag": "a",
+          "role": null,
+          "href": "/__ioi/ontology/explorer?objectType=widget&ontology=ont_18ca2757d28a20f7",
+          "disabled": false,
+          "label": "Widget"
+        }
+      },
+      "controls": 15,
+      "disabled_controls": 2,
+      "screenshot": {
+        "sha256": "45d7c0ec3a740f814d993e2ab541d381429affb131e5e49af58a855607093006",
+        "posture": "1440x900-light"
+      },
+      "console_errors": [],
+      "posture_matrix": [
+        {
+          "sha256": "45d7c0ec3a740f814d993e2ab541d381429affb131e5e49af58a855607093006",
+          "posture": "1440x900-dark"
+        },
+        {
+          "sha256": "9c94169e5a14283e85f1da8839601493144916ed62a3cd99b7da215e12a88565",
+          "posture": "390x844-light-reduced-motion"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 0,
+        "tag": "a",
+        "role": null,
+        "href": "/ai",
+        "disabled": false,
+        "label": "Home"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 1,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/odk",
+        "disabled": false,
+        "label": "Ontology"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 2,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/home",
+        "disabled": false,
+        "label": "Applications"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": "visited",
+      "control": {
+        "index": 3,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/ontology/explorer",
+        "disabled": false,
+        "label": "Object Explorer"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n0",
+      "to": "n0",
+      "control": {
+        "index": 4,
+        "tag": "select",
+        "role": null,
+        "href": null,
+        "disabled": false,
+        "label": "Ontology scope"
+      },
+      "action": "click",
+      "outcome": "noop"
+    },
+    {
+      "from": "n0",
+      "to": "n1",
+      "control": {
+        "index": 5,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/ontology/explorer?objectType=widget&ontology=ont_18ca2757d28a20f7",
+        "disabled": false,
+        "label": "Widget"
+      },
+      "action": "goto",
+      "outcome": "navigated"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 6,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/odk",
+        "disabled": false,
+        "label": "ODK substrate →"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 7,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/ontology/manager",
+        "disabled": false,
+        "label": "Ontology Manager →"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 8,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/odk",
+        "disabled": false,
+        "label": "ODK"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 9,
+        "tag": "a",
+        "role": null,
+        "href": "/__apps/explorer",
+        "disabled": false,
+        "label": "Object Explorer capture ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": "back-stack",
+      "control": null,
+      "action": "back",
+      "outcome": "navigated"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 0,
+        "tag": "a",
+        "role": null,
+        "href": "/ai",
+        "disabled": false,
+        "label": "Home"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 1,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/odk",
+        "disabled": false,
+        "label": "Ontology"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 2,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/home",
+        "disabled": false,
+        "label": "Applications"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": "visited",
+      "control": {
+        "index": 3,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/ontology/explorer",
+        "disabled": false,
+        "label": "Object Explorer"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n1",
+      "to": "n1",
+      "control": {
+        "index": 4,
+        "tag": "select",
+        "role": null,
+        "href": null,
+        "disabled": false,
+        "label": "Ontology scope"
+      },
+      "action": "click",
+      "outcome": "noop"
+    },
+    {
+      "from": "n1",
+      "to": "visited",
+      "control": {
+        "index": 5,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/ontology/explorer?objectType=widget&ontology=ont_18ca2757d28a20f7",
+        "disabled": false,
+        "label": "Widget"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 6,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/odk",
+        "disabled": false,
+        "label": "ODK substrate →"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 7,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/ontology/manager",
+        "disabled": false,
+        "label": "Ontology Manager →"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 8,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/odk",
+        "disabled": false,
+        "label": "ODK"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 9,
+        "tag": "a",
+        "role": null,
+        "href": "/__apps/explorer",
+        "disabled": false,
+        "label": "Object Explorer capture ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 10,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/ontology/manager?ontology=ont_18ca2757d28a20f7",
+        "disabled": false,
+        "label": "probe-reencode"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 11,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/ontology/manager?definitionId=widget&definitionKind=object-type&ontology=ont_18ca2757d28a20f7&section=object-types",
+        "disabled": false,
+        "label": "Manager definition"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 12,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/pipeline?node=mapping&ontology=ont_18ca2757d28a20f7",
+        "disabled": false,
+        "label": "Pipeline"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 13,
+        "tag": "button",
+        "role": null,
+        "href": null,
+        "disabled": true,
+        "label": "Execute action"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n1",
+      "to": null,
+      "control": {
+        "index": 14,
+        "tag": "button",
+        "role": null,
+        "href": null,
+        "disabled": true,
+        "label": "Search instances"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n1",
+      "to": "back-stack",
+      "control": null,
+      "action": "back",
+      "outcome": "navigated"
+    }
+  ],
+  "blockers": [],
+  "replay": {
+    "walked_all_edges": true,
+    "walked_at": "2026-08-09T16:09:02.431Z",
+    "problems": []
+  },
+  "complete_interaction_route_graph": true,
+  "shots_dir": ".artifacts/seed-graph-shots/ontology/explorer",
+  "content_address": "d6ac5fe0678ea1055347eeb256a63d8484bbb602bb08a7fbcc1d3bb77ffc9952"
+}

@@ -1,0 +1,222 @@
+{
+  "schema_version": "ioi.hypervisor.seed-interaction-route-graph.v1",
+  "surface": "foundry",
+  "slug": "models",
+  "owned_route": "/__ioi/foundry/models",
+  "capture_route": null,
+  "runtime": {
+    "serve_url": "http://127.0.0.1:4173",
+    "capture_url": null
+  },
+  "captured_at": "2026-08-09T16:20:37.599Z",
+  "quarantine": {
+    "network_policy": "local-only",
+    "corpus_mutation": "denied",
+    "html_injection": "denied",
+    "spa_fallback": "denied",
+    "allowed_origins": [
+      "http://127.0.0.1:4173",
+      "http://127.0.0.1:9225"
+    ],
+    "violations": []
+  },
+  "nodes": [
+    {
+      "id": "n0",
+      "kind": "route",
+      "signature": "/__ioi/foundry/models#open=0|H1:Model Catalog|H2:IOI-provided models|H3:Additional models",
+      "url": "/__ioi/foundry/models",
+      "title": "Model Catalog",
+      "entry_edge": null,
+      "controls": 11,
+      "disabled_controls": 4,
+      "screenshot": {
+        "sha256": "1bc29f2fed02b31f50b8e93c44ac9f3af3b27b9e3c04ecf749caf710cca4009b",
+        "posture": "1440x900-light"
+      },
+      "console_errors": [],
+      "posture_matrix": [
+        {
+          "sha256": "1bc29f2fed02b31f50b8e93c44ac9f3af3b27b9e3c04ecf749caf710cca4009b",
+          "posture": "1440x900-dark"
+        },
+        {
+          "sha256": "1a634feab810c14a3136427ca08c1a58b2229b535af36e180777d3b4f4496abe",
+          "posture": "390x844-light-reduced-motion"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 0,
+        "tag": "a",
+        "role": null,
+        "href": "/ai",
+        "disabled": false,
+        "label": "Home"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 1,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/odk",
+        "disabled": false,
+        "label": "Ontology"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 2,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/home",
+        "disabled": false,
+        "label": "Applications"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": "visited",
+      "control": {
+        "index": 3,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/foundry/models",
+        "disabled": false,
+        "label": "Model Catalog"
+      },
+      "action": "goto",
+      "outcome": "revisit"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 4,
+        "tag": "button",
+        "role": null,
+        "href": null,
+        "disabled": true,
+        "label": "Compare models"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 5,
+        "tag": "button",
+        "role": null,
+        "href": null,
+        "disabled": true,
+        "label": "Clear"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 6,
+        "tag": "button",
+        "role": null,
+        "href": null,
+        "disabled": true,
+        "label": "Clear"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 7,
+        "tag": "button",
+        "role": null,
+        "href": null,
+        "disabled": true,
+        "label": "Clear"
+      },
+      "action": "none",
+      "outcome": "disabled"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 8,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/agent-studio#model-routes",
+        "disabled": false,
+        "label": "Agent Studio →"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 9,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/foundry",
+        "disabled": false,
+        "label": "Foundry →"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 10,
+        "tag": "a",
+        "role": null,
+        "href": "/__apps/models",
+        "disabled": false,
+        "label": "Model Catalog capture ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": "back-stack",
+      "control": null,
+      "action": "back",
+      "outcome": "navigated"
+    }
+  ],
+  "blockers": [],
+  "replay": {
+    "walked_all_edges": true,
+    "walked_at": "2026-08-09T16:20:39.315Z",
+    "problems": []
+  },
+  "complete_interaction_route_graph": true,
+  "shots_dir": ".artifacts/seed-graph-shots/foundry/models",
+  "content_address": "ddb16292d855c9456243c2fb185da6ac9ff37514943bd2da81c5447811abeb56"
+}
