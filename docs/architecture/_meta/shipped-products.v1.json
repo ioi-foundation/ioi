@@ -82,6 +82,7 @@
           "/evaluations",
           "/foundry",
           "/governance",
+          "/governance/approvals",
           "/home",
           "/improvement",
           "/ontology",
@@ -100,8 +101,8 @@
           "/work/new-session",
           "/work/sessions"
         ],
-        "expected_count": 41,
-        "sha256": "2b1d944966a7462290769199821e264ace0bc62722c8036f58ec569874494d4c",
+        "expected_count": 42,
+        "sha256": "c71a83cdbd86e9b80511a814a07d68875693536576f9d8ad94ade1cf640e7679",
         "browser_verification_id": "served-surface-smoke"
       },
       "state_authority_mode": "daemon_authoritative_projection",
