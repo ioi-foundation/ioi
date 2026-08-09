@@ -12,6 +12,7 @@
     "serve:product-ui": "node scripts/serve-product-ui.mjs",
     "serve:reference": "node scripts/serve-product-ui.mjs",
     "check:ported-seed": "node scripts/verify-hypervisor-ported-seed-invariant.mjs",
+    "check:seed-provenance": "node scripts/verify-hypervisor-seed-provenance.mjs",
     "check:ported-seed:live": "node scripts/verify-hypervisor-ported-seed-invariant.mjs --live",
     "check:owned-product-ui": "node scripts/verify-owned-product-ui.mjs",
     "check:shell-parity": "node scripts/verify-hypervisor-shell-parity.mjs",

@@ -206,6 +206,7 @@ jobs:
           npm run check:owned-product-ui --workspace=@ioi/hypervisor-app
           npm run check:shell-parity --workspace=@ioi/hypervisor-app
           npm run check:ported-seed --workspace=@ioi/hypervisor-app
+          npm run check:seed-provenance --workspace=@ioi/hypervisor-app
           npm run check:source-neutral --workspace=@ioi/hypervisor-app
 
       - name: Record post-build shipped-product artifact identities

@@ -1,0 +1,1143 @@
+{
+  "schema_version": "ioi.hypervisor.seed-ux-provenance.v1",
+  "doctrine": "Fail-closed seed provenance for the twenty Hypervisor surfaces. A UX baseline is admitted only from an exact tracked provenance record; a canonical W0.1 shell, a generic /__ioi readout, visual resemblance, a control census, or a registration is never a seed. No surface rehome begins until every selected source carries a content-addressed complete interaction/route graph (complete_interaction_route_graph=true, replay-walked), or the surface carries a typed greenfield-authorized-non-parity record. A blocked record documents a gap only and never opens iteration.",
+  "derived_from": {
+    "audit_pack": "internal-docs/audits/2026-08-09-hypervisor-live-ux-workstream-coverage/ (gitignored research evidence)",
+    "audit_commit": "b309cf5e8031bd5faff52b85ea6bd0ad9d8df260",
+    "audit_manifest_schema": "ioi.hypervisor.seed-ux-provenance-manifest.v1",
+    "derived_at": "2026-08-09"
+  },
+  "tracked_provenance_sources": [
+    "apps/hypervisor/ported-seed-preservation.v1.json",
+    "apps/hypervisor/ux-seeds/manifest.json",
+    "apps/hypervisor/harvest-starting-points.json",
+    "apps/hypervisor/harvest-app-parity-matrix.json",
+    "apps/hypervisor/application-operational-depth.json",
+    "apps/hypervisor/scripts/harvest-seed-inventory.mjs"
+  ],
+  "untracked_references": [
+    "internal-docs/implementation/program/estate-disposition.md (gitignored working ledger)"
+  ],
+  "graph_directory": "apps/hypervisor/seed-graphs/",
+  "canonical_surface_count": 20,
+  "surfaces": [
+    {
+      "id": "home",
+      "owner": "Home",
+      "canonical_route": "/home",
+      "baseline_status": "blocked-no-valid-seed",
+      "graph_mapping_status": "blocked-no-provenance-source",
+      "seed_graph_ready_for_rehome": false,
+      "greenfield_authorization": null,
+      "graph_recovery_status": "searched-zero-sources-promoted-blocked-no-valid-seed",
+      "sources": []
+    },
+    {
+      "id": "systems",
+      "owner": "Systems",
+      "canonical_route": "/systems",
+      "baseline_status": "blocked-no-valid-seed",
+      "graph_mapping_status": "blocked-no-provenance-source",
+      "seed_graph_ready_for_rehome": false,
+      "greenfield_authorization": null,
+      "graph_recovery_status": "searched-zero-sources-promoted-blocked-no-valid-seed",
+      "sources": []
+    },
+    {
+      "id": "projects",
+      "owner": "Projects",
+      "canonical_route": "/projects",
+      "baseline_status": "blocked-no-valid-seed",
+      "graph_mapping_status": "blocked-no-provenance-source",
+      "seed_graph_ready_for_rehome": false,
+      "greenfield_authorization": null,
+      "graph_recovery_status": "searched-zero-sources-promoted-blocked-no-valid-seed",
+      "sources": []
+    },
+    {
+      "id": "applications",
+      "owner": "Applications",
+      "canonical_route": "/applications",
+      "baseline_status": "blocked-no-valid-seed",
+      "graph_mapping_status": "blocked-no-provenance-source",
+      "seed_graph_ready_for_rehome": false,
+      "greenfield_authorization": null,
+      "graph_recovery_status": "searched-zero-sources-promoted-blocked-no-valid-seed",
+      "sources": []
+    },
+    {
+      "id": "work",
+      "owner": "Work",
+      "canonical_route": "/work",
+      "baseline_status": "provenance-qualified-executable-seed-present",
+      "graph_mapping_status": "blocked-explored-control-graph-not-complete",
+      "seed_graph_ready_for_rehome": false,
+      "greenfield_authorization": null,
+      "graph_recovery_status": "required-for-every-summary-only-source",
+      "sources": [
+        {
+          "kind": "protected-executable-seed",
+          "slug": "jobs",
+          "starting_route": "/__ioi/missions",
+          "canonical_owner": "Work",
+          "provenance_source": "apps/hypervisor/ported-seed-preservation.v1.json",
+          "visual_evidence_status": "selected-provenance-qualified-protected-matrix-present",
+          "graph": {
+            "evidence_level": "explored_control_graph",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "class": "substrate_bound",
+          "owner_mapping_note": "retired owner name: surface-registry.mjs still labels /__ioi/missions with the retired owner 'Missions'; canonical owner is Work per the estate ledger and core-clients-surfaces.md. The registry rename lands with the Work surface packet, not here."
+        },
+        {
+          "kind": "protected-executable-seed",
+          "slug": "incidents",
+          "starting_route": "/__ioi/missions/incidents",
+          "canonical_owner": "Work",
+          "provenance_source": "apps/hypervisor/ported-seed-preservation.v1.json",
+          "visual_evidence_status": "blocked-missing-capture-corrupted-protected-variant-excluded",
+          "graph": {
+            "evidence_level": "explored_control_graph",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "class": "daemon_wired",
+          "owner_mapping_note": "retired owner name: surface-registry.mjs still labels /__ioi/missions/incidents with the retired owner 'Missions'; canonical owner is Work per the estate ledger and core-clients-surfaces.md. The registry rename lands with the Work surface packet, not here."
+        },
+        {
+          "kind": "retained-harvest-capture",
+          "slug": "jobs",
+          "starting_route": "/__apps/jobs",
+          "canonical_owner": "Work",
+          "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
+          "visual_evidence_status": "selected-provenance-qualified-stable-matrix-present",
+          "graph": {
+            "evidence_level": "explored_control_graph",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "disposition": "rebind",
+          "audit_route_disposition": "retained-seed"
+        },
+        {
+          "kind": "retained-harvest-capture",
+          "slug": "incidents",
+          "starting_route": "/__apps/incidents",
+          "canonical_owner": "Work",
+          "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
+          "visual_evidence_status": "blocked-text-log-only-no-admissible-render",
+          "graph": {
+            "evidence_level": "explored_control_graph",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "disposition": "rebind",
+          "audit_route_disposition": "retained-seed",
+          "visual_blocker": "stable matrix is not trustworthy: one file was overwritten with a contact sheet and no immutable genuine render is established"
+        }
+      ]
+    },
+    {
+      "id": "settings",
+      "owner": "Settings",
+      "canonical_route": "/settings",
+      "baseline_status": "blocked-no-valid-seed",
+      "graph_mapping_status": "blocked-no-provenance-source",
+      "seed_graph_ready_for_rehome": false,
+      "greenfield_authorization": null,
+      "graph_recovery_status": "searched-zero-sources-promoted-blocked-no-valid-seed",
+      "sources": []
+    },
+    {
+      "id": "studio",
+      "owner": "Studio",
+      "canonical_route": "/studio",
+      "baseline_status": "provenance-qualified-executable-seed-present",
+      "graph_mapping_status": "blocked-explored-control-graph-not-complete",
+      "seed_graph_ready_for_rehome": false,
+      "greenfield_authorization": null,
+      "graph_recovery_status": "required-for-every-summary-only-source",
+      "sources": [
+        {
+          "kind": "protected-executable-seed",
+          "slug": "designer",
+          "starting_route": "/__ioi/studio/designer",
+          "canonical_owner": "Studio",
+          "provenance_source": "apps/hypervisor/ported-seed-preservation.v1.json",
+          "visual_evidence_status": "selected-provenance-qualified-protected-matrix-present",
+          "graph": {
+            "evidence_level": "explored_control_graph",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "class": "daemon_wired"
+        },
+        {
+          "kind": "retained-harvest-capture",
+          "slug": "designer",
+          "starting_route": "/__apps/designer",
+          "canonical_owner": "Studio",
+          "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
+          "visual_evidence_status": "selected-provenance-qualified-stable-matrix-present",
+          "graph": {
+            "evidence_level": "explored_control_graph",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "disposition": "rebind",
+          "audit_route_disposition": "retained-seed"
+        },
+        {
+          "kind": "retained-harvest-capture",
+          "slug": "workshop",
+          "starting_route": "/__apps/workshop",
+          "canonical_owner": "Studio",
+          "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
+          "visual_evidence_status": "blocked-text-log-only-no-admissible-render",
+          "graph": {
+            "evidence_level": "summary_only",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "disposition": "pattern-harvest",
+          "audit_route_disposition": "retained-seed",
+          "visual_blocker": "stable replay initiates a browser download/redirect"
+        },
+        {
+          "kind": "retained-harvest-capture",
+          "slug": "module",
+          "starting_route": "/__apps/module",
+          "canonical_owner": "Studio",
+          "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
+          "visual_evidence_status": "blocked-text-log-only-no-admissible-render",
+          "graph": {
+            "evidence_level": "summary_only",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "disposition": "pattern-harvest",
+          "audit_route_disposition": "retained-seed",
+          "visual_blocker": "stable replay is Page not found"
+        },
+        {
+          "kind": "retained-harvest-capture",
+          "slug": "slate",
+          "starting_route": "/__apps/slate",
+          "canonical_owner": "Studio",
+          "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
+          "visual_evidence_status": "blocked-text-log-only-no-admissible-render",
+          "graph": {
+            "evidence_level": "summary_only",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "disposition": "pattern-harvest",
+          "audit_route_disposition": "retained-seed",
+          "visual_blocker": "stable matrix is blank/global-chrome-only rather than substantive application UX"
+        },
+        {
+          "kind": "retained-harvest-capture",
+          "slug": "logic",
+          "starting_route": "/__apps/logic",
+          "canonical_owner": "Studio",
+          "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
+          "visual_evidence_status": "blocked-text-log-only-no-admissible-render",
+          "graph": {
+            "evidence_level": "summary_only",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "disposition": "pattern-harvest",
+          "audit_route_disposition": "retained-seed",
+          "visual_blocker": "stable replay is global chrome plus Failed to initialize"
+        },
+        {
+          "kind": "retained-harvest-capture",
+          "slug": "contour",
+          "starting_route": "/__apps/contour",
+          "canonical_owner": "Studio",
+          "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
+          "visual_evidence_status": "blocked-text-log-only-no-admissible-render",
+          "graph": {
+            "evidence_level": "summary_only",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "disposition": "pattern-harvest",
+          "audit_route_disposition": "retained-seed",
+          "visual_blocker": "stable replay is global chrome plus Failed to load analysis"
+        },
+        {
+          "kind": "retained-harvest-capture",
+          "slug": "fusion",
+          "starting_route": "/__apps/fusion",
+          "canonical_owner": "Studio",
+          "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
+          "visual_evidence_status": "blocked-text-log-only-no-admissible-render",
+          "graph": {
+            "evidence_level": "summary_only",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "disposition": "blocked-missing-route",
+          "audit_route_disposition": "blocked-missing-runtime",
+          "visual_blocker": "stable replay is a Not Found page"
+        }
+      ]
+    },
+    {
+      "id": "automations",
+      "owner": "Automations",
+      "canonical_route": "/automations",
+      "baseline_status": "provenance-qualified-executable-seed-present",
+      "graph_mapping_status": "blocked-explored-control-graph-not-complete",
+      "seed_graph_ready_for_rehome": false,
+      "greenfield_authorization": null,
+      "graph_recovery_status": "required-for-every-summary-only-source",
+      "sources": [
+        {
+          "kind": "protected-executable-seed",
+          "slug": "machinery",
+          "starting_route": "/__ioi/studio/machinery",
+          "canonical_owner": "Automations",
+          "provenance_source": "apps/hypervisor/ported-seed-preservation.v1.json",
+          "visual_evidence_status": "selected-provenance-qualified-protected-matrix-present",
+          "graph": {
+            "evidence_level": "explored_control_graph",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "class": "daemon_wired",
+          "owner_mapping_note": "OQ-2 open dual-owner record: surface-registry.mjs declares Studio; the 2026-08-09 audit's canonical reading is Automations; neither side is picked to unblock work. manifest.v1.json open_questions OQ-2 and docs/architecture/_meta/canon-to-code-delta.md carry the record."
+        },
+        {
+          "kind": "protected-executable-seed",
+          "slug": "monitors",
+          "starting_route": "/__ioi/automations/monitors",
+          "canonical_owner": "Automations",
+          "provenance_source": "apps/hypervisor/ported-seed-preservation.v1.json",
+          "visual_evidence_status": "selected-provenance-qualified-protected-matrix-present",
+          "graph": {
+            "evidence_level": "explored_control_graph",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "class": "daemon_wired"
+        },
+        {
+          "kind": "retained-harvest-capture",
+          "slug": "monitors",
+          "starting_route": "/__apps/monitors",
+          "canonical_owner": "Automations",
+          "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
+          "visual_evidence_status": "selected-provenance-qualified-stable-matrix-present",
+          "graph": {
+            "evidence_level": "explored_control_graph",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "disposition": "pattern-harvest",
+          "audit_route_disposition": "retained-seed"
+        },
+        {
+          "kind": "retained-harvest-capture",
+          "slug": "machinery",
+          "starting_route": "/__apps/machinery",
+          "canonical_owner": "Automations",
+          "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
+          "visual_evidence_status": "selected-provenance-qualified-stable-matrix-present",
+          "graph": {
+            "evidence_level": "explored_control_graph",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "disposition": "pattern-harvest",
+          "audit_route_disposition": "retained-seed",
+          "owner_mapping_note": "audit correction: current canonical process-graph owner is Automations; estate sweep carries the older Studio mesh assignment"
+        }
+      ]
+    },
+    {
+      "id": "ontology",
+      "owner": "Ontology",
+      "canonical_route": "/ontology",
+      "baseline_status": "provenance-qualified-executable-seed-present",
+      "graph_mapping_status": "blocked-explored-control-graph-not-complete",
+      "seed_graph_ready_for_rehome": false,
+      "greenfield_authorization": null,
+      "graph_recovery_status": "required-for-every-summary-only-source",
+      "sources": [
+        {
+          "kind": "protected-executable-seed",
+          "slug": "schema",
+          "starting_route": "/__ioi/ontology/manager",
+          "canonical_owner": "Ontology",
+          "provenance_source": "apps/hypervisor/ported-seed-preservation.v1.json",
+          "visual_evidence_status": "selected-provenance-qualified-protected-matrix-present",
+          "graph": {
+            "evidence_level": "explored_control_graph",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "class": "daemon_wired"
+        },
+        {
+          "kind": "protected-executable-seed",
+          "slug": "explorer",
+          "starting_route": "/__ioi/ontology/explorer",
+          "canonical_owner": "Ontology",
+          "provenance_source": "apps/hypervisor/ported-seed-preservation.v1.json",
+          "visual_evidence_status": "selected-provenance-qualified-protected-matrix-present",
+          "graph": {
+            "evidence_level": "explored_control_graph",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "class": "daemon_wired"
+        },
+        {
+          "kind": "retained-harvest-capture",
+          "slug": "schema",
+          "starting_route": "/__apps/schema",
+          "canonical_owner": "Ontology",
+          "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
+          "visual_evidence_status": "selected-provenance-qualified-stable-matrix-present",
+          "graph": {
+            "evidence_level": "explored_control_graph",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "disposition": "pattern-harvest",
+          "audit_route_disposition": "retained-seed"
+        },
+        {
+          "kind": "retained-harvest-capture",
+          "slug": "explorer",
+          "starting_route": "/__apps/explorer",
+          "canonical_owner": "Ontology",
+          "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
+          "visual_evidence_status": "blocked-text-log-only-no-admissible-render",
+          "graph": {
+            "evidence_level": "explored_control_graph",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "disposition": "pattern-harvest",
+          "audit_route_disposition": "retained-seed",
+          "visual_blocker": "stable matrix is generic failure/error-only rather than substantive application UX"
+        },
+        {
+          "kind": "retained-harvest-capture",
+          "slug": "objectview",
+          "starting_route": "/__apps/objectview",
+          "canonical_owner": "Ontology",
+          "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
+          "visual_evidence_status": "blocked-text-log-only-no-admissible-render",
+          "graph": {
+            "evidence_level": "summary_only",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "disposition": "blocked-missing-capture",
+          "audit_route_disposition": "blocked-missing-capture",
+          "visual_blocker": "stable replay initiates a browser download/redirect"
+        },
+        {
+          "kind": "retained-harvest-capture",
+          "slug": "objecteditor",
+          "starting_route": "/__apps/objecteditor",
+          "canonical_owner": "Ontology",
+          "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
+          "visual_evidence_status": "blocked-text-log-only-no-admissible-render",
+          "graph": {
+            "evidence_level": "summary_only",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "disposition": "blocked-missing-capture",
+          "audit_route_disposition": "blocked-missing-capture",
+          "visual_blocker": "stable replay initiates a browser download/redirect"
+        }
+      ]
+    },
+    {
+      "id": "data",
+      "owner": "Data",
+      "canonical_route": "/data",
+      "baseline_status": "provenance-qualified-executable-seed-present",
+      "graph_mapping_status": "blocked-explored-control-graph-not-complete",
+      "seed_graph_ready_for_rehome": false,
+      "greenfield_authorization": null,
+      "graph_recovery_status": "required-for-every-summary-only-source",
+      "sources": [
+        {
+          "kind": "protected-executable-seed",
+          "slug": "sources",
+          "starting_route": "/__ioi/data/sources",
+          "canonical_owner": "Data",
+          "provenance_source": "apps/hypervisor/ported-seed-preservation.v1.json",
+          "visual_evidence_status": "selected-provenance-qualified-protected-matrix-present",
+          "graph": {
+            "evidence_level": "explored_control_graph",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "class": "daemon_wired"
+        },
+        {
+          "kind": "protected-executable-seed",
+          "slug": "pipeline",
+          "starting_route": "/__ioi/pipeline",
+          "canonical_owner": "Data",
+          "provenance_source": "apps/hypervisor/ported-seed-preservation.v1.json",
+          "visual_evidence_status": "selected-provenance-qualified-protected-matrix-present",
+          "graph": {
+            "evidence_level": "explored_control_graph",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "class": "daemon_wired"
+        },
+        {
+          "kind": "retained-harvest-capture",
+          "slug": "ingest",
+          "starting_route": "/__apps/ingest",
+          "canonical_owner": "Data",
+          "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
+          "visual_evidence_status": "blocked-text-log-only-no-admissible-render",
+          "graph": {
+            "evidence_level": "summary_only",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "disposition": "pattern-harvest",
+          "audit_route_disposition": "retained-seed",
+          "visual_blocker": "stable replay is blank global chrome"
+        },
+        {
+          "kind": "retained-harvest-capture",
+          "slug": "sources",
+          "starting_route": "/__apps/sources",
+          "canonical_owner": "Data",
+          "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
+          "visual_evidence_status": "blocked-text-log-only-no-admissible-render",
+          "graph": {
+            "evidence_level": "explored_control_graph",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "disposition": "pattern-harvest",
+          "audit_route_disposition": "retained-seed",
+          "visual_blocker": "stable replay is blank global chrome"
+        },
+        {
+          "kind": "retained-harvest-capture",
+          "slug": "pipeline",
+          "starting_route": "/__apps/pipeline",
+          "canonical_owner": "Data",
+          "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
+          "visual_evidence_status": "selected-provenance-qualified-stable-matrix-present",
+          "graph": {
+            "evidence_level": "explored_control_graph",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "disposition": "pattern-harvest",
+          "audit_route_disposition": "retained-seed"
+        },
+        {
+          "kind": "retained-harvest-capture",
+          "slug": "dataset",
+          "starting_route": "/__apps/dataset",
+          "canonical_owner": "Data",
+          "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
+          "visual_evidence_status": "blocked-text-log-only-no-admissible-render",
+          "graph": {
+            "evidence_level": "summary_only",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "disposition": "blocked-missing-route",
+          "audit_route_disposition": "blocked-missing-runtime",
+          "visual_blocker": "stable replay is an invalid-resource Not a dataset page"
+        },
+        {
+          "kind": "retained-harvest-capture",
+          "slug": "inference",
+          "starting_route": "/__apps/inference",
+          "canonical_owner": "Data",
+          "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
+          "visual_evidence_status": "blocked-text-log-only-no-admissible-render",
+          "graph": {
+            "evidence_level": "summary_only",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "disposition": "rehome",
+          "audit_route_disposition": "rehomed",
+          "visual_blocker": "stable matrix is generic failure/error-only rather than substantive application UX"
+        }
+      ]
+    },
+    {
+      "id": "governance",
+      "owner": "Governance",
+      "canonical_route": "/governance",
+      "baseline_status": "provenance-qualified-executable-seed-present",
+      "graph_mapping_status": "blocked-explored-control-graph-not-complete",
+      "seed_graph_ready_for_rehome": false,
+      "greenfield_authorization": null,
+      "graph_recovery_status": "required-for-every-summary-only-source",
+      "sources": [
+        {
+          "kind": "protected-executable-seed",
+          "slug": "approvals",
+          "starting_route": "/__ioi/governance/approvals",
+          "canonical_owner": "Governance",
+          "provenance_source": "apps/hypervisor/ported-seed-preservation.v1.json",
+          "visual_evidence_status": "selected-provenance-qualified-protected-matrix-present",
+          "graph": {
+            "evidence_level": "explored_control_graph",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "class": "daemon_wired"
+        },
+        {
+          "kind": "retained-harvest-capture",
+          "slug": "approvals",
+          "starting_route": "/__apps/approvals",
+          "canonical_owner": "Governance",
+          "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
+          "visual_evidence_status": "selected-provenance-qualified-stable-matrix-present",
+          "graph": {
+            "evidence_level": "explored_control_graph",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "disposition": "rehome",
+          "audit_route_disposition": "rehomed"
+        }
+      ]
+    },
+    {
+      "id": "provenance",
+      "owner": "Provenance",
+      "canonical_route": "/provenance",
+      "baseline_status": "provenance-qualified-executable-seed-present",
+      "graph_mapping_status": "blocked-summary-only-no-complete-interaction-route-graph",
+      "seed_graph_ready_for_rehome": false,
+      "greenfield_authorization": null,
+      "graph_recovery_status": "required-for-every-summary-only-source",
+      "sources": [
+        {
+          "kind": "protected-executable-seed",
+          "slug": "lineage",
+          "starting_route": "/__ioi/lineage",
+          "canonical_owner": "Provenance",
+          "provenance_source": "apps/hypervisor/ported-seed-preservation.v1.json",
+          "visual_evidence_status": "selected-provenance-qualified-protected-matrix-present",
+          "graph": {
+            "evidence_level": "summary_only",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "class": "substrate_bound"
+        },
+        {
+          "kind": "protected-executable-seed",
+          "slug": "vertex",
+          "starting_route": "/__ioi/vertex",
+          "canonical_owner": "Provenance",
+          "provenance_source": "apps/hypervisor/ported-seed-preservation.v1.json",
+          "visual_evidence_status": "selected-provenance-qualified-protected-matrix-present",
+          "graph": {
+            "evidence_level": "summary_only",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "class": "substrate_bound"
+        },
+        {
+          "kind": "retained-harvest-capture",
+          "slug": "lineage",
+          "starting_route": "/__apps/lineage",
+          "canonical_owner": "Provenance",
+          "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
+          "visual_evidence_status": "selected-provenance-qualified-stable-matrix-present",
+          "graph": {
+            "evidence_level": "summary_only",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "disposition": "rebind",
+          "audit_route_disposition": "retained-seed"
+        },
+        {
+          "kind": "retained-harvest-capture",
+          "slug": "vertex",
+          "starting_route": "/__apps/vertex",
+          "canonical_owner": "Provenance",
+          "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
+          "visual_evidence_status": "selected-provenance-qualified-stable-matrix-present",
+          "graph": {
+            "evidence_level": "summary_only",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "disposition": "pattern-harvest",
+          "audit_route_disposition": "retained-seed"
+        },
+        {
+          "kind": "explicit-dormant-reference",
+          "slug": "lineage",
+          "starting_route": null,
+          "canonical_owner": "Provenance",
+          "provenance_source": "apps/hypervisor/ux-seeds/manifest.json",
+          "visual_evidence_status": null,
+          "graph": {
+            "evidence_level": "summary_only",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "class": "substrate_bound"
+        }
+      ]
+    },
+    {
+      "id": "evaluations",
+      "owner": "Evaluations",
+      "canonical_route": "/evaluations",
+      "baseline_status": "provenance-qualified-executable-seed-present",
+      "graph_mapping_status": "blocked-explored-control-graph-not-complete",
+      "seed_graph_ready_for_rehome": false,
+      "greenfield_authorization": null,
+      "graph_recovery_status": "required-for-every-summary-only-source",
+      "sources": [
+        {
+          "kind": "protected-executable-seed",
+          "slug": "evalsuites",
+          "starting_route": "/__ioi/evaluations/evalsuites",
+          "canonical_owner": "Evaluations",
+          "provenance_source": "apps/hypervisor/ported-seed-preservation.v1.json",
+          "visual_evidence_status": "selected-provenance-qualified-protected-matrix-present",
+          "graph": {
+            "evidence_level": "explored_control_graph",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "class": "daemon_wired"
+        },
+        {
+          "kind": "retained-harvest-capture",
+          "slug": "evalsuites",
+          "starting_route": "/__apps/evalsuites",
+          "canonical_owner": "Evaluations",
+          "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
+          "visual_evidence_status": "blocked-text-log-only-no-admissible-render",
+          "graph": {
+            "evidence_level": "explored_control_graph",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "disposition": "pattern-harvest",
+          "audit_route_disposition": "retained-seed",
+          "visual_blocker": "stable matrix is generic failure/error-only rather than substantive application UX"
+        },
+        {
+          "kind": "retained-harvest-capture",
+          "slug": "analysis",
+          "starting_route": "/__apps/analysis",
+          "canonical_owner": "Evaluations",
+          "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
+          "visual_evidence_status": "blocked-text-log-only-no-admissible-render",
+          "graph": {
+            "evidence_level": "summary_only",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "disposition": "pattern-harvest",
+          "audit_route_disposition": "retained-seed",
+          "visual_blocker": "stable replay is blank global chrome"
+        },
+        {
+          "kind": "retained-harvest-capture",
+          "slug": "quiver",
+          "starting_route": "/__apps/quiver",
+          "canonical_owner": "Evaluations",
+          "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
+          "visual_evidence_status": "blocked-text-log-only-no-admissible-render",
+          "graph": {
+            "evidence_level": "summary_only",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "disposition": "blocked-missing-route",
+          "audit_route_disposition": "blocked-missing-runtime",
+          "visual_blocker": "stable replay is blank global chrome"
+        }
+      ]
+    },
+    {
+      "id": "improvement",
+      "owner": "Improvement",
+      "canonical_route": "/improvement",
+      "baseline_status": "provenance-qualified-executable-seed-present",
+      "graph_mapping_status": "blocked-explored-control-graph-not-complete",
+      "seed_graph_ready_for_rehome": false,
+      "greenfield_authorization": null,
+      "graph_recovery_status": "required-for-every-summary-only-source",
+      "sources": [
+        {
+          "kind": "protected-executable-seed",
+          "slug": "changes",
+          "starting_route": "/__ioi/improvement/changes",
+          "canonical_owner": "Improvement",
+          "provenance_source": "apps/hypervisor/ported-seed-preservation.v1.json",
+          "visual_evidence_status": "selected-provenance-qualified-protected-matrix-present",
+          "graph": {
+            "evidence_level": "explored_control_graph",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "class": "daemon_wired"
+        },
+        {
+          "kind": "retained-harvest-capture",
+          "slug": "changes",
+          "starting_route": "/__apps/changes",
+          "canonical_owner": "Improvement",
+          "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
+          "visual_evidence_status": "selected-provenance-qualified-stable-matrix-present",
+          "graph": {
+            "evidence_level": "explored_control_graph",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "disposition": "rebind",
+          "audit_route_disposition": "retained-seed"
+        }
+      ]
+    },
+    {
+      "id": "foundry",
+      "owner": "Foundry",
+      "canonical_route": "/foundry",
+      "baseline_status": "provenance-qualified-executable-seed-present",
+      "graph_mapping_status": "blocked-explored-control-graph-not-complete",
+      "seed_graph_ready_for_rehome": false,
+      "greenfield_authorization": null,
+      "graph_recovery_status": "required-for-every-summary-only-source",
+      "sources": [
+        {
+          "kind": "protected-executable-seed",
+          "slug": "models",
+          "starting_route": "/__ioi/foundry/models",
+          "canonical_owner": "Foundry",
+          "provenance_source": "apps/hypervisor/ported-seed-preservation.v1.json",
+          "visual_evidence_status": "selected-provenance-qualified-protected-matrix-present",
+          "graph": {
+            "evidence_level": "explored_control_graph",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "class": "daemon_wired"
+        },
+        {
+          "kind": "retained-harvest-capture",
+          "slug": "models",
+          "starting_route": "/__apps/models",
+          "canonical_owner": "Foundry",
+          "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
+          "visual_evidence_status": "blocked-text-log-only-no-admissible-render",
+          "graph": {
+            "evidence_level": "explored_control_graph",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "disposition": "pattern-harvest",
+          "audit_route_disposition": "retained-seed",
+          "visual_blocker": "stable matrix is generic failure/error-only rather than substantive application UX"
+        },
+        {
+          "kind": "retained-harvest-capture",
+          "slug": "modelstudio",
+          "starting_route": "/__apps/modelstudio",
+          "canonical_owner": "Foundry",
+          "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
+          "visual_evidence_status": "blocked-text-log-only-no-admissible-render",
+          "graph": {
+            "evidence_level": "summary_only",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "disposition": "pattern-harvest",
+          "audit_route_disposition": "retained-seed",
+          "visual_blocker": "stable replay is global chrome plus Page not found"
+        }
+      ]
+    },
+    {
+      "id": "packages",
+      "owner": "Packages",
+      "canonical_route": "/packages",
+      "baseline_status": "provenance-qualified-executable-seed-present",
+      "graph_mapping_status": "blocked-explored-control-graph-not-complete",
+      "seed_graph_ready_for_rehome": false,
+      "greenfield_authorization": null,
+      "graph_recovery_status": "required-for-every-summary-only-source",
+      "sources": [
+        {
+          "kind": "protected-executable-seed",
+          "slug": "listings",
+          "starting_route": "/__ioi/marketplace/listings",
+          "canonical_owner": "Packages",
+          "provenance_source": "apps/hypervisor/ported-seed-preservation.v1.json",
+          "visual_evidence_status": "selected-provenance-qualified-protected-matrix-present",
+          "graph": {
+            "evidence_level": "explored_control_graph",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "class": "daemon_wired",
+          "owner_mapping_note": "retired owner name: surface-registry.mjs still labels /__ioi/marketplace/listings with the folded owner 'Marketplace'; canonical owner is Packages (marketplace is a Packages mode). The registry rename lands with the Packages surface packet, not here."
+        },
+        {
+          "kind": "retained-harvest-capture",
+          "slug": "listings",
+          "starting_route": "/__apps/listings",
+          "canonical_owner": "Packages",
+          "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
+          "visual_evidence_status": "selected-provenance-qualified-stable-matrix-present",
+          "graph": {
+            "evidence_level": "explored_control_graph",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "disposition": "rebind",
+          "audit_route_disposition": "retained-seed"
+        },
+        {
+          "kind": "retained-harvest-capture",
+          "slug": "registry",
+          "starting_route": "/__apps/registry",
+          "canonical_owner": "Packages",
+          "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
+          "visual_evidence_status": "blocked-text-log-only-no-admissible-render",
+          "graph": {
+            "evidence_level": "summary_only",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "disposition": "pattern-harvest",
+          "audit_route_disposition": "retained-seed",
+          "visual_blocker": "stable matrix is generic failure/error-only rather than substantive application UX"
+        }
+      ]
+    },
+    {
+      "id": "developer-workspace",
+      "owner": "Developer Workspace",
+      "canonical_route": "/developer-workspace",
+      "baseline_status": "provenance-qualified-substantive-retained-ux-present-full-graph-required",
+      "graph_mapping_status": "blocked-summary-only-no-complete-interaction-route-graph",
+      "seed_graph_ready_for_rehome": false,
+      "greenfield_authorization": null,
+      "graph_recovery_status": "required-for-every-summary-only-source",
+      "sources": [
+        {
+          "kind": "retained-harvest-capture",
+          "slug": "workspaces",
+          "starting_route": "/__apps/workspaces",
+          "canonical_owner": "Developer Workspace",
+          "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
+          "visual_evidence_status": "blocked-text-log-only-no-admissible-render",
+          "graph": {
+            "evidence_level": "summary_only",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "disposition": "pattern-harvest",
+          "audit_route_disposition": "retained-seed",
+          "visual_blocker": "stable matrix is generic error-only shell rather than substantive application UX"
+        },
+        {
+          "kind": "retained-harvest-capture",
+          "slug": "repositories",
+          "starting_route": "/__apps/repositories",
+          "canonical_owner": "Developer Workspace",
+          "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
+          "visual_evidence_status": "blocked-text-log-only-no-admissible-render",
+          "graph": {
+            "evidence_level": "summary_only",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "disposition": "pattern-harvest",
+          "audit_route_disposition": "retained-seed",
+          "visual_blocker": "stable replay initiates a browser download/redirect"
+        },
+        {
+          "kind": "retained-harvest-capture",
+          "slug": "notepad",
+          "starting_route": "/__apps/notepad",
+          "canonical_owner": "Developer Workspace",
+          "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
+          "visual_evidence_status": "selected-provenance-qualified-stable-matrix-present",
+          "graph": {
+            "evidence_level": "summary_only",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "disposition": "retire-at-cutover",
+          "audit_route_disposition": "retained-seed"
+        },
+        {
+          "kind": "explicit-dormant-reference",
+          "slug": "workspaces",
+          "starting_route": null,
+          "canonical_owner": "Developer Workspace",
+          "provenance_source": "apps/hypervisor/ux-seeds/manifest.json",
+          "visual_evidence_status": null,
+          "graph": {
+            "evidence_level": "summary_only",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "class": "reference_capture"
+        }
+      ]
+    },
+    {
+      "id": "developer-console",
+      "owner": "Developer Console",
+      "canonical_route": "/developer-console",
+      "baseline_status": "provenance-recorded-retained-source-present-but-visual-and-graph-blocked",
+      "graph_mapping_status": "blocked-summary-only-no-complete-interaction-route-graph",
+      "seed_graph_ready_for_rehome": false,
+      "greenfield_authorization": null,
+      "graph_recovery_status": "required-for-every-summary-only-source",
+      "sources": [
+        {
+          "kind": "retained-harvest-capture",
+          "slug": "devconsole",
+          "starting_route": "/__apps/devconsole",
+          "canonical_owner": "Developer Console",
+          "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
+          "visual_evidence_status": "blocked-text-log-only-no-admissible-render",
+          "graph": {
+            "evidence_level": "summary_only",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "disposition": "pattern-harvest",
+          "audit_route_disposition": "retained-seed",
+          "visual_blocker": "stable matrix is pure white/blank"
+        },
+        {
+          "kind": "retained-harvest-capture",
+          "slug": "widgets",
+          "starting_route": "/__apps/widgets",
+          "canonical_owner": "Developer Console",
+          "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
+          "visual_evidence_status": "blocked-text-log-only-no-admissible-render",
+          "graph": {
+            "evidence_level": "summary_only",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "disposition": "pattern-harvest",
+          "audit_route_disposition": "retained-seed",
+          "visual_blocker": "stable matrix is pure white/blank"
+        },
+        {
+          "kind": "retained-harvest-capture",
+          "slug": "developer",
+          "starting_route": "/__apps/developer",
+          "canonical_owner": "Developer Console",
+          "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
+          "visual_evidence_status": "blocked-text-log-only-no-admissible-render",
+          "graph": {
+            "evidence_level": "summary_only",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "disposition": "retire-at-cutover",
+          "audit_route_disposition": "retained-seed",
+          "visual_blocker": "stable matrix is pure white/blank"
+        },
+        {
+          "kind": "explicit-dormant-reference",
+          "slug": "widgets",
+          "starting_route": null,
+          "canonical_owner": "Developer Console",
+          "provenance_source": "apps/hypervisor/ux-seeds/manifest.json",
+          "visual_evidence_status": null,
+          "graph": {
+            "evidence_level": "summary_only",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "class": "reference_capture"
+        }
+      ]
+    },
+    {
+      "id": "environments",
+      "owner": "Environments",
+      "canonical_route": "/environments",
+      "baseline_status": "provenance-recorded-retained-source-present-but-visual-and-graph-blocked",
+      "graph_mapping_status": "blocked-summary-only-no-complete-interaction-route-graph",
+      "seed_graph_ready_for_rehome": false,
+      "greenfield_authorization": null,
+      "graph_recovery_status": "required-for-every-summary-only-source",
+      "sources": [
+        {
+          "kind": "retained-harvest-capture",
+          "slug": "map",
+          "starting_route": "/__apps/map",
+          "canonical_owner": "Environments",
+          "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
+          "visual_evidence_status": "blocked-text-log-only-no-admissible-render",
+          "graph": {
+            "evidence_level": "summary_only",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "disposition": "retire-at-cutover",
+          "audit_route_disposition": "retained-seed",
+          "visual_blocker": "stable matrix is generic failure/error-only rather than substantive application UX"
+        }
+      ]
+    },
+    {
+      "id": "operations",
+      "owner": "Operations",
+      "canonical_route": "/operations",
+      "baseline_status": "provenance-recorded-retained-source-present-but-visual-and-graph-blocked",
+      "graph_mapping_status": "blocked-summary-only-no-complete-interaction-route-graph",
+      "seed_graph_ready_for_rehome": false,
+      "greenfield_authorization": null,
+      "graph_recovery_status": "required-for-every-summary-only-source",
+      "sources": [
+        {
+          "kind": "retained-harvest-capture",
+          "slug": "scheduler",
+          "starting_route": "/__apps/scheduler",
+          "canonical_owner": "Operations",
+          "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
+          "visual_evidence_status": "blocked-text-log-only-no-admissible-render",
+          "graph": {
+            "evidence_level": "summary_only",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "disposition": "pattern-harvest",
+          "audit_route_disposition": "retained-seed",
+          "visual_blocker": "stable replay is global chrome plus Page not found"
+        }
+      ]
+    }
+  ]
+}
