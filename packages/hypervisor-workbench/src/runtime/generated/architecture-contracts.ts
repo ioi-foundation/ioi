@@ -6877,6 +6877,37 @@ export type ConnectorCredentialGrantV1 = {
   created_at: string;
 };
 
+export type WalletAuthenticationChallengeV1 = {
+  schema_version: "ioi.wallet_network.wallet_authentication_challenge.v1";
+  challenge_id: string;
+  siwx_profile_ref: string;
+  chain_id: string;
+  requested_account?: string | null;
+  domain: string;
+  uri: string;
+  nonce: string;
+  product_session_binding_hash: string;
+  issued_at: string;
+  expires_at: string;
+  statement: string;
+  status?: "issued" | "consumed" | "expired" | "invalidated";
+};
+
+export type WalletOwnershipProofV1 = {
+  schema_version: "ioi.wallet_network.wallet_ownership_proof.v1";
+  proof_id: string;
+  challenge_ref: string;
+  account: string;
+  signature_kind: "eoa_secp256k1" | "erc1271_contract" | "erc6492_counterfactual";
+  signature: string;
+  verification: {
+      verified_at: string;
+      verifier_profile_ref: string;
+      contract_wallet_state_ref?: string | null;
+    };
+  yields_factor_id?: string;
+};
+
 export type ComputeSessionV1 = {
   schema_version: "ioi.compute-session.v1";
   compute_session_ref: string;
@@ -12007,6 +12038,46 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
   {
     "contract_id": "schema://ioi/components/connectors-tools/connector-credential-grant/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/negative-unscoped.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/wallet-network/wallet-authentication-challenge/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/wallet-authentication-challenge-v1/positive-issued-evm.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/wallet-network/wallet-authentication-challenge/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/wallet-authentication-challenge-v1/negative-no-session-binding.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/wallet-network/wallet-ownership-proof/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/wallet-ownership-proof-v1/positive-eoa.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/wallet-network/wallet-ownership-proof/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/wallet-ownership-proof-v1/positive-erc1271.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/wallet-network/wallet-ownership-proof/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/wallet-ownership-proof-v1/negative-unverified.json",
     "expected": "reject",
     "expected_schema_accept": false,
     "expected_failure": "schema",
@@ -18976,6 +19047,41 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/wallet-authentication-challenge-v1/positive-issued-evm.json",
+    "contract_id": "schema://ioi/components/wallet-network/wallet-authentication-challenge/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/wallet-authentication-challenge-v1/positive-issued-evm.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/wallet-authentication-challenge-v1/negative-no-session-binding.json",
+    "contract_id": "schema://ioi/components/wallet-network/wallet-authentication-challenge/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/wallet-authentication-challenge-v1/negative-no-session-binding.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/wallet-ownership-proof-v1/positive-eoa.json",
+    "contract_id": "schema://ioi/components/wallet-network/wallet-ownership-proof/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/wallet-ownership-proof-v1/positive-eoa.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/wallet-ownership-proof-v1/positive-erc1271.json",
+    "contract_id": "schema://ioi/components/wallet-network/wallet-ownership-proof/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/wallet-ownership-proof-v1/positive-erc1271.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/wallet-ownership-proof-v1/negative-unverified.json",
+    "contract_id": "schema://ioi/components/wallet-network/wallet-ownership-proof/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/wallet-ownership-proof-v1/negative-unverified.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/compute-session-v1/positive-ready.json",
     "contract_id": "schema://ioi/components/daemon-runtime/compute-session/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/compute-session-v1/positive-ready.json",
@@ -20259,6 +20365,8 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^branch-checkpoint://[^\\s]+$",
   "^branch-merge://[^\\s]+$",
   "^build://[^\\s]+$",
+  "^caip10:[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}:[-.%a-zA-Z0-9]{1,128}$",
+  "^caip2:[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}$",
   "^capability-offer://[^\\s]{1,500}$",
   "^caveat://[^\\s]+$",
   "^chain-successor-claim://sha256:[0-9a-f]{64}$",
@@ -20510,6 +20618,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^settlement://[^\\s]+$",
   "^sha256:[0-9a-f]{64}$",
   "^sha256:[a-f0-9]{64}$",
+  "^siwx://[a-z0-9]+/[a-z0-9]+/v[0-9]+$",
   "^skill-entry://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^skill://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^snapshot://[^\\s]+$",
@@ -20565,6 +20674,8 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^verifier-challenge://[^\\s]{1,500}$",
   "^verifier-path://[^\\s]{1,500}$",
   "^verifier://[^\\s]{1,248}$",
+  "^wallet-auth-challenge://[A-Za-z0-9._:-]+$",
+  "^wallet-ownership-proof://[A-Za-z0-9._:-]+$",
   "^wallet[.]network://approval-effect-consumption/[0-9a-f]{64}/[0-9a-f]{64}$",
   "^wallet[.]network://approval-effect-consumption/[A-Za-z0-9._:/-]+$",
   "^wallet[.]network://approval-effect-consumption/[^\\s]{1,248}$",
@@ -20744,6 +20855,8 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/data-retention-disposition/v1": "sha256:d7659a04f5291b703ad7352baecaba2cd76eeb7f436684a38c15b780c5dedec8",
   "schema://ioi/components/daemon-runtime/support-incident-link/v1": "sha256:dff31b576d2bdf0a1599e8e53d3843bc79206f86dafd4f93d79d2c204c37d0e3",
   "schema://ioi/components/connectors-tools/connector-credential-grant/v1": "sha256:def8aa1d17369d96acb3d79909822b41f5c6e57f4bfca961f047df250658b7b8",
+  "schema://ioi/components/wallet-network/wallet-authentication-challenge/v1": "sha256:3c0ccfe0fc9ae22cb54e5d3e26bd571763cd45ace48fafe5f43d35dfcb9be3a7",
+  "schema://ioi/components/wallet-network/wallet-ownership-proof/v1": "sha256:aa9f9bf3df83154bc4d3002a00e7ff7784da7cdb09ca2f61b32901ed0fb2ce6c",
   "schema://ioi/components/daemon-runtime/compute-session/v1": "sha256:ed6f3f8e7a51cab064c06d906da7e8eddc5c1cb520512b7916f2a252b8775267",
   "schema://ioi/components/storage-backends/managed-storage-profile/v1": "sha256:0a168d32033c6a52de020cc5e5dccb24c3a0766e0aeef56a41518adffae2cc58",
   "schema://ioi/components/hypervisor/managed-restore-plan/v1": "sha256:6a498f0b7d088394dbb949d64ecb2f89a7cd982885f52e1d0839faba284c5845",
@@ -73534,6 +73647,189 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     }
   },
+  "schema://ioi/components/wallet-network/wallet-authentication-challenge/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/wallet-network/wallet-authentication-challenge/v1",
+    "title": "WalletAuthenticationChallenge",
+    "x-ioi-schema-version": "ioi.wallet_network.wallet_authentication_challenge.v1",
+    "description": "The server-minted, single-use, domain/chain/session-bound challenge an external wallet signs to prove account ownership (SIWx). Registered target contract for the wallet-interoperability packet (W1.6); doctrine §Wallet Interoperability and INV-40 govern. A challenge is authentication material, never authority: signing it yields a web3_wallet AuthFactor and nothing else. The nonce is single-use and consumed ATOMICALLY at verification and never lives in an eventually-consistent store; domain, uri, chain, and the bound product session must match at verification or the proof fails typed.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "challenge_id",
+      "siwx_profile_ref",
+      "chain_id",
+      "domain",
+      "uri",
+      "nonce",
+      "product_session_binding_hash",
+      "issued_at",
+      "expires_at",
+      "statement"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.wallet_network.wallet_authentication_challenge.v1"
+      },
+      "challenge_id": {
+        "type": "string",
+        "pattern": "^wallet-auth-challenge://[A-Za-z0-9._:-]+$"
+      },
+      "siwx_profile_ref": {
+        "type": "string",
+        "pattern": "^siwx://[a-z0-9]+/[a-z0-9]+/v[0-9]+$",
+        "description": "The one audited SIWx adapter profile this challenge is issued under (EVM ERC-4361 first)."
+      },
+      "chain_id": {
+        "type": "string",
+        "pattern": "^caip2:[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}$",
+        "description": "CAIP-2 chain id; a challenge is scoped to exactly one chain."
+      },
+      "requested_account": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^caip10:[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}:[-.%a-zA-Z0-9]{1,128}$"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "The CAIP-10 account the challenge targets, or null for discover-then-bind."
+      },
+      "domain": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Exact relying origin; verification refuses a mismatch (anti-phishing)."
+      },
+      "uri": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Exact request URI; verification refuses a mismatch (anti-replay)."
+      },
+      "nonce": {
+        "type": "string",
+        "minLength": 8,
+        "description": "Single-use, atomically consumed at verification. Never stored in an eventually-consistent store."
+      },
+      "product_session_binding_hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$",
+        "description": "Binds the challenge to the exact product session that requested it."
+      },
+      "issued_at": {
+        "type": "string",
+        "minLength": 1
+      },
+      "expires_at": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Short expiry; verification refuses an expired challenge."
+      },
+      "statement": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Human-readable sign-in statement shown in the wallet."
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "issued",
+          "consumed",
+          "expired",
+          "invalidated"
+        ],
+        "description": "Lifecycle. A provider-side account or chain change invalidates an in-flight challenge."
+      }
+    }
+  },
+  "schema://ioi/components/wallet-network/wallet-ownership-proof/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/wallet-network/wallet-ownership-proof/v1",
+    "title": "WalletOwnershipProof",
+    "x-ioi-schema-version": "ioi.wallet_network.wallet_ownership_proof.v1",
+    "description": "The verified proof that an external wallet controls a CAIP-10 account, produced by verifying a signature against a WalletAuthenticationChallenge. Registered target contract for the wallet-interoperability packet (W1.6); INV-40 governs. A verified proof yields a web3_wallet AuthFactor and NOTHING else — it is authentication evidence, never an AuthorityGrant, and grants no effect authority. Factor identity is chain-qualified: the same address on two chains is two factors. ERC-1271/6492 signatures record the exact contract-wallet state observed.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "proof_id",
+      "challenge_ref",
+      "account",
+      "signature_kind",
+      "signature",
+      "verification"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.wallet_network.wallet_ownership_proof.v1"
+      },
+      "proof_id": {
+        "type": "string",
+        "pattern": "^wallet-ownership-proof://[A-Za-z0-9._:-]+$"
+      },
+      "challenge_ref": {
+        "type": "string",
+        "pattern": "^wallet-auth-challenge://[A-Za-z0-9._:-]+$",
+        "description": "The exact challenge this proof answers; its nonce is consumed atomically at verification."
+      },
+      "account": {
+        "type": "string",
+        "pattern": "^caip10:[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}:[-.%a-zA-Z0-9]{1,128}$",
+        "description": "CAIP-10 account proven; the factor identity is chain-qualified."
+      },
+      "signature_kind": {
+        "type": "string",
+        "enum": [
+          "eoa_secp256k1",
+          "erc1271_contract",
+          "erc6492_counterfactual"
+        ]
+      },
+      "signature": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Opaque signature bytes (hex/base64); never a blind-signing artifact."
+      },
+      "verification": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "verified_at",
+          "verifier_profile_ref"
+        ],
+        "properties": {
+          "verified_at": {
+            "type": "string",
+            "minLength": 1
+          },
+          "verifier_profile_ref": {
+            "type": "string",
+            "pattern": "^siwx://[a-z0-9]+/[a-z0-9]+/v[0-9]+$"
+          },
+          "contract_wallet_state_ref": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Exact contract-wallet state observed for erc1271/erc6492; null for EOA."
+          }
+        }
+      },
+      "yields_factor_id": {
+        "type": "string",
+        "description": "The web3_wallet AuthFactor id this proof produced. A proof yields a factor and NOTHING else (INV-40)."
+      }
+    }
+  },
   "schema://ioi/components/daemon-runtime/compute-session/v1": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "schema://ioi/components/daemon-runtime/compute-session/v1",
@@ -83618,6 +83914,58 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
       }
     }
   ],
+  "schema://ioi/components/wallet-network/wallet-authentication-challenge/v1": [
+    {
+      "rule_id": "wallet_auth_challenge.nonce.present",
+      "description": "Every challenge carries a nonce; verification consumes it atomically and single-use, so a replayed challenge cannot re-authenticate.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.nonce"
+      }
+    },
+    {
+      "rule_id": "wallet_auth_challenge.session.bound",
+      "description": "The challenge binds the exact product session that requested it, so a proof cannot be replayed into another session.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.product_session_binding_hash"
+      }
+    },
+    {
+      "rule_id": "wallet_auth_challenge.domain.bound",
+      "description": "The challenge names the exact relying origin, so a phishing origin cannot harvest a usable proof.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.domain"
+      }
+    }
+  ],
+  "schema://ioi/components/wallet-network/wallet-ownership-proof/v1": [
+    {
+      "rule_id": "wallet_ownership_proof.challenge.bound",
+      "description": "A proof answers exactly one challenge, whose single-use nonce is consumed atomically at verification.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.challenge_ref"
+      }
+    },
+    {
+      "rule_id": "wallet_ownership_proof.account.chain_qualified",
+      "description": "The proven account is CAIP-10 chain-qualified, so the same address on two chains is two distinct factors.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.account"
+      }
+    },
+    {
+      "rule_id": "wallet_ownership_proof.verified.recorded",
+      "description": "A proof records when and under which profile it was verified; an unverified claim is not a proof.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.verification.verified_at"
+      }
+    }
+  ],
   "schema://ioi/components/daemon-runtime/compute-session/v1": [],
   "schema://ioi/components/storage-backends/managed-storage-profile/v1": [],
   "schema://ioi/components/hypervisor/managed-restore-plan/v1": [],
@@ -85455,6 +85803,18 @@ export function validateConnectorCredentialGrantV1(
   value: unknown,
 ): value is ConnectorCredentialGrantV1 {
   return validateArchitectureContract("schema://ioi/components/connectors-tools/connector-credential-grant/v1", value).ok;
+}
+
+export function validateWalletAuthenticationChallengeV1(
+  value: unknown,
+): value is WalletAuthenticationChallengeV1 {
+  return validateArchitectureContract("schema://ioi/components/wallet-network/wallet-authentication-challenge/v1", value).ok;
+}
+
+export function validateWalletOwnershipProofV1(
+  value: unknown,
+): value is WalletOwnershipProofV1 {
+  return validateArchitectureContract("schema://ioi/components/wallet-network/wallet-ownership-proof/v1", value).ok;
 }
 
 export function validateComputeSessionV1(

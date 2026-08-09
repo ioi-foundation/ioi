@@ -1,0 +1,31 @@
+{
+  "$id": "invariant://ioi/components/wallet-network/wallet-authentication-challenge/single-use-bound/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/components/wallet-network/wallet-authentication-challenge/v1",
+  "rules": [
+    {
+      "rule_id": "wallet_auth_challenge.nonce.present",
+      "description": "Every challenge carries a nonce; verification consumes it atomically and single-use, so a replayed challenge cannot re-authenticate.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.nonce"
+      }
+    },
+    {
+      "rule_id": "wallet_auth_challenge.session.bound",
+      "description": "The challenge binds the exact product session that requested it, so a proof cannot be replayed into another session.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.product_session_binding_hash"
+      }
+    },
+    {
+      "rule_id": "wallet_auth_challenge.domain.bound",
+      "description": "The challenge names the exact relying origin, so a phishing origin cannot harvest a usable proof.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.domain"
+      }
+    }
+  ]
+}

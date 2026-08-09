@@ -1,0 +1,15 @@
+{
+  "schema_version": "ioi.wallet_network.wallet_authentication_challenge.v1",
+  "challenge_id": "wallet-auth-challenge://wac_9f3a1c72b4e8d605a",
+  "siwx_profile_ref": "siwx://evm/erc4361/v1",
+  "chain_id": "caip2:eip155:1",
+  "requested_account": "caip10:eip155:1:0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
+  "domain": "wallet.network",
+  "uri": "https://wallet.network/auth/wallet",
+  "nonce": "a1b2c3d4e5f60718293a4b5c6d7e8f90",
+  "product_session_binding_hash": "sha256:4a5c9d2e8f1b3a7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c",
+  "issued_at": "2026-08-09T12:00:00.000Z",
+  "expires_at": "2026-08-09T12:05:00.000Z",
+  "statement": "Sign in to wallet.network with your Ethereum account.",
+  "status": "issued"
+}

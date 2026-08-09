@@ -1,0 +1,31 @@
+{
+  "$id": "invariant://ioi/components/wallet-network/wallet-ownership-proof/verified-account-bound/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/components/wallet-network/wallet-ownership-proof/v1",
+  "rules": [
+    {
+      "rule_id": "wallet_ownership_proof.challenge.bound",
+      "description": "A proof answers exactly one challenge, whose single-use nonce is consumed atomically at verification.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.challenge_ref"
+      }
+    },
+    {
+      "rule_id": "wallet_ownership_proof.account.chain_qualified",
+      "description": "The proven account is CAIP-10 chain-qualified, so the same address on two chains is two distinct factors.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.account"
+      }
+    },
+    {
+      "rule_id": "wallet_ownership_proof.verified.recorded",
+      "description": "A proof records when and under which profile it was verified; an unverified claim is not a proof.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.verification.verified_at"
+      }
+    }
+  ]
+}

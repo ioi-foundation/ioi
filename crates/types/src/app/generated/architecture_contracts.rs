@@ -204,6 +204,8 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/foundations/data-retention-disposition/v1", "sha256:d7659a04f5291b703ad7352baecaba2cd76eeb7f436684a38c15b780c5dedec8"),
     ("schema://ioi/components/daemon-runtime/support-incident-link/v1", "sha256:dff31b576d2bdf0a1599e8e53d3843bc79206f86dafd4f93d79d2c204c37d0e3"),
     ("schema://ioi/components/connectors-tools/connector-credential-grant/v1", "sha256:def8aa1d17369d96acb3d79909822b41f5c6e57f4bfca961f047df250658b7b8"),
+    ("schema://ioi/components/wallet-network/wallet-authentication-challenge/v1", "sha256:3c0ccfe0fc9ae22cb54e5d3e26bd571763cd45ace48fafe5f43d35dfcb9be3a7"),
+    ("schema://ioi/components/wallet-network/wallet-ownership-proof/v1", "sha256:aa9f9bf3df83154bc4d3002a00e7ff7784da7cdb09ca2f61b32901ed0fb2ce6c"),
     ("schema://ioi/components/daemon-runtime/compute-session/v1", "sha256:ed6f3f8e7a51cab064c06d906da7e8eddc5c1cb520512b7916f2a252b8775267"),
     ("schema://ioi/components/storage-backends/managed-storage-profile/v1", "sha256:0a168d32033c6a52de020cc5e5dccb24c3a0766e0aeef56a41518adffae2cc58"),
     ("schema://ioi/components/hypervisor/managed-restore-plan/v1", "sha256:6a498f0b7d088394dbb949d64ecb2f89a7cd982885f52e1d0839faba284c5845"),
@@ -74169,6 +74171,287 @@ pub enum ConnectorCredentialGrantV1SchemaVersion {
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct WalletAuthenticationChallengeV1 {
+    pub schema_version: WalletAuthenticationChallengeV1SchemaVersion,
+    pub challenge_id: String,
+    pub siwx_profile_ref: String,
+    pub chain_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub requested_account: Option<String>,
+    pub domain: String,
+    pub uri: String,
+    pub nonce: String,
+    pub product_session_binding_hash: String,
+    pub issued_at: String,
+    pub expires_at: String,
+    pub statement: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<WalletAuthenticationChallengeV1Status>,
+}
+
+impl<'de> serde::Deserialize<'de> for WalletAuthenticationChallengeV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/wallet-network/wallet-authentication-challenge/v1"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/wallet-network/wallet-authentication-challenge/v1","title":"WalletAuthenticationChallenge","x-ioi-schema-version":"ioi.wallet_network.wallet_authentication_challenge.v1","description":"The server-minted, single-use, domain/chain/session-bound challenge an external wallet signs to prove account ownership (SIWx). Registered target contract for the wallet-interoperability packet (W1.6); doctrine §Wallet Interoperability and INV-40 govern. A challenge is authentication material, never authority: signing it yields a web3_wallet AuthFactor and nothing else. The nonce is single-use and consumed ATOMICALLY at verification and never lives in an eventually-consistent store; domain, uri, chain, and the bound product session must match at verification or the proof fails typed.","type":"object","additionalProperties":false,"required":["schema_version","challenge_id","siwx_profile_ref","chain_id","domain","uri","nonce","product_session_binding_hash","issued_at","expires_at","statement"],"properties":{"schema_version":{"type":"string","const":"ioi.wallet_network.wallet_authentication_challenge.v1"},"challenge_id":{"type":"string","pattern":"^wallet-auth-challenge://[A-Za-z0-9._:-]+$"},"siwx_profile_ref":{"type":"string","pattern":"^siwx://[a-z0-9]+/[a-z0-9]+/v[0-9]+$","description":"The one audited SIWx adapter profile this challenge is issued under (EVM ERC-4361 first)."},"chain_id":{"type":"string","pattern":"^caip2:[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}$","description":"CAIP-2 chain id; a challenge is scoped to exactly one chain."},"requested_account":{"anyOf":[{"type":"string","pattern":"^caip10:[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}:[-.%a-zA-Z0-9]{1,128}$"},{"type":"null"}],"description":"The CAIP-10 account the challenge targets, or null for discover-then-bind."},"domain":{"type":"string","minLength":1,"description":"Exact relying origin; verification refuses a mismatch (anti-phishing)."},"uri":{"type":"string","minLength":1,"description":"Exact request URI; verification refuses a mismatch (anti-replay)."},"nonce":{"type":"string","minLength":8,"description":"Single-use, atomically consumed at verification. Never stored in an eventually-consistent store."},"product_session_binding_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"Binds the challenge to the exact product session that requested it."},"issued_at":{"type":"string","minLength":1},"expires_at":{"type":"string","minLength":1,"description":"Short expiry; verification refuses an expired challenge."},"statement":{"type":"string","minLength":1,"description":"Human-readable sign-in statement shown in the wallet."},"status":{"type":"string","enum":["issued","consumed","expired","invalidated"],"description":"Lifecycle. A provider-side account or chain change invalidates an in-flight challenge."}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<WalletAuthenticationChallengeV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            challenge_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"challenge_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"challenge_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            siwx_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"siwx_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"siwx_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            chain_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"chain_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"chain_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            requested_account: match object.remove(r#"requested_account"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            domain: serde_json::from_value::<String>(
+                object
+                    .remove(r#"domain"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"domain"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            uri: serde_json::from_value::<String>(
+                object
+                    .remove(r#"uri"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"uri"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            nonce: serde_json::from_value::<String>(
+                object
+                    .remove(r#"nonce"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"nonce"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            product_session_binding_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"product_session_binding_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"product_session_binding_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            issued_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"issued_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"issued_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            expires_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"expires_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"expires_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            statement: serde_json::from_value::<String>(
+                object
+                    .remove(r#"statement"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"statement"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: match object.remove(r#"status"#) {
+                Some(field_value) => serde_json::from_value::<
+                    Option<WalletAuthenticationChallengeV1Status>,
+                >(field_value)
+                .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum WalletAuthenticationChallengeV1SchemaVersion {
+    #[serde(rename = r#"ioi.wallet_network.wallet_authentication_challenge.v1"#)]
+    IoiWalletNetworkWalletAuthenticationChallengeV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum WalletAuthenticationChallengeV1Status {
+    #[serde(rename = r#"issued"#)]
+    Issued,
+    #[serde(rename = r#"consumed"#)]
+    Consumed,
+    #[serde(rename = r#"expired"#)]
+    Expired,
+    #[serde(rename = r#"invalidated"#)]
+    Invalidated,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct WalletOwnershipProofV1 {
+    pub schema_version: WalletOwnershipProofV1SchemaVersion,
+    pub proof_id: String,
+    pub challenge_ref: String,
+    pub account: String,
+    pub signature_kind: WalletOwnershipProofV1SignatureKind,
+    pub signature: String,
+    pub verification: WalletOwnershipProofV1Verification,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub yields_factor_id: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for WalletOwnershipProofV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/wallet-network/wallet-ownership-proof/v1"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/wallet-network/wallet-ownership-proof/v1","title":"WalletOwnershipProof","x-ioi-schema-version":"ioi.wallet_network.wallet_ownership_proof.v1","description":"The verified proof that an external wallet controls a CAIP-10 account, produced by verifying a signature against a WalletAuthenticationChallenge. Registered target contract for the wallet-interoperability packet (W1.6); INV-40 governs. A verified proof yields a web3_wallet AuthFactor and NOTHING else — it is authentication evidence, never an AuthorityGrant, and grants no effect authority. Factor identity is chain-qualified: the same address on two chains is two factors. ERC-1271/6492 signatures record the exact contract-wallet state observed.","type":"object","additionalProperties":false,"required":["schema_version","proof_id","challenge_ref","account","signature_kind","signature","verification"],"properties":{"schema_version":{"type":"string","const":"ioi.wallet_network.wallet_ownership_proof.v1"},"proof_id":{"type":"string","pattern":"^wallet-ownership-proof://[A-Za-z0-9._:-]+$"},"challenge_ref":{"type":"string","pattern":"^wallet-auth-challenge://[A-Za-z0-9._:-]+$","description":"The exact challenge this proof answers; its nonce is consumed atomically at verification."},"account":{"type":"string","pattern":"^caip10:[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}:[-.%a-zA-Z0-9]{1,128}$","description":"CAIP-10 account proven; the factor identity is chain-qualified."},"signature_kind":{"type":"string","enum":["eoa_secp256k1","erc1271_contract","erc6492_counterfactual"]},"signature":{"type":"string","minLength":1,"description":"Opaque signature bytes (hex/base64); never a blind-signing artifact."},"verification":{"type":"object","additionalProperties":false,"required":["verified_at","verifier_profile_ref"],"properties":{"verified_at":{"type":"string","minLength":1},"verifier_profile_ref":{"type":"string","pattern":"^siwx://[a-z0-9]+/[a-z0-9]+/v[0-9]+$"},"contract_wallet_state_ref":{"anyOf":[{"type":"string","minLength":1},{"type":"null"}],"description":"Exact contract-wallet state observed for erc1271/erc6492; null for EOA."}}},"yields_factor_id":{"type":"string","description":"The web3_wallet AuthFactor id this proof produced. A proof yields a factor and NOTHING else (INV-40)."}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<WalletOwnershipProofV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proof_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proof_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"proof_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            challenge_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"challenge_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"challenge_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            account: serde_json::from_value::<String>(
+                object
+                    .remove(r#"account"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"account"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signature_kind: serde_json::from_value::<WalletOwnershipProofV1SignatureKind>(
+                object
+                    .remove(r#"signature_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signature_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signature: serde_json::from_value::<String>(
+                object
+                    .remove(r#"signature"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signature"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            verification: serde_json::from_value::<WalletOwnershipProofV1Verification>(
+                object
+                    .remove(r#"verification"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"verification"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            yields_factor_id: match object.remove(r#"yields_factor_id"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum WalletOwnershipProofV1SchemaVersion {
+    #[serde(rename = r#"ioi.wallet_network.wallet_ownership_proof.v1"#)]
+    IoiWalletNetworkWalletOwnershipProofV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum WalletOwnershipProofV1SignatureKind {
+    #[serde(rename = r#"eoa_secp256k1"#)]
+    EoaSecp256k1,
+    #[serde(rename = r#"erc1271_contract"#)]
+    Erc1271Contract,
+    #[serde(rename = r#"erc6492_counterfactual"#)]
+    Erc6492Counterfactual,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct WalletOwnershipProofV1Verification {
+    pub verified_at: String,
+    pub verifier_profile_ref: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub contract_wallet_state_ref: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for WalletOwnershipProofV1Verification {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/wallet-network/wallet-ownership-proof/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["verified_at","verifier_profile_ref"],"properties":{"verified_at":{"type":"string","minLength":1},"verifier_profile_ref":{"type":"string","pattern":"^siwx://[a-z0-9]+/[a-z0-9]+/v[0-9]+$"},"contract_wallet_state_ref":{"anyOf":[{"type":"string","minLength":1},{"type":"null"}],"description":"Exact contract-wallet state observed for erc1271/erc6492; null for EOA."}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            verified_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"verified_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"verified_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            verifier_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"verifier_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"verifier_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            contract_wallet_state_ref: match object.remove(r#"contract_wallet_state_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct ComputeSessionV1 {
     pub schema_version: ComputeSessionV1SchemaVersion,
     pub compute_session_ref: String,
@@ -82514,6 +82797,46 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
     GoldenFixture {
         contract_id: "schema://ioi/components/connectors-tools/connector-credential-grant/v1",
         path: "docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/negative-unscoped.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/wallet-network/wallet-authentication-challenge/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/wallet-authentication-challenge-v1/positive-issued-evm.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/wallet-network/wallet-authentication-challenge/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/wallet-authentication-challenge-v1/negative-no-session-binding.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/wallet-network/wallet-ownership-proof/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/wallet-ownership-proof-v1/positive-eoa.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/wallet-network/wallet-ownership-proof/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/wallet-ownership-proof-v1/positive-erc1271.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/wallet-network/wallet-ownership-proof/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/wallet-ownership-proof-v1/negative-unverified.json",
         expected_accept: false,
         expected_schema_accept: false,
         expected_failure: Some("schema"),
@@ -90905,6 +91228,61 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/wallet-authentication-challenge-v1/positive-issued-evm.json"#,
+        contract_id: r#"schema://ioi/components/wallet-network/wallet-authentication-challenge/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/wallet-authentication-challenge-v1/positive-issued-evm.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/wallet-authentication-challenge-v1/negative-no-session-binding.json"#,
+        contract_id: r#"schema://ioi/components/wallet-network/wallet-authentication-challenge/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/wallet-authentication-challenge-v1/negative-no-session-binding.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/wallet-ownership-proof-v1/positive-eoa.json"#,
+        contract_id: r#"schema://ioi/components/wallet-network/wallet-ownership-proof/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/wallet-ownership-proof-v1/positive-eoa.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/wallet-ownership-proof-v1/positive-erc1271.json"#,
+        contract_id: r#"schema://ioi/components/wallet-network/wallet-ownership-proof/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/wallet-ownership-proof-v1/positive-erc1271.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/wallet-ownership-proof-v1/negative-unverified.json"#,
+        contract_id: r#"schema://ioi/components/wallet-network/wallet-ownership-proof/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/wallet-ownership-proof-v1/negative-unverified.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"fixture:docs/architecture/_meta/schemas/fixtures/compute-session-v1/positive-ready.json"#,
         contract_id: r#"schema://ioi/components/daemon-runtime/compute-session/v1"#,
         source_fixture_path: Some(
@@ -92658,6 +93036,8 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/data-retention-disposition/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/data-retention-disposition/v1","title":"DataRetentionDisposition","x-ioi-schema-version":"ioi.foundations.data_retention_disposition.v1","description":"The durable, owner-scoped record of what retention duty applies to one exact data subject and of what was actually done about it: policy basis, legal hold, executed deletion with evidence. A legal hold blocks deletion typed; deletion destroys CONTENT and retains ADMISSION EVIDENCE (the receipts proving the deletion happened survive it); the deletion evidence is server-built from real outcomes, never asserted.","type":"object","additionalProperties":false,"required":["schema_version","disposition_id","subject","policy_basis_ref","owner_ref","declared_by","legal_hold","state","deletion"],"properties":{"schema_version":{"type":"string","const":"ioi.foundations.data_retention_disposition.v1"},"disposition_id":{"type":"string","pattern":"^retention-disposition://[A-Za-z0-9._:-]+$"},"subject":{"type":"object","additionalProperties":false,"required":["subject_kind","subject_ref"],"properties":{"subject_kind":{"type":"string","enum":["managed_backup_export"],"description":"Extensible only by an owner ruling in the canonical section; an unlisted kind is refused at declaration."},"subject_ref":{"type":"string","minLength":1},"payload_state_root":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]}}},"policy_basis_ref":{"type":"string","minLength":1,"description":"The governing policy as a canonical ref — a disposition without a basis is an opinion."},"owner_ref":{"type":"string","minLength":1},"declared_by":{"type":"string","minLength":1},"legal_hold":{"anyOf":[{"type":"object"},{"type":"null"}],"description":"Placed/released as distinct admitted transitions with a server-resolved actor (INV-37). While held, deletion refuses typed."},"state":{"type":"string","enum":["declared","delete_executed"]},"deletion":{"anyOf":[{"type":"object"},{"type":"null"}],"description":"Executed deletion with server-built evidence of what was actually destroyed; admission evidence survives."},"created_at":{"type":"string"},"updated_at":{"type":"string"},"admitted_head":{"type":"string"}}}"#),
     ("schema://ioi/components/daemon-runtime/support-incident-link/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/support-incident-link/v1","title":"SupportIncidentLink","x-ioi-schema-version":"ioi.hypervisor.support_incident_link.v1","description":"Operations-owned PROJECTION: an incident correlated to the exact product/tenant/objects/event-range it affects, with severity, status, and reporter-declared redacted diagnostics. It grants nothing, gates nothing, and never becomes authority; secrets have no path into an incident body.","type":"object","additionalProperties":false,"required":["schema_version","incident_id","title","severity","status","affected","reported_by","owner_ref"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.support_incident_link.v1"},"incident_id":{"type":"string","pattern":"^support-incident://[A-Za-z0-9._:-]+$"},"title":{"type":"string","minLength":1},"severity":{"type":"string","enum":["informational","minor","major","critical"]},"status":{"type":"string","enum":["open","mitigated","resolved","closed"]},"affected":{"type":"object","additionalProperties":false,"required":["tenant_ref","object_refs"],"properties":{"product":{"type":"string"},"tenant_ref":{"type":"string","minLength":1},"object_refs":{"type":"array","minItems":1,"items":{"type":"string","minLength":1}},"event_range":{"anyOf":[{"type":"object"},{"type":"null"}]}}},"redacted_diagnostics":{"type":"string","description":"DECLARED redacted by the reporter; the plane stores what it is given and never unseals anything."},"reported_by":{"type":"string","minLength":1,"description":"Resolved server-side (INV-37)."},"assigned_owner_ref":{"type":"string"},"owner_ref":{"type":"string","minLength":1},"created_at":{"type":"string"},"updated_at":{"type":"string"},"admitted_head":{"type":"string"}}}"#),
     ("schema://ioi/components/connectors-tools/connector-credential-grant/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/connectors-tools/connector-credential-grant/v1","title":"ConnectorCredentialGrant","x-ioi-schema-version":"ioi.hypervisor.connector_credential_grant.v1","description":"A principal's finite, declared-tools-only scope over one connector's use-only lease. The grant never carries or exposes the sealed credential; expiry is required and enforced at the single check site; the granting principal is resolved server-side (INV-37); regrant never silently rewrites an existing grant's tool set (revoke first); grant and revocation both write audit records or do not happen.","type":"object","additionalProperties":false,"required":["schema_version","id","grant_id","principal_id","connector_id","tools","granted_by","expires_at_ms","created_at"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.connector_credential_grant.v1"},"id":{"type":"string","minLength":1},"grant_id":{"type":"string","pattern":"^plg_[0-9a-f]+$"},"principal_id":{"type":"string","minLength":1},"connector_id":{"type":"string","minLength":1},"tools":{"type":"array","minItems":1,"items":{"type":"string","minLength":1},"description":"Declared tools only — nothing is granted by default; \"*\" is a deliberate declaration, never a fallback."},"granted_by":{"type":"string","minLength":1},"expires_at_ms":{"type":"integer","minimum":1,"maximum":9007199254740991},"created_at":{"type":"string"}}}"#),
+    ("schema://ioi/components/wallet-network/wallet-authentication-challenge/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/wallet-network/wallet-authentication-challenge/v1","title":"WalletAuthenticationChallenge","x-ioi-schema-version":"ioi.wallet_network.wallet_authentication_challenge.v1","description":"The server-minted, single-use, domain/chain/session-bound challenge an external wallet signs to prove account ownership (SIWx). Registered target contract for the wallet-interoperability packet (W1.6); doctrine §Wallet Interoperability and INV-40 govern. A challenge is authentication material, never authority: signing it yields a web3_wallet AuthFactor and nothing else. The nonce is single-use and consumed ATOMICALLY at verification and never lives in an eventually-consistent store; domain, uri, chain, and the bound product session must match at verification or the proof fails typed.","type":"object","additionalProperties":false,"required":["schema_version","challenge_id","siwx_profile_ref","chain_id","domain","uri","nonce","product_session_binding_hash","issued_at","expires_at","statement"],"properties":{"schema_version":{"type":"string","const":"ioi.wallet_network.wallet_authentication_challenge.v1"},"challenge_id":{"type":"string","pattern":"^wallet-auth-challenge://[A-Za-z0-9._:-]+$"},"siwx_profile_ref":{"type":"string","pattern":"^siwx://[a-z0-9]+/[a-z0-9]+/v[0-9]+$","description":"The one audited SIWx adapter profile this challenge is issued under (EVM ERC-4361 first)."},"chain_id":{"type":"string","pattern":"^caip2:[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}$","description":"CAIP-2 chain id; a challenge is scoped to exactly one chain."},"requested_account":{"anyOf":[{"type":"string","pattern":"^caip10:[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}:[-.%a-zA-Z0-9]{1,128}$"},{"type":"null"}],"description":"The CAIP-10 account the challenge targets, or null for discover-then-bind."},"domain":{"type":"string","minLength":1,"description":"Exact relying origin; verification refuses a mismatch (anti-phishing)."},"uri":{"type":"string","minLength":1,"description":"Exact request URI; verification refuses a mismatch (anti-replay)."},"nonce":{"type":"string","minLength":8,"description":"Single-use, atomically consumed at verification. Never stored in an eventually-consistent store."},"product_session_binding_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"Binds the challenge to the exact product session that requested it."},"issued_at":{"type":"string","minLength":1},"expires_at":{"type":"string","minLength":1,"description":"Short expiry; verification refuses an expired challenge."},"statement":{"type":"string","minLength":1,"description":"Human-readable sign-in statement shown in the wallet."},"status":{"type":"string","enum":["issued","consumed","expired","invalidated"],"description":"Lifecycle. A provider-side account or chain change invalidates an in-flight challenge."}}}"#),
+    ("schema://ioi/components/wallet-network/wallet-ownership-proof/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/wallet-network/wallet-ownership-proof/v1","title":"WalletOwnershipProof","x-ioi-schema-version":"ioi.wallet_network.wallet_ownership_proof.v1","description":"The verified proof that an external wallet controls a CAIP-10 account, produced by verifying a signature against a WalletAuthenticationChallenge. Registered target contract for the wallet-interoperability packet (W1.6); INV-40 governs. A verified proof yields a web3_wallet AuthFactor and NOTHING else — it is authentication evidence, never an AuthorityGrant, and grants no effect authority. Factor identity is chain-qualified: the same address on two chains is two factors. ERC-1271/6492 signatures record the exact contract-wallet state observed.","type":"object","additionalProperties":false,"required":["schema_version","proof_id","challenge_ref","account","signature_kind","signature","verification"],"properties":{"schema_version":{"type":"string","const":"ioi.wallet_network.wallet_ownership_proof.v1"},"proof_id":{"type":"string","pattern":"^wallet-ownership-proof://[A-Za-z0-9._:-]+$"},"challenge_ref":{"type":"string","pattern":"^wallet-auth-challenge://[A-Za-z0-9._:-]+$","description":"The exact challenge this proof answers; its nonce is consumed atomically at verification."},"account":{"type":"string","pattern":"^caip10:[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}:[-.%a-zA-Z0-9]{1,128}$","description":"CAIP-10 account proven; the factor identity is chain-qualified."},"signature_kind":{"type":"string","enum":["eoa_secp256k1","erc1271_contract","erc6492_counterfactual"]},"signature":{"type":"string","minLength":1,"description":"Opaque signature bytes (hex/base64); never a blind-signing artifact."},"verification":{"type":"object","additionalProperties":false,"required":["verified_at","verifier_profile_ref"],"properties":{"verified_at":{"type":"string","minLength":1},"verifier_profile_ref":{"type":"string","pattern":"^siwx://[a-z0-9]+/[a-z0-9]+/v[0-9]+$"},"contract_wallet_state_ref":{"anyOf":[{"type":"string","minLength":1},{"type":"null"}],"description":"Exact contract-wallet state observed for erc1271/erc6492; null for EOA."}}},"yields_factor_id":{"type":"string","description":"The web3_wallet AuthFactor id this proof produced. A proof yields a factor and NOTHING else (INV-40)."}}}"#),
     ("schema://ioi/components/daemon-runtime/compute-session/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/compute-session/v1","title":"ComputeSession","description":"Bounded managed-runtime compute-session readiness and terminal-close projection bound to one runtime assignment.","x-ioi-schema-version":"ioi.compute-session.v1","type":"object","additionalProperties":false,"required":["schema_version","compute_session_ref","runtime_assignment_ref","environment_ref","provider_ref","status","readiness_evidence_refs"],"properties":{"schema_version":{"const":"ioi.compute-session.v1"},"compute_session_ref":{"type":"string","pattern":"^compute://[^\\s]{1,500}$"},"runtime_assignment_ref":{"type":"string","pattern":"^runtime-assignment://[^\\s]{1,500}$"},"environment_ref":{"type":"string","pattern":"^environment://[^\\s]{1,500}$"},"provider_ref":{"type":"string","pattern":"^(?:provider|provider-account)://[^\\s]{1,500}$"},"status":{"enum":["ready","ended"]},"readiness_evidence_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/ref"}},"provider_close_receipt_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}}}"##),
     ("schema://ioi/components/storage-backends/managed-storage-profile/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/storage-backends/managed-storage-profile/v1","title":"ManagedStorageProfile","description":"The bounded managed-persistence custody declaration admitted by the daemon. It does not claim the richer successor-versioned general StorageProfile family.","x-ioi-schema-version":"ioi.storage-profile.v1","type":"object","additionalProperties":false,"required":["schema_version","storage_profile_ref","owner_ref","backend_class","destination_ref","custody_policy_ref","encryption_ref","key_epoch_ref","retention_policy_ref","jurisdiction_refs","minimum_replicas","independent_compute_copy_required","export_allowed","authority_grant_refs","revision","profile_hash"],"properties":{"schema_version":{"const":"ioi.storage-profile.v1"},"storage_profile_ref":{"type":"string","pattern":"^storage-profile://[^\\s]{1,500}$"},"owner_ref":{"type":"string","pattern":"^(?:wallet|org|project)://[^\\s]{1,500}$"},"backend_class":{"enum":["local_private","object_store","cas_ipfs","filecoin_archive","customer_vpc"]},"destination_ref":{"type":"string","pattern":"^storage://[^\\s]{1,500}$"},"custody_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"encryption_ref":{"$ref":"#/$defs/nullableRef"},"key_epoch_ref":{"$ref":"#/$defs/nullableRef"},"retention_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"jurisdiction_refs":{"type":"array","items":{"$ref":"#/$defs/ref"}},"minimum_replicas":{"type":"integer","minimum":1,"maximum":65535},"independent_compute_copy_required":{"type":"boolean"},"export_allowed":{"type":"boolean"},"authority_grant_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/ref"}},"revision":{"type":"integer","minimum":1,"maximum":9007199254740991},"profile_hash":{"$ref":"#/$defs/hash"}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"nullableRef":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]}}}"##),
     ("schema://ioi/components/hypervisor/managed-restore-plan/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/managed-restore-plan/v1","title":"ManagedRestorePlan","description":"Prepared, applying, completed, or cancelled local-private restore plan over one verified HypervisorEnvironmentBackup and one target environment.","x-ioi-schema-version":"ioi.managed-restore-plan.v1","type":"object","additionalProperties":false,"required":["schema_version","plan_id","backup_ref","restore_manifest_root","source_state_root","target_environment_id","authority_grant_refs","status","preparation_verified"],"properties":{"schema_version":{"const":"ioi.managed-restore-plan.v1"},"plan_id":{"type":"string","pattern":"^restore-[^\\s]{1,500}$"},"backup_ref":{"type":"string","pattern":"^environment-backup://[^\\s]{1,500}$"},"restore_manifest_root":{"$ref":"#/$defs/hash"},"source_state_root":{"$ref":"#/$defs/hash"},"target_environment_id":{"type":"string","minLength":1,"maxLength":500},"authority_grant_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/ref"}},"status":{"enum":["prepared","applying","completed","cancelled"]},"preparation_verified":{"const":true},"applied_state_root":{"$ref":"#/$defs/hash"}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}}}"##),
@@ -92831,6 +93211,8 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/data-retention-disposition/v1", r#"[{"rule_id":"data_retention.basis.required","description":"Every disposition names its governing policy basis; an unexplained retention posture is not auditable.","expression":{"operator":"non_empty","path":"$.policy_basis_ref"}},{"rule_id":"data_retention.subject.exact","description":"The duty binds one exact subject, never a class pattern — deletion of 'roughly these' is not a deletion anyone can verify.","expression":{"operator":"non_empty","path":"$.subject.subject_ref"}},{"rule_id":"data_retention.declarer.bound","description":"The declaring principal is recorded server-side, so retention duties have an accountable origin.","expression":{"operator":"non_empty","path":"$.declared_by"}}]"#),
     ("schema://ioi/components/daemon-runtime/support-incident-link/v1", r#"[{"rule_id":"support_incident.affected.non_empty","description":"An incident links at least one affected object — an incident that affects nothing links nothing.","expression":{"operator":"non_empty","path":"$.affected.object_refs"}},{"rule_id":"support_incident.reporter.bound","description":"The reporting principal is resolved server-side, so an incident has an accountable origin.","expression":{"operator":"non_empty","path":"$.reported_by"}}]"#),
     ("schema://ioi/components/connectors-tools/connector-credential-grant/v1", r#"[{"rule_id":"connector_credential_grant.tools.declared","description":"The grant names its exact tool scope; an empty scope grants nothing and is not admissible.","expression":{"operator":"non_empty","path":"$.tools"}},{"rule_id":"connector_credential_grant.grantor.bound","description":"The granting principal is resolved server-side, so standing access has an accountable origin.","expression":{"operator":"non_empty","path":"$.granted_by"}}]"#),
+    ("schema://ioi/components/wallet-network/wallet-authentication-challenge/v1", r#"[{"rule_id":"wallet_auth_challenge.nonce.present","description":"Every challenge carries a nonce; verification consumes it atomically and single-use, so a replayed challenge cannot re-authenticate.","expression":{"operator":"non_empty","path":"$.nonce"}},{"rule_id":"wallet_auth_challenge.session.bound","description":"The challenge binds the exact product session that requested it, so a proof cannot be replayed into another session.","expression":{"operator":"non_empty","path":"$.product_session_binding_hash"}},{"rule_id":"wallet_auth_challenge.domain.bound","description":"The challenge names the exact relying origin, so a phishing origin cannot harvest a usable proof.","expression":{"operator":"non_empty","path":"$.domain"}}]"#),
+    ("schema://ioi/components/wallet-network/wallet-ownership-proof/v1", r#"[{"rule_id":"wallet_ownership_proof.challenge.bound","description":"A proof answers exactly one challenge, whose single-use nonce is consumed atomically at verification.","expression":{"operator":"non_empty","path":"$.challenge_ref"}},{"rule_id":"wallet_ownership_proof.account.chain_qualified","description":"The proven account is CAIP-10 chain-qualified, so the same address on two chains is two distinct factors.","expression":{"operator":"non_empty","path":"$.account"}},{"rule_id":"wallet_ownership_proof.verified.recorded","description":"A proof records when and under which profile it was verified; an unverified claim is not a proof.","expression":{"operator":"non_empty","path":"$.verification.verified_at"}}]"#),
     ("schema://ioi/components/daemon-runtime/compute-session/v1", r#"[]"#),
     ("schema://ioi/components/storage-backends/managed-storage-profile/v1", r#"[]"#),
     ("schema://ioi/components/hypervisor/managed-restore-plan/v1", r#"[]"#),
@@ -93945,6 +94327,14 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^build://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
+        r#"^caip10:[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}:[-.%a-zA-Z0-9]{1,128}$"#,
+        r#"^caip10:[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}:[-.%a-zA-Z0-9]{1,128}$"#,
+    ),
+    (
+        r#"^caip2:[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}$"#,
+        r#"^caip2:[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}$"#,
+    ),
+    (
         r#"^capability-offer://[^\s]{1,500}$"#,
         r#"^capability-offer://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
@@ -94919,6 +95309,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (r#"^sha256:[0-9a-f]{64}$"#, r#"^sha256:[0-9a-f]{64}$"#),
     (r#"^sha256:[a-f0-9]{64}$"#, r#"^sha256:[a-f0-9]{64}$"#),
     (
+        r#"^siwx://[a-z0-9]+/[a-z0-9]+/v[0-9]+$"#,
+        r#"^siwx://[a-z0-9]+/[a-z0-9]+/v[0-9]+$"#,
+    ),
+    (
         r#"^skill-entry://[^\s?#\\]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
         r#"^skill-entry://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}?#\\]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
     ),
@@ -95137,6 +95531,14 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^verifier://[^\s]{1,248}$"#,
         r#"^verifier://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^wallet-auth-challenge://[A-Za-z0-9._:-]+$"#,
+        r#"^wallet-auth-challenge://[A-Za-z0-9._:-]+$"#,
+    ),
+    (
+        r#"^wallet-ownership-proof://[A-Za-z0-9._:-]+$"#,
+        r#"^wallet-ownership-proof://[A-Za-z0-9._:-]+$"#,
     ),
     (
         r#"^wallet[.]network://approval-effect-consumption/[0-9a-f]{64}/[0-9a-f]{64}$"#,
@@ -96915,6 +97317,11 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/support-incident-link-v1/negative-affects-nothing.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/support-incident-link-v1/negative-affects-nothing.json"))),
     ("docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/positive-finite-scoped.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/positive-finite-scoped.json"))),
     ("docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/negative-unscoped.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/negative-unscoped.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/wallet-authentication-challenge-v1/positive-issued-evm.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/wallet-authentication-challenge-v1/positive-issued-evm.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/wallet-authentication-challenge-v1/negative-no-session-binding.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/wallet-authentication-challenge-v1/negative-no-session-binding.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/wallet-ownership-proof-v1/positive-eoa.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/wallet-ownership-proof-v1/positive-eoa.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/wallet-ownership-proof-v1/positive-erc1271.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/wallet-ownership-proof-v1/positive-erc1271.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/wallet-ownership-proof-v1/negative-unverified.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/wallet-ownership-proof-v1/negative-unverified.json"))),
     ("docs/architecture/_meta/schemas/fixtures/compute-session-v1/positive-ready.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/compute-session-v1/positive-ready.json"))),
     ("docs/architecture/_meta/schemas/fixtures/compute-session-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/compute-session-v1/negative-unknown-field.json"))),
     ("docs/architecture/_meta/schemas/fixtures/managed-storage-profile-v1/positive-local-private.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/managed-storage-profile-v1/positive-local-private.json"))),
@@ -97741,6 +98148,16 @@ mod tests {
         },
         "schema://ioi/components/connectors-tools/connector-credential-grant/v1" => {
             serde_json::from_value::<ConnectorCredentialGrantV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/wallet-network/wallet-authentication-challenge/v1" => {
+            serde_json::from_value::<WalletAuthenticationChallengeV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/wallet-network/wallet-ownership-proof/v1" => {
+            serde_json::from_value::<WalletOwnershipProofV1>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -98600,6 +99017,16 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/components/wallet-network/wallet-authentication-challenge/v1" => {
+            let projection = serde_json::from_value::<WalletAuthenticationChallengeV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/wallet-network/wallet-ownership-proof/v1" => {
+            let projection = serde_json::from_value::<WalletOwnershipProofV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
         "schema://ioi/components/daemon-runtime/compute-session/v1" => {
             let projection = serde_json::from_value::<ComputeSessionV1>(value.clone())
                 .map_err(|error| error.to_string())?;
@@ -98781,8 +99208,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            623,
-            "the registered golden corpus must remain the explicit 623-fixture bar",
+            628,
+            "the registered golden corpus must remain the explicit 628-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -99024,7 +99451,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 609,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 614,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

@@ -1,0 +1,14 @@
+{
+  "schema_version": "ioi.wallet_network.wallet_ownership_proof.v1",
+  "proof_id": "wallet-ownership-proof://wop_9f3a1c72b4e8d605a",
+  "challenge_ref": "wallet-auth-challenge://wac_9f3a1c72b4e8d605a",
+  "account": "caip10:eip155:1:0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
+  "signature_kind": "eoa_secp256k1",
+  "signature": "0x1c8a...deadbeef",
+  "verification": {
+    "verified_at": "2026-08-09T12:01:00.000Z",
+    "verifier_profile_ref": "siwx://evm/erc4361/v1",
+    "contract_wallet_state_ref": null
+  },
+  "yields_factor_id": "auth_factor://web3_wallet/user_123/caip10-eip155-1-0xab58"
+}
