@@ -490,11 +490,26 @@
   ],
   "blockers": [],
   "replay": {
-    "walked_all_edges": true,
-    "walked_at": "2026-08-09T16:45:09.864Z",
-    "problems": []
+    "mode": "interaction",
+    "walked_all_edges": false,
+    "edges_total": 29,
+    "edges_executed": 3,
+    "edges_skip_classified": 6,
+    "problems": [
+      "edge n0/\"Skip to content\": control unresolved (unclickable at capture and at replay)",
+      "edge n0/\"Collapse Foundry sidebar\": control no longer clickable (recorded state-change)",
+      "edge n0/\"Search…ctrl + J\": control no longer clickable (recorded blocked-write-attempt)",
+      "edge n0/\"Notifications\": control no longer clickable (recorded blocked-write-attempt)",
+      "edge n0/\"Recent\": control unresolved (unclickable at capture and at replay)",
+      "edge n0/\"Applications\": control unresolved (unclickable at capture and at replay)",
+      "edge n0/\"Support\": control unresolved (unclickable at capture and at replay)",
+      "edge n0/\"Account\": control unresolved (unclickable at capture and at replay)",
+      "edge n0/\"Show error\": control unresolved (unclickable at capture and at replay)",
+      "cannot re-establish node n1 (/workspace/upgrade-assistant/) — its 14 edges are unverified"
+    ],
+    "walked_at": "2026-08-09T23:43:42.102Z"
   },
-  "complete_interaction_route_graph": true,
+  "complete_interaction_route_graph": false,
   "shots_dir": ".artifacts/seed-graph-shots/improvement/changes",
-  "content_address": "0b5acfd4457d71ed9397f95bd976030715e0a3d857f6f2e3bd07bd55def6f983"
+  "content_address": "9bb94de29ac62f2a771f80f40a14f717db602c7a29b4700d02fa452b36ecc624"
 }

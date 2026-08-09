@@ -270,11 +270,15 @@
   ],
   "blockers": [],
   "replay": {
+    "mode": "interaction",
     "walked_all_edges": true,
-    "walked_at": "2026-08-09T16:42:21.227Z",
-    "problems": []
+    "edges_total": 14,
+    "edges_executed": 1,
+    "edges_skip_classified": 13,
+    "problems": [],
+    "walked_at": "2026-08-09T23:45:49.868Z"
   },
   "complete_interaction_route_graph": true,
   "shots_dir": ".artifacts/seed-graph-shots/provenance/vertex",
-  "content_address": "1e6fc1981319be5879cc33b3016105ae185c6bbe391505b082fbab2bfc79cdf0"
+  "content_address": "4e93bb93ea77a2f51d449d2b954f7e24c0a15bfd6bbf10e21a07866ed5c6da12"
 }

@@ -198,11 +198,15 @@
   ],
   "blockers": [],
   "replay": {
+    "mode": "interaction",
     "walked_all_edges": true,
-    "walked_at": "2026-08-09T16:18:14.944Z",
-    "problems": []
+    "edges_total": 11,
+    "edges_executed": 0,
+    "edges_skip_classified": 11,
+    "problems": [],
+    "walked_at": "2026-08-09T23:42:04.588Z"
   },
   "complete_interaction_route_graph": true,
   "shots_dir": ".artifacts/seed-graph-shots/evaluations/evalsuites",
-  "content_address": "5e2c624a789ef56af2b4dc7ad2b598689cc3ea3554f86b6ecab6580d4630e508"
+  "content_address": "b07a91d4c8882277915571367d4f059e28340fd68e01cfe9527199d2183f0595"
 }

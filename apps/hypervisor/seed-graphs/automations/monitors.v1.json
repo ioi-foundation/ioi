@@ -228,11 +228,15 @@
   ],
   "blockers": [],
   "replay": {
+    "mode": "interaction",
     "walked_all_edges": true,
-    "walked_at": "2026-08-09T16:28:59.781Z",
-    "problems": []
+    "edges_total": 13,
+    "edges_executed": 0,
+    "edges_skip_classified": 13,
+    "problems": [],
+    "walked_at": "2026-08-09T23:36:53.637Z"
   },
   "complete_interaction_route_graph": true,
   "shots_dir": ".artifacts/seed-graph-shots/automations/monitors",
-  "content_address": "2ecf92c7b67e76a13b6932e4c71328f4b917794d18faff11f8015230822ba20f"
+  "content_address": "a497ab540ccb9ed425efc302fe8f7e2ca744b9003b3fa53e37e2a9ecaf922a53"
 }

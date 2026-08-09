@@ -12720,11 +12720,29 @@
     }
   ],
   "replay": {
-    "walked_all_edges": true,
-    "walked_at": "2026-08-09T16:41:59.197Z",
-    "problems": []
+    "mode": "interaction",
+    "walked_all_edges": false,
+    "edges_total": 725,
+    "edges_executed": 146,
+    "edges_skip_classified": 567,
+    "problems": [
+      "edge n0/\"Hide this color\": recorded unclickable but clicks now — recapture this source",
+      "edge n0/\"Hide this color\": recorded unclickable but clicks now — recapture this source",
+      "edge n0/\"Hide this color\": recorded unclickable but clicks now — recapture this source",
+      "edge n0/\"Hide this color\": recorded unclickable but clicks now — recapture this source",
+      "edge n0/\"Toggle bottom bar\": control unresolved (unclickable at capture and at replay)",
+      "edge n1->n1: target /__ioi/pipeline?node=materialized&ontology=ont_18ca2757d28a20f7&tab=preview#pb-preview unreachable (no response)",
+      "edge n2/\"Hide this color\": recorded unclickable but clicks now — recapture this source",
+      "edge n2/\"Hide this color\": recorded unclickable but clicks now — recapture this source",
+      "edge n2/\"Hide this color\": recorded unclickable but clicks now — recapture this source",
+      "edge n2/\"Hide this color\": recorded unclickable but clicks now — recapture this source",
+      "edge n2/\"Toggle bottom bar\": control unresolved (unclickable at capture and at replay)",
+      "edge n3/\"Pipeline: probe-reencode ▾\": control unresolved (unclickable at capture and at replay)",
+      "edge n4/\"Toggle bottom bar\": control unresolved (unclickable at capture and at replay)"
+    ],
+    "walked_at": "2026-08-09T23:42:01.976Z"
   },
   "complete_interaction_route_graph": false,
   "shots_dir": ".artifacts/seed-graph-shots/data/pipeline",
-  "content_address": "9bdb65ed98eda3b92d9da52292611c6850dd2fed5668044921b5edf14a9140b0"
+  "content_address": "35e52c093418deaf0b8d0af294b643bfd06581db298d7726cb599ec7a919e94c"
 }

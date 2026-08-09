@@ -724,11 +724,34 @@
   ],
   "blockers": [],
   "replay": {
-    "walked_all_edges": true,
-    "walked_at": "2026-08-09T16:31:05.754Z",
-    "problems": []
+    "mode": "interaction",
+    "walked_all_edges": false,
+    "edges_total": 45,
+    "edges_executed": 5,
+    "edges_skip_classified": 6,
+    "problems": [
+      "edge n0/\"Skip to content\": control unresolved (unclickable at capture and at replay)",
+      "edge n0/\"Collapse Foundry sidebar\": control no longer clickable (recorded state-change)",
+      "edge n0/\"Search…ctrl + J\": control no longer clickable (recorded blocked-write-attempt)",
+      "edge n0/\"Notifications\": control no longer clickable (recorded blocked-write-attempt)",
+      "edge n0/\"Gift IconWhat's New\": control no longer clickable (recorded blocked-write-attempt)",
+      "edge n0/\"Recent\": control no longer clickable (recorded blocked-write-attempt)",
+      "edge n0/\"Applications\": control unresolved (unclickable at capture and at replay)",
+      "edge n0/\"Support\": control unresolved (unclickable at capture and at replay)",
+      "edge n0/\"Account\": control unresolved (unclickable at capture and at replay)",
+      "edge n0/\"Settings\": control unresolved (unclickable at capture and at replay)",
+      "edge n0/\"Light\": control unresolved (unclickable at capture and at replay)",
+      "edge n0/\"fe77707c-1590-4b15-9dca-9f92e943d79d\": control unresolved (unclickable at capture and at replay)",
+      "edge n0/\"Clear all filters\": control unresolved (unclickable at capture and at replay)",
+      "edge n0/\"All\": control unresolved (unclickable at capture and at replay)",
+      "edge n0/\"Running\": control unresolved (unclickable at capture and at replay)",
+      "edge n0/\"Finished\": control unresolved (unclickable at capture and at replay)",
+      "edge n0/\"Select statuses…\": control unresolved (unclickable at capture and at replay)",
+      "cannot re-establish node n1 (/workspace/job-tracker/builds) — its 22 edges are unverified"
+    ],
+    "walked_at": "2026-08-09T23:48:02.875Z"
   },
-  "complete_interaction_route_graph": true,
+  "complete_interaction_route_graph": false,
   "shots_dir": ".artifacts/seed-graph-shots/work/jobs",
-  "content_address": "26a05569b569f6a0f93d575939007ce2d2804668a7920abe8b9d7d07ef0914b7"
+  "content_address": "8be8aa23f0350f17833e202e665e3f553b96b49dec457df7c14f7f9676e7ffb3"
 }

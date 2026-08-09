@@ -42,6 +42,15 @@ const readText = (rel) => fs.readFileSync(path.join(appRoot, rel), "utf8");
 const args = process.argv.slice(2);
 const sharedOnly = args.includes("--shared");
 const surfaceFilter = args.includes("--surface") ? args[args.indexOf("--surface") + 1] : null;
+// --require-ready: consistency alone is not readiness. With this flag the named
+// surface must have an OPEN seed gate — every source graph replay-complete, or
+// the typed greenfield-authorized-non-parity record. This is the command a
+// surface packet runs before rehome work starts.
+const requireReady = args.includes("--require-ready");
+if (requireReady && !surfaceFilter) {
+  console.error("seed-provenance: --require-ready needs --surface <id>");
+  process.exit(2);
+}
 
 const MANIFEST = "seed-ux-provenance.v1.json";
 const EXPECTED_IDS = [
@@ -281,11 +290,40 @@ function verifyGraphFile(src, sat, { allowIncomplete = false } = {}) {
   if (src.starting_route && g.owned_route !== src.starting_route) {
     fail(`${sat}: graph ${rel} owned_route ${g.owned_route} != source route ${src.starting_route}`);
   }
+  // Attestation-bearing address (closure phase): binds nodes, edges, blockers,
+  // quarantine, replay and the completeness verdict. Legacy nodes/edges-only
+  // addresses are rejected — re-replay under interaction semantics to migrate.
   const address = crypto.createHash("sha256")
-    .update(JSON.stringify({ surface: g.surface, slug: g.slug, nodes: g.nodes, edges: g.edges }))
+    .update(JSON.stringify({
+      surface: g.surface, slug: g.slug, owned_route: g.owned_route,
+      nodes: g.nodes, edges: g.edges, blockers: g.blockers,
+      quarantine: g.quarantine, replay: g.replay,
+      complete_interaction_route_graph: g.complete_interaction_route_graph,
+    }))
     .digest("hex");
   if (g.content_address !== address) {
-    fail(`${sat}: graph ${rel} content_address does not verify (recorded ${String(g.content_address).slice(0, 12)}…, computed ${address.slice(0, 12)}…)`);
+    fail(`${sat}: graph ${rel} content_address does not verify against the attestation-bearing scheme (recorded ${String(g.content_address).slice(0, 12)}…, computed ${address.slice(0, 12)}…) — hand edits and legacy addresses are both rejected`);
+  }
+  if (g.replay?.mode !== "interaction" && g.complete_interaction_route_graph === true) {
+    fail(`${sat}: graph ${rel} claims completeness without an interaction-mode replay`);
+  }
+  // Visual evidence identity: screenshot bytes stay untracked, but their sha256s
+  // are inside the address; when the local shots directory exists, the bytes
+  // must hash-match what the graph records.
+  if (g.shots_dir) {
+    const shotsDir = path.resolve(appRoot, "..", "..", g.shots_dir);
+    if (fs.existsSync(shotsDir)) {
+      for (const node of g.nodes ?? []) {
+        for (const shot of [node.screenshot, ...(node.posture_matrix ?? [])].filter(Boolean)) {
+          const file = path.join(shotsDir, `${node.id}-${shot.sha256.slice(0, 12)}.png`);
+          if (!fs.existsSync(file)) continue;
+          const digest = crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");
+          if (digest !== shot.sha256) {
+            fail(`${sat}: shot ${path.basename(file)} does not hash-match the addressed record`);
+          }
+        }
+      }
+    }
   }
   const q = g.quarantine ?? {};
   if (q.network_policy !== "local-only" || q.corpus_mutation !== "denied" ||
@@ -311,7 +349,17 @@ function verifyGraphFile(src, sat, { allowIncomplete = false } = {}) {
   }
 }
 
-finish(surfaceFilter ? `surface ${surfaceFilter}` : "full tracked gate");
+if (requireReady) {
+  const s = surfaces.find((x) => x.id === surfaceFilter);
+  if (s && !(s.seed_graph_ready_for_rehome === true || s.greenfield_authorization)) {
+    const gaps = (s.sources ?? [])
+      .filter((src) => src.graph?.complete_interaction_route_graph !== true)
+      .map((src) => `${src.slug}${src.graph_capture_note ? " (typed capture note)" : ""}`);
+    fail(`surface ${surfaceFilter}: seed gate CLOSED — not ready for rehome; incomplete sources: ${gaps.join(", ") || "(none — derivation defect)"}. A block record never opens work.`);
+  }
+}
+
+finish(requireReady ? `require-ready ${surfaceFilter}` : surfaceFilter ? `surface ${surfaceFilter}` : "full tracked gate");
 
 function finish(mode) {
   if (failures.length > 0) {

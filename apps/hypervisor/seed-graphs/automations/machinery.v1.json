@@ -172,11 +172,15 @@
   ],
   "blockers": [],
   "replay": {
+    "mode": "interaction",
     "walked_all_edges": true,
-    "walked_at": "2026-08-09T16:28:53.782Z",
-    "problems": []
+    "edges_total": 9,
+    "edges_executed": 0,
+    "edges_skip_classified": 9,
+    "problems": [],
+    "walked_at": "2026-08-09T23:36:53.635Z"
   },
   "complete_interaction_route_graph": true,
   "shots_dir": ".artifacts/seed-graph-shots/automations/machinery",
-  "content_address": "35cf5bb74702028934a34143c63381c23308ffb4dcd5829465b819c94c90a73c"
+  "content_address": "4a8e6b69d9a52f726991f373276d647aa91948639042b3564097c9e9f9623a20"
 }

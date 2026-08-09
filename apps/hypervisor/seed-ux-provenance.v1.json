@@ -137,12 +137,13 @@
           "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
           "visual_evidence_status": "selected-provenance-qualified-stable-matrix-present",
           "graph": {
-            "evidence_level": "complete_interaction_route_graph",
-            "complete_interaction_route_graph": true
+            "evidence_level": "explored_control_graph",
+            "complete_interaction_route_graph": false
           },
           "graph_file": "seed-graphs/work/jobs.retained.v1.json",
           "disposition": "rebind",
-          "audit_route_disposition": "retained-seed"
+          "audit_route_disposition": "retained-seed",
+          "replay_problem_count": 18
         },
         {
           "kind": "retained-harvest-capture",
@@ -380,13 +381,14 @@
           "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
           "visual_evidence_status": "selected-provenance-qualified-stable-matrix-present",
           "graph": {
-            "evidence_level": "complete_interaction_route_graph",
-            "complete_interaction_route_graph": true
+            "evidence_level": "explored_control_graph",
+            "complete_interaction_route_graph": false
           },
           "graph_file": "seed-graphs/automations/machinery.retained.v1.json",
           "disposition": "pattern-harvest",
           "audit_route_disposition": "retained-seed",
-          "owner_mapping_note": "audit correction: current canonical process-graph owner is Automations; estate sweep carries the older Studio mesh assignment"
+          "owner_mapping_note": "audit correction: current canonical process-graph owner is Automations; estate sweep carries the older Studio mesh assignment",
+          "replay_problem_count": 36
         }
       ]
     },
@@ -408,11 +410,12 @@
           "provenance_source": "apps/hypervisor/ported-seed-preservation.v1.json",
           "visual_evidence_status": "selected-provenance-qualified-protected-matrix-present",
           "graph": {
-            "evidence_level": "complete_interaction_route_graph",
-            "complete_interaction_route_graph": true
+            "evidence_level": "explored_control_graph",
+            "complete_interaction_route_graph": false
           },
           "graph_file": "seed-graphs/ontology/schema.v1.json",
-          "class": "daemon_wired"
+          "class": "daemon_wired",
+          "replay_problem_count": 13
         },
         {
           "kind": "protected-executable-seed",
@@ -436,12 +439,13 @@
           "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
           "visual_evidence_status": "selected-provenance-qualified-stable-matrix-present",
           "graph": {
-            "evidence_level": "complete_interaction_route_graph",
-            "complete_interaction_route_graph": true
+            "evidence_level": "explored_control_graph",
+            "complete_interaction_route_graph": false
           },
           "graph_file": "seed-graphs/ontology/schema.retained.v1.json",
           "disposition": "pattern-harvest",
-          "audit_route_disposition": "retained-seed"
+          "audit_route_disposition": "retained-seed",
+          "replay_problem_count": 9
         },
         {
           "kind": "retained-harvest-capture",
@@ -515,7 +519,8 @@
             "complete_interaction_route_graph": false
           },
           "graph_file": "seed-graphs/data/sources.v1.json",
-          "class": "daemon_wired"
+          "class": "daemon_wired",
+          "replay_problem_count": 1
         },
         {
           "kind": "protected-executable-seed",
@@ -529,7 +534,8 @@
             "complete_interaction_route_graph": false
           },
           "graph_file": "seed-graphs/data/pipeline.v1.json",
-          "class": "daemon_wired"
+          "class": "daemon_wired",
+          "replay_problem_count": 13
         },
         {
           "kind": "retained-harvest-capture",
@@ -576,7 +582,8 @@
           },
           "graph_file": "seed-graphs/data/pipeline.retained.v1.json",
           "disposition": "pattern-harvest",
-          "audit_route_disposition": "retained-seed"
+          "audit_route_disposition": "retained-seed",
+          "replay_problem_count": 57
         },
         {
           "kind": "retained-harvest-capture",
@@ -617,8 +624,8 @@
       "owner": "Governance",
       "canonical_route": "/governance",
       "baseline_status": "provenance-qualified-executable-seed-present",
-      "graph_mapping_status": "complete-interaction-route-graphs-present",
-      "seed_graph_ready_for_rehome": true,
+      "graph_mapping_status": "blocked-explored-control-graph-not-complete",
+      "seed_graph_ready_for_rehome": false,
       "greenfield_authorization": null,
       "graph_recovery_status": "required-for-every-summary-only-source",
       "sources": [
@@ -644,12 +651,13 @@
           "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
           "visual_evidence_status": "selected-provenance-qualified-stable-matrix-present",
           "graph": {
-            "evidence_level": "complete_interaction_route_graph",
-            "complete_interaction_route_graph": true
+            "evidence_level": "explored_control_graph",
+            "complete_interaction_route_graph": false
           },
           "graph_file": "seed-graphs/governance/approvals.retained.v1.json",
           "disposition": "rehome",
-          "audit_route_disposition": "rehomed"
+          "audit_route_disposition": "rehomed",
+          "replay_problem_count": 40
         }
       ]
     },
@@ -699,12 +707,13 @@
           "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
           "visual_evidence_status": "selected-provenance-qualified-stable-matrix-present",
           "graph": {
-            "evidence_level": "complete_interaction_route_graph",
-            "complete_interaction_route_graph": true
+            "evidence_level": "explored_control_graph",
+            "complete_interaction_route_graph": false
           },
           "graph_file": "seed-graphs/provenance/lineage.retained.v1.json",
           "disposition": "rebind",
-          "audit_route_disposition": "retained-seed"
+          "audit_route_disposition": "retained-seed",
+          "replay_problem_count": 34
         },
         {
           "kind": "retained-harvest-capture",
@@ -817,8 +826,8 @@
       "owner": "Improvement",
       "canonical_route": "/improvement",
       "baseline_status": "provenance-qualified-executable-seed-present",
-      "graph_mapping_status": "complete-interaction-route-graphs-present",
-      "seed_graph_ready_for_rehome": true,
+      "graph_mapping_status": "blocked-explored-control-graph-not-complete",
+      "seed_graph_ready_for_rehome": false,
       "greenfield_authorization": null,
       "graph_recovery_status": "required-for-every-summary-only-source",
       "sources": [
@@ -844,12 +853,13 @@
           "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
           "visual_evidence_status": "selected-provenance-qualified-stable-matrix-present",
           "graph": {
-            "evidence_level": "complete_interaction_route_graph",
-            "complete_interaction_route_graph": true
+            "evidence_level": "explored_control_graph",
+            "complete_interaction_route_graph": false
           },
           "graph_file": "seed-graphs/improvement/changes.retained.v1.json",
           "disposition": "rebind",
-          "audit_route_disposition": "retained-seed"
+          "audit_route_disposition": "retained-seed",
+          "replay_problem_count": 10
         }
       ]
     },
@@ -944,12 +954,13 @@
           "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
           "visual_evidence_status": "selected-provenance-qualified-stable-matrix-present",
           "graph": {
-            "evidence_level": "complete_interaction_route_graph",
-            "complete_interaction_route_graph": true
+            "evidence_level": "explored_control_graph",
+            "complete_interaction_route_graph": false
           },
           "graph_file": "seed-graphs/packages/listings.retained.v1.json",
           "disposition": "rebind",
-          "audit_route_disposition": "retained-seed"
+          "audit_route_disposition": "retained-seed",
+          "replay_problem_count": 12
         },
         {
           "kind": "retained-harvest-capture",
@@ -1019,12 +1030,13 @@
           "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
           "visual_evidence_status": "selected-provenance-qualified-stable-matrix-present",
           "graph": {
-            "evidence_level": "complete_interaction_route_graph",
-            "complete_interaction_route_graph": true
+            "evidence_level": "explored_control_graph",
+            "complete_interaction_route_graph": false
           },
           "graph_file": "seed-graphs/developer-workspace/notepad.v1.json",
           "disposition": "retire-at-cutover",
-          "audit_route_disposition": "retained-seed"
+          "audit_route_disposition": "retained-seed",
+          "replay_problem_count": 63
         },
         {
           "kind": "explicit-dormant-reference",

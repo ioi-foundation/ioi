@@ -109,8 +109,17 @@ const quarantine = {
 };
 
 const sha = (buf) => crypto.createHash("sha256").update(buf).digest("hex");
+// The content address binds the FULL verdict, not just the crawl: nodes, edges,
+// blockers, quarantine attestation, replay result and the completeness flag.
+// Editing any of them by hand breaks the address (closure-phase hardening; the
+// original address covered nodes/edges only, which left the verdict editable).
 const canonicalAddress = (g) =>
-  sha(JSON.stringify({ surface: g.surface, slug: g.slug, nodes: g.nodes, edges: g.edges }));
+  sha(JSON.stringify({
+    surface: g.surface, slug: g.slug, owned_route: g.owned_route,
+    nodes: g.nodes, edges: g.edges, blockers: g.blockers,
+    quarantine: g.quarantine, replay: g.replay,
+    complete_interaction_route_graph: g.complete_interaction_route_graph,
+  }));
 
 // Source-neutrality (check-source-neutral.mjs): recorded evidence strings must
 // not carry upstream brand tokens. Capture apps fire requests at branded API
@@ -407,50 +416,160 @@ async function capture() {
 }
 
 async function replay() {
+  // TRUE interaction replay (closure phase): every recorded edge is re-executed
+  // or explicitly skip-classified; the resulting outcome class must match the
+  // recorded one. Route reachability alone is not a walk. An `unclickable`
+  // capture outcome is an unresolved control and blocks completeness.
   const graphPath = outPath;
   if (!fs.existsSync(graphPath)) die(1, `no graph at ${graphPath} — capture first`);
   const graph = JSON.parse(fs.readFileSync(graphPath, "utf8"));
   if (graph.schema_version !== SCHEMA) die(1, `unsupported graph schema ${graph.schema_version}`);
-  const recorded = graph.content_address;
-  if (canonicalAddress(graph) !== recorded) die(1, "content_address does not verify — the graph was edited by hand");
+  const legacyAddress = sha(JSON.stringify({
+    surface: graph.surface, slug: graph.slug, nodes: graph.nodes, edges: graph.edges,
+  }));
+  if (graph.content_address !== canonicalAddress(graph) && graph.content_address !== legacyAddress) {
+    die(1, "content_address does not verify — the graph was edited by hand");
+  }
   if ((graph.quarantine?.violations ?? []).length > 0) die(1, "graph records quarantine violations — recapture under quarantine");
   if (!(await reachable(SERVE))) die(2, `BLOCKED: serve runtime unreachable at ${SERVE}`);
 
   const browser = await chromium.launch();
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
-  await installQuarantine(context, []);
+  const blockedWrites = [];
+  await installQuarantine(context, blockedWrites);
   const page = await context.newPage();
+  let pendingDownload = null;
+  page.on("download", (d) => { pendingDownload = d.suggestedFilename(); d.cancel().catch(() => {}); });
+
   const problems = [];
-  const routeNodes = graph.nodes.filter((n) => n.kind === "route");
-  for (const node of routeNodes) {
-    const target = new URL(node.url, SERVE).toString();
-    const resp = await page.goto(target, { waitUntil: "domcontentloaded", timeout: 20000 }).catch(() => null);
-    await page.waitForTimeout(1000);
-    if (!resp || resp.status() >= 400) {
-      problems.push(`unreachable node ${node.id} (${node.url}): ${resp ? `HTTP ${resp.status()}` : "no response"}`);
+  const nodeById = new Map(graph.nodes.map((n) => [n.id, n]));
+  // Path from a route ancestor to a state node = the chain of entry_edge controls.
+  const pathTo = (node) => {
+    const chain = [];
+    let cur = node;
+    let guard = 0;
+    while (cur && cur.kind !== "route" && guard++ < 12) {
+      if (!cur.entry_edge?.control || !nodeById.has(cur.entry_edge.from)) return null;
+      chain.unshift(cur.entry_edge.control);
+      cur = nodeById.get(cur.entry_edge.from);
+    }
+    return cur && cur.kind === "route" ? { route: cur, chain } : null;
+  };
+  const clickControl = async (control) => {
+    const locator = page.locator(CONTROL_SELECTOR).nth(control.index);
+    return locator.click({ timeout: 4000 }).then(() => true).catch(() => false);
+  };
+  const establish = async (node) => {
+    const p = pathTo(node);
+    if (!p) return false;
+    const resp = await page.goto(new URL(p.route.url, SERVE).toString(), { waitUntil: "domcontentloaded", timeout: 20000 }).catch(() => null);
+    if (!resp || resp.status() >= 400) return false;
+    await page.waitForTimeout(900);
+    for (const control of p.chain) {
+      if (!(await clickControl(control))) return false;
+      await page.waitForTimeout(700);
+    }
+    return true;
+  };
+
+  const edgesByFrom = new Map();
+  for (const e of graph.edges) {
+    if (!edgesByFrom.has(e.from)) edgesByFrom.set(e.from, []);
+    edgesByFrom.get(e.from).push(e);
+  }
+  const SKIP_OUTCOMES = new Set(["revisit", "boundary-external-origin", "boundary-off-allowlist", "disabled"]);
+  let executed = 0;
+  let skipped = 0;
+  for (const node of graph.nodes) {
+    const edges = edgesByFrom.get(node.id) ?? [];
+    if (edges.length === 0) continue;
+    if (!(await establish(node))) {
+      problems.push(`cannot re-establish node ${node.id} (${node.url}) — its ${edges.length} edges are unverified`);
       continue;
     }
-    const census = await censusOf(page);
-    if (census.length === 0 && node.controls > 0) {
-      problems.push(`node ${node.id} (${node.url}) rendered zero controls; graph recorded ${node.controls}`);
+    for (const edge of edges) {
+      if (edge.action === "back" || SKIP_OUTCOMES.has(edge.outcome)) { skipped++; continue; }
+      if (edge.outcome === "unclickable") {
+        // An unresolved control blocks completeness whether or not it clicks today.
+        const clicks = await clickControl(edge.control);
+        problems.push(clicks
+          ? `edge ${node.id}/"${edge.control?.label ?? "?"}": recorded unclickable but clicks now — recapture this source`
+          : `edge ${node.id}/"${edge.control?.label ?? "?"}": control unresolved (unclickable at capture and at replay)`);
+        await establish(node);
+        continue;
+      }
+      executed++;
+      if (edge.action === "goto") {
+        const target = edge.to ? nodeById.get(edge.to) : null;
+        if (edge.outcome === "navigated" && target) {
+          const resp = await page.goto(new URL(target.url, SERVE).toString(), { waitUntil: "domcontentloaded", timeout: 20000 }).catch(() => null);
+          await page.waitForTimeout(800);
+          if (!resp || resp.status() >= 400) {
+            problems.push(`edge ${node.id}->${edge.to}: target ${target.url} unreachable (${resp ? `HTTP ${resp.status()}` : "no response"})`);
+          } else if (target.controls > 0 && (await censusOf(page)).length === 0) {
+            problems.push(`edge ${node.id}->${edge.to}: target rendered zero controls; graph recorded ${target.controls}`);
+          }
+        } else if (edge.outcome === "error" || edge.outcome === "download") {
+          skipped++; executed--; // already typed at capture; standing blockers carry them
+        } else if (!target) {
+          problems.push(`edge ${node.id} (goto ${edge.outcome}): unclassified target`);
+        }
+        await establish(node);
+        continue;
+      }
+      // click edge
+      const before = await stateSignature(page);
+      const writesBefore = blockedWrites.length;
+      pendingDownload = null;
+      const clicked = await clickControl(edge.control);
+      await page.waitForTimeout(900);
+      if (!clicked) {
+        problems.push(`edge ${node.id}/"${edge.control?.label ?? "?"}": control no longer clickable (recorded ${edge.outcome})`);
+        await establish(node);
+        continue;
+      }
+      const after = await stateSignature(page);
+      const observed = pendingDownload ? "download"
+        : blockedWrites.length > writesBefore ? "blocked-write-attempt"
+        : !page.url().includes(node.url) && after !== before ? "navigated"
+        : after !== before ? "state-change"
+        : "noop";
+      const compatible = observed === edge.outcome ||
+        (edge.outcome === "navigated" && observed === "state-change") ||
+        (edge.outcome === "state-change" && observed === "navigated");
+      if (!compatible) {
+        problems.push(`edge ${node.id}/"${edge.control?.label ?? "?"}": recorded ${edge.outcome}, observed ${observed}`);
+      } else if (edge.outcome === "navigated" && edge.to && nodeById.has(edge.to)) {
+        const target = nodeById.get(edge.to);
+        if (target.kind === "route" && !page.url().replace(SERVE, "").startsWith(target.url.split("?")[0])) {
+          problems.push(`edge ${node.id}->${edge.to}: landed ${page.url().replace(SERVE, "")}, graph records ${target.url}`);
+        }
+      }
+      await page.keyboard.press("Escape").catch(() => {});
+      await establish(node);
     }
-  }
-  const walkable = graph.edges.filter((e) => e.to && e.to !== "back-stack" && e.outcome !== "revisit");
-  const nodeById = new Map(graph.nodes.map((n) => [n.id, n]));
-  for (const edge of walkable) {
-    if (!nodeById.has(edge.to)) problems.push(`edge ${edge.from}->${edge.to}: unclassified target node`);
   }
   await browser.close();
 
-  const complete = problems.length === 0 && graph.blockers.length === 0;
-  graph.replay = { walked_all_edges: problems.length === 0, walked_at: new Date().toISOString(), problems };
+  const complete = problems.length === 0 && graph.blockers.length === 0 &&
+    (graph.quarantine?.violations ?? []).length === 0;
+  graph.replay = {
+    mode: "interaction",
+    walked_all_edges: problems.length === 0,
+    edges_total: graph.edges.length,
+    edges_executed: executed,
+    edges_skip_classified: skipped,
+    problems,
+    walked_at: new Date().toISOString(),
+  };
   graph.complete_interaction_route_graph = complete;
   graph.content_address = canonicalAddress(graph);
   fs.writeFileSync(graphPath, `${JSON.stringify(graph, null, 2)}\n`);
-  for (const p of problems) console.error(`seed-route-graph replay: ${p}`);
+  for (const p of problems.slice(0, 20)) console.error(`seed-route-graph replay: ${p}`);
+  if (problems.length > 20) console.error(`seed-route-graph replay: … ${problems.length - 20} more problems`);
   console.log(
-    `seed-route-graph replay: ${routeNodes.length} route nodes walked, ${walkable.length} edges checked, ` +
-      `${graph.blockers.length} standing blockers -> complete_interaction_route_graph=${complete}`,
+    `seed-route-graph replay(interaction): ${executed} edges executed, ${skipped} skip-classified, ` +
+      `${problems.length} problems, ${graph.blockers.length} standing blockers -> complete_interaction_route_graph=${complete}`,
   );
   process.exit(complete ? 0 : 1);
 }

@@ -900,11 +900,15 @@
   ],
   "blockers": [],
   "replay": {
+    "mode": "interaction",
     "walked_all_edges": true,
-    "walked_at": "2026-08-09T16:38:48.978Z",
-    "problems": []
+    "edges_total": 57,
+    "edges_executed": 5,
+    "edges_skip_classified": 52,
+    "problems": [],
+    "walked_at": "2026-08-09T23:42:35.820Z"
   },
   "complete_interaction_route_graph": true,
   "shots_dir": ".artifacts/seed-graph-shots/governance/approvals",
-  "content_address": "0b954f903a038f33fb19f08ab9a4827093a8ec3c7e4c7c8a00ad53525e524aa1"
+  "content_address": "502655ede6dd097a34ed96b69b8cfd70257444aa9985c051513289d60f71b92b"
 }

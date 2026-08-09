@@ -617,11 +617,17 @@
     }
   ],
   "replay": {
-    "walked_all_edges": true,
-    "walked_at": "2026-08-09T16:10:19.433Z",
-    "problems": []
+    "mode": "interaction",
+    "walked_all_edges": false,
+    "edges_total": 38,
+    "edges_executed": 4,
+    "edges_skip_classified": 34,
+    "problems": [
+      "edge n1/\"postgres — endpoint requiredmysql — endpoint requiredrest_api — endpoint require\": recorded state-change, observed noop"
+    ],
+    "walked_at": "2026-08-09T23:38:57.469Z"
   },
   "complete_interaction_route_graph": false,
   "shots_dir": ".artifacts/seed-graph-shots/data/sources",
-  "content_address": "f57710997daeff9fec3583955763a45b89f90bd7f77ed1f6fa4f1fa5e0aef2c6"
+  "content_address": "cee86d36feb0ac24deb58bf761bce2500a9496cda3013dbec258004d5e03659b"
 }

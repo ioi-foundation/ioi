@@ -606,11 +606,15 @@
   ],
   "blockers": [],
   "replay": {
+    "mode": "interaction",
     "walked_all_edges": true,
-    "walked_at": "2026-08-09T16:28:34.053Z",
-    "problems": []
+    "edges_total": 38,
+    "edges_executed": 1,
+    "edges_skip_classified": 37,
+    "problems": [],
+    "walked_at": "2026-08-09T23:45:53.802Z"
   },
   "complete_interaction_route_graph": true,
   "shots_dir": ".artifacts/seed-graph-shots/studio/designer",
-  "content_address": "b3512b59fa3a1c8aa76133c2d716a9ee9ac08713673760f1a8b34fe55f817eb3"
+  "content_address": "cde6554464f60c0f0f35a3ca724533fe23d8d10108dbcf15d2162d6cba4cd2c2"
 }

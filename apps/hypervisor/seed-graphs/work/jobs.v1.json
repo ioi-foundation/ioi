@@ -914,11 +914,15 @@
   ],
   "blockers": [],
   "replay": {
+    "mode": "interaction",
     "walked_all_edges": true,
-    "walked_at": "2026-08-09T16:28:47.777Z",
-    "problems": []
+    "edges_total": 54,
+    "edges_executed": 4,
+    "edges_skip_classified": 50,
+    "problems": [],
+    "walked_at": "2026-08-09T23:47:16.230Z"
   },
   "complete_interaction_route_graph": true,
   "shots_dir": ".artifacts/seed-graph-shots/work/jobs",
-  "content_address": "1a515bdf54b1748d7b7e164f520fa7714364272ad893f9ff9cf5aade8a44e967"
+  "content_address": "1cbbc6390ecfcdd5c91cf23d2367adf566d8f69ec643a59cd66053e568638f70"
 }

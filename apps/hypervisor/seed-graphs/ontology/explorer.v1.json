@@ -450,11 +450,15 @@
   ],
   "blockers": [],
   "replay": {
+    "mode": "interaction",
     "walked_all_edges": true,
-    "walked_at": "2026-08-09T16:09:02.431Z",
-    "problems": []
+    "edges_total": 27,
+    "edges_executed": 3,
+    "edges_skip_classified": 24,
+    "problems": [],
+    "walked_at": "2026-08-09T23:43:03.320Z"
   },
   "complete_interaction_route_graph": true,
   "shots_dir": ".artifacts/seed-graph-shots/ontology/explorer",
-  "content_address": "d6ac5fe0678ea1055347eeb256a63d8484bbb602bb08a7fbcc1d3bb77ffc9952"
+  "content_address": "8efad5bd6bc41e8abc0dbe7b05f0d435a4d2b3bb1826e0dbaf28f02034309d69"
 }
