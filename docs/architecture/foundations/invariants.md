@@ -417,6 +417,24 @@ Owner application:
 [`security-privacy-policy-invariants.md`](./security-privacy-policy-invariants.md),
 [`common-objects-and-envelopes.md`](./common-objects-and-envelopes.md).
 
+**INV-40 — Wallet connection is never authentication, authentication is never
+authority, and an unverified ownership claim is inadmissible.** A wallet
+pairing or provider connection establishes a transport channel and a
+negotiated session; it proves nothing about who is signing in. Only a
+verified, domain-, chain-, nonce-, and time-bound ownership proof — its nonce
+consumed atomically, its session and origin bindings exact — may become a
+`web3_wallet` authentication factor, and a wallet-link claim whose signature,
+message, chain, domain, expiry, or replay state was not verified is
+inadmissible as a factor, never stored as one, and never upgraded in place. A
+verified wallet factor is authentication evidence exactly as a federated
+assertion is (`INV-37` resolves it server-side): it never becomes an
+`AuthorityGrant`, and every consequential effect requested through a wallet
+channel — inbound or outbound — crosses the same typed review, approval,
+exact-effect, and receipt pipeline as any other authority crossing.
+Owner application:
+[`../components/wallet-network/doctrine.md`](../components/wallet-network/doctrine.md),
+[`../components/wallet-network/api-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md).
+
 ## Citation Rule
 
 When a doc needs one of these invariants, it writes one line — the ID, an

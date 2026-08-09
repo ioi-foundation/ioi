@@ -7,7 +7,7 @@ brokerage, payment, exchange, exposure, protection, receipt, wallet authority
 client, and revocation APIs.
 Supersedes: older wallet authority API wording when it conflicts with `scope:*` authority grants.
 Superseded by: none.
-Last alignment pass: 2026-07-19.
+Last alignment pass: 2026-08-09.
 Doctrine status: reference
 Implementation status: partial (authority-client seams, lease APIs, portable principal-to-approval-authority binding resolution, and exact grant-hash-keyed effect consumption with immutable replayable receipts are live on named qualified owner paths; all affected shared-verifier and governed-authority registrations now route structural evidence through independent issuer resolution, deterministic atomic consumption, opaque admission revalidation, and retained route/final-invoker, concurrency, crash, denial, and replay proof; account/factor, WebAuthn ceremony, device/session lifecycle, recovery, guardian, and shard surfaces are planned; the closed approval-ceremony context, temporal profile/evaluation input, review/effect-admission receipt profiles, context-bound v3 grant, and WalletReceipt v2 are target successor contracts with no registered schema, emitter, or verifier)
 Implementation refs:
@@ -277,6 +277,74 @@ representation a browser or authority client displayed, whether it displayed
 that representation correctly, or whether the user understood it. Those are
 separate presentation-evidence claims evaluated under
 `presentation_evidence_profile_ref`.
+
+### Wallet Authentication Challenge and Ownership Proof
+
+Status: **planned, not implemented** (the wallet-interoperability packet;
+doctrine section "Wallet Interoperability and External Wallet Sign-In" is the
+governing contract, INV-40 the governing invariant). The current control-plane
+`link_owner@v1` operation stores an unverified anchor and is superseded by
+these contracts before any public exposure.
+
+For `kind: web3_wallet`, factor enrollment and sign-in consume two objects:
+
+```json
+{
+  "challenge_id": "wallet-auth-challenge://...",
+  "siwx_profile_ref": "siwx://evm/erc4361/v1",
+  "chain_id": "caip2:eip155:1",
+  "requested_account": "caip10:eip155:1:0x... | null",
+  "domain": "exact relying origin",
+  "uri": "exact request URI",
+  "nonce": "single-use, atomically consumed at verification",
+  "product_session_binding_hash": "sha256:...",
+  "issued_at": "timestamp",
+  "expires_at": "timestamp (short)",
+  "statement": "human-readable sign-in statement"
+}
+```
+
+```json
+{
+  "proof_id": "wallet-ownership-proof://...",
+  "challenge_ref": "wallet-auth-challenge://...",
+  "account": "caip10:...",
+  "signature_kind": "eoa_secp256k1 | erc1271_contract | erc6492_counterfactual",
+  "signature": "bytes",
+  "verification": {
+    "verified_at": "timestamp",
+    "verifier_profile_ref": "siwx://evm/erc4361/v1",
+    "contract_wallet_state_ref": "state observation for erc1271/6492 | null"
+  }
+}
+```
+
+Mandatory verification gates, each a typed refusal:
+
+- the nonce is single-use and consumed ATOMICALLY at verification — a reused,
+  expired, or foreign nonce fails, and nonce state never lives in an
+  eventually-consistent store;
+- domain, URI, chain, and the bound product session must match the challenge
+  exactly (phishing and cross-origin replay fail closed);
+- factor identity is chain-qualified (CAIP-10): the same address on two chains
+  is two factors, and account uniqueness is enforced per chain;
+- linking a wallet factor to an EXISTING account requires step-up
+  authentication of that account first;
+- a provider-side account or chain change invalidates the in-flight challenge;
+- `erc1271_contract` verification records the exact contract state observed;
+  `erc6492_counterfactual` is admitted only where the profile explicitly
+  allows it and records the deployment commitment;
+- arbitrary blind-signing methods are never requested or accepted for
+  authentication;
+- unlink and recovery are receipted transitions, never silent deletions.
+
+A verified wallet ownership proof yields a `web3_wallet` `AuthFactor` and
+nothing else: it is authentication evidence exactly as a federated assertion
+is, it is not an `AuthorityGrant`, and it grants no effect authority
+(`INV-40`). Signing requests from external dapps, when the outbound provider
+surface exists, are authority-review traffic — they enter the same typed
+review, approval, exact-effect, and receipt pipeline as every other
+consequential action and never ride the authentication seam.
 
 ### Guardian Surface
 
