@@ -52,7 +52,7 @@ export function render(model, ctx) {
 // object-instance editing, and action/function execution stay disabled named gaps.
 const ONT_AUTHORITY = { plane: "odk.domain-ontology", operation: "POST|PATCH /v1/hypervisor/odk/domain-ontologies" };
 const ONT_RECEIPT = "ioi.hypervisor.odk.ontology-receipt.v1";
-const mkAction = (id, fields, extra) => ({ id, method: "POST", route: "/actions/" + id, fields, context: ["ontology"], authority: ONT_AUTHORITY, receipt: ONT_RECEIPT, confirm: false, success: "return-to-surface", refusal: "typed-banner", ...(extra || {}) });
+const mkAction = (id, fields, extra) => ({ id, method: "POST", route: "/actions/" + id, fields: [...fields, "wallet_approval_grant"], fieldMax: 8192, context: ["ontology"], authority: ONT_AUTHORITY, receipt: ONT_RECEIPT, confirm: false, success: "return-to-surface", refusal: "typed-banner", ...(extra || {}) });
 export const actions = [
   mkAction("create-ontology", ["domain", "version", "description"], { context: [] }),
   mkAction("update-metadata", ["domain", "version", "description"]),
@@ -77,20 +77,58 @@ function comUpsert(com, collection, entry) {
 // One typed result per action (#62 contract): success carries the durable ontology receipt;
 // refusal carries the daemon's typed code (revision conflict, validation, not-found) with state
 // untouched; failure claims nothing. All authoring goes through create/patch — never a raw COM.
+// W2.1 (brief §4 target row, §7 write-side ruling): ontology AUTHORING is re-encoded through the
+// shared CapabilityLease authority client. The daemon does not require a wallet crossing for ODK
+// writes today, so a 200 with the ontology receipt reads as `crossed` — behavior-preserving — but
+// the pane now speaks the uniform gateway vocabulary: a 428 sealed-credential and a 403 wallet
+// challenge surface as named states the moment the daemon ever requires them, and a 2xx WITHOUT
+// the declared ontology receipt fails CLOSED. The receipt stays ioi.hypervisor.odk.ontology-
+// receipt.v1, validated by schema_version, exactly as before. Reads (current-revision fetch) ride
+// the shared read client, not raw fetch.
+const ONT_RECEIPT_EXTRACTOR = (payload) =>
+  payload && payload.ontology_receipt && payload.ontology_receipt.schema_version === ONT_RECEIPT
+    ? payload.ontology_receipt.receipt_ref
+    : "";
+
 export async function handleAction({ action, fields, daemon, url }) {
-  const D = (p, method, bodyObj) => fetch(`${daemon}${p}`, { method, headers: { "content-type": "application/json" }, body: JSON.stringify(bodyObj) }).then((x) => x.json()).catch(() => null);
+  const { createAuthorityClient } = await import("../authority-client.mjs");
+  const { createReadClient } = await import("../read-client.mjs");
+  const authority = createAuthorityClient({ daemon });
+  const reader = createReadClient({ daemon });
+  // One typed mapping from a crossWithLease outcome to the module's action result — the
+  // credential/challenge/receipt vocabulary renders identically for every authoring action.
+  const fromCrossing = (crossed, onSuccess) => {
+    if (crossed.kind === "crossed") {
+      if (crossed.payload?.ok !== true) {
+        const code = crossed.payload?.error?.code || "odk_write_refused";
+        return { kind: "refusal", http: code === "odk_revision_conflict" ? 409 : 400, code, message: crossed.payload?.error?.message || "the write was refused" };
+      }
+      return onSuccess(crossed);
+    }
+    if (crossed.kind === "refusal") {
+      // A daemon that ever gates ODK writes surfaces its 428/403 here as a named state; a
+      // plain gateway 4xx (e.g. a revision conflict returned non-2xx) maps to its own code.
+      const http = crossed.status === 428 ? 428 : crossed.status === 403 ? 403 : (crossed.code === "odk_revision_conflict" ? 409 : 400);
+      return { kind: "refusal", http, code: crossed.code, message: crossed.message, challenge: crossed.challenge };
+    }
+    return { kind: "failure", http: 502, code: crossed.code, message: crossed.message };
+  };
+
   if (action.id === "create-ontology") {
     const domain = bounded(fields.domain, 120).trim();
     if (!domain) return { kind: "refusal", http: 400, code: "odk_domain_required", message: "a new ontology needs a domain" };
-    const r = await D("/v1/hypervisor/odk/domain-ontologies", "POST", { domain, version: bounded(fields.version, 60) || undefined, description: bounded(fields.description, 2000) });
-    if (!r) return { kind: "failure", http: 502, code: "daemon_unavailable", message: "the daemon did not answer — nothing was created" };
-    if (r.ok !== true) return { kind: "refusal", http: 400, code: (r.error && r.error.code) || "odk_create_refused", message: (r.error && r.error.message) || "create refused" };
-    if (!r.ontology_receipt || r.ontology_receipt.schema_version !== ONT_RECEIPT) return { kind: "failure", http: 502, code: "receipt_missing", message: "create returned no declared receipt — failing closed" };
-    return { kind: "success", createdOntology: r.ontology.id, receipt_ref: r.ontology_receipt.receipt_ref, redirect: ontologyContextQuery("/__ioi/ontology/manager", { ontology: r.ontology.id, section: "configuration" }) };
+    const crossed = await authority.cross("/v1/hypervisor/odk/domain-ontologies", {
+      method: "POST",
+      body: { domain, version: bounded(fields.version, 60) || undefined, description: bounded(fields.description, 2000) },
+      grant: fields.wallet_approval_grant,
+      extractReceiptRef: ONT_RECEIPT_EXTRACTOR,
+    });
+    return fromCrossing(crossed, (c) => ({ kind: "success", createdOntology: c.payload.ontology.id, receipt_ref: c.receipt_ref, redirect: ontologyContextQuery("/__ioi/ontology/manager", { ontology: c.payload.ontology.id, section: "configuration" }) }));
   }
   // Every other action edits an existing ontology under optimistic concurrency.
   const ontId = url.searchParams.get("ontology") || fields.ontology || "";
-  const cur = await D(`/v1/hypervisor/odk/domain-ontologies/${encodeURIComponent(ontId)}`, "GET");
+  const curRead = await reader.read(`/v1/hypervisor/odk/domain-ontologies/${encodeURIComponent(ontId)}`);
+  const cur = curRead.ok ? curRead.payload : null;
   if (!cur || cur.ok === false || !cur.ontology) return { kind: "refusal", http: 404, code: "odk_ontology_not_found", message: "select an existing ontology first" };
   const ont = cur.ontology;
   const patch = { expected_revision: ont.revision };
@@ -137,11 +175,13 @@ export async function handleAction({ action, fields, daemon, url }) {
       redirectCtx = { ontology: ontId, section: isFn ? "functions" : "action-types", definitionKind: isFn ? "function" : "action-type", definitionId: id };
     }
   }
-  const r = await D(`/v1/hypervisor/odk/domain-ontologies/${encodeURIComponent(ontId)}`, "PATCH", patch);
-  if (!r) return { kind: "failure", http: 502, code: "daemon_unavailable", message: "the daemon did not answer — nothing was changed" };
-  if (r.ok !== true) return { kind: "refusal", http: (r.error && r.error.code === "odk_revision_conflict") ? 409 : 400, code: (r.error && r.error.code) || "odk_patch_refused", message: (r.error && r.error.message) || "patch refused" };
-  if (!r.ontology_receipt || r.ontology_receipt.schema_version !== ONT_RECEIPT) return { kind: "failure", http: 502, code: "receipt_missing", message: "patch returned no declared receipt — failing closed" };
-  return { kind: "success", status: `rev ${r.ontology.revision}`, receipt_ref: r.ontology_receipt.receipt_ref, redirect: ontologyContextQuery("/__ioi/ontology/manager", redirectCtx) };
+  const crossed = await authority.cross(`/v1/hypervisor/odk/domain-ontologies/${encodeURIComponent(ontId)}`, {
+    method: "PATCH",
+    body: patch,
+    grant: fields.wallet_approval_grant,
+    extractReceiptRef: ONT_RECEIPT_EXTRACTOR,
+  });
+  return fromCrossing(crossed, (c) => ({ kind: "success", status: `rev ${c.payload.ontology.revision}`, receipt_ref: c.receipt_ref, redirect: ontologyContextQuery("/__ioi/ontology/manager", redirectCtx) }));
 }
 
 // ============================ ONTOLOGY MANAGER — reference UX PORT (#34, daemon_wired).
