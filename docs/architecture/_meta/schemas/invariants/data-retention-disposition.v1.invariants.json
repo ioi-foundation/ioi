@@ -1,0 +1,31 @@
+{
+  "$id": "invariant://ioi/foundations/data-retention-disposition/held-content-basis/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/data-retention-disposition/v1",
+  "rules": [
+    {
+      "rule_id": "data_retention.basis.required",
+      "description": "Every disposition names its governing policy basis; an unexplained retention posture is not auditable.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.policy_basis_ref"
+      }
+    },
+    {
+      "rule_id": "data_retention.subject.exact",
+      "description": "The duty binds one exact subject, never a class pattern — deletion of 'roughly these' is not a deletion anyone can verify.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.subject.subject_ref"
+      }
+    },
+    {
+      "rule_id": "data_retention.declarer.bound",
+      "description": "The declaring principal is recorded server-side, so retention duties have an accountable origin.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.declared_by"
+      }
+    }
+  ]
+}

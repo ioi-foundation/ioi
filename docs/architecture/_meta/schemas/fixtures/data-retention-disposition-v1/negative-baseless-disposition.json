@@ -1,0 +1,14 @@
+{
+  "schema_version": "ioi.foundations.data_retention_disposition.v1",
+  "disposition_id": "retention-disposition://rdsp_bad00000000000000",
+  "subject": {
+    "subject_kind": "managed_backup_export",
+    "subject_ref": "environment-backup://local/env_2-def456"
+  },
+  "policy_basis_ref": "",
+  "owner_ref": "org://acme",
+  "declared_by": "user://acme-operator",
+  "legal_hold": null,
+  "state": "declared",
+  "deletion": null
+}

@@ -124,6 +124,8 @@ mod odk_routes;
 mod ontology_projection_routes;
 #[path = "hypervisor_daemon_routes/operability_routes.rs"]
 mod operability_routes;
+#[path = "hypervisor_daemon_routes/operations_support_routes.rs"]
+mod operations_support_routes;
 #[path = "hypervisor_daemon_routes/orchestration_routes.rs"]
 mod orchestration_routes;
 #[path = "hypervisor_daemon_routes/outcome_room_routes.rs"]
@@ -146,6 +148,8 @@ mod recipe_routes;
 mod resource_capability_offer_routes;
 #[path = "hypervisor_daemon_routes/resource_routes.rs"]
 mod resource_routes;
+#[path = "hypervisor_daemon_routes/retention_routes.rs"]
+mod retention_routes;
 #[path = "hypervisor_daemon_routes/room_participation_routes.rs"]
 mod room_participation_routes;
 #[path = "hypervisor_daemon_routes/runpod_candidate_source.rs"]
@@ -1304,6 +1308,44 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/download-intents/:id/content",
             get(download_intent_routes::handle_download_intent_content),
+        )
+        // W1.5 — data-retention disposition plane (data-retention-disposition v1): the durable
+        // record of what retention duty applies to one exact subject and what was done about
+        // it. A legal hold blocks deletion typed; deletion destroys CONTENT and retains
+        // ADMISSION EVIDENCE (the receipts that prove the deletion happened survive it).
+        .route(
+            "/v1/hypervisor/retention/dispositions",
+            post(retention_routes::handle_disposition_create),
+        )
+        .route(
+            "/v1/hypervisor/retention/dispositions/:id",
+            get(retention_routes::handle_disposition_get),
+        )
+        .route(
+            "/v1/hypervisor/retention/dispositions/:id/legal-hold",
+            post(retention_routes::handle_disposition_legal_hold),
+        )
+        .route(
+            "/v1/hypervisor/retention/dispositions/:id/delete",
+            post(retention_routes::handle_disposition_delete),
+        )
+        // W1.5 — operations support: SupportIncidentLink projections (grant nothing, gate
+        // nothing) + the paginated audit trail over the durable evidence families.
+        .route(
+            "/v1/hypervisor/support-incidents",
+            post(operations_support_routes::handle_incident_create),
+        )
+        .route(
+            "/v1/hypervisor/support-incidents/:id",
+            get(operations_support_routes::handle_incident_get),
+        )
+        .route(
+            "/v1/hypervisor/support-incidents/:id/status",
+            post(operations_support_routes::handle_incident_status),
+        )
+        .route(
+            "/v1/hypervisor/audit/trail",
+            get(operations_support_routes::handle_audit_trail),
         )
         .route(
             "/v1/hypervisor/backups/:id/restore-plans",

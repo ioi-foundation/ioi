@@ -12946,18 +12946,28 @@ pub(crate) async fn handle_connector_set_policy(
     Json(json!({ "ok": true, "connector_id": id, "org_policy": org_policy }))
 }
 
-/// True if a principal holds a lease grant for (connector, tool) — "*" grants all tools.
+/// True if a principal holds a LIVE lease grant for (connector, tool) — "*" grants all tools.
+/// W1.5: expiry is enforced here, at the one check site — an expired grant authorizes nothing.
+/// Legacy grants without `expires_at_ms` predate the expiry contract and remain valid until
+/// re-granted (a fail-open would be re-writing history; the regrant path now always stamps one).
 fn principal_has_lease_grant(
     data_dir: &str,
     principal_id: &str,
     connector_id: &str,
     tool: &str,
 ) -> bool {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or_default();
     read_record_dir(data_dir, "principal-lease-grants")
         .iter()
         .any(|g| {
             g["principal_id"].as_str() == Some(principal_id)
                 && g["connector_id"].as_str() == Some(connector_id)
+                && g["expires_at_ms"]
+                    .as_u64()
+                    .is_none_or(|expires| expires > now)
                 && g["tools"]
                     .as_array()
                     .map(|ts| {
@@ -12995,9 +13005,77 @@ pub(crate) async fn handle_principal_lease_grant(
             Json(json!({ "ok": false, "reason": "connector_id is required" })),
         );
     }
-    let tools = body.get("tools").cloned().unwrap_or_else(|| json!(["*"]));
+    // W1.5 (ConnectorCredentialGrant hardening): declared tools only — no defaulted "*";
+    // a grant is finite (expiry required and enforced at the check site); the granting
+    // principal is resolved server-side (INV-37); a silent regrant can no longer widen or
+    // narrow an existing grant's tool set — revoke first, then grant.
+    let Some(tools) = body.get("tools").and_then(Value::as_array).cloned() else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(
+                json!({ "ok": false, "code": "hypervisor.principal_lease_grant_tools_required",
+                "message": "tools must be an explicit non-empty array of declared connector tools (or [\"*\"] declared deliberately) — nothing is granted by default" }),
+            ),
+        );
+    };
+    if tools.is_empty()
+        || tools
+            .iter()
+            .any(|t| t.as_str().map(str::trim).unwrap_or("").is_empty())
+    {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(
+                json!({ "ok": false, "code": "hypervisor.principal_lease_grant_tools_required",
+                "message": "tools must be an explicit non-empty array of non-empty tool names" }),
+            ),
+        );
+    }
+    let expires_in_seconds = body
+        .get("expires_in_seconds")
+        .and_then(Value::as_u64)
+        .unwrap_or(0);
+    if expires_in_seconds == 0 || expires_in_seconds > 31_536_000 {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(
+                json!({ "ok": false, "code": "hypervisor.principal_lease_grant_expiry_required",
+                "message": "expires_in_seconds (1..=31536000) is required — a credential grant without an expiry is the standing-access defect this contract closes" }),
+            ),
+        );
+    }
+    let granted_by = match resolve_acting_principal_ref(&st.data_dir, &headers, &body) {
+        Ok(actor_ref) => actor_ref,
+        Err((status, value)) => return (status, Json(value)),
+    };
     let gid = format!("plg_{}", short_hash(&format!("{id}:{connector_id}")));
-    let rec = json!({ "id": gid, "grant_id": gid, "principal_id": id, "connector_id": connector_id, "tools": tools, "created_at": iso_now() });
+    if let Some(existing) = read_record_dir(&st.data_dir, "principal-lease-grants")
+        .into_iter()
+        .find(|grant| grant["grant_id"].as_str() == Some(gid.as_str()))
+    {
+        return (
+            StatusCode::CONFLICT,
+            Json(
+                json!({ "ok": false, "code": "hypervisor.principal_lease_grant_exists",
+                "message": "a grant already exists for this principal and connector; revoke it first — regrant must never silently rewrite an authority scope",
+                "lease_grant": existing }),
+            ),
+        );
+    }
+    let now_epoch_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or_default();
+    let rec = json!({
+        "schema_version": "ioi.hypervisor.connector_credential_grant.v1",
+        "id": gid, "grant_id": gid,
+        "principal_id": id,
+        "connector_id": connector_id,
+        "tools": tools,
+        "granted_by": granted_by,
+        "expires_at_ms": now_epoch_ms.saturating_add(expires_in_seconds.saturating_mul(1000)),
+        "created_at": iso_now(),
+    });
     if let Err(error) = persist_record(&st.data_dir, "principal-lease-grants", &gid, &rec) {
         return (
             StatusCode::SERVICE_UNAVAILABLE,
@@ -13006,6 +13084,31 @@ pub(crate) async fn handle_principal_lease_grant(
                 "code": "hypervisor.principal_lease_grant_persistence_failed",
                 "message": error.to_string()
             })),
+        );
+    }
+    // Audit is part of the grant, not best-effort: if the audit record cannot be written the
+    // grant is rolled back and refused (the secret-create rollback idiom).
+    let audit = json!({
+        "schema_version": "ioi.hypervisor.connector_credential_grant_audit.v1",
+        "event": "granted",
+        "grant": rec,
+        "at": iso_now(),
+    });
+    if persist_record(
+        &st.data_dir,
+        "principal-lease-grant-audit",
+        &format!("{gid}_granted_{now_epoch_ms}"),
+        &audit,
+    )
+    .is_err()
+    {
+        let _removed = remove_record(&st.data_dir, "principal-lease-grants", &gid);
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(
+                json!({ "ok": false, "code": "hypervisor.principal_lease_grant_audit_failed",
+                "message": "the grant's audit record could not be written; the grant was rolled back and is NOT in force" }),
+            ),
         );
     }
     (
@@ -13053,11 +13156,41 @@ pub(crate) async fn handle_principal_lease_grant_revoke(
         return response;
     }
     let gid = format!("plg_{}", short_hash(&format!("{id}:{connector_id}")));
-    let existed = read_record_dir(&st.data_dir, "principal-lease-grants")
+    let existing = read_record_dir(&st.data_dir, "principal-lease-grants")
         .into_iter()
-        .any(|grant| grant["grant_id"].as_str() == Some(gid.as_str()));
+        .find(|grant| grant["grant_id"].as_str() == Some(gid.as_str()));
+    // Audit BEFORE the removal: a revocation whose audit cannot be written does not proceed,
+    // so the trail can never claim less than what happened.
+    if let Some(grant) = &existing {
+        let now_epoch_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or_default();
+        let audit = json!({
+            "schema_version": "ioi.hypervisor.connector_credential_grant_audit.v1",
+            "event": "revoked",
+            "grant": grant,
+            "at": iso_now(),
+        });
+        if persist_record(
+            &st.data_dir,
+            "principal-lease-grant-audit",
+            &format!("{gid}_revoked_{now_epoch_ms}"),
+            &audit,
+        )
+        .is_err()
+        {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(
+                    json!({ "ok": false, "code": "hypervisor.principal_lease_grant_audit_failed",
+                    "message": "the revocation's audit record could not be written; the grant still stands" }),
+                ),
+            );
+        }
+    }
     let removed = remove_record(&st.data_dir, "principal-lease-grants", &gid);
-    if existed && !removed {
+    if existing.is_some() && !removed {
         return (
             StatusCode::SERVICE_UNAVAILABLE,
             Json(json!({
@@ -13075,13 +13208,53 @@ pub(crate) async fn handle_principal_lease_grant_revoke(
 }
 
 /// DELETE /v1/hypervisor/connectors/:id — remove a connector and its sealed credential entirely.
+/// W1.5: fail-closed. This returned unconditional success over two raw removes — the same
+/// discarded-write class W1.2 closed for storage backends — so a surviving sealed credential
+/// could sit behind an "ok: true". Credential first; a removal that does not remove refuses.
 pub(crate) async fn handle_connector_delete(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
-) -> Json<Value> {
-    let cred = remove_record(&st.data_dir, "connector-credentials", &id);
-    let conn = remove_record(&st.data_dir, "connectors", &id);
-    Json(json!({ "ok": true, "connector_id": id, "removed": conn, "credential_removed": cred }))
+) -> (StatusCode, Json<Value>) {
+    if let Err(response) = require_authenticated_org_admin(&st.data_dir, &headers) {
+        return response;
+    }
+    let record_exists = |record_dir: &str| {
+        let safe_id = id.replace(
+            |c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_',
+            "_",
+        );
+        std::path::Path::new(&st.data_dir)
+            .join(record_dir)
+            .join(format!("{safe_id}.json"))
+            .exists()
+    };
+    let cred_existed = record_exists("connector-credentials");
+    let cred_removed = remove_record(&st.data_dir, "connector-credentials", &id);
+    if cred_existed && !cred_removed {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(
+                json!({ "ok": false, "code": "connector_credential_delete_failed",
+                "message": "the sealed credential could not be removed; the connector is NOT deleted while its credential survives" }),
+            ),
+        );
+    }
+    let conn_existed = record_exists("connectors");
+    let conn_removed = remove_record(&st.data_dir, "connectors", &id);
+    if conn_existed && !conn_removed {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({ "ok": false, "code": "connector_delete_failed",
+                "message": "the sealed credential is removed but the connector record survived; retry to converge" })),
+        );
+    }
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "connector_id": id,
+            "removed": conn_existed && conn_removed,
+            "credential_removed": cred_existed && cred_removed })),
+    )
 }
 
 /// POST /v1/hypervisor/connectors/:id/oauth/discover — auto-configure the auth_profile for an MCP

@@ -8323,6 +8323,150 @@
       ]
     },
     {
+      "contract_id": "schema://ioi/foundations/data-retention-disposition/v1",
+      "canonical_name": "DataRetentionDisposition",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/security-privacy-policy-invariants.md#dataretentiondisposition",
+      "schema_version": "ioi.foundations.data_retention_disposition.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": null,
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "data-retention-disposition.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/data-retention-disposition/held-content-basis/v1",
+          "path": "invariants/data-retention-disposition.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "DataRetentionDispositionV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "DataRetentionDispositionV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/data-retention-disposition-v1/positive-declared-held.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/data-retention-disposition-v1/negative-baseless-disposition.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/components/daemon-runtime/support-incident-link/v1",
+      "canonical_name": "SupportIncidentLink",
+      "canonical_owner_ref": "canon://docs/architecture/components/daemon-runtime/platform-operability.md#supportincidentlink",
+      "schema_version": "ioi.hypervisor.support_incident_link.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": null,
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "support-incident-link.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/components/daemon-runtime/support-incident-link/projection-only/v1",
+          "path": "invariants/support-incident-link.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "SupportIncidentLinkV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "SupportIncidentLinkV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/support-incident-link-v1/positive-open-major.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/support-incident-link-v1/negative-affects-nothing.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/components/connectors-tools/connector-credential-grant/v1",
+      "canonical_name": "ConnectorCredentialGrant",
+      "canonical_owner_ref": "canon://docs/architecture/components/connectors-tools/contracts.md#connectorcredentialgrant",
+      "schema_version": "ioi.hypervisor.connector_credential_grant.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": null,
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "connector-credential-grant.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/components/connectors-tools/connector-credential-grant/finite-declared-scope/v1",
+          "path": "invariants/connector-credential-grant.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "ConnectorCredentialGrantV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "ConnectorCredentialGrantV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/connector-credential-grant-v1/positive-finite-scoped.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/connector-credential-grant-v1/negative-unscoped.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
       "contract_id": "schema://ioi/components/daemon-runtime/compute-session/v1",
       "canonical_name": "ComputeSession",
       "canonical_owner_ref": "canon://docs/architecture/foundations/objects/work-execution.md#bounded-managed-runtime-wire-contracts",

@@ -1,0 +1,14 @@
+{
+  "schema_version": "ioi.hypervisor.connector_credential_grant.v1",
+  "id": "plg_9f3a1c72",
+  "grant_id": "plg_9f3a1c72",
+  "principal_id": "usr_1234",
+  "connector_id": "github",
+  "tools": [
+    "repos/read",
+    "pulls/write"
+  ],
+  "granted_by": "user://acme-admin",
+  "expires_at_ms": 1786400000000,
+  "created_at": "2026-08-08T12:00:00Z"
+}

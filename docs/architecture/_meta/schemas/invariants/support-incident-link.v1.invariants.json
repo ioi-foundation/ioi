@@ -1,0 +1,23 @@
+{
+  "$id": "invariant://ioi/components/daemon-runtime/support-incident-link/projection-only/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/components/daemon-runtime/support-incident-link/v1",
+  "rules": [
+    {
+      "rule_id": "support_incident.affected.non_empty",
+      "description": "An incident links at least one affected object — an incident that affects nothing links nothing.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.affected.object_refs"
+      }
+    },
+    {
+      "rule_id": "support_incident.reporter.bound",
+      "description": "The reporting principal is resolved server-side, so an incident has an accountable origin.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.reported_by"
+      }
+    }
+  ]
+}

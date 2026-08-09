@@ -340,6 +340,27 @@ pub(crate) async fn handle_allocate(
             detail = json!({ "concurrent": count, "max": i(&quota, "max_concurrent") });
             break 'eval;
         }
+        // W1.5: rate_per_min is EVALUATED, not stored decoration — count this pool's
+        // allocation decisions admitted in the trailing 60s window against the declared rate.
+        let rate_per_min = i(&quota, "rate_per_min");
+        if rate_per_min > 0 {
+            let window_start = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_millis() as u64)
+                .unwrap_or_default()
+                .saturating_sub(60_000);
+            let recent = read_record_dir(data_dir, "allocation-decisions")
+                .iter()
+                .filter(|d| d["pool_id"].as_str() == Some(pool_id.as_str()))
+                .filter(|d| d["decided_at_ms"].as_u64().unwrap_or(0) >= window_start)
+                .count() as i64;
+            if recent >= rate_per_min {
+                decision = "queue";
+                reason = "rate_limited";
+                detail = json!({ "window_seconds": 60, "admitted_in_window": recent, "rate_per_min": rate_per_min });
+                break 'eval;
+            }
+        }
         // explicit rate-limit signal (the verifier can assert it).
         if body
             .get("rate_limited")
@@ -492,7 +513,13 @@ pub(crate) async fn handle_allocate(
         "state": state,
         "detail": detail,
         "receipt_ref": receipt,
-        "decided_at": iso_now()
+        "decided_at": iso_now(),
+        // W1.5: epoch stamp so rate_per_min evaluation is arithmetic, not ISO parsing.
+        // Legacy records without it fall outside the window, which only under-counts.
+        "decided_at_ms": std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or_default()
     });
     // The decision is authoritative — handle_* reads allocation-decisions back as admitted state.
     // Returning it while the write failed hands the caller a decision, with a receipt_ref, that no

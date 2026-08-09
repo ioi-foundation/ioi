@@ -1,0 +1,26 @@
+{
+  "schema_version": "ioi.hypervisor.support_incident_link.v1",
+  "incident_id": "support-incident://sil_9f3a1c72b4e8d605a",
+  "title": "backup export deliveries failing after storage fault",
+  "severity": "major",
+  "status": "open",
+  "affected": {
+    "product": "hypervisor",
+    "tenant_ref": "org://acme",
+    "object_refs": [
+      "download-intent://dlint_1",
+      "environment-backup://local/env_1-abc"
+    ],
+    "event_range": {
+      "from_at": "2026-08-08T11:00:00Z",
+      "to_at": "2026-08-08T12:00:00Z"
+    }
+  },
+  "redacted_diagnostics": "delivery digest mismatch on two intents; payload paths and tokens redacted",
+  "reported_by": "user://acme-operator",
+  "assigned_owner_ref": "org://acme/ops",
+  "owner_ref": "org://acme",
+  "created_at": "2026-08-08T12:01:00Z",
+  "updated_at": "2026-08-08T12:01:00Z",
+  "admitted_head": "sha256:9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b"
+}

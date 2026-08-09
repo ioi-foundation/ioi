@@ -1,0 +1,11 @@
+{
+  "schema_version": "ioi.hypervisor.connector_credential_grant.v1",
+  "id": "plg_bad00000",
+  "grant_id": "plg_bad00000",
+  "principal_id": "usr_1234",
+  "connector_id": "github",
+  "tools": [],
+  "granted_by": "user://acme-admin",
+  "expires_at_ms": 1786400000000,
+  "created_at": "2026-08-08T12:00:00Z"
+}

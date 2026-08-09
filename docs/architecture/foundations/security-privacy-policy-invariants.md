@@ -643,3 +643,35 @@ event that this seam does not observe.
 ## One-Line Doctrine
 
 > **Canonical Web4 is safe only when authority, execution, state, payloads, and settlement remain separated by design.**
+
+## DataRetentionDisposition
+
+Registered contract: `schema://ioi/foundations/data-retention-disposition/v1`
+(schema, invariants, adversarial fixtures, generated projections). Runtime:
+`/v1/hypervisor/retention/dispositions` over the shared owner-scoped admission
+boundary.
+
+```yaml
+DataRetentionDisposition:
+  schema_version: ioi.foundations.data_retention_disposition.v1
+  disposition_id: retention-disposition://...
+  subject:
+    subject_kind: managed_backup_export      # extensible only by owner ruling HERE
+    subject_ref: string                      # one exact subject, never a class pattern
+    payload_state_root: sha256:... | null
+  policy_basis_ref: canonical ref            # the governing policy; no basis, no disposition
+  owner_ref / declared_by: owner scope + server-resolved declarer (INV-37)
+  legal_hold: { held, held_by, held_at, reason } | null
+  state: declared | delete_executed
+  deletion: { executed_by, executed_at, evidence } | null
+```
+
+The disposition is the durable record of what retention duty applies to one
+exact data subject and of what was actually done about it. A legal hold blocks
+deletion with a typed refusal; placing and releasing the hold are distinct
+admitted transitions with server-resolved actors. **Deletion destroys content
+and retains admission evidence**: the payload bytes are destroyed (a later
+hash-verified delivery refuses), while the admitted subject record and every
+receipt survive — erasing the evidence that a deletion happened would make the
+deletion itself unauditable. The deletion evidence is server-built from real
+outcomes, never asserted by the caller.

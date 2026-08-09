@@ -929,3 +929,21 @@ policy_widening: step-up + explicit approval required
     upload/download and other interactive/computer-use actions, and remaining
     connector families are also planned. No schema/projection substrate may be
     generalized into an estate-wide IFC claim.
+
+## ConnectorCredentialGrant
+
+Registered contract: `schema://ioi/components/connectors-tools/connector-credential-grant/v1`.
+Runtime: `/v1/hypervisor/principals/:id/lease-grants`. A principal's finite,
+declared-tools-only scope over one connector's use-only lease:
+
+- the grant never carries or exposes the sealed credential — the connector
+  estate's use-only doctrine is unchanged;
+- **expiry is required and enforced at the single check site** — a credential
+  grant without an expiry is the standing-access defect this contract closes;
+- declared tools only: nothing is granted by default, and `"*"` is a deliberate
+  declaration, never a fallback;
+- the granting principal is resolved server-side (INV-37);
+- a regrant never silently rewrites an existing grant's tool set — revoke
+  first, then grant (typed conflict otherwise);
+- grant and revocation both write audit records or do not happen (grant rolls
+  back on audit failure; revocation refuses before removal).
