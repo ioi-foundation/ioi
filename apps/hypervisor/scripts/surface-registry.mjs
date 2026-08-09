@@ -55,8 +55,8 @@ export const SURFACES = [
   { slug: "missions", owner: "Missions", title: "Missions", icon: missionsModule.MISSIONS_APP_ICON_URI, route: "/__ioi/missions", verifier: "scripts/verify-hypervisor-app-parity-missions.mjs", certification: "n/a", catalog_evidence: { schema: "ioi.hypervisor.catalog-contract-evidence.v1", artifact: "application-operational-depth.json", evidence_key: "missions", module: "surfaces/missions/index.mjs", verifier: "scripts/verify-hypervisor-app-parity-missions.mjs" }, capabilities: ["browse", "filter", "select", "inspect", "proof"], operational_state: "read_only_by_contract", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "pipeline", owner: "Data", title: "Pipeline Builder", icon: PIPELINE_APP_ICON_URI, route: "/__ioi/pipeline", verifier: "scripts/verify-hypervisor-app-parity-pipeline.mjs", certification: "pixel-certifications/pipeline.json", capabilities: ["browse", "select", "inspect", "create", "transition", "execute", "proof"], operational_state: "workflow_complete", embedded_shell_state: "native_single_rail", interaction_parity_state: "atlas_verified" },
   { slug: "sources", owner: "Data", title: "Data Connection", icon: SRC_APP_TILE_URI, route: "/__ioi/data/sources", verifier: "scripts/verify-hypervisor-app-parity-sources.mjs", certification: "pixel-certifications/sources.json", capabilities: ["browse", "select", "create"], operational_state: "act", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
-  { slug: "schema", owner: "Ontology", title: "Ontology Manager", icon: ONTOLOGY_APP_ICON_URI, route: "/__ioi/ontology/manager", verifier: "scripts/verify-hypervisor-app-parity-ontology-manager.mjs", certification: "pixel-certifications/schema.json", capabilities: ["browse", "filter", "select", "inspect", "create", "update", "proof"], operational_state: "act", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
-  { slug: "explorer", owner: "Ontology", title: "Object Explorer", icon: EXPLORER_APP_ICON_URI, route: "/__ioi/ontology/explorer", verifier: "scripts/verify-hypervisor-app-parity-object-explorer.mjs", certification: "pixel-certifications/explorer.json", capabilities: ["browse", "filter", "select", "inspect", "proof"], operational_state: "inspect", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  { slug: "schema", owner: "Ontology", title: "Ontology Manager", icon: ONTOLOGY_APP_ICON_URI, route: "/__ioi/ontology/manager", canonical_route: "/ontology/schema", verifier: "scripts/verify-hypervisor-app-parity-ontology-manager.mjs", certification: "pixel-certifications/schema.json", capabilities: ["browse", "filter", "select", "inspect", "create", "update", "proof"], operational_state: "act", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  { slug: "explorer", owner: "Ontology", title: "Object Explorer", icon: EXPLORER_APP_ICON_URI, route: "/__ioi/ontology/explorer", canonical_route: "/ontology/explore", verifier: "scripts/verify-hypervisor-app-parity-object-explorer.mjs", certification: "pixel-certifications/explorer.json", capabilities: ["browse", "filter", "select", "inspect", "proof"], operational_state: "inspect", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "approvals", owner: "Governance", title: "Approvals", icon: APPROVALS_APP_ICON_URI, route: "/__ioi/governance/approvals", verifier: "scripts/verify-hypervisor-app-parity-approvals.mjs", certification: "pixel-certifications/approvals.json", capabilities: ["browse", "filter", "select", "inspect", "transition"], operational_state: "act", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "incidents", owner: "Missions", title: "Issues", icon: ISSUES_APP_ICON_URI, route: "/__ioi/missions/incidents", verifier: "scripts/verify-hypervisor-app-parity-incidents.mjs", certification: "pixel-certifications/incidents.json", capabilities: ["browse", "filter", "proof"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "models", owner: "Foundry", title: "Model Catalog", icon: MODELS_APP_ICON_URI, route: "/__ioi/foundry/models", verifier: "scripts/verify-hypervisor-app-parity-foundry-models.mjs", certification: "pixel-certifications/models.json", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
@@ -97,7 +97,22 @@ export function boundSurface(pathname, method) {
   if (method !== "GET") return null;
   for (const s of SURFACES) {
     const impl = bound.get(s.slug);
-    if (impl && pathname === s.route) return { surface: s, impl };
+    // W2.1 rehome: a bound module may ALSO serve at its canonical v2 route. Same module, same
+    // contract — the canonical mount is the rehome, the legacy /__ioi/* route keeps serving
+    // untouched until the surface's W4 cutover (seed-preservation invariant).
+    if (impl && (pathname === s.route || (s.canonical_route && pathname === s.canonical_route))) {
+      return { surface: s, impl };
+    }
+  }
+  return null;
+}
+
+// The v2 shell dispatch consults this to YIELD canonical paths a bound module owns: the shell
+// page must never shadow a rehomed surface, and an UNBOUND canonical route falls back to the
+// honest shell rather than a 404 — registration stays additive.
+export function canonicalSurfaceRoute(pathname) {
+  for (const s of SURFACES) {
+    if (s.canonical_route && s.canonical_route === pathname && bound.get(s.slug)) return s;
   }
   return null;
 }
@@ -110,7 +125,7 @@ export function boundSurface(pathname, method) {
 // on one of these routes.
 export const EMBED_THREAD_ROUTES = ["/__ioi/lineage", "/__ioi/vertex", "/__ioi/work-ledger", "/__ioi/operations"];
 export function embeddableRoutes() {
-  return new Set([...SURFACES.map((s) => s.route), ...EMBED_THREAD_ROUTES]);
+  return new Set([...SURFACES.map((s) => s.route), ...SURFACES.filter((s) => s.canonical_route).map((s) => s.canonical_route), ...EMBED_THREAD_ROUTES]);
 }
 
 // ---- Action routes (operational wave #62) — a module's DECLARED mutations, matched beneath its

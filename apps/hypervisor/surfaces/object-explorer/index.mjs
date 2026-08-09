@@ -21,7 +21,14 @@ export async function load(ctx) {
 }
 
 export function render(model, ctx) {
-  return renderObjectExplorerPort(model.overview, model.lists, { q: ctx.url.searchParams.get("q") || "", sel: parseOntologyContext(ctx.url), embed: ctx.embed });
+  return renderObjectExplorerPort(model.overview, model.lists, {
+    q: ctx.url.searchParams.get("q") || "",
+    sel: parseOntologyContext(ctx.url),
+    embed: ctx.embed,
+    // W2.1 rehome: the module serves at BOTH its legacy and canonical mounts; self-referring
+    // forms post back to the mount that rendered them, so scoping works identically at each.
+    basePath: ctx.url.pathname,
+  });
 }
 
 // Selection is read-navigation through the shared ontology context (never a command); no
@@ -52,14 +59,24 @@ export const actions = [];
 function renderObjectExplorerPort(ov, lists, opts) {
   const enc = encodeURIComponent, esc = CX_ESC;
   const q = (opts && opts.q ? String(opts.q) : "").trim();
+  const basePath = (opts && opts.basePath) || "/__ioi/ontology/explorer";
   const ontologies = Array.isArray(lists.ontologies) ? lists.ontologies : [];
-  const msets = Array.isArray(lists.materialized_sets) ? lists.materialized_sets : [];
+  const allSets = Array.isArray(lists.materialized_sets) ? lists.materialized_sets : [];
   const projs = Array.isArray(lists.projections) ? lists.projections : [];
+  const policyViews = Array.isArray(lists.policy_views) ? lists.policy_views : [];
   const arr = (oo, k) => { const com = (oo && oo.canonical_object_model) || {}; return Array.isArray(com[k]) ? com[k] : []; };
 
+  // W2.1 (brief §4): the ontology-scope selector is LIVE — a scoped catalog over the already
+  // loaded DomainOntology list. Scope narrows types, sets, and shortcuts to one ontology; no
+  // scope means every live ontology, honestly, and an unknown scope fails closed to unscoped.
+  const scopeSel = (opts && opts.sel && opts.sel.ontology) || "";
+  const scopeOnt = scopeSel ? ontologies.find((oo) => oo.id === scopeSel) || null : null;
+  const scopedOntologies = scopeOnt ? [scopeOnt] : ontologies;
+  const msets = scopeOnt ? allSets.filter((m) => m.ontology_ref === scopeOnt.ref) : allSets;
+
   // REAL daemon truth: the flat object-type catalog + per-type materialized counts + link usage.
-  const allTypes = ontologies.flatMap((oo) => arr(oo, "object_types").map((t) => ({ oo, t })));
-  const objectsOf = (oo, t) => msets.filter((m) => m.ontology_ref === oo.ref && m.object_type_id === t.id).reduce((a, m) => a + (m.count || 0), 0);
+  const allTypes = scopedOntologies.flatMap((oo) => arr(oo, "object_types").map((t) => ({ oo, t })));
+  const objectsOf = (oo, t) => allSets.filter((m) => m.ontology_ref === oo.ref && m.object_type_id === t.id).reduce((a, m) => a + (m.count || 0), 0);
   const usageOf = (oo, t) => arr(oo, "link_types").filter((l) => l.from === t.id || l.to === t.id).length;
   const catalog = q ? allTypes.filter(({ oo, t }) => `${t.name || ""} ${t.id || ""} ${oo.domain || ""}`.toLowerCase().includes(q.toLowerCase())) : allTypes;
   const fmtN = (n) => (n >= 1000 ? `${Math.round(n / 100) / 10}K` : String(n));
@@ -77,7 +94,7 @@ function renderObjectExplorerPort(ov, lists, opts) {
   const hasSelParam = !!(sel.objectType || sel.objectSet);
   const selOnt = sel.ontology ? ontologies.find((oo) => oo.id === sel.ontology) || null : null;
   const selType = sel.objectType && selOnt ? arr(selOnt, "object_types").find((t) => t.id === sel.objectType) || null : null;
-  const selSet = sel.objectSet ? msets.find((m) => m.id === sel.objectSet) || null : null;
+  const selSet = sel.objectSet ? allSets.find((m) => m.id === sel.objectSet) || null : null;
   const selSetOnt = selSet ? ontologies.find((oo) => oo.ref === selSet.ontology_ref) || null : null;
   const withQ = (href) => (q ? `${href}${href.includes("?") ? "&" : "?"}q=${enc(q)}` : href);
 
@@ -113,7 +130,7 @@ function renderObjectExplorerPort(ov, lists, opts) {
     <span class="oe-sqbtn gap" aria-disabled="true" title="Active exploration — a reference-only session lane (named gap)"><span class="oe-sqico"></span></span>
     <span class="oe-tab" title="Explorations are a reference-only session lane — this tab is the honest default state">${bpIcon("search")}<span class="oe-tabt">New exploration</span></span>
     <span class="oe-plus gap" aria-disabled="true" title="Opening more exploration tabs is a reference-only lane (named gap)">${bpIcon("plus")}</span>
-    <span class="oe-ontsel gap" aria-disabled="true" title="Ontology scoping is a reference-only lane — the catalog below spans ALL live ontologies honestly">All Ontologies ${bpIcon("caret-down")}</span>
+    <form class="oe-ontform" method="GET" action="${esc(basePath)}" title="Scope the catalog to one live ontology — no ontology is globally canonical">${q ? `<input type="hidden" name="q" value="${esc(q)}">` : ""}<select class="oe-ontsel oe-ontlive" name="ontology" aria-label="Ontology scope" onchange="this.form.submit()"><option value=""${scopeOnt ? "" : " selected"}>All ontologies (${ontologies.length})</option>${ontologies.map((oo) => `<option value="${esc(oo.id)}"${scopeOnt && scopeOnt.id === oo.id ? " selected" : ""}>${esc(oo.domain || oo.id)}</option>`).join("")}</select><noscript><button class="oe-ontgo" type="submit">Go</button></noscript></form>
   </div>`;
 
   const hero = `<div class="oe-hero">
@@ -146,7 +163,7 @@ function renderObjectExplorerPort(ov, lists, opts) {
 
   const catalogBand = `<h3 class="oe-cathead"><span class="oe-cathd">Object type catalog</span></h3>
   <div class="oe-filterrow">
-    <form class="oe-filterform" method="GET" action="/__ioi/ontology/explorer">${bpIcon("filter-funnel")}<input name="q" value="${esc(q)}" placeholder="Filter for an object type..." aria-label="Filter for an object type (live)">${sel.ontology ? `<input type="hidden" name="ontology" value="${esc(sel.ontology)}">` : ""}${sel.objectType ? `<input type="hidden" name="objectType" value="${esc(sel.objectType)}">` : ""}${sel.objectSet ? `<input type="hidden" name="objectSet" value="${esc(sel.objectSet)}">` : ""}<span class="oe-count">${catalog.length} of ${allTypes.length}</span></form>
+    <form class="oe-filterform" method="GET" action="${esc(basePath)}">${bpIcon("filter-funnel")}<input name="q" value="${esc(q)}" placeholder="Filter for an object type..." aria-label="Filter for an object type (live)">${sel.ontology ? `<input type="hidden" name="ontology" value="${esc(sel.ontology)}">` : ""}${sel.objectType ? `<input type="hidden" name="objectType" value="${esc(sel.objectType)}">` : ""}${sel.objectSet ? `<input type="hidden" name="objectSet" value="${esc(sel.objectSet)}">` : ""}<span class="oe-count">${catalog.length} of ${allTypes.length}</span></form>
     <span class="oe-sortlanes">
       <span class="oe-sort gap" aria-disabled="true" title="Relevancy sorting is a reference-only lane — rows are ordered by ontology then name (named gap)">${bpIcon("sort-desc")}<span class="oe-sortt">Relevancy</span>${bpIcon("caret-down")}</span>
       <span class="oe-lane on gap" aria-disabled="true" title="named gap">All</span>
@@ -182,6 +199,25 @@ function renderObjectExplorerPort(ov, lists, opts) {
   // editor, no action execution (the standing boundary), no fabricated rows. Refs render through
   // formatRef; the set's source contact is reduced to its ORIGIN (path redacted).
   const irow = (k, v) => `<div class="oe-irow"><span class="oe-ik">${esc(k)}</span><span class="oe-iv">${v}</span></div>`;
+  // Consent/visibility ladder (canon: every semantic object carries one; brief §4 W1 row):
+  // project the postures of the PolicyBoundDataViews binding this ontology/type onto the
+  // inspector as a badge row. HONEST ABSENCE when no view binds — a missing ladder renders as
+  // a named gap, never as an implied "public".
+  const POSTURE_KEYS = ["retention_posture", "export_posture", "training_posture", "evaluation_posture", "publish_route_posture"];
+  const viewsFor = (ontologyRef, objectTypeId) => policyViews.filter((v) =>
+    v.ontology_ref === ontologyRef && (!objectTypeId || !v.object_type_id || v.object_type_id === objectTypeId));
+  const consentRow = (ontologyRef, objectTypeId) => {
+    const views = viewsFor(ontologyRef, objectTypeId);
+    if (!views.length) {
+      return irow("consent / visibility", `<span class="oe-redact">no policy-bound view binds this ${objectTypeId ? "object type" : "ontology"} — the consent/visibility ladder is honestly absent (declare one in Data)</span>`);
+    }
+    const badges = views.map((v) => {
+      const chips = POSTURE_KEYS.filter((k) => v[k]).map((k) => `<span class="oe-pbadge" title="${esc(k)}">${esc(String(v[k]))}</span>`).join("");
+      const health = v.health && v.health.status ? `<span class="oe-pbadge oe-ph-${esc(String(v.health.status))}">${esc(String(v.health.status))}</span>` : "";
+      return `<span class="oe-pview">${formatRef(v.ref || v.id)} ${chips || '<span class="oe-redact">no postures declared</span>'}${health}</span>`;
+    }).join("<br>");
+    return irow("consent / visibility", badges);
+  };
   const ihint = (h, warn) => `<div class="oe-ihint${warn ? " oe-warnhint" : ""}">${h}</div>`;
   const safeOrigin = (e) => { try { const u = new URL(e); return `${esc(u.protocol)}//${esc(u.host)}/… <span class="oe-redact">(path redacted)</span>`; } catch { return "(endpoint redacted)"; } };
   function typeInspector() {
@@ -202,6 +238,7 @@ function renderObjectExplorerPort(ov, lists, opts) {
         irow("ontology", `${esc(oo.domain || oo.id)} ${formatRef(oo.ref)}`),
         irow("object type", `${esc(t.name || t.id)} ${formatRef(t.id)}`),
         irow("title property", t.title_property ? formatRef(t.title_property) : "—"),
+        consentRow(oo.ref, t.id),
         irow("objects", `<b>${n}</b> across ${typeSets.length} materialized set${typeSets.length === 1 ? "" : "s"}${typeSets.length ? ` — <a href="${objectSetLink(oo.id, typeSets[0].id)}">inspect the set</a>` : ""}`),
         props.length
           ? `<table class="oe-itable"><thead><tr><th>property</th><th>value type</th><th></th></tr></thead><tbody>${props.map((p) => `<tr><td>${esc(p.name || p.id)}</td><td>${formatRef(p.value_type || "")}</td><td>${p.id === t.title_property ? "title" : p.required ? "required" : ""}</td></tr>`).join("")}</tbody></table>`
@@ -228,6 +265,7 @@ function renderObjectExplorerPort(ov, lists, opts) {
         semanticBreadcrumb([{ label: so.domain || m.ontology_ref || "ontology", href: so.id ? managerLink({ ontology: so.id }) : undefined }, { label: m.object_type_id || "type", href: typeHref || undefined }, { label: "object set" }]),
         irow("object set", formatRef(m.ref || m.id)),
         irow("object type", typeHref ? `<a href="${typeHref}">${esc(m.object_type_id)}</a>` : formatRef(m.object_type_id)),
+        consentRow(m.ontology_ref, m.object_type_id),
         irow("objects", `<b>${m.count ?? 0}</b> (rows fetched ${m.rows_fetched ?? "—"}${m.truncated_to_limit ? " · truncated to limit" : ""})`),
         irow("registered", esc(m.registered_at || "—")),
         irow("provenance", [m.materializing_run_ref, m.connector_session_ref, m.capability_lease_plan_ref].filter(Boolean).map(formatRef).join(" ") || "—"),
@@ -262,8 +300,15 @@ function renderObjectExplorerPort(ov, lists, opts) {
     .oe-tab svg{color:#5f6b7c}
     .oe-tabt{font-size:14px;line-height:18.0013px;color:#1c2127}
     .oe-plus{display:flex;align-items:center;justify-content:center;width:30px;color:#5f6b7c}
-    .oe-ontsel{margin-left:auto;display:inline-flex;align-items:center;gap:8px;height:30px;margin-top:5px;margin-right:10px;padding:0 8px;border-radius:4px;font-size:14px;line-height:16.1px;color:#1c2127;cursor:default;background:#fff;box-shadow:inset 0 0 0 1px rgba(64,72,84,.33),0 1px 2px rgba(17,20,24,.1)}
+    .oe-ontsel{display:inline-flex;align-items:center;gap:8px;height:30px;margin-top:5px;margin-right:10px;padding:0 8px;border-radius:4px;font-size:14px;line-height:16.1px;color:#1c2127;cursor:default;background:#fff;box-shadow:inset 0 0 0 1px rgba(64,72,84,.33),0 1px 2px rgba(17,20,24,.1)}
     .oe-ontsel svg{color:#5f6b7c}
+    .oe-ontform{margin-left:auto;display:inline-flex;align-items:center}
+    select.oe-ontlive{margin-left:0;appearance:auto;border:0;font:inherit;cursor:pointer;max-width:240px}
+    .oe-ontgo{height:30px;margin:5px 10px 0 4px;border:0;border-radius:4px;background:#2d72d2;color:#fff;font:inherit;padding:0 10px}
+    .oe-pbadge{display:inline-block;margin:0 4px 2px 0;padding:1px 6px;border-radius:3px;background:#eef2f7;color:#394b59;font-size:10.5px;border:1px solid #d3dce6}
+    .oe-ph-ready{background:#e8f4ea;border-color:#bcd9c2;color:#1d7324}
+    .oe-ph-incomplete{background:#fdf7ec;border-color:#e8c48d;color:#935610}
+    .oe-pview{display:inline-block;margin-bottom:3px}
     .oe-body{flex:1 1 auto;min-width:0;overflow-y:auto;overflow-x:hidden;background:#fff}
     .oe-content{max-width:1400px;width:calc(100% - 121px);margin:0 auto;position:relative}
     .oe-hero{text-align:center}

@@ -965,10 +965,14 @@ try {
   const canonicalSurfaceRows = V2_ROUTE_TABLE.filter(
     (surface) => surface.disposition !== "reserved",
   );
+  // W2.1 rehome: a bound surface may ALSO serve at its canonical v2 route (surface-registry
+  // canonical_route). Both mounts are shipped browser routes and both are smoked.
+  const canonicalSurfaceMounts = SURFACES.filter((surface) => surface.canonical_route);
   const hypervisorRoutes = [
     "/",
     ...canonicalSurfaceRows.map((surface) => surface.route),
     ...SURFACES.map((surface) => surface.route),
+    ...canonicalSurfaceMounts.map((surface) => surface.canonical_route),
   ];
   const hypervisorTarget = {
     name: "hypervisor-owned-served-ui",
@@ -982,6 +986,7 @@ try {
         [surface.surface],
       ]),
       ...SURFACES.map((surface) => [surface.route, [surface.title]]),
+      ...canonicalSurfaceMounts.map((surface) => [surface.canonical_route, [surface.title]]),
     ]),
     surfaceContracts: Object.fromEntries([
       ...canonicalSurfaceRows.map((surface) => [
@@ -1000,6 +1005,16 @@ try {
           heading: surface.title,
           owner: surface.owner,
           source: "surface-registry",
+          require_owned_marker: true,
+          require_heading: false,
+        },
+      ]),
+      ...canonicalSurfaceMounts.map((surface) => [
+        surface.canonical_route,
+        {
+          heading: surface.title,
+          owner: surface.owner,
+          source: "surface-registry-canonical-mount",
           require_owned_marker: true,
           require_heading: false,
         },

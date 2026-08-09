@@ -86,22 +86,37 @@ export function formatRef(ref) {
   return `<code class="ioi-ref">${escHtml(ref == null ? "" : String(ref))}</code>`;
 }
 
-// The shared Manager/Explorer surface model — both certified ports load the same four ODK
-// projections (moved verbatim from the serve's flat branches; dead daemon → honest empty lists).
+// The shared Manager/Explorer surface model — both certified ports load the same ODK
+// projections. W2.1 (brief §5 PR 3): reads ride the SHARED read-projection client
+// (read-client.mjs) — same shapes and same honest-empty degradation as before (no behavior
+// change), but each plane's outcome is now TYPED and carried on `model.degraded`, so a pane
+// can say WHY a list is empty instead of silently rendering absence. The policy-bound-view
+// read joins the shared model for the consent/visibility badge row (brief §4).
+import { createReadClient } from "./read-client.mjs";
+
 export async function loadOntologyModel(daemon) {
-  const J = (p) => fetch(`${daemon}${p}`).then((r) => r.json()).catch(() => ({}));
-  const [ov, o, op, ms] = await Promise.all([
-    J("/v1/hypervisor/odk/overview"),
-    J("/v1/hypervisor/odk/domain-ontologies"),
-    J("/v1/hypervisor/odk/ontology-projections"),
-    J("/v1/hypervisor/odk/materialized-object-sets"),
-  ]);
+  const client = createReadClient({ daemon });
+  const results = await client.readMany({
+    overview: "/v1/hypervisor/odk/overview",
+    ontologies: "/v1/hypervisor/odk/domain-ontologies",
+    projections: "/v1/hypervisor/odk/ontology-projections",
+    materialized_sets: "/v1/hypervisor/odk/materialized-object-sets",
+    policy_views: "/v1/hypervisor/odk/policy-bound-data-views",
+  });
+  const payload = (key) => (results[key].ok ? results[key].payload : {});
+  const degraded = Object.fromEntries(
+    Object.entries(results)
+      .filter(([, r]) => !r.ok)
+      .map(([key, r]) => [key, { kind: r.kind, code: r.code, message: r.message }]),
+  );
   return {
-    overview: ov,
+    overview: payload("overview"),
     lists: {
-      ontologies: o.ontologies || [],
-      projections: op.ontology_projections || [],
-      materialized_sets: ms.materialized_object_sets || [],
+      ontologies: payload("ontologies").ontologies || [],
+      projections: payload("projections").ontology_projections || [],
+      materialized_sets: payload("materialized_sets").materialized_object_sets || [],
+      policy_views: payload("policy_views").policy_bound_data_views || [],
     },
+    degraded,
   };
 }
