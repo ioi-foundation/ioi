@@ -968,12 +968,17 @@ try {
   // W2.1 rehome: a bound surface may ALSO serve at its canonical v2 route (surface-registry
   // canonical_route). Both mounts are shipped browser routes and both are smoked.
   const canonicalSurfaceMounts = SURFACES.filter((surface) => surface.canonical_route);
-  const hypervisorRoutes = [
+  // W2.1 Leg 1b: a registry canonical mount may COINCIDE with its v2 route-table row (the bound
+  // module now serves the canonical route the shell page used to render — /studio). One served
+  // route is ONE inventory row, so the enumeration deduplicates; the later registry-canonical
+  // semantics/contract entries below win for such a route, which is exactly the ownership the
+  // serve now emits for it.
+  const hypervisorRoutes = [...new Set([
     "/",
     ...canonicalSurfaceRows.map((surface) => surface.route),
     ...SURFACES.map((surface) => surface.route),
     ...canonicalSurfaceMounts.map((surface) => surface.canonical_route),
-  ];
+  ])];
   const hypervisorTarget = {
     name: "hypervisor-owned-served-ui",
     port: 44173,
