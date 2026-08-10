@@ -2026,15 +2026,19 @@ pub(crate) async fn handle_project_environment_classes_patch(
     let Some(raw) = body.get("environment_class_ids").and_then(|v| v.as_array()) else {
         return (
             StatusCode::BAD_REQUEST,
-            Json(json!({ "ok": false, "code": "project_environment_class_ids_required",
-                "message": "`environment_class_ids` (array of catalog ids) is required" })),
+            Json(
+                json!({ "ok": false, "code": "project_environment_class_ids_required",
+                "message": "`environment_class_ids` (array of catalog ids) is required" }),
+            ),
         );
     };
     if raw.len() > 32 {
         return (
             StatusCode::BAD_REQUEST,
-            Json(json!({ "ok": false, "code": "project_environment_class_ids_bounds",
-                "message": "at most 32 environment classes bind to one project" })),
+            Json(
+                json!({ "ok": false, "code": "project_environment_class_ids_bounds",
+                "message": "at most 32 environment classes bind to one project" }),
+            ),
         );
     }
     let mut requested: Vec<String> = Vec::new();
@@ -2079,7 +2083,11 @@ pub(crate) async fn handle_project_environment_classes_patch(
     let prev_ids: Vec<String> = prev
         .get("environment_class_ids")
         .and_then(|v| v.as_array())
-        .map(|a| a.iter().filter_map(|v| v.as_str().map(str::to_string)).collect())
+        .map(|a| {
+            a.iter()
+                .filter_map(|v| v.as_str().map(str::to_string))
+                .collect()
+        })
         .unwrap_or_default();
     if prev_ids == requested {
         if let Some(receipt) = prev.get("last_environment_classes_receipt") {
@@ -2115,8 +2123,10 @@ pub(crate) async fn handle_project_environment_classes_patch(
         .and_then(|v| v.as_array())
         .cloned()
         .unwrap_or_default();
-    hist.push(json!({ "revision": rev, "op": "environment_classes_bound", "at": now,
-        "receipt_ref": receipt.get("receipt_ref").cloned().unwrap_or(Value::Null) }));
+    hist.push(
+        json!({ "revision": rev, "op": "environment_classes_bound", "at": now,
+        "receipt_ref": receipt.get("receipt_ref").cloned().unwrap_or(Value::Null) }),
+    );
     let len = hist.len();
     if len > 20 {
         hist = hist[len - 20..].to_vec();
@@ -2125,8 +2135,10 @@ pub(crate) async fn handle_project_environment_classes_patch(
     if persist_record(&st.data_dir, "projects", &id, &next).is_err() {
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "ok": false, "code": "project_record_persistence_failed",
-                "message": "the binding did not commit — the project is unchanged" })),
+            Json(
+                json!({ "ok": false, "code": "project_record_persistence_failed",
+                "message": "the binding did not commit — the project is unchanged" }),
+            ),
         );
     }
     if persist_record(&st.data_dir, "project-receipts", &receipt_id, &receipt).is_err() {
@@ -2135,16 +2147,21 @@ pub(crate) async fn handle_project_environment_classes_patch(
         let restored = persist_record(&st.data_dir, "projects", &id, &prev).is_ok();
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "ok": false, "code": "project_receipt_persistence_failed",
+            Json(
+                json!({ "ok": false, "code": "project_receipt_persistence_failed",
                 "restored": restored,
                 "message": if restored {
                     "the receipt did not commit — the binding was restored to its prior state"
                 } else {
                     "the receipt did not commit AND the restore failed — the record may hold the new binding without its receipt; re-read before retrying"
-                } })),
+                } }),
+            ),
         );
     }
-    (StatusCode::OK, Json(json!({ "ok": true, "project": next, "receipt": receipt })))
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "project": next, "receipt": receipt })),
+    )
 }
 
 /// GET /v1/hypervisor/environment-classes — substrate catalog (v0: local only enabled).
