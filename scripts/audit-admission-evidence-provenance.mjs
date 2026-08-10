@@ -365,11 +365,14 @@ const H_BASELINE = [
   "ontology_projection_routes.rs::handle_projection_patch",
   "ontology_projection_routes.rs::handle_projection_recheck",
   "ontology_projection_routes.rs::handle_projection_retire",
-  "orchestration_routes.rs::handle_automation_cancel",
-  "orchestration_routes.rs::handle_automation_create",
-  "orchestration_routes.rs::handle_automation_delete",
-  "orchestration_routes.rs::handle_automation_patch",
-  "orchestration_routes.rs::handle_automation_start",
+  // "orchestration_routes.rs::handle_automation_cancel" / "handle_automation_create" /
+  // "handle_automation_delete" / "handle_automation_patch" / "handle_automation_start" —
+  // LEFT the baseline 2026-08-10 (#237 finding closed, next-legs III Leg 1): the automations
+  // write verbs now resolve identity FIRST via substrate_store::resolve_request_identity
+  // (rule E — typed 401 before any record load) and bind acting_principal_ref into the
+  // spec/execution records; the vanishing entries are the ratchet improving, not stale pins.
+  // handle_automation_webhook stays pinned below: it authenticates by its own per-automation
+  // trigger token (the auth gate exempts */webhook), not by a resolved principal.
   "orchestration_routes.rs::handle_automation_webhook",
   "orchestration_routes.rs::handle_placement_resolve",
   "orchestration_routes.rs::handle_venue_policy_put",

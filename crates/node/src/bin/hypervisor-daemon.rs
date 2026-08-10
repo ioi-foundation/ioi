@@ -260,6 +260,10 @@ pub(crate) struct DaemonState {
     // session_ref. Opening one exposes workspace bytes, so it is wallet-gated by
     // the execution authority (the `port_exposure` scope). Aborted/replaced on
     // re-execute; the tasks die with the daemon process.
+    // Per-boot internal dispatch token: authenticates the daemon's OWN loopback dispatches
+    // (scheduler tick, accepted-webhook fire) through the identity-gated automations run lane.
+    // Never persisted, never emitted in any response; dies with the process.
+    pub(crate) internal_dispatch_token: String,
     pub(crate) preview_servers: Mutex<HashMap<String, PreviewServer>>,
     // WS-4 — live cloud-hypervisor microVMs keyed by environment id. A running env on the
     // microvm substrate keeps its VM here so WorkRun/exec requests run IN-GUEST; stop/delete
@@ -586,6 +590,14 @@ async fn async_main() -> anyhow::Result<()> {
         token_expiry: Mutex::new(HashMap::new()),
         stream_frame_delay_ms,
         boot_id: format!("boot_{}", uuid::Uuid::new_v4()),
+        // Per-boot internal dispatch secret (identity-gated automations run lane): lives only in
+        // process memory, never emitted in any response, handed only to the daemon's own
+        // scheduler tick and the accepted-webhook fire.
+        internal_dispatch_token: format!(
+            "idisp_{}{}",
+            uuid::Uuid::new_v4().simple(),
+            uuid::Uuid::new_v4().simple()
+        ),
         vault_bound: Mutex::new(HashSet::new()),
         preview_servers: Mutex::new(HashMap::new()),
         model_route_lock: Mutex::new(()),
@@ -3853,6 +3865,7 @@ async fn async_main() -> anyhow::Result<()> {
     tokio::spawn(automation_scheduler(
         state.data_dir.clone(),
         state.base_url.clone(),
+        state.internal_dispatch_token.clone(),
     ));
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
@@ -4797,7 +4810,7 @@ fn load_record(data_dir: &str, kind: &str, id: &str) -> Option<Value> {
     serde_json::from_slice(&bytes).ok()
 }
 
-async fn automation_scheduler(data_dir: String, base_url: String) {
+async fn automation_scheduler(data_dir: String, base_url: String, dispatch_token: String) {
     // Let the HTTP listener come up before the first self-call.
     sleep(std::time::Duration::from_secs(5)).await;
     let client = reqwest::Client::new();
@@ -4805,7 +4818,15 @@ async fn automation_scheduler(data_dir: String, base_url: String) {
     let mut tick_seq: u64 = 0;
     loop {
         tick_seq += 1;
-        scheduler_tick(&data_dir, &base_url, &client, &booted_at, tick_seq).await;
+        scheduler_tick(
+            &data_dir,
+            &base_url,
+            &client,
+            &booted_at,
+            tick_seq,
+            &dispatch_token,
+        )
+        .await;
         sleep(std::time::Duration::from_secs(SCHED_TICK_SECS)).await;
     }
 }
@@ -4824,6 +4845,7 @@ async fn scheduler_tick(
     client: &reqwest::Client,
     booted_at: &str,
     tick_seq: u64,
+    dispatch_token: &str,
 ) {
     let now = iso_now();
     let Some(now_ts) = epoch_of(&now) else {
@@ -4911,9 +4933,13 @@ async fn scheduler_tick(
         let client = client.clone();
         let data_dir = data_dir.to_string();
         let id = id.to_string();
+        // The identity-gated manual-run lane admits the daemon's own tick through the per-boot
+        // internal dispatch token; the run executes as the spec's stored executor_identity.
+        let dispatch_token = dispatch_token.to_string();
         tokio::spawn(async move {
             let ok = match client
                 .post(&url)
+                .header("x-ioi-internal-dispatch", dispatch_token)
                 .json(&json!({ "trigger": "schedule" }))
                 .send()
                 .await
