@@ -70,6 +70,8 @@
           "/__ioi/missions/incidents",
           "/__ioi/ontology/explorer",
           "/__ioi/ontology/manager",
+          "/__ioi/packages/marketplace",
+          "/__ioi/packages/registry",
           "/__ioi/pipeline",
           "/__ioi/studio/designer",
           "/__ioi/studio/machinery",
@@ -104,8 +106,8 @@
           "/work/new-session",
           "/work/sessions"
         ],
-        "expected_count": 45,
-        "sha256": "1ad3b34f2fb9005aa7bf7348bc2fb01e6eb05f92a3aa101c634403dad480db75",
+        "expected_count": 47,
+        "sha256": "6a9f21e6edfc7e621e25020f7b89d894fa816be839fd02761ba01306ef500328",
         "browser_verification_id": "served-surface-smoke"
       },
       "state_authority_mode": "daemon_authoritative_projection",
