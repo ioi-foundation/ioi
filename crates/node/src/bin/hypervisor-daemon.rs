@@ -1186,6 +1186,12 @@ async fn async_main() -> anyhow::Result<()> {
             get(environment_routes::handle_project_get)
                 .delete(environment_routes::handle_project_delete),
         )
+        // OQ-5 saga step 2: environment-class binding as its own receipted, CAS-guarded,
+        // idempotent durable step (the UpdateProjectEnvironmentClasses write plane).
+        .route(
+            "/v1/hypervisor/projects/:id/environment-classes",
+            patch(environment_routes::handle_project_environment_classes_patch),
+        )
         // WS-A/WS-B: Environment object model + local_workspace_provider_v0 (daemon-owned).
         .route(
             "/v1/hypervisor/environment-classes",

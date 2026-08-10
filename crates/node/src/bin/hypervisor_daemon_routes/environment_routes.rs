@@ -1978,6 +1978,168 @@ pub(crate) async fn handle_project_delete(
     Json(json!({ "ok": removed, "removed": removed, "project_id": id }))
 }
 
+/// PATCH /v1/hypervisor/projects/:id/environment-classes — the second durable step of the
+/// project-creation saga (OQ-5 ruling: an explicit resumable saga, never an atomic pretense —
+/// the live audit watched CreateProject 200 then this step 501 leave a stuck form). Identity
+/// first (rule E: the 401 is owed before the 404 existence oracle); `expected_revision` CAS;
+/// class ids validated against the ONE substrate catalog; record-first receipt-second with
+/// restore-on-failure so no accepted binding lacks its proof; an identical re-bind replays the
+/// stored receipt rather than minting a second truth.
+pub(crate) async fn handle_project_environment_classes_patch(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let identity = match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(error) => return super::lifecycle_routes::planner_scope_refusal(error),
+    };
+    let Some(prev) = read_record_dir(&st.data_dir, "projects")
+        .into_iter()
+        .find(|p| p.get("project_id").and_then(|v| v.as_str()) == Some(id.as_str()))
+    else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "ok": false, "code": "project_not_found",
+                "message": format!("project {id} not found — the create step of the saga has not run") })),
+        );
+    };
+    let current_rev = prev.get("revision").and_then(|v| v.as_u64()).unwrap_or(1);
+    if let Some(expected) = body.get("expected_revision") {
+        let Some(expected) = expected.as_u64() else {
+            return (
+                StatusCode::OK,
+                Json(json!({ "ok": false, "code": "project_field_type_invalid",
+                    "message": "`expected_revision` must be an unsigned integer" })),
+            );
+        };
+        if expected != current_rev {
+            return (
+                StatusCode::CONFLICT,
+                Json(json!({ "ok": false, "code": "project_revision_conflict",
+                    "message": "the project changed since it was read — re-read and retry",
+                    "current_revision": current_rev })),
+            );
+        }
+    }
+    let Some(raw) = body.get("environment_class_ids").and_then(|v| v.as_array()) else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "code": "project_environment_class_ids_required",
+                "message": "`environment_class_ids` (array of catalog ids) is required" })),
+        );
+    };
+    if raw.len() > 32 {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "code": "project_environment_class_ids_bounds",
+                "message": "at most 32 environment classes bind to one project" })),
+        );
+    }
+    let mut requested: Vec<String> = Vec::new();
+    for v in raw {
+        match v.as_str() {
+            Some(s) if !s.trim().is_empty() && s.chars().count() <= 120 => {
+                let s = s.trim().to_string();
+                if !requested.contains(&s) {
+                    requested.push(s);
+                }
+            }
+            _ => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({ "ok": false, "code": "project_field_type_invalid",
+                        "message": "every environment class id must be a non-empty bounded string" })),
+                );
+            }
+        }
+    }
+    // Validate against the exact catalog the GET serves (same lazy seed, no second truth).
+    let catalog_json = handle_environment_classes(State(st.clone())).await.0;
+    let known: Vec<String> = catalog_json
+        .get("environmentClasses")
+        .and_then(|v| v.as_array())
+        .map(|a| {
+            a.iter()
+                .filter_map(|c| c.get("id").and_then(|v| v.as_str()).map(str::to_string))
+                .collect()
+        })
+        .unwrap_or_default();
+    let unknown: Vec<&String> = requested.iter().filter(|r| !known.contains(r)).collect();
+    if !unknown.is_empty() {
+        return (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(json!({ "ok": false, "code": "environment_class_unknown",
+                "message": format!("not in the substrate catalog: {unknown:?}"),
+                "unknown": unknown, "known": known })),
+        );
+    }
+    // Idempotent replay: an identical set re-binds nothing and returns the stored receipt.
+    let prev_ids: Vec<String> = prev
+        .get("environment_class_ids")
+        .and_then(|v| v.as_array())
+        .map(|a| a.iter().filter_map(|v| v.as_str().map(str::to_string)).collect())
+        .unwrap_or_default();
+    if prev_ids == requested {
+        if let Some(receipt) = prev.get("last_environment_classes_receipt") {
+            return (
+                StatusCode::OK,
+                Json(json!({ "ok": true, "replayed": true, "project": prev, "receipt": receipt })),
+            );
+        }
+    }
+    let now = iso_now();
+    let rev = current_rev + 1;
+    let slug = id.strip_prefix("project:").unwrap_or(&id);
+    let receipt_id = format!("prjrcpt_{slug}_{rev}");
+    let receipt = json!({
+        "schema_version": "ioi.hypervisor.project.environment-classes-receipt.v1",
+        "receipt_id": receipt_id,
+        "receipt_ref": format!("agentgres://project-receipts/{receipt_id}"),
+        "project_id": id,
+        "op": "environment_classes_bound",
+        "environment_class_ids": requested,
+        "revision": rev,
+        "recorded_at": now,
+        "acting_principal_ref": identity.principal_ref,
+    });
+    let mut next = prev.clone();
+    next["environment_class_ids"] = json!(requested);
+    next["revision"] = json!(rev);
+    next["updated_at"] = json!(now.clone());
+    next["saga_state"] = json!("environment_classes_bound");
+    next["last_environment_classes_receipt"] = receipt.clone();
+    let mut hist = next
+        .get("history")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
+    hist.push(json!({ "revision": rev, "op": "environment_classes_bound", "at": now,
+        "receipt_ref": receipt.get("receipt_ref").cloned().unwrap_or(Value::Null) }));
+    let len = hist.len();
+    if len > 20 {
+        hist = hist[len - 20..].to_vec();
+    }
+    next["history"] = json!(hist);
+    if persist_record(&st.data_dir, "projects", &id, &next).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "code": "project_record_persistence_failed",
+                "message": "the binding did not commit — the project is unchanged" })),
+        );
+    }
+    if persist_record(&st.data_dir, "project-receipts", &receipt_id, &receipt).is_err() {
+        let _ = persist_record(&st.data_dir, "projects", &id, &prev);
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "code": "project_receipt_persistence_failed",
+                "message": "the receipt did not commit — the binding was restored to its prior state" })),
+        );
+    }
+    (StatusCode::OK, Json(json!({ "ok": true, "project": next, "receipt": receipt })))
+}
+
 /// GET /v1/hypervisor/environment-classes — substrate catalog (v0: local only enabled).
 /// Environment classes as DURABLE records with provider eligibility. `enabled` is computed
 /// HONESTLY at read time: a class is enabled only when a real provider/account path backs it —
