@@ -6186,6 +6186,53 @@ pub(crate) async fn handle_product_surface_projection(
                 "surface_operational_state": serving.map(|record| record["surface_operational_state"].clone()).unwrap_or(Value::Null)
             })
         }).collect();
+    // W2.3/W2.4 (next-legs III Leg 2) — the launcher feed also consumes the LIVE
+    // package-registry namespace: installed, non-uninstalled bindings on non-recalled
+    // releases for this exact organization join application_entries with derived
+    // eligibility facts and typed reasons.  Recalled/uninstalled surfaces are absent by
+    // derivation on every read (and therefore after every restart).  Registry
+    // unreadability is a typed refusal — never a silently thinner feed — and an empty
+    // registry contributes nothing (honest absence, no fabrication).
+    let registry_entries =
+        match super::package_registry_routes::launcher_registry_application_entries(
+            &st.data_dir,
+            &org_ref,
+        ) {
+            Ok(entries) => entries,
+            Err(detail) => {
+                return (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    Json(json!({
+                        "ok": false,
+                        "code": "hypervisor.package_registry_projection_unavailable",
+                        "detail": detail
+                    })),
+                )
+            }
+        };
+    let compiled_surface_refs: std::collections::HashSet<String> = applications
+        .iter()
+        .filter_map(|row| row["identity_ref"].as_str().map(str::to_owned))
+        .collect();
+    let mut applications = applications;
+    for entry in registry_entries {
+        let surface_ref = entry["identity_ref"]
+            .as_str()
+            .unwrap_or_default()
+            .to_owned();
+        // A compiled-in registration for the same surface wins — it carries the actual
+        // registration; the registry entry would duplicate the identity without one.
+        if compiled_surface_refs.contains(&surface_ref) {
+            continue;
+        }
+        if allowed
+            .as_ref()
+            .map(|set| set.contains(surface_ref.as_str()))
+            .unwrap_or(true)
+        {
+            applications.push(entry);
+        }
+    }
     let context_material = serde_json::to_string(&json!({
         "principal_ref": principal_ref,
         "org_ref": org_ref,

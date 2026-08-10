@@ -66,13 +66,13 @@
     },
     {
       "id": "MEF-CLOSED-003",
-      "plane": "ODK package candidates, immutable releases, disabled installation bindings, and uninstall",
+      "plane": "ODK package candidates, immutable releases, disabled installation bindings, release recall, and uninstall",
       "source": "crates/node/src/bin/hypervisor_daemon_routes/package_registry_routes.rs",
       "status": "closed",
-      "bounded_scope": "Stages 5, 6, and the disabled installation-binding half of stage 7 only; no extension-application registration, executable activation, System binding, mount, serve, upgrade, or rollback claim",
+      "bounded_scope": "Stages 5, 6, and the disabled installation-binding half of stage 7 only, plus the one disposition successor (release recall, active to recalled, with read-derived binding cascade and launcher-feed loss); no extension-application registration, executable activation, System binding, mount, serve, upgrade, or rollback claim",
       "evidence": [
         "package admission freezes the exact DomainApp, ODK manifest, and domain-app surface-descriptor bytes under an authenticated organization owner",
-        "candidate creation is expected-absent and release/install/uninstall successors require explicit exact heads",
+        "candidate creation is expected-absent and release/install/recall/uninstall successors require explicit exact heads",
         "every mutation uses caller-owned idempotency and the shared Agentgres admission and receipt boundary",
         "release and installation payloads validate against the generated canonical architecture contracts",
         "installation can only narrow release contracts and is forced disabled and nonlaunchable while registration is absent",
