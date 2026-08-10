@@ -59,6 +59,7 @@
         "inventory_version": 1,
         "routes": [
           "/",
+          "/__ioi/applications-launcher",
           "/__ioi/automations-cockpit",
           "/__ioi/automations/monitors",
           "/__ioi/data/sources",
@@ -107,8 +108,8 @@
           "/work/new-session",
           "/work/sessions"
         ],
-        "expected_count": 48,
-        "sha256": "a07ccd566c3f5e9bdd9d1a588d73518fb12ae8e866e183a492ed59b682ebb78a",
+        "expected_count": 49,
+        "sha256": "5eb52f183d4b702f55dd702a56bc4a1c0659f96742034f956301fd7ea1ba9c4e",
         "browser_verification_id": "served-surface-smoke"
       },
       "state_authority_mode": "daemon_authoritative_projection",
@@ -339,7 +340,7 @@
           {
             "path": "apps/hypervisor-web/src/site/WorkerTraining.jsx",
             "contains": [
-              "fixture result · not production"
+              "fixture result \u00b7 not production"
             ]
           }
         ]

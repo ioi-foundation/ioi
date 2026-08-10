@@ -18,6 +18,7 @@
     "check:studio-journey": "node scripts/verify-hypervisor-studio-journey.mjs",
     "check:packages-journey": "node scripts/verify-hypervisor-packages-journey.mjs",
     "check:automations-journey": "node scripts/verify-hypervisor-automations-journey.mjs",
+    "check:applications-journey": "node scripts/verify-hypervisor-applications-journey.mjs",
     "check:projects-saga": "node scripts/verify-hypervisor-projects-saga.mjs",
     "check:ported-seed:live": "node scripts/verify-hypervisor-ported-seed-invariant.mjs --live",
     "check:owned-product-ui": "node scripts/verify-owned-product-ui.mjs",

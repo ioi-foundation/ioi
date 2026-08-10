@@ -85,9 +85,11 @@ export const V2_ROUTE_TABLE = [
     kind: "core workspace",
     rule: "one catalog/compiler projection",
     waves: "W0.2 · W1",
-    build_state: "compiler-fed (W0.2) — nav/catalog/palette/launch render the compiled product-surface projection (scripts/surface-compiler.mjs); the three hand-maintained catalogs are retired as authorities; the Wave 1 build lands the full workspace page (surfaces/applications.md §5)",
+    build_state: "W2.1 greenfield launcher landed (next-legs III Leg 3) — the bound surface module serves this canonical route: a READ-ONLY launcher over the one compiled product-surface projection joined live with the package registry (typed ineligibility verbatim, reserved registrations declared nonlaunchable, recall removes rows by derivation on every read). Greenfield-authorized non-parity lane (seed-ux-provenance.v1.json); the W0.2 compiled navigation band keeps feeding the shell pages",
     serving_today: [
-      { href: "/__ioi/applications", label: "Applications estate readout", note: "renders the compiled product-surface projection (W0.2)" },
+      { href: "/applications", label: "Applications launcher (canonical)", note: "bound surface module — compiler+registry truth only; launch is navigation, never a mutation" },
+      { href: "/__ioi/applications-launcher", label: "Applications launcher (legacy lane)", note: "same module on the fresh legacy lane; keeps serving until the W4 cutover" },
+      { href: "/__ioi/applications", label: "Applications estate readout", note: "renders the compiled product-surface projection (W0.2); keeps serving untouched until the W4 cutover" },
       { href: "/__ioi/home", label: "Estate launcher", note: "the owned launcher lanes — fed by the same compiled projection as of W0.2" },
     ],
   },
