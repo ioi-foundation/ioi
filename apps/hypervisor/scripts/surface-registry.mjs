@@ -33,6 +33,7 @@ import * as studioModule from "../surfaces/studio/index.mjs";
 import * as packagesModule from "../surfaces/packages/index.mjs";
 import * as automationsModule from "../surfaces/automations/index.mjs";
 import * as applicationsModule from "../surfaces/applications/index.mjs";
+import * as systemsModule from "../surfaces/systems/index.mjs";
 
 // Capability model (operational wave): `capabilities` is the AUTHORITY-derived set of acts the
 // surface genuinely supports today (never inferred from pixel certification or daemon_wired);
@@ -94,6 +95,17 @@ export const SURFACES = [
   // actions because every admission-class verb belongs to its owner surface. Evidence: the
   // applications journey verifier.
   { slug: "applications", owner: "Applications", title: "Applications", icon: EXPLORER_APP_ICON_URI, route: "/__ioi/applications-launcher", canonical_route: "/applications", verifier: "scripts/verify-hypervisor-applications-journey.mjs", certification: "n/a", capabilities: ["browse", "inspect"], operational_state: "read_only_by_contract", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  // W2.1 next-legs III Leg 4: the Systems greenfield workspace — canonical /systems plus a
+  // FRESH legacy lane /__ioi/systems-workspace (the M1.6/M1.7 /__ioi/systems* genesis cockpit
+  // keeps serving untouched until the W4 cutover). GREENFIELD, typed non-parity
+  // (seed-ux-provenance.v1.json: no provenance-qualified seed exists; the owner-authorized
+  // greenfield lane is the only open path — this row claims no seed preservation and no
+  // parity). Inventory + detail render the daemon's autonomous-system read projection VERBATIM
+  // (honest_empty and the fail-closed source-incomplete stop included); exactly TWO authority
+  // verbs (genesis compose, sequence-zero) cross through the shared CapabilityLease client;
+  // every other family verb is read-first or disabled with a named reason, and Interfaces is
+  // the OQ-9 disabled named gap. Evidence: the systems journey verifier.
+  { slug: "systems", owner: "Systems", title: "Systems", icon: EXPLORER_APP_ICON_URI, route: "/__ioi/systems-workspace", canonical_route: "/systems", verifier: "scripts/verify-hypervisor-systems-journey.mjs", certification: "n/a", capabilities: ["browse", "inspect", "create", "transition"], operational_state: "act", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "monitors", owner: "Automations", title: "Automate", icon: MON_APP_TILE_URI, route: "/__ioi/automations/monitors", verifier: "scripts/verify-hypervisor-app-parity-monitors.mjs", certification: "pixel-certifications/monitors.json", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   // W2.1 next-legs II Leg 4: the Automations surface packet — canonical /automations plus a
   // FRESH legacy lane /__ioi/automations-cockpit (deliberately NOT nested under
@@ -209,6 +221,7 @@ bindSurface("packages", packagesModule);
 bindSurface("packages-marketplace", packagesModule);
 bindSurface("automations", automationsModule);
 bindSurface("applications", applicationsModule);
+bindSurface("systems", systemsModule);
 
 // Test-only fault surface (NEVER without the runtime-test flag): gives the action-runtime
 // verifier a module whose action THROWS (route isolation proof) and one that claims success

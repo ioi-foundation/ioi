@@ -7494,7 +7494,13 @@ function moduleActionDaemonCapability() {
 }
 async function runSurfaceAction(hit, res, body) {
   try {
-    const p = new URLSearchParams(body.toString("utf8").slice(0, 16384)); // bounded parse
+    // Bounded parse. 16384 is the default request bound; an action carrying a large
+    // hash-committed artifact (a genesis declaration whose proposal_root is computed over its
+    // exact bytes — the same reason grants carry fieldMax: truncating a committed artifact
+    // would forward a corrupt one) may DECLARE `bodyMax`, hard-capped at 65536. The bound is
+    // declared, never lucked into; undeclared actions keep the exact previous behavior.
+    const bodyCap = Math.min(Math.max(16384, ...hit.actions.map((a) => Number(a.bodyMax) || 0)), 65536);
+    const p = new URLSearchParams(body.toString("utf8").slice(0, bodyCap));
     const embed = p.get("embed") === "1";
     const back = safeReturnPath(p.get("return"), hit.surface.route);
     const go = (params) => {
@@ -7518,7 +7524,10 @@ async function runSurfaceAction(hit, res, body) {
     // that legitimately carry larger opaque blobs — e.g. an externally signed wallet grant
     // (~1.1KB serialized, larger with optional wallet fields). Truncating a signed grant would
     // forward a corrupt artifact, so the bound is declared, never lucked into.
-    const fieldCap = Math.min(Number(action.fieldMax) || 2000, 8192);
+    // The per-field ceiling rises above 8192 ONLY for an action that also declared bodyMax —
+    // the large-artifact lane is doubly declared (body bound + field bound), and stays inside
+    // the declared body cap.
+    const fieldCap = Math.min(Number(action.fieldMax) || 2000, Number(action.bodyMax) ? 49152 : 8192);
     for (const f of action.fields || []) { const v = p.get(f); if (v !== null && v !== "") fields[f] = String(v).slice(0, fieldCap); }
     // W1.1 / DEF-IDENT-1 — module MUTATIONS carry the caller's identity. The context gets the
     // NARROWED capability above, never the raw request and never the bare helper. It is built here,
