@@ -227,6 +227,25 @@ machinery row above stays open. Tracked seed authority now lives at
 | **Seed roles: baseline vs corroborating (2026-08-09, second block).** Which sources hold a surface's seed gate closed. | `apps/hypervisor/ported-seed-preservation.v1.json` (the 16 protected executable ports — the code the product actually serves); the interaction-replay evidence in `apps/hypervisor/seed-graphs/` showing retained `/__apps` replays are hostile (corpus-mutation attempts), hung (canvas timeouts) or fragile while every completed baseline graph is protected. | **Ruled (owner, owner-reversible).** `seed_role` is typed in `seed-ux-provenance.v1.json`: protected executable ports are **baseline**; retained captures and dormant references are **corroborating** — preserved, typed, never deleted, never gate inputs. Readiness derives from baseline graph completeness only; the validator's kind⇒role lock makes demotion or promotion by tooling RED. A recovered corroborating source may still upgrade grammar; it re-enters the gate only by a further recorded ruling. |
 | **Studio blueprint/layout contract placement.** | OQ-1 ruling (descriptor authoring is ordinary governed mutation); W2.2's amended scope. | **Ruled.** The blueprint/layout contract (durable receipted draft, CAS, reopen/conflict/recovery) is Studio-owned and lands with W2.2 as ordinary governed mutation; promotion remains a separate governed handoff composing Governance/Packages. Stale OQ-1 wording may not be reintroduced. |
 
+### Journey verification (2026-08-09, next-legs run)
+
+The first two surface journeys are now CI-proven against an isolated live
+daemon (`check:ontology-journey` 31/31, `check:governance-journey` 20/20 in the
+product browser-smoke job). Ontology: create + seven receipted mutations under
+strict revision discipline, CAS conflict + typed recovery, denial, named gaps
+typed (no proposal family, no saved-set authoring), restart survival — with one
+standing typed finding: ODK ontology writes cross with no identity envelope
+(the W1.1/G-2 pull). Governance: submit → approve/reject/revoke with a
+daemon-resolved reviewer (`request_principal_required` proves identity-first),
+explicit confirmation on destructive transitions, decision receipts, terminal/
+withdrawn refusals typed, no substituted effect, restart survival. The shared
+authority client no longer rebrands 2xx `ok:false` plane refusals as
+`receipt_missing` — typed codes now surface verbatim
+(`apps/hypervisor/surfaces/authority-client.mjs`; suite 20/20). Governance is
+the first surface with BOTH gates green (baseline seed graphs complete + primary
+journey proven); ontology's seed gate stays closed on one typed residual
+(`seed-graphs/ontology/schema.v1.json` replay problem).
+
 ## Related Canon
 
 - [`implementation-matrix.md`](./implementation-matrix.md) — per-concept durable-form index (the wider matrix).

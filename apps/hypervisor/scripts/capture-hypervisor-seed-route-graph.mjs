@@ -207,10 +207,25 @@ async function censusOf(page) {
 
 async function stateSignature(page) {
   return page.evaluate(() => {
+    const visible = (el) => {
+      const r = el.getBoundingClientRect();
+      return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== "hidden";
+    };
     const texts = [...document.querySelectorAll("h1,h2,h3,[role=dialog],[role=menu],[role=tabpanel]")]
       .map((el) => `${el.tagName}:${(el.getAttribute("aria-label") || el.textContent || "").trim().slice(0, 60)}`);
-    const open = document.querySelectorAll("[role=dialog]:not([hidden]), [aria-expanded=true], dialog[open]").length;
-    return `${location.pathname}${location.search}#open=${open}|${texts.join("|")}`.slice(0, 800);
+    const open = document.querySelectorAll("[role=dialog]:not([hidden]), [aria-expanded=true], dialog[open], details[open]").length;
+    // Filter drawers and inline editors expose form controls without adding any
+    // heading or dialog — count visible inputs so those states are distinct.
+    const formControls = [...document.querySelectorAll("input, select, textarea")].filter(visible).length;
+    // Hidden form fields are path-dependent state (a form entered via clicks can
+    // carry different targets than the same URL entered directly); hash them so
+    // those are distinct nodes rather than one node with contradictory edges.
+    const hidden = [...document.querySelectorAll("input[type=hidden]")]
+      .map((el) => `${el.name}=${String(el.value).slice(0, 40)}`).sort().join("&") +
+      "|" + [...document.forms].map((f) => f.getAttribute("action") || "").sort().join("&");
+    let hh = 0;
+    for (let i = 0; i < hidden.length; i++) hh = ((hh << 5) - hh + hidden.charCodeAt(i)) | 0;
+    return `${location.pathname}${location.search}#open=${open}#fc=${formControls}#hf=${hh}|${texts.join("|")}`.slice(0, 800);
   });
 }
 
@@ -322,7 +337,14 @@ async function capture() {
       const writesBefore = blockedWrites.length;
       pendingDownload = null;
       const locator = page.locator(CONTROL_SELECTOR).nth(control.index);
-      const clicked = await locator.click({ timeout: 4000, trial: false }).then(() => true).catch(() => false);
+      let clicked = await locator.click({ timeout: 4000, trial: false }).then(() => true).catch(() => false);
+      if (!clicked) {
+        // A leaked overlay from an earlier edge can transiently obscure the
+        // control; one Escape-and-retry separates true unclickability from that.
+        await page.keyboard.press("Escape").catch(() => {});
+        await page.waitForTimeout(400);
+        clicked = await locator.click({ timeout: 4000, trial: false }).then(() => true).catch(() => false);
+      }
       await page.waitForTimeout(900);
       if (!clicked) {
         edges.push({ from: current.nodeId, to: null, control, action: "click", outcome: "unclickable" });
@@ -519,9 +541,15 @@ async function replay() {
       }
       // click edge
       const before = await stateSignature(page);
+      const urlBefore = page.url();
       const writesBefore = blockedWrites.length;
       pendingDownload = null;
-      const clicked = await clickControl(edge.control);
+      let clicked = await clickControl(edge.control);
+      if (!clicked) {
+        await page.keyboard.press("Escape").catch(() => {});
+        await page.waitForTimeout(400);
+        clicked = await clickControl(edge.control);
+      }
       await page.waitForTimeout(900);
       if (!clicked) {
         problems.push(`edge ${node.id}/"${edge.control?.label ?? "?"}": control no longer clickable (recorded ${edge.outcome})`);
@@ -529,6 +557,7 @@ async function replay() {
         continue;
       }
       const after = await stateSignature(page);
+      const urlChangedExact = page.url() !== urlBefore;
       const observed = pendingDownload ? "download"
         : blockedWrites.length > writesBefore ? "blocked-write-attempt"
         : !page.url().includes(node.url) && after !== before ? "navigated"
@@ -536,7 +565,10 @@ async function replay() {
         : "noop";
       const compatible = observed === edge.outcome ||
         (edge.outcome === "navigated" && observed === "state-change") ||
-        (edge.outcome === "state-change" && observed === "navigated");
+        (edge.outcome === "state-change" && observed === "navigated") ||
+        // A same-path self-navigation (e.g. a GET filter submit appending its
+        // query) IS the recorded navigation even when the signature is stable.
+        (edge.outcome === "navigated" && urlChangedExact);
       if (!compatible) {
         problems.push(`edge ${node.id}/"${edge.control?.label ?? "?"}": recorded ${edge.outcome}, observed ${observed}`);
       } else if (edge.outcome === "navigated" && edge.to && nodeById.has(edge.to)) {

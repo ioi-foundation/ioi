@@ -209,6 +209,11 @@ jobs:
           npm run check:seed-provenance --workspace=@ioi/hypervisor-app
           npm run check:source-neutral --workspace=@ioi/hypervisor-app
 
+      - name: Verify the first surface journeys against an isolated live daemon
+        run: |
+          npm run check:ontology-journey --workspace=@ioi/hypervisor-app
+          npm run check:governance-journey --workspace=@ioi/hypervisor-app
+
       - name: Record post-build shipped-product artifact identities
         run: |
           mkdir -p .artifacts/implementation/shipped-products

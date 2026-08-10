@@ -8,7 +8,7 @@
     "serve_url": "http://127.0.0.1:4173",
     "capture_url": null
   },
-  "captured_at": "2026-08-09T16:41:07.742Z",
+  "captured_at": "2026-08-10T01:21:19.780Z",
   "quarantine": {
     "network_policy": "local-only",
     "corpus_mutation": "denied",
@@ -12740,9 +12740,9 @@
       "edge n3/\"Pipeline: probe-reencode ▾\": control unresolved (unclickable at capture and at replay)",
       "edge n4/\"Toggle bottom bar\": control unresolved (unclickable at capture and at replay)"
     ],
-    "walked_at": "2026-08-09T23:42:01.976Z"
+    "walked_at": "2026-08-10T01:26:28.277Z"
   },
   "complete_interaction_route_graph": false,
   "shots_dir": ".artifacts/seed-graph-shots/data/pipeline",
-  "content_address": "35e52c093418deaf0b8d0af294b643bfd06581db298d7726cb599ec7a919e94c"
+  "content_address": "60d34da15fd3c761648f868d3c1294f1e5f681d67ee79dce440e6c3cfc310eee"
 }

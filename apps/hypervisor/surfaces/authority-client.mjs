@@ -190,6 +190,15 @@ export async function crossWithLease(
       payload?.error?.message || payload?.message || payload?.reason || "the gateway refused the crossing",
       { refusal: payload });
   }
+  // Some planes speak typed refusals as 2xx + `ok:false` (the ODK ontology plane's
+  // idiom). That is a REFUSAL carrying its exact code — it must never be rebranded
+  // as receipt_missing, which would mask the daemon's typed reason.
+  if (payload?.ok === false) {
+    return refusal("gateway", status,
+      payload?.error?.code || payload?.reason || "typed_refusal",
+      payload?.error?.message || payload?.message || payload?.reason || "the plane refused the crossing",
+      { refusal: payload });
+  }
   // Gateway step 3 — the crossing happened iff a receipt names it. Fail closed otherwise.
   const receipt_ref = findReceiptRef(payload, extractReceiptRef);
   if (!receipt_ref) {
