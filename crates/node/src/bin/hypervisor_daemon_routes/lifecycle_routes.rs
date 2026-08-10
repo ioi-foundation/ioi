@@ -6811,7 +6811,7 @@ pub(crate) async fn handle_physical_action_intent_admission(
 // ---------------------------------------------------------------------------------------------
 const PLANNER_NAMESPACE: &str = "hypervisor-kernel-admissions";
 
-fn planner_scope_refusal(
+pub(crate) fn planner_scope_refusal(
     error: super::substrate_store::RequestScopeRefusal,
 ) -> (StatusCode, Json<Value>) {
     use super::substrate_store::RequestScopeRefusal;

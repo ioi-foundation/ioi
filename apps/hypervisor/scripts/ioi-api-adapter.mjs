@@ -841,8 +841,35 @@ async function handleImpl(pathname, bodyText) {
         return json({ pagination: {}, environmentClasses: [] });
       }
     }
-    // UpdateProject / UpdateProjectEnvironmentClasses are edit flows the daemon has no write plane
-    // for yet — they fall through (not fabricated here), and are not exercised by read navigation.
+    if (op === "UpdateProjectEnvironmentClasses") {
+      // OQ-5 saga step 2 — the write plane exists now (PATCH :id/environment-classes). The
+      // response always names the exact durable state; a refusal never claims rollback.
+      const id = projectIdFromBody(body);
+      const ids = (body.environmentClassIds || body.environment_class_ids ||
+        (Array.isArray(body.environmentClasses) ? body.environmentClasses.map((c) => c?.id || c) : []) || [])
+        .filter((x) => typeof x === "string" && x.trim());
+      try {
+        // Status-tolerant call: a typed refusal (401/404/409/422) is saga truth to surface
+        // verbatim, never rebranded daemon-down (daemon() throws on any non-2xx).
+        const res = await fetch(`${DAEMON}/v1/hypervisor/projects/${encodeURIComponent(id)}/environment-classes`, {
+          method: "PATCH",
+          headers: currentDaemonHeaders({ includeContentType: true }),
+          body: JSON.stringify({ environment_class_ids: ids }),
+          signal: AbortSignal.timeout(8000),
+        });
+        const r = await res.json().catch(() => ({}));
+        if (res.ok && r?.ok === true) {
+          return json({ project: daemonProjectToIOI(r.project, LOCAL_SCOPE.orgId), receiptRef: r.receipt?.receipt_ref || "" });
+        }
+        return jsonStatus(res.ok ? 409 : res.status, { code: r?.code || "project_environment_classes_refused",
+          message: `${r?.message || "the binding was refused"} — the created project keeps its exact durable partial state` });
+      } catch (e) {
+        return jsonStatus(502, { code: "project_environment_classes_unavailable",
+          message: `the daemon did not answer the binding step (${e.message}); the created project keeps its exact durable partial state` });
+      }
+    }
+    // UpdateProject is an edit flow the daemon has no write plane for yet — it falls through
+    // (not fabricated here), and is not exercised by read navigation.
   }
 
   // ---- Local-deployment projections: honest local posture for planes the daemon does not yet
