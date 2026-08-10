@@ -730,6 +730,18 @@ function renderConnectionsCockpit(connectors, scmConnectors, leases, devFacts) {
 // Doctrine: an automation is project-scoped DURABLE work (spec + runs + receipts + authority/memory/
 // connectors + proof), not an org-scoped workflow. This owned surface renders the daemon
 // /v1/hypervisor/automations plane natively; the SPA's org-scoped WorkflowService surface is NOT canonical.
+// Typed identity-refusal passthrough for the automations action lanes (#237 finding closed):
+// when the daemon refuses a write for want of a principal (401/403), the lane surfaces THAT
+// refusal — the daemon's status + machine-readable code — instead of the old blind 302 that
+// pretended the verb crossed. daemonFetch already forwards the caller's cookie (DEF-IDENT-1),
+// so an authenticated browser session never lands here.
+function automationsRefusalPage(res, status, j, backHref) {
+  const code = (j && (j.code || (j.error && j.error.code))) || "request_refused";
+  const message = (j && (j.message || (j.error && j.error.message))) || "the daemon refused this action";
+  res.writeHead(status, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+  res.end(automationsShell("Refused", `<div class="empty" data-ioi-refusal-code="${CX_ESC(code)}">Refused: <code>${CX_ESC(code)}</code> — ${CX_ESC(message)}</div><p><a href="${backHref}">← back</a></p>`));
+}
+
 function automationsShell(title, inner) {
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${CX_ESC(title)} · Hypervisor</title>
 <style>
@@ -984,7 +996,7 @@ function renderAutomationDetail(a, runs, projectsById, webhook) {
       else if(node==='authority'){body.authority_policy_ref=val('cv-authority')||null;body.default_runtime_policy_ref=val('cv-runtime')||null;}
       else if(node==='delivery'){var sk=val('cv-step-kind'),sb=(val('cv-step-body')||'').trim();body.steps=sb?[sk==='command'?{kind:'command',command:sb}:{kind:'agent',prompt:sb}]:[];}
       var msg=document.getElementById('msg-'+node);if(msg)msg.textContent='saving…';
-      fetch('/__ioi/automations/${encodeURIComponent(id)}/patch',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}).then(function(r){return r.json();}).then(function(d){if(d&&d.ok===false){if(msg)msg.textContent='⚠ '+((d.error&&d.error.message)||d.reason||'invalid');}else{location.reload();}}).catch(function(){if(msg)msg.textContent='save failed';});}
+      fetch('/__ioi/automations/${encodeURIComponent(id)}/patch',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}).then(function(r){return r.json();}).then(function(d){if(d&&d.ok===false){if(msg)msg.textContent='⚠ '+((d.error&&d.error.message)||d.message||d.reason||'invalid');}else{location.reload();}}).catch(function(){if(msg)msg.textContent='save failed';});}
   </script>`;
   const inner = `${back}<h1>${CX_ESC(a.name || id)}<span class="pill ${enabled ? "ok" : "muted"}">${enabled ? "enabled" : "disabled"}</span></h1>
     <p class="sub">${CX_ESC(a.description || "")}</p>${pipeline}${actions}
@@ -8832,6 +8844,10 @@ async function handleEstateRequest(req, res, body) {
       const r = await daemonFetch(`/v1/hypervisor/automations`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
       const j = await r.json().catch(() => ({}));
       const newId = j.automation && j.automation.automation_id;
+      if (r.status === 401 || r.status === 403) {
+        automationsRefusalPage(res, r.status, j, `/__ioi/automations/new${payload.project_ref ? "?project=" + encodeURIComponent(payload.project_ref) : ""}`);
+        return;
+      }
       if (r.status >= 400 || !newId) {
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
         res.end(automationsShell("New automation", `<div class="empty">Create failed: ${CX_ESC((j.error && j.error.message) || ("HTTP " + r.status))}</div><p><a href="/__ioi/automations/new${payload.project_ref ? "?project=" + encodeURIComponent(payload.project_ref) : ""}">← back</a></p>`));
@@ -8877,28 +8893,43 @@ async function handleEstateRequest(req, res, body) {
         ? "/__ioi/operations" : `/__ioi/automations/${encodeURIComponent(id)}`;
       if (action === "run" && req.method === "POST") {
         // Manual run: the daemon executor creates an env, runs the steps, and records a transcript.
-        await daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(id)}/runs`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }).catch(() => {});
+        const r = await daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(id)}/runs`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }).catch(() => null);
+        if (r && (r.status === 401 || r.status === 403)) {
+          automationsRefusalPage(res, r.status, await r.json().catch(() => ({})), `/__ioi/automations/${encodeURIComponent(id)}`);
+          return;
+        }
         res.writeHead(302, { Location: backTo, "Cache-Control": "no-cache" });
         res.end();
         return;
       }
       if ((action === "pause" || action === "resume") && req.method === "POST") {
         // Pause/resume the schedule = PATCH enabled (the daemon scheduler skips disabled specs).
-        await daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(id)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ enabled: action === "resume" }) }).catch(() => {});
+        const r = await daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(id)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ enabled: action === "resume" }) }).catch(() => null);
+        if (r && (r.status === 401 || r.status === 403)) {
+          automationsRefusalPage(res, r.status, await r.json().catch(() => ({})), `/__ioi/automations/${encodeURIComponent(id)}`);
+          return;
+        }
         res.writeHead(302, { Location: backTo, "Cache-Control": "no-cache" });
         res.end();
         return;
       }
       if (action === "patch" && req.method === "POST") {
-        // Canvas inspector save → daemon PATCH (returns JSON so the canvas can surface validation errors).
-        const r = await daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(id)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: body.toString() || "{}" }).then((x) => x.json()).catch(() => ({ ok: false, error: { message: "daemon unavailable" } }));
-        res.writeHead(200, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-cache" });
+        // Canvas inspector save → daemon PATCH (returns JSON so the canvas can surface validation
+        // errors; an identity refusal passes through with the daemon's own status + typed code).
+        const rr = await daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(id)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: body.toString() || "{}" }).catch(() => null);
+        const r = rr ? await rr.json().catch(() => ({ ok: false, error: { message: "daemon unavailable" } })) : { ok: false, error: { message: "daemon unavailable" } };
+        res.writeHead(rr && (rr.status === 401 || rr.status === 403) ? rr.status : 200, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-cache" });
         res.end(JSON.stringify(r));
         return;
       }
       if (action === "webhook-rotate" && req.method === "POST") {
         // Mint/rotate the trigger secret and reveal it ONCE (only its hash is persisted).
-        const r = await daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(id)}/webhook-rotate`, { method: "POST" }).then((x) => x.json()).catch(() => ({}));
+        const rr = await daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(id)}/webhook-rotate`, { method: "POST" }).catch(() => null);
+        if (rr && (rr.status === 401 || rr.status === 403)) {
+          automationsRefusalPage(res, rr.status, await rr.json().catch(() => ({})), `/__ioi/automations/${encodeURIComponent(id)}`);
+          return;
+        }
+        const r = rr ? await rr.json().catch(() => ({})) : {};
         const token = r.webhook_token || "";
         const url = `${publicBase(req)}/v1/hypervisor/automations/${encodeURIComponent(id)}/webhook`;
         const reveal = token
@@ -8919,7 +8950,11 @@ async function handleEstateRequest(req, res, body) {
       if (action === "delete" && req.method === "POST") {
         const a = await daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(id)}`).then((r) => r.json()).catch(() => ({}));
         const pid = a.automation && (a.automation.project_ref || a.automation.project_id);
-        await daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
+        const r = await daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => null);
+        if (r && (r.status === 401 || r.status === 403)) {
+          automationsRefusalPage(res, r.status, await r.json().catch(() => ({})), `/__ioi/automations/${encodeURIComponent(id)}`);
+          return;
+        }
         res.writeHead(302, { Location: `/__ioi/automations${pid ? "?project=" + encodeURIComponent(pid) : ""}`, "Cache-Control": "no-cache" });
         res.end();
         return;

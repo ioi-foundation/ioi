@@ -64,6 +64,10 @@ const FORWARDED_AUTH_HEADERS: &[&str] = &[
     "x-forwarded-host",
     "x-forwarded-for",
     "x-ioi-forwarded",
+    // The per-boot internal dispatch token (scheduler tick / accepted-webhook fire). Loopback
+    // self-calls only; a caller-supplied value forwards inert — it can never match the per-boot
+    // secret, which is never emitted in any response.
+    "x-ioi-internal-dispatch",
 ];
 
 async fn call(
@@ -147,13 +151,66 @@ fn link_project_automation(data_dir: &str, project_id: &str, automation_id: &str
     let _ = persist_record(data_dir, "projects", project_id, &project);
 }
 
+/// Typed identity/scope refusal for the automations family (the ODK ontology precedent, #236):
+/// the status is derived from the refusal kind, the body carries the machine-readable code.
+fn automation_scope_refusal(
+    error: super::substrate_store::RequestScopeRefusal,
+) -> (StatusCode, Json<Value>) {
+    use super::substrate_store::RequestScopeRefusal;
+    let status = match error {
+        RequestScopeRefusal::AuthenticationRequired
+        | RequestScopeRefusal::PrincipalIdentityInvalid => StatusCode::UNAUTHORIZED,
+        RequestScopeRefusal::TenantAuthorityRequired
+        | RequestScopeRefusal::ResourceScopeRequired
+        | RequestScopeRefusal::ResourceOwnerMismatch => StatusCode::FORBIDDEN,
+        RequestScopeRefusal::SubstrateUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
+    };
+    (
+        status,
+        Json(json!({ "ok": false, "code": error.code(), "message": error.message() })),
+    )
+}
+
+/// True when the request carries THIS boot's internal dispatch token — the daemon's own
+/// scheduler tick and the accepted-webhook fire, which cross the manual-run route over loopback.
+/// The token is minted per boot, lives only in process memory, and is never emitted in any
+/// response, so a valid presentation can only originate from this daemon process. Internal
+/// dispatch is NOT a session: the run executes as the spec's stored `executor_identity`
+/// (the delegated durable authority), never as an ambient operator.
+fn internal_dispatch_authorized(st: &DaemonState, headers: &HeaderMap) -> bool {
+    headers
+        .get("x-ioi-internal-dispatch")
+        .and_then(|v| v.to_str().ok())
+        .map(|presented| {
+            // Constant-time-ish compare: same-length XOR fold (the token is per-boot random).
+            let expected = st.internal_dispatch_token.as_bytes();
+            let presented = presented.as_bytes();
+            presented.len() == expected.len()
+                && presented
+                    .iter()
+                    .zip(expected)
+                    .fold(0u8, |acc, (a, b)| acc | (a ^ b))
+                    == 0
+        })
+        .unwrap_or(false)
+}
+
 /// POST /v1/hypervisor/automations — create a project-scoped AutomationWorkflow spec.
 /// `project_ref` (alias `project_id`) is REQUIRED: an automation is durable work that must hang off
 /// a project. Returns 400 if absent. On success the project's `automation_refs` is updated.
 pub(crate) async fn handle_automation_create(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    // #237 finding closed — identity FIRST (rule E): an anonymous caller is owed the typed 401
+    // before any field validation runs (project_ref included), so no field-shape probe exists
+    // for unauthenticated callers. An automation spec is authored durable work, not an
+    // anonymous append.
+    let identity = match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(error) => return automation_scope_refusal(error),
+    };
     let project_id = body
         .get("project_ref")
         .and_then(|v| v.as_str())
@@ -205,7 +262,12 @@ pub(crate) async fn handle_automation_create(
         "steps": body.get("steps").cloned().unwrap_or_else(|| json!([])),
         "workflow_graph_ref": body.get("workflow_graph_ref").cloned().unwrap_or(Value::Null),
         "limits": body.get("limits").cloned().unwrap_or_else(|| json!({ "max_total": 100, "per_exec_seconds": 600, "budget": Value::Null })),
-        "executor_identity": body.get("executor_identity").cloned().unwrap_or_else(|| json!({ "kind": "user", "ref": "operator" })),
+        // INV-37: the execution identity defaults to the RESOLVED creating principal, never an
+        // ambient "operator" literal. A caller-supplied executor_identity (delegated execution
+        // config) still wins — it is spec surface, not attribution.
+        "executor_identity": body.get("executor_identity").cloned().unwrap_or_else(|| json!({ "kind": "user", "ref": identity.principal_ref })),
+        // Who performed this mutation (refreshed on PATCH) — resolved server-side, never client-set.
+        "acting_principal_ref": identity.principal_ref,
         "environment_class_id": body.get("environment_class_id").and_then(|v| v.as_str()).unwrap_or("local-workspace-v0"),
         "recipe_ref": body.get("recipe_ref").cloned().unwrap_or(Value::Null),
         // Agent/runtime config (the HypervisorAutomationSpec surface).
@@ -302,8 +364,16 @@ pub(crate) async fn handle_automation_execution_get(
 pub(crate) async fn handle_automation_patch(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    // #237 finding closed — identity FIRST (rule E): the typed 401 is owed BEFORE the record
+    // load, so an unauthenticated caller can never use the not-found reply as an existence
+    // oracle (or probe field shapes through the schedule validator).
+    let identity = match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(error) => return automation_scope_refusal(error),
+    };
     let Some(mut a) = load(&st.data_dir, "automations", &id) else {
         return (
             StatusCode::OK,
@@ -355,6 +425,9 @@ pub(crate) async fn handle_automation_patch(
         a["next_run_at"] = Value::Null;
     }
     a["updated_at"] = json!(iso_now());
+    // INV-37: the spec records who performed the last mutation (resolved, never client-set —
+    // `acting_principal_ref` is deliberately absent from the patchable key list above).
+    a["acting_principal_ref"] = json!(identity.principal_ref);
     // W1.2 / MEF-GAP-008 — CRITICAL: a discarded `enabled:false` patch returns 200 "paused" while the
     // scheduler keeps firing the spec. Fail closed so pause is honest.
     if persist_record(&st.data_dir, "automations", &id, &a).is_err() {
@@ -374,7 +447,14 @@ pub(crate) async fn handle_automation_patch(
 pub(crate) async fn handle_automation_delete(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
-) -> Json<Value> {
+    headers: HeaderMap,
+) -> (StatusCode, Json<Value>) {
+    // #237 finding closed — identity FIRST (rule E): the typed 401 is owed BEFORE the record
+    // load, so an anonymous caller gets no existence oracle. All authenticated outcomes keep
+    // their 200 body shapes exactly (the ODK delete precedent, #236).
+    if let Err(error) = super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        return automation_scope_refusal(error);
+    }
     let project_id = load(&st.data_dir, "automations", &id).and_then(|a| {
         a.get("project_id")
             .and_then(|v| v.as_str())
@@ -384,7 +464,10 @@ pub(crate) async fn handle_automation_delete(
     if let Some(pid) = project_id {
         link_project_automation(&st.data_dir, &pid, &id, false);
     }
-    Json(json!({ "ok": removed, "removed": removed, "automation_id": id }))
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": removed, "removed": removed, "automation_id": id })),
+    )
 }
 
 /// GET /v1/hypervisor/automations/:id/runs — the spec's run history (automation-execution records),
@@ -1191,7 +1274,14 @@ fn record_rotated_webhook_token(
 pub(crate) async fn handle_automation_webhook_rotate(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
+    headers: HeaderMap,
 ) -> (StatusCode, Json<Value>) {
+    // #237 finding closed — identity FIRST (rule E): minting/rotating the trigger secret is a
+    // write of trigger AUTHORITY; the typed 401 is owed BEFORE the record load. The inbound
+    // /webhook trigger itself stays on its own token lane (gate-exempt), untouched here.
+    if let Err(error) = super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        return automation_scope_refusal(error);
+    }
     let Some(a) = load(&st.data_dir, "automations", &id) else {
         // PRESERVED VERBATIM. This packet changes the durability contract, not the not-found
         // contract; the return type had to name a status, and naming OK keeps the existing wire
@@ -1360,8 +1450,15 @@ pub(crate) async fn handle_automation_webhook(
     let receipt = receipt_id.clone();
     // Opportunistic: on the webhook path there is no session to forward, so this
     // is a no-op there. It matters when the same executor runs for an
-    // authenticated caller.
-    let inbound = headers.clone();
+    // authenticated caller. The accepted fire additionally carries the per-boot
+    // internal dispatch token — the trigger token already authenticated this
+    // crossing (receipt above), and the identity-gated manual-run lane admits the
+    // daemon's own dispatch through that token, executing as the spec's stored
+    // executor_identity.
+    let mut inbound = headers.clone();
+    if let Ok(value) = axum::http::HeaderValue::from_str(&st.internal_dispatch_token) {
+        inbound.insert("x-ioi-internal-dispatch", value);
+    }
     tokio::spawn(async move {
         if let Ok(r) = call(
             &base,
@@ -1400,12 +1497,34 @@ pub(crate) async fn handle_automation_start(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
     inbound: axum::http::HeaderMap,
-) -> Result<Json<Value>, AppError> {
+) -> Result<(StatusCode, Json<Value>), AppError> {
+    // #237 finding closed — identity FIRST (rule E): a manual run is a write crossing; the typed
+    // 401 is owed BEFORE the record load. The daemon's OWN dispatches (scheduler tick, accepted
+    // webhook fire) cross with the per-boot internal dispatch token instead of a session — they
+    // are the daemon acting on the stored spec, and the run's acting identity is then the spec's
+    // own `executor_identity` (the delegated durable authority), never an ambient operator.
+    let acting_principal_ref =
+        match super::substrate_store::resolve_request_identity(&st.data_dir, &inbound) {
+            Ok(identity) => Some(identity.principal_ref),
+            Err(error) => {
+                if !internal_dispatch_authorized(&st, &inbound) {
+                    return Ok(automation_scope_refusal(error));
+                }
+                None // internal dispatch — resolved from the spec below, after the load
+            }
+        };
     let Some(automation) = load(&st.data_dir, "automations", &id) else {
-        return Ok(Json(
-            json!({ "ok": false, "reason": "automation not found" }),
+        return Ok((
+            StatusCode::OK,
+            Json(json!({ "ok": false, "reason": "automation not found" })),
         ));
     };
+    let acting_principal_ref = acting_principal_ref.unwrap_or_else(|| {
+        automation["executor_identity"]["ref"]
+            .as_str()
+            .unwrap_or("")
+            .to_string()
+    });
     let base = st.base_url.clone();
     let exec_id = format!("aex_{:x}", nanos());
     let steps = automation["steps"].as_array().cloned().unwrap_or_default();
@@ -1415,6 +1534,9 @@ pub(crate) async fn handle_automation_start(
         "schema_version": "ioi.hypervisor.automation-execution.v1",
         "execution_id": exec_id, "automation_id": id, "status": "running",
         "executor_identity": automation["executor_identity"], "environment_id": Value::Null,
+        // INV-37: who triggered this run — the resolved session principal on a manual run, the
+        // spec's delegated executor ref on an internal (scheduler/webhook) dispatch.
+        "acting_principal_ref": acting_principal_ref,
         "step_results": [], "counts": counts, "started_at": iso_now(), "finished_at": Value::Null
     });
     // W1.2 / MEF-GAP-008 — this running exec is the concurrency-gate input; a discarded write means
@@ -1457,8 +1579,9 @@ pub(crate) async fn handle_automation_start(
                 "automation_execution_persistence_failed: the failed-execution record did not commit".to_string(),
             ));
         }
-        return Ok(Json(
-            json!({ "ok": false, "reason": "env create failed", "execution": exec }),
+        return Ok((
+            StatusCode::OK,
+            Json(json!({ "ok": false, "reason": "env create failed", "execution": exec })),
         ));
     }
     let _ = call(
@@ -1655,14 +1778,23 @@ pub(crate) async fn handle_automation_start(
         &inbound,
     )
     .await;
-    Ok(Json(json!({ "ok": !failed, "execution": exec })))
+    Ok((
+        StatusCode::OK,
+        Json(json!({ "ok": !failed, "execution": exec })),
+    ))
 }
 
 /// POST /v1/hypervisor/automation-executions/:id/cancel — stop a running execution.
 pub(crate) async fn handle_automation_cancel(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
+    headers: HeaderMap,
 ) -> (StatusCode, Json<Value>) {
+    // #237 finding closed — identity FIRST (rule E): stopping a running execution is a write;
+    // the typed 401 is owed BEFORE the record load (no existence oracle for anonymous callers).
+    if let Err(error) = super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        return automation_scope_refusal(error);
+    }
     let Some(mut exec) = load(&st.data_dir, "automation-executions", &id) else {
         return (
             StatusCode::OK,

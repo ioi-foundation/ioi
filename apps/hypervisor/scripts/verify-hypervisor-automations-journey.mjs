@@ -10,9 +10,11 @@
 //     start/runs · webhook/rotate/events · execution get/cancel) — no versions/revisions route,
 //     no separate activate route (pause/resume IS `PATCH {enabled}`), no binding plane;
 //   - spec mutations cross UNRECEIPTED ({ok, automation}, no admission envelope) — the brief's
-//     named W2 defect; the surface renders verbs through the seed cockpit's own lanes and this
-//     verifier records the identity posture it PROBES (gated → typed refusal asserted; ungated →
-//     current truth asserted + FINDING row), never hides it;
+//     named W2 defect stays current truth; the IDENTITY finding is CLOSED (#237 → next-legs III
+//     Leg 1): every write verb is identity-first (rule E — anonymous callers answer a typed 401
+//     request_principal_required BEFORE any record load or field validation, on the daemon lane
+//     AND through the serve action lanes), and the stored spec/execution bind the RESOLVED
+//     acting principal (INV-37) with executor_identity defaulting to it, never "operator";
 //   - scheduler HEALTH is Operations-owned: the pages must render NO scheduler-health rows
 //     (liveness/heartbeat/tick data) while the per-spec schedule fields stay;
 //   - monitors stays a LINK to the protected seed route; machinery stays OUT (OQ-2 unruled).
@@ -238,24 +240,37 @@ async function run() {
     noProject.status === 400 && noProject.body?.error?.code === "automation_project_ref_required",
     `${noProject.status}/${noProject.body?.error?.code}`);
 
-  // -- identity posture: probed HONESTLY, recorded not hidden -----------------
+  // -- identity gate (#237 finding CLOSED — next-legs III Leg 1): writes are identity-first ---
   const anonCreate = await jd("/v1/hypervisor/automations", {
     method: "POST",
     body: JSON.stringify({ project_ref: projectId, name: "anon-posture-probe", steps: [] }),
   }, false);
-  if (anonCreate.status === 401 || anonCreate.status === 403) {
-    ok("an unauthenticated spec mutation refuses TYPED (the family is identity-gated)",
-      !!(anonCreate.body?.error?.code || anonCreate.body?.code || anonCreate.body?.reason),
-      `${anonCreate.status}/${anonCreate.body?.error?.code || anonCreate.body?.code || anonCreate.body?.reason}`);
-  } else {
-    ok("current truth asserted: an unauthenticated spec mutation CROSSES (201, record admitted) under loopback dev posture — the family is ungated",
-      anonCreate.status === 201 && !!anonCreate.body?.automation?.automation_id,
-      `status ${anonCreate.status}`);
-    ok("FINDING(typed): automations writes cross with no identity envelope (loopback dev posture; W1.1/G-2 pull)", true,
-      "handle_automation_create/patch/delete resolve no principal; executor_identity defaults to operator; replies carry no admission receipt (the W2 lease-client pull)");
-    const probeId = anonCreate.body?.automation?.automation_id || "";
-    if (probeId) await jd(`/v1/hypervisor/automations/${encodeURIComponent(probeId)}`, { method: "DELETE" });
-  }
+  const listAfterAnon = await jd("/v1/hypervisor/automations");
+  ok("GATE: an anonymous direct daemon create refuses TYPED (401 request_principal_required) — never a silent success — and state is proven unchanged (no spec admitted)",
+    anonCreate.status === 401 && anonCreate.body?.code === "request_principal_required"
+      && (listAfterAnon.body?.automations || []).length === 0,
+    `${anonCreate.status}/${anonCreate.body?.code} · ${(listAfterAnon.body?.automations || []).length} specs`);
+  const anonNoProject = await jd("/v1/hypervisor/automations", {
+    method: "POST",
+    body: JSON.stringify({ name: "orphan-anon" }),
+  }, false);
+  ok("GATE rule E: identity is owed FIRST — an anonymous container-less create answers the 401, never the 400 project_ref field error (no field-shape probe exists for anonymous callers)",
+    anonNoProject.status === 401 && anonNoProject.body?.code === "request_principal_required",
+    `${anonNoProject.status}/${anonNoProject.body?.code}`);
+  const anonPatch = await jd("/v1/hypervisor/automations/auto_absent", { method: "PATCH", body: JSON.stringify({ enabled: false }) }, false);
+  const anonDelete = await jd("/v1/hypervisor/automations/auto_absent", { method: "DELETE" }, false);
+  const anonRotate = await jd("/v1/hypervisor/automations/auto_absent/webhook-rotate", { method: "POST" }, false);
+  const anonRun = await jd("/v1/hypervisor/automations/auto_absent/runs", { method: "POST", body: "{}" }, false);
+  const anonCancel = await jd("/v1/hypervisor/automation-executions/aex_absent/cancel", { method: "POST" }, false);
+  ok("GATE: every anonymous write verb refuses 401 request_principal_required BEFORE the record load (patch/delete/webhook-rotate/run-now/cancel) — the not-found reply is never an anonymous existence oracle",
+    [anonPatch, anonDelete, anonRotate, anonRun, anonCancel].every((r) => r.status === 401 && r.body?.code === "request_principal_required"),
+    JSON.stringify([anonPatch.status, anonDelete.status, anonRotate.status, anonRun.status, anonCancel.status]));
+  const who = await jd("/v1/hypervisor/auth/whoami");
+  const principalRef = who.body?.principal?.principal_ref
+    || (who.body?.principal?.principal_id ? `user://${who.body.principal.principal_id}` : "");
+  ok("the bootstrap session resolves a canonical principal ref (the binding subject for every INV-37 row below)",
+    who.body?.authenticated === true && principalRef.startsWith("user://"),
+    principalRef);
 
   // -- create through the served grammar (session-carried), round-trip readback
   const createRes = await seedPost("", {
@@ -287,6 +302,25 @@ async function run() {
   ok("spec mutations answer WITHOUT an admission receipt — the named W2 defect is current daemon truth (asserted, not styled around)",
     spec.ok === true && !JSON.stringify(spec).includes("receipt_ref") && !JSON.stringify(spec).includes("agentgres"),
     "");
+  ok("INV-37: the stored spec binds the RESOLVED creating principal — acting_principal_ref names the bootstrap principal and executor_identity defaults to it (never the operator literal)",
+    spec.automation?.acting_principal_ref === principalRef
+      && spec.automation?.executor_identity?.kind === "user"
+      && spec.automation?.executor_identity?.ref === principalRef,
+    JSON.stringify({ acting: spec.automation?.acting_principal_ref, executor: spec.automation?.executor_identity }));
+
+  // -- anonymous serve-lane action: the typed refusal SURFACES (no blind 302) --
+  const anonServeRun = await fetch(`${SERVE}${SEED_LANE}/${encodeURIComponent(automationId)}/run`, {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: "",
+    redirect: "manual",
+  }).then(async (r) => ({ status: r.status, text: await r.text() })).catch(() => ({ status: 0, text: "" }));
+  const runsAfterAnonServe = (await jd(`/v1/hypervisor/automations/${encodeURIComponent(automationId)}/runs`)).body?.runs || [];
+  ok("GATE: an anonymous serve-lane action (Run now with no session) surfaces the daemon's typed refusal — 401 with the machine-readable request_principal_required marker, and NO run was recorded",
+    anonServeRun.status === 401
+      && anonServeRun.text.includes('data-ioi-refusal-code="request_principal_required"')
+      && runsAfterAnonServe.length === 0,
+    `status ${anonServeRun.status} · ${runsAfterAnonServe.length} runs`);
 
   const listPage = await pageText(`/automations?project=${encodeURIComponent(projectId)}`);
   // The trigger pill keeps the SEED grammar's own precedence (the `trigger` object — which the
@@ -340,6 +374,9 @@ async function run() {
   ok("run-now crosses through the seed lane and run HISTORY records the execution: terminal `done`, 1 step done, a real environment_id",
     ran.status === 302 && exec.status === "done" && exec.counts?.done === 1 && String(exec.environment_id || "").length > 0,
     JSON.stringify({ status: exec.status, counts: exec.counts }));
+  ok("INV-37: the recorded execution binds the acting principal — the manual run's acting_principal_ref is the resolved session principal and executor_identity rides the spec's principal-bound identity (never the operator literal)",
+    exec.acting_principal_ref === principalRef && exec.executor_identity?.ref === principalRef,
+    JSON.stringify({ acting: exec.acting_principal_ref, executor: exec.executor_identity }));
   const execRead = await jd(`/v1/hypervisor/automation-executions/${encodeURIComponent(exec.execution_id || "")}`);
   ok("the execution readback route answers the same record (the run drawer's read)",
     execRead.body?.ok === true && execRead.body?.execution?.status === "done",
