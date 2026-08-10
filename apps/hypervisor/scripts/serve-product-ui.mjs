@@ -10110,7 +10110,14 @@ async function handleEstateRequest(req, res, body) {
       const hit = boundSurface(pathname, req.method);
       if (hit) {
         const url = new URL(req.url, "http://x");
-        const ctx = { url, daemon: DAEMON, embed: url.searchParams.get("embed") === "1" };
+        // W2.3 / DEF-IDENT-1 extension: module READS get the same request-scoped daemon
+        // capability the action lane hands out. Identity-first daemon families (the packages
+        // registry refuses even reads without a principal) can only render truthfully when the
+        // caller's own envelope rides the read — the flat GET branches already forward it via
+        // the ambient daemonFetch, so this closes the same gap for bound modules. Anonymous
+        // stays anonymous: the capability carries the request's identity or nothing, so a
+        // signed-out render shows the family's typed refusal, never another caller's truth.
+        const ctx = { url, daemon: DAEMON, embed: url.searchParams.get("embed") === "1", daemonFetch: moduleActionDaemonCapability() };
         const model = hit.impl.load ? await hit.impl.load(ctx) : null;
         const rendered = hit.impl.render(model, ctx);
         // ctx.embed gates the module's own rail emission; the estate-wide embed choke point
