@@ -754,12 +754,14 @@ fn validate_object_model(com: &Value) -> Result<Value, VErr> {
 }
 
 /// Build an ontology receipt (PURE — nothing persists here; #62 proof discipline). The receipt
-/// carries only record-derived fields + the op/summary — never request material.
+/// carries only record-derived fields + the op/summary + the RESOLVED acting principal (INV-37:
+/// every mutation receipt names who acted) — never raw request material.
 fn build_ontology_receipt(
     ontology_ref: &str,
     op: &str,
     summary: &str,
     now: &str,
+    acting_principal_ref: &str,
 ) -> (String, Value) {
     let id = format!("ontr_{:x}", nanos());
     let receipt_ref = format!("agentgres://odk-ontology-receipt/{id}");
@@ -771,6 +773,7 @@ fn build_ontology_receipt(
         "op": op,
         "outcome": "ok",
         "summary": summary,
+        "acting_principal_ref": acting_principal_ref,
         "at": now
     });
     (id, rec)
@@ -862,8 +865,16 @@ pub(crate) async fn handle_odk_ontology_list(
 /// carries revision 1 + a create receipt + a readiness health projection.
 pub(crate) async fn handle_odk_ontology_create(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    // W1.1/G-2 finding closed — identity FIRST (rule E): an anonymous caller is owed the typed
+    // refusal before any validation runs, so no field-shape probe exists for unauthenticated
+    // callers. An ontology write is an authored mutation, not an anonymous append.
+    let identity = match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(error) => return odk_scope_refusal(error),
+    };
     let domain = body
         .get("domain")
         .and_then(|v| v.as_str())
@@ -901,8 +912,13 @@ pub(crate) async fn handle_odk_ontology_create(
     let now = iso_now();
     let oref = format!("ontology://{id}");
     // #62 proof discipline: build record + receipt PURE, then finalize atomically-with-rollback.
-    let (receipt_id, receipt) =
-        build_ontology_receipt(&oref, "created", "DomainOntology draft created", &now);
+    let (receipt_id, receipt) = build_ontology_receipt(
+        &oref,
+        "created",
+        "DomainOntology draft created",
+        &now,
+        &identity.principal_ref,
+    );
     let receipt_ref = receipt.get("receipt_ref").cloned().unwrap_or(Value::Null);
     let record = json!({
         "schema_version": "ioi.hypervisor.odk.domain-ontology.v1",
@@ -951,8 +967,15 @@ pub(crate) async fn handle_odk_ontology_get(
 pub(crate) async fn handle_odk_ontology_patch(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    // W1.1/G-2 finding closed — identity FIRST (rule E): the refusal is owed BEFORE the record
+    // load, so an unauthenticated caller can never use the 404 as an existence oracle.
+    let identity = match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(error) => return odk_scope_refusal(error),
+    };
     let Some(prev) = load(&st.data_dir, KIND_ONT, &id) else {
         return (
             StatusCode::NOT_FOUND,
@@ -1046,7 +1069,8 @@ pub(crate) async fn handle_odk_ontology_patch(
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string();
-    let (receipt_id, receipt) = build_ontology_receipt(&oref, "patched", &summary, &now);
+    let (receipt_id, receipt) =
+        build_ontology_receipt(&oref, "patched", &summary, &now, &identity.principal_ref);
     let receipt_ref = receipt.get("receipt_ref").cloned().unwrap_or(Value::Null);
     // Append a bounded history entry + carry the receipt ref.
     let mut hist = o
@@ -1091,19 +1115,39 @@ pub(crate) async fn handle_odk_ontology_patch(
 pub(crate) async fn handle_odk_ontology_delete(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
-) -> Json<Value> {
-    Json(delete_ontology_receipted(&st.data_dir, &id))
+    headers: HeaderMap,
+) -> (StatusCode, Json<Value>) {
+    // W1.1/G-2 finding closed — identity FIRST (rule E): the refusal is owed BEFORE the record
+    // load inside the receipted delete, so an anonymous caller gets no existence oracle. All
+    // authenticated outcomes keep their 200 body shapes exactly.
+    let identity = match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(error) => return odk_scope_refusal(error),
+    };
+    (
+        StatusCode::OK,
+        Json(delete_ontology_receipted(
+            &st.data_dir,
+            &id,
+            &identity.principal_ref,
+        )),
+    )
 }
 
 /// The receipted-delete body, separated from the axum handler so the rollback discipline is
 /// directly testable (same shape as `finalize_ontology_persist`'s test).
-fn delete_ontology_receipted(data_dir: &str, id: &str) -> Value {
+fn delete_ontology_receipted(data_dir: &str, id: &str, acting_principal_ref: &str) -> Value {
     let Some(prev) = load(data_dir, KIND_ONT, id) else {
         return json!({ "ok": false, "removed": false, "id": id, "reason": "ontology not found" });
     };
     let oref = prev.get("ref").and_then(|v| v.as_str()).unwrap_or("");
-    let (receipt_id, receipt) =
-        build_ontology_receipt(oref, "deleted", "DomainOntology deleted", &iso_now());
+    let (receipt_id, receipt) = build_ontology_receipt(
+        oref,
+        "deleted",
+        "DomainOntology deleted",
+        &iso_now(),
+        acting_principal_ref,
+    );
     if !remove_record(data_dir, KIND_ONT, id) {
         return json!({
             "ok": false, "removed": false, "id": id,
@@ -2241,7 +2285,10 @@ mod odk_tests {
         std::fs::create_dir_all(&dir).unwrap();
         let data_dir = dir.to_str().unwrap();
         let now = "2026-01-01T00:00:00Z";
-        let (rid, receipt) = build_ontology_receipt("ontology://ont_x", "created", "s", now);
+        let (rid, receipt) =
+            build_ontology_receipt("ontology://ont_x", "created", "s", now, "user://tester");
+        // INV-37: the receipt names the resolved acting principal.
+        assert_eq!(receipt["acting_principal_ref"], json!("user://tester"));
         let record =
             json!({ "id": "ont_x", "ref": "ontology://ont_x", "revision": 1, "status": "draft" });
         // Block the receipts dir with a plain file → receipt persist fails.
@@ -2291,7 +2338,7 @@ mod odk_tests {
             json!({ "id": "ont_d", "ref": "ontology://ont_d", "revision": 1, "status": "draft" });
 
         // A missing ontology reports honestly and attests nothing — there was no mutation.
-        let missing = delete_ontology_receipted(data_dir, "ont_absent");
+        let missing = delete_ontology_receipted(data_dir, "ont_absent", "user://tester");
         assert_eq!(missing["ok"], json!(false));
         assert_eq!(missing["removed"], json!(false));
         assert!(read_record_dir(data_dir, KIND_ONT_RECEIPT).is_empty());
@@ -2299,7 +2346,7 @@ mod odk_tests {
         // Receipt persist blocked → the record must be RESTORED; no unreceipted deletion survives.
         persist_record(data_dir, KIND_ONT, "ont_d", &record).unwrap();
         std::fs::write(dir.join(KIND_ONT_RECEIPT), b"blocker").unwrap();
-        let blocked = delete_ontology_receipted(data_dir, "ont_d");
+        let blocked = delete_ontology_receipted(data_dir, "ont_d", "user://tester");
         assert_eq!(blocked["ok"], json!(false));
         assert_eq!(blocked["removed"], json!(false));
         assert!(
@@ -2313,7 +2360,7 @@ mod odk_tests {
 
         // Happy path: the record is gone AND a `deleted` receipt exists naming the ontology.
         std::fs::remove_file(dir.join(KIND_ONT_RECEIPT)).unwrap();
-        let ok = delete_ontology_receipted(data_dir, "ont_d");
+        let ok = delete_ontology_receipted(data_dir, "ont_d", "user://tester");
         assert_eq!(ok["ok"], json!(true));
         assert_eq!(ok["removed"], json!(true));
         assert!(load(data_dir, KIND_ONT, "ont_d").is_none());
@@ -2321,6 +2368,7 @@ mod odk_tests {
         assert_eq!(receipts.len(), 1, "exactly one delete receipt");
         assert_eq!(receipts[0]["op"], json!("deleted"));
         assert_eq!(receipts[0]["ontology_ref"], json!("ontology://ont_d"));
+        assert_eq!(receipts[0]["acting_principal_ref"], json!("user://tester"));
         let _ = std::fs::remove_dir_all(&dir);
     }
 

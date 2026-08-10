@@ -81,17 +81,23 @@ async function startDaemon() {
   return () => log;
 }
 
-const jd = (p, init) => fetch(`${DAEMON}${p}`, init ? { headers: { "content-type": "application/json" }, ...init } : undefined)
+// Ontology writes are identity-first (rule E — the W1.1/G-2 finding is CLOSED): every
+// authoring crossing carries the bootstrap operator's session; the daemon refuses an
+// anonymous write typed-401 BEFORE any record load. Reads stay ungated.
+let SESSION = "";
+const sessionCookie = () => (SESSION ? { cookie: `ioi_session=${SESSION}` } : {});
+
+const jd = (p, init) => fetch(`${DAEMON}${p}`, init ? { headers: { "content-type": "application/json", ...sessionCookie() }, ...init } : undefined)
   .then(async (r) => ({ status: r.status, body: await r.json().catch(() => ({})) }))
   .catch(() => ({ status: 0, body: {} }));
 
 const pageText = (p) => fetch(`${SERVE}${p}`).then(async (r) => ({ status: r.status, text: await r.text() })).catch(() => ({ status: 0, text: "" }));
 
 const MANAGER_ACTIONS = `${"/__ioi/ontology/manager"}/actions`;
-async function act(id, data) {
+async function act(id, data, { anonymous = false } = {}) {
   const r = await fetch(`${SERVE}${MANAGER_ACTIONS}/${id}`, {
     method: "POST",
-    headers: { "content-type": "application/x-www-form-urlencoded" },
+    headers: { "content-type": "application/x-www-form-urlencoded", ...(anonymous ? {} : sessionCookie()) },
     body: new URLSearchParams(data).toString(),
     redirect: "manual",
   }).catch(() => null);
@@ -105,14 +111,17 @@ async function run() {
   DAEMON = `http://127.0.0.1:${daemonPort}`;
   const daemonLogFn = await startDaemon();
 
-  // Operator bootstrap mirrors scripts/smoke-product-surfaces.mjs.
+  // Operator bootstrap mirrors scripts/smoke-product-surfaces.mjs; the yielded session is
+  // now the AUTHORING identity every write below carries (identity-first ontology writes).
   const token = daemonLogFn().match(/ioi_bootstrap_[a-f0-9]{64}/gu)?.at(-1) ?? null;
   if (token) {
-    await jd("/v1/hypervisor/auth/bootstrap", {
+    const boot = await jd("/v1/hypervisor/auth/bootstrap", {
       method: "POST",
       body: JSON.stringify({ token, password: "ontology-journey-bootstrap-v1", email: "ontology-journey@ioi.local" }),
     });
+    SESSION = boot.body?.session_token ?? "";
   }
+  ok("operator bootstrap yields an authenticated session", SESSION.startsWith("ioi_sess_"), SESSION.slice(0, 12));
 
   const servePort = await freePort();
   const productUiPort = await freePort();
@@ -201,6 +210,10 @@ async function run() {
   ok("Explorer scope selector resolves the ontology", scoped.status === 200 && scoped.text.includes(domain), "");
   const history = await jd(`/v1/hypervisor/odk/domain-ontologies/${ontId}/history`);
   ok("history records the mutation trail", history.status === 200 && JSON.stringify(history.body).length > 2, `status ${history.status}`);
+  const historyReceipts = Array.isArray(history.body?.receipts) ? history.body.receipts : [];
+  ok("receipts bind the resolved acting principal (INV-37)",
+    historyReceipts.length > 0 && historyReceipts.every((r) => typeof r.acting_principal_ref === "string" && r.acting_principal_ref.startsWith("user://")),
+    historyReceipts[0]?.acting_principal_ref ?? "no receipts");
   const health = await jd(`/v1/hypervisor/odk/domain-ontologies/${ontId}/health`);
   ok("health answers for the authored ontology", health.status === 200, `status ${health.status}`);
 
@@ -210,9 +223,32 @@ async function run() {
   const savedSet = await jd("/v1/hypervisor/odk/materialized-object-sets", { method: "POST", body: JSON.stringify({ name: "x" }) });
   ok("saved-set authoring absent — named gap typed, not simulated", savedSet.status === 404 || savedSet.status === 405, `status ${savedSet.status}`);
 
-  // -- identity posture: current contract, recorded not hidden ---------------
-  ok("FINDING(typed): ontology writes cross with no identity envelope (loopback dev posture; W1.1/G-2 pull)", true,
-    "handle_odk_ontology_create/patch take no HeaderMap; module ignores daemonFetch");
+  // -- identity gate (W1.1/G-2 finding CLOSED): anonymous authoring refuses typed ----
+  // Rule E — the refusal is owed BEFORE any record load: the serve action lane without a
+  // session and a direct daemon write without identity both answer the typed
+  // request_principal_required, never a silent success and never a 404 existence oracle.
+  const anonAct = await act("upsert-object-type", { ontology: ontId, def_id: "obj_anon", name: "Anon" }, { anonymous: true });
+  ok("anonymous serve action refuses typed (request_principal_required, no receipt)",
+    anonAct.status === 303 && anonAct.q.get("refused") === "request_principal_required" && !anonAct.q.get("acted") && !anonAct.q.get("receipt"),
+    anonAct.location.slice(0, 130));
+  const anonCreate = await fetch(`${DAEMON}/v1/hypervisor/odk/domain-ontologies`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ domain: "anon-domain" }),
+  }).then(async (r) => ({ status: r.status, body: await r.json().catch(() => ({})) })).catch(() => ({ status: 0, body: {} }));
+  ok("anonymous direct daemon create answers typed 401 request_principal_required",
+    anonCreate.status === 401 && anonCreate.body?.ok === false && anonCreate.body?.code === "request_principal_required",
+    `status ${anonCreate.status} code ${anonCreate.body?.code}`);
+  const anonPatch = await fetch(`${DAEMON}/v1/hypervisor/odk/domain-ontologies/${ontId}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ description: "anon write" }),
+  }).then(async (r) => ({ status: r.status, body: await r.json().catch(() => ({})) })).catch(() => ({ status: 0, body: {} }));
+  ok("anonymous direct daemon patch answers typed 401 before the record load (rule E)",
+    anonPatch.status === 401 && anonPatch.body?.code === "request_principal_required",
+    `status ${anonPatch.status} code ${anonPatch.body?.code}`);
+  const unchanged = await jd(`/v1/hypervisor/odk/domain-ontologies/${ontId}`);
+  ok("anonymous attempts changed nothing", unchanged.status === 200 && unchanged.body?.ontology?.revision === expectedRev, `rev ${unchanged.body?.ontology?.revision}`);
 
   // -- restart survival -------------------------------------------------------
   daemon.kill("SIGTERM");
