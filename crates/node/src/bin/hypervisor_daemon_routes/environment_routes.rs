@@ -2130,11 +2130,18 @@ pub(crate) async fn handle_project_environment_classes_patch(
         );
     }
     if persist_record(&st.data_dir, "project-receipts", &receipt_id, &receipt).is_err() {
-        let _ = persist_record(&st.data_dir, "projects", &id, &prev);
+        // Double-fault disclosure: the restore's own result is part of the truth — a
+        // discarded restore would hide a record that kept the binding without its proof.
+        let restored = persist_record(&st.data_dir, "projects", &id, &prev).is_ok();
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!({ "ok": false, "code": "project_receipt_persistence_failed",
-                "message": "the receipt did not commit — the binding was restored to its prior state" })),
+                "restored": restored,
+                "message": if restored {
+                    "the receipt did not commit — the binding was restored to its prior state"
+                } else {
+                    "the receipt did not commit AND the restore failed — the record may hold the new binding without its receipt; re-read before retrying"
+                } })),
         );
     }
     (StatusCode::OK, Json(json!({ "ok": true, "project": next, "receipt": receipt })))
