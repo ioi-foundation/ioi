@@ -31,6 +31,7 @@ import * as sourcesModule from "../surfaces/sources/index.mjs";
 import * as missionsModule from "../surfaces/missions/index.mjs";
 import * as studioModule from "../surfaces/studio/index.mjs";
 import * as packagesModule from "../surfaces/packages/index.mjs";
+import * as automationsModule from "../surfaces/automations/index.mjs";
 
 // Capability model (operational wave): `capabilities` is the AUTHORITY-derived set of acts the
 // surface genuinely supports today (never inferred from pixel certification or daemon_wired);
@@ -83,6 +84,16 @@ export const SURFACES = [
   { slug: "packages", owner: "Packages", title: "Packages", icon: MARKETPLACE_APP_ICON_URI, route: "/__ioi/packages/registry", canonical_route: "/packages", verifier: "scripts/verify-hypervisor-packages-journey.mjs", certification: "n/a", capabilities: ["browse", "select", "inspect", "create", "transition"], operational_state: "act", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "packages-marketplace", owner: "Packages", title: "Packages / Marketplace", icon: MARKETPLACE_APP_ICON_URI, route: "/__ioi/packages/marketplace", canonical_route: "/packages/marketplace", verifier: "scripts/verify-hypervisor-packages-journey.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "monitors", owner: "Automations", title: "Automate", icon: MON_APP_TILE_URI, route: "/__ioi/automations/monitors", verifier: "scripts/verify-hypervisor-app-parity-monitors.mjs", certification: "pixel-certifications/monitors.json", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  // W2.1 next-legs II Leg 4: the Automations surface packet — canonical /automations plus a
+  // FRESH legacy lane /__ioi/automations-cockpit (deliberately NOT nested under
+  // /__ioi/automations/, whose flat :id dispatch would shadow it; every seed lane there keeps
+  // serving untouched until the W4 cutover). The module rehomes the T2 cockpit grammar
+  // READ-FIRST over the shared read client; the daemon-owned verbs (create/patch/delete/run/
+  // webhook-rotate) stay wired through the seed cockpit's own action lanes because the family
+  // returns NO admission receipts yet (the brief's named W2 defect) — so the module declares no
+  // receipted actions and its operational_state stays "inspect" honestly. Evidence: the
+  // automations journey verifier.
+  { slug: "automations", owner: "Automations", title: "Automations", icon: MON_APP_TILE_URI, route: "/__ioi/automations-cockpit", canonical_route: "/automations", verifier: "scripts/verify-hypervisor-automations-journey.mjs", certification: "n/a", capabilities: ["browse", "filter", "select", "inspect"], operational_state: "inspect", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "changes", owner: "Improvement", title: "Upgrade Assistant", icon: CHG_APP_TILE_URI, route: "/__ioi/improvement/changes", verifier: "scripts/verify-hypervisor-app-parity-changes.mjs", certification: "pixel-certifications/changes.json", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "evalsuites", owner: "Evaluations", title: "AIP Evals", icon: EVL_APP_TILE_URI, route: "/__ioi/evaluations/evalsuites", verifier: "scripts/verify-hypervisor-app-parity-evalsuites.mjs", certification: "pixel-certifications/evalsuites.json", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
 ];
@@ -185,6 +196,7 @@ bindSurface("studio-home", studioModule);
 // marketplace mounts render the read-first mode); ownership markers stay per-row truthful.
 bindSurface("packages", packagesModule);
 bindSurface("packages-marketplace", packagesModule);
+bindSurface("automations", automationsModule);
 
 // Test-only fault surface (NEVER without the runtime-test flag): gives the action-runtime
 // verifier a module whose action THROWS (route isolation proof) and one that claims success
