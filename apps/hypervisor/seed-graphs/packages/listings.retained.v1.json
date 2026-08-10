@@ -713,11 +713,28 @@
   ],
   "blockers": [],
   "replay": {
-    "walked_all_edges": true,
-    "walked_at": "2026-08-09T16:47:32.234Z",
-    "problems": []
+    "mode": "interaction",
+    "walked_all_edges": false,
+    "edges_total": 42,
+    "edges_executed": 5,
+    "edges_skip_classified": 10,
+    "problems": [
+      "edge n0/\"Skip to content\": control unresolved (unclickable at capture and at replay)",
+      "edge n0/\"Collapse Foundry sidebar\": control no longer clickable (recorded state-change)",
+      "edge n0/\"Search…ctrl + J\": control no longer clickable (recorded blocked-write-attempt)",
+      "edge n0/\"Notifications\": control no longer clickable (recorded blocked-write-attempt)",
+      "edge n0/\"Recent\": control unresolved (unclickable at capture and at replay)",
+      "edge n0/\"Applications\": control unresolved (unclickable at capture and at replay)",
+      "edge n0/\"Support\": control unresolved (unclickable at capture and at replay)",
+      "edge n0/\"Account\": control unresolved (unclickable at capture and at replay)",
+      "edge n0/\"Installations\": control unresolved (unclickable at capture and at replay)",
+      "edge n0/\"Help\": control unresolved (unclickable at capture and at replay)",
+      "edge n0/\"Show column options\": control unresolved (unclickable at capture and at replay)",
+      "cannot re-establish node n1 (/workspace/marketplace/home) — its 19 edges are unverified"
+    ],
+    "walked_at": "2026-08-09T23:45:42.088Z"
   },
-  "complete_interaction_route_graph": true,
+  "complete_interaction_route_graph": false,
   "shots_dir": ".artifacts/seed-graph-shots/packages/listings",
-  "content_address": "3ff71d6c8618c1f0744f8bc21782b844a167bc43c70d26ab62705e01da2bf61d"
+  "content_address": "ffb85dedfeb674e32fd6c2bc54fc309d685a5f7e79c4d0fb6bb51301feea829f"
 }

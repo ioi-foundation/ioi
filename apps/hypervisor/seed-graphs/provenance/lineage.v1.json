@@ -270,11 +270,15 @@
   ],
   "blockers": [],
   "replay": {
+    "mode": "interaction",
     "walked_all_edges": true,
-    "walked_at": "2026-08-09T16:42:10.651Z",
-    "problems": []
+    "edges_total": 14,
+    "edges_executed": 1,
+    "edges_skip_classified": 13,
+    "problems": [],
+    "walked_at": "2026-08-09T23:45:45.990Z"
   },
   "complete_interaction_route_graph": true,
   "shots_dir": ".artifacts/seed-graph-shots/provenance/lineage",
-  "content_address": "a5e9a92ddb4554ed6ac8e7900fe701247524810763f29a5f92e00bb85a695ed0"
+  "content_address": "7cb9f2dce9fdc878f2fb516a914cba8d1b53ffb781a3ba5fa335dd8bb55cd22d"
 }

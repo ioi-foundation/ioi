@@ -688,11 +688,15 @@
   ],
   "blockers": [],
   "replay": {
+    "mode": "interaction",
     "walked_all_edges": true,
-    "walked_at": "2026-08-09T16:03:19.145Z",
-    "problems": []
+    "edges_total": 40,
+    "edges_executed": 3,
+    "edges_skip_classified": 37,
+    "problems": [],
+    "walked_at": "2026-08-09T23:46:02.999Z"
   },
   "complete_interaction_route_graph": true,
   "shots_dir": ".artifacts/seed-graph-shots/work/incidents",
-  "content_address": "5e6978822f34ead237dfdae9983166ecde6261803d320d44fa378984d3ee914c"
+  "content_address": "1965aec3c0bfff041acf8172edf43795f8b704d74c20ab9db26e418d797a3ade"
 }

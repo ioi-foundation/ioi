@@ -9304,11 +9304,29 @@
   ],
   "blockers": [],
   "replay": {
-    "walked_all_edges": true,
-    "walked_at": "2026-08-09T16:38:30.886Z",
-    "problems": []
+    "mode": "interaction",
+    "walked_all_edges": false,
+    "edges_total": 616,
+    "edges_executed": 60,
+    "edges_skip_classified": 548,
+    "problems": [
+      "edge n1/\"Filter\": recorded noop, observed state-change",
+      "edge n1/\"probe-reencode v1 ▾\": recorded navigated, observed noop",
+      "edge n11/\"probe-reencode v1 ▾\": recorded state-change, observed noop",
+      "edge n12/\"Filter\": recorded noop, observed navigated",
+      "edge n12/\"— none —\": recorded unclickable but clicks now — recapture this source",
+      "edge n12/\"Save\": recorded unclickable but clicks now — recapture this source",
+      "edge n12/\"stringintegerdoublebooleantimestampenum\": recorded unclickable but clicks now — recapture this source",
+      "edge n12/\"Save\": recorded unclickable but clicks now — recapture this source",
+      "edge n13/\"Filter\": recorded navigated, observed noop",
+      "edge n23/\"— none —\": recorded unclickable but clicks now — recapture this source",
+      "edge n23/\"Save\": recorded unclickable but clicks now — recapture this source",
+      "edge n23/\"stringintegerdoublebooleantimestampenum\": recorded unclickable but clicks now — recapture this source",
+      "edge n23/\"Save\": recorded unclickable but clicks now — recapture this source"
+    ],
+    "walked_at": "2026-08-09T23:47:02.861Z"
   },
-  "complete_interaction_route_graph": true,
+  "complete_interaction_route_graph": false,
   "shots_dir": ".artifacts/seed-graph-shots/ontology/schema",
-  "content_address": "1b07de3dd18a1c8b3fdfcca19eeb50096cddbd5fa179fa10ad48565293fbaf7c"
+  "content_address": "30feb5c4419acd42a1e0b9eaef797549f93aae579edd409d85c1849c3a2df9c2"
 }

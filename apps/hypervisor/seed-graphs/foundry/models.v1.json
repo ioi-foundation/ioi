@@ -212,11 +212,15 @@
   ],
   "blockers": [],
   "replay": {
+    "mode": "interaction",
     "walked_all_edges": true,
-    "walked_at": "2026-08-09T16:20:39.315Z",
-    "problems": []
+    "edges_total": 12,
+    "edges_executed": 0,
+    "edges_skip_classified": 12,
+    "problems": [],
+    "walked_at": "2026-08-09T23:42:05.871Z"
   },
   "complete_interaction_route_graph": true,
   "shots_dir": ".artifacts/seed-graph-shots/foundry/models",
-  "content_address": "ddb16292d855c9456243c2fb185da6ac9ff37514943bd2da81c5447811abeb56"
+  "content_address": "51378ac2e69a4967425d0b0b18782b69bd2c915ddd81465e8c53268a434ff433"
 }

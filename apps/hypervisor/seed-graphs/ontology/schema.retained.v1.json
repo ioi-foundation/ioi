@@ -492,11 +492,25 @@
   ],
   "blockers": [],
   "replay": {
-    "walked_all_edges": true,
-    "walked_at": "2026-08-09T16:36:49.589Z",
-    "problems": []
+    "mode": "interaction",
+    "walked_all_edges": false,
+    "edges_total": 29,
+    "edges_executed": 3,
+    "edges_skip_classified": 7,
+    "problems": [
+      "edge n0/\"Skip to content\": control unresolved (unclickable at capture and at replay)",
+      "edge n0/\"Collapse Foundry sidebar\": control no longer clickable (recorded state-change)",
+      "edge n0/\"Search…ctrl + J\": control no longer clickable (recorded blocked-write-attempt)",
+      "edge n0/\"Notifications\": control no longer clickable (recorded blocked-write-attempt)",
+      "edge n0/\"Recent\": control unresolved (unclickable at capture and at replay)",
+      "edge n0/\"Applications\": control unresolved (unclickable at capture and at replay)",
+      "edge n0/\"Support\": control unresolved (unclickable at capture and at replay)",
+      "edge n0/\"Account\": control unresolved (unclickable at capture and at replay)",
+      "cannot re-establish node n1 (/workspace/ontology/home/discover) — its 14 edges are unverified"
+    ],
+    "walked_at": "2026-08-09T23:44:08.122Z"
   },
-  "complete_interaction_route_graph": true,
+  "complete_interaction_route_graph": false,
   "shots_dir": ".artifacts/seed-graph-shots/ontology/schema",
-  "content_address": "a7c9a0a48f7dbe44ec28c2573e29f0e18ad1da28dd7e0ccf58d2bdb0d7c8723b"
+  "content_address": "2601630aa171a6e1357a6c9c3a56f4509bf50ae5f3832973de99cf75cd9acdf9"
 }

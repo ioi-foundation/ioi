@@ -172,11 +172,15 @@
   ],
   "blockers": [],
   "replay": {
+    "mode": "interaction",
     "walked_all_edges": true,
-    "walked_at": "2026-08-09T16:45:15.892Z",
-    "problems": []
+    "edges_total": 9,
+    "edges_executed": 0,
+    "edges_skip_classified": 9,
+    "problems": [],
+    "walked_at": "2026-08-09T23:44:26.320Z"
   },
   "complete_interaction_route_graph": true,
   "shots_dir": ".artifacts/seed-graph-shots/packages/listings",
-  "content_address": "2517c2d6c47ebf0b49b1d51eeb54b2975e20a65fdb9671c7325a952f10a6fb93"
+  "content_address": "45f381d2b4c61761359f8324d43a2e49e238a4c4391d65bf684e7fb0cfd415d1"
 }

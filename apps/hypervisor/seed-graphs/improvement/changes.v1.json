@@ -1586,11 +1586,15 @@
   ],
   "blockers": [],
   "replay": {
+    "mode": "interaction",
     "walked_all_edges": true,
-    "walked_at": "2026-08-09T16:43:29.777Z",
-    "problems": []
+    "edges_total": 98,
+    "edges_executed": 6,
+    "edges_skip_classified": 92,
+    "problems": [],
+    "walked_at": "2026-08-09T23:42:52.953Z"
   },
   "complete_interaction_route_graph": true,
   "shots_dir": ".artifacts/seed-graph-shots/improvement/changes",
-  "content_address": "5cfccbb538fee3aea5be5ac85ac6614f0bbb581b7e84726cfaeafa395a32a017"
+  "content_address": "6e943929b9806bd5fd331ff894f16d97bac7b2a75bf7ff20a773488ed6070795"
 }
