@@ -59,6 +59,7 @@
         "inventory_version": 1,
         "routes": [
           "/",
+          "/__ioi/automations-cockpit",
           "/__ioi/automations/monitors",
           "/__ioi/data/sources",
           "/__ioi/evaluations/evalsuites",
@@ -106,8 +107,8 @@
           "/work/new-session",
           "/work/sessions"
         ],
-        "expected_count": 47,
-        "sha256": "6a9f21e6edfc7e621e25020f7b89d894fa816be839fd02761ba01306ef500328",
+        "expected_count": 48,
+        "sha256": "a07ccd566c3f5e9bdd9d1a588d73518fb12ae8e866e183a492ed59b682ebb78a",
         "browser_verification_id": "served-surface-smoke"
       },
       "state_authority_mode": "daemon_authoritative_projection",

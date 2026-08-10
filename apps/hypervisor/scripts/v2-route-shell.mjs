@@ -161,9 +161,10 @@ export const V2_ROUTE_TABLE = [
     kind: "owner application",
     rule: "shell placement and application identity resolve to the same registration",
     waves: "W0.6 (scheduler read) · W1 · W2",
-    build_state: "shell-only (W0.1) — Wave 1 read-first build (surfaces/automations.md §5). The click-capture hijack that rewrote this canonical route into /__ioi/automations was retired at W0.1 (canon wins); the legacy readout stays reachable below",
+    build_state: "W2.1 rehome landed — the bound surface module serves this canonical route (spec list/detail/new read-first over the shared read client; daemon-owned verbs through the seed cockpit lanes; receipts are the W2 lease-client wave per surfaces/automations.md §5). Legacy lanes keep serving until the W4 cutover",
     serving_today: [
-      { href: "/__ioi/automations", label: "Automations readout", note: "project-first automations over the daemon scheduler; rehomes into this route in Wave 1" },
+      { href: "/automations", label: "Automations (canonical)", note: "rehomed module at the canonical route — read-first cockpit over the daemon automations family" },
+      { href: "/__ioi/automations", label: "Automations readout (legacy lane)", note: "keeps serving untouched until the W4 cutover" },
       { href: "/__ioi/automations/monitors", label: "Automate / monitors", note: "protected ported seed (daemon-wired)" },
     ],
   },
