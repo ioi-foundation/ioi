@@ -1,6 +1,6 @@
 {
   "schema_version": "ioi.hypervisor.seed-ux-provenance.v1",
-  "doctrine": "Fail-closed seed provenance for the twenty Hypervisor surfaces. A UX baseline is admitted only from an exact tracked provenance record; a canonical W0.1 shell, a generic /__ioi readout, visual resemblance, a control census, or a registration is never a seed. No surface rehome begins until every selected source carries a content-addressed complete interaction/route graph (complete_interaction_route_graph=true, replay-walked), or the surface carries a typed greenfield-authorized-non-parity record. A blocked record documents a gap only and never opens iteration.",
+  "doctrine": "Fail-closed seed provenance for the twenty Hypervisor surfaces. A UX baseline is admitted only from an exact tracked provenance record; a canonical W0.1 shell, a generic /__ioi readout, visual resemblance, a control census, or a registration is never a seed. No surface rehome begins until every selected source carries a content-addressed complete interaction/route graph (complete_interaction_route_graph=true, replay-walked), or the surface carries a typed greenfield-authorized-non-parity record. A blocked record documents a gap only and never opens iteration. Seed roles (owner ruling 2026-08-09, owner-reversible): protected executable ports are the baseline seed; retained captures and dormant references corroborate. Readiness derives from baseline graph completeness; corroborating states stay typed and visible and never hold or open the gate.",
   "derived_from": {
     "audit_pack": "internal-docs/audits/2026-08-09-hypervisor-live-ux-workstream-coverage/ (gitignored research evidence)",
     "audit_commit": "b309cf5e8031bd5faff52b85ea6bd0ad9d8df260",
@@ -94,8 +94,8 @@
       "owner": "Work",
       "canonical_route": "/work",
       "baseline_status": "provenance-qualified-executable-seed-present",
-      "graph_mapping_status": "blocked-explored-control-graph-not-complete",
-      "seed_graph_ready_for_rehome": false,
+      "graph_mapping_status": "baseline-graphs-complete-corroborating-typed",
+      "seed_graph_ready_for_rehome": true,
       "greenfield_authorization": null,
       "graph_recovery_status": "required-for-every-summary-only-source",
       "sources": [
@@ -112,7 +112,8 @@
           },
           "graph_file": "seed-graphs/work/jobs.v1.json",
           "class": "substrate_bound",
-          "owner_mapping_note": "retired owner name: surface-registry.mjs still labels /__ioi/missions with the retired owner 'Missions'; canonical owner is Work per the estate ledger and core-clients-surfaces.md. The registry rename lands with the Work surface packet, not here."
+          "owner_mapping_note": "retired owner name: surface-registry.mjs still labels /__ioi/missions with the retired owner 'Missions'; canonical owner is Work per the estate ledger and core-clients-surfaces.md. The registry rename lands with the Work surface packet, not here.",
+          "seed_role": "baseline"
         },
         {
           "kind": "protected-executable-seed",
@@ -127,7 +128,8 @@
           },
           "graph_file": "seed-graphs/work/incidents.v1.json",
           "class": "daemon_wired",
-          "owner_mapping_note": "retired owner name: surface-registry.mjs still labels /__ioi/missions/incidents with the retired owner 'Missions'; canonical owner is Work per the estate ledger and core-clients-surfaces.md. The registry rename lands with the Work surface packet, not here."
+          "owner_mapping_note": "retired owner name: surface-registry.mjs still labels /__ioi/missions/incidents with the retired owner 'Missions'; canonical owner is Work per the estate ledger and core-clients-surfaces.md. The registry rename lands with the Work surface packet, not here.",
+          "seed_role": "baseline"
         },
         {
           "kind": "retained-harvest-capture",
@@ -143,7 +145,8 @@
           "graph_file": "seed-graphs/work/jobs.retained.v1.json",
           "disposition": "rebind",
           "audit_route_disposition": "retained-seed",
-          "replay_problem_count": 18
+          "replay_problem_count": 18,
+          "seed_role": "corroborating"
         },
         {
           "kind": "retained-harvest-capture",
@@ -159,7 +162,8 @@
           "graph_file": null,
           "disposition": "rebind",
           "audit_route_disposition": "retained-seed",
-          "visual_blocker": "stable matrix is not trustworthy: one file was overwritten with a contact sheet and no immutable genuine render is established"
+          "visual_blocker": "stable matrix is not trustworthy: one file was overwritten with a contact sheet and no immutable genuine render is established",
+          "seed_role": "corroborating"
         }
       ]
     },
@@ -185,8 +189,8 @@
       "owner": "Studio",
       "canonical_route": "/studio",
       "baseline_status": "provenance-qualified-executable-seed-present",
-      "graph_mapping_status": "blocked-explored-control-graph-not-complete",
-      "seed_graph_ready_for_rehome": false,
+      "graph_mapping_status": "baseline-graphs-complete-corroborating-typed",
+      "seed_graph_ready_for_rehome": true,
       "greenfield_authorization": null,
       "graph_recovery_status": "required-for-every-summary-only-source",
       "sources": [
@@ -202,7 +206,8 @@
             "complete_interaction_route_graph": true
           },
           "graph_file": "seed-graphs/studio/designer.v1.json",
-          "class": "daemon_wired"
+          "class": "daemon_wired",
+          "seed_role": "baseline"
         },
         {
           "kind": "retained-harvest-capture",
@@ -218,7 +223,8 @@
           "graph_file": null,
           "disposition": "rebind",
           "audit_route_disposition": "retained-seed",
-          "graph_capture_note": "graph capture failed: the solution-designer canvas hangs the quarantined crawl past the 500s budget (repeated timeouts at 25- and 80-node caps); graph unrecovered, source stays blocked."
+          "graph_capture_note": "graph capture failed: the solution-designer canvas hangs the quarantined crawl past the 500s budget (repeated timeouts at 25- and 80-node caps); graph unrecovered, source stays blocked.",
+          "seed_role": "corroborating"
         },
         {
           "kind": "retained-harvest-capture",
@@ -234,7 +240,8 @@
           "graph_file": null,
           "disposition": "pattern-harvest",
           "audit_route_disposition": "retained-seed",
-          "visual_blocker": "stable replay initiates a browser download/redirect"
+          "visual_blocker": "stable replay initiates a browser download/redirect",
+          "seed_role": "corroborating"
         },
         {
           "kind": "retained-harvest-capture",
@@ -250,7 +257,8 @@
           "graph_file": null,
           "disposition": "pattern-harvest",
           "audit_route_disposition": "retained-seed",
-          "visual_blocker": "stable replay is Page not found"
+          "visual_blocker": "stable replay is Page not found",
+          "seed_role": "corroborating"
         },
         {
           "kind": "retained-harvest-capture",
@@ -266,7 +274,8 @@
           "graph_file": null,
           "disposition": "pattern-harvest",
           "audit_route_disposition": "retained-seed",
-          "visual_blocker": "stable matrix is blank/global-chrome-only rather than substantive application UX"
+          "visual_blocker": "stable matrix is blank/global-chrome-only rather than substantive application UX",
+          "seed_role": "corroborating"
         },
         {
           "kind": "retained-harvest-capture",
@@ -282,7 +291,8 @@
           "graph_file": null,
           "disposition": "pattern-harvest",
           "audit_route_disposition": "retained-seed",
-          "visual_blocker": "stable replay is global chrome plus Failed to initialize"
+          "visual_blocker": "stable replay is global chrome plus Failed to initialize",
+          "seed_role": "corroborating"
         },
         {
           "kind": "retained-harvest-capture",
@@ -298,7 +308,8 @@
           "graph_file": null,
           "disposition": "pattern-harvest",
           "audit_route_disposition": "retained-seed",
-          "visual_blocker": "stable replay is global chrome plus Failed to load analysis"
+          "visual_blocker": "stable replay is global chrome plus Failed to load analysis",
+          "seed_role": "corroborating"
         },
         {
           "kind": "retained-harvest-capture",
@@ -314,7 +325,8 @@
           "graph_file": null,
           "disposition": "blocked-missing-route",
           "audit_route_disposition": "blocked-missing-runtime",
-          "visual_blocker": "stable replay is a Not Found page"
+          "visual_blocker": "stable replay is a Not Found page",
+          "seed_role": "corroborating"
         }
       ]
     },
@@ -323,8 +335,8 @@
       "owner": "Automations",
       "canonical_route": "/automations",
       "baseline_status": "provenance-qualified-executable-seed-present",
-      "graph_mapping_status": "blocked-explored-control-graph-not-complete",
-      "seed_graph_ready_for_rehome": false,
+      "graph_mapping_status": "baseline-graphs-complete-corroborating-typed",
+      "seed_graph_ready_for_rehome": true,
       "greenfield_authorization": null,
       "graph_recovery_status": "required-for-every-summary-only-source",
       "sources": [
@@ -341,7 +353,8 @@
           },
           "graph_file": "seed-graphs/automations/machinery.v1.json",
           "class": "daemon_wired",
-          "owner_mapping_note": "OQ-2 open dual-owner record: surface-registry.mjs declares Studio; the 2026-08-09 audit's canonical reading is Automations; neither side is picked to unblock work. manifest.v1.json open_questions OQ-2 and docs/architecture/_meta/canon-to-code-delta.md carry the record."
+          "owner_mapping_note": "OQ-2 open dual-owner record: surface-registry.mjs declares Studio; the 2026-08-09 audit's canonical reading is Automations; neither side is picked to unblock work. manifest.v1.json open_questions OQ-2 and docs/architecture/_meta/canon-to-code-delta.md carry the record.",
+          "seed_role": "baseline"
         },
         {
           "kind": "protected-executable-seed",
@@ -355,7 +368,8 @@
             "complete_interaction_route_graph": true
           },
           "graph_file": "seed-graphs/automations/monitors.v1.json",
-          "class": "daemon_wired"
+          "class": "daemon_wired",
+          "seed_role": "baseline"
         },
         {
           "kind": "retained-harvest-capture",
@@ -371,7 +385,8 @@
           "graph_file": null,
           "disposition": "pattern-harvest",
           "audit_route_disposition": "retained-seed",
-          "graph_capture_note": "graph capture quarantine-inadmissible (AUD-WS-005 true positive): the retained capture app issued 15 POST /graphql-gateway/api/graphql corpus-mutation attempts plus release-notes and log-beacon writes; all were aborted and recorded. The violation-bearing graph stays on disk as typed evidence (seed-graphs/automations/monitors.retained.v1.json) and is never a graph_file."
+          "graph_capture_note": "graph capture quarantine-inadmissible (AUD-WS-005 true positive): the retained capture app issued 15 POST /graphql-gateway/api/graphql corpus-mutation attempts plus release-notes and log-beacon writes; all were aborted and recorded. The violation-bearing graph stays on disk as typed evidence (seed-graphs/automations/monitors.retained.v1.json) and is never a graph_file.",
+          "seed_role": "corroborating"
         },
         {
           "kind": "retained-harvest-capture",
@@ -388,7 +403,8 @@
           "disposition": "pattern-harvest",
           "audit_route_disposition": "retained-seed",
           "owner_mapping_note": "audit correction: current canonical process-graph owner is Automations; estate sweep carries the older Studio mesh assignment",
-          "replay_problem_count": 36
+          "replay_problem_count": 36,
+          "seed_role": "corroborating"
         }
       ]
     },
@@ -415,7 +431,8 @@
           },
           "graph_file": "seed-graphs/ontology/schema.v1.json",
           "class": "daemon_wired",
-          "replay_problem_count": 13
+          "replay_problem_count": 13,
+          "seed_role": "baseline"
         },
         {
           "kind": "protected-executable-seed",
@@ -429,7 +446,8 @@
             "complete_interaction_route_graph": true
           },
           "graph_file": "seed-graphs/ontology/explorer.v1.json",
-          "class": "daemon_wired"
+          "class": "daemon_wired",
+          "seed_role": "baseline"
         },
         {
           "kind": "retained-harvest-capture",
@@ -445,7 +463,8 @@
           "graph_file": "seed-graphs/ontology/schema.retained.v1.json",
           "disposition": "pattern-harvest",
           "audit_route_disposition": "retained-seed",
-          "replay_problem_count": 9
+          "replay_problem_count": 9,
+          "seed_role": "corroborating"
         },
         {
           "kind": "retained-harvest-capture",
@@ -461,7 +480,8 @@
           "graph_file": null,
           "disposition": "pattern-harvest",
           "audit_route_disposition": "retained-seed",
-          "visual_blocker": "stable matrix is generic failure/error-only rather than substantive application UX"
+          "visual_blocker": "stable matrix is generic failure/error-only rather than substantive application UX",
+          "seed_role": "corroborating"
         },
         {
           "kind": "retained-harvest-capture",
@@ -477,7 +497,8 @@
           "graph_file": null,
           "disposition": "blocked-missing-capture",
           "audit_route_disposition": "blocked-missing-capture",
-          "visual_blocker": "stable replay initiates a browser download/redirect"
+          "visual_blocker": "stable replay initiates a browser download/redirect",
+          "seed_role": "corroborating"
         },
         {
           "kind": "retained-harvest-capture",
@@ -493,7 +514,8 @@
           "graph_file": null,
           "disposition": "blocked-missing-capture",
           "audit_route_disposition": "blocked-missing-capture",
-          "visual_blocker": "stable replay initiates a browser download/redirect"
+          "visual_blocker": "stable replay initiates a browser download/redirect",
+          "seed_role": "corroborating"
         }
       ]
     },
@@ -520,7 +542,8 @@
           },
           "graph_file": "seed-graphs/data/sources.v1.json",
           "class": "daemon_wired",
-          "replay_problem_count": 1
+          "replay_problem_count": 1,
+          "seed_role": "baseline"
         },
         {
           "kind": "protected-executable-seed",
@@ -535,7 +558,8 @@
           },
           "graph_file": "seed-graphs/data/pipeline.v1.json",
           "class": "daemon_wired",
-          "replay_problem_count": 13
+          "replay_problem_count": 13,
+          "seed_role": "baseline"
         },
         {
           "kind": "retained-harvest-capture",
@@ -551,7 +575,8 @@
           "graph_file": null,
           "disposition": "pattern-harvest",
           "audit_route_disposition": "retained-seed",
-          "visual_blocker": "stable replay is blank global chrome"
+          "visual_blocker": "stable replay is blank global chrome",
+          "seed_role": "corroborating"
         },
         {
           "kind": "retained-harvest-capture",
@@ -567,7 +592,8 @@
           "graph_file": null,
           "disposition": "pattern-harvest",
           "audit_route_disposition": "retained-seed",
-          "visual_blocker": "stable replay is blank global chrome"
+          "visual_blocker": "stable replay is blank global chrome",
+          "seed_role": "corroborating"
         },
         {
           "kind": "retained-harvest-capture",
@@ -583,7 +609,8 @@
           "graph_file": "seed-graphs/data/pipeline.retained.v1.json",
           "disposition": "pattern-harvest",
           "audit_route_disposition": "retained-seed",
-          "replay_problem_count": 57
+          "replay_problem_count": 57,
+          "seed_role": "corroborating"
         },
         {
           "kind": "retained-harvest-capture",
@@ -599,7 +626,8 @@
           "graph_file": null,
           "disposition": "blocked-missing-route",
           "audit_route_disposition": "blocked-missing-runtime",
-          "visual_blocker": "stable replay is an invalid-resource Not a dataset page"
+          "visual_blocker": "stable replay is an invalid-resource Not a dataset page",
+          "seed_role": "corroborating"
         },
         {
           "kind": "retained-harvest-capture",
@@ -615,7 +643,8 @@
           "graph_file": null,
           "disposition": "rehome",
           "audit_route_disposition": "rehomed",
-          "visual_blocker": "stable matrix is generic failure/error-only rather than substantive application UX"
+          "visual_blocker": "stable matrix is generic failure/error-only rather than substantive application UX",
+          "seed_role": "corroborating"
         }
       ]
     },
@@ -624,8 +653,8 @@
       "owner": "Governance",
       "canonical_route": "/governance",
       "baseline_status": "provenance-qualified-executable-seed-present",
-      "graph_mapping_status": "blocked-explored-control-graph-not-complete",
-      "seed_graph_ready_for_rehome": false,
+      "graph_mapping_status": "baseline-graphs-complete-corroborating-typed",
+      "seed_graph_ready_for_rehome": true,
       "greenfield_authorization": null,
       "graph_recovery_status": "required-for-every-summary-only-source",
       "sources": [
@@ -641,7 +670,8 @@
             "complete_interaction_route_graph": true
           },
           "graph_file": "seed-graphs/governance/approvals.v1.json",
-          "class": "daemon_wired"
+          "class": "daemon_wired",
+          "seed_role": "baseline"
         },
         {
           "kind": "retained-harvest-capture",
@@ -657,7 +687,8 @@
           "graph_file": "seed-graphs/governance/approvals.retained.v1.json",
           "disposition": "rehome",
           "audit_route_disposition": "rehomed",
-          "replay_problem_count": 40
+          "replay_problem_count": 40,
+          "seed_role": "corroborating"
         }
       ]
     },
@@ -666,8 +697,8 @@
       "owner": "Provenance",
       "canonical_route": "/provenance",
       "baseline_status": "provenance-qualified-executable-seed-present",
-      "graph_mapping_status": "blocked-summary-only-no-complete-interaction-route-graph",
-      "seed_graph_ready_for_rehome": false,
+      "graph_mapping_status": "baseline-graphs-complete-corroborating-typed",
+      "seed_graph_ready_for_rehome": true,
       "greenfield_authorization": null,
       "graph_recovery_status": "required-for-every-summary-only-source",
       "sources": [
@@ -683,7 +714,8 @@
             "complete_interaction_route_graph": true
           },
           "graph_file": "seed-graphs/provenance/lineage.v1.json",
-          "class": "substrate_bound"
+          "class": "substrate_bound",
+          "seed_role": "baseline"
         },
         {
           "kind": "protected-executable-seed",
@@ -697,7 +729,8 @@
             "complete_interaction_route_graph": true
           },
           "graph_file": "seed-graphs/provenance/vertex.v1.json",
-          "class": "substrate_bound"
+          "class": "substrate_bound",
+          "seed_role": "baseline"
         },
         {
           "kind": "retained-harvest-capture",
@@ -713,7 +746,8 @@
           "graph_file": "seed-graphs/provenance/lineage.retained.v1.json",
           "disposition": "rebind",
           "audit_route_disposition": "retained-seed",
-          "replay_problem_count": 34
+          "replay_problem_count": 34,
+          "seed_role": "corroborating"
         },
         {
           "kind": "retained-harvest-capture",
@@ -729,7 +763,8 @@
           "graph_file": null,
           "disposition": "pattern-harvest",
           "audit_route_disposition": "retained-seed",
-          "graph_capture_note": "graph capture failed: the vertex monocle canvas hangs the quarantined crawl past the capture budget; graph unrecovered, source stays blocked."
+          "graph_capture_note": "graph capture failed: the vertex monocle canvas hangs the quarantined crawl past the capture budget; graph unrecovered, source stays blocked.",
+          "seed_role": "corroborating"
         },
         {
           "kind": "explicit-dormant-reference",
@@ -743,7 +778,8 @@
             "complete_interaction_route_graph": false
           },
           "graph_file": null,
-          "class": "substrate_bound"
+          "class": "substrate_bound",
+          "seed_role": "corroborating"
         }
       ]
     },
@@ -752,8 +788,8 @@
       "owner": "Evaluations",
       "canonical_route": "/evaluations",
       "baseline_status": "provenance-qualified-executable-seed-present",
-      "graph_mapping_status": "blocked-explored-control-graph-not-complete",
-      "seed_graph_ready_for_rehome": false,
+      "graph_mapping_status": "baseline-graphs-complete-corroborating-typed",
+      "seed_graph_ready_for_rehome": true,
       "greenfield_authorization": null,
       "graph_recovery_status": "required-for-every-summary-only-source",
       "sources": [
@@ -769,7 +805,8 @@
             "complete_interaction_route_graph": true
           },
           "graph_file": "seed-graphs/evaluations/evalsuites.v1.json",
-          "class": "daemon_wired"
+          "class": "daemon_wired",
+          "seed_role": "baseline"
         },
         {
           "kind": "retained-harvest-capture",
@@ -785,7 +822,8 @@
           "graph_file": null,
           "disposition": "pattern-harvest",
           "audit_route_disposition": "retained-seed",
-          "visual_blocker": "stable matrix is generic failure/error-only rather than substantive application UX"
+          "visual_blocker": "stable matrix is generic failure/error-only rather than substantive application UX",
+          "seed_role": "corroborating"
         },
         {
           "kind": "retained-harvest-capture",
@@ -801,7 +839,8 @@
           "graph_file": null,
           "disposition": "pattern-harvest",
           "audit_route_disposition": "retained-seed",
-          "visual_blocker": "stable replay is blank global chrome"
+          "visual_blocker": "stable replay is blank global chrome",
+          "seed_role": "corroborating"
         },
         {
           "kind": "retained-harvest-capture",
@@ -817,7 +856,8 @@
           "graph_file": null,
           "disposition": "blocked-missing-route",
           "audit_route_disposition": "blocked-missing-runtime",
-          "visual_blocker": "stable replay is blank global chrome"
+          "visual_blocker": "stable replay is blank global chrome",
+          "seed_role": "corroborating"
         }
       ]
     },
@@ -826,8 +866,8 @@
       "owner": "Improvement",
       "canonical_route": "/improvement",
       "baseline_status": "provenance-qualified-executable-seed-present",
-      "graph_mapping_status": "blocked-explored-control-graph-not-complete",
-      "seed_graph_ready_for_rehome": false,
+      "graph_mapping_status": "baseline-graphs-complete-corroborating-typed",
+      "seed_graph_ready_for_rehome": true,
       "greenfield_authorization": null,
       "graph_recovery_status": "required-for-every-summary-only-source",
       "sources": [
@@ -843,7 +883,8 @@
             "complete_interaction_route_graph": true
           },
           "graph_file": "seed-graphs/improvement/changes.v1.json",
-          "class": "daemon_wired"
+          "class": "daemon_wired",
+          "seed_role": "baseline"
         },
         {
           "kind": "retained-harvest-capture",
@@ -859,7 +900,8 @@
           "graph_file": "seed-graphs/improvement/changes.retained.v1.json",
           "disposition": "rebind",
           "audit_route_disposition": "retained-seed",
-          "replay_problem_count": 10
+          "replay_problem_count": 10,
+          "seed_role": "corroborating"
         }
       ]
     },
@@ -868,8 +910,8 @@
       "owner": "Foundry",
       "canonical_route": "/foundry",
       "baseline_status": "provenance-qualified-executable-seed-present",
-      "graph_mapping_status": "blocked-explored-control-graph-not-complete",
-      "seed_graph_ready_for_rehome": false,
+      "graph_mapping_status": "baseline-graphs-complete-corroborating-typed",
+      "seed_graph_ready_for_rehome": true,
       "greenfield_authorization": null,
       "graph_recovery_status": "required-for-every-summary-only-source",
       "sources": [
@@ -885,7 +927,8 @@
             "complete_interaction_route_graph": true
           },
           "graph_file": "seed-graphs/foundry/models.v1.json",
-          "class": "daemon_wired"
+          "class": "daemon_wired",
+          "seed_role": "baseline"
         },
         {
           "kind": "retained-harvest-capture",
@@ -901,7 +944,8 @@
           "graph_file": null,
           "disposition": "pattern-harvest",
           "audit_route_disposition": "retained-seed",
-          "visual_blocker": "stable matrix is generic failure/error-only rather than substantive application UX"
+          "visual_blocker": "stable matrix is generic failure/error-only rather than substantive application UX",
+          "seed_role": "corroborating"
         },
         {
           "kind": "retained-harvest-capture",
@@ -917,7 +961,8 @@
           "graph_file": null,
           "disposition": "pattern-harvest",
           "audit_route_disposition": "retained-seed",
-          "visual_blocker": "stable replay is global chrome plus Page not found"
+          "visual_blocker": "stable replay is global chrome plus Page not found",
+          "seed_role": "corroborating"
         }
       ]
     },
@@ -926,8 +971,8 @@
       "owner": "Packages",
       "canonical_route": "/packages",
       "baseline_status": "provenance-qualified-executable-seed-present",
-      "graph_mapping_status": "blocked-explored-control-graph-not-complete",
-      "seed_graph_ready_for_rehome": false,
+      "graph_mapping_status": "baseline-graphs-complete-corroborating-typed",
+      "seed_graph_ready_for_rehome": true,
       "greenfield_authorization": null,
       "graph_recovery_status": "required-for-every-summary-only-source",
       "sources": [
@@ -944,7 +989,8 @@
           },
           "graph_file": "seed-graphs/packages/listings.v1.json",
           "class": "daemon_wired",
-          "owner_mapping_note": "retired owner name: surface-registry.mjs still labels /__ioi/marketplace/listings with the folded owner 'Marketplace'; canonical owner is Packages (marketplace is a Packages mode). The registry rename lands with the Packages surface packet, not here."
+          "owner_mapping_note": "retired owner name: surface-registry.mjs still labels /__ioi/marketplace/listings with the folded owner 'Marketplace'; canonical owner is Packages (marketplace is a Packages mode). The registry rename lands with the Packages surface packet, not here.",
+          "seed_role": "baseline"
         },
         {
           "kind": "retained-harvest-capture",
@@ -960,7 +1006,8 @@
           "graph_file": "seed-graphs/packages/listings.retained.v1.json",
           "disposition": "rebind",
           "audit_route_disposition": "retained-seed",
-          "replay_problem_count": 12
+          "replay_problem_count": 12,
+          "seed_role": "corroborating"
         },
         {
           "kind": "retained-harvest-capture",
@@ -976,7 +1023,8 @@
           "graph_file": null,
           "disposition": "pattern-harvest",
           "audit_route_disposition": "retained-seed",
-          "visual_blocker": "stable matrix is generic failure/error-only rather than substantive application UX"
+          "visual_blocker": "stable matrix is generic failure/error-only rather than substantive application UX",
+          "seed_role": "corroborating"
         }
       ]
     },
@@ -1004,7 +1052,8 @@
           "graph_file": null,
           "disposition": "pattern-harvest",
           "audit_route_disposition": "retained-seed",
-          "visual_blocker": "stable matrix is generic error-only shell rather than substantive application UX"
+          "visual_blocker": "stable matrix is generic error-only shell rather than substantive application UX",
+          "seed_role": "corroborating"
         },
         {
           "kind": "retained-harvest-capture",
@@ -1020,7 +1069,8 @@
           "graph_file": null,
           "disposition": "pattern-harvest",
           "audit_route_disposition": "retained-seed",
-          "visual_blocker": "stable replay initiates a browser download/redirect"
+          "visual_blocker": "stable replay initiates a browser download/redirect",
+          "seed_role": "corroborating"
         },
         {
           "kind": "retained-harvest-capture",
@@ -1036,7 +1086,8 @@
           "graph_file": "seed-graphs/developer-workspace/notepad.v1.json",
           "disposition": "retire-at-cutover",
           "audit_route_disposition": "retained-seed",
-          "replay_problem_count": 63
+          "replay_problem_count": 63,
+          "seed_role": "corroborating"
         },
         {
           "kind": "explicit-dormant-reference",
@@ -1050,7 +1101,8 @@
             "complete_interaction_route_graph": false
           },
           "graph_file": null,
-          "class": "reference_capture"
+          "class": "reference_capture",
+          "seed_role": "corroborating"
         }
       ]
     },
@@ -1078,7 +1130,8 @@
           "graph_file": null,
           "disposition": "pattern-harvest",
           "audit_route_disposition": "retained-seed",
-          "visual_blocker": "stable matrix is pure white/blank"
+          "visual_blocker": "stable matrix is pure white/blank",
+          "seed_role": "corroborating"
         },
         {
           "kind": "retained-harvest-capture",
@@ -1094,7 +1147,8 @@
           "graph_file": null,
           "disposition": "pattern-harvest",
           "audit_route_disposition": "retained-seed",
-          "visual_blocker": "stable matrix is pure white/blank"
+          "visual_blocker": "stable matrix is pure white/blank",
+          "seed_role": "corroborating"
         },
         {
           "kind": "retained-harvest-capture",
@@ -1110,7 +1164,8 @@
           "graph_file": null,
           "disposition": "retire-at-cutover",
           "audit_route_disposition": "retained-seed",
-          "visual_blocker": "stable matrix is pure white/blank"
+          "visual_blocker": "stable matrix is pure white/blank",
+          "seed_role": "corroborating"
         },
         {
           "kind": "explicit-dormant-reference",
@@ -1124,7 +1179,8 @@
             "complete_interaction_route_graph": false
           },
           "graph_file": null,
-          "class": "reference_capture"
+          "class": "reference_capture",
+          "seed_role": "corroborating"
         }
       ]
     },
@@ -1152,7 +1208,8 @@
           "graph_file": null,
           "disposition": "retire-at-cutover",
           "audit_route_disposition": "retained-seed",
-          "visual_blocker": "stable matrix is generic failure/error-only rather than substantive application UX"
+          "visual_blocker": "stable matrix is generic failure/error-only rather than substantive application UX",
+          "seed_role": "corroborating"
         }
       ]
     },
@@ -1180,7 +1237,8 @@
           "graph_file": null,
           "disposition": "pattern-harvest",
           "audit_route_disposition": "retained-seed",
-          "visual_blocker": "stable replay is global chrome plus Page not found"
+          "visual_blocker": "stable replay is global chrome plus Page not found",
+          "seed_role": "corroborating"
         }
       ]
     }
