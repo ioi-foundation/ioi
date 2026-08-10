@@ -213,6 +213,7 @@ jobs:
         run: |
           npm run check:ontology-journey --workspace=@ioi/hypervisor-app
           npm run check:governance-journey --workspace=@ioi/hypervisor-app
+          npm run check:studio-journey --workspace=@ioi/hypervisor-app
           npm run check:projects-saga --workspace=@ioi/hypervisor-app
 
       - name: Record post-build shipped-product artifact identities

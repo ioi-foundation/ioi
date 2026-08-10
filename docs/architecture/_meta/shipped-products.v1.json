@@ -73,6 +73,7 @@
           "/__ioi/pipeline",
           "/__ioi/studio/designer",
           "/__ioi/studio/machinery",
+          "/__ioi/studio/workbench",
           "/applications",
           "/automations",
           "/data",
@@ -103,8 +104,8 @@
           "/work/new-session",
           "/work/sessions"
         ],
-        "expected_count": 44,
-        "sha256": "0039ab67da056eed82bec11c0c631f14e18665dcc89e2a455568d0ac95dc454c",
+        "expected_count": 45,
+        "sha256": "1ad3b34f2fb9005aa7bf7348bc2fb01e6eb05f92a3aa101c634403dad480db75",
         "browser_verification_id": "served-surface-smoke"
       },
       "state_authority_mode": "daemon_authoritative_projection",

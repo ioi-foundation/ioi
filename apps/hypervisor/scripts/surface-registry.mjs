@@ -29,6 +29,7 @@ import * as objectExplorerModule from "../surfaces/object-explorer/index.mjs";
 import * as approvalsModule from "../surfaces/approvals/index.mjs";
 import * as sourcesModule from "../surfaces/sources/index.mjs";
 import * as missionsModule from "../surfaces/missions/index.mjs";
+import * as studioModule from "../surfaces/studio/index.mjs";
 
 // Capability model (operational wave): `capabilities` is the AUTHORITY-derived set of acts the
 // surface genuinely supports today (never inferred from pixel certification or daemon_wired);
@@ -62,6 +63,13 @@ export const SURFACES = [
   { slug: "models", owner: "Foundry", title: "Model Catalog", icon: MODELS_APP_ICON_URI, route: "/__ioi/foundry/models", verifier: "scripts/verify-hypervisor-app-parity-foundry-models.mjs", certification: "pixel-certifications/models.json", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "listings", owner: "Marketplace", title: "Marketplace", icon: MARKETPLACE_APP_ICON_URI, route: "/__ioi/marketplace/listings", verifier: "scripts/verify-hypervisor-app-parity-listings.mjs", certification: "pixel-certifications/listings.json", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "designer", owner: "Studio", title: "Solution Designer", icon: DSG_APP_TILE_URI, route: "/__ioi/studio/designer", verifier: "scripts/verify-hypervisor-app-parity-studio-designer.mjs", certification: "pixel-certifications/designer.json", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  // W2.1 next-legs II Leg 1b: the Studio surface packet. A FRESH legacy action lane
+  // (/__ioi/studio/workbench) — the /__ioi/agent-studio flat readout keeps serving untouched
+  // until the W4 cutover (seed preservation) — plus the canonical /studio mount, where the module
+  // rehomes the agent-estate lens read-first and adds blueprint/descriptor authoring over the
+  // shared owner-scoped admission contract. Its evidence is the studio journey verifier (an
+  // end-to-end live journey), not a pixel certification.
+  { slug: "studio-home", owner: "Studio", title: "Studio", icon: DSG_APP_TILE_URI, route: "/__ioi/studio/workbench", canonical_route: "/studio", verifier: "scripts/verify-hypervisor-studio-journey.mjs", certification: "n/a", capabilities: ["browse", "select", "inspect", "create", "update", "transition"], operational_state: "act", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "machinery", owner: "Studio", title: "Machinery", icon: MCH_APP_TILE_URI, route: "/__ioi/studio/machinery", verifier: "scripts/verify-hypervisor-app-parity-studio-machinery.mjs", certification: "pixel-certifications/machinery.json", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "monitors", owner: "Automations", title: "Automate", icon: MON_APP_TILE_URI, route: "/__ioi/automations/monitors", verifier: "scripts/verify-hypervisor-app-parity-monitors.mjs", certification: "pixel-certifications/monitors.json", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "changes", owner: "Improvement", title: "Upgrade Assistant", icon: CHG_APP_TILE_URI, route: "/__ioi/improvement/changes", verifier: "scripts/verify-hypervisor-app-parity-changes.mjs", certification: "pixel-certifications/changes.json", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
@@ -161,6 +169,7 @@ bindSurface("explorer", objectExplorerModule);
 bindSurface("approvals", approvalsModule);
 bindSurface("sources", sourcesModule);
 bindSurface("missions", missionsModule);
+bindSurface("studio-home", studioModule);
 
 // Test-only fault surface (NEVER without the runtime-test flag): gives the action-runtime
 // verifier a module whose action THROWS (route isolation proof) and one that claims success

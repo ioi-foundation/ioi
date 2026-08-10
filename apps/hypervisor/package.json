@@ -15,6 +15,7 @@
     "check:seed-provenance": "node scripts/verify-hypervisor-seed-provenance.mjs",
     "check:ontology-journey": "node scripts/verify-hypervisor-ontology-journey.mjs",
     "check:governance-journey": "node scripts/verify-hypervisor-governance-journey.mjs",
+    "check:studio-journey": "node scripts/verify-hypervisor-studio-journey.mjs",
     "check:projects-saga": "node scripts/verify-hypervisor-projects-saga.mjs",
     "check:ported-seed:live": "node scripts/verify-hypervisor-ported-seed-invariant.mjs --live",
     "check:owned-product-ui": "node scripts/verify-owned-product-ui.mjs",
