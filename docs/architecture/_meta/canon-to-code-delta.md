@@ -246,6 +246,35 @@ the first surface with BOTH gates green (baseline seed graphs complete + primary
 journey proven); ontology's seed gate stays closed on one typed residual
 (`seed-graphs/ontology/schema.v1.json` replay problem).
 
+### Journey verification II (2026-08-10, next-legs II run)
+
+Four more surfaces climbed past shells with CI-proven journeys (#233-#237, all
+against isolated live daemon+serve pairs): **Studio** — the `studio/blueprints`
+family is live on the shared owner-scoped admission path (identity-first,
+derived ids, expected-head CAS, content-addressed drafts; `blueprint://`
+approval subjects must resolve) and promote COMPOSES a governance approval
+request; `check:studio-journey` 33/33 at the canonical `/studio` mount.
+**Packages** — `check:packages-journey` 35/35 over the closed daemon family,
+with the W2.3 bar sharpened into a typed gap: **no recall verb exists at the
+daemon** (`surface_package_disposition` is write-once `active`; the enum names
+`recalled` but no route sets it) and **no launcher projection reads the
+package-registry namespace** — both pinned mechanically; eligibility loss is
+proven via uninstall. **Ontology** — ODK ontology writes are now
+identity-first (rule E; 401 `request_principal_required` before any record
+load) with `acting_principal_ref` bound into every receipt; the serve module
+forwards the browser session; the identity-envelope finding recorded in the
+first journey block is SUPERSEDED — `check:ontology-journey` 36/36 now asserts
+the gate. The 2026-08-06 "descriptor mutations carry no receipt" claim is
+STALE at the bytes — descriptor writes ride `admit_owner_scoped_mutation`
+(recorded as already-satisfied, not reopened). **Automations** —
+`check:automations-journey` 39/39 at the canonical `/automations` mount
+(create/pause/resume/run-now with real execution and work-ledger state-root
+proof, webhook lifecycle with hash-at-rest tokens); typed absences pinned
+(versions family, separate activate, object-set monitor triggers, run→Session
+lineage) and one NEW typed finding filed: **automations writes cross with no
+identity envelope** — the same W1.1/G-2 class ontology just closed, next in
+that pull. OQ-2 (machinery) remains untouched and open.
+
 ## Related Canon
 
 - [`implementation-matrix.md`](./implementation-matrix.md) — per-concept durable-form index (the wider matrix).
