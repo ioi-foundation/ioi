@@ -160,6 +160,8 @@ mod scm_publication_routes;
 mod state_machine_routes;
 #[path = "hypervisor_daemon_routes/storage_backend_routes.rs"]
 mod storage_backend_routes;
+#[path = "hypervisor_daemon_routes/studio_routes.rs"]
+mod studio_routes;
 #[path = "hypervisor_daemon_routes/substrate_store.rs"]
 mod substrate_store;
 #[path = "hypervisor_daemon_routes/supervisor_routes.rs"]
@@ -1866,7 +1868,8 @@ async fn async_main() -> anyhow::Result<()> {
             post(package_registry_routes::handle_installation_uninstall),
         )
         // Compatibility list aliases for the previously-404 top-level paths (GET only). No
-        // /domain-apps or /blueprints alias — those stay 404 until they have real planes.
+        // /domain-apps alias — it stays 404 until it has a real plane. Blueprints now have one:
+        // canonical at /v1/hypervisor/studio/blueprints (studio_routes, OQ-11); no top-level alias.
         .route(
             "/v1/hypervisor/ontologies",
             get(odk_routes::handle_odk_ontology_list),
@@ -1879,9 +1882,26 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/surface-descriptors",
             get(odk_routes::handle_odk_descriptor_list),
         )
+        // Studio blueprints family (OQ-11) — draft-only, content-addressed, shared-path admission;
+        // promote COMPOSES governance (a real ApprovalRequest; nothing auto-applies). This replaces
+        // the deliberate /blueprints 404 with the real plane.
+        .route(
+            "/v1/hypervisor/studio/blueprints",
+            get(studio_routes::handle_studio_blueprint_list)
+                .post(studio_routes::handle_studio_blueprint_create),
+        )
+        .route(
+            "/v1/hypervisor/studio/blueprints/:id",
+            get(studio_routes::handle_studio_blueprint_get)
+                .patch(studio_routes::handle_studio_blueprint_patch),
+        )
+        .route(
+            "/v1/hypervisor/studio/blueprints/:id/promote",
+            post(studio_routes::handle_studio_blueprint_promote),
+        )
         // Domain Apps object plane (foundation) — draft DomainApp candidates over an ODK domain_app
         // surface descriptor. Draft-only: no generated/mounted runtime, no domain-action execution,
-        // no marketplace publish. /blueprints stays 404.
+        // no marketplace publish.
         // IOI Agent launch plane — the user-facing product mode; strategy planner decides
         // direct vs internal GoalRun. Two-phase launch relays the wallet challenge.
         .route(
