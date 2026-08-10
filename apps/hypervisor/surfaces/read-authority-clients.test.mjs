@@ -69,6 +69,9 @@ const stub = createServer(async (req, res) => {
   if (req.url === "/v1/cross/no-receipt") {
     return json(200, { ok: true });
   }
+  if (req.url === "/v1/cross/typed-refusal") {
+    return json(200, { ok: false, error: { code: "ontology_ref_unresolved", message: "object 'x' title_property 'y' is not one of its properties" } });
+  }
   // W1.3 negotiation stubs — schema-versioned payload and a paginating list (the daemon's
   // authority/receipts shape: page object only when limit was asked for).
   if (req.url?.startsWith("/v1/versioned")) {
@@ -289,6 +292,15 @@ test("authority: 2xx without a discoverable receipt fails CLOSED (receipt_missin
   assert.equal(r.ok, false);
   assert.equal(r.kind, "failure");
   assert.equal(r.code, "receipt_missing");
+});
+
+test("authority: a 2xx ok:false plane refusal keeps its typed code — never receipt_missing", async () => {
+  const r = await createAuthorityClient({ daemon }).cross("/v1/cross/typed-refusal");
+  assert.equal(r.ok, false);
+  assert.equal(r.kind, "refusal");
+  assert.equal(r.stage, "gateway");
+  assert.equal(r.code, "ontology_ref_unresolved");
+  assert.match(r.message, /title_property/u);
 });
 
 test("authority: daemon down is a typed failure — no silent no-op, no invented state", async () => {

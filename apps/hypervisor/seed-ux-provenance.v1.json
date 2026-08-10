@@ -431,7 +431,7 @@
           },
           "graph_file": "seed-graphs/ontology/schema.v1.json",
           "class": "daemon_wired",
-          "replay_problem_count": 13,
+          "replay_problem_count": 1,
           "seed_role": "baseline"
         },
         {

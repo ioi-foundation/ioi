@@ -5,18 +5,20 @@
   "owned_route": "/__ioi/data/sources",
   "capture_route": null,
   "runtime": {
-    "serve_url": "http://127.0.0.1:4173",
+    "serve_url": "http://127.0.0.1:4641",
     "capture_url": null
   },
-  "captured_at": "2026-08-09T16:10:16.935Z",
+  "captured_at": "2026-08-10T01:51:29.151Z",
   "quarantine": {
     "network_policy": "local-only",
     "corpus_mutation": "denied",
     "html_injection": "denied",
     "spa_fallback": "denied",
     "allowed_origins": [
-      "http://127.0.0.1:4173",
-      "http://127.0.0.1:9225"
+      "http://127.0.0.1:4641",
+      "http://localhost:4641",
+      "http://127.0.0.1:9225",
+      "http://localhost:9225"
     ],
     "violations": []
   },
@@ -24,7 +26,7 @@
     {
       "id": "n0",
       "kind": "route",
-      "signature": "/__ioi/data/sources#open=0|H1:Data Connection|H3:Data Connection|H2:Declared source catalog 0 the real DataSource registry — new|H3:By kind|H3:By credential posture|H3:Sync activity (real)",
+      "signature": "/__ioi/data/sources#open=0#fc=0|H1:Data Connection|H3:Data Connection|H2:Declared source catalog 0 the real DataSource registry — new|H3:By kind|H3:By credential posture|H3:Sync activity (real)",
       "url": "/__ioi/data/sources",
       "title": "Data Connection",
       "entry_edge": null,
@@ -49,7 +51,7 @@
     {
       "id": "n1",
       "kind": "route",
-      "signature": "/__ioi/data/sources?declare=1#open=0|H1:Data Connection|H3:Data Connection|H2:Declare a new data source a validated, receipted registry re|H2:Declared source catalog 0 the real DataSource registry — new|H3:By kind|H3:By credential posture|H3:Sync activity (real)",
+      "signature": "/__ioi/data/sources?declare=1#open=0#fc=5|H1:Data Connection|H3:Data Connection|H2:Declare a new data source a validated, receipted registry re|H2:Declared source catalog 0 the real DataSource registry — new|H3:By kind|H3:By credential posture|H3:Sync activity (real)",
       "url": "/__ioi/data/sources?declare=1",
       "title": "Data Connection",
       "entry_edge": {
@@ -292,7 +294,7 @@
         "label": "Data Connection capture"
       },
       "action": "goto",
-      "outcome": "boundary-external-origin"
+      "outcome": "boundary-off-allowlist"
     },
     {
       "from": "n0",
@@ -580,7 +582,7 @@
         "label": "Data Connection capture"
       },
       "action": "goto",
-      "outcome": "boundary-external-origin"
+      "outcome": "boundary-off-allowlist"
     },
     {
       "from": "n1",
@@ -625,9 +627,9 @@
     "problems": [
       "edge n1/\"postgres — endpoint requiredmysql — endpoint requiredrest_api — endpoint require\": recorded state-change, observed noop"
     ],
-    "walked_at": "2026-08-09T23:38:57.469Z"
+    "walked_at": "2026-08-10T01:51:40.592Z"
   },
   "complete_interaction_route_graph": false,
   "shots_dir": ".artifacts/seed-graph-shots/data/sources",
-  "content_address": "cee86d36feb0ac24deb58bf761bce2500a9496cda3013dbec258004d5e03659b"
+  "content_address": "0c2e9ecfe40ff76da323913c0cb52c982962b0eab5543b4e94c78b7ecc3fade5"
 }
