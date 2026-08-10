@@ -120,19 +120,42 @@ for (const surface of surfaces) {
   if (!surface.canonical_route?.startsWith("/")) fail(`${at}: canonical_route must start with /`);
   if (surface.owner !== undefined && typeof surface.owner !== "string") fail(`${at}: owner must be a string`);
 
+  const sources = surface.sources ?? [];
+  // Seed roles (OQ-12 owner ruling, 2026-08-09): the protected executable ports
+  // are the baseline seed; retained captures and dormant references corroborate.
+  // The kind⇒role lock means tooling can never demote a baseline (or promote a
+  // corroborating source) — only a recorded owner ruling that changes this lock.
+  const ROLE_BY_KIND = {
+    "protected-executable-seed": "baseline",
+    "retained-harvest-capture": "corroborating",
+    "explicit-dormant-reference": "corroborating",
+  };
+  for (const src of sources) {
+    const required = ROLE_BY_KIND[src.kind];
+    if (required && src.seed_role !== required) {
+      fail(`${at} source ${src.slug}: seed_role "${src.seed_role}" violates the kind lock (${src.kind} => ${required}) — roles change only by recorded owner ruling, never by tooling`);
+    }
+  }
+  const complete = (src) => src.graph?.complete_interaction_route_graph === true;
+  const baseline = sources.filter((src) => src.seed_role === "baseline");
+  const allComplete = sources.length > 0 && sources.every(complete);
+  const derivedReady = baseline.length > 0 && baseline.every(complete);
+
   const status = surface.graph_mapping_status ?? "";
-  if (!status.startsWith("blocked-") && status !== "complete-interaction-route-graphs-present") {
-    fail(`${at}: graph_mapping_status must start with "blocked-" or be the complete terminal value, got "${status}"`);
+  if (status === "complete-interaction-route-graphs-present") {
+    if (!allComplete) fail(`${at}: status claims every graph complete but some are not`);
+  } else if (status === "baseline-graphs-complete-corroborating-typed") {
+    if (!derivedReady) fail(`${at}: status claims baseline completeness that does not derive`);
+    if (allComplete) fail(`${at}: every graph is complete — use the full terminal status`);
+  } else if (!status.startsWith("blocked-")) {
+    fail(`${at}: graph_mapping_status must start with "blocked-" or be a terminal value, got "${status}"`);
   }
 
-  const sources = surface.sources ?? [];
-  const derivedReady = sources.length > 0 &&
-    sources.every((src) => src.graph?.complete_interaction_route_graph === true);
   if (Boolean(surface.seed_graph_ready_for_rehome) !== derivedReady) {
-    fail(`${at}: seed_graph_ready_for_rehome=${surface.seed_graph_ready_for_rehome} does not derive from its sources (derived ${derivedReady}) — the gate is fail-closed, never asserted`);
+    fail(`${at}: seed_graph_ready_for_rehome=${surface.seed_graph_ready_for_rehome} does not derive from its baseline sources (derived ${derivedReady}) — the gate is fail-closed, never asserted`);
   }
   if (derivedReady && status.startsWith("blocked-")) {
-    fail(`${at}: every source graph is complete but graph_mapping_status is still "${status}"`);
+    fail(`${at}: baseline graphs are complete but graph_mapping_status is still "${status}"`);
   }
 
   const green = surface.greenfield_authorization;
@@ -353,9 +376,17 @@ if (requireReady) {
   const s = surfaces.find((x) => x.id === surfaceFilter);
   if (s && !(s.seed_graph_ready_for_rehome === true || s.greenfield_authorization)) {
     const gaps = (s.sources ?? [])
-      .filter((src) => src.graph?.complete_interaction_route_graph !== true)
+      .filter((src) => src.seed_role === "baseline" && src.graph?.complete_interaction_route_graph !== true)
       .map((src) => `${src.slug}${src.graph_capture_note ? " (typed capture note)" : ""}`);
-    fail(`surface ${surfaceFilter}: seed gate CLOSED — not ready for rehome; incomplete sources: ${gaps.join(", ") || "(none — derivation defect)"}. A block record never opens work.`);
+    fail(`surface ${surfaceFilter}: seed gate CLOSED — not ready for rehome; ${gaps.length ? `incomplete baseline sources: ${gaps.join(", ")}` : "no baseline seed exists (corroborating-only surface; a ruling must name its baseline or the greenfield lane must be opened)"}. A block record never opens work.`);
+  }
+  if (s) {
+    const pending = (s.sources ?? [])
+      .filter((src) => src.seed_role === "corroborating" && src.graph?.complete_interaction_route_graph !== true)
+      .map((src) => src.slug);
+    if (pending.length > 0) {
+      console.log(`seed-provenance: surface ${surfaceFilter} corroborating context — ${pending.length} corroborating source(s) not interaction-complete (${pending.join(", ")}); typed states preserved, never gate inputs.`);
+    }
   }
 }
 
