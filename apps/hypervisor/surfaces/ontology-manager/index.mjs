@@ -90,11 +90,20 @@ const ONT_RECEIPT_EXTRACTOR = (payload) =>
     ? payload.ontology_receipt.receipt_ref
     : "";
 
-export async function handleAction({ action, fields, daemon, url }) {
+export async function handleAction({ action, fields, daemonFetch, url }) {
   const { createAuthorityClient } = await import("../authority-client.mjs");
   const { createReadClient } = await import("../read-client.mjs");
-  const authority = createAuthorityClient({ daemon });
-  const reader = createReadClient({ daemon });
+  // W1.1/G-2 finding closed — authoring crossings carry the CALLER's identity. The runtime hands
+  // this module the request-scoped daemon capability (DEF-IDENT-1: bounded envelope, module-
+  // authored identity headers refused); riding it as fetchImpl with daemon:"" keeps every path
+  // daemon-relative (the capability refuses absolute destinations) while the authority client's
+  // typed-refusal ladder stays intact — the daemon's 401 request_principal_required surfaces as a
+  // named refusal, never a silent success. No capability, no mutation (approvals precedent).
+  if (typeof daemonFetch !== "function") {
+    return { kind: "failure", http: 500, code: "identity_capability_missing", message: "the action runtime supplied no request-scoped daemon capability — refusing to author without the caller's identity" };
+  }
+  const authority = createAuthorityClient({ daemon: "", fetchImpl: daemonFetch });
+  const reader = createReadClient({ daemon: "", fetchImpl: daemonFetch });
   // One typed mapping from a crossWithLease outcome to the module's action result — the
   // credential/challenge/receipt vocabulary renders identically for every authoring action.
   const fromCrossing = (crossed, onSuccess) => {
