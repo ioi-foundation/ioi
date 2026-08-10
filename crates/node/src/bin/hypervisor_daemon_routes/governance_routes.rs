@@ -486,6 +486,11 @@ pub(crate) fn resolve_governance_ref(data_dir: &str, r: &str) -> Result<(), (Str
             "marketplace-admission" => Some("marketplace-admission-reviews"),
             "managed-instance-offer" => Some("marketplace-instance-offers"),
             "domain-app" => Some("domain-apps"),
+            // Studio blueprint promotion (OQ-11): `blueprint://` LOOKS local and IS local, so it
+            // must resolve to a stored blueprint — without this arm it would fall through as an
+            // unvalidated named ref and an approval could be minted for a blueprint that does not
+            // exist.
+            "blueprint" => Some(super::studio_routes::KIND_BLUEPRINT),
             "surface-descriptor" => Some("odk-surface-descriptors"),
             "odk" => Some("odk-manifests"),
             "recipe" => Some("odk-data-recipes"),
@@ -2376,6 +2381,14 @@ mod governance_tests {
         );
         assert_eq!(
             resolve_governance_ref("/nonexistent", "marketplace-publish://mpub_x")
+                .unwrap_err()
+                .0,
+            "governance_ref_unresolved"
+        );
+        // blueprint:// is local (OQ-11 studio plane): an approval subject must name a REAL
+        // stored blueprint, never fall through as an unvalidated named ref.
+        assert_eq!(
+            resolve_governance_ref("/nonexistent", "blueprint://bp_x")
                 .unwrap_err()
                 .0,
             "governance_ref_unresolved"
