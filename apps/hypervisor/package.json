@@ -21,6 +21,7 @@
     "check:applications-journey": "node scripts/verify-hypervisor-applications-journey.mjs",
     "check:systems-journey": "node scripts/verify-hypervisor-systems-journey.mjs",
     "check:work-cockpit": "node scripts/verify-hypervisor-work-cockpit.mjs",
+    "check:home-cockpit": "node scripts/verify-hypervisor-home-cockpit.mjs",
     "check:projects-saga": "node scripts/verify-hypervisor-projects-saga.mjs",
     "check:ported-seed:live": "node scripts/verify-hypervisor-ported-seed-invariant.mjs --live",
     "check:owned-product-ui": "node scripts/verify-owned-product-ui.mjs",
