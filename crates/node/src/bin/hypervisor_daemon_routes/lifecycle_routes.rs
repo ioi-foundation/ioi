@@ -9768,6 +9768,65 @@ fn session_request_owner(
     Ok("user://local-operator".to_string())
 }
 
+/// Typed identity/scope refusal for the Session family (the ODK ontology #236 / automations #240
+/// precedent): the status is derived from the refusal kind; the body keeps the family's
+/// `{"error":{code,message}}` envelope so serve-lane refusal surfacing stays verbatim.
+fn session_scope_refusal(
+    error: super::substrate_store::RequestScopeRefusal,
+) -> (StatusCode, Json<Value>) {
+    use super::substrate_store::RequestScopeRefusal;
+    let status = match error {
+        RequestScopeRefusal::AuthenticationRequired
+        | RequestScopeRefusal::PrincipalIdentityInvalid => StatusCode::UNAUTHORIZED,
+        RequestScopeRefusal::TenantAuthorityRequired
+        | RequestScopeRefusal::ResourceScopeRequired
+        | RequestScopeRefusal::ResourceOwnerMismatch => StatusCode::FORBIDDEN,
+        RequestScopeRefusal::SubstrateUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
+    };
+    (
+        status,
+        Json(json!({"error":{"code":error.code(),"message":error.message()}})),
+    )
+}
+
+/// Identity-first owner resolution for the Session WRITE verbs (create / execute / ports-revoke /
+/// teardown) — the #246 finding closed (the #236/#240 W1.1/G-2 class). Rule E: the typed 401 is
+/// owed BEFORE any record read, so an anonymous caller gets no existence oracle and no
+/// field-shape probe. Loopback posture is NOT an identity exemption for governed writes; the
+/// `user://local-operator` fallback in `session_request_owner` above remains a READ-lane
+/// projection convenience only (an anonymous loopback read projects the legacy local-operator
+/// scope, which after this gate can no longer acquire new writes over HTTP).
+///
+/// The daemon's OWN orchestration dispatches (ioi-agent launch, goal-run candidate sessions)
+/// cross with the per-boot internal dispatch token instead of a session — the #240 lane: the
+/// token lives only in process memory and is never emitted in any response, so a valid
+/// presentation can only originate from this daemon process. Those dispatches keep the
+/// historical loopback-operator attribution until their OWN handlers gain identity (both are
+/// pinned open leads in the admission-evidence H-baseline); a caller-authenticated launch
+/// forwards its cookie and binds the real principal instead.
+fn session_request_write_owner(
+    st: &DaemonState,
+    headers: &HeaderMap,
+) -> Result<String, (StatusCode, Json<Value>)> {
+    if deployment_auth_posture(&st.data_dir, headers) == "exposed_untrusted" {
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            Json(
+                json!({"error":{"code":"session_authenticated_principal_required","message":"An exposed Session endpoint requires enforced identity."}}),
+            ),
+        ));
+    }
+    match super::substrate_store::resolve_request_identity(&st.data_dir, headers) {
+        Ok(identity) => Ok(identity.principal_ref),
+        Err(error) => {
+            if super::orchestration_routes::internal_dispatch_authorized(st, headers) {
+                return Ok("user://local-operator".to_string());
+            }
+            Err(session_scope_refusal(error))
+        }
+    }
+}
+
 /// Cross-process registry lock. Its name is fixed and its directory is independently pinned;
 /// the lock serializes strict WAL census, reservation, provisioning, and recovery across daemon
 /// processes sharing one data directory.
@@ -10478,6 +10537,9 @@ fn prepare_session_create_bundle(
         "state_root_ref": environment_status.get("state_root_ref"),
         "initial_input_receipt_ref": initial_input_projection.as_ref().and_then(|projection| projection.get("receipt_ref")).cloned().unwrap_or(Value::Null),
         "owner_ref": owner_ref,
+        // INV-37: the create's acting principal IS the identity-resolved owner recorded in the
+        // reserved intent (the #246 gate) — deterministic under WAL replay, never re-derived.
+        "acting_principal_ref": owner_ref,
         "request_hash": request_hash,
         "created_at": created_at,
         "runtimeTruthSource": "daemon-runtime"
@@ -11419,7 +11481,7 @@ fn recover_pending_session_lifecycle(st: &DaemonState, mut record: Value) -> Res
             .and_then(Value::as_str)
             .ok_or_else(|| "pending port revoke has no receipt_ref".to_string())?;
         let ports = mark_session_ports_revoked(&record);
-        let receipt = json!({
+        let mut receipt = json!({
             "id": receipt_ref, "kind": "hypervisor.session.port_revoke",
             "session_ref": session_ref,
             "revoked_port": pending.get("revoked_port").cloned().unwrap_or(Value::Null),
@@ -11427,6 +11489,12 @@ fn recover_pending_session_lifecycle(st: &DaemonState, mut record: Value) -> Res
             "created_at": pending.get("created_at").cloned().unwrap_or(Value::Null),
             "committed_at": iso_now(), "runtimeTruthSource": "daemon-runtime"
         });
+        // INV-37: the replayed receipt binds the principal the PREPARED anchor recorded at
+        // admission. A pre-gate pending record has none; the field is then honestly absent —
+        // never defaulted, never fabricated at replay time.
+        if let Some(acting) = pending.get("acting_principal_ref").and_then(Value::as_str) {
+            receipt["acting_principal_ref"] = json!(acting);
+        }
         persist_session_lifecycle_stage(
             &st.data_dir,
             "receipts",
@@ -11463,7 +11531,7 @@ fn recover_pending_session_lifecycle(st: &DaemonState, mut record: Value) -> Res
             .unwrap_or(false);
         let _ = remove_session_workspace(workspace_root);
         let workspace_removed = present_before && !Path::new(workspace_root).exists();
-        let receipt = json!({
+        let mut receipt = json!({
             "id": receipt_ref, "kind": "hypervisor.session.teardown",
             "session_ref": session_ref,
             "revoked_port": pending.get("revoked_port").cloned().unwrap_or(Value::Null),
@@ -11471,6 +11539,11 @@ fn recover_pending_session_lifecycle(st: &DaemonState, mut record: Value) -> Res
             "created_at": pending.get("created_at").cloned().unwrap_or(Value::Null),
             "committed_at": iso_now(), "runtimeTruthSource": "daemon-runtime"
         });
+        // INV-37 at replay: bind the admission-time principal from the prepared anchor when it
+        // recorded one; a pre-gate pending record keeps the field honestly absent.
+        if let Some(acting) = pending.get("acting_principal_ref").and_then(Value::as_str) {
+            receipt["acting_principal_ref"] = json!(acting);
+        }
         persist_session_lifecycle_stage(
             &st.data_dir,
             "receipts",
@@ -11637,6 +11710,28 @@ fn load_owned_session_record(
     session_ref: &str,
 ) -> Result<Value, (StatusCode, Json<Value>)> {
     let owner_ref = session_request_owner(&st.data_dir, headers)?;
+    load_session_record_owned_by(st, &owner_ref, session_ref)
+}
+
+/// The WRITE-verb variant: identity resolves FIRST (rule E — the typed 401 precedes the record
+/// load, so no 404 existence oracle exists for anonymous callers), then ownership is judged.
+/// Returns the resolved acting principal alongside the record so mutation receipts can bind it
+/// (INV-37).
+fn load_owned_session_record_for_write(
+    st: &DaemonState,
+    headers: &HeaderMap,
+    session_ref: &str,
+) -> Result<(String, Value), (StatusCode, Json<Value>)> {
+    let owner_ref = session_request_write_owner(st, headers)?;
+    let record = load_session_record_owned_by(st, &owner_ref, session_ref)?;
+    Ok((owner_ref, record))
+}
+
+fn load_session_record_owned_by(
+    st: &DaemonState,
+    owner_ref: &str,
+    session_ref: &str,
+) -> Result<Value, (StatusCode, Json<Value>)> {
     let record = match load_session_record_strict(st, session_ref) {
         Ok(Some(record)) => record,
         Ok(None) => {
@@ -11698,7 +11793,10 @@ pub(crate) async fn handle_session_create(
     headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
-    let owner_ref = match session_request_owner(&st.data_dir, &headers) {
+    // #246 finding closed — identity FIRST (rule E): an anonymous caller is owed the typed 401
+    // before any field validation runs, so no field-shape probe exists for unauthenticated
+    // callers under ANY posture. A Session is authored durable work, not an anonymous append.
+    let owner_ref = match session_request_write_owner(&st, &headers) {
         Ok(owner) => owner,
         Err(response) => return response,
     };
@@ -21225,9 +21323,12 @@ pub(crate) async fn handle_session_execute(
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     // Ownership is resolved before intent parsing and, critically, before the wallet gate can
-    // disclose policy/request hashes for another principal's Session.
-    let record = match load_owned_session_record(&st, &headers, &session_id) {
-        Ok(record) => record,
+    // disclose policy/request hashes for another principal's Session. Identity-first (rule E,
+    // #246): the typed 401 precedes the record load, so no existence oracle exists for
+    // anonymous callers; the daemon's own orchestration dispatches cross with the per-boot
+    // internal dispatch token.
+    let record = match load_owned_session_record_for_write(&st, &headers, &session_id) {
+        Ok((_acting_principal_ref, record)) => record,
         Err(response) => return response,
     };
     let workspace_root = record
@@ -21717,10 +21818,13 @@ pub(crate) async fn handle_session_ports_revoke(
     headers: HeaderMap,
     AxumPath(session_id): AxumPath<String>,
 ) -> (StatusCode, Json<Value>) {
-    let record = match load_owned_session_record(&st, &headers, &session_id) {
-        Ok(record) => record,
-        Err(response) => return response,
-    };
+    // #246 finding closed — identity FIRST (rule E): the typed 401 precedes the record load
+    // (no existence oracle); the resolved principal binds into the revoke receipt (INV-37).
+    let (acting_principal_ref, record) =
+        match load_owned_session_record_for_write(&st, &headers, &session_id) {
+            Ok(resolved) => resolved,
+            Err(response) => return response,
+        };
     let receipt_ref = format!(
         "receipt://hypervisor/session-port-revoke/{}",
         session_identity_digest(&session_id)
@@ -21736,6 +21840,7 @@ pub(crate) async fn handle_session_ports_revoke(
         "kind": "hypervisor.session.port_revoke",
         "session_ref": session_id,
         "revoked_port": expected_port,
+        "acting_principal_ref": acting_principal_ref,
         "status": "prepared",
         "created_at": created_at,
         "runtimeTruthSource": "daemon-runtime",
@@ -21765,7 +21870,7 @@ pub(crate) async fn handle_session_ports_revoke(
     if let Some(object) = pending.as_object_mut() {
         object.insert(
             "pending_port_revoke".into(),
-            json!({"receipt_ref":receipt_ref,"revoked_port":expected_port,"created_at":created_at}),
+            json!({"receipt_ref":receipt_ref,"revoked_port":expected_port,"acting_principal_ref":acting_principal_ref,"created_at":created_at}),
         );
         object.insert("latest_receipt_refs".into(), json!(receipt_refs.clone()));
     }
@@ -21784,6 +21889,7 @@ pub(crate) async fn handle_session_ports_revoke(
     let final_receipt = json!({
         "id": receipt_ref, "kind": "hypervisor.session.port_revoke",
         "session_ref": session_id, "revoked_port": revoked_port,
+        "acting_principal_ref": acting_principal_ref,
         "status": "committed", "created_at": created_at, "committed_at": iso_now(),
         "runtimeTruthSource": "daemon-runtime"
     });
@@ -22075,10 +22181,13 @@ pub(crate) async fn handle_session_teardown(
     headers: HeaderMap,
     AxumPath(session_id): AxumPath<String>,
 ) -> (StatusCode, Json<Value>) {
-    let record = match load_owned_session_record(&st, &headers, &session_id) {
-        Ok(record) => record,
-        Err(response) => return response,
-    };
+    // #246 finding closed — identity FIRST (rule E): the typed 401 precedes the record load
+    // (no existence oracle); the resolved principal binds into the teardown receipt (INV-37).
+    let (acting_principal_ref, record) =
+        match load_owned_session_record_for_write(&st, &headers, &session_id) {
+            Ok(resolved) => resolved,
+            Err(response) => return response,
+        };
     let workspace_root = record
         .get("workspace_root")
         .and_then(Value::as_str)
@@ -22103,6 +22212,7 @@ pub(crate) async fn handle_session_teardown(
         "session_ref": session_id,
         "revoked_port": expected_port,
         "workspace_removed": Value::Null,
+        "acting_principal_ref": acting_principal_ref,
         "status": "prepared",
         "created_at": created_at,
         "runtimeTruthSource": "daemon-runtime",
@@ -22136,6 +22246,7 @@ pub(crate) async fn handle_session_teardown(
                 "receipt_ref":receipt_ref, "revoked_port":expected_port,
                 "workspace_root":workspace_root,
                 "workspace_present_before":workspace_present_before,
+                "acting_principal_ref":acting_principal_ref,
                 "created_at":created_at
             }),
         );
@@ -22157,7 +22268,9 @@ pub(crate) async fn handle_session_teardown(
     let final_receipt = json!({
         "id": receipt_ref, "kind": "hypervisor.session.teardown",
         "session_ref": session_id, "revoked_port": revoked_port,
-        "workspace_removed": workspace_removed, "status": "committed",
+        "workspace_removed": workspace_removed,
+        "acting_principal_ref": acting_principal_ref,
+        "status": "committed",
         "created_at": created_at, "committed_at": iso_now(),
         "runtimeTruthSource": "daemon-runtime"
     });

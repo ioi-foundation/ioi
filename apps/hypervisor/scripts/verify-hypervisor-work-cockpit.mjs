@@ -21,9 +21,11 @@
 //     receipt ref recorded; stop/archive stay typed absences;
 //   - bare /sessions answers the typed 410 at HTTP + body level (no redirect alias);
 //   - deep link ≡ click-nav; reload + daemon-restart survival;
-//   - identity posture PROBED HONESTLY, recorded not hidden (gated → typed refusal asserted;
-//     ungated under loopback dev posture → current truth asserted + FINDING row, the same
-//     W1.1/G-2 class the ontology/automations findings tracked — never gated surface-side);
+//   - the identity GATE (the #246 finding CLOSED — the #236/#240 W1.1/G-2 class): every session
+//     write verb refuses typed 401 request_principal_required for anonymous callers under
+//     loopback posture (rule E — before any record load, so no 404 existence oracle), the forged
+//     internal-dispatch token forwards inert, the serve lane surfaces the refusal verbatim, and
+//     the durable provision/teardown receipts bind acting_principal_ref (INV-37);
 //   - the 3-posture browser matrix on /work.
 //
 // Exit: 0 pass · 1 fail · 2 blocked (daemon binary missing).
@@ -158,6 +160,20 @@ function sessionFamilyRoutes(index) {
 
 const sessGet = async (ref) => (await jd(`/v1/hypervisor/sessions/${encodeURIComponent(ref)}`)).body?.session || null;
 
+// Persisted session receipt by kind + ref (INV-37 assertions read the DURABLE receipt, not the
+// response projection).
+const readSessionReceipt = (kind, ref) => {
+  try {
+    for (const f of fs.readdirSync(path.join(dataDir, "receipts"))) {
+      try {
+        const j = JSON.parse(fs.readFileSync(path.join(dataDir, "receipts", f), "utf8"));
+        if (j.kind === kind && j.session_ref === ref) return j;
+      } catch { /* not JSON */ }
+    }
+  } catch { /* no receipts yet */ }
+  return null;
+};
+
 async function run() {
   daemonPort = await freePort();
   DAEMON = `http://127.0.0.1:${daemonPort}`;
@@ -205,21 +221,28 @@ async function run() {
       && !idxStr.includes("harness-session-launches"),
     JSON.stringify(sessionLaunchPaths));
 
-  // -- identity posture: probed HONESTLY on the daemon, recorded not hidden ------------------
+  // -- identity GATE (the #246 finding CLOSED — the #236/#240 class): session writes are
+  // identity-first under EVERY posture, loopback included. The old FINDING(typed) rows are
+  // REPLACED by these hard assertions.
   const anonCreate = await jd("/v1/hypervisor/sessions", { method: "POST", body: JSON.stringify({}) }, false);
-  let anonProbeRef = "";
-  if (anonCreate.status === 401 || anonCreate.status === 403) {
-    ok("an unauthenticated direct daemon session create refuses TYPED (the family is identity-gated)",
-      !!(anonCreate.body?.error?.code || anonCreate.body?.code),
-      `${anonCreate.status}/${anonCreate.body?.error?.code || anonCreate.body?.code}`);
-  } else {
-    anonProbeRef = anonCreate.body?.session_ref || "";
-    ok("current truth asserted: an unauthenticated direct daemon session create CROSSES (202, admitted as user://local-operator) under loopback dev posture — the family is ungated on loopback",
-      anonCreate.status === 202 && anonCreate.body?.owner_ref === "user://local-operator" && !!anonProbeRef,
-      `status ${anonCreate.status} · owner ${anonCreate.body?.owner_ref}`);
-    ok("FINDING(typed): session writes cross with no identity envelope under loopback dev posture (W1.1/G-2 class)", true,
-      "session_request_owner (lifecycle_routes.rs) resolves no principal on unenforced loopback and adjudicates the caller as user://local-operator — the same class the ontology and automations findings tracked (both since closed identity-first); the exposed/enforced postures DO refuse typed (asserted next); the fix is the identity-first pull at the daemon, never a surface-side gate");
-  }
+  ok("GATE: an unauthenticated direct daemon session create refuses TYPED 401 request_principal_required under loopback dev posture — loopback is NOT an identity exemption for governed writes, and no session is admitted",
+    anonCreate.status === 401 && anonCreate.body?.error?.code === "request_principal_required",
+    `${anonCreate.status}/${anonCreate.body?.error?.code}`);
+  // Rule E ordering: the 401 is owed BEFORE the record load, so a bogus ref answers 401 (never
+  // the 404 existence oracle) on every write verb of the family.
+  const anonExecute = await jd("/v1/hypervisor/sessions/session:rule-e-probe/execute", { method: "POST", body: JSON.stringify({ intent: "probe" }) }, false);
+  const anonPorts = await jd("/v1/hypervisor/sessions/session:rule-e-probe/ports/revoke", { method: "POST", body: JSON.stringify({}) }, false);
+  const anonTeardown = await jd("/v1/hypervisor/sessions/session:rule-e-probe", { method: "DELETE" }, false);
+  ok("GATE rule E: anonymous execute + ports-revoke + teardown on an unknown ref ALL answer the typed 401 — identity precedes the record load, so no 404 existence oracle exists for anonymous callers",
+    [anonExecute, anonPorts, anonTeardown].every((r) => r.status === 401 && r.body?.error?.code === "request_principal_required"),
+    `${anonExecute.status}/${anonPorts.status}/${anonTeardown.status}`);
+  // The per-boot internal dispatch token (the daemon's own orchestration lane) is unforgeable
+  // from outside: a caller-supplied value forwards inert.
+  const forged = await jd("/v1/hypervisor/sessions", { method: "POST", body: JSON.stringify({}) }, false,
+    { "x-ioi-internal-dispatch": "idisp_forged0000000000000000000000000000000000000000000000000000000000" });
+  ok("GATE: a FORGED x-ioi-internal-dispatch token forwards inert — the anonymous create still refuses 401 (the per-boot secret lives only in daemon process memory and is never emitted)",
+    forged.status === 401 && forged.body?.error?.code === "request_principal_required",
+    `${forged.status}/${forged.body?.error?.code}`);
   // Exposure-marked anonymous create: enforcement is context-aware (auto mode enforces when
   // exposed) — the same anonymous body must refuse TYPED once the request is marked forwarded.
   const exposedAnon = await jd("/v1/hypervisor/sessions", { method: "POST", body: JSON.stringify({}) }, false, { "x-ioi-forwarded": "product-shell" });
@@ -288,9 +311,8 @@ async function run() {
     deepLink.text.includes("Overview (W0.6)")
       && deepLink.text.includes("W3 C-1 backend row")
       && deepLink.text.includes('data-ioi-w3-absence="subject_attachments"'));
-  ok("owner-filtered honest-empty: no sessions render for the fresh operator principal (session truth is owner-filtered before counts — the loopback probe's session never leaks in)",
-    deepLink.text.includes("No sessions for this principal yet")
-      && (!anonProbeRef || !deepLink.text.includes(anonProbeRef)));
+  ok("owner-filtered honest-empty: no sessions render for the fresh operator principal (session truth is owner-filtered before counts, and the gate admitted nothing anonymous to leak in)",
+    deepLink.text.includes("No sessions for this principal yet"));
 
   const freshSessions = await pageText(FRESH_SESSIONS);
   ok("the fresh legacy lane /__ioi/work-sessions serves the same sessions view",
@@ -337,26 +359,13 @@ async function run() {
     goneDeep.status === 410 && String(goneDeep.body.canonical_replacement_route || "").startsWith("/work/sessions"),
     `${goneDeep.status} → ${goneDeep.body.canonical_replacement_route}`);
 
-  // -- serve-lane identity posture: probed honestly, judged against the daemon posture --------
+  // -- serve-lane identity GATE: the ambient daemonFetch forwards the (absent) caller identity
+  // and the daemon's typed refusal surfaces on the PRG redirect — never a fake success.
   const anonServe = await act(FRESH_NEW_SESSION, "/actions/create-session", { initial_input: "anon serve-lane posture probe" }, { authenticated: false });
-  if (anonServe.q.get("refused")) {
-    ok("an anonymous serve-lane create surfaces the daemon's typed refusal on the PRG redirect (no session admitted)",
-      anonServe.status === 303 && !!anonServe.q.get("refused"), `refused=${anonServe.q.get("refused")}`);
-  } else {
-    const anonServeRef = anonServe.q.get("record") || "";
-    const anonServeRecord = (await jd(`/v1/hypervisor/sessions/${encodeURIComponent(anonServeRef)}`, {}, false)).body?.session || null;
-    ok("current truth asserted: an anonymous serve-lane create CROSSES and is adjudicated as the loopback operator (the serve lane inherits the daemon's loopback dev posture — the same FINDING, no second defect); the record reads back ONLY under that identity (owner scoping intact)",
-      anonServe.status === 303 && anonServe.q.get("acted") === "create-session"
-        && String(anonServe.q.get("receipt") || "").startsWith("receipt://hypervisor/session-provision/")
-        && anonServeRecord?.owner_ref === "user://local-operator"
-        && (await sessGet(anonServeRef)) === null,
-      `record ${anonServeRef} · owner ${anonServeRecord?.owner_ref}`);
-    if (anonServeRef) {
-      const anonTeardown = await jd(`/v1/hypervisor/sessions/${encodeURIComponent(anonServeRef)}`, { method: "DELETE" }, false);
-      ok("posture-probe hygiene: the probe session tears down under its own (loopback-operator) identity — the daemon-owned destructive verb works today",
-        anonTeardown.status === 200 && anonTeardown.body?.decision === "torn_down", `status ${anonTeardown.status}`);
-    }
-  }
+  ok("GATE: an anonymous serve-lane create surfaces the daemon's typed refusal on the PRG redirect (refused=request_principal_required, no acted/receipt — no session admitted)",
+    anonServe.status === 303 && anonServe.q.get("refused") === "request_principal_required"
+      && !anonServe.q.get("acted") && !anonServe.q.get("receipt"),
+    `refused=${anonServe.q.get("refused")}`);
 
   // -- the journey this slice DOES own: create → admitted readback ----------------------------
   const PROJECT_REF = "project:work-cockpit-slice";
@@ -383,6 +392,11 @@ async function run() {
   ok("ANTI-MASQUERADE PIN: subject_attachments is EXACTLY [] on the record even though project_ref was supplied — create hardcodes the empty set (the typed W3 C-1 absence) and project_ref stayed a session field",
     Array.isArray(record?.subject_attachments) && record.subject_attachments.length === 0,
     JSON.stringify(record?.subject_attachments));
+  const provisionReceipt = readSessionReceipt("hypervisor.session.provision", sessionRef);
+  ok("INV-37: the durable provision receipt binds acting_principal_ref — the identity-resolved creating principal (equal to the record owner, never the loopback operator, never client-supplied)",
+    !!provisionReceipt && provisionReceipt.acting_principal_ref === record?.owner_ref
+      && provisionReceipt.acting_principal_ref !== "user://local-operator",
+    `acting ${provisionReceipt?.acting_principal_ref}`);
 
   const detail = await pageText(`${SESSIONS_VIEW}?session=${encodeURIComponent(sessionRef)}`);
   const bindingAdmitted = record?.harness_binding && (record.harness_binding.profile_ref || record.harness_binding.harness);
@@ -473,6 +487,10 @@ async function run() {
   ok("teardown journeys clean: DELETE answers torn_down with the teardown receipt recorded — the one destructive session verb that exists today",
     teardown.status === 200 && teardown.body?.decision === "torn_down" && teardownReceipts.length === 1,
     `${teardown.status} · ${teardownReceipts[0] || "no receipt"}`);
+  const teardownReceipt = readSessionReceipt("hypervisor.session.teardown", sessionRef);
+  ok("INV-37: the durable teardown receipt is committed AND binds acting_principal_ref — the authenticated principal that performed the destructive verb",
+    teardownReceipt?.status === "committed" && teardownReceipt?.acting_principal_ref === record?.owner_ref,
+    `status ${teardownReceipt?.status} · acting ${teardownReceipt?.acting_principal_ref}`);
   const afterTeardown = await sessGet(sessionRef);
   ok("the record survives teardown as truth (lifecycle_state torn_down), and the sessions view renders it honestly",
     afterTeardown?.lifecycle_state === "torn_down"

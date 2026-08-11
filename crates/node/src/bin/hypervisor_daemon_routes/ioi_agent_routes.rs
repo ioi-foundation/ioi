@@ -73,6 +73,55 @@ fn kernel_err(
     )
 }
 
+/// Identity-bearing headers forwarded on Session-family self-calls — the orchestration_routes
+/// precedent (#240): forwarding is OPPORTUNISTIC (an authenticated launch's cookie/bearer rides
+/// through so the created Session binds the REAL caller), and the per-boot internal dispatch
+/// token authenticates the daemon's own dispatch when no caller session resolves (#246 gate).
+/// A caller-supplied token value forwards inert — it can never match the per-boot secret,
+/// which is never emitted in any response.
+const SESSION_SELF_CALL_FORWARDED_HEADERS: &[&str] = &["authorization", "cookie"];
+
+/// Self-call the identity-gated Session family (create / execute): the inbound caller's
+/// identity headers forward verbatim, and the per-boot internal dispatch token marks the
+/// crossing as the daemon's own orchestration dispatch (the #240 lane).
+async fn self_call_session(
+    st: &DaemonState,
+    inbound: &axum::http::HeaderMap,
+    url: &str,
+    method: &str,
+    body: Option<&Value>,
+) -> (u16, Value) {
+    let client = reqwest::Client::new();
+    let mut builder = match method {
+        "GET" => client.get(url),
+        _ => client.post(url),
+    };
+    for name in SESSION_SELF_CALL_FORWARDED_HEADERS {
+        if let Some(value) = inbound.get(*name).and_then(|value| value.to_str().ok()) {
+            builder = builder.header(*name, value);
+        }
+    }
+    builder = builder.header("x-ioi-internal-dispatch", &st.internal_dispatch_token);
+    let builder = match body {
+        Some(payload) => builder.json(payload),
+        None => builder,
+    };
+    match builder
+        .timeout(Duration::from_millis(1_800_000))
+        .send()
+        .await
+    {
+        Ok(resp) => {
+            let status = resp.status().as_u16();
+            (status, resp.json::<Value>().await.unwrap_or(Value::Null))
+        }
+        Err(err) => (
+            0,
+            json!({ "error": { "code": "self_call_failed", "message": err.to_string() } }),
+        ),
+    }
+}
+
 async fn self_call(url: &str, method: &str, body: Option<&Value>) -> (u16, Value) {
     let client = reqwest::Client::new();
     let builder = match method {
@@ -1491,7 +1540,9 @@ pub(crate) async fn handle_ioi_agent_launch(
                 "reconciliation": reconciliation,
             });
         } else {
-            let (status, executed) = self_call(
+            let (status, executed) = self_call_session(
+                &st,
+                &headers,
                 &format!(
                     "{}/v1/hypervisor/sessions/{}/execute",
                     st.base_url,
@@ -1626,7 +1677,9 @@ pub(crate) async fn handle_ioi_agent_launch(
             session_body["model_route_ref"] = json!(route_ref);
         }
     }
-    let (created_status, created) = self_call(
+    let (created_status, created) = self_call_session(
+        &st,
+        &headers,
         &format!("{}/v1/hypervisor/sessions", st.base_url),
         "POST",
         Some(&session_body),
@@ -1803,8 +1856,10 @@ pub(crate) async fn handle_ioi_agent_launch(
     } else {
         json!({ "intent": delivered_intent })
     };
+    // The Session execute arm is identity-gated (#246): the probe must cross AS the caller (or
+    // as the daemon's own dispatch) so the 403 it relays is the WALLET challenge, never a 401.
     let (challenge_status, mut challenge) =
-        self_call(&challenge_url, "POST", Some(&challenge_body)).await;
+        self_call_session(&st, &headers, &challenge_url, "POST", Some(&challenge_body)).await;
     if challenge_status != 403 {
         return bad(
             StatusCode::BAD_GATEWAY,

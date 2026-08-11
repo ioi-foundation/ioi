@@ -2307,9 +2307,17 @@ async fn self_get(url: &str) -> Option<Value> {
         .ok()
 }
 
-async fn self_post(url: &str, body: &Value) -> (u16, Value) {
+/// Self-POST carrying the per-boot internal dispatch token (#240 lane, extended by the #246
+/// session-write gate): candidate-session creates run inside spawned invocation workers with no
+/// caller HeaderMap in scope, so they cross the identity-gated Session family as the daemon's
+/// OWN dispatch. The token lives only in process memory and is never emitted in any response;
+/// a caller-supplied value can never match it. The goal-run start handler that authorizes the
+/// invocation remains a pinned admission-evidence open lead — when IT gains identity, the
+/// resolved principal should thread through here instead.
+async fn self_post_internal_dispatch(st: &DaemonState, url: &str, body: &Value) -> (u16, Value) {
     let response = reqwest::Client::new()
         .post(url)
+        .header("x-ioi-internal-dispatch", &st.internal_dispatch_token)
         .json(body)
         .timeout(Duration::from_millis(20000))
         .send()
@@ -9863,8 +9871,10 @@ async fn run_invocation(
         })
     };
 
-    // Isolated candidate session (its workspace IS the candidate namespace).
-    let (status, created) = self_post(
+    // Isolated candidate session (its workspace IS the candidate namespace). The Session family
+    // is identity-gated (#246); this spawned worker crosses as the daemon's own dispatch.
+    let (status, created) = self_post_internal_dispatch(
+        &st,
         &format!("{}/v1/hypervisor/sessions", st.base_url),
         &json!({
             "session_ref": candidate_session_ref,
