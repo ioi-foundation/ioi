@@ -177,7 +177,10 @@ fn automation_scope_refusal(
 /// response, so a valid presentation can only originate from this daemon process. Internal
 /// dispatch is NOT a session: the run executes as the spec's stored `executor_identity`
 /// (the delegated durable authority), never as an ambient operator.
-fn internal_dispatch_authorized(st: &DaemonState, headers: &HeaderMap) -> bool {
+/// `pub(crate)` since the #246 session-write gate: the Session write lane admits the daemon's
+/// own orchestration dispatches (ioi-agent launch, goal-run candidate sessions) through this
+/// same per-boot token instead of a session — one token, one predicate, no second lane.
+pub(crate) fn internal_dispatch_authorized(st: &DaemonState, headers: &HeaderMap) -> bool {
     headers
         .get("x-ioi-internal-dispatch")
         .and_then(|v| v.to_str().ok())
