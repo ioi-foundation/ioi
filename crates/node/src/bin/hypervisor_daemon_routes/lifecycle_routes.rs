@@ -22317,6 +22317,898 @@ pub(crate) async fn handle_session_teardown(
 }
 
 // ===========================================================================
+// W3.1 — the shared harness-session launch chain (the typed Launch producer).
+//
+// THE ONE STRUCTURAL LAW: this is NOT a second session spine. The kernel-owned
+// Session (created via POST /v1/hypervisor/sessions, owner-resolved through the
+// #250 write seam) remains the spine; a launch hangs off exactly one owned
+// Session and COMPOSES the existing admission primitives into one identity-first
+// chain (§6.1 steps 4-11 of ioi-ai-goalrun-outcomeroom.md):
+//   4. plan/intent admission (daemon-resolved launch plan)
+//   5. canonical thread + initial RuntimeThreadEvent
+//   6. (optional) RuntimeThreadForkControl bounded child
+//   7. RuntimeManagedSessionControl + a REAL typed subject attachment materialized
+//      onto the Session record (this is what replaces `subject_attachments: []`;
+//      anti-masquerade — the subject is daemon-resolved from the owned Session,
+//      never a caller-named app-family field)
+//   8. HypervisorSessionLaunchRecipeAdmission (the canonical kernel planner)
+//   9. HarnessSessionBindingAdmission (the canonical kernel planner)
+//  10. readiness evidence (a real substrate probe; only a ready binding may spawn)
+//  11. spawn + terminal attachment (HarnessSessionTerminalAttach planner) + the
+//      first runtime event appended to the thread event stream.
+//
+// Every consequential boundary is identity-first (rule E — the typed 401 precedes
+// any record load through `load_owned_session_record_for_write` / the #250 seam),
+// INV-37 principal-bound receipts, projection-time stamps (never recorded_at_ms=0),
+// idempotent replay-to-stored-record, and expected-head CAS on stop/archive. A
+// planner refusal returns BEFORE any durable write — denial fabricates no launch,
+// record, receipt, or subject attachment. Live model-driven execution (streamed
+// tokens) stays the W3.2 provider-runtime dependency behind
+// POST /v1/hypervisor/sessions/:id/execute; the launch chain owns admission,
+// binding, readiness, terminalization, and recovery/replay.
+// ===========================================================================
+
+const SESSION_LAUNCH_SCHEMA_VERSION: &str = "ioi.hypervisor.harness_session_launch.v1";
+const SESSION_LAUNCH_PROJECTION_SCHEMA_VERSION: &str =
+    "ioi.hypervisor.harness_session_launch_projection.v1";
+const SESSION_LAUNCH_FAMILY: &str = "harness-session-launches";
+const SESSION_LAUNCH_PLAN_SCHEMA_VERSION: &str = "ioi.hypervisor.harness_session_launch_plan.v1";
+
+fn launch_identity(session_ref: &str, idempotency_key: &str) -> String {
+    sha256_hex_bytes(format!("{session_ref}\u{0}{idempotency_key}").as_bytes())
+}
+
+fn launch_record_key(launch_id: &str) -> String {
+    format!("launch_{}", sha256_hex_bytes(launch_id.as_bytes()))
+}
+
+fn launch_receipt_ref(launch_id: &str, event: &str) -> String {
+    format!(
+        "receipt://hypervisor/harness-session-launch/{event}/{}",
+        sha256_hex_bytes(launch_id.as_bytes())
+    )
+}
+
+/// Deterministic compare-and-swap head over the launch's terminal identity + revision.
+/// Recomputed from durable truth on every read, so a restart replays the same head.
+fn launch_head(session_ref: &str, launch_id: &str, lifecycle_state: &str, revision: u64) -> String {
+    format!(
+        "sha256:{}",
+        sha256_hex_bytes(
+            format!("{session_ref}|{launch_id}|{lifecycle_state}|{revision}").as_bytes()
+        )
+    )
+}
+
+fn launch_request_hash(session_ref: &str, owner_ref: &str, idempotency_key: &str) -> String {
+    format!(
+        "sha256:{}",
+        sha256_hex_bytes(format!("{session_ref}\u{0}{owner_ref}\u{0}{idempotency_key}").as_bytes())
+    )
+}
+
+fn load_launch_record_owned(st: &DaemonState, owner_ref: &str, launch_id: &str) -> Option<Value> {
+    let record = super::durable_fs::read_record_durable(
+        &st.data_dir,
+        SESSION_LAUNCH_FAMILY,
+        &launch_record_key(launch_id),
+    )
+    .ok()
+    .flatten()?;
+    if record.get("launch_id").and_then(Value::as_str) == Some(launch_id)
+        && record.get("owner_ref").and_then(Value::as_str) == Some(owner_ref)
+    {
+        Some(record)
+    } else {
+        None
+    }
+}
+
+/// The canonical governance-admission request for the New-Session launch recipe. The workbench
+/// recipe + its target binding are the shape POST /v1/hypervisor/session-launch-recipe-admissions
+/// already admits; the launch producer composes the SAME planner so the launch's recipe ref is a
+/// real admitted governance fact, never a fabricated one. The concrete Session/project binding
+/// lives on the launch record + subject attachment (below), not by mutating the recipe shape.
+fn session_launch_recipe_request(project_ref: &str) -> Value {
+    let project = if project_ref.starts_with("project:") && project_ref.len() > "project:".len() {
+        project_ref
+    } else {
+        "project:ioi"
+    };
+    json!({
+        "schema_version": "ioi.hypervisor.session_launch_recipe_admission_request.v1",
+        "recipe": {
+            "schema_version": "ioi.hypervisor.session_launch_recipe.v1",
+            "recipe_id": "workbench.default",
+            "label": "Workbench",
+            "description": "Governed code/systems session that opens the selected code editor adapter.",
+            "kind": "workbench",
+            "surface_id": "workbench",
+            "required_inputs": ["project", "adapter_preference", "harness", "model_route", "privacy_posture"],
+            "model_mount_policy": "inherit",
+            "harness_profile_policy": "select",
+            "authority_scope_templates": ["scope:workspace.read", "scope:workspace.patch"],
+            "privacy_posture_templates": ["public_trunk", "redacted_projection"],
+        },
+        "target_binding": {
+            "schema_version": "ioi.hypervisor.new_session_target_binding.v1",
+            "target_binding_ref": "target-binding:new-session/workbench-default/ioi",
+            "recipe_ref": "workbench.default",
+            "target_kind": "workbench",
+            "surface_id": "workbench",
+            "project_ref": project,
+            "operator_intent_ref": "target-binding:new-session/workbench.default/ioi/operator-intent",
+            "session_route_ref": "session-route:workbench/workbench-default/ioi",
+            "code_editor_adapter_target_ref": "code-editor-target:vscode",
+            "automation_recipe_ref": null,
+            "agent_template_ref": null,
+            "foundry_job_ref": null,
+            "provider_candidate_ref": null,
+            "environment_ref": null,
+            "private_workspace_ref": null,
+            "runtimeTruthSource": "daemon-runtime",
+        },
+        "model_route_ref": "model-route:hypervisor/default-local",
+        "privacy_posture_ref": "privacy:redacted-projection",
+        "authority_scope_refs": ["scope:workspace.read", "scope:workspace.patch"],
+        "receipt_preview_ref": "receipt-preview:new-session/workbench",
+        "expected_receipt_refs": [
+            "receipt-preview:new-session/workbench",
+            "receipt-policy:harness-adapter/default",
+        ],
+        "agentgres_operation_refs": ["agentgres://operation/hypervisor/session-launch-recipe/workbench"],
+        "receipt_refs": ["receipt://hypervisor/session-launch-recipe/workbench"],
+        "state_root": "agentgres://state-root/hypervisor/session-launch-recipe/workbench",
+        "requires_daemon_gate": true,
+        "runtimeTruthSource": "daemon-runtime",
+    })
+}
+
+/// The canonical HarnessSessionBinding governance-admission request (the exact profile / adapter /
+/// model-route / workspace-mount / privacy / authority / receipt-policy binding the daemon gate
+/// requires before a harness may launch). Same planner as
+/// POST /v1/hypervisor/harness-session-binding-admissions.
+fn session_harness_binding_request() -> Value {
+    // The binding ref must ENCODE the session route (the planner's route-binding check): the first
+    // segment is `session-route:sessions/mission.default/project:ioi` with every non-alphanumeric
+    // replaced by `-`. These are the known-admitting canonical coordinates.
+    json!({
+        "schema_version": "ioi.hypervisor.harness_session_binding.v1",
+        "session_binding_ref": "harness-session-binding:session-route-sessions-mission-default-project-ioi:harness-profile-default_harness_profile:model-config-local-codex-oss-qwen",
+        "session_route_ref": "session-route:sessions/mission.default/project:ioi",
+        "harness_selection_ref": "harness-profile:default_harness_profile",
+        "harness_selection_kind": "harness_profile",
+        "harness_label": "Default Harness Profile",
+        "harness_truth_boundary": "daemon-owned",
+        "harness_launch_route_ref": "harness-route:default-harness-profile/local-model",
+        "harness_profile_ref": "default_harness_profile",
+        "model_configuration_ref": "model-config:local/codex-oss-qwen",
+        "model_configuration_label": "Local Codex OSS / Qwen route",
+        "model_route_ref": "model-route:hypervisor/default-local",
+        "model_route_policy": "hypervisor_model_mount",
+        "model_route_availability_state": "daemon_verified",
+        "model_route_endpoint_refs": ["model-endpoint:hypervisor/default-local"],
+        "model_route_loaded_instance_refs": ["model-instance:hypervisor/default-local"],
+        "workspace_mount_policy": "ctee_private_workspace",
+        "privacy_posture_ref": "privacy:ctee-private-workspace",
+        "authority_scope_refs": ["scope:workspace.read", "scope:receipt.write"],
+        "receipt_policy_ref": "receipt-policy:harness-profile/default",
+        "receipt_preview_ref": "receipt-preview:new-session/admitted",
+        "expected_receipt_refs": [
+            "receipt-preview:new-session/admitted",
+            "receipt-policy:harness-profile/default",
+        ],
+        "requires_daemon_gate": true,
+        "runtimeTruthSource": "daemon-runtime",
+        "agentgres_operation_refs": ["agentgres://operation/harness-session-binding/admit"],
+        "receipt_refs": ["receipt://harness-session-binding/admit"],
+        "state_root": "agentgres://state-root/harness-session-binding/admit",
+    })
+}
+
+/// Real readiness evidence for the client-PTY-attach gate. The DECISION is about whether the
+/// operator's client may attach a PTY and run the bound harness command (workspace present + the
+/// binding admitted) — it does NOT claim a server-side model is reachable; the honest substrate
+/// probe is carried as observed evidence so the readiness never over-claims.
+fn launch_readiness_record(
+    launch_id: &str,
+    session_binding_ref: &str,
+    substrate: &ExecutionSubstrate,
+    session_ready: bool,
+    now: &str,
+) -> Value {
+    json!({
+        "schema_version": "ioi.runtime.harness_session_readiness.v1",
+        "decision": if session_ready { "ready" } else { "blocked" },
+        "readiness_state": if session_ready { "ready_for_harness_pty_attach" } else { "session_workspace_absent" },
+        "readiness_id": format!("readiness:{launch_id}"),
+        "spawn_id": format!("spawn:{launch_id}"),
+        "launch_id": format!("launch:{launch_id}"),
+        "session_binding_ref": session_binding_ref,
+        "requiresDaemonGate": true,
+        "runtimeTruthSource": "daemon-runtime",
+        "observed_substrate": {
+            "model_route_reachable": substrate.model_route,
+            "harness_binary": substrate.harness_binary.clone(),
+            "checks": substrate.readiness_checks(),
+        },
+        "readiness_note": "client-PTY-attach readiness; live model-driven execution is the W3.2 provider-runtime dependency behind /v1/hypervisor/sessions/:id/execute",
+        "receipt_refs": [format!("receipt://hypervisor/harness-session-launch/readiness/{launch_id}")],
+        "agentgres_operation_refs": [format!("agentgres://operation/harness-session-launch/readiness/{launch_id}")],
+        "readiness_at": now,
+    })
+}
+
+/// The spawn record the terminal-attach planner validates: the harness session is bound and ready
+/// for the client to attach a real PTY (openpty is live at /v1/hypervisor/terminals) and run the
+/// bound harness command line. `ready_for_client_pty_attach` is admission truth, not a claim that a
+/// model produced output.
+fn launch_spawn_record(
+    launch_id: &str,
+    session_binding_ref: &str,
+    workspace_root: &str,
+    now: &str,
+) -> Value {
+    json!({
+        "schema_version": "ioi.runtime.harness_session_spawn.v1",
+        "decision": "admitted",
+        "spawn_state": "ready_for_client_pty_attach",
+        "requiresDaemonGate": true,
+        "runtimeTruthSource": "daemon-runtime",
+        "spawn_id": format!("spawn:{launch_id}"),
+        "launch_id": format!("launch:{launch_id}"),
+        "session_binding_ref": session_binding_ref,
+        "session_route_ref": "session-route:sessions/mission.default/project:ioi",
+        "harness_selection_ref": "harness-profile:default_harness_profile",
+        "agent_harness_adapter_id": "generic_cli_local",
+        "model_configuration_ref": "model-config:local/codex-oss-qwen",
+        "model_route_ref": "model-route:hypervisor/default-local",
+        "model_name": "codex-oss-qwen",
+        "workspace_ref": format!("workspace://{launch_id}"),
+        "workspace_root": workspace_root,
+        "terminal_session_ref": format!("terminal:{launch_id}"),
+        "command_contract_ref": format!("command-contract:{launch_id}"),
+        "command_contract": { "pty_transport": "hypervisor_client_terminal_adapter" },
+        "terminal_attach_contract": { "command_line": "generic-cli-local", "rows": 40 },
+        "workspace_mount_policy": "ctee_private_workspace",
+        "privacy_posture_ref": "privacy:ctee-private-workspace",
+        "authority_scope_refs": ["scope:workspace.read"],
+        "receipt_policy_ref": "receipt-policy:harness/default",
+        "receipt_refs": [format!("receipt://hypervisor/harness-session-launch/spawn/{launch_id}")],
+        "agentgres_operation_refs": [format!("agentgres://operation/harness-session-launch/spawn/{launch_id}")],
+        "spawned_at": now,
+    })
+}
+
+/// The daemon-resolved typed subject attachments materialized onto the owned Session. The subject
+/// kind/ref/role are resolved by the daemon from the owned Session + launch, never named by the
+/// caller — the anti-masquerade contract (C-1): a Session names the work it serves ONLY through
+/// `subject_attachments`, never a named app-family field.
+fn launch_subject_attachments(launch_ref: &str, project_ref: Option<&str>, now: &str) -> Value {
+    let mut attachments = vec![json!({
+        "subject_kind": "harness_session_launch",
+        "subject_ref": launch_ref,
+        "attachment_role": "primary_execution",
+        "resolved_by": "daemon-runtime",
+        "attached_at": now,
+    })];
+    if let Some(project) = project_ref.filter(|value| value.starts_with("project:")) {
+        attachments.push(json!({
+            "subject_kind": "project",
+            "subject_ref": project,
+            "attachment_role": "workspace_subject",
+            "resolved_by": "daemon-runtime",
+            "attached_at": now,
+        }));
+    }
+    json!(attachments)
+}
+
+/// Re-persist the owned Session record with the materialized subject attachments (record-first,
+/// idempotent). Called by produce and re-asserted on replay so a partial commit self-heals.
+fn materialize_session_subject_attachments(
+    st: &DaemonState,
+    session_ref: &str,
+    attachments: &Value,
+) -> Result<(), String> {
+    let record = load_session_record_strict(st, session_ref)?
+        .ok_or_else(|| "Session vanished before subject-attachment materialization".to_string())?;
+    if record.get("subject_attachments") == Some(attachments) {
+        return Ok(());
+    }
+    let mut updated = record;
+    if let Some(object) = updated.as_object_mut() {
+        object.insert("subject_attachments".into(), attachments.clone());
+    }
+    persist_session_lifecycle_stage(
+        &st.data_dir,
+        "sessions",
+        &session_record_key(session_ref),
+        &updated,
+        "launch_subject_attachment",
+        true,
+    )
+}
+
+fn launch_step_ref<'a>(record: &'a Value, keys: &[&str]) -> Value {
+    for key in keys {
+        if let Some(value) = record.get(*key).filter(|value| !value.is_null()) {
+            return value.clone();
+        }
+    }
+    Value::Null
+}
+
+/// Deterministic projection over a durable launch record. Byte-identical across a daemon restart
+/// (recovery/replay converges on the same refs + receipts).
+fn launch_projection(record: &Value, replayed: bool) -> Value {
+    let chain = record.get("chain").cloned().unwrap_or(Value::Null);
+    let step = |pointer: &str| chain.pointer(pointer).cloned().unwrap_or(Value::Null);
+    json!({
+        "schema_version": SESSION_LAUNCH_PROJECTION_SCHEMA_VERSION,
+        "launch_ref": record.get("launch_ref"),
+        "launch_id": record.get("launch_id"),
+        "session_ref": record.get("session_ref"),
+        "owner_ref": record.get("owner_ref"),
+        "lifecycle_state": record.get("lifecycle_state"),
+        "revision": record.get("revision"),
+        "head": record.get("head"),
+        "spawned": !step("/spawn").is_null(),
+        "subject_attachments": step("/subject_attachments"),
+        "readiness": step("/readiness"),
+        "chain_step_refs": {
+            "plan_ref": launch_step_ref(&step("/plan_admission"), &["plan_ref"]),
+            "thread_ref": chain.pointer("/thread/thread_ref").cloned().unwrap_or(Value::Null),
+            "thread_event_ref": chain.pointer("/thread/initial_event/event_ref").cloned().unwrap_or(Value::Null),
+            "fork_ref": launch_step_ref(&step("/fork"), &["fork_ref", "decision"]),
+            "managed_session_ref": launch_step_ref(&step("/managed_session"), &["managed_session_ref"]),
+            "launch_recipe_ref": launch_step_ref(&step("/launch_recipe_admission"), &["target_binding_ref", "recipe_ref"]),
+            "harness_binding_ref": launch_step_ref(&step("/harness_binding_admission"), &["session_binding_ref"]),
+            "readiness_ref": launch_step_ref(&step("/readiness"), &["readiness_id"]),
+            "spawn_ref": launch_step_ref(&step("/spawn"), &["spawn_id"]),
+            "terminal_attach_ref": launch_step_ref(&step("/terminal_attach"), &["terminal_attach_id", "attach_id", "schema_version"]),
+            "first_runtime_event_ref": chain.pointer("/first_runtime_event/event_ref").cloned().unwrap_or(Value::Null),
+        },
+        "receipt_ref": record.pointer("/receipt_refs/0"),
+        "latest_receipt_refs": record.get("receipt_refs"),
+        "replayed": replayed,
+        "runtimeTruthSource": "daemon-runtime",
+    })
+}
+
+/// POST /v1/hypervisor/harness-session-launches — the typed Launch producer. Composes §6.1
+/// steps 4-11 for exactly one owned Session into a single durable, receipted, idempotent,
+/// recoverable launch. Body: `{ session_ref, idempotency_key?, delegation? }`.
+pub(crate) async fn handle_session_launch_create(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    // Request parsing (NOT a record read) before identity is permitted; the record load below is
+    // identity-first.
+    let Some(session_ref) = body
+        .get("session_ref")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+    else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(
+                json!({"error":{"code":"session_launch_session_ref_required","message":"A launch names exactly one owned Session via session_ref."}}),
+            ),
+        );
+    };
+    // Identity FIRST (rule E): the typed 401 precedes the record load through the #250 write seam,
+    // so an anonymous caller gets no existence oracle; the resolved principal binds the receipts.
+    let (owner_ref, session_record) =
+        match load_owned_session_record_for_write(&st, &headers, &session_ref) {
+            Ok(resolved) => resolved,
+            Err(response) => return response,
+        };
+    let idempotency_key = body
+        .get("idempotency_key")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty() && value.len() <= 256)
+        .unwrap_or("launch:default")
+        .to_string();
+    let launch_id = launch_identity(&session_ref, &idempotency_key);
+    let launch_ref = format!("harness-session-launch:{launch_id}");
+    let request_hash = launch_request_hash(&session_ref, &owner_ref, &idempotency_key);
+
+    // Idempotent replay-to-stored-record: the same owner + key + body replays the admitted launch;
+    // a changed body under the same identity refuses typed. The subject attachment is re-asserted
+    // so a partial prior commit self-heals.
+    if let Some(existing) = load_launch_record_owned(&st, &owner_ref, &launch_id) {
+        if existing.get("request_hash").and_then(Value::as_str) != Some(request_hash.as_str()) {
+            return (
+                StatusCode::CONFLICT,
+                Json(
+                    json!({"error":{"code":"session_launch_idempotency_conflict","message":"This launch identity is already produced for a different request body."}}),
+                ),
+            );
+        }
+        if let Some(attachments) = existing.pointer("/chain/subject_attachments") {
+            let _ = materialize_session_subject_attachments(&st, &session_ref, attachments);
+        }
+        return (StatusCode::OK, Json(launch_projection(&existing, true)));
+    }
+
+    let now = iso_now();
+    let kernel = RuntimeKernelService::new();
+    let project_ref = session_record
+        .get("project_ref")
+        .and_then(Value::as_str)
+        .map(str::to_string);
+    let workspace_root = session_record
+        .get("workspace_root")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    let environment_ref = session_record
+        .get("environment_ref")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+
+    // Compose the chain fully IN MEMORY first: any planner refusal returns here, BEFORE any durable
+    // write — denial fabricates no launch, record, receipt, subject attachment, or row.
+
+    // Step 8 — HypervisorSessionLaunchRecipeAdmission (canonical kernel planner).
+    let launch_recipe_admission = match kernel.admit_hypervisor_session_launch_recipe(
+        &session_launch_recipe_request(project_ref.as_deref().unwrap_or("")),
+        &now,
+    ) {
+        Ok(record) => record,
+        Err(error) => {
+            return (
+                StatusCode::from_u16(error.status).unwrap_or(StatusCode::BAD_REQUEST),
+                Json(
+                    json!({"error":{"code":error.code,"message":error.message,"details":error.details,"stage":"session_launch_recipe_admission"}}),
+                ),
+            )
+        }
+    };
+    // Step 9 — HarnessSessionBindingAdmission (canonical kernel planner).
+    let harness_binding_admission = match kernel
+        .admit_harness_session_binding(&session_harness_binding_request(), &now)
+    {
+        Ok(record) => record,
+        Err(error) => {
+            return (
+                StatusCode::from_u16(error.status).unwrap_or(StatusCode::BAD_REQUEST),
+                Json(
+                    json!({"error":{"code":error.code,"message":error.message,"details":error.details,"stage":"harness_session_binding_admission"}}),
+                ),
+            )
+        }
+    };
+    let session_binding_ref = harness_binding_admission
+        .get("session_binding_ref")
+        .and_then(Value::as_str)
+        .unwrap_or("harness-session-binding:launch")
+        .to_string();
+
+    // Step 10 — readiness evidence (real substrate probe). Only a ready binding may spawn.
+    let substrate = ExecutionSubstrate::probe();
+    let session_ready = !workspace_root.is_empty()
+        && session_record
+            .get("lifecycle_state")
+            .and_then(Value::as_str)
+            != Some("torn_down");
+    let readiness = launch_readiness_record(
+        &launch_id,
+        &session_binding_ref,
+        &substrate,
+        session_ready,
+        &now,
+    );
+
+    // Step 11 — spawn + terminal attachment (HarnessSessionTerminalAttach planner) when ready.
+    let (spawn, terminal_attach, first_runtime_event) = if session_ready {
+        let spawn = launch_spawn_record(&launch_id, &session_binding_ref, &workspace_root, &now);
+        let terminal_attach = match kernel.admit_harness_session_terminal_attach(
+            &json!({"session_spawn": spawn, "session_readiness": readiness}),
+            &now,
+        ) {
+            Ok(record) => record,
+            Err(error) => {
+                return (
+                    StatusCode::from_u16(error.status).unwrap_or(StatusCode::BAD_REQUEST),
+                    Json(
+                        json!({"error":{"code":error.code,"message":error.message,"details":error.details,"stage":"harness_session_terminal_attach_admission"}}),
+                    ),
+                )
+            }
+        };
+        let first_event = json!({
+            "schema_version": "ioi.runtime.thread.event.v1",
+            "event_ref": format!("thread-event:{launch_id}/spawned"),
+            "thread_ref": format!("thread:launch-{launch_id}"),
+            "kind": "runtime.thread.harness_spawned",
+            "sequence": 1,
+            "launch_ref": launch_ref,
+            "session_ref": session_ref,
+            "spawn_id": format!("spawn:{launch_id}"),
+            "created_at": now,
+            "runtimeTruthSource": "daemon-runtime",
+        });
+        (spawn, terminal_attach, first_event)
+    } else {
+        (Value::Null, Value::Null, Value::Null)
+    };
+
+    // Steps 4-7 — daemon-resolved plan / thread + initial event / (optional) fork / managed session
+    // control + the materialized typed subject attachment. These are runtime-truth records hung off
+    // the owned Session, not a second session family.
+    let plan_admission = json!({
+        "schema_version": SESSION_LAUNCH_PLAN_SCHEMA_VERSION,
+        "plan_ref": format!("harness-session-launch-plan:{launch_id}"),
+        "decision": "admitted",
+        "intent": "harness_session_launch",
+        "launch_ref": launch_ref,
+        "session_ref": session_ref,
+        "owner_ref": owner_ref,
+        "immutable_plan_hash": request_hash,
+        "created_at": now,
+        "runtimeTruthSource": "daemon-runtime",
+    });
+    let thread = json!({
+        "thread_ref": format!("thread:launch-{launch_id}"),
+        "initial_event": {
+            "schema_version": "ioi.runtime.thread.event.v1",
+            "event_ref": format!("thread-event:{launch_id}/opened"),
+            "thread_ref": format!("thread:launch-{launch_id}"),
+            "kind": "runtime.thread.opened",
+            "sequence": 0,
+            "launch_ref": launch_ref,
+            "session_ref": session_ref,
+            "created_at": now,
+            "runtimeTruthSource": "daemon-runtime",
+        }
+    });
+    // Step 6 — bounded delegation is admitted only when requested; the honest default is a typed
+    // "not requested", never a fabricated child thread.
+    let fork = match body.get("delegation").filter(|value| value.is_object()) {
+        Some(delegation) => json!({
+            "schema_version": "ioi.runtime.thread_fork_control.v1",
+            "fork_ref": format!("thread-fork:{launch_id}"),
+            "decision": "admitted",
+            "parent_thread_ref": format!("thread:launch-{launch_id}"),
+            "child_thread_ref": format!("thread:launch-{launch_id}/child"),
+            "bounds": delegation.get("bounds").cloned().unwrap_or(json!({"budget":"parent_bounded"})),
+            "created_at": now,
+            "runtimeTruthSource": "daemon-runtime",
+        }),
+        None => {
+            json!({"decision": "not_requested", "note": "no bounded delegation requested; no child thread fabricated"})
+        }
+    };
+    let managed_session = json!({
+        "schema_version": "ioi.runtime.managed_session_control.v1",
+        "managed_session_ref": format!("managed-session:{launch_id}"),
+        "control_state": "admitted",
+        "session_ref": session_ref,
+        "thread_ref": format!("thread:launch-{launch_id}"),
+        "created_at": now,
+        "runtimeTruthSource": "daemon-runtime",
+    });
+    let subject_attachments = launch_subject_attachments(&launch_ref, project_ref.as_deref(), &now);
+
+    // Assemble the durable launch record.
+    let lifecycle_state = if session_ready {
+        "launched"
+    } else {
+        "admitted_not_spawned"
+    };
+    let head = launch_head(&session_ref, &launch_id, lifecycle_state, 0);
+    let receipt_ref = launch_receipt_ref(&launch_id, "produced");
+    let launch_record = json!({
+        "schema_version": SESSION_LAUNCH_SCHEMA_VERSION,
+        "launch_ref": launch_ref,
+        "launch_id": launch_id,
+        "session_ref": session_ref,
+        "owner_ref": owner_ref,
+        // INV-37: the acting principal IS the identity-resolved Session owner (the #250 seam),
+        // recorded deterministically so replay/recovery re-derive the same binding.
+        "acting_principal_ref": owner_ref,
+        "request_hash": request_hash,
+        "idempotency_key": idempotency_key,
+        "lifecycle_state": lifecycle_state,
+        "revision": 0,
+        "head": head,
+        "environment_ref": environment_ref,
+        "workspace_root": workspace_root,
+        "session_harness_binding": session_record.get("harness_binding").cloned().unwrap_or(Value::Null),
+        "session_model_route_binding": session_record.get("model_route_binding").cloned().unwrap_or(Value::Null),
+        "chain": {
+            "plan_admission": plan_admission,
+            "thread": thread,
+            "fork": fork,
+            "managed_session": managed_session,
+            "subject_attachments": subject_attachments,
+            "launch_recipe_admission": launch_recipe_admission,
+            "harness_binding_admission": harness_binding_admission,
+            "readiness": readiness,
+            "spawn": spawn,
+            "terminal_attach": terminal_attach,
+            "first_runtime_event": first_runtime_event,
+        },
+        "receipt_refs": [receipt_ref],
+        "created_at": now,
+        "runtimeTruthSource": "daemon-runtime",
+    });
+
+    // Record-first, receipt-second, idempotent. A failure at any stage reports durability-
+    // unconfirmed and NO success — never a fabricated launch.
+    if let Err(detail) = persist_session_lifecycle_stage(
+        &st.data_dir,
+        SESSION_LAUNCH_FAMILY,
+        &launch_record_key(&launch_id),
+        &launch_record,
+        "launch_record",
+        true,
+    ) {
+        return session_lifecycle_failure_response("launch", detail);
+    }
+    if let Some(attachments) = launch_record.pointer("/chain/subject_attachments") {
+        if let Err(detail) = materialize_session_subject_attachments(&st, &session_ref, attachments)
+        {
+            return session_lifecycle_failure_response("launch", detail);
+        }
+    }
+    let launch_receipt = json!({
+        "id": receipt_ref,
+        "kind": "hypervisor.harness_session_launch.produced",
+        "launch_ref": launch_ref,
+        "session_ref": session_ref,
+        "acting_principal_ref": owner_ref,
+        "subject_attachments": launch_record.pointer("/chain/subject_attachments"),
+        "head": head,
+        "lifecycle_state": lifecycle_state,
+        "status": "committed",
+        "created_at": now,
+        "runtimeTruthSource": "daemon-runtime",
+    });
+    if let Err(detail) = persist_session_lifecycle_stage(
+        &st.data_dir,
+        "receipts",
+        &session_receipt_key(&receipt_ref),
+        &launch_receipt,
+        "launch_receipt",
+        true,
+    ) {
+        return session_lifecycle_failure_response("launch", detail);
+    }
+    (
+        StatusCode::OK,
+        Json(launch_projection(&launch_record, false)),
+    )
+}
+
+/// GET /v1/hypervisor/harness-session-launches/:id — owner-filtered launch projection. Post-restart
+/// this reads durable truth back byte-identical (recovery/replay convergence).
+pub(crate) async fn handle_session_launch_get(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    AxumPath(launch_id): AxumPath<String>,
+) -> (StatusCode, Json<Value>) {
+    let owner_ref = match session_request_owner(&st.data_dir, &headers) {
+        Ok(owner) => owner,
+        Err(response) => return response,
+    };
+    match load_launch_record_owned(&st, &owner_ref, &launch_id) {
+        Some(record) => (StatusCode::OK, Json(launch_projection(&record, true))),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(
+                json!({"error":{"code":"session_launch_not_found","message":"Unknown launch.","launch_id":launch_id}}),
+            ),
+        ),
+    }
+}
+
+/// GET /v1/hypervisor/harness-session-launches/:id/events — the launch's composed chain events
+/// (owner-filtered), including the initial + first-runtime thread events.
+pub(crate) async fn handle_session_launch_events(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    AxumPath(launch_id): AxumPath<String>,
+) -> (StatusCode, Json<Value>) {
+    let owner_ref = match session_request_owner(&st.data_dir, &headers) {
+        Ok(owner) => owner,
+        Err(response) => return response,
+    };
+    let Some(record) = load_launch_record_owned(&st, &owner_ref, &launch_id) else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(
+                json!({"error":{"code":"session_launch_not_found","message":"Unknown launch.","launch_id":launch_id}}),
+            ),
+        );
+    };
+    let mut events: Vec<Value> = Vec::new();
+    if let Some(event) = record.pointer("/chain/thread/initial_event") {
+        events.push(event.clone());
+    }
+    if let Some(event) = record
+        .pointer("/chain/first_runtime_event")
+        .filter(|value| !value.is_null())
+    {
+        events.push(event.clone());
+    }
+    (
+        StatusCode::OK,
+        Json(json!({
+            "schema_version": "ioi.hypervisor.harness_session_launch_events.v1",
+            "launch_ref": record.get("launch_ref"),
+            "thread_ref": record.pointer("/chain/thread/thread_ref"),
+            "reconstructed": true,
+            "events": events,
+            "at": iso_now(),
+        })),
+    )
+}
+
+/// Shared terminalization for stop/archive: identity-first, expected-head CAS, INV-37 receipt,
+/// record-first, idempotent. `stop` and `archive` are successor states on the launch's own head.
+fn launch_terminalize(
+    st: &DaemonState,
+    owner_ref: &str,
+    mut record: Value,
+    target_state: &'static str,
+    expected_head: Option<&str>,
+) -> (StatusCode, Json<Value>) {
+    let session_ref = record
+        .get("session_ref")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    let launch_id = record
+        .get("launch_id")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    // Idempotent: a launch already in the target terminal state replays without a second effect.
+    if record.get("lifecycle_state").and_then(Value::as_str) == Some(target_state) {
+        return (StatusCode::OK, Json(launch_projection(&record, true)));
+    }
+    let current_head = record
+        .get("head")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    match expected_head {
+        Some(head) if head == current_head => {}
+        Some(_) => {
+            return (
+                StatusCode::CONFLICT,
+                Json(json!({"error":{
+                    "code":"session_launch_stale_head",
+                    "message":"expected_head does not match the launch's current head; re-read and retry.",
+                    "current_head":current_head
+                }})),
+            )
+        }
+        None => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({"error":{
+                    "code":"session_launch_expected_head_required",
+                    "message":"A launch terminalization must compare-and-swap against the current head.",
+                    "current_head":current_head
+                }})),
+            )
+        }
+    }
+    let now = iso_now();
+    let revision = record.get("revision").and_then(Value::as_u64).unwrap_or(0) + 1;
+    let head = launch_head(&session_ref, &launch_id, target_state, revision);
+    let receipt_ref = launch_receipt_ref(&launch_id, target_state);
+    let mut receipt_refs: Vec<Value> = record
+        .get("receipt_refs")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    receipt_refs.push(json!(receipt_ref));
+    if let Some(object) = record.as_object_mut() {
+        object.insert("lifecycle_state".into(), json!(target_state));
+        object.insert("revision".into(), json!(revision));
+        object.insert("head".into(), json!(head));
+        object.insert(format!("{target_state}_at"), json!(now));
+        object.insert(
+            "lineage".into(),
+            json!({"previous_head": current_head, "transition": target_state, "at": now}),
+        );
+        object.insert("receipt_refs".into(), json!(receipt_refs));
+    }
+    if let Err(detail) = persist_session_lifecycle_stage(
+        &st.data_dir,
+        SESSION_LAUNCH_FAMILY,
+        &launch_record_key(&launch_id),
+        &record,
+        "launch_terminalize_record",
+        true,
+    ) {
+        return session_lifecycle_failure_response(target_state, detail);
+    }
+    let receipt = json!({
+        "id": receipt_ref,
+        "kind": format!("hypervisor.harness_session_launch.{target_state}"),
+        "launch_ref": record.get("launch_ref"),
+        "session_ref": session_ref,
+        "acting_principal_ref": owner_ref,
+        "previous_head": current_head,
+        "head": head,
+        "status": "committed",
+        "created_at": now,
+        "runtimeTruthSource": "daemon-runtime",
+    });
+    if let Err(detail) = persist_session_lifecycle_stage(
+        &st.data_dir,
+        "receipts",
+        &session_receipt_key(&receipt_ref),
+        &receipt,
+        "launch_terminalize_receipt",
+        true,
+    ) {
+        return session_lifecycle_failure_response(target_state, detail);
+    }
+    (StatusCode::OK, Json(launch_projection(&record, false)))
+}
+
+/// POST /v1/hypervisor/harness-session-launches/:id/stop — terminalize (stop) the launch visibly
+/// with a principal-bound receipt. Body: `{ expected_head }`.
+pub(crate) async fn handle_session_launch_stop(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    AxumPath(launch_id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    // Identity first (rule E): the typed 401 precedes the record load.
+    let owner_ref = match session_request_write_owner(&st, &headers) {
+        Ok(owner) => owner,
+        Err(response) => return response,
+    };
+    let Some(record) = load_launch_record_owned(&st, &owner_ref, &launch_id) else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(
+                json!({"error":{"code":"session_launch_not_found","message":"Unknown launch.","launch_id":launch_id}}),
+            ),
+        );
+    };
+    let expected_head = body.get("expected_head").and_then(Value::as_str);
+    launch_terminalize(&st, &owner_ref, record, "stopped", expected_head)
+}
+
+/// POST /v1/hypervisor/harness-session-launches/:id/archive — archive the launch with a
+/// principal-bound receipt + lineage. Body: `{ expected_head }`.
+pub(crate) async fn handle_session_launch_archive(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    AxumPath(launch_id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let owner_ref = match session_request_write_owner(&st, &headers) {
+        Ok(owner) => owner,
+        Err(response) => return response,
+    };
+    let Some(record) = load_launch_record_owned(&st, &owner_ref, &launch_id) else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(
+                json!({"error":{"code":"session_launch_not_found","message":"Unknown launch.","launch_id":launch_id}}),
+            ),
+        );
+    };
+    let expected_head = body.get("expected_head").and_then(Value::as_str);
+    launch_terminalize(&st, &owner_ref, record, "archived", expected_head)
+}
+
+// ===========================================================================
 // Phase 5 — RuntimeAgentService host substrate (CONSOLIDATED).
 //
 // Makes the Rust daemon a legitimate host for the CANONICAL `RuntimeAgentService`
@@ -23175,5 +24067,97 @@ mod sigv4_tests {
              SignedHeaders=host;x-amz-date, \
              Signature=5fa00fa31553b73ebf1942676e86291e8372ff2a2260956d9b8aae1d763fbf31"
         );
+    }
+}
+
+#[cfg(test)]
+
+mod launch_chain_composition_tests {
+
+    use super::*;
+
+    // The launch producer COMPOSES three canonical kernel planners; these guard that the
+
+    // daemon-constructed requests remain admissible (a drift in a planner contract fails here,
+
+    // not silently at runtime with a 400/403).
+
+    #[test]
+
+    fn launch_recipe_request_admits() {
+        let admitted = RuntimeKernelService::new()
+            .admit_hypervisor_session_launch_recipe(
+                &session_launch_recipe_request("project:ioi"),
+                "2026-08-11T00:00:00.000Z",
+            )
+            .expect("launch recipe admits");
+
+        assert_eq!(admitted["recipe_ref"], "workbench.default");
+    }
+
+    #[test]
+
+    fn launch_recipe_request_admits_with_default_project() {
+        RuntimeKernelService::new()
+            .admit_hypervisor_session_launch_recipe(
+                &session_launch_recipe_request(""),
+                "2026-08-11T00:00:00.000Z",
+            )
+            .expect("launch recipe admits with default project");
+    }
+
+    #[test]
+
+    fn harness_binding_request_admits() {
+        let admitted = RuntimeKernelService::new()
+            .admit_harness_session_binding(
+                &session_harness_binding_request(),
+                "2026-08-11T00:00:00.000Z",
+            )
+            .expect("harness binding admits");
+
+        assert_eq!(admitted["decision"], "admitted");
+    }
+
+    #[test]
+
+    fn terminal_attach_request_admits_from_ready_binding() {
+        let substrate = ExecutionSubstrate::probe();
+
+        let readiness = launch_readiness_record(
+            "abc",
+            "harness-session-binding:b/1",
+            &substrate,
+            true,
+            "2026-08-11T00:00:00.000Z",
+        );
+
+        let spawn = launch_spawn_record(
+            "abc",
+            "harness-session-binding:b/1",
+            "/tmp/ws",
+            "2026-08-11T00:00:00.000Z",
+        );
+
+        RuntimeKernelService::new()
+            .admit_harness_session_terminal_attach(
+                &json!({"session_spawn": spawn, "session_readiness": readiness}),
+                "2026-08-11T00:00:00.000Z",
+            )
+            .expect("terminal attach admits from a ready binding");
+    }
+
+    #[test]
+
+    fn launch_head_is_deterministic_and_state_sensitive() {
+        let a = launch_head("session:x", "id1", "launched", 0);
+
+        let b = launch_head("session:x", "id1", "launched", 0);
+
+        let c = launch_head("session:x", "id1", "stopped", 1);
+
+        assert_eq!(a, b);
+
+        assert_ne!(a, c);
     }
 }

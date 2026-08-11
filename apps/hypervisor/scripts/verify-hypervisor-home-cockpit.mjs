@@ -362,11 +362,11 @@ async function run() {
 
   // -- the cross-surface New Session journey (subject-less, per the typed W3 C-1 absence) -----
   const newSessionPage = await pageText(LINK_NEW_SESSION);
-  ok("the New Session entry advertises Work's affordance: /work/new-session 200s under the Work owner with NO subject input (the typed W3 C-1 absence stated on the form)",
+  ok("the New Session entry advertises Work's affordance: /work/new-session 200s under the Work owner with NO subject input — subject attachments are daemon-resolved at LAUNCH (W3.1), never caller-named (stated typed on the form)",
     newSessionPage.status === 200
       && newSessionPage.headers.get("x-ioi-surface-owner") === "Work"
       && !/name="subject/u.test(newSessionPage.text)
-      && newSessionPage.text.includes('data-ioi-w3-absence="subject_attachments"'));
+      && newSessionPage.text.includes('data-ioi-w3-live="subject_attachments"'));
   const created = await act(WORK_NEW_SESSION_ACTION_LANE, "/actions/create-session", {
     initial_input: "home cockpit cross-surface journey — admitted create",
   });
@@ -379,7 +379,7 @@ async function run() {
       && created.q.get("result") === "provisioned",
     `record ${journeyRef.slice(0, 24)}`);
   const journeyRecord = (await jd(`/v1/hypervisor/sessions/${encodeURIComponent(journeyRef)}`)).body?.session || null;
-  ok("admitted readback at the daemon: provisioned, owner daemon-resolved to the authenticated principal, and subject_attachments EXACTLY [] (subject-less — the typed W3 absence, never masqueraded)",
+  ok("admitted readback at the daemon: provisioned, owner daemon-resolved to the authenticated principal, and subject_attachments EXACTLY [] at create (subject-less until a launch materializes one — never masqueraded at create)",
     !!journeyRecord && journeyRecord.lifecycle_state === "provisioned"
       && String(journeyRecord.owner_ref || "").startsWith("user://")
       && journeyRecord.owner_ref !== "user://local-operator"
