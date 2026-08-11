@@ -216,6 +216,7 @@ jobs:
           npm run check:studio-journey --workspace=@ioi/hypervisor-app
           npm run check:packages-journey --workspace=@ioi/hypervisor-app
           npm run check:automations-journey --workspace=@ioi/hypervisor-app
+          npm run check:applications-journey --workspace=@ioi/hypervisor-app
           npm run check:projects-saga --workspace=@ioi/hypervisor-app
 
       - name: Record post-build shipped-product artifact identities

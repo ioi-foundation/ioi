@@ -32,6 +32,7 @@ import * as missionsModule from "../surfaces/missions/index.mjs";
 import * as studioModule from "../surfaces/studio/index.mjs";
 import * as packagesModule from "../surfaces/packages/index.mjs";
 import * as automationsModule from "../surfaces/automations/index.mjs";
+import * as applicationsModule from "../surfaces/applications/index.mjs";
 
 // Capability model (operational wave): `capabilities` is the AUTHORITY-derived set of acts the
 // surface genuinely supports today (never inferred from pixel certification or daemon_wired);
@@ -83,6 +84,16 @@ export const SURFACES = [
   // module-served with truthful ownership markers). Evidence: the packages journey verifier.
   { slug: "packages", owner: "Packages", title: "Packages", icon: MARKETPLACE_APP_ICON_URI, route: "/__ioi/packages/registry", canonical_route: "/packages", verifier: "scripts/verify-hypervisor-packages-journey.mjs", certification: "n/a", capabilities: ["browse", "select", "inspect", "create", "transition"], operational_state: "act", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "packages-marketplace", owner: "Packages", title: "Packages / Marketplace", icon: MARKETPLACE_APP_ICON_URI, route: "/__ioi/packages/marketplace", canonical_route: "/packages/marketplace", verifier: "scripts/verify-hypervisor-packages-journey.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  // W2.1 next-legs III Leg 3: the Applications greenfield launcher — canonical /applications
+  // plus a FRESH legacy lane /__ioi/applications-launcher (the /__ioi/applications T2 readout
+  // keeps serving untouched until the W4 cutover). GREENFIELD, typed non-parity
+  // (seed-ux-provenance.v1.json: no provenance-qualified seed exists; the owner-authorized
+  // greenfield lane is the only open path — this row claims no seed preservation and no
+  // parity). The module is READ-ONLY BY CONTRACT: launch is navigation over the compiled
+  // product-surface projection joined live with the package registry; it declares zero
+  // actions because every admission-class verb belongs to its owner surface. Evidence: the
+  // applications journey verifier.
+  { slug: "applications", owner: "Applications", title: "Applications", icon: EXPLORER_APP_ICON_URI, route: "/__ioi/applications-launcher", canonical_route: "/applications", verifier: "scripts/verify-hypervisor-applications-journey.mjs", certification: "n/a", capabilities: ["browse", "inspect"], operational_state: "read_only_by_contract", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "monitors", owner: "Automations", title: "Automate", icon: MON_APP_TILE_URI, route: "/__ioi/automations/monitors", verifier: "scripts/verify-hypervisor-app-parity-monitors.mjs", certification: "pixel-certifications/monitors.json", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   // W2.1 next-legs II Leg 4: the Automations surface packet — canonical /automations plus a
   // FRESH legacy lane /__ioi/automations-cockpit (deliberately NOT nested under
@@ -197,6 +208,7 @@ bindSurface("studio-home", studioModule);
 bindSurface("packages", packagesModule);
 bindSurface("packages-marketplace", packagesModule);
 bindSurface("automations", automationsModule);
+bindSurface("applications", applicationsModule);
 
 // Test-only fault surface (NEVER without the runtime-test flag): gives the action-runtime
 // verifier a module whose action THROWS (route isolation proof) and one that claims success
