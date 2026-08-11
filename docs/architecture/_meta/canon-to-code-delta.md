@@ -316,7 +316,7 @@ and fenced, with the SPA teardown repair filed as the removal path:
 |---|---|---|
 | **DEF-SPA-WATCHEVENTS-1 — vendored-SPA event-stream teardown race kills the product smoke.** Navigating the served UI's `/` route (final route `/projects`, a `vendor_spa` row in the canonical route table) intermittently records `POST /api/gitpod.v1.EventService/WatchEvents (net::ERR_ABORTED)` as a browser request failure; the product browser smoke treats every request failure as fatal, so one teardown race kills otherwise-green runs. | Four recorded reproductions on untouched master: PR #235, PR #237 (twice), PR #241 — plus one full CI cycle lost (run 31444686784). | **fenced-with-filed-fix.** The vendored SPA's event-stream teardown owns the repair (out of scope for the fence cut). Until it lands, `scripts/smoke-product-surfaces.mjs` admits EXACTLY the recorded tuple via the exported pure predicate `isFencedWatchEventsAbort` (`scripts/lib/watchevents-fence.mjs`): hypervisor served-UI lane + `vendor_spa` final-route disposition (the smoke's own `V2_ROUTE_TABLE` classification) + same served origin + exact pathname + `POST` + exactly `net::ERR_ABORTED`; anything failing ANY element still fails the smoke, and fenced events are reported per route (`fenced_request_failures`), never silent. The near-miss boundary is CI-pinned by the retained `test:smoke-fence` suite (`scripts/lib/watchevents-fence.test.mjs`). **REMOVAL CONDITION: the PR that lands the SPA event-stream teardown fix deletes the allowance, this row's fence, and the predicate module in the same cut, and flips the retained test to assert the WatchEvents abort no longer occurs.** |
 
-### Journey verification IV (2026-08-11, next-legs IV Leg 3 — Work partial pre-W3 cockpit slice)
+### Journey verification IV (2026-08-11, next-legs IV run — fence, seed-gate repairs, partial pre-W3 cockpit slices)
 
 The Work PARTIAL PRE-W3 COCKPIT SLICE landed (`check:work-cockpit` 46/46 —
 deliberately NOT a "-journey": W3.1 owns the admission→harness→run→
@@ -342,6 +342,31 @@ adjudicates the caller as `user://local-operator` (the same class the ontology
 and automations findings tracked, both since closed identity-first); the
 exposed/enforced postures DO refuse typed (401 asserted live in the same run),
 so the pull is the daemon-side identity-first fix, never a surface-side gate.
+
+**Run completion (Legs 1, 2, 4 — #244/#245/#247):** the WatchEvents flake is a
+live-proven full-tuple fence (five reproductions admitted as recorded
+`fenced_request_failures`, 13-case near-miss predicate suite CI-wired,
+`DEF-SPA-WATCHEVENTS-1` above carries the removal condition). Seed-gate
+repairs: capture-time state re-establishment (the true root cause was
+stale-page-on-dequeue — the crawler clicked a dequeued node's controls against
+the prior node's DOM) + select-value signatures + goto/anchor hardening;
+`ontology/schema` and `data/sources` are now interaction-complete and **the
+ontology seed gate is OPEN** (`--require-ready --surface ontology` GREEN);
+`data/pipeline` stays honestly incomplete on two exactly-typed residuals — a
+PRODUCT FACT (the "Toggle bottom bar" control is censused visible yet
+deterministically unclickable on all 38 route nodes — a standing UI defect
+candidate) and a TOOL LIMIT (state space exceeds any practical crawl budget;
+cap typed) — so the data gate stays closed. `/home` landed as the Home
+partial pre-W3 cockpit slice (`check:home-cockpit` 40/40): owner-backed
+counts from real records, live deep-links to /governance/approvals,
+/work/sessions, /projects, /applications, the Operations-targeted links typed
+`disabled-named-gap` (the /operations mount does not exist — its projection
+tile and the row-link gap coexist as asserted truths), cross-surface
+subject-less New Session journey, daemon-down typed unavailability.
+**SURF-work, SURF-home, and W3.1 remain OPEN** — the cockpit slices deliver
+the pre-W3 subset only; the session-write identity FINDING above (third of
+its class) and the launch-chain absence are the pulls the W3.1 packet owns.
+
 
 ## Related Canon
 
