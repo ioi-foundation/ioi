@@ -306,6 +306,16 @@ has now cost a CI cycle beyond its three recorded local reproductions — it
 deserves an owner decision (documented single-endpoint allowance in the smoke,
 or an SPA teardown fix), not further reruns.
 
+### Typed defect fences (2026-08-11, next-legs IV Leg 1)
+
+The previous block's standing operational note on the WatchEvents smoke flake is
+now EXECUTED by owner decision — the documented single-endpoint allowance, typed
+and fenced, with the SPA teardown repair filed as the removal path:
+
+| Delta | Evidence | Disposition |
+|---|---|---|
+| **DEF-SPA-WATCHEVENTS-1 — vendored-SPA event-stream teardown race kills the product smoke.** Navigating the served UI's `/` route (final route `/projects`, a `vendor_spa` row in the canonical route table) intermittently records `POST /api/gitpod.v1.EventService/WatchEvents (net::ERR_ABORTED)` as a browser request failure; the product browser smoke treats every request failure as fatal, so one teardown race kills otherwise-green runs. | Four recorded reproductions on untouched master: PR #235, PR #237 (twice), PR #241 — plus one full CI cycle lost (run 31444686784). | **fenced-with-filed-fix.** The vendored SPA's event-stream teardown owns the repair (out of scope for the fence cut). Until it lands, `scripts/smoke-product-surfaces.mjs` admits EXACTLY the recorded tuple via the exported pure predicate `isFencedWatchEventsAbort` (`scripts/lib/watchevents-fence.mjs`): hypervisor served-UI lane + `vendor_spa` final-route disposition (the smoke's own `V2_ROUTE_TABLE` classification) + same served origin + exact pathname + `POST` + exactly `net::ERR_ABORTED`; anything failing ANY element still fails the smoke, and fenced events are reported per route (`fenced_request_failures`), never silent. The near-miss boundary is CI-pinned by the retained `test:smoke-fence` suite (`scripts/lib/watchevents-fence.test.mjs`). **REMOVAL CONDITION: the PR that lands the SPA event-stream teardown fix deletes the allowance, this row's fence, and the predicate module in the same cut, and flips the retained test to assert the WatchEvents abort no longer occurs.** |
+
 ## Related Canon
 
 - [`implementation-matrix.md`](./implementation-matrix.md) — per-concept durable-form index (the wider matrix).

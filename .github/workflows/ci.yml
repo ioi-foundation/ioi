@@ -177,6 +177,7 @@ jobs:
           npm run test:hypervisor-domain-app-runtime
           npm run test:hypervisor-app-harness
           npm run test:vite-production-authority-scan
+          npm run test:smoke-fence
           npm run test:product-shell-auth --workspace=@ioi/hypervisor-app
 
       - name: Test marketplace authority, lifecycle, and recovery contracts
