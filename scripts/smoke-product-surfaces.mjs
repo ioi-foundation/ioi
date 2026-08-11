@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 import { SURFACES } from "../apps/hypervisor/scripts/surface-registry.mjs";
 import { V2_ROUTE_TABLE } from "../apps/hypervisor/scripts/v2-route-shell.mjs";
+import { isFencedWatchEventsAbort } from "./lib/watchevents-fence.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const shippedProductsManifestPath = path.join(
@@ -1033,6 +1034,16 @@ try {
   hypervisorTarget.routePatternByRoute = Object.fromEntries(
     hypervisorRoutes.map((route) => [route, route]),
   );
+  // DEF-SPA-WATCHEVENTS-1: the smoke's own route classification, verbatim from the
+  // canonical route table — a FINAL route is a vendored-SPA route exactly when its
+  // V2_ROUTE_TABLE row declares disposition "vendor_spa" (e.g. "/" lands on
+  // /projects, a vendor_spa row). Consumed by the typed WatchEvents fence below.
+  hypervisorTarget.routeDispositionByRoute = Object.fromEntries(
+    V2_ROUTE_TABLE.map((surface) => [
+      surface.route,
+      surface.disposition ?? "shell",
+    ]),
+  );
   assertManifestRoutes(hypervisorTarget, hypervisorRoutes);
   const expectedVisualRows =
     contexts.length *
@@ -1073,9 +1084,14 @@ try {
       }
     });
     page.on("requestfailed", (request) => {
-      requestFailures.push(
-        `${request.url()} (${request.failure()?.errorText ?? "failed"})`,
-      );
+      // Collected structured so the DEF-SPA-WATCHEVENTS-1 fence can match the full
+      // tuple (url, method, failure class) at the error gate below; every failure
+      // outside that one tuple still fails the smoke with the original message.
+      requestFailures.push({
+        url: request.url(),
+        method: request.method(),
+        error_text: request.failure()?.errorText ?? "failed",
+      });
     });
     page.on("response", (response) => {
       if (response.status() >= 400) {
@@ -1242,17 +1258,37 @@ try {
     const unexpectedResponseFailures = responseFailures.filter(
       (failure) => !target.namedGaps?.has(failure.key),
     );
+    // DEF-SPA-WATCHEVENTS-1 typed fence: the vendored SPA's event-stream teardown
+    // race (POST /api/gitpod.v1.EventService/WatchEvents → net::ERR_ABORTED on the
+    // served origin, hypervisor lane, vendor_spa final route) is admitted by the
+    // full-tuple predicate and reported, never fatal. Reproductions: #235, #237 ×2,
+    // #241 + CI run 31444686784. REMOVAL: deleted in the same PR that lands the SPA
+    // event-stream teardown fix (see scripts/lib/watchevents-fence.mjs).
+    const fenceRouteContext = {
+      product_lane: target.name,
+      final_route_disposition:
+        target.routeDispositionByRoute?.[finalPath] ?? null,
+      served_origin: new URL(url).origin,
+    };
+    const fencedRequestFailures = requestFailures.filter((failure) =>
+      isFencedWatchEventsAbort(failure, fenceRouteContext),
+    );
+    const unexpectedRequestFailures = requestFailures.filter(
+      (failure) => !isFencedWatchEventsAbort(failure, fenceRouteContext),
+    );
     if (
       pageErrors.length > 0 ||
       consoleErrors.length > 0 ||
-      requestFailures.length > 0 ||
+      unexpectedRequestFailures.length > 0 ||
       unexpectedResponseFailures.length > 0
     ) {
       throw new Error(
         `${contextSpec.name} ${url} emitted browser errors: ${[
           ...pageErrors,
           ...consoleErrors,
-          ...requestFailures,
+          ...unexpectedRequestFailures.map(
+            (failure) => `${failure.url} (${failure.error_text})`,
+          ),
           ...unexpectedResponseFailures.map((failure) => failure.message),
         ].join("; ")}`,
       );
@@ -1279,6 +1315,10 @@ try {
       named_gaps: responseFailures
         .filter((failure) => target.namedGaps?.has(failure.key))
         .map((failure) => failure.key),
+      fenced_request_failures: fencedRequestFailures.map(
+        (failure) =>
+          `${failure.method} ${failure.url} (${failure.error_text}) [DEF-SPA-WATCHEVENTS-1]`,
+      ),
       semantic_assertions: semanticAssertions,
       owner_contract: ownerContract || null,
       final_path: finalPath,

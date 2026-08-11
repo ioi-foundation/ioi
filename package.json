@@ -49,6 +49,7 @@
     "smoke:implementation-daemon": "node scripts/smoke-implementation-daemon.mjs",
     "smoke:package-registry": "node scripts/smoke-package-registry.mjs",
     "smoke:product-surfaces": "node scripts/smoke-product-surfaces.mjs",
+    "test:smoke-fence": "node --test scripts/lib/watchevents-fence.test.mjs",
     "test:system-genesis-compiler": "cargo test --locked -p ioi-types system_genesis",
     "dev:web": "npm run dev --workspace=@ioi/hypervisor-app",
     "dev:benchmarks": "npm run dev --workspace=apps/benchmarks",
