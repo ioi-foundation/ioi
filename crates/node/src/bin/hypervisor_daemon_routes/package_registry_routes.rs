@@ -4,9 +4,17 @@
 //! * an authenticated organization packages one exact DomainApp + ODK manifest +
 //!   domain-app surface-descriptor snapshot as a package candidate;
 //! * Packages admits an immutable, content-addressed
-//!   `HypervisorSurfaceReleaseRecord` for that candidate; and
+//!   `HypervisorSurfaceReleaseRecord` for that candidate;
 //! * an organization installs that exact release as a disabled
-//!   `HypervisorSurfaceInstallationBinding`, which may later be uninstalled.
+//!   `HypervisorSurfaceInstallationBinding`, which may later be uninstalled; and
+//! * the organization may RECALL an admitted release — the one legal disposition
+//!   transition (`active` → `recalled`), appended as an immutable successor
+//!   revision on the release stream under exact-head CAS.  Recall mutates no
+//!   binding: every installation read derives its eligibility facts from the
+//!   CURRENT admitted release head (see `render_installation`), and the
+//!   product-surface projection consumes this namespace live (see
+//!   `launcher_registry_application_entries`), so a recalled surface loses its
+//!   launcher entry on the next read and after every restart, by construction.
 //!
 //! Every mutation crosses the shared owner-scoped Agentgres admission boundary.
 //! The registry does NOT create a `HypervisorApplicationSurfaceRegistration`,
@@ -101,6 +109,15 @@ struct InstallationRequest {
 #[serde(deny_unknown_fields)]
 struct UninstallRequest {
     expected_installation_head: String,
+    idempotency_key: String,
+    recorded_at_ms: Option<u64>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RecallRequest {
+    expected_release_head: String,
+    reason: String,
     idempotency_key: String,
     recorded_at_ms: Option<u64>,
 }
@@ -321,6 +338,11 @@ fn valid_ref(value: &str, prefix: &str) -> bool {
 
 fn valid_idempotency_key(value: &str) -> bool {
     !value.is_empty() && value.len() <= 256 && !value.chars().any(char::is_control)
+}
+
+fn valid_recall_reason(value: &str) -> bool {
+    let trimmed = value.trim();
+    !trimmed.is_empty() && trimmed.len() <= 500 && !trimmed.chars().any(char::is_control)
 }
 
 fn unique_nonempty(values: &[String]) -> bool {
@@ -581,21 +603,65 @@ fn render_release(exact: &ExactProjection, replayed: Option<bool>) -> Value {
         "package_candidate_ref": exact.operation.payload["package_candidate_ref"],
         "package_candidate_head": exact.operation.payload["package_candidate_head"],
         "admission_decision_ref": exact.operation.payload["admission_decision_ref"],
+        // Null on the genesis admission; the recall successor's bounded reason verbatim.
+        "recall_reason": exact.operation.payload["recall_reason"],
         "registration_state": "absent",
         "agentgres": agentgres_metadata(exact, replayed),
     })
 }
 
-fn render_installation(exact: &ExactProjection, replayed: Option<bool>) -> Value {
+/// The recall cascade's read half: disposition + bounded reason from one exact
+/// admitted release head.  Bindings are never mutated by a recall — every
+/// installation read resolves the CURRENT release head in the same request, so
+/// the derived facts are immediate and reconstruct identically after restart.
+fn release_recall_facts(release: &ExactProjection) -> (String, Value) {
+    let disposition = release.operation.payload["release"]["surface_package_disposition"]
+        .as_str()
+        .unwrap_or_default()
+        .to_owned();
+    (
+        disposition,
+        release.operation.payload["recall_reason"].clone(),
+    )
+}
+
+/// Why this binding cannot launch, derived at read time from admitted truth:
+/// its own terminal state, the current release disposition, and the structural
+/// pair this packet never claims away (no registration, no serving binding).
+fn derived_disabled_reason_codes(
+    installation_state: &str,
+    release_disposition: &str,
+) -> Vec<&'static str> {
+    let mut codes = Vec::new();
+    if installation_state == "uninstalled" {
+        codes.push("surface_installation_uninstalled");
+    }
+    if release_disposition == "recalled" {
+        codes.push("surface_release_recalled");
+    }
+    codes.push("extension_application_registration_absent");
+    codes.push("surface_serving_binding_absent");
+    codes
+}
+
+fn render_installation(
+    exact: &ExactProjection,
+    replayed: Option<bool>,
+    release: &ExactProjection,
+) -> Value {
+    let (release_disposition, recall_reason) = release_recall_facts(release);
+    let installation_state = exact.operation.payload["installation"]["surface_installation_state"]
+        .as_str()
+        .unwrap_or_default()
+        .to_owned();
     json!({
         "record": exact.operation.payload["installation"],
         "release_head": exact.operation.payload["release_head"],
         "registration_state": "absent",
         "launch_eligible": false,
-        "disabled_reason_codes": [
-            "extension_application_registration_absent",
-            "surface_serving_binding_absent"
-        ],
+        "release_disposition": release_disposition,
+        "release_recall_reason": recall_reason,
+        "disabled_reason_codes": derived_disabled_reason_codes(&installation_state, &release_disposition),
         "agentgres": agentgres_metadata(exact, replayed),
     })
 }
@@ -1381,7 +1447,7 @@ pub(crate) async fn handle_installation_create(
             StatusCode::CREATED,
             Json(json!({
                 "ok": true,
-                "installation": render_installation(&commit.projection, Some(commit.replayed))
+                "installation": render_installation(&commit.projection, Some(commit.replayed), &release)
             })),
         ),
         Err(reply) => reply,
@@ -1433,7 +1499,7 @@ pub(crate) async fn handle_installation_list(
             && record["release_ref"] == target_release_ref
             && allowed.contains(resource_ref)
         {
-            installations.push(render_installation(&exact, None));
+            installations.push(render_installation(&exact, None, &release));
         }
     }
     installations.sort_by(|left, right| {
@@ -1457,6 +1523,14 @@ pub(crate) async fn handle_installation_get(
         Ok(identity) => identity,
         Err(reply) => return reply,
     };
+    // The recall cascade reads the CURRENT release head alongside the binding,
+    // so a recalled disposition reflects on this read immediately and after
+    // restart — the binding's own admitted bytes stay untouched.
+    let release =
+        match read_release_authorized(&st.data_dir, &identity, &package_id, &release_digest) {
+            Ok(release) => release,
+            Err(reply) => return reply,
+        };
     match read_installation_authorized(
         &st.data_dir,
         &identity,
@@ -1468,7 +1542,7 @@ pub(crate) async fn handle_installation_get(
             StatusCode::OK,
             Json(json!({
                 "ok": true,
-                "installation": render_installation(&exact, None)
+                "installation": render_installation(&exact, None, &release)
             })),
         ),
         Err(reply) => reply,
@@ -1516,6 +1590,13 @@ pub(crate) async fn handle_installation_uninstall(
             "idempotency_key is required, bounded, and contains no control characters",
         );
     }
+    // Uninstall stays legal over a recalled release (the cleanup path); the
+    // release head is read for the derived eligibility facts, never gated on.
+    let release =
+        match read_release_authorized(&st.data_dir, &identity, &package_id, &release_digest) {
+            Ok(release) => release,
+            Err(reply) => return reply,
+        };
     let current = match read_installation_authorized(
         &st.data_dir,
         &identity,
@@ -1537,7 +1618,7 @@ pub(crate) async fn handle_installation_uninstall(
                 StatusCode::OK,
                 Json(json!({
                     "ok": true,
-                    "installation": render_installation(&prior, Some(true))
+                    "installation": render_installation(&prior, Some(true), &release)
                 })),
             )
         }
@@ -1639,11 +1720,265 @@ pub(crate) async fn handle_installation_uninstall(
             StatusCode::OK,
             Json(json!({
                 "ok": true,
-                "installation": render_installation(&commit.projection, Some(commit.replayed))
+                "installation": render_installation(&commit.projection, Some(commit.replayed), &release)
             })),
         ),
         Err(reply) => reply,
     }
+}
+
+/// POST /v1/hypervisor/packages/:package_id/releases/:release_digest/recall —
+/// append the immutable disposition successor (`active` → `recalled`) under
+/// exact-head CAS.  The registered contract has named `recalled` in the
+/// disposition enum since v1; this is the route that legally reaches it.  The
+/// verb mutates ONLY the release stream: installation bindings over the
+/// recalled release keep their admitted bytes and derive `launch_eligible:
+/// false` plus the `surface_release_recalled` reason at read time, and the
+/// product-surface projection drops the surface from the launcher feed on its
+/// next read of this namespace.
+pub(crate) async fn handle_release_recall(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    AxumPath((package_id, release_digest)): AxumPath<(String, String)>,
+    Json(body): Json<Value>,
+) -> Reply {
+    let identity = match request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(reply) => return reply,
+    };
+    let request: RecallRequest = match parse(body, "package_recall_request_invalid") {
+        Ok(request) => request,
+        Err(reply) => return reply,
+    };
+    if !valid_hash(&request.expected_release_head) {
+        return bad(
+            StatusCode::BAD_REQUEST,
+            "package_expected_head_invalid",
+            "expected_release_head must be one canonical sha256 head",
+        );
+    }
+    if !valid_recall_reason(&request.reason) {
+        return bad(
+            StatusCode::BAD_REQUEST,
+            "package_recall_reason_invalid",
+            "reason is required, at most 500 characters, and contains no control characters",
+        );
+    }
+    if !valid_idempotency_key(&request.idempotency_key) {
+        return bad(
+            StatusCode::BAD_REQUEST,
+            "package_idempotency_key_invalid",
+            "idempotency_key is required, bounded, and contains no control characters",
+        );
+    }
+    let current =
+        match read_release_authorized(&st.data_dir, &identity, &package_id, &release_digest) {
+            Ok(current) => current,
+            Err(reply) => return reply,
+        };
+    let resource_ref = release_ref(&package_id, &release_digest);
+    let tail = hash_tail("release", &resource_ref);
+    match prior_idempotent_projection(&st.data_dir, &tail, &request.idempotency_key) {
+        Ok(Some(prior))
+            if prior.operation.op_kind == "event_stream.hypervisor_package_release_recalled" =>
+        {
+            return (
+                StatusCode::OK,
+                Json(json!({
+                    "ok": true,
+                    "release": render_release(&prior, Some(true))
+                })),
+            )
+        }
+        Ok(Some(_)) => {
+            return bad(
+                StatusCode::CONFLICT,
+                "package_idempotency_payload_conflict",
+                "the idempotency key already names a different release operation",
+            )
+        }
+        Ok(None) => {}
+        Err(reply) => return reply,
+    }
+    if request.expected_release_head != current.head {
+        return bad(
+            StatusCode::CONFLICT,
+            "package_expected_head_conflict",
+            "expected_release_head is not the current admitted release head",
+        );
+    }
+    let mut release: SurfaceReleaseRecord =
+        match serde_json::from_value(current.operation.payload["release"].clone()) {
+            Ok(release) => release,
+            Err(error) => {
+                return bad(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "package_release_projection_invalid",
+                    error.to_string(),
+                )
+            }
+        };
+    if release.surface_admission_state != "admitted"
+        || release.surface_package_disposition != "active"
+    {
+        return bad(
+            StatusCode::CONFLICT,
+            "package_release_not_recallable",
+            "only an admitted active release may transition to recalled",
+        );
+    }
+    release.surface_package_disposition = "recalled".into();
+    let release_value = match serde_json::to_value(&release) {
+        Ok(value) => value,
+        Err(error) => {
+            return bad(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "package_release_encoding_failed",
+                error.to_string(),
+            )
+        }
+    };
+    if let Err(reply) = validate_canonical_contract(
+        RELEASE_CONTRACT_ID,
+        &release_value,
+        "package_release_contract_failed",
+    ) {
+        return reply;
+    }
+    let payload = json!({
+        "schema_version": RELEASE_ADMISSION_SCHEMA,
+        "release": release_value,
+        "owner_ref": current.operation.payload["owner_ref"],
+        "package_candidate_ref": current.operation.payload["package_candidate_ref"],
+        "package_candidate_head": current.operation.payload["package_candidate_head"],
+        "package_candidate_content_hash": current.operation.payload["package_candidate_content_hash"],
+        "admission_decision_ref": current.operation.payload["admission_decision_ref"],
+        "recall_reason": request.reason.trim(),
+        "registration_state": "absent",
+        "transition": "recalled",
+        "nonclaim": "Recall flips only the admitted release disposition; it mutates no installation binding, registration, route, or process — binding eligibility and the launcher feed derive the loss on their next read."
+    });
+    let scope = match authorize_scope(
+        &st.data_dir,
+        &identity,
+        RELEASE_SCOPE_KIND,
+        &resource_ref,
+        current.operation.payload["owner_ref"].as_str(),
+    ) {
+        Ok(scope) => scope,
+        Err(reply) => return reply,
+    };
+    match admit(
+        &st.data_dir,
+        false,
+        &identity,
+        &scope,
+        RELEASE_SCOPE_KIND,
+        &resource_ref,
+        &tail,
+        "event_stream.hypervisor_package_release_recalled",
+        Some(&request.expected_release_head),
+        &payload,
+        request.recorded_at_ms.unwrap_or_default(),
+        &request.idempotency_key,
+    ) {
+        Ok(commit) => (
+            StatusCode::OK,
+            Json(json!({
+                "ok": true,
+                "release": render_release(&commit.projection, Some(commit.replayed))
+            })),
+        ),
+        Err(reply) => reply,
+    }
+}
+
+/// Launcher-feed truth over the registry namespace, computed live for one exact
+/// organization on every product-surface projection read (never compiled-in,
+/// never cached): each INSTALLED, non-uninstalled binding whose CURRENT release
+/// head still carries the `active` disposition projects one honest application
+/// entry — present in the launcher inventory, `launchable: false` with the
+/// exact derived reasons (no registration, no serving binding).  A recalled or
+/// uninstalled surface produces NO entry: the loss is derived from admitted
+/// truth on the same read, so it is immediate and survives restart by
+/// construction.  An empty registry yields an empty vector — honest absence.
+/// Two bindings over one surface project one entry (the lexicographically
+/// first installation_ref), matching the compiled join's one-entry-per-surface
+/// shape.
+pub(crate) fn launcher_registry_application_entries(
+    data_dir: &str,
+    org_ref: &str,
+) -> Result<Vec<Value>, String> {
+    let tails = super::substrate_store::list_event_stream_tails(data_dir, NAMESPACE)
+        .map_err(|error| error.to_string())?;
+    let mut entries: std::collections::BTreeMap<String, Value> = std::collections::BTreeMap::new();
+    for tail in tails
+        .into_iter()
+        .filter(|tail| tail.starts_with("installation."))
+    {
+        let Some(exact) =
+            super::substrate_store::read_event_stream_operation(data_dir, NAMESPACE, &tail)
+                .map_err(|error| error.to_string())?
+        else {
+            continue;
+        };
+        if exact.operation.payload["schema_version"] != INSTALLATION_ADMISSION_SCHEMA {
+            continue;
+        }
+        let installation = exact.operation.payload["installation"].clone();
+        if installation["org_ref"].as_str() != Some(org_ref)
+            || installation["surface_installation_state"].as_str() != Some("installed")
+        {
+            continue;
+        }
+        let (Some(surface_ref), Some(release_ref), Some(installation_ref)) = (
+            installation["surface_ref"].as_str(),
+            installation["release_ref"].as_str(),
+            installation["installation_ref"].as_str(),
+        ) else {
+            continue;
+        };
+        let release_tail = hash_tail("release", release_ref);
+        // A binding admits only over an admitted release, so an unreadable
+        // release stream means no eligibility can be derived — honest absence,
+        // never a fabricated entry.
+        let Some(release) =
+            super::substrate_store::read_event_stream_operation(data_dir, NAMESPACE, &release_tail)
+                .map_err(|error| error.to_string())?
+        else {
+            continue;
+        };
+        let release_record = release.operation.payload["release"].clone();
+        if release.operation.payload["schema_version"] != RELEASE_ADMISSION_SCHEMA
+            || release_record["release_ref"].as_str() != Some(release_ref)
+            || release_record["surface_package_disposition"].as_str() != Some("active")
+        {
+            continue;
+        }
+        let entry = json!({
+            "identity_ref": surface_ref,
+            "display_name": surface_ref.rsplit('/').next().unwrap_or(surface_ref),
+            "entry_source": "hypervisor-package-registry",
+            "canonical_route": Value::Null,
+            "resolved_launch_route": Value::Null,
+            "launchable": false,
+            "disabled_reason_codes": derived_disabled_reason_codes("installed", "active"),
+            "surface_capability_depth": release_record["surface_capability_depth"],
+            "surface_operational_state": Value::Null,
+            "installation_ref": installation_ref,
+            "release_ref": release_ref,
+            "release_disposition": "active",
+            "surface_installation_state": "installed",
+            "surface_enablement_state": installation["surface_enablement_state"],
+        });
+        match entries.get(surface_ref) {
+            Some(existing) if existing["installation_ref"].as_str() <= Some(installation_ref) => {}
+            _ => {
+                entries.insert(surface_ref.to_owned(), entry);
+            }
+        }
+    }
+    Ok(entries.into_values().collect())
 }
 
 #[cfg(test)]
@@ -1820,6 +2155,228 @@ mod tests {
         assert_eq!(binding.surface_enablement_state, "disabled");
         assert_eq!(install_payload["launch_eligible"], false);
         assert_eq!(install_payload["registration_state"], "absent");
+        super::super::substrate_store::reset_handle_for_test();
+    }
+
+    #[test]
+    fn recall_appends_the_disposition_successor_and_the_cascade_derives_at_read() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        super::super::substrate_store::reset_handle_for_test();
+        let identity = super::super::substrate_store::request_identity_for_test(
+            "operator",
+            ["org://local".to_string()],
+        );
+        let request = candidate_request();
+        let candidate_record = build_package_candidate(&request, &source()).unwrap();
+        let candidate_resource = package_ref(&request.package_id);
+        let candidate_scope = bind_scope(
+            data_dir,
+            &identity,
+            PACKAGE_SCOPE_KIND,
+            &candidate_resource,
+            &request.owner_ref,
+            &request.idempotency_key,
+        )
+        .unwrap();
+        let candidate = admit(
+            data_dir,
+            true,
+            &identity,
+            &candidate_scope,
+            PACKAGE_SCOPE_KIND,
+            &candidate_resource,
+            &hash_tail("package", &candidate_resource),
+            "event_stream.hypervisor_package_candidate_admitted",
+            None,
+            &candidate_record,
+            1,
+            &request.idempotency_key,
+        )
+        .unwrap();
+        let release_request = ReleaseRequest {
+            expected_package_head: candidate.projection.head.clone(),
+            surface_distribution: "private_registry".into(),
+            surface_capability_depth: "propose".into(),
+            object_contract_refs: vec!["object-model://telesupport".into()],
+            action_contract_refs: vec!["action://telesupport/reply".into()],
+            evidence_refs: vec![],
+            idempotency_key: "release-create-1".into(),
+            recorded_at_ms: Some(2),
+        };
+        let (release_resource, release_payload) =
+            build_release_admission(&candidate.projection, &release_request).unwrap();
+        let release_scope = bind_scope(
+            data_dir,
+            &identity,
+            RELEASE_SCOPE_KIND,
+            &release_resource,
+            "org://local",
+            &release_request.idempotency_key,
+        )
+        .unwrap();
+        let release_tail = hash_tail("release", &release_resource);
+        let release = admit(
+            data_dir,
+            true,
+            &identity,
+            &release_scope,
+            RELEASE_SCOPE_KIND,
+            &release_resource,
+            &release_tail,
+            "event_stream.hypervisor_package_release_admitted",
+            None,
+            &release_payload,
+            2,
+            &release_request.idempotency_key,
+        )
+        .unwrap();
+        let install_request = InstallationRequest {
+            installation_id: "primary".into(),
+            expected_release_head: release.projection.head.clone(),
+            project_ref: None,
+            visibility: "organization".into(),
+            allowed_object_contract_refs: vec![],
+            allowed_action_refs: vec![],
+            idempotency_key: "install-create-1".into(),
+            recorded_at_ms: Some(3),
+        };
+        let (installation_resource, install_payload) = build_installation_admission(
+            &request.package_id,
+            &release.projection,
+            &install_request,
+        )
+        .unwrap();
+        let install_scope = bind_scope(
+            data_dir,
+            &identity,
+            INSTALLATION_SCOPE_KIND,
+            &installation_resource,
+            "org://local",
+            &install_request.idempotency_key,
+        )
+        .unwrap();
+        let installation = admit(
+            data_dir,
+            true,
+            &identity,
+            &install_scope,
+            INSTALLATION_SCOPE_KIND,
+            &installation_resource,
+            &hash_tail("installation", &installation_resource),
+            "event_stream.hypervisor_surface_installation_admitted",
+            None,
+            &install_payload,
+            3,
+            &install_request.idempotency_key,
+        )
+        .unwrap();
+
+        // Before recall: the binding derives the structural pair only, and the
+        // launcher feed carries exactly one honest ineligible entry.
+        let rendered = render_installation(&installation.projection, None, &release.projection);
+        assert_eq!(rendered["release_disposition"], "active");
+        assert_eq!(
+            rendered["disabled_reason_codes"],
+            json!([
+                "extension_application_registration_absent",
+                "surface_serving_binding_absent"
+            ])
+        );
+        let entries = launcher_registry_application_entries(data_dir, "org://local").unwrap();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(
+            entries[0]["identity_ref"],
+            "surface://extensions/local-telesupport"
+        );
+        assert_eq!(entries[0]["launchable"], false);
+        assert_eq!(entries[0]["entry_source"], "hypervisor-package-registry");
+        assert!(
+            launcher_registry_application_entries(data_dir, "org://other")
+                .unwrap()
+                .is_empty()
+        );
+
+        // The recall successor: same stream, exact-head CAS, disposition flips,
+        // the record still satisfies the registered contract.
+        let mut recalled: SurfaceReleaseRecord =
+            serde_json::from_value(release_payload["release"].clone()).unwrap();
+        recalled.surface_package_disposition = "recalled".into();
+        let recalled_value = serde_json::to_value(&recalled).unwrap();
+        validate_canonical_contract(
+            RELEASE_CONTRACT_ID,
+            &recalled_value,
+            "package_release_contract_failed",
+        )
+        .unwrap();
+        let recall_payload = json!({
+            "schema_version": RELEASE_ADMISSION_SCHEMA,
+            "release": recalled_value,
+            "owner_ref": "org://local",
+            "recall_reason": "conformance defect in the packaged surface",
+            "registration_state": "absent",
+            "transition": "recalled",
+        });
+        let recall = admit(
+            data_dir,
+            false,
+            &identity,
+            &release_scope,
+            RELEASE_SCOPE_KIND,
+            &release_resource,
+            &release_tail,
+            "event_stream.hypervisor_package_release_recalled",
+            Some(&release.projection.head),
+            &recall_payload,
+            4,
+            "release-recall-1",
+        )
+        .unwrap();
+        assert_ne!(recall.projection.head, release.projection.head);
+        assert_eq!(
+            recall.projection.operation.payload["release"]["surface_package_disposition"],
+            "recalled"
+        );
+
+        // After recall: the binding read derives the recall reason code without
+        // any binding mutation, new installs refuse typed, and the launcher
+        // feed loses the surface entirely.
+        let rendered = render_installation(&installation.projection, None, &recall.projection);
+        assert_eq!(rendered["launch_eligible"], false);
+        assert_eq!(rendered["release_disposition"], "recalled");
+        assert_eq!(
+            rendered["release_recall_reason"],
+            "conformance defect in the packaged surface"
+        );
+        assert_eq!(
+            rendered["disabled_reason_codes"],
+            json!([
+                "surface_release_recalled",
+                "extension_application_registration_absent",
+                "surface_serving_binding_absent"
+            ])
+        );
+        let refusal = build_installation_admission(
+            &request.package_id,
+            &recall.projection,
+            &InstallationRequest {
+                installation_id: "secondary".into(),
+                expected_release_head: recall.projection.head.clone(),
+                project_ref: None,
+                visibility: "organization".into(),
+                allowed_object_contract_refs: vec![],
+                allowed_action_refs: vec![],
+                idempotency_key: "install-create-2".into(),
+                recorded_at_ms: Some(5),
+            },
+        )
+        .unwrap_err();
+        assert_eq!(refusal.0, StatusCode::CONFLICT);
+        assert!(
+            launcher_registry_application_entries(data_dir, "org://local")
+                .unwrap()
+                .is_empty()
+        );
         super::super::substrate_store::reset_handle_for_test();
     }
 

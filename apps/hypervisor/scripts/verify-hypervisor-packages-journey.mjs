@@ -1,25 +1,29 @@
 #!/usr/bin/env node
-// Packages lifecycle journey verifier (W2.3 bar, next-legs II Leg 2).
+// Packages lifecycle journey verifier (W2.3 bar, next-legs II Leg 2; recall + launcher join,
+// next-legs III Leg 2 — the W2.3/W2.4 pull).
 //
 // Proves, against an ISOLATED real daemon + serve lane, the full chain the closed
 // /v1/hypervisor/packages daemon family actually owns — candidate → immutable release →
 // installation binding (FORCED DISABLED — the assertion is the binding truth, never
-// launchability) → uninstall — through the UI action lane where the verbs exist there and
-// direct daemon calls for setup/readback. Identity-first refusals, exact-head CAS conflicts
-// (typed AND rendered verbatim), idempotent replay returning the original receipt, restart
-// reconstruction, the canonical /packages + /packages/marketplace mounts, and the 3-posture
-// browser matrix.
+// launchability) → RECALL (the one disposition successor, active → recalled) → uninstall —
+// through the UI action lane where the verbs exist there and direct daemon calls for
+// setup/readback. Identity-first refusals, exact-head CAS conflicts (typed AND rendered
+// verbatim), idempotent replay returning the original receipt, restart reconstruction, the
+// canonical /packages + /packages/marketplace mounts, and the 3-posture browser matrix.
 //
-// W2.3's recall bar is stated as TYPED ABSENCE, not simulated: the daemon owns NO
-// deprecate/disable/recall/revoke verb (surface_package_disposition is write-once "active" at
-// release admission; the registered enum names "recalled" but no route can set it), and the
-// product-surface compiler projection consumes NO package-registry state (so no installed
-// package can gain — or lose — launcher eligibility). Both absences are asserted mechanically:
-// the route inventory is EXACTLY the seven-route family, and the projection's
-// application_entries never contain the installed package's surface_ref. Eligibility loss is
-// proven through the one removal verb that DOES exist: uninstall immediately revokes the
-// binding (disabled_reason_codes gains surface_installation_uninstalled, launch_eligible stays
-// false).
+// What W2.3 stated as TYPED ABSENCE is now journeyed truth:
+//   - RECALL VERB: POST .../releases/:digest/recall appends an immutable successor revision on
+//     the release stream under exact-head CAS with a bounded verbatim reason; replay returns
+//     the original receipt; a second recall refuses typed (package_release_not_recallable).
+//   - CASCADE (derived at read): bindings keep their admitted bytes; every binding read
+//     resolves the CURRENT release head, so a recalled release reads back on its bindings as
+//     launch_eligible:false with surface_release_recalled — immediately and after restart —
+//     and NEW installs over the recalled release refuse typed (package_release_not_installable).
+//   - LAUNCHER JOIN: the product-surface projection consumes the registry namespace live —
+//     the installed binding's surface://extensions/… ref appears in application_entries as an
+//     honest INELIGIBLE entry (launchable:false, exact derived reasons); after recall (and
+//     after uninstall) the surface is GONE from the feed, and stays gone across restart.
+//   - The route inventory is EXACTLY the eight-route family (the seven W2.3 routes + recall).
 //
 // The owner scope is the daemon's own whoami answer, never a verifier constant.
 //
@@ -80,6 +84,7 @@ let SESSION = "";
 const PKG = "packages-journey-app";
 const INST = "primary";
 const LANE = "/__ioi/packages/registry";
+const SURFACE_REF = `surface://extensions/${PKG}`;
 
 async function startDaemon() {
   daemon = spawn(daemonBinary, [], {
@@ -136,6 +141,12 @@ async function act(tail, fields, { authenticated = true } = {}) {
 const pkgGet = async () => (await jd(`/v1/hypervisor/packages/${PKG}`)).body;
 const relGet = async (digest) => (await jd(`/v1/hypervisor/packages/${PKG}/releases/${encodeURIComponent(digest)}`)).body;
 const instGet = async (digest) => (await jd(`/v1/hypervisor/packages/${PKG}/releases/${encodeURIComponent(digest)}/installations/${INST}`)).body;
+// The launcher feed — the product-surface compiler projection, requested under the caller's
+// own org so the registry join answers for the same owner the bindings were admitted under.
+const launcherFeed = async (orgRef) => (await jd("/v1/hypervisor/product-surface-projections", {
+  method: "POST",
+  body: JSON.stringify(orgRef ? { org_ref: orgRef } : {}),
+})).body;
 
 function packageFamilyRoutes(index) {
   return (index.families ?? [])
@@ -163,8 +174,10 @@ async function run() {
   const OWNER = (who.principal?.tenant_refs || []).find((t) => typeof t === "string" && t.startsWith("org://")) || "";
   ok("the session authenticates a principal with an org:// owner tenant to admit under", !!OWNER, OWNER || "no owner tenant");
 
-  // -- TYPED ABSENCE (mechanical): the admitted family is EXACTLY the seven candidate/release/
-  // installation routes — no recall/disposition/enable verb exists to lose eligibility through.
+  // -- the admitted family is EXACTLY the eight candidate/release/recall/installation routes:
+  // the W2.3 seven-route slice plus the ONE disposition successor verb this leg lands. The
+  // inventory is mechanical (derived from the daemon's own route registrations), so a stray
+  // deprecate/revoke/enable verb would fail here, not hide.
   const index = await jd("/v1");
   const familyRoutes = packageFamilyRoutes(index.body);
   const expectedRoutes = [
@@ -172,11 +185,12 @@ async function run() {
     { path: "/v1/hypervisor/packages/:package_id", methods: ["GET"] },
     { path: "/v1/hypervisor/packages/:package_id/releases", methods: ["GET", "POST"] },
     { path: "/v1/hypervisor/packages/:package_id/releases/:release_digest", methods: ["GET"] },
+    { path: "/v1/hypervisor/packages/:package_id/releases/:release_digest/recall", methods: ["POST"] },
     { path: "/v1/hypervisor/packages/:package_id/releases/:release_digest/installations", methods: ["GET", "POST"] },
     { path: "/v1/hypervisor/packages/:package_id/releases/:release_digest/installations/:installation_id", methods: ["GET"] },
     { path: "/v1/hypervisor/packages/:package_id/releases/:release_digest/installations/:installation_id/uninstall", methods: ["POST"] },
   ].sort((left, right) => left.path.localeCompare(right.path));
-  ok("recall verb TYPED ABSENCE: the package family route inventory is exactly the seven-route candidate/release/installation slice (no recall/deprecate/revoke/enable route exists)",
+  ok("recall verb LANDS: the package family route inventory is exactly the eight-route slice — the seven W2.3 routes plus POST .../recall, and still no deprecate/revoke/enable route",
     JSON.stringify(familyRoutes) === JSON.stringify(expectedRoutes),
     JSON.stringify(familyRoutes.map((r) => r.path)));
 
@@ -314,10 +328,11 @@ async function run() {
     releaseCut.location.slice(0, 140));
   let release = await relGet(releaseDigest);
   const releaseHead = release.release?.agentgres?.head || "";
-  ok("the release is immutable canonical truth: admitted + active disposition, candidate receipt bound as evidence",
+  ok("the release is immutable canonical truth: admitted + active disposition, candidate receipt bound as evidence, recall_reason null on the genesis admission",
     release.ok === true && release.release?.record?.surface_admission_state === "admitted"
       && release.release?.record?.surface_package_disposition === "active"
       && (release.release?.record?.evidence_refs || []).includes(candidateReceipt)
+      && release.release?.recall_reason == null
       && !!releaseHead,
     "");
 
@@ -372,44 +387,175 @@ async function run() {
     installed.location.slice(0, 140));
   let binding = await instGet(releaseDigest);
   const installationHead = binding.installation?.agentgres?.head || "";
-  ok("the binding is REAL and FORCED DISABLED — the asserted truth is the binding, never launchability: installed + disabled + launch_eligible:false + the daemon's exact reason codes + registration absent",
+  ok("the binding is REAL and FORCED DISABLED — the asserted truth is the binding, never launchability: installed + disabled + launch_eligible:false + the daemon's exact DERIVED reason codes + active release disposition + registration absent",
     binding.ok === true
       && binding.installation?.record?.surface_installation_state === "installed"
       && binding.installation?.record?.surface_enablement_state === "disabled"
       && binding.installation?.launch_eligible === false
       && JSON.stringify(binding.installation?.disabled_reason_codes) === JSON.stringify(["extension_application_registration_absent", "surface_serving_binding_absent"])
+      && binding.installation?.release_disposition === "active"
       && binding.installation?.registration_state === "absent"
       && !!installationHead,
     JSON.stringify(binding.installation?.disabled_reason_codes));
   const instPage = await pageText(`/packages?pkg=${PKG}&rel=${encodeURIComponent(releaseDigest)}&inst=${INST}`);
-  ok("the installation page renders the forced-disabled truth VERBATIM plus the recall + launcher named gaps (typed absences stated, not styled around)",
+  ok("the installation page renders the forced-disabled truth VERBATIM: launch_eligible false, the derived reason pair, the active release disposition, the enable named gap, and the live launcher-join doctrine",
     instPage.status === 200
       && instPage.text.includes("launch_eligible: false")
       && instPage.text.includes("extension_application_registration_absent")
       && instPage.text.includes("surface_serving_binding_absent")
+      && instPage.text.includes("release active")
       && instPage.text.includes('data-ioi-disabled-reason=')
-      && instPage.text.includes("typed absence"),
+      && instPage.text.includes("Launcher feed (live join)"),
     "");
 
-  // -- launcher projection TYPED ABSENCE --------------------------------------
-  const projection = await jd("/v1/hypervisor/product-surface-projections", { method: "POST", body: JSON.stringify({}) });
-  const projectionJson = JSON.stringify(projection.body);
-  ok("launcher projection TYPED ABSENCE: the product-surface compiler projects its estate but consumes NO package-registry state — the installed package's surface_ref never enters application_entries (no launcher eligibility exists to lose)",
-    projection.status === 200 && Array.isArray(projection.body?.application_entries) && projection.body.application_entries.length > 0
-      && !projectionJson.includes(`surface://extensions/${PKG}`),
-    `entries ${projection.body?.application_entries?.length ?? "none"}`);
+  // -- LAUNCHER JOIN: the projection consumes the registry namespace ----------
+  let feed = await launcherFeed();
+  let feedEntry = (feed.application_entries || []).find((e) => e.identity_ref === SURFACE_REF);
+  ok("launcher join PRESENT: the product-surface projection consumes the registry namespace — the installed binding's surface ref appears in application_entries under the caller's own org as an honest INELIGIBLE entry",
+    Array.isArray(feed.application_entries) && feed.application_entries.length > 0
+      && feed.org_ref === OWNER && !!feedEntry,
+    feedEntry ? feedEntry.identity_ref : `entries ${feed.application_entries?.length ?? "none"} org ${feed.org_ref}`);
+  ok("the feed entry carries the EXACT eligibility facts, never a launch claim: launchable false, the derived reason pair, active disposition, the binding + release refs, registry entry source",
+    !!feedEntry && feedEntry.launchable === false
+      && JSON.stringify(feedEntry.disabled_reason_codes) === JSON.stringify(["extension_application_registration_absent", "surface_serving_binding_absent"])
+      && feedEntry.release_disposition === "active"
+      && feedEntry.entry_source === "hypervisor-package-registry"
+      && feedEntry.installation_ref === `install://${PKG}/${INST}`
+      && feedEntry.resolved_launch_route === null
+      && feedEntry.surface_enablement_state === "disabled",
+    JSON.stringify(feedEntry ?? {}).slice(0, 200));
 
-  // -- restart: the registry reconstructs from admitted truth -----------------
+  // -- RECALL: identity-first, successor revision, receipts, replay, CAS ------
+  const anonRecall = await act(`/${PKG}/recall`, {
+    idempotency_key: "packages-journey-recall-anon",
+    release_digest: releaseDigest,
+    expected_release_head: releaseHead,
+    reason: "anonymous recall must refuse",
+    return: `${LANE}?pkg=${PKG}&rel=${encodeURIComponent(releaseDigest)}`,
+  }, { authenticated: false });
+  ok("an ANONYMOUS recall refuses TYPED (request_principal_required) — identity-first on the successor verb, state unchanged",
+    anonRecall.status === 303 && anonRecall.q.get("refused") === "request_principal_required"
+      && (await relGet(releaseDigest)).release?.record?.surface_package_disposition === "active",
+    anonRecall.q.get("refused") || "");
+  const RECALL_REASON = "conformance defect: the packaged surface misreports its capability depth";
+  const recalled = await act(`/${PKG}/recall`, {
+    idempotency_key: "packages-journey-recall-1",
+    release_digest: releaseDigest,
+    expected_release_head: releaseHead,
+    reason: RECALL_REASON,
+    return: `${LANE}?pkg=${PKG}&rel=${encodeURIComponent(releaseDigest)}`,
+  });
+  const recallReceipt = recalled.q.get("receipt") || "";
+  ok("recall crosses under exact-head CAS with admission evidence (303 acted + receipt, result recalled)",
+    recalled.status === 303 && recalled.q.get("acted") === "recall-release"
+      && recallReceipt.startsWith("receipt://") && recalled.q.get("result") === "recalled",
+    recalled.location.slice(0, 140));
+  release = await relGet(releaseDigest);
+  const recallHead = release.release?.agentgres?.head || "";
+  ok("the recall is an IMMUTABLE SUCCESSOR REVISION on the release stream: disposition recalled, the bounded reason verbatim, same release_ref, head advanced, admission state untouched",
+    release.ok === true && release.release?.record?.surface_package_disposition === "recalled"
+      && release.release?.recall_reason === RECALL_REASON
+      && release.release?.record?.surface_admission_state === "admitted"
+      && release.release?.record?.release_ref === `package://${PKG}/release/${releaseDigest}`
+      && !!recallHead && recallHead !== releaseHead,
+    `head ${String(recallHead).slice(0, 14)}…`);
+  const recallReplay = await act(`/${PKG}/recall`, {
+    idempotency_key: "packages-journey-recall-1",
+    release_digest: releaseDigest,
+    expected_release_head: recallHead,
+    reason: RECALL_REASON,
+    return: `${LANE}?pkg=${PKG}&rel=${encodeURIComponent(releaseDigest)}`,
+  });
+  ok("an exact recall retry REPLAYS the original transition (same receipt, head unchanged)",
+    recallReplay.status === 303 && recallReplay.q.get("receipt") === recallReceipt
+      && (await relGet(releaseDigest)).release?.agentgres?.head === recallHead,
+    recallReplay.q.get("receipt")?.slice(0, 40) || "");
+  const staleRecall = await act(`/${PKG}/recall`, {
+    idempotency_key: "packages-journey-recall-stale",
+    release_digest: releaseDigest,
+    expected_release_head: releaseHead,
+    reason: "stale head must refuse",
+    return: `${LANE}?pkg=${PKG}&rel=${encodeURIComponent(releaseDigest)}`,
+  });
+  ok("a stale recall head under a NEW key refuses typed (package_expected_head_conflict)",
+    staleRecall.status === 303 && staleRecall.q.get("refused") === "package_expected_head_conflict",
+    staleRecall.q.get("refused") || "");
+  const doubleRecall = await act(`/${PKG}/recall`, {
+    idempotency_key: "packages-journey-recall-2",
+    release_digest: releaseDigest,
+    expected_release_head: recallHead,
+    reason: "a second recall must refuse",
+    return: `${LANE}?pkg=${PKG}&rel=${encodeURIComponent(releaseDigest)}`,
+  });
+  ok("recalling an already-recalled release refuses typed (package_release_not_recallable) — the transition is one-way and one-shot",
+    doubleRecall.status === 303 && doubleRecall.q.get("refused") === "package_release_not_recallable",
+    doubleRecall.q.get("refused") || "");
+
+  // -- the CASCADE is derived at read: binding ineligible naming the recall ---
+  binding = await instGet(releaseDigest);
+  ok("the recall CASCADES to the binding at read time WITHOUT mutating it: same admitted head and revision, launch_eligible false, surface_release_recalled leads the derived reasons, the bounded reason travels verbatim",
+    binding.ok === true
+      && binding.installation?.agentgres?.head === installationHead
+      && binding.installation?.record?.revision === 1
+      && binding.installation?.launch_eligible === false
+      && binding.installation?.release_disposition === "recalled"
+      && binding.installation?.release_recall_reason === RECALL_REASON
+      && JSON.stringify(binding.installation?.disabled_reason_codes) === JSON.stringify(["surface_release_recalled", "extension_application_registration_absent", "surface_serving_binding_absent"]),
+    JSON.stringify(binding.installation?.disabled_reason_codes));
+  const installOnRecalled = await act(`/${PKG}/install`, {
+    idempotency_key: "packages-journey-install-after-recall",
+    release_digest: releaseDigest,
+    expected_release_head: recallHead,
+    installation_id: "post-recall",
+    visibility: "organization",
+    return: `${LANE}?pkg=${PKG}&rel=${encodeURIComponent(releaseDigest)}`,
+  });
+  ok("a NEW installation over the recalled release refuses typed (package_release_not_installable)",
+    installOnRecalled.status === 303 && installOnRecalled.q.get("refused") === "package_release_not_installable",
+    installOnRecalled.q.get("refused") || "");
+
+  // -- the recalled surface is GONE from the launcher feed --------------------
+  feed = await launcherFeed();
+  ok("launcher join LOSS: after recall the surface ref is GONE from the projection entirely (no entry, no residue anywhere in the reply) while the compiled estate keeps projecting",
+    Array.isArray(feed.application_entries) && feed.application_entries.length > 0
+      && !JSON.stringify(feed).includes(SURFACE_REF),
+    `entries ${feed.application_entries?.length ?? "none"}`);
+
+  // -- the pages render the recall truth verbatim -----------------------------
+  const relPageRecalled = await pageText(`/packages?pkg=${PKG}&rel=${encodeURIComponent(releaseDigest)}`);
+  ok("the release page renders the recalled disposition, the verbatim reason, the replay-only band, and withholds the install form naming the daemon's refusal",
+    relPageRecalled.status === 200 && relPageRecalled.text.includes("recalled")
+      && relPageRecalled.text.includes(RECALL_REASON)
+      && relPageRecalled.text.includes("Already recalled")
+      && relPageRecalled.text.includes("package_release_not_installable"),
+    "");
+  const instPageRecalled = await pageText(`/packages?pkg=${PKG}&rel=${encodeURIComponent(releaseDigest)}&inst=${INST}`);
+  ok("the binding page renders the derived cascade verbatim: surface_release_recalled among the reasons, the recall reason text, launch_eligible false",
+    instPageRecalled.status === 200 && instPageRecalled.text.includes("surface_release_recalled")
+      && instPageRecalled.text.includes(RECALL_REASON)
+      && instPageRecalled.text.includes("launch_eligible: false"),
+    "");
+
+  // -- restart: recalled disposition, cascade, and feed truth all reconstruct --
   daemon.kill("SIGTERM");
   await new Promise((r) => setTimeout(r, 1200));
   await startDaemon();
   candidate = await pkgGet();
   release = await relGet(releaseDigest);
   binding = await instGet(releaseDigest);
-  ok("candidate, release, and installation reconstruct after a daemon restart with EXACT heads",
+  ok("candidate, recalled release, and installation reconstruct after a daemon restart with EXACT heads",
     candidate.package?.agentgres?.head === candidateHead
-      && release.release?.agentgres?.head === releaseHead
+      && release.release?.agentgres?.head === recallHead
       && binding.installation?.agentgres?.head === installationHead,
+    "");
+  feed = await launcherFeed();
+  ok("the recalled disposition, the derived binding cascade, and the launcher-feed absence all SURVIVE restart (derived from admitted truth, not process state)",
+    release.release?.record?.surface_package_disposition === "recalled"
+      && release.release?.recall_reason === RECALL_REASON
+      && binding.installation?.release_disposition === "recalled"
+      && JSON.stringify(binding.installation?.disabled_reason_codes) === JSON.stringify(["surface_release_recalled", "extension_application_registration_absent", "surface_serving_binding_absent"])
+      && Array.isArray(feed.application_entries) && feed.application_entries.length > 0
+      && !JSON.stringify(feed).includes(SURFACE_REF),
     "");
   let reload = { status: 0, text: "" };
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -421,7 +567,7 @@ async function run() {
     reload.status === 200 && reload.text.includes(PKG) && reload.text.includes(candidateHead),
     `status ${reload.status}`);
 
-  // -- eligibility loss through the ONE removal verb the family owns ----------
+  // -- uninstall still operates over the recalled release (the cleanup path) --
   const uninstalled = await act(`/${PKG}/uninstall`, {
     idempotency_key: "packages-journey-uninstall-1",
     release_digest: releaseDigest,
@@ -436,16 +582,12 @@ async function run() {
     uninstalled.location.slice(0, 140));
   binding = await instGet(releaseDigest);
   const uninstalledHead = binding.installation?.agentgres?.head || "";
-  // NOTE (derived from package_registry_routes.rs render_installation): the uninstall EVENT
-  // payload records the additional reason code surface_installation_uninstalled, but the
-  // family's read projection renders the structural reason pair on every revision — so the
-  // assertion is the truth the daemon actually answers: terminal state + immutable revision +
-  // launch_eligible pinned false + the head advanced.
-  ok("uninstall IMMEDIATELY revokes the binding (the family's one removal verb): state uninstalled, immutable revision 2, launch_eligible stays false, head advanced",
+  ok("uninstall IMMEDIATELY revokes the binding: state uninstalled, immutable revision 2, launch_eligible stays false, the derived reasons name BOTH the uninstall and the recall, head advanced",
     binding.installation?.record?.surface_installation_state === "uninstalled"
       && binding.installation?.record?.revision === 2
       && binding.installation?.record?.surface_enablement_state === "disabled"
       && binding.installation?.launch_eligible === false
+      && JSON.stringify(binding.installation?.disabled_reason_codes) === JSON.stringify(["surface_installation_uninstalled", "surface_release_recalled", "extension_application_registration_absent", "surface_serving_binding_absent"])
       && !!uninstalledHead && uninstalledHead !== installationHead,
     `state ${binding.installation?.record?.surface_installation_state} rev ${binding.installation?.record?.revision}`);
   const uninstallReplay = await act(`/${PKG}/uninstall`, {
@@ -474,6 +616,10 @@ async function run() {
     instPageAfter.status === 200 && instPageAfter.text.includes("uninstalled")
       && instPageAfter.text.includes("launch_eligible: false")
       && instPageAfter.text.includes("Already uninstalled"),
+    "");
+  feed = await launcherFeed();
+  ok("after uninstall the surface STAYS gone from the launcher feed (recalled + uninstalled: absent for two derived reasons, still zero residue)",
+    Array.isArray(feed.application_entries) && !JSON.stringify(feed).includes(SURFACE_REF),
     "");
 
   // -- 3-posture matrix -------------------------------------------------------

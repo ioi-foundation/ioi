@@ -1845,9 +1845,12 @@ async fn async_main() -> anyhow::Result<()> {
                 .delete(odk_routes::handle_odk_descriptor_delete),
         )
         // Packages — the narrow daemon-owned middle of the ODK composable-app ladder.  This
-        // admits exact package candidates, immutable releases, and disabled local installation
-        // bindings.  It deliberately does not create extension-application registrations,
-        // System interfaces, serving bindings, routes, processes, or launch eligibility.
+        // admits exact package candidates, immutable releases, disabled local installation
+        // bindings, and the two successor verbs (release recall, installation uninstall).  It
+        // deliberately does not create extension-application registrations, System interfaces,
+        // serving bindings, routes, processes, or launch eligibility — recall only REMOVES the
+        // derived launcher-feed presence the product-surface projection reads live from this
+        // namespace.
         .route(
             "/v1/hypervisor/packages",
             get(package_registry_routes::handle_package_list)
@@ -1865,6 +1868,10 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/packages/:package_id/releases/:release_digest",
             get(package_registry_routes::handle_release_get),
+        )
+        .route(
+            "/v1/hypervisor/packages/:package_id/releases/:release_digest/recall",
+            post(package_registry_routes::handle_release_recall),
         )
         .route(
             "/v1/hypervisor/packages/:package_id/releases/:release_digest/installations",

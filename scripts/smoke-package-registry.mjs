@@ -263,6 +263,10 @@ async function run() {
         path: "/v1/hypervisor/packages/:package_id/releases/:release_digest/installations/:installation_id/uninstall",
         methods: ["POST"],
       },
+      {
+        path: "/v1/hypervisor/packages/:package_id/releases/:release_digest/recall",
+        methods: ["POST"],
+      },
     ].sort((left, right) => left.path.localeCompare(right.path));
     assertThat(
       JSON.stringify(routes) === JSON.stringify(expectedRoutes),
@@ -558,6 +562,39 @@ async function run() {
       installation_ref: installationProjection.record.installation_ref,
     };
 
+    // Recall lands WITH the registry (W2.3): the one disposition successor, exercised
+    // through the same restart the rest of the family already proves.
+    const releaseRoute = installRoute.replace(/\/installations$/u, "");
+    const recallRoute = `${releaseRoute}/recall`;
+    // The install steps advance the release stream, so recall CAS-swaps against the
+    // CURRENT head, re-read here — never the head captured at release cut.
+    const preRecall = await request(daemon, "read_release_before_recall", "GET", releaseRoute);
+    expectStatus(preRecall, 200, "release reads back before recall");
+    const preRecallHead = preRecall.body.release.agentgres.head;
+    const preRecallSequence = preRecall.body.release.agentgres.sequence;
+    const recall = await request(daemon, "recall_release", "POST", recallRoute, {
+      expected_release_head: preRecallHead,
+      idempotency_key: "package-registry-smoke-recall-v1",
+      reason: "package-registry smoke: recall must land WITH the registry",
+      recorded_at_ms: 4,
+    });
+    expectStatus(recall, 200, "release recall appends the disposition successor");
+    const recalledRelease = await request(daemon, "read_release_after_recall", "GET", releaseRoute);
+    expectStatus(recalledRelease, 200, "recalled release reads back");
+    assertThat(
+      recalledRelease.body.release.record.surface_package_disposition === "recalled" &&
+        recall.body.release.agentgres.sequence === preRecallSequence + 1,
+      "recall flips active -> recalled as an immutable stream successor",
+      { disposition: recalledRelease.body.release.record.surface_package_disposition,
+        sequence: recall.body.release.agentgres.sequence, prior: preRecallSequence },
+    );
+    const recalledBinding = await request(daemon, "read_installation_after_recall", "GET", `${installRoute}/primary`);
+    expectStatus(recalledBinding, 200, "binding reads back after recall");
+    assertThat(
+      JSON.stringify(recalledBinding.body).includes("surface_release_recalled"),
+      "a recalled release derives binding ineligibility with its typed reason",
+    );
+
     await daemon.close();
     daemon = await startDaemon(dataDir);
     report.restart_count += 1;
@@ -576,6 +613,16 @@ async function run() {
     assertThat(
       recovered.body.installation.agentgres.head === installationHead,
       "restart recovery preserves exact installation head",
+    );
+    const recalledAfterRestart = await request(daemon, "read_release_after_restart", "GET", releaseRoute);
+    expectStatus(recalledAfterRestart, 200, "release reconstructs after restart");
+    assertThat(
+      recalledAfterRestart.body.release.record.surface_package_disposition === "recalled",
+      "the recalled disposition survives daemon restart",
+    );
+    assertThat(
+      JSON.stringify(recovered.body).includes("surface_release_recalled"),
+      "derived recall ineligibility survives daemon restart",
     );
 
     const uninstallRoute = `${installRoute}/primary/uninstall`;

@@ -1,8 +1,9 @@
-// Packages — the canonical /packages surface packet (W2.3 bar, next-legs II Leg 2).
+// Packages — the canonical /packages surface packet (W2.3 bar, next-legs II Leg 2; recall +
+// launcher join, next-legs III Leg 2).
 //
-// One module, two mounts, over the CLOSED daemon package family (MEF-CLOSED-003 — exactly seven
-// /v1/hypervisor/packages/* routes: candidate create/list/get, release create/list/get,
-// installation create/list/get, uninstall):
+// One module, two mounts, over the CLOSED daemon package family (MEF-CLOSED-003 — exactly eight
+// /v1/hypervisor/packages/* routes: candidate create/list/get, release create/list/get, release
+// recall, installation create/list/get, uninstall):
 //
 //   registry     — /packages (+ fresh legacy lane /__ioi/packages/registry): the package
 //                  lifecycle projection. Candidates (frozen ODK source meshes), immutable
@@ -37,18 +38,23 @@
 //     record under its declared schema_version PLUS agentgres.receipt_ref. Anything less fails
 //     CLOSED. Typed refusals render verbatim.
 //
-// NAMED GAPS this module states instead of faking (W2.3: recall lands WITH the registry — and
-// the registry the daemon owns today has NO recall):
-//   - deprecate / disable / recall / revoke: no daemon verb exists. surface_package_disposition
-//     is write-once "active" at release admission; the registered contract enum names
-//     deprecated/superseded/recalled but no route can set them. The verbs render disabled with
+// RECALL landed WITH the registry (W2.3): POST .../releases/:digest/recall appends the immutable
+// disposition successor (active → recalled) under exact-head CAS with a bounded reason. The
+// cascade is DERIVED AT READ TIME — bindings keep their admitted bytes and every binding read
+// resolves the current release head, so a recalled release reads back on its bindings as
+// launch_eligible:false with the surface_release_recalled reason, immediately and after restart.
+// The product-surface projection consumes the registry namespace live (W2.4 join): installed
+// bindings on active releases appear in the launcher feed as honest ineligible entries; recalled
+// and uninstalled surfaces are absent by derivation.
+//
+// NAMED GAPS this module still states instead of faking:
+//   - deprecate / supersede / revoke: no daemon verb exists — recall is the family's ONE
+//     disposition successor. The other enum values render disabled with
 //     data-ioi-disabled-reason, never wired to an invented path.
-//   - launcher eligibility: the product-surface compiler projection consumes NO package-registry
-//     state (its records are compiled-in), so an installed package can never appear in a launch
-//     surface — the typed absence is stated on the binding, beside its launch_eligible:false.
 //   - enable / registration / serving: installs are born disabled and the family owns no verb to
 //     change that; the missing extension_application registration is named by the daemon's own
-//     disabled_reason_codes, rendered verbatim.
+//     disabled_reason_codes, rendered verbatim. A launcher-feed entry is INVENTORY presence,
+//     never launchability.
 import { escHtml } from "../kit.mjs";
 
 const esc = escHtml;
@@ -70,9 +76,9 @@ const RELEASE_SCHEMA = "ioi.hypervisor.surface_release_record.v1";
 const INSTALLATION_SCHEMA = "ioi.hypervisor.surface_installation_binding.v1";
 const PACKAGES_PLANE = "/v1/hypervisor/packages";
 
-const RECALL_GAP_REASON = "no daemon verb exists — the closed /v1/hypervisor/packages family owns no deprecate/disable/recall/revoke route; surface_package_disposition is write-once 'active' at release admission (the registered enum names 'recalled' but no route can set it); the verb lands with the W3.c compiler-hook packet, never invented surface-side";
+const DISPOSITION_GAP_REASON = "no daemon verb exists — recall is the family's one disposition successor (active → recalled); the registered enum also names 'deprecated' and 'superseded' but no route can set them, so these controls stay disabled instead of pretending";
 const ENABLE_GAP_REASON = "no daemon verb exists — installation bindings are born surface_enablement_state 'disabled' (extension_application registration absent) and the family owns no enable/registration/serving route";
-const LAUNCHER_GAP_NOTE = "Launcher eligibility (typed absence): the product-surface compiler projection consumes no package-registry state today — no installed package can appear in any launch surface, and launch_eligible:false above is the admitted truth of this binding, not a UI decision.";
+const LAUNCHER_JOIN_NOTE = "Launcher feed (live join): the product-surface projection consumes the package registry namespace on every read — an installed binding on an active release appears in application_entries as an honest INELIGIBLE entry (launchable:false with the exact derived reasons); a recalled or uninstalled surface is absent by derivation, immediately and after restart. Feed presence is inventory truth, never launchability.";
 const MARKETPLACE_LADDER_REASON = "marketplace ladder actions (draft/patch/delete, publish candidate, review decide, publish, offer) operate on the /__ioi/marketplace legacy owner lane until the marketplace-actions leg — this mode is read-first";
 
 // ---------------------------------------------------------------------------------------------
@@ -122,15 +128,17 @@ function isMarketplaceMount(pathname) {
 
 // ---------------------------------------------------------------------------------------------
 // actions — ONLY the lifecycle verbs the daemon actually owns. There is deliberately no
-// deprecate/disable/recall/revoke/enable action here: declaring one would invent an authority
+// deprecate/supersede/revoke/enable action here: declaring one would invent an authority
 // path the daemon refuses to own (the named gaps render disabled in the views instead).
 const PKG_AUTHORITY = { plane: "hypervisor.packages", operation: "POST /v1/hypervisor/packages" };
 const REL_AUTHORITY = { plane: "hypervisor.packages", operation: "POST /v1/hypervisor/packages/:package_id/releases (expected_package_head CAS)" };
+const RECALL_AUTHORITY = { plane: "hypervisor.packages", operation: "POST /v1/hypervisor/packages/:package_id/releases/:release_digest/recall (expected_release_head CAS, idempotent replay)" };
 const INST_AUTHORITY = { plane: "hypervisor.packages", operation: "POST /v1/hypervisor/packages/:package_id/releases/:release_digest/installations (expected_release_head CAS)" };
 const UNINST_AUTHORITY = { plane: "hypervisor.packages", operation: "POST .../installations/:installation_id/uninstall (expected_installation_head CAS, idempotent replay)" };
 export const actions = [
   { id: "admit-candidate", method: "POST", route: "/actions/admit-candidate", fields: ["owner_ref", "package_id", "domain_app_ref", "idempotency_key"], context: [], authority: PKG_AUTHORITY, receipt: CANDIDATE_SCHEMA, confirm: false, success: "return-to-surface", refusal: "typed-banner" },
   { id: "cut-release", method: "POST", route: "/:id/cut-release", fields: ["idempotency_key", "expected_package_head", "surface_distribution", "surface_capability_depth", "object_contract_refs", "action_contract_refs", "evidence_refs"], fieldMax: 4096, context: ["id"], authority: REL_AUTHORITY, receipt: RELEASE_SCHEMA, confirm: false, success: "return-to-surface", refusal: "typed-banner" },
+  { id: "recall-release", method: "POST", route: "/:id/recall", fields: ["idempotency_key", "release_digest", "expected_release_head", "reason"], fieldMax: 600, context: ["id"], authority: RECALL_AUTHORITY, receipt: RELEASE_SCHEMA, confirm: false, success: "return-to-surface", refusal: "typed-banner" },
   { id: "install-release", method: "POST", route: "/:id/install", fields: ["idempotency_key", "release_digest", "expected_release_head", "installation_id", "project_ref", "visibility", "allowed_object_contract_refs", "allowed_action_refs"], fieldMax: 4096, context: ["id"], authority: INST_AUTHORITY, receipt: INSTALLATION_SCHEMA, confirm: false, success: "return-to-surface", refusal: "typed-banner" },
   { id: "uninstall", method: "POST", route: "/:id/uninstall", fields: ["idempotency_key", "release_digest", "installation_id", "expected_installation_head"], context: ["id"], authority: UNINST_AUTHORITY, receipt: INSTALLATION_SCHEMA, confirm: false, success: "return-to-surface", refusal: "typed-banner" },
 ];
@@ -162,6 +170,11 @@ export async function handleAction({ action, id, fields, daemonFetch }) {
     body.action_contract_refs = refList(fields.action_contract_refs);
     body.evidence_refs = refList(fields.evidence_refs);
     redirect = `${LEGACY_ROUTE}?pkg=${enc(id)}`;
+  } else if (action.id === "recall-release") {
+    path = `${PACKAGES_PLANE}/${enc(id)}/releases/${enc(fields.release_digest || "")}/recall`;
+    body.expected_release_head = fields.expected_release_head;
+    body.reason = fields.reason;
+    redirect = `${LEGACY_ROUTE}?pkg=${enc(id)}&rel=${enc(fields.release_digest || "")}`;
   } else if (action.id === "install-release") {
     path = `${PACKAGES_PLANE}/${enc(id)}/releases/${enc(fields.release_digest || "")}/installations`;
     body.installation_id = fields.installation_id;
@@ -211,10 +224,14 @@ export async function handleAction({ action, id, fields, daemonFetch }) {
     created = record.package_id || "";
     status = replayed ? "replayed" : (record.status || "candidate");
     redirect = `${LEGACY_ROUTE}?pkg=${enc(created)}`;
-  } else if (action.id === "cut-release") {
+  } else if (action.id === "cut-release" || action.id === "recall-release") {
     const digest = String(record.release_ref || "").split("/release/").at(-1) || "";
     created = digest;
-    status = replayed ? "replayed" : `${record.surface_admission_state || ""}/${record.surface_package_disposition || ""}`;
+    status = replayed
+      ? "replayed"
+      : (action.id === "recall-release"
+        ? (record.surface_package_disposition || "recalled")
+        : `${record.surface_admission_state || ""}/${record.surface_package_disposition || ""}`);
     redirect = `${LEGACY_ROUTE}?pkg=${enc(id)}&rel=${enc(digest)}`;
   } else {
     created = fields.installation_id || String(record.installation_ref || "").split("/").at(-1) || "";
@@ -251,13 +268,19 @@ function banner(sp) {
 }
 
 // One installation binding row/grid fragment — the FORCED-DISABLED truth rendered verbatim:
-// the daemon's own enablement state, launch_eligible, and exact disabled_reason_codes.
+// the daemon's own enablement state, launch_eligible, the DERIVED release disposition (the
+// recall cascade reads it from the current release head on every request), and the exact
+// derived disabled_reason_codes — including surface_release_recalled when the release was
+// recalled, with the bounded recall reason verbatim.
 function bindingTruth(entry) {
   const record = entry.record || {};
+  const recalled = entry.release_disposition === "recalled";
   return `${pill(record.surface_installation_state === "installed" ? "ok" : "muted", record.surface_installation_state || "—")}
     ${pill("warn", record.surface_enablement_state || "—")}
+    ${entry.release_disposition ? pill(recalled ? "warn" : "ok", `release ${entry.release_disposition}`) : ""}
     ${pill(entry.launch_eligible === false ? "warn" : "muted", `launch_eligible: ${String(entry.launch_eligible)}`)}
-    <div class="sub" style="margin:4px 0 0;text-transform:none;letter-spacing:0">reasons: ${reasonCodes(entry.disabled_reason_codes)}</div>`;
+    <div class="sub" style="margin:4px 0 0;text-transform:none;letter-spacing:0">reasons: ${reasonCodes(entry.disabled_reason_codes)}</div>
+    ${recalled && entry.release_recall_reason ? `<div class="sub" style="margin:4px 0 0;text-transform:none;letter-spacing:0">recall reason: ${esc(String(entry.release_recall_reason))}</div>` : ""}`;
 }
 
 // ---- Registry landing ---------------------------------------------------------------------------
@@ -300,9 +323,9 @@ function catalogView(model, base) {
     <h3 style="margin:18px 0 6px;font-size:13px">Admit a package candidate</h3>${form}
     <h2 id="lifecycle-ceiling">Lifecycle ceiling</h2>
     <div class="gapcard">
-      <p class="sub" style="margin:0 0 8px;text-transform:none;letter-spacing:0">The closed daemon family ends at <b>uninstall</b>. What does NOT exist yet, stated rather than faked:</p>
-      ${disabledCtl("Deprecate", RECALL_GAP_REASON)} ${disabledCtl("Recall", RECALL_GAP_REASON)} ${disabledCtl("Revoke", RECALL_GAP_REASON)} ${disabledCtl("Enable", ENABLE_GAP_REASON)}
-      <p class="sub" style="margin:8px 0 0;text-transform:none;letter-spacing:0">${esc(LAUNCHER_GAP_NOTE)}</p>
+      <p class="sub" style="margin:0 0 8px;text-transform:none;letter-spacing:0">The closed daemon family ends at its two successor verbs — <b>recall</b> (on the release detail, active → recalled with a bounded reason) and <b>uninstall</b>. What does NOT exist yet, stated rather than faked:</p>
+      ${disabledCtl("Deprecate", DISPOSITION_GAP_REASON)} ${disabledCtl("Supersede", DISPOSITION_GAP_REASON)} ${disabledCtl("Revoke", DISPOSITION_GAP_REASON)} ${disabledCtl("Enable", ENABLE_GAP_REASON)}
+      <p class="sub" style="margin:8px 0 0;text-transform:none;letter-spacing:0">${esc(LAUNCHER_JOIN_NOTE)}</p>
     </div>`;
 }
 
@@ -377,6 +400,7 @@ function releaseView(model, base, pkg, rel) {
   const envelope = d.payload.release;
   const rr = envelope.record || {};
   const head = envelope.agentgres?.head || "";
+  const recalled = rr.surface_package_disposition === "recalled";
   const installations = rowsOf(model.installations, "installations");
   const instList = installations === null
     ? degraded(model.installations)
@@ -402,7 +426,8 @@ function releaseView(model, base, pkg, rel) {
       <dt>Package</dt><dd><a href="${base}?pkg=${enc(pkg)}">${code(rr.package_ref)}</a></dd>
       <dt>Surface</dt><dd>${code(rr.surface_ref)}</dd>
       <dt>Distribution · depth</dt><dd>${pill("muted", rr.surface_distribution || "—")} ${pill("muted", rr.surface_capability_depth || "—")}</dd>
-      <dt>Admission</dt><dd>${pill(rr.surface_admission_state === "admitted" ? "ok" : "muted", rr.surface_admission_state || "—")} ${pill(rr.surface_package_disposition === "active" ? "ok" : "warn", rr.surface_package_disposition || "—")} <span class="sub" style="margin:0;text-transform:none;letter-spacing:0">disposition is write-once at admission — no daemon verb can change it yet</span></dd>
+      <dt>Admission</dt><dd>${pill(rr.surface_admission_state === "admitted" ? "ok" : "muted", rr.surface_admission_state || "—")} ${pill(rr.surface_package_disposition === "active" ? "ok" : "warn", rr.surface_package_disposition || "—")} <span class="sub" style="margin:0;text-transform:none;letter-spacing:0">recall (below) is the one disposition successor the daemon owns — an immutable revision on this stream, never an edit</span></dd>
+      ${recalled ? `<dt>Recall reason</dt><dd data-testid="rel-recall-reason">${esc(String(envelope.recall_reason ?? "—"))}</dd>` : ""}
       <dt>Object contracts</dt><dd>${(rr.object_contract_refs || []).map((v) => code(v)).join("<br>") || "—"}</dd>
       <dt>Action contracts</dt><dd>${(rr.action_contract_refs || []).map((v) => code(v)).join("<br>") || "—"}</dd>
       <dt>Evidence</dt><dd>${(rr.evidence_refs || []).map((v) => code(v)).join("<br>") || "—"}</dd>
@@ -410,13 +435,23 @@ function releaseView(model, base, pkg, rel) {
       <dt>Admitted head</dt><dd><code data-testid="rel-admitted-head">${esc(head || "—")}</code></dd>
       <dt>Registration</dt><dd>${pill("warn", `registration ${envelope.registration_state || "absent"}`)}</dd>
     </dl>
+    <h3 style="margin:16px 0 6px;font-size:13px">Recall this release</h3>
+    ${recalled ? `<div class="empty">Already recalled — the disposition successor is immutable history; re-submitting the original recall replays it. Bindings over this release read back <code>launch_eligible: false</code> with <code>surface_release_recalled</code>, and the launcher feed no longer carries the surface.</div>` : `<form class="aform" method="post" action="${LEGACY_ROUTE}/${enc(pkg)}/recall">
+      <input type="hidden" name="idempotency_key" value="${esc(mintKey())}">
+      <input type="hidden" name="return" value="${esc(`${LEGACY_ROUTE}?pkg=${enc(pkg)}&rel=${enc(rel)}`)}">
+      <input type="hidden" name="release_digest" value="${esc(rel)}">
+      ${head ? `<input type="hidden" name="expected_release_head" value="${esc(head)}">` : ""}
+      <label class="fl">Reason (required, bounded — recorded verbatim on the admitted successor)<textarea name="reason" rows="2" maxlength="500" required${dis}></textarea></label>
+      <button class="act" type="submit"${dis}>Recall (active → recalled, immutable successor)</button> ${casNote}
+      <span class="sub" style="margin:0;text-transform:none;letter-spacing:0">the cascade is derived at read: every binding over this release immediately reads back ineligible with the recall named, and the surface leaves the launcher feed — no binding bytes are mutated</span>
+    </form>`}
     <div class="gapcard">
-      ${disabledCtl("Deprecate", RECALL_GAP_REASON)} ${disabledCtl("Recall", RECALL_GAP_REASON)} ${disabledCtl("Revoke", RECALL_GAP_REASON)}
-      <p class="sub" style="margin:8px 0 0;text-transform:none;letter-spacing:0">Recall semantics (canon): removing launch eligibility immediately and exposing affected installs is the W3.c compiler hook — it must land WITH the verb. Today the registered enum names <code>recalled</code> but the closed family owns no route that sets it; these controls stay disabled instead of pretending.</p>
+      ${disabledCtl("Deprecate", DISPOSITION_GAP_REASON)} ${disabledCtl("Supersede", DISPOSITION_GAP_REASON)} ${disabledCtl("Revoke", DISPOSITION_GAP_REASON)}
+      <p class="sub" style="margin:8px 0 0;text-transform:none;letter-spacing:0">${esc(LAUNCHER_JOIN_NOTE)}</p>
     </div>
     <h3 style="margin:16px 0 6px;font-size:13px">Installation bindings</h3>${instList}
     <h3 style="margin:16px 0 6px;font-size:13px">Install this exact release</h3>
-    <form class="aform" method="post" action="${LEGACY_ROUTE}/${enc(pkg)}/install">
+    ${recalled ? `<div class="empty">Installation is closed: the daemon refuses a binding over a recalled release (<code>package_release_not_installable</code>) — the form is withheld rather than submitted to fail.</div>` : `<form class="aform" method="post" action="${LEGACY_ROUTE}/${enc(pkg)}/install">
       <input type="hidden" name="idempotency_key" value="${esc(mintKey())}">
       <input type="hidden" name="return" value="${esc(`${LEGACY_ROUTE}?pkg=${enc(pkg)}&rel=${enc(rel)}`)}">
       <input type="hidden" name="release_digest" value="${esc(rel)}">
@@ -427,7 +462,7 @@ function releaseView(model, base, pkg, rel) {
       <label class="fl">Allowed object contracts (may only NARROW the release set)<textarea name="allowed_object_contract_refs" rows="2"${dis}>${esc((rr.object_contract_refs || []).join("\n"))}</textarea></label>
       <label class="fl">Allowed action refs (may only NARROW the release set)<textarea name="allowed_action_refs" rows="2"${dis}>${esc((rr.action_contract_refs || []).join("\n"))}</textarea></label>
       <button class="act" type="submit"${dis}>Install (binding is created disabled)</button> ${casNote}
-    </form>`;
+    </form>`}`;
 }
 
 // ---- Installation detail -----------------------------------------------------------------------
@@ -458,8 +493,9 @@ function installationView(model, base, pkg, rel, inst) {
       <dt>Nonclaim</dt><dd class="sub" style="text-transform:none;letter-spacing:0;margin:0">${esc(entry.record?.nonclaim || d.payload.installation?.nonclaim || "The binding claims no runtime, route, or launch authority.")}</dd>
     </dl>
     <div class="gapcard">
-      ${disabledCtl("Enable", ENABLE_GAP_REASON)} ${disabledCtl("Recall release", RECALL_GAP_REASON)}
-      <p class="sub" style="margin:8px 0 0;text-transform:none;letter-spacing:0">${esc(LAUNCHER_GAP_NOTE)}</p>
+      ${disabledCtl("Enable", ENABLE_GAP_REASON)}
+      <p class="sub" style="margin:8px 0 0;text-transform:none;letter-spacing:0">Recall operates on the <a href="${base}?pkg=${enc(pkg)}&rel=${enc(rel)}">release</a>, never on one binding — a recalled release reads back here as <code>surface_release_recalled</code> with launch eligibility derived false, and the surface leaves the launcher feed.</p>
+      <p class="sub" style="margin:8px 0 0;text-transform:none;letter-spacing:0">${esc(LAUNCHER_JOIN_NOTE)}</p>
     </div>
     <h3 style="margin:16px 0 6px;font-size:13px">Uninstall</h3>
     ${uninstalled ? `<div class="empty">Already uninstalled (revision ${esc(String(ir.revision ?? ""))}) — the transition is immutable history; re-submitting the original uninstall replays it.</div>` : ""}
