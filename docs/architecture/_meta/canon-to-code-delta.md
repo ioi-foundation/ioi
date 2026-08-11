@@ -316,6 +316,33 @@ and fenced, with the SPA teardown repair filed as the removal path:
 |---|---|---|
 | **DEF-SPA-WATCHEVENTS-1 — vendored-SPA event-stream teardown race kills the product smoke.** Navigating the served UI's `/` route (final route `/projects`, a `vendor_spa` row in the canonical route table) intermittently records `POST /api/gitpod.v1.EventService/WatchEvents (net::ERR_ABORTED)` as a browser request failure; the product browser smoke treats every request failure as fatal, so one teardown race kills otherwise-green runs. | Four recorded reproductions on untouched master: PR #235, PR #237 (twice), PR #241 — plus one full CI cycle lost (run 31444686784). | **fenced-with-filed-fix.** The vendored SPA's event-stream teardown owns the repair (out of scope for the fence cut). Until it lands, `scripts/smoke-product-surfaces.mjs` admits EXACTLY the recorded tuple via the exported pure predicate `isFencedWatchEventsAbort` (`scripts/lib/watchevents-fence.mjs`): hypervisor served-UI lane + `vendor_spa` final-route disposition (the smoke's own `V2_ROUTE_TABLE` classification) + same served origin + exact pathname + `POST` + exactly `net::ERR_ABORTED`; anything failing ANY element still fails the smoke, and fenced events are reported per route (`fenced_request_failures`), never silent. The near-miss boundary is CI-pinned by the retained `test:smoke-fence` suite (`scripts/lib/watchevents-fence.test.mjs`). **REMOVAL CONDITION: the PR that lands the SPA event-stream teardown fix deletes the allowance, this row's fence, and the predicate module in the same cut, and flips the retained test to assert the WatchEvents abort no longer occurs.** |
 
+### Journey verification IV (2026-08-11, next-legs IV Leg 3 — Work partial pre-W3 cockpit slice)
+
+The Work PARTIAL PRE-W3 COCKPIT SLICE landed (`check:work-cockpit` 46/46 —
+deliberately NOT a "-journey": W3.1 owns the admission→harness→run→
+events/receipts→stop/archive/recovery/replay chain and SURF-work + W3.1 REMAIN
+OPEN). Delivered: the canonical `/work`, `/work/sessions`, `/work/new-session`
+mounts on fresh legacy lanes; the jobs/incidents cockpit grammar rehomed
+read-first with rows linking to the protected seeds (which keep serving
+untouched); create → admitted readback with the ADMITTED harness binding
+rendered as session truth recorded at create; teardown journeyed as the one
+destructive session verb the daemon owns today; bare `/sessions` asserted as
+the typed 410 at HTTP + body level; the session family's owned verb set pinned
+EXACTLY at `/v1` (no session-level stop/archive, no lineage family) and the
+launch chain pinned as this table's `HarnessSessionExecutionChain` typed
+absence (planners present, NO typed `HarnessSessionLaunch` producer;
+launch/terminal/replay/recovery render disabled-with-reason). The C-1 typed W3
+absence is pinned at both layers: create HARDCODES `subject_attachments: []`
+on the session record, the form accepts no subject input, and the verifier
+proves the attachments stay exactly empty even when `project_ref` is supplied
+(no masquerade). NEW typed finding — **session writes cross with no identity
+envelope under loopback dev posture (W1.1/G-2 class)**:
+`session_request_owner` resolves no principal on unenforced loopback and
+adjudicates the caller as `user://local-operator` (the same class the ontology
+and automations findings tracked, both since closed identity-first); the
+exposed/enforced postures DO refuse typed (401 asserted live in the same run),
+so the pull is the daemon-side identity-first fix, never a surface-side gate.
+
 ## Related Canon
 
 - [`implementation-matrix.md`](./implementation-matrix.md) — per-concept durable-form index (the wider matrix).

@@ -79,6 +79,9 @@
           "/__ioi/studio/machinery",
           "/__ioi/studio/workbench",
           "/__ioi/systems-workspace",
+          "/__ioi/work-cockpit",
+          "/__ioi/work-new-session",
+          "/__ioi/work-sessions",
           "/applications",
           "/automations",
           "/data",
@@ -109,8 +112,8 @@
           "/work/new-session",
           "/work/sessions"
         ],
-        "expected_count": 50,
-        "sha256": "ac5b11372d3ba94c40b89b82054ea9e012a0d4557b4e110b58cc00120fb03f27",
+        "expected_count": 53,
+        "sha256": "e34a5d14f4472100b707ac07420a47acc14cfea308449b5e2ab142e88520b676",
         "browser_verification_id": "served-surface-smoke"
       },
       "state_authority_mode": "daemon_authoritative_projection",
@@ -341,7 +344,7 @@
           {
             "path": "apps/hypervisor-web/src/site/WorkerTraining.jsx",
             "contains": [
-              "fixture result \u00b7 not production"
+              "fixture result · not production"
             ]
           }
         ]
