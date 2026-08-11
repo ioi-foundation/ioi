@@ -37,6 +37,11 @@
 //      The daemon's inbound auth middleware covers /v1/* when enforcement is on,
 //      so this is a pinned baseline (the known MEF-GAP-008 legacy surface), not
 //      a per-handler verdict. Fails only on growth or on a vanished baseline name.
+//      A write counts whether the handler calls a persist/remove primitive directly
+//      OR through a named persist_*/save_*/*_write helper seam (see WRITE_SEAMS) —
+//      so a handler whose only write path is a helper is no longer invisible to the
+//      census; the gate side is symmetric (see IDENTITY) so a seam-mediated identity
+//      resolution is recognized just as a seam-mediated write is counted.
 
 import fs from "node:fs";
 import path from "node:path";
@@ -197,12 +202,58 @@ const RULE_F_RESOLVER = /resolve_principal_tenant_refs\s*\(/gu;
 const RULE_G = /x-ioi-principal|x-forwarded-user/gu;
 
 const SEAM_FILES = new Set(["lifecycle_routes.rs", "portal_session_exchange_routes.rs"]);
+// Identity/authority resolution seams. session_request_write_owner and
+// load_owned_session_record_for_write are the session-write identity-first seams:
+// each resolves the acting principal (typed 401 before any record load) and is
+// what the session write handlers call in place of an inline resolver — listing
+// them keeps the census's read of a handler's gate symmetric with its read of a
+// handler's writes, so a seam-mediated gate is recognized just as a seam-mediated
+// write is counted.
 const IDENTITY =
-  /\b(resolve_request_identity|require_write_caller|require_authenticated_org_admin|require_authenticated_principal|require_authenticated_admin|resolve_governance_reviewer|prepare_approval_patch_identity|resolve_principal|bind_request_resource_scope|authorize_scope)\s*\(/gu;
+  /\b(resolve_request_identity|session_request_write_owner|load_owned_session_record_for_write|require_write_caller|require_authenticated_org_admin|require_authenticated_principal|require_authenticated_admin|resolve_governance_reviewer|prepare_approval_patch_identity|resolve_principal|bind_request_resource_scope|authorize_scope)\s*\(/gu;
 const RECORD_READ =
   /\b(load|load_record|read_record_dir|find_by_key|read_owner_scoped_head|read_owner_scoped_history)\s*\(/gu;
-const MUTATION =
-  /\b(persist_record|persist_record_durable|remove_record|admit_owner_scoped_write|unlink_durable(?:_at)?|(?:std::)?fs::(?:write|remove_file|remove_dir_all|rename|create_dir_all))\s*\(/gu;
+// Helper write seams: named persist_*/save_*/*_write wrappers in the daemon route
+// modules (and the substrate_store seam) that each perform a durable write on a
+// handler's behalf — every entry here wraps persist_record / persist_record_durable
+// internally. Rule H counts a call to one of these as a mutation exactly as it counts
+// a direct persist, so a handler whose only write path is mediated by such a helper is
+// no longer invisible to the census. Re-derive by grepping the route dir for fns named
+// persist_*/save_*/*_write whose body calls persist_record[_durable]. Longest names are
+// listed before their prefixes so the alternation cannot short-match (the trailing `\(`
+// already guards this, but ordering keeps it obvious).
+const WRITE_SEAMS = [
+  "persist_and_complete_intent_locked",
+  "persist_and_complete_locked",
+  "persist_embedded_intent_locked",
+  "persist_exact_authority_receipt",
+  "persist_session_lifecycle_stage",
+  "persist_session_execution_stage",
+  "persist_session_create_stage",
+  "persist_run_with_bundle",
+  "persist_goal_run_atomic",
+  "persist_successor",
+  "persist_recipe",
+  "persist_required",
+  "persist_health",
+  "persist_atomic",
+  "persist_local",
+  "persist_plan",
+  "persist_env",
+  "persist_run",
+  "durable_write",
+  "save_deployment",
+  "save_workload",
+  "save_instance",
+  "save_service",
+  "save_profile",
+  "save_route",
+  "save_lease",
+].join("|");
+const MUTATION = new RegExp(
+  `\\b(persist_record|persist_record_durable|remove_record|admit_owner_scoped_write|unlink_durable(?:_at)?|${WRITE_SEAMS}|(?:std::)?fs::(?:write|remove_file|remove_dir_all|rename|create_dir_all))\\s*\\(`,
+  "gu",
+);
 
 // ------------------------------------------------------------------ pinned dispositions
 // Keyed file + rule + match key; `count` pins how many such sites exist today.
@@ -404,6 +455,54 @@ const H_BASELINE = [
   "transformation_run_routes.rs::handle_run_delete",
   "transformation_run_routes.rs::handle_run_dry_run",
   "transformation_run_routes.rs::handle_run_patch",
+  // Helper-write-seam additions (2026-08-11): these mutating handlers write only
+  // through a named persist_*/save_*/*_write helper, so the per-handler scan could
+  // not previously see them (WRITE_SEAMS made them visible). They join the baseline
+  // on exactly the same footing as every entry above — the middleware-covered legacy
+  // surface, each awaiting its W1.2-class handler-level reading; a pinned census
+  // entry, NOT a per-handler verdict. Growth beyond this set is red.
+  "attempt_finding_routes.rs::handle_attempt_create",
+  "attempt_finding_routes.rs::handle_attempt_transition",
+  "attempt_finding_routes.rs::handle_finding_create",
+  "attempt_finding_routes.rs::handle_finding_transition",
+  "editor_routes.rs::handle_editor_service_expose",
+  "editor_routes.rs::handle_editor_service_rebuild",
+  "editor_routes.rs::handle_editor_service_start",
+  "editor_routes.rs::handle_editor_service_stop",
+  "environment_routes.rs::handle_env_port_expose",
+  "environment_routes.rs::handle_env_port_unexpose",
+  "environment_routes.rs::handle_environment_create",
+  "environment_routes.rs::handle_environment_get",
+  "environment_routes.rs::handle_idle_sweep",
+  "goalrun_routes.rs::handle_goal_run_activation_draft",
+  "goalrun_routes.rs::handle_goal_run_activation_submit",
+  "goalrun_routes.rs::handle_goal_runs_create",
+  "harness_routes.rs::handle_harness_profile_select_default",
+  "hypervisor_environment_routes.rs::handle_environment_transition",
+  "hypervisoros_node_routes.rs::handle_node_transition",
+  "lifecycle_routes.rs::handle_subagent_cancel",
+  "lifecycle_routes.rs::handle_subagents_propagate_cancel",
+  "model_routes.rs::handle_model_route_patch",
+  "model_routes.rs::handle_model_route_select_default",
+  "placement_failover_routes.rs::handle_failover_plan_arm",
+  "placement_failover_routes.rs::handle_failover_plan_disarm",
+  "recipe_routes.rs::handle_recipe_create",
+  "resource_capability_offer_routes.rs::handle_match_create",
+  "system_amendment_routes.rs::handle_amendment",
+  "system_continuity_routes.rs::handle_migration_destination_acknowledgement",
+  "system_continuity_routes.rs::handle_transition",
+  "system_membership_routes.rs::handle_declare_desired_topology",
+  "system_membership_routes.rs::handle_transition",
+  "system_protected_transition_routes.rs::handle_transition",
+  "system_writer_routes.rs::handle_declare_failover_profile",
+  "system_writer_routes.rs::handle_lost_suffix_resolution",
+  "system_writer_routes.rs::handle_transition",
+  "verifier_challenge_routes.rs::handle_create",
+  "verifier_challenge_routes.rs::handle_transition",
+  "work_frontier_claim_routes.rs::handle_claim_acquire",
+  "work_frontier_claim_routes.rs::handle_claim_transition",
+  "work_frontier_claim_routes.rs::handle_frontier_create",
+  "work_frontier_claim_routes.rs::handle_frontier_transition",
 ];
 
 // ------------------------------------------------------------------ scan
