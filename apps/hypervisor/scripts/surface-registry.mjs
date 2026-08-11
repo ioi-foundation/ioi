@@ -34,6 +34,7 @@ import * as packagesModule from "../surfaces/packages/index.mjs";
 import * as automationsModule from "../surfaces/automations/index.mjs";
 import * as applicationsModule from "../surfaces/applications/index.mjs";
 import * as systemsModule from "../surfaces/systems/index.mjs";
+import * as workModule from "../surfaces/work/index.mjs";
 
 // Capability model (operational wave): `capabilities` is the AUTHORITY-derived set of acts the
 // surface genuinely supports today (never inferred from pixel certification or daemon_wired);
@@ -117,6 +118,22 @@ export const SURFACES = [
   // receipted actions and its operational_state stays "inspect" honestly. Evidence: the
   // automations journey verifier.
   { slug: "automations", owner: "Automations", title: "Automations", icon: MON_APP_TILE_URI, route: "/__ioi/automations-cockpit", canonical_route: "/automations", verifier: "scripts/verify-hypervisor-automations-journey.mjs", certification: "n/a", capabilities: ["browse", "filter", "select", "inspect"], operational_state: "inspect", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  // W2.1 next-legs IV Leg 3: the Work PARTIAL PRE-W3 COCKPIT SLICE — NOT Work completion (W3.1
+  // owns the admission→harness→run→events/receipts→stop/archive/recovery/replay chain; SURF-work
+  // and W3.1 remain open). ONE module, three mounts, on FRESH non-colliding legacy lanes
+  // (/__ioi/work-cockpit, /__ioi/work-sessions, /__ioi/work-new-session — deliberately NOT
+  // /__ioi/sessions, whose T2 readout keeps serving untouched, and NOT nested under
+  // /__ioi/work-ledger's branch). The landing rehomes the jobs/incidents cockpit grammar
+  // READ-FIRST (rows link to the protected seeds /__ioi/missions + /__ioi/missions/incidents,
+  // which keep serving untouched — seed-preservation invariant; the registry owner rename for
+  // those seed rows is deferred to the full Work packet per the seed-ux-provenance
+  // owner_mapping_note). Sessions renders lifecycle facts + the ADMITTED harness binding as
+  // session truth; New Session owns the ONE mutation the daemon admits today (create, 202 +
+  // provision receipt) with NO subject input — subject_attachments is hardcoded empty at the
+  // daemon (typed W3 C-1 absence). Evidence: check:work-cockpit.
+  { slug: "work", owner: "Work", title: "Work", icon: EXPLORER_APP_ICON_URI, route: "/__ioi/work-cockpit", canonical_route: "/work", verifier: "scripts/verify-hypervisor-work-cockpit.mjs", certification: "n/a", capabilities: ["browse", "inspect"], operational_state: "inspect", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  { slug: "work-sessions", owner: "Work", title: "Work / Sessions", icon: EXPLORER_APP_ICON_URI, route: "/__ioi/work-sessions", canonical_route: "/work/sessions", verifier: "scripts/verify-hypervisor-work-cockpit.mjs", certification: "n/a", capabilities: ["browse", "filter", "select", "inspect"], operational_state: "inspect", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  { slug: "work-new-session", owner: "Work", title: "Work / New Session", icon: EXPLORER_APP_ICON_URI, route: "/__ioi/work-new-session", canonical_route: "/work/new-session", verifier: "scripts/verify-hypervisor-work-cockpit.mjs", certification: "n/a", capabilities: ["browse", "create"], operational_state: "act", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "changes", owner: "Improvement", title: "Upgrade Assistant", icon: CHG_APP_TILE_URI, route: "/__ioi/improvement/changes", verifier: "scripts/verify-hypervisor-app-parity-changes.mjs", certification: "pixel-certifications/changes.json", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "evalsuites", owner: "Evaluations", title: "AIP Evals", icon: EVL_APP_TILE_URI, route: "/__ioi/evaluations/evalsuites", verifier: "scripts/verify-hypervisor-app-parity-evalsuites.mjs", certification: "pixel-certifications/evalsuites.json", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
 ];
@@ -222,6 +239,12 @@ bindSurface("packages-marketplace", packagesModule);
 bindSurface("automations", automationsModule);
 bindSurface("applications", applicationsModule);
 bindSurface("systems", systemsModule);
+// Work: ALL THREE rows bind the one module — the module branches on the served pathname
+// (landing / sessions / new-session); ownership markers stay per-row truthful. Only the
+// new-session row is "act": it declares the single receipted create action.
+bindSurface("work", workModule);
+bindSurface("work-sessions", workModule);
+bindSurface("work-new-session", workModule);
 
 // Test-only fault surface (NEVER without the runtime-test flag): gives the action-runtime
 // verifier a module whose action THROWS (route isolation proof) and one that claims success
