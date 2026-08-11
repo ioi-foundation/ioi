@@ -413,8 +413,8 @@
       "owner": "Ontology",
       "canonical_route": "/ontology",
       "baseline_status": "provenance-qualified-executable-seed-present",
-      "graph_mapping_status": "blocked-explored-control-graph-not-complete",
-      "seed_graph_ready_for_rehome": false,
+      "graph_mapping_status": "baseline-graphs-complete-corroborating-typed",
+      "seed_graph_ready_for_rehome": true,
       "greenfield_authorization": null,
       "graph_recovery_status": "required-for-every-summary-only-source",
       "sources": [
@@ -426,12 +426,12 @@
           "provenance_source": "apps/hypervisor/ported-seed-preservation.v1.json",
           "visual_evidence_status": "selected-provenance-qualified-protected-matrix-present",
           "graph": {
-            "evidence_level": "explored_control_graph",
-            "complete_interaction_route_graph": false
+            "evidence_level": "complete_interaction_route_graph",
+            "complete_interaction_route_graph": true
           },
           "graph_file": "seed-graphs/ontology/schema.v1.json",
           "class": "daemon_wired",
-          "replay_problem_count": 1,
+          "graph_capture_note": "2026-08-09 residual (edge n11/Filter recorded navigated, observed noop) was a capture-tool defect, not a product fact: the crawl clicked a dequeued node's controls against the previous node's still-live DOM, so n11's GET Filter fired from ?section=health. Fixed by capture-time state re-establishment plus select/radio values in the state signature; recaptured+interaction-replayed complete 2026-08-11 (0 problems, 0 blockers).",
           "seed_role": "baseline"
         },
         {
@@ -537,12 +537,12 @@
           "provenance_source": "apps/hypervisor/ported-seed-preservation.v1.json",
           "visual_evidence_status": "selected-provenance-qualified-protected-matrix-present",
           "graph": {
-            "evidence_level": "explored_control_graph",
-            "complete_interaction_route_graph": false
+            "evidence_level": "complete_interaction_route_graph",
+            "complete_interaction_route_graph": true
           },
           "graph_file": "seed-graphs/data/sources.v1.json",
           "class": "daemon_wired",
-          "replay_problem_count": 1,
+          "graph_capture_note": "2026-08-09/10 residuals were capture-tool defects, not product facts: (1) the recorded n1 select state-change was a click fired against the previous node's still-live DOM (stale dequeue); (2) both unreachable-route blockers were fragment-only 'View all' (#sources-catalog) links, whose same-document navigations return no response object by design. Fixed by capture-time state re-establishment and same-document-navigation typing; recaptured+interaction-replayed complete 2026-08-11 (0 problems, 0 blockers).",
           "seed_role": "baseline"
         },
         {
@@ -558,7 +558,8 @@
           },
           "graph_file": "seed-graphs/data/pipeline.v1.json",
           "class": "daemon_wired",
-          "replay_problem_count": 13,
+          "replay_problem_count": 38,
+          "graph_capture_note": "recaptured+interaction-replayed 2026-08-11 under the hardened tool (120 nodes, 1950 edges): every 2026-08-10 residual class is gone (census overflows, stale-dequeue click flakes, unreachable/download edges all zero). Two typed residuals remain and both are exact: (1) PRODUCT FACT - the 'Toggle bottom bar' control is censused visible on all 38 route nodes but is deterministically unclickable at capture AND at replay (obscured hit target in the seed render); (2) TOOL LIMIT - node-cap-reached, 81 unexplored nodes beyond --max-nodes 120; the surface's parameterized state space (node/ontology/tab/panel permutations) still grows past 350 nodes at the default 400 cap, so a complete crawl is not reachable at any practical budget. Baseline stays incomplete; the data seed gate stays closed on these two typed findings.",
           "seed_role": "baseline"
         },
         {

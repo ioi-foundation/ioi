@@ -906,9 +906,9 @@
     "edges_executed": 5,
     "edges_skip_classified": 52,
     "problems": [],
-    "walked_at": "2026-08-09T23:42:35.820Z"
+    "walked_at": "2026-08-11T10:42:43.510Z"
   },
   "complete_interaction_route_graph": true,
   "shots_dir": ".artifacts/seed-graph-shots/governance/approvals",
-  "content_address": "502655ede6dd097a34ed96b69b8cfd70257444aa9985c051513289d60f71b92b"
+  "content_address": "9243b7aaab9a994d3d999d599d83a3e4f00815402b368af521ab55d2c3e539a0"
 }
