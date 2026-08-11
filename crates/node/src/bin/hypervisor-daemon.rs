@@ -3578,6 +3578,29 @@ async fn async_main() -> anyhow::Result<()> {
             get(lifecycle_routes::handle_session_get)
                 .delete(lifecycle_routes::handle_session_teardown),
         )
+        // W3.1 — the shared harness-session launch chain (the typed Launch producer). Composes
+        // thread/fork/managed-session/launch-recipe/harness-binding/terminal-attach into one
+        // identity-first, receipted, idempotent, recoverable chain over exactly one owned Session.
+        .route(
+            "/v1/hypervisor/harness-session-launches",
+            post(lifecycle_routes::handle_session_launch_create),
+        )
+        .route(
+            "/v1/hypervisor/harness-session-launches/:id",
+            get(lifecycle_routes::handle_session_launch_get),
+        )
+        .route(
+            "/v1/hypervisor/harness-session-launches/:id/events",
+            get(lifecycle_routes::handle_session_launch_events),
+        )
+        .route(
+            "/v1/hypervisor/harness-session-launches/:id/stop",
+            post(lifecycle_routes::handle_session_launch_stop),
+        )
+        .route(
+            "/v1/hypervisor/harness-session-launches/:id/archive",
+            post(lifecycle_routes::handle_session_launch_archive),
+        )
         // Phase 5A — RuntimeAgentService host substrate (lifecycle/state/events only).
         .route(
             "/v1/hypervisor/runtime-host/sessions",

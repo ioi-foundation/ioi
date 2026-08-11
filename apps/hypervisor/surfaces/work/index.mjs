@@ -43,6 +43,7 @@
 // and records it on the session record; every binding cell below renders the RECORD's truth
 // ("selection is session truth recorded at create, never UI state", the T2 sessions-root
 // grammar this view rehomes).
+import { createHash } from "node:crypto";
 import { escHtml } from "../kit.mjs";
 
 const esc = escHtml;
@@ -61,14 +62,20 @@ const SEED_JOBS = "/__ioi/missions";
 const SEED_INCIDENTS = "/__ioi/missions/incidents";
 
 const SESSIONS_PLANE = "/v1/hypervisor/sessions";
+const LAUNCHES_PLANE = "/v1/hypervisor/harness-session-launches";
+const LAUNCH_IDEMPOTENCY_KEY = "launch:default";
 const CREATE_PROJECTION_SCHEMA = "ioi.hypervisor.session_create_projection.v1";
-const SCOPE_MARKER = "partial-pre-w3-cockpit-slice";
-const SCOPE_NOTE = "Partial pre-W3 cockpit slice — NOT Work completion. W3.1 owns the admission→harness→run→events/receipts→stop/archive/recovery/replay chain; SURF-work and W3.1 remain open.";
+const LAUNCH_PROJECTION_SCHEMA = "ioi.hypervisor.harness_session_launch_projection.v1";
+const SCOPE_MARKER = "w3-1-launch-chain-live-surface-open";
+const SCOPE_NOTE = "W3.1 landed: the harness-session launch chain is wired LIVE here (admission→harness binding→readiness→spawn/terminal-attach→stop/archive→recovery/replay, with a real daemon-resolved subject attachment). SURF-work stays open on its OTHER deps — W3.2 runtime/provider execution, W3.3, and the /operations mount.";
 
-const SUBJECT_ABSENCE_REASON = "typed W3 absence — the daemon HARDCODES subject_attachments: [] on every session record (lifecycle_routes.rs C-1: create accepts no attachment inputs yet; the W3 C-1 backend row owns attachment inputs + filters). No subject input exists on this slice, and project_ref is a session field that never masquerades as a subject attachment.";
-const STOP_ARCHIVE_ABSENCE_REASON = "typed W3 absence — no /v1/hypervisor/sessions/:id/stop or /archive route exists at the daemon. The session-execution-bindings family owns :id/stop and :id/archive, but those bind the execution chain W3.1 owns; this pre-W3 slice consumes neither.";
-const TEARDOWN_UNWIRED_REASON = "daemon verb exists (DELETE /v1/hypervisor/sessions/:id — receipted teardown, lifecycle_state torn_down) but its cockpit wiring belongs to the W3.1 Work completion, not this partial pre-W3 cockpit slice; disabled with the verb named, never half-wired.";
-const LAUNCH_CHAIN_ABSENCE_REASON = "typed W3 absence — the HarnessSessionExecutionChain delta row (canon-to-code-delta.md) records NO typed HarnessSessionLaunch producer: recipe/binding routes are pure planners without persistence and no end-to-end chain consumption exists. Per that row's conformance proof, no planner record, generic execution receipt, terminal event, or caller-supplied proof ref may stand in for the missing owner-produced predecessor — so launch/terminal/replay/recovery render disabled, never simulated.";
+// Deterministic launch identity mirroring the daemon (sha256 of session_ref \0 idempotency_key), so
+// the detail pane can read back the one launch that a subject-less New Session admits by default.
+const launchIdFor = (sessionRef) => createHash("sha256").update(`${sessionRef}\0${LAUNCH_IDEMPOTENCY_KEY}`).digest("hex");
+
+const TEARDOWN_UNWIRED_REASON = "daemon verb exists (DELETE /v1/hypervisor/sessions/:id — receipted teardown, lifecycle_state torn_down) but its cockpit wiring is session-level, separate from the W3.1 launch chain wired live here; disabled with the verb named, never half-wired.";
+const LAUNCH_LIVE_NOTE = "LIVE (W3.1): the typed HarnessSessionLaunch producer composes launch-recipe + harness-binding admission, readiness evidence, spawn + terminal attachment, and materializes a real daemon-resolved subject attachment onto this Session — receipted, idempotent, expected-head CAS on stop/archive, recoverable/replayable across a daemon restart.";
+const SUBJECT_LIVE_NOTE = "the subject attachment is materialized at LAUNCH by the daemon (subject_kind/subject_ref/attachment_role resolved server-side — never a caller-named app-family field); before a launch, and on this create form, subject_attachments is honestly the empty set.";
 
 // ---------------------------------------------------------------------------------------------
 // load — every read through the shared read client on the request-scoped identity capability
@@ -108,6 +115,9 @@ export async function load(ctx) {
     model.sessionRef = (sp.get("session") || "").trim();
     if (model.sessionRef) {
       model.session = await client.read(`${SESSIONS_PLANE}/${enc(model.sessionRef)}`);
+      // The one launch a subject-less New Session admits by default (W3.1). Absent until the
+      // operator launches — the read is owner-filtered and 404s honestly, never fabricated.
+      model.launch = await client.read(`${LAUNCHES_PLANE}/${enc(launchIdFor(model.sessionRef))}`);
     }
     return model;
   }
@@ -122,59 +132,108 @@ export async function load(ctx) {
 // closed. No subject field is declared: subject attachment is W3 C-1 scope.
 const CREATE_AUTHORITY = {
   plane: "hypervisor.sessions",
-  operation: "POST /v1/hypervisor/sessions (owner daemon-resolved; harness/model-route binding admitted at create; subject_attachments hardcoded empty — W3 C-1)",
+  operation: "POST /v1/hypervisor/sessions (owner daemon-resolved; harness/model-route binding admitted at create; subject_attachments materialized at launch — W3.1)",
+};
+const LAUNCH_AUTHORITY = {
+  plane: "hypervisor.harness-session-launches",
+  operation: "POST /v1/hypervisor/harness-session-launches (identity-first; composes launch-recipe + harness-binding admission, readiness, spawn/terminal-attach; materializes the daemon-resolved subject attachment; principal-bound receipt)",
+};
+const LAUNCH_STOP_AUTHORITY = {
+  plane: "hypervisor.harness-session-launches",
+  operation: "POST /v1/hypervisor/harness-session-launches/:id/stop (identity-first; expected-head CAS; principal-bound stop receipt)",
+};
+const LAUNCH_ARCHIVE_AUTHORITY = {
+  plane: "hypervisor.harness-session-launches",
+  operation: "POST /v1/hypervisor/harness-session-launches/:id/archive (identity-first; expected-head CAS; principal-bound archive receipt + lineage)",
 };
 export const actions = [
   { id: "create-session", method: "POST", route: "/actions/create-session", fields: ["initial_input", "project_ref"], fieldMax: 4096, context: [], authority: CREATE_AUTHORITY, receipt: CREATE_PROJECTION_SCHEMA, confirm: false, success: "return-to-surface", refusal: "typed-banner" },
+  { id: "launch", method: "POST", route: "/actions/launch", fields: ["session_ref"], fieldMax: 4096, context: [], authority: LAUNCH_AUTHORITY, receipt: LAUNCH_PROJECTION_SCHEMA, confirm: false, success: "return-to-surface", refusal: "typed-banner" },
+  { id: "launch-stop", method: "POST", route: "/actions/launch-stop", fields: ["session_ref", "expected_head"], fieldMax: 4096, context: [], authority: LAUNCH_STOP_AUTHORITY, receipt: LAUNCH_PROJECTION_SCHEMA, confirm: false, success: "return-to-surface", refusal: "typed-banner" },
+  { id: "launch-archive", method: "POST", route: "/actions/launch-archive", fields: ["session_ref", "expected_head"], fieldMax: 4096, context: [], authority: LAUNCH_ARCHIVE_AUTHORITY, receipt: LAUNCH_PROJECTION_SCHEMA, confirm: false, success: "return-to-surface", refusal: "typed-banner" },
 ];
+
+// Read a daemon JSON reply, fail closed on an unreadable/refused body.
+async function daemonJson(response) {
+  if (!response) return { failure: { kind: "failure", http: 502, code: "daemon_unavailable", message: "the daemon did not answer" } };
+  const payload = await response.json().catch(() => null);
+  if (!payload) return { failure: { kind: "failure", http: 502, code: "daemon_reply_unreadable", message: `the daemon answered ${response.status} without a readable body` } };
+  if (payload.error || !response.ok) {
+    const code = payload.error?.code || payload.code || `http_${response.status}`;
+    const message = payload.error?.message || payload.message || payload.reason || "refused";
+    return { refusal: { kind: "refusal", http: response.status || 409, code, message } };
+  }
+  return { payload };
+}
 
 export async function handleAction({ action, fields, daemonFetch }) {
   if (typeof daemonFetch !== "function") {
-    return { kind: "failure", http: 500, code: "identity_capability_missing", message: "the action runtime supplied no request-scoped daemon capability — refusing to create without the caller's identity" };
+    return { kind: "failure", http: 500, code: "identity_capability_missing", message: "the action runtime supplied no request-scoped daemon capability — refusing to act without the caller's identity" };
   }
-  if (action.id !== "create-session") {
-    return { kind: "failure", http: 500, code: "action_unknown", message: `undeclared action '${action.id}'` };
+  if (action.id === "create-session") {
+    const body = {};
+    if (fields.initial_input) body.initial_input = fields.initial_input;
+    if (fields.project_ref) body.project_ref = fields.project_ref;
+    const { payload, refusal, failure } = await daemonJson(await daemonFetch(SESSIONS_PLANE, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
+    }).catch(() => null));
+    if (failure || refusal) return failure || refusal;
+    const receiptRef = typeof payload.receipt_ref === "string" ? payload.receipt_ref : "";
+    const sessionRef = typeof payload.session_ref === "string" ? payload.session_ref : "";
+    if (payload.schema_version !== CREATE_PROJECTION_SCHEMA || !receiptRef.startsWith("receipt://") || !sessionRef) {
+      return { kind: "failure", http: 502, code: "receipt_missing", message: `the create answered without the ${CREATE_PROJECTION_SCHEMA} record + provision receipt_ref — failing closed` };
+    }
+    return { kind: "success", status: payload.idempotent_replay === true ? "replayed" : "provisioned", created: sessionRef, receipt_ref: receiptRef, redirect: `${LEGACY_SESSIONS}?session=${enc(sessionRef)}` };
   }
-  const body = {};
-  if (fields.initial_input) body.initial_input = fields.initial_input;
-  if (fields.project_ref) body.project_ref = fields.project_ref;
-  const response = await daemonFetch(SESSIONS_PLANE, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
-  }).catch(() => null);
-  if (!response) return { kind: "failure", http: 502, code: "daemon_unavailable", message: "the daemon did not answer — no session was created" };
-  const payload = await response.json().catch(() => null);
-  if (!payload) return { kind: "failure", http: 502, code: "daemon_reply_unreadable", message: `the daemon answered ${response.status} without a readable body — do not trust the create` };
-  if (payload.error || !response.ok) {
-    // The daemon's typed refusal, VERBATIM (session_authenticated_principal_required /
-    // session_authentication_required / session_create_* / ...).
-    const code = payload.error?.code || payload.code || `http_${response.status}`;
-    const message = payload.error?.message || payload.message || payload.reason || "refused — no session was created";
-    return { kind: "refusal", http: response.status || 409, code, message };
+  // The launch-chain verbs (W3.1) — all identity-bound through the request-scoped capability.
+  const sessionRef = typeof fields.session_ref === "string" ? fields.session_ref.trim() : "";
+  if (!sessionRef) return { kind: "failure", http: 400, code: "session_ref_required", message: "a launch verb names its owned Session" };
+  if (action.id === "launch") {
+    const { payload, refusal, failure } = await daemonJson(await daemonFetch(LAUNCHES_PLANE, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ session_ref: sessionRef }),
+    }).catch(() => null));
+    if (failure || refusal) return failure || refusal;
+    const receiptRef = typeof payload.receipt_ref === "string" ? payload.receipt_ref : "";
+    if (payload.schema_version !== LAUNCH_PROJECTION_SCHEMA || !receiptRef.startsWith("receipt://") || !payload.launch_ref) {
+      return { kind: "failure", http: 502, code: "receipt_missing", message: `the launch answered without the ${LAUNCH_PROJECTION_SCHEMA} record + receipt_ref — failing closed` };
+    }
+    return { kind: "success", status: payload.replayed === true ? "replayed" : payload.lifecycle_state, created: payload.launch_ref, receipt_ref: receiptRef, redirect: `${LEGACY_SESSIONS}?session=${enc(sessionRef)}` };
   }
-  // Admission evidence or nothing: the 202 must carry the declared projection schema plus the
-  // provision receipt ref. Anything less fails closed.
-  const receiptRef = typeof payload.receipt_ref === "string" ? payload.receipt_ref : "";
-  const sessionRef = typeof payload.session_ref === "string" ? payload.session_ref : "";
-  if (payload.schema_version !== CREATE_PROJECTION_SCHEMA || !receiptRef.startsWith("receipt://") || !sessionRef) {
-    return { kind: "failure", http: 502, code: "receipt_missing", message: `the create answered ${response.status} without the ${CREATE_PROJECTION_SCHEMA} record + provision receipt_ref admission evidence — failing closed (do not trust the create)` };
+  if (action.id === "launch-stop" || action.id === "launch-archive") {
+    const verb = action.id === "launch-stop" ? "stop" : "archive";
+    const launchId = launchIdFor(sessionRef);
+    const expectedHead = typeof fields.expected_head === "string" ? fields.expected_head : "";
+    const { payload, refusal, failure } = await daemonJson(await daemonFetch(`${LAUNCHES_PLANE}/${enc(launchId)}/${verb}`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ expected_head: expectedHead }),
+    }).catch(() => null));
+    if (failure || refusal) return failure || refusal;
+    // The new terminal receipt is the last durable ref the daemon appended; a launch without one
+    // fails closed (a 2xx with no receipt is not a success).
+    const refs = Array.isArray(payload.latest_receipt_refs) ? payload.latest_receipt_refs.map(String) : [];
+    const receiptRef = refs.filter((r) => r.includes(`/${verb === "stop" ? "stopped" : "archived"}/`)).at(-1) || (typeof payload.receipt_ref === "string" ? payload.receipt_ref : "");
+    if (payload.schema_version !== LAUNCH_PROJECTION_SCHEMA || !receiptRef.startsWith("receipt://")) {
+      return { kind: "failure", http: 502, code: "receipt_missing", message: `the ${verb} answered without the ${LAUNCH_PROJECTION_SCHEMA} record + receipt_ref — failing closed` };
+    }
+    return { kind: "success", status: payload.replayed === true ? "replayed" : payload.lifecycle_state, created: payload.launch_ref, receipt_ref: receiptRef, redirect: `${LEGACY_SESSIONS}?session=${enc(sessionRef)}` };
   }
-  return {
-    kind: "success",
-    status: payload.idempotent_replay === true ? "replayed" : "provisioned",
-    created: sessionRef,
-    receipt_ref: receiptRef,
-    // The action runtime bounds return paths to the legacy lanes — the PRG lands on the
-    // legacy sessions view (the same module, the same grammar; the automations precedent).
-    redirect: `${LEGACY_SESSIONS}?session=${enc(sessionRef)}`,
-  };
+  return { kind: "failure", http: 500, code: "action_unknown", message: `undeclared action '${action.id}'` };
 }
 
 // ---------------------------------------------------------------------------------------------
 // render helpers — the cockpit grammar's typed-degradation and disabled-named-absence fragments.
 const degraded = (result) => `<div class="empty" data-ioi-degraded="${esc(result?.code || "daemon_unavailable")}">unavailable — <code>${esc(result?.code || "daemon_unavailable")}</code> (${esc(result?.message || "the plane did not answer")})</div>`;
 const disabledCtl = (label, reason) => `<button class="act ghost" type="button" disabled data-ioi-disabled-reason="${esc(reason)}">${esc(label)}</button>`;
+// A LIVE launch-chain control: an identity-bound PRG form POST to the legacy action lane (the
+// runtime bounds return paths to /__ioi/*), carrying the owned session_ref + any expected_head.
+const liveForm = (verb, actionId, label, sessionRef, hidden = {}, primary = false) => `<form class="verb-form" method="post" action="${LEGACY_SESSIONS}/actions/${actionId}" data-ioi-live-verb="${verb}">
+  <input type="hidden" name="return" value="${LEGACY_SESSIONS}?session=${enc(sessionRef)}">
+  <input type="hidden" name="session_ref" value="${esc(sessionRef)}">
+  ${Object.entries(hidden).map(([k, v]) => `<input type="hidden" name="${esc(k)}" value="${esc(String(v))}">`).join("")}
+  <button class="act${primary ? "" : " ghost"}" type="submit">${esc(label)}</button>
+</form>`;
+// A LIVE read affordance (terminal transcript / replay / recovery readback) over the durable
+// launch — a link the daemon serves, never a fabricated pane.
+const liveLink = (verb, href, label) => `<a class="act ghost" data-ioi-live-verb="${verb}" href="${href}">${esc(label)}</a>`;
 const pill = (text, cls) => `<span class="pill ${cls}">${esc(text)}</span>`;
 const scopeBanner = () => `<div class="scope" data-ioi-scope="${SCOPE_MARKER}">${esc(SCOPE_NOTE)}</div>`;
 
@@ -309,7 +368,7 @@ function sessionsView(model, routes) {
       const gaps = Array.isArray(p.gaps) ? p.gaps : [];
       return `<div class="card"><div class="main">
         <div class="name">${Number(p.total || 0)} session${Number(p.total || 0) === 1 ? "" : "s"} ${stateChips}</div>
-        <div class="meta">subject attachments: ${Number(att.sessions_with_attachments || 0)} session(s) carry attachments — <span data-ioi-w3-absence="subject_attachments">honestly empty until the W3 C-1 attachment inputs land</span></div>
+        <div class="meta">subject attachments: ${Number(att.sessions_with_attachments || 0)} session(s) carry attachments — <span data-ioi-w3-live="subject_attachments">materialized by the daemon at launch (W3.1); a session with no launch honestly carries none</span></div>
         ${gaps.map((g) => `<div class="meta">daemon-named gap: ${esc(String(g))}</div>`).join("")}
         </div><a class="act" href="${routes.newSession}">+ New session</a></div>`;
     })()
@@ -355,20 +414,43 @@ function sessionDetail(model) {
   const env = s.environment_status && typeof s.environment_status === "object" ? s.environment_status : {};
   const attachments = Array.isArray(s.subject_attachments) ? s.subject_attachments : [];
   const attachmentsCell = attachments.length
-    ? attachments.map((a) => `<code>${esc(JSON.stringify(a))}</code>`).join(" ")
-    : `<span data-ioi-w3-absence="subject_attachments">empty — ${esc(SUBJECT_ABSENCE_REASON)}</span>`;
-  // Verbs: what the daemon owns today vs the typed W3.1 absences — disabled with the
-  // machine-readable reason, never simulated, never half-wired.
+    ? `<span data-ioi-w3-live="subject_attachments">${attachments.map((a) => `<code>${esc(JSON.stringify(a))}</code>`).join(" ")}</span>`
+    : `<span data-ioi-w3-live="subject_attachments">none yet — ${esc(SUBJECT_LIVE_NOTE)}</span>`;
+  const sessionRef = s.session_ref || model.sessionRef;
+  // The launch this session admits (W3.1). Absent until launched — read owner-filtered, 404s
+  // honestly. When present it carries the head for the expected-head CAS on stop/archive.
+  const launch = model.launch?.ok ? (model.launch.payload || {}) : null;
+  const launchState = launch?.lifecycle_state || null;
+  const head = launch?.head || "";
+  const terminal = launchState === "stopped" || launchState === "archived";
+  const eventsHref = launch ? `${LAUNCHES_PLANE}/${enc(launchIdFor(sessionRef))}/events` : "";
+  const readbackHref = launch ? `${LAUNCHES_PLANE}/${enc(launchIdFor(sessionRef))}` : "";
+  // Verbs: the launch chain is wired LIVE (W3.1). Launch/Stop/Archive are identity-bound PRG
+  // forms; Terminal/Replay/Recovery are live readbacks over the durable launch. Tear down stays
+  // a named session-level control (its wiring is separate from the launch chain).
+  const launchStatus = launch
+    ? `<div class="meta" data-ioi-launch-state="${esc(launchState || "unknown")}">launch <code>${esc(launch.launch_ref || "")}</code> · ${lifecyclePill(launchState)} · head <code>${esc(head)}</code> · receipts ${(launch.latest_receipt_refs || []).map((r) => `<code>${esc(String(r))}</code>`).join(" ") || "—"}</div>`
+    : `<div class="meta" data-ioi-launch-state="none">no launch yet — the launch chain admits one bounded harness-session launch for this Session.</div>`;
+  const launchCtl = !launch
+    ? liveForm("launch", "launch", "Launch harness run", sessionRef, {}, true)
+    : `<span class="pill ${terminal ? "muted" : "ok"}">${esc(launchState)}</span>`;
+  const stopCtl = launch && !terminal
+    ? liveForm("stop", "launch-stop", "Stop", sessionRef, { expected_head: head })
+    : disabledCtl("Stop", terminal ? `launch already ${esc(launchState)} — terminal state, no re-stop` : "launch the harness first — stop terminalizes a live launch");
+  const archiveCtl = launch && launchState !== "archived"
+    ? liveForm("archive", "launch-archive", "Archive", sessionRef, { expected_head: head })
+    : disabledCtl("Archive", launchState === "archived" ? "launch already archived — terminal" : "launch the harness first — archive terminalizes a launch");
   const verbs = `<h2 id="session-verbs">Verbs</h2>
-    <p class="sub">Daemon-owned today: create (wired above) · list/overview/get (these reads) · events (SSE at <code>GET ${SESSIONS_PLANE}/:id/events</code>, real signals only) · execute (the Lane A run-chain entry — W3.1's chain) · ports/revoke · teardown. Everything else is a typed absence.</p>
+    <p class="sub">The W3.1 launch chain is wired LIVE. ${esc(LAUNCH_LIVE_NOTE)}</p>
+    ${launchStatus}
     <div class="gapcard">
       ${disabledCtl("Tear down", TEARDOWN_UNWIRED_REASON)}
-      ${disabledCtl("Stop", STOP_ARCHIVE_ABSENCE_REASON)}
-      ${disabledCtl("Archive", STOP_ARCHIVE_ABSENCE_REASON)}
-      ${disabledCtl("Launch harness run", LAUNCH_CHAIN_ABSENCE_REASON)}
-      ${disabledCtl("Terminal", LAUNCH_CHAIN_ABSENCE_REASON)}
-      ${disabledCtl("Replay", LAUNCH_CHAIN_ABSENCE_REASON)}
-      ${disabledCtl("Recovery", LAUNCH_CHAIN_ABSENCE_REASON)}
+      ${stopCtl}
+      ${archiveCtl}
+      ${launchCtl}
+      ${launch ? liveLink("terminal", eventsHref, "Terminal") : disabledCtl("Terminal", "launch the harness first — the terminal attachment is part of the launch")}
+      ${launch ? liveLink("replay", readbackHref, "Replay") : disabledCtl("Replay", "launch the harness first — replay reads the durable launch back")}
+      ${launch ? liveLink("recovery", readbackHref, "Recovery") : disabledCtl("Recovery", "launch the harness first — recovery converges the durable launch after a restart")}
     </div>`;
   return `<h2 id="session-detail">Session facts</h2>
     <dl class="grid">
@@ -397,9 +479,9 @@ function newSessionView(model, routes) {
   return `<p><a href="${routes.landing}">← Work</a></p><h1 id="work-new-session-owner">Work / New Session</h1>
     <p class="sub">The one-click Work action: create exactly one bounded, governed session through daemon admission. The owner is daemon-resolved from the caller's identity; the harness/model-route binding is ADMITTED AT CREATE and read back as session truth on <a href="${routes.sessions}">Work / Sessions</a>; the 202 carries the provision receipt.</p>
     ${scopeBanner()}${banner}
-    <div class="gapcard" data-ioi-w3-absence="subject_attachments">
-      <b>No subject input exists on this form — a typed W3 absence.</b>
-      <p class="sub" style="margin:6px 0 0;text-transform:none;letter-spacing:0">${esc(SUBJECT_ABSENCE_REASON)}</p>
+    <div class="gapcard" data-ioi-w3-live="subject_attachments">
+      <b>No subject input exists on this create form — subject attachments are daemon-resolved at launch, never caller-named.</b>
+      <p class="sub" style="margin:6px 0 0;text-transform:none;letter-spacing:0">${esc(SUBJECT_LIVE_NOTE)} project_ref is a session FIELD; it never masquerades as a subject attachment.</p>
     </div>
     <form method="post" action="${LEGACY_NEW_SESSION}/actions/create-session">
       <input type="hidden" name="return" value="${LEGACY_NEW_SESSION}">

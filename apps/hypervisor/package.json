@@ -20,6 +20,7 @@
     "check:automations-journey": "node scripts/verify-hypervisor-automations-journey.mjs",
     "check:applications-journey": "node scripts/verify-hypervisor-applications-journey.mjs",
     "check:systems-journey": "node scripts/verify-hypervisor-systems-journey.mjs",
+    "check:launch-chain": "node scripts/verify-hypervisor-launch-chain.mjs",
     "check:work-cockpit": "node scripts/verify-hypervisor-work-cockpit.mjs",
     "check:home-cockpit": "node scripts/verify-hypervisor-home-cockpit.mjs",
     "check:operations-cockpit": "node scripts/verify-hypervisor-operations-cockpit.mjs",

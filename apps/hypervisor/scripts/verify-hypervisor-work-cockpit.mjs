@@ -205,21 +205,27 @@ async function run() {
       && ["stop", "archive", "lineage", "fork", "children", "transition", "history"].every((verb) => !idxStr.includes(`/v1/hypervisor/sessions/:id/${verb}`)),
     JSON.stringify(familyRoutes.map((r) => r.path)));
 
-  // Launch chain (delta ledger `HarnessSessionExecutionChain` row): planners exist, the typed
-  // Launch producer does NOT — and the execution-binding stop/archive verbs that DO exist bind
-  // the chain W3.1 owns (this slice consumes none of them).
-  const sessionLaunchPaths = (index.body.families ?? [])
+  // Launch chain (W3.1 LANDED): the typed HarnessSessionLaunch producer is now LIVE and COMPOSES
+  // the canonical admission planners (recipe/binding/terminal-attach), which remain their owners.
+  // The former typed-absence pin is FLIPPED — the producer family exists with produce/get/events/
+  // stop/archive; its own chain journey is proven by check:launch-chain.
+  const launchProducerPaths = (index.body.families ?? [])
     .flatMap((family) => family.paths ?? [])
     .map((row) => row.path)
-    .filter((p) => p.includes("session-launch"));
-  ok("launch-chain typed absence pinned per the HarnessSessionExecutionChain delta row: recipe/binding/terminal-attach planner routes exist, NO typed HarnessSessionLaunch producer route exists, and session-execution-bindings :id/stop + :id/archive exist as the W3.1-owned chain verbs (present, unconsumed here)",
-    JSON.stringify(sessionLaunchPaths) === JSON.stringify(["/v1/hypervisor/session-launch-recipe-admissions"])
+    .filter((p) => p.startsWith("/v1/hypervisor/harness-session-launches"))
+    .sort();
+  ok("launch-chain LIVE (W3.1): the typed HarnessSessionLaunch producer family exists (produce · get · events · stop · archive), and the composed admission planners remain their canonical owners",
+    JSON.stringify(launchProducerPaths) === JSON.stringify([
+      "/v1/hypervisor/harness-session-launches",
+      "/v1/hypervisor/harness-session-launches/:id",
+      "/v1/hypervisor/harness-session-launches/:id/archive",
+      "/v1/hypervisor/harness-session-launches/:id/events",
+      "/v1/hypervisor/harness-session-launches/:id/stop",
+    ])
+      && idxStr.includes("/v1/hypervisor/session-launch-recipe-admissions")
       && idxStr.includes("/v1/hypervisor/harness-session-binding-admissions")
-      && idxStr.includes("/v1/hypervisor/harness-session-terminal-attachments")
-      && idxStr.includes("/v1/hypervisor/session-execution-bindings/:id/stop")
-      && idxStr.includes("/v1/hypervisor/session-execution-bindings/:id/archive")
-      && !idxStr.includes("harness-session-launches"),
-    JSON.stringify(sessionLaunchPaths));
+      && idxStr.includes("/v1/hypervisor/harness-session-terminal-attachments"),
+    JSON.stringify(launchProducerPaths));
 
   // -- identity GATE (the #246 finding CLOSED — the #236/#240 class): session writes are
   // identity-first under EVERY posture, loopback included. The old FINDING(typed) rows are
@@ -276,10 +282,10 @@ async function run() {
       && landing.headers.get("x-ioi-surface-route") === LANDING
       && landing.headers.get("x-ioi-surface-owner") === "Work",
     `route ${landing.headers.get("x-ioi-surface-route")} · owner ${landing.headers.get("x-ioi-surface-owner")}`);
-  ok("the landing states its scope TYPED: partial pre-W3 cockpit slice, NOT Work completion (W3.1 owns the execution chain; SURF-work remains open)",
-    landing.text.includes('data-ioi-scope="partial-pre-w3-cockpit-slice"')
-      && landing.text.includes("W3.1 owns the admission")
-      && landing.text.includes("SURF-work and W3.1 remain open"));
+  ok("the landing states its scope TYPED: the W3.1 launch chain is wired LIVE here, while SURF-work stays open on its other deps (W3.2/W3.3/operations)",
+    landing.text.includes('data-ioi-scope="w3-1-launch-chain-live-surface-open"')
+      && landing.text.includes("W3.1 landed")
+      && landing.text.includes("SURF-work stays open"));
   ok("the jobs/incidents cockpit grammar is rehomed READ-FIRST: Run queue + Incidents & blockers panes render and their rows/sections LINK to the protected seeds exactly where the cockpit does",
     landing.text.includes("Run queue") && landing.text.includes("Incidents &amp; blockers")
       && landing.text.includes(`href="${SEED_JOBS}`) && landing.text.includes(`href="${SEED_INCIDENTS}`));
@@ -307,10 +313,10 @@ async function run() {
     sessionsHref);
 
   // -- sessions view: honest-empty + the W0.6 overview + typed W3 absences --------------------
-  ok("/work/sessions renders the W0.6 counts-first overview with the daemon's own named gaps and the subject-attachment rollup as a typed W3 absence",
+  ok("/work/sessions renders the W0.6 counts-first overview with the daemon's own named gaps and the subject-attachment rollup as LIVE (materialized by the daemon at launch — W3.1)",
     deepLink.text.includes("Overview (W0.6)")
-      && deepLink.text.includes("W3 C-1 backend row")
-      && deepLink.text.includes('data-ioi-w3-absence="subject_attachments"'));
+      && deepLink.text.includes("materialized by the daemon at launch")
+      && deepLink.text.includes('data-ioi-w3-live="subject_attachments"'));
   ok("owner-filtered honest-empty: no sessions render for the fresh operator principal (session truth is owner-filtered before counts, and the gate admitted nothing anonymous to leak in)",
     deepLink.text.includes("No sessions for this principal yet"));
 
@@ -320,14 +326,14 @@ async function run() {
 
   // -- new-session form: NO subject input, typed W3 note, admitted-binding statement ----------
   const newForm = await pageText(NEW_SESSION);
-  ok("/work/new-session renders the one-click create with NO subject input of any kind (subject attachment is W3 C-1 scope, stated typed on the form)",
+  ok("/work/new-session renders the one-click create with NO subject input of any kind — subject attachments are daemon-resolved at LAUNCH, never caller-named (anti-masquerade stated typed on the form)",
     newForm.status === 200
       && newForm.text.includes(`action="${FRESH_NEW_SESSION}/actions/create-session"`)
       && !/name="subject/u.test(newForm.text)
-      && newForm.text.includes('data-ioi-w3-absence="subject_attachments"')
-      && newForm.text.includes("HARDCODES subject_attachments"));
+      && newForm.text.includes('data-ioi-w3-live="subject_attachments"')
+      && newForm.text.includes("daemon-resolved at launch"));
   ok("project_ref is declared a session FIELD on the form — never a subject attachment (the anti-masquerade statement is typed)",
-    newForm.text.includes("never a subject attachment"));
+    newForm.text.includes("never masquerades as a subject attachment"));
   ok("the ADMITTED binding contract is stated: harness/model-route binding is admitted at create and read back as session truth, never UI state",
     newForm.text.includes("ADMITTED AT CREATE"));
   const freshNew = await pageText(FRESH_NEW_SESSION);
@@ -409,24 +415,44 @@ async function run() {
         ? detail.text.includes('data-ioi-binding="admitted-at-create"')
         : detail.text.includes('data-ioi-binding="execute-time-default"')),
     `binding ${bindingAdmitted ? "admitted" : "execute-time default"}`);
-  ok("the detail pane pins subject_attachments as the typed W3 absence (marker + the hardcoded-empty fact)",
-    detail.text.includes('data-ioi-w3-absence="subject_attachments"') && detail.text.includes("HARDCODES subject_attachments"));
-  ok("every W3.1-owned verb renders disabled-with-reason, never simulated: teardown wiring, stop, archive, launch, terminal, replay, recovery — with stop/archive naming the execution-binding family and launch citing the HarnessSessionExecutionChain delta row",
-    ["Tear down", "Stop", "Archive", "Launch harness run", "Terminal", "Replay", "Recovery"].every((verb) => detail.text.includes(`>${verb}</button>`))
-      && detail.text.includes("session-execution-bindings")
-      && detail.text.includes("HarnessSessionLaunch")
-      && (detail.text.match(/data-ioi-disabled-reason=/gu) || []).length >= 7);
+  ok("BEFORE launch the detail pane renders subject_attachments as the LIVE (daemon-resolved-at-launch) state — no attachment yet, never a masquerade at create",
+    detail.text.includes('data-ioi-w3-live="subject_attachments"') && detail.text.includes("none yet"));
+  ok("BEFORE launch the Launch control is a LIVE identity-bound form (data-ioi-live-verb=\"launch\"), while Tear down stays a named session-level disabled control",
+    detail.text.includes('data-ioi-live-verb="launch"')
+      && detail.text.includes('action="/__ioi/work-sessions/actions/launch"')
+      && detail.text.includes(">Tear down</button>"));
+
+  // -- the W3.1 FLIP, driven live: launch → the chain, terminalization, subject attachment ------
+  const launched = await act(FRESH_SESSIONS, "/actions/launch", { session_ref: sessionRef });
+  ok("the operator LAUNCHES the harness session through the identity-carrying action lane: PRG 303 carries acted=launch + a launch receipt + the launch_ref record",
+    launched.status === 303
+      && launched.q.get("acted") === "launch"
+      && String(launched.q.get("receipt") || "").startsWith("receipt://hypervisor/harness-session-launch/")
+      && String(launched.q.get("record") || "").startsWith("harness-session-launch:"),
+    `acted=${launched.q.get("acted")} receipt=${String(launched.q.get("receipt") || "").slice(0, 48)}`);
+  const launchedRecord = await sessGet(sessionRef);
+  ok("the launch MATERIALIZED a real typed daemon-resolved subject attachment onto the Session record (subject_attachments flipped from [] to the daemon-resolved set — anti-masquerade, subject_kind resolved server-side)",
+    Array.isArray(launchedRecord?.subject_attachments)
+      && launchedRecord.subject_attachments.length >= 1
+      && launchedRecord.subject_attachments.some((a) => a.resolved_by === "daemon-runtime" && a.subject_kind === "harness_session_launch"),
+    JSON.stringify(launchedRecord?.subject_attachments));
+  const launchedDetail = await pageText(`${SESSIONS_VIEW}?session=${encodeURIComponent(sessionRef)}`);
+  ok("AFTER launch the detail pane renders the materialized subject attachment LIVE and the launch state, and the launch-chain verbs are LIVE: Stop + Archive forms and Terminal/Replay/Recovery readbacks (data-ioi-live-verb), never disabled placeholders",
+    launchedDetail.text.includes('data-ioi-w3-live="subject_attachments"')
+      && launchedDetail.text.includes('data-ioi-launch-state="launched"')
+      && ["stop", "archive", "terminal", "replay", "recovery"].every((verb) => launchedDetail.text.includes(`data-ioi-live-verb="${verb}"`)),
+    "launch-chain controls live");
   ok("the sessions table lists the admitted session with its lifecycle pill and binding cell",
-    detail.text.includes("facts →") && detail.text.includes("Admitted binding"));
+    launchedDetail.text.includes("facts →") && launchedDetail.text.includes("Admitted binding"));
 
   // -- the verbs that exist TODAY, exercised at the daemon ------------------------------------
   const overview = await jd("/v1/hypervisor/sessions/overview");
-  ok("the W0.6 overview counts the admitted session owner-filtered: total 1, provisioned 1, zero sessions with attachments (the honest empty rollup)",
+  ok("the W0.6 overview counts the admitted session owner-filtered: total 1, provisioned 1, and ONE session now carries subject attachments (the launch materialized them — the rollup reads real record truth)",
     overview.status === 200
       && overview.body?.total === 1
       && overview.body?.by_lifecycle_state?.provisioned === 1
-      && overview.body?.subject_attachments?.sessions_with_attachments === 0,
-    JSON.stringify(overview.body?.by_lifecycle_state));
+      && overview.body?.subject_attachments?.sessions_with_attachments === 1,
+    JSON.stringify(overview.body?.subject_attachments));
   const anonList = await jd("/v1/hypervisor/sessions", {}, false);
   ok("owner scoping holds on the list read: the anonymous (loopback-operator) list never contains the operator's session",
     anonList.status === 200 && !(anonList.body?.sessions || []).some((s) => s.session_ref === sessionRef),
@@ -466,11 +492,12 @@ async function run() {
   await new Promise((r) => setTimeout(r, 1200));
   await startDaemon();
   const survived = await sessGet(sessionRef);
-  ok("daemon restart: the session record survives with the SAME create-time facts — ref, provisioned state, admitted binding, and the still-empty subject_attachments",
+  ok("daemon restart: the session record survives with the SAME facts — ref, provisioned state, admitted binding, and the launch-materialized subject_attachments (durable, not a process-memory fact)",
     !!survived && survived.session_ref === sessionRef
       && survived.lifecycle_state === "provisioned"
       && JSON.stringify(survived.harness_binding ?? null) === bindingBefore
-      && Array.isArray(survived.subject_attachments) && survived.subject_attachments.length === 0,
+      && Array.isArray(survived.subject_attachments) && survived.subject_attachments.length >= 1
+      && survived.subject_attachments.some((a) => a.resolved_by === "daemon-runtime"),
     `binding ${bindingBefore.slice(0, 60)}`);
   let rerender = { status: 0, text: "" };
   for (let attempt = 0; attempt < 3; attempt++) {
