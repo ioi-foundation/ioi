@@ -35,6 +35,7 @@ import * as automationsModule from "../surfaces/automations/index.mjs";
 import * as applicationsModule from "../surfaces/applications/index.mjs";
 import * as systemsModule from "../surfaces/systems/index.mjs";
 import * as workModule from "../surfaces/work/index.mjs";
+import * as homeModule from "../surfaces/home/index.mjs";
 
 // Capability model (operational wave): `capabilities` is the AUTHORITY-derived set of acts the
 // surface genuinely supports today (never inferred from pixel certification or daemon_wired);
@@ -134,6 +135,17 @@ export const SURFACES = [
   { slug: "work", owner: "Work", title: "Work", icon: EXPLORER_APP_ICON_URI, route: "/__ioi/work-cockpit", canonical_route: "/work", verifier: "scripts/verify-hypervisor-work-cockpit.mjs", certification: "n/a", capabilities: ["browse", "inspect"], operational_state: "inspect", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "work-sessions", owner: "Work", title: "Work / Sessions", icon: EXPLORER_APP_ICON_URI, route: "/__ioi/work-sessions", canonical_route: "/work/sessions", verifier: "scripts/verify-hypervisor-work-cockpit.mjs", certification: "n/a", capabilities: ["browse", "filter", "select", "inspect"], operational_state: "inspect", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "work-new-session", owner: "Work", title: "Work / New Session", icon: EXPLORER_APP_ICON_URI, route: "/__ioi/work-new-session", canonical_route: "/work/new-session", verifier: "scripts/verify-hypervisor-work-cockpit.mjs", certification: "n/a", capabilities: ["browse", "create"], operational_state: "act", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  // W2.1 next-legs IV Leg 4: the Home PARTIAL PRE-W3 COCKPIT SLICE — canonical /home plus a
+  // FRESH legacy lane /__ioi/home-cockpit. NOT Home completion: SURF-home and W3.1 remain open;
+  // the home-cockpit projection route (GET /v1/hypervisor/home-cockpit) is a typed W3 absence,
+  // so the slice composes the same per-family reads the live /ai explorer composes — which
+  // keeps serving untouched as a CURRENT LIVE ENTRY, never a substitute seed. Greenfield
+  // canon-first on the typed non-parity lane (seed-ux-provenance.v1.json home record): no seed
+  // preservation, no parity claims. Read-only by contract: Home launches, owns no object and
+  // declares zero actions (New Session is Work's affordance advertised by navigation);
+  // parked/failed-run rows render real counts with their Operations deep-links a typed
+  // disabled-named-gap until the /operations mount lands. Evidence: check:home-cockpit.
+  { slug: "home", owner: "Home", title: "Home", icon: EXPLORER_APP_ICON_URI, route: "/__ioi/home-cockpit", canonical_route: "/home", verifier: "scripts/verify-hypervisor-home-cockpit.mjs", certification: "n/a", capabilities: ["browse", "inspect"], operational_state: "inspect", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "changes", owner: "Improvement", title: "Upgrade Assistant", icon: CHG_APP_TILE_URI, route: "/__ioi/improvement/changes", verifier: "scripts/verify-hypervisor-app-parity-changes.mjs", certification: "pixel-certifications/changes.json", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "evalsuites", owner: "Evaluations", title: "AIP Evals", icon: EVL_APP_TILE_URI, route: "/__ioi/evaluations/evalsuites", verifier: "scripts/verify-hypervisor-app-parity-evalsuites.mjs", certification: "pixel-certifications/evalsuites.json", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
 ];
@@ -245,6 +257,8 @@ bindSurface("systems", systemsModule);
 bindSurface("work", workModule);
 bindSurface("work-sessions", workModule);
 bindSurface("work-new-session", workModule);
+// Home: one row, one module — the partial pre-W3 cockpit slice (read-only, zero actions).
+bindSurface("home", homeModule);
 
 // Test-only fault surface (NEVER without the runtime-test flag): gives the action-runtime
 // verifier a module whose action THROWS (route isolation proof) and one that claims success

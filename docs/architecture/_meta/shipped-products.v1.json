@@ -66,6 +66,7 @@
           "/__ioi/evaluations/evalsuites",
           "/__ioi/foundry/models",
           "/__ioi/governance/approvals",
+          "/__ioi/home-cockpit",
           "/__ioi/improvement/changes",
           "/__ioi/marketplace/listings",
           "/__ioi/missions",
@@ -112,8 +113,8 @@
           "/work/new-session",
           "/work/sessions"
         ],
-        "expected_count": 53,
-        "sha256": "e34a5d14f4472100b707ac07420a47acc14cfea308449b5e2ab142e88520b676",
+        "expected_count": 54,
+        "sha256": "7f3a790f853e578230fede3209a8d70f146ef846ff76a1e0836d47c24907f7c1",
         "browser_verification_id": "served-surface-smoke"
       },
       "state_authority_mode": "daemon_authoritative_projection",
