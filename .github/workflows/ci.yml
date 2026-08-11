@@ -75,7 +75,10 @@ jobs:
           args: --locked --all-features -p ioi-types -p ioi-api -p ioi-pii -p ioi-telemetry
 
       - name: Build the shipped Hypervisor daemon
-        run: cargo build --locked -p ioi-node --bin hypervisor-daemon
+        # mint-approval-grant rides along for the systems journey: its refusal-ladder rung mints
+        # a structurally real dcrypt-signed grant (no test-only bypass) and the product_surfaces
+        # job installs no Rust toolchain, so the signer must arrive as a built artifact.
+        run: cargo build --locked -p ioi-node --bin hypervisor-daemon --bin mint-approval-grant
 
       # Wired 2026-08-07, once the suite became deterministic. It previously varied run to run —
       # three runs of one tree gave 2, 3 and 4 failures — because fault injection was a
@@ -93,7 +96,9 @@ jobs:
         with:
           name: hypervisor-daemon-linux-debug
           if-no-files-found: error
-          path: target/debug/hypervisor-daemon
+          path: |
+            target/debug/hypervisor-daemon
+            target/debug/mint-approval-grant
 
       - name: Smoke implementation-complete daemon paths
         run: npm run smoke:implementation-daemon
@@ -154,7 +159,7 @@ jobs:
           path: target/debug
 
       - name: Make the downloaded daemon executable
-        run: chmod +x target/debug/hypervisor-daemon
+        run: chmod +x target/debug/hypervisor-daemon target/debug/mint-approval-grant
 
       - name: Install browser runtime
         run: npx playwright install --with-deps chromium
@@ -217,6 +222,7 @@ jobs:
           npm run check:packages-journey --workspace=@ioi/hypervisor-app
           npm run check:automations-journey --workspace=@ioi/hypervisor-app
           npm run check:applications-journey --workspace=@ioi/hypervisor-app
+          npm run check:systems-journey --workspace=@ioi/hypervisor-app
           npm run check:projects-saga --workspace=@ioi/hypervisor-app
 
       - name: Record post-build shipped-product artifact identities

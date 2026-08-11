@@ -62,9 +62,11 @@ export const V2_ROUTE_TABLE = [
     kind: "core workspace",
     rule: "no fabricated System rows before honest read models",
     waves: "W1 · W3 (interface-binding plane)",
-    build_state: "shell-only (W0.1) — System interface-binding plane has zero rows/routes today; Wave 3 backend build (surfaces/systems.md §5). Per canon, no System rows are fabricated before honest read models exist",
+    build_state: "W2.1 greenfield workspace landed (next-legs III Leg 4) — the bound surface module serves this canonical route: inventory + detail over the daemon's autonomous-system read projection VERBATIM (honest_empty and the fail-closed system_projection_source_incomplete stop pass through untouched — the route rule holds by construction); genesis compose and sequence-zero cross through the shared CapabilityLease client (403 challenge commitments, 428 credential lane, receipted crossings); the remaining family verbs are read-first or disabled with a named reason; Interfaces stays the OQ-9 disabled named gap until the W3 interface-binding plane lands. Greenfield-authorized non-parity lane (seed-ux-provenance.v1.json)",
     serving_today: [
-      { href: "/__ioi/systems", label: "Systems readout", note: "system-genesis surface over daemon truth" },
+      { href: "/systems", label: "Systems workspace (canonical)", note: "bound surface module — projection truth verbatim, lease-client crossings, typed refusal ladder" },
+      { href: "/__ioi/systems-workspace", label: "Systems workspace (legacy lane)", note: "same module on the fresh legacy lane; keeps serving until the W4 cutover" },
+      { href: "/__ioi/systems", label: "Systems genesis readout", note: "the M1.6/M1.7 system-genesis cockpit over daemon truth; keeps serving untouched until the W4 cutover" },
     ],
   },
   {
