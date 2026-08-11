@@ -275,6 +275,37 @@ lineage) and one NEW typed finding filed: **automations writes cross with no
 identity envelope** — the same W1.1/G-2 class ontology just closed, next in
 that pull. OQ-2 (machinery) remains untouched and open.
 
+### Journey verification III (2026-08-11, next-legs III run)
+
+Four more legs merged CI-green (#239-#242). **Automations identity closed** —
+writes are identity-first with principal-bound execution identity; the
+sessionless scheduler/webhook fire paths ride a per-boot internal-dispatch
+token (both live-proven); the finding filed by the previous block is
+SUPERSEDED (`check:automations-journey` 44/44 asserts the gate; H-census
+177→172, the ratchet improving). **Recall lands WITH the registry** — the
+disposition successor exists (`POST .../releases/:digest/recall`,
+identity-first, exact-head CAS, idempotent replay), binding ineligibility is
+derived at read (canon's own "recall shows impact without mutating"), and the
+product-surface projection now consumes the registry namespace — the previous
+block's W2.3 typed gap is CLOSED (`check:packages-journey` 49/49; the
+package-registry restart smoke now pins 8 routes and proves
+recall-through-restart). **Applications** — `/applications` greenfield
+launcher renders compiler+registry truth only: typed ineligibility verbatim,
+recall removes rows live (cross-surface journey), Embodied Systems surfaces as
+`reserved · planned` via the core-taxonomy join, retired owner names are a
+server-side refusal set (`check:applications-journey` 27/27). **Systems** —
+`/systems` greenfield surface over the autonomous-systems projection with
+lease-client crossings; the genesis chain honestly stops at the
+wallet-network authority preflight: NEW typed finding —
+**`system_genesis_authority_binding_unavailable` (501): the genesis plane
+resolves governing authority through the wallet network BEFORE computing any
+403 challenge**, so the full ceremony needs the Lane-B wallet substrate; every
+stop is asserted verbatim (`check:systems-journey` 35/35). Standing
+operational note: the vendored-SPA `/` WatchEvents `ERR_ABORTED` smoke flake
+has now cost a CI cycle beyond its three recorded local reproductions — it
+deserves an owner decision (documented single-endpoint allowance in the smoke,
+or an SPA teardown fix), not further reruns.
+
 ## Related Canon
 
 - [`implementation-matrix.md`](./implementation-matrix.md) — per-concept durable-form index (the wider matrix).
