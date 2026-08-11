@@ -22,9 +22,11 @@
 //     the SAME per-family reads the live /ai explorer composes, server-side over the shared
 //     read client; the metrics strip that needs the projection stays a named absence, never a
 //     fabricated rollup.
-//   - The canonical /operations mount is NOT live on this estate: no surface row binds it.
-//     Parked-at-wallet-gate and failed-run rows render their REAL counts (failover/operations
-//     reads) but their owning-surface links are disabled-named-gap — named, never a dead link.
+//   - RE-RULED (next-legs V Leg 4): the canonical /operations mount is LIVE — the bound
+//     Operations surface module serves it (partial pre-W3 cockpit slice). Parked-at-wallet-gate
+//     and failed-run rows render their REAL counts (failover/operations reads) and their
+//     owning-surface links now deep-link /operations live; the former operations-mount
+//     disabled-named-gap is closed exactly as its own reason text promised.
 //
 // READ-ONLY BY CONTRACT: Home launches; it owns no object and performs no mutation. New
 // Session is Work's affordance ADVERTISED here (navigation to /work/new-session — the
@@ -48,12 +50,16 @@ const LINK_NEW_SESSION = "/work/new-session";
 const LINK_PROJECTS = "/projects";
 const LINK_APPLICATIONS = "/applications";
 const LINK_AI_ENTRY = "/ai";
+const LINK_OPERATIONS = "/operations";
 
 const SCOPE_MARKER = "partial-pre-w3-cockpit-slice";
 const SCOPE_NOTE = "Partial pre-W3 cockpit slice — NOT Home completion. SURF-home and W3.1 remain open; the manifest SURF-home acceptance is the full bar and this slice delivers the pre-W3 subset. The home-cockpit projection route is a typed W3 absence (stated below), and the /ai explorer readout keeps serving untouched as a current live entry.";
 
 const HOME_PROJECTION_ABSENCE = "typed W3 absence — GET /v1/hypervisor/home-cockpit (ioi.hypervisor.home_cockpit_projection.v1) and GET /v1/hypervisor/session-operations are route-missing at the daemon (the W3 build list owns them). This page composes the same per-family reads the live /ai explorer composes; the metrics strip that needs the projection stays a named absence, never a fabricated rollup.";
-const OPERATIONS_GAP_REASON = "disabled-named-gap — the canonical Operations mount is not live on this estate: no Operations surface module binds /operations (the route serves only the W0.1 substrate shell today). The parked/failed-run counts on this pane are REAL daemon truth (GET /v1/hypervisor/failover/runs · GET /v1/hypervisor/operations), but their owning-surface deep-links stay disabled until the Operations mount lands; a named gap, never a dead link and never a fabricated destination.";
+// Re-ruled (next-legs V Leg 4): the operations-mount disabled-named-gap is CLOSED — the bound
+// Operations surface module serves /operations (partial pre-W3 cockpit slice), so the
+// parked/failed rows' owning-surface links are live deep-links now.
+const OPERATIONS_LINKS_NOTE = "The parked/failed-run counts on this pane are REAL daemon truth (GET /v1/hypervisor/failover/runs · GET /v1/hypervisor/operations), and their owning surface is live: the canonical Operations mount serves the partial pre-W3 cockpit slice at /operations.";
 
 const PROJECTION_PATH = "/v1/hypervisor/product-surface-projections";
 const PROJECTION_SCHEMA = "ioi.hypervisor.product_surface_projection.v1";
@@ -108,7 +114,7 @@ export const actions = [];
 const pill = (text, cls) => `<span class="pill ${cls}">${esc(text)}</span>`;
 const scopeBanner = () => `<div class="scope" data-ioi-scope="${SCOPE_MARKER}">${esc(SCOPE_NOTE)}</div>`;
 const degraded = (result, plane) => `<div class="empty" data-ioi-degraded="${esc(result?.code || "daemon_unavailable")}" data-ioi-degraded-plane="${esc(plane)}">unavailable — <code>${esc(result?.code || "daemon_unavailable")}</code> (${esc(result?.message || "the plane did not answer")}). A down read renders its typed absence; zeros are never shown as truth.</div>`;
-const disabledGapLink = (label) => `<button class="act ghost" type="button" disabled data-ioi-named-gap="operations-mount" data-ioi-disabled-reason="${esc(OPERATIONS_GAP_REASON)}">${esc(label)}</button>`;
+const operationsLink = (label, anchor = "") => `<a class="act ghost" href="${LINK_OPERATIONS}${anchor}" data-ioi-operations-link>${esc(label)}</a>`;
 
 const lifecyclePill = (state) => pill(state || "unknown", state === "provisioned" ? "ok" : state === "torn_down" ? "muted" : "warn");
 
@@ -132,8 +138,8 @@ function approvalsPane(res) {
 
 function parkedAndFailedPane(failover, operations) {
   const head = `<h2 id="home-parked-failed">Runs parked at the wallet gate · failed runs</h2>
-    <p class="sub">Counts are real daemon truth. Their owning surface is Operations, whose canonical mount is not live yet — the Operations links on this pane are a <b>disabled named gap</b>, never a dead link.</p>
-    <div class="row">${disabledGapLink("Open Operations →")}</div>`;
+    <p class="sub">${esc(OPERATIONS_LINKS_NOTE)}</p>
+    <div class="row">${operationsLink("Open Operations →")}</div>`;
   const parkedBody = (() => {
     if (!failover?.ok) return degraded(failover, "failover/runs");
     const parked = (Array.isArray(failover.payload?.runs) ? failover.payload.runs : [])
@@ -142,7 +148,7 @@ function parkedAndFailedPane(failover, operations) {
     return `<div class="row">${pill(`${parked.length} parked`, "warn")}</div>` + parked.slice(0, 5).map((r) => `<div class="card" data-ioi-parked-row>
         <div class="main"><div class="name">parked — ${esc(String(r.status || "").replace("awaiting_authority_", ""))} ${pill("blocked", "warn")}</div>
         <div class="meta">${esc(r.failure_condition || "run")}${r.environment_ref ? ` · <code>${esc(r.environment_ref)}</code>` : ""}</div></div>
-        ${disabledGapLink("Operations →")}</div>`).join("");
+        ${operationsLink("Operations →", "#ops-failover")}</div>`).join("");
   })();
   const failedBody = (() => {
     if (!operations?.ok) return degraded(operations, "operations");
@@ -151,7 +157,7 @@ function parkedAndFailedPane(failover, operations) {
     return `<div class="row">${pill(`${failures.length} failed`, "warn")}</div>` + failures.slice(0, 5).map((r) => `<div class="card" data-ioi-failed-row>
         <div class="main"><div class="name">failed — ${esc(r.name || r.automation_id || r.execution_id || "run")} ${pill("failed", "warn")}</div>
         <div class="meta">${esc(r.project_id || "—")}${r.finished_at ? ` · ${esc(r.finished_at)}` : ""}</div></div>
-        ${disabledGapLink("Operations →")}</div>`).join("");
+        ${operationsLink("Operations →", "#ops-execution")}</div>`).join("");
   })();
   return `${head}${parkedBody}${failedBody}`;
 }
@@ -252,6 +258,7 @@ function unavailableView(model) {
       <a class="act ghost" href="${LINK_SESSIONS}">Work / Sessions →</a>
       <a class="act ghost" href="${LINK_PROJECTS}">Projects →</a>
       <a class="act ghost" href="${LINK_APPLICATIONS}">Applications →</a>
+      <a class="act ghost" href="${LINK_OPERATIONS}">Operations →</a>
     </div>`;
 }
 
