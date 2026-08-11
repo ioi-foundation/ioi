@@ -46,6 +46,13 @@ const SHOTS = process.env.IOI_SEED_SHOTS_DIR ?? path.join(repoRoot, ".artifacts"
 const SCHEMA = "ioi.hypervisor.seed-interaction-route-graph.v1";
 const MAX_NODES = Number(opt("--max-nodes", "400"));
 const MAX_CONTROLS_PER_NODE = Number(opt("--max-controls", "80"));
+// Warm-up hardening (seed-gate repairs, 2026-08-11): a cold serve under crawl
+// load can miss one navigation window entirely ("no response") while the same
+// route probes 200 out-of-band — that minted false unreachable-route blockers.
+// Timeouts are tool internals, parametrized here; a genuine HTTP error (>=400)
+// is a product fact and is never retried.
+const GOTO_TIMEOUT_MS = Number(opt("--goto-timeout", "45000"));
+const SETTLE_RETRY_MS = Number(opt("--settle-retry-ms", "3000"));
 
 const surface = opt("--surface");
 if (!surface) die(1, "--surface is required");
@@ -141,6 +148,18 @@ const neutralizeStrings = (value) => {
   return value;
 };
 
+// One settle-and-retry pass separates serve warm-up from a genuinely dead
+// route: retry ONLY when there was no response at all (timeout/connection),
+// never on an HTTP status, and never while a download is the real outcome.
+const makeGotoSettled = (pg, downloadPending) => async (url, timeout = GOTO_TIMEOUT_MS) => {
+  let resp = await pg.goto(url, { waitUntil: "domcontentloaded", timeout }).catch(() => null);
+  if (!resp && !downloadPending()) {
+    await pg.waitForTimeout(SETTLE_RETRY_MS);
+    resp = await pg.goto(url, { waitUntil: "domcontentloaded", timeout }).catch(() => null);
+  }
+  return resp;
+};
+
 async function reachable(url) {
   try {
     const res = await fetch(url, { method: "GET", redirect: "manual" });
@@ -225,7 +244,20 @@ async function stateSignature(page) {
       "|" + [...document.forms].map((f) => f.getAttribute("action") || "").sort().join("&");
     let hh = 0;
     for (let i = 0; i < hidden.length; i++) hh = ((hh << 5) - hh + hidden.charCodeAt(i)) | 0;
-    return `${location.pathname}${location.search}#open=${open}#fc=${formControls}#hf=${hh}|${texts.join("|")}`.slice(0, 800);
+    // Visible <select> and checked-radio VALUES are user-reachable state: a
+    // section select re-targets a sibling GET form without changing the URL,
+    // hidden fields, headings or control counts (schema n11 / sources n1
+    // residuals, 2026-08-10). Record them (bounded, sorted) so select-value
+    // state mints distinct nodes instead of silently contradictory edges.
+    const chosen = [...document.querySelectorAll("select")].filter(visible)
+      .map((el) => `s:${el.name || el.id}=${String(el.value).slice(0, 40)}`)
+      .concat([...document.querySelectorAll("input[type=radio]")]
+        .filter((el) => visible(el) && el.checked)
+        .map((el) => `r:${el.name || el.id}=${String(el.value).slice(0, 40)}`))
+      .sort().join("&");
+    let sv = 0;
+    for (let i = 0; i < chosen.length; i++) sv = ((sv << 5) - sv + chosen.charCodeAt(i)) | 0;
+    return `${location.pathname}${location.search}#open=${open}#fc=${formControls}#hf=${hh}#sv=${sv}|${texts.join("|")}`.slice(0, 800);
   });
 }
 
@@ -250,6 +282,45 @@ async function capture() {
   page.on("console", (m) => { if (m.type() === "error") consoleErrors.push(m.text().slice(0, 200)); });
   let pendingDownload = null;
   page.on("download", (d) => { pendingDownload = d.suggestedFilename(); d.cancel().catch(() => {}); });
+  const gotoSettled = makeGotoSettled(page, () => pendingDownload !== null);
+  const nodeRecById = new Map(); // id -> node record (for capture-time establishment)
+
+  // A node under crawl must be LIVE before any of its controls is clicked: the
+  // crawl leaves the page wherever the previous node's processing ended, so
+  // without re-establishment the first click of a dequeued node fires against a
+  // stale DOM and mints misattributed edges (the schema n11 "Filter" and
+  // sources n1 select residuals, 2026-08-10). Route nodes goto their URL;
+  // state nodes replay their entry-edge chain — exactly the discipline
+  // interaction replay's establish() already enforces on the other side.
+  async function establishForCrawl(current) {
+    const rec = nodeRecById.get(current.nodeId);
+    if (rec && (await stateSignature(page)) === rec.signature) return true; // already live
+    if (!rec || rec.kind === "route") {
+      const resp = await gotoSettled(current.url);
+      if (!resp || resp.status() >= 400) return false;
+      await page.waitForTimeout(600);
+      return true;
+    }
+    const chain = [];
+    let cur = rec;
+    let guard = 0;
+    while (cur && cur.kind !== "route" && guard++ < 12) {
+      if (!cur.entry_edge?.control || !nodeRecById.has(cur.entry_edge.from)) return false;
+      chain.unshift(cur.entry_edge.control);
+      cur = nodeRecById.get(cur.entry_edge.from);
+    }
+    if (!cur || cur.kind !== "route") return false;
+    const resp = await gotoSettled(new URL(cur.url, SERVE).toString());
+    if (!resp || resp.status() >= 400) return false;
+    await page.waitForTimeout(900);
+    for (const control of chain) {
+      const clicked = await page.locator(CONTROL_SELECTOR).nth(control.index)
+        .click({ timeout: 4000 }).then(() => true).catch(() => false);
+      if (!clicked) return false;
+      await page.waitForTimeout(700);
+    }
+    return true;
+  }
 
   async function snapshotNode(kind, entryEdge) {
     const signature = await stateSignature(page);
@@ -270,11 +341,12 @@ async function capture() {
       screenshot: { sha256: digest, posture: "1440x900-light" },
       console_errors: consoleErrors.splice(0).slice(0, 10),
     });
+    nodeRecById.set(id, nodes.at(-1));
     return { id, fresh: true, census };
   }
 
-  const startResp = await page.goto(startUrl, { waitUntil: "domcontentloaded", timeout: 30000 })
-    .catch((e) => { die(2, `BLOCKED: cannot open ${startUrl}: ${e.message}`); });
+  const startResp = await gotoSettled(startUrl);
+  if (!startResp) die(2, `BLOCKED: cannot open ${startUrl}: no response (after settle retry)`);
   await page.waitForTimeout(2500);
   if (startResp && startResp.status() >= 400) {
     blockers.push({ kind: "start-route-error", node: "n0", reason: `HTTP ${startResp.status()} at ${ownedRoute}` });
@@ -286,6 +358,13 @@ async function capture() {
   while (frontier.length > 0 && nodes.length < MAX_NODES) {
     const current = frontier.shift();
     const census = current.census;
+    if (!(await establishForCrawl(current))) {
+      blockers.push({
+        kind: "state-reestablish-failed", node: current.nodeId,
+        reason: `cannot re-establish ${current.nodeId} (${current.url.replace(SERVE, "")}) before crawling its ${census.length} controls`,
+      });
+      continue;
+    }
     if (census.length > MAX_CONTROLS_PER_NODE) {
       blockers.push({
         kind: "control-census-overflow", node: current.nodeId,
@@ -315,11 +394,20 @@ async function capture() {
         }
         visitedUrls.add(target.toString());
         pendingDownload = null;
-        const resp = await page.goto(target.toString(), { waitUntil: "domcontentloaded", timeout: 20000 }).catch(() => null);
+        const resp = await gotoSettled(target.toString());
         await page.waitForTimeout(1200);
         if (pendingDownload) {
           edges.push({ from: current.nodeId, to: null, control, action: "goto", outcome: "download", detail: pendingDownload });
           blockers.push({ kind: "download-instead-of-ux", node: current.nodeId, reason: `${target.pathname} starts a download (${pendingDownload})` });
+        } else if (!resp && page.url() === target.toString()) {
+          // Same-document navigation (fragment-only link): Playwright's goto
+          // returns no response object by design, but the document never left —
+          // the landed URL proves it. Record the real navigation instead of
+          // minting a false unreachable-route blocker (sources "View all"
+          // #sources-catalog, 2026-08-11).
+          const snap = await snapshotNode("route", { from: current.nodeId, control });
+          edges.push({ from: current.nodeId, to: snap.id, control, action: "goto", outcome: "navigated" });
+          if (snap.fresh) frontier.push({ nodeId: snap.id, url: page.url(), census: snap.census ?? (await censusOf(page)) });
         } else if (!resp || resp.status() >= 400) {
           edges.push({ from: current.nodeId, to: null, control, action: "goto", outcome: "error", detail: resp ? `HTTP ${resp.status()}` : "no response" });
           blockers.push({ kind: "unreachable-route", node: current.nodeId, reason: `${target.pathname}: ${resp ? `HTTP ${resp.status()}` : "no response"}` });
@@ -328,8 +416,7 @@ async function capture() {
           edges.push({ from: current.nodeId, to: snap.id, control, action: "goto", outcome: "navigated" });
           if (snap.fresh) frontier.push({ nodeId: snap.id, url: page.url(), census: snap.census ?? (await censusOf(page)) });
         }
-        await page.goto(current.url, { waitUntil: "domcontentloaded", timeout: 20000 }).catch(() => null);
-        await page.waitForTimeout(600);
+        await establishForCrawl(current);
         continue;
       }
       // Non-link control: click, classify the outcome, recover.
@@ -348,11 +435,13 @@ async function capture() {
       await page.waitForTimeout(900);
       if (!clicked) {
         edges.push({ from: current.nodeId, to: null, control, action: "click", outcome: "unclickable" });
+        await establishForCrawl(current); // the retry Escape may have closed a state node's overlay
         continue;
       }
       if (blockedWrites.length > writesBefore) {
         edges.push({ from: current.nodeId, to: null, control, action: "click", outcome: "blocked-write-attempt", detail: blockedWrites.at(-1) });
         await page.keyboard.press("Escape").catch(() => {});
+        await establishForCrawl(current);
         continue;
       }
       if (pendingDownload) {
@@ -374,17 +463,16 @@ async function capture() {
           frontier.push({ nodeId: snap.id, url: page.url(), census: snap.census ?? (await censusOf(page)) });
         }
       }
-      // Recover to the node under crawl: Escape for overlays, goto for navigation.
+      // Recover to the node under crawl: Escape for overlays, then full
+      // re-establishment (a same-URL DOM leak — e.g. a changed select — is
+      // invisible to a URL check but poisons every subsequent edge).
       await page.keyboard.press("Escape").catch(() => {});
-      if (!page.url().startsWith(current.url)) {
-        await page.goto(current.url, { waitUntil: "domcontentloaded", timeout: 20000 }).catch(() => null);
-        await page.waitForTimeout(600);
-      }
+      await establishForCrawl(current);
     }
     // Back-stack probe from this node.
     await page.goBack({ timeout: 8000 }).then(() => edges.push({ from: current.nodeId, to: "back-stack", control: null, action: "back", outcome: "navigated" })).catch(() =>
       edges.push({ from: current.nodeId, to: null, control: null, action: "back", outcome: "noop" }));
-    await page.goto(current.url, { waitUntil: "domcontentloaded", timeout: 20000 }).catch(() => null);
+    await gotoSettled(current.url).catch(() => null);
   }
   if (frontier.length > 0) {
     blockers.push({ kind: "node-cap-reached", node: null, reason: `${frontier.length} unexplored nodes beyond --max-nodes ${MAX_NODES}` });
@@ -398,10 +486,11 @@ async function capture() {
     const pctx = await browser.newContext({ viewport: vp, colorScheme, reducedMotion });
     await installQuarantine(pctx, []);
     const ppage = await pctx.newPage();
+    const pGoto = makeGotoSettled(ppage, () => false);
     for (const node of nodes.filter((n) => n.kind === "route")) {
       const target = new URL(node.url, SERVE).toString();
-      const ok = await ppage.goto(target, { waitUntil: "domcontentloaded", timeout: 20000 }).then((r) => r && r.status() < 400).catch(() => false);
-      if (!ok) continue;
+      const resp = await pGoto(target);
+      if (!(resp && resp.status() < 400)) continue;
       await ppage.waitForTimeout(800);
       const png = await ppage.screenshot({ fullPage: false });
       const digest = sha(png);
@@ -462,6 +551,7 @@ async function replay() {
   const page = await context.newPage();
   let pendingDownload = null;
   page.on("download", (d) => { pendingDownload = d.suggestedFilename(); d.cancel().catch(() => {}); });
+  const gotoSettled = makeGotoSettled(page, () => pendingDownload !== null);
 
   const problems = [];
   const nodeById = new Map(graph.nodes.map((n) => [n.id, n]));
@@ -484,7 +574,7 @@ async function replay() {
   const establish = async (node) => {
     const p = pathTo(node);
     if (!p) return false;
-    const resp = await page.goto(new URL(p.route.url, SERVE).toString(), { waitUntil: "domcontentloaded", timeout: 20000 }).catch(() => null);
+    const resp = await gotoSettled(new URL(p.route.url, SERVE).toString());
     if (!resp || resp.status() >= 400) return false;
     await page.waitForTimeout(900);
     for (const control of p.chain) {
@@ -524,7 +614,7 @@ async function replay() {
       if (edge.action === "goto") {
         const target = edge.to ? nodeById.get(edge.to) : null;
         if (edge.outcome === "navigated" && target) {
-          const resp = await page.goto(new URL(target.url, SERVE).toString(), { waitUntil: "domcontentloaded", timeout: 20000 }).catch(() => null);
+          const resp = await gotoSettled(new URL(target.url, SERVE).toString());
           await page.waitForTimeout(800);
           if (!resp || resp.status() >= 400) {
             problems.push(`edge ${node.id}->${edge.to}: target ${target.url} unreachable (${resp ? `HTTP ${resp.status()}` : "no response"})`);

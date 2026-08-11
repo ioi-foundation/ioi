@@ -5,18 +5,18 @@
   "owned_route": "/__ioi/data/sources",
   "capture_route": null,
   "runtime": {
-    "serve_url": "http://127.0.0.1:4641",
+    "serve_url": "http://127.0.0.1:37769",
     "capture_url": null
   },
-  "captured_at": "2026-08-10T01:51:29.151Z",
+  "captured_at": "2026-08-11T10:49:54.789Z",
   "quarantine": {
     "network_policy": "local-only",
     "corpus_mutation": "denied",
     "html_injection": "denied",
     "spa_fallback": "denied",
     "allowed_origins": [
-      "http://127.0.0.1:4641",
-      "http://localhost:4641",
+      "http://127.0.0.1:37769",
+      "http://localhost:37769",
       "http://127.0.0.1:9225",
       "http://localhost:9225"
     ],
@@ -26,7 +26,7 @@
     {
       "id": "n0",
       "kind": "route",
-      "signature": "/__ioi/data/sources#open=0#fc=0|H1:Data Connection|H3:Data Connection|H2:Declared source catalog 0 the real DataSource registry — new|H3:By kind|H3:By credential posture|H3:Sync activity (real)",
+      "signature": "/__ioi/data/sources#open=0#fc=0#hf=124#sv=0|H1:Data Connection|H3:Data Connection|H2:Declared source catalog 0 the real DataSource registry — new|H3:By kind|H3:By credential posture|H3:Sync activity (real)",
       "url": "/__ioi/data/sources",
       "title": "Data Connection",
       "entry_edge": null,
@@ -51,7 +51,7 @@
     {
       "id": "n1",
       "kind": "route",
-      "signature": "/__ioi/data/sources?declare=1#open=0#fc=5|H1:Data Connection|H3:Data Connection|H2:Declare a new data source a validated, receipted registry re|H2:Declared source catalog 0 the real DataSource registry — new|H3:By kind|H3:By credential posture|H3:Sync activity (real)",
+      "signature": "/__ioi/data/sources?declare=1#open=0#fc=5#hf=2105184127#sv=-1043901281|H1:Data Connection|H3:Data Connection|H2:Declare a new data source a validated, receipted registry re|H2:Declared source catalog 0 the real DataSource registry — new|H3:By kind|H3:By credential posture|H3:Sync activity (real)",
       "url": "/__ioi/data/sources?declare=1",
       "title": "Data Connection",
       "entry_edge": {
@@ -199,7 +199,7 @@
     },
     {
       "from": "n0",
-      "to": null,
+      "to": "n0",
       "control": {
         "index": 8,
         "tag": "a",
@@ -209,8 +209,7 @@
         "label": "View all"
       },
       "action": "goto",
-      "outcome": "error",
-      "detail": "no response"
+      "outcome": "navigated"
     },
     {
       "from": "n0",
@@ -427,7 +426,7 @@
         "label": "postgres — endpoint requiredmysql — endpoint requiredrest_api — endpoint require"
       },
       "action": "click",
-      "outcome": "state-change"
+      "outcome": "noop"
     },
     {
       "from": "n1",
@@ -487,7 +486,7 @@
     },
     {
       "from": "n1",
-      "to": null,
+      "to": "n1",
       "control": {
         "index": 12,
         "tag": "a",
@@ -497,8 +496,7 @@
         "label": "View all"
       },
       "action": "goto",
-      "outcome": "error",
-      "detail": "no response"
+      "outcome": "navigated"
     },
     {
       "from": "n1",
@@ -606,30 +604,17 @@
       "outcome": "navigated"
     }
   ],
-  "blockers": [
-    {
-      "kind": "unreachable-route",
-      "node": "n0",
-      "reason": "/__ioi/data/sources: no response"
-    },
-    {
-      "kind": "unreachable-route",
-      "node": "n1",
-      "reason": "/__ioi/data/sources: no response"
-    }
-  ],
+  "blockers": [],
   "replay": {
     "mode": "interaction",
-    "walked_all_edges": false,
+    "walked_all_edges": true,
     "edges_total": 38,
-    "edges_executed": 4,
-    "edges_skip_classified": 34,
-    "problems": [
-      "edge n1/\"postgres — endpoint requiredmysql — endpoint requiredrest_api — endpoint require\": recorded state-change, observed noop"
-    ],
-    "walked_at": "2026-08-10T01:51:40.592Z"
+    "edges_executed": 6,
+    "edges_skip_classified": 32,
+    "problems": [],
+    "walked_at": "2026-08-11T10:50:07.923Z"
   },
-  "complete_interaction_route_graph": false,
+  "complete_interaction_route_graph": true,
   "shots_dir": ".artifacts/seed-graph-shots/data/sources",
-  "content_address": "0c2e9ecfe40ff76da323913c0cb52c982962b0eab5543b4e94c78b7ecc3fade5"
+  "content_address": "be9a5a68ed0de7b8b882ade0ef9f881c80e92e6b82fcfd7be04b270205cb5745"
 }
