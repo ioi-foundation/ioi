@@ -334,9 +334,11 @@ export const V2_ROUTE_TABLE = [
     kind: "substrate",
     rule: "—",
     waves: "W1 · W2",
-    build_state: "shell-only (W0.1) — Wave 1 read-first build (surfaces/operations.md §5); unified infrastructure-jobs projection is a Wave 3 backend build",
+    build_state: "W2.1 partial pre-W3 cockpit slice landed (next-legs V Leg 4) — the bound Operations surface module serves this canonical route: a read-first cockpit over the existing runtime/failover truth (scheduler health, execution health, cross-provider failover posture, environment incidents/recovery, provider health + customer-borne spend, storage custody, substrate status). NOT Operations completion: SURF-operations stays open — full acceptance needs the W3.2/W3.3 fault-injection/remediation matrix and the scheduler seed residual; the unified infrastructure-jobs projection, RPO/RTO rollup, and capacity overview stay Wave 3 backend builds (typed route-missing absences on the page)",
     serving_today: [
-      { href: "/__ioi/operations", label: "Operations readout", note: "runs / failures / failover posture over daemon truth" },
+      { href: "/operations", label: "Operations cockpit (canonical)", note: "bound Operations surface module — partial pre-W3 cockpit slice; read-first over eleven daemon read families, typed W3.2/W3.3 gaps" },
+      { href: "/__ioi/operations-cockpit", label: "Operations cockpit (legacy lane)", note: "same module on the fresh legacy lane; keeps serving until the W4 cutover" },
+      { href: "/__ioi/operations", label: "Operations readout", note: "protected T2 rehome source — runs / failures / failover posture over daemon truth; keeps serving untouched" },
     ],
   },
   {

@@ -13,9 +13,10 @@
 //   - seeded fixtures (an approval request, a project, a session) surface as REAL counts and
 //     rows, and every LIVE deep-link target answers 200 showing the linked record class
 //     (/governance/approvals, /work/sessions, /projects via the browser, /applications);
-//   - the Operations-targeted links are a typed disabled-named-gap with the exact reason —
-//     and the gap is REAL, pinned mechanically (/operations serves only the substrate shell,
-//     no Operations surface module binds it; the pin fails the day the mount lands);
+//   - the Operations-targeted links are LIVE deep-links (re-ruled, next-legs V Leg 4: the
+//     bound Operations surface module serves the canonical /operations mount — the former
+//     operations-mount disabled-named-gap is closed, and the mount is pinned mechanically:
+//     /operations answers under the Operations owner, never the bare substrate shell);
 //   - the applications grid is compiler-projection truth ONLY: the page's entry set equals the
 //     projection's entry set, launchable tiles link the projection's own routes, and the
 //     folded-owner refusal set holds (no retired owner name renders anywhere);
@@ -222,15 +223,22 @@ async function run() {
       && freshHome.text.includes('id="home-approvals"'),
     `route ${freshHome.headers.get("x-ioi-surface-route")}`);
 
-  // -- the Operations gap: typed on the page, REAL at the estate ------------------------------
-  ok("the Operations-targeted links are a typed disabled-named-gap with the exact reason (counts real, links disabled until the Operations mount lands — never a dead link, never a fabricated destination)",
-    empty.text.includes('data-ioi-named-gap="operations-mount"')
-      && empty.text.includes("disabled-named-gap — the canonical Operations mount is not live")
+  // -- the Operations links: LIVE deep-links, mount pinned REAL at the estate (re-ruled) ------
+  // Next-legs V Leg 4 re-ruling: the former operations-mount disabled-named-gap is CLOSED —
+  // the bound Operations surface module serves the canonical /operations mount, so Home's
+  // Operations-targeted links flipped live in the same cut that landed the mount.
+  ok("the Operations-targeted links are LIVE deep-links (counts real, the owning surface named and reachable) — the former operations-mount disabled-named-gap is closed and renders nowhere",
+    empty.text.includes('href="/operations" data-ioi-operations-link')
       && empty.text.includes("GET /v1/hypervisor/failover/runs · GET /v1/hypervisor/operations")
-      && empty.text.includes("never a dead link and never a fabricated destination"));
+      && empty.text.includes("the canonical Operations mount serves the partial pre-W3 cockpit slice at /operations")
+      && !empty.text.includes('data-ioi-named-gap="operations-mount"')
+      && !empty.text.includes("disabled-named-gap — the canonical Operations mount is not live"));
   const opsServe = await pageText("/operations");
-  ok("the gap is REAL, pinned mechanically: /operations serves only the W0.1 substrate shell (owner marker 'substrate', no Operations surface module) — the day an Operations mount lands this pin fails and the gap must be re-ruled",
-    opsServe.status === 200 && opsServe.headers.get("x-ioi-surface-owner") === "substrate",
+  ok("the mount is REAL, pinned mechanically: /operations answers 200 under the Operations owner at the canonical route (the bound surface module, never the bare substrate shell) — Home's flipped links resolve",
+    opsServe.status === 200
+      && opsServe.headers.get("x-ioi-surface-owner") === "Operations"
+      && opsServe.headers.get("x-ioi-surface-route") === "/operations"
+      && opsServe.text.includes('data-ioi-scope="partial-pre-w3-cockpit-slice"'),
     `owner ${opsServe.headers.get("x-ioi-surface-owner")}`);
 
   // -- /ai: the current live entry keeps serving untouched ------------------------------------
