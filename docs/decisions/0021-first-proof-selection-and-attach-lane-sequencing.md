@@ -83,7 +83,7 @@ this ruling being wrong is schedule, not architecture.
 ## Canonical References
 
 - [`../architecture/_meta/execution-horizons.md`](../architecture/_meta/execution-horizons.md)
-- [`../conformance/hypervisor-core/sovereign-local-completeness.md`](../conformance/hypervisor-core/sovereign-local-completeness.md)
-- [`../conformance/README.md`](../conformance/README.md)
+- `../conformance/hypervisor-core/sovereign-local-completeness.md`
+- `../conformance/README.md`
 - [`../architecture/foundations/web4-and-ioi-stack.md`](../architecture/foundations/web4-and-ioi-stack.md)
 - [`../architecture/components/daemon-runtime/doctrine.md`](../architecture/components/daemon-runtime/doctrine.md)

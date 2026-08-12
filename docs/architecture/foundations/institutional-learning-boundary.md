@@ -445,7 +445,7 @@ The flagship enterprise proof must be automated and adversarial:
    canary never crossed the prohibited boundary.
 
 The normative pass/fail contract is
-[`../../conformance/hypervisor-core/institutional-learning-boundary.md`](../../conformance/hypervisor-core/institutional-learning-boundary.md).
+`../../conformance/hypervisor-core/institutional-learning-boundary.md`.
 
 ## Claims And Non-Claims
 

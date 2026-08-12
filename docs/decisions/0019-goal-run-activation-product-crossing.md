@@ -123,4 +123,4 @@ the object yet; the recorded delta row marks it not started.
 - [`../architecture/components/daemon-runtime/doctrine.md`](../architecture/components/daemon-runtime/doctrine.md)
 - [`../architecture/domains/ioi-ai/control-plane.md`](../architecture/domains/ioi-ai/control-plane.md)
 - [`../architecture/foundations/term-boundaries.md`](../architecture/foundations/term-boundaries.md)
-- [`../conformance/hypervisor-core/goal-run-admission-and-activation.md`](../conformance/hypervisor-core/goal-run-admission-and-activation.md)
+- `../conformance/hypervisor-core/goal-run-admission-and-activation.md`

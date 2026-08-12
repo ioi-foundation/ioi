@@ -289,7 +289,19 @@ validity while retaining or adding caveats and approval requirements.
 A conforming verifier operates over a caller-supplied locally trusted key set
 and bounded-freshness signed revocation snapshot. Current master registers the
 wire contract, invariants, fixtures, and generated projections but does not
-contain the portable Ed25519/JCS verifier or an offline CLI. Network key
+contain the portable Ed25519/JCS verifier or an offline CLI. The v3
+acceptance bar, carried here since the separate conformance tree was retired
+(2026-08-12 owner ruling): a conforming verifier proves the complete ancestor
+chain with parent-holder issuance, strict narrowing on every axis at every
+hop, the canonical issuer union with versioned key sets and audience/holder
+binding, bounded-freshness revocation snapshots (absence of revocation data
+is never proof of non-revocation), delegation depth and re-delegation rights,
+per-grant and cumulative-descendant budget arithmetic, binding of the
+accepted chain into the final effect-admission receipt, and fully offline
+verification; and the negative corpus — widened child, cycle, stale ancestor
+state, revoked ancestor, wrong issuer, replay, budget and depth exhaustion,
+wrong audience or holder — must each produce its named typed refusal, with
+any either-outcome pass failing the whole bar. Network key
 discovery, trust-root acquisition, transparency infrastructure, and universal
 revocation distribution remain separate planned work.
 

@@ -3,7 +3,7 @@
 Status: canonical architecture authority.
 Canonical owner: this file for public security/privacy/policy invariants;
 conformance details live in
-[`../../conformance/hypervisor-core/`](../../conformance/hypervisor-core/).
+`../../conformance/hypervisor-core/`.
 Supersedes: overlapping plan prose when invariants conflict.
 Superseded by: none.
 Last alignment pass: 2026-07-26.

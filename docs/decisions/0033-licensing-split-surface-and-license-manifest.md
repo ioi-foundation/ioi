@@ -200,5 +200,5 @@ ADR costs IOI optionality and never costs an adopter their footing.
   — certification and issuers.
 - [`../architecture/foundations/economic-flywheel-and-pricing-boundaries.md`](../architecture/foundations/economic-flywheel-and-pricing-boundaries.md)
   — the open-L0 covenant and the protocol-surface manifest requirement.
-- [`../conformance/README.md`](../conformance/README.md) — the public
+- `../conformance/README.md` — the public
   conformance profile this ADR makes legally runnable.

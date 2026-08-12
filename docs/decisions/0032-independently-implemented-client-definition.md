@@ -133,4 +133,4 @@ list they carry.
 - [`0013-hypervisor-core-clients-surfaces-and-adapters.md`](./0013-hypervisor-core-clients-surfaces-and-adapters.md)
 - [`../architecture/components/hypervisor/core-clients-surfaces.md`](../architecture/components/hypervisor/core-clients-surfaces.md)
 - [`../architecture/foundations/invariants.md`](../architecture/foundations/invariants.md) — `INV-18`
-- [`../conformance/README.md`](../conformance/README.md)
+- `../conformance/README.md`

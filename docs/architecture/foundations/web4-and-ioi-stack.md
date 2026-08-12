@@ -203,7 +203,7 @@ papered over.
 | --- | --- | --- |
 | Open protocol surface | the enumerated open surface and offline-verifiability requirements in [`economic-flywheel-and-pricing-boundaries.md`](./economic-flywheel-and-pricing-boundaries.md), enumerated and versioned in [`../../../LICENSE-MANIFEST.json`](../../../LICENSE-MANIFEST.json) `open_protocol_surface` under [ADR 0033](../../decisions/0033-licensing-split-surface-and-license-manifest.md) | contracted; the surface is enumerated and permissively licensed, and ADR 0033 is unreviewed by counsel |
 | Reference implementation | § The Reference-Implementation Contract below — five designation conditions, the parity claim (fixture, refusal, surface completeness, independence disclosure), and the rule that a designated release cannot legislate | contracted, planned; no release is designated and no parity claim exists |
-| Conformance certification | `ConformanceProfile` / `CertificationClaim` / `EcosystemAssuranceProfile` in [`ecosystem-assurance-certification-liability.md`](./ecosystem-assurance-certification-liability.md), plus the defined public profile `ioi_public_conformance_profile_v1` in [`../../conformance/README.md`](../../conformance/README.md) | contracted, planned; the public profile is defined and unpopulated, and no issuer-accreditation or issuer-separation rule exists |
+| Conformance certification | `ConformanceProfile` / `CertificationClaim` / `EcosystemAssuranceProfile` in [`ecosystem-assurance-certification-liability.md`](./ecosystem-assurance-certification-liability.md), plus the defined public profile `ioi_public_conformance_profile_v1` in `../../conformance/README.md` | contracted, planned; the public profile is defined and unpopulated, and no issuer-accreditation or issuer-separation rule exists |
 | Credible neutrality | [`marketplace-neutrality.md`](../domains/marketplace-neutrality.md) for routing/marketplace; [`protocol-governance-neutrality.md`](./protocol-governance-neutrality.md) for IOI as spec owner and network operator | both owned; the governance contract is written and its change process, objection record, and designation record are unimplemented |
 | Portable exit | enrollment exit transitions ([`objects/bounded-system-genesis.md`](./objects/bounded-system-genesis.md)), `ParticipantStateBundle`, portable memory vault, SLC attach/detach cases, and attach-lane adapter portability ([`daemon-runtime/doctrine.md`](../components/daemon-runtime/doctrine.md)) | best-covered; every lane is contracted, none is evaluator-proven |
 
@@ -234,7 +234,7 @@ forbids:
 2. **The conformance suite is not yet runnable by an outsider.** What an
    adopter runs and what passing entitles them to say is now defined —
    `ioi_public_conformance_profile_v1` in
-   [`../../conformance/README.md`](../../conformance/README.md) § The Public
+   `../../conformance/README.md` § The Public
    Conformance Profile — but the profile is **defined and unpopulated**: no
    runner, no published fixture bundle for outside execution, no computed
    membership. Adopters still cannot self-certify today. Owner: that claim

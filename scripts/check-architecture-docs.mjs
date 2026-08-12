@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Integrity gate for docs/architecture, docs/decisions, and docs/conformance,
+// Integrity gate for docs/architecture and docs/decisions,
 // plus the work-item status records those docs point at for status truth.
 //
 // Deliberately small. It checks only what canon claims about itself, it owns no
@@ -45,7 +45,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const ROOTS = ["docs/architecture", "docs/decisions", "docs/conformance"];
+const ROOTS = ["docs/architecture", "docs/decisions"];
 const WORK_ITEMS = "docs/architecture/_meta/work-items";
 const WORK_ITEM_FORMAT = "ioi.program.work_item.v1";
 const STATUSES = [

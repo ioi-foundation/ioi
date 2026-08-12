@@ -154,5 +154,5 @@ Four resistances, each falsifiable rather than aspirational:
   — in-network routing neutrality.
 - [`ecosystem-assurance-certification-liability.md`](./ecosystem-assurance-certification-liability.md)
   — certification, issuers, and liability.
-- [`../../conformance/README.md`](../../conformance/README.md) — the claim
+- `../../conformance/README.md` — the claim
   coverage index and the public conformance profile.

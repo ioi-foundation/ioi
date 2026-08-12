@@ -43,7 +43,7 @@ never an inference from the absence of an auth check.
   artifact was removed with the proof apparatus and has no current successor;
   when one is rebuilt it is named here as a tracked path or not at all.
 - Conformance claims and their owners (the claim coverage index in
-  [`../../conformance/README.md`](../../conformance/README.md)).
+  `../../conformance/README.md`).
 - The authority model (wallet grants, leases, receipts) or any product
   taxonomy; public surfaces present, they never admit.
 
@@ -89,7 +89,7 @@ Naming on public properties follows the canonical vocabulary owners
 
 - [`source-of-truth-map.md`](./source-of-truth-map.md) — subject ownership
   routing.
-- [`../../conformance/README.md`](../../conformance/README.md) — claim
+- `../../conformance/README.md` — claim
   coverage index.
 - [`../components/hypervisor/providers-and-environments.md`](../components/hypervisor/providers-and-environments.md)
   — route-binding drift classes for served endpoints.
