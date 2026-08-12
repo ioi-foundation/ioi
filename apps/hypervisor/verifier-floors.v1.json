@@ -72,8 +72,8 @@
       "id": "launch-chain",
       "npm_script": "check:launch-chain",
       "source": "apps/hypervisor/scripts/verify-hypervisor-launch-chain.mjs",
-      "runtime_assertions": 49,
-      "assertion_names_sha256": "f20a7a051d5699890c7e1563e6351ecb138dc540b1f8560ae2e8426c134c4fd5"
+      "runtime_assertions": 53,
+      "assertion_names_sha256": "9146d786e4518fec65774ac48588432145b5a8ce0449a0abf93e4d83405cc154"
     },
     {
       "id": "work-cockpit",
