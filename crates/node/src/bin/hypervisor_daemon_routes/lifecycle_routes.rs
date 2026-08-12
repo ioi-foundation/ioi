@@ -1132,12 +1132,13 @@ fn replay_runtime_events(
         for projection in history {
             let mut event = projection.operation.payload.clone();
             if let Some(object) = event.as_object_mut() {
-                // Sequence + head are the substrate's facts about the event, stamped
-                // on read from the admitted projection rather than stored in the
-                // authored bytes. Surfacing the real head lets a reader cross-check a
-                // produce-time `substrate_head` against the stream's actual head.
+                // Sequence is the substrate's fact about the event, stamped on read
+                // from the admitted projection rather than stored in the authored bytes.
+                // The substrate HEAD is deliberately NOT surfaced here: this shared read
+                // also feeds the managed-session planner on the produce path, so keeping it
+                // head-free means nothing on the write path carries an extra field. The
+                // /events read route surfaces the head via replay_stream_events_with_substrate_head.
                 object.insert("seq".to_string(), json!(projection.seq));
-                object.insert("substrate_head".to_string(), json!(projection.head));
             }
             if replay_kind == "turn"
                 && turn_id.is_some_and(|wanted| {
@@ -1170,6 +1171,42 @@ fn replay_runtime_events(
         .and_then(|v| v.as_array())
         .cloned()
         .unwrap_or_default())
+}
+
+/// Read-route ONLY: replay an admitted stream and additionally surface the substrate
+/// `projection.head` per event. This is used exclusively by the /events read route so a reader can
+/// cross-check a produce-time `substrate_head` against the stream's actual head — and `substrate_head`
+/// is therefore a pure read-shape field, NEVER planner input (the shared `replay_runtime_events` that
+/// also feeds the managed-session planner on the produce path stays head-free). Legacy streams (never
+/// a launch thread) carry no substrate head and delegate to the head-free replay.
+fn replay_stream_events_with_substrate_head(
+    st: &DaemonState,
+    event_stream_id: &str,
+) -> Result<Vec<Value>, AppError> {
+    use ioi_services::agentic::runtime::event_stream_admission as admission;
+
+    if admission::classify_stream(&st.data_dir, event_stream_id)
+        == admission::StreamHoming::Admitted
+    {
+        let tail = admission::stream_tail(event_stream_id);
+        let history = crate::substrate_store::read_event_stream_history(
+            &st.data_dir,
+            admission::THREAD_ORCHESTRATION_NAMESPACE,
+            &tail,
+        )
+        .map_err(|refusal| AppError(StatusCode::BAD_GATEWAY, refusal.to_string()))?;
+        let mut events = Vec::with_capacity(history.len());
+        for projection in history {
+            let mut event = projection.operation.payload.clone();
+            if let Some(object) = event.as_object_mut() {
+                object.insert("seq".to_string(), json!(projection.seq));
+                object.insert("substrate_head".to_string(), json!(projection.head));
+            }
+            events.push(event);
+        }
+        return Ok(events);
+    }
+    replay_runtime_events(st, "stream", event_stream_id, None)
 }
 
 /// Project the runtime event list for a thread (or a run) via the kernel event
@@ -22665,8 +22702,13 @@ fn admit_launch_thread_event(
         "status": "admitted",
         "actor": "operator",
         "created_at": now,
-        "component_kind": "harness_session_launch_thread",
-        "payload_schema_version": "ioi.runtime.harness-session-launch-thread-event.v1",
+        "component_kind": "thread_lifecycle",
+        // Kernel-NATIVE runtime-event schema (the kernel's own generic thread-event payload schema,
+        // runtime_thread_event.rs `runtime_payload_schema_version` → "ioi.runtime.event.v1"). Runtime
+        // thread events are kernel event metadata, NOT registered wire contracts (only the admission
+        // RECORDS are registered) — so the launch admits its thread events under the kernel's own
+        // schema rather than minting an unregistered launch-family name onto the kernel stream.
+        "payload_schema_version": "ioi.runtime.event.v1",
         "payload": {
             "launch_ref": launch_ref,
             "session_ref": session_ref,
@@ -23488,7 +23530,7 @@ pub(crate) async fn handle_session_launch_events(
                 .map(|thread_ref| format!("{thread_ref}:events"))
         })
         .unwrap_or_default();
-    let events = match replay_runtime_events(&st, "stream", &event_stream_id, None) {
+    let events = match replay_stream_events_with_substrate_head(&st, &event_stream_id) {
         Ok(events) => events,
         Err(AppError(status, message)) => {
             return (

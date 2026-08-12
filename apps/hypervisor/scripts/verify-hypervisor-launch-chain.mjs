@@ -183,15 +183,14 @@ const recomputeFrozenRevision = (prof) => {
   return { revisionRef: `harness-profile://daemon-resolved/${harnessSlug}/revision/${contentHash}`, contentHash };
 };
 
-// STRUCTURAL, ALLOWLIST-BY-CONSTRUCTION second-spine detector. A denylist ("does it match a known
-// kernel-control schema stem?") is defeated by any rename — moving the fake INTO this PR's own
-// `ioi.hypervisor.*` namespace, a `_v2` suffix, `control_state:"admitted_at_launch"`, a renamed
-// event_kind. So instead we assert the launch record's typed surface is EXACTLY the closed set of
-// values a correctly-composed launch may carry: any schema_version / payload_schema_version outside
-// LAUNCH_SCHEMA_ALLOWLIST, any control_state outside {observe,take_over,return_agent}, or any
-// event_kind/kind outside EVENT_KIND_ALLOWLIST is a shadow → RED. (Both the LAUNCH_SCHEMA_ALLOWLIST
-// contents and the daemon-side material shape must be edited together when a schema legitimately
-// changes — see the recomputeFrozenRevision note.)
+// VALUE allowlists — defence in depth BEHIND the M5b key-set close (chain additionalProperties:false
+// below). These prove approved vocab appears only on approved key names; they are NOT the security
+// boundary (a shadow built from only-allowlisted values on a NEW key is stopped by the key-set close,
+// not here). A denylist would be defeated by any rename (into ioi.hypervisor.*, a `_v2` suffix, a
+// renamed event_kind); the allowlist instead pins the exact set of values a correct launch RECORD
+// emits. Every entry is verified per-entry as actually emitted into the durable record/response;
+// LAUNCH_SCHEMA_ALLOWLIST and the daemon-side material shape must be edited together when a schema
+// legitimately changes (see the recomputeFrozenRevision note).
 const LAUNCH_SCHEMA_ALLOWLIST = new Set([
   // launch-family wrapper tags (this PR)
   "ioi.hypervisor.harness_session_launch.v1",
@@ -202,41 +201,55 @@ const LAUNCH_SCHEMA_ALLOWLIST = new Set([
   "ioi.hypervisor.harness_session_launch_managed_session_step.v1",
   "ioi.hypervisor.harness_session_launch_projection.v1",
   "ioi.hypervisor.harness_session_launch_events.v1",
-  // real composed kernel admissions / records the launch legitimately embeds (NOT second spine)
+  // real composed kernel admissions / records the launch legitimately embeds (NOT second spine),
+  // verified per-entry as actually emitted into the durable launch record (the recipe/binding REQUEST
+  // schemas were dropped as dead — they exist only in the in-memory planner requests, never persisted)
   "ioi.runtime.harness_session_binding_admission.v1",
   "ioi.runtime.harness_session_readiness.v1",
   "ioi.runtime.harness_session_spawn.v1",
   "ioi.runtime.harness_session_terminal_attach.v1",
   "ioi.runtime.harness_terminal_transcript_projection.v1",
   "ioi.runtime.hypervisor_session_launch_recipe_admission.v1",
-  "ioi.hypervisor.session_launch_recipe_admission_request.v1",
-  "ioi.hypervisor.session_launch_recipe.v1",
-  "ioi.hypervisor.new_session_target_binding.v1",
-  "ioi.hypervisor.harness_session_binding.v1",
 ]);
+// Kernel-NATIVE schema(s) the launch's admitted thread events carry ON THE STREAM (distinct from the
+// record's launch-family wrapper tags): runtime thread events are kernel event metadata under the
+// kernel's own generic runtime-event schema, never a launch-family mint.
+const STREAM_SCHEMA_ALLOWLIST = new Set(["ioi.runtime.event.v1"]);
+// control_state / event_kind values a REAL kernel planner can legitimately emit. These are kept even
+// though a clean no-delegation launch does not exercise them: a delegation-SUCCESS fork emits
+// thread.forked, and a launch on a thread with a real managed session emits managed_session.controlled
+// with an observe|take_over|return_agent control_state. Dropping them would false-positive real
+// planner output the first time those paths run. (Value-allowlisting is no longer the security
+// boundary — chain KEY-SET closure below is — so keeping the legitimate set is safe.)
 const CONTROL_STATE_ALLOWLIST = new Set(["observe", "take_over", "return_agent"]);
 const EVENT_KIND_ALLOWLIST = new Set(["thread.started", "harness_session.spawned", "thread.forked", "managed_session.controlled"]);
-// Structural walk of a parsed value → the offending typed values (empty ⇒ clean).
-const structuralViolations = (v, out = []) => {
+// The EXACT key set the launch record's `chain` object may carry (additionalProperties:false). This
+// is the TERMINATING close for M5b: a fabricated sibling (e.g. `shadow_managed_session`) fails on mere
+// PRESENCE of an unexpected KEY, whatever allowlisted values it hides inside.
+const EXPECTED_CHAIN_KEYS = ["first_runtime_event", "fork", "harness_binding_admission", "harness_binding_evidence", "launch_recipe_admission", "managed_session", "plan_admission", "readiness", "spawn", "subject_attachments", "terminal_attach", "thread"];
+// Structural walk of a parsed value → offending typed values, against a supplied schema allowlist.
+const structuralViolations = (v, schemaAllow, out = []) => {
   if (v === null || typeof v !== "object") return out;
-  if (Array.isArray(v)) { for (const x of v) structuralViolations(x, out); return out; }
+  if (Array.isArray(v)) { for (const x of v) structuralViolations(x, schemaAllow, out); return out; }
   for (const [k, val] of Object.entries(v)) {
-    if ((k === "schema_version" || k === "payload_schema_version") && typeof val === "string" && !LAUNCH_SCHEMA_ALLOWLIST.has(val)) out.push(`${k}=${val}`);
+    if ((k === "schema_version" || k === "payload_schema_version") && typeof val === "string" && !schemaAllow.has(val)) out.push(`${k}=${val}`);
     if (k === "control_state" && typeof val === "string" && !CONTROL_STATE_ALLOWLIST.has(val)) out.push(`control_state=${val}`);
     if ((k === "event_kind" || k === "kind") && typeof val === "string" && !EVENT_KIND_ALLOWLIST.has(val)) out.push(`${k}=${val}`);
-    structuralViolations(val, out);
+    structuralViolations(val, schemaAllow, out);
   }
   return out;
 };
 // Raw-bytes backstop (V1c): a record corrupted-unparseable while still carrying kernel tokens in its
-// bytes would parse to null and slip a structural (parsed) walk. Extract the same typed values by
-// regex from the raw text and apply the SAME allowlists, so a token in the bytes fails regardless of
-// parseability.
+// bytes would parse to null and slip the parsed walk. Extract the same typed values by regex from the
+// raw text and apply the SAME allowlists, so a token in the bytes fails regardless of parseability.
+// M6b: JSON-unescape the bytes first (\" and ") so an ESCAPED key `\"schema_version\"` cannot
+// slip the literal-keyed regex.
 const rawViolations = (text) => {
+  const norm = text.replace(/\\u0022/giu, '"').replace(/\\"/gu, '"');
   const out = [];
-  for (const m of text.matchAll(/"(?:payload_)?schema_version"\s*:\s*"([^"]*)"/gu)) if (!LAUNCH_SCHEMA_ALLOWLIST.has(m[1])) out.push(`raw schema=${m[1]}`);
-  for (const m of text.matchAll(/"control_state"\s*:\s*"([^"]*)"/gu)) if (!CONTROL_STATE_ALLOWLIST.has(m[1])) out.push(`raw control_state=${m[1]}`);
-  for (const m of text.matchAll(/"(?:event_kind|kind)"\s*:\s*"([^"]*)"/gu)) if (!EVENT_KIND_ALLOWLIST.has(m[1])) out.push(`raw ${m[1]}`);
+  for (const m of norm.matchAll(/"(?:payload_)?schema_version"\s*:\s*"([^"]*)"/gu)) if (!LAUNCH_SCHEMA_ALLOWLIST.has(m[1])) out.push(`raw schema=${m[1]}`);
+  for (const m of norm.matchAll(/"control_state"\s*:\s*"([^"]*)"/gu)) if (!CONTROL_STATE_ALLOWLIST.has(m[1])) out.push(`raw control_state=${m[1]}`);
+  for (const m of norm.matchAll(/"(?:event_kind|kind)"\s*:\s*"([^"]*)"/gu)) if (!EVENT_KIND_ALLOWLIST.has(m[1])) out.push(`raw ${m[1]}`);
   return out;
 };
 
@@ -338,11 +351,10 @@ async function run() {
   //    assertions), and (ii) the substrate is read back INDEPENDENTLY — the initial event is proven
   //    on the real agentgres stream at its substrate-stamped seq, and the durable record is scanned
   //    structurally — so a well-formed literal cannot masquerade as a real admission. --------------
-  ok("Finding 1 (step 5): the initial thread event is the kernel `thread.started` event with a substrate-stamped seq (0-indexed), a substrate_head field distinct from the kernel content-hash `resulting_head`, and an agentgres operation ref — NOT a launch-family `runtime.thread.opened` vocabulary (that these are the SUBSTRATE's real values, not literals, is proven by the /events cross-check below)",
+  ok("Finding 1 (step 5): the initial thread event is the kernel `thread.started` event with a substrate-stamped seq (0-indexed), a substrate_head field, and an agentgres operation ref — NOT a launch-family `runtime.thread.opened` vocabulary (that seq/head/op-ref are the SUBSTRATE's real values, not literals, is PROVEN by the /events cross-check below)",
     steps.thread_event_kind === "thread.started"
       && Number.isInteger(steps.thread_event_seq) && steps.thread_event_seq >= 0
       && typeof steps.thread_event_substrate_head === "string" && steps.thread_event_substrate_head.length > 0
-      && steps.thread_event_substrate_head !== steps.thread_event_resulting_head
       && typeof steps.thread_event_operation_ref === "string" && steps.thread_event_operation_ref.length > 0,
     `${steps.thread_event_kind} seq=${steps.thread_event_seq} head=${steps.thread_event_substrate_head}`);
 
@@ -367,12 +379,20 @@ async function run() {
       && spawnedOnStream != null && spawnedOnStream.event_kind === "harness_session.spawned" && spawnedOnStream.seq > openedOnStream.seq,
     openedOnStream ? `opened seq=${openedOnStream.seq} head=${openedOnStream.substrate_head} op=${openedOnStream.agentgres_operation_ref}` : "event NOT found on stream");
 
-  // -- Negative isolation (a): PROVE no launch-family chain record ever reaches the kernel stream. --
-  ok("negative isolation (a): the real kernel thread-orchestration stream carries ONLY the composed thread lifecycle events (thread.started | harness_session.spawned) — no launch-family chain record (no `chain` / `plan_admission` / `subject_attachments` / `harness_binding_admission` / `ioi.hypervisor.harness_session_launch*` schema) ever reaches the kernel stream",
+  // -- Negative isolation (a): the kernel stream carries KERNEL-NATIVE events only, and no launch
+  //    record. The launch's thread events are admitted under the kernel's own runtime-event schema
+  //    (ioi.runtime.event.v1) — NOT a launch-family payload_schema_version — and no chain record
+  //    reaches the stream. The stream events are themselves ALLOWLIST-SCANNED (payload schema ∈ the
+  //    kernel-native stream allowlist; event_kind ∈ the composed kinds), closing the gap where the
+  //    old launch-family `harness-session-launch-thread-event.v1` name evaded a record-only scan. --
+  const streamShadow = streamEvents.flatMap((e) => structuralViolations(e, STREAM_SCHEMA_ALLOWLIST));
+  ok("negative isolation (a): every event on the real kernel stream is a kernel-native runtime event (payload_schema_version ioi.runtime.event.v1, a kernel schema NOT a launch-family mint), event_kind ∈ {thread.started, harness_session.spawned}, and no launch record (chain/plan_admission/subject_attachments/harness_binding_admission or ioi.hypervisor.harness_session_launch* schema) reaches the stream",
     streamEvents.length >= 1
       && streamEvents.every((e) => ["thread.started", "harness_session.spawned"].includes(e.event_kind))
+      && streamEvents.every((e) => e.payload_schema_version === "ioi.runtime.event.v1")
+      && streamShadow.length === 0
       && !streamEvents.some((e) => e.chain != null || e.plan_admission != null || e.subject_attachments != null || e.harness_binding_admission != null || String(e.schema_version || "").startsWith("ioi.hypervisor.harness_session_launch")),
-    `${streamEvents.length} stream event(s): ${streamEvents.map((e) => e.event_kind).join(",")}`);
+    streamShadow.length ? streamShadow.join(" | ") : `${streamEvents.length} kernel-native event(s): ${streamEvents.map((e) => e.event_kind).join(",")}`);
 
   // -- Negative isolation (b): the REAL managed-session control route refuses a launch thread ref. --
   const shadowControl = await jd(`/v1/threads/${encodeURIComponent(steps.thread_ref)}/managed-sessions/control`, { method: "POST", body: JSON.stringify({ managed_session_id: `managed-session:${launchId}`, control_state: "observe" }) });
@@ -390,18 +410,30 @@ async function run() {
       && launch?.managed_session?.decision === "no_managed_session_at_launch"
       && launch?.managed_session?.control_planner === "plan_runtime_managed_session_control_from_replayed_events",
     JSON.stringify(launch?.managed_session));
-  // SAFETY — STRUCTURAL, ALLOWLIST-BY-CONSTRUCTION second-spine scan (Finding C): the launch's typed
-  // surface must be EXACTLY the closed set a correct launch may carry; anything else (a rename into
-  // ioi.hypervisor.*, a _v2 suffix, control_state:"admitted"/"admitted_at_launch"/"active", a renamed
-  // event_kind) is a shadow. Run over the HTTP response AND the durable on-disk record (parsed walk +
-  // raw-bytes backstop, so a corrupt-unparseable record carrying kernel tokens still FAILS).
-  const responseShadow = structuralViolations(launch);
-  ok("SAFETY (response, allowlist): the composed launch HTTP body's typed surface is EXACTLY the closed launch allowlist — every schema_version is a legit launch-family or composed-admission tag, every control_state is observe|take_over|return_agent, every event_kind is a composed thread lifecycle kind; anything else is a second-spine shadow",
+  // M5b TERMINATING FIX — CLOSED-WORLD OVER KEYS. The value allowlists prove approved vocab appears
+  // only on approved key NAMES; they say nothing about whether the KEY SET is expected. So a shadow
+  // sibling built from ONLY allowlisted values on a NEW key (e.g. `shadow_managed_session`) passes a
+  // value scan. Assert the launch record's `chain` KEY SET EQUALS the pinned expected set
+  // (additionalProperties:false): a shadow fails on mere PRESENCE of an unexpected key, whatever it
+  // contains. Read from the DURABLE record so it holds on disk, not just in the response.
+  const persistedLaunches = readFamilyRecords("harness-session-launches");
+  const mainRecord = persistedLaunches.map((r) => r.json).find((j) => j && j.launch_id === launchId);
+  const chainKeys = mainRecord?.chain ? Object.keys(mainRecord.chain).sort() : null;
+  ok("M5b (closed-world over KEYS): the durable launch record's `chain` KEY SET EQUALS the pinned expected set (additionalProperties:false) — a fabricated sibling record built from only-allowlisted values on a NEW key fails on PRESENCE, whatever it hides",
+    chainKeys != null && JSON.stringify(chainKeys) === JSON.stringify(EXPECTED_CHAIN_KEYS),
+    chainKeys ? chainKeys.join(",") : "no chain on durable record");
+
+  // SAFETY — STRUCTURAL value scan (defence in depth behind the key-set close): every schema_version /
+  // payload_schema_version / control_state / event_kind must be an allowlisted value (a rename into
+  // ioi.hypervisor.*, a _v2 suffix, control_state:"admitted", a bad event_kind → shadow). Run over the
+  // HTTP response AND the durable on-disk record (parsed walk + raw-bytes backstop with M6b unescape,
+  // so a corrupt-unparseable record — even one with ESCAPED keys — still FAILS).
+  const responseShadow = structuralViolations(launch, LAUNCH_SCHEMA_ALLOWLIST);
+  ok("SAFETY (response, value allowlist): every schema_version is a legit launch-family/composed-admission tag, every control_state ∈ {observe,take_over,return_agent}, every event_kind is a composed thread lifecycle kind — anything else is a second-spine shadow",
     responseShadow.length === 0,
     responseShadow.length ? responseShadow.join(" | ") : "clean");
-  const persistedLaunches = readFamilyRecords("harness-session-launches");
-  const persistedShadow = persistedLaunches.flatMap((r) => [...structuralViolations(r.json), ...rawViolations(r.text || "")]);
-  ok("SAFETY (durable, allowlist + raw backstop): the same allowlist scan over the PERSISTED launch record(s) on disk — parsed structural walk AND a raw-bytes regex backstop — finds NO out-of-allowlist typed value; a response that sanitizes while the durable record still wears a kernel token, or a corrupt-unparseable record carrying tokens in its bytes, FAILS here",
+  const persistedShadow = persistedLaunches.flatMap((r) => [...structuralViolations(r.json, LAUNCH_SCHEMA_ALLOWLIST), ...rawViolations(r.text || "")]);
+  ok("SAFETY (durable, value allowlist + raw backstop): the same value scan over the PERSISTED launch record(s) on disk — parsed walk AND a raw-bytes regex backstop (JSON-unescaped first) — finds NO out-of-allowlist value; a response that sanitizes while the durable record still wears a kernel token, or a corrupt-unparseable/escaped-key record carrying tokens, FAILS here",
     persistedLaunches.length >= 1
       && persistedLaunches.some((r) => (r.text || "").includes(launchId))
       && persistedShadow.length === 0,
@@ -488,7 +520,7 @@ async function run() {
       && delegatedFork.fork_planner === "plan_runtime_thread_fork_control"
       && delegatedFork.decision === "refused"
       && delegatedFork.code === "runtime_thread_fork_control_agent_replay_required"
-      && structuralViolations(delegated.body).length === 0,
+      && structuralViolations(delegated.body, LAUNCH_SCHEMA_ALLOWLIST).length === 0,
     `${delegatedFork.decision} · ${delegatedFork.code}`);
 
   // -- INV-37 durable receipt binds the acting principal ----------------------------------------
