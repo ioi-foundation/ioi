@@ -538,6 +538,14 @@ lineage, effect flow, pending approvals, typed refusals, and the receipt
 rail, rendered over the same durable daemon/Agentgres-owned records the
 owner surfaces render
 ([`core-clients-surfaces.md`](../../components/hypervisor/core-clients-surfaces.md)).
+Org-scoped sharing (declared 2026-08-12, target): between private
+registration and public listing sits the org/team lane — a registered Agent
+shared to an organization surface over the existing `org://` tenancy,
+registration, and lease owners. Fork-on-share preserves registration lineage;
+sharing is revocable and admin-gated; a share grants USE of the registration
+and never widens the authority any run resolves. Public listing, benchmarks,
+and commercial carriage remain the marketplace's separate lifecycle.
+
 The console projects that truth; it never owns it — map states grant
 nothing, and a quiet node never implies a finished agent.
 

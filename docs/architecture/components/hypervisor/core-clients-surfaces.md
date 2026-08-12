@@ -541,6 +541,45 @@ economics evidence fields (token mix, attempts, latency, outcomes) once
 those fields are collected. This is a pointer to the standing economics
 join, not a claim that the fields exist today.
 
+### Memory Inspection Surface (declared 2026-08-12, fresh-lens E9)
+
+Every agent response and action can disclose which memory fed it — a
+provenance affordance on the response itself — and the memory panel lists
+entries whose edit and delete are RECEIPTED mutations over the existing
+approved-memory/MemorySpace owners, with per-agent scoping visible and
+portability tied to the existing vault target. The declared differentiator is
+not the list; it is that memory changes are receipted, scoped, and leave with
+the owner.
+
+### Org-Scoped Agent Sharing (declared 2026-08-12, fresh-lens E10)
+
+The declared lane between private registration and marketplace listing:
+share a registered Agent to an org/team surface over the existing `org://`
+tenancy, registration, and lease owners — fork-on-share preserves lineage,
+sharing is revocable and admin-gated, and sharing grants USE, never widened
+authority. The detailed carriage lives with the
+[worker marketplace](../../domains/aiagent/worker-marketplace.md).
+
+### Teach-By-Demonstration As A Skill Input (declared 2026-08-12, fresh-lens E11)
+
+A recorded demonstration may become a DRAFT Skill: candidate-never-authority,
+quarantined capture, and replay that executes only through the
+effect-admission boundary — a replayed demonstration acquires no ambient
+authority from having been performed by the owner. The definition-side target
+lives with the
+[reusable-work definitions owner](../../foundations/objects/reusable-work-definitions.md).
+
+### Consumer Surface Mapping
+
+The E-deltas above bind to EXISTING consumer surfaces, not empty ground: the
+ioi.ai application (QM) already ships the consumer tier — concurrent session
+panes, mid-run steering input, Memory and Keychain as first-class navigation,
+multiplayer scopes across Slack and web, and a multi-harness core — and the
+declared semantics here (receipted memory, boundary rendering, the Agent Map,
+org sharing) land on those surfaces as each rebinds to kernel truth under the
+standing QM-rebind direction. The declarations never fork a parallel consumer
+surface to host them.
+
 ### Nonclaims
 
 - No usability, adoption, retention, or business uplift is asserted; a
