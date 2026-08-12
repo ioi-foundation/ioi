@@ -368,6 +368,139 @@ the pre-W3 subset only; the session-write identity FINDING above (third of
 its class) and the launch-chain absence are the pulls the W3.1 packet owns.
 
 
+### Journey verification V (2026-08-11, next-legs V run — ACC-G journey, session identity, /operations, rule-H hardening, W3.1 launch chain)
+
+The W3.1 launch chain is **composed, not shadowed** — a typed Launch producer
+(`POST /v1/hypervisor/harness-session-launches` + `GET :id`, `:id/events`,
+`:id/stop`, `:id/archive`) composes the real kernel planners into ONE
+identity-first chain over ONE owned Session (no second spine), reusing the
+session-write identity seam below. It got there in two cuts under adversarial
+cross-verification: #252 first landed a launch producer that was **defective** —
+independent from-source review caught it after merge minting records that WORE
+kernel schema names instead of composing the planners (a
+`ioi.runtime.thread_fork_control.v1` record, a `…managed_session_control.v1`
+with the invalid `control_state: "admitted"`, and a parallel `thread:launch-*` /
+`runtime.thread.opened` event vocabulary never admitted to the kernel stream),
+plus a harness binding that hand-pinned the registry-absent
+`default_harness_profile` with no revision and a hand-asserted
+`daemon_verified`. That is exactly what THE ONE STRUCTURAL LAW and the block-IV
+`HarnessSessionExecutionChain` absence forbade. #253 **repaired it**: step 5
+routes through `admit_runtime_event_onto_stream`/`admit_and_persist_event` onto
+the real kernel event stream (kernel-native `ioi.runtime.event.v1`, no
+launch-family mint on the stream); step 6 through the fork kernel planner
+`plan_runtime_thread_fork_control` (its first daemon routing, refusal ladder
+intact); step 7 through `plan_runtime_managed_session_control_from_replayed_events`;
+the binding names the real seeded `hp_hypervisor_worker` profile with its exact
+frozen revision and rechecks model-route availability at the launch boundary.
+
+**Verified-good and standing** (independently re-run from source): identity-first
+rule E at every boundary (401 before any record load), INV-37 principal-bound
+receipts, projection-time stamps, expected-head CAS on stop/archive, idempotent
+replay, and **live recovery/replay** — `check:launch-chain` kills the daemon
+(SIGTERM), re-spawns it, and asserts the launch projection reads back
+byte-identical on refs + head + receipts + the materialized subject attachment,
+which survives restart. The Work and Home cockpit slices flip their W3 absences
+to this producer (`check:work-cockpit` 51/51, `check:home-cockpit` 40/40).
+
+**The gate earned its name over five adversarial from-source rounds.** #252's
+defect proved that a green launch-chain verifier does not certify the chain
+composed the kernel rather than shadowing it — so `check:launch-chain` was
+hardened until it can FAIL on a fabricated second spine at every level and
+lifecycle stage: value scans over response + durable record + a JSON-unescaped
+raw-bytes backstop; a `/events` substrate readback that cross-checks the head and
+operation-ref (no self-reported literal accepted); a real recompute-and-compare
+of the frozen harness-profile revision; and closed-world key-set pins
+(`additionalProperties:false`) on the launch record's top-level set (state-aware
+across produce/stop/archive), its `chain`, and the `fork` / `managed_session`
+sub-objects — with step provenance (`decision` / `control_planner`) read from the
+DURABLE record (recovery truth) and the response asserted equal to it. Ten
+distinct injection mutations go RED, each firing its intended assertion; a
+legitimate launch passes across the full produce→stop→archive lifecycle. The
+daemon repair was frozen and unbroken from the first repair cut; every later
+round hardened only the verifier.
+
+**Named residuals (tracked, not silent):** step 7 is a real-planner composition
+with a typed absence at launch — a fresh launch has no managed session to control
+(valid states `observe|take_over|return_agent` named), so it is a NAMED RESIDUAL,
+not folded into a clean complete; the fork-planner delegation **SUCCESS** path is
+exercised by no assertion (only the refusal path is), and is where a future second
+spine would most plausibly reappear; and the launch-chain key-set pins bind only
+the run's own `launch_id`, so an additional launch-family file under a different
+id is unseen by the gate (a future hardening scans all launch-family records).
+Live model-driven token execution behind `/sessions/:id/execute` remains the
+separate **W3.2** dependency. **SURF-work and SURF-home REMAIN OPEN** on
+W3.2/W3.3/`/operations` — W3.1 composed is not a surface acceptance. (Verification
+credit: an independent session re-ran the chain and read the composition at the
+bytes across all five rounds; the orchestrator's first pass verified recovery and
+identity-gating but not composition-vs-second-spine, and each round the peer's
+mutation tests caught a gate that was green-but-decorative until it wasn't.)
+
+**Session identity — the third W1.1/G-2 finding is CLOSED (#250).** The session
+family's four write verbs now resolve identity FIRST
+(`session_request_write_owner` / `load_owned_session_record_for_write`, rule E:
+typed `401 request_principal_required` before any record load, no 404 oracle)
+under every posture including loopback; reads keep the house norm; provision/
+teardown/port-revoke receipts and their WAL pending anchors bind
+`acting_principal_ref` (INV-37, replay-honest); the daemon's own sessionless
+orchestration crosses via the per-boot internal-dispatch token, and an
+authenticated launch binds the real principal (`check:work-cockpit` FINDING rows
+replaced by hard gate assertions). The finding-hunt that located this also
+established a **program-scale** conclusion, held in the private program record
+and deliberately not enumerated here: the identity-envelope class is not a
+per-surface tail, and a meaningful share of governed-write handlers write through
+helper/validation seams the census could not previously see. That conclusion is
+tracked as an embargoed hardening backlog, not a public map; Leg 2a below begins
+closing the census blindness. (A first draft of the #250 change description
+over-disclosed the unremediated surface on the public PR; it was redacted the
+same day, owner-ruled redaction sufficient given loopback-scoped severity and no
+secret exposure. Tracked canon does not restate the enumeration.)
+
+**Rule-H census hardening (#251).** `check:admission-evidence` rule H censused
+mutating handlers by a fixed set of write-function names, so a handler that
+writes only through a named helper seam (e.g. `persist_session_lifecycle_stage`)
+was invisible to the per-handler scan — the same blindness that hid the session
+family. The `MUTATION` matcher now recognizes the helper write seams
+(`persist_*` / `save_*` / `*_write` wrappers that carry a durable write); the
+newly-visible handlers are pinned in the H baseline with the standing neutral
+disposition (the middleware-covered legacy surface, each awaiting its W1.2-class
+handler-level reading — a census entry, never a per-handler verdict); H-census
+is 214/214 and the ratchet still bites (red on an unpinned helper-seam handler,
+green once pinned). The #250 session handlers do NOT surface — their gate is now
+ratchet-visible, proving the fix.
+
+**`/operations` partial pre-W3 cockpit slice (#249).** The canonical
+`/operations` mount lands read-first with zero actions over eleven per-family
+runtime/failover reads that exist today (unknown-not-zero idiom, typed
+daemon-outage page); actions requiring fault-injection/remediation/failover
+execution are typed `disabled-named-gap` against their owning units (W3.2/W3.3);
+three rollup routes are pinned route-missing. The Home slice's Operations gap is
+re-ruled in the same cut: the `operations-mount` `disabled-named-gap` is deleted,
+Home's Operations-targeted links resolve live, and `check:home-cockpit` asserts
+the live links and the real mount. `check:operations-cockpit` 36/36.
+**SURF-operations REMAINS OPEN** (W3.2/W3.3 remediation + the scheduler seed
+residual).
+
+**ACC-G acceptance journey authored.** The six surfaces that mapped to no
+journey — Home, Projects, Settings, Automations, Developer Workspace, Developer
+Console — now have a written journey (`acceptance/journey-g-operator-workday.md`,
+one operator workday across six independently-owned planes). Its Home and
+Developer-Workspace legs demand the launch chain explicitly; W3.1 was built
+against them. The gate stays `specified` and honestly blocked on its surfaces —
+authored, not runnable. The one contested ownership question it touches (OQ-2
+machinery) is recorded with both citations and no side picked.
+
+Sixteen journey/cockpit verifiers now gate CI (adding `check:launch-chain` and
+`check:operations-cockpit`). Canonical mounts live: ontology, governance,
+projects(saga), studio, packages, automations, applications, systems, work,
+home, operations.
+
+### Rulings filed 2026-08-11 (next-legs V run; owner-ruled, owner-reversible)
+
+| Delta | Evidence | Disposition |
+|---|---|---|
+| **Parity-lane cutover visual evidence: state-matched seed-versus-successor pair.** Whether a parity-lane cutover can textually pass while shipping a functionally-equivalent but visibly degraded reconstruction. | Guide (gitignored): `program/definition-of-done.md` G-7 2026-08-11 CUTOVER-VISUAL-PAIR amendment; `program/manifest.v1.json` W6.1 acceptance (artifact named in the release-ledger evidence list); `scripts/implementation-program.mjs` CUTOVER-VISUAL-PAIR wording-presence rule (proven RED with the clause absent, GREEN with it present). Tracked: `apps/hypervisor/seed-ux-provenance.v1.json` + `verify-hypervisor-seed-provenance.mjs` (provenance-qualified seed visual corpus, `greenfield-authorized-non-parity` typing, `seed_role` kind⇒role lock); the standing isolated-runtime capture recipe (shared-daemon capture drifts). | **Ruled (owner, owner-reversible).** A parity-lane cutover record is incomplete without a typed, content-addressed, state-matched seed-versus-successor visual pair — seed side from the provenance-qualified seed visual corpus, successor side captured against the successor build via the isolated daemon+serve recipe at the same established interaction state; live-drift captures are inadmissible. The pair is owner-judged evidence only: never an automated pixel-diff gate, no numeric threshold — a passing pixel certificate still grants nothing. N/A for the five `greenfield-authorized-non-parity` surfaces (their record already types non-parity); the seed-role ruling is unchanged. **Deferral condition, filed by name:** the capture/compare mechanization lands with the FIRST parity-lane cutover packet, not before; until then the requirement binds the record's shape and no earlier unit may claim the pair satisfied or waived. |
+
+
 ## Related Canon
 
 - [`implementation-matrix.md`](./implementation-matrix.md) — per-concept durable-form index (the wider matrix).
