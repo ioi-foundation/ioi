@@ -236,6 +236,7 @@ jobs:
           npm run check:home-cockpit --workspace=@ioi/hypervisor-app
           npm run check:operations-cockpit --workspace=@ioi/hypervisor-app
           npm run check:projects-saga --workspace=@ioi/hypervisor-app
+          npm run check:provider-transport --workspace=@ioi/hypervisor-app
 
       # The floor the verifier family never had. Every verifier above is pinned at the number of
       # assertions it actually EXECUTED; deleting assertions from any of them was silently green

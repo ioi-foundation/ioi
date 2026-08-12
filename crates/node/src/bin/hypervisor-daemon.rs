@@ -142,6 +142,8 @@ mod policy_bound_data_view_routes;
 mod portal_session_exchange_routes;
 #[path = "hypervisor_daemon_routes/provider_routes.rs"]
 mod provider_routes;
+#[path = "hypervisor_daemon_routes/provider_transport.rs"]
+mod provider_transport;
 #[path = "hypervisor_daemon_routes/recipe_routes.rs"]
 mod recipe_routes;
 #[path = "hypervisor_daemon_routes/resource_capability_offer_routes.rs"]
@@ -2394,6 +2396,16 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/model-routes/:id/probe",
             post(model_routes::handle_model_route_probe),
+        )
+        // W3.2 first cut: the first daemon-issued model call whose endpoint comes from the
+        // REGISTRY rather than the boot-time environment singleton.
+        .route(
+            "/v1/hypervisor/model-routes/:id/invoke",
+            post(provider_transport::handle_model_route_invoke),
+        )
+        .route(
+            "/v1/hypervisor/model-invocations/:id",
+            get(provider_transport::handle_model_invocation_get),
         )
         .route(
             "/v1/hypervisor/model-routes/:id/enable",

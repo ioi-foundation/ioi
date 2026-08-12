@@ -25,6 +25,8 @@
     "check:home-cockpit": "node scripts/verify-hypervisor-home-cockpit.mjs",
     "check:operations-cockpit": "node scripts/verify-hypervisor-operations-cockpit.mjs",
     "check:projects-saga": "node scripts/verify-hypervisor-projects-saga.mjs",
+    "check:provider-transport": "node scripts/verify-hypervisor-provider-transport.mjs",
+    "check:provider-transport:live": "node scripts/verify-hypervisor-provider-transport.mjs --live",
     "check:verifier-floors": "node scripts/check-verifier-floors.mjs",
     "check:ported-seed:live": "node scripts/verify-hypervisor-ported-seed-invariant.mjs --live",
     "check:owned-product-ui": "node scripts/verify-owned-product-ui.mjs",
