@@ -65,8 +65,9 @@ IOI builds for Web4 — its working definition of the internet's action layer:
 
 > **Read + Write + Own + Act, with cryptographic determinism.**
 
-(A reference-implementation designation is a written contract no release has
-yet been designated under.)
+Web4 is how this repository uses the term; it is not a claim to a standard
+IOI governs, and no release here has been designated a reference
+implementation of it.
 
 <p align="center">
   <img src="docs/assets/readme-web4-equation.svg" alt="Web4 equals read plus write plus own plus act with cryptographic determinism." width="100%">
@@ -96,7 +97,7 @@ settlement.
   product and adoption surfaces:
   - **Hypervisor App / Web:** first-class operator clients over Hypervisor
     Core.
-  - **Hypervisor Workbench:** the code/systems/workspace surface inside
+  - **Developer Workspace:** the code/systems/workspace surface inside
     Hypervisor clients; editor hosts such as VS Code, Cursor, Windsurf,
     JetBrains, browser IDEs, and terminals are adapter targets, not product
     identity.
@@ -114,10 +115,10 @@ settlement.
   CAS/IPFS hold encrypted payload bytes behind Agentgres-governed artifact refs.
 - **IOI L1** settles public rights, registries, roots, bonds, disputes,
   governance, and economic commitments.
-- **Clients and surfaces** compose and inspect work: Hypervisor App/Web,
-  CLI/headless with optional TUI presentation, SDK/ADK, Workbench, Foundry,
-  provider/environment views, workflow compositor, harness adapters, and
-  benchmarks.
+- **Clients and surfaces** compose and inspect work: Hypervisor App/Web, the
+  ioi.ai agent harness, CLI/headless with optional TUI presentation, SDK/ADK,
+  Developer Workspace, Foundry, provider/environment views, workflow compositor, and
+  harness adapters.
 
 The doctrine is simple:
 
@@ -175,7 +176,7 @@ fine-tuning. Training improves capability; authority grants power.
 | Surface | Role |
 |---|---|
 | **Hypervisor** | Runtime suite for private workspaces, operator control, workflow composition, and Worker Training. |
-| **ioi.ai** | Lightweight control plane for accounts, devices, restore, publishing, sync metadata, and remote-runtime access. |
+| **ioi.ai** | Intent and orchestration above governed execution: it asks and conducts subscribed Goal Spaces, coordinates single-path work or an OutcomeRoom, and hosts the everyday agent harness across web and Slack. It never owns execution, authority, or truth. |
 | **aiagent.xyz** | Worker marketplace for manifests, benchmark profiles, Sparse Worker Categories, managed instances, installs, and routing. |
 | **sas.xyz** | Outcome marketplace for Service-as-Software contracts, including Worker Training contracts and worker-composed services. |
 | **developers.ioi.ai** | Developer surface for docs, SDKs, references, guides, and integration paths. |
@@ -204,9 +205,18 @@ Stop renting tools. Hire workers.
   receipted domain truth.
 - **Settlement is last, not first.** IOI L1 anchors the commitments that need
   public trust. The runtime stays edge-in.
-- **AFT (Asymptote Fault Tolerance).** Explores omission-dominant ordering,
-  deterministic collapse, and proof-carrying continuation to scale Byzantine
-  agreement beyond classical thresholds under high-assurance profiles.
+
+## Research
+
+Alongside the runtime, this repository carries active research into consensus,
+cryptography, privacy-preserving execution, and distributed autonomous
+systems. Research lives behind its own gates and grants nothing to the runtime
+until an owner admits it.
+
+**AFT (Asymptote Fault Tolerance)** explores omission-dominant ordering,
+deterministic collapse, and proof-carrying continuation to scale Byzantine
+agreement beyond classical thresholds under high-assurance profiles. It is
+research, not a shipped guarantee.
 
 ## Repository Map
 
@@ -215,10 +225,12 @@ Stop renting tools. Hire workers.
 | [`crates/`](crates) | Rust runtime, consensus, execution, state, storage, services, drivers, CLI, and IPC. |
 | [`packages/agent-sdk`](packages/agent-sdk) | Developer SDK over the public runtime substrate. |
 | [`crates/node`](crates/node) | Rust hypervisor-daemon: the runtime API surface (threads/agents/runs/tools/MCP/model-mount) the app and SDK run against. |
-| [`packages/hypervisor-workbench`](packages/hypervisor-workbench) | Hypervisor Workbench, workflow-composition, and code/systems projection package over shared contracts. |
-| [`packages/workspace-substrate`](packages/workspace-substrate) | Shared workspace substrate for Hypervisor App/Web and Workbench surfaces. |
+| [`packages/hypervisor-workbench`](packages/hypervisor-workbench) | Developer Workspace (package path keeps the former Workbench name), workflow-composition, and code/systems projection package over shared contracts. |
+| [`packages/workspace-substrate`](packages/workspace-substrate) | Shared workspace substrate for Hypervisor App/Web and Developer Workspace surfaces. |
 | [`packages/hypervisor-adapter-targets`](packages/hypervisor-adapter-targets) | Adapter target modules and host profiles (current: VS Code-family `code-editors/vscode-extension`), the editor-target registry (`editor-targets.manifest.json`), and ignored local host/build artifacts; reusable integration source, not product identity or runtime authority. |
-| [`apps/hypervisor`](apps/hypervisor) | Hypervisor App/Web client shell for sessions, projects, missions, Workbench, Foundry, provider/environment views, models, privacy, approvals, receipts, and runtime UX. |
+| [`apps/hypervisor`](apps/hypervisor) | Hypervisor App/Web client shell for sessions, projects, Work, Developer Workspace, Foundry, provider/environment views, models, privacy, approvals, receipts, and runtime UX. |
+| [`apps/hypervisor-web`](apps/hypervisor-web) | Hosted Hypervisor web surface over the same shared workspace substrate. |
+| [`apps/ioi-ai`](apps/ioi-ai) | ioi.ai agent harness: personal and shared workspaces, sessions, files, crons, keychain, memory, and skills, in the browser and in Slack. |
 | [`apps/aiagent-xyz`](apps/aiagent-xyz) | Marketplace for bounded workers, manifests, benchmark profiles, managed instances, and autonomous capabilities. |
 | [`apps/sas-xyz`](apps/sas-xyz) | Marketplace for governed autonomous service outcomes — every evidence item scoped to its named proposition — and Worker Training contracts. |
 | [`apps/developers-ioi-ai`](apps/developers-ioi-ai) | Developer-facing documentation and onboarding surface. |
@@ -257,32 +269,39 @@ Desktop builds require the usual Electron system dependencies for your platform.
 
 ## Read Next
 
+Start with the index; it routes to every owner and settles disagreements
+between documents.
+
 - [`docs/architecture/README.md`](docs/architecture/README.md) - architecture navigation and source-of-authority index.
-- [`docs/architecture/foundations/web4-and-ioi-stack.md`](docs/architecture/foundations/web4-and-ioi-stack.md) - the canonical Web4 definition.
-- [`docs/architecture/foundations/verifiable-bounded-agency.md`](docs/architecture/foundations/verifiable-bounded-agency.md) - bounded agency and execution-boundary alignment.
-- [`docs/architecture/foundations/mixture-of-workers.md`](docs/architecture/foundations/mixture-of-workers.md) - MoW labor-routing doctrine.
-- [`docs/architecture/foundations/worker-training-lifecycle.md`](docs/architecture/foundations/worker-training-lifecycle.md) - Worker Training lifecycle and Hypervisor Foundry doctrine.
-- [`docs/architecture/foundations/domain-ontologies-and-data-recipes.md`](docs/architecture/foundations/domain-ontologies-and-data-recipes.md) - semantic data plane.
-- [`docs/architecture/components/daemon-runtime/doctrine.md`](docs/architecture/components/daemon-runtime/doctrine.md) - daemon, CLI/TUI, and operator-surface boundaries.
-- [`docs/architecture/components/agentgres/doctrine.md`](docs/architecture/components/agentgres/doctrine.md) - Agentgres and canonical operational truth.
-- [`docs/architecture/components/wallet-network/doctrine.md`](docs/architecture/components/wallet-network/doctrine.md) - wallet.network authority plane.
-- [`docs/architecture/domains/aiagent/worker-marketplace.md`](docs/architecture/domains/aiagent/worker-marketplace.md) - aiagent.xyz worker marketplace.
-- [`docs/architecture/domains/sas/service-marketplace.md`](docs/architecture/domains/sas/service-marketplace.md) - sas.xyz Service-as-Software marketplace.
+
+Then, by question:
+
+| If you want to know | Read |
+|---|---|
+| What Web4 means here | [`foundations/web4-and-ioi-stack.md`](docs/architecture/foundations/web4-and-ioi-stack.md) |
+| Why the boundary is deterministic | [`foundations/verifiable-bounded-agency.md`](docs/architecture/foundations/verifiable-bounded-agency.md) |
+| How work is routed across workers | [`foundations/mixture-of-workers.md`](docs/architecture/foundations/mixture-of-workers.md) |
+| How a worker is trained and delivered | [`foundations/worker-training-lifecycle.md`](docs/architecture/foundations/worker-training-lifecycle.md) |
+| What the daemon owns | [`components/daemon-runtime/doctrine.md`](docs/architecture/components/daemon-runtime/doctrine.md) |
+| Where authority comes from | [`components/wallet-network/doctrine.md`](docs/architecture/components/wallet-network/doctrine.md) |
+| Where operational truth lives | [`components/agentgres/doctrine.md`](docs/architecture/components/agentgres/doctrine.md) |
+| What the product surfaces sell | [`domains/aiagent/worker-marketplace.md`](docs/architecture/domains/aiagent/worker-marketplace.md) · [`domains/sas/service-marketplace.md`](docs/architecture/domains/sas/service-marketplace.md) |
 
 ## Status
 
 IOI is active alpha research and engineering. Some surfaces are
 production-shaped; others are research prototypes or environment-dependent.
 Per-claim maturity is typed where each claim's owner lives, in
-[`docs/architecture`](docs/architecture) — the README never outruns it. The
-architecture is intentionally strict:
-
-> **Hypervisor Daemon executes. wallet.network authorizes. Agentgres remembers.
-> Storage backends preserve bytes. MoW routes. IOI L1 settles. Clients compose.
-> Evidence proves.**
+[`docs/architecture`](docs/architecture) — every canonical document carries an
+`Implementation status:` header, and a gap is written down as a named absence
+rather than left to be inferred. The README never outruns those headers.
 
 ## License
 
-Kernel/runtime components are governed by [`LICENSE-BBSL`](LICENSE-BBSL) unless
-a crate, package, or file declares otherwise. Some interface surfaces use
-Apache-2.0 metadata; always check the package manifest for the exact boundary.
+The boundary is split by layer, not by repository: **interface surfaces you
+build against — SDKs, contracts, schemas, and integration packages — carry
+Apache-2.0 metadata, while the kernel and runtime are governed by**
+[`LICENSE-BBSL`](LICENSE-BBSL). A crate, package, or file may declare
+otherwise, so check the package manifest for the exact boundary;
+[`LICENSE-MANIFEST.json`](LICENSE-MANIFEST.json) records which class each path
+falls in.
