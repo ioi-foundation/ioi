@@ -102,6 +102,13 @@
       "source": "apps/hypervisor/scripts/verify-hypervisor-projects-saga.mjs",
       "runtime_assertions": 11,
       "assertion_names_sha256": "9816111389711e17fd8a94074a18eaf6d5cd94edf5e4f1ba75d71e5d31be42b3"
+    },
+    {
+      "id": "provider-transport",
+      "npm_script": "check:provider-transport",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-provider-transport.mjs",
+      "runtime_assertions": 13,
+      "assertion_names_sha256": "7a25506c7e2ea5ec9b1b2c7098c317288e6a8bc82ade9df0fc67857d7660d4fa"
     }
   ],
   "excluded": [
