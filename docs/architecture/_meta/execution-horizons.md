@@ -4,7 +4,7 @@ Status: canonical architecture note.
 Canonical owner: this file for the horizon framing that separates the launch wedge from long-horizon breadth without narrowing canon.
 Supersedes: readings of the canon that mistake speculative breadth for current shipped surface, or that treat horizon labels as scope deletion.
 Superseded by: none.
-Last alignment pass: 2026-07-29.
+Last alignment pass: 2026-08-12.
 Doctrine status: canonical
 Implementation status: mixed (this note classifies; subject owners carry per-file status)
 Last implementation audit: 2026-07-05
@@ -303,8 +303,8 @@ sovereign-local-completeness runner and isolated-egress harness, and the
 discipline to refuse partial credit — `incomplete` is not a weaker pass.
 
 What it unlocks, in order: the second proof is Horizon 2A continuity across
-two failure domains (same machinery, one more node); the third is Horizon 2B
-useful distributed work; Horizon 3's two-sovereign-DAS AIIP proof remains the
+two failure domains (same machinery, one more node); the third is Horizon 2B's
+core profile of useful distributed digital work; Horizon 3's two-sovereign-DAS AIIP proof remains the
 minimum credible Internet-of-Intelligence demonstration and inherits two
 already-proven sovereign endpoints instead of proving three new things at
 once.
@@ -502,7 +502,14 @@ can orchestrate a useful distributed autonomous system.
 ### Horizon 2B — useful same-system distributed work
 
 Run a non-trivial GoalRun/workload whose complementary roles execute across the admitted
-nodes while remaining one system:
+nodes while remaining one system. The horizon carries two independently
+scheduled profiles: **H2B-core** proves distributed digital work with
+continuity and failure handling and is what Horizon 3 inherits; **H2B-embodied**
+proves the physical/HIL/fleet profile, may run later or in parallel, and gates
+embodied promotion only. The two-sovereign AIIP proof needs distributed digital
+continuity, not fleet physicality — bundling them gated Horizon 3 falsely.
+
+#### H2B-core — distributed digital work
 
 - bind GoalRun/RoleTopology work, runtime assignments, capability/resource
   offers, and claim leases to the stable `system_id`, deployment profile, and
@@ -515,7 +522,10 @@ nodes while remaining one system:
   completion or external effects are not silently duplicated;
 - expose logical roles, physical placement, active/superseded leases, world or
   task-state freshness, coordination epochs, effect status, and recovery
-  through Systems, Work, Operations, and Provenance;
+  through Systems, Work, Operations, and Provenance.
+
+#### H2B-embodied — physical, HIL, and fleet/swarm profile (later or parallel)
+
 - compile one exact `EmbodiedRuntimeGraphManifest` into at least `edge` and
   `site` footprints, with a `micro` safety/control target represented in HIL or
   an equivalent bounded target; prove that deployment placement changes do not
@@ -549,9 +559,11 @@ failure domains do not by themselves create sovereign peers; if a participant
 requires its own constitution, operational truth, admission authority, and
 independent exit, model it as a separate DAS and cross AIIP in Horizon 3. This
 proof is explicitly unbuilt until the contracts and conformance evidence exist.
-Together, Horizon 2A and 2B are the first evidence that L0 is more than an
-application wrapper; they are not yet an Internet-of-Intelligence or
-multi-party network proof.
+Together, Horizon 2A and H2B-core are the first evidence that L0 is more than
+an application wrapper; they are not yet an Internet-of-Intelligence or
+multi-party network proof. H2B-embodied extends the same system contract to
+physical execution and gates embodied promotion only — Horizon 3 does not wait
+on it.
 
 ## Horizon 3 — two sovereign DASs over AIIP
 
@@ -756,16 +768,20 @@ delta and the deferred UX backlog):
    Campaign-owned production mutation.
 10. Same-system two-node continuity proof — Horizon 2's join, catch-up, root,
    fenced promotion, replay, drain, and unchanged-authority demonstration.
-11. Useful same-system distributed-work proof — Horizon 2B's typed
+11. Useful same-system distributed-work proof — H2B-core's typed
     role-to-membership runtime assignments, allocation leases, shared-state
     watermarks, coordination epochs, partition/rejoin/rebalance, fenced
-    reassignment, and duplicate/ambiguous-effect reconciliation; include the
-    native embodied graph compiler/admission contract, `micro`/`edge`/`site`
-    resolution, physical-stream compatibility, proposal-only action chunks,
-    transactional activation, LocalControlSupervisor final-veto behavior,
-    space-time reservations, and the staged backend-neutral proof matrix while
-    keeping deterministic control and safety local. This step remains unbuilt
-    until the named conformance evidence exists.
+    reassignment, and duplicate/ambiguous-effect reconciliation. This step
+    remains unbuilt until the named conformance evidence exists, and it is the
+    distributed-work evidence steps 12–13 inherit.
+    **11b — embodied same-system profile** (parallel or later; gates embodied
+    promotion only, never step 12 or 13) — H2B-embodied's native embodied
+    graph compiler/admission contract, `micro`/`edge`/`site` resolution,
+    physical-stream compatibility, proposal-only action chunks, transactional
+    activation, LocalControlSupervisor final-veto behavior, space-time
+    reservations, and the staged backend-neutral proof matrix while keeping
+    deterministic control and safety local. This step remains unbuilt until
+    the named conformance evidence exists.
 12. AIIP discovery, exact-root collaboration terms negotiation, standards
     bindings, participation, portable exit, and federated admission —
     `CollaborationTerms`, `OutcomeRoomDiscovery`, typed participation,
