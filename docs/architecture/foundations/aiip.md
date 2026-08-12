@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for AIIP, the boundary from pre-AIIP local-agent pairing into participation, bounded-execution-domain interop, work, collaborative-pursuit, and dispute packets, semantic-profile negotiation, AIIP profiles, and cross-system handoff/admission semantics.
 Supersedes: product prose that treats Hypervisor, aiagent.xyz, sas.xyz, or third-party autonomous systems as separate bespoke interop protocols.
 Superseded by: none.
-Last alignment pass: 2026-07-16.
+Last alignment pass: 2026-08-12.
 Doctrine status: canonical
 Implementation status: planned for AIIP transport (the shared registered dispute schema, invariants, fixtures, and generated projections are contract substrate; dispute admission/allocation, local-agent pairing ingress, AIIP transport/binding, channel, collaboration-terms or semantic negotiation, collaborative-pursuit, cross-domain dispute exchange, and two-sovereign-system implementation remain planned)
 Last implementation audit: 2026-07-18
@@ -594,7 +594,8 @@ Marketplace Worker Profile
 
 Outcome Service Profile
   Independently governed provider system, escrow, milestones, acceptance criteria,
-  receipt commitments, challenge window, refund/payout rules, provider reputation.
+  receipt commitments, optional exact receipt and named-invocation computation-
+  proof obligations, challenge window, refund/payout rules, provider reputation.
 
 Autonomous-System Profile
   Peer system handoff, mutual receipts, settlement intents, cross-system reputation,
@@ -609,6 +610,24 @@ Enterprise Profile
   Cross-system private execution, redacted receipts, encrypted artifacts, selective
   disclosure, permissioned evidence, optional public roots.
 ```
+
+The Outcome Service Profile may carry an optional set of exact receipt
+obligations and inference-computation-proof obligations. Each proof obligation
+binds the service-order ref, one named consequential invocation or immutable
+step selector, the proof-requirement profile ref and hash, the requested
+`preferred | required` posture, relying party or audience, required
+statement/proof-system/verifier profile refs and hashes, currentness policy,
+offline-verification and proof-retention requirements, allowed proof latency and
+cost envelope, policy source ref and hash, required receipt profile, and the
+exact delivery or consequential-effect boundary—if any—that must wait for
+admitted proof reliance. AIIP carries those policy requirements, refs, hashes,
+and receipt commitments across independently governed systems; it does not
+duplicate the `ModelInvocationReceipt` proof schema or let the sending system
+decide the receiving system's truth. The receiving system locally admits the
+obligation and resolves each invocation through its Model Router. No obligation
+means no computation-proof requirement, and satisfying one obligation verifies
+neither the enclosing workflow nor the service, deliverable, acceptance, SLA,
+or settlement.
 
 Profiles preserve one semantic protocol across independently governed systems.
 Installing a package or Worker under the same System identity does not create a

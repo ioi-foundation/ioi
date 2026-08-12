@@ -13,7 +13,7 @@ Supersedes: product prose that treats Foundry as direct runtime mutation, a
 generic dashboard, only a training UI, or the same concept as ioi.ai goal
 coordination.
 Superseded by: none.
-Last alignment pass: 2026-08-06.
+Last alignment pass: 2026-08-12.
 Doctrine status: canonical
 Implementation status: partial (a bounded Agentgres-backed recipe, dataset,
 Implementation refs:
@@ -21,7 +21,8 @@ Implementation refs:
 reference token-frequency trainer, checkpoint/restore verification, and
 proposal-only qualification slice executes; production trainers, independent
 evaluation, packaging/registry, serving qualification, and generalized
-campaign-linked optimization remain planned)
+campaign-linked optimization remain planned; the inference-computation-proof
+qualification class is dormant and conditional, with no candidate admitted)
 Last implementation audit: 2026-08-06
 
 ## Canonical Definition
@@ -108,6 +109,9 @@ Foundry owns product-level projections and workflows for:
 - batch inference and execution of admitted evaluation or reproduction jobs;
 - eval-suite, benchmark-gate, scorecard, scorer, world, fixture, and verifier
   candidates for release and epoch use by Evaluations;
+- inference-computation statement, prover/verifier package, proof-system
+  profile, and route-qualification candidates, including source-neutral proof
+  performance and resource evidence;
 - executable eval suites, eval worlds, adversarial workflow packs,
   tool-call audits, long-horizon trajectory scorecards, and certification-run
   candidates for agents, Workers, HarnessProfiles, ModelRoutes, tools, connectors,
@@ -139,6 +143,15 @@ Foundry owns product-level projections and workflows for:
 - endpoint and provisioned-throughput candidates where a model, worker, or
   service must be exposed as a governed capability;
 - ontology-to-worker and ontology-to-eval planning.
+
+The inference-computation candidate class is dormant and conditional. Foundry
+does not create proof candidates, launch proof qualification, spend resources,
+or imply route eligibility until a later accountable owner disposition admits
+an exact profile and opens an owner-controlled product packet. An adverse
+disposition may retain this class dormant, narrow it to exact profiles supported
+by evidence, or withdraw it while unimplemented. Failure of one proof profile
+defaults to narrowing or retiring that profile, not erasing the generic
+computation-proof claim boundary.
 
 ## Does Not Own
 
@@ -866,7 +879,8 @@ observation declares:
 
 ```text
 phase        pretraining | sft | rollout_generation | policy_update |
-             evaluation | conversion
+             evaluation | conversion | inference_prefill |
+             inference_decode | proof_generation | proof_verification
 numerator    raw | non_padding | loss_bearing | generated |
              accepted_applied | verifier_admitted        (token class)
 denominator  steady_state | full_wall_clock, with explicit inclusion flags
@@ -888,6 +902,22 @@ accepted-token ratio, verified trajectories per hour, and environment
 pause/resume time. Measurement precedes optimization: a trainer backend
 without a capability report and observation contract does not receive
 optimization work.
+
+If an exact profile is later admitted, inference-computation-proof qualification
+requires paired proved and unproved runs of the same declared model execution,
+build, workload distribution, and hardware/software/topology fingerprint. It
+reports end-to-end latency; time to
+first token; prefill and decode rate; proof-ready finality; proof critical-path
+tail separately from overlapped proving; proof bytes; verifier p50/p95/p99 and
+resource bounds; peak GPU and CPU memory; failures and recovery; accelerator
+seconds, energy where measurable, and actual cost; batch/context/output-length
+distributions; the exact model-execution commitment; and the security and
+statement profiles. Multiplicative overhead is derived only from that exact
+paired baseline. Public or vendor figures enter as hypotheses under the
+external-evidence boundary, never as a baseline, route authority, or promised
+target. Proof validity and serving fitness remain separate: a slow valid proof
+is valid, while missing or stale performance evidence is a named route-
+qualification gap.
 
 ## Autonomous Experiment Optimizer
 

@@ -6,7 +6,7 @@ route-rights, BYOK/BYOA, privacy/fallback, and run-to-idle doctrine; low-level
 model-router API lives in [`api-byok-mounting.md`](./api-byok-mounting.md).
 Supersedes: overlapping model/provider prose when routing or BYOK boundaries conflict.
 Superseded by: none.
-Last alignment pass: 2026-07-13.
+Last alignment pass: 2026-08-12.
 Doctrine status: canonical
 Implementation status: partial (model-route registry and local Ollama mounting
 Implementation refs:
@@ -17,7 +17,8 @@ admission and output-label propagation remain planned; sealed BYOK and
 multi-transport session execution are unimplemented, and only
 active/available Ollama routes are currently bindable for execution; custody,
 commercial-rights policy, and full router/ContextCell propagation remain
-partial)
+partial; the source-neutral inference-computation-proof profile is a dormant
+target contract, with no exact profile or proof-gated output path admitted)
 Last implementation audit: 2026-07-18
 
 ## Canonical Definition
@@ -453,6 +454,10 @@ The router should consider:
 - quality history;
 - fallback policy;
 - route-rights and applicable-terms versions;
+- any exact service-order evidence-policy source applicable to the named
+  invocation or immutable step selector;
+- the resolved inference-computation-proof posture/profile and admitted proof
+  latency, size, resource, and cost limits;
 - the active `InstitutionalLearningBoundaryProfile` revision/hash and intended
   internal or downstream learning uses;
 - access/automation/downstream/customer-facing rights;
@@ -584,6 +589,96 @@ foundation/provider API with provider-owned proprietary weights
      on ExecutionPrivacyPosture
 ```
 
+## Optional Inference-Computation Proof Profile
+
+Inference-computation proofs are an optional route capability and assurance
+policy, not a baseline requirement for every model call. Ordinary routes remain
+valid without them, and the presence of a capable prover never changes a route's
+policy by implication.
+
+Lifecycle status: this section is a **dormant target contract**. `off` is the
+only effective posture until a later accountable owner ruling admits at least
+one exact statement, proof-system/security, verifier, requirement, and lifecycle
+profile and the necessary machine contracts and conformance gates exist.
+`preferred` and `required` below define the semantics that would apply after
+such admission; before it, they are typed unavailable and cannot be activated by
+a service order, capable backend, research result, or UI setting. No invocation
+is presently required to request or carry computation-proof evidence.
+
+Each invocation resolves one source-neutral requirement-profile ref and hash by
+the most-restrictive intersection of every applicable organization,
+application, workload, exact matching service-order evidence policy, and
+explicit invocation policy (`required` > `preferred` > `off`). A service-order
+source applies only when its order, policy ref/hash, and named invocation or
+immutable step selector match the admitted invocation; it cannot set a global
+service-wide route posture or affect unrelated calls. A candidate route
+advertises the postures and exact profiles it can satisfy; capability neither
+strengthens nor weakens the resolved requirement.
+Missing required inputs or incompatible exact profile refs produce a typed
+policy conflict and fail closed rather than choosing a convenient profile.
+Selecting, retrying, batching, or falling back never changes the resolved
+requirement by implication. The requirement has exactly one posture:
+
+```text
+off
+  request no computation proof and make no verified-computation representation
+
+preferred
+  prefer a compatible proof-carrying route inside the declared quality,
+  privacy, rights, latency, resource, and cost envelope; an unproved attempt is
+  permitted only when policy explicitly allows the downgrade and the receipt
+  records why the preference was unsatisfied
+
+required
+  admit only a route matching the exact statement, proof-system/security, and
+  verifier profiles; missing, stale, malformed, replayed, wrong-statement,
+  wrong-model/execution-commitment, wrong-input/output, failed, or indeterminate
+  proof evidence fails closed, and fallback may not weaken the posture
+```
+
+`off` is the ordinary default only when no applicable policy selects a stronger
+posture. A high-stakes application may require
+proofs; a latency-sensitive application may leave them off. Proof performance
+is expiring route-candidate evidence, not part of the cryptographic claim. A
+valid but slow proof remains valid, while a route that misses its declared SLO
+is ineligible for that workload.
+
+For `required`, output is not accepted output until verification succeeds.
+Streaming may be buffered, or exposed only as explicitly provisional data that
+cannot cross acceptance, promotion, reusable-evidence, tool, wallet,
+publication, or other consequential-effect boundaries. A `preferred` fallback
+is a new explicit attempt that retains the same resolved `preferred` requirement
+while recording its own proof-evidence outcome, explicit downgrade permission,
+reason, and lineage. It never inherits the proof representation of the
+preferred candidate.
+
+Proof sampling is a separate audit-coverage policy. Selection must be
+deterministic from pre-execution committed inputs and reported as sampled
+coverage; it never implies that an unselected invocation was proved. A
+`required` invocation is not satisfiable by sampling.
+
+Infrastructure provider, inference/prover operator, and verifier identities
+remain separate:
+
+- in an IOI-controlled local machine, rented VM, bare-metal GPU, or tenant-
+  controlled GPU container, IOI may deploy and operate the model server and
+  prover; the infrastructure lessor need not integrate the proof system;
+- an opaque managed-model API is proof-capable only when its invocation path
+  returns compatible evidence for a statement and model-execution commitment
+  IOI can independently admit.
+
+Proof capability never substitutes for route rights, exact model and weight
+identity, quality qualification, privacy or custody, RATS posture, semantic
+evaluation, provider attribution, authority, receipts, or supplier billing.
+Transparent computation-integrity arguments and zero-knowledge proofs are
+distinct profiles. Any witness-privacy claim must name whether it hides the
+model, input, both, or neither; it is not inferred from the word `proof`.
+
+An adverse owner disposition may retain this target dormant, narrow it to exact
+profiles supported by evidence, or withdraw it while unimplemented. Failure of
+one profile retires or narrows that profile by default; it does not broaden any
+other profile or erase the generic computation-proof claim boundary.
+
 ## Model Invocation Receipt
 
 The sole field-level schema is
@@ -647,6 +742,11 @@ not replace the model-invocation receipt or prove provider-internal behavior.
 19. The active institutional learning boundary, route contract, source rights,
     consent, privacy/custody posture, and requested use intersect
     most-restrictively. Missing or ambiguous rights fail closed.
+20. Inference-computation-proof posture is explicit per invocation and never
+    silently downgraded across fallback, retry, batching, streaming, or restore.
+21. A valid computation proof promotes only its named computation proposition;
+    it does not promote route rights, model identity or quality, custody,
+    attestation, semantic judgment, authority, or billing assurance.
 
 ## One-Line Doctrine
 

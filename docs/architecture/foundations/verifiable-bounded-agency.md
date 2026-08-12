@@ -4,9 +4,11 @@ Status: canonical architecture authority.
 Canonical owner: this file for IOI's alignment-security thesis, verifiable bounded agency, and execution-boundary alignment doctrine.
 Supersedes: `docs/specs/verifiable_bounded_agency.md` and product prose that claims IOI solves alignment by model cognition, prompt compliance, or one required proof backend.
 Superseded by: none.
-Last alignment pass: 2026-07-12.
+Last alignment pass: 2026-08-12.
 Doctrine status: canonical
-Implementation status: mixed (execution-boundary gating built in the daemon; proof/zk continuity speculative)
+Implementation status: mixed (execution-boundary gating built in the daemon;
+the inference-computation subsection is durable claim hygiene with no product
+profile or path admitted, and broader proof/zk continuity remains speculative)
 Last implementation audit: 2026-07-05
 
 ## Canonical Definition
@@ -65,6 +67,34 @@ The architecture still values model evaluation, Worker Training, verifier
 quality, routing quality, prompt hardening, red-team work, and interpretability
 research. Those improve capability and reduce risk. They do not replace the
 deterministic authority boundary.
+
+### Optional Inference-Computation Proofs
+
+An inference-computation proof is optional stronger evidence for one model
+invocation. Under a named, versioned statement and verifier profile, it may
+establish only that the admitted verifier accepted a proof binding the declared
+model-execution commitment, invocation and input, execution configuration and
+randomness where applicable, and output.
+
+That result does not establish semantic truth, quality, safety, authority,
+provider identity, model approval, custody or confidentiality, absence of other
+computation or egress, external-world occurrence, or billing correctness. It
+does not upgrade cTEE or RATS evidence and does not replace Evaluations. No
+prover, proof system, vendor, quantization, circuit encoding, security parameter,
+or performance envelope is canonical by default.
+
+An invocation proof may be linked into a service delivery's evidence graph, but
+composition never widens its proposition. It does not prove the enclosing agent
+trajectory, workflow, service outcome, artifact semantics, deliverable,
+acceptance criteria, SLA, or settlement condition.
+
+This subsection is durable claim hygiene for any present or future computation-
+proof evidence; it is not a product commitment, route admission, schema promise,
+or implementation mandate. An accountable adverse research disposition may
+retain the product targets dormant, narrow them to exact supported profiles, or
+withdraw the unimplemented Router, receipt, and Foundry targets. Failure of one
+exact proof profile defaults to narrowing or retiring that profile, not erasing
+this generic proposition/nonclaim boundary.
 
 ## Root Difference
 

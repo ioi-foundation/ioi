@@ -13,7 +13,7 @@ Supersedes: live product prose that treats one editor shell as the parent
 Hypervisor product, treats Electron/VS Code hosting as the product identity, or
 treats editor integrations as runtime ownership.
 Superseded by: none.
-Last alignment pass: 2026-08-06.
+Last alignment pass: 2026-08-12.
 Doctrine status: canonical
 Implementation status: mixed (the existing Home, New Session, Projects,
 Automations, Applications, Sessions, owner-application, environment, and
@@ -63,6 +63,26 @@ Every consequential action governed.
 Work becomes reusable capability when evidence, authority, evaluation, and
 promotion justify it.
 ```
+
+### Primary Service-as-Software Builder Hypothesis
+
+Hypervisor's primary builder hypothesis is that builders can turn governed
+automations, packages, and reusable capabilities into Service-as-Software
+products whose named consequential execution claims and deliverables carry
+portable, independently checkable evidence. This is a strategic product
+hypothesis to test, not evidence of established demand, a shipped end-to-end
+journey, or universal verification. "Portable" and "independently checkable"
+apply only where the exact artifacts, receipts, statement and verifier profiles,
+trust material, and claim/nonclaim boundaries required by the named evidence
+contract can be exported and checked outside the producing surface.
+
+Hypervisor owns the builder and governed-execution experience; Automations owns
+reusable workflow and service definitions; Packages owns package lifecycle;
+sas.xyz owns its first-party marketplace, order, SLA, acceptance, dispute, and
+commercial lifecycle; and the receipt/delivery owner composes evidence. A proof
+for one model invocation never verifies the enclosing agent trajectory,
+workflow, service, deliverable, acceptance decision, SLA, or settlement by
+composition.
 
 Product IA doctrine:
 
