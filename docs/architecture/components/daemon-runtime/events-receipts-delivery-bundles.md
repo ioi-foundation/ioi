@@ -4,9 +4,9 @@ Status: canonical low-level reference.
 Canonical owner: this file for runtime events, receipts, delivery bundles, trace bundles, and quality records.
 Supersedes: overlapping event/receipt examples in plans/specs when event, trace, or receipt fields conflict.
 Superseded by: none.
-Last alignment pass: 2026-07-31.
+Last alignment pass: 2026-08-12.
 Doctrine status: canonical
-Implementation status: mixed (receipts/events live across existing owner planes; `ReceiptCheckpoint` v1, `ReceiptProofBundle` v1, managed-work billing ledger-bundle, dispute-rail-bundle, `PhysicalActionExecutionReceipt` v1, and `GoalRunActivationReceipt` v1 have registered schemas, invariants, fixtures, and generated projections; portable cryptographic proof verification/CLI support, `TemporalVerificationProfile`/`TemporalValidityEvaluation` contracts, exact-action review/effect-admission receipt profiles, managed-work billing and dispute kernels, physical execution production, daemon/Agentgres production billing/dispute/physical/checkpoint emission, supplier-statement resolution, evidence adjudication, remedy/bond execution receipts, cross-plane information-flow events, environment backup/restore/route-binding/cleanup receipt profiles, full OutcomeRoom/collective-pursuit receipt production, full bounded-improvement Campaign receipts, embodied graph activation and action-chunk lineage, spacetime reservation, physical segment commitments, and delivery-bundle settlement remain planned)
+Implementation status: mixed (receipts/events live across existing owner planes; `ReceiptCheckpoint` v1, `ReceiptProofBundle` v1, managed-work billing ledger-bundle, dispute-rail-bundle, `PhysicalActionExecutionReceipt` v1, and `GoalRunActivationReceipt` v1 have registered schemas, invariants, fixtures, and generated projections; portable cryptographic proof verification/CLI support, `TemporalVerificationProfile`/`TemporalValidityEvaluation` contracts, exact-action review/effect-admission receipt profiles, managed-work billing and dispute kernels, physical execution production, daemon/Agentgres production billing/dispute/physical/checkpoint emission, supplier-statement resolution, evidence adjudication, remedy/bond execution receipts, cross-plane information-flow events, environment backup/restore/route-binding/cleanup receipt profiles, full OutcomeRoom/collective-pursuit receipt production, full bounded-improvement Campaign receipts, embodied graph activation and action-chunk lineage, spacetime reservation, physical segment commitments, and delivery-bundle settlement remain planned; the inference-computation-proof receipt and composed-delivery-link excerpts are dormant and unregistered, with no current carriage obligation)
 Last implementation audit: 2026-07-30
 
 ## Purpose
@@ -1491,6 +1491,25 @@ Managed model and runtime charging must be reconstructable from route-attempt
 receipts and reconciled supplier statements. A flat charge per model-backed
 receipt is a development projection, not invoice-grade Work Credit truth.
 
+What a proof-bearing receipt may and may NOT be read to establish is owned by
+[`verifiable-bounded-agency.md`](../../foundations/verifiable-bounded-agency.md#optional-inference-computation-proofs);
+this file owns only the field schema and the narrow claim meaning of each field.
+
+The following source-neutral fields reserve the canonical target boundary now;
+they are not a registered machine schema, production emitter, or implemented
+verifier. RX research records do not masquerade as this receipt. Schema
+registration, fixtures, conformance, and production emission remain gated on a
+later owner ruling after the research disposition.
+
+Lifecycle status: this is a **dormant, unregistered target excerpt**. It creates
+no current receipt obligation, and no invocation must carry either proof block.
+The target-only presence rules below apply only if a later owner admits and
+registers an exact successor receipt profile; current emitters must not fabricate
+these fields. An adverse disposition may retain the excerpt dormant, narrow it
+to admitted exact profiles, or withdraw it while unimplemented. Failure of one
+proof profile defaults to narrowing or retiring that profile, not rewriting the
+generic computation-proof claim/nonclaim boundary.
+
 ```json
 {
   "receipt_id": "receipt://model_invocation_123",
@@ -1518,6 +1537,40 @@ receipt is a development projection, not invoice-grade Work Credit truth.
   "price_schedule_ref": "price-schedule://provider/model/2026-07-11",
   "input_hash": "sha256:...",
   "output_hash": "sha256:...",
+  "inference_computation_proof_requirement": {
+    "requirement_profile_ref": "proof-requirement://...",
+    "requirement_profile_hash": "sha256:...",
+    "posture": "off | preferred | required"
+  },
+  "inference_computation_proof_evidence": null | {
+    "statement_profile_ref": "proof-statement://...",
+    "statement_profile_hash": "sha256:...",
+    "statement_artifact_ref": "artifact://...",
+    "statement_artifact_hash": "sha256:...",
+    "model_execution_commitment": "sha256:...",
+    "statement_commitment": "sha256:...",
+    "proof_system_profile_ref": "proof-system://... | null",
+    "proof_system_profile_hash": "sha256:... | null",
+    "proof_artifact_ref": "artifact://... | null",
+    "proof_artifact_hash": "sha256:... | null",
+    "prover_runtime_ref": "runtime://... | null",
+    "prover_operator_ref": "principal://... | provider://... | null",
+    "verifier_profile_ref": "verifier://... | null",
+    "verifier_profile_hash": "sha256:... | null",
+    "verifier_build_hash": "sha256:... | null",
+    "proof_integrity": "not_present | verified | invalid | indeterminate",
+    "valid_as_of": "established | indeterminate | failed | unavailable",
+    "currentness_at_decision": "established | indeterminate | failed | unavailable",
+    "temporal_validity_evaluation_ref": "evidence://... | receipt://... | null",
+    "temporal_validity_evaluation_hash": "sha256:... | null",
+    "proof_reliance_decision": "admitted | refused",
+    "decision_reason_code": "string | null",
+    "decided_at": "timestamp",
+    "proof_size_bytes": "integer | null",
+    "proof_generation_ms": "integer | null",
+    "proof_critical_path_ms": "integer | null",
+    "verification_ms": "integer | null"
+  },
   "privacy_class": "public | internal | confidential | restricted | regulated | safety_critical",
   "policy_hash": "sha256:...",
   "usage": {
@@ -1551,6 +1604,58 @@ receipt is a development projection, not invoice-grade Work Credit truth.
   "status": "estimated | finalized | reconciled | adjusted | disputed"
 }
 ```
+
+The statement profile must bind the invocation ref and non-replay challenge;
+tenant/audience and expiry; exact model artifact and post-transformation weight
+commitment; architecture, tokenizer, chat template, adapters, quantization, and
+numeric/execution semantics; every canonical input; decoding, sampling, stop,
+cache, and randomness configuration where applicable; ordered output and finish
+condition; and proof-system/security parameters. Excluded operations are named,
+not inferred. The prover does not choose the authoritative model commitment:
+the route/model owner admits it independently, and model quality remains a
+separate qualification.
+
+Within an admitted future receipt profile,
+`inference_computation_proof_requirement` is always present, including when the
+resolved posture is `off`, so an explicit/default policy result cannot be
+confused with omitted or not-yet-populated evidence. The requirement profile
+and its hash are unchanged across retry and fallback attempts. For `off`,
+`inference_computation_proof_evidence` is `null`. A resolved `preferred` or
+`required` posture produces a non-null evidence block even when no proof is
+present so the unsatisfied requirement remains auditable.
+
+The statement artifact contains the canonical public statement required for
+offline re-verification and is content-addressed independently of the proof.
+`proof_integrity=verified` requires non-null exact proof-system profile ref/hash,
+proof-artifact, prover-runtime, verifier-profile, and verifier-build bindings;
+unavailable measurements remain `null`, never a fabricated zero. The pinned
+proof-system profile states any witness-privacy claim and its exact scope; the
+receipt does not infer zero knowledge from proof validity.
+
+`proof_integrity`, `valid_as_of`, and `currentness_at_decision` are independent.
+An invalid proof is distinct from unavailable verification, unsupported or
+resource-refused verification, and stale or revoked trust material. A proof may
+retain historical `proof_integrity=verified` while later current reliance is
+indeterminate or refused. Current reliance is recomputed from admitted profile,
+key, revocation, and temporal inputs; it never rewrites this immutable result.
+Only verified integrity plus the profile-required established temporal axes may
+set `proof_reliance_decision=admitted`; all other combinations refuse with a
+typed reason. The temporal ref/hash pair is both null only when no evaluation
+was performed and otherwise both non-null.
+
+`proof_reliance_decision=admitted` states only that the named verifier decision
+may support this named computation claim. It does not automatically set the
+receipt's top-level `assurance_stage` to `verified` and does not establish
+semantic correctness, quality, safety, authority, provider identity,
+confidentiality, attestation, external occurrence, or billing. Invalid,
+indeterminate, unavailable, stale, and refused attempts and their resource
+costs remain honestly receipted.
+
+The synchronous profile finalizes both blocks atomically with the immutable
+`ModelInvocationReceipt`; it is not patched into the receipt later. If a future
+post-hoc/asynchronous profile needs a later verification decision, that profile
+must first register a separate successor receipt here with explicit lineage.
+This target shape does not pre-create that family.
 
 The receipt ledger must preserve each attempt even when a supplier does not
 bill it. Fallbacks require a total cost ceiling, maximum attempt count, privacy
@@ -3971,6 +4076,13 @@ data posture applied, and which evidence refs support settlement.
   "service_package_ref": "service://sas/runtime-audit-weekly@1.0.0",
   "composition_graph_ref": "workflow://graph_123",
   "routing_receipt_refs": ["receipt://route_123"],
+  "model_invocation_proof_links": [
+    {
+      "model_invocation_receipt_ref": "receipt://model_invocation_123",
+      "requirement_profile_ref": "proof-requirement://service/order_123/invocation_123",
+      "temporal_validity_evaluation_ref": "evidence://proof-evaluation_123 | receipt://proof-evaluation_123 | null"
+    }
+  ],
   "contribution_receipt_refs": ["receipt://contribution_worker_1"],
   "verifier_receipt_refs": ["receipt://validation_1", "receipt://quality_1"],
   "policy_receipt_refs": ["receipt://policy_1", "receipt://approval_1"],
@@ -3990,6 +4102,31 @@ data posture applied, and which evidence refs support settlement.
   "status": "draft | submitted | accepted | rejected | disputed | remediated"
 }
 ```
+
+`model_invocation_proof_links` is a relation of refs, not a second proof schema.
+Each tuple links one exact `ModelInvocationReceipt` to the matching requirement
+profile and any temporal-validity evaluation. Those refs must equal the refs in
+the linked receipt; that receipt retains their hashes, statement/proof/verifier
+bindings, integrity/currentness axes, reliance decision, and typed failure
+reason owned by the model-invocation section above. The bundle must not copy
+those fields, reinterpret them, or synthesize a generic `verified` boolean.
+Missing receipts or evaluations remain named evidence gaps rather than omitted
+or positionally ambiguous array members.
+
+This link relation is dormant and unregistered with the target model-invocation
+proof fields. No current `ServiceCompositionReceiptBundle` must carry it, and a
+service-order policy declaration cannot make it live before the receipt owner
+admits the exact contracts.
+
+Each linked receipt and verifier result retains its original proposition and
+scope. A proof-bearing `ModelInvocationReceipt` may support only the claim that
+one named invocation satisfied its admitted computation-proof profile. Its
+presence in a `ServiceCompositionReceiptBundle` or `DeliveryBundle` does not
+verify the agent trajectory, workflow, service outcome, output artifact,
+deliverable, acceptance criteria or decision, SLA, dispute position, or
+settlement. Any service- or deliverable-level verification requires its own
+named statement, complete declared coverage, verifier/rule revision, and
+receipt; acceptance, adjudication, and settlement remain separate ladder stages.
 
 `ContributionReceipt` entries should name the contributing worker, service
 module, package, provider, harness adapter, or verifier role; bind the claimed

@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for sas.xyz service marketplace doctrine; low-level service endpoints live in [`service-endpoints.md`](./service-endpoints.md).
 Supersedes: overlapping service-marketplace plan prose when outcome/service boundaries conflict.
 Superseded by: none.
-Last alignment pass: 2026-07-15.
+Last alignment pass: 2026-08-12.
 Doctrine status: canonical
 Implementation status: planned (outcome marketplace design; order/escrow/delivery/dispute loop is specification)
 Last implementation audit: 2026-07-05
@@ -24,6 +24,12 @@ sas.xyz is not the protocol. It is a first-party protocol client, demand
 generator, and proof surface for AIIP outcome-service profiles and the shared
 profile-neutral settlement contract. IOI L1 is one optional service for
 explicitly enrolled orders.
+
+Service-as-Software is the primary Hypervisor builder hypothesis that sas.xyz
+tests as a first-party demand, contracting, and delivery surface. The hypothesis
+does not establish product demand, marketplace liquidity, or shipped end-to-end
+functionality. Hypervisor and Automations remain the builder/execution owners;
+sas.xyz owns only the commercial service-order lifecycle named here.
 
 ## What sas.xyz Is
 
@@ -105,6 +111,39 @@ User orders service
 → user accepts, rejects, or disputes
 → selected settlement rail releases payout, refund, or slashing disposition
 ```
+
+An order may require evidence; it can never enlarge what that evidence proves.
+The claim boundary is owned by
+[`verifiable-bounded-agency.md`](../../foundations/verifiable-bounded-agency.md#optional-inference-computation-proofs).
+
+Lifecycle status: these obligations are a **dormant** target contract. No order
+can carry one until the Model Router admits an exact profile and the receipt
+owner registers the machine contracts; until then an order that names one is a
+typed policy conflict, not a stronger service.
+
+A service order may bind zero or more exact inference-computation-proof
+obligations for named consequential model invocations. Each obligation names
+the exact invocation or immutable step selector to which it applies, the
+proof-requirement profile ref and hash, the requested minimum posture
+(`preferred` or `required`), the relying party or audience, required
+statement/proof-system/verifier profile refs and hashes, currentness policy,
+offline-verification and proof-retention requirements, allowed proof latency and
+cost envelope, the policy source ref and hash, the required receipt profile, and
+the exact delivery, acceptance-input, publication, tool, wallet, or other
+consequential-effect boundary—if any—that must wait for admitted proof reliance.
+These are policy requirements and refs, not a duplicate proof-evidence schema.
+An absent or empty obligation set requests no computation proof and leaves the
+Model Router's ordinary `off` default intact; an order cannot infer an all-
+invocation requirement from the service type, price, SLA, or presence of a
+proof-capable route.
+
+At execution, a matching service-order obligation is one applicable policy
+source for the named invocation. Model Router still resolves the effective
+invocation posture and route eligibility, and the receipt owner still owns the
+proof requirement/evidence schema and evaluation meaning. The obligation
+states which scoped evidence the order expects; it does not prove the
+invocation, workflow, service outcome, deliverable, acceptance criteria, SLA,
+or settlement condition.
 
 ## Worker Training Contract
 
@@ -316,7 +355,7 @@ a dispute process based on provider logs instead of receipt/evidence refs
 Correct model:
 
 ```text
-sas.xyz contracts and lists verifiable service outcomes
+sas.xyz contracts and lists governed service outcomes with proposition-scoped evidence bundles
 service packages can run locally, privately, hosted, in VPCs, through TEEs, or
 through Private Workspace cTEE nodes or marketplace orders
 the daemon executes admitted ServiceEngine and ServiceModule invocations directly
@@ -328,7 +367,7 @@ require it
 
 ## One-Line Doctrine
 
-> **sas.xyz does not sell software tools or raw model checkpoints. It sells verifiable autonomous outcomes, including trained workers delivered under acceptance rubrics.**
+> **sas.xyz does not sell software tools or raw model checkpoints. It sells governed autonomous outcomes, including trained workers delivered under acceptance rubrics, with every evidence item limited to its named proposition rather than proving the whole service or delivery.**
 
 ## Product Context Module
 
