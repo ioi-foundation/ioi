@@ -241,9 +241,15 @@ if (!workItemsOnly) {
     const owners = new Set(linksIn(cells[1]));
     const declared = new Set([...owners, ...linksIn(cells[2])]);
 
+    // The `_meta` layer is excluded as a class, not by name. Those files RECORD and MAP ownership
+    // — the map itself, the delta ledger's run records — rather than claim it, so a ledger row
+    // narrating a proof cut is not a ninth owner. (Found by this rule firing on the ledger block
+    // that recorded its own landing.) Owners live outside `_meta`, so the exclusion cannot hide a
+    // real owner dropping its block.
     const carrying = files
       .map(rel)
-      .filter((f) => f !== mapRel && fs.readFileSync(path.join(root, f), "utf8").includes(MARKER))
+      .filter((f) => !f.startsWith("docs/architecture/_meta/"))
+      .filter((f) => fs.readFileSync(path.join(root, f), "utf8").includes(MARKER))
       .sort();
 
     for (const owner of owners) {

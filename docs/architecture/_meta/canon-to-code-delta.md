@@ -500,12 +500,113 @@ home, operations.
 |---|---|---|
 | **Parity-lane cutover visual evidence: state-matched seed-versus-successor pair.** Whether a parity-lane cutover can textually pass while shipping a functionally-equivalent but visibly degraded reconstruction. | Guide (gitignored): `program/definition-of-done.md` G-7 2026-08-11 CUTOVER-VISUAL-PAIR amendment; `program/manifest.v1.json` W6.1 acceptance (artifact named in the release-ledger evidence list); `scripts/implementation-program.mjs` CUTOVER-VISUAL-PAIR wording-presence rule (proven RED with the clause absent, GREEN with it present). Tracked: `apps/hypervisor/seed-ux-provenance.v1.json` + `verify-hypervisor-seed-provenance.mjs` (provenance-qualified seed visual corpus, `greenfield-authorized-non-parity` typing, `seed_role` kind⇒role lock); the standing isolated-runtime capture recipe (shared-daemon capture drifts). | **Ruled (owner, owner-reversible).** A parity-lane cutover record is incomplete without a typed, content-addressed, state-matched seed-versus-successor visual pair — seed side from the provenance-qualified seed visual corpus, successor side captured against the successor build via the isolated daemon+serve recipe at the same established interaction state; live-drift captures are inadmissible. The pair is owner-judged evidence only: never an automated pixel-diff gate, no numeric threshold — a passing pixel certificate still grants nothing. N/A for the five `greenfield-authorized-non-parity` surfaces (their record already types non-parity); the seed-role ruling is unchanged. **Deferral condition, filed by name:** the capture/compare mechanization lands with the FIRST parity-lane cutover packet, not before; until then the requirement binds the record's shape and no earlier unit may claim the pair satisfied or waived. |
 
-### Rulings filed 2026-08-12 (next-legs VI run; owner-ruled, owner-reversible)
+### Journey verification VI (2026-08-12, next-legs VI run — dormant-proof canon + its machine gate, the verifier-family floor, W3.2 ProviderTransport, launch-chain file granularity)
+
+**The verifier family had no floor, and now it does.** An independent peer filed
+it during next-legs V: deleting assertions from a CI-gated verifier was silently
+green — the deleted assertion stopped being checked, the survivors passed, CI
+reported success. Sixteen gates ran and none of them watched the gates.
+`check:verifier-floors` (#258) pins each verifier at the number of assertions it
+actually EXECUTED, counted from the verifier's own completed run rather than a
+source grep, so a commented-out assertion does not count. Its closed world is
+re-derived from `.github/workflows/ci.yml` on every run and checked BOTH ways: a
+CI-gated verifier with no floor row is RED, and a floor whose verifier CI does
+not run is RED because it gates nothing. Pins are exact and ratchet up only —
+above the pin is also RED, since slack is where a later deletion hides. Nine
+mutations proven RED (deleted assertion, stale floor, stale census, missing
+census, unset census dir, unregistered CI verifier, unknown script, non-gated
+floor, out-of-world artifact), restore GREEN. 14 verifiers, 454 runtime
+assertions. Three typed exclusions, each with its real reason: `seed-provenance`
+is fail-ONLY (empty array on a green run, so a floor would read zero),
+`ported-seed` keeps an integer counter but no named records, `owned-product-ui`
+throws via `node:assert` and records nothing on success.
+
+**W3.2 first cut: the first REGISTRY-driven model invocation** (#259). Before it,
+the daemon's only real provider client was a boot-time singleton built from
+process env, bypassing the CapabilityLease gateway entirely; no path let a
+model-route record supply an endpoint or credential for a daemon-issued call. The
+typed kernel `ModelInvocationReceipt` existed and had never been constructed
+anywhere in `crates/node/`, and attempt lineage did not exist under any spelling.
+`provider_transport.rs` adds the `ProviderTransport` trait (normalization,
+streaming/cancellation, error and retryability CLASSIFICATION) with one native
+`OllamaTransport`, behind `POST /v1/hypervisor/model-routes/:id/invoke` composing
+identity-first rule E, INV-37, the registry's own `load_route_record`, the shared
+write path, and the typed receipt. COMPOSED, NOT SHADOWED: no second census, no
+second receipt shape, and a credentialed route REFUSES 501 rather than reading a
+provider key from the environment. W4-F evidence is captured at the wire — token
+mix, attempt lineage, latency incl. first-token, finish condition, verbatim
+price-schedule ref — with every unreported field `null` AND named in
+`unreported`, and `evidence_gaps` naming what the cut cannot fill at all.
+Verified: `check:provider-transport` 13/13 (CI lane, deterministic, no provider
+needed) and 28/28 live against real Ollama qwen2.5:7b — 36 input / 2 output
+tokens observed, streaming first-token 86ms against 371ms total, idempotent
+replay spending no second provider call, and a vanished provider producing an
+honest `ProviderUnavailable` record rather than a fabricated completion.
+
+**Launch-chain closes at FILE granularity** (#260), closing next-legs V's named
+residual. The value scan already swept every persisted file, but the KEY-SET
+close ran against exactly one record — the one found by this run's `launch_id` —
+so a second-spine record minted under any other id was never key-set checked.
+Four assertions now close existence and shape, at first-produce and again after
+the daemon kill/restart over the complete family. Mutation-proven: a rogue
+launch-family file under a different id drives both new assertions RED while the
+PRE-EXISTING assertions do not notice it (51/53), which is the direct evidence
+the residual was real. `check:launch-chain` 49 → 53.
+
+**The dormant inference-computation-proof profile landed WITH a machine gate**
+(#256). Dormant canon rots: nothing fails when an owner's block is stripped, and
+nothing fails when a ninth file starts making proof claims outside the ownership
+map. `check-architecture-docs` rule 9 derives its closed world from this file's
+own lifecycle row and checks both directions, requires every carrying file to
+type the profile `dormant`, and requires the posture owner to keep the exact
+off/preferred/required triple. Five mutations RED, restore GREEN. Two gaps it
+forced into the open: sas `service-marketplace.md` and `aiip.md` carried the
+proof block WITHOUT typing it dormant, so an order block could have read as live;
+both now carry an explicit lifecycle sentence.
+
+**This run duplicated canon, and the tombstone above records how.** Its Leg 0b
+re-filed two rulings that had landed the previous day in #255, on the strength of
+an existence check that was wrong twice over: it grepped for a VENDOR NAME the
+governing filing deliberately never used, and it ran against a LOCAL master that
+had not been fetched and still pointed at #254, so even a correct subject-text
+grep would have returned zero. The duplicate rows are collapsed to a tombstone;
+the doctrine sections and map row that cut added are REAL canon and stay, because
+#255 filed the ledger entry and Leg 0b filed the doctrine — each was half of one
+correct filing. Two standing rules come out of it: **test canon existence by the
+ruling's SUBJECT or disposition text, never a vendor or proper name**, and
+**never make an absence claim against an unfetched local ref** — `git fetch`
+before `git grep`, or the basis is an hour-old fiction.
+
+**NAMED RESIDUALS carried out of this run (tracked, not waived):**
+- **Economics join** — no `UsageRecord` is written by an invocation; the
+  `model_tokens` meter class exists only in `#[cfg(test)]` fixtures. Named in
+  every invocation record's `evidence_gaps`.
+- **Credentialed model transports** — refuse 501 until a model-route
+  CapabilityLease is minted and consumed. `openai_compatible` stays
+  registry-admitted but transport-unimplemented.
+- **One attempt per invocation.** Retry/fallback DECISIONS stay with the router.
+- **CI has no model provider**, so the ProviderTransport live lane is not
+  CI-gated — a named residual, never a silent skip.
+- **Fork delegation-SUCCESS** stays unexercised: it needs a forkable source agent
+  on the launch thread, which a fresh launch does not have. An assertion for it
+  was written and DELETED before commit — the verifier already exercises the
+  delegation-REQUESTED path more strictly, pinning the planner's exact refusal
+  code, and a weaker duplicate that claims more than it checks is the
+  decorative-assertion class this program keeps finding.
+- **Three verifiers stay outside the floor** with typed reasons above.
+- **Public copy** still carried a claim canon retired: ioi-ai `home.md` said
+  "verifiable autonomous Workers" (repaired to `governed`); the technical
+  whitepaper's "routine verifiable outcomes" / "generate verifiable outcomes" is
+  a versioned artifact and its erratum-vs-next-revision disposition is an owner
+  call. 31 files in that repo carry "verifiable"; most are a DIFFERENT and often
+  defensible claim, so a grep sweep would retire true claims along with
+  overclaims and the review is filed rather than performed.
+
+### Rulings filed 2026-08-12 — TOMBSTONE (refiling of the 2026-08-11 forward-scope rulings)
 
 | Delta | Evidence | Disposition |
 |---|---|---|
-| **Provider-protocol absorption boundary.** Whether IOI adopts an existing multi-provider project (LiteLLM) to reach many model providers quickly, and if so at which layer — its provider adapters, or its gateway/proxy control plane. | LiteLLM's value read at the bytes is encyclopedic, high-churn provider quirk knowledge: request/response normalization, streaming and cancellation handling, tool-call and structured-output translation, endpoint/header/auth shapes, error normalization and retryability classification, capability metadata, conformance vectors. Its control plane duplicates spines this canon already assigns owners: route selection/admission ([`doctrine.md`](../components/model-router/doctrine.md)), credential custody (CapabilityLease as the single authority-crossing gateway), retry/fallback decisions, budgets/billing/reconciliation, invocation receipts and attempt lineage. LiteLLM is Python and the daemon is Rust, so adoption is knowledge absorption plus test vectors, not source reuse. Licensing obligations: [ADR 0033](../../decisions/0033-licensing-split-surface-and-license-manifest.md) and [`LICENSE-MANIFEST.json`](../../../LICENSE-MANIFEST.json). | **Ruled (owner, owner-reversible).** Absorb at the provider-protocol adaptation layer ONLY, behind an IOI-owned `ProviderTransport` contract; never the gateway/proxy/control plane — importing it would mint a second spine ([ADR 0030](../../decisions/0030-rooms-are-a-composition-not-a-primitive-family.md)/[0031](../../decisions/0031-goalrun-execution-composes-thread-orchestration.md)/[0034](../../decisions/0034-thread-fork-is-the-delegation-primitive-subagents-are-its-surface.md) class). **Native-first proof gate:** one native provider end-to-end (streaming, cancellation, error classification, billing attempts, receipts) defines the contract BEFORE any adapted transport conforms to it. Anything transcribed closely enough to count as copying carries its `LICENSE-MANIFEST.json` entry in the same cut; `enterprise/` is excluded from any transcription. Imported capability/price maps enter through the expiring advisory candidate lane and are probe-confirmed — candidate-never-authority, and its cost map is estimates, never billing truth. A differential oracle against the external implementation is a gated harness lane, never a default CI gate. Boundary filed source-neutrally as [`doctrine.md` §Provider Transport Boundary](../components/model-router/doctrine.md); no transport exists at HEAD. |
-| **Route economic comparison shape.** Whether IOI surfaces token pricing against GPU-rent pricing, on what decision metric, and whether price evidence may move workloads. | IOI owns both sides of the comparison with receipts, so break-even is an audit grounded in observed usage rather than a guess-driven calculator. GPU-rent primitives are live (provider quotes, leases, spend reconciliation); the hosted-binding, operation-scoped credential use, IFC enforcement, and invoice-grade attempt reconciliation halves complete through W3.1/W3.2 — so this is not an all-primitives-live claim. Tokenizers differ across models, which disqualifies `$/Mtok` as a cross-route winner metric. Shared capacity pools already reconcile spend at the pool/lease ([`hypervisor/providers-and-environments.md`](../components/hypervisor/providers-and-environments.md)); attributing pool spend directly to a route would double-count it and mint a second spend spine. Switching machinery already exists in [`improvement-governance-gates.md`](../components/daemon-runtime/improvement-governance-gates.md). | **Ruled (owner, RATIFIED with four refinements; owner-reversible).** Adopted canon paragraph filed verbatim at [`doctrine.md` §Route Economic Comparison](../components/model-router/doctrine.md). (1) **Eligibility first** — quality/privacy/residency/latency/availability are admission filters, not display-beside context; price ranks only qualifying routes, with provenance, evidence age, confidence, break-even *range*, and typed reason codes. (2) **Decision metric** — projected workload cost from the observed mix and cost per successful workload unit where outcome evidence exists (typed gap otherwise; never a synthesized success rate); `$/Mtok` is explanatory only. (3) **Price schedules, not enums** — extensible schedules (token tiers, GPU-seconds, minimum rentals, commitments, storage, egress, cold starts, headroom) entering verbatim as expiring candidate evidence; stale schedule = typed gap. (4) **Truth is a join** — route + deployment + capacity lease + measured throughput + allocation policy, with spend truth on the shared pool and route economics derived. Price never authorizes: automatic switching routes through the EXISTING improvement-governance gates (fresh-sim, approval, open release, canary, receipted rollback) with hysteresis as a policy parameter — no second switching mechanism. **Collection obligation:** the `ProviderTransport` leg above must define and start collecting the evidence fields (verbatim price-schedule ref, full token mix incl. cache/reasoning, attempt lineage, latency, typed outcomes) — cheap at the transport, expensive to retrofit. |
+| **Duplicate filing of the provider-adapter absorption and cost-shape comparison rulings.** This section carried a second copy of two rulings already filed the previous day, and named a vendor the governing section deliberately did not. | The next-legs VI run tested whether the rulings were filed by grepping tracked docs for the VENDOR NAME, against a LOCAL master that had not been fetched and still pointed at #254. Both halves of that check were wrong: the governing filing ([`#255`](https://github.com/ioi-foundation/ioi/pull/255), `8d7555e74`, 2026-08-11) is deliberately vendor-free, and it had already landed on `origin/master` at 01:43 that morning. A subject-text grep (`cost per successful workload unit`) hits three tracked files — but it would also have returned zero against the stale tree. | **Superseded by the 2026-08-11 section below, which governs.** The rows are collapsed here rather than deleted so the duplication and its cause stay legible. What that run added and #255 never filed — [`doctrine.md`](../components/model-router/doctrine.md) §Provider Transport Boundary and §Route Economic Comparison, and the [`source-of-truth-map.md`](./source-of-truth-map.md) model-router row — is REAL canon and STAYS: a ruling about the model router belongs in the owner's doctrine, not only in this ledger. The vendor name leaves tracked canon entirely and re-enters only through `LICENSE-MANIFEST.json` if bytes are ever transcribed ([ADR 0033](../../decisions/0033-licensing-split-surface-and-license-manifest.md)). **Standing rule minted here: test whether canon already says something by its SUBJECT or disposition text, never a vendor or proper name — and never against an unfetched local ref.** |
 
 ### Forward-scope rulings filed 2026-08-11 (provider-adapter absorption and cost-shape comparison; owner-ruled)
 
