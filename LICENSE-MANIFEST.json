@@ -88,11 +88,9 @@
       "globs": [
         "docs/architecture/**",
         "docs/decisions/**",
-        "docs/crypto/**",
         "docs/security/**",
         "docs/commitment/**",
         "docs/templates/**",
-        "docs/ROADMAP.md",
         "docs/engineering-lessons.md"
       ],
       "note": "Specification and decision prose. docs/architecture/_meta/schemas/** is matched by the Apache rule above and is not prose."

@@ -26,6 +26,7 @@
     "test:hypervisor-domain-app-runtime": "node --test apps/hypervisor/scripts/domain-app-runtime-model.test.mjs",
     "test:vite-production-authority-scan": "node --test scripts/lib/vite-production-authority-scan.test.mjs",
     "check:shipped-products": "node scripts/validate-shipped-products.mjs",
+    "check:surface-records": "node scripts/generate-hypervisor-surface-records.mjs --check",
     "test:shipped-products": "node --test scripts/lib/shipped-products-manifest.test.mjs",
     "build:agent-sdk": "npm run build --workspace=@ioi/agent-sdk",
     "test:agent-sdk": "npm test --workspace=@ioi/agent-sdk",
