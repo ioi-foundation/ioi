@@ -145,6 +145,30 @@ states which scoped evidence the order expects; it does not prove the
 invocation, workflow, service outcome, deliverable, acceptance criteria, SLA,
 or settlement condition.
 
+A service order sits on the same kind of boundary for legal accountability:
+the `legal-principal-boundary`, a **dormant** target whose doctrine home is
+[`ecosystem-assurance-certification-liability.md`](../../foundations/ecosystem-assurance-certification-liability.md#dormant-target-legal-principal-boundary).
+Provider and customer refs are protocol identities. The order records who
+contracts in protocol terms, not which legally accountable
+principal-of-record stands behind each side, whether the acting identity held
+representative authority and contracting capacity for it, which governing
+law, venue, jurisdiction, and consumer/business status characterize the
+engagement, what KYC/AML/tax posture applies, or how liability, recourse, and
+insurance route on failure. A delegated Worker fulfilling the order is an
+executor, not a counterparty — a Worker is never presumed a legal person.
+
+Lifecycle status: this boundary is dormant and unregistered. If a later
+accountable owner ruling admits exact legal-principal profiles, an order could
+bind those facts by ref; until then an order that names one is a typed policy
+conflict, not a stronger contract. Order acceptance, escrow release, refund,
+and slashing remain protocol dispositions — a terms-root acceptance is
+protocol evidence, not automatically a legally enforceable contract, and the
+same is true of an order acceptance. An adverse owner disposition may retain
+the target dormant, narrow it to exact supported profiles, or withdraw
+unimplemented sections; one failed exact profile narrows or retires that
+profile, never the generic boundary. This is a machine contract, not legal
+advice; R-03 counsel engagement remains the owner's open action.
+
 ## Worker Training Contract
 
 Worker Training is a Service-as-Software outcome. The buyer does not purchase a

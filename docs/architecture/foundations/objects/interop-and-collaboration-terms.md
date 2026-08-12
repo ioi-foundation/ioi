@@ -4,7 +4,7 @@ Status: canonical low-level reference.
 Canonical owner: this file for the shared object shapes of AIIP bounded-execution-domain identity and standards bindings, the dispute rail object family, and conditional-cooperation collaboration terms.
 Supersedes: the same object definitions when they were carried inside the single `common-objects-and-envelopes.md` file.
 Superseded by: none.
-Last alignment pass: 2026-07-29.
+Last alignment pass: 2026-08-12.
 Doctrine status: canonical
 Implementation status: mixed (`DisputeRailBundle` v1 has a registered schema, invariants, fixtures, and generated projections; the dispute kernel, AIIP transport and bindings, and conditional-cooperation terms remain planned; the owner-qualified `UpgradeProposalEnvelope` target-owner shape is a canon shape change with no registered contract, projection, or runtime route behind it)
 Last implementation audit: 2026-07-25
@@ -786,6 +786,46 @@ Activation rules have one interpretation across implementations:
 One principal may occupy several roles but counts once toward a distinct-party
 threshold or independence rule. An invalid or zero threshold cannot activate
 terms.
+
+Lifecycle status: the legal-principal binding described in this block is a
+**dormant** target contract, part of the
+`legal-principal-boundary` target mapped in
+[`source-of-truth-map.md`](../../_meta/source-of-truth-map.md) and owned for
+doctrine by
+[`ecosystem-assurance-certification-liability.md`](../ecosystem-assurance-certification-liability.md#dormant-target-legal-principal-boundary).
+No field below exists in the registered `ioi.collaboration-terms.v1` shape, no
+envelope carries one today, and nothing here creates an effective obligation
+until a later accountable owner ruling admits exact profiles and the machine
+contracts exist.
+
+Claim hygiene, effective now and independent of dormancy:
+a terms-root acceptance is protocol evidence, not automatically a legally enforceable contract.
+Acceptance proves that a party's own governed decision bound an
+exact terms root under its private policy. Whether that act also forms a
+contract at law depends on facts this envelope does not carry: which legally
+accountable principal-of-record stands behind each `party_ref`, whether the
+accepting identity held representative authority and contracting capacity for
+that principal, and which jurisdiction, governing law, venue, and
+consumer/business characterization would apply. The `party_ref` kinds
+(`system://`, `domain://`, `org://`, `wallet://`, `service://`,
+`provider://`) are protocol identities, not legal-person assertions, and a
+delegated Worker executing under the terms is never a party at all — a Worker
+is never presumed a legal person.
+
+If the target is ever admitted, the binding would add per required party refs
+— never free prose — for: the legally accountable principal-of-record;
+representative-authority and contracting-capacity evidence; governing law,
+venue, and jurisdiction election; consumer/business status; KYC/AML/tax
+posture hooks; and liability-allocation, recourse, and insurance-routing
+policy resolved through the claim-routing owner above. The shape stays
+refs-and-hashes inside the hashed normative body; this file would own only the
+object fields, never the legal doctrine.
+
+An adverse owner disposition may retain this target dormant, narrow it to
+exact supported profiles, or withdraw the unimplemented binding; failure of
+one exact profile narrows or retires that profile and never erases the
+generic boundary above. R-03 counsel engagement remains the owner's open
+action; this boundary is a machine contract, not legal advice.
 
 ```yaml
 MultiPartyCollaborationEnvelope:
