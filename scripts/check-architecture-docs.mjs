@@ -282,7 +282,55 @@ if (!workItemsOnly) {
   }
 }
 
-// 10-15 — the work-item status records, per `_meta/work-items/README.md`.
+// 10 — retired public claims stay retired, and their successors stay present.
+//      Canon narrowing (the sas one-liner; the outside-reader adoption ruling in the
+//      2026-08-12 delta block) retired a set of whole-outcome claim phrasings. This is
+//      a CLOSED set of named retirements, not an open denylist: every row is an exact
+//      string canon explicitly retired, and the successor anchors are pinned beside
+//      them so retirement and replacement cannot drift apart. `_meta` is excluded as a
+//      class — its records NARRATE retirements; a ledger row quoting one is not a
+//      claim. The README's hero SVG is scanned because it renders the front door's
+//      words as image text.
+{
+  const RETIRED_CLAIMS = [
+    ["programmable economy for hiring verifiable workers", "retired front-door tagline"],
+    ["prove outcomes", "whole-outcome proof claim; successor: attributable evidence supporting declared verification and acceptance"],
+    ["reference implementation of canonical web4", "designation exists only as an unsatisfied written contract"],
+    ["verified work, not weights", "flattened the assurance ladder; successor: bounded, attributable, challengeable work"],
+    ["verifiable autonomous outcomes", "retired sas claim (one-liner narrowing)"],
+    ["verified autonomous service outcomes", "retired sas claim (one-liner narrowing)"],
+  ];
+  const scanTargets = [
+    "README.md",
+    "docs/assets/readme-hero.svg",
+    ...files.map(rel).filter((f) => !f.startsWith("docs/architecture/_meta/")),
+  ];
+  for (const relFile of scanTargets) {
+    const target = path.join(root, relFile);
+    if (!fs.existsSync(target)) {
+      failures.push(`${relFile}: retired-claims scan target is missing`);
+      continue;
+    }
+    const text = fs.readFileSync(target, "utf8").toLowerCase();
+    for (const [phrase, label] of RETIRED_CLAIMS) {
+      if (text.includes(phrase)) {
+        failures.push(`${relFile}: carries the retired claim \`${phrase}\` (${label}) — canon retired this phrasing`);
+      }
+    }
+  }
+  const readme = fs.readFileSync(path.join(root, "README.md"), "utf8");
+  for (const anchor of [
+    "authority, effect-admission, and evidence plane",
+    "bounded, attributable, challengeable work",
+    "Keep your IDE. Keep your model. Put consequential execution behind IOI.",
+  ]) {
+    if (!readme.includes(anchor)) {
+      failures.push(`README.md: lost the successor formulation \`${anchor}\` — a retirement holds only while its replacement stands`);
+    }
+  }
+}
+
+// 11-16 — the work-item status records, per `_meta/work-items/README.md`.
 const workItemDir = path.join(root, WORK_ITEMS);
 const records = fs.existsSync(workItemDir)
   ? fs
@@ -407,7 +455,7 @@ if (failures.length > 0) {
   process.exit(1);
 }
 const count = (n, noun) => `${n} ${noun}${n === 1 ? "" : "s"}`;
-if (!workItemsOnly) console.log(`Architecture docs OK — ${files.length} files, 9 rules.`);
+if (!workItemsOnly) console.log(`Architecture docs OK — ${files.length} files, 10 rules.`);
 console.log(
   `Work-item records OK — ${count(records.length, "record")} checked, ${count(anchorCount, "code anchor")}, ${count(pending.length, "pending PR anchor")}.`,
 );

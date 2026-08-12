@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for the Internet of Intelligence category definition, its necessity argument, and the north-star network proof.
 Supersedes: the duplicated north-star network proof previously carried in both [`../_meta/start-here.md`](../_meta/start-here.md) and [`../README.md`](../README.md); scattered definitional use of the term across the domains tree.
 Superseded by: none.
-Last alignment pass: 2026-08-05.
+Last alignment pass: 2026-08-12.
 Doctrine status: canonical
 Implementation status: mixed (category definition; the network proof is an unmet target — see [`../_meta/implementation-matrix.md`](../_meta/implementation-matrix.md))
 Last implementation audit: 2026-08-05
@@ -31,7 +31,7 @@ Category definition:
 
 Short form:
 
-> **The IoI exchanges verified work, not weights.**
+> **The IoI exchanges bounded, attributable, challengeable work — not weights.**
 
 This definition is categorical: it names what the network *is*, independent of
 any IOI product. IOI's claim is to implement the canonical category, not to own

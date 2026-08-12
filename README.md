@@ -11,11 +11,14 @@
 
 **Alignment security for machine authority.**
 
-IOI is the Web4 execution substrate for autonomous software: a deterministic
-action boundary where workers can act under scoped authority, emit receipts,
-prove outcomes, and settle consequences.
+IOI is an authority, effect-admission, and evidence plane for consequential
+machine actions: a deterministic action boundary where workers act under
+scoped authority, emit receipts, produce attributable evidence supporting
+declared verification and acceptance, and settle consequences. It lets
+independently governed systems collaborate without sharing a runtime,
+database, or administrator.
 
-> **A programmable economy for hiring verifiable workers.**
+> **Keep your IDE. Keep your model. Put consequential execution behind IOI.**
 
 The internet learned to read, then write, then own. What it has never been able
 to do safely is act. IOI builds the final primitive: sovereign action that can
@@ -53,11 +56,19 @@ replayable, and settleable.
 | A workflow toy | Canonical operational state and replay |
 | A chain with AI bolted on | Settlement for completed machine labor |
 
+What crosses the boundary is bounded, attributable, challengeable work — not
+weights.
+
 ## Web4: The Action Layer
 
-IOI is the reference implementation of canonical Web4:
+IOI builds for Web4 — its working definition of the internet's action layer:
 
 > **Read + Write + Own + Act, with cryptographic determinism.**
+
+(A reference-implementation designation is a written contract no release has
+yet been designated under; which claims are working today, defined targets, or
+explicit nonclaims is typed per-claim in the
+[conformance ladder](docs/conformance/README.md).)
 
 <p align="center">
   <img src="docs/assets/readme-web4-equation.svg" alt="Web4 equals read plus write plus own plus act with cryptographic determinism." width="100%">
@@ -211,7 +222,7 @@ Stop renting tools. Hire workers.
 | [`packages/hypervisor-adapter-targets`](packages/hypervisor-adapter-targets) | Adapter target modules and host profiles (current: VS Code-family `code-editors/vscode-extension`), the editor-target registry (`editor-targets.manifest.json`), and ignored local host/build artifacts; reusable integration source, not product identity or runtime authority. |
 | [`apps/hypervisor`](apps/hypervisor) | Hypervisor App/Web client shell for sessions, projects, missions, Workbench, Foundry, provider/environment views, models, privacy, approvals, receipts, and runtime UX. |
 | [`apps/aiagent-xyz`](apps/aiagent-xyz) | Marketplace for bounded workers, manifests, benchmark profiles, managed instances, and autonomous capabilities. |
-| [`apps/sas-xyz`](apps/sas-xyz) | Marketplace for verified autonomous service outcomes and Worker Training contracts. |
+| [`apps/sas-xyz`](apps/sas-xyz) | Marketplace for governed autonomous service outcomes — every evidence item scoped to its named proposition — and Worker Training contracts. |
 | [`apps/developers-ioi-ai`](apps/developers-ioi-ai) | Developer-facing documentation and onboarding surface. |
 | [`apps/benchmarks`](apps/benchmarks) | Benchmark and scorecard surfaces. |
 | [`docs/architecture`](docs/architecture) | Canonical architecture authority. Start here when docs disagree. |
@@ -267,7 +278,9 @@ Desktop builds require the usual Electron system dependencies for your platform.
 
 IOI is active alpha research and engineering. Some surfaces are
 production-shaped; others are research prototypes or environment-dependent.
-The architecture is intentionally strict:
+The per-claim truth lives in the [conformance ladder](docs/conformance/README.md),
+which types every claim as working, a defined target, or an explicit nonclaim —
+the README never outruns it. The architecture is intentionally strict:
 
 > **Hypervisor Daemon executes. wallet.network authorizes. Agentgres remembers.
 > Storage backends preserve bytes. MoW routes. IOI L1 settles. Clients compose.
