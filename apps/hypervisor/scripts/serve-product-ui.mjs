@@ -7508,6 +7508,12 @@ async function runSurfaceAction(hit, res, body) {
       res.writeHead(303, { Location: url, "Cache-Control": "no-cache" });
       res.end();
     };
+    // TYPED ACC-G ABSENCE (denial preserves composer input): on refusal the PRG redirect carries
+    // the typed refused code + reason + record, so the surface's denial STATE is preserved and
+    // re-rendered — but the operator's typed field VALUES are not echoed back into the form. Full
+    // ACC-G "denial re-populates the composer" (round-tripping submitted field values through the
+    // PRG boundary, bounded, for every surface action) is a follow-up UI packet, not this backend
+    // launch-chain repair; it is stated here rather than silently satisfied by state-only carry.
     const refuse = (code, message, target) => {
       const back2 = safeReturnPath(target, back);
       const url = `${back2}${back2.includes("?") ? "&" : "?"}${new URLSearchParams({ refused: code, reason: String(message || "").slice(0, 200), record: hit.recordId }).toString()}${embed ? "&embed=1" : ""}#ap-result`;

@@ -130,9 +130,11 @@ export const SURFACES = [
   // which keep serving untouched — seed-preservation invariant; the registry owner rename for
   // those seed rows is deferred to the full Work packet per the seed-ux-provenance
   // owner_mapping_note). Sessions renders lifecycle facts + the ADMITTED harness binding as
-  // session truth; New Session owns the ONE mutation the daemon admits today (create, 202 +
-  // provision receipt) with NO subject input — subject_attachments is hardcoded empty at the
-  // daemon (typed W3 C-1 absence). Evidence: check:work-cockpit.
+  // session truth; New Session owns the create mutation (202 + provision receipt) with NO subject
+  // input — subject_attachments is EXACTLY [] AT CREATE (no masquerade at create). The C-1 subject
+  // attachment now MATERIALIZES at LAUNCH via the W3.1 producer (POST harness-session-launches),
+  // not at create; the launch-chain + work-cockpit verifiers both prove the [] → daemon-resolved
+  // flip. Evidence: check:work-cockpit, check:launch-chain.
   { slug: "work", owner: "Work", title: "Work", icon: EXPLORER_APP_ICON_URI, route: "/__ioi/work-cockpit", canonical_route: "/work", verifier: "scripts/verify-hypervisor-work-cockpit.mjs", certification: "n/a", capabilities: ["browse", "inspect"], operational_state: "inspect", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "work-sessions", owner: "Work", title: "Work / Sessions", icon: EXPLORER_APP_ICON_URI, route: "/__ioi/work-sessions", canonical_route: "/work/sessions", verifier: "scripts/verify-hypervisor-work-cockpit.mjs", certification: "n/a", capabilities: ["browse", "filter", "select", "inspect", "transition"], operational_state: "act", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "work-new-session", owner: "Work", title: "Work / New Session", icon: EXPLORER_APP_ICON_URI, route: "/__ioi/work-new-session", canonical_route: "/work/new-session", verifier: "scripts/verify-hypervisor-work-cockpit.mjs", certification: "n/a", capabilities: ["browse", "create"], operational_state: "act", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
