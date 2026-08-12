@@ -1132,10 +1132,12 @@ fn replay_runtime_events(
         for projection in history {
             let mut event = projection.operation.payload.clone();
             if let Some(object) = event.as_object_mut() {
-                // Sequence is the substrate's fact about the event, stamped
-                // on read from the admitted projection rather than stored in
-                // the authored bytes.
+                // Sequence + head are the substrate's facts about the event, stamped
+                // on read from the admitted projection rather than stored in the
+                // authored bytes. Surfacing the real head lets a reader cross-check a
+                // produce-time `substrate_head` against the stream's actual head.
                 object.insert("seq".to_string(), json!(projection.seq));
+                object.insert("substrate_head".to_string(), json!(projection.head));
             }
             if replay_kind == "turn"
                 && turn_id.is_some_and(|wanted| {

@@ -149,6 +149,14 @@ const readFamilyRecords = (family) => {
 // Canonical JSON with recursively SORTED object keys + compact separators — byte-matches Rust
 // serde_json::to_vec over a serde_json::Value (BTreeMap-backed: keys serialize sorted), so the
 // frozen-revision sha256 can be INDEPENDENTLY recomputed here and compared for EXACTNESS.
+// LATENT FRAGILITY (not reachable today, one schema change from silently breaking):
+//  - number encoding: JSON.stringify(1) === "1" but serde_json encodes an integer-valued f64 as
+//    "1.0"; the hashed material is currently all strings / bools / string-arrays, so no numbers
+//    reach this path. A numeric field entering the material would diverge.
+//  - key ordering: Object.keys().sort() orders by UTF-16 code units; Rust BTreeMap orders by UTF-8
+//    bytes. They agree across the BMP but diverge for keys above U+FFFF — none exist here.
+// The material shape below is HAND-DUPLICATED from the daemon's harness_profile_frozen_revision();
+// both sides must be edited together, and LAUNCH_SCHEMA_ALLOWLIST updated, when the shape changes.
 const canonicalJson = (v) => {
   if (v === null || typeof v !== "object") return JSON.stringify(v);
   if (Array.isArray(v)) return `[${v.map(canonicalJson).join(",")}]`;
@@ -175,22 +183,60 @@ const recomputeFrozenRevision = (prof) => {
   return { revisionRef: `harness-profile://daemon-resolved/${harnessSlug}/revision/${contentHash}`, contentHash };
 };
 
-// STRUCTURAL second-spine detector (rename-resistant): recursively walk a value and collect the
-// kernel-shaped tokens a launch-family record must NEVER carry — a kernel thread-fork / managed-
-// session CONTROL schema name in EITHER dotted or hyphenated form, a `control_state` of "admitted",
-// or the retired launch-family thread-event vocabulary. It inspects field VALUES by shape, so a
-// rename of the fixed strings cannot defeat it. The REAL composed admissions (recipe / binding /
-// terminal-attach) carry their own kernel schemas and are deliberately NOT matched.
-const KERNEL_CONTROL_SCHEMA_RE = /^ioi\.runtime\.(thread[_-]fork[_-]control|managed[_-]session[_-]control)(?:[.\-]|$)/u;
-const collectShadowTokens = (v, out = []) => {
+// STRUCTURAL, ALLOWLIST-BY-CONSTRUCTION second-spine detector. A denylist ("does it match a known
+// kernel-control schema stem?") is defeated by any rename — moving the fake INTO this PR's own
+// `ioi.hypervisor.*` namespace, a `_v2` suffix, `control_state:"admitted_at_launch"`, a renamed
+// event_kind. So instead we assert the launch record's typed surface is EXACTLY the closed set of
+// values a correctly-composed launch may carry: any schema_version / payload_schema_version outside
+// LAUNCH_SCHEMA_ALLOWLIST, any control_state outside {observe,take_over,return_agent}, or any
+// event_kind/kind outside EVENT_KIND_ALLOWLIST is a shadow → RED. (Both the LAUNCH_SCHEMA_ALLOWLIST
+// contents and the daemon-side material shape must be edited together when a schema legitimately
+// changes — see the recomputeFrozenRevision note.)
+const LAUNCH_SCHEMA_ALLOWLIST = new Set([
+  // launch-family wrapper tags (this PR)
+  "ioi.hypervisor.harness_session_launch.v1",
+  "ioi.hypervisor.harness_session_launch_plan.v1",
+  "ioi.hypervisor.harness_session_launch_thread.v1",
+  "ioi.hypervisor.harness_session_launch_event_ref.v1",
+  "ioi.hypervisor.harness_session_launch_fork_step.v1",
+  "ioi.hypervisor.harness_session_launch_managed_session_step.v1",
+  "ioi.hypervisor.harness_session_launch_projection.v1",
+  "ioi.hypervisor.harness_session_launch_events.v1",
+  // real composed kernel admissions / records the launch legitimately embeds (NOT second spine)
+  "ioi.runtime.harness_session_binding_admission.v1",
+  "ioi.runtime.harness_session_readiness.v1",
+  "ioi.runtime.harness_session_spawn.v1",
+  "ioi.runtime.harness_session_terminal_attach.v1",
+  "ioi.runtime.harness_terminal_transcript_projection.v1",
+  "ioi.runtime.hypervisor_session_launch_recipe_admission.v1",
+  "ioi.hypervisor.session_launch_recipe_admission_request.v1",
+  "ioi.hypervisor.session_launch_recipe.v1",
+  "ioi.hypervisor.new_session_target_binding.v1",
+  "ioi.hypervisor.harness_session_binding.v1",
+]);
+const CONTROL_STATE_ALLOWLIST = new Set(["observe", "take_over", "return_agent"]);
+const EVENT_KIND_ALLOWLIST = new Set(["thread.started", "harness_session.spawned", "thread.forked", "managed_session.controlled"]);
+// Structural walk of a parsed value → the offending typed values (empty ⇒ clean).
+const structuralViolations = (v, out = []) => {
   if (v === null || typeof v !== "object") return out;
-  if (Array.isArray(v)) { for (const x of v) collectShadowTokens(x, out); return out; }
+  if (Array.isArray(v)) { for (const x of v) structuralViolations(x, out); return out; }
   for (const [k, val] of Object.entries(v)) {
-    if ((k === "schema_version" || k === "payload_schema_version") && typeof val === "string" && KERNEL_CONTROL_SCHEMA_RE.test(val)) out.push(`${k}=${val}`);
-    if (k === "control_state" && val === "admitted") out.push("control_state=admitted");
-    if ((k === "event_kind" || k === "kind") && (val === "runtime.thread.opened" || val === "runtime.thread.harness_spawned")) out.push(`${k}=${val}`);
-    collectShadowTokens(val, out);
+    if ((k === "schema_version" || k === "payload_schema_version") && typeof val === "string" && !LAUNCH_SCHEMA_ALLOWLIST.has(val)) out.push(`${k}=${val}`);
+    if (k === "control_state" && typeof val === "string" && !CONTROL_STATE_ALLOWLIST.has(val)) out.push(`control_state=${val}`);
+    if ((k === "event_kind" || k === "kind") && typeof val === "string" && !EVENT_KIND_ALLOWLIST.has(val)) out.push(`${k}=${val}`);
+    structuralViolations(val, out);
   }
+  return out;
+};
+// Raw-bytes backstop (V1c): a record corrupted-unparseable while still carrying kernel tokens in its
+// bytes would parse to null and slip a structural (parsed) walk. Extract the same typed values by
+// regex from the raw text and apply the SAME allowlists, so a token in the bytes fails regardless of
+// parseability.
+const rawViolations = (text) => {
+  const out = [];
+  for (const m of text.matchAll(/"(?:payload_)?schema_version"\s*:\s*"([^"]*)"/gu)) if (!LAUNCH_SCHEMA_ALLOWLIST.has(m[1])) out.push(`raw schema=${m[1]}`);
+  for (const m of text.matchAll(/"control_state"\s*:\s*"([^"]*)"/gu)) if (!CONTROL_STATE_ALLOWLIST.has(m[1])) out.push(`raw control_state=${m[1]}`);
+  for (const m of text.matchAll(/"(?:event_kind|kind)"\s*:\s*"([^"]*)"/gu)) if (!EVENT_KIND_ALLOWLIST.has(m[1])) out.push(`raw ${m[1]}`);
   return out;
 };
 
@@ -292,7 +338,7 @@ async function run() {
   //    assertions), and (ii) the substrate is read back INDEPENDENTLY — the initial event is proven
   //    on the real agentgres stream at its substrate-stamped seq, and the durable record is scanned
   //    structurally — so a well-formed literal cannot masquerade as a real admission. --------------
-  ok("Finding 1 (step 5): the initial thread event is the kernel `thread.started` event admitted onto the REAL event stream — it carries a substrate-stamped seq (0-indexed integer), a real substrate head (agentgres CAS head, not the kernel content-hash `resulting_head`), and an agentgres operation ref, NOT a launch-family `runtime.thread.opened` vocabulary",
+  ok("Finding 1 (step 5): the initial thread event is the kernel `thread.started` event with a substrate-stamped seq (0-indexed), a substrate_head field distinct from the kernel content-hash `resulting_head`, and an agentgres operation ref — NOT a launch-family `runtime.thread.opened` vocabulary (that these are the SUBSTRATE's real values, not literals, is proven by the /events cross-check below)",
     steps.thread_event_kind === "thread.started"
       && Number.isInteger(steps.thread_event_seq) && steps.thread_event_seq >= 0
       && typeof steps.thread_event_substrate_head === "string" && steps.thread_event_substrate_head.length > 0
@@ -309,14 +355,17 @@ async function run() {
   const streamEvents = streamAfterProduce.body?.events || [];
   const openedOnStream = streamEvents.find((e) => e.event_id === steps.thread_event_ref);
   const spawnedOnStream = streamEvents.find((e) => e.event_id === steps.first_runtime_event_ref);
-  ok("Finding 1 (step 5) INDEPENDENT READBACK: the event named by thread_event_ref is actually on the real kernel stream at the substrate-stamped seq the launch reported, carrying an agentgres_operation_ref; the spawned event follows it at a higher seq — proven by replaying the substrate, never by trusting the launch record",
+  ok("Finding 1 (step 5) INDEPENDENT READBACK: the event named by thread_event_ref is actually on the real kernel stream, and the launch record's self-reported seq, substrate_head, AND agentgres_operation_ref each EQUAL the substrate's own values read back from /events; the spawned event follows at a higher seq — a fabricated head/op-ref or a constant literal in the launch record goes RED here",
     streamAfterProduce.status === 200
       && openedOnStream != null
       && openedOnStream.event_kind === "thread.started"
       && openedOnStream.seq === steps.thread_event_seq
       && typeof openedOnStream.agentgres_operation_ref === "string" && openedOnStream.agentgres_operation_ref.length > 0
+      && openedOnStream.agentgres_operation_ref === steps.thread_event_operation_ref
+      && typeof openedOnStream.substrate_head === "string" && openedOnStream.substrate_head.length > 0
+      && openedOnStream.substrate_head === steps.thread_event_substrate_head
       && spawnedOnStream != null && spawnedOnStream.event_kind === "harness_session.spawned" && spawnedOnStream.seq > openedOnStream.seq,
-    openedOnStream ? `opened seq=${openedOnStream.seq} op=${openedOnStream.agentgres_operation_ref}` : "event NOT found on stream");
+    openedOnStream ? `opened seq=${openedOnStream.seq} head=${openedOnStream.substrate_head} op=${openedOnStream.agentgres_operation_ref}` : "event NOT found on stream");
 
   // -- Negative isolation (a): PROVE no launch-family chain record ever reaches the kernel stream. --
   ok("negative isolation (a): the real kernel thread-orchestration stream carries ONLY the composed thread lifecycle events (thread.started | harness_session.spawned) — no launch-family chain record (no `chain` / `plan_admission` / `subject_attachments` / `harness_binding_admission` / `ioi.hypervisor.harness_session_launch*` schema) ever reaches the kernel stream",
@@ -341,16 +390,18 @@ async function run() {
       && launch?.managed_session?.decision === "no_managed_session_at_launch"
       && launch?.managed_session?.control_planner === "plan_runtime_managed_session_control_from_replayed_events",
     JSON.stringify(launch?.managed_session));
-  // SAFETY — STRUCTURAL second-spine scan (Finding C: rename-resistant, catches dotted AND hyphenated
-  // kernel-control schema names + control_state:"admitted" + the retired thread-event vocabulary), run
-  // over BOTH the HTTP response and the DURABLE on-disk record.
-  const responseShadow = collectShadowTokens(launch);
-  ok("SAFETY (response, structural): a recursive walk of the composed launch HTTP body finds NO second-spine token — no kernel thread-fork/managed-session CONTROL schema (dotted or hyphenated), no control_state:\"admitted\", no runtime.thread.opened/harness_spawned vocabulary",
+  // SAFETY — STRUCTURAL, ALLOWLIST-BY-CONSTRUCTION second-spine scan (Finding C): the launch's typed
+  // surface must be EXACTLY the closed set a correct launch may carry; anything else (a rename into
+  // ioi.hypervisor.*, a _v2 suffix, control_state:"admitted"/"admitted_at_launch"/"active", a renamed
+  // event_kind) is a shadow. Run over the HTTP response AND the durable on-disk record (parsed walk +
+  // raw-bytes backstop, so a corrupt-unparseable record carrying kernel tokens still FAILS).
+  const responseShadow = structuralViolations(launch);
+  ok("SAFETY (response, allowlist): the composed launch HTTP body's typed surface is EXACTLY the closed launch allowlist — every schema_version is a legit launch-family or composed-admission tag, every control_state is observe|take_over|return_agent, every event_kind is a composed thread lifecycle kind; anything else is a second-spine shadow",
     responseShadow.length === 0,
     responseShadow.length ? responseShadow.join(" | ") : "clean");
   const persistedLaunches = readFamilyRecords("harness-session-launches");
-  const persistedShadow = persistedLaunches.flatMap((r) => collectShadowTokens(r.json));
-  ok("SAFETY (durable, structural): the same structural walk over the PERSISTED launch record(s) on disk (harness-session-launches family directory) finds NO second-spine token — a response that sanitizes while the durable record still wears a kernel schema name would FAIL here",
+  const persistedShadow = persistedLaunches.flatMap((r) => [...structuralViolations(r.json), ...rawViolations(r.text || "")]);
+  ok("SAFETY (durable, allowlist + raw backstop): the same allowlist scan over the PERSISTED launch record(s) on disk — parsed structural walk AND a raw-bytes regex backstop — finds NO out-of-allowlist typed value; a response that sanitizes while the durable record still wears a kernel token, or a corrupt-unparseable record carrying tokens in its bytes, FAILS here",
     persistedLaunches.length >= 1
       && persistedLaunches.some((r) => (r.text || "").includes(launchId))
       && persistedShadow.length === 0,
@@ -437,15 +488,15 @@ async function run() {
       && delegatedFork.fork_planner === "plan_runtime_thread_fork_control"
       && delegatedFork.decision === "refused"
       && delegatedFork.code === "runtime_thread_fork_control_agent_replay_required"
-      && collectShadowTokens(delegated.body).length === 0,
+      && structuralViolations(delegated.body).length === 0,
     `${delegatedFork.decision} · ${delegatedFork.code}`);
 
   // -- INV-37 durable receipt binds the acting principal ----------------------------------------
   const producedReceipt = readReceiptByKind("hypervisor.harness_session_launch.produced", launchRef);
-  ok("the durable produced receipt binds acting_principal_ref to the real operator principal (INV-37), never user://local-operator",
+  ok("the durable produced receipt binds acting_principal_ref to the real operator principal (INV-37), never user://local-operator, and its created_at lands inside the test window (a pinned anchor, not merely !1970)",
     producedReceipt && String(producedReceipt.acting_principal_ref || "").startsWith("user://")
       && producedReceipt.acting_principal_ref !== "user://local-operator"
-      && !producedReceipt.created_at.startsWith("1970"),
+      && withinTestWindow(producedReceipt.created_at),
     producedReceipt?.acting_principal_ref);
 
   // -- idempotent replay-to-stored-record -------------------------------------------------------
