@@ -200,7 +200,9 @@ const LAUNCH_SCHEMA_ALLOWLIST = new Set([
   "ioi.hypervisor.harness_session_launch_fork_step.v1",
   "ioi.hypervisor.harness_session_launch_managed_session_step.v1",
   "ioi.hypervisor.harness_session_launch_projection.v1",
-  "ioi.hypervisor.harness_session_launch_events.v1",
+  // (harness_session_launch_events.v1 dropped: it is only the /events ENVELOPE schema — it appears in
+  // neither the durable record nor the produce response that this allowlist scans, so per "every entry
+  // must be demonstrably emitted into a scanned surface" it is not carried here.)
   // real composed kernel admissions / records the launch legitimately embeds (NOT second spine),
   // verified per-entry as actually emitted into the durable launch record (the recipe/binding REQUEST
   // schemas were dropped as dead — they exist only in the in-memory planner requests, never persisted)
@@ -223,10 +225,19 @@ const STREAM_SCHEMA_ALLOWLIST = new Set(["ioi.runtime.event.v1"]);
 // boundary — chain KEY-SET closure below is — so keeping the legitimate set is safe.)
 const CONTROL_STATE_ALLOWLIST = new Set(["observe", "take_over", "return_agent"]);
 const EVENT_KIND_ALLOWLIST = new Set(["thread.started", "harness_session.spawned", "thread.forked", "managed_session.controlled"]);
-// The EXACT key set the launch record's `chain` object may carry (additionalProperties:false). This
-// is the TERMINATING close for M5b: a fabricated sibling (e.g. `shadow_managed_session`) fails on mere
-// PRESENCE of an unexpected KEY, whatever allowlisted values it hides inside.
+// The EXACT key sets (additionalProperties:false, sorted) a correct launch record carries at every
+// level a second spine could hide — top-level record, chain, and the two provenance-bearing steps.
+// A fabricated sibling fails on mere PRESENCE of an unexpected KEY, whatever allowlisted values it
+// hides inside. Pinned from a clean run's DURABLE record (the assertions flag any drift).
+// The top-level key set is PATH-DEPENDENT: launch_terminalize (stop/archive) MUTATES it, adding
+// `lineage` + `{state}_at`. So the pin is STATE-AWARE — a strict-equality pin per lifecycle stage,
+// checked against the durable record at each stage. A top-level shadow at ANY stage → RED.
+const EXPECTED_LAUNCH_RECORD_KEYS_PRODUCED = ["acting_principal_ref", "chain", "created_at", "environment_ref", "head", "idempotency_key", "launch_id", "launch_ref", "lifecycle_state", "owner_ref", "receipt_refs", "request_hash", "revision", "runtimeTruthSource", "schema_version", "session_harness_binding", "session_model_route_binding", "session_ref", "workspace_root"];
+const EXPECTED_LAUNCH_RECORD_KEYS_STOPPED = [...EXPECTED_LAUNCH_RECORD_KEYS_PRODUCED, "lineage", "stopped_at"].sort();
+const EXPECTED_LAUNCH_RECORD_KEYS_ARCHIVED = [...EXPECTED_LAUNCH_RECORD_KEYS_STOPPED, "archived_at"].sort();
 const EXPECTED_CHAIN_KEYS = ["first_runtime_event", "fork", "harness_binding_admission", "harness_binding_evidence", "launch_recipe_admission", "managed_session", "plan_admission", "readiness", "spawn", "subject_attachments", "terminal_attach", "thread"];
+const EXPECTED_FORK_KEYS = ["decision", "fork_planner", "note", "schema_version"];
+const EXPECTED_MANAGED_SESSION_KEYS = ["available_control_states", "control_planner", "decision", "note", "schema_version"];
 // Structural walk of a parsed value → offending typed values, against a supplied schema allowlist.
 const structuralViolations = (v, schemaAllow, out = []) => {
   if (v === null || typeof v !== "object") return out;
@@ -337,13 +348,21 @@ async function run() {
     typeof steps.plan_ref === "string" && steps.plan_ref.startsWith("harness-session-launch-plan:")
       && typeof steps.thread_ref === "string" && steps.thread_ref.startsWith("thread:launch-")
       && typeof steps.thread_event_ref === "string" && steps.thread_event_ref.includes("/opened")
-      && steps.launch_recipe_ref != null
+      && typeof steps.launch_recipe_ref === "string" && steps.launch_recipe_ref.startsWith("target-binding:")
       && typeof steps.harness_binding_ref === "string" && steps.harness_binding_ref.startsWith("harness-session-binding:")
       && typeof steps.readiness_ref === "string" && steps.readiness_ref.startsWith("readiness:")
       && typeof steps.spawn_ref === "string" && steps.spawn_ref.startsWith("spawn:")
-      && steps.terminal_attach_ref != null
+      // Assert the ACTUAL terminal-attach ref shape, not the launch_step_ref schema_version fallback
+      // (a kernel rename would otherwise leave this passing on a schema-version string).
+      && typeof steps.terminal_attach_ref === "string" && steps.terminal_attach_ref.startsWith("harness-session-terminal-attach:")
       && typeof steps.first_runtime_event_ref === "string" && steps.first_runtime_event_ref.includes("/spawned"),
     JSON.stringify(steps));
+
+  // Load the DURABLE launch record ONCE, early — it is RECOVERY TRUTH (what the daemon serves after
+  // restart). The provenance and key-set assertions below read from it, so a durable-only forgery
+  // (response sanitized, disk fabricated) cannot pass.
+  const persistedLaunches = readFamilyRecords("harness-session-launches");
+  const mainRecord = persistedLaunches.map((r) => r.json).find((j) => j && j.launch_id === launchId);
 
   // -- Finding 1: the thread / fork / managed-session facts are the REAL kernel planners' output or
   //    an honest typed absence. The gate catches #252's second spine two independent ways: (i) the
@@ -398,30 +417,40 @@ async function run() {
   const shadowControl = await jd(`/v1/threads/${encodeURIComponent(steps.thread_ref)}/managed-sessions/control`, { method: "POST", body: JSON.stringify({ managed_session_id: `managed-session:${launchId}`, control_state: "observe" }) });
   ok("negative isolation (b): the REAL managed-session control route (POST /v1/threads/<launch-thread>/managed-sessions/control) REFUSES for the launch thread ref — read_agent_for_thread 404s first, so a crafted POST cannot ride the launch shadow into the kernel control planner",
     shadowControl.status === 404, `${shadowControl.status}`);
-  // Finding 1 (step 6/7) — PRESENCE-AND-VALUE of the composed launch-family shape (not inequality
-  // against absent keys). The real fork-planner INVOCATION is exercised at the delegation probe below;
-  // this early-return branch is asserted only for the honest typed-absence shape it actually carries.
-  ok("Finding 1 (step 6): with no delegation the fork is the typed launch-family absence — schema_version=ioi.hypervisor.harness_session_launch_fork_step.v1, decision=not_requested — carrying no kernel fork event (the real planner is exercised at the delegation probe)",
-    launch?.fork?.schema_version === "ioi.hypervisor.harness_session_launch_fork_step.v1"
-      && launch?.fork?.decision === "not_requested",
-    JSON.stringify(launch?.fork));
-  ok("Finding 1 (step 7): the managed-session step is the typed launch-family absence naming the REAL control planner — schema_version=ioi.hypervisor.harness_session_launch_managed_session_step.v1, decision=no_managed_session_at_launch, control_planner=plan_runtime_managed_session_control_from_replayed_events (control-over-existing, nothing to control at launch)",
-    launch?.managed_session?.schema_version === "ioi.hypervisor.harness_session_launch_managed_session_step.v1"
-      && launch?.managed_session?.decision === "no_managed_session_at_launch"
-      && launch?.managed_session?.control_planner === "plan_runtime_managed_session_control_from_replayed_events",
-    JSON.stringify(launch?.managed_session));
-  // M5b TERMINATING FIX — CLOSED-WORLD OVER KEYS. The value allowlists prove approved vocab appears
-  // only on approved key NAMES; they say nothing about whether the KEY SET is expected. So a shadow
-  // sibling built from ONLY allowlisted values on a NEW key (e.g. `shadow_managed_session`) passes a
-  // value scan. Assert the launch record's `chain` KEY SET EQUALS the pinned expected set
-  // (additionalProperties:false): a shadow fails on mere PRESENCE of an unexpected key, whatever it
-  // contains. Read from the DURABLE record so it holds on disk, not just in the response.
-  const persistedLaunches = readFamilyRecords("harness-session-launches");
-  const mainRecord = persistedLaunches.map((r) => r.json).find((j) => j && j.launch_id === launchId);
-  const chainKeys = mainRecord?.chain ? Object.keys(mainRecord.chain).sort() : null;
-  ok("M5b (closed-world over KEYS): the durable launch record's `chain` KEY SET EQUALS the pinned expected set (additionalProperties:false) — a fabricated sibling record built from only-allowlisted values on a NEW key fails on PRESENCE, whatever it hides",
-    chainKeys != null && JSON.stringify(chainKeys) === JSON.stringify(EXPECTED_CHAIN_KEYS),
-    chainKeys ? chainKeys.join(",") : "no chain on durable record");
+  // K2D — the provenance (decision + control_planner + schema) is read from the DURABLE record (the
+  // recovery truth the daemon serves after restart), NOT just the produce-time response; a durable-only
+  // substitution (response reads no_managed_session_at_launch while disk reads decision:"admitted",
+  // control_planner:"none_no_planner_ran") goes RED. The response is separately asserted to EQUAL the
+  // durable provenance, so a divergence in either direction fails.
+  const durFork = mainRecord?.chain?.fork || {};
+  const durManaged = mainRecord?.chain?.managed_session || {};
+  ok("Finding 1 (step 6) — DURABLE provenance: the on-disk fork step is the typed launch-family absence (schema_version=…_fork_step.v1, decision=not_requested), and the response fork EQUALS the durable fork — a durable-only forgery fails",
+    durFork.schema_version === "ioi.hypervisor.harness_session_launch_fork_step.v1"
+      && durFork.decision === "not_requested"
+      && JSON.stringify(launch?.fork) === JSON.stringify(durFork),
+    JSON.stringify(durFork));
+  ok("Finding 1 (step 7) — DURABLE provenance: the on-disk managed-session step is the typed absence naming the REAL control planner (decision=no_managed_session_at_launch, control_planner=plan_runtime_managed_session_control_from_replayed_events), and the response managed_session EQUALS the durable one — a durable-only substitution (decision:\"admitted\" on disk) goes RED",
+    durManaged.schema_version === "ioi.hypervisor.harness_session_launch_managed_session_step.v1"
+      && durManaged.decision === "no_managed_session_at_launch"
+      && durManaged.control_planner === "plan_runtime_managed_session_control_from_replayed_events"
+      && JSON.stringify(launch?.managed_session) === JSON.stringify(durManaged),
+    JSON.stringify(durManaged));
+  // CLOSED-WORLD OVER KEYS at every level a second spine can hide (all read from the DURABLE record):
+  //   M5b — chain siblings;  K3 — top-level siblings (outside chain);  K1 — nested siblings inside the
+  //   two provenance-bearing steps (fork / managed_session). Value allowlists prove approved vocab on
+  //   approved key NAMES; only the KEY-SET equality proves the key SET is expected, so a shadow built
+  //   from ONLY allowlisted values fails on mere PRESENCE of any unexpected key, whatever it hides.
+  const keysOf = (o) => (o && typeof o === "object" && !Array.isArray(o)) ? Object.keys(o).sort() : null;
+  const eqKeys = (o, expected) => { const k = keysOf(o); return k != null && JSON.stringify(k) === JSON.stringify(expected); };
+  ok("K3 (top-level closed-world, AT PRODUCE): the durable launch record's TOP-LEVEL key set EQUALS the pinned produced set (additionalProperties:false) — a sibling OUTSIDE chain (launch_record.shadow_*) fails on PRESENCE (the stopped/archived stages are pinned separately after terminalization)",
+    eqKeys(mainRecord, EXPECTED_LAUNCH_RECORD_KEYS_PRODUCED),
+    keysOf(mainRecord)?.join(",") || "no durable record");
+  ok("M5b (chain closed-world): the durable record's `chain` key set EQUALS the pinned expected set — a chain sibling (chain.shadow_managed_session) fails on PRESENCE, whatever allowlisted values it hides",
+    eqKeys(mainRecord?.chain, EXPECTED_CHAIN_KEYS),
+    keysOf(mainRecord?.chain)?.join(",") || "no chain");
+  ok("K1 (nested closed-world): the durable `chain.fork` and `chain.managed_session` key sets — the two steps carrying planner provenance — EQUAL their pinned expected sets, so a nested shadow (chain.managed_session.shadow_control) fails on PRESENCE",
+    eqKeys(mainRecord?.chain?.fork, EXPECTED_FORK_KEYS) && eqKeys(mainRecord?.chain?.managed_session, EXPECTED_MANAGED_SESSION_KEYS),
+    `fork=[${keysOf(mainRecord?.chain?.fork)}] managed=[${keysOf(mainRecord?.chain?.managed_session)}]`);
 
   // SAFETY — STRUCTURAL value scan (defence in depth behind the key-set close): every schema_version /
   // payload_schema_version / control_state / event_kind must be an allowlisted value (a rename into
@@ -476,8 +505,8 @@ async function run() {
       && withinTestWindow(recheck.rechecked_at)
       && recheck.derived_binding_availability_state === "daemon_verified",
     JSON.stringify(recheck));
-  ok("Finding 2 (availability CORRELATED, not hard-coded): the derived binding availability tracks the registry lifecycle the recheck READ — daemon_verified iff the mount read as lifecycle-active — so a hard-coded `daemon_verified` decoupled from the read would fail this biconditional",
-    (recheck.registry_lifecycle_status === "active") === (recheck.derived_binding_availability_state === "daemon_verified"),
+  ok("Finding 2 (availability CORRELATED, not hard-coded): the recheck actually READ registry_lifecycle_status=active AND DERIVED daemon_verified from it (asserted as the real values, not a biconditional that passes vacuously when both sides are false) — a mount read as non-active with a hard-coded daemon_verified fails the first conjunct",
+    recheck.registry_lifecycle_status === "active" && recheck.derived_binding_availability_state === "daemon_verified",
     `${recheck.registry_lifecycle_status} => ${recheck.derived_binding_availability_state}`);
   ok("Finding 2: the recheck honestly carries live token reachability as FALSE (the mount is daemon-verified; live serving is the W3.2 execute dependency) — the binding never over-claims what the readiness admits",
     recheck.model_route_reachable === false && launch?.readiness?.observed_substrate?.model_route_reachable === false,
@@ -562,6 +591,13 @@ async function run() {
   const stopReplay = await jd(`${LAUNCHES}/${encodeURIComponent(launchId)}/stop`, { method: "POST", body: JSON.stringify({ expected_head: head }) });
   ok("re-stopping is idempotent (already-stopped replays without a second effect)",
     stopReplay.status === 200 && stopReplay.body?.lifecycle_state === "stopped" && stopReplay.body?.replayed === true, `${stopReplay.status}`);
+  // K3 (state-aware, AFTER STOP): terminalize legitimately adds {lineage, stopped_at}; the durable
+  // top-level key set must equal the STOPPED pin exactly — a shadow injected during terminalization
+  // (also recovery truth) fails, and a legit stopped record passes.
+  const stoppedRecord = readFamilyRecords("harness-session-launches").map((r) => r.json).find((j) => j && j.launch_id === launchId);
+  ok("K3 (top-level closed-world, AFTER STOP): the durable record's top-level key set EQUALS the pinned STOPPED set (produced ∪ {lineage, stopped_at}) — a legit stopped record passes; a top-level shadow at this stage fails",
+    eqKeys(stoppedRecord, EXPECTED_LAUNCH_RECORD_KEYS_STOPPED),
+    keysOf(stoppedRecord)?.join(",") || "no stopped record");
 
   // -- archive terminalizes with lineage --------------------------------------------------------
   const stoppedHead = stop.body?.head;
@@ -574,6 +610,18 @@ async function run() {
   ok("the durable archive receipt binds acting_principal_ref and names the previous head as lineage (INV-37 + terminal lineage)",
     archiveReceipt && archiveReceipt.acting_principal_ref === producedReceipt?.acting_principal_ref
       && archiveReceipt.previous_head === stoppedHead);
+  // K3 (state-aware, AFTER ARCHIVE): archive adds {archived_at} on top of the stopped set.
+  const archivedRecord = readFamilyRecords("harness-session-launches").map((r) => r.json).find((j) => j && j.launch_id === launchId);
+  ok("K3 (top-level closed-world, AFTER ARCHIVE): the durable record's top-level key set EQUALS the pinned ARCHIVED set (stopped ∪ {archived_at}) — a legit archived record passes; a top-level shadow at this stage fails",
+    eqKeys(archivedRecord, EXPECTED_LAUNCH_RECORD_KEYS_ARCHIVED),
+    keysOf(archivedRecord)?.join(",") || "no archived record");
+  // Also pin chain/fork/managed-session key sets on the TERMINALIZED record — terminalize must not
+  // mutate the chain, so the same pins that held at produce hold after archive (recovery truth).
+  ok("K1/M5b (closed-world, AFTER ARCHIVE): the terminalized record's chain / chain.fork / chain.managed_session key sets are UNCHANGED from produce — terminalization added no nested shadow",
+    eqKeys(archivedRecord?.chain, EXPECTED_CHAIN_KEYS)
+      && eqKeys(archivedRecord?.chain?.fork, EXPECTED_FORK_KEYS)
+      && eqKeys(archivedRecord?.chain?.managed_session, EXPECTED_MANAGED_SESSION_KEYS),
+    `chain=[${keysOf(archivedRecord?.chain)}]`);
 
   // -- daemon kill / restart → recovery/replay converges byte-identical --------------------------
   const preRestart = await jd(`${LAUNCHES}/${encodeURIComponent(launchId)}`);
