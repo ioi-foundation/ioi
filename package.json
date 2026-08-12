@@ -3,7 +3,6 @@
   "private": true,
   "workspaces": [
     "apps/aiagent-xyz",
-    "apps/benchmarks",
     "apps/developers-ioi-ai",
     "apps/hypervisor",
     "apps/hypervisor-web",
@@ -12,7 +11,6 @@
   ],
   "scripts": {
     "install:all": "npm install",
-    "inspect:traineddata": "node ./scripts/inspect-traineddata.mjs",
     "dev:hypervisor-app": "npm run dev --workspace=@ioi/hypervisor-app",
     "dev:hypervisor-web": "npm run dev --workspace=@ioi/hypervisor-web",
     "build:hypervisor-web": "npm run build --workspace=@ioi/hypervisor-web",
@@ -52,10 +50,6 @@
     "test:smoke-fence": "node --test scripts/lib/watchevents-fence.test.mjs",
     "test:system-genesis-compiler": "cargo test --locked -p ioi-types system_genesis",
     "dev:web": "npm run dev --workspace=@ioi/hypervisor-app",
-    "dev:benchmarks": "npm run dev --workspace=apps/benchmarks",
-    "build:benchmarks": "npm run build --workspace=apps/benchmarks",
-    "test:benchmarks": "node --test scripts/run-agent-model-matrix.test.mjs && node --test scripts/lib/agent-model-matrix.test.mjs && npm run test:generate-data --workspace=apps/benchmarks && npm run test:viewmodel --workspace=apps/benchmarks",
-    "typecheck:benchmarks": "npm run typecheck --workspace=apps/benchmarks",
     "build:workbench": "npm run build --workspace=@ioi/hypervisor-workbench",
     "build:workspace-substrate": "npm run build --workspace=@ioi/workspace-substrate",
     "build:all": "npm run build --workspaces --if-present",
