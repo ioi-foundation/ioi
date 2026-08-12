@@ -42,6 +42,8 @@
     "generate:runtime-action-contracts": "node scripts/generate-runtime-action-contracts.mjs --write",
     "generate:architecture-contracts": "node scripts/generate-architecture-contracts.mjs --write",
     "check:architecture-contracts": "node scripts/generate-architecture-contracts.mjs --check",
+    "generate:conformance-claims": "node scripts/generate-conformance-claims.mjs",
+    "check:conformance-claims": "node scripts/generate-conformance-claims.mjs --check",
     "check:mutation-foundation": "node scripts/audit-daemon-mutation-foundation.mjs --check",
     "check:mutation-handlers": "node scripts/audit-daemon-mutation-handlers.mjs --check",
     "check:admission-evidence": "node scripts/audit-admission-evidence-provenance.mjs --check",

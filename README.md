@@ -68,7 +68,8 @@ IOI builds for Web4 — its working definition of the internet's action layer:
 (A reference-implementation designation is a written contract no release has
 yet been designated under; which claims are working today, defined targets, or
 explicit nonclaims is typed per-claim in the
-[conformance ladder](docs/conformance/README.md).)
+[conformance ladder](docs/conformance/README.md)
+([generated claims table](docs/conformance/claims-table.v1.md)).)
 
 <p align="center">
   <img src="docs/assets/readme-web4-equation.svg" alt="Web4 equals read plus write plus own plus act with cryptographic determinism." width="100%">
@@ -278,7 +279,8 @@ Desktop builds require the usual Electron system dependencies for your platform.
 
 IOI is active alpha research and engineering. Some surfaces are
 production-shaped; others are research prototypes or environment-dependent.
-The per-claim truth lives in the [conformance ladder](docs/conformance/README.md),
+The per-claim truth lives in the [conformance ladder](docs/conformance/README.md)
+([generated claims table](docs/conformance/claims-table.v1.md)),
 which types every claim as working, a defined target, or an explicit nonclaim —
 the README never outruns it. The architecture is intentionally strict:
 
