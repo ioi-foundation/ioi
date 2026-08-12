@@ -94,7 +94,7 @@ paths are commitments to write that contract, not evidence it exists.
 | Authority Gateway attach lane (`ActionRequestEnvelope`, gateway receipts, `AuthorityGatewayProfile`, graduation) | `hypervisor-core/authority-gateway-attach-lane.md` | `named_target` |
 | Two-sovereign-DAS AIIP proof (Horizon 3) | `hypervisor-core/aiip-two-sovereign-das.md` | `named_target` |
 | OutcomeRoom `federated_admission` | `hypervisor-core/outcome-room-federated-admission.md` | `named_target` |
-| Portable authority (`AuthorityGrantEnvelope` v3 chain) | `hypervisor-core/portable-authority-v3.md` | `named_target` |
+| Portable authority (`AuthorityGrantEnvelope` v3 chain) | [`hypervisor-core/portable-authority-v3.md`](./hypervisor-core/portable-authority-v3.md) | `target_defined` (criteria and negative-fixture corpus written; no verifier, fixtures, or runner exists) |
 | Model-route rights enforcement (standalone) | covered inside [`institutional-learning-boundary.md`](./hypervisor-core/institutional-learning-boundary.md) route cases; standalone target `hypervisor-core/model-route-rights.md` | `named_target` |
 | Bounded improvement campaign (Horizon 1B) | `hypervisor-core/bounded-improvement-campaign.md` | `named_target` |
 | Improvement assurance profiles (executable ladder incl. protected build / threshold recovery) | `hypervisor-core/improvement-assurance-profiles.md` | `named_target` |
