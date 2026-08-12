@@ -4,7 +4,7 @@ Status: canonical low-level reference.
 Canonical owner: this file for the shared object shapes of `WorkflowTemplateEnvelope`, `SkillManifestEnvelope`, `SkillEntryEnvelope`, and `ActiveSkillSetSnapshotEnvelope`.
 Supersedes: the same object definitions when they were carried as H3 sections under `Package Release And Live-System Genesis` in the single-file `common-objects-and-envelopes.md`.
 Superseded by: none.
-Last alignment pass: 2026-07-25.
+Last alignment pass: 2026-08-12.
 Doctrine status: canonical
 Implementation status: planned (no durable WorkflowTemplate, SkillManifest, SkillEntry, or ActiveSkillSetSnapshot object plane is admitted; the Workflow Compositor edits workflow drafts only)
 Last implementation audit: 2026-07-25
@@ -148,6 +148,19 @@ Commercial discovery is not another skill owner. A Packages/Marketplace
 listing or room-scoped `CapabilityOffer` references the exact
 `skill_revision_ref` and owns price, license offer, ranking, availability, and
 commercial terms. Those fields do not enter `SkillManifest`.
+
+## Teach-By-Demonstration Draft Input (declared 2026-08-12, target)
+
+A recorded demonstration may be compiled into a DRAFT `SkillManifest`
+revision. The target's boundaries, declared now: the capture is quarantined
+(the demonstration recording machinery runs in the same launch-enforced
+quarantine class as seed-route capture); the compiled draft is a CANDIDATE —
+it grants nothing, executes nothing, and enters an owner scope only through
+the ordinary SkillEntry admission; and replay of a demonstrated procedure
+executes exclusively through the effect-admission boundary — a demonstration
+acquires no ambient authority from having been performed by the owner. No
+recorder, compiler, or fixture exists at HEAD; this section types the target
+so a later implementation cannot drift into replay-as-authority.
 
 ## SkillEntryEnvelope
 
