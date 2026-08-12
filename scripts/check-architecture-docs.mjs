@@ -23,18 +23,20 @@
 //      exactly canonical|reference|archived; implementation opens with
 //      built|partial|planned|speculative|mixed|n/a or a resolving `see` form
 //   8. a doc declaring `built`, `partial`, or `mixed` carries `Last implementation audit:`
+//   9. the dormant inference-computation-proof profile stays whole, dormant, and mapped — its
+//      owner set is DERIVED from the source-of-truth-map lifecycle row and checked BOTH ways
 //
 // Work-item record rules, owned by docs/architecture/_meta/work-items/README.md.
 // They run in both modes, so status truth cannot rot without CI noticing:
-//   9. every record parses and declares `evidence_format` `ioi.program.work_item.v1`
-//  10. `status` is one of the sequencer vocabulary
-//  11. every `code_anchors[]` entry names a file that exists, and contains its
+//  10. every record parses and declares `evidence_format` `ioi.program.work_item.v1`
+//  11. `status` is one of the sequencer vocabulary
+//  12. every `code_anchors[]` entry names a file that exists, and contains its
 //      optional `must_contain` literal — except a `present_when: "pr_open"` anchor,
 //      which is reported pending, not failed, when the file is not in this checkout
-//  12. every `evidence_refs[]` path exists
-//  13. every record path is repository-relative: no absolute path, none that climbs
+//  13. every `evidence_refs[]` path exists
+//  14. every record path is repository-relative: no absolute path, none that climbs
 //      out of the tree, and none that leaves it through a symlink, is status truth
-//  14. a `verified` record carries no `pr_open` anchor — promotion requires anchors
+//  15. a `verified` record carries no `pr_open` anchor — promotion requires anchors
 //      that always validate
 
 import fs from "node:fs";
@@ -210,7 +212,71 @@ if (!workItemsOnly) {
   }
 }
 
-// 9-14 — the work-item status records, per `_meta/work-items/README.md`.
+// 9 — the dormant inference-computation-proof profile stays whole, dormant, and mapped.
+//
+// Dormant canon rots: it describes a target nobody builds, so nothing fails when an owner's block
+// is quietly stripped, and nothing fails when a NINTH file starts making proof claims outside the
+// ownership map. Both directions are checked here, and the closed world is DERIVED from the
+// source-of-truth-map's own lifecycle row rather than listed — a hand list in this file could drift
+// from the map it is supposed to enforce.
+if (!workItemsOnly) {
+  const MARKER = "inference-computation-proof";
+  const mapRel = "docs/architecture/_meta/source-of-truth-map.md";
+  const mapPath = path.join(root, mapRel);
+  const mapText = fs.existsSync(mapPath) ? fs.readFileSync(mapPath, "utf8") : "";
+  const row = mapText
+    .split("\n")
+    .find((line) => line.startsWith("| Inference-computation-proof target lifecycle"));
+
+  if (!row) {
+    failures.push(`${mapRel}: the inference-computation-proof lifecycle row is missing — the ownership map for a dormant target cannot be derived`);
+  } else {
+    // Cells: [subject, owner(s), related, notes]. Owners MUST carry the block; related files are
+    // pointers and need not.
+    const cells = row.split("|").slice(1, -1);
+    const linksIn = (cell = "") =>
+      [...cell.matchAll(/\]\((\.\.?\/[^)#]+)\)/g)]
+        .map((m) => path.normalize(path.join("docs/architecture/_meta", m[1])))
+        .filter((p) => p.endsWith(".md"));
+    const owners = new Set(linksIn(cells[1]));
+    const declared = new Set([...owners, ...linksIn(cells[2])]);
+
+    const carrying = files
+      .map(rel)
+      .filter((f) => f !== mapRel && fs.readFileSync(path.join(root, f), "utf8").includes(MARKER))
+      .sort();
+
+    for (const owner of owners) {
+      if (!carrying.includes(owner)) {
+        failures.push(`${owner}: named as an inference-computation-proof OWNER by ${mapRel} but no longer carries the \`${MARKER}\` block — a dormant target may be withdrawn by an owner ruling, never by deletion`);
+      }
+    }
+    for (const file of carrying) {
+      if (!declared.has(file)) {
+        failures.push(`${file}: carries \`${MARKER}\` language but is not named in the ${mapRel} lifecycle row — a new proof owner joins the ownership map in the same cut`);
+      }
+      // Dormancy is the load-bearing word. A block that stops typing itself dormant reads as a
+      // live product commitment, which is exactly the claim this profile must not make.
+      if (!fs.readFileSync(path.join(root, file), "utf8").includes("dormant")) {
+        failures.push(`${file}: carries \`${MARKER}\` language without typing it \`dormant\` — an untyped proof block reads as a shipped commitment`);
+      }
+    }
+
+    // The posture vocabulary is owned by ONE file. Requiring the triple everywhere would be wrong:
+    // the carriage owners (sas, aiip) state obligations, they do not resolve posture.
+    const postureOwner = "docs/architecture/components/model-router/doctrine.md";
+    if (carrying.includes(postureOwner)) {
+      const text = fs.readFileSync(path.join(root, postureOwner), "utf8");
+      for (const posture of ["`off`", "`preferred`", "`required`"]) {
+        if (!text.includes(posture)) {
+          failures.push(`${postureOwner}: the posture owner no longer names ${posture} — the resolved-posture vocabulary is incomplete`);
+        }
+      }
+    }
+  }
+}
+
+// 10-15 — the work-item status records, per `_meta/work-items/README.md`.
 const workItemDir = path.join(root, WORK_ITEMS);
 const records = fs.existsSync(workItemDir)
   ? fs
@@ -335,7 +401,7 @@ if (failures.length > 0) {
   process.exit(1);
 }
 const count = (n, noun) => `${n} ${noun}${n === 1 ? "" : "s"}`;
-if (!workItemsOnly) console.log(`Architecture docs OK — ${files.length} files, 8 rules.`);
+if (!workItemsOnly) console.log(`Architecture docs OK — ${files.length} files, 9 rules.`);
 console.log(
   `Work-item records OK — ${count(records.length, "record")} checked, ${count(anchorCount, "code anchor")}, ${count(pending.length, "pending PR anchor")}.`,
 );

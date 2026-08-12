@@ -591,6 +591,12 @@ foundation/provider API with provider-owned proprietary weights
 
 ## Optional Inference-Computation Proof Profile
 
+The claim boundary this section routes against — what an inference-computation
+proof may and may NOT establish — is owned by
+[`verifiable-bounded-agency.md`](../../foundations/verifiable-bounded-agency.md#optional-inference-computation-proofs).
+Read it before changing anything below: posture resolution decides which routes
+are eligible, never what a proof proves.
+
 Inference-computation proofs are an optional route capability and assurance
 policy, not a baseline requirement for every model call. Ordinary routes remain
 valid without them, and the presence of a capable prover never changes a route's

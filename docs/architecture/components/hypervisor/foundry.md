@@ -144,7 +144,10 @@ Foundry owns product-level projections and workflows for:
   service must be exposed as a governed capability;
 - ontology-to-worker and ontology-to-eval planning.
 
-The inference-computation candidate class is dormant and conditional. Foundry
+The inference-computation candidate class is dormant and conditional, and the
+claim boundary a qualified candidate would sit inside is owned by
+[`verifiable-bounded-agency.md`](../../foundations/verifiable-bounded-agency.md#optional-inference-computation-proofs)
+— building or measuring a prover never widens what its proofs establish. Foundry
 does not create proof candidates, launch proof qualification, spend resources,
 or imply route eligibility until a later accountable owner disposition admits
 an exact profile and opens an owner-controlled product packet. An adverse

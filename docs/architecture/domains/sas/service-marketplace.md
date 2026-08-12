@@ -112,6 +112,15 @@ User orders service
 → selected settlement rail releases payout, refund, or slashing disposition
 ```
 
+An order may require evidence; it can never enlarge what that evidence proves.
+The claim boundary is owned by
+[`verifiable-bounded-agency.md`](../../foundations/verifiable-bounded-agency.md#optional-inference-computation-proofs).
+
+Lifecycle status: these obligations are a **dormant** target contract. No order
+can carry one until the Model Router admits an exact profile and the receipt
+owner registers the machine contracts; until then an order that names one is a
+typed policy conflict, not a stronger service.
+
 A service order may bind zero or more exact inference-computation-proof
 obligations for named consequential model invocations. Each obligation names
 the exact invocation or immutable step selector to which it applies, the

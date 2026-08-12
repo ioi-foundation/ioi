@@ -7,8 +7,9 @@ Superseded by: none.
 Last alignment pass: 2026-08-12.
 Doctrine status: canonical
 Implementation status: mixed (execution-boundary gating built in the daemon;
-the inference-computation subsection is durable claim hygiene with no product
-profile or path admitted, and broader proof/zk continuity remains speculative)
+the inference-computation-proof subsection is durable claim hygiene with no
+product profile or path admitted, and broader proof/zk continuity remains
+speculative)
 Last implementation audit: 2026-07-05
 
 ## Canonical Definition

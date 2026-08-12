@@ -1491,6 +1491,10 @@ Managed model and runtime charging must be reconstructable from route-attempt
 receipts and reconciled supplier statements. A flat charge per model-backed
 receipt is a development projection, not invoice-grade Work Credit truth.
 
+What a proof-bearing receipt may and may NOT be read to establish is owned by
+[`verifiable-bounded-agency.md`](../../foundations/verifiable-bounded-agency.md#optional-inference-computation-proofs);
+this file owns only the field schema and the narrow claim meaning of each field.
+
 The following source-neutral fields reserve the canonical target boundary now;
 they are not a registered machine schema, production emitter, or implemented
 verifier. RX research records do not masquerade as this receipt. Schema

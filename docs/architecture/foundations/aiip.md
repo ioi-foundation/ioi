@@ -611,6 +611,16 @@ Enterprise Profile
   disclosure, permissioned evidence, optional public roots.
 ```
 
+Carriage across systems moves policy requirements and refs, never propositions:
+what a proof establishes is owned by
+[`verifiable-bounded-agency.md`](./verifiable-bounded-agency.md#optional-inference-computation-proofs)
+and does not change because an obligation crossed a domain boundary.
+
+Lifecycle status: this carriage is a **dormant** target contract. No AIIP packet
+carries a computation-proof obligation until the receiving system's Model Router
+admits an exact profile; a sending system cannot make one live by transmitting
+it, and a received obligation naming an unadmitted profile fails closed.
+
 The Outcome Service Profile may carry an optional set of exact receipt
 obligations and inference-computation-proof obligations. Each proof obligation
 binds the service-order ref, one named consequential invocation or immutable
