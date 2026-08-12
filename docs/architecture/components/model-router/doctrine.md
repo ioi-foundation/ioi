@@ -18,7 +18,10 @@ multi-transport session execution are unimplemented, and only
 active/available Ollama routes are currently bindable for execution; custody,
 commercial-rights policy, and full router/ContextCell propagation remain
 partial; the source-neutral inference-computation-proof profile is a dormant
-target contract, with no exact profile or proof-gated output path admitted)
+target contract, with no exact profile or proof-gated output path admitted; the
+`ProviderTransport` boundary and route economic comparison are target contracts
+— no transport implementation, price schedule, evidence collection, or
+comparison surface exists at HEAD)
 Last implementation audit: 2026-07-18
 
 ## Canonical Definition
@@ -588,6 +591,95 @@ foundation/provider API with provider-owned proprietary weights
   -> remote_api_private_weight for weights; input/output privacy still depends
      on ExecutionPrivacyPosture
 ```
+
+## Provider Transport Boundary
+
+Provider protocol adaptation is a replaceable transport concern, separate from
+every authority spine the router and daemon already own. One `ProviderTransport`
+contract owns the wire-level work of speaking a provider's API:
+
+- request and response normalization across provider dialects;
+- streaming and cancellation protocol handling;
+- tool-call and structured-output translation;
+- provider endpoints, headers, and authentication shapes;
+- error normalization and retryability *classification*;
+- capability metadata and conformance vectors.
+
+The following stay kernel-owned and never move behind a transport: route
+selection and admission, credential custody (the CapabilityLease client remains
+the single authority-crossing gateway), privacy and information-flow
+enforcement, retry and fallback *decisions*, budgets, billing and
+reconciliation, invocation receipts and attempt lineage, logging, caching,
+policy, and authorization. A transport may classify an error as retryable; only
+the router decides whether to retry, and only the economics plane decides what
+an attempt cost.
+
+Adopting an external project's provider-protocol knowledge is permitted at this
+transport layer and forbidden above it. Importing a third-party gateway or proxy
+control plane would mint a second spine beside owners this canon already names.
+Absorbed knowledge enters as transcribed implementation plus conformance test
+vectors under [ADR 0033](../../../decisions/0033-licensing-split-surface-and-license-manifest.md):
+anything transcribed closely enough to count as copying carries its
+`LICENSE-MANIFEST.json` entry in the same cut. Imported capability or price maps
+enter through the expiring advisory candidate lane and are confirmed by probes —
+candidate evidence, never route authority and never billing truth.
+
+A transport is proven against a native provider path first. One native provider
+executed end to end — streaming, cancellation, error classification, billing
+attempts, receipts — defines the contract before any adapted transport claims to
+conform to it, so the contract records observed behavior rather than an imported
+abstraction. A differential comparison against an external implementation is a
+gated harness lane, never a default CI gate.
+
+Because a transport touches every provider response, it is also the cheapest
+place to capture the route-economics evidence the next section consumes: the
+verbatim price-schedule ref, the full token mix including cache and reasoning
+tokens, attempt lineage, latency, and outcome where a typed outcome exists.
+Absent evidence is a named gap; a transport never synthesizes a measurement it
+did not observe.
+
+## Route Economic Comparison
+
+W4-F may expose an advisory economic comparison across eligible model routes,
+projecting workload cost from provider price schedules or reconciled capacity
+spend and measured workload-specific throughput. Estimates remain candidate
+evidence, preserve provenance, freshness, and confidence, and are audited
+against invocation and spend receipts. Effective cost per token is explanatory;
+cost per successful workload unit is the decision metric where outcome evidence
+exists. Economic comparison neither grants route rights nor independently
+authorizes placement or migration.
+
+Eligibility resolves first. Quality, privacy, residency, latency, and
+availability are admission filters, not context displayed beside a price: price
+ranks only routes that already qualify. A recommendation carries provenance,
+evidence age, confidence, a break-even *range* rather than a point, and typed
+reason codes.
+
+The decision metric is projected workload cost from the observed mix — input,
+output, cache, and reasoning tokens, retries, and failure rate — and cost per
+successful workload unit wherever outcome evidence exists. Where it does not,
+that is a typed gap; a success rate is never synthesized to complete a ranking.
+Effective cost per token stays an explanatory diagnostic only: tokenizers differ
+across models, so it is not cross-route comparable as a winner metric.
+
+A route carries an extensible price *schedule*, not a metered-versus-amortized
+enum — input/output/cache token tiers, GPU-seconds, minimum rental periods,
+commitments, storage, egress, cold starts, and redundancy or headroom. Schedules
+enter verbatim through the candidate lane as expiring advisory evidence; a stale
+schedule is a typed gap, not a silently aged number.
+
+The economic view may render on a route, but its truth is a join: route,
+deployment, capacity lease, measured workload throughput, and allocation policy.
+Spend truth for rented capacity lives on the shared capacity pool or lease where
+reconciliation already is; route-level economics are derived allocation.
+Attributing shared-pool spend directly to a route would double-count it and mint
+a second spend spine.
+
+Price evidence never independently authorizes placement or migration. Automatic
+switching is a governed change routed through the existing improvement-governance
+machinery — fresh simulation, approval, open release, canary, and receipted
+rollback — with hysteresis as a policy parameter there. No second switching
+mechanism is introduced by economic comparison.
 
 ## Optional Inference-Computation Proof Profile
 
