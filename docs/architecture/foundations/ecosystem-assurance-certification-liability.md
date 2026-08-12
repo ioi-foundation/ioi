@@ -9,7 +9,7 @@ Supersedes: plan prose that scatters certification, compliance, insurance,
 abuse response, billing assurance, or customer audit exports across runtime,
 wallet, marketplace, and product docs without a shared boundary.
 Superseded by: none.
-Last alignment pass: 2026-07-15.
+Last alignment pass: 2026-08-12.
 Doctrine status: canonical
 Implementation status: planned (the assurance/certification/liability layer and deterministic deployment-policy obligation projection are not implemented on current master; any future projection must deliberately return no legal-conformity decision)
 Last implementation audit: 2026-07-18
@@ -864,6 +864,68 @@ LiabilityClaimRoute:
 Physical incidents use Physical Action Safety and Embodied Runtime records.
 Digital service failures use service-order, SLA, delivery, verifier, and
 marketplace evidence. Both paths should stay receipted and replayable.
+
+## Dormant Target: Legal-Principal Boundary
+
+Lifecycle status: this section is the doctrine home of the **dormant**
+`legal-principal-boundary` target contract, mapped in
+[`source-of-truth-map.md`](../_meta/source-of-truth-map.md). Every part of it
+is dormant and unregistered: no schema, invariant, fixture, projection, or
+runtime route implements it, and no protocol object, service order, terms
+acceptance, or AIIP packet carries an effective legal-principal obligation
+today.
+
+Three identities the protocol must never conflate:
+
+```text
+protocol party / system identity
+  system://, domain://, org://, wallet://, service://, provider:// — admitted
+  machine identities with governed authority, operational truth, and
+  settlement boundaries
+
+delegated Worker
+  a bounded, versioned, policy-bound executor acting under leased authority;
+  a Worker is never presumed a legal person
+
+legally accountable principal-of-record
+  the natural or juridical person that bears legal responsibility for a
+  party's acts; asserted by evidence under an admitted profile, never
+  inferred from key possession, payment, packet traffic, or protocol activity
+```
+
+Claim hygiene, effective now and independent of dormancy:
+
+- a terms-root acceptance is protocol evidence, not automatically a legally enforceable contract;
+- a Worker is never presumed a legal person.
+
+Acceptance receipts, delivery bundles, and settlement intents are evidence a
+legal process may weigh; the protocol does not decide what they establish at
+law, and no assurance object in this file becomes a legal determination by
+referencing them.
+
+If a later accountable owner ruling admits exact profiles and the machine
+contracts and conformance gates exist, the target would define:
+
+- principal-of-record assertion: which evidence binds a protocol party to a
+  legally accountable principal, and how representative authority and
+  contracting capacity for that principal are asserted, verified, and
+  challenged;
+- jurisdiction posture: governing law, venue, and jurisdiction election;
+  consumer versus business status; `JurisdictionPolicyPack` remains the
+  declarative policy-input carrier and gains no independent authority;
+- KYC/AML/tax posture hooks: refs into the eligibility, sanctions,
+  accreditation, and tax/invoice metadata already named by compliance packs —
+  hooks, not implementations;
+- liability allocation, recourse, and insurance routing: which principal
+  bears which loss class, and how `LiabilityClaimRoute` and
+  `AssuranceEvidenceBundle` route a claim to an insurer, counterparty,
+  operator, marketplace, or dispute process.
+
+An adverse owner disposition may retain this target dormant, narrow it to the
+exact profiles evidence supports, or withdraw unimplemented sections; failure
+of one exact profile narrows or retires that profile and never erases the
+generic boundary. R-03 counsel engagement remains the owner's open action.
+This boundary is a machine contract, not legal advice.
 
 ## Abuse, Threat, And Quarantine
 

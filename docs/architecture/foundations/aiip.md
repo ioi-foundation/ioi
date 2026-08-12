@@ -668,6 +668,32 @@ when IOI controls their authority, truth, verifier, and settlement. Conversely,
 an organization-labelled room spanning independently governed domains is
 multi-party even if its UI is private and permissioned.
 
+Party identity is not legal identity. That line is the
+`legal-principal-boundary`, a target whose doctrine home is
+[`ecosystem-assurance-certification-liability.md`](./ecosystem-assurance-certification-liability.md#dormant-target-legal-principal-boundary):
+an AIIP party or peer system is an admitted protocol identity; a delegated
+Worker executing under leased authority is a bounded executor and a Worker is
+never presumed a legal person; and the legally accountable
+principal-of-record behind either is a separate fact asserted by evidence,
+never inferred from packet traffic, key possession, or payment.
+
+Lifecycle status: this carriage is a **dormant** target contract. If a later
+accountable owner ruling admits exact profiles, AIIP would carry
+legal-principal assertions — principal-of-record, representative-authority
+and contracting-capacity evidence, governing law, venue, and jurisdiction
+election, consumer/business status, KYC/AML/tax posture hooks, and
+liability-allocation, recourse, and insurance-routing refs — as policy
+requirements, refs, and hashes across independently governed systems, exactly
+as it carries computation-proof obligations: carriage moves the assertion, it
+never makes it true, and the receiving system admits or rejects it locally.
+Today no AIIP packet carries such an assertion, a sending system cannot make
+one live by transmitting it, and a received assertion naming an unadmitted
+profile fails closed. An adverse owner disposition may retain this carriage
+target dormant, narrow it to exact supported profiles, or withdraw it while
+unimplemented; failure of one exact profile narrows or retires that profile
+and never erases the generic boundary. This boundary is a machine contract,
+not legal advice; R-03 counsel engagement remains the owner's open action.
+
 Multi-party collaboration is represented by a
 `MultiPartyCollaborationEnvelope`, not by turning AIIP into a shared raw
 context bus. The envelope binds:

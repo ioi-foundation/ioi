@@ -23,8 +23,9 @@
 //      exactly canonical|reference|archived; implementation opens with
 //      built|partial|planned|speculative|mixed|n/a or a resolving `see` form
 //   8. a doc declaring `built`, `partial`, or `mixed` carries `Last implementation audit:`
-//   9. the dormant inference-computation-proof profile stays whole, dormant, and mapped — its
-//      owner set is DERIVED from the source-of-truth-map lifecycle row and checked BOTH ways
+//   9. every DORMANT_TARGETS entry (inference-computation-proof, legal-principal-boundary)
+//      stays whole, dormant, and mapped — each entry's owner set is DERIVED from its
+//      source-of-truth-map lifecycle row and checked BOTH ways
 //
 // Work-item record rules, owned by docs/architecture/_meta/work-items/README.md.
 // They run in both modes, so status truth cannot rot without CI noticing:
@@ -212,25 +213,44 @@ if (!workItemsOnly) {
   }
 }
 
-// 9 — the dormant inference-computation-proof profile stays whole, dormant, and mapped.
+// 9 — every dormant typed target stays whole, dormant, and mapped.
 //
 // Dormant canon rots: it describes a target nobody builds, so nothing fails when an owner's block
-// is quietly stripped, and nothing fails when a NINTH file starts making proof claims outside the
-// ownership map. Both directions are checked here, and the closed world is DERIVED from the
-// source-of-truth-map's own lifecycle row rather than listed — a hand list in this file could drift
-// from the map it is supposed to enforce.
+// is quietly stripped, and nothing fails when an extra file starts making target claims outside
+// the ownership map. Both directions are checked for every DORMANT_TARGETS entry, and each entry's
+// closed world is DERIVED from the source-of-truth-map's own lifecycle row rather than listed — a
+// hand list in this file could drift from the map it is supposed to enforce. An entry names its
+// greppable marker token, its lifecycle-row prefix, and — only where exactly one file owns a
+// posture vocabulary — that posture owner plus the backticked posture literals it must keep
+// naming. Entries without a posture vocabulary (legal-principal-boundary) omit those two fields
+// and get every other family unchanged.
 if (!workItemsOnly) {
-  const MARKER = "inference-computation-proof";
+  const DORMANT_TARGETS = [
+    {
+      marker: "inference-computation-proof",
+      rowPrefix: "| Inference-computation-proof target lifecycle",
+      // The posture vocabulary is owned by ONE file. Requiring the triple everywhere would be
+      // wrong: the carriage owners (sas, aiip) state obligations, they do not resolve posture.
+      postureOwner: "docs/architecture/components/model-router/doctrine.md",
+      postures: ["`off`", "`preferred`", "`required`"],
+    },
+    {
+      marker: "legal-principal-boundary",
+      rowPrefix: "| Legal-principal boundary target lifecycle",
+    },
+  ];
   const mapRel = "docs/architecture/_meta/source-of-truth-map.md";
   const mapPath = path.join(root, mapRel);
   const mapText = fs.existsSync(mapPath) ? fs.readFileSync(mapPath, "utf8") : "";
-  const row = mapText
-    .split("\n")
-    .find((line) => line.startsWith("| Inference-computation-proof target lifecycle"));
 
-  if (!row) {
-    failures.push(`${mapRel}: the inference-computation-proof lifecycle row is missing — the ownership map for a dormant target cannot be derived`);
-  } else {
+  for (const { marker: MARKER, rowPrefix, postureOwner, postures } of DORMANT_TARGETS) {
+    const an = /^[aeiou]/u.test(MARKER) ? "an" : "a";
+    const row = mapText.split("\n").find((line) => line.startsWith(rowPrefix));
+
+    if (!row) {
+      failures.push(`${mapRel}: the ${MARKER} lifecycle row is missing — the ownership map for a dormant target cannot be derived`);
+      continue;
+    }
     // Cells: [subject, owner(s), related, notes]. Owners MUST carry the block; related files are
     // pointers and need not.
     const cells = row.split("|").slice(1, -1);
@@ -243,9 +263,9 @@ if (!workItemsOnly) {
 
     // The `_meta` layer is excluded as a class, not by name. Those files RECORD and MAP ownership
     // — the map itself, the delta ledger's run records — rather than claim it, so a ledger row
-    // narrating a proof cut is not a ninth owner. (Found by this rule firing on the ledger block
-    // that recorded its own landing.) Owners live outside `_meta`, so the exclusion cannot hide a
-    // real owner dropping its block.
+    // narrating a target's cut is not an extra owner. (Found by this rule firing on the ledger
+    // block that recorded its own landing.) Owners live outside `_meta`, so the exclusion cannot
+    // hide a real owner dropping its block.
     const carrying = files
       .map(rel)
       .filter((f) => !f.startsWith("docs/architecture/_meta/"))
@@ -254,26 +274,23 @@ if (!workItemsOnly) {
 
     for (const owner of owners) {
       if (!carrying.includes(owner)) {
-        failures.push(`${owner}: named as an inference-computation-proof OWNER by ${mapRel} but no longer carries the \`${MARKER}\` block — a dormant target may be withdrawn by an owner ruling, never by deletion`);
+        failures.push(`${owner}: named as ${an} ${MARKER} OWNER by ${mapRel} but no longer carries the \`${MARKER}\` block — a dormant target may be withdrawn by an owner ruling, never by deletion`);
       }
     }
     for (const file of carrying) {
       if (!declared.has(file)) {
-        failures.push(`${file}: carries \`${MARKER}\` language but is not named in the ${mapRel} lifecycle row — a new proof owner joins the ownership map in the same cut`);
+        failures.push(`${file}: carries \`${MARKER}\` language but is not named in the ${mapRel} lifecycle row — a new target owner joins the ownership map in the same cut`);
       }
       // Dormancy is the load-bearing word. A block that stops typing itself dormant reads as a
-      // live product commitment, which is exactly the claim this profile must not make.
+      // live product commitment, which is exactly the claim a dormant target must not make.
       if (!fs.readFileSync(path.join(root, file), "utf8").includes("dormant")) {
-        failures.push(`${file}: carries \`${MARKER}\` language without typing it \`dormant\` — an untyped proof block reads as a shipped commitment`);
+        failures.push(`${file}: carries \`${MARKER}\` language without typing it \`dormant\` — an untyped target block reads as a shipped commitment`);
       }
     }
 
-    // The posture vocabulary is owned by ONE file. Requiring the triple everywhere would be wrong:
-    // the carriage owners (sas, aiip) state obligations, they do not resolve posture.
-    const postureOwner = "docs/architecture/components/model-router/doctrine.md";
-    if (carrying.includes(postureOwner)) {
+    if (postureOwner && carrying.includes(postureOwner)) {
       const text = fs.readFileSync(path.join(root, postureOwner), "utf8");
-      for (const posture of ["`off`", "`preferred`", "`required`"]) {
+      for (const posture of postures) {
         if (!text.includes(posture)) {
           failures.push(`${postureOwner}: the posture owner no longer names ${posture} — the resolved-posture vocabulary is incomplete`);
         }
