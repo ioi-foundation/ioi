@@ -203,11 +203,10 @@ async function run() {
       && String(launch?.receipt_ref || "").startsWith("receipt://hypervisor/harness-session-launch/produced/"),
     `${produce.status} ${launch?.lifecycle_state}`);
   const steps = launch?.chain_step_refs || {};
-  ok("every §6.1 step names a canonical ref: plan · thread · initial thread event · managed session · launch-recipe · harness-binding · readiness · spawn · terminal-attach · first runtime event",
+  ok("every §6.1 step names a canonical ref: plan · thread · initial thread event · launch-recipe · harness-binding · readiness · spawn · terminal-attach · first runtime event",
     typeof steps.plan_ref === "string" && steps.plan_ref.startsWith("harness-session-launch-plan:")
       && typeof steps.thread_ref === "string" && steps.thread_ref.startsWith("thread:launch-")
       && typeof steps.thread_event_ref === "string" && steps.thread_event_ref.includes("/opened")
-      && typeof steps.managed_session_ref === "string" && steps.managed_session_ref.startsWith("managed-session:")
       && steps.launch_recipe_ref != null
       && typeof steps.harness_binding_ref === "string" && steps.harness_binding_ref.startsWith("harness-session-binding:")
       && typeof steps.readiness_ref === "string" && steps.readiness_ref.startsWith("readiness:")
@@ -215,6 +214,62 @@ async function run() {
       && steps.terminal_attach_ref != null
       && typeof steps.first_runtime_event_ref === "string" && steps.first_runtime_event_ref.includes("/spawned"),
     JSON.stringify(steps));
+
+  // -- Finding 1: the thread / fork / managed-session facts are the REAL kernel planners' output or
+  //    an honest typed absence — never a hand-minted record wearing a kernel schema name, never a
+  //    launch-family-only event vocabulary. These assertions would FAIL on the #252 second spine. --
+  ok("Finding 1 (step 5): the initial thread event is admitted onto the REAL kernel event stream — it carries the kernel `event_kind: thread.started` and the substrate's admission proof (an agentgres resulting_head), NOT a launch-family `runtime.thread.opened` inline vocabulary",
+    steps.thread_event_kind === "thread.started"
+      && typeof steps.thread_event_resulting_head === "string"
+      && steps.thread_event_resulting_head.startsWith("agentgres://runtime-events/"),
+    `${steps.thread_event_kind} · ${steps.thread_event_resulting_head}`);
+  ok("Finding 1 (step 6): with no delegation requested the fork is a typed `not_requested` naming the real fork planner (plan_runtime_thread_fork_control) — never a hand-minted admitted fork",
+    launch?.fork?.decision === "not_requested"
+      && launch?.fork?.fork_planner === "plan_runtime_thread_fork_control"
+      && launch?.fork?.schema_version !== "ioi.runtime.thread_fork_control.v1",
+    JSON.stringify(launch?.fork));
+  ok("Finding 1 (step 7): the managed-session step routes the real control planner (plan_runtime_managed_session_control_from_replayed_events); a fresh launch has none, so it is a typed absence naming the VALID states observe|take_over|return_agent — never a hand-minted `managed_session_control.v1` with the invalid control_state `admitted`",
+    launch?.managed_session?.decision === "no_managed_session_at_launch"
+      && launch?.managed_session?.control_planner === "plan_runtime_managed_session_control_from_replayed_events"
+      && JSON.stringify(launch?.managed_session?.available_control_states) === JSON.stringify(["observe", "take_over", "return_agent"])
+      && launch?.managed_session?.schema_version !== "ioi.runtime.managed_session_control.v1"
+      && launch?.managed_session?.control_state !== "admitted",
+    JSON.stringify(launch?.managed_session));
+  const launchStr = JSON.stringify(launch);
+  ok("SAFETY: the composed launch carries NO second-spine shadow — no `ioi.runtime.thread_fork_control.v1` / `ioi.runtime.managed_session_control.v1` record, no invalid `control_state:\"admitted\"`, no `runtime.thread.opened`/`runtime.thread.harness_spawned` vocabulary",
+    !launchStr.includes("ioi.runtime.thread_fork_control.v1")
+      && !launchStr.includes("ioi.runtime.managed_session_control.v1")
+      && !launchStr.includes("\"control_state\":\"admitted\"")
+      && !launchStr.includes("runtime.thread.opened")
+      && !launchStr.includes("runtime.thread.harness_spawned"),
+    "no shadow tokens in the composed launch");
+
+  // -- Finding 2: the harness binding names a REAL seeded hp_* profile + its EXACT frozen revision,
+  //    and model-route availability was RECHECKED at the launch boundary (not a static literal). ----
+  const profiles = await jd("/v1/hypervisor/harness-profiles");
+  const profilesStr = JSON.stringify(profiles.body);
+  ok("Finding 2: the bound profile `hp_hypervisor_worker` is a REAL registry hp_* profile (it resolves), while the #252 `default_harness_profile` is ABSENT from the registry",
+    profilesStr.includes("hp_hypervisor_worker") && !profilesStr.includes("default_harness_profile"),
+    `hp_hypervisor_worker present=${profilesStr.includes("hp_hypervisor_worker")}`);
+  const bindingEvidence = launch?.harness_binding_evidence || {};
+  ok("Finding 2: the binding names the real seeded profile AND its EXACT frozen revision (harness-profile://daemon-resolved/<harness>/revision/sha256:...)",
+    bindingEvidence.harness_profile_ref === "hp_hypervisor_worker"
+      && typeof steps.harness_profile_revision_ref === "string"
+      && steps.harness_profile_revision_ref.startsWith("harness-profile://daemon-resolved/")
+      && steps.harness_profile_revision_ref.includes("/revision/sha256:"),
+    steps.harness_profile_revision_ref);
+  const recheck = bindingEvidence.model_route_recheck || {};
+  ok("Finding 2: model-route availability was RECHECKED at the launch boundary with a real registry read (route resolved + admitted lifecycle read + recheck timestamp) and the binding availability was DERIVED from it — not a static `daemon_verified` literal",
+    recheck.recheck_source === "daemon-model-route-registry"
+      && recheck.route_resolved === true
+      && typeof recheck.registry_lifecycle_status === "string"
+      && typeof recheck.rechecked_at === "string" && !recheck.rechecked_at.startsWith("1970")
+      && recheck.derived_binding_availability_state === "daemon_verified",
+    JSON.stringify(recheck));
+  ok("Finding 2: the recheck honestly carries live token reachability as FALSE (the mount is daemon-verified; live serving is the W3.2 execute dependency) — the binding never over-claims what the readiness admits",
+    recheck.model_route_reachable === false && launch?.readiness?.observed_substrate?.model_route_reachable === false,
+    `recheck=${recheck.model_route_reachable} readiness=${launch?.readiness?.observed_substrate?.model_route_reachable}`);
+
   ok("readiness is the honest client-PTY-attach gate: ready, and it carries the observed substrate probe rather than over-claiming a live model",
     launch?.readiness?.decision === "ready"
       && launch?.readiness?.readiness_state === "ready_for_harness_pty_attach"
@@ -236,6 +291,25 @@ async function run() {
     `${sessionAfter?.subject_attachments?.length} attachment(s)`);
   ok("no second Session family was minted: exactly one session record on disk after launch (the launch hangs off the kernel-owned Session spine)",
     countSessionRecords() === sessionsBeforeLaunch, `${countSessionRecords()} session record(s)`);
+
+  // -- Finding 1 (step 6), delegation REQUESTED: the fork routes the real kernel planner ---------
+  // A delegation-requested launch routes plan_runtime_thread_fork_control; the launch thread has no
+  // forkable source agent, so the planner's own refusal ladder answers (agent_replay_required) and
+  // NO admitted fork is fabricated — the planner's typed output, never a hand-minted record.
+  const delegated = await jd(LAUNCHES, { method: "POST", body: JSON.stringify({
+    session_ref: sessionRef,
+    idempotency_key: "delegation-probe",
+    delegation: { reason: "verifier delegation probe", bounds: { budget: "parent_bounded" } },
+  }) });
+  const delegatedFork = delegated.body?.fork || {};
+  ok("Finding 1 (step 6): a delegation-requested launch routes the REAL fork planner (plan_runtime_thread_fork_control); its refusal ladder answers with a typed planner code and fabricates no admitted fork — never a hand-minted `ioi.runtime.thread_fork_control.v1` record",
+    delegated.status === 200
+      && delegatedFork.fork_planner === "plan_runtime_thread_fork_control"
+      && (delegatedFork.decision === "forked" || delegatedFork.decision === "refused")
+      && (delegatedFork.decision !== "refused" || String(delegatedFork.code || "").startsWith("runtime_thread_fork_control_"))
+      && delegatedFork.schema_version !== "ioi.runtime.thread_fork_control.v1"
+      && !JSON.stringify(delegated.body).includes("ioi.runtime.thread_fork_control.v1"),
+    `${delegatedFork.decision} · ${delegatedFork.code || "(forked)"}`);
 
   // -- INV-37 durable receipt binds the acting principal ----------------------------------------
   const producedReceipt = readReceiptByKind("hypervisor.harness_session_launch.produced", launchRef);
@@ -302,10 +376,13 @@ async function run() {
   ok("after restart the owned Session still carries the materialized subject attachment (durable, not a process-memory fact)",
     Array.isArray(sessionPost?.subject_attachments) && sessionPost.subject_attachments.some((a) => a.subject_ref === launchRef));
   const eventsPost = await jd(`${LAUNCHES}/${encodeURIComponent(launchId)}/events`);
-  ok("the reconstructed chain events replay after restart, distinguished as reconstructed (the initial thread event survives)",
+  const replayedEvents = eventsPost.body?.events || [];
+  ok("Finding 1: /events REPLAYS the launch thread from the REAL kernel event stream after restart — the durable events read back are the kernel `thread.started` + `harness_session.spawned` facts (each carrying a substrate seq + resulting_head), NOT a launch-family `runtime.thread.opened` vocabulary",
     eventsPost.status === 200 && eventsPost.body?.reconstructed === true
-      && (eventsPost.body?.events || []).some((e) => e.kind === "runtime.thread.opened"),
-    `${(eventsPost.body?.events || []).length} event(s)`);
+      && replayedEvents.some((e) => e.event_kind === "thread.started" && typeof e.seq === "number" && typeof e.resulting_head === "string")
+      && replayedEvents.some((e) => e.event_kind === "harness_session.spawned")
+      && !replayedEvents.some((e) => e.kind === "runtime.thread.opened" || e.event_kind === "runtime.thread.opened"),
+    `${replayedEvents.length} event(s): ${replayedEvents.map((e) => e.event_kind).join(",")}`);
 
   const fails = results.filter((r) => !r.pass);
   for (const r of results) console.log(`${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? ` — ${r.detail}` : ""}`);

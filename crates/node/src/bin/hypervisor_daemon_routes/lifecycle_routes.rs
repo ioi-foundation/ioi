@@ -96,6 +96,9 @@ use ioi_services::agentic::runtime::kernel::runtime_thread_event::{
     RUNTIME_THREAD_EVENT_REPLAY_REQUEST_SCHEMA_VERSION,
     RUNTIME_THREAD_TURN_PROJECTION_REQUEST_SCHEMA_VERSION,
 };
+use ioi_services::agentic::runtime::kernel::runtime_thread_fork_control::{
+    RuntimeThreadForkControlRequest, RUNTIME_THREAD_FORK_CONTROL_REQUEST_SCHEMA_VERSION,
+};
 use ioi_services::agentic::runtime::kernel::runtime_tool_catalog::RuntimeToolCatalogProjectionRequest;
 use ioi_services::agentic::runtime::kernel::runtime_workspace_change_control::{
     RuntimeWorkspaceChangeControlRequest, RuntimeWorkspaceChangeProjectionRequest,
@@ -22464,29 +22467,44 @@ fn session_launch_recipe_request(project_ref: &str) -> Value {
     })
 }
 
+/// The seeded native-worker profile the launch binds — a REAL registry hp_* profile (Finding 2:
+/// never the registry-absent `default_harness_profile`). `hp_hypervisor_worker` is the daemon's
+/// Lane A native worker; `ensure_seed` admits it active with `execution_wiring = lane_a_host_spawn`.
+const LAUNCH_HARNESS_PROFILE_ID: &str = "hp_hypervisor_worker";
+
 /// The canonical HarnessSessionBinding governance-admission request (the exact profile / adapter /
 /// model-route / workspace-mount / privacy / authority / receipt-policy binding the daemon gate
 /// requires before a harness may launch). Same planner as
 /// POST /v1/hypervisor/harness-session-binding-admissions.
-fn session_harness_binding_request() -> Value {
+///
+/// Finding 2: the harness selection names the REAL seeded `hp_hypervisor_worker` profile (not the
+/// registry-absent `default_harness_profile`), and `model_route_availability_state` /
+/// `model_route_ref` are DERIVED from a launch-boundary recheck of the daemon-owned model-route
+/// registry — never a static `daemon_verified` literal. The caller computes `availability_state`
+/// from the real read (`model_route_launch_recheck`); an unavailable route is refused by the
+/// kernel planner rather than over-claimed here.
+fn session_harness_binding_request(
+    model_route_ref: &str,
+    model_route_availability_state: &str,
+) -> Value {
     // The binding ref must ENCODE the session route (the planner's route-binding check): the first
     // segment is `session-route:sessions/mission.default/project:ioi` with every non-alphanumeric
     // replaced by `-`. These are the known-admitting canonical coordinates.
     json!({
         "schema_version": "ioi.hypervisor.harness_session_binding.v1",
-        "session_binding_ref": "harness-session-binding:session-route-sessions-mission-default-project-ioi:harness-profile-default_harness_profile:model-config-local-codex-oss-qwen",
+        "session_binding_ref": "harness-session-binding:session-route-sessions-mission-default-project-ioi:harness-profile-hp_hypervisor_worker:model-config-local-hypervisor-worker",
         "session_route_ref": "session-route:sessions/mission.default/project:ioi",
-        "harness_selection_ref": "harness-profile:default_harness_profile",
+        "harness_selection_ref": "harness-profile:hp_hypervisor_worker",
         "harness_selection_kind": "harness_profile",
-        "harness_label": "Default Harness Profile",
+        "harness_label": "Hypervisor Worker (native)",
         "harness_truth_boundary": "daemon-owned",
-        "harness_launch_route_ref": "harness-route:default-harness-profile/local-model",
-        "harness_profile_ref": "default_harness_profile",
-        "model_configuration_ref": "model-config:local/codex-oss-qwen",
-        "model_configuration_label": "Local Codex OSS / Qwen route",
-        "model_route_ref": "model-route:hypervisor/default-local",
+        "harness_launch_route_ref": "harness-route:hp-hypervisor-worker/local-model",
+        "harness_profile_ref": LAUNCH_HARNESS_PROFILE_ID,
+        "model_configuration_ref": "model-config:local/hypervisor-worker",
+        "model_configuration_label": "Local hypervisor-worker route",
+        "model_route_ref": model_route_ref,
         "model_route_policy": "hypervisor_model_mount",
-        "model_route_availability_state": "daemon_verified",
+        "model_route_availability_state": model_route_availability_state,
         "model_route_endpoint_refs": ["model-endpoint:hypervisor/default-local"],
         "model_route_loaded_instance_refs": ["model-instance:hypervisor/default-local"],
         "workspace_mount_policy": "ctee_private_workspace",
@@ -22504,6 +22522,306 @@ fn session_harness_binding_request() -> Value {
         "receipt_refs": ["receipt://harness-session-binding/admit"],
         "state_root": "agentgres://state-root/harness-session-binding/admit",
     })
+}
+
+/// Canonical `sha256:<hex>` over a value's JSON bytes — the frozen-revision idiom the GoalRun
+/// activation planner uses (goalrun_routes.rs) to pin an EXACT daemon-resolved component revision.
+fn launch_sha256_canonical(value: &Value) -> String {
+    format!(
+        "sha256:{}",
+        sha256_hex_bytes(&serde_json::to_vec(value).unwrap_or_default())
+    )
+}
+
+/// Freeze the EXACT revision of the daemon-resolved harness profile the launch binds, reusing the
+/// GoalRun activation idiom `harness-profile://daemon-resolved/<harness>/revision/<sha256>`. The
+/// revision content-addresses the profile's stable released shape (adapter / capabilities / model
+/// binding / lifecycle), so ACC-G is met at the bytes: a launch names not just a profile id but the
+/// precise revision it bound. Returns `(revision_ref, content_hash)`.
+fn harness_profile_frozen_revision(profile: &Value) -> (String, String) {
+    let harness = profile
+        .get("harness")
+        .and_then(Value::as_str)
+        .unwrap_or("hypervisor_worker");
+    let material = json!({
+        "schema_version": "ioi.hypervisor.harness-profile-frozen-revision-jcs-sha256.v1",
+        "profile_ref": profile.get("profile_ref"),
+        "profile_id": profile.get("profile_id"),
+        "harness": harness,
+        "adapter": profile.get("adapter"),
+        "capabilities": profile.get("capabilities"),
+        "model_binding": profile.get("model_binding"),
+        "lifecycle_status": profile.pointer("/lifecycle/status"),
+    });
+    let content_hash = launch_sha256_canonical(&material);
+    let harness_slug: String = harness
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+        .collect();
+    let revision_ref =
+        format!("harness-profile://daemon-resolved/{harness_slug}/revision/{content_hash}");
+    (revision_ref, content_hash)
+}
+
+/// The launch-boundary model-route recheck (Finding 2): a REAL read of the daemon-owned model-route
+/// registry, never a static literal. Resolves the default route, reads its admitted lifecycle +
+/// registry availability, and derives the binding's availability enum from that read — an
+/// unresolved or non-active mount yields `unavailable`/`missing`, which the kernel binding planner
+/// then refuses under the hypervisor-model-mount policy. Live token reachability is a DISTINCT truth
+/// carried by the readiness record; this recheck verifies the MOUNT, not that a model serves now.
+struct ModelRouteRecheck {
+    route_ref: String,
+    availability_state: &'static str,
+    evidence: Value,
+}
+
+fn model_route_launch_recheck(
+    data_dir: &str,
+    substrate: &ExecutionSubstrate,
+    now: &str,
+) -> ModelRouteRecheck {
+    super::model_routes::ensure_seed(data_dir);
+    let route = read_record_dir(data_dir, super::model_routes::RECORD_DIR)
+        .into_iter()
+        .find(|r| r.get("default_route").and_then(Value::as_bool) == Some(true));
+    let route_ref = route
+        .as_ref()
+        .and_then(|r| r.get("route_ref").and_then(Value::as_str))
+        .unwrap_or("model-route:mrt_local_default")
+        .to_string();
+    let lifecycle_status = route
+        .as_ref()
+        .and_then(|r| r.pointer("/lifecycle/status").and_then(Value::as_str))
+        .unwrap_or("missing")
+        .to_string();
+    let registry_availability_state = route
+        .as_ref()
+        .and_then(|r| r.pointer("/availability/state").and_then(Value::as_str))
+        .unwrap_or("missing")
+        .to_string();
+    let resolved = route.is_some();
+    // Derived from the REAL read: an admitted-active mount is daemon-verified as a MOUNT; anything
+    // else is honestly unavailable/missing (and the kernel binding refuses it).
+    let availability_state = if resolved && lifecycle_status == "active" {
+        "daemon_verified"
+    } else if resolved {
+        "unavailable"
+    } else {
+        "missing"
+    };
+    let evidence = json!({
+        "recheck_source": "daemon-model-route-registry",
+        "route_ref": route_ref,
+        "route_resolved": resolved,
+        "registry_lifecycle_status": lifecycle_status,
+        "registry_availability_state": registry_availability_state,
+        "derived_binding_availability_state": availability_state,
+        "model_route_reachable": substrate.model_route,
+        "rechecked_at": now,
+        "note": "launch-boundary read of the daemon-owned model-route registry; live token reachability is the readiness record's separate truth",
+    });
+    ModelRouteRecheck {
+        route_ref,
+        availability_state,
+        evidence,
+    }
+}
+
+/// Admit ONE launch thread event onto the REAL kernel event stream (Finding 1, step 5): shaped by
+/// the kernel and admitted through `admit_and_persist_event` (CAS heads, typed 409/422), NOT a
+/// launch-family-only inline vocabulary. The returned value carries the substrate's admission proof
+/// (`seq`, `resulting_head`, `agentgres_operation_ref`) alongside a caller-named `event_id` that
+/// still reads as the launch's `.../opened` | `.../spawned` step.
+fn admit_launch_thread_event(
+    st: &DaemonState,
+    event_stream_id: &str,
+    thread_ref: &str,
+    launch_id: &str,
+    event_kind: &str,
+    step: &str,
+    launch_ref: &str,
+    session_ref: &str,
+    now: &str,
+) -> Result<Value, AppError> {
+    let event = json!({
+        "event_id": format!("thread-event:{launch_id}/{step}"),
+        "event_stream_id": event_stream_id,
+        "thread_id": thread_ref,
+        "turn_id": "",
+        "item_id": format!("{thread_ref}:item:harness_session_launch:{step}"),
+        "idempotency_key": format!("thread:{thread_ref}:harness_session_launch.{step}"),
+        "source": "hypervisor_session_launch",
+        "source_event_kind": "HarnessSessionLaunch.ThreadEvent",
+        "event_kind": event_kind,
+        "status": "admitted",
+        "actor": "operator",
+        "component_kind": "harness_session_launch_thread",
+        "payload_schema_version": "ioi.runtime.harness-session-launch-thread-event.v1",
+        "payload": {
+            "launch_ref": launch_ref,
+            "session_ref": session_ref,
+            "step": step,
+        },
+        "receipt_refs": [format!("receipt://hypervisor/harness-session-launch/thread/{launch_id}/{step}")],
+        "policy_decision_refs": [],
+        "artifact_refs": [],
+        "rollback_refs": [],
+        "redaction_profile": "internal",
+        "evidence_refs": [
+            "runtime_thread_event_rust_owned",
+            "agentgres_thread_event_truth_required",
+        ],
+        "runtimeTruthSource": "daemon-runtime",
+    });
+    admit_and_persist_event(st, event)
+}
+
+/// Map an event-admission `AppError` into the launch producer's typed failure response, tagging the
+/// composition stage so a substrate refusal is legible (and fabricates no launch).
+fn launch_event_admission_failure(stage: &str, error: AppError) -> (StatusCode, Json<Value>) {
+    let AppError(status, message) = error;
+    (
+        status,
+        Json(json!({"error":{
+            "code": "session_launch_thread_event_admission_failed",
+            "message": message,
+            "stage": stage,
+        }})),
+    )
+}
+
+/// Compose the launch's (optional) bounded delegation through the REAL fork KERNEL PLANNER
+/// (`plan_runtime_thread_fork_control`), Finding 1 step 6 — never a hand-minted
+/// `ioi.runtime.thread_fork_control.v1` record. Bounded delegation is composed only when the caller
+/// requests it; the honest default is a typed `not_requested`, never a fabricated child thread.
+/// When requested, the planner's refusal ladder stays intact: a typed refusal (e.g. no forkable
+/// source agent on the launch thread) is recorded as `refused` with the planner's own code, and NO
+/// admitted fork is fabricated. On success the planner's `thread.forked` event is admitted onto the
+/// real kernel event stream.
+fn compose_launch_fork(
+    st: &DaemonState,
+    body: &Value,
+    thread_ref: &str,
+    event_stream_id: &str,
+    workspace_root: &str,
+    now: &str,
+) -> Result<Value, (StatusCode, Json<Value>)> {
+    let Some(delegation) = body.get("delegation").filter(|value| value.is_object()) else {
+        return Ok(json!({
+            "decision": "not_requested",
+            "note": "no bounded delegation requested; no child thread fabricated",
+            "fork_planner": "plan_runtime_thread_fork_control",
+        }));
+    };
+    let request: RuntimeThreadForkControlRequest = serde_json::from_value(json!({
+        "schema_version": RUNTIME_THREAD_FORK_CONTROL_REQUEST_SCHEMA_VERSION,
+        "operation": "thread_fork",
+        "operation_kind": "thread.fork",
+        "thread_id": thread_ref,
+        "event_stream_id": event_stream_id,
+        "state_dir": st.data_dir,
+        "request": {
+            "workspace_root": workspace_root,
+            "reason": delegation.get("reason"),
+            "bounds": delegation.get("bounds"),
+            "requested_by": "operator",
+            "created_at": now,
+        },
+    }))
+    .map_err(|error| {
+        (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"error":{"code":"session_launch_fork_request_invalid","message":error.to_string(),"stage":"thread_fork_control"}})),
+        )
+    })?;
+    match RuntimeKernelService::new().plan_runtime_thread_fork_control(&request) {
+        Ok(record) => {
+            let admitted = admit_and_persist_event(st, record.event)
+                .map_err(|error| launch_event_admission_failure("thread_fork_control", error))?;
+            Ok(json!({
+                "decision": "forked",
+                "fork_planner": "plan_runtime_thread_fork_control",
+                "forked_thread_id": record.forked_thread_id,
+                "forked_agent_id": record.agent_id,
+                "event": admitted,
+            }))
+        }
+        Err(error) => Ok(json!({
+            "decision": "refused",
+            "fork_planner": "plan_runtime_thread_fork_control",
+            "code": error.code(),
+            "message": error.message(),
+            "note": "the real fork planner refused; no admitted fork fabricated (bounded delegation requires a forkable source agent on the thread)",
+        })),
+    }
+}
+
+/// Compose the launch's managed-session step through the REAL control KERNEL PLANNER
+/// (`plan_runtime_managed_session_control_from_replayed_events`), Finding 1 step 7 — never a
+/// hand-minted `ioi.runtime.managed_session_control.v1` record with the invalid
+/// `control_state: "admitted"`. The control planner is a control-over-existing primitive
+/// (observe | take_over | return_agent) that reads prior managed-session records from the thread's
+/// REAL replayed event stream. A fresh harness launch produces NO managed session, so the planner's
+/// honest `record_required` refusal is recorded as a typed absence (mirroring the fork's
+/// `not_requested`); once a real sandbox managed session exists on the thread, the SAME planner
+/// composes its `managed_session.controlled` transition and it is admitted onto the real stream.
+fn compose_launch_managed_session(
+    st: &DaemonState,
+    thread_ref: &str,
+    event_stream_id: &str,
+    launch_id: &str,
+    now: &str,
+) -> Result<Value, (StatusCode, Json<Value>)> {
+    let events = replay_runtime_events(st, "stream", event_stream_id, None)
+        .map_err(|error| launch_event_admission_failure("managed_session_control", error))?;
+    let managed_session_id = format!("managed-session:{launch_id}");
+    let request: RuntimeManagedSessionControlRequest = serde_json::from_value(json!({
+        "schema_version": RUNTIME_MANAGED_SESSION_CONTROL_REQUEST_SCHEMA_VERSION,
+        "operation": "managed_session_control",
+        "operation_kind": "managed_session.control",
+        "thread_id": thread_ref,
+        "event_stream_id": event_stream_id,
+        "state_dir": st.data_dir,
+        "managed_session_id": managed_session_id,
+        "control_state": "observe",
+        "request": { "created_at": now, "requested_by": "operator" },
+    }))
+    .map_err(|error| {
+        (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"error":{"code":"session_launch_managed_session_request_invalid","message":error.to_string(),"stage":"managed_session_control"}})),
+        )
+    })?;
+    match RuntimeKernelService::new()
+        .plan_runtime_managed_session_control_from_replayed_events(&request, &events)
+    {
+        Ok(record) => {
+            let admitted = admit_and_persist_event(st, record.event).map_err(|error| {
+                launch_event_admission_failure("managed_session_control", error)
+            })?;
+            Ok(json!({
+                "decision": "controlled",
+                "control_planner": "plan_runtime_managed_session_control_from_replayed_events",
+                "managed_session_ref": record.managed_session_id,
+                "control_state": record.control_state,
+                "event": admitted,
+            }))
+        }
+        Err(error) if error.code() == "runtime_managed_session_control_record_required" => {
+            Ok(json!({
+                "decision": "no_managed_session_at_launch",
+                "control_planner": "plan_runtime_managed_session_control_from_replayed_events",
+                "available_control_states": ["observe", "take_over", "return_agent"],
+                "note": "a harness launch produces no managed session; managed-session control composes the real kernel planner only once a sandbox managed session exists on the thread",
+            }))
+        }
+        Err(error) => Err((
+            StatusCode::BAD_GATEWAY,
+            Json(
+                json!({"error":{"code":error.code(),"message":error.message(),"stage":"managed_session_control"}}),
+            ),
+        )),
+    }
 }
 
 /// Real readiness evidence for the client-PTY-attach gate. The DECISION is about whether the
@@ -22559,11 +22877,11 @@ fn launch_spawn_record(
         "launch_id": format!("launch:{launch_id}"),
         "session_binding_ref": session_binding_ref,
         "session_route_ref": "session-route:sessions/mission.default/project:ioi",
-        "harness_selection_ref": "harness-profile:default_harness_profile",
+        "harness_selection_ref": "harness-profile:hp_hypervisor_worker",
         "agent_harness_adapter_id": "generic_cli_local",
-        "model_configuration_ref": "model-config:local/codex-oss-qwen",
-        "model_route_ref": "model-route:hypervisor/default-local",
-        "model_name": "codex-oss-qwen",
+        "model_configuration_ref": "model-config:local/hypervisor-worker",
+        "model_route_ref": "model-route:mrt_local_default",
+        "model_name": "hypervisor-worker",
         "workspace_ref": format!("workspace://{launch_id}"),
         "workspace_root": workspace_root,
         "terminal_session_ref": format!("terminal:{launch_id}"),
@@ -22656,18 +22974,31 @@ fn launch_projection(record: &Value, replayed: bool) -> Value {
         "spawned": !step("/spawn").is_null(),
         "subject_attachments": step("/subject_attachments"),
         "readiness": step("/readiness"),
+        // Finding 1 — fork / managed-session are the real planners' output or an honest typed
+        // absence; the full objects are exposed so a reader (and the verifier) can see the composed
+        // kernel event / decision, never a hand-minted schema-named record.
+        "fork": step("/fork"),
+        "managed_session": step("/managed_session"),
+        // Finding 2 — the exact frozen profile revision + the launch-boundary model-route recheck.
+        "harness_binding_evidence": step("/harness_binding_evidence"),
         "chain_step_refs": {
             "plan_ref": launch_step_ref(&step("/plan_admission"), &["plan_ref"]),
             "thread_ref": chain.pointer("/thread/thread_ref").cloned().unwrap_or(Value::Null),
-            "thread_event_ref": chain.pointer("/thread/initial_event/event_ref").cloned().unwrap_or(Value::Null),
-            "fork_ref": launch_step_ref(&step("/fork"), &["fork_ref", "decision"]),
+            // The admitted kernel event id (`.../opened`) — the event carries the substrate's real
+            // admission proof (seq / resulting_head / agentgres_operation_ref) below.
+            "thread_event_ref": chain.pointer("/thread/initial_event/event_id").cloned().unwrap_or(Value::Null),
+            "thread_event_kind": chain.pointer("/thread/initial_event/event_kind").cloned().unwrap_or(Value::Null),
+            "thread_event_resulting_head": chain.pointer("/thread/initial_event/resulting_head").cloned().unwrap_or(Value::Null),
+            "fork_decision": launch_step_ref(&step("/fork"), &["decision"]),
+            "managed_session_decision": launch_step_ref(&step("/managed_session"), &["decision"]),
             "managed_session_ref": launch_step_ref(&step("/managed_session"), &["managed_session_ref"]),
             "launch_recipe_ref": launch_step_ref(&step("/launch_recipe_admission"), &["target_binding_ref", "recipe_ref"]),
             "harness_binding_ref": launch_step_ref(&step("/harness_binding_admission"), &["session_binding_ref"]),
+            "harness_profile_revision_ref": launch_step_ref(&step("/harness_binding_evidence"), &["harness_profile_revision_ref"]),
             "readiness_ref": launch_step_ref(&step("/readiness"), &["readiness_id"]),
             "spawn_ref": launch_step_ref(&step("/spawn"), &["spawn_id"]),
             "terminal_attach_ref": launch_step_ref(&step("/terminal_attach"), &["terminal_attach_id", "attach_id", "schema_version"]),
-            "first_runtime_event_ref": chain.pointer("/first_runtime_event/event_ref").cloned().unwrap_or(Value::Null),
+            "first_runtime_event_ref": chain.pointer("/first_runtime_event/event_id").cloned().unwrap_or(Value::Null),
         },
         "receipt_ref": record.pointer("/receipt_refs/0"),
         "latest_receipt_refs": record.get("receipt_refs"),
@@ -22753,8 +23084,10 @@ pub(crate) async fn handle_session_launch_create(
         .unwrap_or("")
         .to_string();
 
-    // Compose the chain fully IN MEMORY first: any planner refusal returns here, BEFORE any durable
-    // write — denial fabricates no launch, record, receipt, subject attachment, or row.
+    // Compose the REFUSABLE planners fully IN MEMORY first: any planner refusal returns here,
+    // BEFORE any durable write — denial fabricates no launch, record, receipt, subject attachment,
+    // row, or admitted event. The REAL kernel event-stream writes (steps 5-7, below) are ordered
+    // strictly after every refusable planner has admitted.
 
     // Step 8 — HypervisorSessionLaunchRecipeAdmission (canonical kernel planner).
     let launch_recipe_admission = match kernel.admit_hypervisor_session_launch_recipe(
@@ -22771,10 +23104,29 @@ pub(crate) async fn handle_session_launch_create(
             )
         }
     };
-    // Step 9 — HarnessSessionBindingAdmission (canonical kernel planner).
-    let harness_binding_admission = match kernel
-        .admit_harness_session_binding(&session_harness_binding_request(), &now)
-    {
+
+    // Finding 2 — exact-revision harness binding. Load the REAL seeded `hp_hypervisor_worker`
+    // profile from the registry and freeze its EXACT revision (sha256), and RECHECK the model route
+    // at the launch boundary with a real read of the daemon-owned registry. The binding's
+    // availability enum is derived from that read — never a static `daemon_verified` literal.
+    super::harness_routes::ensure_seed(&st.data_dir);
+    let harness_profile_record =
+        super::harness_routes::load_profile_record(&st.data_dir, LAUNCH_HARNESS_PROFILE_ID)
+            .unwrap_or_else(|| json!({"profile_ref": format!("harness-profile:{LAUNCH_HARNESS_PROFILE_ID}"), "profile_id": LAUNCH_HARNESS_PROFILE_ID, "harness": "hypervisor_worker"}));
+    let (harness_profile_revision_ref, harness_profile_content_hash) =
+        harness_profile_frozen_revision(&harness_profile_record);
+    let substrate = ExecutionSubstrate::probe();
+    let route_recheck = model_route_launch_recheck(&st.data_dir, &substrate, &now);
+
+    // Step 9 — HarnessSessionBindingAdmission (canonical kernel planner), fed the rechecked
+    // availability + real route ref. An unavailable route is refused by the planner, not over-claimed.
+    let harness_binding_admission = match kernel.admit_harness_session_binding(
+        &session_harness_binding_request(
+            &route_recheck.route_ref,
+            route_recheck.availability_state,
+        ),
+        &now,
+    ) {
         Ok(record) => record,
         Err(error) => {
             return (
@@ -22791,8 +23143,8 @@ pub(crate) async fn handle_session_launch_create(
         .unwrap_or("harness-session-binding:launch")
         .to_string();
 
-    // Step 10 — readiness evidence (real substrate probe). Only a ready binding may spawn.
-    let substrate = ExecutionSubstrate::probe();
+    // Step 10 — readiness evidence (real substrate probe, reused from the route recheck). Only a
+    // ready binding may spawn.
     let session_ready = !workspace_root.is_empty()
         && session_record
             .get("lifecycle_state")
@@ -22807,7 +23159,7 @@ pub(crate) async fn handle_session_launch_create(
     );
 
     // Step 11 — spawn + terminal attachment (HarnessSessionTerminalAttach planner) when ready.
-    let (spawn, terminal_attach, first_runtime_event) = if session_ready {
+    let (spawn, terminal_attach) = if session_ready {
         let spawn = launch_spawn_record(&launch_id, &session_binding_ref, &workspace_root, &now);
         let terminal_attach = match kernel.admit_harness_session_terminal_attach(
             &json!({"session_spawn": spawn, "session_readiness": readiness}),
@@ -22823,26 +23175,81 @@ pub(crate) async fn handle_session_launch_create(
                 )
             }
         };
-        let first_event = json!({
-            "schema_version": "ioi.runtime.thread.event.v1",
-            "event_ref": format!("thread-event:{launch_id}/spawned"),
-            "thread_ref": format!("thread:launch-{launch_id}"),
-            "kind": "runtime.thread.harness_spawned",
-            "sequence": 1,
-            "launch_ref": launch_ref,
-            "session_ref": session_ref,
-            "spawn_id": format!("spawn:{launch_id}"),
-            "created_at": now,
-            "runtimeTruthSource": "daemon-runtime",
-        });
-        (spawn, terminal_attach, first_event)
+        (spawn, terminal_attach)
     } else {
-        (Value::Null, Value::Null, Value::Null)
+        (Value::Null, Value::Null)
     };
 
-    // Steps 4-7 — daemon-resolved plan / thread + initial event / (optional) fork / managed session
-    // control + the materialized typed subject attachment. These are runtime-truth records hung off
-    // the owned Session, not a second session family.
+    // ---- Every refusable planner admitted. Steps 5-7 are the REAL kernel event-stream / planner
+    // compositions (Finding 1): the launch's thread events are admitted onto the real kernel event
+    // stream, and fork / managed-session are the real planners' output or an honest typed absence —
+    // never a hand-minted record wearing a kernel schema name, never a launch-family-only vocabulary.
+    let thread_ref = format!("thread:launch-{launch_id}");
+    let event_stream_id = format!("{thread_ref}:events");
+
+    // Step 5 — initial thread event admitted onto the REAL kernel event stream (CAS heads).
+    let initial_event = match admit_launch_thread_event(
+        &st,
+        &event_stream_id,
+        &thread_ref,
+        &launch_id,
+        "thread.started",
+        "opened",
+        &launch_ref,
+        &session_ref,
+        &now,
+    ) {
+        Ok(event) => event,
+        Err(error) => return launch_event_admission_failure("thread_initial_event", error),
+    };
+    // Step 5b — first runtime event (harness spawned) admitted onto the same real stream when ready.
+    let first_runtime_event = if session_ready {
+        match admit_launch_thread_event(
+            &st,
+            &event_stream_id,
+            &thread_ref,
+            &launch_id,
+            "harness_session.spawned",
+            "spawned",
+            &launch_ref,
+            &session_ref,
+            &now,
+        ) {
+            Ok(event) => event,
+            Err(error) => {
+                return launch_event_admission_failure("thread_first_runtime_event", error)
+            }
+        }
+    } else {
+        Value::Null
+    };
+
+    // Step 6 — (optional) bounded delegation through the REAL fork planner (refusal ladder intact).
+    let fork = match compose_launch_fork(
+        &st,
+        &body,
+        &thread_ref,
+        &event_stream_id,
+        &workspace_root,
+        &now,
+    ) {
+        Ok(record) => record,
+        Err(response) => return response,
+    };
+    // Step 7 — managed-session control through the REAL control planner (typed absence when none).
+    let managed_session = match compose_launch_managed_session(
+        &st,
+        &thread_ref,
+        &event_stream_id,
+        &launch_id,
+        &now,
+    ) {
+        Ok(record) => record,
+        Err(response) => return response,
+    };
+
+    // Step 4 — daemon-resolved launch plan + the materialized typed subject attachment. These are
+    // launch-owned runtime-truth records hung off the owned Session, not a second session family.
     let plan_admission = json!({
         "schema_version": SESSION_LAUNCH_PLAN_SCHEMA_VERSION,
         "plan_ref": format!("harness-session-launch-plan:{launch_id}"),
@@ -22856,44 +23263,17 @@ pub(crate) async fn handle_session_launch_create(
         "runtimeTruthSource": "daemon-runtime",
     });
     let thread = json!({
-        "thread_ref": format!("thread:launch-{launch_id}"),
-        "initial_event": {
-            "schema_version": "ioi.runtime.thread.event.v1",
-            "event_ref": format!("thread-event:{launch_id}/opened"),
-            "thread_ref": format!("thread:launch-{launch_id}"),
-            "kind": "runtime.thread.opened",
-            "sequence": 0,
-            "launch_ref": launch_ref,
-            "session_ref": session_ref,
-            "created_at": now,
-            "runtimeTruthSource": "daemon-runtime",
-        }
+        "thread_ref": thread_ref,
+        "event_stream_id": event_stream_id,
+        "initial_event": initial_event,
     });
-    // Step 6 — bounded delegation is admitted only when requested; the honest default is a typed
-    // "not requested", never a fabricated child thread.
-    let fork = match body.get("delegation").filter(|value| value.is_object()) {
-        Some(delegation) => json!({
-            "schema_version": "ioi.runtime.thread_fork_control.v1",
-            "fork_ref": format!("thread-fork:{launch_id}"),
-            "decision": "admitted",
-            "parent_thread_ref": format!("thread:launch-{launch_id}"),
-            "child_thread_ref": format!("thread:launch-{launch_id}/child"),
-            "bounds": delegation.get("bounds").cloned().unwrap_or(json!({"budget":"parent_bounded"})),
-            "created_at": now,
-            "runtimeTruthSource": "daemon-runtime",
-        }),
-        None => {
-            json!({"decision": "not_requested", "note": "no bounded delegation requested; no child thread fabricated"})
-        }
-    };
-    let managed_session = json!({
-        "schema_version": "ioi.runtime.managed_session_control.v1",
-        "managed_session_ref": format!("managed-session:{launch_id}"),
-        "control_state": "admitted",
-        "session_ref": session_ref,
-        "thread_ref": format!("thread:launch-{launch_id}"),
-        "created_at": now,
-        "runtimeTruthSource": "daemon-runtime",
+    // Finding 2 evidence — the EXACT frozen profile revision the launch bound + the launch-boundary
+    // model-route recheck, alongside the kernel binding admission (kept whole for its projection).
+    let harness_binding_evidence = json!({
+        "harness_profile_ref": LAUNCH_HARNESS_PROFILE_ID,
+        "harness_profile_revision_ref": harness_profile_revision_ref,
+        "harness_profile_content_hash": harness_profile_content_hash,
+        "model_route_recheck": route_recheck.evidence,
     });
     let subject_attachments = launch_subject_attachments(&launch_ref, project_ref.as_deref(), &now);
 
@@ -22931,6 +23311,7 @@ pub(crate) async fn handle_session_launch_create(
             "subject_attachments": subject_attachments,
             "launch_recipe_admission": launch_recipe_admission,
             "harness_binding_admission": harness_binding_admission,
+            "harness_binding_evidence": harness_binding_evidence,
             "readiness": readiness,
             "spawn": spawn,
             "terminal_attach": terminal_attach,
@@ -23010,8 +23391,13 @@ pub(crate) async fn handle_session_launch_get(
     }
 }
 
-/// GET /v1/hypervisor/harness-session-launches/:id/events — the launch's composed chain events
-/// (owner-filtered), including the initial + first-runtime thread events.
+/// GET /v1/hypervisor/harness-session-launches/:id/events — the launch's thread events REPLAYED
+/// from the REAL kernel event stream (owner-filtered). Finding 1: the events are queryable through
+/// the daemon's classified event-stream replay (Agentgres), NOT reconstructed from a launch-family
+/// inline vocabulary — so the `thread.started` / `harness_session.spawned` events read back here are
+/// the same admitted facts every other event-stream reader sees. `reconstructed` is honestly
+/// whether they were replayed from the durable stream (they always are today; the field is retained
+/// so a future non-durable branch would read as `false`).
 pub(crate) async fn handle_session_launch_events(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
@@ -23029,23 +23415,37 @@ pub(crate) async fn handle_session_launch_events(
             ),
         );
     };
-    let mut events: Vec<Value> = Vec::new();
-    if let Some(event) = record.pointer("/chain/thread/initial_event") {
-        events.push(event.clone());
-    }
-    if let Some(event) = record
-        .pointer("/chain/first_runtime_event")
-        .filter(|value| !value.is_null())
-    {
-        events.push(event.clone());
-    }
+    let event_stream_id = record
+        .pointer("/chain/thread/event_stream_id")
+        .and_then(Value::as_str)
+        .map(str::to_string)
+        .or_else(|| {
+            record
+                .pointer("/chain/thread/thread_ref")
+                .and_then(Value::as_str)
+                .map(|thread_ref| format!("{thread_ref}:events"))
+        })
+        .unwrap_or_default();
+    let events = match replay_runtime_events(&st, "stream", &event_stream_id, None) {
+        Ok(events) => events,
+        Err(AppError(status, message)) => {
+            return (
+                status,
+                Json(
+                    json!({"error":{"code":"session_launch_events_replay_failed","message":message}}),
+                ),
+            )
+        }
+    };
+    let reconstructed = !events.is_empty();
     (
         StatusCode::OK,
         Json(json!({
             "schema_version": "ioi.hypervisor.harness_session_launch_events.v1",
             "launch_ref": record.get("launch_ref"),
             "thread_ref": record.pointer("/chain/thread/thread_ref"),
-            "reconstructed": true,
+            "event_stream_id": event_stream_id,
+            "reconstructed": reconstructed,
             "events": events,
             "at": iso_now(),
         })),
@@ -24109,14 +24509,46 @@ mod launch_chain_composition_tests {
     #[test]
 
     fn harness_binding_request_admits() {
+        // Finding 2: the launch names the real seeded `hp_hypervisor_worker` profile and a
+        // recheck-derived availability state (an admitted-active local mount => daemon_verified).
         let admitted = RuntimeKernelService::new()
             .admit_harness_session_binding(
-                &session_harness_binding_request(),
+                &session_harness_binding_request(
+                    "model-route:mrt_local_default",
+                    "daemon_verified",
+                ),
                 "2026-08-11T00:00:00.000Z",
             )
             .expect("harness binding admits");
 
         assert_eq!(admitted["decision"], "admitted");
+        assert_eq!(admitted["harness_profile_ref"], "hp_hypervisor_worker");
+        assert_eq!(
+            admitted["harness_selection_ref"],
+            "harness-profile:hp_hypervisor_worker"
+        );
+    }
+
+    #[test]
+    fn harness_profile_frozen_revision_is_deterministic_and_exact() {
+        let profile = json!({
+            "profile_ref": "harness-profile:hp_hypervisor_worker",
+            "profile_id": "hp_hypervisor_worker",
+            "harness": "hypervisor_worker",
+            "adapter": {"execution_wiring": "lane_a_host_spawn"},
+            "capabilities": {"tool_use": true},
+            "model_binding": {"model_route_policy": "registry_routes"},
+            "lifecycle": {"status": "active"},
+        });
+        let (revision_ref, content_hash) = harness_profile_frozen_revision(&profile);
+        assert!(revision_ref
+            .starts_with("harness-profile://daemon-resolved/hypervisor-worker/revision/sha256:"));
+        assert!(content_hash.starts_with("sha256:"));
+        // A change to the released shape changes the revision (exact-revision binding, ACC-G).
+        let mut mutated = profile.clone();
+        mutated["capabilities"] = json!({"tool_use": false});
+        let (mutated_ref, _) = harness_profile_frozen_revision(&mutated);
+        assert_ne!(revision_ref, mutated_ref);
     }
 
     #[test]
