@@ -2151,11 +2151,10 @@ does not make inference deterministic. It determines when a proposed act
 has enough canonical input, authority, policy binding, evidence, and
 settlement context to become a consequential effect.
 
-Implementation note: the current conformance docs do not treat
-``Determinism Boundary'' as a separate runtime or contract family. They
-realize it through CIRC semantic collapse, CEC admitted-effect collapse,
-daemon gates, wallet.network authority, Agentgres admission, and
-HarnessProfile adapter contracts.
+Implementation note: canon does not treat ``Determinism Boundary'' as a
+separate runtime or contract family. It is realized through CIRC semantic
+collapse, CEC admitted-effect collapse, daemon gates, wallet.network
+authority, Agentgres admission, and HarnessProfile adapter contracts.
 
 
 \begin{center}
@@ -8761,7 +8760,8 @@ adapter enter Hypervisor truth.
 
 While \textbf{aiagent.xyz} packages and licenses \emph{capability} (the
 worker's logic, manifest, and tools), \textbf{sas.xyz} packages and
-escrows \emph{outcomes} (the completed, verified service delivery).
+escrows outcomes (the completed delivery, carried by an evidence bundle
+whose items each stand for their own named proposition).
 
 \textbf{Generic autonomous labor ontology.}
 
@@ -8917,8 +8917,8 @@ The market for verifiable work has three related supply-side markets:
 
 This is what prevents the IOI economy from collapsing into a single
 model marketplace. The economically relevant unit is not the largest
-model; it is the worker that can produce the best verified outcome under
-the relevant constraints.
+model; it is the worker that can produce the best accepted result under
+the relevant constraints, on evidence that survives challenge.
 
 The question this section answers is: how is the financial risk of agent
 failure managed? IOI structures agentic labor into two economic modes,
@@ -8982,8 +8982,9 @@ deliverables under the declared ServiceOrder escrow terms. If the AI
 hallucinates or fails the objective acceptance criteria, the provider
 wastes compute, and the escrow can refund or remediate according to the
 contract. Insurance may still matter for subjective, physical,
-regulatory, or consequential-loss cases, but routine verifiable outcomes
-can be priced around receipt-backed success.
+regulatory, or consequential-loss cases, but routine work whose
+acceptance conditions are objectively checkable can be priced around
+receipt-backed success.
 
 2. The Service-as-a-Software Model (Embedded Assets)
 
@@ -9441,7 +9442,8 @@ escrow, fees, disputes, or shared public trust.
 
 To enable a robust, transaction-safe machine economy, the protocol
 establishes \textbf{sas.xyz} as the sibling marketplace and contracting
-surface for \textbf{ServicePackages} and verified outcomes.
+surface for \textbf{ServicePackages} and governed outcomes under declared
+acceptance rubrics.
 
 While \textbf{aiagent.xyz} packages and licenses \emph{capability}
 (individual workers, manifests, and tools), \textbf{sas.xyz} packages
@@ -10039,8 +10041,8 @@ Agentgres domains. They support:
   or dispute commitments selected by its settlement profile.
 \item
   \textbf{Reputation Updates:} Feeding quality ledgers so that highly
-  effective workers organically rise in marketplace rankings based on
-  proven outcomes, not marketing.
+  effective workers organically rise in marketplace rankings on
+  attributable evidence of verified and accepted work, not marketing.
 \item
   \textbf{Dispute Traceability:} Binding the relevant acts, components,
   contributors, evidence, and failure claims so an adjudicator can narrow the
@@ -10069,7 +10071,7 @@ Work}\label{economics-pricing-verifiable-work}}
 
 This section specifies the economic boundary of the IOI product and
 protocol stack. \textbf{Product surfaces monetize useful autonomous work,
-managed execution, distribution, governed trust, verified outcomes,
+managed execution, distribution, governed trust, governed outcome delivery,
 routing value, private managed posture, and value movement.} Verification,
 authority, receipts, and routine Agentgres operations are bundled substrate
 and must remain independently inspectable rather than becoming toll booths.
@@ -10320,7 +10322,8 @@ each required party better off than its best permitted alternative:
   licenses or royalties, portable reputation, reusable learning, strategic
   value, or shared-risk reduction while retaining custody and exit.
 \item
-  \textbf{Users (Demand):} Purchase verified outcomes. They utilize
+  \textbf{Users (Demand):} Purchase governed outcomes under declared
+  acceptance rules. They utilize
   ServiceOrders, outcome escrows, and delivery acceptance rules to make
   payout conditional on successful, receipt-backed work under the
   declared contract. They
@@ -12502,9 +12505,11 @@ they do not become a second runtime or separate source of truth.
 Canonical UX Objects
 
 Hypervisor exposes a shared surface grammar across App, Web,
-CLI/headless, SDK/ADK clients, and application views. The permanent shell is
-Home, Systems, Projects, Automations, Applications, and Work, with one optional
-Open Application slot. A \emph{+ New} menu creates a System, Session, Goal,
+CLI/headless, SDK/ADK clients, and application views. The six core workspaces
+are Home, Systems, Projects, Applications, Work, and Settings, with one
+singular Open Application slot and a keyboard-first \emph{+ New} menu.
+Automations is an owner application with a shell placement, not a seventh
+workspace. The \emph{+ New} menu creates a System, Session, Goal,
 Project, or Automation without making those object kinds interchangeable.
 Providers, environments, agents, models, privacy, authority, receipts,
 Developer Workspace, Foundry, and other specialized objects appear through
@@ -12619,7 +12624,8 @@ physical-action safety envelopes, and Agentgres receipts.
 
 The guided compilation flow for training a specialist worker, model
 route, or embodied capability utilizes daemon-owned local or
-provider-compatible execution paths to generate verifiable outcomes:
+provider-compatible execution paths to produce outcomes carrying
+proposition-scoped evidence at each declared gate:
 
 Define Task
 
