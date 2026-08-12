@@ -6,7 +6,6 @@
     "hypervisor-vite-workbench",
     "hypervisor-web",
     "developers-ioi-ai",
-    "benchmarks",
     "aiagent-xyz",
     "sas-xyz"
   ],
@@ -473,102 +472,6 @@
         },
         {
           "id": "all-surface-browser-census",
-          "kind": "browser",
-          "entry": "scripts/smoke-product-surfaces.mjs",
-          "command": "node scripts/smoke-product-surfaces.mjs"
-        }
-      ]
-    },
-    {
-      "id": "benchmarks",
-      "name": "IOI Benchmarks",
-      "owner": "Benchmark evidence and scorecard owner",
-      "owner_ref": "docs/architecture/components/hypervisor/evaluations.md",
-      "disposition": "shipped",
-      "release_posture": "production_candidate",
-      "root": "apps/benchmarks",
-      "path_ownership": {
-        "lane_roots": [
-          "apps/benchmarks"
-        ],
-        "shared_dependencies": []
-      },
-      "production_entries": [
-        "apps/benchmarks/index.html",
-        "apps/benchmarks/src/main.tsx"
-      ],
-      "build_artifacts": [
-        {
-          "path": "apps/benchmarks/dist",
-          "materialization": "generated",
-          "digest_policy": "record",
-          "producer": {
-            "package_json": "apps/benchmarks/package.json",
-            "script": "build"
-          }
-        }
-      ],
-      "route_sources": [
-        "apps/benchmarks/src/App.tsx",
-        "apps/benchmarks/scripts/generate-benchmark-data.mjs"
-      ],
-      "route_inventory": {
-        "inventory_version": 1,
-        "routes": [
-          "/"
-        ],
-        "expected_count": 1,
-        "sha256": "d1f7a51cfcad412897836502f157bf6d194ea0af6168e3e73acab8a3bbafe7e5",
-        "browser_verification_id": "benchmark-browser-census"
-      },
-      "state_authority_mode": "retained_evidence_projection",
-      "source_graph": {
-        "root": "apps/benchmarks",
-        "entries": [
-          "index.html"
-        ],
-        "allowed_source_roots": [],
-        "quarantined_roots": []
-      },
-      "permitted_static_boundary": {
-        "mode": "query_gated_preview",
-        "summary": "Retained generated evidence is the default projection. Synthetic scorecard examples are permitted only behind the exact scorecardPreview=1 query gate and must render a preview-fixture badge.",
-        "source_assertions": [
-          {
-            "path": "apps/benchmarks/src/appShellState.ts",
-            "contains": [
-              ".get(\"scorecardPreview\") === \"1\""
-            ]
-          },
-          {
-            "path": "apps/benchmarks/src/App.tsx",
-            "contains": [
-              "scorecardPreviewEnabled",
-              "withScorecardPreview"
-            ]
-          },
-          {
-            "path": "apps/benchmarks/src/components/ScorecardPanels.tsx",
-            "contains": [
-              "preview fixture"
-            ]
-          }
-        ]
-      },
-      "required_verification": [
-        {
-          "id": "production-source-graph",
-          "kind": "scanner",
-          "implementation": "builtin:production-source-graph"
-        },
-        {
-          "id": "generated-evidence-tests",
-          "kind": "integration",
-          "entry": "apps/benchmarks/scripts/generate-benchmark-data.test.mjs",
-          "command": "npm run test:benchmarks"
-        },
-        {
-          "id": "benchmark-browser-census",
           "kind": "browser",
           "entry": "scripts/smoke-product-surfaces.mjs",
           "command": "node scripts/smoke-product-surfaces.mjs"

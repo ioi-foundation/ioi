@@ -2,7 +2,7 @@
 
 Status: canonical architecture authority.
 Canonical owner: this file for IOI's alignment-security thesis, verifiable bounded agency, and execution-boundary alignment doctrine.
-Supersedes: `docs/specs/verifiable_bounded_agency.md` and product prose that claims IOI solves alignment by model cognition, prompt compliance, or one required proof backend.
+Supersedes: the retired docs/specs/verifiable_bounded_agency.md (removed 2026-08-12) and product prose that claims IOI solves alignment by model cognition, prompt compliance, or one required proof backend.
 Superseded by: none.
 Last alignment pass: 2026-08-12.
 Doctrine status: canonical

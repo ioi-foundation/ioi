@@ -28,7 +28,6 @@ export const CANONICAL_PRODUCT_IDS = Object.freeze([
   "hypervisor-vite-workbench",
   "hypervisor-web",
   "developers-ioi-ai",
-  "benchmarks",
   "aiagent-xyz",
   "sas-xyz",
 ]);

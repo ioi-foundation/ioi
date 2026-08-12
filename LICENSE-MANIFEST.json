@@ -59,7 +59,6 @@
       "globs": [
         "internal-docs/**",
         "docs/evidence/**",
-        "docs/brand-guidelines/**",
         "docs/assets/**",
         "ioi-data/**",
         "node_modules/**",
@@ -89,7 +88,6 @@
       "globs": [
         "docs/architecture/**",
         "docs/decisions/**",
-        "docs/specs/**",
         "docs/crypto/**",
         "docs/security/**",
         "docs/commitment/**",

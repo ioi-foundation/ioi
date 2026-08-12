@@ -22,12 +22,12 @@ const validateShippedProductsManifest = (manifest, options = {}) =>
 test("the authoritative shipped-products manifest covers and verifies the executable estate", async () => {
   const manifest = await loadShippedProductsManifest();
   const report = await validateShippedProductsManifest(manifest);
-  // Seven, not eight: the owner's 2026-08-07 ruling is that there is ONE ioi.ai application, so
-  // the dual runtime invented beside apps/ioi-ai stopped being a tracked product lane and its
-  // manifest entry was removed. These counts were left at the old value when that landed.
-  assert.equal(report.product_count, 7);
+  // Six lanes: the 2026-08-07 one-ioi.ai-application ruling removed the dual runtime invented
+  // beside apps/ioi-ai, and the 2026-08-12 dead-weight cleanup removed the retired
+  // apps/benchmarks lane.
+  assert.equal(report.product_count, 6);
   assert.equal(report.nonshipped_root_count, 5);
-  assert.equal(report.source_graphs.length, 7);
+  assert.equal(report.source_graphs.length, 6);
   assert.equal(report.artifacts[0].verified, true);
 });
 
@@ -148,10 +148,10 @@ test("validator rejects a quarantined fixture as a production graph entry", asyn
 test("validator rejects a verification command that is not backed by a package script", async () => {
   const manifest = await loadShippedProductsManifest();
   const product = manifest.products.find(
-    (candidate) => candidate.id === "benchmarks",
+    (candidate) => candidate.id === "hypervisor-vite-workbench",
   );
   product.required_verification.find(
-    (verification) => verification.id === "generated-evidence-tests",
+    (verification) => verification.id === "workbench-harness-contract",
   ).command = "npm run definitely-not-a-real-script";
   await assert.rejects(
     validateShippedProductsManifest(manifest, { laneId: product.id }),

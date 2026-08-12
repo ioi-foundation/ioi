@@ -224,7 +224,6 @@ Stop renting tools. Hire workers.
 | [`apps/aiagent-xyz`](apps/aiagent-xyz) | Marketplace for bounded workers, manifests, benchmark profiles, managed instances, and autonomous capabilities. |
 | [`apps/sas-xyz`](apps/sas-xyz) | Marketplace for governed autonomous service outcomes — every evidence item scoped to its named proposition — and Worker Training contracts. |
 | [`apps/developers-ioi-ai`](apps/developers-ioi-ai) | Developer-facing documentation and onboarding surface. |
-| [`apps/benchmarks`](apps/benchmarks) | Benchmark and scorecard surfaces. |
 | [`docs/architecture`](docs/architecture) | Canonical architecture authority. Start here when docs disagree. |
 | [`docs/decisions`](docs/decisions) | Accepted architecture decisions and durable rationale. |
 

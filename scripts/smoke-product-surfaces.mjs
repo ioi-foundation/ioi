@@ -28,7 +28,6 @@ const expectedBrowserVerificationIds = new Map([
   ["hypervisor-vite-workbench", "workbench-browser-smoke"],
   ["hypervisor-web", "public-surface-smoke"],
   ["developers-ioi-ai", "route-smoke"],
-  ["benchmarks", "benchmark-browser-census"],
   ["aiagent-xyz", "marketplace-browser-census"],
   ["sas-xyz", "outcome-market-browser-census"],
 ]);
@@ -282,12 +281,6 @@ const staticTargets = [
       "/ship/sovereign-domain": ["Sovereign Domain Flows"],
       "/ship/worker-training-mow": ["Worker Training / MoW"],
     },
-  },
-  {
-    name: "benchmarks",
-    port: 44178,
-    dist: "apps/benchmarks/dist",
-    semantics: { "/": ["Benchmarks", "Benchmark matrix"] },
   },
 ];
 
