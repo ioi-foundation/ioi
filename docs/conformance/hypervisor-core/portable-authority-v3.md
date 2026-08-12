@@ -31,6 +31,14 @@ below, labels claiming only what the assertion checks, and independent
 evidence from the durable record. A runner that cannot go red on its own
 negative fixtures does not certify this target.
 
+Two criteria name fields the v3 envelope must ADD: the registered v2 schema
+carries per-grant `max_budget_microusd`/`max_calls` only — no delegation-depth
+limit, no re-delegation right, and no cumulative-descendant budget exists in
+any registered contract today. CPA-5 and CPA-6 are therefore target
+definitions of new v3 surface, not claims about existing fields, and the v3
+wire contract must define them (and `authority-and-access.md`'s v3 section
+must enumerate them) before either criterion is testable.
+
 ## Conformance criteria
 
 ### CPA-1 — Complete ancestor chain and parent-holder issuance
@@ -46,11 +54,14 @@ classes, budget, calls, and validity, while retaining or adding caveats and
 approval requirements. Equality is narrowing; any widening on any axis at any
 depth is a refusal, not a warning.
 
-### CPA-3 — System identity and versioned issuer key sets
+### CPA-3 — Issuer identity, versioned key sets, and audience/holder binding
 
-Issuer identity binds to a system identity with versioned key sets; a
-signature that verifies against a key outside the issuer's declared,
-version-valid set is a refusal even when cryptographically valid.
+Issuer identity binds to the canonical issuer union (`system://`, `wallet://`,
+`org://`, or `policy://`) with versioned key sets; a signature that verifies
+against a key outside the issuer's declared, version-valid set is a refusal
+even when cryptographically valid. Presentation binds to the grant's declared
+`audience` and `holder_id`/`holder_key_id`; a chain presented by the wrong
+holder or against an unnamed audience is a refusal.
 
 ### CPA-4 — Revocation snapshots and freshness
 
@@ -106,6 +117,9 @@ any fixture fails the whole target.
   each distinct from structural refusal.
 - **NF-8 depth exhaustion** — declared depth exceeded; re-delegation by a
   holder without the right.
+- **NF-9 wrong audience or holder** — a chain presented by a holder other than
+  the leaf's declared `holder_id`/`holder_key_id`, or against an audience the
+  grant does not name.
 
 ## Relationship to current v2
 

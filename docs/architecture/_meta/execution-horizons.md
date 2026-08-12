@@ -774,14 +774,14 @@ delta and the deferred UX backlog):
     reassignment, and duplicate/ambiguous-effect reconciliation. This step
     remains unbuilt until the named conformance evidence exists, and it is the
     distributed-work evidence steps 12–13 inherit.
-11b. Embodied same-system profile (parallel or later; gates embodied promotion
-    only, never step 12 or 13) — H2B-embodied's native embodied graph
-    compiler/admission contract, `micro`/`edge`/`site` resolution,
+    **11b — embodied same-system profile** (parallel or later; gates embodied
+    promotion only, never step 12 or 13) — H2B-embodied's native embodied
+    graph compiler/admission contract, `micro`/`edge`/`site` resolution,
     physical-stream compatibility, proposal-only action chunks, transactional
     activation, LocalControlSupervisor final-veto behavior, space-time
     reservations, and the staged backend-neutral proof matrix while keeping
-    deterministic control and safety local. This step remains unbuilt until the
-    named conformance evidence exists.
+    deterministic control and safety local. This step remains unbuilt until
+    the named conformance evidence exists.
 12. AIIP discovery, exact-root collaboration terms negotiation, standards
     bindings, participation, portable exit, and federated admission —
     `CollaborationTerms`, `OutcomeRoomDiscovery`, typed participation,
