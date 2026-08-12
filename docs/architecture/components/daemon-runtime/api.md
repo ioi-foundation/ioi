@@ -1336,7 +1336,7 @@ projection app by app; its compatibility routes, fixture branches, and local
 catalog assumptions remain migration inputs. The daemon implementation is not
 client cutover or release closure: per-surface operational-journey depth and
 product claims bind through the conformance claim coverage index
-([`../../../conformance/README.md`](../../../conformance/README.md)), not through private
+(`../../../conformance/README.md`), not through private
 program gates. This status was measured on 2026-07-30 and has not been
 re-derived since; treat it as stale until re-verified.
 

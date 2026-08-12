@@ -225,9 +225,9 @@ admission:
 
 This aligns with the conformance split:
 
-- [`CIRC`](../../conformance/hypervisor-core/intent-resolution.md) collapses
+- `CIRC` collapses
   semantic uncertainty into deterministic intent state.
-- [`CEC`](../../conformance/hypervisor-core/effect-execution.md) governs
+- `CEC` governs
   deterministic effect execution, evidence, verification, remediation
   boundaries, and terminal completion.
 

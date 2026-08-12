@@ -22,7 +22,7 @@ This register names the document classes used to keep architecture doctrine, ref
 | `canonical-doctrine` | Stable architecture authority prose. | `docs/architecture/foundations/`, `docs/architecture/components/`, `docs/architecture/domains/` |
 | `canonical-reference` | Low-level APIs, object models, endpoint references, and contracts. | `docs/architecture/components/`, selected endpoint references under `docs/architecture/domains/` |
 | `canonical-schema` | Shared schemas that drive generated contracts. | `docs/architecture/_meta/schemas/` until schema generation is split into a package |
-| `conformance-contract` | Hidden or public invariant contracts used for conformance checks. | `docs/conformance/` |
+| `conformance-contract` | RETIRED CLASS (2026-08-12 owner ruling): the separate conformance tree was deleted; invariant contracts live with their owners in `docs/architecture`, and per-claim maturity is typed in each owner's `Implementation status:` header. | none — retired |
 | `implementation-plan` | Sequencing, package maps, milestones, and source-tree guidance. Internal master guides are private execution scaffolding and do not own doctrine. | `internal-docs/implementation/` and local ignored plans under `.internal/plans/` |
 | `product-context` | Product-surface reference material and UX intent that follows canonical doctrine. | `internal-docs/architecture/products/` |
 | `decision-history` | Resolved historical decisions retained only when future maintainers need the reason. | Nearest owning component or `_meta/changelog/` |

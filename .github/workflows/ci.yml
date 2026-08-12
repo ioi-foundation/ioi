@@ -49,6 +49,7 @@ jobs:
         run: |
           npm run check:architecture-contracts
           npm run check:architecture-docs
+          npm run check:surface-records
           npm run check:mutation-foundation
           npm run check:mutation-handlers
           npm run check:admission-evidence

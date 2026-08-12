@@ -193,7 +193,7 @@ contracts across standalone and connected postures; capacity, availability,
 custody, and assurance differences remain explicit.
 
 The claim is gated by
-[`sovereign-local-completeness.md`](../../../conformance/hypervisor-core/sovereign-local-completeness.md);
+`sovereign-local-completeness.md`;
 the contract currently defines target evidence and does not claim a shipped
 end-to-end standalone product.
 
@@ -3635,7 +3635,7 @@ semantics of an Ontology, workflow, System, dependency, Work, or embodied graph.
 > daemon/app source implements them; neither code nor this hand-maintained wall
 > may silently redefine the other. Presence here is not a shipped or released
 > claim — see the file's `Implementation status` and the conformance claim
-> coverage index ([`../../../conformance/README.md`](../../../conformance/README.md)),
+> coverage index (`../../../conformance/README.md`),
 > which is where a capability claim binds. Generator TODO: project the
 > registered shapes alongside this semantic wall without transferring ownership to
 > generated output.

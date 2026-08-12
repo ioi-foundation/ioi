@@ -238,7 +238,7 @@ measured indicator is owned by
   honest distance is recorded by
   [`../_meta/implementation-matrix.md`](../_meta/implementation-matrix.md) and
   the claim coverage index in
-  [`../../conformance/README.md`](../../conformance/README.md); no claim of
+  `../../conformance/README.md`; no claim of
   passing may be sourced from this file.
 - It does not claim token or L1 inevitability; product, network, and token
   value remain three ledgers until evidence couples them.

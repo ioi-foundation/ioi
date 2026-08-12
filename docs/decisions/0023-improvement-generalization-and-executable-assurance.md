@@ -113,4 +113,4 @@ coordinated), so nothing existing is orphaned by being wrong.
 - [`../architecture/foundations/objects/bounded-improvement.md`](../architecture/foundations/objects/bounded-improvement.md)
 - [`../architecture/foundations/canonical-enums.md`](../architecture/foundations/canonical-enums.md)
 - [`../architecture/components/daemon-runtime/platform-operability.md`](../architecture/components/daemon-runtime/platform-operability.md)
-- [`../conformance/README.md`](../conformance/README.md)
+- `../conformance/README.md`

@@ -683,7 +683,7 @@ command was safe, issued, stopped, or completed.
 ## Conformance Checks
 
 Executable and evidence-facing criteria are identified as `CPAS-*` in
-[`physical-action-safety.md`](../../conformance/hypervisor-core/physical-action-safety.md).
+`physical-action-safety.md`.
 The list below remains the owner-level summary; it does not turn planned local
 runtime behavior into a built claim.
 

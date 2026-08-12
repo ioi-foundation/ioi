@@ -209,7 +209,7 @@ cTEE, and physical-action claims remain conditional until their own fixtures
 pass.
 
 The target cases and claim-scoped fixture requirements live in
-[`sovereign-local-completeness.md`](../../conformance/hypervisor-core/sovereign-local-completeness.md).
+`sovereign-local-completeness.md`.
 
 At minimum the proof records time to verified release, time to operable,
 diagnostic detection and recovery, time to first valid preview, time to genesis,
@@ -294,7 +294,7 @@ Why this one and not another:
   properties.
 - **It is the cheapest flagship.** Single node, no consensus, no federation,
   no payments, no cTEE — the conformance matrix
-  ([`sovereign-local-completeness.md`](../../conformance/hypervisor-core/sovereign-local-completeness.md))
+  (`sovereign-local-completeness.md`)
   already exists as fixture data; what is missing is the runner and the
   passing estate.
 

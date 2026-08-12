@@ -66,9 +66,7 @@ IOI builds for Web4 — its working definition of the internet's action layer:
 > **Read + Write + Own + Act, with cryptographic determinism.**
 
 (A reference-implementation designation is a written contract no release has
-yet been designated under; which claims are working today, defined targets, or
-explicit nonclaims is typed per-claim in the
-[conformance ladder](docs/conformance/README.md).)
+yet been designated under.)
 
 <p align="center">
   <img src="docs/assets/readme-web4-equation.svg" alt="Web4 equals read plus write plus own plus act with cryptographic determinism." width="100%">
@@ -270,16 +268,14 @@ Desktop builds require the usual Electron system dependencies for your platform.
 - [`docs/architecture/components/wallet-network/doctrine.md`](docs/architecture/components/wallet-network/doctrine.md) - wallet.network authority plane.
 - [`docs/architecture/domains/aiagent/worker-marketplace.md`](docs/architecture/domains/aiagent/worker-marketplace.md) - aiagent.xyz worker marketplace.
 - [`docs/architecture/domains/sas/service-marketplace.md`](docs/architecture/domains/sas/service-marketplace.md) - sas.xyz Service-as-Software marketplace.
-- [`docs/conformance/agentic-runtime/CIRC.md`](docs/conformance/agentic-runtime/CIRC.md) - intent-resolution invariant.
-- [`docs/conformance/agentic-runtime/CEC.md`](docs/conformance/agentic-runtime/CEC.md) - completion-evidence invariant.
 
 ## Status
 
 IOI is active alpha research and engineering. Some surfaces are
 production-shaped; others are research prototypes or environment-dependent.
-The per-claim truth lives in the [conformance ladder](docs/conformance/README.md),
-which types every claim as working, a defined target, or an explicit nonclaim —
-the README never outruns it. The architecture is intentionally strict:
+Per-claim maturity is typed where each claim's owner lives, in
+[`docs/architecture`](docs/architecture) — the README never outruns it. The
+architecture is intentionally strict:
 
 > **Hypervisor Daemon executes. wallet.network authorizes. Agentgres remembers.
 > Storage backends preserve bytes. MoW routes. IOI L1 settles. Clients compose.

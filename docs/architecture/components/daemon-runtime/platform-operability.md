@@ -807,12 +807,12 @@ rollback, and receipt path before activation.
 
 The standalone startup, blocked-diagnostic, attach/detach, and dependency-
 closure consequences are specified by
-[`sovereign-local-completeness.md`](../../../conformance/hypervisor-core/sovereign-local-completeness.md).
+`sovereign-local-completeness.md`.
 
 ## Conformance
 
 The canonical scheduled matrix is
-[`platform-fault-matrix.v1.json`](../../../conformance/hypervisor-core/platform-fault-matrix.v1.json).
+`platform-fault-matrix.v1.json`.
 It must cover at least:
 
 - authority loss before an external effect;
@@ -836,7 +836,7 @@ It must cover at least:
 - an unknown effect that cannot become success.
 
 The conformance profile is
-[`platform-operability.md`](../../../conformance/hypervisor-core/platform-operability.md).
+`platform-operability.md`.
 
 ## Current Implementation Posture and Nonclaims
 

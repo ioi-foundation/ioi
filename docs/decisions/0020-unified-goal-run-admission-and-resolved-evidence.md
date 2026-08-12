@@ -117,4 +117,4 @@ states no admission contract, which no reading supported.
 - [`../architecture/components/daemon-runtime/doctrine.md`](../architecture/components/daemon-runtime/doctrine.md)
 - [`../architecture/../architecture/domains/ioi-ai/goal-run-execution.md`](../architecture/../architecture/domains/ioi-ai/goal-run-execution.md)
 - [`../architecture/foundations/objects/evidence-and-delivery.md`](../architecture/foundations/objects/evidence-and-delivery.md)
-- [`../conformance/hypervisor-core/goal-run-admission-and-activation.md`](../conformance/hypervisor-core/goal-run-admission-and-activation.md)
+- `../conformance/hypervisor-core/goal-run-admission-and-activation.md`
