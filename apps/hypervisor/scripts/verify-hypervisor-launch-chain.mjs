@@ -469,6 +469,40 @@ async function run() {
       && persistedShadow.length === 0,
     persistedShadow.length ? persistedShadow.join(" | ") : `${persistedLaunches.length} record(s) clean`);
 
+  // -- next-legs VI Leg 3: FILE-GRANULARITY closure over the whole launch family ------------------
+  // The named residual from next-legs V: the key-set pins bound only THIS run's launch_id, so an
+  // extra launch-family file written under a DIFFERENT id was never key-set checked — a second
+  // spine could hide in a file the gate never looked at. The two assertions below close that by
+  // existence and by shape, over every file in the family directory.
+  const launchIdsOnDisk = persistedLaunches
+    .map((r) => r.json?.launch_id)
+    .filter((v) => typeof v === "string");
+  // Scoped precisely: only ONE launch has been produced at this point in the run (the delegation
+  // probe below produces a second). The label says "so far" because that is what it checks; the
+  // complete-family closure runs at the end of the journey.
+  ok("Leg 3 (file granularity, EXISTENCE so far): after the first produce the launch-family directory holds EXACTLY one file under exactly this run's launch_id — no extra launch-family record under any other id",
+    persistedLaunches.length === launchIdsOnDisk.length
+      && new Set(launchIdsOnDisk).size === 1
+      && launchIdsOnDisk[0] === launchId,
+    `${persistedLaunches.length} file(s), ids ${JSON.stringify([...new Set(launchIdsOnDisk)])}`);
+
+  // Shape, not just count: EVERY record in the family closes over one of the three admitted key
+  // sets. A file whose id differs, or whose key set carries an unexpected key, fails here even if
+  // its VALUES are individually allowlisted.
+  const keySetOf = (record) => {
+    const keys = Object.keys(record || {}).sort().join(",");
+    if (keys === [...EXPECTED_LAUNCH_RECORD_KEYS_PRODUCED].sort().join(",")) return "produced";
+    if (keys === EXPECTED_LAUNCH_RECORD_KEYS_STOPPED.join(",")) return "stopped";
+    if (keys === EXPECTED_LAUNCH_RECORD_KEYS_ARCHIVED.join(",")) return "archived";
+    return null;
+  };
+  const unclosedFiles = persistedLaunches
+    .filter((r) => keySetOf(r.json) === null)
+    .map((r) => `${r.file}:${Object.keys(r.json || {}).sort().join("|")}`);
+  ok("Leg 3 (file granularity, SHAPE): EVERY file in the launch family closes over one of the three admitted key sets (produced/stopped/archived) — an extra or renamed key in ANY record, not only this run's, is a second-spine shadow",
+    unclosedFiles.length === 0,
+    unclosedFiles.length ? unclosedFiles.join(" ; ") : `${persistedLaunches.length} file(s) closed`);
+
   // -- Finding 2: the harness binding names a REAL seeded hp_* profile + its EXACT frozen revision,
   //    and model-route availability was RECHECKED at the launch boundary (not a static literal). ----
   const profiles = await jd("/v1/hypervisor/harness-profiles");
@@ -644,6 +678,28 @@ async function run() {
       && replayedEvents.some((e) => e.event_kind === "harness_session.spawned")
       && !replayedEvents.some((e) => e.kind === "runtime.thread.opened" || e.event_kind === "runtime.thread.opened"),
     `${replayedEvents.length} event(s): ${replayedEvents.map((e) => e.event_kind).join(",")}`);
+
+  // -- next-legs VI Leg 3: COMPLETE-FAMILY closure, after every launch this run produces ----------
+  // The end-of-journey counterpart to the early existence check, and the real close of next-legs V's
+  // residual: by now the run has produced the main launch (stopped, then archived) and the
+  // delegation probe. The family must hold EXACTLY those two ids and nothing else — an extra
+  // launch-family file minted anywhere in the journey, under any id, fails here. Survives restart
+  // because it reads the durable directory after the daemon was killed and restarted above.
+  const finalLaunches = readFamilyRecords("harness-session-launches");
+  const finalIds = [...new Set(finalLaunches.map((r) => r.json?.launch_id).filter((v) => typeof v === "string"))].sort();
+  const expectedIds = [launchId, delegated.body?.launch_id].filter((v) => typeof v === "string").sort();
+  ok("Leg 3 (file granularity, COMPLETE FAMILY after restart): the launch-family directory holds EXACTLY the launch_ids this run produced — the main launch plus the delegation probe, one file each, no extra record under any other id",
+    finalLaunches.length === finalIds.length
+      && expectedIds.length === 2
+      && JSON.stringify(finalIds) === JSON.stringify(expectedIds),
+    `${finalLaunches.length} file(s) ids ${JSON.stringify(finalIds)} expected ${JSON.stringify(expectedIds)}`);
+
+  const finalUnclosed = finalLaunches
+    .filter((r) => keySetOf(r.json) === null)
+    .map((r) => `${r.file}:${Object.keys(r.json || {}).sort().join("|")}`);
+  ok("Leg 3 (file granularity, SHAPE after restart): EVERY file in the launch family still closes over one of the three admitted key sets — including the delegation-probe record, which no earlier key-set assertion ever read",
+    finalUnclosed.length === 0,
+    finalUnclosed.length ? finalUnclosed.join(" ; ") : `${finalLaunches.length} file(s) closed`);
 
   const fails = results.filter((r) => !r.pass);
   for (const r of results) console.log(`${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? ` — ${r.detail}` : ""}`);
