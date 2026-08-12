@@ -1071,6 +1071,13 @@ fn admit_runtime_event_onto_stream(
     if let Some(object) = result.as_object_mut() {
         object.insert("seq".to_string(), json!(admitted.projection.seq));
         object.insert("replayed".to_string(), json!(admitted.replayed));
+        // Surface the REAL post-admission substrate head (agentgres CAS head), not just the
+        // kernel-shaped content-hash `resulting_head`. This is the substrate's own fact about where
+        // the event landed; callers that want admission proof read THIS, not the shaped literal.
+        object.insert(
+            "substrate_head".to_string(),
+            json!(admitted.projection.head),
+        );
     }
     Ok(result)
 }
@@ -22655,6 +22662,7 @@ fn admit_launch_thread_event(
         "event_kind": event_kind,
         "status": "admitted",
         "actor": "operator",
+        "created_at": now,
         "component_kind": "harness_session_launch_thread",
         "payload_schema_version": "ioi.runtime.harness-session-launch-thread-event.v1",
         "payload": {
@@ -22673,7 +22681,35 @@ fn admit_launch_thread_event(
         ],
         "runtimeTruthSource": "daemon-runtime",
     });
-    admit_and_persist_event(st, event)
+    let admitted = admit_and_persist_event(st, event)?;
+    Ok(launch_admitted_event_ref(&admitted, step))
+}
+
+/// A COMPACT launch-family reference to an admitted kernel event. The launch-family record stores
+/// THIS reference — never the full kernel event object — so a launch-family record NEVER embeds a
+/// shape wearing a kernel schema name (rename-forward: no future cross-family scanner or
+/// pattern-match can read a launch-family record as kernel truth). The authoritative event lives on
+/// the real kernel event stream (readable via the launch's /events replay); this ref carries only
+/// the event's identity + the substrate's admission proof (`seq` / `resulting_head`) under a
+/// launch-family schema tag, so the projection can name it without duplicating kernel truth.
+fn launch_admitted_event_ref(admitted: &Value, step: &str) -> Value {
+    json!({
+        "schema_version": "ioi.hypervisor.harness_session_launch_event_ref.v1",
+        "step": step,
+        "event_id": admitted.get("event_id"),
+        "event_kind": admitted.get("event_kind"),
+        "event_stream_id": admitted.get("event_stream_id"),
+        // Substrate truth about the admission: `seq` is stamped by the substrate at admit time (and
+        // re-stamped on replay), `substrate_head` is the real agentgres CAS head, and
+        // `agentgres_operation_ref` is the admitted operation. These are what a reader verifies
+        // against the stream — not the kernel-shaped content-hash `resulting_head` (kept for lineage).
+        "seq": admitted.get("seq"),
+        "substrate_head": admitted.get("substrate_head"),
+        "agentgres_operation_ref": admitted.get("agentgres_operation_ref"),
+        "resulting_head": admitted.get("resulting_head"),
+        "idempotency_key": admitted.get("idempotency_key"),
+        "runtimeTruthSource": "daemon-runtime",
+    })
 }
 
 /// Map an event-admission `AppError` into the launch producer's typed failure response, tagging the
@@ -22708,6 +22744,7 @@ fn compose_launch_fork(
 ) -> Result<Value, (StatusCode, Json<Value>)> {
     let Some(delegation) = body.get("delegation").filter(|value| value.is_object()) else {
         return Ok(json!({
+            "schema_version": "ioi.hypervisor.harness_session_launch_fork_step.v1",
             "decision": "not_requested",
             "note": "no bounded delegation requested; no child thread fabricated",
             "fork_planner": "plan_runtime_thread_fork_control",
@@ -22739,14 +22776,17 @@ fn compose_launch_fork(
             let admitted = admit_and_persist_event(st, record.event)
                 .map_err(|error| launch_event_admission_failure("thread_fork_control", error))?;
             Ok(json!({
+                "schema_version": "ioi.hypervisor.harness_session_launch_fork_step.v1",
                 "decision": "forked",
                 "fork_planner": "plan_runtime_thread_fork_control",
                 "forked_thread_id": record.forked_thread_id,
                 "forked_agent_id": record.agent_id,
-                "event": admitted,
+                // Compact ref to the admitted kernel event — never the full kernel event object.
+                "event_ref": launch_admitted_event_ref(&admitted, "thread_fork"),
             }))
         }
         Err(error) => Ok(json!({
+            "schema_version": "ioi.hypervisor.harness_session_launch_fork_step.v1",
             "decision": "refused",
             "fork_planner": "plan_runtime_thread_fork_control",
             "code": error.code(),
@@ -22800,15 +22840,18 @@ fn compose_launch_managed_session(
                 launch_event_admission_failure("managed_session_control", error)
             })?;
             Ok(json!({
+                "schema_version": "ioi.hypervisor.harness_session_launch_managed_session_step.v1",
                 "decision": "controlled",
                 "control_planner": "plan_runtime_managed_session_control_from_replayed_events",
                 "managed_session_ref": record.managed_session_id,
                 "control_state": record.control_state,
-                "event": admitted,
+                // Compact ref to the admitted kernel event — never the full kernel event object.
+                "event_ref": launch_admitted_event_ref(&admitted, "managed_session_control"),
             }))
         }
         Err(error) if error.code() == "runtime_managed_session_control_record_required" => {
             Ok(json!({
+                "schema_version": "ioi.hypervisor.harness_session_launch_managed_session_step.v1",
                 "decision": "no_managed_session_at_launch",
                 "control_planner": "plan_runtime_managed_session_control_from_replayed_events",
                 "available_control_states": ["observe", "take_over", "return_agent"],
@@ -22988,7 +23031,15 @@ fn launch_projection(record: &Value, replayed: bool) -> Value {
             // admission proof (seq / resulting_head / agentgres_operation_ref) below.
             "thread_event_ref": chain.pointer("/thread/initial_event/event_id").cloned().unwrap_or(Value::Null),
             "thread_event_kind": chain.pointer("/thread/initial_event/event_kind").cloned().unwrap_or(Value::Null),
+            // Substrate truth about the initial admission (verifiable against the /events replay):
+            // `seq` + real `substrate_head` + `agentgres_operation_ref`. `resulting_head` is the
+            // kernel-shaped content-hash literal, retained for lineage — NOT the admission proof.
+            "thread_event_seq": chain.pointer("/thread/initial_event/seq").cloned().unwrap_or(Value::Null),
+            "thread_event_substrate_head": chain.pointer("/thread/initial_event/substrate_head").cloned().unwrap_or(Value::Null),
+            "thread_event_operation_ref": chain.pointer("/thread/initial_event/agentgres_operation_ref").cloned().unwrap_or(Value::Null),
             "thread_event_resulting_head": chain.pointer("/thread/initial_event/resulting_head").cloned().unwrap_or(Value::Null),
+            "harness_profile_ref": launch_step_ref(&step("/harness_binding_evidence"), &["harness_profile_ref"]),
+            "harness_profile_resolved": launch_step_ref(&step("/harness_binding_evidence"), &["harness_profile_resolved"]),
             "fork_decision": launch_step_ref(&step("/fork"), &["decision"]),
             "managed_session_decision": launch_step_ref(&step("/managed_session"), &["decision"]),
             "managed_session_ref": launch_step_ref(&step("/managed_session"), &["managed_session_ref"]),
@@ -23110,9 +23161,14 @@ pub(crate) async fn handle_session_launch_create(
     // at the launch boundary with a real read of the daemon-owned registry. The binding's
     // availability enum is derived from that read — never a static `daemon_verified` literal.
     super::harness_routes::ensure_seed(&st.data_dir);
-    let harness_profile_record =
-        super::harness_routes::load_profile_record(&st.data_dir, LAUNCH_HARNESS_PROFILE_ID)
-            .unwrap_or_else(|| json!({"profile_ref": format!("harness-profile:{LAUNCH_HARNESS_PROFILE_ID}"), "profile_id": LAUNCH_HARNESS_PROFILE_ID, "harness": "hypervisor_worker"}));
+    // Whether the launch actually RESOLVED the seeded profile from the registry. A false here means
+    // the fallback stub was taken (no exact-revision binding is possible) — the evidence carries the
+    // marker so a reader can refuse to treat a stub-derived revision as real.
+    let harness_profile_record_opt =
+        super::harness_routes::load_profile_record(&st.data_dir, LAUNCH_HARNESS_PROFILE_ID);
+    let harness_profile_resolved = harness_profile_record_opt.is_some();
+    let harness_profile_record = harness_profile_record_opt
+        .unwrap_or_else(|| json!({"profile_ref": format!("harness-profile:{LAUNCH_HARNESS_PROFILE_ID}"), "profile_id": LAUNCH_HARNESS_PROFILE_ID, "harness": "hypervisor_worker"}));
     let (harness_profile_revision_ref, harness_profile_content_hash) =
         harness_profile_frozen_revision(&harness_profile_record);
     let substrate = ExecutionSubstrate::probe();
@@ -23263,14 +23319,18 @@ pub(crate) async fn handle_session_launch_create(
         "runtimeTruthSource": "daemon-runtime",
     });
     let thread = json!({
+        "schema_version": "ioi.hypervisor.harness_session_launch_thread.v1",
         "thread_ref": thread_ref,
         "event_stream_id": event_stream_id,
         "initial_event": initial_event,
     });
     // Finding 2 evidence — the EXACT frozen profile revision the launch bound + the launch-boundary
     // model-route recheck, alongside the kernel binding admission (kept whole for its projection).
+    // `harness_profile_ref` is the RESOLVED record's own id (not a compile-time echo), and
+    // `harness_profile_resolved` marks whether the registry lookup succeeded (vs the fallback stub).
     let harness_binding_evidence = json!({
-        "harness_profile_ref": LAUNCH_HARNESS_PROFILE_ID,
+        "harness_profile_ref": harness_profile_record.get("profile_id"),
+        "harness_profile_resolved": harness_profile_resolved,
         "harness_profile_revision_ref": harness_profile_revision_ref,
         "harness_profile_content_hash": harness_profile_content_hash,
         "model_route_recheck": route_recheck.evidence,

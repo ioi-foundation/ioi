@@ -31,6 +31,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import net from "node:net";
+import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -130,6 +131,76 @@ const countSessionRecords = () => {
   } catch { return 0; }
 };
 
+// Read every durable record persisted under a daemon family directory (the receipt-census pattern):
+// returns [{ file, text, json }] so an assertion can scan the PERSISTED bytes, not just an HTTP body.
+const readFamilyRecords = (family) => {
+  const out = [];
+  try {
+    for (const f of fs.readdirSync(path.join(dataDir, family))) {
+      if (!f.endsWith(".json")) continue;
+      const text = fs.readFileSync(path.join(dataDir, family, f), "utf8");
+      let json = null; try { json = JSON.parse(text); } catch { /* keep raw */ }
+      out.push({ file: f, text, json });
+    }
+  } catch { /* no such family yet */ }
+  return out;
+};
+
+// Canonical JSON with recursively SORTED object keys + compact separators — byte-matches Rust
+// serde_json::to_vec over a serde_json::Value (BTreeMap-backed: keys serialize sorted), so the
+// frozen-revision sha256 can be INDEPENDENTLY recomputed here and compared for EXACTNESS.
+const canonicalJson = (v) => {
+  if (v === null || typeof v !== "object") return JSON.stringify(v);
+  if (Array.isArray(v)) return `[${v.map(canonicalJson).join(",")}]`;
+  return `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${canonicalJson(v[k])}`).join(",")}}`;
+};
+const sha256Hex = (s) => crypto.createHash("sha256").update(s).digest("hex");
+
+// Recompute the daemon's frozen harness-profile revision from a profile record's ACTUAL content,
+// mirroring harness_profile_frozen_revision(): material = the exact fields + jcs-sha256 idiom.
+const recomputeFrozenRevision = (prof) => {
+  const harness = (typeof prof.harness === "string" && prof.harness) ? prof.harness : "hypervisor_worker";
+  const material = {
+    schema_version: "ioi.hypervisor.harness-profile-frozen-revision-jcs-sha256.v1",
+    profile_ref: prof.profile_ref ?? null,
+    profile_id: prof.profile_id ?? null,
+    harness,
+    adapter: prof.adapter ?? null,
+    capabilities: prof.capabilities ?? null,
+    model_binding: prof.model_binding ?? null,
+    lifecycle_status: prof.lifecycle?.status ?? null,
+  };
+  const contentHash = `sha256:${sha256Hex(canonicalJson(material))}`;
+  const harnessSlug = harness.replace(/[^A-Za-z0-9]/gu, "-");
+  return { revisionRef: `harness-profile://daemon-resolved/${harnessSlug}/revision/${contentHash}`, contentHash };
+};
+
+// STRUCTURAL second-spine detector (rename-resistant): recursively walk a value and collect the
+// kernel-shaped tokens a launch-family record must NEVER carry — a kernel thread-fork / managed-
+// session CONTROL schema name in EITHER dotted or hyphenated form, a `control_state` of "admitted",
+// or the retired launch-family thread-event vocabulary. It inspects field VALUES by shape, so a
+// rename of the fixed strings cannot defeat it. The REAL composed admissions (recipe / binding /
+// terminal-attach) carry their own kernel schemas and are deliberately NOT matched.
+const KERNEL_CONTROL_SCHEMA_RE = /^ioi\.runtime\.(thread[_-]fork[_-]control|managed[_-]session[_-]control)(?:[.\-]|$)/u;
+const collectShadowTokens = (v, out = []) => {
+  if (v === null || typeof v !== "object") return out;
+  if (Array.isArray(v)) { for (const x of v) collectShadowTokens(x, out); return out; }
+  for (const [k, val] of Object.entries(v)) {
+    if ((k === "schema_version" || k === "payload_schema_version") && typeof val === "string" && KERNEL_CONTROL_SCHEMA_RE.test(val)) out.push(`${k}=${val}`);
+    if (k === "control_state" && val === "admitted") out.push("control_state=admitted");
+    if ((k === "event_kind" || k === "kind") && (val === "runtime.thread.opened" || val === "runtime.thread.harness_spawned")) out.push(`${k}=${val}`);
+    collectShadowTokens(val, out);
+  }
+  return out;
+};
+
+// Test-window time anchor: a real recheck timestamp lands inside the run, not merely "not 1970".
+const runStartMs = Date.now();
+const withinTestWindow = (iso) => {
+  const t = Date.parse(iso);
+  return Number.isFinite(t) && t >= runStartMs - 300000 && t <= Date.now() + 300000;
+};
+
 async function run() {
   daemonPort = await freePort();
   DAEMON = `http://127.0.0.1:${daemonPort}`;
@@ -216,33 +287,74 @@ async function run() {
     JSON.stringify(steps));
 
   // -- Finding 1: the thread / fork / managed-session facts are the REAL kernel planners' output or
-  //    an honest typed absence — never a hand-minted record wearing a kernel schema name, never a
-  //    launch-family-only event vocabulary. These assertions would FAIL on the #252 second spine. --
-  ok("Finding 1 (step 5): the initial thread event is admitted onto the REAL kernel event stream — it carries the kernel `event_kind: thread.started` and the substrate's admission proof (an agentgres resulting_head), NOT a launch-family `runtime.thread.opened` inline vocabulary",
+  //    an honest typed absence. The gate catches #252's second spine two independent ways: (i) the
+  //    composed launch-family SHAPE no longer wears a kernel schema name (positive presence-and-value
+  //    assertions), and (ii) the substrate is read back INDEPENDENTLY — the initial event is proven
+  //    on the real agentgres stream at its substrate-stamped seq, and the durable record is scanned
+  //    structurally — so a well-formed literal cannot masquerade as a real admission. --------------
+  ok("Finding 1 (step 5): the initial thread event is the kernel `thread.started` event admitted onto the REAL event stream — it carries a substrate-stamped seq (0-indexed integer), a real substrate head (agentgres CAS head, not the kernel content-hash `resulting_head`), and an agentgres operation ref, NOT a launch-family `runtime.thread.opened` vocabulary",
     steps.thread_event_kind === "thread.started"
-      && typeof steps.thread_event_resulting_head === "string"
-      && steps.thread_event_resulting_head.startsWith("agentgres://runtime-events/"),
-    `${steps.thread_event_kind} · ${steps.thread_event_resulting_head}`);
-  ok("Finding 1 (step 6): with no delegation requested the fork is a typed `not_requested` naming the real fork planner (plan_runtime_thread_fork_control) — never a hand-minted admitted fork",
-    launch?.fork?.decision === "not_requested"
-      && launch?.fork?.fork_planner === "plan_runtime_thread_fork_control"
-      && launch?.fork?.schema_version !== "ioi.runtime.thread_fork_control.v1",
+      && Number.isInteger(steps.thread_event_seq) && steps.thread_event_seq >= 0
+      && typeof steps.thread_event_substrate_head === "string" && steps.thread_event_substrate_head.length > 0
+      && steps.thread_event_substrate_head !== steps.thread_event_resulting_head
+      && typeof steps.thread_event_operation_ref === "string" && steps.thread_event_operation_ref.length > 0,
+    `${steps.thread_event_kind} seq=${steps.thread_event_seq} head=${steps.thread_event_substrate_head}`);
+
+  // -- Hardening (Finding A): those admission fields are SELF-REPORTED by the launch record. Read the
+  //    event BACK from the substrate via /events (which replays agentgres, not the launch record) and
+  //    prove the produced event_id is on the stream at the substrate-stamped seq the launch reported,
+  //    carrying an agentgres operation ref. The substrate `seq` — not the kernel content-hash
+  //    `resulting_head` — is admission truth; a literal in the launch record cannot conjure it. -----
+  const streamAfterProduce = await jd(`${LAUNCHES}/${encodeURIComponent(launchId)}/events`);
+  const streamEvents = streamAfterProduce.body?.events || [];
+  const openedOnStream = streamEvents.find((e) => e.event_id === steps.thread_event_ref);
+  const spawnedOnStream = streamEvents.find((e) => e.event_id === steps.first_runtime_event_ref);
+  ok("Finding 1 (step 5) INDEPENDENT READBACK: the event named by thread_event_ref is actually on the real kernel stream at the substrate-stamped seq the launch reported, carrying an agentgres_operation_ref; the spawned event follows it at a higher seq — proven by replaying the substrate, never by trusting the launch record",
+    streamAfterProduce.status === 200
+      && openedOnStream != null
+      && openedOnStream.event_kind === "thread.started"
+      && openedOnStream.seq === steps.thread_event_seq
+      && typeof openedOnStream.agentgres_operation_ref === "string" && openedOnStream.agentgres_operation_ref.length > 0
+      && spawnedOnStream != null && spawnedOnStream.event_kind === "harness_session.spawned" && spawnedOnStream.seq > openedOnStream.seq,
+    openedOnStream ? `opened seq=${openedOnStream.seq} op=${openedOnStream.agentgres_operation_ref}` : "event NOT found on stream");
+
+  // -- Negative isolation (a): PROVE no launch-family chain record ever reaches the kernel stream. --
+  ok("negative isolation (a): the real kernel thread-orchestration stream carries ONLY the composed thread lifecycle events (thread.started | harness_session.spawned) — no launch-family chain record (no `chain` / `plan_admission` / `subject_attachments` / `harness_binding_admission` / `ioi.hypervisor.harness_session_launch*` schema) ever reaches the kernel stream",
+    streamEvents.length >= 1
+      && streamEvents.every((e) => ["thread.started", "harness_session.spawned"].includes(e.event_kind))
+      && !streamEvents.some((e) => e.chain != null || e.plan_admission != null || e.subject_attachments != null || e.harness_binding_admission != null || String(e.schema_version || "").startsWith("ioi.hypervisor.harness_session_launch")),
+    `${streamEvents.length} stream event(s): ${streamEvents.map((e) => e.event_kind).join(",")}`);
+
+  // -- Negative isolation (b): the REAL managed-session control route refuses a launch thread ref. --
+  const shadowControl = await jd(`/v1/threads/${encodeURIComponent(steps.thread_ref)}/managed-sessions/control`, { method: "POST", body: JSON.stringify({ managed_session_id: `managed-session:${launchId}`, control_state: "observe" }) });
+  ok("negative isolation (b): the REAL managed-session control route (POST /v1/threads/<launch-thread>/managed-sessions/control) REFUSES for the launch thread ref — read_agent_for_thread 404s first, so a crafted POST cannot ride the launch shadow into the kernel control planner",
+    shadowControl.status === 404, `${shadowControl.status}`);
+  // Finding 1 (step 6/7) — PRESENCE-AND-VALUE of the composed launch-family shape (not inequality
+  // against absent keys). The real fork-planner INVOCATION is exercised at the delegation probe below;
+  // this early-return branch is asserted only for the honest typed-absence shape it actually carries.
+  ok("Finding 1 (step 6): with no delegation the fork is the typed launch-family absence — schema_version=ioi.hypervisor.harness_session_launch_fork_step.v1, decision=not_requested — carrying no kernel fork event (the real planner is exercised at the delegation probe)",
+    launch?.fork?.schema_version === "ioi.hypervisor.harness_session_launch_fork_step.v1"
+      && launch?.fork?.decision === "not_requested",
     JSON.stringify(launch?.fork));
-  ok("Finding 1 (step 7): the managed-session step routes the real control planner (plan_runtime_managed_session_control_from_replayed_events); a fresh launch has none, so it is a typed absence naming the VALID states observe|take_over|return_agent — never a hand-minted `managed_session_control.v1` with the invalid control_state `admitted`",
-    launch?.managed_session?.decision === "no_managed_session_at_launch"
-      && launch?.managed_session?.control_planner === "plan_runtime_managed_session_control_from_replayed_events"
-      && JSON.stringify(launch?.managed_session?.available_control_states) === JSON.stringify(["observe", "take_over", "return_agent"])
-      && launch?.managed_session?.schema_version !== "ioi.runtime.managed_session_control.v1"
-      && launch?.managed_session?.control_state !== "admitted",
+  ok("Finding 1 (step 7): the managed-session step is the typed launch-family absence naming the REAL control planner — schema_version=ioi.hypervisor.harness_session_launch_managed_session_step.v1, decision=no_managed_session_at_launch, control_planner=plan_runtime_managed_session_control_from_replayed_events (control-over-existing, nothing to control at launch)",
+    launch?.managed_session?.schema_version === "ioi.hypervisor.harness_session_launch_managed_session_step.v1"
+      && launch?.managed_session?.decision === "no_managed_session_at_launch"
+      && launch?.managed_session?.control_planner === "plan_runtime_managed_session_control_from_replayed_events",
     JSON.stringify(launch?.managed_session));
-  const launchStr = JSON.stringify(launch);
-  ok("SAFETY: the composed launch carries NO second-spine shadow — no `ioi.runtime.thread_fork_control.v1` / `ioi.runtime.managed_session_control.v1` record, no invalid `control_state:\"admitted\"`, no `runtime.thread.opened`/`runtime.thread.harness_spawned` vocabulary",
-    !launchStr.includes("ioi.runtime.thread_fork_control.v1")
-      && !launchStr.includes("ioi.runtime.managed_session_control.v1")
-      && !launchStr.includes("\"control_state\":\"admitted\"")
-      && !launchStr.includes("runtime.thread.opened")
-      && !launchStr.includes("runtime.thread.harness_spawned"),
-    "no shadow tokens in the composed launch");
+  // SAFETY — STRUCTURAL second-spine scan (Finding C: rename-resistant, catches dotted AND hyphenated
+  // kernel-control schema names + control_state:"admitted" + the retired thread-event vocabulary), run
+  // over BOTH the HTTP response and the DURABLE on-disk record.
+  const responseShadow = collectShadowTokens(launch);
+  ok("SAFETY (response, structural): a recursive walk of the composed launch HTTP body finds NO second-spine token — no kernel thread-fork/managed-session CONTROL schema (dotted or hyphenated), no control_state:\"admitted\", no runtime.thread.opened/harness_spawned vocabulary",
+    responseShadow.length === 0,
+    responseShadow.length ? responseShadow.join(" | ") : "clean");
+  const persistedLaunches = readFamilyRecords("harness-session-launches");
+  const persistedShadow = persistedLaunches.flatMap((r) => collectShadowTokens(r.json));
+  ok("SAFETY (durable, structural): the same structural walk over the PERSISTED launch record(s) on disk (harness-session-launches family directory) finds NO second-spine token — a response that sanitizes while the durable record still wears a kernel schema name would FAIL here",
+    persistedLaunches.length >= 1
+      && persistedLaunches.some((r) => (r.text || "").includes(launchId))
+      && persistedShadow.length === 0,
+    persistedShadow.length ? persistedShadow.join(" | ") : `${persistedLaunches.length} record(s) clean`);
 
   // -- Finding 2: the harness binding names a REAL seeded hp_* profile + its EXACT frozen revision,
   //    and model-route availability was RECHECKED at the launch boundary (not a static literal). ----
@@ -252,20 +364,38 @@ async function run() {
     profilesStr.includes("hp_hypervisor_worker") && !profilesStr.includes("default_harness_profile"),
     `hp_hypervisor_worker present=${profilesStr.includes("hp_hypervisor_worker")}`);
   const bindingEvidence = launch?.harness_binding_evidence || {};
-  ok("Finding 2: the binding names the real seeded profile AND its EXACT frozen revision (harness-profile://daemon-resolved/<harness>/revision/sha256:...)",
-    bindingEvidence.harness_profile_ref === "hp_hypervisor_worker"
-      && typeof steps.harness_profile_revision_ref === "string"
-      && steps.harness_profile_revision_ref.startsWith("harness-profile://daemon-resolved/")
-      && steps.harness_profile_revision_ref.includes("/revision/sha256:"),
-    steps.harness_profile_revision_ref);
+  const workerProfile = readFamilyRecords("harness-profile-registry")
+    .map((r) => r.json)
+    .find((p) => p && p.profile_id === "hp_hypervisor_worker");
+  // Hardening (Finding B.2/B.3): prove the launch RESOLVED the real registry record (the fallback
+  // stub path was NOT taken) and named THAT record's own profile_id — not a compile-time constant.
+  ok("Finding 2 (resolved, not stub): the launch resolved a real registry hp_* record (harness_profile_resolved=true) and its harness_profile_ref equals the RESOLVED record's own profile_id — the #23115 fallback-stub path was NOT taken; `default_harness_profile` is absent from the registry",
+    bindingEvidence.harness_profile_resolved === true
+      && workerProfile != null
+      && bindingEvidence.harness_profile_ref === workerProfile.profile_id
+      && steps.harness_profile_resolved === true,
+    `resolved=${bindingEvidence.harness_profile_resolved} ref=${bindingEvidence.harness_profile_ref}`);
+  // Hardening (Finding B.1): prove EXACTNESS, not well-formedness. Recompute the frozen revision from
+  // the profile's ACTUAL on-disk content (the exact record the daemon froze) and compare — a stale,
+  // fabricated, hard-coded, or stub-derived revision FAILS this, where a `startsWith`/`includes` shape
+  // check would pass.
+  const recomputed = workerProfile ? recomputeFrozenRevision(workerProfile) : null;
+  ok("Finding 2 EXACTNESS: the frozen revision RECOMPUTED from hp_hypervisor_worker's actual on-disk content (jcs-sha256 over adapter/capabilities/model_binding/lifecycle) EQUALS the launch's revision ref AND content hash — a stale/fabricated/hard-coded/stub-derived revision fails this independent recomputation",
+    recomputed != null
+      && steps.harness_profile_revision_ref === recomputed.revisionRef
+      && bindingEvidence.harness_profile_content_hash === recomputed.contentHash,
+    recomputed ? `recomputed ${recomputed.contentHash} vs record ${bindingEvidence.harness_profile_content_hash}` : "profile not on disk");
   const recheck = bindingEvidence.model_route_recheck || {};
-  ok("Finding 2: model-route availability was RECHECKED at the launch boundary with a real registry read (route resolved + admitted lifecycle read + recheck timestamp) and the binding availability was DERIVED from it — not a static `daemon_verified` literal",
+  ok("Finding 2: model-route availability was RECHECKED at the launch boundary with a real registry read (route resolved + admitted lifecycle read + a recheck timestamp INSIDE the test window) and the binding availability was DERIVED from it — not a static `daemon_verified` literal",
     recheck.recheck_source === "daemon-model-route-registry"
       && recheck.route_resolved === true
       && typeof recheck.registry_lifecycle_status === "string"
-      && typeof recheck.rechecked_at === "string" && !recheck.rechecked_at.startsWith("1970")
+      && withinTestWindow(recheck.rechecked_at)
       && recheck.derived_binding_availability_state === "daemon_verified",
     JSON.stringify(recheck));
+  ok("Finding 2 (availability CORRELATED, not hard-coded): the derived binding availability tracks the registry lifecycle the recheck READ — daemon_verified iff the mount read as lifecycle-active — so a hard-coded `daemon_verified` decoupled from the read would fail this biconditional",
+    (recheck.registry_lifecycle_status === "active") === (recheck.derived_binding_availability_state === "daemon_verified"),
+    `${recheck.registry_lifecycle_status} => ${recheck.derived_binding_availability_state}`);
   ok("Finding 2: the recheck honestly carries live token reachability as FALSE (the mount is daemon-verified; live serving is the W3.2 execute dependency) — the binding never over-claims what the readiness admits",
     recheck.model_route_reachable === false && launch?.readiness?.observed_substrate?.model_route_reachable === false,
     `recheck=${recheck.model_route_reachable} readiness=${launch?.readiness?.observed_substrate?.model_route_reachable}`);
@@ -289,27 +419,26 @@ async function run() {
     Array.isArray(sessionAfter?.subject_attachments) && sessionAfter.subject_attachments.length >= 1
       && sessionAfter.subject_attachments.some((a) => a.subject_ref === launchRef),
     `${sessionAfter?.subject_attachments?.length} attachment(s)`);
-  ok("no second Session family was minted: exactly one session record on disk after launch (the launch hangs off the kernel-owned Session spine)",
-    countSessionRecords() === sessionsBeforeLaunch, `${countSessionRecords()} session record(s)`);
+  ok("no NEW session record was minted by the launch: the on-disk session count is UNCHANGED from before the launch (the launch hangs off the kernel-owned Session spine, not a second session family)",
+    countSessionRecords() === sessionsBeforeLaunch, `delta 0 (before=${sessionsBeforeLaunch}, after=${countSessionRecords()})`);
 
-  // -- Finding 1 (step 6), delegation REQUESTED: the fork routes the real kernel planner ---------
+  // -- Finding 1 (step 6), delegation REQUESTED: the fork routes the REAL kernel planner ---------
   // A delegation-requested launch routes plan_runtime_thread_fork_control; the launch thread has no
-  // forkable source agent, so the planner's own refusal ladder answers (agent_replay_required) and
-  // NO admitted fork is fabricated — the planner's typed output, never a hand-minted record.
+  // forkable source agent, so the planner's own refusal ladder answers with the SPECIFIC code
+  // runtime_thread_fork_control_agent_replay_required and fabricates no admitted fork.
   const delegated = await jd(LAUNCHES, { method: "POST", body: JSON.stringify({
     session_ref: sessionRef,
     idempotency_key: "delegation-probe",
     delegation: { reason: "verifier delegation probe", bounds: { budget: "parent_bounded" } },
   }) });
   const delegatedFork = delegated.body?.fork || {};
-  ok("Finding 1 (step 6): a delegation-requested launch routes the REAL fork planner (plan_runtime_thread_fork_control); its refusal ladder answers with a typed planner code and fabricates no admitted fork — never a hand-minted `ioi.runtime.thread_fork_control.v1` record",
+  ok("Finding 1 (step 6) REAL PLANNER EXERCISE: a delegation-requested launch routes plan_runtime_thread_fork_control; with no forkable source agent on the launch thread the planner answers the SPECIFIC refusal runtime_thread_fork_control_agent_replay_required (not either-outcome), fabricates no admitted fork, and the response carries no second-spine token",
     delegated.status === 200
       && delegatedFork.fork_planner === "plan_runtime_thread_fork_control"
-      && (delegatedFork.decision === "forked" || delegatedFork.decision === "refused")
-      && (delegatedFork.decision !== "refused" || String(delegatedFork.code || "").startsWith("runtime_thread_fork_control_"))
-      && delegatedFork.schema_version !== "ioi.runtime.thread_fork_control.v1"
-      && !JSON.stringify(delegated.body).includes("ioi.runtime.thread_fork_control.v1"),
-    `${delegatedFork.decision} · ${delegatedFork.code || "(forked)"}`);
+      && delegatedFork.decision === "refused"
+      && delegatedFork.code === "runtime_thread_fork_control_agent_replay_required"
+      && collectShadowTokens(delegated.body).length === 0,
+    `${delegatedFork.decision} · ${delegatedFork.code}`);
 
   // -- INV-37 durable receipt binds the acting principal ----------------------------------------
   const producedReceipt = readReceiptByKind("hypervisor.harness_session_launch.produced", launchRef);
