@@ -427,6 +427,132 @@ Capability
   marketplace listings
 ```
 
+## Product-UX End Shape (declared 2026-08-12)
+
+This section declares the persistent-work-agent product-UX end state. Every
+behavior in it is a declared target over EXISTING owners — registration,
+binding, lineage, placement, authority, approval, receipt, and projection
+contracts that already have canonical homes. It introduces no new primitive,
+no new object family, no new protocol or runtime, and no new acceptance
+spine, and it asserts no usability or adoption uplift. Implementation pulls
+through the reserved thin measured-usability profile only after the
+`DEF-SEQ-1` substrate prerequisites close; nothing here schedules that work.
+
+### Reification Is The Primary Onboarding Journey
+
+The declared primary onboarding journey is reification, not creation:
+
+```text
+do a task conversationally
+  -> it succeeds
+  -> "Keep as Agent" promotes the run into a private Worker registration
+     draft whose composition is bound from the session's own lineage
+```
+
+Create-first composition remains the builder persona's path through Studio
+and the existing authoring surfaces; it is no longer the assumed entry
+funnel. The promotion mints nothing: private registration, Worker Builder
+binding, and session lineage all exist today, and the draft stays private
+under the aiagent.xyz **My workers** registration owner
+([`worker-marketplace.md`](../../domains/aiagent/worker-marketplace.md)).
+
+### Placement Defaults At Run One
+
+A first run defaults to eligible-auto placement. The local/hosted choice and
+its consequences — custody, privacy posture, cost, availability — live on
+inspection surfaces, not as a decision gate inside the first-run flow.
+Exposing placement consequences is satisfied by inspectability, never by
+interrogating a new user before the first task.
+
+### Surface Noun Budget
+
+Standing product rule: ordinary surfaces render at most three nouns —
+**Agent**, **Skill**, and **Schedule**. Every other canonical noun (Worker,
+Package, Automation, GoalRun, OutcomeRoom, ManagedWorkerInstance,
+HarnessProfile, and the rest) appears only on inspection and console
+surfaces. This is the product analog of the standing 30-second fresh-reader
+test for public copy: it is what makes "separation need not burden the
+ordinary UI" a checkable claim instead of a hope. The budget renames nothing
+and retires nothing; canonical objects keep their canonical names everywhere
+truth is inspected.
+
+### Delegation Is Conversational; The Typed Handoff Is The Record
+
+The ask is natural language. The bounded typed handoff is what the system
+RECORDS and renders — as a delegation edge on the Agent Map and a row in
+review — never an input form the user fills in. ADR 0034 is unchanged
+beneath this presentation: the delegation edge remains kernel thread-fork
+lineage, and the conversational surface adds no second delegation record.
+
+### The Agent Map Panel (projection-only)
+
+The **Agent Map** is a declared shared projection surface: a spatial graph
+of what an agent may touch, is touching, and has touched. It is available as
+a panel in Work and Operations and is projected in the aiagent.xyz managed
+console. Every datum it renders has an owner today:
+
+```text
+live presence         subject attachments
+delegation edges      thread-fork lineage (ADR 0034)
+what may be touched   authority scopes
+what was touched      effect admissions and receipts
+where work runs       placement / runtime assignments
+what changed          Agentgres heads
+what is waiting       the approval queue
+what was refused      typed refusals
+```
+
+Rendering semantics:
+
+```text
+nodes           artifacts, objects, and connectors within the agent's
+                reachable scope
+avatar          a live subject attachment, positioned on the node the agent
+                is currently touching
+boundary ring   the authority scope edge; reachable-but-untouched, touched,
+                and out-of-scope render differently
+edges           delegation lineage and effect flow
+pulse           a pending approval on the node it blocks, with a two-tap
+                approve/refuse decision
+flash           a typed refusal, rendered as its typed reason
+rail            receipts and heads beside the map, with click-through to
+                run review
+camera          auto-follow active work; frame the active cluster
+```
+
+Honesty guards, named now and binding on any implementation:
+
+- presence renders ONLY from a live subject attachment (the anti-masquerade
+  family);
+- a quiet node never implies a finished agent — silence is not success;
+- map states grant nothing (the pixel-certificate rule); and
+- the map feed is a pure function of durable records — when the panel is
+  pulled into implementation, it arrives WITH a `check:agent-map-projection`
+  purity/freshness verifier, mutation-tested like every other gate.
+
+The map mints nothing, owns nothing, and is never an orchestration or truth
+surface. Rendering it from anything other than owned durable records is the
+defect, not a shortcut.
+
+### Cost-Per-Run On Run Review
+
+Run review and the Agent Map rail carry a cost-per-run chip derived from the
+economics evidence fields (token mix, attempts, latency, outcomes) once
+those fields are collected. This is a pointer to the standing economics
+join, not a claim that the fields exist today.
+
+### Nonclaims
+
+- No usability, adoption, retention, or business uplift is asserted; a
+  better-than-incumbent UX remains a `target_defined` claim until the
+  acceptance journeys measure it against owner-backed implementations.
+- Every behavior above is a declared target over EXISTING owners; no new
+  primitive, object family, or acceptance spine is created, and no owner
+  boundary in this file or its related canon moves.
+- Implementation pulls through the reserved thin measured-usability profile
+  only after the `DEF-SEQ-1` substrate prerequisites close; declaration is
+  not scheduling.
+
 ## Hypervisor Core
 
 **Hypervisor Core** is the shared runtime/control substrate used by Hypervisor
