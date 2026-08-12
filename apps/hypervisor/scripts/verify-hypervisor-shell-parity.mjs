@@ -22,6 +22,7 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { emitVerifierCensus } from "./lib/verifier-census.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, "..", "..", "..");
@@ -231,6 +232,7 @@ run().then(() => {
   const fails = results.filter((r) => !r.pass);
   for (const r of results) console.log(`${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? ` — ${r.detail}` : ""}`);
   console.log(`\n${results.length - fails.length}/${results.length} passed`);
+  emitVerifierCensus({ verifierId: "shell-parity", sourceUrl: import.meta.url, results });
   if (fails.length) process.exit(1);
   console.log("shell-parity readiness: OK");
 }).catch((e) => {

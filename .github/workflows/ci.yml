@@ -208,6 +208,8 @@ jobs:
         run: npm run lint
 
       - name: Verify the ported Hypervisor seed and source-neutral boundary
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
         run: |
           npm run check:owned-product-ui --workspace=@ioi/hypervisor-app
           npm run check:shell-parity --workspace=@ioi/hypervisor-app
@@ -215,7 +217,12 @@ jobs:
           npm run check:seed-provenance --workspace=@ioi/hypervisor-app
           npm run check:source-neutral --workspace=@ioi/hypervisor-app
 
+      # IOI_VERIFIER_CENSUS_DIR makes each verifier write the RUNTIME assertion census that
+      # `check:verifier-floors` reads in the next step. Without it the floors gate has no evidence
+      # and fails closed — which is the intended behaviour, not a misconfiguration to paper over.
       - name: Verify the first surface journeys against an isolated live daemon
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
         run: |
           npm run check:ontology-journey --workspace=@ioi/hypervisor-app
           npm run check:governance-journey --workspace=@ioi/hypervisor-app
@@ -229,6 +236,14 @@ jobs:
           npm run check:home-cockpit --workspace=@ioi/hypervisor-app
           npm run check:operations-cockpit --workspace=@ioi/hypervisor-app
           npm run check:projects-saga --workspace=@ioi/hypervisor-app
+
+      # The floor the verifier family never had. Every verifier above is pinned at the number of
+      # assertions it actually EXECUTED; deleting assertions from any of them was silently green
+      # before this gate existed. Runs after the journeys because it reads their census artifacts.
+      - name: Verify the verifier family did not shrink
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:verifier-floors --workspace=@ioi/hypervisor-app
 
       - name: Record post-build shipped-product artifact identities
         run: |
