@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for aiagent.xyz marketplace doctrine; low-level worker endpoints live in [`worker-endpoints.md`](./worker-endpoints.md).
 Supersedes: overlapping worker-marketplace plan prose when marketplace boundaries conflict.
 Superseded by: none.
-Last alignment pass: 2026-07-15.
+Last alignment pass: 2026-08-12.
 Doctrine status: canonical
 Implementation status: partial (draft object plane only:
 listings/candidates/reviews/offers; private/local-worker registration,
@@ -308,6 +308,19 @@ as ambient reusable access. aiagent.xyz records the exact
 composition and owner visibility, while the local Hypervisor/home domain owns
 pairing proof, adapter/MCP mediation, credentials, execution, and receipts.
 
+**Keep as Agent (declared 2026-08-12).** The same private registration owner
+carries the declared reification path from ordinary governed Hypervisor
+work: when a run succeeds, "Keep as Agent" promotes that run into a private
+Worker registration draft whose composition is bound from the session's own
+lineage — the exact model route, harness or adapter, tools, and policy
+posture the run actually used. This is a declared target over the existing
+registration and binding owners, not a new object or admission path: the
+draft is an ordinary **My workers** registration draft, private by default,
+and every later elevation — benchmark, listing, routing eligibility —
+remains the separate explicit promotion path above. Nothing publishes,
+benchmarks, widens authority, or creates a publisher profile because a run
+was kept.
+
 A reusable private registration binds at minimum:
 
 - owner or organization principal and visibility policy;
@@ -518,6 +531,15 @@ Auto-update may be allowed for low-risk compatible updates, but authority
 broadening, connector expansion, privacy posture changes, safety posture
 changes, benchmark-stale compositions, or major behavior changes require
 explicit review and rollback posture.
+
+The managed console also projects the shared Hypervisor **Agent Map** panel
+for installed instances (declared 2026-08-12): bounded presence, delegation
+lineage, effect flow, pending approvals, typed refusals, and the receipt
+rail, rendered over the same durable daemon/Agentgres-owned records the
+owner surfaces render
+([`core-clients-surfaces.md`](../../components/hypervisor/core-clients-surfaces.md)).
+The console projects that truth; it never owns it — map states grant
+nothing, and a quiet node never implies a finished agent.
 
 Hosted aiagent instances may run on an aiagent-operated Hypervisor fleet.
 Customer, local, enterprise, DePIN, TEE, or Private Workspace cTEE instances may

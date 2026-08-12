@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for wallet.network authority doctrine; wallet product, exchange, route-source, exposure, protection, approval-inbox, and receipt doctrine lives in [`product-exchange-risk.md`](./product-exchange-risk.md); low-level scope APIs live in [`api-authority-scopes.md`](./api-authority-scopes.md).
 Supersedes: older generic capability-grant wording when it conflicts with `scope:*` authority grants.
 Superseded by: none.
-Last alignment pass: 2026-08-09.
+Last alignment pass: 2026-08-12.
 Doctrine status: canonical
 Implementation status: partial (capability-lease authority, sealed credentials, approval gates, the principal-to-approval-authority resolver, and exact grant-hash-keyed effect consumption with immutable replay receipts are live on named qualified owner paths; all affected shared-verifier and governed-authority registrations now route structural evidence through independent issuer resolution, deterministic atomic consumption, opaque admission revalidation, and retained route/final-invoker, concurrency, crash, denial, and replay proof; embedded account/factor/passkey/recovery APIs, guardian surfaces, key shards, and MPC vault are planned; the closed approval-ceremony context, temporal profile/evaluation input, review/effect-admission receipt profiles, context-bound v3 grant, and WalletReceipt v2 are target successor contracts; the wallet-interoperability surfaces — inbound external-wallet sign-in, outbound provider service, OIDC federation — are planned target contracts with no implementation, and the predecessor link_owner@v1 anchor store is superseded by them before any exposure)
 Implementation refs:
@@ -907,6 +907,29 @@ Each request binds the active constitution/profile roots, exact transition,
 system and membership IDs, evidence, budget/effect posture, expiry, revocation
 epoch, and the external governance decision required by that system. A worker
 may propose the request but cannot approve its own protected transition.
+
+## Default Bounded-Authority Template (declared 2026-08-12)
+
+The product ships one named default starter grant so a new user's first
+governed action and its receipt require no policy authoring:
+
+```text
+read-allowed
+consequential-denied
+exactly one narrowly scoped connector
+```
+
+The template is a product default composed from existing authority
+primitives — `scope:*` grants, capability leases, connector authority, and
+approval gates — and is explicitly NOT a new authority object, grant kind,
+or scope family. Read-class scopes are granted; consequential classes are
+denied by default; the single connector lease is narrow, expiring, and
+revocable like any other. The applied template is visible and editable on
+inspection surfaces, and editing it is ordinary grant/lease mutation under
+the same policy, ceremony, receipt, and revocation path. A template default
+narrows only; any widening is an explicit governed decision, never
+route-supplied, and the template never substitutes for per-action admission
+at the effect boundary.
 
 ## Risk Classes
 
