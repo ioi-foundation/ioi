@@ -1,0 +1,127 @@
+{
+  "manifest_version": "ioi.verifier-floors.v1",
+  "effective_date": "2026-08-12",
+  "governing_check": "apps/hypervisor/scripts/check-verifier-floors.mjs",
+  "purpose": "The floor the verifier family never had. A verifier that asserts less still passes, so deleting assertions from any CI-gated verifier was silently green: the deleted assertion stopped being checked, the survivors passed, and CI reported success. Each row below pins the number of assertions a verifier actually EXECUTED. The count is runtime, never a source grep — a commented-out assertion does not execute, so it does not count, which is precisely the case a grep would miss.",
+  "rules": {
+    "closed_world": "The set of verifiers this manifest must cover is re-derived on every run from .github/workflows/ci.yml — every `npm run check:* --workspace=@ioi/hypervisor-app` invocation resolving to a scripts/verify-*.mjs file. A CI-gated verifier with no row here is RED. This is an allowlist derived from the enforcing artifact, not a hand list that can silently omit a verifier.",
+    "reverse_edge": "A pinned floor whose verifier CI does not run is RED. A floor over a verifier that gates nothing is decorative.",
+    "exact_pin": "runtime_assertions is an exact pin, not a minimum. Below it means assertions were deleted. ABOVE it is also RED — the floor is stale and must be raised in the same commit that adds the assertions. Slack is where a later deletion hides.",
+    "evidence": "Counts come from the verifier's own completed run via apps/hypervisor/scripts/lib/verifier-census.mjs, which binds the verifier's source sha256. A census never certifies a revision it did not run: an artifact whose digest disagrees with the file on disk is RED.",
+    "fail_closed": "A missing census directory, a missing artifact, or a verifier that crashed, exited early, or was BLOCKED is RED, never skip. A false green from a broken probe is the same defect class as a false green from a deleted assertion.",
+    "what_this_does_not_prove": "A floor counts assertions; it cannot judge them. Nothing here certifies that an assertion is meaningful, non-decorative, or that a replacement is as strong as what it replaced. assertion_names_sha256 travels with the count so a reviewer can distinguish `replaced` from `renamed`, but that reading is a human's. This gate proves only that the family did not shrink."
+  },
+  "verifiers": [
+    {
+      "id": "shell-parity",
+      "npm_script": "check:shell-parity",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-shell-parity.mjs",
+      "runtime_assertions": 6,
+      "assertion_names_sha256": "0bc72110665ccc4855bb79e8aec8aa8e076b550c2ae23e1cec2b5cb6d4d847d1"
+    },
+    {
+      "id": "ontology-journey",
+      "npm_script": "check:ontology-journey",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-ontology-journey.mjs",
+      "runtime_assertions": 36,
+      "assertion_names_sha256": "fdd2711f29b0cf1ec37e4c6082d13deabe48b69c9ae520367f5bd016d2965ae8"
+    },
+    {
+      "id": "governance-journey",
+      "npm_script": "check:governance-journey",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-governance-journey.mjs",
+      "runtime_assertions": 20,
+      "assertion_names_sha256": "449f32c7bf1c90fc6d01843debd6505f7859a8b2477572d1d88c37730eaf3874"
+    },
+    {
+      "id": "studio-journey",
+      "npm_script": "check:studio-journey",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-studio-journey.mjs",
+      "runtime_assertions": 33,
+      "assertion_names_sha256": "5b3dea7ec220bd2f80a7d236882902d0b071fa1353aac0d9b85b5e1574836fd2"
+    },
+    {
+      "id": "packages-journey",
+      "npm_script": "check:packages-journey",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-packages-journey.mjs",
+      "runtime_assertions": 49,
+      "assertion_names_sha256": "3eecdd26d8887f94d85d75307f89572ec54626c67fc55e4366a821f357016b1f"
+    },
+    {
+      "id": "automations-journey",
+      "npm_script": "check:automations-journey",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-automations-journey.mjs",
+      "runtime_assertions": 44,
+      "assertion_names_sha256": "fb78f23ba208d65415e8bc9b6d77f1c60c6ad50e1f6eba8fe64692e9f113e739"
+    },
+    {
+      "id": "applications-journey",
+      "npm_script": "check:applications-journey",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-applications-journey.mjs",
+      "runtime_assertions": 27,
+      "assertion_names_sha256": "1da2fa68d2c681ba5b15afb757f1711fa88b247989e5891b636fa0b7c8e413c2"
+    },
+    {
+      "id": "systems-journey",
+      "npm_script": "check:systems-journey",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-systems-journey.mjs",
+      "runtime_assertions": 35,
+      "assertion_names_sha256": "16954c84a664a43004eaa392163653fb3188fdae6551e48b96af05f9c34c183f"
+    },
+    {
+      "id": "launch-chain",
+      "npm_script": "check:launch-chain",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-launch-chain.mjs",
+      "runtime_assertions": 49,
+      "assertion_names_sha256": "f20a7a051d5699890c7e1563e6351ecb138dc540b1f8560ae2e8426c134c4fd5"
+    },
+    {
+      "id": "work-cockpit",
+      "npm_script": "check:work-cockpit",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-work-cockpit.mjs",
+      "runtime_assertions": 51,
+      "assertion_names_sha256": "222d22af25b4cc88f64119b8dfc1553981903288ee0e9bcc4dbc76b1473d87a5"
+    },
+    {
+      "id": "home-cockpit",
+      "npm_script": "check:home-cockpit",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-home-cockpit.mjs",
+      "runtime_assertions": 40,
+      "assertion_names_sha256": "5b1f0e361b62e1bef1607e62ee2f807b2c342f76deb750f70c9bf1f7818e7af1"
+    },
+    {
+      "id": "operations-cockpit",
+      "npm_script": "check:operations-cockpit",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-operations-cockpit.mjs",
+      "runtime_assertions": 36,
+      "assertion_names_sha256": "4f173b20c7ecdf64ba150f20ee6e7d4806b8c490b1f0f4d3b4dd031049111b85"
+    },
+    {
+      "id": "projects-saga",
+      "npm_script": "check:projects-saga",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-projects-saga.mjs",
+      "runtime_assertions": 11,
+      "assertion_names_sha256": "9816111389711e17fd8a94074a18eaf6d5cd94edf5e4f1ba75d71e5d31be42b3"
+    }
+  ],
+  "excluded": [
+    {
+      "npm_script": "check:seed-provenance",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-seed-provenance.mjs",
+      "reason": "Fail-only idiom: it records entries ONLY when something is wrong (62 fail sites, an empty failures array on a green run), so a passing run has nothing to tally and a runtime assertion count would read zero. It is a fail-closed corpus validator over seed-ux-provenance.v1.json rather than an assertion-tallied journey. Bringing it under a floor requires it to record positive checks too.",
+      "residual": "Named residual, not a waiver: convert the fail-only walk to positive check records, then floor it."
+    },
+    {
+      "npm_script": "check:ported-seed",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-ported-seed-invariant.mjs",
+      "reason": "Keeps its own integer `checks` counter and prints N/N checks passed, but builds no named assertion records, so this census has no per-assertion evidence to bind. It is the closest of the three to floorable — the count already exists and only its shape differs.",
+      "residual": "Named residual: emit the census from its existing counter and floor it in the next verifier-family cut."
+    },
+    {
+      "npm_script": "check:owned-product-ui",
+      "source": "apps/hypervisor/scripts/verify-owned-product-ui.mjs",
+      "reason": "Uses node:assert throw-on-failure (assert.ok) and records nothing on success; its product is the owned bundle's file count and tree sha256 for other gates to consume. A shrink in what it checks is caught where that digest is enforced (check:shipped-products pins the same tree hash), not by an assertion tally it does not keep.",
+      "residual": "None claimed. If it grows an assertion tally it joins the floors above."
+    }
+  ]
+}

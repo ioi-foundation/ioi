@@ -19,6 +19,7 @@ import os from "node:os";
 import path from "node:path";
 import net from "node:net";
 import { fileURLToPath } from "node:url";
+import { emitVerifierCensus } from "./lib/verifier-census.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const APP = path.resolve(HERE, "..");
@@ -297,6 +298,7 @@ run().then(() => {
   const fails = results.filter((r) => !r.pass);
   for (const r of results) console.log(`${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? ` — ${r.detail}` : ""}`);
   console.log(`\n${results.length - fails.length}/${results.length} passed`);
+  emitVerifierCensus({ verifierId: "ontology-journey", sourceUrl: import.meta.url, results });
   cleanup();
   process.exit(fails.length ? 1 : 0);
 }).catch((e) => {
