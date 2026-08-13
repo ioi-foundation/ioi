@@ -469,6 +469,425 @@ impl ProviderTransport for OllamaTransport {
     }
 }
 
+// ---------------------------------------------------------------- the second native conformer
+
+/// The OpenAI-compatible dialect — the FIRST transport to conform to a contract it did not define.
+///
+/// WHY THIS ONE IS THE PROOF. `OllamaTransport` defined the `ProviderTransport` shape by being the
+/// only implementation, so nothing yet showed whether that shape generalizes or had simply been
+/// fitted to one provider. This dialect differs from Ollama's in every mechanical way that matters —
+/// SSE frames rather than NDJSON, `usage` rather than `*_eval_count`, an HTTP error envelope with a
+/// typed `error.code`, and cache/reasoning token classes Ollama has no concept of — and it required
+/// NO change to the trait, the receipt, the attempt lineage, or the economics join. That is the
+/// native-first gate the absorption ruling names: only after a second native conformer proves the
+/// contract generalizes does adapted-transport work become eligible.
+///
+/// ANTI-EXFILTRATION, UNCHANGED. The PROBE for this transport stays posture-only — the daemon never
+/// sends a credential to a caller-supplied `base_url` to discover a catalog. This type performs the
+/// EXECUTION only, and it is reached solely through the Leg-2 CapabilityLease crossing.
+pub(crate) struct OpenAiCompatibleTransport;
+
+impl OpenAiCompatibleTransport {
+    /// Transport-level (pre-response) failures.
+    fn classify(error: &reqwest::Error) -> (ModelRuntimeErrorClass, bool) {
+        if error.is_timeout() {
+            return (ModelRuntimeErrorClass::Timeout, true);
+        }
+        if error.is_connect() {
+            return (ModelRuntimeErrorClass::ProviderUnavailable, true);
+        }
+        if error.is_decode() {
+            return (ModelRuntimeErrorClass::MalformedStructuredOutput, false);
+        }
+        (ModelRuntimeErrorClass::UnknownProviderError, false)
+    }
+
+    /// HTTP status → kernel class. The dialect's own `error.code` refines a 400, because
+    /// "context_length_exceeded" and "invalid_request_error" are different operator problems and
+    /// flattening both to one class would erase which.
+    ///
+    /// TYPED TAXONOMY GAP, named rather than papered over: the kernel's `ModelRuntimeErrorClass` has
+    /// no AUTHENTICATION class. A 401/403 is an authorization refusal by the provider, so it maps to
+    /// `PolicyRefusal` — the nearest true class — and the detail says it was an auth refusal. Adding
+    /// a kernel variant is a wider change than this cut owns; the residual is recorded.
+    fn classify_status(status: u16, code: Option<&str>) -> (ModelRuntimeErrorClass, bool) {
+        match status {
+            401 | 403 => (ModelRuntimeErrorClass::PolicyRefusal, false),
+            404 => (ModelRuntimeErrorClass::ProviderUnavailable, false),
+            408 => (ModelRuntimeErrorClass::Timeout, true),
+            429 => (ModelRuntimeErrorClass::RateLimited, true),
+            413 => (ModelRuntimeErrorClass::ContextOverflow, false),
+            400 | 422 => match code {
+                Some(c) if c.contains("context_length") || c.contains("context_window") => {
+                    (ModelRuntimeErrorClass::ContextOverflow, false)
+                }
+                Some(c) if c.contains("content_filter") || c.contains("content_policy") => {
+                    (ModelRuntimeErrorClass::SafetyRefusal, false)
+                }
+                _ => (ModelRuntimeErrorClass::MalformedStructuredOutput, false),
+            },
+            500..=599 => (ModelRuntimeErrorClass::ProviderUnavailable, true),
+            _ => (ModelRuntimeErrorClass::UnknownProviderError, false),
+        }
+    }
+
+    /// A `finish_reason` the provider reports as a refusal is NOT a success with short output.
+    fn finish_reason_refusal(reason: Option<&str>) -> Option<ModelRuntimeErrorClass> {
+        match reason {
+            Some("content_filter") => Some(ModelRuntimeErrorClass::SafetyRefusal),
+            _ => None,
+        }
+    }
+}
+
+/// `usage` in this dialect. Cache and reasoning classes live in OPTIONAL detail objects that most
+/// servers omit entirely — so they read as `None` (a typed gap) rather than zero, exactly as the
+/// honesty rule requires. A server that does report them is captured without a code change.
+fn openai_token_mix(usage: &Value) -> TokenMix {
+    TokenMix {
+        input: usage.get("prompt_tokens").and_then(Value::as_u64),
+        output: usage.get("completion_tokens").and_then(Value::as_u64),
+        cache_read: usage
+            .pointer("/prompt_tokens_details/cached_tokens")
+            .and_then(Value::as_u64),
+        // No mainstream server reports a cache WRITE count on this dialect; it stays a typed gap
+        // rather than being inferred from anything.
+        cache_write: None,
+        reasoning: usage
+            .pointer("/completion_tokens_details/reasoning_tokens")
+            .and_then(Value::as_u64),
+    }
+}
+
+impl ProviderTransport for OpenAiCompatibleTransport {
+    fn transport_kind(&self) -> &'static str {
+        "openai_compatible"
+    }
+
+    async fn invoke(
+        &self,
+        request: &TransportRequest,
+    ) -> Result<TransportOutcome, TransportFailure> {
+        let started = Instant::now();
+        // The registry stores the provider ROOT (normalize_base_url strips a trailing /v1), so the
+        // dialect's path is re-appended here rather than assumed to be on the stored value.
+        let url = format!(
+            "{}/v1/chat/completions",
+            request.base_url.trim_end_matches('/')
+        );
+        let mut body = json!({
+            "model": request.model_id,
+            "messages": [{ "role": "user", "content": request.prompt }],
+            "stream": request.stream,
+        });
+        if request.stream {
+            // Without this most servers omit `usage` entirely on a streamed response — and an absent
+            // mix means no economics join. Asking for it is how a streamed call stays billable.
+            body["stream_options"] = json!({ "include_usage": true });
+        }
+
+        let client = reqwest::Client::new();
+        let mut builder = client
+            .post(&url)
+            .timeout(Duration::from_millis(INVOKE_TIMEOUT_MS))
+            .json(&body);
+        if let Some(token) = request.credential.as_deref() {
+            builder = builder.bearer_auth(token);
+        }
+
+        let response = match builder.send().await {
+            Ok(response) => response,
+            Err(error) => {
+                let (class, retryable) = Self::classify(&error);
+                let latency = started.elapsed().as_millis() as u64;
+                return Err(TransportFailure {
+                    attempts: vec![TransportAttempt {
+                        index: 0,
+                        latency_ms: latency,
+                        first_token_ms: None,
+                        http_status: None,
+                        outcome: "failed",
+                        error_class: Some(class),
+                        retryable,
+                        detail: Some(error.to_string()),
+                    }],
+                    total_latency_ms: latency,
+                    error_class: class,
+                    token_mix: TokenMix::default(),
+                    detail: error.to_string(),
+                });
+            }
+        };
+
+        let status = response.status().as_u16();
+        if !response.status().is_success() {
+            let raw = response.text().await.unwrap_or_default();
+            // The dialect's typed error code is READ to classify, and then only the CODE travels
+            // into the record. The body itself is hashed: a destination can reflect the request's
+            // Authorization header in its error text, and this detail is admitted into the
+            // hash-chained event stream.
+            let parsed: Option<Value> = serde_json::from_str(&raw).ok();
+            let code = parsed
+                .as_ref()
+                .and_then(|v| v.pointer("/error/code"))
+                .and_then(Value::as_str)
+                .or_else(|| {
+                    parsed
+                        .as_ref()
+                        .and_then(|v| v.pointer("/error/type"))
+                        .and_then(Value::as_str)
+                })
+                .map(str::to_string);
+            let (class, retryable) = Self::classify_status(status, code.as_deref());
+            let latency = started.elapsed().as_millis() as u64;
+            let detail = format!(
+                "upstream HTTP {status}{}: {} body bytes, sha256:{}",
+                code.as_deref()
+                    .map(|c| format!(" ({c})"))
+                    .unwrap_or_default(),
+                raw.len(),
+                digest_hex(raw.as_bytes())
+            );
+            return Err(TransportFailure {
+                attempts: vec![TransportAttempt {
+                    index: 0,
+                    latency_ms: latency,
+                    first_token_ms: None,
+                    http_status: Some(status),
+                    outcome: "failed",
+                    error_class: Some(class),
+                    retryable,
+                    detail: Some(detail.clone()),
+                }],
+                total_latency_ms: latency,
+                error_class: class,
+                token_mix: TokenMix::default(),
+                detail,
+            });
+        }
+
+        let (output, mix, finish_reason, first_token_ms) = if request.stream {
+            match read_openai_sse(response, started).await {
+                Ok(parts) => parts,
+                Err(failure) => return Err(failure),
+            }
+        } else {
+            let text = match response.text().await {
+                Ok(text) => text,
+                Err(error) => {
+                    let (class, retryable) = Self::classify(&error);
+                    let latency = started.elapsed().as_millis() as u64;
+                    return Err(TransportFailure {
+                        attempts: vec![TransportAttempt {
+                            index: 0,
+                            latency_ms: latency,
+                            first_token_ms: None,
+                            http_status: Some(status),
+                            outcome: "failed",
+                            error_class: Some(class),
+                            retryable,
+                            detail: Some(error.to_string()),
+                        }],
+                        total_latency_ms: latency,
+                        error_class: class,
+                        token_mix: TokenMix::default(),
+                        detail: error.to_string(),
+                    });
+                }
+            };
+            let frame: Value = match serde_json::from_str(&text) {
+                Ok(frame) => frame,
+                Err(error) => {
+                    let latency = started.elapsed().as_millis() as u64;
+                    return Err(TransportFailure {
+                        attempts: vec![TransportAttempt {
+                            index: 0,
+                            latency_ms: latency,
+                            first_token_ms: None,
+                            http_status: Some(status),
+                            outcome: "failed",
+                            error_class: Some(ModelRuntimeErrorClass::MalformedStructuredOutput),
+                            retryable: false,
+                            detail: Some(error.to_string()),
+                        }],
+                        total_latency_ms: latency,
+                        error_class: ModelRuntimeErrorClass::MalformedStructuredOutput,
+                        token_mix: TokenMix::default(),
+                        detail: error.to_string(),
+                    });
+                }
+            };
+            let content = frame
+                .pointer("/choices/0/message/content")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_string();
+            let reason = frame
+                .pointer("/choices/0/finish_reason")
+                .and_then(Value::as_str)
+                .map(str::to_string);
+            let mix = frame.get("usage").map(openai_token_mix).unwrap_or_default();
+            let elapsed = started.elapsed().as_millis() as u64;
+            (content, mix, reason, Some(elapsed))
+        };
+
+        // A provider-reported refusal is receipted as a FAILURE with its class, never as a short
+        // success. The tokens it consumed are still real, so the observed mix travels with it and
+        // the economics join can charge for work the supplier metered.
+        if let Some(class) = Self::finish_reason_refusal(finish_reason.as_deref()) {
+            let latency = started.elapsed().as_millis() as u64;
+            let detail = format!(
+                "provider refused via finish_reason '{}'",
+                finish_reason.clone().unwrap_or_default()
+            );
+            return Err(TransportFailure {
+                attempts: vec![TransportAttempt {
+                    index: 0,
+                    latency_ms: latency,
+                    first_token_ms,
+                    http_status: Some(status),
+                    outcome: "failed",
+                    error_class: Some(class),
+                    retryable: false,
+                    detail: Some(detail.clone()),
+                }],
+                total_latency_ms: latency,
+                error_class: class,
+                token_mix: mix,
+                detail,
+            });
+        }
+
+        let latency = started.elapsed().as_millis() as u64;
+        Ok(TransportOutcome {
+            output,
+            token_mix: mix,
+            attempts: vec![TransportAttempt {
+                index: 0,
+                latency_ms: latency,
+                first_token_ms,
+                http_status: Some(status),
+                outcome: "succeeded",
+                error_class: None,
+                retryable: false,
+                detail: None,
+            }],
+            total_latency_ms: latency,
+            first_token_ms,
+            finish_reason,
+            streaming: request.stream,
+        })
+    }
+}
+
+/// Read an SSE stream to completion.
+///
+/// Two dialect facts drive this: frames arrive as `data: {json}` lines terminated by a blank line,
+/// and the stream ends with a literal `data: [DONE]` sentinel that is NOT json. A `usage` block
+/// arrives on a late frame (usually the one carrying no choices), which is why the mix is taken from
+/// whichever frame reports it rather than from the first or last.
+async fn read_openai_sse(
+    response: reqwest::Response,
+    started: Instant,
+) -> Result<(String, TokenMix, Option<String>, Option<u64>), TransportFailure> {
+    use futures::StreamExt;
+
+    let mut stream = response.bytes_stream();
+    let mut buffer = String::new();
+    let mut output = String::new();
+    let mut mix = TokenMix::default();
+    let mut finish_reason = None;
+    let mut first_token_ms = None;
+
+    loop {
+        let next =
+            tokio::time::timeout(Duration::from_millis(STREAM_STALL_MS), stream.next()).await;
+        let chunk = match next {
+            Err(_) => {
+                let latency = started.elapsed().as_millis() as u64;
+                return Err(TransportFailure {
+                    attempts: vec![TransportAttempt {
+                        index: 0,
+                        latency_ms: latency,
+                        first_token_ms,
+                        http_status: Some(200),
+                        outcome: "failed",
+                        error_class: Some(ModelRuntimeErrorClass::StreamingStall),
+                        retryable: true,
+                        detail: Some(format!("no stream frame for {STREAM_STALL_MS}ms")),
+                    }],
+                    total_latency_ms: latency,
+                    error_class: ModelRuntimeErrorClass::StreamingStall,
+                    // Whatever the stream already reported travels with the failure — a metered
+                    // stall is still billable work.
+                    token_mix: mix.clone(),
+                    detail: format!("no stream frame for {STREAM_STALL_MS}ms"),
+                });
+            }
+            Ok(None) => break,
+            Ok(Some(Err(error))) => {
+                let (class, retryable) = OpenAiCompatibleTransport::classify(&error);
+                let latency = started.elapsed().as_millis() as u64;
+                return Err(TransportFailure {
+                    attempts: vec![TransportAttempt {
+                        index: 0,
+                        latency_ms: latency,
+                        first_token_ms,
+                        http_status: Some(200),
+                        outcome: "failed",
+                        error_class: Some(class),
+                        retryable,
+                        detail: Some(error.to_string()),
+                    }],
+                    total_latency_ms: latency,
+                    error_class: class,
+                    token_mix: mix.clone(),
+                    detail: error.to_string(),
+                });
+            }
+            Ok(Some(Ok(bytes))) => bytes,
+        };
+
+        buffer.push_str(&String::from_utf8_lossy(&chunk));
+        while let Some(newline) = buffer.find('\n') {
+            let line = buffer[..newline].trim().to_string();
+            buffer.drain(..=newline);
+            let Some(payload) = line.strip_prefix("data:") else {
+                continue;
+            };
+            let payload = payload.trim();
+            // The terminator is a sentinel, not json. Parsing it would be a decode error on a
+            // perfectly healthy stream.
+            if payload == "[DONE]" {
+                continue;
+            }
+            let Ok(frame) = serde_json::from_str::<Value>(payload) else {
+                continue;
+            };
+            if let Some(piece) = frame
+                .pointer("/choices/0/delta/content")
+                .and_then(Value::as_str)
+            {
+                if !piece.is_empty() && first_token_ms.is_none() {
+                    first_token_ms = Some(started.elapsed().as_millis() as u64);
+                }
+                output.push_str(piece);
+            }
+            if let Some(reason) = frame
+                .pointer("/choices/0/finish_reason")
+                .and_then(Value::as_str)
+            {
+                finish_reason = Some(reason.to_string());
+            }
+            if let Some(usage) = frame.get("usage").filter(|u| !u.is_null()) {
+                mix = openai_token_mix(usage);
+            }
+        }
+    }
+
+    Ok((output, mix, finish_reason, first_token_ms))
+}
+
 /// Ollama reports `prompt_eval_count` / `eval_count` and nothing about cache or reasoning tokens.
 /// Those two stay `None` — the provider does not report them, which is a gap, not a zero.
 fn ollama_token_mix(frame: &Value) -> TokenMix {
@@ -748,6 +1167,51 @@ fn join_economics(
     }
 }
 
+/// Dialect dispatch. The registry decides WHICH transport a route speaks; this only executes it.
+///
+/// The variants deliberately share every surrounding owner — the same receipt, the same attempt
+/// lineage, the same economics join, the same credential crossing. A transport that needed its own
+/// version of any of those would not be a transport; it would be a second spine.
+pub(crate) enum ModelTransport {
+    Ollama(OllamaTransport),
+    OpenAiCompatible(OpenAiCompatibleTransport),
+}
+
+impl ModelTransport {
+    fn for_kind(kind: &str) -> Self {
+        match kind {
+            "ollama" => Self::Ollama(OllamaTransport),
+            // The caller has already refused any kind not in the admitted set, so this arm is
+            // reached only for `openai_compatible`.
+            _ => Self::OpenAiCompatible(OpenAiCompatibleTransport),
+        }
+    }
+
+    fn transport_kind(&self) -> &'static str {
+        match self {
+            Self::Ollama(t) => t.transport_kind(),
+            Self::OpenAiCompatible(t) => t.transport_kind(),
+        }
+    }
+
+    fn price_schedule_ref(&self, route: &Value) -> Option<String> {
+        match self {
+            Self::Ollama(t) => t.price_schedule_ref(route),
+            Self::OpenAiCompatible(t) => t.price_schedule_ref(route),
+        }
+    }
+
+    async fn invoke(
+        &self,
+        request: &TransportRequest,
+    ) -> Result<TransportOutcome, TransportFailure> {
+        match self {
+            Self::Ollama(t) => t.invoke(request).await,
+            Self::OpenAiCompatible(t) => t.invoke(request).await,
+        }
+    }
+}
+
 // ---------------------------------------------------------------- credential custody
 
 /// Resolve a route's provider credential through THE authority crossing, or establish that it needs
@@ -975,9 +1439,9 @@ pub(crate) async fn handle_model_route_invoke(
     // no implementation can never execute no matter how healthy its provider is, so answering
     // "not executable (availability)" would name the wrong blocker — and would make this refusal
     // unreachable in practice, since an unimplemented transport never probes to `available`.
-    if transport_kind != "ollama" {
-        // The honest boundary, not a stub: no other transport is admitted for execution yet, and
-        // this cut will not pretend otherwise.
+    if !matches!(transport_kind.as_str(), "ollama" | "openai_compatible") {
+        // The honest boundary, not a stub. Two native transports are admitted; anything else says so
+        // rather than silently falling back onto one that exists.
         return bad(
             StatusCode::NOT_IMPLEMENTED,
             "provider_transport_unimplemented",
@@ -986,12 +1450,24 @@ pub(crate) async fn handle_model_route_invoke(
             ),
         );
     }
-    if lifecycle != "active" || availability != "available" {
+    // WHAT COUNTS AS EXECUTABLE DIFFERS BY TRANSPORT, because what a PROBE can honestly learn
+    // differs by transport. Ollama's probe reads a real catalog, so `available` means the model is
+    // actually served. The openai_compatible probe is deliberately POSTURE-ONLY — the daemon never
+    // sends a credential to a caller-supplied base_url to discover a catalog (the standing
+    // anti-exfiltration ruling) — so the strongest honest state it can reach is
+    // `credentials_present`. Requiring `available` there would make every openai_compatible route
+    // permanently unexecutable, which is a refusal that reads as a capability gap but is really a
+    // category error about what its probe measures.
+    let executable_availability: &[&str] = match transport_kind.as_str() {
+        "ollama" => &["available"],
+        _ => &["credentials_present"],
+    };
+    if lifecycle != "active" || !executable_availability.contains(&availability) {
         return bad(
             StatusCode::CONFLICT,
             "model_route_not_executable",
             format!(
-                "route lifecycle '{lifecycle}' / availability '{availability}' is not an executable pair; probe the route first"
+                "route lifecycle '{lifecycle}' / availability '{availability}' is not an executable pair for transport '{transport_kind}' (expected one of {executable_availability:?}); probe the route first"
             ),
         );
     }
@@ -1060,8 +1536,12 @@ pub(crate) async fn handle_model_route_invoke(
         Err(response) => return response,
     };
 
-    // (6) execution
-    let transport = OllamaTransport;
+    // (6) execution — dispatched by dialect.
+    //
+    // An enum rather than `dyn ProviderTransport`: the trait's `invoke` is an async fn, which is not
+    // object-safe. This is the one place that knows which dialect a route speaks, and adding a third
+    // conformer touches only this match and the admission list above.
+    let transport = ModelTransport::for_kind(&transport_kind);
     let price_schedule_ref = transport.price_schedule_ref(&route);
     let request = TransportRequest {
         base_url: base_url.clone(),
