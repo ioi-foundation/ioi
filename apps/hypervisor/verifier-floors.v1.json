@@ -109,21 +109,25 @@
       "source": "apps/hypervisor/scripts/verify-hypervisor-provider-transport.mjs",
       "runtime_assertions": 24,
       "assertion_names_sha256": "8c1abad86be5d8cf1626efaa8cc8f4bdf9e790394de85b280f3cab25b0812d70"
+    },
+    {
+      "id": "ported-seed",
+      "npm_script": "check:ported-seed",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-ported-seed-invariant.mjs",
+      "runtime_assertions": 11,
+      "assertion_names_sha256": "64d574c84406ef32ac454b65f990f1be24976155da6c58b71faf4cbaf6d86ccd",
+      "note": "Records named INVARIANTS over a much larger raw assertion total. The per-asset and per-route sweeps assert every item individually but record one named result each: a census scaled to the owned bundle's file COUNT would duplicate check:shipped-products, which already pins that count and the tree sha256, and would churn this floor on every asset change."
+    },
+    {
+      "id": "seed-provenance",
+      "npm_script": "check:seed-provenance",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-seed-provenance.mjs",
+      "runtime_assertions": 7,
+      "assertion_names_sha256": "5ea25e9668a35a1658a633ed9370a162e0d49e7e3ff4f34dc50c224cc7ab12ad",
+      "note": "Was fail-only (empty failures array on a green run, so a count read zero). Now records one positive CHECKPOINT per invariant group; the 62 fail sites are untouched. Only the full tracked gate emits a census (--shared/--surface/--require-ready run different subsets), and a FAILING run emits nothing, which this gate reads as RED. The floor consumes the COUNT; pass/fail is carried by the verifier's exit code, so every flag in an emitted census is true by construction and is not evidence on its own."
     }
   ],
   "excluded": [
-    {
-      "npm_script": "check:seed-provenance",
-      "source": "apps/hypervisor/scripts/verify-hypervisor-seed-provenance.mjs",
-      "reason": "Fail-only idiom: it records entries ONLY when something is wrong (62 fail sites, an empty failures array on a green run), so a passing run has nothing to tally and a runtime assertion count would read zero. It is a fail-closed corpus validator over seed-ux-provenance.v1.json rather than an assertion-tallied journey. Bringing it under a floor requires it to record positive checks too.",
-      "residual": "Named residual, not a waiver: convert the fail-only walk to positive check records, then floor it."
-    },
-    {
-      "npm_script": "check:ported-seed",
-      "source": "apps/hypervisor/scripts/verify-hypervisor-ported-seed-invariant.mjs",
-      "reason": "Keeps its own integer `checks` counter and prints N/N checks passed, but builds no named assertion records, so this census has no per-assertion evidence to bind. It is the closest of the three to floorable \u2014 the count already exists and only its shape differs.",
-      "residual": "Named residual: emit the census from its existing counter and floor it in the next verifier-family cut."
-    },
     {
       "npm_script": "check:owned-product-ui",
       "source": "apps/hypervisor/scripts/verify-owned-product-ui.mjs",
