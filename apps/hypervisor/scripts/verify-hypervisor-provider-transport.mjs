@@ -668,8 +668,10 @@ async function run() {
         `status ${enableUnbound.status} code ${code(enableUnbound.j)}`);
 
       // The BIND is its own crossing: establishing custody is a different authority than using it.
+      // The challenge and the grant-bearing call share ONE idempotency key, because a per-bind nonce
+      // (that key) is folded into the grant coordinates — the two calls must name the same bind.
       const bindChallenge = await jd("POST", `/v1/hypervisor/model-routes/${credLiveId}/credential`,
-        { token: LIVE_SECRET }, { idem: "cred-live-bind-nogrant" });
+        { token: LIVE_SECRET }, { idem: "cred-live-bind" });
       ok("live-authority: sealing a provider key is itself an authority crossing — with no grant the gateway challenges and NOTHING is sealed",
         bindChallenge.status >= 400 && bindChallenge.j?.decision === "blocked"
           && (bindChallenge.j?.approval?.policy_hash ?? "").length > 0
@@ -738,6 +740,34 @@ async function run() {
       ok("live-authority: the leased bearer is NOWHERE in the daemon's durable bytes after a successful credentialed invocation",
         !allDurableBytes().includes(LIVE_SECRET), "no plaintext occurrence");
 
+      // PATCH cannot repoint or downgrade a route that holds a sealed key (finding #1's second
+      // half). The invoke crossing already binds base_url into the grant hash, so a repoint
+      // invalidates existing grants — and this freeze means you cannot even repoint while custody
+      // exists, so a sealed key can never be re-aimed at an attacker-chosen host.
+      const repoint = await jd("PATCH", `/v1/hypervisor/model-routes/${credLiveId}`,
+        { base_url: "http://127.0.0.1:59999" }, { idem: "cred-live-repoint" });
+      ok("live-authority: a credentialed route's base_url is FROZEN — a route holding a sealed key cannot be repointed without revoking it first",
+        repoint.status === 409 && code(repoint.j) === "model_route_credentialed_config_frozen",
+        `status ${repoint.status} code ${code(repoint.j)}`);
+
+      // ROTATION (finding #3): binding was genesis-only, so a route could hold a credential exactly
+      // once, ever — a compromised key could not be replaced. A second bind now succeeds via a
+      // successor CAS and mints a FRESH custody lease. And a caller-forged `key_source` never
+      // becomes durable (finding #6): the strength-of-sealing label is server-derived, not claimed.
+      const FORGED = "wallet-secret-pass-FORGED-BY-CALLER";
+      const priorLeaseRef = bound.j?.credential_binding?.provider_credential_lease_ref;
+      const rotateChallenge = await jd("POST", `/v1/hypervisor/model-routes/${credLiveId}/credential`,
+        { token: "sk-live-rotated-never-durable-9bc12e", key_source: FORGED }, { idem: "cred-live-rotate" });
+      const rotated = await jd("POST", `/v1/hypervisor/model-routes/${credLiveId}/credential`,
+        { token: "sk-live-rotated-never-durable-9bc12e", key_source: FORGED, wallet_approval_grant: await recordedGrantFor(rotateChallenge.j) },
+        { idem: "cred-live-rotate" });
+      const rotatedLeaseRef = rotated.j?.credential_binding?.provider_credential_lease_ref;
+      ok("live-authority: a bound key can be ROTATED — a second bind succeeds and records a FRESH custody lease (bind was genesis-only and un-rotatable before this repair)",
+        rotated.status === 201 && (rotatedLeaseRef ?? "").startsWith("lease:") && rotatedLeaseRef !== priorLeaseRef,
+        `status ${rotated.status} ${priorLeaseRef} -> ${rotatedLeaseRef}`);
+      ok("live-authority: a caller-forged key_source is server-overwritten and never durable — the sealing-strength label cannot be claimed by the caller",
+        !allDurableBytes().includes(FORGED), "no forged key_source occurrence");
+
       // Revocation must STOP execution, or it is bookkeeping. Same route, same grant, no key.
       await jd("DELETE", `/v1/hypervisor/model-routes/${credLiveId}/credential`, {}, { idem: "cred-live-revoke" });
       const leasesBeforeRevoked = await leaseCount();
@@ -748,6 +778,20 @@ async function run() {
         afterRevokeInvoke.status === 428 && code(afterRevokeInvoke.j) === "model_route_credential_unbound"
           && (await leaseCount()) === leasesBeforeRevoked,
         `status ${afterRevokeInvoke.status} code ${code(afterRevokeInvoke.j)}`);
+
+      // REVOKE THEN REBIND (findings #3, #5). Revocation leaves a tombstone that keeps the stream
+      // head, so a fresh bind is a successor CAS rather than a permanent genesis conflict, and it is
+      // admitted on the SAME resource ref the bind owns rather than an unclaimed revocation ref. A
+      // wrong-ref revoke or a deleting revoke would break this chain and this bind would fail.
+      const postRevokeChallenge = await jd("POST", `/v1/hypervisor/model-routes/${credLiveId}/credential`,
+        { token: "sk-live-postrevoke-never-durable-4de88a" }, { idem: "cred-live-postrevoke" });
+      const postRevokeBind = await jd("POST", `/v1/hypervisor/model-routes/${credLiveId}/credential`,
+        { token: "sk-live-postrevoke-never-durable-4de88a", wallet_approval_grant: await recordedGrantFor(postRevokeChallenge.j) },
+        { idem: "cred-live-postrevoke" });
+      ok("live-authority: a route whose credential was revoked can be BOUND AGAIN — the tombstone keeps the CAS chain and revoke shares the bind's owned ref, so revocation is not a one-way door",
+        postRevokeBind.status === 201
+          && (postRevokeBind.j?.credential_binding?.provider_credential_lease_ref ?? "").startsWith("lease:"),
+        `status ${postRevokeBind.status} lease ${postRevokeBind.j?.credential_binding?.provider_credential_lease_ref}`);
     }
 
     // NO SPEND WITHOUT AUTHORITY. The join makes a charge real; it does not make it spendable. A

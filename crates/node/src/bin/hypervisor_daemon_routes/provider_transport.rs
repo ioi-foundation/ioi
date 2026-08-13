@@ -341,10 +341,18 @@ impl ProviderTransport for OllamaTransport {
         if !response.status().is_success() {
             let (class, retryable) = Self::classify_status(status);
             let latency = started.elapsed().as_millis() as u64;
-            let detail = response.text().await.unwrap_or_default();
+            // The upstream error body is HASHED, never stored verbatim. A destination the daemon
+            // was pointed at can reflect the request's `Authorization: Bearer <key>` header straight
+            // back in its 4xx body — and this `detail` is admitted into the hash-chained, non-
+            // redactable event stream and returned to the caller. Storing the raw body would put a
+            // leased provider key into permanent storage on the say-so of whatever host answered.
+            // The status, byte length, and a digest are enough to correlate and compare failures
+            // without ever making the content durable. (Adversarial review, finding #2.)
+            let raw = response.text().await.unwrap_or_default();
             let detail = format!(
-                "upstream HTTP {status}: {}",
-                detail.chars().take(240).collect::<String>()
+                "upstream HTTP {status}: {} body bytes, sha256:{}",
+                raw.len(),
+                digest_hex(raw.as_bytes())
             );
             return Err(TransportFailure {
                 attempts: vec![TransportAttempt {
@@ -756,28 +764,38 @@ fn join_economics(
 /// `no_credentials_required` is the registry's default for an ollama route and is the only posture
 /// that legitimately reaches a provider with no crossing behind it. It is answered here rather than
 /// at the call site so there is exactly one place that decides whether a crossing is owed.
+#[allow(clippy::too_many_arguments)]
 async fn resolve_route_credential(
     st: &Arc<DaemonState>,
     route_id: &str,
     credential_posture: &str,
+    base_url: &str,
+    model_id: &str,
     credential_binding: &Value,
     body: &Value,
 ) -> Result<(Option<AuthorizedCapabilityLease>, Value), Reply> {
-    if credential_posture == "no_credentials_required" {
+    // CUSTODY PRESENCE decides the crossing, not the posture STRING. A sealed credential in
+    // custody forces the wallet crossing even if the posture field says `no_credentials_required` —
+    // so a route that somehow reaches this point with a bound key and a downgraded posture cannot
+    // execute with no lease, no grant, and no receipt. The posture string is a hint about what a
+    // route WANTS; the sealed record is the fact about what it HAS, and authority keys off the fact.
+    let has_sealed_custody =
+        credential_binding.get("kind").and_then(Value::as_str) == Some("sealed_capability_lease");
+    if credential_posture == "no_credentials_required" && !has_sealed_custody {
         return Ok((
             None,
             json!({
                 "crossing": "none_required",
                 "credential_posture": credential_posture,
-                "reason": "the route declares no credential; nothing is presented to the provider",
+                "reason": "the route declares no credential and holds none; nothing is presented to the provider",
             }),
         ));
     }
-    // A posture that names a credential with nothing sealed behind it is refused BEFORE the wallet
-    // crossing. The gateway would answer 428 for the same condition, but only after consuming a
-    // grant use to get there — and an operator who simply has not bound a key should not pay owner
-    // authority to be told so.
-    if credential_binding.get("kind").and_then(Value::as_str) != Some("sealed_capability_lease") {
+    // A route that names or holds a credential but has nothing sealed behind it is refused BEFORE
+    // the wallet crossing. The gateway would answer 428 for the same condition, but only after
+    // consuming a grant use to get there — and an operator who simply has not bound a key should not
+    // pay owner authority to be told so.
+    if !has_sealed_custody {
         return Err(bad(
             StatusCode::PRECONDITION_REQUIRED,
             "model_route_credential_unbound",
@@ -797,10 +815,26 @@ async fn resolve_route_credential(
         scopes: vec!["model.invoke".to_string()],
         policy_domain: "hypervisor.model-route.invoke.policy.v1".to_string(),
         request_domain: "hypervisor.model-route.invoke.request.v1".to_string(),
-        // The route is the binding facet. The PROMPT deliberately is not: folding it into the
-        // request hash would make every invocation a distinct crossing requiring its own grant,
-        // which is a per-prompt approval treadmill rather than a bounded authority to use a route.
-        request_facets: json!({ "route_id": route_id, "credential_posture": credential_posture }),
+        // THE DESTINATION IS BOUND INTO THE CROSSING, and that is load-bearing, not cosmetic.
+        //
+        // `capability_lease_request_hash` folds `request_facets` into the hash a wallet grant is
+        // approved against. If the facets named only the route id, a grant approved for "invoke
+        // route R" would stay valid after R's `base_url` was repointed — so an owner's ordinary,
+        // already-approved grant would ship the sealed provider key to whatever host the route now
+        // names. Binding `base_url` and `model_id` here means a repointed route no longer matches
+        // the grant that was approved for the original destination: the crossing refuses, and the
+        // owner is forced to approve a NEW grant that names the new host. (An adversarial review
+        // caught this; the first cut bound only the route id.)
+        //
+        // The PROMPT is still deliberately absent: folding it in would make every invocation a
+        // distinct crossing needing its own grant — a per-prompt approval treadmill rather than a
+        // bounded authority to use a route against a fixed destination.
+        request_facets: json!({
+            "route_id": route_id,
+            "credential_posture": credential_posture,
+            "base_url": base_url,
+            "model_id": model_id,
+        }),
         credential_connector_id: Some(route_id.to_string()),
         credential_store: super::model_routes::CREDENTIAL_DIR.to_string(),
         credential_required: true,
@@ -1015,6 +1049,8 @@ pub(crate) async fn handle_model_route_invoke(
         &st,
         &id,
         &credential_posture,
+        &base_url,
+        &model_id,
         route.get("credential_binding").unwrap_or(&Value::Null),
         &body,
     )

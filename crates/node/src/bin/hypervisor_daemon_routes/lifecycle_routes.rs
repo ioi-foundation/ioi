@@ -15764,10 +15764,7 @@ fn request_exposed(headers: &HeaderMap) -> bool {
     false
 }
 /// True if the daemon itself is bound to a non-loopback address (directly exposed).
-/// Is this daemon reachable beyond loopback? Derived from the bind address alone, so it is
-/// answerable at BOOT — before any data dir or request exists. That is what lets the process-
-/// environment provider-key fence in `resolve_inference` be a real gate rather than a comment.
-pub(crate) fn daemon_exposed() -> bool {
+fn daemon_exposed() -> bool {
     std::env::var("IOI_HYPERVISOR_DAEMON_ADDR")
         .ok()
         .map(|a| {
