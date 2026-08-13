@@ -1775,14 +1775,25 @@ pub(crate) async fn handle_model_route_invoke(
     // credentialed route would hit it on every attempt after the first.
     //
     // The same determinism defeats a credentialed FALLBACK from the other side: the facets bind
-    // `base_url` and `model_id` (the IX anti-exfiltration hardening), so a grant signed for one
-    // route cannot satisfy another, and this request carries exactly one `wallet_approval_grant`.
+    // `base_url` and `model_id` (the IX anti-exfiltration hardening), so this request's single
+    // `wallet_approval_grant` — approved for the primary's destination — cannot satisfy a second
+    // route's.
     //
-    // Making either work needs a per-attempt nonce in the facets AND a grant per crossing — an
-    // extension of the AUTHORITY model, with its own ruling about how many uses an owner is
-    // approving when they approve a retry. That is not a thing to slip into a routing cut, and
-    // reusing one grant across crossings would be exactly the weakening `require_spend_authority`
-    // exists to prevent. So this refuses, typed and BEFORE anything executes, and the gap is named.
+    // THE SPEND SEMANTICS ARE RULED (owner, 2026-08-13), so what remains is BUILD, not a decision.
+    // The two cases are NOT the same authority boundary:
+    //   - A RETRY on one credentialed route is ONE grant carrying `max_usages: N` — the field the
+    //     substrate already enforces (`governed_authority.rs`) — because every attempt crosses the
+    //     SAME boundary: same owner, same destination, same model. Three separately signed grants
+    //     would duplicate one bounded approval and ignore what `max_usages` exists to express.
+    //     Making it work needs a per-attempt EFFECT identity (an attempt ordinal folded into the
+    //     facets) so consumption N+1 is a distinct operation rather than a replay of N, and
+    //     idempotent recovery of an already-consumed attempt that spends no further use.
+    //   - A FALLBACK to a DIFFERENT route is a DIFFERENT boundary — a destination the primary's
+    //     grant does not cover — so it genuinely needs its OWN grant, one per declared credentialed
+    //     hop. Borrowing the primary's grant for another destination would be exactly the weakening
+    //     `require_spend_authority` exists to prevent.
+    // The build is out of scope for a routing cut, so this refuses, typed and BEFORE anything
+    // executes, and the residual is named.
     // Checked on the DECLARED records, before admission: this is a refusal about the shape of the
     // request, and the module's standing order is request shape before world state. Ordered after
     // admission it would answer "not executable" to a caller whose real error is that they asked
@@ -1798,7 +1809,7 @@ pub(crate) async fn handle_model_route_invoke(
             StatusCode::NOT_IMPLEMENTED,
             "model_invocation_multi_attempt_credentialed_unsupported",
             format!(
-                "retry and fallback are not available for credentialed routes ({}): each crossing is deterministic, so a second one reads as a replay of the first, and a grant is bound to one route's destination. Authorizing N crossings needs a per-attempt nonce and a grant per attempt — a change to the authority model, not to the router. Invoke a credentialed route with a single attempt and no fallback.",
+                "retry and fallback are not available for credentialed routes ({}): each crossing is deterministic, so a second under the same grant reads as a replay. This is a build gap, not a policy one — a same-route retry is one grant carrying an approved usage ceiling (max_usages: N) plus a per-attempt effect identity, and a fallback to a different destination needs its own grant. Invoke a credentialed route with a single attempt and no fallback.",
                 credentialed.join(", ")
             ),
         );
