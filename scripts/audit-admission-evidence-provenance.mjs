@@ -210,7 +210,7 @@ const SEAM_FILES = new Set(["lifecycle_routes.rs", "portal_session_exchange_rout
 // handler's writes, so a seam-mediated gate is recognized just as a seam-mediated
 // write is counted.
 const IDENTITY =
-  /\b(resolve_request_identity|session_request_write_owner|load_owned_session_record_for_write|require_write_caller|require_authenticated_org_admin|require_authenticated_principal|require_authenticated_admin|resolve_governance_reviewer|prepare_approval_patch_identity|resolve_principal|bind_request_resource_scope|authorize_scope)\s*\(/gu;
+  /\b(resolve_request_identity|session_request_write_owner|load_owned_session_record_for_write|require_write_caller|require_authenticated_org_admin|require_authenticated_principal|require_authenticated_admin|resolve_governance_reviewer|prepare_approval_patch_identity|resolve_principal|bind_request_resource_scope|authorize_scope|require_route_caller|authorize_route_owner|authorize_route_owner_for_headers|authorize_session_route_binding|authorize_request_resource_scope)\s*\(/gu;
 const RECORD_READ =
   /\b(load|load_record|read_record_dir|find_by_key|read_owner_scoped_head|read_owner_scoped_history)\s*\(/gu;
 // Helper write seams: named persist_*/save_*/*_write wrappers in the daemon route
@@ -407,9 +407,15 @@ const H_BASELINE = [
   "materializing_run_routes.rs::handle_mrun_delete",
   "materializing_run_routes.rs::handle_mrun_patch",
   "materializing_run_routes.rs::handle_mrun_release_lease",
-  "model_routes.rs::handle_model_route_bind_session",
-  "model_routes.rs::handle_model_route_create",
-  "model_routes.rs::handle_model_route_delete",
+  // The five `model_routes.rs::handle_model_route_*` mutating handlers — bind_session,
+  // create, delete, patch and select_default — LEFT the baseline 2026-08-13 (next-legs X
+  // Leg 1): the model-route registry gained a per-request identity seam
+  // (`require_route_caller`) and a per-principal ownership check
+  // (`authorize_route_owner`, reading the substrate scope pinned at create), so every one
+  // of them now resolves a caller and an owner in-handler. The IDENTITY census above was
+  // widened in the same commit to recognise those seams; without that it would have kept
+  // reporting four of the five as unauthenticated while they were not, which understates
+  // the ratchet and would let a later regression pass unnoticed.
   "odk_routes.rs::handle_odk_descriptor_delete",
   "ontology_projection_routes.rs::handle_projection_create",
   "ontology_projection_routes.rs::handle_projection_delete",
@@ -482,8 +488,6 @@ const H_BASELINE = [
   "hypervisoros_node_routes.rs::handle_node_transition",
   "lifecycle_routes.rs::handle_subagent_cancel",
   "lifecycle_routes.rs::handle_subagents_propagate_cancel",
-  "model_routes.rs::handle_model_route_patch",
-  "model_routes.rs::handle_model_route_select_default",
   "placement_failover_routes.rs::handle_failover_plan_arm",
   "placement_failover_routes.rs::handle_failover_plan_disarm",
   "recipe_routes.rs::handle_recipe_create",
