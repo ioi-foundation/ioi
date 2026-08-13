@@ -1311,6 +1311,15 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/backup-exports/:token",
             get(managed_runtime_routes::handle_backup_export_download),
         )
+        // W3.3 — the other half of export: re-establish an exported backup on THIS daemon. A
+        // bundle is decoded and verified WHOLE before a byte of it is trusted, so the body limit is
+        // the memory and quarantine disk this plane will spend on unverified material.
+        .route(
+            "/v1/hypervisor/backup-imports",
+            post(managed_runtime_routes::handle_backup_import).layer(DefaultBodyLimit::max(
+                managed_runtime_routes::MAX_IMPORT_BYTES * 2,
+            )),
+        )
         // W1.3 — DownloadIntent plane (schema://ioi/foundations/download-intent/v1): short-lived,
         // rights-bound, hash-committed, range-capable delivery with pre-serve delivery admission.
         // The intent id is NOT a bearer token; every route re-authenticates. The legacy one-off

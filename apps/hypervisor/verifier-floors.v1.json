@@ -125,6 +125,13 @@
       "assertion_names_sha256": "6488317a49ba059f84308ae8ed7d9a54a2cd1c4bf2853755e3eea5bc3a9b884f"
     },
     {
+      "id": "backup-restore",
+      "npm_script": "check:backup-restore",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-backup-restore.mjs",
+      "runtime_assertions": 76,
+      "assertion_names_sha256": "d8f97b56224f06f837f6ba29d0a2104af58ccfe57cb1f8df5f8304955a9c1c3c"
+    },
+    {
       "id": "ported-seed",
       "npm_script": "check:ported-seed",
       "source": "apps/hypervisor/scripts/verify-hypervisor-ported-seed-invariant.mjs",

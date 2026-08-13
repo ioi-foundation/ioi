@@ -3556,11 +3556,39 @@ fn capture_workspace(st: &DaemonState, env_id: &str, kind: &str) -> Result<Value
     Ok(public_record)
 }
 
+/// Require an authenticated principal on a legacy custody mutation, before any record is read.
+///
+/// FOUND BY THIS LEG'S OWN DERIVED CENSUS, and it is the model-route defect class on the custody
+/// surface: `handle_snapshot_create`, `handle_backup_create` and `handle_snapshot_restore` took
+/// `State` (+ `Json`/`AxumPath`) and NO `HeaderMap`, so none of them resolved a caller. Under the
+/// default `auto` posture the only gate is `daemon_exposed() || request_exposed(headers)`, which is
+/// false for the estate's own documented loopback-behind-`serve` topology — so on that deployment
+/// an unauthenticated party could archive any environment's workspace and, worse,
+/// `POST /snapshots/:id/restore` could OVERWRITE any environment's workspace with archived bytes.
+///
+/// RESIDUAL, stated because authentication is not authorization: the legacy snapshot/backup lane
+/// still carries no per-environment owner, so any AUTHENTICATED principal can still snapshot or
+/// restore any environment. Closing that needs an environment ownership model — the registry-wide
+/// change the managed-runtime plane above already has and this legacy lane does not — and it is
+/// filed as its own open defect rather than half-built here.
+fn require_custody_caller(data_dir: &str, headers: &HeaderMap) -> Result<(), AppError> {
+    super::substrate_store::resolve_request_identity(data_dir, headers)
+        .map(|_| ())
+        .map_err(|refusal| {
+            AppError(
+                StatusCode::UNAUTHORIZED,
+                format!("{}: {}", refusal.code(), refusal.message()),
+            )
+        })
+}
+
 /// POST /v1/hypervisor/snapshots — forkable point-in-time snapshot. `{ "environment_id": "..." }`.
 pub(crate) async fn handle_snapshot_create(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
+    require_custody_caller(&st.data_dir, &headers)?;
     let env_id = body
         .get("environment_id")
         .and_then(|v| v.as_str())
@@ -3573,8 +3601,10 @@ pub(crate) async fn handle_snapshot_create(
 /// POST /v1/hypervisor/backups — durability material (distinct from a snapshot).
 pub(crate) async fn handle_backup_create(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
+    require_custody_caller(&st.data_dir, &headers)?;
     let env_id = body
         .get("environment_id")
         .and_then(|v| v.as_str())
@@ -3594,8 +3624,12 @@ pub(crate) async fn handle_snapshots_list(State(st): State<Arc<DaemonState>>) ->
 /// existing is not sufficient; restore validity is operation-backed.
 pub(crate) async fn handle_snapshot_restore(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
 ) -> Result<Json<Value>, AppError> {
+    // Rule E: identity before any record read — a 401 is owed before a 404 existence oracle, and
+    // this handler's effect is a WRITE into an environment's workspace.
+    require_custody_caller(&st.data_dir, &headers)?;
     let app = |c: StatusCode, e: String| AppError(c, e);
     let path = std::path::Path::new(&st.data_dir)
         .join("snapshots")

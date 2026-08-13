@@ -421,6 +421,50 @@ pub(crate) async fn handle_disposition_delete(
         Ok(commit) => commit,
         Err(response) => return response,
     };
+    // TOMBSTONE THE SUBJECT BEFORE DESTROYING A BYTE.
+    //
+    // Destroying the payload alone made this deletion legible only as an ABSENCE: the backup plane
+    // read the missing file and answered `managed_backup_material_unavailable`, the same observable
+    // a lost disk produces, and nothing stopped an exported bundle from being re-imported to put
+    // the bytes back. The backup's lifecycle head now carries the deletion, so restore, export,
+    // import and re-capture all refuse it by name. Admitting the tombstone FIRST means a deletion
+    // that reaches the filesystem always carries it; a tombstone that cannot be admitted refuses
+    // the deletion outright, with nothing destroyed and a retry that converges.
+    let subject_ref = record["subject"]["subject_ref"]
+        .as_str()
+        .unwrap_or("")
+        .to_string();
+    let tombstone = match super::managed_runtime_routes::tombstone_backup(
+        &st.data_dir,
+        &caller.identity,
+        &subject_ref,
+        &disposition_ref,
+        &caller.idempotency_key,
+    ) {
+        Ok(tombstone) => tombstone,
+        Err((status, body)) => {
+            // The deletion admission above already ADVANCED this stream. Project that head before
+            // returning, or a retry under a different idempotency key reads the stale one, takes a
+            // HeadConflict, and the disposition can never be executed, held, or released again —
+            // which would make "retry to converge" true for exactly one retry shape.
+            let mut advanced = record;
+            project_admission(&mut advanced, &commit);
+            if let Err(response) = project_or_fail(&st.data_dir, &id, &advanced) {
+                return response;
+            }
+            return (
+                status,
+                Json(json!({
+                    "ok": false,
+                    "error": {
+                        "code": "retention_deletion_subject_tombstone_failed",
+                        "message": "the deletion is admitted but its subject could not be tombstoned; NOTHING was destroyed — retry to converge",
+                        "subject_refusal": body.0,
+                    }
+                })),
+            );
+        }
+    };
     // Execute: destroy the payload bytes. The admitted backup record and every receipt
     // survive — deletion removes content, never the evidence that content existed.
     let state_root = record["subject"]["payload_state_root"]
@@ -452,7 +496,8 @@ pub(crate) async fn handle_disposition_delete(
         "executed_by": executed_by,
         "executed_at": super::iso_now(),
         "evidence": material,
-        "evidence_retention_note": "the admitted backup record and its receipts survive as history; the payload bytes are destroyed",
+        "subject_tombstone": tombstone,
+        "evidence_retention_note": "the admitted backup record and its receipts survive as history; the payload bytes are destroyed and the subject's lifecycle head carries the tombstone that makes restore, export, import and re-capture refuse it by name",
     });
     project_admission(&mut successor, &commit);
     if let Err(response) = project_or_fail(&st.data_dir, &id, &successor) {
