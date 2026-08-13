@@ -265,6 +265,131 @@ async function run() {
   const reload = await pageText(`/ontology/schema?ontology=${encodeURIComponent(ontId)}`);
   ok("canonical mount re-renders the authored ontology after restart", reload.status === 200 && reload.text.includes(domain), "");
 
+  // ---- the thirteen governed controls: REAL, or a DISABLED NAMED GAP. Never silently absent. ----
+  //
+  // The frozen census puts 13 of the estate's 24 governed_receipted_action controls on this
+  // surface. Six were real (create-ontology + the five inspector EDIT forms). The other seven —
+  // the five New-menu create entries, the section New-object-type button, and the 5-step wizard —
+  // had daemon authority that SHIPPED and module actions that were DECLARED, yet no rendered
+  // gc_entry: with nothing selected the Manager rendered no authoring form at all, and the gaps note
+  // never named them. Silently absent is the one state the read-truth / local-UI-state /
+  // receipted-authority / disabled-named-gap ladder forbids, and no assertion here could see it,
+  // because every authoring assertion drove the action lane directly rather than asking the page
+  // whether a control existed.
+  const gc_CREATE_ENTRIES = [
+    { kind: "object-type", action: "upsert-object-type" },
+    { kind: "link-type", action: "upsert-link-type" },
+    { kind: "action-type", action: "upsert-action-type" },
+    { kind: "value-type", action: "upsert-value-type" },
+    { kind: "function", action: "upsert-action-type" },
+  ];
+  // SUBMIT WHAT THE FORM RENDERS. An assertion that hand-picks field values proves the ACTION works,
+  // never that the FORM does — and a form is what a user has. The first cut asserted exactly that
+  // and stayed green while `New -> Action type` shipped a hidden kind="action" the daemon's enum
+  // refuses on every submit: a control that renders, claims to be real, and can never succeed.
+  // This scrapes each rendered form's own fields (hidden values, first non-empty <option>) and
+  // POSTs that, supplying only the free-text id.
+  const gc_formFields = (html, action) => {
+    const at = html.indexOf(`action="/__ioi/ontology/manager/actions/${action}"`);
+    if (at < 0) return null;
+    const form = html.slice(at, html.indexOf("</form>", at));
+    const data = {};
+    for (const m of form.matchAll(/<input[^>]*name="([^"]+)"[^>]*>/gu)) {
+      if (/type="checkbox"/u.test(m[0])) continue;
+      const v = m[0].match(/value="([^"]*)"/u);
+      data[m[1]] = v ? v[1] : "";
+    }
+    for (const m of form.matchAll(/<select[^>]*name="([^"]+)"[^>]*>([\s\S]*?)<\/select>/gu)) {
+      const opts = [...m[2].matchAll(/<option value="([^"]*)"/gu)].map((o) => o[1]).filter(Boolean);
+      data[m[1]] = opts[0] ?? "";
+    }
+    return data;
+  };
+  const gc_missingEntries = [];
+  const gc_deadEntries = [];
+  for (const gc_entry of gc_CREATE_ENTRIES) {
+    const gc_pane = await pageText(`/ontology/schema?ontology=${encodeURIComponent(ontId)}&section=create&newKind=${gc_entry.kind}`);
+    const gc_fields = gc_formFields(gc_pane.text, gc_entry.action);
+    if (!gc_fields || !("create_new" in gc_fields)) { gc_missingEntries.push(gc_entry.kind); continue; }
+    const gc_sent = { ...gc_fields, ontology: ontId, def_id: `${gc_entry.kind.replace(/-/gu, "_")}_probe`, name: `Probe ${gc_entry.kind}` };
+    const gc_res = await act(gc_entry.action, gc_sent);
+    if (gc_res.q.get("refused") || !gc_res.q.get("receipt")) gc_deadEntries.push(`${gc_entry.kind}:${gc_res.q.get("refused") || "no-receipt"}`);
+  }
+  ok("every New-menu create entry renders a REAL create form, not an absence",
+    gc_missingEntries.length === 0, gc_missingEntries.length ? `missing: ${gc_missingEntries.join(", ")}` : `${gc_CREATE_ENTRIES.length}/5 reachable`);
+  ok("every create entry SUBMITS as rendered — no control that renders but can never succeed",
+    gc_deadEntries.length === 0, gc_deadEntries.length ? `refused as rendered: ${gc_deadEntries.join(", ")}` : `${gc_CREATE_ENTRIES.length}/5 submit`);
+
+  const gc_discover = await pageText(`/ontology/schema?ontology=${encodeURIComponent(ontId)}`);
+  ok("the section-level New object type control is rendered on the surface",
+    /<a[^>]+class="og-newobj"[^>]+href="[^"]*newKind=object-type/.test(gc_discover.text), "anchor + href pinned");
+
+  // The create lane AUTHORS — proven on durable truth, not on the redirect.
+  const gc_beforeCreate = await jd(`/v1/hypervisor/odk/domain-ontologies/${ontId}`);
+  const gc_lnkBefore = ((gc_beforeCreate.body?.ontology?.canonical_object_model || {}).link_types || []).length;
+  const madeLink = await act("upsert-link-type", { ontology: ontId, create_new: "1", def_id: "lnk_journey", name: "Journey link", from: "obj_journey", to: "obj_journey", cardinality: "one_to_many" });
+  const gc_afterCreate = await jd(`/v1/hypervisor/odk/domain-ontologies/${ontId}`);
+  const gc_lnkAfter = ((gc_afterCreate.body?.ontology?.canonical_object_model || {}).link_types || []);
+  ok("a create entry authors a NEW definition with a receipt, readable in durable truth",
+    madeLink.q.get("acted") === "upsert-link-type" && !!madeLink.q.get("receipt")
+      && gc_lnkAfter.length === gc_lnkBefore + 1 && gc_lnkAfter.some((l) => l.id === "lnk_journey"),
+    `${gc_lnkBefore} -> ${gc_lnkAfter.length} receipt ${madeLink.q.get("receipt") ? "yes" : "no"}`);
+
+  // CREATE MEANS CREATE. `upsert-*` merges on an existing id, so without this the create gc_entry
+  // would silently rewrite a definition and still return a receipt.
+  const gc_revBeforeDup = gc_afterCreate.body?.ontology?.revision;
+  const gc_dup = await act("upsert-link-type", { ontology: ontId, create_new: "1", def_id: "lnk_journey", name: "CLOBBERED", from: "obj_journey", to: "obj_journey", cardinality: "one_to_one" });
+  const gc_afterDup = await jd(`/v1/hypervisor/odk/domain-ontologies/${ontId}`);
+  const gc_dupLink = ((gc_afterDup.body?.ontology?.canonical_object_model || {}).link_types || []).find((l) => l.id === "lnk_journey");
+  ok("a create entry REFUSES a duplicate id typed — it never merges over an existing definition",
+    gc_dup.q.get("refused") === "ontology_definition_exists", `refused ${gc_dup.q.get("refused") || "<none>"}`);
+  ok("the refused duplicate changed NOTHING — same revision, original name intact",
+    gc_afterDup.body?.ontology?.revision === gc_revBeforeDup && gc_dupLink?.name === "Journey link",
+    `rev ${gc_revBeforeDup} -> ${gc_afterDup.body?.ontology?.revision}, name ${gc_dupLink?.name}`);
+
+  // The EDIT lane is the other half of the distinction: same id, no create intent, merges.
+  const gc_edited = await act("upsert-link-type", { ontology: ontId, def_id: "lnk_journey", name: "Journey link renamed", from: "obj_journey", to: "obj_journey", cardinality: "one_to_many" });
+  const gc_afterEdit = await jd(`/v1/hypervisor/odk/domain-ontologies/${ontId}`);
+  ok("the EDIT lane still merges onto the same id — create and edit stay distinct governed acts",
+    gc_edited.q.get("acted") === "upsert-link-type"
+      && ((gc_afterEdit.body?.ontology?.canonical_object_model || {}).link_types || []).find((l) => l.id === "lnk_journey")?.name === "Journey link renamed",
+    "renamed in place");
+
+  // THE PROPERTY LANE IS THE ONE LABELLED "Add", AND IT WAS THE ONE THAT STILL CLOBBERED.
+  // A merge-blocking review found the create guard was declared for `upsert-property` but dead:
+  // no create entry existed for properties, and the only property-authoring control — the object
+  // type inspector's "Add a property" form — sent no create intent, so retyping an existing
+  // property id silently changed its value type and returned a receipt for it. The guard is now on
+  // that form; without this assertion, removing it again is invisible (it was: the mutation that
+  // strips it passed 44/44).
+  await act("upsert-object-type", { ontology: ontId, create_new: "1", def_id: "obj_propowner", name: "Prop owner" });
+  await act("upsert-property", { ontology: ontId, create_new: "1", object_type_id: "obj_propowner", def_id: "prop_amount", name: "Amount", value_type: "string" });
+  // DRIVE THE FORM, NOT THE ACTION. Posting `create_new` by hand proves the ACTION refuses a
+  // duplicate; it says nothing about whether the CONTROL sends the create intent. The first version
+  // of this assertion did exactly that and the mutation stripping `create_new` from the rendered
+  // "Add a property" form passed 46/46 — twice. The fields below come from the form itself.
+  const gc_addPane = await pageText(`/ontology/schema?ontology=${encodeURIComponent(ontId)}&section=object-types&definitionKind=object-type&definitionId=obj_propowner`);
+  const gc_addFields = gc_formFields(gc_addPane.text, "upsert-property") || {};
+  const gc_propDup = await act("upsert-property", { ...gc_addFields, ontology: ontId, object_type_id: "obj_propowner", def_id: "prop_amount", name: "Amount", value_type: "integer" });
+  const gc_afterProp = await jd(`/v1/hypervisor/odk/domain-ontologies/${ontId}`);
+  const gc_prop = (((gc_afterProp.body?.ontology?.canonical_object_model || {}).object_types || [])
+    .find((t) => t.id === "obj_propowner")?.properties || []).find((x) => x.id === "prop_amount");
+  ok("the rendered ADD A PROPERTY form carries the create intent — a duplicate id is refused, never silently retyped",
+    gc_propDup.q.get("refused") === "ontology_definition_exists" && gc_prop?.value_type === "string",
+    `refused ${gc_propDup.q.get("refused") || "<none>"} · value_type ${gc_prop?.value_type}`);
+
+  // The property EDIT lane exists, or making Add create-only would have removed the ability to
+  // change a property at all.
+  const gc_propEdit = await pageText(`/ontology/schema?ontology=${encodeURIComponent(ontId)}&section=object-types&definitionKind=property&definitionId=${encodeURIComponent("obj_propowner.prop_amount")}`);
+  ok("a property EDIT lane is rendered, so create-only Add does not strand the definition",
+    /action="\/__ioi\/ontology\/manager\/actions\/upsert-property"/.test(gc_propEdit.text) && !/name="create_new"[^>]*>\s*<label[^>]*>Property id/.test(gc_propEdit.text),
+    "edit form present");
+
+  // The one control of the thirteen that stays a gap says so where the gaps are named.
+  ok("the 5-step create wizard is a NAMED gap on the surface, not a silent absence",
+    gc_discover.text.includes("5-step create wizard"), "named in the gaps note");
+
+
   // -- G-8 posture matrix (browser) ------------------------------------------
   let pw = null;
   try { pw = await import("playwright"); } catch { pw = null; }

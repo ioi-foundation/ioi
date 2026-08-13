@@ -1702,8 +1702,9 @@
           "label": "New → Object type",
           "reference": "Map datasets/models to object types (opens 5-step wizard)",
           "outcome": "governed_receipted_action",
-          "binding": "upsert-object-type (PATCH domain-ontologies) — authority ships but no first-class create-new entry rendered (edit-only form)",
-          "implemented": false
+          "binding": "New -> Object type opens the governed create form (create_new=1) -> PATCH /v1/hypervisor/odk/domain-ontologies/{id} upsert-object-type (ontology_receipt, expected_revision); a duplicate id is refused, never merged",
+          "implemented": true,
+          "reason": "rendered as a first-class create entry by the owned surface (next-legs XII); the daemon authority already shipped, only the entry was missing"
         },
         {
           "id": "new.link-type",
@@ -1711,8 +1712,9 @@
           "label": "New → Link type",
           "reference": "Create relationships between object types",
           "outcome": "governed_receipted_action",
-          "binding": "upsert-link-type — authority ships; create entry not rendered",
-          "implemented": false
+          "binding": "New -> Link type opens the governed create form (create_new=1) -> upsert-link-type; from/to and cardinality are the daemon's own enums; duplicate id refused",
+          "implemented": true,
+          "reason": "rendered as a first-class create entry by the owned surface (next-legs XII); the daemon authority already shipped, only the entry was missing"
         },
         {
           "id": "new.action-type",
@@ -1720,8 +1722,9 @@
           "label": "New → Action type",
           "reference": "Allow writeback to the ontology",
           "outcome": "governed_receipted_action",
-          "binding": "upsert-action-type — declaration authority ships; create entry not rendered (execution stays gapped)",
-          "implemented": false
+          "binding": "New -> Action type opens the governed create form (create_new=1) -> upsert-action-type; kind is the daemon's ACTION_KINDS enum minus function, applies_to required; duplicate id refused",
+          "implemented": true,
+          "reason": "rendered as a first-class create entry by the owned surface (next-legs XII); the daemon authority already shipped, only the entry was missing"
         },
         {
           "id": "new.value-type",
@@ -1729,8 +1732,9 @@
           "label": "New → Value type",
           "reference": "Define property value constraints",
           "outcome": "governed_receipted_action",
-          "binding": "upsert-value-type — authority ships; create entry not rendered",
-          "implemented": false
+          "binding": "New -> Value type opens the governed create form (create_new=1) -> upsert-value-type; base from the daemon vocabulary; duplicate id refused",
+          "implemented": true,
+          "reason": "rendered as a first-class create entry by the owned surface (next-legs XII); the daemon authority already shipped, only the entry was missing"
         },
         {
           "id": "new.function",
@@ -1738,8 +1742,9 @@
           "label": "New → Function",
           "reference": "Define object modifications in code",
           "outcome": "governed_receipted_action",
-          "binding": "upsert-action-type kind=function (declaration) — authority ships; create entry not rendered",
-          "implemented": false
+          "binding": "New -> Function opens the governed create form (create_new=1) -> upsert-action-type kind=function (declaration only); duplicate id refused",
+          "implemented": true,
+          "reason": "rendered as a first-class create entry by the owned surface (next-legs XII); the daemon authority already shipped, only the entry was missing"
         },
         {
           "id": "new.shared-property",
@@ -1972,8 +1977,9 @@
           "label": "New object type (section button)",
           "reference": "section-level create button",
           "outcome": "governed_receipted_action",
-          "binding": "maps to upsert-object-type (create-on-new-id) — authority ships; section-level entry not rendered",
-          "implemented": false
+          "binding": "Section-level New object type -> the same governed create form as New -> Object type (create_new=1, upsert-object-type, ontology_receipt)",
+          "implemented": true,
+          "reason": "rendered as a first-class create entry by the owned surface (next-legs XII); the daemon authority already shipped, only the entry was missing"
         },
         {
           "id": "body.configure-link",
@@ -2000,7 +2006,8 @@
           "reference": "Datasource → Metadata → Properties → Actions → Save location",
           "outcome": "governed_receipted_action",
           "binding": "IOI authority exists (upsert-object-type + upsert-property → ontology_receipt) but no guided wizard / first-class create entry — realized only as inspector edit forms today",
-          "implemented": false
+          "implemented": false,
+          "reason": "the guided 5-step flow is not built; the owned surface renders it as a DISABLED NAMED GAP beside the New forms, which carry the same authority and the same receipt"
         },
         {
           "id": "workflow.datasource-backing-step",
@@ -2130,47 +2137,53 @@
         }
       ],
       "implemented_control_census": [
+        "body.configure-link",
+        "body.definition-row-select",
+        "body.new-object-type-btn",
+        "body.object-explorer-link",
+        "body.object-type-card-select",
+        "body.ontology-switcher",
+        "body.search-form",
+        "config.configure-in-substrate",
+        "config.readout",
+        "global.account",
+        "global.applications",
         "global.home",
         "global.search-cmdj",
-        "global.applications",
-        "global.account",
         "hdr.app-chip",
-        "hdr.search-resources",
         "hdr.branch-main",
         "hdr.new",
-        "rail.discover",
-        "rail.proposals",
-        "rail.history",
-        "rail.object-types",
-        "rail.properties",
-        "rail.shared-properties",
-        "rail.link-types",
-        "rail.action-types",
-        "rail.groups",
-        "rail.interfaces",
-        "rail.value-types",
-        "rail.functions",
-        "rail.health-issues",
-        "rail.cleanup",
-        "rail.ontology-configuration",
-        "body.ontology-switcher",
-        "body.object-type-card-select",
-        "body.definition-row-select",
-        "body.search-form",
-        "body.configure-link",
-        "body.object-explorer-link",
-        "inspector.edit-object-type-form",
+        "hdr.search-resources",
         "inspector.add-property-form",
-        "inspector.edit-value-type-form",
-        "inspector.edit-link-type-form",
         "inspector.edit-action-type-form",
-        "inspector.execute-action",
+        "inspector.edit-link-type-form",
+        "inspector.edit-object-type-form",
+        "inspector.edit-value-type-form",
         "inspector.evaluate-function",
-        "inspector.relationship-browsing",
-        "inspector.open-substrate",
+        "inspector.execute-action",
         "inspector.open-in-cross-app",
-        "config.readout",
-        "config.configure-in-substrate"
+        "inspector.open-substrate",
+        "inspector.relationship-browsing",
+        "new.action-type",
+        "new.function",
+        "new.link-type",
+        "new.object-type",
+        "new.value-type",
+        "rail.action-types",
+        "rail.cleanup",
+        "rail.discover",
+        "rail.functions",
+        "rail.groups",
+        "rail.health-issues",
+        "rail.history",
+        "rail.interfaces",
+        "rail.link-types",
+        "rail.object-types",
+        "rail.ontology-configuration",
+        "rail.properties",
+        "rail.proposals",
+        "rail.shared-properties",
+        "rail.value-types"
       ],
       "existing_daemon": {
         "routes": [

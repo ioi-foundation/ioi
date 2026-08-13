@@ -23,8 +23,8 @@
       "id": "ontology-journey",
       "npm_script": "check:ontology-journey",
       "source": "apps/hypervisor/scripts/verify-hypervisor-ontology-journey.mjs",
-      "runtime_assertions": 36,
-      "assertion_names_sha256": "fdd2711f29b0cf1ec37e4c6082d13deabe48b69c9ae520367f5bd016d2965ae8"
+      "runtime_assertions": 46,
+      "assertion_names_sha256": "ed3903a71c147447131159b4b735f2a4bfc7e6daeb6d1b3a314673811f8092f7"
     },
     {
       "id": "governance-journey",

@@ -37,6 +37,7 @@ export function render(model, ctx) {
   return renderOntologyManagerPort(model.overview, model.lists, sel.ontology || "", {
     sel, vocab: model.vocab, embed: ctx.embed,
     q: ctx.url.searchParams.get("q") || "",
+    newKind: ctx.url.searchParams.get("newKind") || "",
     banner: {
       acted: ctx.url.searchParams.get("acted") || "", receipt: ctx.url.searchParams.get("receipt") || "",
       refused: ctx.url.searchParams.get("refused") || "", reason: ctx.url.searchParams.get("reason") || "",
@@ -56,11 +57,11 @@ const mkAction = (id, fields, extra) => ({ id, method: "POST", route: "/actions/
 export const actions = [
   mkAction("create-ontology", ["domain", "version", "description"], { context: [] }),
   mkAction("update-metadata", ["domain", "version", "description"]),
-  mkAction("upsert-value-type", ["def_id", "name", "base", "enum_values"]),
-  mkAction("upsert-object-type", ["def_id", "name", "description", "title_property"]),
-  mkAction("upsert-property", ["object_type_id", "def_id", "name", "value_type", "required"]),
-  mkAction("upsert-link-type", ["def_id", "name", "from", "to", "cardinality"]),
-  mkAction("upsert-action-type", ["def_id", "name", "kind", "applies_to"]),
+  mkAction("upsert-value-type", ["def_id", "name", "base", "enum_values", "create_new"]),
+  mkAction("upsert-object-type", ["def_id", "name", "description", "title_property", "create_new"]),
+  mkAction("upsert-property", ["object_type_id", "def_id", "name", "value_type", "required", "create_new"]),
+  mkAction("upsert-link-type", ["def_id", "name", "from", "to", "cardinality", "create_new"]),
+  mkAction("upsert-action-type", ["def_id", "name", "kind", "applies_to", "create_new"]),
 ];
 
 const bounded = (v, max) => (typeof v === "string" ? v.slice(0, max) : "");
@@ -150,6 +151,21 @@ export async function handleAction({ action, fields, daemonFetch, url }) {
     const com = ont.canonical_object_model || {};
     const id = bounded(fields.def_id || fields.object_type_id, 64).trim();
     if (!/^[a-z][a-z0-9_]*$/.test(action.id === "upsert-property" ? bounded(fields.def_id, 64).trim() : id)) return { kind: "refusal", http: 400, code: "ontology_type_id_invalid", message: "id must match ^[a-z][a-z0-9_]*$" };
+    // CREATE MEANS CREATE. `upsert-*` MERGES onto an existing id, which is right for the edit lane
+    // and wrong for a create entry: reusing an id would silently rewrite someone else's definition
+    // and still hand back a receipt — a governed control doing the opposite of what its label says.
+    // A create intent therefore refuses a duplicate, typed; editing remains the selected-definition
+    // lane. (The id is immutable after creation, so this is the only moment the distinction exists.)
+    if (fields.create_new === "1") {
+      const has = (list, wanted) => (Array.isArray(list) ? list : []).some((x) => x && x.id === wanted);
+      const dup = action.id === "upsert-value-type" ? has(com.value_types, id)
+        : action.id === "upsert-object-type" ? has(com.object_types, id)
+        : action.id === "upsert-link-type" ? has(com.link_types, id)
+        : action.id === "upsert-action-type" ? has(com.action_types, id)
+        : action.id === "upsert-property" ? has((((com.object_types || []).find((t) => t && t.id === bounded(fields.object_type_id, 64).trim())) || {}).properties, id)
+        : false;
+      if (dup) return { kind: "refusal", http: 409, code: "ontology_definition_exists", message: `'${id}' already exists in this ontology — open it to edit it; creating never overwrites` };
+    }
     if (action.id === "upsert-value-type") {
       const e = { id, name: bounded(fields.name, 200), base: bounded(fields.base, 32) || "string" };
       if (e.base === "enum") e.enum_values = bounded(fields.enum_values, 2000).split(",").map((s) => s.trim()).filter(Boolean);
@@ -374,7 +390,22 @@ function renderOntologyManagerPort(ov, lists, selectedId, opts) {
     const crumb = semanticBreadcrumb([{ label: selected.domain || selected.id, href: mHref({ section: "discover" }) }, { label: selD.kind }, { label: selD.id }]);
     if (def.missing) return `<div class="og-inspector" data-testid="og-inspector"><div class="og-ihd"><b>Not found</b></div><div class="og-ibody">${crumb}${ihint(`No ${esc(selD.kind)} <code>${esc(selD.id)}</code> in this ontology — failed closed. <a href="${mHref({ section: "discover" })}">Back to discover</a>.`, true)}</div></div>`;
     let title = selD.id, bodyHtml = "";
-    if (def.ot) {
+    // PROPERTY BEFORE OBJECT TYPE. `resolveDef()` returns `{ot, p}` for a property and `{ot}` for an
+    // object type, so testing `def.ot` first made the property branch below UNREACHABLE: selecting a
+    // property silently rendered its owning object type instead. That was true before this leg and
+    // hid a whole inspector; it started to matter when "Add a property" became create-only, because
+    // the property EDIT form lives in that branch and editing would have been stranded.
+    if (def.p) {
+      const { ot, p } = def; title = p.name || p.id;
+      bodyHtml = [
+        irow("owning object type", `<a href="${defHref("object-type", ot.id, { section: "object-types" })}">${esc(ot.name || ot.id)}</a>`),
+        irow("id · name", `${formatRef(p.id)} · ${esc(p.name || "—")}`),
+        irow("value type", formatRef(p.value_type || "")),
+        irow("posture", `${p.required ? "required" : "optional"}${ot.title_property === p.id ? " · title property" : ""}`),
+        `<h4 class="og-fhd">Edit property</h4>`,
+        aForm("upsert-property", `<input type="hidden" name="object_type_id" value="${esc(ot.id)}"><input type="hidden" name="def_id" value="${esc(p.id)}"><label class="og-fl">Name<input name="name" maxlength="200" value="${esc(p.name || "")}" required></label><label class="og-fl">Value type<select name="value_type" required>${opt([...vocab.base_value_types, ...vts.map((v) => v.id)], p.value_type || "")}</select></label><label class="og-fc"><input type="checkbox" name="required" value="1"${p.required ? " checked" : ""}> required</label>`),
+      ].join("");
+    } else if (def.ot) {
       const t = def.ot; title = t.name || t.id;
       const props = Array.isArray(t.properties) ? t.properties : [];
       const tsets = msets.filter((m) => m.object_type_id === t.id);
@@ -389,17 +420,8 @@ function renderOntologyManagerPort(ov, lists, selectedId, opts) {
         irow("open in", `<a href="${objectTypeLink(oid, t.id)}">Explorer</a> · <a href="${pipelineNodeLink(oid, "mapping")}">Pipeline</a>`),
         `<h4 class="og-fhd">Edit object type</h4>`,
         aForm("upsert-object-type", `<input type="hidden" name="def_id" value="${esc(t.id)}"><label class="og-fl">Name<input name="name" maxlength="200" value="${esc(t.name || "")}" required></label><label class="og-fl">Description<input name="description" maxlength="2000" value="${esc(t.description || "")}"></label><label class="og-fl">Title property<select name="title_property"><option value="">— none —</option>${opt(props.map((p) => p.id), t.title_property || "")}</select></label>`),
-        `<h4 class="og-fhd">Add / edit a property</h4>`,
-        aForm("upsert-property", `<input type="hidden" name="object_type_id" value="${esc(t.id)}"><label class="og-fl">Property id<input name="def_id" maxlength="64" pattern="[a-z][a-z0-9_]*" placeholder="lower_snake" required></label><label class="og-fl">Name<input name="name" maxlength="200" required></label><label class="og-fl">Value type<select name="value_type" required>${opt([...vocab.base_value_types, ...vts.map((v) => v.id)], "")}</select></label><label class="og-fc"><input type="checkbox" name="required" value="1"> required</label>`),
-      ].join("");
-    } else if (def.p) {
-      const { ot, p } = def; title = p.name || p.id;
-      bodyHtml = [
-        irow("owning object type", `<a href="${defHref("object-type", ot.id, { section: "object-types" })}">${esc(ot.name || ot.id)}</a>`),
-        irow("id · name", `${formatRef(p.id)} · ${esc(p.name || "—")}`),
-        irow("value type", formatRef(p.value_type || "")),
-        irow("posture", `${p.required ? "required" : "optional"}${ot.title_property === p.id ? " · title property" : ""}`),
-        irow("mapping usage", (lists.connector_mappings === null) ? "unavailable — daemon did not answer" : (lists.connector_mappings || []).filter((m) => m.ontology_ref === selected.ref && (m.field_mappings || []).some((f) => f.property_id === p.id) || (m.key_mapping && m.key_mapping.property_id === p.id)).length + " mapping(s)"),
+        `<h4 class="og-fhd">Add a property</h4>`,
+        aForm("upsert-property", `<input type="hidden" name="object_type_id" value="${esc(t.id)}"><input type="hidden" name="create_new" value="1"><label class="og-fl">Property id<input name="def_id" maxlength="64" pattern="[a-z][a-z0-9_]*" placeholder="lower_snake" required></label><label class="og-fl">Name<input name="name" maxlength="200" required></label><label class="og-fl">Value type<select name="value_type" required>${opt([...vocab.base_value_types, ...vts.map((v) => v.id)], "")}</select></label><label class="og-fc"><input type="checkbox" name="required" value="1"> required</label>`),
       ].join("");
     } else if (def.v) {
       const v = def.v; title = v.name || v.id;
@@ -470,8 +492,61 @@ function renderOntologyManagerPort(ov, lists, selectedId, opts) {
     }
     return `<div class="og-inspector" data-testid="og-inspector"><div class="og-ihd"><b>${esc(title)}</b><span class="og-ikind">${esc(selD.kind)}</span></div><div class="og-ibody">${crumb}${bodyHtml}${openSubstrate}</div></div>`;
   }
-  // Create-ontology form (section=create) — the one authoring lane without a selected ontology.
-  const createPane = section === "create" ? `<div class="og-inspector" data-testid="og-inspector"><div class="og-ihd"><b>Create ontology</b></div><div class="og-ibody">${ihint("A new DomainOntology draft (revision 1) with a create receipt. Add typed definitions after it exists.")}<form class="og-form" method="post" action="/__ioi/ontology/manager/actions/create-ontology">${sel.embed ? `<input type="hidden" name="embed" value="1">` : ""}<label class="og-fl">Domain<input name="domain" maxlength="120" placeholder="e.g. lending" required></label><label class="og-fl">Version<input name="version" maxlength="60" placeholder="0.1.0"></label><label class="og-fl">Description<input name="description" maxlength="2000"></label><button class="og-save" type="submit">Create</button></form></div></div>` : "";
+  // The New lane (section=create). Realizes the reference's New menu: the ontology create form plus
+  // ONE first-class create entry per definition kind.
+  //
+  // Before this, the daemon authority for all five kinds shipped and the module declared the
+  // actions, but the only rendered authoring forms were the inspector EDIT forms on an
+  // already-selected definition — so seven of this surface's thirteen governed controls were
+  // reachable by no path at all, and were not shown as disabled named gaps either. They were
+  // silently absent, which is the one state the read-truth / local-UI-state / receipted-authority /
+  // disabled-named-gap ladder does not allow.
+  //
+  // Each entry posts the SAME governed action the edit lane uses, with `create_new=1` so a
+  // duplicate id is refused rather than merged over.
+  // The field controls are the SAME vocab-driven selects the edit forms use, deliberately: a create
+  // form that offered a free-text value the daemon's enum refuses would hand the user a placeholder
+  // that fails closed on submit. (It did — the first cut typed `one-to-many` where the daemon
+  // enumerates `one_to_many`, and the live probe refused every create.)
+  const NEW_KINDS = [
+    { k: "object-type", act: "upsert-object-type", label: "Object type", idph: "obj_widget",
+      body: `<label class="og-fl">Name<input name="name" maxlength="200" required></label><label class="og-fl">Description<input name="description" maxlength="2000"></label>` },
+    { k: "link-type", act: "upsert-link-type", label: "Link type", idph: "lnk_owns",
+      needs: "object-types",
+      body: `<label class="og-fl">Name<input name="name" maxlength="200" required></label><label class="og-fl">From<select name="from" required>${opt(otOptions, "")}</select></label><label class="og-fl">To<select name="to" required>${opt(otOptions, "")}</select></label><label class="og-fl">Cardinality<select name="cardinality" required>${opt(vocab.link_cardinalities, "")}</select></label>` },
+    { k: "action-type", act: "upsert-action-type", label: "Action type", idph: "act_approve",
+      // `kind` is the daemon's OWN enum minus `function` (which has its own entry below), never a
+      // hardcoded literal: the first cut sent kind="action", which ACTION_KINDS does not contain,
+      // so every submit refused — the same defect as the `one-to-many` placeholder, re-shipped in
+      // the sibling field. `applies_to` is REQUIRED because the daemon requires it for every
+      // non-function kind, and an empty select value is dropped before it ever reaches the module.
+      needs: "object-types",
+      body: `<label class="og-fl">Name<input name="name" maxlength="200" required></label><label class="og-fl">Kind<select name="kind" required>${opt((vocab.action_kinds || []).filter((k) => k !== "function"), "")}</select></label><label class="og-fl">Applies to<select name="applies_to" required>${opt(otOptions, "")}</select></label>` },
+    { k: "value-type", act: "upsert-value-type", label: "Value type", idph: "val_currency",
+      body: `<label class="og-fl">Name<input name="name" maxlength="200" required></label><label class="og-fl">Base<select name="base">${opt(vocab.base_value_types, "string")}</select></label><label class="og-fl">Enum values (comma-separated, if base=enum)<input name="enum_values" maxlength="2000"></label>` },
+    { k: "function", act: "upsert-action-type", label: "Function", idph: "fn_score",
+      body: `<label class="og-fl">Name<input name="name" maxlength="200" required></label><input type="hidden" name="kind" value="function"><label class="og-fl">Applies to<select name="applies_to"><option value="">— none —</option>${opt(otOptions, "")}</select></label>` },
+  ];
+  const newKind = String(O.newKind || "");
+  const newHref = (k) => ontologyContextQuery("/__ioi/ontology/manager", { ontology: oid, section: "create", ...(sel.embed ? { embed: sel.embed } : {}) }) + `&newKind=${encodeURIComponent(k)}`;
+  const ontologyCreateForm = `<form class="og-form" method="post" action="/__ioi/ontology/manager/actions/create-ontology">${sel.embed ? `<input type="hidden" name="embed" value="1">` : ""}<label class="og-fl">Domain<input name="domain" maxlength="120" placeholder="e.g. lending" required></label><label class="og-fl">Version<input name="version" maxlength="60" placeholder="0.1.0"></label><label class="og-fl">Description<input name="description" maxlength="2000"></label><button class="og-save" type="submit">Create</button></form>`;
+  const chosen = NEW_KINDS.find((n) => n.k === newKind);
+  const newMenu = selected
+    ? `<div class="og-newmenu">${NEW_KINDS.map((n) => `<a class="og-newitem${n.k === newKind ? " on" : ""}" href="${newHref(n.k)}">New ${esc(n.label)}</a>`).join("")}</div>`
+    : "";
+  // An entry whose required select has no options can never be submitted. Advertising it as a live
+  // control would be the "simulated success" the ladder forbids, so it renders as a DISABLED NAMED
+  // GAP naming its own precondition.
+  const kindBlocked = chosen && chosen.needs === "object-types" && otOptions.length === 0;
+  const kindGapPane = kindBlocked
+    ? `<div class="og-inspector" data-testid="og-inspector"><div class="og-ihd"><b>New ${esc(chosen.label)}</b><span class="og-ikind">${esc(chosen.k)}</span></div><div class="og-ibody">${ihint(`A ${esc(chosen.label.toLowerCase())} must name declared object types, and this ontology has none yet.`)}${newMenu}<div class="og-iacts">${disabledSemanticAction({ label: `New ${chosen.label}`, reason: "declare an object type first — this form's required fields resolve only against declared object types" })}</div></div></div>`
+    : "";
+  const kindPane = !kindBlocked && chosen && selected
+    ? `<div class="og-inspector" data-testid="og-inspector"><div class="og-ihd"><b>New ${esc(chosen.label)}</b><span class="og-ikind">${esc(chosen.k)}</span></div><div class="og-ibody">${ihint(`A new ${esc(chosen.label.toLowerCase())} in <b>${domainLabel}</b>, authored through the same governed action the edit form uses (receipted, expected_revision). Ids are immutable and a duplicate is refused, never merged over.`)}${newMenu}<form class="og-form" method="post" action="/__ioi/ontology/manager/actions/${esc(chosen.act)}">${RET}<input type="hidden" name="create_new" value="1"><label class="og-fl">Id<input name="def_id" maxlength="64" pattern="[a-z][a-z0-9_]*" placeholder="${esc(chosen.idph)}" required></label>${chosen.body}<button class="og-save" type="submit">Create</button></form><div class="og-iacts">${disabledSemanticAction({ label: "Guided 5-step wizard", reason: "the guided create flow is not built — this single form carries the same authority and the same receipt" })}</div></div></div>`
+    : "";
+  const createPane = section === "create"
+    ? (kindGapPane || kindPane || `<div class="og-inspector" data-testid="og-inspector"><div class="og-ihd"><b>Create ontology</b></div><div class="og-ibody">${ihint("A new DomainOntology draft (revision 1) with a create receipt. Add typed definitions after it exists.")}${ontologyCreateForm}${selected ? ihint("Or add a typed definition to the selected ontology:") + newMenu : ""}</div></div>`)
+    : "";
   const aside = createPane || (def ? inspectorFor() : "");
 
   // Result banner (#ap-result — the runtime's redirect anchor). Renders only after an action.
@@ -489,6 +564,7 @@ function renderOntologyManagerPort(ov, lists, selectedId, opts) {
           <div class="og-ontolist">${ontologies.length ? ontologies.map((x) => `<a class="og-ontoitem${selected && x.id === selected.id ? " on" : ""}" href="/__ioi/ontology/manager?ontology=${enc(x.id)}">${esc(x.domain || x.id)} <span class="og-dot og-${(x.health || {}).status === "ready" ? "ok" : (x.health || {}).status === "empty" ? "muted" : "warn"}"></span></a>`).join("") : `<div class="og-none">No ontologies yet.</div>`}</div>
         </details>
         <a class="og-explorerlink" href="/__ioi/ontology/explorer" title="Object Explorer — browse object types and materialized object sets (the symmetric #35 surface)">Object Explorer →</a>
+        <a class="og-newobj" href="${newHref("object-type")}" title="Create a new object type in this ontology (governed, receipted)">New object type</a>
         <a class="og-configlink" href="/__ioi/odk/ontologies/${enc(selected.id)}/edit">Configure</a></div>
       ${ots.length ? `<div class="og-cards">${ots.map(cardOf).join("")}</div>` : `<div class="og-none">No object types yet. <a href="/__ioi/odk/ontologies/${enc(selected.id)}/edit">Add typed object types →</a></div>`}
     </section>
@@ -507,7 +583,7 @@ function renderOntologyManagerPort(ov, lists, selectedId, opts) {
       <div class="og-cfgrow"><span>Projections</span><b>${projs.length}</b></div>
       <div class="og-cfgrow"><span>Estate</span><span><span class="om-pill ok">${rollup.ready || 0} ready</span> <span class="om-pill warn">${rollup.incomplete || 0} incomplete</span> <span class="om-pill muted">${rollup.empty || 0} empty</span></span></div>
       <a class="og-editlink" href="/__ioi/odk/ontologies/${enc(selected.id)}/edit">Configure model in substrate →</a>
-      <div class="og-note" style="margin-top:8px">Named gaps (reference-only lanes, no authority contract yet): in-canvas schema editing · Proposals · Shared properties · Groups · Interfaces · Cleanup · action/function execution. Reference: <a href="/__apps/schema" target="_blank" rel="noopener">Ontology Manager ↗</a>.</div>
+      <div class="og-note" style="margin-top:8px">Named gaps (reference-only lanes, no authority contract yet): in-canvas schema editing · the 5-step create wizard (the New forms carry the same authority) · Proposals · Shared properties · Groups · Interfaces · Cleanup · action/function execution. Reference: <a href="/__apps/schema" target="_blank" rel="noopener">Ontology Manager ↗</a>.</div>
     </div></section>
   ` : `<div class="og-none" style="margin:40px auto;max-width:520px">Select or create an ontology to see its schema. <a href="/__ioi/odk/ontologies/new">Create an ontology →</a></div>`}</main>`;
 
