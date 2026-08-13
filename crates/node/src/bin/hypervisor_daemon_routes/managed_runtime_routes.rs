@@ -3665,9 +3665,6 @@ pub(crate) async fn handle_backup_import(
             error.to_string(),
         );
     }
-    let mut backup = backup;
-    backup["expires_at"] = json!(utc_rfc3339_seconds(now_ms() + 86_400_000));
-    let record_artifact_root = environment_artifact_root(&backup).unwrap_or(record_artifact_root);
     let key = format!(
         "hveb_{}",
         record_artifact_root.trim_start_matches("sha256:")
