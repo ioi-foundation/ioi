@@ -20,7 +20,10 @@
 //!     process-environment path here and never was: the boot-time `resolve_inference` singleton is
 //!     a separate, now dev-posture-gated lane that this module does not touch.
 //!   * retry and fallback DECISIONS — a transport classifies an error as retryable; only the router
-//!     decides whether to retry. This cut performs exactly one attempt and says so in the record.
+//!     decides whether to retry. The router now exists (see `decide_after_failure`): it may
+//!     re-attempt one route up to a caller-authorized bound, and it may move to a caller-DECLARED
+//!     fallback route. Every attempt is its own authority crossing, and the lineage records which
+//!     route each attempt hit and what was decided about it.
 //!   * billing — the transport reports what it OBSERVED; the economics ledger owns what it COST.
 //!     The join below hands the ledger an observed quantity and lets it price, sequence, hash-chain
 //!     and refuse on its own terms. This module computes no rate, no charge, and no total: it does
@@ -64,9 +67,6 @@ use super::{persist_record, DaemonState};
 const INVOCATION_NAMESPACE: &str = "hypervisor-model-invocations";
 const KIND_INVOCATION: &str = "model-invocations";
 const SCHEMA_VERSION: &str = "ioi.hypervisor.model-invocation.v1";
-/// One attempt per invocation in this cut. Retry/fallback DECISIONS belong to the router; the
-/// field exists so a later router can extend the lineage rather than re-shape the record.
-const ATTEMPTS_THIS_CUT: usize = 1;
 /// Wall-clock ceiling for one invocation. Exceeding it is `Timeout`, classified, never silent.
 const INVOKE_TIMEOUT_MS: u64 = 120_000;
 /// A stream that produces no further chunk for this long is a stall, distinct from a slow model.
@@ -130,6 +130,26 @@ pub(crate) struct TokenMix {
 }
 
 impl TokenMix {
+    /// Add another attempt's observed counts into this one.
+    ///
+    /// `None` means UNREPORTED, never zero — the distinction the whole meter is built on. So a
+    /// class stays `None` until some attempt reports it, and thereafter accumulates only what was
+    /// actually observed: an attempt that reported nothing contributes nothing rather than being
+    /// counted as a zero. The sum is therefore what the provider TOLD us it metered across the
+    /// invocation, which is exactly what the ledger is entitled to charge.
+    fn accumulate(&mut self, other: &TokenMix) {
+        fn add(into: &mut Option<u64>, value: Option<u64>) {
+            if let Some(value) = value {
+                *into = Some(into.unwrap_or(0).saturating_add(value));
+            }
+        }
+        add(&mut self.input, other.input);
+        add(&mut self.output, other.output);
+        add(&mut self.cache_read, other.cache_read);
+        add(&mut self.cache_write, other.cache_write);
+        add(&mut self.reasoning, other.reasoning);
+    }
+
     fn total(&self) -> Option<u64> {
         match (self.input, self.output) {
             (Some(i), Some(o)) => Some(i + o),
@@ -1343,6 +1363,225 @@ async fn resolve_route_credential(
 
 // ---------------------------------------------------------------- the route
 
+// ---------------------------------------------------------------------------
+// the ROUTER — retry and fallback DECISIONS
+// ---------------------------------------------------------------------------
+//
+// The standing separation this module was built around: a transport CLASSIFIES an error
+// (`ModelRuntimeErrorClass` + `retryable`); only the router DECIDES what to do about it. Before this
+// cut nothing decided, so `retryable` was a field nobody read and attempt lineage was a one-element
+// list under every spelling. The types below are deliberately the router's own and not the
+// transport's: a transport that could express "retry me" would be making the decision.
+
+/// The ceiling on attempts against ONE route.
+const MAX_ATTEMPTS_PER_ROUTE_CEILING: usize = 4;
+/// Wall-clock ceiling across the WHOLE router loop, not per attempt.
+///
+/// `INVOKE_TIMEOUT_MS` bounds one provider call. Without a bound over the loop, the worst case is
+/// every attempt against every target running to its own ceiling — sixteen calls holding one daemon
+/// task and socket for over half an hour. The router stops starting attempts once this has elapsed
+/// and records that it stopped, so an exhausted deadline is a stated outcome rather than a hang.
+const ROUTER_DEADLINE_MS: u128 = 180_000;
+/// Backoff before re-attempting the SAME route. A retryable failure is very often a rate limit
+/// (429 classifies retryable), and answering it with immediate re-hits under the owner's key is how
+/// a client turns its own throttling into a ban.
+const RETRY_BACKOFF_MS: [u64; 3] = [250, 1_000, 2_500];
+/// A declared fallback chain is bounded for the same reason each attempt is: every hop is a fresh
+/// authority crossing.
+const MAX_FALLBACK_ROUTES: usize = 3;
+
+/// How many times the router may attempt one route.
+///
+/// The default is ONE attempt — retries are OFF unless the caller asks for them. That is a spend
+/// ruling, not timidity: every attempt against a credentialed route mints its own CapabilityLease
+/// crossing and therefore CONSUMES another wallet-owned use of the owner's grant. A router that
+/// retried by default would spend owner authority the caller never asked to spend, which is the
+/// class of weakening `require_spend_authority` exists to prevent.
+#[derive(Clone, Copy)]
+struct RetryPolicy {
+    max_attempts_per_route: usize,
+}
+
+impl RetryPolicy {
+    /// `retry: { max_attempts: N }`. Absent means one attempt. Above the ceiling REFUSES rather than
+    /// silently clamping — a caller who asked for fifty attempts has misunderstood what an attempt
+    /// costs, and quietly giving them four would hide that rather than correct it.
+    fn parse(body: &Value) -> Result<Self, Reply> {
+        let Some(retry) = body.get("retry") else {
+            return Ok(Self {
+                max_attempts_per_route: 1,
+            });
+        };
+        // A PRESENT-BUT-UNREADABLE value refuses. `unwrap_or(1)` here silently clamped
+        // `-1`, `"3"`, `3.5` and a non-object `retry` down to a single attempt — which is the very
+        // clamping this refusal exists to prevent, arriving through the type system instead of
+        // through the range check.
+        let requested = match retry.get("max_attempts") {
+            None => 1,
+            Some(value) => match value.as_u64() {
+                Some(parsed) => parsed as usize,
+                None => 0,
+            },
+        };
+        if requested == 0 || requested > MAX_ATTEMPTS_PER_ROUTE_CEILING {
+            return Err(bad(
+                StatusCode::BAD_REQUEST,
+                "model_invocation_retry_policy_invalid",
+                format!(
+                    "retry.max_attempts must be between 1 and {MAX_ATTEMPTS_PER_ROUTE_CEILING}; each attempt against a credentialed route consumes another use of the owner's grant"
+                ),
+            ));
+        }
+        Ok(Self {
+            max_attempts_per_route: requested,
+        })
+    }
+}
+
+/// What the router decided after one failed attempt. Recorded on the attempt itself, so the lineage
+/// says why it moved on rather than leaving a reader to infer it from what happened next.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum RouterDecision {
+    RetrySameRoute,
+    FallbackNextRoute,
+    GiveUp,
+}
+
+impl RouterDecision {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::RetrySameRoute => "retry_same_route",
+            Self::FallbackNextRoute => "fallback_next_route",
+            Self::GiveUp => "give_up",
+        }
+    }
+}
+
+/// THE DECISION. Note what it reads: the transport's `retryable` classification, the policy the
+/// caller authorized, and where it stands in the target list. It never inspects the provider's
+/// response body and never re-classifies the error — either would be the router quietly taking over
+/// the transport's job, which is the separation this whole module is organised around.
+fn decide_after_failure(
+    retryable: bool,
+    attempt_on_this_route: usize,
+    policy: RetryPolicy,
+    target_index: usize,
+    target_count: usize,
+) -> RouterDecision {
+    if retryable && attempt_on_this_route < policy.max_attempts_per_route {
+        return RouterDecision::RetrySameRoute;
+    }
+    // A fallback is offered for ANY exhausted route, retryable or not: a route that fails
+    // non-retryably — an overflowed context, a provider that will not serve this model — is exactly
+    // the case a declared alternative exists for.
+    if target_index + 1 < target_count {
+        return RouterDecision::FallbackNextRoute;
+    }
+    RouterDecision::GiveUp
+}
+
+/// One route the router may execute against, already admission-checked.
+struct ExecutionTarget {
+    route_id: String,
+    route: Value,
+    route_ref: String,
+    transport_kind: String,
+    base_url: String,
+    model_id: String,
+    credential_posture: String,
+}
+
+/// Whether invoking this route will cross the CapabilityLease gateway.
+///
+/// Mirrors `resolve_route_credential`'s own rule rather than restating it loosely: sealed custody
+/// forces a crossing even where the posture string says otherwise, because the posture is a hint
+/// about what a route WANTS and the sealed record is the fact about what it HAS.
+fn route_is_credentialed(route: &Value) -> bool {
+    route.get("credential_posture").and_then(Value::as_str) != Some("no_credentials_required")
+        || route
+            .pointer("/credential_binding/kind")
+            .and_then(Value::as_str)
+            == Some("sealed_capability_lease")
+}
+
+/// Admission for ONE route, applied identically to the primary and to every declared fallback.
+///
+/// A fallback is not a privileged path. Were these checks relaxed for backups, declaring a route as
+/// a fallback would become a way to reach an unimplemented transport or an unprobed provider that
+/// the primary path refuses outright.
+fn admit_execution_target(route_id: &str, route: Value) -> Result<ExecutionTarget, Reply> {
+    let transport_kind = route
+        .pointer("/provider_binding/transport")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    let lifecycle = route
+        .pointer("/lifecycle/status")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    let availability = route
+        .pointer("/availability/state")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    // Transport support is checked BEFORE availability, deliberately. A route whose transport has no
+    // implementation can never execute no matter how healthy its provider is, so answering "not
+    // executable (availability)" would name the wrong blocker.
+    if !matches!(transport_kind.as_str(), "ollama" | "openai_compatible") {
+        return Err(bad(
+            StatusCode::NOT_IMPLEMENTED,
+            "provider_transport_unimplemented",
+            format!(
+                "transport '{transport_kind}' has no admitted ProviderTransport implementation"
+            ),
+        ));
+    }
+    // WHAT COUNTS AS EXECUTABLE DIFFERS BY TRANSPORT, because what a PROBE can honestly learn
+    // differs by transport. Ollama's probe reads a real catalog, so `available` means the model is
+    // actually served. The openai_compatible probe is deliberately POSTURE-ONLY — the daemon never
+    // sends a credential to a caller-supplied base_url to discover a catalog — so the strongest
+    // honest state it reaches is `credentials_present`.
+    let executable_availability: &[&str] = match transport_kind.as_str() {
+        "ollama" => &["available"],
+        _ => &["credentials_present"],
+    };
+    if lifecycle != "active" || !executable_availability.contains(&availability.as_str()) {
+        return Err(bad(
+            StatusCode::CONFLICT,
+            "model_route_not_executable",
+            format!(
+                "route lifecycle '{lifecycle}' / availability '{availability}' is not an executable pair for transport '{transport_kind}' (expected one of {executable_availability:?}); probe the route first"
+            ),
+        ));
+    }
+    Ok(ExecutionTarget {
+        route_id: route_id.to_string(),
+        route_ref: route
+            .get("route_ref")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string(),
+        base_url: route
+            .pointer("/provider_binding/base_url")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string(),
+        model_id: route
+            .pointer("/model/model_id")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string(),
+        credential_posture: route
+            .get("credential_posture")
+            .and_then(Value::as_str)
+            .unwrap_or("no_credentials_required")
+            .to_string(),
+        transport_kind,
+        route,
+    })
+}
+
 /// POST /v1/hypervisor/model-routes/:id/invoke
 ///
 /// The first daemon-issued model call whose endpoint comes from the registry. Composition order,
@@ -1436,61 +1675,153 @@ pub(crate) async fn handle_model_route_invoke(
     ) {
         return (status, body);
     }
-    let transport_kind = route
-        .pointer("/provider_binding/transport")
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_string();
-    let lifecycle = route
-        .pointer("/lifecycle/status")
-        .and_then(Value::as_str)
-        .unwrap_or_default();
-    let availability = route
-        .pointer("/availability/state")
-        .and_then(Value::as_str)
-        .unwrap_or_default();
-    // Transport support is checked BEFORE availability, deliberately. A route whose transport has
-    // no implementation can never execute no matter how healthy its provider is, so answering
-    // "not executable (availability)" would name the wrong blocker — and would make this refusal
-    // unreachable in practice, since an unimplemented transport never probes to `available`.
-    if !matches!(transport_kind.as_str(), "ollama" | "openai_compatible") {
-        // The honest boundary, not a stub. Two native transports are admitted; anything else says so
-        // rather than silently falling back onto one that exists.
+    // (3b) THE ROUTER'S TARGET LIST — explicit, never inferred.
+    //
+    // Fallbacks are DECLARED by the caller, never chosen by this daemon from the registry. Inferring
+    // them would mint a placement policy beside the ones the estate already owns (the venue picker,
+    // the improvement-governance gates, W4-F's advisory economics) — a second switching mechanism,
+    // which the one structural law forbids. W4-F's own ruling is explicit that economic comparison
+    // "neither grants route rights nor independently authorizes placement"; a router that picked its
+    // own alternates would be doing exactly that, one layer down and unreviewed.
+    let policy = match RetryPolicy::parse(&body) {
+        Ok(policy) => policy,
+        Err(response) => return response,
+    };
+    let mut declared: Vec<(String, Value)> = vec![(id.clone(), route.clone())];
+    if let Some(declared_refs) = body.get("fallback_route_refs") {
+        let Some(list) = declared_refs.as_array() else {
+            return bad(
+                StatusCode::BAD_REQUEST,
+                "model_invocation_fallback_routes_invalid",
+                "fallback_route_refs must be an array of model-route refs",
+            );
+        };
+        if list.len() > MAX_FALLBACK_ROUTES {
+            return bad(
+                StatusCode::BAD_REQUEST,
+                "model_invocation_fallback_routes_invalid",
+                format!(
+                    "at most {MAX_FALLBACK_ROUTES} fallback routes may be declared; each hop is its own authority crossing"
+                ),
+            );
+        }
+        for entry in list {
+            let Some(reference) = entry
+                .as_str()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+            else {
+                return bad(
+                    StatusCode::BAD_REQUEST,
+                    "model_invocation_fallback_routes_invalid",
+                    "each fallback_route_refs entry must be a non-empty model-route ref",
+                );
+            };
+            let fallback_id = reference
+                .strip_prefix("model-route:")
+                .unwrap_or(reference)
+                .to_string();
+            // A repeated route is refused rather than silently deduplicated: a caller who listed the
+            // primary again is asking for retries and should say so through `retry`, where the cost
+            // of an extra attempt is stated in the refusal that bounds it.
+            if declared
+                .iter()
+                .any(|(existing, _)| existing == &fallback_id)
+            {
+                return bad(
+                    StatusCode::BAD_REQUEST,
+                    "model_invocation_fallback_routes_invalid",
+                    format!(
+                        "route '{fallback_id}' appears twice in the target list; use retry.max_attempts to re-attempt one route"
+                    ),
+                );
+            }
+            let Some(fallback_route) =
+                super::model_routes::load_route_record(&st.data_dir, &fallback_id)
+            else {
+                return bad(
+                    StatusCode::NOT_FOUND,
+                    "model_route_not_found",
+                    format!("declared fallback route '{fallback_id}' does not exist"),
+                );
+            };
+            // OWNERSHIP, ON EVERY HOP. Without this a caller could name any route in the deployment
+            // as a fallback and reach a provider through it — and, on a credentialed route, another
+            // principal's sealed key — by a path the primary gate refuses outright. A fallback is a
+            // route the caller must already be entitled to invoke.
+            if let Err((status, response)) = super::model_routes::authorize_route_owner_for_headers(
+                &st.data_dir,
+                &headers,
+                &fallback_id,
+                &fallback_route,
+                "invoke_fallback",
+            ) {
+                return (status, response);
+            }
+            declared.push((fallback_id, fallback_route));
+        }
+    }
+
+    // F1/F3 — WHAT THIS CUT REFUSES, AND WHY IT REFUSES RATHER THAN WEAKENS.
+    //
+    // A credential crossing is DETERMINISTIC by construction. `capability_lease_request_hash` folds
+    // {domain, allowed_tools, resource_refs, scopes, facets} and nothing else — no nonce, no attempt
+    // index — and the consumption commitment built from it (`governed_authority.rs`) is keyed on the
+    // same fields plus the grant. So a SECOND crossing for the same route under the same grant is
+    // byte-identical to the first and is refused `authority_operation_already_admitted`: the
+    // substrate correctly reads it as a replay. The resume-checkpoint states this exact hazard —
+    // "two crossings of the same kind that must be independently authorized need a per-request nonce
+    // in the facets, or the second reads as a replay of the first" — and a router that retried a
+    // credentialed route would hit it on every attempt after the first.
+    //
+    // The same determinism defeats a credentialed FALLBACK from the other side: the facets bind
+    // `base_url` and `model_id` (the IX anti-exfiltration hardening), so this request's single
+    // `wallet_approval_grant` — approved for the primary's destination — cannot satisfy a second
+    // route's.
+    //
+    // THE SPEND SEMANTICS ARE RULED (owner, 2026-08-13), so what remains is BUILD, not a decision.
+    // The two cases are NOT the same authority boundary:
+    //   - A RETRY on one credentialed route is ONE grant carrying `max_usages: N` — the field the
+    //     substrate already enforces (`governed_authority.rs`) — because every attempt crosses the
+    //     SAME boundary: same owner, same destination, same model. Three separately signed grants
+    //     would duplicate one bounded approval and ignore what `max_usages` exists to express.
+    //     Making it work needs a per-attempt EFFECT identity (an attempt ordinal folded into the
+    //     facets) so consumption N+1 is a distinct operation rather than a replay of N, and
+    //     idempotent recovery of an already-consumed attempt that spends no further use.
+    //   - A FALLBACK to a DIFFERENT route is a DIFFERENT boundary — a destination the primary's
+    //     grant does not cover — so it genuinely needs its OWN grant, one per declared credentialed
+    //     hop. Borrowing the primary's grant for another destination would be exactly the weakening
+    //     `require_spend_authority` exists to prevent.
+    // The build is out of scope for a routing cut, so this refuses, typed and BEFORE anything
+    // executes, and the residual is named.
+    // Checked on the DECLARED records, before admission: this is a refusal about the shape of the
+    // request, and the module's standing order is request shape before world state. Ordered after
+    // admission it would answer "not executable" to a caller whose real error is that they asked
+    // for retries on a credentialed route — naming the wrong blocker, and reachable only for routes
+    // that happen to be healthy.
+    let credentialed: Vec<&str> = declared
+        .iter()
+        .filter(|(_, record)| route_is_credentialed(record))
+        .map(|(route_id, _)| route_id.as_str())
+        .collect();
+    if !credentialed.is_empty() && (policy.max_attempts_per_route > 1 || declared.len() > 1) {
         return bad(
             StatusCode::NOT_IMPLEMENTED,
-            "provider_transport_unimplemented",
+            "model_invocation_multi_attempt_credentialed_unsupported",
             format!(
-                "transport '{transport_kind}' has no admitted ProviderTransport implementation"
-            ),
-        );
-    }
-    // WHAT COUNTS AS EXECUTABLE DIFFERS BY TRANSPORT, because what a PROBE can honestly learn
-    // differs by transport. Ollama's probe reads a real catalog, so `available` means the model is
-    // actually served. The openai_compatible probe is deliberately POSTURE-ONLY — the daemon never
-    // sends a credential to a caller-supplied base_url to discover a catalog (the standing
-    // anti-exfiltration ruling) — so the strongest honest state it can reach is
-    // `credentials_present`. Requiring `available` there would make every openai_compatible route
-    // permanently unexecutable, which is a refusal that reads as a capability gap but is really a
-    // category error about what its probe measures.
-    let executable_availability: &[&str] = match transport_kind.as_str() {
-        "ollama" => &["available"],
-        _ => &["credentials_present"],
-    };
-    if lifecycle != "active" || !executable_availability.contains(&availability) {
-        return bad(
-            StatusCode::CONFLICT,
-            "model_route_not_executable",
-            format!(
-                "route lifecycle '{lifecycle}' / availability '{availability}' is not an executable pair for transport '{transport_kind}' (expected one of {executable_availability:?}); probe the route first"
+                "retry and fallback are not available for credentialed routes ({}): each crossing is deterministic, so a second under the same grant reads as a replay. This is a build gap, not a policy one — a same-route retry is one grant carrying an approved usage ceiling (max_usages: N) plus a per-attempt effect identity, and a fallback to a different destination needs its own grant. Invoke a credentialed route with a single attempt and no fallback.",
+                credentialed.join(", ")
             ),
         );
     }
 
-    let credential_posture = route
-        .get("credential_posture")
-        .and_then(Value::as_str)
-        .unwrap_or("no_credentials_required")
-        .to_string();
+    let mut targets: Vec<ExecutionTarget> = Vec::with_capacity(declared.len());
+    for (target_id, target_route) in declared {
+        match admit_execution_target(&target_id, target_route) {
+            Ok(target) => targets.push(target),
+            Err(response) => return response,
+        }
+    }
 
     // (4) billing PREFLIGHT — resolve the named quote BEFORE spending a provider call.
     //
@@ -1512,71 +1843,201 @@ pub(crate) async fn handle_model_route_invoke(
         }
     }
 
-    let base_url = route
-        .pointer("/provider_binding/base_url")
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_string();
-    let model_id = route
-        .pointer("/model/model_id")
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_string();
-    let route_ref = route
-        .get("route_ref")
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_string();
-
-    // (5) credential custody — THE authority crossing, and it runs LAST among the checks.
+    // (5) + (6) THE ROUTER LOOP — one credential crossing and one provider call per ATTEMPT.
     //
-    // Ordering is a correctness property, not tidiness. `authorize_capability_lease` atomically
-    // CONSUMES one wallet-owned use of the owner's grant. Every refusal that a pure read can
-    // discover — unknown route, unimplemented transport, unprobed availability, an unresolvable
-    // quote — therefore has to happen before it, or a caller's own request error silently spends
-    // owner authority they cannot get back.
-    let (mut credential_lease, credential_projection) = match resolve_route_credential(
-        &st,
-        &id,
-        &credential_posture,
-        &base_url,
-        &model_id,
-        route.get("credential_binding").unwrap_or(&Value::Null),
-        &body,
-    )
-    .await
-    {
-        Ok(resolved) => resolved,
-        Err(response) => return response,
-    };
-
-    // (6) execution — dispatched by dialect.
+    // Ordering inside the loop preserves the correctness property the single-attempt cut
+    // established: `authorize_capability_lease` atomically CONSUMES one wallet-owned use of the
+    // owner's grant, so it runs only after every pure-read refusal for THIS target has passed. What
+    // is new is that it runs per attempt rather than per invocation. That is not incidental — the
+    // bearer moves into the request and dies with it, so a retry cannot reuse the previous lease
+    // even in principle, and a fallback crosses against its OWN route: `request_facets` fold in
+    // `route_id`, `base_url` and `model_id`, so a different route is a different grant hash and an
+    // owner's approval for one destination never silently covers another.
     //
-    // An enum rather than `dyn ProviderTransport`: the trait's `invoke` is an async fn, which is not
-    // object-safe. This is the one place that knows which dialect a route speaks, and adding a third
-    // conformer touches only this match and the admission list above.
-    let transport = ModelTransport::for_kind(&transport_kind);
-    let price_schedule_ref = transport.price_schedule_ref(&route);
-    let request = TransportRequest {
-        base_url: base_url.clone(),
-        model_id: model_id.clone(),
-        prompt: prompt.clone(),
-        stream,
-        // The bearer MOVES out of the lease and into the one request that uses it. It is never
-        // cloned, so there is exactly one copy in the process, and it dies with `request` below.
-        credential: credential_lease
-            .as_mut()
-            .and_then(|lease| lease.token.take()),
-    };
-    let result = transport.invoke(&request).await;
-    // Explicit, immediately after the only call that needs it. The bearer is not in the receipt,
-    // not in the admitted payload, and not in the projection — `credential_projection` carries
-    // lease labels only, exactly as the connector-session crossing does.
-    drop(request);
-    drop(credential_lease);
+    // A credential refusal ENDS the invocation; it is never a reason to try the next target. An
+    // authority refusal is not a provider failure, and treating it as one would let a caller sweep a
+    // declared chain to discover which routes hold credentials, spending a grant use per probe.
+    let mut lineage: Vec<Value> = Vec::new();
+    let mut final_result: Option<Result<TransportOutcome, TransportFailure>> = None;
+    let mut used_index = 0usize;
+    let mut credential_projection = Value::Null;
+    // F4 — WHAT THE PROVIDER METERED ACROSS EVERY ATTEMPT, not just the last one.
+    //
+    // A failed attempt that consumed tokens is billed by the supplier: a stream that emitted a
+    // `done` frame and then stalled, a call that hit a content filter after reading the prompt.
+    // `TransportFailure::token_mix` exists to carry exactly those counts, and charging only the
+    // final attempt would drop every earlier one — an UNDERCHARGE presented as a complete
+    // measurement, which is worse than an absent one because nothing marks it incomplete.
+    let mut billed_mix = TokenMix::default();
+    let router_started = Instant::now();
+    let mut deadline_exhausted = false;
 
-    // (6) receipt — typed, and emitted on BOTH paths
-    let (receipt, evidence, outcome_state, http_status, observed_mix) = match &result {
+    'targets: for (target_index, target) in targets.iter().enumerate() {
+        let transport = ModelTransport::for_kind(&target.transport_kind);
+        for attempt_on_route in 1..=policy.max_attempts_per_route {
+            // The deadline is checked BEFORE starting an attempt, never mid-flight: a call already
+            // in progress has already spent its authority and must be allowed to produce evidence.
+            if router_started.elapsed().as_millis() >= ROUTER_DEADLINE_MS && !lineage.is_empty() {
+                deadline_exhausted = true;
+                break 'targets;
+            }
+            // Backoff belongs to the ROUTER, beside the decision that caused it — a transport that
+            // slept would be deciding when to try again.
+            if attempt_on_route > 1 {
+                let step = RETRY_BACKOFF_MS[(attempt_on_route - 2).min(RETRY_BACKOFF_MS.len() - 1)];
+                tokio::time::sleep(std::time::Duration::from_millis(step)).await;
+            }
+            let (mut credential_lease, projection) = match resolve_route_credential(
+                &st,
+                &target.route_id,
+                &target.credential_posture,
+                &target.base_url,
+                &target.model_id,
+                target
+                    .route
+                    .get("credential_binding")
+                    .unwrap_or(&Value::Null),
+                &body,
+            )
+            .await
+            {
+                Ok(resolved) => resolved,
+                Err(response) => return response,
+            };
+            credential_projection = projection;
+            used_index = target_index;
+
+            let request = TransportRequest {
+                base_url: target.base_url.clone(),
+                model_id: target.model_id.clone(),
+                prompt: prompt.clone(),
+                stream,
+                // The bearer MOVES out of the lease and into the one request that uses it. It is
+                // never cloned, so there is exactly one copy in the process, and it dies below.
+                credential: credential_lease
+                    .as_mut()
+                    .and_then(|lease| lease.token.take()),
+            };
+            let result = transport.invoke(&request).await;
+            // Explicit, immediately after the only call that needs it.
+            drop(request);
+            drop(credential_lease);
+
+            // Collect the transport's own attempt rows as OWNED values before deciding anything, so
+            // the classification is read once and the borrow ends before the result moves.
+            match &result {
+                Ok(success) => billed_mix.accumulate(&success.token_mix),
+                Err(failure) => billed_mix.accumulate(&failure.token_mix),
+            }
+            let (attempt_rows, succeeded, retryable) = match &result {
+                Ok(success) => (
+                    success
+                        .attempts
+                        .iter()
+                        .map(TransportAttempt::to_json)
+                        .collect::<Vec<_>>(),
+                    true,
+                    false,
+                ),
+                Err(failure) => (
+                    failure
+                        .attempts
+                        .iter()
+                        .map(TransportAttempt::to_json)
+                        .collect::<Vec<_>>(),
+                    false,
+                    failure
+                        .attempts
+                        .last()
+                        .map(|attempt| attempt.retryable)
+                        .unwrap_or(false),
+                ),
+            };
+            let decision = if succeeded {
+                None
+            } else {
+                Some(decide_after_failure(
+                    retryable,
+                    attempt_on_route,
+                    policy,
+                    target_index,
+                    targets.len(),
+                ))
+            };
+
+            // THE LINEAGE. The transport's row says what happened on the wire; these columns are the
+            // ROUTER's and say which route it happened against and what was decided about it.
+            // Keeping them separate is why `TransportAttempt` still cannot express a decision.
+            for mut row in attempt_rows {
+                row["lineage_index"] = json!(lineage.len());
+                row["route_id"] = json!(target.route_id);
+                row["route_ref"] = json!(target.route_ref);
+                row["attempt_on_route"] = json!(attempt_on_route);
+                row["router_decision"] = json!(decision.map(RouterDecision::as_str));
+                // WHICH CUSTODY ANSWERED FOR *THIS* ATTEMPT. The record's top-level `credential`
+                // describes the answering target only; an invocation that crossed more than once
+                // would otherwise present one label for several crossings and read as complete.
+                row["credential"] = credential_projection.clone();
+                row["token_mix"] = match &result {
+                    Ok(success) => success.token_mix.to_json(),
+                    Err(failure) => failure.token_mix.to_json(),
+                };
+                lineage.push(row);
+            }
+
+            match decision {
+                None => {
+                    final_result = Some(result);
+                    break 'targets;
+                }
+                Some(RouterDecision::RetrySameRoute) => {
+                    final_result = Some(result);
+                    continue;
+                }
+                Some(RouterDecision::FallbackNextRoute) => {
+                    final_result = Some(result);
+                    continue 'targets;
+                }
+                Some(RouterDecision::GiveUp) => {
+                    final_result = Some(result);
+                    break 'targets;
+                }
+            }
+        }
+    }
+
+    let Some(result) = final_result else {
+        // Unreachable: the primary target is always present and the inner loop always runs at least
+        // once. Typed rather than unwrapped, because a panic here would be a 500 with no record and
+        // no receipt — the one outcome this handler exists to make impossible.
+        return bad(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "model_invocation_router_produced_no_attempt",
+            "the router executed no attempt; nothing was invoked and nothing was charged",
+        );
+    };
+    let used_target = &targets[used_index];
+    let transport = ModelTransport::for_kind(&used_target.transport_kind);
+    let price_schedule_ref = transport.price_schedule_ref(&used_target.route);
+    let base_url = used_target.base_url.clone();
+    let model_id = used_target.model_id.clone();
+    let route_ref = used_target.route_ref.clone();
+    let lineage_len = lineage.len();
+    // Keyed on route_id, the IDENTITY the dedup check and the record loader both use. `route_ref`
+    // is written with `unwrap_or_default()`, so two targets missing it would collapse to one empty
+    // string and undercount.
+    let routes_attempted = lineage
+        .iter()
+        .filter_map(|row| row.get("route_id").and_then(Value::as_str))
+        .collect::<std::collections::BTreeSet<_>>()
+        .len();
+
+    // (6) receipt — typed, and emitted on BOTH paths.
+    //
+    // The receipt describes the attempt that ANSWERED; `billed_mix` below is what the whole
+    // invocation consumed. They differ exactly when the router re-attempted, which is the case the
+    // ledger must not undercharge.
+    let (receipt, evidence, outcome_state, http_status, _final_mix) = match &result {
         Ok(success) => {
             let receipt = ModelInvocationReceipt {
                 model_id: model_id.clone(),
@@ -1596,8 +2057,13 @@ pub(crate) async fn handle_model_route_invoke(
                     "total_ms": success.total_latency_ms,
                     "first_token_ms": success.first_token_ms,
                 },
-                "attempts": success.attempts.iter().map(TransportAttempt::to_json).collect::<Vec<_>>(),
-                "attempt_count": success.attempts.len(),
+                "attempts": lineage,
+                "attempt_count": lineage.len(),
+                "routes_attempted": routes_attempted,
+                "retry_policy": { "max_attempts_per_route": policy.max_attempts_per_route },
+                "router_deadline_exhausted": deadline_exhausted,
+                // What the LEDGER is handed: every attempt's observed counts, not just this one's.
+                "billed_token_mix": billed_mix.to_json(),
                 "finish_reason": success.finish_reason,
                 "streaming": success.streaming,
                 "price_schedule_ref": price_schedule_ref,
@@ -1635,8 +2101,12 @@ pub(crate) async fn handle_model_route_invoke(
             let evidence = json!({
                 "token_mix": failure.token_mix.to_json(),
                 "latency": { "total_ms": failure.total_latency_ms, "first_token_ms": Value::Null },
-                "attempts": failure.attempts.iter().map(TransportAttempt::to_json).collect::<Vec<_>>(),
-                "attempt_count": failure.attempts.len(),
+                "attempts": lineage,
+                "attempt_count": lineage.len(),
+                "routes_attempted": routes_attempted,
+                "retry_policy": { "max_attempts_per_route": policy.max_attempts_per_route },
+                "router_deadline_exhausted": deadline_exhausted,
+                "billed_token_mix": billed_mix.to_json(),
                 "finish_reason": Value::Null,
                 "streaming": stream,
                 "price_schedule_ref": price_schedule_ref,
@@ -1673,7 +2143,13 @@ pub(crate) async fn handle_model_route_invoke(
         "invocation_id": invocation_id,
         "owner_ref": caller.owner_ref,
         "acting_principal_ref": acting_principal_ref,
-        "route_id": id,
+        // THE ROUTE THAT ANSWERED, not the one the request was addressed to. With a fallback chain
+        // these differ, and recording the requested id would make the record state that a route was
+        // used which never served the call — the receipt, the credential projection and the billed
+        // mix all belong to the target that actually executed. `requested_route_id` keeps the
+        // caller's entry point legible beside it rather than losing it.
+        "route_id": used_target.route_id,
+        "requested_route_id": id,
         "route_ref": route_ref,
         "transport": transport.transport_kind(),
         "model_id": model_id,
@@ -1683,7 +2159,11 @@ pub(crate) async fn handle_model_route_invoke(
         "credential": credential_projection,
         "prompt_hash": format!("sha256:{}", digest_hex(prompt.as_bytes())),
         "outcome": outcome_state,
-        "attempts_this_cut": ATTEMPTS_THIS_CUT,
+        // The lineage's own length, not a constant. The field it replaces was pinned at 1 and
+        // would now be a false statement about a record that can carry several attempts across
+        // several routes.
+        "attempt_count": lineage_len,
+        "routes_attempted": routes_attempted,
         "model_invocation_receipt": receipt_json,
         "evidence": evidence,
     });
@@ -1720,7 +2200,7 @@ pub(crate) async fn handle_model_route_invoke(
         &st.data_dir,
         &caller,
         economics_request.as_ref(),
-        &observed_mix,
+        &billed_mix,
         &invocation_ref,
         outcome_state,
     );
@@ -1790,4 +2270,46 @@ pub(crate) async fn handle_model_invocation_get(
         StatusCode::OK,
         Json(json!({ "ok": true, "invocation": record })),
     )
+}
+
+#[cfg(test)]
+mod router_tests {
+    use super::*;
+
+    /// The distinction the whole meter rests on: `None` is UNREPORTED, never zero. An attempt that
+    /// reported nothing must not be summed in as a zero (which would assert the provider metered
+    /// nothing), and a class no attempt reported must stay absent so a consumer can tell "not
+    /// metered" from "metered at zero".
+    #[test]
+    fn accumulate_keeps_absent_absent_and_sums_only_what_was_observed() {
+        let mut mix = TokenMix::default();
+        mix.accumulate(&TokenMix::default());
+        assert_eq!(mix.input, None, "nothing observed stays unreported");
+        assert_eq!(mix.total(), None);
+
+        // A failed attempt that the provider DID meter.
+        mix.accumulate(&TokenMix {
+            input: Some(9_000),
+            output: Some(400),
+            ..TokenMix::default()
+        });
+        // A later attempt that reported nothing contributes nothing — and does not erase the first.
+        mix.accumulate(&TokenMix::default());
+        // The attempt that finally succeeded.
+        mix.accumulate(&TokenMix {
+            input: Some(20),
+            output: Some(5),
+            ..TokenMix::default()
+        });
+
+        // 9_400 of these tokens belong to an attempt that FAILED. Charging only the final attempt
+        // would bill 25 for a call that really consumed 9_425 — a 99.7% undercharge presented as a
+        // complete measurement, which is the defect this accumulation exists to prevent.
+        assert_eq!(mix.input, Some(9_020));
+        assert_eq!(mix.output, Some(405));
+        assert_eq!(mix.total(), Some(9_425));
+        // A class no attempt reported is still absent, not zero.
+        assert_eq!(mix.reasoning, None);
+        assert_eq!(mix.cache_read, None);
+    }
 }

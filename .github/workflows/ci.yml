@@ -238,6 +238,7 @@ jobs:
           npm run check:projects-saga --workspace=@ioi/hypervisor-app
           npm run check:provider-transport --workspace=@ioi/hypervisor-app
           npm run check:model-route-authority --workspace=@ioi/hypervisor-app
+          npm run check:model-router-decisions --workspace=@ioi/hypervisor-app
 
       # The floor the verifier family never had. Every verifier above is pinned at the number of
       # assertions it actually EXECUTED; deleting assertions from any of them was silently green
