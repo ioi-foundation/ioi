@@ -31,10 +31,39 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
+import { emitVerifierCensus } from "./lib/verifier-census.mjs";
 
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const failures = [];
 const fail = (msg) => failures.push(msg);
+
+// ---------------------------------------------------------------- positive checkpoints
+//
+// CENSUS SHAPE (next-legs IX Leg 4). This verifier was a typed exclusion from
+// `check:verifier-floors` for a specific reason: it is FAIL-ONLY. It appends to `failures` when
+// something is wrong and records nothing when everything is right, so a green run had nothing to
+// tally and a runtime assertion count would have read zero. The exclusion named the fix — "convert
+// the fail-only walk to positive check records" — and this is it.
+//
+// HOW, AND WHY THIS SHAPE. Not one record per `fail()` site: those live inside per-surface and
+// per-source loops, so the count would scale with the corpus and the floor would churn every time a
+// surface or a seed source was added. Instead each CHECKPOINT marks the end of one logical
+// invariant group and records whether that group added any failure. The 62 checks are untouched —
+// no condition, message, or exit path changed — so this cannot weaken the gate; it only makes a
+// passing run say what it proved. A checkpoint that a later edit deletes drops the count and the
+// floor catches it.
+//
+// WHAT THE `pass` FLAG IS AND IS NOT. A census is emitted ONLY on a green run (see `finish`), so
+// every flag in an emitted census is `true` — the floor consumes the COUNT, and pass/fail is
+// carried by this verifier's exit code and its printed failure list, as it always was. The flag is
+// computed honestly rather than hardcoded so the record stays correct if emission is ever widened,
+// but nothing today reads it, and it should not be cited as evidence that a group passed.
+const results = [];
+let checkpointMark = 0;
+const checkpoint = (name) => {
+  results.push({ name, pass: failures.length === checkpointMark });
+  checkpointMark = failures.length;
+};
 
 const readJson = (rel) => JSON.parse(fs.readFileSync(path.join(appRoot, rel), "utf8"));
 const readText = (rel) => fs.readFileSync(path.join(appRoot, rel), "utf8");
@@ -51,6 +80,9 @@ if (requireReady && !surfaceFilter) {
   console.error("seed-provenance: --require-ready needs --surface <id>");
   process.exit(2);
 }
+
+/// The one mode whose checkpoint set the floor is pinned against.
+const FULL_GATE_MODE = "full tracked gate";
 
 const MANIFEST = "seed-ux-provenance.v1.json";
 const EXPECTED_IDS = [
@@ -72,6 +104,8 @@ const manifest = readJson(MANIFEST);
 if (manifest.schema_version !== "ioi.hypervisor.seed-ux-provenance.v1") {
   fail(`${MANIFEST}: unsupported schema_version ${manifest.schema_version}`);
 }
+
+checkpoint("the provenance manifest declares its registered schema version");
 
 const seenProtected = new Map();
 const seenRetained = new Map();
@@ -112,6 +146,8 @@ if (new Set(ids).size !== ids.length) fail(`${MANIFEST}: duplicate surface ids`)
 if (surfaceFilter && !ids.includes(surfaceFilter)) {
   fail(`--surface ${surfaceFilter}: no such surface`);
 }
+
+checkpoint("the surface census is exactly the twenty expected ids, unique and complete");
 
 const canonicalRoutes = new Set(surfaces.map((s) => s.canonical_route));
 
@@ -239,6 +275,8 @@ for (const surface of surfaces) {
   }
 }
 
+checkpoint("every surface's seed roles, graph status, readiness derivation, and greenfield authorization are internally consistent");
+
 // Exact protected-set equality with ported-seed-preservation.v1.json.
 const preservedRoutes = new Map((preservation.protected_routes ?? []).map((p) => [p.route, p]));
 for (const [route, p] of preservedRoutes) {
@@ -253,6 +291,8 @@ for (const route of seenProtected.keys()) {
   if (!preservedRoutes.has(route)) fail(`protected source ${route} is not in ported-seed-preservation.v1.json — the /__ioi prefix is not a seed namespace`);
 }
 
+checkpoint("the protected-seed set matches ported-seed-preservation.v1.json exactly, both directions");
+
 // Exact retained-set equality with the parity matrix + inventory.
 const matrixSlugs = new Set((parityMatrix.seeds ?? []).map((s) => s.slug));
 for (const slug of matrixSlugs) {
@@ -261,6 +301,8 @@ for (const slug of matrixSlugs) {
 for (const slug of seenRetained.keys()) {
   if (!matrixSlugs.has(slug)) fail(`retained slug ${slug} is not in harvest-app-parity-matrix.json`);
 }
+
+checkpoint("the retained-capture set matches the harvest parity matrix exactly, both directions");
 
 // Exact dormant-set equality with ux-seeds/manifest.json.
 for (const seed of dormant.seeds ?? []) {
@@ -276,6 +318,8 @@ for (const slug of seenDormant.keys()) {
   }
 }
 
+checkpoint("the dormant-reference set matches ux-seeds/manifest.json exactly, both directions");
+
 // Secret-leak gate over the manifest and every graph file.
 if (SECRET.test(readText(MANIFEST))) fail(`${MANIFEST}: secret-shaped token present`);
 const graphDir = path.join(appRoot, "seed-graphs");
@@ -287,6 +331,8 @@ if (fs.existsSync(graphDir)) {
     }
   }
 }
+
+checkpoint("no secret-shaped token appears in the manifest or any seed graph file");
 
 function verifyGraphFile(src, sat, { allowIncomplete = false } = {}) {
   const rel = src.graph_file;
@@ -390,18 +436,33 @@ if (requireReady) {
   }
 }
 
-finish(requireReady ? `require-ready ${surfaceFilter}` : surfaceFilter ? `surface ${surfaceFilter}` : "full tracked gate");
+finish(requireReady ? `require-ready ${surfaceFilter}` : surfaceFilter ? `surface ${surfaceFilter}` : FULL_GATE_MODE);
 
 function finish(mode) {
   if (failures.length > 0) {
     for (const f of failures) console.error(`seed-provenance: ${f}`);
     console.error(`\nseed-provenance FAIL (${mode}) — ${failures.length} failures`);
+    // No census on a failing run — deliberately. The floors gate reads an ABSENT artifact as RED
+    // (`census_missing`), which is the correct reading: a verifier that exited early certifies
+    // nothing. Emitting a partial census here would let a failed run report a count.
     process.exit(1);
   }
   const total = (manifest.surfaces ?? []).reduce((n, s) => n + (s.sources?.length ?? 0), 0);
+  // Only the FULL tracked gate emits a census. `--shared`, `--surface` and `--require-ready` each
+  // execute a different subset of the checkpoints, so their counts would collide with the floor
+  // pinned for the lane CI actually runs — the same reason the provider-transport live lane is
+  // silent.
+  if (mode === FULL_GATE_MODE) {
+    emitVerifierCensus({
+      verifierId: "seed-provenance",
+      sourceUrl: import.meta.url,
+      results,
+    });
+  }
   console.log(
     `seed-provenance OK (${mode}) — ${manifest.surfaces?.length ?? 0} surfaces, ${total} sources ` +
-      `(${seenProtected.size} protected, ${seenRetained.size} retained, ${seenDormant.size} dormant), fail-closed graph gate armed.`,
+      `(${seenProtected.size} protected, ${seenRetained.size} retained, ${seenDormant.size} dormant), ` +
+      `${results.length} invariant checkpoints over ${total} sources, fail-closed graph gate armed.`,
   );
   process.exit(0);
 }
