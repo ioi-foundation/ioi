@@ -2,11 +2,11 @@
   "manifest_version": "ioi.verifier-floors.v1",
   "effective_date": "2026-08-12",
   "governing_check": "apps/hypervisor/scripts/check-verifier-floors.mjs",
-  "purpose": "The floor the verifier family never had. A verifier that asserts less still passes, so deleting assertions from any CI-gated verifier was silently green: the deleted assertion stopped being checked, the survivors passed, and CI reported success. Each row below pins the number of assertions a verifier actually EXECUTED. The count is runtime, never a source grep — a commented-out assertion does not execute, so it does not count, which is precisely the case a grep would miss.",
+  "purpose": "The floor the verifier family never had. A verifier that asserts less still passes, so deleting assertions from any CI-gated verifier was silently green: the deleted assertion stopped being checked, the survivors passed, and CI reported success. Each row below pins the number of assertions a verifier actually EXECUTED. The count is runtime, never a source grep \u2014 a commented-out assertion does not execute, so it does not count, which is precisely the case a grep would miss.",
   "rules": {
-    "closed_world": "The set of verifiers this manifest must cover is re-derived on every run from .github/workflows/ci.yml — every `npm run check:* --workspace=@ioi/hypervisor-app` invocation resolving to a scripts/verify-*.mjs file. A CI-gated verifier with no row here is RED. This is an allowlist derived from the enforcing artifact, not a hand list that can silently omit a verifier.",
+    "closed_world": "The set of verifiers this manifest must cover is re-derived on every run from .github/workflows/ci.yml \u2014 every `npm run check:* --workspace=@ioi/hypervisor-app` invocation resolving to a scripts/verify-*.mjs file. A CI-gated verifier with no row here is RED. This is an allowlist derived from the enforcing artifact, not a hand list that can silently omit a verifier.",
     "reverse_edge": "A pinned floor whose verifier CI does not run is RED. A floor over a verifier that gates nothing is decorative.",
-    "exact_pin": "runtime_assertions is an exact pin, not a minimum. Below it means assertions were deleted. ABOVE it is also RED — the floor is stale and must be raised in the same commit that adds the assertions. Slack is where a later deletion hides.",
+    "exact_pin": "runtime_assertions is an exact pin, not a minimum. Below it means assertions were deleted. ABOVE it is also RED \u2014 the floor is stale and must be raised in the same commit that adds the assertions. Slack is where a later deletion hides.",
     "evidence": "Counts come from the verifier's own completed run via apps/hypervisor/scripts/lib/verifier-census.mjs, which binds the verifier's source sha256. A census never certifies a revision it did not run: an artifact whose digest disagrees with the file on disk is RED.",
     "fail_closed": "A missing census directory, a missing artifact, or a verifier that crashed, exited early, or was BLOCKED is RED, never skip. A false green from a broken probe is the same defect class as a false green from a deleted assertion.",
     "what_this_does_not_prove": "A floor counts assertions; it cannot judge them. Nothing here certifies that an assertion is meaningful, non-decorative, or that a replacement is as strong as what it replaced. assertion_names_sha256 travels with the count so a reviewer can distinguish `replaced` from `renamed`, but that reading is a human's. This gate proves only that the family did not shrink."
@@ -107,8 +107,8 @@
       "id": "provider-transport",
       "npm_script": "check:provider-transport",
       "source": "apps/hypervisor/scripts/verify-hypervisor-provider-transport.mjs",
-      "runtime_assertions": 18,
-      "assertion_names_sha256": "888792a93bafb12c6309dd08e2177fdbc5159f0a22977e6b08607a5670d442f7"
+      "runtime_assertions": 24,
+      "assertion_names_sha256": "8c1abad86be5d8cf1626efaa8cc8f4bdf9e790394de85b280f3cab25b0812d70"
     }
   ],
   "excluded": [
@@ -121,7 +121,7 @@
     {
       "npm_script": "check:ported-seed",
       "source": "apps/hypervisor/scripts/verify-hypervisor-ported-seed-invariant.mjs",
-      "reason": "Keeps its own integer `checks` counter and prints N/N checks passed, but builds no named assertion records, so this census has no per-assertion evidence to bind. It is the closest of the three to floorable — the count already exists and only its shape differs.",
+      "reason": "Keeps its own integer `checks` counter and prints N/N checks passed, but builds no named assertion records, so this census has no per-assertion evidence to bind. It is the closest of the three to floorable \u2014 the count already exists and only its shape differs.",
       "residual": "Named residual: emit the census from its existing counter and floor it in the next verifier-family cut."
     },
     {

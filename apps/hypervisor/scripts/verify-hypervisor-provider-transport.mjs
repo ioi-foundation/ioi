@@ -42,11 +42,19 @@ import path from "node:path";
 import net from "node:net";
 import { fileURLToPath } from "node:url";
 import { emitVerifierCensus } from "./lib/verifier-census.mjs";
+import { mintApprovalGrant } from "../../../scripts/lib/mint-approval-grant.mjs";
+import { startRealWalletNetworkPrincipalAuthorityFixture } from "./lib/wallet-network-principal-authority-fixture.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const APP = path.resolve(HERE, "..");
 const ROOT = path.resolve(APP, "..", "..");
-const LIVE = process.argv.includes("--live");
+// --live-authority IMPLIES --live. The wallet-network authority fixture is a real one-validator
+// cluster and costs minutes to stand up, so the provider/economics evidence stays runnable on its
+// own; the credential CROSSING needs deployment authority to resolve and cannot be faked, so it
+// gets its own opt-in lane rather than a mock.
+const LIVE_AUTHORITY = process.argv.includes("--live-authority");
+const LIVE = process.argv.includes("--live") || LIVE_AUTHORITY;
+const DEPLOYMENT_AUTHORITY_REF = "domain://acme-host";
 const LIVE_BASE = process.env.IOI_PROVIDER_TRANSPORT_LIVE_BASE_URL ?? "http://127.0.0.1:11434";
 const LIVE_MODEL = process.env.IOI_PROVIDER_TRANSPORT_LIVE_MODEL ?? "qwen2.5:7b";
 
@@ -90,6 +98,7 @@ let daemon = null;
 let daemonPort = 0;
 let DAEMON = "";
 let SESSION = "";
+let authorityResolver = null;
 
 const jd = (method, p, body, { auth = true, idem = null } = {}) => fetch(`${DAEMON}${p}`, {
   method,
@@ -102,6 +111,36 @@ const jd = (method, p, body, { auth = true, idem = null } = {}) => fetch(`${DAEM
 }).then(async (r) => ({ status: r.status, j: await r.json().catch(() => ({})) }))
   .catch((e) => ({ status: 0, j: { transport_error: String(e) } }));
 
+/** Mint a real dcrypt-signed grant bound to the EXACT crossing the gateway challenged with. */
+const grantFor = (challenge) => mintApprovalGrant({
+  policyHash: challenge?.approval?.policy_hash,
+  requestHash: challenge?.approval?.request_hash,
+});
+
+/**
+ * Every byte the daemon durably wrote, as one string.
+ *
+ * The anti-leak assertions scan THIS rather than asking the API whether it leaked. A handler that
+ * omits a secret from its response and writes it to a record has still leaked it, and only reading
+ * the bytes catches that.
+ */
+const allDurableBytes = () => {
+  const out = [];
+  const walk = (dir) => {
+    let entries = [];
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    for (const entry of entries) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else { try { out.push(fs.readFileSync(full, "utf8")); } catch { /* binary or gone */ } }
+    }
+  };
+  walk(dataDir);
+  return out.join("\n");
+};
+
+const leaseCount = async () => ((await jd("GET", "/v1/hypervisor/capability-leases")).j?.leases ?? []).length;
+
 /** Count durable invocation records on disk — the daemon's own answer never certifies absence. */
 const invocationFiles = () => {
   try {
@@ -113,16 +152,53 @@ const invocationFiles = () => {
 
 function cleanup() {
   try { daemon?.kill("SIGTERM"); } catch { /* already gone */ }
+  try { authorityResolver?.stop(); } catch { /* best effort */ }
   try { fs.rmSync(dataDir, { recursive: true, force: true }); } catch { /* best effort */ }
 }
 
+/**
+ * Mint a grant the DEPLOYMENT authority actually recorded, bound to the challenge's exact
+ * coordinates AND its exact target scope.
+ *
+ * `mintApprovalGrant` alone produces a well-formed signature the gateway will not accept: the
+ * daemon resolves the required principal independently through wallet.network and verifies the
+ * grant against THAT issuer. A grant this verifier signed for itself proves nothing about the
+ * crossing, which is the whole reason this lane runs a real cluster instead of a stub.
+ */
+const recordedGrantFor = async (challenge) => {
+  // Returns null rather than throwing when there is no challenge to bind to. A helper that throws
+  // aborts the run before the later assertions execute, so a bypassed crossing would surface as a
+  // stack trace instead of the named assertion that owns the finding — and the assertions it
+  // skipped would report nothing at all.
+  if (!challenge?.approval?.policy_hash || !challenge?.required_authority_scope) return null;
+  return authorityResolver.mintRecorded(
+    DEPLOYMENT_AUTHORITY_REF,
+    challenge.approval.policy_hash,
+    challenge.approval.request_hash,
+    challenge.required_authority_scope,
+  );
+};
+
 async function run() {
+  // The fixture starts BEFORE the daemon: its env selects the wallet.network the daemon resolves
+  // deployment authority through, and that is read at daemon boot.
+  if (LIVE_AUTHORITY) {
+    try {
+      authorityResolver = await startRealWalletNetworkPrincipalAuthorityFixture({ baseEnv: { ...process.env } });
+    } catch (error) {
+      console.error(`BLOCKED: --live-authority needs the real wallet.network principal-authority fixture — ${error?.message ?? error}`);
+      cleanup();
+      process.exit(2);
+    }
+  }
   daemonPort = await freePort();
   DAEMON = `http://127.0.0.1:${daemonPort}`;
   daemon = spawn(daemonBinary, [], {
     cwd: ROOT,
     env: {
       ...process.env,
+      ...(authorityResolver?.env ?? {}),
+      ...(LIVE_AUTHORITY ? { IOI_HYPERVISOR_AUTHORITY_PRINCIPAL_REF: DEPLOYMENT_AUTHORITY_REF } : {}),
       IOI_HYPERVISOR_DAEMON_ADDR: `127.0.0.1:${daemonPort}`,
       IOI_HYPERVISOR_DATA_DIR: dataDir,
       // Deliberately dead: nothing in this verifier may reach a provider through the boot-time
@@ -259,6 +335,66 @@ async function run() {
     econUnknownRoute.status === 400
       && code(econUnknownRoute.j) === "model_invocation_economics_quote_ref_required",
     `status ${econUnknownRoute.status} code ${code(econUnknownRoute.j)}`);
+
+  // ---------------------------------------------------------------- sealed provider-key custody
+  // The CROSSING needs an executable route, so it is proven in the live lane. The CUSTODY SURFACE
+  // does not, and it is where a secret would leak — so it gates every commit.
+  const CI_SECRET = "sk-ci-lane-never-durable-8f2c41";
+
+  const bindNoCred = await jd("POST", "/v1/hypervisor/model-routes/mrt_local_default/credential",
+    { token: CI_SECRET }, { idem: "cred-not-required" });
+  ok("binding a credential to a no_credentials_required route is refused — an unused secret is custody with no crossing behind it",
+    bindNoCred.status === 422 && code(bindNoCred.j) === "model_route_credential_not_required",
+    `status ${bindNoCred.status} code ${code(bindNoCred.j)}`);
+
+  const credRoute = await jd("POST", "/v1/hypervisor/model-routes", {
+    model_id: "verify-transport:credentialed", transport: "ollama", base_url: "http://127.0.0.1:1",
+    display_name: "credentialed route", credential_posture: "provider_vault_token",
+  }, { idem: "cred-route" });
+  const credRouteId = credRoute.j?.route?.route_id ?? "";
+
+  const bindAnon = await fetch(`${DAEMON}/v1/hypervisor/model-routes/${credRouteId}/credential`, {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ owner_ref: OWNER, idempotency_key: "cred-anon", token: CI_SECRET }),
+  }).then(async (r) => ({ status: r.status, j: await r.json().catch(() => ({})) }));
+  ok("rule E: an anonymous credential bind is refused before the route is read",
+    bindAnon.status === 401, `status ${bindAnon.status}`);
+
+  const bindEmpty = await jd("POST", `/v1/hypervisor/model-routes/${credRouteId}/credential`,
+    { token: "   " }, { idem: "cred-empty" });
+  ok("a credential bind with no token is refused typed",
+    bindEmpty.status === 400 && code(bindEmpty.j) === "model_route_credential_token_required",
+    `status ${bindEmpty.status} code ${code(bindEmpty.j)}`);
+
+  // A bind is an authority crossing, and CI has no deployment authority to clear it with. What CI
+  // CAN prove — and what matters most — is that a bind which does not clear the gateway leaves
+  // nothing behind. The secret is sealed to the vault BEFORE the crossing (the gateway resolves it
+  // as part of deciding), so the rollback on refusal is the only thing standing between a refused
+  // bind and an unrevoked secret nobody agreed to.
+  const refusedBind = await jd("POST", `/v1/hypervisor/model-routes/${credRouteId}/credential`,
+    { token: CI_SECRET }, { idem: "cred-bind-refused" });
+  const credRouteRead = await jd("GET", `/v1/hypervisor/model-routes/${credRouteId}`);
+  ok("a credential bind is an authority crossing — with no deployment authority it does not succeed",
+    refusedBind.status >= 400 && refusedBind.status !== 404,
+    `status ${refusedBind.status} code ${code(refusedBind.j)}`);
+  ok("a REFUSED bind rolls back completely: no sealed record, no route binding, and the key nowhere in the daemon's durable bytes",
+    !fs.existsSync(path.join(dataDir, "model-route-credentials", `${credRouteId}.json`))
+      && (credRouteRead.j?.route?.credential_binding ?? null) === null
+      && !allDurableBytes().includes(CI_SECRET),
+    "rolled back, no plaintext occurrence");
+
+  // A route that never attempted a bind, so this assertion cannot inherit the state of the one
+  // above. Reusing `credRouteId` made it fire whenever the ROLLBACK broke — a defect its label
+  // does not claim and which the assertion above already owns.
+  const freshRoute = await jd("POST", "/v1/hypervisor/model-routes", {
+    model_id: "verify-transport:never-bound", transport: "ollama", base_url: "http://127.0.0.1:1",
+    display_name: "never bound", credential_posture: "provider_vault_token",
+  }, { idem: "cred-never-bound-route" });
+  const revokeUnbound = await jd("DELETE", `/v1/hypervisor/model-routes/${freshRoute.j?.route?.route_id ?? ""}/credential`,
+    {}, { idem: "cred-revoke" });
+  ok("revoking a route that never bound is honest about it rather than reporting a revocation that did not happen",
+    revokeUnbound.status === 200 && revokeUnbound.j?.was_bound === false,
+    `status ${revokeUnbound.status} was_bound ${revokeUnbound.j?.was_bound}`);
 
   ok("the whole refusal ladder fabricated NO invocation record on disk",
     invocationFiles().length === 0, `${invocationFiles().length} record(s)`);
@@ -507,6 +643,112 @@ async function run() {
         && fInv.economics?.outcome === "failed"
         && (await usageRows()).length === beforeFailed,
       `${fInv.economics?.reason_code} · chain ${beforeFailed} -> ${(await usageRows()).length}`);
+
+    // ------------------------------------------------------------ THE AUTHORITY CROSSING
+    // Runs only under --live-authority, because a real wallet.network resolver is the only thing
+    // that can answer whether this crossing works. A credentialed route on the REAL provider:
+    // Ollama ignores a bearer, which is exactly what makes it the honest place to prove custody —
+    // every step of the crossing runs, and the proof is about where the bearer came from and where
+    // it went, not about the provider.
+    if (LIVE_AUTHORITY) {
+      const LIVE_SECRET = "sk-live-lane-never-durable-3ad07e";
+      const credLive = await jd("POST", "/v1/hypervisor/model-routes", {
+        model_id: LIVE_MODEL, transport: "ollama", base_url: LIVE_BASE,
+        display_name: "credentialed live route", credential_posture: "provider_vault_token",
+      }, { idem: "cred-live-route" });
+      const credLiveId = credLive.j?.route?.route_id ?? "";
+
+      // BIND BEFORE ENABLE, and that order is the KERNEL's. The route-mutation planner refuses to
+      // enable a credentialed route with no `provider_credential_lease_ref` — a requirement nothing
+      // could satisfy, so a credentialed route could not become executable at all.
+      const enableUnbound = await jd("POST", `/v1/hypervisor/model-routes/${credLiveId}/enable`, {}, { idem: "cred-live-enable-unbound" });
+      ok("live-authority: a credentialed route with nothing sealed cannot even be ENABLED — the planner's credential-lease requirement was unreachable until custody existed to satisfy it",
+        enableUnbound.status === 403
+          && code(enableUnbound.j) === "model_route_mutation_provider_credential_lease_required",
+        `status ${enableUnbound.status} code ${code(enableUnbound.j)}`);
+
+      // The BIND is its own crossing: establishing custody is a different authority than using it.
+      const bindChallenge = await jd("POST", `/v1/hypervisor/model-routes/${credLiveId}/credential`,
+        { token: LIVE_SECRET }, { idem: "cred-live-bind-nogrant" });
+      ok("live-authority: sealing a provider key is itself an authority crossing — with no grant the gateway challenges and NOTHING is sealed",
+        bindChallenge.status >= 400 && bindChallenge.j?.decision === "blocked"
+          && (bindChallenge.j?.approval?.policy_hash ?? "").length > 0
+          && !allDurableBytes().includes(LIVE_SECRET),
+        `status ${bindChallenge.status} reason ${bindChallenge.j?.reason}`);
+
+      const bound = await jd("POST", `/v1/hypervisor/model-routes/${credLiveId}/credential`,
+        { token: LIVE_SECRET, wallet_approval_grant: await recordedGrantFor(bindChallenge.j) },
+        { idem: "cred-live-bind" });
+      ok("live-authority: with recorded deployment authority the key seals and the route records the custody LEASE the planner demands",
+        bound.status === 201
+          && (bound.j?.credential_binding?.provider_credential_lease_ref ?? "").startsWith("lease:"),
+        `status ${bound.status} ref ${bound.j?.credential_binding?.provider_credential_lease_ref}`);
+
+      await jd("POST", `/v1/hypervisor/model-routes/${credLiveId}/probe`, null, { idem: "cred-live-probe" });
+      const enableBound = await jd("POST", `/v1/hypervisor/model-routes/${credLiveId}/enable`, {}, { idem: "cred-live-enable" });
+      ok("live-authority: with a sealed credential in custody the SAME route admits and activates — the planner's requirement is now satisfiable",
+        enableBound.status === 200 && enableBound.j?.route?.lifecycle?.status === "active",
+        `status ${enableBound.status} lifecycle ${enableBound.j?.route?.lifecycle?.status}`);
+
+      // Using it is a SECOND crossing. No grant: the gateway's own 403 challenge, verbatim. The 501
+      // this replaced said the lease path did not exist; this says the caller has not authorized
+      // it, which is a different fact about a different world.
+      const challenged = await jd("POST", `/v1/hypervisor/model-routes/${credLiveId}/invoke`,
+        { prompt: "no grant presented" }, { idem: "cred-live-nogrant" });
+      ok("live-authority: invoking a credentialed route with no wallet grant answers the gateway's challenge — not a 501, and not a silent execution",
+        challenged.status >= 400 && challenged.j?.decision === "blocked"
+          && !!challenged.j?.authority_challenge
+          && (challenged.j?.allowed_tools ?? []).includes("model.invoke"),
+        `status ${challenged.status} reason ${challenged.j?.reason}`);
+
+      // A caller's own request error must not cost owner authority. The billing preflight is a pure
+      // read and runs first, so a bad quote refuses without minting a lease or burning a grant use.
+      const leasesBeforeBadQuote = await leaseCount();
+      const badQuoteCredentialed = await jd("POST", `/v1/hypervisor/model-routes/${credLiveId}/invoke`,
+        { prompt: "bad quote", economics: { quote_ref: "work-quote://eqt_nope", commercial_posture: "managed" },
+          wallet_approval_grant: await recordedGrantFor(challenged.j) }, { idem: "cred-live-badquote" });
+      const leasesAfterBadQuote = await leaseCount();
+      ok("live-authority: an unresolvable quote on a credentialed route refuses BEFORE the crossing — the caller's own error mints no lease and costs no wallet authority",
+        badQuoteCredentialed.status === 404 && code(badQuoteCredentialed.j) === "economics_quote_not_found"
+          && leasesAfterBadQuote === leasesBeforeBadQuote,
+        `status ${badQuoteCredentialed.status} leases ${leasesBeforeBadQuote} -> ${leasesAfterBadQuote}`);
+
+      const leasesBeforeCrossing = await leaseCount();
+      const leased = await jd("POST", `/v1/hypervisor/model-routes/${credLiveId}/invoke`,
+        { prompt: "Reply with exactly the word: leased", wallet_approval_grant: await recordedGrantFor(challenged.j) },
+        { idem: "cred-live-invoke" });
+      const lInv = leased.j?.invocation ?? {};
+      const cred = lInv.credential ?? {};
+      ok("live-authority: a credentialed route EXECUTES on a leased bearer, and the invocation records which crossing answered for it",
+        leased.status === 200 && lInv.outcome === "succeeded"
+          && cred.crossing === "capability_lease"
+          && typeof cred.lease_id === "string" && cred.lease_id.startsWith("lease_")
+          && (cred.grant_ref ?? "").length > 0
+          && cred.credential_source === "model-provider-key"
+          && cred.credential_material === false,
+        `outcome ${lInv.outcome} lease ${cred.lease_id} source ${cred.credential_source}`);
+
+      const leasesAfterCrossing = await leaseCount();
+      ok("live-authority: the invocation minted its own USE lease, and the audit trail carries it with no secret",
+        leasesAfterCrossing === leasesBeforeCrossing + 1
+          && !JSON.stringify((await jd("GET", "/v1/hypervisor/capability-leases")).j).includes(LIVE_SECRET),
+        `leases ${leasesBeforeCrossing} -> ${leasesAfterCrossing}`);
+
+      // The bearer was presented to a real provider and then dropped. Nothing durable may hold it.
+      ok("live-authority: the leased bearer is NOWHERE in the daemon's durable bytes after a successful credentialed invocation",
+        !allDurableBytes().includes(LIVE_SECRET), "no plaintext occurrence");
+
+      // Revocation must STOP execution, or it is bookkeeping. Same route, same grant, no key.
+      await jd("DELETE", `/v1/hypervisor/model-routes/${credLiveId}/credential`, {}, { idem: "cred-live-revoke" });
+      const leasesBeforeRevoked = await leaseCount();
+      const afterRevokeInvoke = await jd("POST", `/v1/hypervisor/model-routes/${credLiveId}/invoke`,
+        { prompt: "the credential is revoked", wallet_approval_grant: await recordedGrantFor(challenged.j) },
+        { idem: "cred-live-after-revoke" });
+      ok("live-authority: after revocation the SAME route and grant no longer execute, and the refusal spends no wallet authority — revocation is enforcement, not bookkeeping",
+        afterRevokeInvoke.status === 428 && code(afterRevokeInvoke.j) === "model_route_credential_unbound"
+          && (await leaseCount()) === leasesBeforeRevoked,
+        `status ${afterRevokeInvoke.status} code ${code(afterRevokeInvoke.j)}`);
+    }
 
     // NO SPEND WITHOUT AUTHORITY. The join makes a charge real; it does not make it spendable. A
     // FinalDebit over this exact billed quote still refuses without a live grant — asserted here,

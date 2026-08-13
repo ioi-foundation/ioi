@@ -2407,6 +2407,13 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/model-invocations/:id",
             get(provider_transport::handle_model_invocation_get),
         )
+        // Sealed provider-key custody for a model route. The bind accepts plaintext exactly once
+        // and seals it; the delete is the revocation surface the lease descriptor names.
+        .route(
+            "/v1/hypervisor/model-routes/:id/credential",
+            post(model_routes::handle_model_route_credential_bind)
+                .delete(model_routes::handle_model_route_credential_revoke),
+        )
         .route(
             "/v1/hypervisor/model-routes/:id/enable",
             post(model_routes::handle_model_route_enable),
@@ -4118,13 +4125,36 @@ fn resolve_inference() -> (String, String, String) {
         let base = base.trim_end_matches('/').to_string();
         return (format!("{base}/chat/completions"), String::new(), model);
     }
+    // STANDING DEFECT, RULED AND FENCED (next-legs IX Leg 2c; owner-reversible).
+    //
+    // This was the daemon's only credentialed model call, and it crossed to a real provider with no
+    // CapabilityLease, no wallet authority, no receipt, and no revocation surface — custody the
+    // compute `ProviderAccount` family has had across nine provider kinds for far longer.
+    //
+    // The disposition is NOT retirement, because this key feeds the boot-time `InferenceRuntime`
+    // that the session harness and agentops still consume; deleting it silently would break those
+    // lanes rather than move them onto custody. It is PINNED as a typed development-only posture
+    // and fenced at the one place it enters: a daemon reachable from anywhere refuses to read a
+    // provider key out of its own environment, so outside loopback the ONLY credentialed model call
+    // is the leased one. Both paths are no longer live in the same deployment.
+    //
+    // The named target is to move those remaining consumers onto route records with sealed
+    // credentials, after which this branch deletes rather than narrows.
     if let Ok(key) = std::env::var("OPENAI_API_KEY") {
-        let m = std::env::var("OPENAI_MODEL").unwrap_or_else(|_| "gpt-4o".to_string());
-        return (
-            "https://api.openai.com/v1/chat/completions".to_string(),
-            key,
-            m,
-        );
+        if lifecycle_routes::daemon_exposed() {
+            tracing::warn!(
+                "OPENAI_API_KEY is set but this daemon is exposed beyond loopback; the process-environment \
+                 provider key is REFUSED. Credentialed model execution goes through a model route with a sealed \
+                 credential and a CapabilityLease (POST /v1/hypervisor/model-routes/:id/credential)."
+            );
+        } else {
+            let m = std::env::var("OPENAI_MODEL").unwrap_or_else(|_| "gpt-4o".to_string());
+            return (
+                "https://api.openai.com/v1/chat/completions".to_string(),
+                key,
+                m,
+            );
+        }
     }
     if let Ok(url) = std::env::var("LOCAL_LLM_URL") {
         return (url, String::new(), model);
