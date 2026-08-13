@@ -11969,6 +11969,15 @@ pub(crate) async fn handle_session_create(
         .filter(|value| !value.trim().is_empty())
         .map(str::to_string);
     if let Some(route_ref) = model_route_ref.as_deref() {
+        // OWNERSHIP IS CHECKED HERE, at the reservation, because this is the point where the caller
+        // is still in scope. The commit path (`prepare_session_create_bundle`) binds from the
+        // durable intent this preflight authorizes and never sees a request of its own, so gating
+        // the reservation is what keeps the whole session lane behind the route's owner.
+        if let Err((status, body)) =
+            super::model_routes::authorize_session_route_binding(&st.data_dir, &headers, route_ref)
+        {
+            return (status, body);
+        }
         if let Err(detail) = super::model_routes::bind_route_for_session_recoverable(
             &st.data_dir,
             &session_ref,

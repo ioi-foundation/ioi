@@ -1422,6 +1422,20 @@ pub(crate) async fn handle_model_route_invoke(
             "no model route exists at this id",
         );
     };
+    // (3a) OWNERSHIP. Invoking is the operation that actually SPENDS a route: it contacts the
+    // destination the owner configured, and on a credentialed route it resolves that owner's sealed
+    // provider key. A registry that decides who may CONFIGURE a route and not who may USE it has
+    // drawn the boundary in the wrong place, so the same gate the mutation surface uses applies
+    // here — before any provider contact, credential resolution, or ledger charge.
+    if let Err((status, body)) = super::model_routes::authorize_route_owner_for_headers(
+        &st.data_dir,
+        &headers,
+        &id,
+        &route,
+        "invoke",
+    ) {
+        return (status, body);
+    }
     let transport_kind = route
         .pointer("/provider_binding/transport")
         .and_then(Value::as_str)
