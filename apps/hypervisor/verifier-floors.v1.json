@@ -118,6 +118,13 @@
       "assertion_names_sha256": "f2f55d21182f043ad01b992361f93513934d93cdf1bee4a133b1b399a211c738"
     },
     {
+      "id": "model-router-decisions",
+      "npm_script": "check:model-router-decisions",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-model-router-decisions.mjs",
+      "runtime_assertions": 38,
+      "assertion_names_sha256": "6488317a49ba059f84308ae8ed7d9a54a2cd1c4bf2853755e3eea5bc3a9b884f"
+    },
+    {
       "id": "ported-seed",
       "npm_script": "check:ported-seed",
       "source": "apps/hypervisor/scripts/verify-hypervisor-ported-seed-invariant.mjs",
