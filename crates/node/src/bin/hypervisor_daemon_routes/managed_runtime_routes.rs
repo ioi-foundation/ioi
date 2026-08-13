@@ -15,6 +15,7 @@ use axum::extract::{Path as AxumPath, State};
 use axum::http::{header, HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::Json;
+use base64::Engine as _;
 use ioi_services::agentic::runtime::kernel::RuntimeKernelService;
 use ioi_types::app::hypervisor_environment_lifecycle::{
     backup_manifest_root, compile_backup_record, environment_artifact_root, BackupDeclaration,
@@ -36,6 +37,25 @@ const INSTANCE_SCOPE_KIND: &str = "managed-worker-instance";
 const STORAGE_PROFILE_SCOPE_KIND: &str = "managed-storage-profile";
 pub(crate) const BACKUP_SCOPE_KIND: &str = "managed-environment-backup";
 const RESTORE_SCOPE_KIND: &str = "managed-restore-plan";
+const BACKUP_LIFECYCLE_SCHEMA: &str = "ioi.managed-backup-lifecycle.v1";
+const BUNDLE_SCHEMA: &str = "ioi.managed-backup-bundle.v1";
+const BUNDLE_MANIFEST_MEMBER: &str = "ioi-backup-bundle.v1.json";
+const BUNDLE_PAYLOAD_MEMBER: &str = "payload.tar";
+const BUNDLE_QUARANTINE_DIR: &str = "managed-backup-bundle-quarantine";
+/// A retention duty longer than a century is a declaration error, not a policy. The ceiling also
+/// keeps the derived expiry inside the portable-safe integer range every projection of this plane
+/// is bounded by.
+const MAX_RETENTION_DURATION_SECONDS: u64 = 100 * 366 * 24 * 3600;
+/// One imported bundle is decoded and verified WHOLE before a byte of it is trusted, so this
+/// ceiling is the memory and quarantine disk this plane will spend on unverified material. A
+/// bundle above it is REFUSED, never truncated. Streaming import of a larger bundle is a named
+/// residual, not a silent capability.
+/// RESIDUAL, stated because the number alone does not state it: axum runs the `Json` extractor
+/// BEFORE the handler body, and the handler is where identity is resolved, so this ceiling is spent
+/// on UNAUTHENTICATED material under the default `auto` posture. Halved from 16 MiB on that
+/// finding; bounding it properly needs authentication ahead of body buffering, which is a router
+/// change wider than this cut.
+pub(crate) const MAX_IMPORT_BYTES: usize = 8 * 1024 * 1024;
 
 type Reply = (StatusCode, Json<Value>);
 
@@ -58,6 +78,65 @@ fn jcs_digest(value: &Value) -> Result<String, String> {
 
 fn hash_tail(prefix: &str, value: &str) -> String {
     format!("{prefix}.{:x}", Sha256::digest(value.as_bytes()))
+}
+
+/// Parse one `canonicalDateTime` into milliseconds since the epoch, which may be NEGATIVE for a
+/// pre-1970 instant. `None` means the bytes are not a representable instant at all — the only
+/// honest "unreadable" answer, and the one a wrapping cast cannot give.
+fn parse_contract_instant_ms(value: &str) -> Option<i128> {
+    time::OffsetDateTime::parse(value.trim(), &time::format_description::well_known::Rfc3339)
+        .ok()
+        .map(|instant| i128::from(instant.unix_timestamp()) * 1000)
+}
+
+/// Format one millisecond instant as the backup contract's `canonicalDateTime`, truncated to whole
+/// seconds. Truncation moves an expiry EARLIER, never later, so the rounding can only shorten a
+/// retention duty — the safe direction for a gate that decides whether material may still be used.
+fn utc_rfc3339_seconds(timestamp_ms: u64) -> Option<String> {
+    let seconds = i64::try_from(timestamp_ms / 1_000).ok()?;
+    time::OffsetDateTime::from_unix_timestamp(seconds)
+        .ok()?
+        .format(&time::format_description::well_known::Rfc3339)
+        .ok()
+}
+
+/// Refuse a backup whose recorded retention duty has ended.
+///
+/// There is no sweeper: expiry is evaluated at every use site as a pure read of the record's own
+/// durable bytes, so it can never go stale and needs no clock write. Three states, and the
+/// difference between them is the whole point:
+///
+/// * `null` — no duty was recorded (a record from before this plane carried retention). Reported as
+///   ABSENT by every caller that surfaces it, never as "satisfied".
+/// * unparseable — FAILS CLOSED. `parse_rfc3339_ms` answers 0 on malformed input, and treating that
+///   0 as "no expiry" would turn a corrupted duty into an unlimited one.
+/// * in the past — GONE, typed, before the material is read.
+fn refuse_if_expired(backup: &Value) -> Result<(), Reply> {
+    let Some(raw) = backup["expires_at"].as_str() else {
+        return Ok(());
+    };
+    // Parsed with `time`, NOT with `agentgres::parse_rfc3339_ms`. That shared helper ends in an
+    // `i64 as u64` cast, so every pre-1970 instant wraps to roughly 1.8e19 — neither its zero
+    // "unreadable" sentinel nor any value at or before now. A merge-blocking review demonstrated
+    // that a contract-valid record declaring `1969-01-01T00:00:00Z` imported and then served as
+    // LIVE restore material, and that the unreadable branch was reachable for exactly one instant,
+    // the epoch itself. The three states this function documents only exist with a parser that can
+    // represent a negative instant.
+    let Some(expires_at_ms) = parse_contract_instant_ms(raw) else {
+        return Err(bad(
+            StatusCode::CONFLICT,
+            "managed_backup_retention_unreadable",
+            "the admitted record carries a retention expiry this daemon cannot parse; an unreadable duty fails closed rather than reading as unlimited",
+        ));
+    };
+    if expires_at_ms <= i128::from(now_ms()) {
+        return Err(bad(
+            StatusCode::GONE,
+            "managed_backup_retention_expired",
+            format!("this backup's retention duty ended at {raw}; expired material is not restore material"),
+        ));
+    }
+    Ok(())
 }
 
 fn safe(value: &str) -> String {
@@ -1584,6 +1663,13 @@ struct StorageProfileRequest {
     encryption_ref: Option<String>,
     key_epoch_ref: Option<String>,
     retention_policy_ref: String,
+    /// How long material captured under this profile stays restorable. The profile names the
+    /// governing policy ref beside it; this is the duty in seconds that the capture path turns into
+    /// each record's `expires_at`. It is REQUIRED because a storage profile that declares custody
+    /// without declaring how long it keeps the bytes is the state this plane shipped in — every
+    /// compiled record carried `expires_at: null`, and the registered contract's retention half was
+    /// canon nothing enforced.
+    retention_duration_seconds: u64,
     jurisdiction_refs: Vec<String>,
     minimum_replicas: u16,
     independent_compute_copy_required: bool,
@@ -1629,6 +1715,17 @@ fn validate_storage_profile(profile: &StorageProfileRequest) -> Result<(), Reply
             StatusCode::BAD_REQUEST,
             "storage_profile_replica_count_invalid",
             "minimum_replicas must be positive",
+        ));
+    }
+    if profile.retention_duration_seconds == 0
+        || profile.retention_duration_seconds > MAX_RETENTION_DURATION_SECONDS
+    {
+        return Err(bad(
+            StatusCode::BAD_REQUEST,
+            "storage_profile_retention_duration_invalid",
+            format!(
+                "retention_duration_seconds must be between 1 and {MAX_RETENTION_DURATION_SECONDS}; a zero or unbounded duty is a declaration error, not a policy"
+            ),
         ));
     }
     if profile.backend_class != "local_private" && !profile.independent_compute_copy_required {
@@ -1949,6 +2046,321 @@ pub(crate) fn authorized_backup_by_id(
     Ok((backup, scope))
 }
 
+// ---------------------------------------------------------------------------------------------
+// The backup lifecycle stream — the head a restore has to respect.
+//
+// The trap the resume checkpoint names is live in exactly this design: `expected_head: None` is
+// GENESIS-ONLY, so it sets expected-absent and a second admission on the same stream conflicts
+// forever. A backup is now an object a restore may have to RE-ESTABLISH — a bundle exported from
+// one daemon and imported onto a fresh one — and an object an owner may DELETE through the W1.5
+// retention plane. Both need the same thing: a head to compare-and-swap against, and a deletion
+// that leaves a TOMBSTONE preserving that head rather than removing the record.
+//
+// The stream carries only LOCAL custody truth — was this record captured here or imported, under
+// which bundle, and is it still restorable. The admitted `HypervisorEnvironmentBackup` record is
+// immutable evidence and is never rewritten to say any of it, because its whole bytes are its
+// content address (`environment_artifact_root`) and the family is keyed on that digest.
+// ---------------------------------------------------------------------------------------------
+
+fn backup_lifecycle_tail(backup_ref: &str) -> String {
+    hash_tail("backup-lifecycle", backup_ref)
+}
+
+/// This backup's lifecycle head, or `None` when no stream has been established for it yet.
+fn read_backup_lifecycle(
+    data_dir: &str,
+    backup_ref: &str,
+) -> Result<Option<ExactProjection>, Reply> {
+    super::substrate_store::read_event_stream_operation(
+        data_dir,
+        PERSISTENCE_NAMESPACE,
+        &backup_lifecycle_tail(backup_ref),
+    )
+    .map_err(admission_error)
+}
+
+/// The stream that records one DESTROYED PAYLOAD, keyed on the state root itself.
+fn destroyed_material_tail(state_root: &str) -> String {
+    hash_tail("backup-material-destroyed", state_root)
+}
+
+/// Refuse when the payload identified by `state_root` was destroyed under an executed deletion.
+///
+/// A TOMBSTONE MUST NAME WHAT WAS DESTROYED, NOT WHAT IT WAS CALLED. Keying the deletion fact on
+/// `backup_ref` alone was bypassable by RENAMING, and a merge-blocking review demonstrated it end to
+/// end: a backup's coordinate travels INSIDE the bundle, and every tamper-evidence gate an import
+/// applies is a self-consistency check over caller-supplied bytes, so a caller could rewrite
+/// `backup_ref`, honestly recompute `manifest_root` and `record_artifact_root` — both pure functions
+/// of the record — and re-admit the destroyed payload to the exact content-addressed path the
+/// deletion had removed, minting a fresh restorable record while the audit trail still said the
+/// backup was deleted.
+///
+/// The state root is the one coordinate a caller cannot rename, because the import verifies it
+/// against the payload bytes themselves. Keying here also closes the same bypass on the capture
+/// side, where re-creating an environment under a different id reproduces identical content at a
+/// different `backup_ref`.
+///
+/// The consequence is deliberate and is the strong reading of a deletion: material is
+/// content-addressed and therefore SHARED, so destroying one backup's payload blocks every other
+/// coordinate that resolves to those exact bytes. An owner who ordered content destroyed is owed
+/// that, not a second copy of it under another name.
+pub(crate) fn refuse_if_material_destroyed_public(
+    data_dir: &str,
+    state_root: &str,
+) -> Result<(), Reply> {
+    refuse_if_material_destroyed(data_dir, state_root)
+}
+
+fn refuse_if_material_destroyed(data_dir: &str, state_root: &str) -> Result<(), Reply> {
+    let head = super::substrate_store::read_event_stream_operation(
+        data_dir,
+        PERSISTENCE_NAMESPACE,
+        &destroyed_material_tail(state_root),
+    )
+    .map_err(admission_error)?;
+    let Some(head) = head else { return Ok(()) };
+    Err((
+        StatusCode::GONE,
+        Json(json!({
+            "ok": false,
+            "error": {
+                "code": "managed_backup_material_destroyed",
+                "message": "the payload these bytes identify was destroyed under an executed retention disposition; re-establishing it under any coordinate is the resurrection that deletion forbids",
+                "details": {
+                    "state_root": state_root,
+                    "destroyed_by_disposition_ref": head.operation.payload["destroyed_by_disposition_ref"],
+                    "admitted_head": head.head,
+                }
+            }
+        })),
+    ))
+}
+
+/// Refuse when this backup was deleted — by NAME (its lifecycle head is a tombstone) or by CONTENT
+/// (its payload was destroyed). Both are asked, because either alone is bypassable: the name can be
+/// rewritten by whoever holds the bundle, and the content can be re-captured under a fresh name.
+///
+/// Ordering is the point: every caller asks this BEFORE reading material, because the bytes of a
+/// deleted backup are gone by construction and answering `managed_backup_material_unavailable`
+/// would report an owner's executed retention deletion as a storage fault — the same observable a
+/// lost disk produces. The typed answer is what makes the deletion auditable.
+fn refuse_if_deleted(data_dir: &str, backup_ref: &str, state_root: &str) -> Result<(), Reply> {
+    // BY NAME FIRST, because when both apply the name is the more informative answer: it carries the
+    // disposition that ordered the deletion, which is what makes the deletion auditable. The content
+    // fact below is the one a caller cannot rename around, so it is what actually closes the hole —
+    // but answering with it first would replace a precise audit trail with a broader one.
+    if let Some(head) = read_backup_lifecycle(data_dir, backup_ref)? {
+        if head.operation.payload["status"] == json!("pruned") {
+            return Err((
+                StatusCode::GONE,
+                Json(json!({
+                    "ok": false,
+                    "error": {
+                        "code": "managed_backup_tombstoned",
+                        "message": "this backup was deleted under an executed retention disposition; its content is destroyed and it is not restore material",
+                        "details": {
+                            "pruned_by_disposition_ref": head.operation.payload["pruned_by_disposition_ref"],
+                            "admitted_head": head.head,
+                        }
+                    }
+                })),
+            ));
+        }
+    }
+    refuse_if_material_destroyed(data_dir, state_root)
+}
+
+/// The state root one admitted backup record was captured over, without its scheme prefix.
+fn record_state_root(backup: &Value) -> &str {
+    backup["source_state_root_ref"]
+        .as_str()
+        .and_then(|value| value.strip_prefix("state-root://"))
+        .unwrap_or_default()
+}
+
+/// Establish this backup's lifecycle genesis when the stream is absent, and return the head.
+///
+/// The genesis is derived wholly from the ALREADY-ADMITTED record, so establishing it lazily
+/// cannot fork truth — it only gives existing truth a head. That is what lets one code path serve a
+/// freshly captured backup, an imported one, and a legacy record admitted before this stream
+/// existed, without a migration pass over the family.
+fn ensure_backup_lifecycle(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    scope: &super::substrate_store::RequestResourceScope,
+    backup: &Value,
+    custody_origin: &Value,
+    idempotency_key: &str,
+) -> Result<ExactProjection, Reply> {
+    let backup_ref = backup["backup_ref"].as_str().unwrap_or_default();
+    if let Some(head) = read_backup_lifecycle(data_dir, backup_ref)? {
+        return Ok(head);
+    }
+    let payload = json!({
+        "schema_version": BACKUP_LIFECYCLE_SCHEMA,
+        "backup_ref": backup_ref,
+        "manifest_root": backup["manifest_root"],
+        "source_state_root_ref": backup["source_state_root_ref"],
+        "expires_at": backup["expires_at"],
+        "custody_origin": custody_origin,
+        "status": "admitted",
+        "pruned_by_disposition_ref": Value::Null,
+    });
+    admit(
+        data_dir,
+        true,
+        identity,
+        scope,
+        BACKUP_SCOPE_KIND,
+        backup_ref,
+        PERSISTENCE_NAMESPACE,
+        &backup_lifecycle_tail(backup_ref),
+        "event_stream.backup_lifecycle_admitted",
+        None,
+        &payload,
+        now_ms(),
+        idempotency_key,
+    )
+    .map(|(exact, _)| exact)
+}
+
+/// Admit the head-preserving TOMBSTONE for one backup.
+///
+/// This estate has exactly one owner of deletion — the W1.5 data-retention disposition plane, whose
+/// executed deletion destroys payload bytes while retaining admission evidence. This function is
+/// how that decision becomes visible to restore, and it is deliberately NOT a second delete route:
+/// a `DELETE /backups/:id` beside `retention/dispositions/:id/delete` would be a second admission
+/// path for the same act, with its own answer to legal holds.
+///
+/// The retention plane calls this BEFORE it destroys a byte, so a deletion that reaches the
+/// filesystem always carries the tombstone that makes it legible. A tombstone that cannot be
+/// admitted refuses the deletion outright, with nothing destroyed and a retry that converges.
+pub(crate) fn tombstone_backup(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    backup_id: &str,
+    disposition_ref: &str,
+    idempotency_key: &str,
+) -> Result<Value, Reply> {
+    let (backup, scope) = authorized_backup_by_id(data_dir, identity, backup_id)?;
+    let backup_ref = backup["backup_ref"].as_str().unwrap_or_default().to_owned();
+    let current = ensure_backup_lifecycle(
+        data_dir,
+        identity,
+        &scope,
+        &backup,
+        &json!({ "kind": "established_from_admitted_record" }),
+        &format!("{idempotency_key}.lifecycle"),
+    )?;
+    if current.operation.payload["status"] == json!("pruned") {
+        return Ok(json!({
+            "backup_ref": backup_ref,
+            "admitted_head": current.head,
+            "replayed": true,
+        }));
+    }
+    let mut payload = current.operation.payload.clone();
+    payload["status"] = json!("pruned");
+    payload["pruned_by_disposition_ref"] = json!(disposition_ref);
+    let (exact, replayed) = admit(
+        data_dir,
+        false,
+        identity,
+        &scope,
+        BACKUP_SCOPE_KIND,
+        &backup_ref,
+        PERSISTENCE_NAMESPACE,
+        &backup_lifecycle_tail(&backup_ref),
+        "event_stream.backup_lifecycle_pruned",
+        Some(&current.head),
+        &payload,
+        now_ms(),
+        &format!("{idempotency_key}.pruned"),
+    )?;
+    // AND the fact keyed on WHAT WAS DESTROYED. The lifecycle tombstone above names the record; this
+    // names the bytes, and it is the half a caller cannot rename around. Genesis is correct here —
+    // a state root is destroyed once and the fact never advances — and an exact retry replays under
+    // the same key rather than conflicting.
+    let state_root = record_state_root(&backup).to_owned();
+    let destroyed = json!({
+        "schema_version": "ioi.managed-backup-material-destroyed.v1",
+        "state_root": state_root,
+        "destroyed_by_disposition_ref": disposition_ref,
+        "first_destroyed_backup_ref": backup_ref,
+    });
+    let destroyed_head = match super::substrate_store::read_event_stream_operation(
+        data_dir,
+        PERSISTENCE_NAMESPACE,
+        &destroyed_material_tail(&state_root),
+    )
+    .map_err(admission_error)?
+    {
+        Some(existing) => existing.head,
+        None => {
+            admit(
+                data_dir,
+                true,
+                identity,
+                &scope,
+                BACKUP_SCOPE_KIND,
+                &backup_ref,
+                PERSISTENCE_NAMESPACE,
+                &destroyed_material_tail(&state_root),
+                "event_stream.backup_material_destroyed",
+                None,
+                &destroyed,
+                now_ms(),
+                &format!("{idempotency_key}.destroyed"),
+            )?
+            .0
+            .head
+        }
+    };
+    Ok(json!({
+        "backup_ref": backup_ref,
+        "admitted_head": exact.head,
+        "state_root": state_root,
+        "destroyed_material_head": destroyed_head,
+        "replayed": replayed,
+    }))
+}
+
+/// The ONE answer to "may this backup be used as restore material". Verify, export, restore-prepare
+/// and import all ask it, so none of them can drift into a weaker private opinion.
+///
+/// The order inside is load-bearing and each step earns its place:
+///   1. `status` — the registered contract says only `complete` is eligible restore material.
+///   2. the DELETION — by name and by content, before any byte is read, so an executed deletion
+///      reads as a deletion rather than as a missing file.
+///   3. the retention duty — before any byte is read, for the same reason.
+///   4. the bytes — contract validity, Agentgres backing, material digest, manifest recomputation.
+fn require_restorable(data_dir: &str, backup: &Value) -> Result<Value, Reply> {
+    if backup["status"] != json!("complete") {
+        return Err(bad(
+            StatusCode::CONFLICT,
+            "managed_backup_status_not_restorable",
+            format!(
+                "only a complete backup is restore material; this record is {}",
+                backup["status"]
+            ),
+        ));
+    }
+    refuse_if_deleted(
+        data_dir,
+        backup["backup_ref"].as_str().unwrap_or_default(),
+        record_state_root(backup),
+    )?;
+    refuse_if_expired(backup)?;
+    let mut verification = verify_backup(data_dir, backup)?;
+    // Surface the duty that was checked. `null` is reported as ABSENT rather than as an unlimited
+    // retention: a reader must be able to tell "kept until T" from "no duty was ever recorded".
+    verification["retention"] = match backup["expires_at"].as_str() {
+        Some(expires_at) => json!({ "recorded": true, "expires_at": expires_at }),
+        None => json!({ "recorded": false, "expires_at": Value::Null }),
+    };
+    Ok(verification)
+}
+
 pub(crate) fn verify_backup(data_dir: &str, backup: &Value) -> Result<Value, Reply> {
     ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
         "schema://ioi/components/hypervisor/hypervisor-environment-backup/v1",
@@ -2213,6 +2625,27 @@ fn capture_environment_backup(
             )
         }
     };
+    // The retention duty this capture is admitted under, derived from the ALREADY-AUTHORIZED
+    // storage profile. It is server-resolved for the same reason the manifest rows are (INV-37): a
+    // caller that could name its own expiry could name one a century out and call it custody.
+    let Some(retention_duration_seconds) = profile["retention_duration_seconds"].as_u64() else {
+        return bad(
+            StatusCode::CONFLICT,
+            "managed_backup_storage_profile_retention_absent",
+            "the admitted storage profile records no retention duty. A storage profile is admitted GENESIS-ONLY and cannot be amended in place, so the remedy is to declare a NEW storage_profile_ref carrying retention_duration_seconds and capture against that one",
+        );
+    };
+    let Some(expires_at) = retention_duration_seconds
+        .checked_mul(1_000)
+        .and_then(|duty_ms| now_ms().checked_add(duty_ms))
+        .and_then(utc_rfc3339_seconds)
+    else {
+        return bad(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "managed_backup_retention_expiry_underivable",
+            "the profile's retention duty does not resolve to a representable expiry instant",
+        );
+    };
     let bytes = match super::microvm::tar_dir(Path::new(workspace)) {
         Ok(bytes) => bytes,
         Err(error) => {
@@ -2224,6 +2657,68 @@ fn capture_environment_backup(
         }
     };
     let state_root = digest(&bytes);
+    let estate = super::hypervisor_environment_routes::local_environment_estate_binding();
+    let backup_id = format!(
+        "{}-{}",
+        safe(environment_id),
+        &state_root.trim_start_matches("sha256:")[..16]
+    );
+    // The coordinate this capture will occupy, derived BEFORE any byte is written, because the next
+    // check decides whether those bytes may exist at all.
+    let backup_ref = format!(
+        "environment-backup://{}/{}",
+        estate.estate_namespace, backup_id
+    );
+    // A CAPTURE OVER A TOMBSTONE IS A RESURRECTION, so it refuses.
+    //
+    // A backup's coordinate is content-addressed — environment plus source state root — so
+    // re-capturing an UNCHANGED workspace lands on the exact object an owner already deleted under
+    // an executed retention disposition, and would restore its destroyed bytes to the same
+    // content-addressed path under a `pruned` head. Refusing costs the operator a re-capture of an
+    // untouched environment at the same coordinate; admitting it would mean an executed deletion
+    // could be undone by the routine backup schedule that ran after it. The deletion wins.
+    if let Err(reply) = refuse_if_deleted(data_dir, &backup_ref, &state_root) {
+        return reply;
+    }
+    // ONE COORDINATE, ONE RECORD — replay an already-captured backup instead of compiling a second.
+    //
+    // Carrying a retention duty made this necessary and a merge-blocking review proved why. The
+    // family is keyed on `environment_artifact_root`, a hash of the WHOLE record, and `expires_at`
+    // is derived from the wall clock, so the same logical capture retried a second later compiled
+    // different bytes, landed at a different `hveb_` key, and admitted a SECOND record carrying the
+    // same `backup_ref`. `backup_by_id` requires a coordinate to resolve exactly once, so read,
+    // verify, export, restore — and the retention deletion itself, which resolves its subject the
+    // same way — then answered `managed_backup_identity_ambiguous` forever, while both captures had
+    // returned 201. Before retention was carried the two records were byte-identical and collapsed
+    // onto one key, so this was a regression THIS leg introduced on the most ordinary operation
+    // there is: retrying a backup after a timeout.
+    //
+    // The fix is the coordinate's own meaning. A backup ref is environment plus source state root:
+    // identical content at the same environment IS the same backup, so a second capture of it
+    // replays the admitted record and admits nothing. Changed content lands on a different ref and
+    // takes the normal path.
+    if read_backup_lifecycle(data_dir, &backup_ref)
+        .ok()
+        .flatten()
+        .is_some()
+    {
+        if let Ok(existing) = backup_by_id(data_dir, &backup_ref) {
+            return match require_restorable(data_dir, &existing) {
+                Ok(verification) => (
+                    StatusCode::OK,
+                    Json(json!({
+                        "ok": true,
+                        "replayed": true,
+                        "backup": existing,
+                        "verification": verification,
+                    })),
+                ),
+                Err(reply) => reply,
+            };
+        }
+        // A lifecycle head with no resolvable record is a partial capture, not a completed one:
+        // fall through and finish it rather than replaying something that is not there.
+    }
     if let Err(error) = durable_write(&material_path(data_dir, &state_root), &bytes) {
         return bad(
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -2277,11 +2772,6 @@ fn capture_environment_backup(
         capture.admission_batch_seq,
         &capture.admission_root,
     );
-    let backup_id = format!(
-        "{}-{}",
-        safe(environment_id),
-        &state_root.trim_start_matches("sha256:")[..16]
-    );
     let declaration = BackupDeclaration {
         backup_tail: backup_id.clone(),
         trigger: request.trigger.clone(),
@@ -2295,10 +2785,11 @@ fn capture_environment_backup(
         "role":"workspace_snapshot",
     })];
     let mut backup = match compile_backup_record(
-        &super::hypervisor_environment_routes::local_environment_estate_binding(),
+        &estate,
         &declaration,
         &state_root,
         &rows,
+        Some(&expires_at),
         request.system_ref.as_deref(),
         &receipt_ref,
     ) {
@@ -2339,17 +2830,24 @@ fn capture_environment_backup(
             )
         }
     };
-    let backup_ref = backup["backup_ref"].as_str().unwrap_or_default();
-    if let Err(reply) = bind_scope(
+    if backup["backup_ref"] != json!(backup_ref) {
+        return bad(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "managed_backup_coordinate_disagreement",
+            "the compiled record's backup_ref is not the coordinate the tombstone gate was asked about",
+        );
+    }
+    let backup_scope = match bind_scope(
         data_dir,
         identity,
         BACKUP_SCOPE_KIND,
-        backup_ref,
+        &backup_ref,
         &profile_scope.owner_ref,
         &request.idempotency_key,
     ) {
-        return reply;
-    }
+        Ok(scope) => scope,
+        Err(reply) => return reply,
+    };
     if let Err(error) =
         ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
             "schema://ioi/components/hypervisor/hypervisor-environment-backup/v1",
@@ -2394,10 +2892,28 @@ fn capture_environment_backup(
             ),
         );
     }
-    match verify_backup(data_dir, &backup) {
+    // Establish the lifecycle head LAST, over a record that is already admitted and projected. The
+    // stream describes an object that exists; admitting it earlier would name one that might not.
+    let lifecycle = match ensure_backup_lifecycle(
+        data_dir,
+        identity,
+        &backup_scope,
+        &backup,
+        &json!({ "kind": "captured", "environment_ref": format!("environment://local/{environment_id}") }),
+        &format!("{}.lifecycle", request.idempotency_key),
+    ) {
+        Ok(lifecycle) => lifecycle,
+        Err(reply) => return reply,
+    };
+    match require_restorable(data_dir, &backup) {
         Ok(verification) => (
             StatusCode::CREATED,
-            Json(json!({"ok":true,"backup":backup,"verification":verification})),
+            Json(json!({
+                "ok": true,
+                "backup": backup,
+                "verification": verification,
+                "lifecycle": projection_value(&lifecycle, None),
+            })),
         ),
         Err(reply) => reply,
     }
@@ -2442,10 +2958,40 @@ pub(crate) async fn handle_backup_get(
         Ok(identity) => identity,
         Err(reply) => return reply,
     };
-    match authorized_backup_by_id(&st.data_dir, &identity, &id) {
-        Ok((backup, _)) => (StatusCode::OK, Json(json!({"ok":true,"backup":backup}))),
-        Err(reply) => reply,
-    }
+    let backup = match authorized_backup_by_id(&st.data_dir, &identity, &id) {
+        Ok((backup, _)) => backup,
+        Err(reply) => return reply,
+    };
+    // A record's own `status` field reads `complete` forever — it describes the CAPTURE, and the
+    // registered contract has no field for "an owner deleted this". The lifecycle head does. A read
+    // that returned the record alone let a caller conclude that a deleted or expired backup was
+    // usable material, which is precisely the honesty gap the tombstone exists to close.
+    let lifecycle = match read_backup_lifecycle(
+        &st.data_dir,
+        backup["backup_ref"].as_str().unwrap_or_default(),
+    ) {
+        Ok(head) => head
+            .map(|head| projection_value(&head, None))
+            .unwrap_or(Value::Null),
+        Err(reply) => return reply,
+    };
+    let restorable = match require_restorable(&st.data_dir, &backup) {
+        Ok(verification) => json!({ "ok": true, "verification": verification }),
+        Err((status, Json(body))) => json!({
+            "ok": false,
+            "status": status.as_u16(),
+            "error": body.get("error").cloned().unwrap_or(Value::Null),
+        }),
+    };
+    (
+        StatusCode::OK,
+        Json(json!({
+            "ok": true,
+            "backup": backup,
+            "lifecycle": lifecycle,
+            "restorable": restorable,
+        })),
+    )
 }
 
 pub(crate) async fn handle_backup_verify(
@@ -2461,7 +3007,7 @@ pub(crate) async fn handle_backup_verify(
         Ok((backup, _)) => backup,
         Err(reply) => return reply,
     };
-    match verify_backup(&st.data_dir, &backup) {
+    match require_restorable(&st.data_dir, &backup) {
         Ok(verification) => (
             StatusCode::OK,
             Json(json!({"ok":true,"verification":verification})),
@@ -2505,7 +3051,7 @@ pub(crate) async fn handle_backup_export(
         Ok(value) => value,
         Err(reply) => return reply,
     };
-    let verification = match verify_backup(&st.data_dir, &backup) {
+    let verification = match require_restorable(&st.data_dir, &backup) {
         Ok(verification) => verification,
         Err(reply) => return reply,
     };
@@ -2601,8 +3147,26 @@ pub(crate) async fn handle_backup_export_download(
         )
         .into_response();
     }
+    // Re-decide restorability at DELIVERY, not only at token mint. A token minted before an owner's
+    // retention deletion, or before the duty ran out, must not still hand the bytes over.
+    let backup = match backup_by_id(&st.data_dir, backup_ref) {
+        Ok(backup) => backup,
+        Err(reply) => return reply.into_response(),
+    };
+    let verification = match require_restorable(&st.data_dir, &backup) {
+        Ok(verification) => verification,
+        Err(reply) => return reply.into_response(),
+    };
     let state_root = record["state_root"].as_str().unwrap_or_default();
-    let bytes = match std::fs::read(material_path(&st.data_dir, state_root)) {
+    if verification["state_root"] != json!(state_root) {
+        return bad(
+            StatusCode::CONFLICT,
+            "managed_backup_export_state_root_disagreement",
+            "the token's state root is not the one the admitted record verifies to",
+        )
+        .into_response();
+    }
+    let payload = match std::fs::read(material_path(&st.data_dir, state_root)) {
         Ok(bytes) if digest(&bytes) == state_root => bytes,
         Ok(_) => {
             return bad(
@@ -2621,21 +3185,540 @@ pub(crate) async fn handle_backup_export_download(
             .into_response()
         }
     };
+    let bundle = match build_export_bundle(&st.data_dir, &backup, &payload) {
+        Ok(bundle) => bundle,
+        Err(reply) => return reply.into_response(),
+    };
+    let bundle_sha256 = digest(&bundle);
     let filename = format!(
-        "{}.tar",
+        "{}.ioi-backup-bundle.tar",
         safe(record["backup_ref"].as_str().unwrap_or("backup"))
     );
-    let mut response = bytes.into_response();
-    response
-        .headers_mut()
-        .insert(header::CONTENT_TYPE, "application/x-tar".parse().unwrap());
-    response.headers_mut().insert(
+    let mut response = bundle.into_response();
+    let headers = response.headers_mut();
+    headers.insert(header::CONTENT_TYPE, "application/x-tar".parse().unwrap());
+    headers.insert(
         header::CONTENT_DISPOSITION,
         format!("attachment; filename=\"{filename}\"")
             .parse()
             .unwrap(),
     );
+    // The digest a caller must declare back at import. Serving it in a header rather than only in
+    // the bytes lets an importer pin what it received without re-deriving trust from the payload.
+    if let Ok(value) = bundle_sha256.parse() {
+        headers.insert("x-ioi-backup-bundle-sha256", value);
+    }
     response
+}
+
+// ---------------------------------------------------------------------------------------------
+// The portable export bundle, and the fresh-daemon import that consumes it.
+//
+// Until this cut a backup could not leave the daemon that captured it. The export lane handed back
+// the raw workspace tar — payload bytes with no record, no manifest and no provenance — and there
+// was no import at all, so the material and the admitted record both lived only in one data
+// directory. "A fresh-daemon restore", the unit's own acceptance sentence, was unreachable.
+//
+// A bundle is a tar of exactly two members: the admitted `HypervisorEnvironmentBackup` record
+// VERBATIM, and the captured payload. Verbatim is load-bearing — the record's whole bytes are its
+// content address (`environment_artifact_root`) and the family is keyed on that digest, so an
+// import re-derives the key from the record it received and any edit to any field lands at a
+// different key. The importing daemon therefore never rewrites the record to say it is now locally
+// held; where the bytes now live, and that they arrived by import, are LOCAL truth and belong to
+// the lifecycle stream.
+//
+// WHAT AN IMPORT VERIFIES, AND WHAT IT CANNOT. It verifies internal consistency completely: the
+// payload against the manifest row and the state root, the manifest root against the rows, the
+// record against its registered contract, and the whole bundle against the digest the caller
+// declared. It does NOT verify ISSUER: nothing here proves a foreign estate actually produced this
+// bundle, because that needs a signature over the record by the source daemon's key and this estate
+// has no cross-daemon issuer identity. So an imported record is typed `imported` in its custody
+// origin and is never presented as locally captured. That gap is named, not papered over.
+// ---------------------------------------------------------------------------------------------
+
+/// Remove one quarantine directory when this guard drops, on every exit path including a refusal.
+/// Unverified bytes land in quarantine and nowhere else; leaving them behind would accumulate
+/// material this daemon has decided not to trust.
+struct Quarantine(PathBuf);
+
+impl Drop for Quarantine {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
+fn bundle_manifest(backup: &Value, payload: &[u8]) -> Result<Value, Reply> {
+    let record_artifact_root = environment_artifact_root(backup).map_err(|error| {
+        bad(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "managed_backup_artifact_root_failed",
+            error,
+        )
+    })?;
+    Ok(json!({
+        "schema_version": BUNDLE_SCHEMA,
+        "backup": backup,
+        "payload_member": BUNDLE_PAYLOAD_MEMBER,
+        "payload_sha256": digest(payload),
+        "payload_size_bytes": payload.len(),
+        "record_artifact_root": record_artifact_root,
+        "source": {
+            "estate_namespace": super::hypervisor_environment_routes::local_environment_estate_binding().estate_namespace,
+            "receipt_refs": backup["receipt_refs"],
+            "evidence_refs": backup["evidence_refs"],
+        },
+    }))
+}
+
+/// Assemble the bundle tar. The two members are written into a quarantine directory and archived
+/// with the estate's own `tar_dir`, rather than through a hand-rolled writer, so the bundle a
+/// foreign daemon parses is produced by the same code path whose reader (`untar_into`, with its
+/// path-traversal and member-type validation) is already hardened against hostile input.
+fn build_export_bundle(data_dir: &str, backup: &Value, payload: &[u8]) -> Result<Vec<u8>, Reply> {
+    let manifest = bundle_manifest(backup, payload)?;
+    // Per-REQUEST, not per-payload: two concurrent exports of one backup would otherwise share a
+    // staging directory, and each would delete the other's members out from under it mid-archive.
+    let staging = Path::new(data_dir)
+        .join(BUNDLE_QUARANTINE_DIR)
+        .join(format!("export-{}", uuid::Uuid::new_v4()));
+    let quarantine = Quarantine(staging.clone());
+    let io = |error: std::io::Error| {
+        bad(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "managed_backup_export_bundle_failed",
+            error.to_string(),
+        )
+    };
+    let _ = std::fs::remove_dir_all(&staging);
+    std::fs::create_dir_all(&staging).map_err(io)?;
+    std::fs::write(
+        staging.join(BUNDLE_MANIFEST_MEMBER),
+        serde_json::to_vec(&manifest).map_err(|error| {
+            bad(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "managed_backup_export_bundle_failed",
+                error.to_string(),
+            )
+        })?,
+    )
+    .map_err(io)?;
+    std::fs::write(staging.join(BUNDLE_PAYLOAD_MEMBER), payload).map_err(io)?;
+    let bundle = super::microvm::tar_dir(&staging).map_err(|error| {
+        bad(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "managed_backup_export_bundle_failed",
+            error,
+        )
+    })?;
+    drop(quarantine);
+    Ok(bundle)
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct BackupImportRequest {
+    storage_profile_ref: String,
+    bundle_sha256: String,
+    bundle_base64: String,
+    authority_grant_refs: Vec<String>,
+    idempotency_key: String,
+}
+
+fn import_refusal(code: &'static str, message: impl Into<String>) -> Reply {
+    bad(StatusCode::UNPROCESSABLE_ENTITY, code, message)
+}
+
+/// POST /v1/hypervisor/backup-imports — re-establish one exported backup on THIS daemon.
+///
+/// The ordering below is the contract, not an implementation detail:
+///   * identity first (rule E), then the caller's own storage-profile authority;
+///   * every refusal a pure read can reach — bundle shape, digests, contract, retention, tombstone —
+///     lands BEFORE a byte of material is written, so a refused import leaves this daemon exactly as
+///     it found it;
+///   * the TOMBSTONE gate in particular precedes the material write, because an import over a
+///     deleted backup is the resurrection this leg exists to make impossible;
+///   * the material is written before the record is admitted, so an interrupted import leaves
+///     content-addressed bytes (harmless, and rewritten identically on retry) rather than an
+///     admitted record whose bytes are missing, which is a record that lies.
+pub(crate) async fn handle_backup_import(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Reply {
+    let identity = match request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(reply) => return reply,
+    };
+    let request: BackupImportRequest = match parse(body, "managed_backup_import_invalid") {
+        Ok(request) => request,
+        Err(reply) => return reply,
+    };
+    if let Err(reply) = require_nonempty(&request.authority_grant_refs, "authority_grant_refs") {
+        return reply;
+    }
+    if request.idempotency_key.trim().is_empty() {
+        return bad(
+            StatusCode::BAD_REQUEST,
+            "managed_backup_import_idempotency_key_required",
+            "idempotency_key is required",
+        );
+    }
+    if let Err(reply) = validate_ref(
+        &request.storage_profile_ref,
+        "storage_profile_ref",
+        &["storage-profile://"],
+    ) {
+        return reply;
+    }
+    let profile_scope = match authorize_scope(
+        &st.data_dir,
+        &identity,
+        STORAGE_PROFILE_SCOPE_KIND,
+        &request.storage_profile_ref,
+        None,
+    ) {
+        Ok(scope) => scope,
+        Err(reply) => return reply,
+    };
+    let profile = match storage_profile(&st.data_dir, &request.storage_profile_ref) {
+        Ok(profile) => profile,
+        Err(reply) => return reply,
+    };
+    if let Err(reply) = authorize_scope(
+        &st.data_dir,
+        &identity,
+        STORAGE_PROFILE_SCOPE_KIND,
+        &request.storage_profile_ref,
+        profile["owner_ref"].as_str(),
+    ) {
+        return reply;
+    }
+    if profile["backend_class"] != "local_private" {
+        return bad(
+            StatusCode::NOT_IMPLEMENTED,
+            "managed_backup_backend_executor_unavailable",
+            "this daemon build has byte custody only for local_private; remote profiles remain admitted declarations, never silent local fallback",
+        );
+    }
+    if profile["retention_duration_seconds"].as_u64().is_none() {
+        return bad(
+            StatusCode::CONFLICT,
+            "managed_backup_storage_profile_retention_absent",
+            "the admitted storage profile records no retention duty, and a profile is admitted GENESIS-ONLY so it cannot be amended in place; import against a NEW storage_profile_ref that declares retention_duration_seconds",
+        );
+    }
+
+    // ---- the bundle, verified before it is trusted -----------------------------------------
+    let bundle = match base64::engine::general_purpose::STANDARD.decode(&request.bundle_base64) {
+        Ok(bundle) => bundle,
+        Err(error) => {
+            return import_refusal(
+                "managed_backup_import_bundle_undecodable",
+                format!("bundle_base64 is not base64: {error}"),
+            )
+        }
+    };
+    if bundle.len() > MAX_IMPORT_BYTES {
+        return bad(
+            StatusCode::PAYLOAD_TOO_LARGE,
+            "managed_backup_import_bundle_too_large",
+            format!(
+                "bundle is {} bytes; this daemon verifies a bundle whole before trusting it and refuses above {MAX_IMPORT_BYTES}",
+                bundle.len()
+            ),
+        );
+    }
+    let actual_bundle_sha256 = digest(&bundle);
+    if actual_bundle_sha256 != request.bundle_sha256 {
+        return import_refusal(
+            "managed_backup_import_bundle_digest_mismatch",
+            "the received bundle does not match the digest the caller declared for it",
+        );
+    }
+    // Per-REQUEST, so two concurrent imports of the same bundle cannot quarantine into one
+    // directory and race each other's extraction.
+    let staging = Path::new(&st.data_dir)
+        .join(BUNDLE_QUARANTINE_DIR)
+        .join(format!("import-{}", uuid::Uuid::new_v4()));
+    let quarantine = Quarantine(staging.clone());
+    let _ = std::fs::remove_dir_all(&staging);
+    if let Err(error) = super::microvm::untar_into(&staging, &bundle) {
+        return import_refusal(
+            "managed_backup_import_bundle_unreadable",
+            format!("bundle is not an admissible archive: {error}"),
+        );
+    }
+    // CLOSED WORLD over the members: exactly the two this format defines, and nothing else. A
+    // bundle carrying a third member is refused rather than ignored.
+    let mut members = match std::fs::read_dir(&staging) {
+        Ok(entries) => entries
+            .filter_map(|entry| entry.ok())
+            .map(|entry| entry.file_name().to_string_lossy().into_owned())
+            .collect::<Vec<_>>(),
+        Err(error) => {
+            return import_refusal("managed_backup_import_bundle_unreadable", error.to_string())
+        }
+    };
+    members.sort();
+    if members
+        != vec![
+            BUNDLE_MANIFEST_MEMBER.to_owned(),
+            BUNDLE_PAYLOAD_MEMBER.to_owned(),
+        ]
+    {
+        return import_refusal(
+            "managed_backup_import_bundle_members_unexpected",
+            format!("a bundle carries exactly {BUNDLE_MANIFEST_MEMBER} and {BUNDLE_PAYLOAD_MEMBER}; this one carries {members:?}"),
+        );
+    }
+    let manifest: Value = match std::fs::read(staging.join(BUNDLE_MANIFEST_MEMBER))
+        .ok()
+        .and_then(|bytes| serde_json::from_slice(&bytes).ok())
+    {
+        Some(manifest) => manifest,
+        None => {
+            return import_refusal(
+                "managed_backup_import_manifest_unreadable",
+                "the bundle manifest is absent or is not JSON",
+            )
+        }
+    };
+    if manifest["schema_version"] != json!(BUNDLE_SCHEMA) {
+        return import_refusal(
+            "managed_backup_import_manifest_schema_unknown",
+            format!("bundle manifest must declare {BUNDLE_SCHEMA}"),
+        );
+    }
+    let payload = match std::fs::read(staging.join(BUNDLE_PAYLOAD_MEMBER)) {
+        Ok(payload) => payload,
+        Err(error) => {
+            return import_refusal(
+                "managed_backup_import_payload_unreadable",
+                error.to_string(),
+            )
+        }
+    };
+    let payload_sha256 = digest(&payload);
+    if manifest["payload_sha256"] != json!(payload_sha256)
+        || manifest["payload_size_bytes"].as_u64() != Some(payload.len() as u64)
+    {
+        return import_refusal(
+            "managed_backup_import_payload_digest_mismatch",
+            "the bundle payload is not the bytes its manifest describes",
+        );
+    }
+    let backup = manifest["backup"].clone();
+    if let Err(error) =
+        ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
+            "schema://ioi/components/hypervisor/hypervisor-environment-backup/v1",
+            &backup,
+        )
+    {
+        return import_refusal("managed_backup_import_contract_invalid", error);
+    }
+    // The record is content-addressed by its WHOLE bytes, so re-deriving the key here is what makes
+    // every field of it tamper-evident: an edit anywhere lands at a different key than the manifest
+    // declared, and this comparison catches it.
+    let record_artifact_root = match environment_artifact_root(&backup) {
+        Ok(root) => root,
+        Err(error) => {
+            return import_refusal("managed_backup_import_artifact_root_failed", error);
+        }
+    };
+    if manifest["record_artifact_root"] != json!(record_artifact_root) {
+        return import_refusal(
+            "managed_backup_import_record_tampered",
+            "the record does not hash to the artifact root its bundle manifest declared",
+        );
+    }
+    match backup_manifest_root(&backup) {
+        Ok(root) if backup["manifest_root"] == json!(root) => {}
+        Ok(_) => {
+            return import_refusal(
+                "managed_backup_import_manifest_root_mismatch",
+                "the record's manifest root does not recompute from its own rows",
+            )
+        }
+        Err(error) => return import_refusal("managed_backup_import_manifest_invalid", error),
+    }
+    // THE BYTES ARE THE BACKUP'S OWN. A bundle whose payload is not the source state root the record
+    // was admitted over is refused outright — a restore that cannot verify its own bytes must refuse,
+    // never report success over material it cannot vouch for.
+    if backup["source_state_root_ref"] != json!(format!("state-root://{payload_sha256}")) {
+        return import_refusal(
+            "managed_backup_import_material_digest_mismatch",
+            "the bundle payload is not the source state root this record was admitted over",
+        );
+    }
+    let row_matches = backup["manifest_rows"]
+        .as_array()
+        .and_then(|rows| rows.first())
+        .is_some_and(|row| {
+            row["sha256"] == json!(payload_sha256)
+                && row["size_bytes"].as_u64() == Some(payload.len() as u64)
+        });
+    if !row_matches {
+        return import_refusal(
+            "managed_backup_import_manifest_row_mismatch",
+            "the record's manifest row does not describe the payload the bundle carries",
+        );
+    }
+    if backup["status"] != json!("complete") {
+        return import_refusal(
+            "managed_backup_import_status_not_restorable",
+            format!(
+                "only a complete backup is importable material; this record is {}",
+                backup["status"]
+            ),
+        );
+    }
+    let Some(backup_ref) = backup["backup_ref"].as_str().map(str::to_owned) else {
+        return import_refusal(
+            "managed_backup_import_record_tampered",
+            "the record carries no backup_ref",
+        );
+    };
+    // OWNERSHIP PRECEDES EVERY ANSWER ABOUT THIS COORDINATE. A daemon that already holds this
+    // backup must not tell a stranger who merely possesses a bundle that it holds it, that it
+    // deleted it, or when its duty ends — each of those is an answer about someone else's record.
+    // The scope is READ here and never bound: binding is a write, and a request that is about to be
+    // refused must not leave one behind.
+    let existing_scope = match super::substrate_store::read_request_scope(
+        &st.data_dir,
+        BACKUP_SCOPE_KIND,
+        &backup_ref,
+    ) {
+        Ok(scope) => scope,
+        Err(refusal) => return scope_refusal(refusal),
+    };
+    if existing_scope.is_some() {
+        if let Err(reply) = authorize_scope(
+            &st.data_dir,
+            &identity,
+            BACKUP_SCOPE_KIND,
+            &backup_ref,
+            None,
+        ) {
+            return reply;
+        }
+    }
+    // DELETION PROOF. Before the scope bind, before the material write, before any admission — and
+    // asked by CONTENT as well as by name, because the name arrived inside the caller's bundle.
+    if let Err(reply) = refuse_if_deleted(&st.data_dir, &backup_ref, &payload_sha256) {
+        return reply;
+    }
+    // RETENTION SURVIVES THE ROUND TRIP. The duty is read from the record exactly as the source
+    // daemon compiled it and is never restamped: an import that reset the clock would launder an
+    // expiring backup into a fresh one every time it crossed a daemon boundary.
+    if let Err(reply) = refuse_if_expired(&backup) {
+        return reply;
+    }
+    // An import onto a daemon that already holds this backup REPLAYS rather than re-admitting: the
+    // lifecycle genesis is expected-absent, so a second genesis would conflict forever.
+    if let Some(head) = match read_backup_lifecycle(&st.data_dir, &backup_ref) {
+        Ok(head) => head,
+        Err(reply) => return reply,
+    } {
+        if head.operation.payload["manifest_root"] != backup["manifest_root"] {
+            return bad(
+                StatusCode::CONFLICT,
+                "managed_backup_import_identity_collision",
+                "this daemon already holds a different backup at that coordinate",
+            );
+        }
+        // Answer with the DURABLE record this daemon holds, never with the caller's copy of it. The
+        // two are equal on every path that gets here, but echoing the request back is a self-report
+        // dressed as a readback.
+        let held = match backup_by_id(&st.data_dir, &backup_ref) {
+            Ok(held) => held,
+            Err(reply) => return reply,
+        };
+        return match require_restorable(&st.data_dir, &held) {
+            Ok(verification) => (
+                StatusCode::OK,
+                Json(json!({
+                    "ok": true,
+                    "replayed": true,
+                    "backup": held,
+                    "verification": verification,
+                    "lifecycle": projection_value(&head, Some(true)),
+                })),
+            ),
+            Err(reply) => reply,
+        };
+    }
+    let backup_scope = match bind_scope(
+        &st.data_dir,
+        &identity,
+        BACKUP_SCOPE_KIND,
+        &backup_ref,
+        &profile_scope.owner_ref,
+        &request.idempotency_key,
+    ) {
+        Ok(scope) => scope,
+        Err(reply) => return reply,
+    };
+    if let Err(error) = durable_write(&material_path(&st.data_dir, &payload_sha256), &payload) {
+        return bad(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "managed_backup_material_persist_failed",
+            error.to_string(),
+        );
+    }
+    let key = format!(
+        "hveb_{}",
+        record_artifact_root.trim_start_matches("sha256:")
+    );
+    if let Err(error) =
+        super::substrate_store::admit_required(&st.data_dir, BACKUP_FAMILY, &key, &backup)
+    {
+        return bad(
+            StatusCode::CONFLICT,
+            "managed_backup_agentgres_admission_failed",
+            error.to_string(),
+        );
+    }
+    if let Err(error) = persist_record(&st.data_dir, BACKUP_FAMILY, &key, &backup) {
+        return bad(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "managed_backup_projection_persist_failed",
+            format!(
+                "{error}; the import is admitted and canonical — replay to rebuild its projection"
+            ),
+        );
+    }
+    let lifecycle = match ensure_backup_lifecycle(
+        &st.data_dir,
+        &identity,
+        &backup_scope,
+        &backup,
+        &json!({
+            "kind": "imported",
+            "bundle_sha256": actual_bundle_sha256,
+            "imported_into_storage_profile_ref": request.storage_profile_ref,
+            "source_estate_namespace": manifest.pointer("/source/estate_namespace"),
+            "issuer_verified": false,
+            "issuer_verification_note": "this estate has no cross-daemon issuer identity; the bundle is verified for internal consistency and custody, never for who produced it",
+        }),
+        &format!("{}.lifecycle", request.idempotency_key),
+    ) {
+        Ok(lifecycle) => lifecycle,
+        Err(reply) => return reply,
+    };
+    drop(quarantine);
+    match require_restorable(&st.data_dir, &backup) {
+        Ok(verification) => (
+            StatusCode::CREATED,
+            Json(json!({
+                "ok": true,
+                "replayed": false,
+                "backup": backup,
+                "verification": verification,
+                "lifecycle": projection_value(&lifecycle, Some(false)),
+            })),
+        ),
+        Err(reply) => reply,
+    }
 }
 
 #[derive(Debug, Deserialize, serde::Serialize)]
@@ -2778,6 +3861,67 @@ fn restore_rollback_path(workspace: &Path, plan_id: &str) -> Result<PathBuf, Rep
         })
 }
 
+/// Re-decide whether one admitted restore plan's subject is still restore material, and DISCHARGE
+/// the staged copy when it is not.
+///
+/// Removing the staging is deliberate and is not a side effect of a refused request in the sense
+/// that rule forbids: those staged bytes ARE the deleted content, so leaving them beside the target
+/// workspace would keep the resurrection one rename away and would quietly retain material an owner
+/// ordered destroyed. Removal is idempotent, and a removal that fails is reported rather than
+/// swallowed — a refusal that claims the copy is gone while it survives is the same class of lie as
+/// a deletion that reports success over surviving key material.
+fn require_restorable_for_plan(data_dir: &str, plan: &ExactProjection) -> Result<(), Reply> {
+    let backup_ref = plan.operation.payload["backup_ref"]
+        .as_str()
+        .unwrap_or_default();
+    let backup = backup_by_id(data_dir, backup_ref)?;
+    let verdict = require_restorable(data_dir, &backup);
+    if let Err((status, Json(body))) = verdict {
+        let staging = plan.operation.payload["target_environment_id"]
+            .as_str()
+            .and_then(|environment_id| environment_record(data_dir, environment_id).ok())
+            .and_then(|environment| {
+                environment
+                    .pointer("/status/workspace_root")
+                    .and_then(Value::as_str)
+                    .map(PathBuf::from)
+            })
+            .and_then(|workspace| {
+                plan.operation.payload["plan_id"]
+                    .as_str()
+                    .and_then(|plan_id| restore_staging_path(&workspace, plan_id).ok())
+            });
+        let discharged = match staging.as_deref() {
+            Some(path) => match std::fs::remove_dir_all(path) {
+                Ok(()) => json!({ "staged_material_removed": true }),
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                    json!({ "staged_material_removed": false, "reason": "already absent" })
+                }
+                Err(error) => {
+                    return Err(bad(
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        "managed_restore_staged_material_retained",
+                        format!(
+                            "this plan's subject is no longer restore material and its staged copy could not be destroyed at {}: {error}",
+                            path.display()
+                        ),
+                    ))
+                }
+            },
+            None => json!({ "staged_material_removed": false, "reason": "staging path unresolvable" }),
+        };
+        return Err((
+            status,
+            Json(json!({
+                "ok": false,
+                "error": body.get("error").cloned().unwrap_or(Value::Null),
+                "staged_material": discharged,
+            })),
+        ));
+    }
+    Ok(())
+}
+
 pub(crate) async fn handle_restore_plan_prepare(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
@@ -2830,7 +3974,9 @@ fn prepare_restore_plan(
         Ok(value) => value,
         Err(reply) => return reply,
     };
-    if let Err(reply) = verify_backup(data_dir, &backup) {
+    // Restorability is decided BEFORE the target is resolved, the plan id is minted, or a byte is
+    // staged: a tombstoned or expired backup must not reach the staging untar under any ordering.
+    if let Err(reply) = require_restorable(data_dir, &backup) {
         return reply;
     }
     let target_scope = match authorized_instance_for_environment(
@@ -3204,6 +4350,18 @@ fn act_on_restore_plan(
                 if current.head != request.expected_head {
                     return head_conflict();
                 }
+                // RESTORABILITY IS RE-DECIDED HERE, NOT INHERITED FROM PREPARE.
+                //
+                // Everything below this point promotes staged bytes into a live workspace, and the
+                // staging happened at prepare — arbitrarily long ago. A retention deletion executed
+                // in between purges the material store and admits the tombstone, but it cannot
+                // reach a copy already staged beside the target workspace. Deciding once at prepare
+                // therefore left the deletion exactly one API call wide: prepare, delete, apply,
+                // and the destroyed archive is back on disk under a `pruned` head. The same
+                // reasoning covers an expiry that ran out mid-plan.
+                if let Err(reply) = require_restorable_for_plan(data_dir, &current) {
+                    return reply;
+                }
                 if !staging.is_dir() {
                     return bad(
                         StatusCode::CONFLICT,
@@ -3230,10 +4388,18 @@ fn act_on_restore_plan(
                     &rollback, ak,
                 )
             }
-            "applying" if current.operation.idem_key == format!("{ak}.applying") => finalize_apply(
-                data_dir, identity, &scope, plan_id, &tail, &current, &workspace, &staging,
-                &rollback, ak,
-            ),
+            "applying" if current.operation.idem_key == format!("{ak}.applying") => {
+                // A resume completes a promotion that was already admitted, so it re-decides too:
+                // the interruption it resumes from may have been long enough for the subject to be
+                // deleted.
+                if let Err(reply) = require_restorable_for_plan(data_dir, &current) {
+                    return reply;
+                }
+                finalize_apply(
+                    data_dir, identity, &scope, plan_id, &tail, &current, &workspace, &staging,
+                    &rollback, ak,
+                )
+            }
             "completed"
                 if current.operation.idem_key == format!("{ak}.completed")
                     || current.operation.idem_key == format!("{ak}.rollback_retained") =>
@@ -3575,6 +4741,7 @@ mod tests {
             encryption_ref: Some("encryption://acme/envelope".into()),
             key_epoch_ref: Some("key-epoch://acme/1".into()),
             retention_policy_ref: "policy://acme/retention".into(),
+            retention_duration_seconds: 86_400,
             jurisdiction_refs: vec![],
             minimum_replicas: 1,
             independent_compute_copy_required: false,
@@ -3881,6 +5048,7 @@ mod tests {
             "encryption_ref": Value::Null,
             "key_epoch_ref": Value::Null,
             "retention_policy_ref": "policy://acme/retention",
+            "retention_duration_seconds": 86_400,
         });
         admit(
             &data_dir,
@@ -4360,8 +5528,15 @@ mod tests {
         reset_handle_for_test();
         let (status, Json(body)) =
             capture_environment_backup(&fx.data_dir, &fx.identity, &fx.environment_id, &request);
-        assert_eq!(status, StatusCode::CREATED, "{body}");
+        // A retry is a REPLAY, not a second creation. It answers 200 and says so, matching the rest
+        // of this plane — and it must, because carrying a wall-clock retention duty means a
+        // recompiled record would differ in `expires_at`, land at a different whole-record key, and
+        // admit a SECOND record at one `backup_ref`. `backup_by_id` requires a coordinate to resolve
+        // exactly once, so that would wedge read, verify, export, restore AND the retention deletion
+        // itself behind `managed_backup_identity_ambiguous` — permanently, after two 201s.
+        assert_eq!(status, StatusCode::OK, "{body}");
         assert_eq!(body["ok"], json!(true));
+        assert_eq!(body["replayed"], json!(true), "{body}");
         assert_eq!(
             capture_event_count(&fx.data_dir),
             1,
@@ -4374,6 +5549,15 @@ mod tests {
         assert_eq!(
             material_files, 1,
             "an exact backup retry wrote a second material file"
+        );
+        let record_files =
+            std::fs::read_dir(std::path::Path::new(&fx.data_dir).join(BACKUP_FAMILY))
+                .map(|entries| entries.count())
+                .unwrap_or(0);
+        assert_eq!(
+            record_files, 1,
+            "ONE COORDINATE, ONE RECORD: an exact backup retry admitted a second record, which \
+             makes its backup_ref unresolvable and takes deletion down with it"
         );
     }
 }
@@ -4446,6 +5630,7 @@ pub(crate) mod backup_fixture {
             "encryption_ref": Value::Null,
             "key_epoch_ref": Value::Null,
             "retention_policy_ref": "policy://acme/retention",
+            "retention_duration_seconds": 86_400,
         });
         admit(
             &data_dir,

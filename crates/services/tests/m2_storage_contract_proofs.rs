@@ -126,6 +126,7 @@ fn live_backup() -> Value {
         &declaration,
         "sha256:fd61a03af4f77d870fc21e05e7e80678095c92d808cfb3b5c279ee04c74aca13",
         &rows,
+        None,
         Some("system://local/system-alpha"),
         "receipt://local/env-alpha/backup/0001",
     )

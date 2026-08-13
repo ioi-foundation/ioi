@@ -562,6 +562,20 @@ fn deliver_download_intent_content(
         .as_str()
         .unwrap_or("")
         .to_string();
+    // AN EGRESS LANE OVER SHARED CUSTODY MUST HONOUR A DELETION IT DID NOT ORDER.
+    //
+    // This lane reads the managed-runtime material store by content address, so it serves the same
+    // bytes a backup does — but it had no deletion gate of any kind. While the bytes were genuinely
+    // gone it answered `download_intent_payload_unavailable`, the same observable a lost disk
+    // produces; and the moment those bytes returned at that address by any route it resumed
+    // delivering content an owner had ordered destroyed. Asking here, keyed on the payload digest
+    // this intent already commits to, costs one durable read and closes the lane.
+    if let Err((status, body)) = super::managed_runtime_routes::refuse_if_material_destroyed_public(
+        data_dir,
+        &payload_sha256,
+    ) {
+        return (status, body).into_response();
+    }
     let bytes = match std::fs::read(super::managed_runtime_routes::material_path(
         data_dir,
         &payload_sha256,

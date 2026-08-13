@@ -551,6 +551,7 @@ pub(crate) fn compile_from_source(
                 source_state_root,
                 &evidence.artifact_digest_rows,
                 None,
+                None,
                 &receipt_ref,
             )
             .map_err(plan_err)?;

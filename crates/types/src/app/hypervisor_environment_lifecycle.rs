@@ -517,12 +517,20 @@ pub struct BackupDeclaration {
 /// capture: the daemon-admitted source state root and the resolved
 /// per-artifact digest census. A capture with zero resolved artifacts cannot
 /// compile a complete backup.
+///
+/// `resolved_expires_at` is the retention duty the SERVER derived from the
+/// admitted storage profile, never a caller field — it arrives as a parameter
+/// that cannot carry caller JSON for the same reason the manifest rows do
+/// (INV-37). `None` compiles the pre-retention shape: a `null` expiry, which
+/// every use site reads as "no retention duty is recorded", never as
+/// "unexpired".
 #[allow(clippy::too_many_arguments)]
 pub fn compile_backup_record(
     estate: &EnvironmentEstateBinding,
     declaration: &BackupDeclaration,
     resolved_source_state_root: &str,
     resolved_artifact_rows: &[Value],
+    resolved_expires_at: Option<&str>,
     system_ref: Option<&str>,
     receipt_ref: &str,
 ) -> Result<Value, String> {
@@ -586,7 +594,7 @@ pub fn compile_backup_record(
         "encryption_ref": Value::Null,
         "key_epoch_ref": Value::Null,
         "retention_policy_ref": format!("policy://{}/backups/retention", estate.estate_namespace),
-        "expires_at": Value::Null,
+        "expires_at": resolved_expires_at,
         "hold_refs": [],
         "authority_requirement_refs": [],
         "authority_grant_refs": [],
@@ -1364,6 +1372,7 @@ mod tests {
             },
             &h(0x0e),
             &digest_rows(),
+            None,
             Some("system://acme/system-alpha"),
             "receipt://local/env-alpha/backup/0001",
         )
@@ -1520,6 +1529,7 @@ mod tests {
             },
             &h(0x0e),
             &[],
+            None,
             None,
             "receipt://local/env-alpha/backup/0002",
         )
