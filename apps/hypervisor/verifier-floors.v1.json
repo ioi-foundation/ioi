@@ -107,8 +107,8 @@
       "id": "provider-transport",
       "npm_script": "check:provider-transport",
       "source": "apps/hypervisor/scripts/verify-hypervisor-provider-transport.mjs",
-      "runtime_assertions": 13,
-      "assertion_names_sha256": "7a25506c7e2ea5ec9b1b2c7098c317288e6a8bc82ade9df0fc67857d7660d4fa"
+      "runtime_assertions": 18,
+      "assertion_names_sha256": "888792a93bafb12c6309dd08e2177fdbc5159f0a22977e6b08607a5670d442f7"
     }
   ],
   "excluded": [

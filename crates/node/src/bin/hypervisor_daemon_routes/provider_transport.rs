@@ -20,8 +20,13 @@
 //!     reproduce that bypass.
 //!   * retry and fallback DECISIONS — a transport classifies an error as retryable; only the router
 //!     decides whether to retry. This cut performs exactly one attempt and says so in the record.
-//!   * billing — the transport reports what it observed; the economics ledger owns what it cost.
-//!     No `UsageRecord` is written here (named residual, see the module tail).
+//!   * billing — the transport reports what it OBSERVED; the economics ledger owns what it COST.
+//!     The join below hands the ledger an observed quantity and lets it price, sequence, hash-chain
+//!     and refuse on its own terms. This module computes no rate, no charge, and no total: it does
+//!     not know what anything costs and must never learn.
+//!   * spend authorization — a `UsageRecord` records work done, and a `FinalDebit` spends. The
+//!     latter still demands a live grant through `require_spend_authority`, which this cut does not
+//!     touch. No quantity of usage ever becomes an authority to debit.
 //!
 //! HONESTY RULES enforced below, not merely described:
 //!   * Every token-mix and latency field the provider did NOT report is `null` — a TYPED GAP. It is
@@ -207,6 +212,16 @@ pub(crate) struct TransportFailure {
     pub total_latency_ms: u64,
     pub error_class: ModelRuntimeErrorClass,
     pub detail: String,
+    /// What the provider METERED before the call failed. Suppliers bill failed attempts: a request
+    /// that consumed input tokens and then hit a content filter, a stream that emitted tokens and
+    /// then stalled. Where the provider reports those counts they are real usage and the economics
+    /// join must see them, so this field exists on the failure path and not only on success.
+    ///
+    /// Empty here means the provider reported nothing, which is a typed gap — never an assertion
+    /// that the failed call was free. `OllamaTransport` reports a mix only on a `done` frame, so
+    /// every failure it produces today leaves this default; the field carries the SHAPE the second
+    /// transport needs rather than waiting to be retrofitted after a dialect that meters failures.
+    pub token_mix: TokenMix,
 }
 
 /// The boundary itself. One dialect per implementation; nothing above the wire belongs here.
@@ -312,6 +327,8 @@ impl ProviderTransport for OllamaTransport {
                     }],
                     total_latency_ms: latency,
                     error_class: class,
+                    // Nothing reached the provider, so nothing was metered.
+                    token_mix: TokenMix::default(),
                     detail: error.to_string(),
                 });
             }
@@ -339,6 +356,10 @@ impl ProviderTransport for OllamaTransport {
                 }],
                 total_latency_ms: latency,
                 error_class: class,
+                // Ollama reports no counts on an error status. A dialect that DOES report them on a
+                // 4xx populates this instead; zero-filling it here would bill the caller nothing for
+                // input the provider charged for.
+                token_mix: TokenMix::default(),
                 detail,
             });
         }
@@ -370,6 +391,7 @@ impl ProviderTransport for OllamaTransport {
                         }],
                         total_latency_ms: latency,
                         error_class: class,
+                        token_mix: TokenMix::default(),
                         detail: error.to_string(),
                     });
                 }
@@ -391,6 +413,8 @@ impl ProviderTransport for OllamaTransport {
                         }],
                         total_latency_ms: latency,
                         error_class: ModelRuntimeErrorClass::MalformedStructuredOutput,
+                        // The body did not parse, so no counts could be read out of it.
+                        token_mix: TokenMix::default(),
                         detail: error.to_string(),
                     });
                 }
@@ -481,6 +505,10 @@ async fn read_ollama_stream(
                     }],
                     total_latency_ms: latency,
                     error_class: ModelRuntimeErrorClass::StreamingStall,
+                    // Whatever the stream already reported travels with the failure. A `done` frame
+                    // followed by a stall is a metered call that did not complete, and the provider
+                    // bills it: carrying the mix here is what lets the join charge for it.
+                    token_mix: mix.clone(),
                     detail: format!("no stream frame for {STREAM_STALL_MS}ms"),
                 });
             }
@@ -501,6 +529,7 @@ async fn read_ollama_stream(
                     }],
                     total_latency_ms: latency,
                     error_class: class,
+                    token_mix: mix.clone(),
                     detail: error.to_string(),
                 });
             }
@@ -534,6 +563,178 @@ async fn read_ollama_stream(
     }
 
     Ok((output, mix, finish_reason, first_token_ms))
+}
+
+// ---------------------------------------------------------------- the economics join
+
+/// What a caller may say about billing, and nothing more. Two refs — WHICH quote to charge and
+/// under WHICH quoted posture — both of which the ledger independently re-authorizes.
+///
+/// What is deliberately absent is the point: there is no field here for a quantity, a meter class,
+/// a rate, or a receipt ref. A caller who can name their own token count can name their own bill,
+/// so the quantity reaches the ledger only as a `u64` this module OBSERVED at the wire. This is the
+/// same rule INV-37 applies to WHO, applied to HOW MUCH.
+struct EconomicsRequest {
+    quote_ref: String,
+    commercial_posture: String,
+}
+
+/// Fields that describe a charge rather than name a billing target. Accepting any of them would
+/// make the ledger's own server-derivation guarantees reachable from a request body.
+const CLIENT_SETTABLE_CHARGE_FIELDS: &[&str] = &[
+    "quantity_units",
+    "meter_class",
+    "runtime_receipt_refs",
+    "charged_work_credits",
+    "rate_work_credit_micro_units_per_meter_unit",
+    "cost_breakdown",
+    "sequence",
+];
+
+/// SHAPE ONLY — a pure function of the request, so it is reachable (and therefore provable) without
+/// a reachable provider. Whether the named quote actually RESOLVES for this caller is world state
+/// and is answered later by the ledger's own resolver, once the route itself is known executable.
+fn parse_economics_request(body: &Value) -> Result<Option<EconomicsRequest>, Reply> {
+    let Some(raw) = body.get("economics") else {
+        return Ok(None);
+    };
+    if raw.is_null() {
+        return Ok(None);
+    }
+    let Some(object) = raw.as_object() else {
+        return Err(bad(
+            StatusCode::BAD_REQUEST,
+            "model_invocation_economics_invalid",
+            "economics must be an object naming the quote this invocation bills against",
+        ));
+    };
+    if let Some(field) = CLIENT_SETTABLE_CHARGE_FIELDS
+        .iter()
+        .find(|field| object.contains_key(**field))
+    {
+        return Err(bad(
+            StatusCode::BAD_REQUEST,
+            "model_invocation_economics_quantity_not_client_settable",
+            format!(
+                "economics.{field} is derived from the observed invocation, never accepted from a caller: \
+                 the quantity charged is the token mix this daemon read off the provider response"
+            ),
+        ));
+    }
+    let field = |key: &str| {
+        object
+            .get(key)
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .unwrap_or("")
+            .to_string()
+    };
+    let quote_ref = field("quote_ref");
+    if quote_ref.is_empty() {
+        return Err(bad(
+            StatusCode::BAD_REQUEST,
+            "model_invocation_economics_quote_ref_required",
+            "economics.quote_ref is required: a charge binds to exactly one quote",
+        ));
+    }
+    let commercial_posture = field("commercial_posture");
+    if commercial_posture.is_empty() {
+        return Err(bad(
+            StatusCode::BAD_REQUEST,
+            "model_invocation_economics_posture_required",
+            "economics.commercial_posture is required and must be one the quote allows",
+        ));
+    }
+    Ok(Some(EconomicsRequest {
+        quote_ref,
+        commercial_posture,
+    }))
+}
+
+/// The join, run AFTER the invocation is admitted.
+///
+/// ORDER IS LOAD-BEARING and the alternative was considered and rejected. Appending usage first
+/// would let the invocation's own admission fail behind it, leaving a charge whose
+/// `runtime_receipt_refs` names a record that does not exist — precisely the unauditable charge the
+/// ledger refuses at `economics_usage_evidence_required`. Admitting first can instead leave an
+/// invocation whose join did not land, which this function reports as a TYPED GAP on the record
+/// rather than silence. An orphan charge is a lie; a named gap is not.
+///
+/// NEVER SYNTHESIZES. Every path that cannot produce a real quantity returns `joined: false` with a
+/// reason code. There is no branch here that writes a zero.
+fn join_economics(
+    data_dir: &str,
+    caller: &WriteCaller,
+    request: Option<&EconomicsRequest>,
+    observed: &TokenMix,
+    invocation_ref: &str,
+    outcome_state: &str,
+) -> Value {
+    let Some(request) = request else {
+        return json!({
+            "joined": false,
+            "reason_code": "economics_join_not_requested",
+            "gap": "economics.usage_record",
+            "message": "this invocation named no quote, so it is metered nowhere; W4-F reads this as an absent cost, never a zero one",
+        });
+    };
+    // A mix the provider did not report cannot become a quantity. Failed invocations reach here on
+    // the same terms as successful ones: where the provider metered the failed attempt the charge
+    // is real and lands, and where it reported nothing the gap is named.
+    let Some(quantity) = observed.total() else {
+        return json!({
+            "joined": false,
+            "reason_code": "economics_join_token_mix_absent",
+            "gap": "economics.usage_record",
+            "quote_ref": request.quote_ref,
+            "unreported": observed.unreported(),
+            "outcome": outcome_state,
+            "message": "the provider reported no usable token mix, so no quantity exists to charge; \
+                        a zero-quantity row would read as a free call rather than an unmeasured one",
+        });
+    };
+    match super::economics_routes::append_model_token_usage(
+        data_dir,
+        caller,
+        &request.quote_ref,
+        &request.commercial_posture,
+        quantity,
+        &[invocation_ref.to_string()],
+    ) {
+        Ok((usage, chain_length)) => json!({
+            "joined": true,
+            "usage_ref": usage["usage_ref"],
+            "quote_ref": request.quote_ref,
+            "chain_ref": super::economics_routes::usage_chain_ref_for(&request.quote_ref),
+            "chain_length": chain_length,
+            "sequence": usage["sequence"],
+            "meter_class": super::economics_routes::METER_MODEL_TOKENS,
+            "commercial_posture": request.commercial_posture,
+            "quantity_units": quantity,
+            // Say what the number MEANS. `model_tokens` prices one meter unit, and this cut charges
+            // input+output. Cache and reasoning classes are reported by no transport yet; folding
+            // an unreported class in as zero would understate a bill, and inventing a second meter
+            // class the rate card does not price would refuse at admission.
+            "quantity_basis": "token_mix.input + token_mix.output (observed); cache and reasoning classes are unreported by this transport and are folded in nowhere",
+            "charged_work_credits": usage["charged_work_credits"],
+            "rate_work_credit_micro_units_per_meter_unit": usage["rate_work_credit_micro_units_per_meter_unit"],
+            "runtime_receipt_ref": invocation_ref,
+            // The ledger charged the work; it did not authorize a spend. A FinalDebit still demands
+            // a live grant through require_spend_authority, and no usage row weakens that.
+            "authorizes_spend": false,
+        }),
+        Err((status, Json(refusal))) => json!({
+            "joined": false,
+            "reason_code": "economics_join_refused",
+            "gap": "economics.usage_record",
+            "quote_ref": request.quote_ref,
+            "quantity_units_observed": quantity,
+            "refusal_status": status.as_u16(),
+            // The ledger's own refusal, verbatim. Re-wording it here would mint a second vocabulary
+            // for the same condition.
+            "refusal": refusal,
+        }),
+    }
 }
 
 // ---------------------------------------------------------------- the route
@@ -586,6 +787,14 @@ pub(crate) async fn handle_model_route_invoke(
         );
     }
     let stream = body.get("stream").and_then(Value::as_bool).unwrap_or(false);
+    // Request SHAPE before world state, for the same reason the prompt is checked here: a
+    // malformed billing block is the caller's own error and is answerable without consulting the
+    // registry, the provider, or the ledger. It is also the only part of the join reachable on a
+    // machine with no model provider, which is what makes it CI-provable rather than a claim.
+    let economics_request = match parse_economics_request(&body) {
+        Ok(request) => request,
+        Err(response) => return response,
+    };
 
     // Replay before work: the same caller + idempotency key returns the stored record rather than
     // spending a second provider call.
@@ -667,6 +876,26 @@ pub(crate) async fn handle_model_route_invoke(
         );
     }
 
+    // (4b) billing PREFLIGHT — resolve the named quote BEFORE spending a provider call.
+    //
+    // The ledger's own resolver answers this, not a copy of its rules: a quote that does not
+    // resolve, is not this caller's, has expired, does not allow the named posture, or whose rate
+    // card does not price `model_tokens` refuses HERE, verbatim, while refusing is still free. The
+    // append after execution runs the same resolver, so a preflight that passes and an append that
+    // then refuses cannot disagree about the rules — only about elapsed time.
+    if let Some(request) = economics_request.as_ref() {
+        if let Err(response) = super::economics_routes::resolve_usage_target(
+            &st.data_dir,
+            &caller,
+            &request.quote_ref,
+            super::economics_routes::METER_MODEL_TOKENS,
+            &request.commercial_posture,
+            super::economics_routes::now_ms(),
+        ) {
+            return response;
+        }
+    }
+
     let base_url = route
         .pointer("/provider_binding/base_url")
         .and_then(Value::as_str)
@@ -696,7 +925,7 @@ pub(crate) async fn handle_model_route_invoke(
     let result = transport.invoke(&request).await;
 
     // (6) receipt — typed, and emitted on BOTH paths
-    let (receipt, evidence, outcome_state, http_status) = match &result {
+    let (receipt, evidence, outcome_state, http_status, observed_mix) = match &result {
         Ok(success) => {
             let receipt = ModelInvocationReceipt {
                 model_id: model_id.clone(),
@@ -726,16 +955,25 @@ pub(crate) async fn handle_model_route_invoke(
                 // comparison from reading absence as zero.
                 "evidence_gaps": evidence_gaps(&success.token_mix, price_schedule_ref.is_none()),
             });
-            (receipt, evidence, "succeeded", StatusCode::OK)
+            (
+                receipt,
+                evidence,
+                "succeeded",
+                StatusCode::OK,
+                success.token_mix.clone(),
+            )
         }
         Err(failure) => {
             let receipt = ModelInvocationReceipt {
                 model_id: model_id.clone(),
                 provider: transport.transport_kind().to_string(),
                 latency_ms: failure.total_latency_ms,
-                prompt_tokens: None,
-                completion_tokens: None,
-                total_tokens: None,
+                // Whatever the provider METERED before it failed. `None` where it reported nothing,
+                // which is the ordinary case for this transport; a supplier that bills a failed
+                // attempt reports counts here and they reach the receipt and the ledger alike.
+                prompt_tokens: failure.token_mix.input.map(|v| v as u32),
+                completion_tokens: failure.token_mix.output.map(|v| v as u32),
+                total_tokens: failure.token_mix.total().map(|v| v as u32),
                 streaming: stream,
                 structured_output_schema_hash: None,
                 // An empty output is hashed honestly rather than left absent: the receipt states
@@ -744,7 +982,7 @@ pub(crate) async fn handle_model_route_invoke(
                 error_class: Some(failure.error_class),
             };
             let evidence = json!({
-                "token_mix": TokenMix::default().to_json(),
+                "token_mix": failure.token_mix.to_json(),
                 "latency": { "total_ms": failure.total_latency_ms, "first_token_ms": Value::Null },
                 "attempts": failure.attempts.iter().map(TransportAttempt::to_json).collect::<Vec<_>>(),
                 "attempt_count": failure.attempts.len(),
@@ -754,9 +992,15 @@ pub(crate) async fn handle_model_route_invoke(
                 "outcome": "failed",
                 "error_class": failure.error_class.as_str(),
                 "detail": failure.detail,
-                "evidence_gaps": evidence_gaps(&TokenMix::default(), price_schedule_ref.is_none()),
+                "evidence_gaps": evidence_gaps(&failure.token_mix, price_schedule_ref.is_none()),
             });
-            (receipt, evidence, "failed", StatusCode::BAD_GATEWAY)
+            (
+                receipt,
+                evidence,
+                "failed",
+                StatusCode::BAD_GATEWAY,
+                failure.token_mix.clone(),
+            )
         }
     };
 
@@ -790,12 +1034,16 @@ pub(crate) async fn handle_model_route_invoke(
         "evidence": evidence,
     });
 
+    // The ref the invocation is ADMITTED under is the same string the charge cites as its runtime
+    // evidence. Deriving the join key from the admission ref rather than re-spelling it is what
+    // makes "the key resolves both ways" a property of the code and not of a convention.
+    let invocation_ref = format!("model-invocation://{invocation_id}");
     let commit: MutationCommit = match admit_owner_scoped_write(
         &st.data_dir,
         &caller,
         INVOCATION_NAMESPACE,
         KIND_INVOCATION,
-        &format!("model-invocation://{invocation_id}"),
+        &invocation_ref,
         "model_invocation.executed",
         None,
         &admitted,
@@ -804,9 +1052,24 @@ pub(crate) async fn handle_model_route_invoke(
         Err(response) => return response,
     };
 
+    // (7) the economics join — after admission, so the charge can cite a receipt that EXISTS.
+    //
+    // It lands on the projection beside `admitted_head` and `recorded_at`, the other two facts that
+    // are only knowable after admission. The admitted payload stays the pre-join transport
+    // observation and is not rewritten; the usage append is durably evented by the economics
+    // stream, which is its own owner. One fact, one owner: `evidence.evidence_gaps` names what the
+    // TRANSPORT could not observe, and `economics` names whether the charge landed.
     let mut record = admitted.clone();
     record["admitted_head"] = json!(commit.projection.head);
     record["recorded_at"] = json!(super::iso_now());
+    record["economics"] = join_economics(
+        &st.data_dir,
+        &caller,
+        economics_request.as_ref(),
+        &observed_mix,
+        &invocation_ref,
+        outcome_state,
+    );
     if persist_record(&st.data_dir, KIND_INVOCATION, &invocation_id, &record).is_err() {
         return bad(
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -821,8 +1084,14 @@ pub(crate) async fn handle_model_route_invoke(
     )
 }
 
-/// Name every W4-F field this invocation could not supply. An economic comparison that cannot see
-/// its own gaps will read them as zeros.
+/// Name every W4-F field THIS TRANSPORT could not observe at the wire. An economic comparison that
+/// cannot see its own gaps will read them as zeros.
+///
+/// Scope changed when the economics join landed. This list used to also carry
+/// `economics.usage_record` unconditionally, which was correct while no invocation could ever be
+/// metered — and would now be a lie on every metered call. Whether the charge landed is answered by
+/// the record's `economics` block, which is the only owner of that fact; a gap list that guessed at
+/// it would be a second, staler answer to the same question.
 fn evidence_gaps(mix: &TokenMix, price_schedule_missing: bool) -> Vec<String> {
     let mut gaps: Vec<String> = mix
         .unreported()
@@ -832,9 +1101,6 @@ fn evidence_gaps(mix: &TokenMix, price_schedule_missing: bool) -> Vec<String> {
     if price_schedule_missing {
         gaps.push("price_schedule_ref".to_string());
     }
-    // Named residual, visible in every record rather than only in a ledger row: this cut observes
-    // and receipts, but does not yet join to the economics ledger.
-    gaps.push("economics.usage_record".to_string());
     gaps
 }
 

@@ -48,6 +48,17 @@ const KIND_OVERRUN: &str = "economics-overrun-decisions";
 const KIND_DEBIT: &str = "economics-final-debits";
 const KIND_ADJUSTMENT_CHAIN: &str = "economics-adjustment-chains";
 
+/// The meter class a model invocation charges under. Named here, in the ledger that prices it,
+/// rather than spelled as a literal at the invocation site — a meter class the rate card does not
+/// carry refuses at admission, and a typo would refuse as `economics_meter_unknown` and read like
+/// an operator's un-priced rate card rather than a daemon bug.
+pub(crate) const METER_MODEL_TOKENS: &str = "model_tokens";
+/// The usage-chain stream a quote's appends serialize through. The invocation join records this so
+/// a reader can walk from one invocation to the whole billed chain without re-deriving the tail.
+pub(crate) fn usage_chain_ref_for(quote_ref: &str) -> String {
+    format!("usage-chain://{}", tail_of(quote_ref))
+}
+
 const BUNDLE_CONTRACT_ID: &str = "schema://ioi/foundations/managed-work-billing-ledger-bundle/v1";
 const MAX_VALIDITY_SECONDS: u64 = 31_536_000; // one year
 const MICRO_PER_WORK_CREDIT: u64 = 1_000_000;
@@ -111,7 +122,7 @@ fn load(data_dir: &str, kind: &str, id: &str) -> Option<Value> {
     .ok()
 }
 
-fn now_ms() -> u64 {
+pub(crate) fn now_ms() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_millis() as u64)
@@ -1021,31 +1032,31 @@ fn cost_breakdown_from(body: &Value, currency: &str, posture: &str) -> Result<Va
     }))
 }
 
-fn append_usage(
+/// Everything the quote and its rate card determine about ONE metered append, resolved by exactly
+/// one function so a PREFLIGHT and the append itself can never disagree.
+///
+/// The two callers are asymmetric in cost, which is why the shared owner matters: an invocation
+/// preflights before it spends a provider call, and the append happens after. A preflight that says
+/// yes where the append then says no is a spent provider call with no bill; the reverse is a bill
+/// the caller was never warned about. A second copy of this resolution would drift into exactly one
+/// of those two.
+pub(crate) struct UsageTarget {
+    rate_work_credit_micro_units_per_meter_unit: u64,
+    charge_component: String,
+    currency_code: String,
+}
+
+/// PURE READ. Resolves and authorizes a metered append without admitting anything, so a probe on a
+/// path that then refuses leaves the substrate exactly as it found it.
+pub(crate) fn resolve_usage_target(
     data_dir: &str,
     caller: &WriteCaller,
-    body: &Value,
-) -> Result<(Value, usize), Reply> {
-    refuse_server_derived(
-        body,
-        &[
-            "body_hash",
-            "charged_work_credits",
-            "sequence",
-            "previous_usage_hash",
-            "occurred_at_ms",
-        ],
-    )?;
-    let quote_ref = require_ref(body, "quote_ref")?;
-    let meter_class = str_field(body, "meter_class").to_string();
-    let posture = str_field(body, "commercial_posture").to_string();
-    let quantity = units_field(body, "quantity_units", true)?.unwrap_or(0);
-    let coarse = body
-        .get("coarse_ocu_projection")
-        .and_then(Value::as_bool)
-        .unwrap_or(false);
-    let now = now_ms();
-    let quote_id = tail_of(&quote_ref).to_string();
+    quote_ref: &str,
+    meter_class: &str,
+    posture: &str,
+    now: u64,
+) -> Result<UsageTarget, Reply> {
+    let quote_id = tail_of(quote_ref).to_string();
     let Some(quote) = load(data_dir, KIND_QUOTE, &quote_id) else {
         return Err(bad(
             StatusCode::NOT_FOUND,
@@ -1061,7 +1072,7 @@ fn append_usage(
     let quote_object = resolve_unexpired(&quote, "quote", now)?;
     if !quote_object["allowed_commercial_postures"]
         .as_array()
-        .is_some_and(|allowed| allowed.iter().any(|p| p.as_str() == Some(posture.as_str())))
+        .is_some_and(|allowed| allowed.iter().any(|p| p.as_str() == Some(posture)))
     {
         return Err(bad(
             StatusCode::UNPROCESSABLE_ENTITY,
@@ -1092,7 +1103,7 @@ fn append_usage(
     let Some(meter) = card_object["meter_rates"].as_array().and_then(|rates| {
         rates
             .iter()
-            .find(|r| r["meter_class"].as_str() == Some(meter_class.as_str()))
+            .find(|r| r["meter_class"].as_str() == Some(meter_class))
     }) else {
         return Err(bad(
             StatusCode::UNPROCESSABLE_ENTITY,
@@ -1100,10 +1111,78 @@ fn append_usage(
             "meter_class is not priced by the quote's rate card",
         ));
     };
-    let rate = meter["work_credit_micro_units_per_meter_unit"]
-        .as_u64()
-        .unwrap_or(0);
-    let component = meter["charge_component"].as_str().unwrap_or("");
+    Ok(UsageTarget {
+        rate_work_credit_micro_units_per_meter_unit: meter
+            ["work_credit_micro_units_per_meter_unit"]
+            .as_u64()
+            .unwrap_or(0),
+        charge_component: meter["charge_component"].as_str().unwrap_or("").to_string(),
+        currency_code: card_object["currency_code"]
+            .as_str()
+            .unwrap_or("USD")
+            .to_string(),
+    })
+}
+
+/// The FIRST production path for the `model_tokens` meter class. Until this cut the class existed
+/// only in `#[cfg(test)]` rate-card fixtures: nothing in the running daemon ever priced a model
+/// invocation, so `runtime_receipt_refs` — the registered contract's own binding from a charge back
+/// to the runtime evidence that earned it — had no producer either.
+///
+/// WHY A WRAPPER RATHER THAN A CALLER-BUILT BODY: [`append_usage`] reads `quantity_units` out of
+/// JSON. If the invocation path assembled that JSON itself, one later edit could let a request
+/// field reach it — and a caller who can name their own token count can name their own bill. The
+/// quantity crosses this boundary as a `u64` the transport OBSERVED, in a parameter that cannot
+/// carry a caller's value.
+pub(crate) fn append_model_token_usage(
+    data_dir: &str,
+    caller: &WriteCaller,
+    quote_ref: &str,
+    commercial_posture: &str,
+    observed_quantity_units: u64,
+    runtime_receipt_refs: &[String],
+) -> Result<(Value, usize), Reply> {
+    append_usage(
+        data_dir,
+        caller,
+        &json!({
+            "quote_ref": quote_ref,
+            "meter_class": METER_MODEL_TOKENS,
+            "quantity_units": observed_quantity_units,
+            "commercial_posture": commercial_posture,
+            "runtime_receipt_refs": runtime_receipt_refs,
+        }),
+    )
+}
+
+fn append_usage(
+    data_dir: &str,
+    caller: &WriteCaller,
+    body: &Value,
+) -> Result<(Value, usize), Reply> {
+    refuse_server_derived(
+        body,
+        &[
+            "body_hash",
+            "charged_work_credits",
+            "sequence",
+            "previous_usage_hash",
+            "occurred_at_ms",
+        ],
+    )?;
+    let quote_ref = require_ref(body, "quote_ref")?;
+    let meter_class = str_field(body, "meter_class").to_string();
+    let posture = str_field(body, "commercial_posture").to_string();
+    let quantity = units_field(body, "quantity_units", true)?.unwrap_or(0);
+    let coarse = body
+        .get("coarse_ocu_projection")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let now = now_ms();
+    let quote_id = tail_of(&quote_ref).to_string();
+    let target = resolve_usage_target(data_dir, caller, &quote_ref, &meter_class, &posture, now)?;
+    let rate = target.rate_work_credit_micro_units_per_meter_unit;
+    let component = target.charge_component.as_str();
     if coarse && component != "non_billable_telemetry" {
         return Err(bad(
             StatusCode::UNPROCESSABLE_ENTITY,
@@ -1119,11 +1198,7 @@ fn append_usage(
             "quantity * rate exceeds the safe integer domain",
         ));
     };
-    let breakdown = cost_breakdown_from(
-        body,
-        card_object["currency_code"].as_str().unwrap_or("USD"),
-        &posture,
-    )?;
+    let breakdown = cost_breakdown_from(body, &target.currency_code, &posture)?;
     let refs = |key: &str| -> Vec<String> {
         body.get(key)
             .and_then(Value::as_array)
