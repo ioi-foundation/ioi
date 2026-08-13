@@ -204,6 +204,11 @@ async function run() {
       // Deliberately dead: nothing in this verifier may reach a provider through the boot-time
       // environment singleton. Every successful call below must come from a REGISTRY record.
       IOI_HYPERVISOR_MODEL_UPSTREAM: "http://127.0.0.1:1/v1",
+      // Deliberately SET. An openai_compatible route declaring this env key probes to
+      // `credentials_present`, which makes it executable-by-posture — so the credential gate below
+      // is reached with a real process-environment key sitting right there. Refusing anyway is the
+      // proof that the legacy env-key REPORT grants no execution.
+      VERIFY_TRANSPORT_KEY_NAME: "sk-env-key-that-must-never-be-used-b41f7c",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -272,27 +277,108 @@ async function run() {
     notExecutable.status === 409 && code(notExecutable.j) === "model_route_not_executable",
     `status ${notExecutable.status} code ${code(notExecutable.j)}`);
 
-  // openai_compatible is admitted by the REGISTRY but has no transport implementation. The honest
-  // answer is 501, not a silent fallback onto the one transport that does exist.
+  // openai_compatible is now an ADMITTED transport (the second native conformer), so the 501 this
+  // assertion used to claim is no longer reachable through it — and an assertion that can only pass
+  // for a reason its label denies is the decorative class this program keeps finding. It is re-aimed
+  // at what is now true: an admitted transport is gated by CUSTODY, not by implementation. A route
+  // whose posture names a credential with nothing sealed refuses 428 and reaches no provider.
+  // A LISTENER THAT ONLY COUNTS. It accepts TCP connections and answers nothing, so it cannot serve
+  // as a provider — its sole purpose is to make "the probe never contacted the endpoint" OBSERVABLE
+  // rather than asserted. An earlier revision of the posture assertion checked only the reported
+  // state and PASSED with a real outbound request added to the probe; the claim was decorative
+  // until a connection count backed it.
+  const watchPort = await freePort();
+  let watchConnections = 0;
+  const watcher = net.createServer((c) => { watchConnections += 1; c.destroy(); });
+  await new Promise((resolve) => watcher.listen(watchPort, "127.0.0.1", resolve));
+
   const oai = await jd("POST", "/v1/hypervisor/model-routes", {
     model_id: "gpt-4o-mini", transport: "openai_compatible",
-    base_url: "https://example.invalid/v1", display_name: "no transport implementation",
-    api_key_env: "VERIFY_TRANSPORT_KEY_NAME",
+    base_url: `http://127.0.0.1:${watchPort}`, display_name: "admitted transport, no sealed credential",
+    // `env_key_name` is the field the registry's create handler actually reads. The previous
+    // revision passed `api_key_env`, which the handler ignores — so this route had NO credential
+    // binding at all and the assertion below could never have reached the posture it names.
+    env_key_name: "VERIFY_TRANSPORT_KEY_NAME",
   }, { idem: "oai-route" });
   const oaiId = oai.j?.route?.route_id ?? "";
-  if (oaiId) {
-    const oaiInvoke = await jd("POST", `/v1/hypervisor/model-routes/${oaiId}/invoke`,
-      { prompt: "hello" }, { idem: "oai-invoke" });
-    // Exactly 501 and exactly this code. An earlier revision of this assertion also accepted 409,
-    // and passed on the 409 — the label claimed a refusal the assertion never observed. The handler
-    // now checks transport support before availability so the claimed refusal is the reachable one.
-    ok("a transport with no implementation refuses 501 — it never falls back to another provider",
-      oaiInvoke.status === 501 && code(oaiInvoke.j) === "provider_transport_unimplemented",
-      `status ${oaiInvoke.status} code ${code(oaiInvoke.j)}`);
-  } else {
-    ok("a transport with no implementation refuses 501 — it never falls back to another provider",
-      false, `route create failed: ${oai.status} ${JSON.stringify(oai.j?.error ?? {})}`);
-  }
+  ok("the second native transport is admitted by the registry and declared executable-by-dialect",
+    oai.status === 201 && oaiId.length > 0
+      && oai.j?.route?.provider_binding?.transport === "openai_compatible",
+    `status ${oai.status} ${oaiId}`);
+
+  // Probe it to `credentials_present` (posture-only: no network call, no secret sent) and activate
+  // it, so the invoke below is stopped by CUSTODY rather than by availability.
+  const oaiProbe = await jd("POST", `/v1/hypervisor/model-routes/${oaiId}/probe`, null, { idem: "oai-probe" });
+  await new Promise((r) => setTimeout(r, 250));
+  ok("the openai_compatible probe stays POSTURE-ONLY — it reports a credential posture and opens NO connection to the caller-supplied endpoint",
+    oaiProbe.j?.availability?.state === "credentials_present"
+      && oaiProbe.j?.availability?.probe?.kind === "openai_compatible_posture"
+      && oaiProbe.j?.availability?.probe?.evidence?.credential_basis === "env_key_report"
+      && watchConnections === 0,
+    `${oaiProbe.j?.availability?.state} · basis ${oaiProbe.j?.availability?.probe?.evidence?.credential_basis} · ${watchConnections} connection(s)`);
+  await new Promise((resolve) => watcher.close(resolve));
+
+  // The legacy env-key posture cannot even ACTIVATE. The kernel's route-mutation planner demands a
+  // credential lease ref for a `provider_vault_token` route, and an env-key report is not one — so
+  // this route never becomes executable and the invoke below is stopped before custody is consulted.
+  // That is a stronger fact than "it refuses at execution": the env-key posture is dead upstream.
+  const oaiEnable = await jd("POST", `/v1/hypervisor/model-routes/${oaiId}/enable`, {}, { idem: "oai-enable" });
+  ok("a credentialed route whose only credential is a legacy env-key REPORT cannot be ACTIVATED — the planner demands custody, so the env-key posture never becomes executable",
+    oaiEnable.status === 403
+      && code(oaiEnable.j) === "model_route_mutation_provider_credential_lease_required",
+    `status ${oaiEnable.status} code ${code(oaiEnable.j)}`);
+
+  const oaiInvoke = await jd("POST", `/v1/hypervisor/model-routes/${oaiId}/invoke`,
+    { prompt: "hello" }, { idem: "oai-invoke" });
+  ok("that route consequently never reaches a provider — it refuses as not-executable with a set environment key sitting right there",
+    oaiInvoke.status === 409 && code(oaiInvoke.j) === "model_route_not_executable",
+    `status ${oaiInvoke.status} code ${code(oaiInvoke.j)}`);
+
+  const refusalLadderRecords = invocationFiles().length;
+
+  // THE SECOND TRANSPORT EXECUTING, IN CI, WITH NO PROVIDER AND NO CREDENTIAL. A route that
+  // genuinely needs no credential is executable by posture, so this exercises the new dialect's real
+  // request path against an unreachable host and proves it CLASSIFIES the failure rather than
+  // flattening it — the part of the contract a second conformer has to demonstrate.
+  const oaiOpen = await jd("POST", "/v1/hypervisor/model-routes", {
+    model_id: "local-model", transport: "openai_compatible",
+    base_url: "http://127.0.0.1:1", display_name: "credential-free openai-compatible route",
+    credential_posture: "no_credentials_required",
+  }, { idem: "oai-open-route" });
+  const oaiOpenId = oaiOpen.j?.route?.route_id ?? "";
+  await jd("POST", `/v1/hypervisor/model-routes/${oaiOpenId}/probe`, null, { idem: "oai-open-probe" });
+  await jd("POST", `/v1/hypervisor/model-routes/${oaiOpenId}/enable`, {}, { idem: "oai-open-enable" });
+  const oaiOpenInvoke = await jd("POST", `/v1/hypervisor/model-routes/${oaiOpenId}/invoke`,
+    { prompt: "hello" }, { idem: "oai-open-invoke" });
+  const oaiInv = oaiOpenInvoke.j?.invocation ?? {};
+  ok("the second native transport EXECUTES and classifies an unreachable provider as retryable ProviderUnavailable — the same typed receipt shape the first transport defined",
+    oaiOpenInvoke.status === 502 && oaiInv.outcome === "failed"
+      && oaiInv.transport === "openai_compatible"
+      && oaiInv.model_invocation_receipt?.error_class === "ProviderUnavailable"
+      && oaiInv.evidence?.attempts?.[0]?.retryable === true
+      && oaiInv.evidence?.attempts?.[0]?.attempt_index === 0,
+    `status ${oaiOpenInvoke.status} class ${oaiInv.model_invocation_receipt?.error_class}`);
+
+  ok("a failed second-transport invocation reports its token mix as TYPED GAPS, never zeros — nothing was metered because nothing was reached",
+    oaiInv.evidence?.token_mix?.input === null && oaiInv.evidence?.token_mix?.total === null
+      && (oaiInv.evidence?.token_mix?.unreported ?? []).includes("input")
+      && oaiInv.economics?.reason_code === "economics_join_not_requested",
+    JSON.stringify(oaiInv.evidence?.token_mix?.unreported ?? []));
+
+  ok("the daemon never read the declared env key: it appears in no durable record",
+    !allDurableBytes().includes("sk-env-key-that-must-never-be-used-b41f7c"),
+    "no env-key occurrence");
+
+  // The 501 path is NOT deleted — it is still the honest answer for a kind neither dialect speaks.
+  // Asserting it through a rejected registry value proves the admission list is closed at the
+  // registry boundary too, which is where an unknown dialect should actually be stopped.
+  const bogus = await jd("POST", "/v1/hypervisor/model-routes", {
+    model_id: "x", transport: "anthropic_messages", base_url: "https://example.invalid",
+    display_name: "unknown dialect",
+  }, { idem: "bogus-transport" });
+  ok("a dialect neither transport speaks is refused at REGISTRATION, so it can never reach execution",
+    bogus.status === 400 && code(bogus.j) === "model_route_transport_invalid",
+    `status ${bogus.status} code ${code(bogus.j)}`);
 
   // ---------------------------------------------------------------- the billing block is REQUEST SHAPE
   // These run with no provider ON PURPOSE. The economics join's world-state half (does this quote
@@ -396,8 +482,11 @@ async function run() {
     revokeUnbound.status === 200 && revokeUnbound.j?.was_bound === false,
     `status ${revokeUnbound.status} was_bound ${revokeUnbound.j?.was_bound}`);
 
+  // Scoped to the REFUSAL ladder. The credential-free execution above deliberately admits one
+  // record, so an absolute "zero records" reading here would be false for a reason the label does
+  // not claim; `refusalLadderRecords` is captured before that execution.
   ok("the whole refusal ladder fabricated NO invocation record on disk",
-    invocationFiles().length === 0, `${invocationFiles().length} record(s)`);
+    refusalLadderRecords === 0, `${refusalLadderRecords} record(s) after the refusals`);
 
   ok("the daemon never reached the boot-time env upstream (127.0.0.1:1) for any of the above",
     !log.includes("127.0.0.1:1/v1 responded"), "env singleton unused");
@@ -793,6 +882,69 @@ async function run() {
           && (postRevokeBind.j?.credential_binding?.provider_credential_lease_ref ?? "").startsWith("lease:"),
         `status ${postRevokeBind.status} lease ${postRevokeBind.j?.credential_binding?.provider_credential_lease_ref}`);
     }
+
+    // ------------------------------------------------------------ THE SECOND NATIVE CONFORMER, LIVE
+    // Ollama serves a real OpenAI-compatible API at /v1/chat/completions. That makes this a genuine
+    // SECOND DIALECT against a REAL server — different wire format (SSE vs NDJSON), different usage
+    // shape (`usage` vs `*_eval_count`), different error envelope — with no fixture anywhere. It is
+    // the native-first proof the absorption ruling requires before adapted transports are eligible.
+    const oaiLive = await jd("POST", "/v1/hypervisor/model-routes", {
+      model_id: LIVE_MODEL, transport: "openai_compatible", base_url: LIVE_BASE,
+      display_name: "live openai-compatible dialect", credential_posture: "no_credentials_required",
+    }, { idem: "oai-live-route" });
+    const oaiLiveId = oaiLive.j?.route?.route_id ?? "";
+    await jd("POST", `/v1/hypervisor/model-routes/${oaiLiveId}/probe`, null, { idem: "oai-live-probe" });
+    await jd("POST", `/v1/hypervisor/model-routes/${oaiLiveId}/enable`, {}, { idem: "oai-live-enable" });
+
+    const oaiLiveInvoke = await jd("POST", `/v1/hypervisor/model-routes/${oaiLiveId}/invoke`,
+      { prompt: "Reply with exactly the word: conformer" }, { idem: "oai-live-invoke" });
+    const oInv = oaiLiveInvoke.j?.invocation ?? {};
+    const oReceipt = oInv.model_invocation_receipt ?? {};
+    const oEvidence = oInv.evidence ?? {};
+    ok("live: the SECOND dialect executes against a real endpoint and produces the SAME typed kernel receipt as the first",
+      oaiLiveInvoke.status === 200 && oInv.outcome === "succeeded"
+        && oInv.transport === "openai_compatible"
+        && typeof oReceipt.latency_ms === "number" && Array.isArray(oReceipt.output_hash)
+        && oReceipt.provider === "openai_compatible",
+      `status ${oaiLiveInvoke.status} outcome ${oInv.outcome} provider ${oReceipt.provider}`);
+
+    ok("live: the second dialect reads its own usage shape — real prompt/completion counts off `usage`, not the first dialect's fields",
+      (oEvidence.token_mix?.input ?? 0) > 0 && (oEvidence.token_mix?.output ?? 0) > 0
+        && oEvidence.token_mix.total === oEvidence.token_mix.input + oEvidence.token_mix.output
+        && oReceipt.prompt_tokens === oEvidence.token_mix.input,
+      `in ${oEvidence.token_mix?.input} out ${oEvidence.token_mix?.output}`);
+
+    // The classes this dialect CAN report but this server does not: still gaps, never zeros.
+    ok("live: cache and reasoning classes this server does not report stay TYPED GAPS on the second dialect too",
+      oEvidence.token_mix?.cache_read === null && oEvidence.token_mix?.reasoning === null
+        && (oEvidence.token_mix?.unreported ?? []).includes("reasoning"),
+      JSON.stringify(oEvidence.token_mix?.unreported ?? []));
+
+    // SSE, which is a different framing from the first transport's NDJSON entirely.
+    const oaiStream = await jd("POST", `/v1/hypervisor/model-routes/${oaiLiveId}/invoke`,
+      { prompt: "Count: one two three", stream: true }, { idem: "oai-live-stream" });
+    const oStream = oaiStream.j?.invocation?.evidence ?? {};
+    ok("live: the second dialect streams over SSE, times its first token separately, and still reports a usage mix",
+      oaiStream.status === 200 && oaiStream.j?.invocation?.outcome === "succeeded"
+        && typeof oStream.latency?.first_token_ms === "number"
+        && oStream.latency.first_token_ms <= oStream.latency.total_ms
+        && (oStream.token_mix?.output ?? 0) > 0,
+      `first ${oStream.latency?.first_token_ms}ms total ${oStream.latency?.total_ms}ms out ${oStream.token_mix?.output}`);
+
+    // THE CONTRACT GENERALIZES: the economics join was written against the first dialect and is
+    // reused here unchanged, charging the second dialect's observed mix onto the same ledger.
+    const oaiBillable = await jd("POST", `/v1/hypervisor/model-routes/${oaiLiveId}/invoke`,
+      { prompt: "Reply with exactly the word: billed", economics: { quote_ref: quoteRef, commercial_posture: "managed" } },
+      { idem: "oai-live-billed" });
+    const oBilled = oaiBillable.j?.invocation ?? {};
+    const oRows = await usageRows();
+    const oRow = oRows.at(-1) ?? {};
+    ok("live: the economics join works on the second dialect UNCHANGED — its observed mix is charged onto the same hash-chained ledger",
+      oBilled.economics?.joined === true
+        && oRow.quantity_units === (oBilled.evidence?.token_mix?.input + oBilled.evidence?.token_mix?.output)
+        && (oRow.runtime_receipt_refs ?? []).includes(`model-invocation://${oBilled.invocation_id}`)
+        && oRow.meter_class === "model_tokens",
+      `joined ${oBilled.economics?.joined} charged ${oRow.quantity_units}`);
 
     // NO SPEND WITHOUT AUTHORITY. The join makes a charge real; it does not make it spendable. A
     // FinalDebit over this exact billed quote still refuses without a live grant — asserted here,

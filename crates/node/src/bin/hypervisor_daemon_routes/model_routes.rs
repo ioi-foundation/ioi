@@ -979,11 +979,23 @@ async fn probe_route(route: &Value) -> Value {
                 .and_then(|v| v.as_str())
                 .map(|p| p != "no_credentials_required")
                 .unwrap_or(true);
-            let key_present = !env_key.is_empty()
-                && std::env::var(env_key)
-                    .ok()
-                    .map(|v| !v.trim().is_empty())
-                    .unwrap_or(false);
+            // SEALED CUSTODY COUNTS AS PRESENT. Before Leg 2 the only way an openai_compatible
+            // route could name a credential was an env-key REPORT, so presence meant "that variable
+            // is set in the daemon's environment". A route whose key is sealed in
+            // `model-route-credentials` has a strictly better credential — one behind the
+            // CapabilityLease gateway — and reporting it as `credentials_missing` would leave every
+            // properly-custodied route permanently unexecutable. Still posture-only: this reads a
+            // local record, sends nothing, and reveals no secret.
+            let sealed_custody = route
+                .pointer("/credential_binding/kind")
+                .and_then(|v| v.as_str())
+                == Some("sealed_capability_lease");
+            let key_present = sealed_custody
+                || (!env_key.is_empty()
+                    && std::env::var(env_key)
+                        .ok()
+                        .map(|v| !v.trim().is_empty())
+                        .unwrap_or(false));
             if needs_key && !key_present {
                 (
                     "credentials_missing",
@@ -994,7 +1006,11 @@ async fn probe_route(route: &Value) -> Value {
                 (
                     "credentials_present",
                     "openai_compatible_posture",
-                    json!({ "env_key_name": env_key, "note": "credential env key resolves; authenticated catalog probing is deferred (the daemon never sends a secret to a caller-supplied URL) — not bindable for execution" }),
+                    json!({
+                        "env_key_name": env_key,
+                        "credential_basis": if sealed_custody { "sealed_capability_lease" } else { "env_key_report" },
+                        "note": "a credential resolves for this route; authenticated catalog probing stays deferred — the daemon never sends a secret to a caller-supplied URL, so this posture is the strongest state this probe can honestly reach"
+                    }),
                 )
             }
         }
