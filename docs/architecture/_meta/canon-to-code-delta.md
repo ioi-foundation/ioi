@@ -733,6 +733,78 @@ bind address" is not that evidence.**
 |---|---|---|
 | **Every model-route mutation handler authenticates only at the global auth gate, not per-request, because a model route carries no owner.** `handle_model_route_patch`, `_probe`, `_enable`, `_disable`, `_select_default`, `_create`, and `_delete` take `State` + `AxumPath` (+ `Json`) and NO `HeaderMap`; none resolves a caller or an owner scope. The record has no `owner_ref`/`tenant` field at all. Under the default `auto` auth policy the only gate is `daemon_exposed() || request_exposed(headers)`, which is false for the loopback-behind-`serve` topology — so on the estate's documented exposed deployment these mutations are reachable unauthenticated. | Byte-verified at HEAD on `w32/model-route-lease`: the seven handler signatures; `read_record_dir("model-route-registry")` records carry no owner; the adversarial review's finding #1 exploit chain (unauthenticated `PATCH base_url` → `probe` → repoint). The **credential-exfiltration consequence is fenced in the Leg-2 cut above** (destination bound into the invoke grant hash + a credentialed route's config frozen against PATCH), so a bound key cannot be re-aimed. What remains is registry integrity: an unauthenticated party can still repoint an UNCREDENTIALED route, flip enable/disable, or vandalize display fields, and an env-var existence oracle (`credential_binding.env_key_name` → `std::env::var`) is settable the same way. | **Filed OPEN as its own leg, not fixed in Leg 2 (owner-reversible).** Authenticating the whole surface needs a route OWNERSHIP model — capture the owner at `create`, migrate the seed route, and owner-scope every mutation — which is a registry-wide change with its own verifier, well outside a credential-custody cut. Fixing one handler would falsely imply the surface is closed. **Residual named in Leg 2:** even with the destination fenced, a party who repoints an uncredentialed route and then persuades the owner to bind + approve a grant against it exfiltrates on the owner's own approval; the grant facets now NAME the destination, so an owner who inspects them sees the host, but the approval surface decoding those facets is part of this leg. The public "stronger than incumbents" claim stays gated on this and the standing Journeys B/C/D/G bar. |
 
+### Journey verification XII (2026-08-13, next-legs XII — SURF-ontology: the governed controls that were neither real nor named)
+
+| Delta | Evidence | Disposition |
+|---|---|---|
+| **Seven of this surface's thirteen governed controls were reachable by no path at all, and were not shown as disabled named gaps either.** `SURF-ontology` holds 13 of the estate's 24 `governed_receipted_action` controls — the highest concentration of the twenty. Six were real (create-ontology plus five inspector EDIT forms). The other seven — the five New-menu create entries, the section New-object-type button, and the 5-step wizard — had daemon authority that SHIPPED (`upsert-*` creates on a fresh id) and module actions that were DECLARED, but the Manager rendered no authoring form at all unless a definition was already selected, and the gaps note never named them. Silently absent is the one state the read-truth · local-UI-state · receipted-authority · disabled-named-gap ladder does not allow, and no assertion could see it because every authoring assertion drove the action lane directly instead of asking the page whether a control existed. | Live against an isolated daemon + serve throughout. `check:ontology-journey` **46/46** (was 36), floored in the same commit (36 → 46; family 654 → 657). **Eight mutations proven RED-ON-TARGET.** The seed gate was RE-CONFIRMED on ground rather than trusted from its dated row: `--require-ready` green, and both protected graphs replay `complete_interaction_route_graph=true` (schema 32 edges, explorer 3, zero problems). **A merge-blocking adversarial from-source review found a SHIP-BLOCKING defect in the first cut of this very fix** — see the paragraph below — plus six more, all applied. | **Executed and ruled (owner, owner-reversible).** (1) **12 of 13 controls are now REAL**; the 5-step wizard is the one that stays a gap and is rendered as a DISABLED NAMED CONTROL with its reason, not as prose. (2) **CREATE MEANS CREATE.** `upsert-*` merges onto an existing id — correct for the edit lane, catastrophic for a create entry, which would silently rewrite another author's definition and still return a receipt. Create entries carry an explicit intent and refuse a duplicate typed (`ontology_definition_exists`); the edit lane is unchanged. (3) **A CONTROL THAT CANNOT SUCCEED IS NOT REAL.** Entries whose required selects would render empty (a link or action type on an ontology with no object types) render as disabled named gaps naming their own precondition. (4) **The frozen census is updated to match** — 12 of 13 `implemented: true`. Only `implemented` moved; `outcome` describes the REFERENCE control's class and is not ours to rewrite, so the estate total stays 24. |
+
+**THE AUTHORITY RULING, AND WHY THE BRIEF WAS WRONG.** `surfaces/ontology.md` §4 targeted the seven
+authoring actions at "re-plumb through the W0.3 CapabilityLease client (this plane today mutates
+without a wallet challenge)". That target is **withdrawn as stale**. Canon rules ontology authoring
+an ordinary governed mutation, not an authority crossing:
+`domain-ontologies-and-data-recipes.md` — *"Local canonicality is the default. An organization or
+autonomous-system domain may canonically define its own objects, actions, assertions, and
+policies… wallet.network supplies that path when portable delegated authority, secrets, decryption
+leases, external account access, or high-risk approval is required."* Authoring your own ontology is
+none of those. Ruling OQ-1 reached the same conclusion for the sibling object
+(`OntologySurfaceDescriptor`), OQ-11 reaffirmed it and forbade stale contradicting wording, and the
+frozen census binds all 13 of these controls to plain receipted POST/PATCH with **zero** lease
+bindings. The built shape — identity-first (rule E), `expected_revision` CAS,
+`ontology-receipt.v1`, fail-closed on a missing receipt, `acting_principal_ref` per INV-37 — IS the
+target. **Re-plumbing would have invented authority canon does not require and made every schema
+edit demand a wallet approval.** The brief row is corrected in place. Two caveats recorded rather
+than buried: the module already routes through the authority client as a no-lease pass-through, so
+a future 428/403 would be legible without re-plumbing; and canon separately forbids an ontology
+redefining constitutional purpose, prohibitions, authority ceilings or terminal obligations, and
+names constitution-bound roots as protected refs — a GOVERNANCE check that **does not exist on this
+lane** and is named below as a residual.
+
+**THE SHIP-BLOCKING DEFECT THIS RUN SHIPPED INTO ITS OWN FIX, AND WHY THE GATE COULD NOT SEE IT.**
+The first cut's `New → Action type` entry sent a hardcoded `kind="action"`. The daemon enumerates
+`create_object | modify_object | delete_object | function`, so **every submit refused** — a control
+that renders, claims to be real, and can never succeed. It was the SAME defect this cut had already
+made and fixed once (a `one-to-many` placeholder where the daemon enumerates `one_to_many`),
+re-shipped in the sibling field, *under a comment claiming the create forms reuse the edit lane's
+vocab-driven selects*. It survived because **the new assertions hand-picked their field values**:
+they proved the ACTION worked and said nothing about the FORM, so no assertion ever POSTed
+`upsert-action-type` at all. The assertions now **scrape each rendered form's own fields and submit
+that**, which is what made the mutation catchable. The same weakness recurred a third time in the
+property assertion and was caught only because its mutation came back GREEN twice.
+
+**WHAT THE STANDING DISCIPLINE CAUGHT THAT THE REVIEW DID NOT.** Two mutations returned
+GREEN-NOT-CAUGHT and forced repairs. The second of them — stripping the create intent from the one
+form labelled "Add a property" — exposed that **the property inspector branch has been unreachable
+since before this leg**: `resolveDef()` returns `{ot, p}` for a property while the render chain
+tested `if (def.ot)` first, so selecting a property always rendered its owning object type and the
+property inspector had never displayed. That mattered the moment "Add" became create-only, because
+the property EDIT form lives in that branch and editing would have been stranded. Branch order
+fixed; the inspector renders for the first time. Separately,
+`verify-hypervisor-operational-depth.mjs` **crashes on the committed tree and is not CI-gated at
+all** — which is precisely how the depth ledger drifted into claiming "create entry not rendered"
+for controls that render. Both are named as residuals below, not fixed here.
+
+**A FALSE FINDING THIS RUN ALMOST FILED.** The first seed-gate replay reported
+`complete_interaction_route_graph=false` on all three graphs. That was a BROKEN SHARED RUNTIME — a
+`serve` process up with its daemon down — not a broken gate; the isolated recipe replays green. The
+bad run also **overwrote a tracked seed graph**, replacing eight specific per-control problem
+records with two "cannot re-establish node" lines; that churn was reverted. A verification pass must
+not restamp content-addressed artifacts, and a gate is not failing merely because the thing you
+pointed it at was not running.
+
+**SURF-ontology REMAINS OPEN — it is not closed by this cut and must not be read as closed.** ACC-A
+requires create/version/**propose**/read/**search**/**saved-set** journeys to close. Derived from
+the router rather than from guessed URLs: there is **no ontology proposal/branch family** (the only
+`proposal` routes are Foundry qualification and Intelligence improvement), **no** saved
+object-set/exploration family, and **no** object-instance search family (the `instances` matches are
+`managed-worker-instances`, a different plane). Three of the six named journeys have no daemon
+family at all — they are the W3 backend work in the brief's §5 PRs 6–7 — and the per-owner cutover
+with typed 410s is W6.1. **NAMED RESIDUALS (tracked, not waived):** the constitutional-ceiling
+governance check canon requires of ontology evolution does not exist on this lane; the
+operational-depth verifier crashes and gates nothing, so the depth ledger has no machine guard; the
+5-step wizard is a disabled named gap; object-instance execution, proposals, saved sets and search
+remain typed absences; and the legacy `/__ioi/ontology/*` mounts keep serving until that cutover.
+
 ### Journey verification XI (2026-08-13, next-legs XI — W3.3 durable custody: a backup crosses to a fresh daemon, and what was deleted stays deleted)
 
 | Delta | Evidence | Disposition |
