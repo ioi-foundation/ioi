@@ -16,12 +16,69 @@
 // Exit 0 = all assertions pass; exit 1 = one or more failed. Mutable test routes are cleaned up;
 // immutable proof records (receipts, transcripts) are intentionally retained.
 
-const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
+import { spawn } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import net from "node:net";
+import { fileURLToPath } from "node:url";
 
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const ROOT = path.resolve(HERE, "..", "..", "..");
+
+// This verifier BOOTS ITS OWN DAEMON. It used to drive whatever happened to be listening on :8765
+// with no credential at all, which stopped being runnable the moment the registry's mutations
+// became owner-scoped: there is no way to authenticate against a daemon whose bootstrap token was
+// printed to a log this process never saw. An isolated daemon is also the only way the seed
+// assertions below mean anything, since they describe a registry no earlier run has mutated.
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
+
+const freePort = () => new Promise((resolve, reject) => {
+  const srv = net.createServer();
+  srv.listen(0, "127.0.0.1", () => {
+    const { port } = srv.address();
+    srv.close(() => resolve(port));
+  });
+  srv.on("error", reject);
+});
+
+const waitFor = async (url, ms) => {
+  const until = Date.now() + ms;
+  while (Date.now() < until) {
+    try { const r = await fetch(url); if (r.status < 500) return; } catch { /* not up yet */ }
+    await new Promise((r) => setTimeout(r, 400));
+  }
+  throw new Error(`timeout waiting for ${url}`);
+};
+
+const daemonBinary = path.resolve(ROOT, process.env.IOI_HYPERVISOR_DAEMON_BINARY ?? "target/debug/hypervisor-daemon");
+try {
+  fs.accessSync(daemonBinary, fs.constants.X_OK);
+} catch {
+  console.error(`BLOCKED: daemon binary not executable at ${daemonBinary}`);
+  process.exit(2);
+}
+
+const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-model-route-registry-"));
+let daemon = null;
+let DAEMON = "";
+let SESSION = "";
+let OWNER = "";
+let idemSeq = 0;
+
 async function jd(method, path, body) {
-  const r = await fetch(`${DAEMON}${path}`, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+  // The shared write path reads owner_ref and idempotency_key from the BODY. They are injected on
+  // every request that carries one: harmless where the handler ignores them, required by create.
+  const payload = body ? { owner_ref: OWNER, idempotency_key: `mrr-${idemSeq += 1}`, ...body } : undefined;
+  const r = await fetch(`${DAEMON}${path}`, {
+    method,
+    headers: {
+      "content-type": "application/json",
+      ...(SESSION ? { cookie: `ioi_session=${SESSION}` } : {}),
+    },
+    body: payload ? JSON.stringify(payload) : undefined,
+  });
   const t = await r.text();
   let j = null; try { j = JSON.parse(t); } catch { /* non-json */ }
   return { status: r.status, j, t };
@@ -29,7 +86,36 @@ async function jd(method, path, body) {
 
 const cleanup = [];
 
+function shutdown() {
+  try { daemon?.kill("SIGTERM"); } catch { /* already gone */ }
+  try { fs.rmSync(dataDir, { recursive: true, force: true }); } catch { /* best effort */ }
+}
+
 async function run() {
+  const daemonPort = await freePort();
+  DAEMON = `http://127.0.0.1:${daemonPort}`;
+  daemon = spawn(daemonBinary, [], {
+    cwd: ROOT,
+    env: {
+      ...process.env,
+      IOI_HYPERVISOR_DAEMON_ADDR: `127.0.0.1:${daemonPort}`,
+      IOI_HYPERVISOR_DATA_DIR: dataDir,
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  let log = "";
+  daemon.stdout.on("data", (c) => { log = `${log}${c}`.slice(-64000); });
+  daemon.stderr.on("data", (c) => { log = `${log}${c}`.slice(-64000); });
+  await waitFor(`${DAEMON}/healthz`, 30000);
+
+  const bootToken = log.match(/ioi_bootstrap_[a-f0-9]{64}/gu)?.at(-1) ?? null;
+  const boot = await jd("POST", "/v1/hypervisor/auth/bootstrap", { token: bootToken, password: "model-route-registry-v1" });
+  SESSION = boot.j?.session_token ?? "";
+  const who = (await jd("GET", "/v1/hypervisor/auth/whoami")).j || {};
+  OWNER = (who.principal?.tenant_refs || []).find((t) => typeof t === "string" && t.startsWith("org://")) || "";
+  ok("the verifier holds an authenticated admin session to drive the owner-scoped registry",
+    who.authenticated === true && who.principal?.role === "admin" && !!OWNER, `owner ${OWNER}`);
+
   // 1. Seed honesty: the env-default route exists, is seeded, is the default, and its overview
   //    env_execution posture reflects a REAL probe of the configured upstream.
   const overview = await jd("GET", "/v1/hypervisor/model-routes/overview");
@@ -158,6 +244,7 @@ async function run() {
 run()
   .catch((e) => ok("verifier ran to completion", false, String(e)))
   .finally(() => {
+    shutdown();
     let failed = 0;
     for (const r of results) {
       if (!r.pass) failed += 1;

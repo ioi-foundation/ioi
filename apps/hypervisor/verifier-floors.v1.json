@@ -111,6 +111,13 @@
       "assertion_names_sha256": "dadcb9063840018c1cc447fd6d9e4624fafb6114a85cf267c8cf6e10ac1597d4"
     },
     {
+      "id": "model-route-authority",
+      "npm_script": "check:model-route-authority",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-model-route-authority.mjs",
+      "runtime_assertions": 43,
+      "assertion_names_sha256": "f2f55d21182f043ad01b992361f93513934d93cdf1bee4a133b1b399a211c738"
+    },
+    {
       "id": "ported-seed",
       "npm_script": "check:ported-seed",
       "source": "apps/hypervisor/scripts/verify-hypervisor-ported-seed-invariant.mjs",
