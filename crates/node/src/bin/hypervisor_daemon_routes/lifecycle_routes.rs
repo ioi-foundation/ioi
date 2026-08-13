@@ -12564,10 +12564,14 @@ pub(crate) async fn resolve_sealed_credential(
     } else {
         rec["token"].as_str().map(str::to_string)
     };
-    let label = if rec["kind"].as_str() == Some("service-account") {
-        "managed-service-account"
-    } else {
-        "connector"
+    // The LABEL is what a receipt records about which custody the bearer came from, so a new
+    // credential family needs its own or it is audited as something it is not. A model-provider key
+    // opens exactly like a sealed PAT — the difference is provenance, not mechanism, which is why
+    // this is one more arm here rather than a second resolver.
+    let label = match rec["kind"].as_str() {
+        Some("service-account") => "managed-service-account",
+        Some("model-provider-key") => "model-provider-key",
+        _ => "connector",
     };
     let source = token.as_ref().map(|_| label.to_string());
     (token, source, key_source)

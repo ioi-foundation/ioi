@@ -2407,6 +2407,13 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/model-invocations/:id",
             get(provider_transport::handle_model_invocation_get),
         )
+        // Sealed provider-key custody for a model route. The bind accepts plaintext exactly once
+        // and seals it; the delete is the revocation surface the lease descriptor names.
+        .route(
+            "/v1/hypervisor/model-routes/:id/credential",
+            post(model_routes::handle_model_route_credential_bind)
+                .delete(model_routes::handle_model_route_credential_revoke),
+        )
         .route(
             "/v1/hypervisor/model-routes/:id/enable",
             post(model_routes::handle_model_route_enable),
@@ -4118,12 +4125,44 @@ fn resolve_inference() -> (String, String, String) {
         let base = base.trim_end_matches('/').to_string();
         return (format!("{base}/chat/completions"), String::new(), model);
     }
+    // STANDING DEFECT, RULED AND FENCED (next-legs IX Leg 2c; owner-reversible).
+    //
+    // This was the daemon's only credentialed model call, and it crossed to a real provider with no
+    // CapabilityLease, no wallet authority, no receipt, and no revocation surface — custody the
+    // compute `ProviderAccount` family has had across nine provider kinds for far longer.
+    //
+    // The disposition is NOT retirement, because this key feeds the boot-time `InferenceRuntime`
+    // that the session harness and agentops still consume; deleting it silently would break those
+    // lanes rather than move them onto custody. It is PINNED as a typed development-only posture and
+    // FAILS CLOSED: the key is refused unless the operator explicitly opts in with
+    // `IOI_HYPERVISOR_ALLOW_ENV_PROVIDER_KEY=1`.
+    //
+    // The first cut of this fence keyed off `daemon_exposed()`, which an adversarial review showed
+    // is the wrong signal: the estate's own exposed topology runs the daemon on loopback behind
+    // `serve`, so `daemon_exposed()` is false exactly where the daemon is publicly reachable, and
+    // the key would have been read on a reachable instance. Exposure cannot be inferred at boot, so
+    // this no longer tries — it requires a deliberate flag. That makes the disposition honest: the
+    // env path is OFF by default and the operator turns it on knowing it bypasses custody.
+    //
+    // The named target is to move those remaining consumers onto route records with sealed
+    // credentials, after which this branch deletes rather than narrows.
     if let Ok(key) = std::env::var("OPENAI_API_KEY") {
-        let m = std::env::var("OPENAI_MODEL").unwrap_or_else(|_| "gpt-4o".to_string());
-        return (
-            "https://api.openai.com/v1/chat/completions".to_string(),
-            key,
-            m,
+        let opted_in = std::env::var("IOI_HYPERVISOR_ALLOW_ENV_PROVIDER_KEY")
+            .map(|v| v.trim() == "1")
+            .unwrap_or(false);
+        if opted_in {
+            let m = std::env::var("OPENAI_MODEL").unwrap_or_else(|_| "gpt-4o".to_string());
+            return (
+                "https://api.openai.com/v1/chat/completions".to_string(),
+                key,
+                m,
+            );
+        }
+        tracing::warn!(
+            "OPENAI_API_KEY is set but the process-environment provider key is REFUSED by default — it \
+             bypasses the CapabilityLease custody gateway. This is a development-only posture: set \
+             IOI_HYPERVISOR_ALLOW_ENV_PROVIDER_KEY=1 to opt in explicitly, or bind a sealed credential to \
+             a model route (POST /v1/hypervisor/model-routes/:id/credential)."
         );
     }
     if let Ok(url) = std::env::var("LOCAL_LLM_URL") {

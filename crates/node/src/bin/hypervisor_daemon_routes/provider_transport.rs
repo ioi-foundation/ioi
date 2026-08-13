@@ -14,10 +14,11 @@
 //! WHAT IT MUST NEVER OWN (each already has a kernel owner; taking one would mint a second spine):
 //!   * route selection and admission — the registry decides, this module only executes what it is
 //!     handed. `model_routes::load_route_record` is the reader; there is no second census here.
-//!   * credential custody — `lifecycle_routes::authorize_capability_lease` is THE crossing. A
-//!     credentialed route is REFUSED here, typed, rather than reading a process env var: the env
-//!     path (`resolve_inference`) bypasses the lease gateway entirely and this module will not
-//!     reproduce that bypass.
+//!   * credential custody — `lifecycle_routes::authorize_capability_lease` is THE crossing, and
+//!     this module CONSUMES it rather than reimplementing it. A credentialed route resolves its
+//!     sealed provider key through the gateway, presents the bearer once, and drops it. There is no
+//!     process-environment path here and never was: the boot-time `resolve_inference` singleton is
+//!     a separate, now dev-posture-gated lane that this module does not touch.
 //!   * retry and fallback DECISIONS — a transport classifies an error as retryable; only the router
 //!     decides whether to retry. This cut performs exactly one attempt and says so in the record.
 //!   * billing — the transport reports what it OBSERVED; the economics ledger owns what it COST.
@@ -51,6 +52,8 @@ use sha2::Digest;
 use ioi_services::agentic::runtime::kernel::inference::{
     ModelInvocationReceipt, ModelRuntimeErrorClass,
 };
+
+use super::lifecycle_routes::AuthorizedCapabilityLease;
 
 use super::mutation_event_foundation::{
     admit_owner_scoped_write, replay_stable_id, require_write_caller, scope_refusal_reply,
@@ -338,10 +341,18 @@ impl ProviderTransport for OllamaTransport {
         if !response.status().is_success() {
             let (class, retryable) = Self::classify_status(status);
             let latency = started.elapsed().as_millis() as u64;
-            let detail = response.text().await.unwrap_or_default();
+            // The upstream error body is HASHED, never stored verbatim. A destination the daemon
+            // was pointed at can reflect the request's `Authorization: Bearer <key>` header straight
+            // back in its 4xx body — and this `detail` is admitted into the hash-chained, non-
+            // redactable event stream and returned to the caller. Storing the raw body would put a
+            // leased provider key into permanent storage on the say-so of whatever host answered.
+            // The status, byte length, and a digest are enough to correlate and compare failures
+            // without ever making the content durable. (Adversarial review, finding #2.)
+            let raw = response.text().await.unwrap_or_default();
             let detail = format!(
-                "upstream HTTP {status}: {}",
-                detail.chars().take(240).collect::<String>()
+                "upstream HTTP {status}: {} body bytes, sha256:{}",
+                raw.len(),
+                digest_hex(raw.as_bytes())
             );
             return Err(TransportFailure {
                 attempts: vec![TransportAttempt {
@@ -737,6 +748,135 @@ fn join_economics(
     }
 }
 
+// ---------------------------------------------------------------- credential custody
+
+/// Resolve a route's provider credential through THE authority crossing, or establish that it needs
+/// none. Returns the lease still holding its bearer, plus the non-secret labels that go on the
+/// record.
+///
+/// This function is the whole of Leg 2's claim, so what it must NOT do is worth stating: it never
+/// reads a process environment variable, never falls back to another route's credential, and never
+/// proceeds when the credential fails to resolve. The gateway's own refusals — 428 when the sealed
+/// credential will not open, 403 with a wallet challenge when no live grant is presented — are
+/// returned VERBATIM. Re-wording them here would mint a second vocabulary for an authority
+/// decision this module does not own.
+///
+/// `no_credentials_required` is the registry's default for an ollama route and is the only posture
+/// that legitimately reaches a provider with no crossing behind it. It is answered here rather than
+/// at the call site so there is exactly one place that decides whether a crossing is owed.
+#[allow(clippy::too_many_arguments)]
+async fn resolve_route_credential(
+    st: &Arc<DaemonState>,
+    route_id: &str,
+    credential_posture: &str,
+    base_url: &str,
+    model_id: &str,
+    credential_binding: &Value,
+    body: &Value,
+) -> Result<(Option<AuthorizedCapabilityLease>, Value), Reply> {
+    // CUSTODY PRESENCE decides the crossing, not the posture STRING. A sealed credential in
+    // custody forces the wallet crossing even if the posture field says `no_credentials_required` —
+    // so a route that somehow reaches this point with a bound key and a downgraded posture cannot
+    // execute with no lease, no grant, and no receipt. The posture string is a hint about what a
+    // route WANTS; the sealed record is the fact about what it HAS, and authority keys off the fact.
+    let has_sealed_custody =
+        credential_binding.get("kind").and_then(Value::as_str) == Some("sealed_capability_lease");
+    if credential_posture == "no_credentials_required" && !has_sealed_custody {
+        return Ok((
+            None,
+            json!({
+                "crossing": "none_required",
+                "credential_posture": credential_posture,
+                "reason": "the route declares no credential and holds none; nothing is presented to the provider",
+            }),
+        ));
+    }
+    // A route that names or holds a credential but has nothing sealed behind it is refused BEFORE
+    // the wallet crossing. The gateway would answer 428 for the same condition, but only after
+    // consuming a grant use to get there — and an operator who simply has not bound a key should not
+    // pay owner authority to be told so.
+    if !has_sealed_custody {
+        return Err(bad(
+            StatusCode::PRECONDITION_REQUIRED,
+            "model_route_credential_unbound",
+            format!(
+                "route credential posture '{credential_posture}' names a provider credential, but none is sealed into \
+                 route custody. Bind one with POST /v1/hypervisor/model-routes/{route_id}/credential; this transport \
+                 will not read a provider key from the process environment"
+            ),
+        ));
+    }
+
+    let lease_request = super::lifecycle_routes::CapabilityLeaseRequest {
+        authority_provider_ref: "wallet.network".to_string(),
+        backing_provider: format!("model-route:{route_id}"),
+        allowed_tools: vec!["model.invoke".to_string()],
+        resource_refs: vec![format!("model-route:{route_id}")],
+        scopes: vec!["model.invoke".to_string()],
+        policy_domain: "hypervisor.model-route.invoke.policy.v1".to_string(),
+        request_domain: "hypervisor.model-route.invoke.request.v1".to_string(),
+        // THE DESTINATION IS BOUND INTO THE CROSSING, and that is load-bearing, not cosmetic.
+        //
+        // `capability_lease_request_hash` folds `request_facets` into the hash a wallet grant is
+        // approved against. If the facets named only the route id, a grant approved for "invoke
+        // route R" would stay valid after R's `base_url` was repointed — so an owner's ordinary,
+        // already-approved grant would ship the sealed provider key to whatever host the route now
+        // names. Binding `base_url` and `model_id` here means a repointed route no longer matches
+        // the grant that was approved for the original destination: the crossing refuses, and the
+        // owner is forced to approve a NEW grant that names the new host. (An adversarial review
+        // caught this; the first cut bound only the route id.)
+        //
+        // The PROMPT is still deliberately absent: folding it in would make every invocation a
+        // distinct crossing needing its own grant — a per-prompt approval treadmill rather than a
+        // bounded authority to use a route against a fixed destination.
+        request_facets: json!({
+            "route_id": route_id,
+            "credential_posture": credential_posture,
+            "base_url": base_url,
+            "model_id": model_id,
+        }),
+        credential_connector_id: Some(route_id.to_string()),
+        credential_store: super::model_routes::CREDENTIAL_DIR.to_string(),
+        credential_required: true,
+        // Model routes have no host-credential fallback. A route either presents its OWN sealed
+        // credential or it does not execute — borrowing another family's token would make the
+        // receipt's credential_source a fiction.
+        github_host_fallback: false,
+        receipt_required: true,
+        revocation_ref: format!("model-routes/{route_id}/credential"),
+        authority_reason: "model_route_invocation_authority_required".to_string(),
+        grant_value: body
+            .get("wallet_approval_grant")
+            .cloned()
+            .unwrap_or(Value::Null),
+    };
+
+    match super::lifecycle_routes::authorize_capability_lease(st, &lease_request).await {
+        Err((status, challenge)) => Err((status, Json(challenge))),
+        Ok(lease) => {
+            let descriptor = &lease.descriptor;
+            let projection = json!({
+                "crossing": "capability_lease",
+                "credential_posture": credential_posture,
+                "lease_id": descriptor.get("lease_id"),
+                "lease_ref": descriptor.get("lease_id").and_then(Value::as_str)
+                    .map(|id| json!(format!("capability-lease://{id}"))).unwrap_or(Value::Null),
+                "grant_ref": lease.grant_ref,
+                "backing_provider": descriptor.get("backing_provider"),
+                "allowed_tools": descriptor.get("allowed_tools"),
+                "policy_hash": descriptor.get("policy_hash"),
+                "request_hash": descriptor.get("request_hash"),
+                "revocation_ref": descriptor.get("revocation_ref"),
+                // Labels describing WHERE the bearer came from, never the bearer.
+                "credential_source": lease.credential_source,
+                "credential_key_source": lease.credential_key_source,
+                "credential_material": false,
+            });
+            Ok((Some(lease), projection))
+        }
+    }
+}
+
 // ---------------------------------------------------------------- the route
 
 /// POST /v1/hypervisor/model-routes/:id/invoke
@@ -856,27 +996,13 @@ pub(crate) async fn handle_model_route_invoke(
         );
     }
 
-    // (4) credential custody stays with the lease gateway
     let credential_posture = route
         .get("credential_posture")
         .and_then(Value::as_str)
-        .unwrap_or("no_credentials_required");
-    // `no_credentials_required` is the registry's own default for an ollama route (model_routes.rs
-    // credential-posture resolution). It is the ONLY posture that needs no crossing; every other
-    // posture names a credential this cut cannot obtain without the lease gateway.
-    if credential_posture != "no_credentials_required" {
-        return bad(
-            StatusCode::NOT_IMPLEMENTED,
-            "provider_credential_lease_unimplemented",
-            format!(
-                "route credential posture '{credential_posture}' requires a CapabilityLease-resolved provider credential; \
-                 no model-route credential lease is minted or consumed yet, and this transport will not read a provider key \
-                 from the process environment"
-            ),
-        );
-    }
+        .unwrap_or("no_credentials_required")
+        .to_string();
 
-    // (4b) billing PREFLIGHT — resolve the named quote BEFORE spending a provider call.
+    // (4) billing PREFLIGHT — resolve the named quote BEFORE spending a provider call.
     //
     // The ledger's own resolver answers this, not a copy of its rules: a quote that does not
     // resolve, is not this caller's, has expired, does not allow the named posture, or whose rate
@@ -912,7 +1038,29 @@ pub(crate) async fn handle_model_route_invoke(
         .unwrap_or_default()
         .to_string();
 
-    // (5) execution
+    // (5) credential custody — THE authority crossing, and it runs LAST among the checks.
+    //
+    // Ordering is a correctness property, not tidiness. `authorize_capability_lease` atomically
+    // CONSUMES one wallet-owned use of the owner's grant. Every refusal that a pure read can
+    // discover — unknown route, unimplemented transport, unprobed availability, an unresolvable
+    // quote — therefore has to happen before it, or a caller's own request error silently spends
+    // owner authority they cannot get back.
+    let (mut credential_lease, credential_projection) = match resolve_route_credential(
+        &st,
+        &id,
+        &credential_posture,
+        &base_url,
+        &model_id,
+        route.get("credential_binding").unwrap_or(&Value::Null),
+        &body,
+    )
+    .await
+    {
+        Ok(resolved) => resolved,
+        Err(response) => return response,
+    };
+
+    // (6) execution
     let transport = OllamaTransport;
     let price_schedule_ref = transport.price_schedule_ref(&route);
     let request = TransportRequest {
@@ -920,9 +1068,18 @@ pub(crate) async fn handle_model_route_invoke(
         model_id: model_id.clone(),
         prompt: prompt.clone(),
         stream,
-        credential: None,
+        // The bearer MOVES out of the lease and into the one request that uses it. It is never
+        // cloned, so there is exactly one copy in the process, and it dies with `request` below.
+        credential: credential_lease
+            .as_mut()
+            .and_then(|lease| lease.token.take()),
     };
     let result = transport.invoke(&request).await;
+    // Explicit, immediately after the only call that needs it. The bearer is not in the receipt,
+    // not in the admitted payload, and not in the projection — `credential_projection` carries
+    // lease labels only, exactly as the connector-session crossing does.
+    drop(request);
+    drop(credential_lease);
 
     // (6) receipt — typed, and emitted on BOTH paths
     let (receipt, evidence, outcome_state, http_status, observed_mix) = match &result {
@@ -1027,6 +1184,9 @@ pub(crate) async fn handle_model_route_invoke(
         "transport": transport.transport_kind(),
         "model_id": model_id,
         "base_url": base_url,
+        // Which custody answered for this call, in labels. A reader can resolve the lease, the
+        // grant it was issued under, and the surface that revokes it — and can resolve no secret.
+        "credential": credential_projection,
         "prompt_hash": format!("sha256:{}", digest_hex(prompt.as_bytes())),
         "outcome": outcome_state,
         "attempts_this_cut": ATTEMPTS_THIS_CUT,

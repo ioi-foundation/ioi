@@ -36,6 +36,11 @@ const OVERVIEW_SCHEMA: &str = "ioi.hypervisor.model-routes-overview.v1";
 pub(crate) const RECORD_DIR: &str = "model-route-registry";
 const RECEIPT_DIR: &str = "model-route-registry-receipts";
 const BINDING_DIR: &str = "model-route-session-bindings";
+/// The sealed credential vault the CapabilityLease gateway resolves a model route's provider key
+/// from. A SEPARATE store from `connector-credentials` on purpose: the two families are revoked by
+/// different surfaces and audited under different backing providers, and one shared bag would let a
+/// connector's credential answer a model route's lease.
+pub(crate) const CREDENTIAL_DIR: &str = "model-route-credentials";
 const SEED_ROUTE_ID: &str = "mrt_local_default";
 const PROBE_TIMEOUT_MS: u64 = 1500;
 /// A persisted probe older than this is surfaced with `stale: true` in list projections.
@@ -1758,6 +1763,29 @@ pub(crate) async fn handle_model_route_patch(
             Json(json!({ "error": { "code": "not_found", "route": id } })),
         );
     };
+    // A route holding a SEALED credential has its destination and posture FROZEN. This closes the
+    // other half of the credential-exfiltration chain an adversarial review found: even with the
+    // destination now bound into the invoke crossing's grant hash, an unauthenticated caller could
+    // repoint `base_url` and leave the sealed key attached, so a fresh owner approval would ship it
+    // to the new host. While custody exists the destination cannot move and the posture cannot be
+    // downgraded — you must REVOKE first, which is owner-scoped to whoever established custody.
+    // (The broader gap — this whole registry's mutations are unauthenticated because a route
+    // carries no owner — is filed as its own leg; this guard is the part that protects the key.)
+    if live_credential_record(&st.data_dir, &id).is_some() {
+        let touches_frozen = body.get("base_url").is_some()
+            || body.get("credential_posture").is_some()
+            || body.get("env_key_name").is_some();
+        if touches_frozen {
+            return (
+                StatusCode::CONFLICT,
+                Json(json!({ "error": {
+                    "code": "model_route_credentialed_config_frozen",
+                    "message": "this route holds a sealed credential; its base_url and credential posture cannot be changed while custody exists. Revoke the credential first: DELETE /v1/hypervisor/model-routes/{id}/credential",
+                    "details": { "route_id": id }
+                } })),
+            );
+        }
+    }
     let credential_change =
         body.get("credential_posture").is_some() || body.get("env_key_name").is_some();
     if credential_change {
@@ -2034,6 +2062,488 @@ async fn lifecycle_flip(
             Json(body),
         ),
     }
+}
+
+// ---------------------------------------------------------------------------
+// sealed provider credentials — the custody a model route never had
+// ---------------------------------------------------------------------------
+//
+// THE ASYMMETRY THIS CLOSES. Compute `ProviderAccount`s already get real sealed per-kind BYOK
+// across nine provider kinds, resolved at the CapabilityLease gateway. A model route got an
+// `env_key_report`: a record of which environment variable a human was supposed to have exported.
+// That is not custody — it is a note about custody. The daemon's only credentialed model call read
+// its key straight out of the process environment, which means no lease, no wallet authority, no
+// receipt, and no revocation surface.
+//
+// A route's credential lives HERE, sealed, and reaches a provider only through
+// `authorize_capability_lease`. The plaintext is accepted exactly once, at bind time, and is never
+// returned, logged, projected onto the route record, or embedded in a receipt.
+
+/// The RAW record for a route's credential slot — live credential, or the revocation tombstone the
+/// stream leaves behind. Callers that need "is there a usable key" want [`live_credential_record`];
+/// this one is for the lifecycle machinery that has to see the tombstone (successor CAS, existence).
+fn credential_record(data_dir: &str, route_id: &str) -> Option<Value> {
+    read_record_dir(data_dir, CREDENTIAL_DIR)
+        .into_iter()
+        // `connector_id` is the CapabilityLease gateway's own lookup field, not a claim that a
+        // model route is a connector. Spelling it the gateway's way is what lets one resolver serve
+        // both families instead of growing a second one.
+        .find(|c| c.get("connector_id").and_then(Value::as_str) == Some(route_id))
+}
+
+/// A record only when a route holds a LIVE sealed key — never a tombstone.
+///
+/// Revocation does not delete; it leaves a tombstone (no `sealed_token`, `state: "revoked"`) so the
+/// hash-chained credential stream keeps a head a later re-bind can succeed a CAS from. A rotation
+/// that could not chain onto the prior head was the reviewer's finding #3: bind was genesis-only,
+/// so a route could be bound exactly once, ever. The distinction between "holds a key" and "the
+/// slot has history" is exactly this function.
+fn live_credential_record(data_dir: &str, route_id: &str) -> Option<Value> {
+    credential_record(data_dir, route_id).filter(|record| {
+        record.get("sealed_token").and_then(Value::as_str).is_some()
+            && record.get("state").and_then(Value::as_str) != Some("revoked")
+    })
+}
+
+/// Non-secret labels only. Every reader of a route learns THAT a credential is bound and how it is
+/// revoked; none of them can learn what it is. A tombstone reads as no binding.
+pub(crate) fn credential_binding_projection(data_dir: &str, route_id: &str) -> Value {
+    match live_credential_record(data_dir, route_id) {
+        Some(record) => json!({
+            "kind": "sealed_capability_lease",
+            "credential_ref": format!("model-route-credential://{route_id}"),
+            "credential_kind": record.get("kind").cloned().unwrap_or(Value::Null),
+            "sealed": true,
+            "bound_at": record.get("bound_at").cloned().unwrap_or(Value::Null),
+            "revocation_ref": format!("model-routes/{route_id}/credential"),
+            // THE FIELD THE KERNEL PLANNER HAS ALWAYS ASKED FOR AND NOTHING EVER WROTE.
+            //
+            // `runtime_model_route_mutation_admission` refuses to enable or bind a route whose
+            // credential posture is `provider_vault_token` / `wallet_credential_lease` unless a
+            // `provider_credential_lease_ref` is present, and `compose_mutation_admission` reads it
+            // from exactly here. No code path produced it, so a credentialed route could not be
+            // enabled AT ALL: the refusal was correct and unreachable in both directions.
+            //
+            // The planner also pins the `lease:` prefix, which settles what the field means — a
+            // LEASE, not a pointer at a vault. So the bind is itself an authority crossing that
+            // mints one, and this carries that lease's id. Satisfying the prefix with a
+            // custody-shaped ref would have been label-fitting, which is the defect class this
+            // program keeps finding.
+            "provider_credential_lease_ref": record
+                .get("custody_lease_ref").cloned().unwrap_or(Value::Null),
+        }),
+        None => Value::Null,
+    }
+}
+
+/// Undo a bind by RESTORING what was there before it, and CONFIRM the restore took.
+///
+/// Two findings converge here. `check:mutation-handlers` caught the first cut discarding the
+/// removal's bool — "nothing was there" and "deletion failed" were indistinguishable. The
+/// adversarial review then caught the deeper one (finding #4): the rollback DELETED, so a rebind
+/// that overwrote an incumbent key and then failed the crossing destroyed the incumbent. Rollback
+/// must return the slot to its prior contents — the incumbent record if there was one, or absence
+/// if there was not — and verify the result on disk before anyone is told the bind failed cleanly.
+fn restore_or_remove_credential(data_dir: &str, route_id: &str, incumbent: Option<&Value>) -> bool {
+    match incumbent {
+        Some(prior) => {
+            persist_record(data_dir, CREDENTIAL_DIR, route_id, prior).is_ok()
+                && credential_record(data_dir, route_id).as_ref() == Some(prior)
+        }
+        None => {
+            let removed = remove_record(data_dir, CREDENTIAL_DIR, route_id);
+            removed && credential_record(data_dir, route_id).is_none()
+        }
+    }
+}
+
+/// The refusal a stranded secret earns. The operator is told the bind failed AND that key material
+/// survived it, because those are different problems and only one of them is theirs to clean up.
+fn stranded_credential_reply(route_id: &str, cause: &str) -> (StatusCode, Json<Value>) {
+    (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        Json(json!({ "ok": false, "error": {
+            "code": "model_route_credential_rollback_failed",
+            "message": format!(
+                "the bind did not complete ({cause}) and the sealed credential could NOT be removed; key material is still in custody for this route. Revoke it: DELETE /v1/hypervisor/model-routes/{route_id}/credential"
+            ),
+            "details": { "route_id": route_id, "cause": cause, "key_material_stranded": true }
+        } })),
+    )
+}
+
+/// POST /v1/hypervisor/model-routes/:id/credential — seal a provider key into route custody.
+///
+/// The plaintext crosses this boundary once and is sealed before anything else happens to it. A
+/// route declaring `no_credentials_required` is REFUSED: a credential that no crossing will ever
+/// consume is an unrevoked secret sitting in a vault for no reason.
+pub(crate) async fn handle_model_route_credential_bind(
+    State(st): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let caller =
+        match super::mutation_event_foundation::require_write_caller(&st.data_dir, &headers, &body)
+        {
+            Ok(caller) => caller,
+            Err(response) => return response,
+        };
+    // INV-37 — WHO establishes custody is resolved server-side; a body carrying an actor field
+    // refuses. The custody record and its admitted event then carry the resolved principal, so the
+    // audit answers "who bound this key" rather than leaving it unstated (review finding #13).
+    let acting_principal_ref = match super::lifecycle_routes::resolve_acting_principal_ref(
+        &st.data_dir,
+        &headers,
+        &body,
+    ) {
+        Ok(actor) => actor,
+        Err((status, value)) => return (status, Json(value)),
+    };
+    ensure_seed(&st.data_dir);
+    let Some(mut route) = load_route_record(&st.data_dir, &id) else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": { "code": "not_found", "route": id } })),
+        );
+    };
+    let posture = s(&route, "credential_posture", "no_credentials_required");
+    if posture == "no_credentials_required" {
+        return (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(json!({ "error": {
+                "code": "model_route_credential_not_required",
+                "message": "this route declares no_credentials_required; binding a secret it will never present is custody with no crossing behind it",
+                "details": { "credential_posture": posture }
+            } })),
+        );
+    }
+
+    // OWNERSHIP GATE, BEFORE THE VAULT IS TOUCHED (review finding #4).
+    //
+    // A model route carries no owner of its own, so the first principal to establish custody owns
+    // the credential SLOT — pinned per (resource_kind, resource_ref) by the substrate. Binding the
+    // scope here, before anything is written, is what stops a different tenant from reaching the
+    // vault write at all: the old ordering overwrote the sealed record first and only refused at the
+    // admission afterward, so an attacker presenting their own owner_ref could clobber a victim's
+    // key and the destructive rollback then deleted it. A wrong owner now refuses here, having
+    // written nothing. (The broad gap — every OTHER model-route mutation is unauthenticated because
+    // routes are ownerless — is filed as its own leg; this closes the part that guards a secret.)
+    let credential_ref = format!("model-route-credential://{id}");
+    if let Err(refusal) = super::substrate_store::bind_request_resource_scope(
+        &st.data_dir,
+        &caller.identity,
+        CREDENTIAL_DIR,
+        &credential_ref,
+        &caller.owner_ref,
+        &caller.owner_ref,
+        &caller.idempotency_key,
+    ) {
+        return super::mutation_event_foundation::scope_refusal_reply(refusal);
+    }
+
+    let token = body
+        .get("token")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    if token.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": {
+                "code": "model_route_credential_token_required",
+                "message": "token is required: it is sealed on arrival and never readable again"
+            } })),
+        );
+    }
+    let Some(sealed) = super::lifecycle_routes::seal_scm_token(&token) else {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": {
+                "code": "model_route_credential_seal_failed",
+                "message": "the credential could not be sealed and is NOT bound; nothing was stored"
+            } })),
+        );
+    };
+    drop(token);
+    // key_source is the STRENGTH-OF-SEALING label, and it is SERVER-DERIVED, never caller-supplied
+    // (review finding #6). Every other sealed-credential family derives it from `scm_key_source()`;
+    // reading it from the body let a caller stamp "wallet-secret-pass" onto a key actually sealed
+    // under the well-known local-mode passphrase, falsifying a durable custody label. The daemon
+    // knows which passphrase it used; the caller does not get to claim otherwise.
+    let key_source = super::lifecycle_routes::scm_key_source();
+
+    // The incumbent — a live key being rotated, or a revocation tombstone — is what a failed bind
+    // must be able to RESTORE, and its admitted head is what a rebind's successor CAS chains onto.
+    let incumbent = credential_record(&st.data_dir, &id);
+    let expected_head = incumbent
+        .as_ref()
+        .and_then(|r| r["admitted_head"].as_str().map(str::to_owned));
+
+    let mut credential = json!({
+        "connector_id": id,
+        "kind": "model-provider-key",
+        "sealed_token": sealed,
+        "key_source": key_source,
+        "sealed": true,
+        "state": "active",
+        "route_ref": s(&route, "route_ref", ""),
+        "acting_principal_ref": acting_principal_ref,
+        "bound_at": iso_now(),
+    });
+
+    // SEAL, THEN CROSS. The gateway resolves the sealed credential as part of authorizing the
+    // crossing (428 if it will not open), so the key must be in the vault before the crossing can be
+    // asked about it. The ownership gate above already refused any wrong owner, so the only writer
+    // that reaches here is the slot's owner rotating their own key — and every failure path RESTORES
+    // their incumbent rather than deleting it.
+    if persist_record(&st.data_dir, CREDENTIAL_DIR, &id, &credential).is_err() {
+        if !restore_or_remove_credential(&st.data_dir, &id, incumbent.as_ref()) {
+            return stranded_credential_reply(&id, "the sealed credential could not be written");
+        }
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "error": {
+                "code": "model_route_credential_persistence_failed",
+                "message": "the credential was not durably sealed and is NOT bound"
+            } })),
+        );
+    }
+
+    // Establishing custody is its own authority crossing, distinct from USING the credential. The
+    // estate already works this way — a connector acquires a lease and then opens a session — and
+    // the model-route planner's `lease:` prefix requires it: the route records the custody lease's
+    // id, and each invocation mints its own short-lived use lease at the same gateway.
+    let lease_request = super::lifecycle_routes::CapabilityLeaseRequest {
+        authority_provider_ref: "wallet.network".to_string(),
+        backing_provider: format!("model-route:{id}"),
+        allowed_tools: vec!["model.credential.bind".to_string()],
+        resource_refs: vec![format!("model-route:{id}"), credential_ref.clone()],
+        scopes: vec!["secret.use".to_string()],
+        policy_domain: "hypervisor.model-route.credential-bind.policy.v1".to_string(),
+        request_domain: "hypervisor.model-route.credential-bind.request.v1".to_string(),
+        // A per-bind NONCE (the caller's idempotency key) makes every bind a DISTINCT crossing.
+        // Establishing custody is a fresh authority decision each time — rotating a compromised key
+        // is not a reuse of the original bind's authority — so two binds must not collapse to the
+        // same grant coordinates. Without this a rotation reuses the first bind's (policy, request)
+        // hash, and the gateway rejects it as a replay of an already-consumed grant. A RETRY of the
+        // same logical bind keeps the same idempotency key, so it still replays idempotently; only a
+        // genuinely new bind gets new coordinates. (Contrast the invoke crossing, whose facets are
+        // deliberately stable so one grant is a bounded authority to use a route many times.)
+        request_facets: json!({
+            "route_id": id,
+            "credential_posture": posture,
+            "credential_kind": "model-provider-key",
+            "bind_nonce": caller.idempotency_key,
+        }),
+        credential_connector_id: Some(id.clone()),
+        credential_store: CREDENTIAL_DIR.to_string(),
+        credential_required: true,
+        github_host_fallback: false,
+        receipt_required: true,
+        revocation_ref: format!("model-routes/{id}/credential"),
+        authority_reason: "model_route_credential_bind_authority_required".to_string(),
+        grant_value: body
+            .get("wallet_approval_grant")
+            .cloned()
+            .unwrap_or(Value::Null),
+    };
+    let custody_lease =
+        match super::lifecycle_routes::authorize_capability_lease(&st, &lease_request).await {
+            Ok(lease) => lease,
+            Err((status, challenge)) => {
+                if !restore_or_remove_credential(&st.data_dir, &id, incumbent.as_ref()) {
+                    return stranded_credential_reply(&id, "the authority crossing was refused");
+                }
+                return (status, Json(challenge));
+            }
+        };
+    // The bind never presents the bearer to anyone; it only proves the credential resolves. Drop it
+    // here so it does not outlive the one function that had a reason to hold it.
+    drop(custody_lease.token);
+    let custody_lease_id = s(&custody_lease.descriptor, "lease_id", "");
+    credential["custody_lease_ref"] = json!(format!("lease:{custody_lease_id}"));
+    credential["custody_grant_ref"] = json!(custody_lease.grant_ref);
+
+    // The bind EVENT is admitted on the SAME stream ref as revoke, with a successor CAS from the
+    // incumbent's head — so a rebind chains onto history instead of failing as a genesis conflict
+    // (finding #3), and the owner pin established above governs every write on this ref.
+    let admitted = json!({
+        "route_id": id,
+        "route_ref": s(&route, "route_ref", ""),
+        "credential_kind": "model-provider-key",
+        "key_source": key_source,
+        "credential_posture": posture,
+        "acting_principal_ref": acting_principal_ref,
+        "custody_lease_ref": format!("lease:{custody_lease_id}"),
+    });
+    let commit = match super::mutation_event_foundation::admit_owner_scoped_write(
+        &st.data_dir,
+        &caller,
+        "hypervisor-model-route-credentials",
+        CREDENTIAL_DIR,
+        &credential_ref,
+        "model_route.credential_bound",
+        expected_head.as_deref(),
+        &admitted,
+    ) {
+        Ok(commit) => commit,
+        Err(response) => {
+            if !restore_or_remove_credential(&st.data_dir, &id, incumbent.as_ref()) {
+                return stranded_credential_reply(&id, "the bind event was not admitted");
+            }
+            return response;
+        }
+    };
+    credential["admitted_head"] = json!(commit.projection.head);
+    if persist_record(&st.data_dir, CREDENTIAL_DIR, &id, &credential).is_err() {
+        if !restore_or_remove_credential(&st.data_dir, &id, incumbent.as_ref()) {
+            return stranded_credential_reply(
+                &id,
+                "the custody lease did not attach to the sealed credential",
+            );
+        }
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "error": {
+                "code": "model_route_credential_persistence_failed",
+                "message": "the custody lease did not attach to the sealed credential; nothing is bound"
+            } })),
+        );
+    }
+    route["credential_binding"] = credential_binding_projection(&st.data_dir, &id);
+    route["updated_at"] = json!(iso_now());
+    if persist_record(&st.data_dir, RECORD_DIR, &id, &route).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "error": {
+                "code": "model_route_credential_binding_projection_failed",
+                "message": "the credential is sealed but the route still advertises its previous binding; re-bind to converge"
+            } })),
+        );
+    }
+    (
+        StatusCode::CREATED,
+        Json(json!({
+            "ok": true,
+            "route_id": id,
+            "credential_posture": posture,
+            "credential_binding": route["credential_binding"],
+        })),
+    )
+}
+
+/// DELETE /v1/hypervisor/model-routes/:id/credential — the revocation surface the lease descriptor
+/// names. Custody you cannot revoke is not custody; a credential family without this route would
+/// have shipped a secret with no way to take it back.
+pub(crate) async fn handle_model_route_credential_revoke(
+    State(st): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let caller =
+        match super::mutation_event_foundation::require_write_caller(&st.data_dir, &headers, &body)
+        {
+            Ok(caller) => caller,
+            Err(response) => return response,
+        };
+    let acting_principal_ref = match super::lifecycle_routes::resolve_acting_principal_ref(
+        &st.data_dir,
+        &headers,
+        &body,
+    ) {
+        Ok(actor) => actor,
+        Err((status, value)) => return (status, Json(value)),
+    };
+
+    let incumbent = credential_record(&st.data_dir, &id);
+    let was_bound = incumbent
+        .as_ref()
+        .map(|r| {
+            r.get("sealed_token").and_then(Value::as_str).is_some()
+                && r.get("state").and_then(Value::as_str) != Some("revoked")
+        })
+        .unwrap_or(false);
+
+    // A route whose credential slot was NEVER touched has no stream and no owner. Revoking it must
+    // not admit an event or claim the slot — that would let a revoke-of-nothing seize ownership of
+    // another party's future bind. It is an honest no-op.
+    let Some(incumbent) = incumbent else {
+        return (
+            StatusCode::OK,
+            Json(
+                json!({ "ok": true, "route_id": id, "was_bound": false, "credential_binding": Value::Null }),
+            ),
+        );
+    };
+
+    // Revoke admits on the SAME resource ref the bind claimed (review finding #5). The first cut
+    // admitted revocation under `model-route-credential-revocation://{id}` — a DIFFERENT ref, whose
+    // ownership was unclaimed, so any authenticated principal in any tenant could revoke another
+    // tenant's key. Binding revoke to the credential ref means the owner pin from the bind governs
+    // it, and the successor CAS keeps the stream's head intact for a later rebind.
+    let credential_ref = format!("model-route-credential://{id}");
+    let expected_head = incumbent["admitted_head"].as_str().map(str::to_owned);
+    let commit = match super::mutation_event_foundation::admit_owner_scoped_write(
+        &st.data_dir,
+        &caller,
+        "hypervisor-model-route-credentials",
+        CREDENTIAL_DIR,
+        &credential_ref,
+        "model_route.credential_revoked",
+        expected_head.as_deref(),
+        &json!({ "route_id": id, "was_bound": was_bound, "acting_principal_ref": acting_principal_ref }),
+    ) {
+        Ok(commit) => commit,
+        Err(response) => return response,
+    };
+
+    // A TOMBSTONE, not a delete. It carries no `sealed_token`, so no key survives revocation and
+    // `live_credential_record` reads it as no binding — but it keeps the stream's head so a future
+    // rebind is a successor rather than a genesis conflict. Revocation that deleted the record threw
+    // that head away and made the route un-rebindable (the other half of finding #3).
+    let tombstone = json!({
+        "connector_id": id,
+        "kind": "model-provider-key",
+        "state": "revoked",
+        "sealed": false,
+        "route_ref": incumbent.get("route_ref").cloned().unwrap_or(Value::Null),
+        "revoked_by": acting_principal_ref,
+        "revoked_at": iso_now(),
+        "admitted_head": commit.projection.head,
+    });
+    if persist_record(&st.data_dir, CREDENTIAL_DIR, &id, &tombstone).is_err()
+        || live_credential_record(&st.data_dir, &id).is_some()
+    {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "error": {
+                "code": "model_route_credential_revocation_failed",
+                "message": "the sealed credential is still resolvable; the route is NOT revoked"
+            } })),
+        );
+    }
+    if let Some(mut route) = load_route_record(&st.data_dir, &id) {
+        route["credential_binding"] = Value::Null;
+        route["updated_at"] = json!(iso_now());
+        if persist_record(&st.data_dir, RECORD_DIR, &id, &route).is_err() {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "ok": false, "error": {
+                    "code": "model_route_credential_binding_projection_failed",
+                    "message": "the credential is revoked but the route still advertises a binding; re-read to converge"
+                } })),
+            );
+        }
+    }
+    (
+        StatusCode::OK,
+        Json(
+            json!({ "ok": true, "route_id": id, "was_bound": was_bound, "credential_binding": Value::Null }),
+        ),
+    )
 }
 
 /// POST /v1/hypervisor/model-routes/:id/enable — declared/disabled -> active (admitted). Enabling
