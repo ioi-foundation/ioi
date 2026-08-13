@@ -608,6 +608,99 @@ before `git grep`, or the basis is an hour-old fiction.
 |---|---|---|
 | **Whether a fused multi-frontier-model outside-reader critique of the public estate reorders the program.** The critique argued positioning, proof-sequencing, and machine-contract corrections: front-door overclaim, a public maturity table, a P0 multi-hop authority contract, prompt-injection release gating, a legal-principal boundary, a two-sovereign proof shortened past embodied gating, and an outsider-runnable conformance profile. | Load-bearing citations byte-verified before ruling: the README front door's retired-claim phrasing; the conformance ladder's honest admissions (no outside runner, no designated reference release, unasserted two-client axes); the typed portable-verifier gap in `authority-and-access.md`; H2B's embodied gating. The adoption plan and its amendments live at `internal-docs/prompts/architecture-relative-comparison/runs/2026-08-12-fused-outside-reader-critique-adoption-plan.md` (ignored internal registry). First executed legs: ioi-ai `c134c5a` (claim-verb retirement, telecom/6G disambiguation, retired-claims registry in the build parity audit — which caught live drift in both `llms.txt` machine summaries on its first run) and [#262](https://github.com/ioi-foundation/ioi/pull/262) (H2B core/embodied split; `portable-authority-v3` criteria + negative-fixture contract, adversarially reviewed with four findings applied). | **Ruled (owner, owner-reversible).** Adopted as a course correction, not a redesign, via typed units through the program's own admission discipline. External critique is an advisory re-rating trigger — it never self-executes work, reorders the MVP graph, or displaces the code lane's standing NEXT (the economics join). The critique's demands are often priority-arguments over existing typed targets, not gap discoveries: the maturity table exists as the conformance ladder (the correction is to surface and GENERATE it — hand-written maturity tables are forbidden), and the successor authority contract was already the named `portable-authority-v3` target (its real contribution, the negative-fixture list, is absorbed there). Remaining legs: README front-door parity cut with a retired-claims registry; the legal-principal boundary filed as a dormant typed target through the generalized dormant-target gate (a terms-root acceptance is protocol evidence, not automatically an enforceable contract; a Worker is never presumed a legal person); the generated maturity surface. Non-schedules recorded, not scheduled: an outsider-runnable conformance profile only via owner pull backed by demand evidence AND born under the standing verifier discipline — a public runner that cannot fail certifies nothing; a second implementation and interop CI after that condition is defined; token/L1 doctrine unchanged; the whitepaper sweep stays an owner call. |
 
+### Journey verification IX (2026-08-13, next-legs IX run — the economics join, credential custody, the second native transport, and the verifier-floor exclusions)
+
+**W3.2 stopped being a single proven invocation and became a metered, custodied, multi-dialect
+runtime.** Four legs, each with live-daemon proof and named residuals; the rulings and open defects
+they produced are filed in their own sections below and above.
+
+**Leg 1 — the economics join** ([#275](https://github.com/ioi-foundation/ioi/pull/275)). An
+invocation observed and receipted everything W4-F needs and wrote no `UsageRecord`;
+`economics.usage_record` sat in every record's own `evidence_gaps`, and the `model_tokens` meter
+class existed only in `#[cfg(test)]` rate-card fixtures — so `runtime_receipt_refs`, the registered
+contract's binding from a charge back to the evidence that earned it, had no producer either. The
+invocation now hands the ledger an OBSERVED `u64` and lets it price, sequence and hash-chain on its
+own terms; the quantity crosses that boundary in a parameter that cannot carry caller JSON, and seven
+charge-describing request fields refuse (the INV-37 idiom applied to HOW MUCH rather than WHO). ONE
+resolver serves both a pre-execution preflight and the append, so the two can never disagree. Order
+is load-bearing: the invocation is ADMITTED first so the charge cites a receipt that exists —
+appending first could leave an orphan charge naming a record that never landed, which is exactly the
+unauditable charge `economics_usage_evidence_required` refuses. **No branch writes a zero:** an
+unreported mix mints no row and records `economics_join_token_mix_absent`, so W4-F can tell "not
+metered" from "metered at zero". Live against real Ollama: 36 in / 2 out observed → 38 charged at
+rate 5 → 190 micro work credits, sequence 1, join key resolving both ways, replay adding no row, and
+a `FinalDebit` over the billed quote still refusing without a live grant (`require_spend_authority`
+untouched).
+
+**Leg 2 — model-route credential custody**
+([#276](https://github.com/ioi-foundation/ioi/pull/276)), ruled in its own section below. Two
+CapabilityLease crossings; the kernel planner's always-unsatisfiable `provider_credential_lease_ref`
+requirement finally satisfiable. **Its merge-blocking adversarial review found a key-exfiltration
+path that a green 60/60 self-review had missed** — the crossing bound the route id but not the
+DESTINATION, so an owner's already-approved grant survived a repoint. That, plus impossible key
+rotation, a destructive rollback, a cross-tenant revoke, a forgeable custody label and a
+reflected-bearer leak, are repaired and mutation-proven; the review's scope is recorded in that
+section.
+
+**Leg 3 — the second native transport**
+([#280](https://github.com/ioi-foundation/ioi/pull/280)), verified in its own section above.
+`OpenAiCompatibleTransport` conforms to a contract it did not define, unchanged, and the economics
+join written against the first dialect charges the second dialect's mix onto the same ledger with no
+code change. **Adapted-transport absorption is now eligible** under the #255/#257 native-first gate.
+
+**Leg 4 — the verifier-floor exclusions**
+([#278](https://github.com/ioi-foundation/ioi/pull/278)). `check:verifier-floors` shipped with three
+typed exclusions; two named the exact work to close them and are now closed. `ported-seed` emits 11
+named invariants over 413 raw assertions; `seed-provenance` converts from FAIL-ONLY (an empty
+failures array on a green run, so a count read zero) to one positive CHECKPOINT per invariant group
+with its 62 fail sites untouched. Both deliberately record per-INVARIANT rather than per-item: a
+census scaled to the owned bundle's file count would duplicate `check:shipped-products`, which
+already pins that count and tree hash, and would churn the floor on every asset change. Family: 14 →
+16 verifiers, 465 → 490 assertions, 3 → 1 exclusions (`owned-product-ui` stays on its standing
+reason). In one mutation the verifier itself still exited 0 reporting "10/10 passed" — the silent-
+green hole the floor exists to close.
+
+**WHAT THE STANDING DISCIPLINE ACTUALLY CAUGHT THIS RUN, recorded because the value is in the
+specifics.** Seventeen mutations were proven RED across the four legs, and **three assertions were
+decorative until re-aimed — each PASSED against the very mutation it existed to catch**: Leg 1's
+billing-preflight ordering assertion (the refusal answers 404 whether the preflight runs before or
+after execution, so it proved nothing about order — it now counts provider connections through a
+forwarder); Leg 3's anti-exfiltration assertion (it checked only the reported posture and passed with
+a real outbound request added to the probe — it now counts connections to a listener that answers
+nothing); and Leg 1's pricing assertion (it folded in the expected quantity and so fired on a
+quantity defect its label did not claim — it now prices against the quantity the row carries). Three
+further assertions were decoupled from absolute chain length so each measures the delta it owns.
+**`check:mutation-handlers` caught a defect in this run's own first rollback** — it discarded whether
+the removal succeeded, so a refused bind could strand a secret while reporting a clean refusal; fixed
+rather than exempted, which is the outcome that classifier exists for.
+
+**A FALSE CLAIM THIS RUN PUT IN CANON AND THEN CORRECTED.** The Leg 2 ruling's first draft stated the
+process-environment provider key and the leased path "are never live in the same deployment",
+fencing the env key on `daemon_exposed()`. The adversarial review falsified it: the estate's own
+documented exposed topology runs the daemon on loopback behind `serve`, so `daemon_exposed()` is
+false exactly where the daemon is publicly reachable. Exposure cannot be inferred at boot, so the
+fence no longer tries — it requires an explicit `IOI_HYPERVISOR_ALLOW_ENV_PROVIDER_KEY=1` opt-in and
+fails closed. **The standing lesson is the one this program keeps relearning in new clothing: a claim
+about DEPLOYMENT needs the same evidence discipline as a claim about code, and "I reasoned about the
+bind address" is not that evidence.**
+
+**NAMED RESIDUALS carried out of this run (tracked, not waived):**
+- **The model-route registry mutation surface is unauthenticated** — filed as its own open defect
+  section above, not fixed here. The credential-exfiltration consequence is fenced; registry
+  integrity is not.
+- **A transiently refused economics join is permanent for that invocation.** Replay is a pure read
+  and does not retry it; the record says so rather than papering over it.
+- **One `model_tokens` meter charges input+output at one rate.** Cache and reasoning classes are
+  reported by no transport in this estate yet and are folded in nowhere.
+- **`ModelRuntimeErrorClass` has no AUTHENTICATION class**, so 401/403 maps to `PolicyRefusal` with
+  the detail naming it an auth refusal.
+- **Caller-initiated mid-flight cancellation is not exposed**; the transports enforce a wall-clock
+  ceiling and a stall ceiling only. **One attempt per invocation** still stands.
+- **The `--live` and `--live-authority` lanes are not CI-gated** — they need a model provider and a
+  real wallet.network cluster respectively. A named residual, never a silent skip.
+- **The custody lease is not re-verified at invoke**; the per-call use lease is the invoke authority.
+- **`owned-product-ui` remains the one floor exclusion**, on its standing reason.
+
 ### Ruling filed 2026-08-13 — model-route credential custody, and the disposition of the process-environment provider key (next-legs IX Leg 2)
 
 | Delta | Evidence | Disposition |
