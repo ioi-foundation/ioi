@@ -2557,11 +2557,10 @@ pub(crate) async fn handle_environment_create(
         .and_then(|v| v.as_str())
         .map(String::from)
         .unwrap_or_else(gen_env_id);
-    // NO OWNER PIN IS MINTED HERE, and next-legs XIII's four failed designs are why. An environment
-    // has no owner in this estate: the routes that materialize and write its workspace resolve no
-    // caller, so any pin bound here is claimable by whoever reaches an unauthenticated route first.
-    // The environment ownership model stays FILED OPEN — see the leg's residual — and this lane owns
-    // the CAPTURE instead.
+    // NO OWNER PIN IS MINTED HERE, OR ANYWHERE. An environment has no owner in this estate: the
+    // routes that materialize and write its workspace resolve no caller, so any pin bound here would
+    // be claimable by whoever reaches an unauthenticated route first. The environment ownership
+    // model is FILED OPEN; this lane owns the CAPTURE instead.
     let mut env = new_env(&id, &spec)?;
     // WS-2: repo-detect-first — if the spec points at a repo, admit a detected recipe and bind it.
     if env["spec"]["recipe_ref"]
@@ -3635,28 +3634,32 @@ fn public_capture(record: &Value) -> Value {
 }
 
 // =================================================================================================
-// THE LEGACY CUSTODY LANE'S OWNER MODEL.
+// THE LEGACY CUSTODY LANE: WHAT IT OWNS, AND WHAT IT STILL DOES NOT.
 //
-// Next-legs XI closed the UNAUTHENTICATED half of this defect and filed the rest open, correctly:
-// `handle_snapshot_create`, `handle_backup_create` and `handle_snapshot_restore` resolved no caller
-// at all, and `POST /snapshots/:id/restore` OVERWRITES a workspace. Authentication is not
-// authorization, and what remained was the larger half — every AUTHENTICATED principal could still
-// archive or restore EVERY environment's workspace, because an environment had no owner to scope to.
+// Next-legs XI closed the UNAUTHENTICATED half of this defect and filed the rest open. Next-legs
+// XIII closed the CAPTURE half and CONFIRMED XI was right about the other one.
 //
-// It has one now. Ownership is the substrate's own immutable per-PRINCIPAL scope pin, bound at the
-// one route that means create, and every custody act on the environment or on a capture is
-// authorized against it. Never a record's descriptive `owner_ref`, and never a tenant check:
-// `org://local` is the only constructible organization and every principal holds it.
+// WHAT IS OWNED: a CAPTURE. Whoever takes one owns it, pinned per PRINCIPAL through the substrate's
+// own immutable scope — never a record's descriptive `owner_ref`, never a tenant check, because
+// `org://local` is the only constructible organization and every principal holds it. Restore
+// resolves the capture through the caller's own scope set, listing is derived from that set, and the
+// retention plane resolves its subject the same way.
+//
+// WHAT IS NOT OWNED: THE ENVIRONMENT. It has no owner, and this module mints no environment pin at
+// all. Four designs were demonstrated broken trying to give it one — pinning at create, at first
+// reference, at workspace materialization, and gating adoption on a field an anonymous route nulls.
+// The root cause is structural: `provision_local_workspace` is an idempotent `create_dir_all` of a
+// DETERMINISTIC path, reachable through a route that resolves no caller and never refuses, so a pin
+// minted beside it is first-touch wearing a different hat. Closing it needs the environment plane's
+// routes to REFUSE, plus an administrator-authorized adoption transition — the plane-wide change
+// with its own verifier that XI described.
+//
+// SO, PLAINLY: any authenticated principal can still capture ANY environment's workspace, and can
+// restore its own capture back over it, destroying work it did not do. Both facts are ASSERTED in
+// `check:environment-custody` so they cannot change unnoticed.
 // =================================================================================================
 
 type CustodyReply = (StatusCode, Json<Value>);
-
-/// Carry one of this module's existing `AppError` refusals into the typed shape without inventing a
-/// code for it. The message is preserved verbatim, so nothing a caller already reads disappears;
-/// only the envelope gains `ok` and a code naming the class.
-fn app_error_reply(error: AppError) -> CustodyReply {
-    custody_bad(error.0, "environment_request_refused", error.1)
-}
 
 fn custody_bad(status: StatusCode, code: &str, message: impl Into<String>) -> CustodyReply {
     (
@@ -3713,8 +3716,12 @@ fn custody_owner_tenant(
 /// fresh pin at it, clobbered the victim's environment record, started it onto the victim's own
 /// workspace directory, captured the victim's bytes, and restored over them.
 ///
-/// Every caller-supplied id becomes a scope coordinate through here, so the pin coordinate, the
-/// record coordinate and the workspace coordinate are the same string by construction.
+/// Every caller-supplied id becomes a scope coordinate through here, so the pin coordinate and the
+/// record coordinate are the same string by construction. The environment-id attack that first
+/// exposed this is historical — no environment id reaches this function any more, because no
+/// environment pin exists — but the capture path takes caller-supplied spellings on the restore and
+/// retention-subject seams, and normalizing at one seam while carrying the raw spelling to the next
+/// already admitted a retention duty that could never be executed.
 fn custody_coordinate(resource_id: &str) -> String {
     safe_id(resource_id)
 }
@@ -4235,7 +4242,7 @@ pub(crate) async fn handle_snapshot_restore(
         )
     })?;
     Ok(Json(
-        json!({ "restored": true, "snapshot_ref": id, "validated": true, "state_root": admitted }),
+        json!({ "restored": true, "snapshot_ref": capture_ref, "validated": true, "state_root": admitted }),
     ))
 }
 

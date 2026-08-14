@@ -27,9 +27,13 @@
 //     residual this leg does not own, and a stale residual entry is red. A hand-written filter
 //     inside a derived census is where coverage silently shrank last time.
 //
-// WHAT IT DOES NOT PROVE. The environment LIFECYCLE plane (start/stop/archive/delete/exec/workruns)
-// is not authorized by this leg and is carried as the named residual list below; those routes still
-// resolve no caller. This gate asserts that the residual is exactly that list and no larger.
+// WHAT IT DOES NOT PROVE, largest first. THE ENVIRONMENT HAS NO OWNER: any authenticated principal
+// can capture ANY environment's workspace and restore its capture back over it. That is XI's filed
+// defect, still open, and this gate ASSERTS both halves as facts so they cannot change unnoticed —
+// it does not close them. The environment LIFECYCLE plane (start/stop/archive/delete/exec/workruns)
+// resolves no caller and is carried as the named residual list below, asserted to be exactly that
+// list and no larger. And a capture taken BEFORE this leg carries no pin, so it is invisible to
+// listing, un-restorable, and cannot be placed under a retention duty at all.
 
 import { spawn } from "node:child_process";
 import fs from "node:fs";
@@ -221,8 +225,10 @@ const environmentPlaneMutations = () => {
 };
 
 /**
- * The custody lane this leg owns, as EXACT method+path pairs. Every entry must be authorized per
- * PRINCIPAL, and every one is driven anonymously below.
+ * The custody lane this leg owns, as EXACT method+path pairs. Every entry requires an authenticated
+ * caller and is driven anonymously below. Only the CAPTURE-addressed ones authorize per PRINCIPAL —
+ * `POST /snapshots` and `POST /backups` authorize nothing against the environment they read, which
+ * is the leg's named open defect, asserted above.
  *
  * EXACT, NOT PREFIXED, and the first revision of this file proves why: a `/v1/hypervisor/environments`
  * PREFIX silently swallowed the lifecycle, port-exposure and pull-request-draft routes into the
@@ -373,10 +379,21 @@ async function run() {
     "no environment scope kind, no binder");
   let tarsBefore = materialTars();
   const bCapturesAEnv = await jd("POST", "/v1/hypervisor/snapshots", { environment_id: ENV_A }, { as: "B" });
-  ok("NAMED OPEN DEFECT, asserted so it cannot change unnoticed: any authenticated principal can still capture ANY environment's workspace — this leg does not close XI's filed defect and must not be read as closing it",
-    bCapturesAEnv.status === 200 && materialTars().length === tarsBefore.length + 1,
-    `status ${bCapturesAEnv.status}`);
   const foreignCapture = bCapturesAEnv.j?.snapshot?.snapshot_ref ?? "";
+  ok("NAMED OPEN DEFECT, asserted so it cannot change unnoticed: any authenticated principal can still capture ANY environment's workspace — this leg does not close XI's filed defect and must not be read as closing it",
+    bCapturesAEnv.status === 200 && foreignCapture.startsWith("snap_")
+      && materialTars().length === tarsBefore.length + 1,
+    `status ${bCapturesAEnv.status} ref ${foreignCapture}`);
+
+  // AND THE DESTRUCTIVE HALF, which matters more than the read and was only narrated. B holds a
+  // capture of A's environment, so B can restore it back over A's later work. Asserted with the
+  // bytes counted, because a response code proves the answer and not the destruction.
+  fs.writeFileSync(path.join(workspaceA, "a-work-after-b-captured.txt"), "work A did after B captured\n");
+  const foreignRestore = await jd("POST", `/v1/hypervisor/snapshots/${encodeURIComponent(foreignCapture)}/restore`, null, { as: "B" });
+  ok("NAMED OPEN DEFECT, the destructive half: B can restore its capture of A's environment back over A's later work, and A's work is GONE — an unowned environment is not merely readable, it is rewritable",
+    foreignRestore.status === 200 && foreignRestore.j?.restored === true
+      && !fs.existsSync(path.join(workspaceA, "a-work-after-b-captured.txt")),
+    `status ${foreignRestore.status} A's later work still present: ${fs.existsSync(path.join(workspaceA, "a-work-after-b-captured.txt"))}`);
 
   // ------------------------------------------------------------ WHAT IT DOES OWN: the capture
   const aReadsForeign = await jd("POST", `/v1/hypervisor/snapshots/${encodeURIComponent(foreignCapture)}/restore`, null, { as: "A" });
@@ -426,13 +443,10 @@ async function run() {
   // THE COORDINATE COLLISION, on the coordinate this lane actually pins. `safe_id` is MANY-TO-ONE,
   // and normalizing at one seam while carrying the raw spelling onward is the defect this leg
   // shipped once: a retention duty declared at an alias was ADMITTED and could never be executed.
-  const ALIAS_FOR_OTHER = captureId.replace("_", ".");
-  ok("PRECONDITION: the capture alias really collides — a different string normalizing onto the minted coordinate",
-    ALIAS_FOR_OTHER !== captureId && safeId(ALIAS_FOR_OTHER) === captureId,
-    `${ALIAS_FOR_OTHER} -> ${safeId(ALIAS_FOR_OTHER)}`);
-  const aliasByOther = await jd("POST", `/v1/hypervisor/snapshots/${encodeURIComponent(ALIAS_FOR_OTHER)}/restore`, null, { as: "B" });
-  ok("B cannot reach A's capture through a COLLIDING id either — the pin coordinate is the record's coordinate, not the raw string",
-    aliasByOther.status === 403, `status ${aliasByOther.status} code ${code(aliasByOther.j)}`);
+  // NO CROSS-PRINCIPAL ALIAS ASSERTION HERE, deliberately. B holds no scope at the exact spelling
+  // either, so a 403 on the alias would be indistinguishable from a 403 on anything at all — the
+  // same refusal answers a nonexistent id and an empty ref. The coordinate rule is proven on the
+  // OWNER side, below and after the deletion, where the alias must resolve to the same object.
 
   // ------------------------------------------------------------ RETENTION REACH
   // The estate's ONE deletion path. No second delete route is minted here and none is looked for.

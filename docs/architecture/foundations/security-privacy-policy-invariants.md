@@ -701,9 +701,19 @@ fact per lane would have let a deletion be defeated by re-capturing the content
 in the other lane, which is the same resurrection the content-keyed tombstone
 exists to forbid.
 
-**Named consequence, stated rather than buried.** The legacy store is keyed by
+**Named consequences, stated rather than buried.** The legacy store is keyed by
 capture id, not by content, so two captures of identical bytes are two files and
 two subjects: destroying one does not remove the other's tar, though the shared
 destroyed-content fact does refuse restoring it and refuses re-capturing that
 content. Deleting a capture also does not delete the LIVE workspace the
 environment still holds — the same boundary the managed lane already carries.
+
+**And the reach is not retroactive.** A capture taken BEFORE this kind was bound
+carries no owner scope pin, and every path here resolves its subject through the
+caller's own authorized scope set. Such a capture is therefore invisible to
+listing, un-restorable, and **cannot be placed under a disposition at all** — so
+its bytes cannot be erased through the estate's only deletion path. It refuses
+with an authorization code rather than one naming the absent owner, which reads
+as "not yours" when the truth is "nobody's". Pre-existing captures need an
+administrator-authorized adoption transition before this deletion can reach them;
+until that exists, an estate relying on erasure must treat them as out of reach.
