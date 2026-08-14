@@ -242,7 +242,10 @@ function actionRouteMatch(pattern, tail) {
 // One module may serve several mounts — packages/marketplace, and work landing/sessions/new-session
 // — and this resolver matched beneath EVERY row bound to that module, so the module's whole action
 // list was reachable under a mount the registry declares read-tier. `packages-marketplace` is
-// `browse` and exposed `cut-release`, `recall`, `install` and `uninstall`; `work` is `inspect` and
+// `browse` and exposed all FIVE of the module's actions — `admit-candidate`, `cut-release`,
+// `recall-release`, `install-release` and `uninstall` (an earlier count of this said four and
+// dropped `admit-candidate`, which is the admission verb and the one that matters most);
+// `work` is `inspect` and
 // exposed `create-session` and the launch verbs. The registry said one thing and the dispatch did
 // another, and the check that would have caught it had been crashing for months.
 //
