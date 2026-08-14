@@ -35,7 +35,14 @@ const PROVIDER: &str = "local_workspace_provider_v0";
 /// the form "is the caller in the owner tenant" isolates nothing. Ownership here is per-PRINCIPAL,
 /// read from the substrate's own immutable scope pin, exactly as the managed-runtime custody surface
 /// resolves its backups.
-const ENVIRONMENT_SCOPE_KIND: &str = "hypervisor-environment";
+///
+/// THERE IS DELIBERATELY NO `hypervisor-environment` SCOPE KIND. An environment has no owner in this
+/// estate, and next-legs XIII proved by construction that it cannot acquire one here: the routes
+/// that materialize and write a workspace resolve no caller and never refuse, so any pin minted
+/// beside them is claimable by whoever reaches an unauthenticated route first. Four designs were
+/// demonstrated broken — pinning at create, at first reference, at workspace materialization, and
+/// gating adoption on a field an anonymous route nulls. The environment ownership model stays FILED
+/// OPEN; this lane owns the CAPTURE.
 const CAPTURE_SCOPE_KIND: &str = "hypervisor-environment-capture";
 /// The owner-scoped stream namespace for one capture's LOCAL custody lifecycle.
 const CUSTODY_NAMESPACE: &str = "hypervisor-environment-custody";
@@ -2541,13 +2548,8 @@ mod environments_summary_tests {
 /// POST /v1/hypervisor/environments — create (admit spec; phase stopped).
 pub(crate) async fn handle_environment_create(
     State(st): State<Arc<DaemonState>>,
-    headers: HeaderMap,
     Json(body): Json<Value>,
-) -> Result<Json<Value>, CustodyReply> {
-    // Rule E — identity BEFORE any record read or spec validation. This is the route that means
-    // "create", so it is where an environment acquires the owner every custody act is scoped to;
-    // an environment minted here without one would be an environment nobody could ever capture.
-    let identity = custody_identity(&st.data_dir, &headers)?;
+) -> Result<Json<Value>, AppError> {
     let spec = body.get("spec").cloned().unwrap_or_else(|| body.clone());
     let id = body
         .get("environment_id")
@@ -2555,32 +2557,12 @@ pub(crate) async fn handle_environment_create(
         .and_then(|v| v.as_str())
         .map(String::from)
         .unwrap_or_else(gen_env_id);
-    // THE AUTHORIZATION DECISION, BEFORE ANYTHING DURABLE AND BEFORE THE RECORD IS READ. The pin is
-    // the authority, so the pin is what decides.
-    //
-    // CREATE DOES NOT MINT OWNERSHIP, and two demonstrated ship-blockers are why. Binding here made
-    // ownership FIRST-TOUCH over a COORDINATE, while the thing custody protects — the workspace
-    // bytes — is created later by `start`, an unauthenticated lifecycle route. So a member could
-    // pre-claim `session_workspace`, let the administrator start it and write secrets into it, and
-    // then capture those bytes. Refusing an existing-but-unpinned record instead made it permanent
-    // in the other direction: one anonymous GET established a record that NO principal could ever
-    // own, capture, back up or place under a retention duty.
-    //
-    // Both fall out of the same mistake. OWNERSHIP FOLLOWS THE WORKSPACE, not the record: it is
-    // bound where the workspace is MATERIALIZED, by the authenticated principal whose request
-    // materialized it. Create still refuses to touch an environment someone else owns — that is what
-    // this check is for — but a coordinate with no workspace has nothing to own yet.
-    if environment_owner_pin(&st.data_dir, &id)?.is_some() {
-        authorize_environment_custody(&st.data_dir, &identity, &id)?;
-    }
-    // Refuses BEFORE any persist when the spec carries an invalid environment-local guardrail
-    // declaration; every other field is admitted exactly as before.
-    //
-    // NOTHING IS PINNED HERE. Creating an environment record creates no workspace, so there are no
-    // bytes to hold custody of yet; the pin is bound where `start` materializes one. Binding here
-    // also left an irrevocable claim behind on every refused create, since the pin is genesis-only
-    // and the substrate has no unbind.
-    let mut env = new_env(&id, &spec).map_err(app_error_reply)?;
+    // NO OWNER PIN IS MINTED HERE, and next-legs XIII's four failed designs are why. An environment
+    // has no owner in this estate: the routes that materialize and write its workspace resolve no
+    // caller, so any pin bound here is claimable by whoever reaches an unauthenticated route first.
+    // The environment ownership model stays FILED OPEN — see the leg's residual — and this lane owns
+    // the CAPTURE instead.
+    let mut env = new_env(&id, &spec)?;
     // WS-2: repo-detect-first — if the spec points at a repo, admit a detected recipe and bind it.
     if env["spec"]["recipe_ref"]
         .as_str()
@@ -2590,8 +2572,7 @@ pub(crate) async fn handle_environment_create(
         if let Some(repo) = spec.get("repo_path").and_then(|v| v.as_str()) {
             let project_ref = spec.get("project_id").and_then(|v| v.as_str());
             let recipe_ref =
-                super::recipe_routes::detect_and_admit(&st.data_dir, repo, project_ref)
-                    .map_err(app_error_reply)?;
+                super::recipe_routes::detect_and_admit(&st.data_dir, repo, project_ref)?;
             env["spec"]["recipe_ref"] = json!(recipe_ref);
             env["spec"]["repo_path"] = json!(repo);
             observe(
@@ -2625,7 +2606,7 @@ pub(crate) async fn handle_environment_create(
             "advisory_candidate_refs": policy.get("advisory_candidate_refs").cloned().unwrap_or(json!([])),
         });
     }
-    persist_env(&st.data_dir, &env).map_err(app_error_reply)?;
+    persist_env(&st.data_dir, &env)?;
     Ok(Json(json!({ "environment": env })))
 }
 
@@ -2633,7 +2614,6 @@ pub(crate) async fn handle_environment_create(
 /// the cockpit's GetEnvironment(sessionWorkspace) always resolves.
 pub(crate) async fn handle_environment_get(
     State(st): State<Arc<DaemonState>>,
-    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
 ) -> Result<Json<Value>, AppError> {
     let env = match load_env(&st.data_dir, &id) {
@@ -2692,7 +2672,6 @@ pub(crate) async fn handle_environment_get(
 /// POST /v1/hypervisor/environments/:id/:action — start|stop|archive|restore|delete.
 pub(crate) async fn handle_environment_action(
     State(st): State<Arc<DaemonState>>,
-    headers: HeaderMap,
     AxumPath((id, action)): AxumPath<(String, String)>,
 ) -> Result<Json<Value>, AppError> {
     let mut env = match load_env(&st.data_dir, &id) {
@@ -2746,14 +2725,6 @@ pub(crate) async fn handle_environment_action(
                 "provisioning local workspace",
             );
             let ws = provision_local_workspace(&st.data_dir, &id)?;
-            // THE ONE MOMENT AN ENVIRONMENT ACQUIRES ITS CUSTODY OWNER: the workspace it protects has
-            // just come into existence, and the principal whose authenticated request materialized it
-            // is the only honest answer to "whose bytes are these". Binding earlier claims a
-            // coordinate whose content someone else will write; binding never leaves the workspace
-            // ownerless forever. It binds only when NO pin exists, so a restart or a second start
-            // never transfers custody, and it never refuses: an unauthenticated start materializes an
-            // UNOWNED workspace, which the custody gate reads as "no principal may capture this".
-            bind_environment_owner_if_resolvable(&st.data_dir, &headers, &id);
             env["status"]["workspace_root"] = json!(ws);
             set_component(
                 &mut env,
@@ -3572,10 +3543,12 @@ fn capture_workspace(
             e,
         )
     };
-    // AUTHORIZATION BEFORE EXISTENCE. The scope pin is read from the coordinate the caller supplied,
-    // so a principal who holds no custody of this environment learns nothing about whether it
-    // exists — and, far more importantly, never reaches the tar below.
-    authorize_environment_custody(&st.data_dir, identity, env_id)?;
+    // THIS DOES NOT AUTHORIZE THE ENVIRONMENT, AND SAYING SO IS THE POINT. Any authenticated
+    // principal may still capture any environment's workspace — next-legs XI filed that open and it
+    // STAYS open, because closing it needs an environment ownership model and four designs in
+    // next-legs XIII demonstrated that a pin minted by a route which does not authorize is
+    // first-touch wearing a different hat. What this lane owns is the CAPTURE: whoever takes one
+    // owns it, and that is what restore, listing and the retention plane resolve through.
     let env = load_env(&st.data_dir, env_id).ok_or_else(|| {
         custody_bad(
             StatusCode::NOT_FOUND,
@@ -3744,84 +3717,6 @@ fn custody_owner_tenant(
 /// record coordinate and the workspace coordinate are the same string by construction.
 fn custody_coordinate(resource_id: &str) -> String {
     safe_id(resource_id)
-}
-
-/// Bind this environment to the caller as its owner. Idempotent for the same principal; a DIFFERENT
-/// principal binding an already-pinned environment is refused by the substrate as an owner mismatch.
-///
-/// Reached only through `bind_environment_owner_if_resolvable`, at workspace materialization.
-fn bind_environment_owner(
-    data_dir: &str,
-    identity: &super::substrate_store::RequestIdentity,
-    environment_id: &str,
-) -> Result<super::substrate_store::RequestResourceScope, CustodyReply> {
-    let owner_ref = custody_owner_tenant(identity)?;
-    let coordinate = custody_coordinate(environment_id);
-    super::substrate_store::bind_request_resource_scope(
-        data_dir,
-        identity,
-        ENVIRONMENT_SCOPE_KIND,
-        &coordinate,
-        &owner_ref,
-        &owner_ref,
-        &format!("environment-owner:{coordinate}"),
-    )
-    .map_err(custody_scope_refusal)
-}
-
-/// Record ownership for an environment whose WORKSPACE has just been materialized.
-///
-/// Called from exactly one place — the `start` arm, immediately after
-/// `provision_local_workspace` succeeds. That is the moment the bytes custody protects come into
-/// existence, and the authenticated principal whose request created them is the only honest owner.
-///
-/// It never refuses, and binds only when no pin exists: an unauthenticated start materializes an
-/// UNOWNED workspace exactly as before, and the custody gate reads that as "no principal may capture
-/// this". A second start by anyone never transfers custody, because the pin is already there.
-fn bind_environment_owner_if_resolvable(data_dir: &str, headers: &HeaderMap, environment_id: &str) {
-    if let Ok(identity) = super::substrate_store::resolve_request_identity(data_dir, headers) {
-        let _ = bind_environment_owner(data_dir, &identity, environment_id);
-    }
-}
-
-/// The environment's owner pin, or `None` when no principal holds custody of it.
-fn environment_owner_pin(
-    data_dir: &str,
-    environment_id: &str,
-) -> Result<Option<super::substrate_store::RequestResourceScope>, CustodyReply> {
-    super::substrate_store::read_request_scope(
-        data_dir,
-        ENVIRONMENT_SCOPE_KIND,
-        &custody_coordinate(environment_id),
-    )
-    .map_err(custody_scope_refusal)
-}
-
-/// Authorize this caller against the environment's own scope pin, per PRINCIPAL.
-///
-/// The two refusals are deliberately distinguishable, because they are different facts: an
-/// environment with NO pin is one no principal holds custody of, while a pin held by another
-/// principal is an authorization failure.
-fn authorize_environment_custody(
-    data_dir: &str,
-    identity: &super::substrate_store::RequestIdentity,
-    environment_id: &str,
-) -> Result<super::substrate_store::RequestResourceScope, CustodyReply> {
-    if environment_owner_pin(data_dir, environment_id)?.is_none() {
-        return Err(custody_bad(
-            StatusCode::FORBIDDEN,
-            "environment_custody_owner_unbound",
-            "this environment carries no owner pin, so no principal holds custody of its workspace; its workspace was materialized by a caller this daemon could not identify, or it predates the owner model. Ownership is acquired by the authenticated principal whose request materializes the workspace — start it under a session to acquire one",
-        ));
-    }
-    super::substrate_store::authorize_request_resource_scope(
-        data_dir,
-        identity,
-        ENVIRONMENT_SCOPE_KIND,
-        &custody_coordinate(environment_id),
-        None,
-    )
-    .map_err(custody_scope_refusal)
 }
 
 /// One capture's durable record, addressed by the kind directory it lives in.
@@ -4202,10 +4097,11 @@ pub(crate) async fn handle_snapshot_restore(
         .as_str()
         .unwrap_or_default()
         .to_string();
-    // AND the DESTINATION is authorized independently of the source. Holding a capture does not
-    // license writing it into an environment whose workspace this principal does not hold — the two
-    // are the same act only when one principal owns both, which is exactly what this asks.
-    authorize_environment_custody(&st.data_dir, &identity, &env_id)?;
+    // NO DESTINATION AUTHORIZATION, because there is nothing to authorize against: an environment
+    // has no owner. A principal holding a capture can still restore it into the environment that
+    // capture came from, and a principal who captured another principal's environment can therefore
+    // still overwrite it. That is the open defect, unchanged, and it is named rather than papered
+    // over with a check that would refuse nothing.
     let material_path = snap["material_path"].as_str().unwrap_or_default();
     let tar = std::fs::read(material_path).map_err(|e| {
         app(
