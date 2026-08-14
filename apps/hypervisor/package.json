@@ -29,6 +29,7 @@
     "check:model-router-decisions": "node scripts/verify-hypervisor-model-router-decisions.mjs",
     "check:backup-restore": "node scripts/verify-hypervisor-backup-restore.mjs",
     "check:environment-custody": "node scripts/verify-hypervisor-environment-custody.mjs",
+    "check:operational-depth": "node scripts/verify-hypervisor-operational-depth.mjs",
     "check:provider-transport": "node scripts/verify-hypervisor-provider-transport.mjs",
     "check:provider-transport:live": "node scripts/verify-hypervisor-provider-transport.mjs --live",
     "check:verifier-floors": "node scripts/check-verifier-floors.mjs",

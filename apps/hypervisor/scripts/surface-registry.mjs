@@ -237,10 +237,24 @@ function actionRouteMatch(pattern, tail) {
   if (ps.length !== ts.length) return false;
   return ps.every((seg, i) => (seg.startsWith(":") ? ts[i].length > 0 : seg === ts[i]));
 }
+// A ROW'S DECLARED TIER GATES ITS ACTION ROUTES.
+//
+// One module may serve several mounts — packages/marketplace, and work landing/sessions/new-session
+// — and this resolver matched beneath EVERY row bound to that module, so the module's whole action
+// list was reachable under a mount the registry declares read-tier. `packages-marketplace` is
+// `browse` and exposed `cut-release`, `recall`, `install` and `uninstall`; `work` is `inspect` and
+// exposed `create-session` and the launch verbs. The registry said one thing and the dispatch did
+// another, and the check that would have caught it had been crashing for months.
+//
+// The product's own forms already target the acting mounts (`LEGACY_ROUTE`, `LEGACY_SESSIONS`,
+// `LEGACY_NEW_SESSION`), so this closes a hole nothing was walking through — but "nothing walks
+// through it" is not a boundary. The declared tier is.
+const ACTING_STATES = new Set(["act", "workflow_complete"]);
 export function boundActionRoute(pathname, method) {
   for (const s of SURFACES) {
     const impl = bound.get(s.slug);
     if (!impl || typeof impl.handleAction !== "function" || !Array.isArray(impl.actions) || !impl.actions.length) continue;
+    if (!ACTING_STATES.has(s.operational_state)) continue;
     if (!pathname.startsWith(s.route + "/")) continue;
     const tail = pathname.slice(s.route.length);
     const candidates = impl.actions.filter((a) => a.method === method && a.route && actionRouteMatch(a.route, tail));
@@ -282,8 +296,16 @@ bindSurface("operations", operationsModule);
 // Test-only fault surface (NEVER without the runtime-test flag): gives the action-runtime
 // verifier a module whose action THROWS (route isolation proof) and one that claims success
 // WITHOUT a receipt (fail-closed proof). Carries no daemon authority and mutates nothing.
+//
+// `act`, NOT `browse`, and the tier gate below is why. This row declares two receipted POST
+// actions and exists so `verify-hypervisor-action-runtime.mjs` can prove route-local containment
+// and receipt-fail-closed against them. Declared `browse`, the tier gate skipped it,
+// `boundActionRoute` returned null, both POSTs fell through to the SPA catch-all as 200, and the
+// estate's only proof of those two properties died — silently, because that verifier has no npm
+// script, no CI job and no floor row. The row satisfies the `act` boot invariant on its own terms:
+// a bound module with `handleAction` and receipted, authority-carrying mutations.
 if (process.env.IOI_APP_RUNTIME_TEST_ROUTE === "1") {
-  SURFACES.push({ slug: "__test_action", owner: "Test", title: "Action Runtime Test", icon: "data:,x", route: "/__ioi/__test/action-surface", verifier: "n/a", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" });
+  SURFACES.push({ slug: "__test_action", owner: "Test", title: "Action Runtime Test", icon: "data:,x", route: "/__ioi/__test/action-surface", verifier: "n/a", certification: "n/a", capabilities: ["browse", "transition"], operational_state: "act", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" });
   bindSurface("__test_action", {
     meta: { slug: "__test_action", route: "/__ioi/__test/action-surface" },
     load: async () => ({}),
