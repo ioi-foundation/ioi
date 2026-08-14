@@ -628,9 +628,12 @@ async function run() {
   fs.writeFileSync(path.join(preLegDir, "workspace.tar"), preLegMaterial);
   // BYTE-FAITHFUL TO WHAT THE PREVIOUS BUILD WROTE, because a fixture that is only roughly the
   // product's shape is the scar this estate already carries: the state root is the real digest of
-  // this material, the byte count is its real length, and `material_ref` is present exactly as
-  // `capture_workspace` has always written it. The ONE thing that differs is the one under test —
-  // no owner scope pin, because that build minted none.
+  // this material, the byte count is its real length, and `material_ref` is present as
+  // `capture_workspace` has written it SINCE 3ae3f6810 (2026-07-29) — not since always; that
+  // commit's parent wrote an eight-key record. So this fixture is faithful to the IMMEDIATELY
+  // PRECEDING build, and a capture older than that date has a strictly smaller field set. The
+  // residual does not turn on the field set either way: its mechanism is the ABSENT SCOPE PIN,
+  // which no build in this store's history ever minted. That is the ONE thing under test here.
   const preLegRoot = `sha256:${crypto.createHash("sha256").update(preLegMaterial).digest("hex")}`;
   fs.writeFileSync(path.join(dataDir, "snapshots", `${PRE_LEG}.json`), JSON.stringify({
     schema_version: "ioi.hypervisor.environment-snapshot.v1", snapshot_ref: PRE_LEG, kind: "snapshot",
@@ -640,12 +643,44 @@ async function run() {
     created_at: new Date().toISOString(),
   }, null, 2));
   const preLegShape = JSON.parse(fs.readFileSync(path.join(dataDir, "snapshots", `${PRE_LEG}.json`), "utf8"));
-  const liveShape = JSON.parse(fs.readFileSync(path.join(dataDir, "snapshots", `${captureId}.json`), "utf8"));
-  ok("PRECONDITION: the planted capture carries the SAME FIELDS the current build writes, with a real digest over its own material — a fixture that is only roughly the product's shape proves only roughly what it claims",
-    Object.keys(liveShape).every((key) => key in preLegShape)
-      && preLegShape.state_root === `sha256:${crypto.createHash("sha256").update(fs.readFileSync(path.join(preLegDir, "workspace.tar"))).digest("hex")}`
+  // WHY ANY CAPTURE RECORD SERVES AS THE EXEMPLAR: THE RETENTION PLANE NEVER REWRITES ONE. Executed
+  // deletion removes exactly one tar — `capture_material_path(kind, subject_ref)` — and writes the
+  // tombstone to the lifecycle and destroyed-material STREAMS; no path in the estate edits a capture
+  // record, which is what "admission evidence survives the content" means here. So the record read
+  // below carries the field set the current build writes regardless of what happened to its bytes.
+  //
+  // AN EARLIER VERSION OF THIS COMMENT JUSTIFIED THE CHOICE WITH TWO CLAIMS, AND A REVIEW FALSIFIED
+  // BOTH — recorded rather than quietly deleted, because a stated reason that has gone false is the
+  // defect this whole leg keeps paying for. It said `foreignCapture` is a LIVE-content capture: it
+  // is not. B captures A's workspace, restores it, and A's later captures are taken over identical
+  // content, so all three share one `state_root` — which is exactly why the destroyed-content
+  // refusal elsewhere in this journey works. And it said `foreignCapture` is "still restorable":
+  // it is not, for anyone including its owner. `refuse_if_capture_deleted` falls through to
+  // `refuse_if_material_destroyed_public(data_dir, state_root)`, which is CONTENT-keyed and
+  // estate-wide, so it answers 410 `managed_backup_material_destroyed`.
+  //
+  // The hazard that comment feared — a later cut redacting `material_path`/`material_ref`/`bytes`
+  // from a record whose content is gone — is real, applies to EVERY capture here equally, and is
+  // already handled: under the set comparison below a shrunken exemplar is a length mismatch and
+  // goes RED loudly. It is the SUBSET check this replaced that would have stayed green.
+  const liveShape = JSON.parse(fs.readFileSync(path.join(dataDir, "snapshots", `${foreignCapture}.json`), "utf8"));
+  const preLegKeys = Object.keys(preLegShape).sort();
+  const liveKeys = Object.keys(liveShape).sort();
+  // SET EQUALITY, BOTH DIRECTIONS. A subset check in the direction live ⊆ planted certifies a
+  // fixture carrying fields NO build ever wrote — including one spelled like an owner pin — while
+  // the label claims the SAME fields. That is this run's own label-overclaim scar, so the check is
+  // now what the label says.
+  ok("PRECONDITION: the planted capture's field set is EXACTLY the field set a capture the current build just produced carries — a fixture that is only roughly the product's shape proves only roughly what it claims",
+    preLegKeys.length === liveKeys.length && preLegKeys.every((key, i) => key === liveKeys[i]),
+    `planted [${preLegKeys.join(",")}] vs live [${liveKeys.join(",")}]`);
+  // AND ITS DIGEST AND LENGTH ARE DERIVED, NOT TYPED. These two conjuncts read back the material
+  // this fixture itself wrote, so no daemon fact is under test here and the label does not claim
+  // one. What they DO catch is the defect they replaced: a hand-typed `sha256:0…0` and a guessed
+  // byte count, which made the "pre-leg capture" a shape the product could never have produced.
+  ok("and the planted capture's state root and byte count are DERIVED from its own material rather than hand-typed constants — the fixture-fidelity defect this replaced, ratcheted shut",
+    preLegShape.state_root === `sha256:${crypto.createHash("sha256").update(fs.readFileSync(path.join(preLegDir, "workspace.tar"))).digest("hex")}`
       && preLegShape.bytes === fs.statSync(path.join(preLegDir, "workspace.tar")).size,
-    Object.keys(liveShape).filter((key) => !(key in preLegShape)).join(",") || "same field set, real digest, real length");
+    `${preLegShape.state_root} / ${preLegShape.bytes} bytes`);
   const preLegList = await jd("GET", "/v1/hypervisor/snapshots", null, { as: "A" });
   ok("a pre-leg capture is INVISIBLE to listing, for the deployment administrator as much as anyone",
     preLegList.status === 200 && (preLegList.j?.snapshots ?? []).every((row) => row.snapshot_ref !== PRE_LEG),
