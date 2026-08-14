@@ -173,6 +173,49 @@ export function matchBrace(src, from) {
 }
 
 /**
+ * Expand a `use` declaration into `[{ owner, name, alias }]`.
+ *
+ * The daemon's house style is the BRACED GROUP — 58 route modules write `use super::{…}` — and a
+ * parser that only understood `super::<ident>::` produced ZERO entries for
+ * `use super::{odk_routes::KIND_ONT as ONT_DIR};`. Not ambiguous, not unresolved: invisible. A
+ * second admitter walked straight through that, and the un-grouped form was only ever caught by a
+ * global-unique fallback that this census has since removed.
+ */
+export function expandUseTree(decl) {
+  const out = [];
+  const walk = (prefix, text) => {
+    let depth = 0, part = "";
+    const parts = [];
+    for (const ch of text) {
+      if (ch === "{") { depth += 1; part += ch; continue; }
+      if (ch === "}") { depth -= 1; part += ch; continue; }
+      if (ch === "," && depth === 0) { parts.push(part); part = ""; continue; }
+      part += ch;
+    }
+    if (part.trim()) parts.push(part);
+    for (const raw of parts) {
+      const seg = raw.trim();
+      if (!seg) continue;
+      const brace = seg.indexOf("{");
+      if (brace !== -1 && seg.endsWith("}")) {
+        walk(`${prefix}${seg.slice(0, brace)}`, seg.slice(brace + 1, -1));
+        continue;
+      }
+      const asMatch = /^(.*?)\s+as\s+(\w+)$/u.exec(seg);
+      const pathPart = (asMatch ? asMatch[1] : seg).trim();
+      const alias = asMatch ? asMatch[2] : null;
+      const full = `${prefix}${pathPart}`;
+      const segs = full.split("::").map((x) => x.trim()).filter(Boolean);
+      const name = segs[segs.length - 1];
+      const owner = segs.length >= 2 ? segs[segs.length - 2] : null;
+      out.push({ owner, name, alias: alias ?? name });
+    }
+  };
+  walk("", decl);
+  return out;
+}
+
+/**
  * The offset of the `}` that closes the block containing `from`, with string and char literals
  * skipped. Needs no knowledge of how the enclosing function was declared.
  */
@@ -212,11 +255,41 @@ export function enclosingBlockEnd(src, from) {
  */
 export function testRegions(src) {
   const out = [];
+  // STRING SPANS FIRST. This runs on comment-stripped source, which still contains STRING LITERALS,
+  // so the literal text `"#[cfg(test)]"` inside a helper minted a phantom region — and four such
+  // phantoms exist in this tree today. A phantom region reclassifies production code as a test
+  // fixture, which switches off both the raw-write denylist and the unclassified-mention backstop.
+  const strings = [];
+  for (let i = 0; i < src.length; i += 1) {
+    if (src[i] === '"') {
+      const start = i;
+      i += 1;
+      while (i < src.length) {
+        if (src[i] === "\\") { i += 2; continue; }
+        if (src[i] === '"') break;
+        i += 1;
+      }
+      strings.push([start, i]);
+    }
+  }
+  const inString = (at) => strings.some(([a, b]) => at > a && at < b);
   for (const m of src.matchAll(/#\[cfg\(test\)\]/gu)) {
+    if (inString(m.index)) continue;
     const open = src.indexOf("{", m.index);
-    if (open === -1) continue;
+    // ATTACHED TO A BRACED ITEM. `#[cfg(test)] use std::fs as _t;` before a function made that
+    // FUNCTION the region. The attribute must introduce a `mod` or `fn` for its brace to be the
+    // region's brace.
+    const between = open === -1 ? "" : src.slice(m.index + "#[cfg(test)]".length, open);
+    const attached = /^\s*(?:pub(?:\s*\([^)]*\))?\s+)?(?:mod|fn|impl|async\s+fn)\b/u.test(between);
+    // AN ATTRIBUTE ON A NON-BRACED ITEM CREATES NO REGION, AND THAT IS THE FIX. `#[cfg(test)] use
+    // std::fs as _t;` and `#[cfg(test)] thread_local! { … }` are ordinary Rust that this daemon
+    // writes in eight places; taking "the next brace anywhere" made the FOLLOWING function the
+    // region, which is how a production raw write got reclassified as a test fixture. No region is
+    // the correct answer for these, not a red — the red belongs to a region that opens and never
+    // closes.
+    if (open === -1 || !attached) continue;
     const { end, closed } = matchBrace(src, open);
-    out.push({ start: m.index, end: Math.min(end + 1, src.length), closed });
+    out.push({ start: m.index, end: Math.min(end + 1, src.length), closed, attached: true });
   }
   return out;
 }
@@ -232,29 +305,52 @@ const FAMILIES = {
 
 const WRITER = "(?:persist_record|remove_record|persist_promoted|admit_required)\\w*";
 // EXACT names. A prefix pattern classified `load_or_admit` — a get-or-create that WRITES — as a read.
-const READERS = ["load", "read_record_dir", "json_get", "record_path", "load_record"];
+// Exact names, and only names that EXIST: `record_path` was in this list and matches no function
+// in the daemon, so it could only ever widen the benign bucket for code that does not exist.
+const READERS = ["load", "read_record_dir", "json_get", "load_record"];
 const READER = `(?:${READERS.join("|")})`;
 
 function run() {
   // ------------------------------------------------------------ the module world, from the graph
   const mainRaw = fs.readFileSync(DAEMON_MAIN, "utf8");
   const mainSrc = stripRustComments(mainRaw).out;
-  const declared = new Map();                            // module name -> resolved file path
-  for (const m of mainSrc.matchAll(/(?:#\[path\s*=\s*"([^"]+)"\]\s*)?(?:pub\s+)?mod\s+(\w+)\s*;/gu)) {
-    const rel = m[1] ?? `hypervisor_daemon_routes/${m[2]}.rs`;
-    declared.set(m[2], path.resolve(BIN_DIR, rel));
+  // THE GRAPH IS WALKED TRANSITIVELY. The first cut read only the crate root's declarations, so a
+  // `mod` declared INSIDE a route module — whose file lives in a subdirectory and therefore never
+  // appears in a flat `.rs` listing — was never censused at all. That is the directory-listing
+  // defect one level down, and a second admitter fits in it exactly.
+  const declared = new Map();
+  const queue = [DAEMON_MAIN];
+  const walked = new Set();
+  while (queue.length) {
+    const file = queue.shift();
+    if (walked.has(file) || !fs.existsSync(file)) continue;
+    walked.add(file);
+    const src = stripRustComments(fs.readFileSync(file, "utf8")).out;
+    const dir = path.dirname(file);
+    const selfName = path.basename(file, ".rs");
+    for (const m of src.matchAll(/(?:#\[path\s*=\s*"([^"]+)"\]\s*)?(?:pub(?:\s*\([^)]*\))?\s+)?mod\s+(\w+)\s*;/gu)) {
+      const candidates = m[1]
+        ? [path.resolve(dir, m[1])]
+        : [path.join(dir, `${m[2]}.rs`), path.join(dir, selfName, `${m[2]}.rs`), path.join(dir, m[2], "mod.rs")];
+      const hit = candidates.find((c) => fs.existsSync(c));
+      if (!hit) continue;
+      declared.set(path.relative(BIN_DIR, hit), hit);
+      queue.push(hit);
+    }
   }
   const onDisk = fs.readdirSync(ROUTES_DIR).filter((f) => f.endsWith(".rs"))
     .map((f) => path.join(ROUTES_DIR, f)).sort();
   const declaredPaths = [...declared.values()].sort();
   const files = [...new Set([...declaredPaths, ...onDisk, DAEMON_MAIN])].filter((f) => fs.existsSync(f));
+  const undeclared = onDisk.filter((f) => !declaredPaths.includes(f));
+  const offDirectory = declaredPaths.filter((f) => path.dirname(f) !== ROUTES_DIR);
   const modName = (f) => path.basename(f, ".rs");
 
   ok("the module world is derived from the BINARY'S OWN `mod` DECLARATIONS and is bijective with the routes directory — a module declared `#[path]` outside that directory is part of the same binary and a directory listing never reads it, which is a second admission path a census cannot see",
-    declared.size > 50
-      && declaredPaths.length === onDisk.length
-      && declaredPaths.every((p, i) => p === onDisk[i]),
-    `${declared.size} declared, ${onDisk.length} on disk, ${files.length} censused`);
+    declared.size > 50 && undeclared.length === 0 && offDirectory.length === 0,
+    undeclared.length || offDirectory.length
+      ? `UNDECLARED: ${undeclared.map(modName).join(",") || "none"} | OFF-DIRECTORY: ${offDirectory.map((f) => path.relative(BIN_DIR, f)).join(",") || "none"}`
+      : `${declared.size} modules reached transitively, bijective with ${onDisk.length} on disk`);
 
   const rawSources = new Map();
   const sources = new Map();
@@ -266,16 +362,26 @@ function run() {
   }
 
   // ------------------------------------------------------------ the scanner, checked on itself
+  const removedTotal = [...removedSpans.values()].reduce((n, sp) => n + sp.length, 0);
   const badRemoval = [];
   for (const [f, spans] of removedSpans) {
     const raw = rawSources.get(f);
-    for (const [s] of spans) {
-      const head = raw.slice(s, s + 2);
-      if (head !== "//" && head !== "/*") badRemoval.push(`${modName(f)}@${s}:${JSON.stringify(head)}`);
+    for (const [a, b] of spans) {
+      const head = raw.slice(a, a + 2);
+      if (head === "//") {
+        // A LINE COMMENT ENDS AT ITS LINE. Checking only the START is what let a greedy variant —
+        // one that starts at `//` and keeps eating following lines — pass while hiding a second
+        // admitter behind an ordinary comment. The END is the half that carries the finding.
+        const nl = raw.indexOf("\n", a);
+        if (b !== (nl === -1 ? raw.length : nl)) badRemoval.push(`${modName(f)}@${a}: line comment over-ran to ${b}`);
+      } else if (head === "/*") {
+        if (raw.slice(b - 2, b) !== "*/" && b !== raw.length) badRemoval.push(`${modName(f)}@${a}: block comment did not end at */`);
+      } else {
+        badRemoval.push(`${modName(f)}@${a}: removal does not begin at a comment token (${JSON.stringify(head)})`);
+      }
     }
   }
-  const removedTotal = [...removedSpans.values()].reduce((n, sp) => n + sp.length, 0);
-  ok("every span the comment stripper REMOVED begins at a real comment token in the raw source — a length-and-survival check cannot fail on a scanner that eats code, and XIII shipped exactly such a scanner (368,828 characters of executable source, and the assertion passed)",
+  ok("every span the comment stripper REMOVED both BEGINS at a comment token and ENDS where that comment ends — a line comment at its newline, a block comment after its `*/` — a length-and-survival check cannot fail on a scanner that eats code, and XIII shipped exactly such a scanner (368,828 characters of executable source, and the assertion passed)",
     // NON-VACUITY: a scanner that reports NO removed spans satisfies "all removed spans are
     // comment-initial" trivially, and the naive `//`-regex does exactly that while eating code. A
     // daemon this size has tens of thousands of comment spans; zero is a broken scanner, not a
@@ -295,37 +401,19 @@ function run() {
     for (const m of src.matchAll(/const\s+(\w+)\s*:\s*&'?\w*\s*str\s*=\s*"([^"]*)"/gu)) own.set(m[1], m[2]);
     constsOf.set(modName(f), own);
   }
-  // `use … as` renames AND re-exports (`pub(crate) use path::CONST as ALIAS;`), per module.
+  // Every name a module brings into scope, resolved through the module it comes FROM. Handles the
+  // braced-group house style, nested groups, and `as` renames alike.
   const aliasOf = new Map();
-  for (const [f, src] of sources) {
-    const mod = modName(f);
-    const m2 = new Map();
-    for (const d of src.matchAll(/(?:pub(?:\s*\([^)]*\))?\s+)?use\s+([^;]*);/gu)) {
-      const decl = d[1];
-      const owner = /(?:crate|super)::(\w+)::/u.exec(decl)?.[1] ?? null;
-      for (const a of decl.matchAll(/(\w+)\s+as\s+(\w+)/gu)) {
-        const lit = (owner && constsOf.get(owner)?.get(a[1])) ?? null;
-        if (lit) m2.set(a[2], lit);
-      }
-      // a plain re-export or import of a constant by name, resolved in the module it comes from
-      if (owner) {
-        for (const n of decl.matchAll(/\b([A-Z][A-Z0-9_]{2,})\b/gu)) {
-          const lit = constsOf.get(owner)?.get(n[1]);
-          if (lit) m2.set(n[1], lit);
+  for (const [f] of sources) aliasOf.set(modName(f), new Map());
+  for (let hop = 0; hop < 2; hop += 1) {          // one hop follows a re-export chain
+    for (const [f, src] of sources) {
+      const mod = modName(f);
+      for (const d of src.matchAll(/(?:pub(?:\s*\([^)]*\))?\s+)?use\s+([^;]*);/gu)) {
+        for (const { owner, name, alias } of expandUseTree(d[1])) {
+          if (!owner) continue;
+          const lit = constsOf.get(owner)?.get(name) ?? aliasOf.get(owner)?.get(name);
+          if (lit !== undefined) aliasOf.get(mod).set(alias, lit);
         }
-      }
-    }
-    aliasOf.set(mod, m2);
-  }
-  // follow one hop of re-export: A aliases X, B imports A::X
-  for (const [f, src] of sources) {
-    const mod = modName(f);
-    for (const d of src.matchAll(/(?:pub(?:\s*\([^)]*\))?\s+)?use\s+([^;]*);/gu)) {
-      const owner = /(?:crate|super)::(\w+)::/u.exec(d[1])?.[1] ?? null;
-      if (!owner) continue;
-      for (const n of d[1].matchAll(/\b([A-Z][A-Z0-9_]{2,})\b/gu)) {
-        const lit = aliasOf.get(owner)?.get(n[1]);
-        if (lit) aliasOf.get(mod).set(n[1], lit);
       }
     }
   }
@@ -342,13 +430,14 @@ function run() {
     if (own !== undefined) return own;
     const alias = aliasOf.get(mod)?.get(name);
     if (alias !== undefined) return alias;
-    // A BARE NAME THIS MODULE DOES NOT DECLARE OR IMPORT IS NOT GUESSED. The daemon has 25 names
-    // meaning different things in different modules; picking one is how a second admitter hides.
+    // A BARE NAME THIS MODULE NEITHER DECLARES NOR IMPORTS IS NOT GUESSED — not even when exactly
+    // one module in the daemon happens to declare it. That global-unique fallback was the crutch a
+    // review used: it made the un-renamed grouped import look caught, so the renamed one looked like
+    // a new hole rather than the same one. If a module names a family this census cannot tie to a
+    // declaration it can see, that is UNRESOLVED, and unresolved is RED.
     const candidates = new Set();
     for (const [, m2] of constsOf) if (m2.has(name)) candidates.add(m2.get(name));
-    if (candidates.size === 1) return [...candidates][0];
-    if (candidates.size > 1) return AMBIGUOUS;
-    return null;
+    return candidates.size ? AMBIGUOUS : null;
   };
 
   const familyLiterals = new Set(Object.keys(FAMILIES));
@@ -429,7 +518,7 @@ function run() {
       }
     }
     for (const t of testRegions(src)) {
-      if (!t.closed) unclosedTestRegions.push(`${mod}@${t.start}`);
+      if (!t.closed) { unclosedTestRegions.push(`${mod}@${t.start} opened and never closed`); continue; }
       spans.push({ start: t.start, end: t.end, kind: "test-fixture" });
     }
 
@@ -440,7 +529,7 @@ function run() {
     }
   }
 
-  ok("every `#[cfg(test)]` region CLOSES on a real brace, with string and char literals skipped — a region that runs to EOF, or one whose depth counter counted a brace inside `\"{\"`, silently reclassifies production code as a test fixture and waves a write through",
+  ok("every `#[cfg(test)]` region is ATTACHED to a `mod`/`fn`, is not the literal text inside a string, and CLOSES on a real brace — a region that runs to EOF, or one whose depth counter counted a brace inside `\"{\"`, silently reclassifies production code as a test fixture and waves a write through",
     unclosedTestRegions.length === 0, unclosedTestRegions.join(" ; ") || "all test regions closed");
 
   const unclassified = mentions.filter((m) => m.kind === null);
@@ -464,48 +553,33 @@ function run() {
     [...familyLiterals].join(" "));
 
   // ------------------------------------------------------------ resolver flow
-  const resolverSinks = [];
-  const resolverMods = new Set();
+  // EVERY `resolves` MENTION, BY THE FUNCTION IT SITS IN. The first rule inspected only the shape
+  // `let x = match y { … };` while the CLASSIFIER accepted any `=> Some(X)` arm — so a mapper
+  // written `match scheme.as_str()`, or as a function returning the match, or nested one block
+  // deeper, classified as `resolves` and was never flow-checked at all. The rule is now structural
+  // and needs no dataflow: A FUNCTION THAT RESOLVES A FAMILY NAME MAY NOT ALSO WRITE A RECORD.
+  // A scheme-mapper that admits is the second spine this assertion exists to refuse, and a function
+  // doing both is that, whatever the plumbing between them looks like.
+  const resolverFns = [];
   for (const [f, src] of sources) {
     const mod = modName(f);
-    for (const m of src.matchAll(/let\s+(\w+)\s*=\s*match\s+\w+\s*\{[\s\S]*?\n\s*\};/gu)) {
-      let named = false;
-      for (const arm of m[0].matchAll(/=>\s*Some\(\s*([^)]+?)\s*\)/gu)) {
-        const lit = resolveArg(mod, arm[1]);
-        if (lit && lit !== AMBIGUOUS && familyLiterals.has(lit)) named = true;
-      }
-      if (!named) continue;
-      resolverMods.add(mod);
-      // TO THE END OF THE ENCLOSING FUNCTION, not a fixed character window. A sink 2,269 characters
-      // past the block escaped a 1,600-character window, and the window was arbitrary anyway.
-      // BOUND BY THE ENCLOSING BLOCK, not by hunting for the `fn` keyword. Anchoring on "\nfn "
-      // missed `pub(crate) fn`, so the search anchored to an EARLIER function whose brace closed
-      // before the match block — the window came out EMPTY and a mutation that had been caught went
-      // green again. Scanning forward to the brace that closes the block this match sits in needs no
-      // knowledge of how the function was declared.
-      const from = m.index + m[0].length;
-      const after = src.slice(from, enclosingBlockEnd(src, from));
-      // Rebindings closed over transitively, INCLUDING match-arm bindings (`Some(k) =>`), which the
-      // first cut did not track — a writer taking that binding passed green.
-      const tracked = new Set([m[1]]);
-      for (let pass = 0; pass < 6; pass += 1) {
-        for (const t of [...tracked]) {
-          for (const rb of after.matchAll(new RegExp(`(?:if\\s+let\\s+Some\\(\\s*(\\w+)\\s*\\)|let\\s+(\\w+))\\s*=\\s*\\*?${t}\\b`, "gu"))) tracked.add(rb[1] ?? rb[2]);
-          for (const rb of after.matchAll(new RegExp(`match\\s+\\*?${t}\\b[\\s\\S]{0,400}?Some\\(\\s*(\\w+)\\s*\\)\\s*=>`, "gu"))) tracked.add(rb[1]);
-        }
-      }
-      for (const t of tracked) {
-        for (const use of after.matchAll(new RegExp(`(\\w+)\\s*\\(\\s*[^)]*?\\b${t}\\b`, "gu"))) {
-          resolverSinks.push({ mod, sink: use[1] });
-        }
-      }
+    for (const m of src.matchAll(/=>\s*Some\(\s*([^)]+?)\s*\)/gu)) {
+      const lit = resolveArg(mod, m[1]);
+      if (!lit || lit === AMBIGUOUS || !familyLiterals.has(lit)) continue;
+      const fnStart = Math.max(src.lastIndexOf("\nfn ", m.index), src.lastIndexOf("\npub", m.index),
+        src.lastIndexOf("\n    fn ", m.index), 0);
+      const { end } = matchBrace(src, fnStart);
+      const body = src.slice(fnStart, Math.max(end, m.index));
+      const writes = [...body.matchAll(new RegExp(`${WRITER}\\(`, "gu"))].map((w) => w[0]);
+      resolverFns.push({ mod, at: m.index, writes });
     }
   }
-  const writerSinks = resolverSinks.filter((s) => new RegExp(`^${WRITER}$`, "u").test(s.sink));
-  ok("and every scheme-mapper that RESOLVES a family name flows only into READ sinks, followed to the end of its enclosing function and through match-arm rebindings — the generic `\"ontology\" => Some(...)` arms in governance and marketplace are the exact shape that becomes a second admission path the moment a resolved name reaches a writer",
-    resolverMods.size > 0 && writerSinks.length === 0,
-    writerSinks.length ? `RESOLVED NAME REACHES A WRITER: ${writerSinks.map((s) => `${s.mod}->${s.sink}`).join(" ; ")}`
-      : `${[...resolverMods].sort().join(",")} resolve into ${new Set(resolverSinks.map((s) => s.sink)).size} distinct sinks`);
+  const resolverWriters = resolverFns.filter((r) => r.writes.length);
+  ok("no function that RESOLVES a family name also writes a record — the generic `\"ontology\" => Some(...)` arms in governance and marketplace are the shape that becomes a second admission path the moment the resolved name reaches a writer, and a function doing both is that path whatever the plumbing between them looks like",
+    resolverFns.length > 0 && resolverWriters.length === 0,
+    resolverWriters.length
+      ? `RESOLVES AND WRITES: ${resolverWriters.map((r) => `${r.mod}@${r.at}->${[...new Set(r.writes)].join(",")}`).join(" ; ")}`
+      : `${resolverFns.length} resolving site(s) in [${[...new Set(resolverFns.map((r) => r.mod))].sort().join(",")}], none writes`);
 
   // ------------------------------------------------------------ raw filesystem writes
   const rawWrites = [];
