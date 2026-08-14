@@ -657,6 +657,7 @@ DataRetentionDisposition:
   disposition_id: retention-disposition://...
   subject:
     subject_kind: managed_backup_export      # extensible only by owner ruling HERE
+                | environment_workspace_capture
     subject_ref: string                      # one exact subject, never a class pattern
     payload_state_root: sha256:... | null
   policy_basis_ref: canonical ref            # the governing policy; no basis, no disposition
@@ -675,3 +676,34 @@ hash-verified delivery refuses), while the admitted subject record and every
 receipt survive — erasing the evidence that a deletion happened would make the
 deletion itself unauditable. The deletion evidence is server-built from real
 outcomes, never asserted by the caller.
+
+**Owner ruling, 2026-08-14 (owner-reversible) — `environment_workspace_capture`
+binds as the second subject kind.** This plane is the estate's only owner of
+deletion, and the module's own boundary says a further kind binds only by an
+owner ruling here. It is made because the estate had two custody stores and this
+deletion could reach one of them: the managed-runtime plane keys its payload on
+the content address under `managed-backup-material/<state-root>.tar`, while the
+legacy environment snapshot/backup lane writes its tar to
+`{snapshots,backups}/<id>/workspace.tar`. A retention deletion of a managed
+backup was therefore complete for the managed plane's custody and left a legacy
+capture of the same workspace on disk — so an estate relying on erasure could
+not treat the two lanes as one, which is exactly what an erasure duty requires.
+
+The ruling binds the kind and nothing else. **It mints no second delete route**:
+`POST /v1/hypervisor/retention/dispositions/:id/delete` remains the only
+admission path for the act, with one answer to legal hold and one server-built
+evidence object. What the kind adds is reach — a subject resolved through the
+caller's own authorized scope set, a head-preserving tombstone admitted before a
+byte is destroyed, and the destroyed-content fact written to the **same**
+estate-wide stream the managed lane already reads, so a deletion ordered in
+either lane blocks re-establishing those exact bytes in **both**. Splitting that
+fact per lane would have let a deletion be defeated by re-capturing the content
+in the other lane, which is the same resurrection the content-keyed tombstone
+exists to forbid.
+
+**Named consequence, stated rather than buried.** The legacy store is keyed by
+capture id, not by content, so two captures of identical bytes are two files and
+two subjects: destroying one does not remove the other's tar, though the shared
+destroyed-content fact does refuse restoring it and refuses re-capturing that
+content. Deleting a capture also does not delete the LIVE workspace the
+environment still holds — the same boundary the managed lane already carries.

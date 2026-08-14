@@ -37,9 +37,10 @@
         "subject_kind": {
           "type": "string",
           "enum": [
-            "managed_backup_export"
+            "managed_backup_export",
+            "environment_workspace_capture"
           ],
-          "description": "Extensible only by an owner ruling in the canonical section; an unlisted kind is refused at declaration."
+          "description": "Extensible only by an owner ruling in the canonical section; an unlisted kind is refused at declaration. `environment_workspace_capture` was bound 2026-08-14 so this plane's executed deletion reaches the legacy environment snapshot/backup store, whose material lives at a separate path the managed-runtime content-addressed lane never covered."
         },
         "subject_ref": {
           "type": "string",

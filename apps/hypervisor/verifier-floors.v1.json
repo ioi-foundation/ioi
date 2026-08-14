@@ -132,6 +132,13 @@
       "assertion_names_sha256": "d8f97b56224f06f837f6ba29d0a2104af58ccfe57cb1f8df5f8304955a9c1c3c"
     },
     {
+      "id": "environment-custody",
+      "npm_script": "check:environment-custody",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-environment-custody.mjs",
+      "runtime_assertions": 47,
+      "assertion_names_sha256": "c816d0161a6e9a9e22c8cf74aef944acdc961ee217e7073c73002af5df223047"
+    },
+    {
       "id": "ported-seed",
       "npm_script": "check:ported-seed",
       "source": "apps/hypervisor/scripts/verify-hypervisor-ported-seed-invariant.mjs",

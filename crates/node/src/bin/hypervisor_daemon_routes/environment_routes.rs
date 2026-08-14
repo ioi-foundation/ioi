@@ -29,6 +29,18 @@ use super::{
 const ENV_SCHEMA: &str = "ioi.hypervisor.environment.v1";
 const PROVIDER: &str = "local_workspace_provider_v0";
 
+/// The substrate scope kinds this plane's custody lane owns.
+///
+/// `org://local` is the ONLY constructible organization and EVERY principal holds it, so a check of
+/// the form "is the caller in the owner tenant" isolates nothing. Ownership here is per-PRINCIPAL,
+/// read from the substrate's own immutable scope pin, exactly as the managed-runtime custody surface
+/// resolves its backups.
+const ENVIRONMENT_SCOPE_KIND: &str = "hypervisor-environment";
+const CAPTURE_SCOPE_KIND: &str = "hypervisor-environment-capture";
+/// The owner-scoped stream namespace for one capture's LOCAL custody lifecycle.
+const CUSTODY_NAMESPACE: &str = "hypervisor-environment-custody";
+const CAPTURE_LIFECYCLE_SCHEMA: &str = "ioi.hypervisor.environment-capture-lifecycle.v1";
+
 // The retained v1 transcript records predate principal ownership coordinates. They remain a
 // local-operator projection, but must never become global managed-deployment truth merely because
 // an authenticated request passed the generic auth gate. Refuse before enumerating, opening, or
@@ -2529,8 +2541,13 @@ mod environments_summary_tests {
 /// POST /v1/hypervisor/environments — create (admit spec; phase stopped).
 pub(crate) async fn handle_environment_create(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
-) -> Result<Json<Value>, AppError> {
+) -> Result<Json<Value>, CustodyReply> {
+    // Rule E — identity BEFORE any record read or spec validation. This is the route that means
+    // "create", so it is where an environment acquires the owner every custody act is scoped to;
+    // an environment minted here without one would be an environment nobody could ever capture.
+    let identity = custody_identity(&st.data_dir, &headers)?;
     let spec = body.get("spec").cloned().unwrap_or_else(|| body.clone());
     let id = body
         .get("environment_id")
@@ -2538,9 +2555,12 @@ pub(crate) async fn handle_environment_create(
         .and_then(|v| v.as_str())
         .map(String::from)
         .unwrap_or_else(gen_env_id);
+    // BEFORE the spec is validated and before anything is persisted: a caller naming an
+    // environment_id another principal already owns is refused at the pin, not at the record.
+    bind_environment_owner(&st.data_dir, &identity, &id)?;
     // Refuses BEFORE any persist when the spec carries an invalid environment-local guardrail
     // declaration; every other field is admitted exactly as before.
-    let mut env = new_env(&id, &spec)?;
+    let mut env = new_env(&id, &spec).map_err(app_error_reply)?;
     // WS-2: repo-detect-first — if the spec points at a repo, admit a detected recipe and bind it.
     if env["spec"]["recipe_ref"]
         .as_str()
@@ -2550,7 +2570,8 @@ pub(crate) async fn handle_environment_create(
         if let Some(repo) = spec.get("repo_path").and_then(|v| v.as_str()) {
             let project_ref = spec.get("project_id").and_then(|v| v.as_str());
             let recipe_ref =
-                super::recipe_routes::detect_and_admit(&st.data_dir, repo, project_ref)?;
+                super::recipe_routes::detect_and_admit(&st.data_dir, repo, project_ref)
+                    .map_err(app_error_reply)?;
             env["spec"]["recipe_ref"] = json!(recipe_ref);
             env["spec"]["repo_path"] = json!(repo);
             observe(
@@ -2584,7 +2605,7 @@ pub(crate) async fn handle_environment_create(
             "advisory_candidate_refs": policy.get("advisory_candidate_refs").cloned().unwrap_or(json!([])),
         });
     }
-    persist_env(&st.data_dir, &env)?;
+    persist_env(&st.data_dir, &env).map_err(app_error_reply)?;
     Ok(Json(json!({ "environment": env })))
 }
 
@@ -2592,6 +2613,7 @@ pub(crate) async fn handle_environment_create(
 /// the cockpit's GetEnvironment(sessionWorkspace) always resolves.
 pub(crate) async fn handle_environment_get(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
 ) -> Result<Json<Value>, AppError> {
     let env = match load_env(&st.data_dir, &id) {
@@ -2638,6 +2660,11 @@ pub(crate) async fn handle_environment_get(
                 "environment registered on first reference",
             );
             persist_env(&st.data_dir, &e)?;
+            // The record is being ESTABLISHED here, so this is one of the two moments an owner can
+            // be recorded without a land grab. It never refuses: an unauthenticated first reference
+            // leaves the environment unowned exactly as before, and the custody gate reads that as
+            // "no principal may capture this workspace".
+            bind_environment_owner_if_resolvable(&st.data_dir, &headers, &id);
             e
         }
     };
@@ -2647,12 +2674,17 @@ pub(crate) async fn handle_environment_get(
 /// POST /v1/hypervisor/environments/:id/:action — start|stop|archive|restore|delete.
 pub(crate) async fn handle_environment_action(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath((id, action)): AxumPath<(String, String)>,
 ) -> Result<Json<Value>, AppError> {
     let mut env = match load_env(&st.data_dir, &id) {
         Some(env) => env,
         // An empty spec declares no guardrails, so this cannot refuse.
-        None => new_env(&id, &json!({}))?,
+        None => {
+            let established = new_env(&id, &json!({}))?;
+            bind_environment_owner_if_resolvable(&st.data_dir, &headers, &id);
+            established
+        }
     };
     // WS-1 migration: bring a Phase-0 (flat) env record up to the component model on touch.
     if !env["status"]["components"].is_object() {
@@ -3503,33 +3535,76 @@ fn sha256_hex_bytes(bytes: &[u8]) -> String {
 /// Capture the env workspace as a distinct restore object (snapshot = forkable point-in-time;
 /// backup = durability material). The state_root (sha256 of the material) is the admitted truth —
 /// restore validity is checked against it, not "the blob exists".
-fn capture_workspace(st: &DaemonState, env_id: &str, kind: &str) -> Result<Value, AppError> {
-    let app = |e: String| AppError(StatusCode::INTERNAL_SERVER_ERROR, e);
-    let env = load_env(&st.data_dir, env_id)
-        .ok_or_else(|| AppError(StatusCode::NOT_FOUND, "environment not found".into()))?;
+fn capture_workspace(
+    st: &DaemonState,
+    identity: &super::substrate_store::RequestIdentity,
+    env_id: &str,
+    kind: &str,
+) -> Result<Value, CustodyReply> {
+    let app = |e: String| {
+        custody_bad(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "environment_capture_failed",
+            e,
+        )
+    };
+    // AUTHORIZATION BEFORE EXISTENCE. The scope pin is read from the coordinate the caller supplied,
+    // so a principal who holds no custody of this environment learns nothing about whether it
+    // exists — and, far more importantly, never reaches the tar below.
+    authorize_environment_custody(&st.data_dir, identity, env_id)?;
+    let env = load_env(&st.data_dir, env_id).ok_or_else(|| {
+        custody_bad(
+            StatusCode::NOT_FOUND,
+            "environment_not_found",
+            "environment not found",
+        )
+    })?;
     if env["status"]["substrate"].as_str() == Some("microvm")
         || env["spec"]["environment_class_id"].as_str() == Some("microvm")
     {
-        return Err(AppError(
+        return Err(custody_bad(
             StatusCode::NOT_IMPLEMENTED,
-            "machine_snapshot_unsupported: the current workspace archive does not quiesce or capture guest disk/memory state".into(),
+            "machine_snapshot_unsupported",
+            "the current workspace archive does not quiesce or capture guest disk/memory state",
         ));
     }
     let ws = env["status"]["workspace_root"].as_str().ok_or_else(|| {
-        AppError(
+        custody_bad(
             StatusCode::CONFLICT,
-            "environment not started (no workspace)".into(),
+            "environment_workspace_absent",
+            "environment not started (no workspace)",
         )
     })?;
     let tar = super::microvm::tar_dir(std::path::Path::new(ws))
         .map_err(|e| app(format!("tar workspace: {e}")))?;
     let state_root = format!("sha256:{}", sha256_hex_bytes(&tar));
+    // A RE-CAPTURE OVER A DESTRUCTION REFUSES, and it refuses BEFORE a byte is written. Re-capturing
+    // a workspace whose content an owner ordered destroyed would put those exact bytes back under a
+    // fresh coordinate — the resurrection deletion forbids, and the one the capture-side name gate
+    // could not see. Asked against the estate-wide stream, so a destruction ordered in the
+    // managed-runtime lane binds here too.
+    super::managed_runtime_routes::refuse_if_material_destroyed_public(&st.data_dir, &state_root)?;
     let nanos = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_nanos())
         .unwrap_or(0);
     let prefix = if kind == "backup" { "backup" } else { "snap" };
     let id = format!("{prefix}_{nanos:x}");
+    // THE CAPTURE'S OWN OWNER PIN, BEFORE ITS BYTES EXIST. A capture is separately addressable — the
+    // retention plane resolves it by id and restore takes it by id — so it carries its own
+    // per-principal scope rather than inheriting the environment's by inspection. Binding first means
+    // a capture record can never exist on disk without an owner.
+    let owner_ref = custody_owner_tenant(identity)?;
+    super::substrate_store::bind_request_resource_scope(
+        &st.data_dir,
+        identity,
+        CAPTURE_SCOPE_KIND,
+        &id,
+        &owner_ref,
+        &owner_ref,
+        &format!("environment-capture-owner:{id}"),
+    )
+    .map_err(custody_scope_refusal)?;
     let dir = std::path::Path::new(&st.data_dir)
         .join(format!("{kind}s"))
         .join(safe_id(&id));
@@ -3549,35 +3624,435 @@ fn capture_workspace(st: &DaemonState, env_id: &str, kind: &str) -> Result<Value
     });
     persist_record(&st.data_dir, &format!("{kind}s"), &id, &record)
         .map_err(|e| app(format!("persist {kind}: {e}")))?;
-    let mut public_record = record;
-    public_record
-        .as_object_mut()
-        .map(|object| object.remove("material_path"));
-    Ok(public_record)
+    Ok(public_capture(&record))
 }
 
-/// Require an authenticated principal on a legacy custody mutation, before any record is read.
-///
-/// FOUND BY THIS LEG'S OWN DERIVED CENSUS, and it is the model-route defect class on the custody
-/// surface: `handle_snapshot_create`, `handle_backup_create` and `handle_snapshot_restore` took
-/// `State` (+ `Json`/`AxumPath`) and NO `HeaderMap`, so none of them resolved a caller. Under the
-/// default `auto` posture the only gate is `daemon_exposed() || request_exposed(headers)`, which is
-/// false for the estate's own documented loopback-behind-`serve` topology — so on that deployment
-/// an unauthenticated party could archive any environment's workspace and, worse,
-/// `POST /snapshots/:id/restore` could OVERWRITE any environment's workspace with archived bytes.
-///
-/// RESIDUAL, stated because authentication is not authorization: the legacy snapshot/backup lane
-/// still carries no per-environment owner, so any AUTHENTICATED principal can still snapshot or
-/// restore any environment. Closing that needs an environment ownership model — the registry-wide
-/// change the managed-runtime plane above already has and this legacy lane does not — and it is
-/// filed as its own open defect rather than half-built here.
-fn require_custody_caller(data_dir: &str, headers: &HeaderMap) -> Result<(), AppError> {
+/// A capture as a caller may see it: never the absolute `material_path`, which is daemon-local
+/// filesystem layout and was readable by any caller at all through the unscoped list route.
+fn public_capture(record: &Value) -> Value {
+    let mut public = record.clone();
+    public
+        .as_object_mut()
+        .map(|object| object.remove("material_path"));
+    public
+}
+
+// =================================================================================================
+// THE LEGACY CUSTODY LANE'S OWNER MODEL.
+//
+// Next-legs XI closed the UNAUTHENTICATED half of this defect and filed the rest open, correctly:
+// `handle_snapshot_create`, `handle_backup_create` and `handle_snapshot_restore` resolved no caller
+// at all, and `POST /snapshots/:id/restore` OVERWRITES a workspace. Authentication is not
+// authorization, and what remained was the larger half — every AUTHENTICATED principal could still
+// archive or restore EVERY environment's workspace, because an environment had no owner to scope to.
+//
+// It has one now. Ownership is the substrate's own immutable per-PRINCIPAL scope pin, bound at the
+// one route that means create, and every custody act on the environment or on a capture is
+// authorized against it. Never a record's descriptive `owner_ref`, and never a tenant check:
+// `org://local` is the only constructible organization and every principal holds it.
+// =================================================================================================
+
+type CustodyReply = (StatusCode, Json<Value>);
+
+/// Carry one of this module's existing `AppError` refusals into the typed shape without inventing a
+/// code for it. The message is preserved verbatim, so nothing a caller already reads disappears;
+/// only the envelope gains `ok` and a code naming the class.
+fn app_error_reply(error: AppError) -> CustodyReply {
+    custody_bad(error.0, "environment_request_refused", error.1)
+}
+
+fn custody_bad(status: StatusCode, code: &str, message: impl Into<String>) -> CustodyReply {
+    (
+        status,
+        Json(json!({ "ok": false, "error": { "code": code, "message": message.into() } })),
+    )
+}
+
+fn custody_scope_refusal(error: super::substrate_store::RequestScopeRefusal) -> CustodyReply {
+    super::mutation_event_foundation::scope_refusal_reply(error)
+}
+
+/// Identity FIRST, before any record is read — a 401 is owed before a 404 existence oracle, and
+/// every handler behind this either reads workspace bytes or writes them.
+fn custody_identity(
+    data_dir: &str,
+    headers: &HeaderMap,
+) -> Result<super::substrate_store::RequestIdentity, CustodyReply> {
     super::substrate_store::resolve_request_identity(data_dir, headers)
-        .map(|_| ())
-        .map_err(|refusal| {
-            AppError(
-                StatusCode::UNAUTHORIZED,
-                format!("{}: {}", refusal.code(), refusal.message()),
+        .map_err(custody_scope_refusal)
+}
+
+/// The one organization tenant this principal's session was admitted for.
+///
+/// The scope binding requires `tenant_ref == owner_ref`, so the owner coordinate has to be exactly
+/// one tenant. Deriving it from the session's own resolved membership is what makes the pin the
+/// caller's; a route-supplied `owner_ref` would let a caller name the scope it wants to land in.
+fn custody_owner_tenant(
+    identity: &super::substrate_store::RequestIdentity,
+) -> Result<String, CustodyReply> {
+    let mut organizations = identity
+        .tenant_refs
+        .iter()
+        .filter(|tenant_ref| tenant_ref.starts_with("org://"));
+    let (Some(owner_ref), None) = (organizations.next(), organizations.next()) else {
+        return Err(custody_bad(
+            StatusCode::FORBIDDEN,
+            "environment_custody_owner_tenant_unresolved",
+            "custody ownership binds to exactly one org:// tenant resolved from the caller's own session; zero or many cannot name an owner",
+        ));
+    };
+    Ok(owner_ref.clone())
+}
+
+/// Bind this environment to the caller as its owner. Idempotent for the same principal; a DIFFERENT
+/// principal binding an already-pinned environment is refused by the substrate as an owner mismatch.
+///
+/// Called only where an environment record is ESTABLISHED. On the create route a failure refuses the
+/// create outright, so an environment minted through the route that means "create" always has an
+/// owner. On the first-reference auto-vivify paths a failure leaves the environment UNOWNED exactly
+/// as before — those paths never refused and are not being turned into gates — and every custody act
+/// on an unowned environment then refuses typed. That is fail-closed in the direction that matters:
+/// an environment nobody owns is an environment nobody may capture.
+fn bind_environment_owner(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    environment_id: &str,
+) -> Result<super::substrate_store::RequestResourceScope, CustodyReply> {
+    let owner_ref = custody_owner_tenant(identity)?;
+    super::substrate_store::bind_request_resource_scope(
+        data_dir,
+        identity,
+        ENVIRONMENT_SCOPE_KIND,
+        environment_id,
+        &owner_ref,
+        &owner_ref,
+        &format!("environment-owner:{environment_id}"),
+    )
+    .map_err(custody_scope_refusal)
+}
+
+/// Best-effort ownership for an environment established by FIRST REFERENCE rather than by create.
+///
+/// `handle_environment_get` and `handle_environment_action` auto-vivify an absent environment, and
+/// they answer unauthenticated callers today. Turning them into authentication gates is a
+/// plane-wide behavioural change with its own blast radius; recording an owner when one is
+/// resolvable is not. An unauthenticated first reference still establishes the record and simply
+/// leaves it unowned, which the custody gate reads as "refuse".
+fn bind_environment_owner_if_resolvable(data_dir: &str, headers: &HeaderMap, environment_id: &str) {
+    if let Ok(identity) = super::substrate_store::resolve_request_identity(data_dir, headers) {
+        let _ = bind_environment_owner(data_dir, &identity, environment_id);
+    }
+}
+
+/// Authorize this caller against the environment's own scope pin, per PRINCIPAL.
+///
+/// The two refusals are deliberately distinguishable, because they are different facts: an
+/// environment with NO pin can never be captured by anyone until it is re-established through the
+/// owning route, while a pin held by another principal is an authorization failure.
+fn authorize_environment_custody(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    environment_id: &str,
+) -> Result<super::substrate_store::RequestResourceScope, CustodyReply> {
+    let pinned = super::substrate_store::read_request_scope(
+        data_dir,
+        ENVIRONMENT_SCOPE_KIND,
+        environment_id,
+    )
+    .map_err(custody_scope_refusal)?;
+    if pinned.is_none() {
+        return Err(custody_bad(
+            StatusCode::FORBIDDEN,
+            "environment_custody_owner_unbound",
+            "this environment carries no owner pin, so no principal holds custody of its workspace; it was established by first reference or predates the owner model and must be created through POST /v1/hypervisor/environments to acquire one",
+        ));
+    }
+    super::substrate_store::authorize_request_resource_scope(
+        data_dir,
+        identity,
+        ENVIRONMENT_SCOPE_KIND,
+        environment_id,
+        None,
+    )
+    .map_err(custody_scope_refusal)
+}
+
+/// One capture's durable record, addressed by the kind directory it lives in.
+fn load_capture(data_dir: &str, kind: &str, id: &str) -> Option<Value> {
+    serde_json::from_slice(
+        &std::fs::read(
+            std::path::Path::new(data_dir)
+                .join(format!("{kind}s"))
+                .join(format!("{}.json", safe_id(id))),
+        )
+        .ok()?,
+    )
+    .ok()
+}
+
+/// The material bytes one legacy capture wrote. Unlike the managed-runtime lane, this store is
+/// keyed by CAPTURE ID rather than by content, so two captures of identical bytes are two files.
+pub(crate) fn capture_material_path(data_dir: &str, kind: &str, id: &str) -> std::path::PathBuf {
+    std::path::Path::new(data_dir)
+        .join(format!("{kind}s"))
+        .join(safe_id(id))
+        .join("workspace.tar")
+}
+
+/// Resolve one capture through the caller's OWN authorized scope set, never through the record.
+///
+/// This is the shape `authorized_backup_by_id` already has on the managed lane, and the reason is
+/// the same: reading the record first and then checking a field on it makes the record the
+/// authority. The scope pin is the authority; the record is what the scope points at.
+pub(crate) fn authorized_capture_by_id(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    capture_id: &str,
+) -> Result<(String, Value, super::substrate_store::RequestResourceScope), CustodyReply> {
+    let scope = super::substrate_store::authorize_request_resource_scope(
+        data_dir,
+        identity,
+        CAPTURE_SCOPE_KIND,
+        capture_id,
+        None,
+    )
+    .map_err(custody_scope_refusal)?;
+    for kind in ["snapshot", "backup"] {
+        if let Some(record) = load_capture(data_dir, kind, capture_id) {
+            return Ok((kind.to_string(), record, scope));
+        }
+    }
+    Err(custody_bad(
+        StatusCode::NOT_FOUND,
+        "environment_capture_not_found",
+        "the caller holds a custody scope at this coordinate but no capture record resolves under it",
+    ))
+}
+
+fn capture_lifecycle_tail(capture_ref: &str) -> String {
+    super::mutation_event_foundation::stream_tail("environment-capture-lifecycle", capture_ref)
+}
+
+fn read_capture_lifecycle(
+    data_dir: &str,
+    capture_ref: &str,
+) -> Result<Option<agentgres::mux::ExactProjection>, CustodyReply> {
+    super::substrate_store::read_event_stream_operation(
+        data_dir,
+        CUSTODY_NAMESPACE,
+        &capture_lifecycle_tail(capture_ref),
+    )
+    .map_err(|error| {
+        custody_bad(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "environment_capture_lifecycle_unavailable",
+            error.to_string(),
+        )
+    })
+}
+
+/// Establish this capture's lifecycle genesis from the ALREADY-ADMITTED record when the stream is
+/// absent, and return the head.
+///
+/// `expected_head: None` is GENESIS-ONLY — it sets expected-absent, so an object a deletion must
+/// advance needs a head to compare-and-swap against and a tombstone that PRESERVES it. Deriving the
+/// genesis wholly from durable truth is what lets one code path serve a capture written before this
+/// stream existed without a migration pass over the family.
+fn ensure_capture_lifecycle(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    scope: &super::substrate_store::RequestResourceScope,
+    kind: &str,
+    capture_ref: &str,
+    record: &Value,
+    idempotency_key: &str,
+) -> Result<agentgres::mux::ExactProjection, CustodyReply> {
+    if let Some(head) = read_capture_lifecycle(data_dir, capture_ref)? {
+        return Ok(head);
+    }
+    let payload = json!({
+        "schema_version": CAPTURE_LIFECYCLE_SCHEMA,
+        "capture_ref": capture_ref,
+        "capture_kind": kind,
+        "environment_ref": record["environment_ref"],
+        "state_root": record["state_root"],
+        "status": "admitted",
+        "pruned_by_disposition_ref": Value::Null,
+    });
+    admit_custody_stream(
+        data_dir,
+        true,
+        identity,
+        scope,
+        capture_ref,
+        &capture_lifecycle_tail(capture_ref),
+        "event_stream.environment_capture_lifecycle_admitted",
+        None,
+        &payload,
+        idempotency_key,
+    )
+    .map(|(exact, _)| exact)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn admit_custody_stream(
+    data_dir: &str,
+    genesis: bool,
+    identity: &super::substrate_store::RequestIdentity,
+    scope: &super::substrate_store::RequestResourceScope,
+    capture_ref: &str,
+    tail: &str,
+    op_kind: &str,
+    expected_head: Option<&str>,
+    payload: &Value,
+    idempotency_key: &str,
+) -> Result<(agentgres::mux::ExactProjection, bool), CustodyReply> {
+    super::mutation_event_foundation::admit_owner_scoped_mutation(
+        data_dir,
+        genesis,
+        super::mutation_event_foundation::ScopedMutation {
+            identity,
+            scope,
+            resource_kind: CAPTURE_SCOPE_KIND,
+            resource_ref: capture_ref,
+            owner_namespace: CUSTODY_NAMESPACE,
+            stream_tail: tail,
+            op_kind,
+            expected_head,
+            payload,
+            idempotency_key,
+            recorded_at_ms: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|duration| duration.as_millis() as u64)
+                .unwrap_or(0),
+        },
+    )
+    .map(|commit| (commit.projection, commit.replayed))
+    .map_err(super::mutation_event_foundation::mutation_refusal_reply)
+}
+
+/// Refuse when this capture was deleted — by NAME (its lifecycle head is a tombstone) or by CONTENT
+/// (its bytes were destroyed under an executed disposition, in EITHER custody lane).
+///
+/// The content half deliberately reads the managed-runtime plane's estate-wide destroyed-material
+/// stream rather than a second one of this lane's own. An owner who ordered content destroyed is
+/// owed that destruction wherever those exact bytes would otherwise be re-established, and this leg
+/// exists precisely because the two custody lanes could be treated as one when they were not. One
+/// fact, one stream, both lanes.
+fn refuse_if_capture_deleted(
+    data_dir: &str,
+    capture_ref: &str,
+    state_root: &str,
+) -> Result<(), CustodyReply> {
+    if let Some(head) = read_capture_lifecycle(data_dir, capture_ref)? {
+        if head.operation.payload["status"] == json!("pruned") {
+            return Err((
+                StatusCode::GONE,
+                Json(json!({
+                    "ok": false,
+                    "error": {
+                        "code": "environment_capture_tombstoned",
+                        "message": "this capture was deleted under an executed retention disposition; its content is destroyed and it is not restore material",
+                        "details": {
+                            "pruned_by_disposition_ref": head.operation.payload["pruned_by_disposition_ref"],
+                            "admitted_head": head.head,
+                        }
+                    }
+                })),
+            ));
+        }
+    }
+    super::managed_runtime_routes::refuse_if_material_destroyed_public(data_dir, state_root)
+}
+
+/// Admit the head-preserving TOMBSTONE for one legacy capture, and record the destroyed content on
+/// the estate's single destroyed-material stream.
+///
+/// This is NOT a second delete route. The W1.5 data-retention disposition plane owns deletion, blocks
+/// on legal hold, and builds its evidence from real filesystem outcomes; this function is how that
+/// one decision becomes reachable for the legacy custody store's separate bytes. The retention plane
+/// calls it BEFORE it destroys a byte, so a deletion that reaches the filesystem always carries the
+/// tombstone that makes it legible — and a tombstone that cannot be admitted refuses the deletion
+/// outright, with nothing destroyed and a retry that converges.
+pub(crate) fn tombstone_environment_capture(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    capture_id: &str,
+    disposition_ref: &str,
+    idempotency_key: &str,
+) -> Result<Value, CustodyReply> {
+    let (kind, record, scope) = authorized_capture_by_id(data_dir, identity, capture_id)?;
+    let capture_ref = capture_id.to_string();
+    let state_root = record["state_root"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
+    let current = ensure_capture_lifecycle(
+        data_dir,
+        identity,
+        &scope,
+        &kind,
+        &capture_ref,
+        &record,
+        &format!("{idempotency_key}.lifecycle"),
+    )?;
+    if current.operation.payload["status"] == json!("pruned") {
+        return Ok(json!({
+            "capture_ref": capture_ref,
+            "capture_kind": kind,
+            "admitted_head": current.head,
+            "replayed": true,
+        }));
+    }
+    let mut payload = current.operation.payload.clone();
+    payload["status"] = json!("pruned");
+    payload["pruned_by_disposition_ref"] = json!(disposition_ref);
+    let (exact, replayed) = admit_custody_stream(
+        data_dir,
+        false,
+        identity,
+        &scope,
+        &capture_ref,
+        &capture_lifecycle_tail(&capture_ref),
+        "event_stream.environment_capture_lifecycle_pruned",
+        Some(&current.head),
+        &payload,
+        &format!("{idempotency_key}.pruned"),
+    )?;
+    // AND the fact keyed on WHAT WAS DESTROYED, on the SAME estate-wide stream the managed lane
+    // writes and reads. Keying only on the capture name would leave re-capture of identical content
+    // as an unblocked resurrection path, and would leave the two custody lanes with two different
+    // answers to one owner's deletion.
+    let destroyed_head = super::managed_runtime_routes::record_material_destroyed(
+        data_dir,
+        identity,
+        &scope,
+        CAPTURE_SCOPE_KIND,
+        &capture_ref,
+        &state_root,
+        disposition_ref,
+        idempotency_key,
+    )?;
+    Ok(json!({
+        "capture_ref": capture_ref,
+        "capture_kind": kind,
+        "admitted_head": exact.head,
+        "state_root": state_root,
+        "destroyed_material_head": destroyed_head,
+        "replayed": replayed,
+    }))
+}
+
+/// The environment coordinate a capture request names, refused typed when absent.
+fn requested_environment(body: &Value) -> Result<&str, CustodyReply> {
+    body.get("environment_id")
+        .and_then(|v| v.as_str())
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| {
+            custody_bad(
+                StatusCode::BAD_REQUEST,
+                "environment_id_required",
+                "environment_id required",
             )
         })
 }
@@ -3587,14 +4062,11 @@ pub(crate) async fn handle_snapshot_create(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
     Json(body): Json<Value>,
-) -> Result<Json<Value>, AppError> {
-    require_custody_caller(&st.data_dir, &headers)?;
-    let env_id = body
-        .get("environment_id")
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| AppError(StatusCode::BAD_REQUEST, "environment_id required".into()))?;
+) -> Result<Json<Value>, CustodyReply> {
+    let identity = custody_identity(&st.data_dir, &headers)?;
+    let env_id = requested_environment(&body)?;
     Ok(Json(
-        json!({ "snapshot": capture_workspace(&st, env_id, "snapshot")? }),
+        json!({ "snapshot": capture_workspace(&st, &identity, env_id, "snapshot")? }),
     ))
 }
 
@@ -3603,20 +4075,41 @@ pub(crate) async fn handle_backup_create(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
     Json(body): Json<Value>,
-) -> Result<Json<Value>, AppError> {
-    require_custody_caller(&st.data_dir, &headers)?;
-    let env_id = body
-        .get("environment_id")
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| AppError(StatusCode::BAD_REQUEST, "environment_id required".into()))?;
+) -> Result<Json<Value>, CustodyReply> {
+    let identity = custody_identity(&st.data_dir, &headers)?;
+    let env_id = requested_environment(&body)?;
     Ok(Json(
-        json!({ "backup": capture_workspace(&st, env_id, "backup")? }),
+        json!({ "backup": capture_workspace(&st, &identity, env_id, "backup")? }),
     ))
 }
 
-/// GET /v1/hypervisor/snapshots
-pub(crate) async fn handle_snapshots_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
-    Json(json!({ "snapshots": read_record_dir(&st.data_dir, "snapshots") }))
+/// GET /v1/hypervisor/snapshots — the caller's OWN captures.
+///
+/// This route answered every snapshot record in the estate to an unauthenticated caller, including
+/// each one's absolute `material_path` and `state_root`. Listing is now derived from the caller's own
+/// authorized scope set — the same set the retention plane and restore resolve through — so the list
+/// cannot report a capture the caller could not act on.
+pub(crate) async fn handle_snapshots_list(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, CustodyReply> {
+    let identity = custody_identity(&st.data_dir, &headers)?;
+    let authorized = super::substrate_store::authorized_request_resource_refs(
+        &st.data_dir,
+        &identity,
+        CAPTURE_SCOPE_KIND,
+    )
+    .map_err(custody_scope_refusal)?;
+    let snapshots = read_record_dir(&st.data_dir, "snapshots")
+        .iter()
+        .filter(|record| {
+            record["snapshot_ref"]
+                .as_str()
+                .is_some_and(|reference| authorized.contains(reference))
+        })
+        .map(public_capture)
+        .collect::<Vec<_>>();
+    Ok(Json(json!({ "snapshots": snapshots })))
 }
 
 /// POST /v1/hypervisor/snapshots/:id/restore — restore a snapshot into its env's workspace, ONLY
@@ -3626,48 +4119,66 @@ pub(crate) async fn handle_snapshot_restore(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
-) -> Result<Json<Value>, AppError> {
+) -> Result<Json<Value>, CustodyReply> {
     // Rule E: identity before any record read — a 401 is owed before a 404 existence oracle, and
     // this handler's effect is a WRITE into an environment's workspace.
-    require_custody_caller(&st.data_dir, &headers)?;
-    let app = |c: StatusCode, e: String| AppError(c, e);
-    let path = std::path::Path::new(&st.data_dir)
-        .join("snapshots")
-        .join(format!("{}.json", safe_id(&id)));
-    let snap: Value = std::fs::read(&path)
-        .ok()
-        .and_then(|b| serde_json::from_slice(&b).ok())
-        .ok_or_else(|| AppError(StatusCode::NOT_FOUND, "snapshot not found".into()))?;
+    let identity = custody_identity(&st.data_dir, &headers)?;
+    // AUTHORIZATION BEFORE EXISTENCE, on the coordinate the path supplies: the capture's own owner
+    // pin decides whether this caller may read these bytes at all, and it is read before the record.
+    let (_kind, snap, _scope) = authorized_capture_by_id(&st.data_dir, &identity, &id)?;
+    let app = |c: StatusCode, code: &str, e: String| custody_bad(c, code, e);
+    let admitted_root = snap["state_root"].as_str().unwrap_or_default().to_string();
+    // A DELETED CAPTURE IS NOT RESTORE MATERIAL, and saying so is what keeps an executed retention
+    // deletion legible: reading the missing file first would answer "material missing", the same
+    // observable a lost disk produces.
+    refuse_if_capture_deleted(&st.data_dir, &id, &admitted_root)?;
+    let env_id = snap["environment_ref"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
+    // AND the DESTINATION is authorized independently of the source. Holding a capture does not
+    // license writing it into an environment whose workspace this principal does not hold — the two
+    // are the same act only when one principal owns both, which is exactly what this asks.
+    authorize_environment_custody(&st.data_dir, &identity, &env_id)?;
     let material_path = snap["material_path"].as_str().unwrap_or_default();
     let tar = std::fs::read(material_path).map_err(|e| {
         app(
             StatusCode::CONFLICT,
+            "restore_material_missing",
             format!("restore material missing: {e}"),
         )
     })?;
     // operation-backed validity: recompute the state_root and compare to the admitted one.
     let recomputed = format!("sha256:{}", sha256_hex_bytes(&tar));
-    let admitted = snap["state_root"].as_str().unwrap_or_default();
+    let admitted = admitted_root.as_str();
     if recomputed != admitted {
-        return Err(app(StatusCode::CONFLICT, format!("restore_invalid: state_root mismatch (admitted {admitted}, material {recomputed}) — blob tampered/corrupt")));
+        return Err(app(StatusCode::CONFLICT, "restore_invalid", format!("restore_invalid: state_root mismatch (admitted {admitted}, material {recomputed}) — blob tampered/corrupt")));
     }
-    let env_id = snap["environment_ref"]
-        .as_str()
-        .unwrap_or_default()
-        .to_string();
-    let mut env = load_env(&st.data_dir, &env_id)
-        .ok_or_else(|| AppError(StatusCode::NOT_FOUND, "environment not found".into()))?;
+    let mut env = load_env(&st.data_dir, &env_id).ok_or_else(|| {
+        custody_bad(
+            StatusCode::NOT_FOUND,
+            "environment_not_found",
+            "environment not found",
+        )
+    })?;
     if env["status"]["substrate"].as_str() == Some("microvm")
         || env["spec"]["environment_class_id"].as_str() == Some("microvm")
     {
         return Err(app(
             StatusCode::NOT_IMPLEMENTED,
+            "machine_restore_unsupported",
             "machine_restore_unsupported: workspace material is not a quiesced guest disk or memory snapshot".to_string(),
         ));
     }
     let ws = env["status"]["workspace_root"]
         .as_str()
-        .ok_or_else(|| AppError(StatusCode::CONFLICT, "environment has no workspace".into()))?
+        .ok_or_else(|| {
+            custody_bad(
+                StatusCode::CONFLICT,
+                "environment_workspace_absent",
+                "environment has no workspace",
+            )
+        })?
         .to_string();
     // Restore is prepare/apply, never delete-first. Extract and validate into a sibling staging
     // directory, retain the trusted workspace as a rollback target, then swap by rename.
@@ -3675,6 +4186,7 @@ pub(crate) async fn handle_snapshot_restore(
     let parent = ws_path.parent().ok_or_else(|| {
         app(
             StatusCode::CONFLICT,
+            "restore_workspace_parent_absent",
             "workspace has no restore parent".to_string(),
         )
     })?;
@@ -3684,6 +4196,7 @@ pub(crate) async fn handle_snapshot_restore(
     if staging.exists() || rollback.exists() {
         return Err(app(
             StatusCode::CONFLICT,
+            "restore_recovery_obligation_open",
             "restore recovery obligation already exists; reconcile it before retry".to_string(),
         ));
     }
@@ -3691,17 +4204,23 @@ pub(crate) async fn handle_snapshot_restore(
         let _ = std::fs::remove_dir_all(&staging);
         app(
             StatusCode::INTERNAL_SERVER_ERROR,
+            "restore_staging_extract_failed",
             format!("restore staging extract: {e}"),
         )
     })?;
     std::fs::rename(&ws_path, &rollback).map_err(|e| {
         let _ = std::fs::remove_dir_all(&staging);
-        app(StatusCode::CONFLICT, format!("restore prepare rename: {e}"))
+        app(
+            StatusCode::CONFLICT,
+            "restore_prepare_rename_failed",
+            format!("restore prepare rename: {e}"),
+        )
     })?;
     if let Err(error) = std::fs::rename(&staging, &ws_path) {
         let rollback_result = std::fs::rename(&rollback, &ws_path);
         return Err(app(
             StatusCode::INTERNAL_SERVER_ERROR,
+            "restore_apply_rename_failed",
             format!("restore apply rename: {error}; rollback={rollback_result:?}"),
         ));
     }
@@ -3710,11 +4229,12 @@ pub(crate) async fn handle_snapshot_restore(
         use super::microvm;
         if let Some(vm) = st.live_vms.lock().unwrap().get(&env_id) {
             let monitor_kind = microvm::MonitorKind::parse(vm.monitor)
-                .map_err(|e| app(StatusCode::CONFLICT, e))?;
+                .map_err(|e| app(StatusCode::CONFLICT, "restore_monitor_kind_invalid", e))?;
             let monitor = microvm::make_monitor(monitor_kind);
             let t = microvm::tar_dir(std::path::Path::new(&ws)).map_err(|e| {
                 app(
                     StatusCode::INTERNAL_SERVER_ERROR,
+                    "restore_reimport_tar_failed",
                     format!("restore re-import tar: {e}"),
                 )
             })?;
@@ -3724,6 +4244,7 @@ pub(crate) async fn handle_snapshot_restore(
                 let rollback_result = std::fs::rename(&rollback, &ws_path);
                 return Err(app(
                     StatusCode::CONFLICT,
+                    "restore_reimport_failed",
                     format!("restore re-import failed: {error}; host rollback={rollback_result:?}"),
                 ));
             }
@@ -3732,6 +4253,7 @@ pub(crate) async fn handle_snapshot_restore(
     std::fs::remove_dir_all(&rollback).map_err(|e| {
         app(
             StatusCode::INTERNAL_SERVER_ERROR,
+            "restore_rollback_cleanup_unresolved",
             format!("restore applied but rollback cleanup is unresolved: {e}"),
         )
     })?;
@@ -3743,7 +4265,13 @@ pub(crate) async fn handle_snapshot_restore(
         "info",
         &format!("snapshot {id} restored (state_root validated)"),
     );
-    persist_env(&st.data_dir, &env)?;
+    persist_env(&st.data_dir, &env).map_err(|error| {
+        custody_bad(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "environment_projection_failed",
+            error.1,
+        )
+    })?;
     Ok(Json(
         json!({ "restored": true, "snapshot_ref": id, "validated": true, "state_root": admitted }),
     ))

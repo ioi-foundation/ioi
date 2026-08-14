@@ -22,9 +22,18 @@ const SHELL = (process.env.IOI_HYPERVISOR_APP_URL || "http://127.0.0.1:4173").re
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
+// Environment CREATE is the ownership root of the custody lane and requires an authenticated
+// principal (next-legs XIII): an environment minted with no owner is one no principal may ever
+// capture. This verifier drives a manually-launched estate, so it takes the operator session the
+// same way it takes the URLs — `IOI_HYPERVISOR_SESSION=$(… /auth/bootstrap|login → session_token)`.
+const SESSION = (process.env.IOI_HYPERVISOR_SESSION || "").trim();
 async function jd(method, url, body) {
   const r = await fetch(url.startsWith("http") ? url : `${DAEMON}${url}`, {
-    method, headers: { "content-type": "application/json" },
+    method,
+    headers: {
+      "content-type": "application/json",
+      ...(SESSION ? { cookie: `ioi_session=${SESSION}` } : {}),
+    },
     body: body ? JSON.stringify(body) : undefined,
   });
   return { status: r.status, j: await r.json().catch(() => ({})) };
