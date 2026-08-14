@@ -3461,7 +3461,7 @@ function renderOntologyHealth(h) {
   return `<div style="border:1px solid #24262d;border-radius:10px;padding:12px 14px;margin:0 0 14px;background:#15171c">
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b>Readiness</b> ${ontologyHealthPill(h)} <span class="sub" style="margin:0">${CX_ESC(counts)}</span></div>
     ${gaps}
-    <div class="sub" style="margin:8px 0 0"><b>${CX_ESC(String(instances))}</b> object instances — ${CX_ESC(h.object_data_note || "schema only; no object-instance plane is bound.")}</div>
+    <div class="sub" style="margin:8px 0 0"><b>${CX_ESC(String(instances))}</b> object instances — ${CX_ESC(h.object_data_note || "schema only — no object instances are materialized; the object-instance search plane is bound and answers a typed corpus-absent.")}</div>
   </div>`;
 }
 function renderOntologyModel(com) {
@@ -3505,7 +3505,7 @@ function renderOdkOntologyDetail(o, lists) {
   const hist = (o.history && o.history.length)
     ? `<h2>History (${o.history.length})</h2><dl class="grid">${o.history.slice().reverse().map((e) => `<dt>rev ${CX_ESC(String(e.revision || ""))} · ${CX_ESC(e.op || "")}</dt><dd>${CX_ESC(e.summary || "")}<br><span class="sub" style="margin:0">${CX_ESC(e.at || "")}${e.receipt_ref ? ` · <code>${CX_ESC(e.receipt_ref)}</code>` : ""}</span></dd>`).join("")}</dl>`
     : "";
-  const explorerNote = `<p class="sub" style="margin:14px 0 0"><b>Object explorer:</b> no rows — this ontology binds no object-instance plane (schema only). The <a href="/__apps/explorer">Object explorer capture ↗</a> is a secondary reference grammar, not a rebound surface.</p>`;
+  const explorerNote = `<p class="sub" style="margin:14px 0 0"><b>Object explorer:</b> no rows — this ontology has no materialized object instances (schema only; the object-instance search plane is bound and answers a typed corpus-absent). The <a href="/__apps/explorer">Object explorer capture ↗</a> is a secondary reference grammar, not a rebound surface.</p>`;
   return automationsShell(o.domain || "Domain Ontology", `<p><a href="/__ioi/odk">← ODK</a></p><h1>${CX_ESC(o.domain || o.id)}</h1><p class="sub">DomainOntology · draft · the typed semantic world-model (daemon-validated).</p>${odkDetailActions("ontologies", o.id)}${renderOntologyHealth(o.health)}${grid}${renderOntologyModel(com)}${legacyBlock}${hist}${explorerNote}${odkReferencedBy(o, lists, "ontologies")}${odkProofCitations(o, lists)}`);
 }
 function renderOdkRecipeDetail(r, lists) {
@@ -5640,7 +5640,7 @@ function renderOntologyManager(ov, lists, selectedId) {
 
   // ---- Panes.
   const objectTypesPane = `<h2 id="pane-object-types" style="display:flex;justify-content:space-between;align-items:center">Object types <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">(${ots.length})</span> <a class="act" href="/__ioi/odk/ontologies/${selected ? encodeURIComponent(selected.id) : "new"}${selected ? "/edit" : ""}">Configure model</a></h2>`
-    + omBoundaryNote(totalInstances > 0 ? `<b>${totalInstances} objects</b> materialized across ${msets.length} receipted set${msets.length === 1 ? "" : "s"} — bounded read-only batches under held leases + sealed sessions; hashes + provenance, never secrets.` : `<b>0 objects</b> across all types — the object-instance plane is <b>not bound</b>. Object counts stay 0 until an <code>OntologyProjection</code> exists; nothing here fabricates rows.`)
+    + omBoundaryNote(totalInstances > 0 ? `<b>${totalInstances} objects</b> materialized across ${msets.length} receipted set${msets.length === 1 ? "" : "s"} — bounded read-only batches under held leases + sealed sessions; hashes + provenance, never secrets.` : `<b>0 objects</b> across all types — no object instances are <b>materialized</b>. The object-instance SEARCH plane is bound as of next-legs XIII and walks that store, so it answers a typed corpus-absent; counts stay 0 until an <code>OntologyProjection</code> exists, and nothing here fabricates rows.`)
     + (ots.length ? ots.map((t) => {
         const props = Array.isArray(t.properties) ? t.properties : [];
         return `<div style="border:1px solid #24262d;border-radius:10px;padding:11px 13px;margin:0 0 9px;background:#15171c"><div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:600">${CX_ESC(t.name || t.id)} ${idc(t.id)}</div><a class="act ghost" href="/__ioi/odk/ontologies/${encodeURIComponent(selected.id)}">Configure</a></div><div class="sub" style="margin:4px 0 0">${props.length} propert${props.length === 1 ? "y" : "ies"} · <b>${msets.filter((m) => m.object_type_id === t.id).reduce((a, m) => a + (m.count || 0), 0)}</b> objects · title <code>${CX_ESC(t.title_property || "—")}</code></div></div>`;
@@ -5728,7 +5728,7 @@ function renderOntologyManager(ov, lists, selectedId) {
       + omBoundaryNote(`<b>Projection declared, no materialized objects.</b> The explorer shape below is daemon truth — what an authorized surface <b>would</b> render, search, filter, relate, and act on. There are <b>no rows</b>: object_instances stays 0 until a future materializing run executes under credential authority. The <a href="/__apps/explorer">Object Explorer reference grammar ↗</a> is secondary, never a rebound surface.`)
       + activeProjs.map((p) => omDeclaredExplorerShape(p, msets.find((m) => m.ontology_projection_id === p.id))).join("")
     : `<h2 id="pane-explorer">Object data &amp; Explorer <span class="pill muted">unavailable</span></h2>`
-      + omBoundaryNote(`This ontology binds <b>no object-instance plane</b>, so there are <b>no rows to explore</b> — declare an OntologyProjection to give this lane its read/search shape; rows still require a future materializing run under credential authority. The <a href="/__apps/explorer">Object Explorer reference grammar ↗</a> is secondary, never a rebound surface.`);
+      + omBoundaryNote(`This ontology has <b>no materialized object instances</b>, so there are <b>no rows to explore</b> — the object-instance SEARCH plane is bound and walks that store, returning a typed corpus-absent; declare an OntologyProjection to populate it; rows still require a future materializing run under credential authority. The <a href="/__apps/explorer">Object Explorer reference grammar ↗</a> is secondary, never a rebound surface.`);
   const explorerPane = explorerHead
     + `<h3 style="margin:12px 0 6px">Authority-crossing ladder <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— five declared rungs + the first live crossing; execution and rows remain</span></h3>` + omContractLadder(maps.length, pviews.length, truns.length, projs.length, lplans.length, mruns.filter((r) => ["lease_obtained", "executed"].includes(r.status)).length, csns.filter((c) => c.status === "session_obtained").length, mruns.filter((r) => r.status === "executed").length, totalInstances);
 

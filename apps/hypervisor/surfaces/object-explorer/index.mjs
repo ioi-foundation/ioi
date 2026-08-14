@@ -49,7 +49,9 @@ export const actions = [];
 // hubble/ renders the full Object Explorer with data. This port is the faithful shell of THAT
 // reference over real IOI ODK truth: object types across live DomainOntologies, object counts from
 // materialized sets, the object-set catalog from real materialized sets, and a WORKING ?q= type
-// filter. Reference-only lanes (object-instance search, Filter-by facets, Recents/Favorites, sort,
+// filter. Lanes with NO SURFACE CONTROL YET — object-instance search and saved object sets both
+// landed as daemon truth in next-legs XIII, so the gap is a binding, not a contract — plus lanes
+// with no plane at all (Recents/Favorites, sort,
 // type-group/application lanes, exploration tabs, ontology selector) are named gaps disabled in
 // place. The catalog/set ROWS are the live body (excluded from shell-pixel certification, verified
 // semantically); the chrome is glyph-anchored to the reference: tab bar h40 · centered search hero ·
@@ -127,9 +129,9 @@ function renderObjectExplorerPort(ov, lists, opts) {
   const globalRail = opts.embed ? "" : ioiGlobalRailHtml({ label: "Object Explorer", href: "/__ioi/ontology/explorer", iconUri: EXPLORER_APP_ICON_URI, railVariant: "rv-pipe", viewAll: false, star: false, badges: true, aipGradient: true, acctMuted: true, hiliteNav: "Ontology" });
 
   const tabbar = `<div class="oe-tabbar oe-topbar">
-    <span class="oe-sqbtn gap" aria-disabled="true" title="Active exploration — a reference-only session lane (named gap)"><span class="oe-sqico"></span></span>
-    <span class="oe-tab" title="Explorations are a reference-only session lane — this tab is the honest default state">${bpIcon("search")}<span class="oe-tabt">New exploration</span></span>
-    <span class="oe-plus gap" aria-disabled="true" title="Opening more exploration tabs is a reference-only lane (named gap)">${bpIcon("plus")}</span>
+    <span class="oe-sqbtn gap" aria-disabled="true" title="The active-exploration TAB is a reference-only session lane (named gap) — transient view state; saved object sets are daemon truth and are a different thing"><span class="oe-sqico"></span></span>
+    <span class="oe-tab" title="Exploration TABS are a reference-only session lane — this tab is the honest default state; a SAVED object set is a saved exploration and does have a daemon plane">${bpIcon("search")}<span class="oe-tabt">New exploration</span></span>
+    <span class="oe-plus gap" aria-disabled="true" title="Opening more exploration TABS is a reference-only lane (named gap) — transient view state, not a saved selection">${bpIcon("plus")}</span>
     <form class="oe-ontform" method="GET" action="${esc(basePath)}" title="Scope the catalog to one live ontology — no ontology is globally canonical">${q ? `<input type="hidden" name="q" value="${esc(q)}">` : ""}<select class="oe-ontsel oe-ontlive" name="ontology" aria-label="Ontology scope" onchange="this.form.submit()"><option value=""${scopeOnt ? "" : " selected"}>All ontologies (${ontologies.length})</option>${ontologies.map((oo) => `<option value="${esc(oo.id)}"${scopeOnt && scopeOnt.id === oo.id ? " selected" : ""}>${esc(oo.domain || oo.id)}</option>`).join("")}</select><noscript><button class="oe-ontgo" type="submit">Go</button></noscript></form>
   </div>`;
 
@@ -137,8 +139,8 @@ function renderObjectExplorerPort(ov, lists, opts) {
     <h2 class="oe-htitle">Object Explorer search</h2>
     <div class="oe-searchrow">
       <div class="oe-herogrp">
-        <span class="oe-filterby gap" aria-disabled="true" title="Faceted object filters are a reference-only lane — no object-instance search plane (named gap)">${bpIcon("filter-funnel")}<span class="oe-fbt">Filter by...</span>${bpIcon("caret-down")}</span>
-        <div class="oe-objsearch" title="Full-text object search is a reference-only lane — objects exist as materialized sets (the catalog below is real)">${bpIcon("search")}<input placeholder="Search for objects..." disabled aria-label="Search for objects (reference-only, not wired)"><span class="oe-send gap" aria-disabled="true">${bpIcon("send-to")}</span></div>
+        <span class="oe-filterby gap" aria-disabled="true" title="Faceted object filters have no surface control yet — the object-instance search plane exists as daemon truth (POST /v1/hypervisor/odk/object-instance-search); faceted narrowing on top of it is the named gap">${bpIcon("filter-funnel")}<span class="oe-fbt">Filter by...</span>${bpIcon("caret-down")}</span>
+        <div class="oe-objsearch" title="Object search has no surface control yet — the object-instance search plane exists as daemon truth (POST /v1/hypervisor/odk/object-instance-search); binding this input to it is the named gap (the catalog below is real)">${bpIcon("search")}<input placeholder="Search for objects..." disabled aria-label="Search for objects (no surface control bound yet, not wired)"><span class="oe-send gap" aria-disabled="true">${bpIcon("send-to")}</span></div>
       </div>
     </div>
   </div>`;
@@ -181,9 +183,9 @@ function renderObjectExplorerPort(ov, lists, opts) {
   const setBand = `<div class="oe-setrow">
     <span class="oe-setlabel">Object set catalog <span class="oe-setsub">(explorations and lists)</span></span>
     <span class="oe-setlanes">
-      <input class="oe-setsearch" placeholder="Search explorations..." disabled aria-label="Search explorations (reference-only, not wired)" title="Exploration search is a reference-only lane (named gap)">
+      <input class="oe-setsearch" placeholder="Search explorations..." disabled aria-label="Search explorations (no surface control bound yet, not wired)" title="Exploration search has no surface control yet — the saved-object-set family exists as daemon truth (GET/POST /v1/hypervisor/odk/saved-object-sets); binding this input to it is the named gap">
       <span class="oe-slane on gap" aria-disabled="true" title="named gap">All</span>
-      <span class="oe-slane gap" aria-disabled="true" title="Per-user set lanes are reference-only (named gap)">Created by me</span>
+      <span class="oe-slane gap" aria-disabled="true" title="Per-user lanes over the MATERIALIZED set catalog are reference-only (named gap) — that catalog records no per-user ownership; saved object sets are a different store and are scoped per principal">Created by me</span>
       <span class="oe-slane gap" aria-disabled="true" title="named gap">Shared with me</span>
       <span class="oe-slane gap" aria-disabled="true" title="named gap">Favorites</span>
     </span>
@@ -248,7 +250,7 @@ function renderObjectExplorerPort(ov, lists, opts) {
         acts.length ? ihint("Action <b>declarations</b> only — no action authority exists on this surface; execution stays a named gap (standing boundary).") : "",
         irow("projections", relProjs.length ? relProjs.map((p) => esc(p.name || p.id)).join(", ") : "none"),
         irow("open in", `<a href="${managerLink({ ontology: oo.id, section: "object-types", definitionKind: "object-type", definitionId: t.id })}">Manager definition</a> · <a href="${pipelineNodeLink(oo.id, "mapping")}">Pipeline</a>`),
-        `<div class="oe-iacts">${disabledSemanticAction({ label: "Execute action", reason: "action declarations carry no execution authority — no action plane exists on this surface (standing boundary)" })}${disabledSemanticAction({ label: "Search instances", reason: "object-instance search is a reference-only lane — objects exist as materialized sets (browse the set catalog)" })}</div>`,
+        `<div class="oe-iacts">${disabledSemanticAction({ label: "Execute action", reason: "action declarations carry no execution authority — no action plane exists on this surface (standing boundary)" })}${disabledSemanticAction({ label: "Search instances", reason: "object-instance search has no surface control yet — the plane exists as daemon truth (POST /v1/hypervisor/odk/object-instance-search) and walks the materialized-set store; binding this control to it is the named gap" })}</div>`,
       ].join(""),
     };
   }
