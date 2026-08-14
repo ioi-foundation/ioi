@@ -2556,52 +2556,31 @@ pub(crate) async fn handle_environment_create(
         .map(String::from)
         .unwrap_or_else(gen_env_id);
     // THE AUTHORIZATION DECISION, BEFORE ANYTHING DURABLE AND BEFORE THE RECORD IS READ. The pin is
-    // the authority, so the pin is what decides; the record is only consulted once the pin has said
-    // there is no owner to answer to.
-    // THE AUTHORIZATION DECISION, BEFORE ANYTHING DURABLE AND BEFORE THE RECORD IS READ. The pin is
-    // the authority, so the pin is what decides; the record is only consulted once the pin has said
-    // there is no owner to answer to.
+    // the authority, so the pin is what decides.
     //
-    // THERE IS NO ADOPTION. Ownership is bound at the moment a record is ESTABLISHED and never
-    // afterwards, and the second merge-blocking review of this leg is why. An earlier revision let
-    // create adopt an unowned environment that had never materialized a workspace, reasoning that
-    // there was nothing to take — and the review demonstrated that `status.workspace_root` is NULLED
-    // by `POST /environments/:id/delete`, a handler that resolves NO CALLER. Two requests, one of
-    // them unauthenticated: destroy the workspace to clear the field, then adopt. The pin is
-    // genesis-only with no unbind, so the real owner and the deployment administrator were locked
-    // out permanently.
+    // CREATE DOES NOT MINT OWNERSHIP, and two demonstrated ship-blockers are why. Binding here made
+    // ownership FIRST-TOUCH over a COORDINATE, while the thing custody protects — the workspace
+    // bytes — is created later by `start`, an unauthenticated lifecycle route. So a member could
+    // pre-claim `session_workspace`, let the administrator start it and write secrets into it, and
+    // then capture those bytes. Refusing an existing-but-unpinned record instead made it permanent
+    // in the other direction: one anonymous GET established a record that NO principal could ever
+    // own, capture, back up or place under a retention duty.
     //
-    // AN OWNERSHIP DECISION MAY NOT DEPEND ON A MUTABLE FIELD AN UNAUTHENTICATED ROUTE CONTROLS.
-    // What decides here is the pin itself and whether a record already exists — neither of which any
-    // caller can rewrite.
-    match environment_owner_pin(&st.data_dir, &id)? {
-        // Owned: this refuses for every principal but the holder, so create can neither take nor
-        // overwrite another principal's environment.
-        Some(_) => {
-            authorize_environment_custody(&st.data_dir, &identity, &id)?;
-        }
-        // Unowned AND already existing: established by a caller this daemon could not identify, so
-        // there is no principal to hand it to and no honest way to choose one. Fail closed and say
-        // so. Adoption of an unowned environment is a NAMED OPEN RESIDUAL — it needs an
-        // administrator-authorized transition, not a first-come create.
-        None => {
-            if load_env(&st.data_dir, &id).is_some() {
-                return Err(custody_bad(
-                    StatusCode::CONFLICT,
-                    "environment_exists_without_owner",
-                    "this environment already exists and carries no owner pin, so it was established by a caller this daemon could not identify; adopting it would hand it to whoever asked first. Adoption of an unowned environment is a named open residual, not this route",
-                ));
-            }
-        }
+    // Both fall out of the same mistake. OWNERSHIP FOLLOWS THE WORKSPACE, not the record: it is
+    // bound where the workspace is MATERIALIZED, by the authenticated principal whose request
+    // materialized it. Create still refuses to touch an environment someone else owns — that is what
+    // this check is for — but a coordinate with no workspace has nothing to own yet.
+    if environment_owner_pin(&st.data_dir, &id)?.is_some() {
+        authorize_environment_custody(&st.data_dir, &identity, &id)?;
     }
     // Refuses BEFORE any persist when the spec carries an invalid environment-local guardrail
     // declaration; every other field is admitted exactly as before.
     //
-    // AND BEFORE THE PIN IS BOUND. Binding first left an irrevocable owner pin behind on every
-    // refused create, so a caller could permanently claim arbitrary environment ids with cheap 400s
-    // — durable scope-binding operations admitted for requests that were refused.
+    // NOTHING IS PINNED HERE. Creating an environment record creates no workspace, so there are no
+    // bytes to hold custody of yet; the pin is bound where `start` materializes one. Binding here
+    // also left an irrevocable claim behind on every refused create, since the pin is genesis-only
+    // and the substrate has no unbind.
     let mut env = new_env(&id, &spec).map_err(app_error_reply)?;
-    bind_environment_owner(&st.data_dir, &identity, &id)?;
     // WS-2: repo-detect-first — if the spec points at a repo, admit a detected recipe and bind it.
     if env["spec"]["recipe_ref"]
         .as_str()
@@ -2701,9 +2680,9 @@ pub(crate) async fn handle_environment_get(
                 "environment registered on first reference",
             );
             persist_env(&st.data_dir, &e)?;
-            // THE RECORD IS BEING ESTABLISHED HERE, so this is one of the three moments an owner can
-            // be recorded without taking anything from anyone.
-            bind_environment_owner_if_resolvable(&st.data_dir, &headers, &id);
+            // NO OWNER IS RECORDED HERE. Establishing a record is not creating content, and a
+            // first-touch claim over a coordinate someone else will fill is the seizure this leg
+            // exists to close. Ownership is bound where the workspace is materialized.
             e
         }
     };
@@ -2719,11 +2698,9 @@ pub(crate) async fn handle_environment_action(
     let mut env = match load_env(&st.data_dir, &id) {
         Some(env) => env,
         // An empty spec declares no guardrails, so this cannot refuse.
-        None => {
-            let established = new_env(&id, &json!({}))?;
-            bind_environment_owner_if_resolvable(&st.data_dir, &headers, &id);
-            established
-        }
+        // No owner is recorded here either — see `handle_environment_get`. A REFUSED action must
+        // leave no pin, and binding at this point staked a permanent claim on an unknown-action 400.
+        None => new_env(&id, &json!({}))?,
     };
     // WS-1 migration: bring a Phase-0 (flat) env record up to the component model on touch.
     if !env["status"]["components"].is_object() {
@@ -2769,6 +2746,14 @@ pub(crate) async fn handle_environment_action(
                 "provisioning local workspace",
             );
             let ws = provision_local_workspace(&st.data_dir, &id)?;
+            // THE ONE MOMENT AN ENVIRONMENT ACQUIRES ITS CUSTODY OWNER: the workspace it protects has
+            // just come into existence, and the principal whose authenticated request materialized it
+            // is the only honest answer to "whose bytes are these". Binding earlier claims a
+            // coordinate whose content someone else will write; binding never leaves the workspace
+            // ownerless forever. It binds only when NO pin exists, so a restart or a second start
+            // never transfers custody, and it never refuses: an unauthenticated start materializes an
+            // UNOWNED workspace, which the custody gate reads as "no principal may capture this".
+            bind_environment_owner_if_resolvable(&st.data_dir, &headers, &id);
             env["status"]["workspace_root"] = json!(ws);
             set_component(
                 &mut env,
@@ -3764,11 +3749,7 @@ fn custody_coordinate(resource_id: &str) -> String {
 /// Bind this environment to the caller as its owner. Idempotent for the same principal; a DIFFERENT
 /// principal binding an already-pinned environment is refused by the substrate as an owner mismatch.
 ///
-/// Called only from `POST /v1/hypervisor/environments`. Ownership is minted by the route that means
-/// CREATE and by nothing else: the first-reference auto-vivify paths establish a record and leave it
-/// unowned, and every custody act on an unowned environment refuses typed. That is fail-closed in the
-/// direction that matters — an environment nobody owns is an environment nobody may capture — and it
-/// keeps the ownership-minting surface inside the derived census, which a GET could never be.
+/// Reached only through `bind_environment_owner_if_resolvable`, at workspace materialization.
 fn bind_environment_owner(
     data_dir: &str,
     identity: &super::substrate_store::RequestIdentity,
@@ -3788,21 +3769,15 @@ fn bind_environment_owner(
     .map_err(custody_scope_refusal)
 }
 
-/// Record ownership for an environment being ESTABLISHED by first reference.
+/// Record ownership for an environment whose WORKSPACE has just been materialized.
 ///
-/// `handle_environment_get` and `handle_environment_action` bring an absent environment into
-/// existence, and they answer unauthenticated callers today. Turning them into authentication gates
-/// is a plane-wide behavioural change with its own blast radius; recording an owner when one is
-/// resolvable is not — and NOT recording one is a regression a review demonstrated end to end. The
-/// cockpit's own documented flow establishes the session workspace through `GET`, so an environment
-/// vivified and then started under an authenticated session could otherwise never acquire an owner
-/// and was permanently uncapturable BY EVERY PRINCIPAL, with no snapshot, backup, restore, or
-/// retention duty available to anyone.
+/// Called from exactly one place — the `start` arm, immediately after
+/// `provision_local_workspace` succeeds. That is the moment the bytes custody protects come into
+/// existence, and the authenticated principal whose request created them is the only honest owner.
 ///
-/// It never refuses: an unauthenticated first reference still establishes the record and leaves it
-/// unowned, and the custody gate reads that as "no principal may capture this workspace". Binding
-/// only ever happens where the record did NOT exist, so this is never a land grab over someone
-/// else's environment.
+/// It never refuses, and binds only when no pin exists: an unauthenticated start materializes an
+/// UNOWNED workspace exactly as before, and the custody gate reads that as "no principal may capture
+/// this". A second start by anyone never transfers custody, because the pin is already there.
 fn bind_environment_owner_if_resolvable(data_dir: &str, headers: &HeaderMap, environment_id: &str) {
     if let Ok(identity) = super::substrate_store::resolve_request_identity(data_dir, headers) {
         let _ = bind_environment_owner(data_dir, &identity, environment_id);
@@ -3836,7 +3811,7 @@ fn authorize_environment_custody(
         return Err(custody_bad(
             StatusCode::FORBIDDEN,
             "environment_custody_owner_unbound",
-            "this environment carries no owner pin, so no principal holds custody of its workspace; it was established by first reference or predates the owner model, and an environment that already holds a materialized workspace cannot be adopted by whoever asks first",
+            "this environment carries no owner pin, so no principal holds custody of its workspace; its workspace was materialized by a caller this daemon could not identify, or it predates the owner model. Ownership is acquired by the authenticated principal whose request materializes the workspace — start it under a session to acquire one",
         ));
     }
     super::substrate_store::authorize_request_resource_scope(

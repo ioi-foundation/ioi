@@ -253,7 +253,7 @@ const NAMED_UNOWNED = [
   { method: "POST", path: "/v1/hypervisor/projects", reason: "registered to lifecycle_routes::handle_project_create; the projects plane is not this leg" },
   { method: "DELETE", path: "/v1/hypervisor/projects/:id", reason: "project delete — projects plane, unowned" },
   { method: "PATCH", path: "/v1/hypervisor/projects/:id/environment-classes", reason: "OQ-5 saga step 2 — carries its own receipted CAS admission" },
-  { method: "POST", path: "/v1/hypervisor/environments/:id/:action", reason: "start|stop|archive|restore|delete|recover — lifecycle, resolves no caller. `delete` REMOVES a workspace, so this is the largest named residual" },
+  { method: "POST", path: "/v1/hypervisor/environments/:id/:action", reason: "start|stop|archive|restore|delete|recover — lifecycle, resolves no caller for AUTHORIZATION. Its `start` arm is the one ownership-minting site, pinned from source below; `delete` REMOVES a workspace, so this is the largest named residual" },
   { method: "POST", path: "/v1/hypervisor/environments/lifecycle/:op", reason: "environment transition read/op — lifecycle, unowned" },
   { method: "POST", path: "/v1/hypervisor/environments/:id/ports/:port/expose", reason: "port exposure — lifecycle, unowned" },
   { method: "POST", path: "/v1/hypervisor/environments/:id/ports/:port/unexpose", reason: "port exposure — lifecycle, unowned" },
@@ -426,26 +426,6 @@ async function run() {
   ok("and an ANONYMOUS caller gets no list at all — this route answered every capture in the estate, material paths included",
     listAnon.status === 401, `status ${listAnon.status}`);
 
-  // ------------------------------------------------------------ an UNOWNED environment
-  // Established by first reference while anonymous, so no owner can be recorded. Fail-closed: an
-  // environment nobody owns is an environment nobody may capture — including the admin.
-  const UNOWNED_ENV = "custody-unowned";
-  const vivified = await jd("GET", `/v1/hypervisor/environments/${UNOWNED_ENV}`, null, { as: null });
-  const unownedStart = await jd("POST", `/v1/hypervisor/environments/${UNOWNED_ENV}/start`, null, { as: null });
-  const unownedWorkspace = unownedStart.j?.environment?.status?.workspace_root ?? "";
-  tarsBefore = materialTars();
-  const unownedCapture = await jd("POST", "/v1/hypervisor/snapshots", { environment_id: UNOWNED_ENV }, { as: "A" });
-  ok("an environment established by first reference with no resolvable caller carries NO owner, and its capture refuses TYPED — even for the deployment administrator",
-    vivified.status === 200 && unownedCapture.status === 403
-      && code(unownedCapture.j) === "environment_custody_owner_unbound",
-    `vivify ${vivified.status} capture ${unownedCapture.status} code ${code(unownedCapture.j)}`);
-  ok("and the refused capture of an unowned environment produced NO material",
-    materialTars().length === tarsBefore.length,
-    `${tarsBefore.length} -> ${materialTars().length} tars`);
-  ok("PRECONDITION: the unowned environment really did MATERIALIZE a workspace, so the seizure below has something to take",
-    unownedWorkspace.length > 0 && fs.existsSync(unownedWorkspace),
-    unownedWorkspace || "no workspace");
-
   // A caller cannot take an environment another principal already owns by naming its id at create,
   // and the RECORD is read before and after so "refuses before the record is touched" is proven
   // rather than inferred from a response code.
@@ -478,85 +458,98 @@ async function run() {
     aliasCapture.status === 403 && materialTars().length === tarsBefore.length,
     `status ${aliasCapture.status} code ${code(aliasCapture.j)}`);
 
-  // SEIZURE OF AN UNOWNED ENVIRONMENT. The first cut let create bind the pin to whoever asked first
-  // and then overwrite the record; the second gated adoption on the environment having no
-  // materialized workspace, and a review demonstrated that `status.workspace_root` is NULLED by
-  // `POST /environments/:id/delete` — a handler that resolves NO CALLER. Two requests, one of them
-  // unauthenticated, and the real owner plus the deployment administrator were locked out forever.
-  // AN OWNERSHIP DECISION MAY NOT DEPEND ON A MUTABLE FIELD AN UNAUTHENTICATED ROUTE CONTROLS.
-  const seizureSecret = path.join(unownedWorkspace, "unowned-content.txt");
-  fs.writeFileSync(seizureSecret, "content-that-predates-the-owner-model\n");
-  const unownedBytesBefore = environmentRecordBytes(UNOWNED_ENV);
-  const seizure = await jd("POST", "/v1/hypervisor/environments", { environment_id: UNOWNED_ENV, spec: {} }, { as: "B" });
-  ok("an unowned environment cannot be adopted by whoever asks first — refused typed, not seized",
-    seizure.status === 409 && code(seizure.j) === "environment_exists_without_owner",
-    `status ${seizure.status} code ${code(seizure.j)}`);
-  ok("and the refused seizure neither destroyed the existing record nor left a pin behind",
-    environmentRecordBytes(UNOWNED_ENV) === unownedBytesBefore
-      && fs.readFileSync(seizureSecret, "utf8") === "content-that-predates-the-owner-model\n",
-    `${environmentRecordBytes(UNOWNED_ENV).length} bytes`);
+  // THE PRE-CLAIM ATTACK, driven exactly as the review drove it. An earlier revision bound ownership
+  // when the RECORD was established, which made custody FIRST-TOUCH over a COORDINATE — so a member
+  // could touch `session_workspace`, let the administrator start it and write secrets into it, and
+  // capture those bytes. Ownership now follows the WORKSPACE.
+  const CONTESTED = "custody_contested";
+  const preClaim = await jd("GET", `/v1/hypervisor/environments/${CONTESTED}`, null, { as: "B" });
+  const refusedAction = await jd("POST", `/v1/hypervisor/environments/${CONTESTED}/no-such-action`, null, { as: "B" });
+  ok("PRECONDITION: B really did touch the coordinate first, by both routes that establish a record",
+    preClaim.status === 200 && refusedAction.status >= 400 && refusedAction.status < 500,
+    `get ${preClaim.status} action ${refusedAction.status}`);
+  const adminStart = await jd("POST", `/v1/hypervisor/environments/${CONTESTED}/start`, null, { as: "A" });
+  const contestedWorkspace = adminStart.j?.environment?.status?.workspace_root ?? "";
+  if (contestedWorkspace) fs.writeFileSync(path.join(contestedWorkspace, "administrator-secret.txt"), "written-after-the-pre-claim\n");
+  ok("PRECONDITION: A then MATERIALIZED the workspace and wrote content into it",
+    adminStart.status === 200 && contestedWorkspace.length > 0 && fs.existsSync(contestedWorkspace),
+    contestedWorkspace);
   tarsBefore = materialTars();
-  const postSeizureCapture = await jd("POST", "/v1/hypervisor/snapshots", { environment_id: UNOWNED_ENV }, { as: "B" });
-  ok("and B still holds no custody of it afterwards — no capture of the pre-existing content is reachable",
-    postSeizureCapture.status === 403 && materialTars().length === tarsBefore.length,
-    `status ${postSeizureCapture.status} code ${code(postSeizureCapture.j)}`);
+  const preClaimCapture = await jd("POST", "/v1/hypervisor/snapshots", { environment_id: CONTESTED }, { as: "B" });
+  ok("TOUCHING A COORDINATE FIRST GRANTS NOTHING — B cannot capture the workspace A materialized, however early B referenced the id",
+    preClaimCapture.status === 403 && materialTars().length === tarsBefore.length,
+    `status ${preClaimCapture.status} code ${code(preClaimCapture.j)}`);
+  const ownerCapture = await jd("POST", "/v1/hypervisor/snapshots", { environment_id: CONTESTED }, { as: "A" });
+  ok("and the principal whose request MATERIALIZED the workspace owns it — ownership follows the workspace, not the record",
+    ownerCapture.status === 200 && materialTars().length === tarsBefore.length + 1,
+    `status ${ownerCapture.status}`);
+  const preClaimCreate = await jd("POST", "/v1/hypervisor/environments", { environment_id: CONTESTED, spec: {} }, { as: "B" });
+  ok("nor can B take it by create afterwards — create refuses to touch an environment another principal owns",
+    preClaimCreate.status === 403, `status ${preClaimCreate.status} code ${code(preClaimCreate.j)}`);
 
-  // THE UNAUTHENTICATED CLEAR-AND-ADOPT, driven end to end exactly as the review drove it.
-  const wipe = await jd("POST", `/v1/hypervisor/environments/${UNOWNED_ENV}/delete`, null, { as: null });
-  ok("PRECONDITION: the unauthenticated delete really does run and really does null the workspace pointer — the field an earlier gate trusted",
-    wipe.status === 200 && (wipe.j?.environment?.status?.workspace_root ?? null) === null,
-    `status ${wipe.status} workspace_root ${JSON.stringify(wipe.j?.environment?.status?.workspace_root ?? null)}`);
-  const seizureAfterWipe = await jd("POST", "/v1/hypervisor/environments", { environment_id: UNOWNED_ENV, spec: {} }, { as: "B" });
-  ok("CLEARING THE WORKSPACE WITH AN UNAUTHENTICATED DELETE STILL DOES NOT MAKE IT ADOPTABLE — the decision keys on the pin and the record's existence, neither of which a caller can rewrite",
-    seizureAfterWipe.status === 409 && code(seizureAfterWipe.j) === "environment_exists_without_owner",
-    `status ${seizureAfterWipe.status} code ${code(seizureAfterWipe.j)}`);
-
-  // AN AUTHENTICATED FIRST REFERENCE MUST STILL ACQUIRE AN OWNER. Removing that binding made every
-  // cockpit-vivified environment permanently uncapturable BY EVERY PRINCIPAL — no snapshot, no
-  // backup, no restore, no retention duty, forever — which a review demonstrated with the
-  // administrator doing the vivify itself. Fail-closed is not the same as unusable.
-  const COCKPIT_ENV = "custody_cockpit";
-  const cockpitVivify = await jd("GET", `/v1/hypervisor/environments/${COCKPIT_ENV}`, null, { as: "A" });
-  const cockpitStart = await jd("POST", `/v1/hypervisor/environments/${COCKPIT_ENV}/start`, null, { as: "A" });
-  const cockpitWorkspace = cockpitStart.j?.environment?.status?.workspace_root ?? "";
-  ok("PRECONDITION: the cockpit's documented first-reference flow really establishes and starts an environment under an authenticated session",
-    cockpitVivify.status === 200 && cockpitStart.status === 200 && cockpitWorkspace.length > 0 && fs.existsSync(cockpitWorkspace),
-    `${cockpitVivify.status}/${cockpitStart.status} ws ${cockpitWorkspace}`);
+  // AND THE OTHER DIRECTION. An earlier revision refused create over any unpinned record, so ONE
+  // anonymous GET could establish a coordinate that NO principal could ever own, capture, back up or
+  // place under a retention duty — permanently, since the pin is genesis-only with no unbind.
+  const STRANDED = "custody_stranded";
+  const anonVivify = await jd("GET", `/v1/hypervisor/environments/${STRANDED}`, null, { as: null });
+  const reclaimCreate = await jd("POST", "/v1/hypervisor/environments", { environment_id: STRANDED, spec: {} }, { as: "A" });
+  const reclaimStart = await jd("POST", `/v1/hypervisor/environments/${STRANDED}/start`, null, { as: "A" });
   tarsBefore = materialTars();
-  const cockpitCapture = await jd("POST", "/v1/hypervisor/snapshots", { environment_id: COCKPIT_ENV }, { as: "A" });
-  ok("an environment established by an AUTHENTICATED first reference acquires its owner and IS capturable — it is not stranded uncapturable by everyone",
-    cockpitCapture.status === 200 && materialTars().length === tarsBefore.length + 1,
-    `status ${cockpitCapture.status} code ${code(cockpitCapture.j)}`);
-  const cockpitCrossPrincipal = await jd("POST", "/v1/hypervisor/snapshots", { environment_id: COCKPIT_ENV }, { as: "B" });
-  ok("and that owner is still PER PRINCIPAL — B cannot capture the environment A established by first reference",
-    cockpitCrossPrincipal.status === 403, `status ${cockpitCrossPrincipal.status}`);
+  const reclaimCapture = await jd("POST", "/v1/hypervisor/snapshots", { environment_id: STRANDED }, { as: "A" });
+  ok("AN ANONYMOUSLY-ESTABLISHED COORDINATE IS NOT STRANDED — an authenticated principal can still create, start and capture it, so one anonymous request cannot permanently remove an id from custody",
+    anonVivify.status === 200 && reclaimCreate.status === 200 && reclaimStart.status === 200
+      && reclaimCapture.status === 200 && materialTars().length === tarsBefore.length + 1,
+    `vivify ${anonVivify.status} create ${reclaimCreate.status} start ${reclaimStart.status} capture ${reclaimCapture.status}`);
+  const strandedCross = await jd("POST", "/v1/hypervisor/snapshots", { environment_id: STRANDED }, { as: "B" });
+  ok("and it is still owned PER PRINCIPAL once reclaimed — recoverable is not the same as unowned",
+    strandedCross.status === 403, `status ${strandedCross.status}`);
 
-  // EVERY OWNERSHIP-MINTING SITE, DERIVED FROM THE DAEMON SOURCE. The census below walks ROUTES, and
-  // a GET can never appear in it — so a binder call added to a fourth handler would mint ownership
-  // somewhere no route assertion looks. This reads the source instead.
-  const envRoutesSrc = fs.readFileSync(path.join(ROOT, "crates/node/src/bin/hypervisor_daemon_routes/environment_routes.rs"), "utf8");
-  const OWNERSHIP_MINTING_HANDLERS = ["handle_environment_create", "handle_environment_get", "handle_environment_action"];
-  const binderCallSites = envRoutesSrc
-    .split(/\npub\(crate\) (?:async )?fn |\nfn /u)
-    .filter((block) => /bind_environment_owner(_if_resolvable)?\(&st\.data_dir/u.test(block))
-    .map((block) => block.split(/[(<]/u)[0].trim());
-  ok("EVERY site that mints an environment owner is one of the three ESTABLISHMENT handlers — derived from the daemon source, because a GET mints ownership and no route census can see it",
-    binderCallSites.length === OWNERSHIP_MINTING_HANDLERS.length
-      && binderCallSites.every((name) => OWNERSHIP_MINTING_HANDLERS.includes(name)),
-    binderCallSites.join(",") || "NONE FOUND");
+  // A WORKSPACE MATERIALIZED BY AN UNIDENTIFIED CALLER IS OWNED BY NOBODY, and refuses typed.
+  const UNOWNED_ENV = "custody_unowned";
+  await jd("GET", `/v1/hypervisor/environments/${UNOWNED_ENV}`, null, { as: null });
+  const unownedStart = await jd("POST", `/v1/hypervisor/environments/${UNOWNED_ENV}/start`, null, { as: null });
+  const unownedWorkspace = unownedStart.j?.environment?.status?.workspace_root ?? "";
+  tarsBefore = materialTars();
+  const unownedCapture = await jd("POST", "/v1/hypervisor/snapshots", { environment_id: UNOWNED_ENV }, { as: "A" });
+  ok("a workspace materialized by an UNAUTHENTICATED caller carries no owner, and its capture refuses TYPED — even for the deployment administrator",
+    unownedStart.status === 200 && unownedWorkspace.length > 0
+      && unownedCapture.status === 403 && code(unownedCapture.j) === "environment_custody_owner_unbound"
+      && materialTars().length === tarsBefore.length,
+    `start ${unownedStart.status} capture ${unownedCapture.status} code ${code(unownedCapture.j)}`);
 
-  // A REFUSED CREATE MUST LEAVE NO PIN. Binding before validation let any authenticated principal
-  // permanently claim arbitrary ids with cheap 400s — durable scope bindings admitted for requests
-  // that were refused, with no unbind to undo them.
-  const PIN_LEAK_ENV = "custody-pin-leak";
+  // A REFUSED CREATE MUST LEAVE NO PIN, and so must a refused ACTION — the pin is genesis-only, so a
+  // claim staked by a request that was refused can never be undone by anyone.
+  const PIN_LEAK_ENV = "custody_pin_leak";
   const invalidCreate = await jd("POST", "/v1/hypervisor/environments", {
-    environment_id: PIN_LEAK_ENV,
-    spec: { guardrails: "not-an-object" },
+    environment_id: PIN_LEAK_ENV, spec: { guardrails: "not-an-object" },
   }, { as: "B" });
+  const leakAction = await jd("POST", `/v1/hypervisor/environments/${PIN_LEAK_ENV}/no-such-action`, null, { as: "B" });
   const reclaim = await jd("POST", "/v1/hypervisor/environments", { environment_id: PIN_LEAK_ENV, spec: {} }, { as: "A" });
-  ok("a create REFUSED on its spec leaves NO owner pin behind — a refused request must not durably claim the coordinate it was refused at",
-    invalidCreate.status >= 400 && invalidCreate.status < 500 && reclaim.status === 200,
-    `refused ${invalidCreate.status} then A reclaims ${reclaim.status}`);
+  const reclaimStarted = await jd("POST", `/v1/hypervisor/environments/${PIN_LEAK_ENV}/start`, null, { as: "A" });
+  ok("neither a create REFUSED on its spec nor a REFUSED action leaves an owner pin behind — a refused request must not durably claim the coordinate it was refused at",
+    invalidCreate.status >= 400 && invalidCreate.status < 500
+      && leakAction.status >= 400 && leakAction.status < 500
+      && reclaim.status === 200 && reclaimStarted.status === 200,
+    `create ${invalidCreate.status} action ${leakAction.status} reclaim ${reclaim.status}`);
+
+  // EVERY OWNERSHIP-MINTING SITE, DERIVED FROM THE DAEMON SOURCE, and pinned to the ONE place it may
+  // be. A route census walks routes; ownership is minted mid-handler, so no route assertion can see
+  // it. An earlier revision asserted only WHICH FUNCTIONS contain a binder call, and a review showed
+  // that passes a fourth call added inside `handle_environment_create` on the already-exists branch —
+  // an adoption door, invisible to the check that swore adoption off. This pins the call site to the
+  // line that materializes the workspace.
+  const envRoutesSrc = fs.readFileSync(path.join(ROOT, "crates/node/src/bin/hypervisor_daemon_routes/environment_routes.rs"), "utf8");
+  const envRoutesLines = envRoutesSrc.split("\n");
+  const binderCalls = envRoutesLines.map((line, index) => ({ line: line.trim(), index }))
+    .filter(({ line }) => /bind_environment_owner_if_resolvable\(&st\.data_dir/u.test(line));
+  const provisionLine = envRoutesLines.findIndex((line) => line.includes("let ws = provision_local_workspace("));
+  ok("ownership is minted at EXACTLY ONE call site in the daemon source, and it is the line that MATERIALIZES the workspace — not a coordinate, and not a record",
+    binderCalls.length === 1 && provisionLine > 0
+      && binderCalls[0].index > provisionLine && binderCalls[0].index - provisionLine <= 12,
+    binderCalls.map((c) => `line ${c.index + 1} (provision at ${provisionLine + 1})`).join(" | ") || "NO CALL SITE FOUND");
+  ok("and `bind_environment_owner` is reached only through that helper — a second entry point would mint ownership somewhere this pin cannot see",
+    (envRoutesSrc.match(/bind_environment_owner\(/gu) || []).length === 2,
+    `${(envRoutesSrc.match(/bind_environment_owner\(/gu) || []).length} references (one declaration + one call)`);
 
   // ------------------------------------------------------------ RETENTION REACH
   // The estate's ONE deletion path. No second delete route is minted here and none is looked for.
