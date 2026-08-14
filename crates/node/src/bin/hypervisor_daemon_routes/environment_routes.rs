@@ -2659,9 +2659,8 @@ pub(crate) async fn handle_environment_get(
                 "environment registered on first reference",
             );
             persist_env(&st.data_dir, &e)?;
-            // NO OWNER IS RECORDED HERE. Establishing a record is not creating content, and a
-            // first-touch claim over a coordinate someone else will fill is the seizure this leg
-            // exists to close. Ownership is bound where the workspace is materialized.
+            // NO OWNER IS RECORDED HERE, OR ANYWHERE. An environment has no owner in this estate —
+            // see the module header for why four designs failed to give it one.
             e
         }
     };
@@ -2676,8 +2675,7 @@ pub(crate) async fn handle_environment_action(
     let mut env = match load_env(&st.data_dir, &id) {
         Some(env) => env,
         // An empty spec declares no guardrails, so this cannot refuse.
-        // No owner is recorded here either — see `handle_environment_get`. A REFUSED action must
-        // leave no pin, and binding at this point staked a permanent claim on an unknown-action 400.
+        // No owner is recorded here either — see the module header.
         None => new_env(&id, &json!({}))?,
     };
     // WS-1 migration: bring a Phase-0 (flat) env record up to the component model on touch.
@@ -3611,7 +3609,11 @@ fn capture_workspace(
         "schema_version": format!("ioi.hypervisor.environment-{kind}.v1"),
         format!("{kind}_ref"): id,
         "kind": kind,
-        "environment_ref": env_id,
+        // CANONICAL, not the caller's spelling. `safe_id` is many-to-one, so storing the raw
+        // `environment_id` planted a record whose `environment_ref` disagreed with the workspace the
+        // material actually came from — the same coordinate split this module's own doctrine says
+        // shipped once, on the axis the environment residual will land on.
+        "environment_ref": custody_coordinate(env_id),
         "state_root": state_root,
         "material_ref": format!("local-cas://sha256/{}", state_root.trim_start_matches("sha256:")),
         "material_path": tar_path.to_string_lossy(),
@@ -3717,11 +3719,16 @@ fn custody_owner_tenant(
 /// workspace directory, captured the victim's bytes, and restored over them.
 ///
 /// Every caller-supplied id becomes a scope coordinate through here, so the pin coordinate and the
-/// record coordinate are the same string by construction. The environment-id attack that first
-/// exposed this is historical — no environment id reaches this function any more, because no
-/// environment pin exists — but the capture path takes caller-supplied spellings on the restore and
-/// retention-subject seams, and normalizing at one seam while carrying the raw spelling to the next
-/// already admitted a retention duty that could never be executed.
+/// record coordinate are the same string by construction. ONLY THE PIN STEP of the attack that first
+/// exposed this is historical: no environment id reaches this function any more, because no
+/// environment pin exists. The rest still works — an alias `environment_id` at create still
+/// overwrites the canonical record, `start` on the alias still returns the canonical workspace, and
+/// a capture through it still reads the canonical bytes — but it grants nothing an attacker cannot
+/// already get by naming the canonical id directly, because create, start and delete resolve no
+/// caller at all. That is the named residual, not a second hole. What this function protects is the
+/// CAPTURE path, which takes caller-supplied spellings on the restore and retention-subject seams,
+/// and normalizing at one seam while carrying the raw spelling to the next already admitted a
+/// retention duty that could never be executed.
 fn custody_coordinate(resource_id: &str) -> String {
     safe_id(resource_id)
 }

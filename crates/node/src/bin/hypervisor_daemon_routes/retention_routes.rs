@@ -23,6 +23,12 @@
 //!     legacy environment snapshot/backup store writes its material to a SEPARATE path this
 //!     plane's executed deletion could not reach, so an estate relying on erasure had two
 //!     custody lanes and one of them was outside the only deletion the estate owns.
+//!   * THE REACH IS NOT RETROACTIVE. A legacy capture taken BEFORE that kind was bound carries no
+//!     owner scope pin, and the rights admission below resolves every subject through the CALLER'S
+//!     OWN authorized scope set — so such a capture cannot be named as a subject at all, and its
+//!     bytes cannot be destroyed through this plane by anyone. Fail-closed and correct, but it
+//!     means "the deletion reaches the legacy store" is true for captures taken from that leg
+//!     forward and for no others.
 
 use std::sync::Arc;
 

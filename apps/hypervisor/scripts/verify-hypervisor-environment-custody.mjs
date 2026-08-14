@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Legacy environment custody verifier — the workspace archive lane gets an OWNER, and the estate's
-// one deletion reaches its bytes.
+// Legacy environment custody verifier — a CAPTURE gets an owner, and the estate's one deletion
+// reaches the bytes of captures taken from this leg forward.
 //
 // WHAT THIS EXISTS TO CATCH. Next-legs XI closed the unauthenticated half of this lane and filed the
 // rest open as its own defect: `POST /v1/hypervisor/snapshots`, `POST /v1/hypervisor/backups` and
@@ -357,6 +357,9 @@ async function run() {
       && path.resolve(workspaceA).startsWith(path.resolve(dataDir)),
     `status ${createdA.status} ws ${workspaceA}`);
 
+  ok("PRECONDITION: the workspace root is an ABSOLUTE path inside the daemon's data directory — a fixture write against an empty root lands in the process CWD, where cleanup never reaches it",
+    path.isAbsolute(workspaceA) && path.resolve(workspaceA).startsWith(path.resolve(dataDir)),
+    workspaceA || "(empty)");
   fs.writeFileSync(path.join(workspaceA, MARKER), "a-owns-this\n");
   ok("PRECONDITION: the subject bytes really are inside the workspace the environment reports",
     fs.readFileSync(path.join(workspaceA, MARKER), "utf8") === "a-owns-this\n", MARKER);
@@ -399,6 +402,15 @@ async function run() {
   const aReadsForeign = await jd("POST", `/v1/hypervisor/snapshots/${encodeURIComponent(foreignCapture)}/restore`, null, { as: "A" });
   ok("but a CAPTURE is owned by whoever took it — A cannot restore B's capture, even of A's own environment",
     aReadsForeign.status === 403, `status ${aReadsForeign.status} code ${code(aReadsForeign.j)}`);
+
+  // The capture RECORD must name the canonical environment, not the caller's spelling: `safe_id` is
+  // many-to-one, so storing the raw id planted a record whose `environment_ref` disagreed with the
+  // workspace the material actually came from.
+  const aliasEnv = ENV_A.replace("_", ".");
+  const aliasCapture = await jd("POST", "/v1/hypervisor/snapshots", { environment_id: aliasEnv }, { as: "A" });
+  ok("a capture taken through an ALIAS environment id records the CANONICAL environment — the record cannot disagree with the workspace its material came from",
+    aliasCapture.status === 200 && aliasCapture.j?.snapshot?.environment_ref === ENV_A,
+    `requested ${aliasEnv} recorded ${aliasCapture.j?.snapshot?.environment_ref}`);
 
   const aSnapshot = await jd("POST", "/v1/hypervisor/snapshots", { environment_id: ENV_A }, { as: "A" });
   const captureId = aSnapshot.j?.snapshot?.snapshot_ref ?? "";
@@ -602,6 +614,39 @@ async function run() {
       && !materialTars().some((tar) => tar.includes(secondId)),
     `status ${aliasExecute.status} code ${code(aliasExecute.j)}`);
 
+  // THE REACH IS NOT RETROACTIVE, and canon says so — so it is gated here rather than asserted only
+  // in prose. A capture written before this leg carries no owner scope pin, and every path resolves
+  // its subject through the caller's OWN authorized scope set, so such a capture cannot be listed,
+  // restored, or named as a retention subject BY ANYONE. Its bytes have no route in the estate that
+  // can destroy them. The record is planted directly because that is exactly what the PREVIOUS BUILD
+  // left on disk — this is the one fixture whose whole point is being what the product no longer
+  // produces.
+  const PRE_LEG = "snap_prelegacy0000";
+  const preLegDir = path.join(dataDir, "snapshots", PRE_LEG);
+  fs.mkdirSync(preLegDir, { recursive: true });
+  fs.writeFileSync(path.join(preLegDir, "workspace.tar"), "pre-leg capture bytes\n");
+  fs.writeFileSync(path.join(dataDir, "snapshots", `${PRE_LEG}.json`), JSON.stringify({
+    schema_version: "ioi.hypervisor.environment-snapshot.v1", snapshot_ref: PRE_LEG, kind: "snapshot",
+    environment_ref: ENV_A, state_root: `sha256:${"0".repeat(64)}`,
+    material_path: path.join(preLegDir, "workspace.tar"), bytes: 21, created_at: new Date().toISOString(),
+  }, null, 2));
+  ok("PRECONDITION: a capture from the PREVIOUS BUILD is on disk with its material and NO owner scope pin",
+    fs.existsSync(path.join(preLegDir, "workspace.tar")),
+    PRE_LEG);
+  const preLegList = await jd("GET", "/v1/hypervisor/snapshots", null, { as: "A" });
+  ok("a pre-leg capture is INVISIBLE to listing, for the deployment administrator as much as anyone",
+    preLegList.status === 200 && (preLegList.j?.snapshots ?? []).every((row) => row.snapshot_ref !== PRE_LEG),
+    `${(preLegList.j?.snapshots ?? []).length} rows`);
+  const preLegRestore = await jd("POST", `/v1/hypervisor/snapshots/${PRE_LEG}/restore`, null, { as: "A" });
+  const preLegDuty = await jd("POST", "/v1/hypervisor/retention/dispositions", {
+    subject_kind: "environment_workspace_capture", subject_ref: PRE_LEG, policy_basis_ref: POLICY,
+    owner_ref: P.A.owner, idempotency_key: "env-custody-preleg-1",
+  }, { as: "A" });
+  ok("and it can be neither restored NOR named as a retention subject — so its bytes cannot be destroyed through the estate's only deletion path, by anyone",
+    preLegRestore.status === 403 && preLegDuty.status === 403
+      && fs.existsSync(path.join(preLegDir, "workspace.tar")),
+    `restore ${preLegRestore.status} declare ${preLegDuty.status} bytes still on disk ${fs.existsSync(path.join(preLegDir, "workspace.tar"))}`);
+
   // ------------------------------------------------------------ RESTART SURVIVAL
   const pidBefore = daemon?.pid ?? 0;
   stopDaemon();
@@ -645,6 +690,10 @@ async function run() {
     `${census.length} custody + ${residual.length} residual = ${inventory.length} inventory`);
 
   const anonymousRefusals = [];
+  // Re-snapshot HERE. This is a delta assertion and the fixtures between the previous snapshot and
+  // this loop legitimately move the count; comparing against a stale baseline would fail for a
+  // reason that has nothing to do with anonymous callers.
+  tarsBefore = materialTars();
   for (const endpoint of census) {
     const request = anonRequestFor(endpoint, captureId);
     const response = await jd(request.method, request.path, request.body, { as: null });
