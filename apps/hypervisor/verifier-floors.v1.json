@@ -139,6 +139,13 @@
       "assertion_names_sha256": "d20a083ad9bdcaaa8aa20b1a334a22c6179316dc296676fa2465472319dd404a"
     },
     {
+      "id": "operational-depth",
+      "npm_script": "check:operational-depth",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-operational-depth.mjs",
+      "runtime_assertions": 136,
+      "assertion_names_sha256": "954c4f5589e82757ee9d7ca28b5b37542034f18c64e145609b7946b16346e5bd"
+    },
+    {
       "id": "ported-seed",
       "npm_script": "check:ported-seed",
       "source": "apps/hypervisor/scripts/verify-hypervisor-ported-seed-invariant.mjs",
