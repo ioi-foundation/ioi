@@ -2235,6 +2235,68 @@ fn ensure_backup_lifecycle(
 /// The retention plane calls this BEFORE it destroys a byte, so a deletion that reaches the
 /// filesystem always carries the tombstone that makes it legible. A tombstone that cannot be
 /// admitted refuses the deletion outright, with nothing destroyed and a retry that converges.
+/// Record, ONCE for the whole estate, that these exact bytes were destroyed under a disposition.
+///
+/// Both custody lanes write and read this one stream. The legacy environment snapshot/backup store
+/// keeps its material under `data_dir/{snapshots,backups}/<id>/workspace.tar` while this plane keys
+/// its own on the content address, so the two stores are physically separate — but "this content was
+/// destroyed" is one fact about one owner's decision, and splitting it into two streams would let a
+/// deletion in either lane be defeated by re-establishing the same bytes in the other. That split is
+/// exactly the gap next-legs XI filed open.
+///
+/// Genesis is correct: a state root is destroyed once and the fact never advances, so an exact retry
+/// replays under the same key rather than conflicting, and a second lane arriving at an
+/// already-destroyed root reads the existing head instead of admitting a rival one.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn record_material_destroyed(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    scope: &super::substrate_store::RequestResourceScope,
+    subject_scope_kind: &str,
+    subject_ref: &str,
+    state_root: &str,
+    disposition_ref: &str,
+    idempotency_key: &str,
+) -> Result<Value, Reply> {
+    if let Some(existing) = super::substrate_store::read_event_stream_operation(
+        data_dir,
+        PERSISTENCE_NAMESPACE,
+        &destroyed_material_tail(state_root),
+    )
+    .map_err(admission_error)?
+    {
+        return Ok(json!(existing.head));
+    }
+    let destroyed = json!({
+        "schema_version": "ioi.managed-backup-material-destroyed.v1",
+        "state_root": state_root,
+        "destroyed_by_disposition_ref": disposition_ref,
+        // The SUBJECT, not "the backup": this stream is now written by both custody lanes, and a
+        // snapshot capture recorded under a field named for a backup is admitted bytes that misname
+        // what happened. No reader consumes it; it is provenance for a human reading the log.
+        "first_destroyed_subject_ref": subject_ref,
+        "first_destroyed_subject_kind": subject_scope_kind,
+    });
+    let head = admit(
+        data_dir,
+        true,
+        identity,
+        scope,
+        subject_scope_kind,
+        subject_ref,
+        PERSISTENCE_NAMESPACE,
+        &destroyed_material_tail(state_root),
+        "event_stream.backup_material_destroyed",
+        None,
+        &destroyed,
+        now_ms(),
+        &format!("{idempotency_key}.destroyed"),
+    )?
+    .0
+    .head;
+    Ok(json!(head))
+}
+
 pub(crate) fn tombstone_backup(
     data_dir: &str,
     identity: &super::substrate_store::RequestIdentity,
@@ -2278,44 +2340,18 @@ pub(crate) fn tombstone_backup(
         &format!("{idempotency_key}.pruned"),
     )?;
     // AND the fact keyed on WHAT WAS DESTROYED. The lifecycle tombstone above names the record; this
-    // names the bytes, and it is the half a caller cannot rename around. Genesis is correct here —
-    // a state root is destroyed once and the fact never advances — and an exact retry replays under
-    // the same key rather than conflicting.
+    // names the bytes, and it is the half a caller cannot rename around.
     let state_root = record_state_root(&backup).to_owned();
-    let destroyed = json!({
-        "schema_version": "ioi.managed-backup-material-destroyed.v1",
-        "state_root": state_root,
-        "destroyed_by_disposition_ref": disposition_ref,
-        "first_destroyed_backup_ref": backup_ref,
-    });
-    let destroyed_head = match super::substrate_store::read_event_stream_operation(
+    let destroyed_head = record_material_destroyed(
         data_dir,
-        PERSISTENCE_NAMESPACE,
-        &destroyed_material_tail(&state_root),
-    )
-    .map_err(admission_error)?
-    {
-        Some(existing) => existing.head,
-        None => {
-            admit(
-                data_dir,
-                true,
-                identity,
-                &scope,
-                BACKUP_SCOPE_KIND,
-                &backup_ref,
-                PERSISTENCE_NAMESPACE,
-                &destroyed_material_tail(&state_root),
-                "event_stream.backup_material_destroyed",
-                None,
-                &destroyed,
-                now_ms(),
-                &format!("{idempotency_key}.destroyed"),
-            )?
-            .0
-            .head
-        }
-    };
+        identity,
+        &scope,
+        BACKUP_SCOPE_KIND,
+        &backup_ref,
+        &state_root,
+        disposition_ref,
+        idempotency_key,
+    )?;
     Ok(json!({
         "backup_ref": backup_ref,
         "admitted_head": exact.head,

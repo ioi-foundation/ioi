@@ -17,9 +17,18 @@
 //!   * The executed deletion carries evidence of what was actually removed — a disposition
 //!     that claims deletion without naming what was destroyed is refused at the code level
 //!     (the evidence object is server-built from real filesystem outcomes).
-//!   * `managed_backup_export` is the one bound subject kind today; an unlisted kind is
-//!     refused at declaration, not interpreted. Further kinds bind only by owner ruling in
-//!     the canonical section.
+//!   * Bound subject kinds are `managed_backup_export` and `environment_workspace_capture`;
+//!     an unlisted kind is refused at declaration, not interpreted. Further kinds bind only by
+//!     owner ruling in the canonical section. The second kind was bound by next-legs XIII: the
+//!     legacy environment snapshot/backup store writes its material to a SEPARATE path this
+//!     plane's executed deletion could not reach, so an estate relying on erasure had two
+//!     custody lanes and one of them was outside the only deletion the estate owns.
+//!   * THE REACH IS NOT RETROACTIVE. A legacy capture taken BEFORE that kind was bound carries no
+//!     owner scope pin, and the rights admission below resolves every subject through the CALLER'S
+//!     OWN authorized scope set — so such a capture cannot be named as a subject at all, and its
+//!     bytes cannot be destroyed through this plane by anyone. Fail-closed and correct, but it
+//!     means "the deletion reaches the legacy store" is true for captures taken from that leg
+//!     forward and for no others.
 
 use std::sync::Arc;
 
@@ -37,7 +46,9 @@ use super::{persist_record, DaemonState};
 const RETENTION_NAMESPACE: &str = "hypervisor-retention";
 const KIND_DISPOSITION: &str = "retention-dispositions";
 const SCHEMA_VERSION: &str = "ioi.foundations.data_retention_disposition.v1";
-const SUBJECT_KINDS: &[&str] = &["managed_backup_export"];
+const SUBJECT_KINDS: &[&str] = &["managed_backup_export", "environment_workspace_capture"];
+const SUBJECT_KIND_MANAGED_BACKUP: &str = "managed_backup_export";
+const SUBJECT_KIND_ENVIRONMENT_CAPTURE: &str = "environment_workspace_capture";
 
 type Reply = (StatusCode, Json<Value>);
 
@@ -124,28 +135,66 @@ pub(crate) async fn handle_disposition_create(
             "policy_basis_ref must name the governing policy as a canonical ref — a disposition without a basis is an opinion",
         );
     }
-    // Rights admission for the one bound kind: resolve the backup through the caller's OWN
-    // authorized scope set, exactly as the backup family itself does.
-    let (backup, _scope) = match super::managed_runtime_routes::authorized_backup_by_id(
-        &st.data_dir,
-        &caller.identity,
-        subject_id,
-    ) {
-        Ok(value) => value,
-        Err(reply) => return reply,
+    // Rights admission, per bound kind: resolve the subject through the caller's OWN authorized
+    // scope set, exactly as that subject's family resolves it. Neither branch reads an owner field
+    // off the record — the substrate scope pin is the authority and the record is what it points at.
+    let (subject_ref, state_root) = match subject_kind {
+        SUBJECT_KIND_MANAGED_BACKUP => {
+            let (backup, _scope) = match super::managed_runtime_routes::authorized_backup_by_id(
+                &st.data_dir,
+                &caller.identity,
+                subject_id,
+            ) {
+                Ok(value) => value,
+                Err(reply) => return reply,
+            };
+            let Some(backup_ref) = backup["backup_ref"].as_str().map(str::to_owned) else {
+                return bad(
+                    StatusCode::CONFLICT,
+                    "retention_subject_unresolved",
+                    "the admitted backup record carries no backup_ref",
+                );
+            };
+            let state_root = backup["source_state_root_ref"]
+                .as_str()
+                .and_then(|value| value.strip_prefix("state-root://"))
+                .unwrap_or("")
+                .to_string();
+            (backup_ref, state_root)
+        }
+        SUBJECT_KIND_ENVIRONMENT_CAPTURE => {
+            // The CANONICAL coordinate the resolver returns, never the caller's spelling — exactly as
+            // the managed branch above stores the resolved `backup_ref` rather than `subject_id`. A
+            // duty stored at an alias authorized fine and could never be executed, because the
+            // tombstone keys on the canonical one.
+            let (_kind, capture_ref, capture, _scope) =
+                match super::environment_routes::authorized_capture_by_id(
+                    &st.data_dir,
+                    &caller.identity,
+                    subject_id,
+                ) {
+                    Ok(value) => value,
+                    Err(reply) => return reply,
+                };
+            let state_root = capture["state_root"].as_str().unwrap_or("").to_string();
+            if state_root.is_empty() {
+                return bad(
+                    StatusCode::CONFLICT,
+                    "retention_subject_unresolved",
+                    "the admitted capture record carries no state_root, so a deletion could not name what it destroyed",
+                );
+            }
+            (capture_ref, state_root)
+        }
+        _ => {
+            return bad(
+                StatusCode::BAD_REQUEST,
+                "retention_subject_kind_unsupported",
+                format!("subject_kind must be one of {SUBJECT_KINDS:?}; an unlisted kind is refused, not interpreted"),
+            )
+        }
     };
-    let Some(backup_ref) = backup["backup_ref"].as_str().map(str::to_owned) else {
-        return bad(
-            StatusCode::CONFLICT,
-            "retention_subject_unresolved",
-            "the admitted backup record carries no backup_ref",
-        );
-    };
-    let state_root = backup["source_state_root_ref"]
-        .as_str()
-        .and_then(|value| value.strip_prefix("state-root://"))
-        .unwrap_or("")
-        .to_string();
+    let backup_ref = subject_ref;
     let id = replay_stable_id("rdsp", &caller.owner_ref, &caller.idempotency_key);
     let disposition_ref = format!("retention-disposition://{id}");
     let admitted = json!({
@@ -434,13 +483,29 @@ pub(crate) async fn handle_disposition_delete(
         .as_str()
         .unwrap_or("")
         .to_string();
-    let tombstone = match super::managed_runtime_routes::tombstone_backup(
-        &st.data_dir,
-        &caller.identity,
-        &subject_ref,
-        &disposition_ref,
-        &caller.idempotency_key,
-    ) {
+    let subject_kind = record["subject"]["subject_kind"]
+        .as_str()
+        .unwrap_or("")
+        .to_string();
+    let tombstone_result = match subject_kind.as_str() {
+        SUBJECT_KIND_ENVIRONMENT_CAPTURE => {
+            super::environment_routes::tombstone_environment_capture(
+                &st.data_dir,
+                &caller.identity,
+                &subject_ref,
+                &disposition_ref,
+                &caller.idempotency_key,
+            )
+        }
+        _ => super::managed_runtime_routes::tombstone_backup(
+            &st.data_dir,
+            &caller.identity,
+            &subject_ref,
+            &disposition_ref,
+            &caller.idempotency_key,
+        ),
+    };
+    let tombstone = match tombstone_result {
         Ok(tombstone) => tombstone,
         Err((status, body)) => {
             // The deletion admission above already ADVANCED this stream. Project that head before
@@ -474,7 +539,21 @@ pub(crate) async fn handle_disposition_delete(
     let material = if state_root.is_empty() {
         json!({ "material_present_before": false, "material_removed": false, "note": "no payload state root was recorded at declaration" })
     } else {
-        let path = super::managed_runtime_routes::material_path(&st.data_dir, &state_root);
+        // WHICH BYTES. The two custody lanes store material differently — the managed-runtime plane
+        // keys its payload on the content address, the legacy environment store keys its tar on the
+        // CAPTURE ID under `{snapshots,backups}/<id>/workspace.tar` — and reaching only the first is
+        // precisely the gap this leg closes. The capture KIND is read back off the tombstone that
+        // just resolved the subject, so nothing here trusts a caller-supplied path.
+        let path = if subject_kind == SUBJECT_KIND_ENVIRONMENT_CAPTURE {
+            let capture_kind = tombstone["capture_kind"].as_str().unwrap_or("snapshot");
+            super::environment_routes::capture_material_path(
+                &st.data_dir,
+                capture_kind,
+                &subject_ref,
+            )
+        } else {
+            super::managed_runtime_routes::material_path(&st.data_dir, &state_root)
+        };
         let existed = path.exists();
         let removed = if existed {
             std::fs::remove_file(&path).is_ok()

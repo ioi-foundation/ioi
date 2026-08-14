@@ -6829,7 +6829,7 @@ export type DataRetentionDispositionV1 = {
   schema_version: "ioi.foundations.data_retention_disposition.v1";
   disposition_id: string;
   subject: {
-      subject_kind: "managed_backup_export";
+      subject_kind: "managed_backup_export" | "environment_workspace_capture";
       subject_ref: string;
       payload_state_root?: string | null;
     };
@@ -20852,7 +20852,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/daemon-runtime/managed-worker-instance-state/v1": "sha256:a267d51ea7c58fbd52c516c37e42e7bc6db2077787781b7eea8405da9dcebe2c",
   "schema://ioi/foundations/runtime-assignment/v1": "sha256:c4fd87258db991ed9c185e99806426813e38ec2c86a2cc1f0c8a61edb75a4c54",
   "schema://ioi/foundations/download-intent/v1": "sha256:6605d7acd24a8cc550cef7f0ac62fdbbaaf47fecdb871aad2c6a019a6a1e1917",
-  "schema://ioi/foundations/data-retention-disposition/v1": "sha256:d7659a04f5291b703ad7352baecaba2cd76eeb7f436684a38c15b780c5dedec8",
+  "schema://ioi/foundations/data-retention-disposition/v1": "sha256:72a411978fd2958d9de618ce8addfc768da04fade4d54d728227c8dae323f315",
   "schema://ioi/components/daemon-runtime/support-incident-link/v1": "sha256:dff31b576d2bdf0a1599e8e53d3843bc79206f86dafd4f93d79d2c204c37d0e3",
   "schema://ioi/components/connectors-tools/connector-credential-grant/v1": "sha256:def8aa1d17369d96acb3d79909822b41f5c6e57f4bfca961f047df250658b7b8",
   "schema://ioi/components/wallet-network/wallet-authentication-challenge/v1": "sha256:3c0ccfe0fc9ae22cb54e5d3e26bd571763cd45ace48fafe5f43d35dfcb9be3a7",
@@ -73399,9 +73399,10 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           "subject_kind": {
             "type": "string",
             "enum": [
-              "managed_backup_export"
+              "managed_backup_export",
+              "environment_workspace_capture"
             ],
-            "description": "Extensible only by an owner ruling in the canonical section; an unlisted kind is refused at declaration."
+            "description": "Extensible only by an owner ruling in the canonical section; an unlisted kind is refused at declaration. `environment_workspace_capture` was bound 2026-08-14 so this plane's executed deletion reaches the legacy environment snapshot/backup store, whose material lives at a separate path the managed-runtime content-addressed lane never covered. The reach is NOT retroactive: a capture taken before that binding carries no owner scope pin, so it cannot be named as a subject and its bytes cannot be destroyed through this plane."
           },
           "subject_ref": {
             "type": "string",
