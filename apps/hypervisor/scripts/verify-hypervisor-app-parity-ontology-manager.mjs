@@ -39,12 +39,34 @@ const appRoot = path.resolve(here, "..");
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
-const jd = async (method, p, body) => { const r = await fetch(`${DAEMON}${p}`, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, j: await r.json().catch(() => ({})) }; };
+// THIS FILE HAS NOT RUN SINCE #236, AND NOTHING SAID SO. It POSTs an ontology fixture with no
+// session; ODK writes became identity-first in next-legs II, so the daemon has answered 401 ever
+// since and the very next line dereferenced `created.j.ontology.id` and threw. Every assertion below
+// it — including the named-gap rail checks — has been dead code for months, in a file with no npm
+// script, no CI job and no floor row, so no green ever covered it and no red ever reported it.
+// A merge-blocking review found it by RUNNING the thing; a ledger paragraph had meanwhile described
+// one of its assertions as having "turned red", which it cannot do, because it is never reached.
+//
+// The precondition is REAL here — unlike two verifiers this run reverted, whose session requirement
+// had been removed with the design that introduced it. So the session is taken the way this
+// manually-launched estate takes its URLs, and its absence BLOCKS rather than failing downstream
+// with a symptom unrelated to what it checks.
+const SESSION = (process.env.IOI_HYPERVISOR_SESSION || "").trim();
+const jd = async (method, p, body) => {
+  const headers = { "content-type": "application/json" };
+  if (SESSION) headers.cookie = `ioi_session=${SESSION}`;
+  const r = await fetch(`${DAEMON}${p}`, { method, headers, body: body ? JSON.stringify(body) : undefined });
+  return { status: r.status, j: await r.json().catch(() => ({})) };
+};
 const page = (url) => fetch(url).then(async (r) => ({ status: r.status, text: await r.text() })).catch(() => ({ status: 0, text: "" }));
 
 async function run() {
   const up = await fetch(`${DAEMON}/v1/hypervisor/odk/domain-ontologies`).then((r) => r.ok).catch(() => false);
   if (!up) { console.error("BLOCKED: daemon ODK plane not reachable at " + DAEMON); process.exit(2); }
+  if (!SESSION) {
+    console.error("BLOCKED: IOI_HYPERVISOR_SESSION is unset. This verifier writes an ontology fixture and ODK writes are identity-first (#236); without a session the create 401s and every assertion below fails with a symptom unrelated to what it checks. Export the operator session this estate was launched with.");
+    process.exit(2);
+  }
 
   // 0. Matrix — schema is daemon_wired with a real landmark spec; approvals is also daemon_wired (#36).
   const check = spawnSync("node", [path.join(here, "build-app-parity-matrix.mjs"), "--check"], { encoding: "utf8" });
@@ -101,7 +123,26 @@ async function run() {
   ok("the fixture object-type card renders its real object + dependent counts", /class="og-card"/.test(t) && /object/.test(t) && /dependent/.test(t));
 
   // 5. READ-ONLY + NAMED GAPS disabled in place; authoring routes to the substrate.
-  ok("named-gap lanes are DISABLED in place (Proposals · Shared properties · Groups · Interfaces · Cleanup), not hidden", ["Proposals", "Shared properties", "Groups", "Interfaces", "Cleanup"].every((l) => new RegExp(`<span class="og-nav[^"]*gap" title="${l} is a reference-only lane`).test(t)), "gap spans carry the named-gap title on the current certified rail markup");
+  // DISABLED IN PLACE WITH A NAMED REASON — the reason's WORDING is not what is certified here, and
+  // pinning it was a real defect: this assertion required every lane to say "is a reference-only
+  // lane", so when next-legs XIII landed the proposal plane and the Proposals reason was corrected
+  // to name it, THIS GATE WENT RED on a correction. A verifier that fails when a falsehood is fixed
+  // is pinning the falsehood. What it certifies now is the structure — every lane renders as a
+  // disabled gap span carrying a non-empty reason that names the lane.
+  ok("named-gap lanes are DISABLED in place (Proposals · Shared properties · Groups · Interfaces · Cleanup), not hidden, each carrying a non-empty reason that names the lane",
+    ["Proposals", "Shared properties", "Groups", "Interfaces", "Cleanup"].every((l) =>
+      // PER LANE, NOT PER PAGE. Matching any gap title that merely MENTIONS the lane let a lane be
+      // deleted while another lane's reason name-dropped it. Every lane's reason opens on its own
+      // name, so the binding is that opening — and it survives the nested icon markup inside the
+      // span, which a body-scoped match does not.
+      new RegExp(`<span class="og-nav[^"]*gap" title="${l}[ :]`, "u").test(t)),
+    "each lane renders its own disabled gap span with a reason that opens on its name");
+  // AND THE PROPOSALS REASON NO LONGER ASSERTS A PLANE THAT EXISTS IS MISSING. Next-legs XIII landed
+  // the proposal family; a named gap whose stated reason has gone false reads as evidence.
+  ok("and the Proposals lane's reason names the daemon plane as EXISTING — the gap is a missing surface control, not a missing contract",
+    /<span class="og-nav[^"]*gap" title="Proposals[^"]*ontology proposal plane exists[^"]*"/u.test(t)
+      && !/<span class="og-nav[^"]*gap" title="Proposals[^"]*no ontology proposal plane[^"]*"/u.test(t),
+    "Proposals reason names the landed plane, and does not negate it");
   ok("action + function EXECUTION are named gaps (declarations only)", /Action <b>declarations<\/b> only/.test(t) && /Function <b>declarations<\/b> only/.test(t) && /in-canvas schema editing/.test(t));
   ok("the authoring lane routes to the /__ioi/odk substrate (Configure model)", /Configure model in substrate/.test(t) && new RegExp(`/__ioi/odk/ontologies/${fix.id}/edit`).test(t));
 

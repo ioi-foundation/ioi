@@ -298,16 +298,23 @@ function renderOntologyManagerPort(ov, lists, selectedId, opts) {
     const c = count == null ? "" : `<span class="og-c">${count}</span>`;
     const inner = `<span class="og-nico">${bpIcon(icon)}</span><span class="og-nlabel">${esc(label)}</span>${c}`;
     const cls = `og-nav${opts.on ? " on" : ""}${opts.sub ? " sub" : ""}`;
+    // A NAMED GAP MUST NAME ITS OWN REASON. One shared sentence said every disabled lane was
+    // "a reference-only lane — no authority contract yet", and that became FALSE for Proposals the
+    // moment the ontology proposal plane landed: the daemon contract exists, and what is missing is
+    // a surface control bound to it. A gap whose stated reason has gone false is worse than an
+    // unnamed one, because it reads as evidence — so the reason travels per item.
+    const gapReason = opts.gap
+      || `${label} is a reference-only lane — no authority contract yet (named gap).`;
     return href
       ? `<a class="${cls}" href="${href}">${inner}</a>`
-      : `<span class="${cls} gap" title="${esc(label)} is a reference-only lane — no authority contract yet (named gap).">${inner}</span>`;
+      : `<span class="${cls} gap" title="${esc(gapReason)}">${inner}</span>`;
   };
   // Rail section links carry the Manager section (real navigation) while keeping the certified
   // markup (href-only change — pixels unaffected). Named-gap lanes stay disabled in place.
   const sHref = (s) => mHref({ section: s });
   const appRail = `<nav class="og-arail" aria-label="Ontology Manager">
     ${arailItem("compass", "Discover", null, sHref("discover"), { on: true })}
-    ${arailItem("people", "Proposals", null, null)}
+    ${arailItem("people", "Proposals", null, null, { gap: "Proposals: the ontology proposal plane exists (propose / apply / withdraw, expected_revision CAS, receipted) — no surface control is bound to it yet (named gap)." })}
     ${arailItem("time", "History", null, sHref("configuration"))}
     <div class="og-adiv"></div>
     <div class="og-asec">Resources</div>
@@ -439,7 +446,7 @@ function renderOntologyManagerPort(ov, lists, selectedId, opts) {
         irow("id · name", `${formatRef(l.id)} · ${esc(l.name || "—")}`),
         irow("from → to", `<a href="${objectTypeLink(oid, l.from)}">${esc(l.from)}</a> → <a href="${objectTypeLink(oid, l.to)}">${esc(l.to)}</a>`),
         irow("cardinality", `<span class="om-pill muted">${esc(l.cardinality || "")}</span>`),
-        ihint("Relationship browsing (walking instances across this link) is a disabled named gap — no object-instance graph plane is bound."),
+        ihint("Relationship browsing (walking instances across this link) is a disabled named gap — no object-instance GRAPH-TRAVERSAL plane is bound. The instance search plane landed in next-legs XIII and answers over materialized sets; it does not walk links."),
         `<h4 class="og-fhd">Edit link type</h4>`,
         aForm("upsert-link-type", `<input type="hidden" name="def_id" value="${esc(l.id)}"><label class="og-fl">Name<input name="name" maxlength="200" value="${esc(l.name || "")}" required></label><label class="og-fl">From<select name="from" required>${opt(otOptions, l.from || "")}</select></label><label class="og-fl">To<select name="to" required>${opt(otOptions, l.to || "")}</select></label><label class="og-fl">Cardinality<select name="cardinality" required>${opt(vocab.link_cardinalities, l.cardinality || "")}</select></label>`),
       ].join("");
@@ -573,7 +580,7 @@ function renderOntologyManagerPort(ov, lists, selectedId, opts) {
     <section id="og-link-types"><h2>Link types <span class="og-subn">${lts.length}</span></h2>${tbl(["Link", "From → To", "Cardinality"], linkRows, "No link types.")}</section>
     <section id="og-action-types"><h2>Action types <span class="og-subn">${nonFuncActs.length}</span></h2><div class="og-note">Action <b>declarations</b> only — writeback/execution is not wired (needs a PolicyBoundDataView + TransformationRun). Declaring an action never runs it.</div>${tbl(["Action", "Kind", "Applies to"], actRows, "No action types.")}</section>
     <section id="og-functions"><h2>Functions <span class="og-subn">${funcs.length}</span></h2><div class="og-note">Function <b>declarations</b> only — evaluation/execution is not wired.</div>${tbl(["Function", "Applies to"], funcRows, "No function declarations.")}</section>
-    <section id="og-health"><h2>Health issues</h2><div class="og-healthbox"><div class="og-sechd2"><b>Readiness</b> ${hpill} <span class="og-sub">${(health.counts || {}).object_types || 0} obj · ${(health.counts || {}).value_types || 0} val · ${(health.counts || {}).link_types || 0} link · ${(health.counts || {}).action_types || 0} act</span></div>${(health.gaps || []).length ? `<ul class="og-gaps">${health.gaps.map((g) => `<li>${esc(g)}</li>`).join("")}</ul>` : `<div class="og-sub">No health issues — the required semantic pieces are present.</div>`}<div class="og-sub" style="margin-top:6px"><b>${esc(String(health.object_instances == null ? 0 : health.object_instances))}</b> object instances — ${esc(health.object_data_note || "schema only; no object-instance plane bound until an OntologyProjection exists.")}</div></div></section>
+    <section id="og-health"><h2>Health issues</h2><div class="og-healthbox"><div class="og-sechd2"><b>Readiness</b> ${hpill} <span class="og-sub">${(health.counts || {}).object_types || 0} obj · ${(health.counts || {}).value_types || 0} val · ${(health.counts || {}).link_types || 0} link · ${(health.counts || {}).action_types || 0} act</span></div>${(health.gaps || []).length ? `<ul class="og-gaps">${health.gaps.map((g) => `<li>${esc(g)}</li>`).join("")}</ul>` : `<div class="og-sub">No health issues — the required semantic pieces are present.</div>`}<div class="og-sub" style="margin-top:6px"><b>${esc(String(health.object_instances == null ? 0 : health.object_instances))}</b> object instances — ${esc(health.object_data_note || "schema only — no object instances are MATERIALIZED until an OntologyProjection exists. The object-instance search plane landed in next-legs XIII and walks that same materialized store, so it answers a typed corpus-absent here rather than an empty result.")}</div></div></section>
     <section id="og-config"><h2>Ontology configuration</h2><div class="og-cfg">
       <div class="og-cfgrow"><span>Ref</span>${idc(selected.ref)}</div>
       <div class="og-cfgrow"><span>Revision</span><b>rev ${esc(String(selected.revision || 1))}</b></div>
@@ -583,7 +590,7 @@ function renderOntologyManagerPort(ov, lists, selectedId, opts) {
       <div class="og-cfgrow"><span>Projections</span><b>${projs.length}</b></div>
       <div class="og-cfgrow"><span>Estate</span><span><span class="om-pill ok">${rollup.ready || 0} ready</span> <span class="om-pill warn">${rollup.incomplete || 0} incomplete</span> <span class="om-pill muted">${rollup.empty || 0} empty</span></span></div>
       <a class="og-editlink" href="/__ioi/odk/ontologies/${enc(selected.id)}/edit">Configure model in substrate →</a>
-      <div class="og-note" style="margin-top:8px">Named gaps (reference-only lanes, no authority contract yet): in-canvas schema editing · the 5-step create wizard (the New forms carry the same authority) · Proposals · Shared properties · Groups · Interfaces · Cleanup · action/function execution. Reference: <a href="/__apps/schema" target="_blank" rel="noopener">Ontology Manager ↗</a>.</div>
+      <div class="og-note" style="margin-top:8px">Named gaps (no surface control bound; the daemon contract may or may not exist — see each item): in-canvas schema editing · the 5-step create wizard (the New forms carry the same authority) · Proposals · Shared properties · Groups · Interfaces · Cleanup · action/function execution. Reference: <a href="/__apps/schema" target="_blank" rel="noopener">Ontology Manager ↗</a>.</div>
     </div></section>
   ` : `<div class="og-none" style="margin:40px auto;max-width:520px">Select or create an ontology to see its schema. <a href="/__ioi/odk/ontologies/new">Create an ontology →</a></div>`}</main>`;
 

@@ -7,8 +7,8 @@
     "daemon_read": "invokes existing daemon truth via read navigation",
     "local_view_interaction": "view-only client/URL state, no authority crossed",
     "governed_receipted_action": "a real mutation through EXISTING daemon authority returning a durable receipt",
-    "disabled_missing_authority": "visible but disabled; the reason names the exact missing daemon contract",
-    "unsupported_reference_session": "reference session machinery (branch/proposal/favorites/undo) with no IOI product plane",
+    "disabled_missing_authority": "visible but disabled; the reason names the exact missing authority. Qualified 2026-08-14: for most rows that is a missing daemon CONTRACT, but eight rows in this bucket now name a contract that EXISTS and a missing SURFACE BINDING — next-legs XIII landed the ontology proposal, saved-object-set and object-instance-search planes while their controls stayed unbuilt. A taxonomy that names only one of the two kinds of missing authority goes false the same way any named reason does.",
+    "unsupported_reference_session": "reference session machinery (branch/favorites/undo) with no IOI product plane. Qualified 2026-08-14: 'proposal' was removed from this list — next-legs XIII landed the ontology proposal plane, and the row that carried this outcome for that reason was reclassified. A taxonomy that names a plane as absent is a named reason like any other and goes false the same way.",
     "reference_data_only": "the reference's verbatim capture chrome / example content, display-only"
   },
   "surfaces": {
@@ -257,7 +257,7 @@
           "label": "Graph/Proposals/History tabs",
           "reference": "switch workspace between graph, proposal review, version history",
           "outcome": "unsupported_reference_session",
-          "reason": "no proposal/branch/version plane — IOI is permanently the Graph workspace; run history lives on Provenance",
+          "reason": "no PIPELINE proposal/branch/version plane — IOI is permanently the Graph workspace; run history lives on Provenance. Qualified 2026-08-14: next-legs XIII landed an ONTOLOGY proposal plane, a different subject; this row is about proposing changes to a pipeline graph, for which no plane exists.",
           "implemented": false
         },
         {
@@ -311,7 +311,7 @@
           "label": "Propose",
           "reference": "opens proposal flow",
           "outcome": "unsupported_reference_session",
-          "reason": "no proposal plane",
+          "reason": "no PIPELINE proposal plane — proposing a change to a pipeline graph has no daemon contract. Qualified 2026-08-14: the ontology proposal plane landed in next-legs XIII and is a different subject; the bare phrase \"no proposal plane\" now reads as an estate-wide claim it never meant.",
           "implemented": false
         },
         {
@@ -1684,7 +1684,7 @@
           "label": "Branch selector (Main)",
           "reference": "branch popover + create branch",
           "outcome": "unsupported_reference_session",
-          "reason": "no branching/proposal plane — ODK revisions (expected_revision) are the versioning primitive; rendered disabled og-branch with named reason",
+          "reason": "no BRANCHING plane — ODK revisions (expected_revision) are the versioning primitive and the proposal plane is the review interval; a branch selector has no daemon contract behind it. Rendered disabled og-branch with named reason",
           "implemented": true
         },
         {
@@ -1796,8 +1796,8 @@
           "region": "app-rail",
           "label": "Proposals",
           "reference": "proposal review",
-          "outcome": "unsupported_reference_session",
-          "reason": "no proposal/branch plane — rendered disabled with named reason",
+          "outcome": "disabled_missing_authority",
+          "reason": "the ontology PROPOSAL plane exists as daemon truth (POST /v1/hypervisor/odk/ontology-proposals, apply/withdraw, expected_revision CAS, ontology-plane receipts) — what is missing is a SURFACE control bound to it, so the rail item stays a rendered disabled named gap until one is built. Reclassified from unsupported_reference_session, whose taxonomy reads \"with no IOI product plane\" and became false the moment the plane landed",
           "implemented": true
         },
         {
@@ -2087,7 +2087,7 @@
           "label": "Walk instances across link",
           "reference": "relationship browsing on link detail",
           "outcome": "disabled_missing_authority",
-          "reason": "named disabled gap in link inspector — no object-instance graph plane bound",
+          "reason": "named disabled gap in link inspector — no object-instance GRAPH-TRAVERSAL plane bound (walking instances across a link). Qualified 2026-08-14: the object-instance SEARCH plane landed in next-legs XIII (POST /v1/hypervisor/odk/object-instance-search) and answers over materialized sets; it does not walk link relationships, so this row is a different contract and remains open.",
           "implemented": true
         },
         {
@@ -2208,7 +2208,7 @@
         "Deletion authority: DELETE /v1/hypervisor/odk/domain-ontologies/{id} + delete-definition-in-COM (backs Cleanup, node/row remove) — irreversible, not yet contracted",
         "Action/function EXECUTION plane: TransformationRun/writeback authority binding a PolicyBoundDataView (backs Execute action / Evaluate function)",
         "Object-instance graph plane: walk instances across a link type (backs relationship browsing)",
-        "Proposal/branch plane: create/review/merge proposals + branch selector (backs Proposals, History-as-branch, Propose, branch actions)",
+        "Branch selector plane: a branch/alternate-timeline selector over an ontology (backs History-as-branch and the branch actions). The PROPOSAL half landed in next-legs XIII (POST /v1/hypervisor/odk/ontology-proposals with apply/withdraw, expected_revision CAS, ontology-plane receipts) and is no longer a missing contract — what is missing there is a SURFACE control. No branching plane exists.",
         "Shared-property plane (New → Shared property)",
         "Groups/taxonomy plane (New → Group)",
         "Interfaces/abstract-type plane (New → Interface)",
@@ -2267,7 +2267,7 @@
       "title": "Object Explorer",
       "reference_route": "http://localhost:9225/workspace/hubble/",
       "ioi_route": "/__ioi/ontology/explorer",
-      "primary_workflow": "Reference intent-to-result: search/select an object type (WAYF \"Search for objects\", a shortcut card, or a catalog row) → navigate to the Exploration workspace at /exploration?objectTypeRid=ri.ontology.main.object-type.<uuid> (Explorations/Lists dropdown tabs + Filters) → browse/filter that type's object INSTANCES → save the result as a List/object set. Confirmed live: a shortcut card click navigated the SPA to /exploration?objectTypeRid=...; the workspace shell renders but its data component is dead-XHR (\"Error, failed to fetch\" / \"Failed to load default layout\"). IOI implements only the READ half of this path: select object type/set → semantic inspector → real materialized-set row preview; the exploration/instance-authoring half has no daemon plane.",
+      "primary_workflow": "Reference intent-to-result: search/select an object type (WAYF \"Search for objects\", a shortcut card, or a catalog row) → navigate to the Exploration workspace at /exploration?objectTypeRid=ri.ontology.main.object-type.<uuid> (Explorations/Lists dropdown tabs + Filters) → browse/filter that type's object INSTANCES → save the result as a List/object set. Confirmed live: a shortcut card click navigated the SPA to /exploration?objectTypeRid=...; the workspace shell renders but its data component is dead-XHR (\"Error, failed to fetch\" / \"Failed to load default layout\"). IOI implements only the READ half of this path: select object type/set → semantic inspector → real materialized-set row preview; the exploration/instance-authoring half has no SURFACE CONTROL — its daemon planes (object-instance search, saved object sets) landed in next-legs XIII.",
       "reference_reached_states": [
         "initial-landing: Object Explorer search hero (Filter by / Search for objects) + Shortcuts (Recents/Favorites/Your object sets + example cards) + Object type catalog (55 of 55, real rows) + Object set catalog (All/Created by me/Shared with me/Favorites)",
         "catalog-filter: typed 'Air' into the object-type filter → catalog DOM re-rendered (works-in-capture)",
@@ -2277,7 +2277,7 @@
         "PRIMARY workflow: shortcut card → SPA navigated to /exploration?objectTypeRid=ri.ontology.main.object-type.<uuid> (Explorations/Lists tabs + Filters); data lane dead-XHR ('Failed to load default layout')",
         "right-click row context menu: opened but returned NO menu items (data-gated/inert in the mirror)"
       ],
-      "landing_vs_workflow_note": "The IOI certified shell is the Object Explorer LANDING (search hero + shortcuts + object-type catalog + object-set catalog) — pixel-frozen chrome over real ODK truth. The reference's real intent-to-result path runs PAST that landing: select an object type → /exploration workspace → filter object INSTANCES → save as a List/object set. IOI implements the READ half of this path with genuine depth (select → semantic inspector → materialized-set provenance + real row preview + cross-app deep links) but NOT the write/browse half — object-instance search, exploration/list authoring, and action execution are all named gaps with no daemon plane. So Explorer sits honestly at operational_state 'inspect', exactly one governed action (materialize-via-existing-ladder) short of 'act'. POSITIVE CONTROL (pipeline control-matrix.mjs, 4→6 mapping): daemon_action→daemon_read for read-nav bindings (node-select ?node=, lineage, manager, add-data, warnings, picker) and →governed_receipted_action for cmd.build (?pane=build) + the preview/materialized tabs; local_view→local_view_interaction; disabled_reason→disabled_missing_authority; unsupported→unsupported_reference_session (tabs-mode/branch/proposal/undo/favorites) with a couple reference_data_only (batch badge). Pipeline's ?pane=build IS a confirmed intent-to-durable-result journey (MaterializingRun → wallet-approved lease → sealed ConnectorSession → one bounded execute → receipts, resumable from record status) — which is precisely the governed-action shape Explorer's recommended PR borrows, without duplicating Build.",
+      "landing_vs_workflow_note": "The IOI certified shell is the Object Explorer LANDING (search hero + shortcuts + object-type catalog + object-set catalog) — pixel-frozen chrome over real ODK truth. The reference's real intent-to-result path runs PAST that landing: select an object type → /exploration workspace → filter object INSTANCES → save as a List/object set. IOI implements the READ half of this path with genuine depth (select → semantic inspector → materialized-set provenance + real row preview + cross-app deep links) but NOT the write/browse half — object-instance search and exploration/list authoring are named gaps with NO SURFACE CONTROL — both daemon planes landed in next-legs XIII — and action execution is a named gap with no daemon plane at all. So Explorer sits honestly at operational_state 'inspect', exactly one governed action (materialize-via-existing-ladder) short of 'act'. POSITIVE CONTROL (pipeline control-matrix.mjs, 4→6 mapping): daemon_action→daemon_read for read-nav bindings (node-select ?node=, lineage, manager, add-data, warnings, picker) and →governed_receipted_action for cmd.build (?pane=build) + the preview/materialized tabs; local_view→local_view_interaction; disabled_reason→disabled_missing_authority; unsupported→unsupported_reference_session (tabs-mode/branch/proposal/undo/favorites) with a couple reference_data_only (batch badge). Pipeline's ?pane=build IS a confirmed intent-to-durable-result journey (MaterializingRun → wallet-approved lease → sealed ConnectorSession → one bounded execute → receipts, resumable from record status) — which is precisely the governed-action shape Explorer's recommended PR borrows, without duplicating Build.",
       "current": {
         "capabilities": [
           "browse",
@@ -2314,7 +2314,7 @@
           "label": "Active-exploration square button (oe-sqbtn)",
           "reference": "square app-icon button anchoring the active exploration session",
           "outcome": "unsupported_reference_session",
-          "reason": "active exploration is a reference-only session lane; rendered disabled in place (data-ioi-disabled-reason: 'Active exploration — a reference-only session lane')",
+          "reason": "the ACTIVE-exploration tab is a reference-only session lane — transient view state. Qualified 2026-08-14: saved object sets landed in next-legs XIII, so this names the tab, not the family.",
           "implemented": true
         },
         {
@@ -2323,7 +2323,7 @@
           "label": "New exploration tab",
           "reference": "the current exploration session tab (uuid)",
           "outcome": "unsupported_reference_session",
-          "reason": "explorations are per-session machinery with no IOI plane; IOI renders the honest default 'New exploration' tab, non-interactive",
+          "reason": "exploration TABS are per-session machinery with no IOI plane — a tab is transient view state, not a saved selection. Qualified 2026-08-14: the SAVED-object-set family landed in next-legs XIII and a saved set is a saved exploration (a bounded selection with a name), so the unqualified phrase 'explorations have no plane' had gone false; what has no plane is the per-session tab strip.",
           "implemented": true
         },
         {
@@ -2332,7 +2332,7 @@
           "label": "Open more exploration tabs (+)",
           "reference": "opens an additional exploration tab",
           "outcome": "unsupported_reference_session",
-          "reason": "opening exploration tabs is session machinery with no plane; disabled in place",
+          "reason": "opening exploration TABS is session machinery with no plane — transient view state, not a saved selection. Qualified 2026-08-14 for the same reason as the tab lane above: saved object sets are daemon truth, exploration tabs are not.",
           "implemented": true
         },
         {
@@ -2350,7 +2350,7 @@
           "label": "Filter by... (faceted object filters)",
           "reference": "faceted filter popover over object instances",
           "outcome": "disabled_missing_authority",
-          "reason": "missing daemon contract: object-instance faceted-search plane — IOI objects exist only as bounded materialized sets; disabled in place",
+          "reason": "the object-instance SEARCH plane exists as daemon truth (POST /v1/hypervisor/odk/object-instance-search, ontology-scoped, typed corpus-absent vs query-unmatched) — what is missing is a SURFACE control bound to it, and faceted narrowing on top of it. Rendered disabled with a named reason until one is built. Reason corrected 2026-08-14: it previously read \"missing daemon contract: object-instance faceted-search plane\", which went false the moment that plane landed",
           "implemented": true
         },
         {
@@ -2359,7 +2359,7 @@
           "label": "Search for objects... input",
           "reference": "full-text object-instance search box",
           "outcome": "disabled_missing_authority",
-          "reason": "missing daemon contract: object-instance full-text search plane; input rendered disabled",
+          "reason": "the object-instance SEARCH plane exists as daemon truth (POST /v1/hypervisor/odk/object-instance-search) — what is missing is a SURFACE control bound to it. Rendered disabled with a named reason. Reason corrected 2026-08-14: it previously read \"missing daemon contract: object-instance full-text search plane\", which went false the moment that plane landed",
           "implemented": true
         },
         {
@@ -2368,7 +2368,7 @@
           "label": "Search for objects (WAYF primary button)",
           "reference": "PRIMARY workflow initiator — runs an object search into the Exploration workspace",
           "outcome": "disabled_missing_authority",
-          "reason": "missing daemon contract: object-instance search + exploration plane; the reference's primary intent button, rendered disabled (oe-send)",
+          "reason": "the object-instance SEARCH plane exists as daemon truth (POST /v1/hypervisor/odk/object-instance-search) and the saved-object-set/exploration family with it (POST /v1/hypervisor/odk/saved-object-sets) — what is missing is a SURFACE control bound to either. The reference's primary intent button, rendered disabled with a named reason. Reason corrected 2026-08-14: it previously read \"missing daemon contract: object-instance search + exploration plane\", which went false the moment those planes landed",
           "implemented": true
         },
         {
@@ -2395,7 +2395,7 @@
           "label": "Your object sets lane",
           "reference": "per-user owned object sets",
           "outcome": "unsupported_reference_session",
-          "reason": "per-user set ownership is reference session machinery; the real materialized sets render in the catalog; disabled in place",
+          "reason": "per-user ownership of the MATERIALIZED set catalog is reference session machinery — that store records no owner and its list route is anonymous; the real materialized sets render in the catalog, disabled in place. Qualified 2026-08-14: saved object sets ARE scoped per principal, and are a different store.",
           "implemented": true
         },
         {
@@ -2480,7 +2480,7 @@
           "label": "Search explorations input",
           "reference": "search over saved explorations/lists",
           "outcome": "disabled_missing_authority",
-          "reason": "missing daemon contract: exploration/list search plane; input rendered disabled",
+          "reason": "the saved-object-set/exploration family exists as daemon truth (GET/POST /v1/hypervisor/odk/saved-object-sets, per-principal, CAS-guarded) — what is missing is a SURFACE control bound to it. Rendered disabled with a named reason. Reason corrected 2026-08-14: it previously read \"missing daemon contract: exploration/list search plane\", which went false the moment that family landed",
           "implemented": true
         },
         {
@@ -2489,7 +2489,7 @@
           "label": "All / Created by me / Shared with me / Favorites tags",
           "reference": "per-user object-set ownership lanes",
           "outcome": "unsupported_reference_session",
-          "reason": "per-user set-ownership lanes are reference session machinery; disabled in place",
+          "reason": "per-user set-ownership lanes over the MATERIALIZED set catalog are reference session machinery — that store records no owner; disabled in place. Qualified 2026-08-14: the saved-object-set family is scoped per principal and is a different store from this catalog.",
           "implemented": true
         },
         {
@@ -2557,7 +2557,7 @@
           "label": "Search instances (disabled semantic action)",
           "reference": "search this type's object instances",
           "outcome": "disabled_missing_authority",
-          "reason": "missing daemon contract: object-instance search plane — objects exist only as materialized sets; rendered disabled with reason",
+          "reason": "the object-instance SEARCH plane exists as daemon truth (POST /v1/hypervisor/odk/object-instance-search) — what is missing is a SURFACE control bound to it. Rendered disabled with a named reason. Reason corrected 2026-08-14: it previously read \"objects exist only as materialized sets\", and the materialized-set store is now exactly the corpus that route walks",
           "implemented": true
         },
         {
@@ -2615,7 +2615,7 @@
           "label": "Exploration workspace (/exploration?objectTypeRid=...)",
           "reference": "PRIMARY RESULT — object type opens the Exploration workspace (Explorations/Lists tabs, Filters; data lane dead-XHR in mirror)",
           "outcome": "disabled_missing_authority",
-          "reason": "missing daemon contract: object-instance exploration/authoring workspace — IOI's read equivalent is select→inspector→materialized-set preview; instance browse, list authoring, and save-as-set have no daemon plane",
+          "reason": "the saved-object-set/exploration family and the object-instance search plane both exist as daemon truth (POST /v1/hypervisor/odk/saved-object-sets, POST /v1/hypervisor/odk/object-instance-search) — what is missing is a SURFACE workspace bound to them. Rendered disabled with a named reason. Reason corrected 2026-08-14: it previously said list authoring and save-as-set \"have no daemon plane\", which went false the moment those families landed",
           "implemented": false
         }
       ],
@@ -2676,13 +2676,13 @@
         ]
       },
       "missing_authority_contracts": [
-        "object-instance search plane — full-text + faceted search over object INSTANCES (backs reference WAYF 'Search for objects', hero object-search input, 'Filter by...' facets, inspector 'Search instances'); IOI objects exist only as bounded materialized sets, no instance-search daemon contract exists",
-        "per-user exploration/list/favorites authoring plane — saved explorations, Lists, Recents/Favorites/'Your object sets', 'Created by me'/'Shared with me' (backs 'New exploration', the exploration tabs, the object-set owner lanes); no per-principal saved-object-set daemon contract exists",
+        "SURFACE control bound to the object-instance search plane — full-text and faceted search over object INSTANCES (backs reference WAYF 'Search for objects', the hero object-search input and the 'Filter by...' facets). The DAEMON CONTRACT EXISTS as of next-legs XIII: POST /v1/hypervisor/odk/object-instance-search, ontology-scoped, typed corpus-absent apart from query-unmatched. Faceted narrowing on top of it has no contract yet. [CORRECTED 2026-08-14: this named the contract as MISSING and next-legs XIII landed it; what is missing is a SURFACE control bound to it, not the daemon contract.]",
+        "SURFACE control bound to the saved-object-set family, plus the per-user lanes over the MATERIALIZED set catalog — Recents/Favorites, 'Your object sets', 'Created by me'/'Shared with me' — which have no contract at all: those lanes render `odk-materialized-object-sets`, a different store from saved sets, and nothing records per-user ownership of it. The PER-PRINCIPAL SAVED-OBJECT-SET CONTRACT EXISTS as of next-legs XIII (GET/POST /v1/hypervisor/odk/saved-object-sets, scope-pinned per principal, CAS-guarded, retire-not-delete) and what is missing there is only a surface control. Corrected 2026-08-14 twice: the reason first claimed the whole contract was missing, then the correction OVERCLAIMED by naming the materialized-catalog ownership lanes as backed by the saved-set family. They are not the same store.",
         "action-type EXECUTION authority — object action_type DECLARATIONS exist in the COM but there is NO daemon route to execute an action against object instances (backs inspector 'Execute action')",
-        "object-instance exploration workspace / per-object detail data — the reference /exploration?objectTypeRid workspace and its instance grid (dead-XHR in the mirror); IOI has vertex/lineage read routes but no instance-level exploration data plane",
+        "SURFACE workspace bound to the object-instance planes — the reference /exploration?objectTypeRid workspace and its instance grid (dead-XHR in the mirror). The instance READ plane exists as of next-legs XIII (POST /v1/hypervisor/odk/object-instance-search returns instance rows carrying per-row materialized_object_set_ref and materializing_run_ref provenance); what is missing is the workspace bound to it, and per-object detail data beyond those rows. [CORRECTED 2026-08-14: this named the contract as MISSING and next-legs XIII landed it; what is missing is a SURFACE control bound to it, not the daemon contract.]",
         "ontology-scoped catalog view param — minor: a per-view ontology-scope filter (reference ontology selector); the data exists (domain-ontologies) but no scoped catalog read is wired"
       ],
-      "security_credential_implications": "Explorer is currently read-only, so it introduces no credential or wallet surface today; the set inspector already redacts source-contact to origin-only (path redacted) and shows provenance refs, never credential material. The ONE governed action reachable via existing authority — the MaterializingRun acquire-lease crossing — is wallet-gated (gateway returns a verbatim 403 challenge without a bound grant) and sealed (no backing credential resolved; any bearer token dropped, never stored/logged/returned) and lease-acquisition-only (object_instances stays 0; row extraction is the separate connector-session crossing owned by the ODK substrate/Pipeline). Any operational cut MUST route through that existing wallet-gated gateway and fail closed on a missing grant; reusing the ladder adds no new credential surface. By contrast, ever building the reference's object-instance SEARCH / exploration-authoring planes would open a broad read-exposure surface over raw source rows — high risk, correctly deferred.",
+      "security_credential_implications": "Explorer is currently read-only, so it introduces no credential or wallet surface today; the set inspector already redacts source-contact to origin-only (path redacted) and shows provenance refs, never credential material. The ONE governed action reachable via existing authority — the MaterializingRun acquire-lease crossing — is wallet-gated (gateway returns a verbatim 403 challenge without a bound grant) and sealed (no backing credential resolved; any bearer token dropped, never stored/logged/returned) and lease-acquisition-only (object_instances stays 0; row extraction is the separate connector-session crossing owned by the ODK substrate/Pipeline). Any operational cut MUST route through that existing wallet-gated gateway and fail closed on a missing grant; reusing the ladder adds no new credential surface. By contrast, next-legs XIII BUILT the object-instance search and saved-object-set planes, so this risk is now live rather than deferred: search is authenticated and ontology-scoped and answers only over the materialized-set corpus, and its MATCHING, row provenance, truncation arithmetic and scope FILTER are proven NOWHERE — that residual is named in the XIII ledger. Binding a surface control to it is what would expose raw source rows broadly, and that is the gate to hold.",
       "recommended_next_pr": {
         "title": "Object Explorer: governed object-set materialization action (inspect → act)",
         "scope": "Add ONE governed action to the object-type inspector — 'Materialize object set' — that, for the selected object type + its declared OntologyProjection, drives the EXISTING MaterializingRun ladder (POST /odk/materializing-runs admit → POST /:id/acquire-lease wallet-gated crossing → POST /:id/execute) and renders the durable receipt chain inline. Wire it through the #62 action runtime (handleAction) and declare the mutation so the surface-registry promotes explorer from operational_state 'inspect' to 'act'. Reuse existing daemon authority only — introduce NO new daemon contract. Keep the surface's read identity: the action operates on the selected type/projection the user is inspecting, it does NOT author new pipelines (that stays Pipeline's governed Build) and it does NOT touch object-instance search or exploration authoring (named gaps).",

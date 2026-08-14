@@ -226,7 +226,7 @@ function rebuildFromRaw() {
       local_view_interaction: "view-only client/URL state, no authority crossed",
       governed_receipted_action: "a real mutation through EXISTING daemon authority returning a durable receipt",
       disabled_missing_authority: "visible but disabled; the reason names the exact missing daemon contract",
-      unsupported_reference_session: "reference session machinery (branch/proposal/favorites/undo) with no IOI product plane",
+      unsupported_reference_session: "reference session machinery (branch/favorites/undo) with no IOI product plane. Qualified 2026-08-14: 'proposal' was removed — next-legs XIII landed the ontology proposal plane, and a taxonomy that names a plane as absent goes false the same way any named reason does.",
       reference_data_only: "the reference's verbatim capture chrome / example content, display-only",
     },
     surfaces,
