@@ -22,25 +22,9 @@ const SHELL = (process.env.IOI_HYPERVISOR_APP_URL || "http://127.0.0.1:4173").re
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
-// Environment CREATE is the ownership root of the custody lane and requires an authenticated
-// principal (next-legs XIII): an environment minted with no owner is one no principal may ever
-// capture. This verifier drives a manually-launched estate, so it takes the operator session the
-// same way it takes the URLs — `IOI_HYPERVISOR_SESSION=$(… /auth/bootstrap|login → session_token)`.
-const SESSION = (process.env.IOI_HYPERVISOR_SESSION || "").trim();
-if (!SESSION) {
-  // BLOCKED, not "run and fail later". Without a session the environment-create call 401s and every
-  // downstream assertion fails with a symptom unrelated to what it checks — a broken probe reporting
-  // as a caught defect, which is the same class as a false green.
-  console.error("BLOCKED: IOI_HYPERVISOR_SESSION is unset. Environment create requires an authenticated principal; export the operator session token this estate was launched with.");
-  process.exit(2);
-}
 async function jd(method, url, body) {
   const r = await fetch(url.startsWith("http") ? url : `${DAEMON}${url}`, {
-    method,
-    headers: {
-      "content-type": "application/json",
-      ...(SESSION ? { cookie: `ioi_session=${SESSION}` } : {}),
-    },
+    method, headers: { "content-type": "application/json" },
     body: body ? JSON.stringify(body) : undefined,
   });
   return { status: r.status, j: await r.json().catch(() => ({})) };
