@@ -24,7 +24,14 @@
       "npm_script": "check:ontology-journey",
       "source": "apps/hypervisor/scripts/verify-hypervisor-ontology-journey.mjs",
       "runtime_assertions": 46,
-      "assertion_names_sha256": "ed3903a71c147447131159b4b735f2a4bfc7e6daeb6d1b3a314673811f8092f7"
+      "assertion_names_sha256": "edd363be3a0c9f3ed364e33530e6b7e0e39ba8dc66f777a5b2ebd877a1957930"
+    },
+    {
+      "id": "ontology-backend-families",
+      "npm_script": "check:ontology-backend-families",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-ontology-backend-families.mjs",
+      "runtime_assertions": 86,
+      "assertion_names_sha256": "a6295d669c82fb4c79b1d02d2516cdbde4705f922cf3577c01a4b43498392bc7"
     },
     {
       "id": "governance-journey",

@@ -32,6 +32,9 @@ use std::collections::HashMap;
 use super::{iso_now, persist_record, read_record_dir, remove_record, DaemonState};
 
 pub(crate) const KIND_ONT: &str = "odk-domain-ontologies";
+/// THE ONE SPELLING of the health note. It was written into records at create time and read back
+/// verbatim, so a capability landing could not reach an ontology already on disk.
+const OBJECT_DATA_NOTE: &str = "this health report is derived from the MODEL ALONE — the function that builds it receives no data directory and counts nothing, so the `object_instances` beside it is a structural zero and NOT a materialization count. Ask the object-instance SEARCH plane for that: it is bound as of next-legs XIII (POST /v1/hypervisor/odk/object-instance-search), walks the materialized-set store, and answers a typed corpus-absent when nothing is materialized";
 const KIND_RECIPE: &str = "odk-data-recipes";
 const KIND_MANIFEST: &str = "odk-manifests";
 const KIND_SD: &str = "odk-surface-descriptors";
@@ -84,7 +87,7 @@ const ACTION_KINDS: &[&str] = &[
     "function",
 ];
 /// Receipts for ontology create/patch land here (history is also embedded on the record).
-const KIND_ONT_RECEIPT: &str = "odk-ontology-receipts";
+pub(crate) const KIND_ONT_RECEIPT: &str = "odk-ontology-receipts";
 
 fn safe(seg: &str) -> String {
     seg.replace(
@@ -92,13 +95,13 @@ fn safe(seg: &str) -> String {
         "_",
     )
 }
-fn nanos() -> u128 {
+pub(crate) fn nanos() -> u128 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_nanos())
         .unwrap_or(0)
 }
-fn load(data_dir: &str, kind: &str, id: &str) -> Option<Value> {
+pub(crate) fn load(data_dir: &str, kind: &str, id: &str) -> Option<Value> {
     serde_json::from_slice(
         &std::fs::read(
             Path::new(data_dir)
@@ -748,7 +751,7 @@ fn validate_object_model(com: &Value) -> Result<Value, VErr> {
         },
         "gaps": gaps,
         "object_instances": 0,
-        "object_data_note": "schema only — no object-instance/projection plane is bound; explorer rows require a real ontology-bound object plane (not built here)",
+        "object_data_note": OBJECT_DATA_NOTE,
         "legacy_untyped_names": legacy_untyped
     }))
 }
@@ -835,7 +838,10 @@ fn str_opt_bounded(body: &Value, key: &str, max: usize) -> Result<Option<String>
 /// Optimistic concurrency (#63): when `expected_revision` is supplied it must be an integer that
 /// exactly matches the persisted revision. Malformed → typed invalid refusal; mismatch → typed
 /// conflict. Either refusal changes NOTHING. Legacy callers that omit it are preserved.
-fn check_expected_revision(body: &Value, current: u64) -> Result<(), (StatusCode, String, String)> {
+pub(crate) fn check_expected_revision(
+    body: &Value,
+    current: u64,
+) -> Result<(), (StatusCode, String, String)> {
     match body.get("expected_revision") {
         None | Some(Value::Null) => Ok(()),
         Some(v) => match v.as_u64() {
@@ -848,6 +854,23 @@ fn check_expected_revision(body: &Value, current: u64) -> Result<(), (StatusCode
 
 // ================================ DOMAIN ONTOLOGY ================================================
 
+/// PROSE ABOUT THE PLANE IS PROJECTED ON READ, NEVER SERVED FROM THE RECORD.
+///
+/// `health.object_data_note` describes what this ESTATE can do, and it is computed at write time and
+/// persisted into the record — so every ontology written before a capability lands keeps the old
+/// sentence for ever, and a review found exactly that: three user-facing pages still telling readers
+/// no object-instance plane is bound, months after one was, with no backfill anywhere in the stack.
+/// A stored note is a snapshot of what was true when the record was written; a reader wants what is
+/// true now. So the note is REPROJECTED on every read. The counts and gaps beside it stay stored
+/// truth — they are facts about the model, which is what the record is for.
+fn reproject_object_data_note(record: &mut Value) {
+    if let Some(health) = record.get_mut("health").and_then(Value::as_object_mut) {
+        if health.contains_key("object_data_note") {
+            health.insert("object_data_note".to_string(), json!(OBJECT_DATA_NOTE));
+        }
+    }
+}
+
 pub(crate) async fn handle_odk_ontology_list(
     State(st): State<Arc<DaemonState>>,
     Query(q): Query<HashMap<String, String>>,
@@ -857,6 +880,9 @@ pub(crate) async fn handle_odk_ontology_list(
         items.retain(|o| o.get("domain").and_then(|v| v.as_str()) == Some(domain));
     }
     sort_by_updated(&mut items);
+    for item in items.iter_mut() {
+        reproject_object_data_note(item);
+    }
     Json(json!({ "ok": true, "ontologies": items }))
 }
 
@@ -875,11 +901,13 @@ pub(crate) async fn handle_odk_ontology_create(
         Ok(identity) => identity,
         Err(error) => return odk_scope_refusal(error),
     };
-    let domain = body
-        .get("domain")
-        .and_then(|v| v.as_str())
-        .map(str::trim)
-        .filter(|s| !s.is_empty());
+    // TRIM TO JUDGE, PERSIST WHAT THE CALLER SENT. `apply_ontology_change` stores `domain`
+    // VERBATIM; this route stored it TRIMMED, so create and patch disagreed on the same field —
+    // one field's worth of exactly the divergence this module's own comment claims to have ended,
+    // and silent normalization of persisted data is a defect this run has already paid for once.
+    // The emptiness judgement still uses the trimmed value, which is what the shared validator does.
+    let domain_raw = body.get("domain").and_then(|v| v.as_str());
+    let domain = domain_raw.filter(|s| !s.trim().is_empty());
     let Some(domain) = domain else {
         return bad(
             "odk_domain_required",
@@ -956,7 +984,11 @@ pub(crate) async fn handle_odk_ontology_get(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
 ) -> Json<Value> {
-    json_get(&st.data_dir, KIND_ONT, "ontology", &id)
+    let mut out = json_get(&st.data_dir, KIND_ONT, "ontology", &id);
+    if let Some(record) = out.0.get_mut("ontology") {
+        reproject_object_data_note(record);
+    }
+    out
 }
 
 /// PATCH — fail-closed on a malformed model (revision is NOT bumped on rejection); optimistic
@@ -976,7 +1008,81 @@ pub(crate) async fn handle_odk_ontology_patch(
         Ok(identity) => identity,
         Err(error) => return odk_scope_refusal(error),
     };
-    let Some(prev) = load(&st.data_dir, KIND_ONT, &id) else {
+    apply_ontology_change(&st.data_dir, &identity, &id, &body)
+}
+
+/// THE ONE VALIDATOR FOR AN ONTOLOGY CHANGE SET, shared by the edit path and the proposal plane.
+///
+/// A review demonstrated that proposal-time checking was strictly weaker than apply-time: an empty
+/// `domain`, an over-length field, and a duplicate object-type id were all ACCEPTED as proposals and
+/// then refused on apply, leaving permanently unappliable "open" proposals accumulating. That
+/// contradicts the reason a proposal is validated at all — a proposal that could never apply is a
+/// note. Both paths now run this, so "the same rules an ordinary edit obeys" is a shared function
+/// rather than a claim.
+pub(crate) fn validate_ontology_change(body: &Value) -> Result<(), (StatusCode, Value)> {
+    for (key, max) in [("domain", 120usize), ("version", 60), ("description", 2000)] {
+        match str_opt_bounded(body, key, max) {
+            Ok(Some(value)) if key == "domain" && value.trim().is_empty() => {
+                return Err((
+                    StatusCode::BAD_REQUEST,
+                    json!({ "code": "odk_domain_required", "message": "`domain` must stay non-empty" }),
+                ))
+            }
+            Ok(_) => {}
+            Err((code, message)) => {
+                return Err((
+                    StatusCode::BAD_REQUEST,
+                    json!({ "code": code, "message": message }),
+                ))
+            }
+        }
+    }
+    // A NULL OBJECT MODEL IS PRESENT AND INVALID, and it stays that way.
+    //
+    // An earlier revision made it "absent" to match how `str_opt_bounded` reads the string fields,
+    // citing a propose/patch divergence. THERE WAS NO DIVERGENCE: both planes already refused it
+    // with `odk_field_type_invalid`. What existed was an inconsistency INSIDE this validator, and
+    // it got resolved by relaxing the STRICTER side — turning a typed refusal on a shipped route
+    // into an accepted no-op that bumped the revision and minted a receipt for nothing. Fail-closed
+    // to fail-open, undeclared. The internal inconsistency is real and is left standing
+    // deliberately: a missing string field and a missing model are different shapes, and between
+    // two ways to make them agree the honest one admits less.
+    if let Some(model) = body.get("canonical_object_model") {
+        if !model.is_object() {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                json!({ "code": "odk_field_type_invalid", "message": "`canonical_object_model` must be an object" }),
+            ));
+        }
+        if let Err((code, message)) = validate_object_model(model) {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                json!({ "code": code, "message": message }),
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// THE ONE WRITER FOR AN ONTOLOGY EDIT.
+///
+/// Extracted from the PATCH handler so the ontology-proposal plane can APPLY a proposal through the
+/// exact path an ordinary edit takes. A proposal apply that re-implemented validation, revision
+/// bumping, health recomputation, receipting or history would be a SECOND ADMISSION PATH for one act
+/// — with its own answer to `expected_revision`, its own idea of what a valid model is, and its own
+/// receipt shape. The estate's standing law is that no surface mints a second spine beside a kernel
+/// owner; this keeps proposals composing over the owner rather than beside it.
+///
+/// Identity is resolved by the CALLER, before this is reached, because rule E owes a 401 before the
+/// record read below is allowed to reveal existence.
+pub(crate) fn apply_ontology_change(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    id: &str,
+    body: &Value,
+) -> (StatusCode, Json<Value>) {
+    let st_data_dir = data_dir;
+    let Some(prev) = load(st_data_dir, KIND_ONT, id) else {
         return (
             StatusCode::NOT_FOUND,
             Json(
@@ -985,7 +1091,7 @@ pub(crate) async fn handle_odk_ontology_patch(
         );
     };
     let current_rev = prev.get("revision").and_then(|v| v.as_u64()).unwrap_or(1);
-    if let Err((status, code, msg)) = check_expected_revision(&body, current_rev) {
+    if let Err((status, code, msg)) = check_expected_revision(body, current_rev) {
         return (
             status,
             Json(
@@ -993,52 +1099,30 @@ pub(crate) async fn handle_odk_ontology_patch(
             ),
         );
     }
-    // Hardened (#63): editable fields present-but-wrong-type/oversized are rejected typed.
-    let mut typed_fields: Vec<(&str, Value)> = Vec::new();
-    for (key, max) in [("domain", 120usize), ("version", 60), ("description", 2000)] {
-        match str_opt_bounded(&body, key, max) {
-            Ok(Some(v)) => {
-                if key == "domain" && v.trim().is_empty() {
-                    return (
-                        StatusCode::OK,
-                        Json(
-                            json!({ "ok": false, "error": { "code": "odk_domain_required", "message": "`domain` must stay non-empty" } }),
-                        ),
-                    );
-                }
-                typed_fields.push((key, json!(v)));
-            }
-            Ok(None) => {}
-            Err((code, msg)) => {
-                return (
-                    StatusCode::OK,
-                    Json(json!({ "ok": false, "error": { "code": code, "message": msg } })),
-                )
-            }
-        }
-    }
-    if let Some(new_com) = body.get("canonical_object_model") {
-        if !new_com.is_object() {
-            return (
-                StatusCode::OK,
-                Json(
-                    json!({ "ok": false, "error": { "code": "odk_field_type_invalid", "message": "`canonical_object_model` must be an object" } }),
-                ),
-            );
-        }
-        // Validate the replacement model BEFORE mutating anything — a bad patch changes nothing.
-        if let Err((code, msg)) = validate_object_model(new_com) {
-            return (
-                StatusCode::OK,
-                Json(json!({ "ok": false, "error": { "code": code, "message": msg } })),
-            );
-        }
+    // THE SHARED VALIDATOR, not a second copy of these rules. A review found this path carrying an
+    // inline duplicate of `validate_ontology_change` while the proposal plane called the function —
+    // two copies nothing held in agreement, and one had already diverged (an explicit `null` domain
+    // was accepted here and refused there). One caller, one validator, or "the same rules an
+    // ordinary edit obeys" is a sentence rather than a property.
+    if let Err((_status, error)) = validate_ontology_change(body) {
+        return (StatusCode::OK, Json(json!({ "ok": false, "error": error })));
     }
     let mut o = prev.clone();
     let mut changed: Vec<String> = Vec::new();
-    for (key, v) in typed_fields {
-        o[key] = v;
-        changed.push(key.to_string());
+    for key in ["domain", "version", "description"] {
+        // Validated above by the shared validator; only PRESENT string fields are applied, so an
+        // absent field and an explicit null both leave the record untouched exactly as before.
+        //
+        // AND THE VALUE IS STORED VERBATIM. An earlier revision of this extraction wrote
+        // `value.trim()`, which is an UNDECLARED REWRITE OF CALLER DATA on a shipped write path:
+        // `create` stored `"  9.9.9  "` while `patch` of the same string stored `"9.9.9"`, a
+        // proposal's reviewed text stopped being the text that got written, and the length bound
+        // still measured the raw string while storage was trimmed. Trimming belongs to the
+        // emptiness CHECK in the validator, never to what is persisted.
+        if let Some(value) = body.get(key).and_then(Value::as_str) {
+            o[key] = json!(value);
+            changed.push(key.to_string());
+        }
     }
     if let Some(new_com) = body.get("canonical_object_model") {
         o["canonical_object_model"] = new_com.clone();
@@ -1092,7 +1176,7 @@ pub(crate) async fn handle_odk_ontology_patch(
     refs.push(receipt_ref);
     o["receipt_refs"] = json!(refs);
     if let Err(m) =
-        finalize_ontology_persist(&st.data_dir, &id, Some(&prev), &o, &receipt_id, &receipt)
+        finalize_ontology_persist(st_data_dir, id, Some(&prev), &o, &receipt_id, &receipt)
     {
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -1628,7 +1712,7 @@ pub(crate) async fn handle_odk_manifest_delete(
 const ODK_NAMESPACE: &str = "hypervisor-odk";
 const ODK_DESCRIPTOR_SCOPE_KIND: &str = "hypervisor-odk-surface-descriptor";
 
-fn odk_scope_refusal(
+pub(crate) fn odk_scope_refusal(
     error: super::substrate_store::RequestScopeRefusal,
 ) -> (StatusCode, Json<Value>) {
     use super::substrate_store::RequestScopeRefusal;

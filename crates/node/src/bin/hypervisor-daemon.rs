@@ -122,6 +122,8 @@ mod mutation_event_foundation;
 mod odk_routes;
 #[path = "hypervisor_daemon_routes/ontology_projection_routes.rs"]
 mod ontology_projection_routes;
+#[path = "hypervisor_daemon_routes/ontology_workbench_routes.rs"]
+mod ontology_workbench_routes;
 #[path = "hypervisor_daemon_routes/operability_routes.rs"]
 mod operability_routes;
 #[path = "hypervisor_daemon_routes/operations_support_routes.rs"]
@@ -1601,6 +1603,45 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/odk/domain-ontologies/:id/history",
             get(odk_routes::handle_odk_ontology_history),
+        )
+        // The three ontology backend families ACC-A names and the estate did not have (next-legs
+        // XIII). Ordinary governed mutation, identity-first, `expected_revision` CAS; a proposal
+        // APPLY writes through `odk_routes::apply_ontology_change`, the one writer an ordinary PATCH
+        // uses, so composing over the owner never becomes a second spine beside it.
+        .route(
+            "/v1/hypervisor/odk/ontology-proposals",
+            get(ontology_workbench_routes::handle_proposal_list)
+                .post(ontology_workbench_routes::handle_proposal_create),
+        )
+        .route(
+            "/v1/hypervisor/odk/ontology-proposals/:id",
+            get(ontology_workbench_routes::handle_proposal_get),
+        )
+        .route(
+            "/v1/hypervisor/odk/ontology-proposals/:id/apply",
+            post(ontology_workbench_routes::handle_proposal_apply),
+        )
+        .route(
+            "/v1/hypervisor/odk/ontology-proposals/:id/withdraw",
+            post(ontology_workbench_routes::handle_proposal_withdraw),
+        )
+        .route(
+            "/v1/hypervisor/odk/saved-object-sets",
+            get(ontology_workbench_routes::handle_saved_set_list)
+                .post(ontology_workbench_routes::handle_saved_set_create),
+        )
+        .route(
+            "/v1/hypervisor/odk/saved-object-sets/:id",
+            get(ontology_workbench_routes::handle_saved_set_get)
+                .patch(ontology_workbench_routes::handle_saved_set_patch),
+        )
+        .route(
+            "/v1/hypervisor/odk/saved-object-sets/:id/retire",
+            post(ontology_workbench_routes::handle_saved_set_retire),
+        )
+        .route(
+            "/v1/hypervisor/odk/object-instance-search",
+            post(ontology_workbench_routes::handle_object_instance_search),
         )
         // ConnectorMapping — the first inert authority-crossing brick (declared source fields →
         // typed object properties). No extraction; object_instances stays 0.

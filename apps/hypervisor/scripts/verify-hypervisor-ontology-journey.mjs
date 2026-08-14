@@ -5,8 +5,9 @@
 // processes), the brief §5 acceptance that #219/#222 left open: create /
 // version-discipline / read / search-filter / denial / CAS-conflict-and-
 // recovery / receipt / reload / restart-survival journeys, plus the typed
-// named-gap assertions for the daemon families that do not exist (proposals,
-// saved-set authoring) — absence is asserted, never papered over.
+// presence assertions for the proposal and saved-object-set families, which next-legs XIII landed
+// — the two assertions that used to claim their ABSENCE probed URLs that were never routes and so
+// could never have gone red; see the block at their site.
 //
 // Exit: 0 pass · 1 fail · 2 blocked (daemon binary or product bundle missing).
 //
@@ -218,11 +219,26 @@ async function run() {
   const health = await jd(`/v1/hypervisor/odk/domain-ontologies/${ontId}/health`);
   ok("health answers for the authored ontology", health.status === 200, `status ${health.status}`);
 
-  // -- named gaps stay typed, never faked ------------------------------------
-  const proposals = await jd(`/v1/hypervisor/odk/domain-ontologies/${ontId}/proposals`);
-  ok("proposal family absent — named gap typed, not simulated", proposals.status === 404 || proposals.status === 405, `status ${proposals.status}`);
-  const savedSet = await jd("/v1/hypervisor/odk/materialized-object-sets", { method: "POST", body: JSON.stringify({ name: "x" }) });
-  ok("saved-set authoring absent — named gap typed, not simulated", savedSet.status === 404 || savedSet.status === 405, `status ${savedSet.status}`);
+  // -- the two families next-legs XIII LANDED, asserted at the routes that actually exist ---------
+  //
+  // THESE TWO ASSERTIONS USED TO CLAIM THESE FAMILIES WERE ABSENT, AND THEY COULD NEVER HAVE FAILED.
+  // They probed `/domain-ontologies/:id/proposals` and `POST /materialized-object-sets` — one was
+  // never a route in any build, the other is registered GET-only — so both answered 404/405 for
+  // reasons that had nothing to do with the subject, and the gate stayed green while the estate's
+  // truth moved underneath it. A merge-blocking audit found them AFTER next-legs XIII landed both
+  // families: CI-wired, floor-pinned, and cited in the ledger as corroborating evidence, with two
+  // false assertion NAMES hashed into the floors digest as certified estate truth. An assertion
+  // whose probe was never real is the purest form of a decorative assertion — it cannot go red on
+  // its own finding in any world.
+  //
+  // They now probe the REAL routes and assert PRESENCE, so this gate fails if either family is
+  // withdrawn — which is what an absence claim was supposed to buy and never did.
+  const proposals = await jd("/v1/hypervisor/odk/ontology-proposals");
+  ok("the ontology PROPOSAL family is REGISTERED at its route and refuses this anonymous probe — this journey sends no session, so what is proven is registration plus an identity-first refusal, not that the family answers; it replaces an assertion that claimed the family was ABSENT while probing a URL that was never a route in any build",
+    proposals.status === 401, `status ${proposals.status}`);
+  const savedSet = await jd("/v1/hypervisor/odk/saved-object-sets");
+  ok("the SAVED-OBJECT-SET family is REGISTERED at its route and refuses this anonymous probe — registration plus an identity-first refusal, not that the family answers; it replaces an assertion that claimed saved-set authoring was ABSENT while probing a GET-only route with a POST",
+    savedSet.status === 401, `status ${savedSet.status}`);
 
   // -- identity gate (W1.1/G-2 finding CLOSED): anonymous authoring refuses typed ----
   // Rule E — the refusal is owed BEFORE any record load: the serve action lane without a
