@@ -624,15 +624,28 @@ async function run() {
   const PRE_LEG = "snap_prelegacy0000";
   const preLegDir = path.join(dataDir, "snapshots", PRE_LEG);
   fs.mkdirSync(preLegDir, { recursive: true });
-  fs.writeFileSync(path.join(preLegDir, "workspace.tar"), "pre-leg capture bytes\n");
+  const preLegMaterial = Buffer.from("pre-leg capture bytes\n", "utf8");
+  fs.writeFileSync(path.join(preLegDir, "workspace.tar"), preLegMaterial);
+  // BYTE-FAITHFUL TO WHAT THE PREVIOUS BUILD WROTE, because a fixture that is only roughly the
+  // product's shape is the scar this estate already carries: the state root is the real digest of
+  // this material, the byte count is its real length, and `material_ref` is present exactly as
+  // `capture_workspace` has always written it. The ONE thing that differs is the one under test —
+  // no owner scope pin, because that build minted none.
+  const preLegRoot = `sha256:${crypto.createHash("sha256").update(preLegMaterial).digest("hex")}`;
   fs.writeFileSync(path.join(dataDir, "snapshots", `${PRE_LEG}.json`), JSON.stringify({
     schema_version: "ioi.hypervisor.environment-snapshot.v1", snapshot_ref: PRE_LEG, kind: "snapshot",
-    environment_ref: ENV_A, state_root: `sha256:${"0".repeat(64)}`,
-    material_path: path.join(preLegDir, "workspace.tar"), bytes: 21, created_at: new Date().toISOString(),
+    environment_ref: ENV_A, state_root: preLegRoot,
+    material_ref: `local-cas://sha256/${preLegRoot.slice("sha256:".length)}`,
+    material_path: path.join(preLegDir, "workspace.tar"), bytes: preLegMaterial.length,
+    created_at: new Date().toISOString(),
   }, null, 2));
-  ok("PRECONDITION: a capture from the PREVIOUS BUILD is on disk with its material and NO owner scope pin",
-    fs.existsSync(path.join(preLegDir, "workspace.tar")),
-    PRE_LEG);
+  const preLegShape = JSON.parse(fs.readFileSync(path.join(dataDir, "snapshots", `${PRE_LEG}.json`), "utf8"));
+  const liveShape = JSON.parse(fs.readFileSync(path.join(dataDir, "snapshots", `${captureId}.json`), "utf8"));
+  ok("PRECONDITION: the planted capture carries the SAME FIELDS the current build writes, with a real digest over its own material — a fixture that is only roughly the product's shape proves only roughly what it claims",
+    Object.keys(liveShape).every((key) => key in preLegShape)
+      && preLegShape.state_root === `sha256:${crypto.createHash("sha256").update(fs.readFileSync(path.join(preLegDir, "workspace.tar"))).digest("hex")}`
+      && preLegShape.bytes === fs.statSync(path.join(preLegDir, "workspace.tar")).size,
+    Object.keys(liveShape).filter((key) => !(key in preLegShape)).join(",") || "same field set, real digest, real length");
   const preLegList = await jd("GET", "/v1/hypervisor/snapshots", null, { as: "A" });
   ok("a pre-leg capture is INVISIBLE to listing, for the deployment administrator as much as anyone",
     preLegList.status === 200 && (preLegList.j?.snapshots ?? []).every((row) => row.snapshot_ref !== PRE_LEG),
