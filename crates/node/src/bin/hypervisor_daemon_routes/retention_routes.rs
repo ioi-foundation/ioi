@@ -157,14 +157,19 @@ pub(crate) async fn handle_disposition_create(
             (backup_ref, state_root)
         }
         SUBJECT_KIND_ENVIRONMENT_CAPTURE => {
-            let (_kind, capture, _scope) = match super::environment_routes::authorized_capture_by_id(
-                &st.data_dir,
-                &caller.identity,
-                subject_id,
-            ) {
-                Ok(value) => value,
-                Err(reply) => return reply,
-            };
+            // The CANONICAL coordinate the resolver returns, never the caller's spelling — exactly as
+            // the managed branch above stores the resolved `backup_ref` rather than `subject_id`. A
+            // duty stored at an alias authorized fine and could never be executed, because the
+            // tombstone keys on the canonical one.
+            let (_kind, capture_ref, capture, _scope) =
+                match super::environment_routes::authorized_capture_by_id(
+                    &st.data_dir,
+                    &caller.identity,
+                    subject_id,
+                ) {
+                    Ok(value) => value,
+                    Err(reply) => return reply,
+                };
             let state_root = capture["state_root"].as_str().unwrap_or("").to_string();
             if state_root.is_empty() {
                 return bad(
@@ -173,7 +178,7 @@ pub(crate) async fn handle_disposition_create(
                     "the admitted capture record carries no state_root, so a deletion could not name what it destroyed",
                 );
             }
-            (subject_id.to_string(), state_root)
+            (capture_ref, state_root)
         }
         _ => {
             return bad(

@@ -164,6 +164,18 @@ function captureRecords() {
   return out.sort();
 }
 
+/** The daemon's own `safe_id` normalization, mirrored so the collision fixture is provably one. */
+const safeId = (id) => id.replace(/[^A-Za-z0-9_-]/gu, "_");
+
+/** One environment record's exact bytes, or "" when absent. Reading the file is the point. */
+function environmentRecordBytes(environmentId) {
+  const dir = path.join(dataDir, "environments", safeId(environmentId));
+  for (const candidate of [path.join(dir, `${safeId(environmentId)}.json`), `${dir}.json`]) {
+    try { return fs.readFileSync(candidate, "utf8"); } catch { /* next */ }
+  }
+  return "";
+}
+
 function dispositionRecords() {
   try { return fs.readdirSync(path.join(dataDir, "retention-dispositions")).sort(); } catch { return []; }
 }
@@ -262,8 +274,8 @@ const isCustody = (route) => CUSTODY_KEYS.has(routeKey(route));
 const anonRequestFor = ({ method, path: p }, captureId) => {
   const concrete = p.replace(":id", captureId);
   if (p === "/v1/hypervisor/environments" && method === "POST") return { method, path: concrete, body: { environment_id: "anon-env", spec: {} } };
-  if (p === "/v1/hypervisor/snapshots" && method === "POST") return { method, path: concrete, body: { environment_id: "custody-a" } };
-  if (p === "/v1/hypervisor/backups" && method === "POST") return { method, path: concrete, body: { environment_id: "custody-a" } };
+  if (p === "/v1/hypervisor/snapshots" && method === "POST") return { method, path: concrete, body: { environment_id: "custody_a" } };
+  if (p === "/v1/hypervisor/backups" && method === "POST") return { method, path: concrete, body: { environment_id: "custody_a" } };
   return { method, path: concrete, body: {} };
 };
 
@@ -330,7 +342,10 @@ async function run() {
     `${P.A.owner} / ${P.B.owner} / ${P.C.owner}`);
 
   // ------------------------------------------------------------ A owns an environment
-  const ENV_A = "custody-a";
+  // The id carries an UNDERSCORE deliberately: `safe_id` preserves `-` and rewrites `.`, so only an
+  // underscore-bearing id has a colliding alias — and every daemon-minted id is `env_{nanos:x}`, so
+  // the default create path always has one. A hyphenated fixture could never produce the failure.
+  const ENV_A = "custody_a";
   const { created: createdA, workspace: workspaceA } = await provisionEnvironment("A", ENV_A);
   ok("A's environment was created through the owning route and materialized a REAL workspace inside the daemon's data directory",
     createdA.status === 200 && workspaceA.length > 0 && fs.existsSync(workspaceA)
@@ -416,7 +431,8 @@ async function run() {
   // environment nobody owns is an environment nobody may capture — including the admin.
   const UNOWNED_ENV = "custody-unowned";
   const vivified = await jd("GET", `/v1/hypervisor/environments/${UNOWNED_ENV}`, null, { as: null });
-  await jd("POST", `/v1/hypervisor/environments/${UNOWNED_ENV}/start`, null, { as: null });
+  const unownedStart = await jd("POST", `/v1/hypervisor/environments/${UNOWNED_ENV}/start`, null, { as: null });
+  const unownedWorkspace = unownedStart.j?.environment?.status?.workspace_root ?? "";
   tarsBefore = materialTars();
   const unownedCapture = await jd("POST", "/v1/hypervisor/snapshots", { environment_id: UNOWNED_ENV }, { as: "A" });
   ok("an environment established by first reference with no resolvable caller carries NO owner, and its capture refuses TYPED — even for the deployment administrator",
@@ -426,11 +442,121 @@ async function run() {
   ok("and the refused capture of an unowned environment produced NO material",
     materialTars().length === tarsBefore.length,
     `${tarsBefore.length} -> ${materialTars().length} tars`);
+  ok("PRECONDITION: the unowned environment really did MATERIALIZE a workspace, so the seizure below has something to take",
+    unownedWorkspace.length > 0 && fs.existsSync(unownedWorkspace),
+    unownedWorkspace || "no workspace");
 
-  // A caller cannot take an environment another principal already owns by naming its id at create.
+  // A caller cannot take an environment another principal already owns by naming its id at create,
+  // and the RECORD is read before and after so "refuses before the record is touched" is proven
+  // rather than inferred from a response code.
+  const recordPathA = path.join(dataDir, "environments", ENV_A, `${ENV_A}.json`);
+  const envRecordBytesBefore = fs.existsSync(recordPathA) ? fs.readFileSync(recordPathA, "utf8") : environmentRecordBytes(ENV_A);
   const squat = await jd("POST", "/v1/hypervisor/environments", { environment_id: ENV_A, spec: {} }, { as: "B" });
-  ok("B cannot acquire A's environment by naming its id at create — the pin refuses before the record is touched",
-    squat.status === 403, `status ${squat.status} code ${code(squat.j)}`);
+  ok("B cannot acquire A's environment by naming its id at create, and A's record is byte-identical afterwards",
+    squat.status === 403 && environmentRecordBytes(ENV_A) === envRecordBytesBefore,
+    `status ${squat.status} code ${code(squat.j)}`);
+
+  // THE COORDINATE COLLISION. `safe_id` maps every character outside [A-Za-z0-9_-] to `_`, and it is
+  // MANY-TO-ONE, so an alias like `custody.a` addresses the SAME record file and the SAME workspace
+  // directory as `custody-a`. The first cut of this leg pinned the RAW id while persisting on the
+  // safe one, and a review used exactly this to take a fresh pin at the alias, clobber the victim's
+  // record, start onto the victim's workspace, capture the victim's bytes and restore over them.
+  // A fixture whose id contains no substitutable character could never have produced that failure.
+  const ALIAS_A = ENV_A.replace("_", ".");
+  ok("PRECONDITION: the alias really does collide — it is a DIFFERENT string that normalizes onto A's own coordinate",
+    ALIAS_A !== ENV_A && safeId(ALIAS_A) === ENV_A,
+    `${ALIAS_A} -> ${safeId(ALIAS_A)} vs ${ENV_A}`);
+  const aliasCreate = await jd("POST", "/v1/hypervisor/environments", { environment_id: ALIAS_A, spec: {} }, { as: "B" });
+  ok("B cannot take A's environment through a COLLIDING id — the pin coordinate is the record's coordinate, not the raw string",
+    aliasCreate.status === 403, `status ${aliasCreate.status} code ${code(aliasCreate.j)}`);
+  ok("and A's record survived the alias create byte-for-byte — the clobber is the harm, not just the pin",
+    environmentRecordBytes(ENV_A) === envRecordBytesBefore,
+    `${environmentRecordBytes(ENV_A).length} bytes`);
+  tarsBefore = materialTars();
+  const aliasCapture = await jd("POST", "/v1/hypervisor/snapshots", { environment_id: ALIAS_A }, { as: "B" });
+  ok("and B cannot capture A's workspace through the alias either — the custody gate normalizes the same way",
+    aliasCapture.status === 403 && materialTars().length === tarsBefore.length,
+    `status ${aliasCapture.status} code ${code(aliasCapture.j)}`);
+
+  // SEIZURE OF AN UNOWNED ENVIRONMENT. The first cut let create bind the pin to whoever asked first
+  // and then overwrite the record; the second gated adoption on the environment having no
+  // materialized workspace, and a review demonstrated that `status.workspace_root` is NULLED by
+  // `POST /environments/:id/delete` — a handler that resolves NO CALLER. Two requests, one of them
+  // unauthenticated, and the real owner plus the deployment administrator were locked out forever.
+  // AN OWNERSHIP DECISION MAY NOT DEPEND ON A MUTABLE FIELD AN UNAUTHENTICATED ROUTE CONTROLS.
+  const seizureSecret = path.join(unownedWorkspace, "unowned-content.txt");
+  fs.writeFileSync(seizureSecret, "content-that-predates-the-owner-model\n");
+  const unownedBytesBefore = environmentRecordBytes(UNOWNED_ENV);
+  const seizure = await jd("POST", "/v1/hypervisor/environments", { environment_id: UNOWNED_ENV, spec: {} }, { as: "B" });
+  ok("an unowned environment cannot be adopted by whoever asks first — refused typed, not seized",
+    seizure.status === 409 && code(seizure.j) === "environment_exists_without_owner",
+    `status ${seizure.status} code ${code(seizure.j)}`);
+  ok("and the refused seizure neither destroyed the existing record nor left a pin behind",
+    environmentRecordBytes(UNOWNED_ENV) === unownedBytesBefore
+      && fs.readFileSync(seizureSecret, "utf8") === "content-that-predates-the-owner-model\n",
+    `${environmentRecordBytes(UNOWNED_ENV).length} bytes`);
+  tarsBefore = materialTars();
+  const postSeizureCapture = await jd("POST", "/v1/hypervisor/snapshots", { environment_id: UNOWNED_ENV }, { as: "B" });
+  ok("and B still holds no custody of it afterwards — no capture of the pre-existing content is reachable",
+    postSeizureCapture.status === 403 && materialTars().length === tarsBefore.length,
+    `status ${postSeizureCapture.status} code ${code(postSeizureCapture.j)}`);
+
+  // THE UNAUTHENTICATED CLEAR-AND-ADOPT, driven end to end exactly as the review drove it.
+  const wipe = await jd("POST", `/v1/hypervisor/environments/${UNOWNED_ENV}/delete`, null, { as: null });
+  ok("PRECONDITION: the unauthenticated delete really does run and really does null the workspace pointer — the field an earlier gate trusted",
+    wipe.status === 200 && (wipe.j?.environment?.status?.workspace_root ?? null) === null,
+    `status ${wipe.status} workspace_root ${JSON.stringify(wipe.j?.environment?.status?.workspace_root ?? null)}`);
+  const seizureAfterWipe = await jd("POST", "/v1/hypervisor/environments", { environment_id: UNOWNED_ENV, spec: {} }, { as: "B" });
+  ok("CLEARING THE WORKSPACE WITH AN UNAUTHENTICATED DELETE STILL DOES NOT MAKE IT ADOPTABLE — the decision keys on the pin and the record's existence, neither of which a caller can rewrite",
+    seizureAfterWipe.status === 409 && code(seizureAfterWipe.j) === "environment_exists_without_owner",
+    `status ${seizureAfterWipe.status} code ${code(seizureAfterWipe.j)}`);
+
+  // AN AUTHENTICATED FIRST REFERENCE MUST STILL ACQUIRE AN OWNER. Removing that binding made every
+  // cockpit-vivified environment permanently uncapturable BY EVERY PRINCIPAL — no snapshot, no
+  // backup, no restore, no retention duty, forever — which a review demonstrated with the
+  // administrator doing the vivify itself. Fail-closed is not the same as unusable.
+  const COCKPIT_ENV = "custody_cockpit";
+  const cockpitVivify = await jd("GET", `/v1/hypervisor/environments/${COCKPIT_ENV}`, null, { as: "A" });
+  const cockpitStart = await jd("POST", `/v1/hypervisor/environments/${COCKPIT_ENV}/start`, null, { as: "A" });
+  const cockpitWorkspace = cockpitStart.j?.environment?.status?.workspace_root ?? "";
+  ok("PRECONDITION: the cockpit's documented first-reference flow really establishes and starts an environment under an authenticated session",
+    cockpitVivify.status === 200 && cockpitStart.status === 200 && cockpitWorkspace.length > 0 && fs.existsSync(cockpitWorkspace),
+    `${cockpitVivify.status}/${cockpitStart.status} ws ${cockpitWorkspace}`);
+  tarsBefore = materialTars();
+  const cockpitCapture = await jd("POST", "/v1/hypervisor/snapshots", { environment_id: COCKPIT_ENV }, { as: "A" });
+  ok("an environment established by an AUTHENTICATED first reference acquires its owner and IS capturable — it is not stranded uncapturable by everyone",
+    cockpitCapture.status === 200 && materialTars().length === tarsBefore.length + 1,
+    `status ${cockpitCapture.status} code ${code(cockpitCapture.j)}`);
+  const cockpitCrossPrincipal = await jd("POST", "/v1/hypervisor/snapshots", { environment_id: COCKPIT_ENV }, { as: "B" });
+  ok("and that owner is still PER PRINCIPAL — B cannot capture the environment A established by first reference",
+    cockpitCrossPrincipal.status === 403, `status ${cockpitCrossPrincipal.status}`);
+
+  // EVERY OWNERSHIP-MINTING SITE, DERIVED FROM THE DAEMON SOURCE. The census below walks ROUTES, and
+  // a GET can never appear in it — so a binder call added to a fourth handler would mint ownership
+  // somewhere no route assertion looks. This reads the source instead.
+  const envRoutesSrc = fs.readFileSync(path.join(ROOT, "crates/node/src/bin/hypervisor_daemon_routes/environment_routes.rs"), "utf8");
+  const OWNERSHIP_MINTING_HANDLERS = ["handle_environment_create", "handle_environment_get", "handle_environment_action"];
+  const binderCallSites = envRoutesSrc
+    .split(/\npub\(crate\) (?:async )?fn |\nfn /u)
+    .filter((block) => /bind_environment_owner(_if_resolvable)?\(&st\.data_dir/u.test(block))
+    .map((block) => block.split(/[(<]/u)[0].trim());
+  ok("EVERY site that mints an environment owner is one of the three ESTABLISHMENT handlers — derived from the daemon source, because a GET mints ownership and no route census can see it",
+    binderCallSites.length === OWNERSHIP_MINTING_HANDLERS.length
+      && binderCallSites.every((name) => OWNERSHIP_MINTING_HANDLERS.includes(name)),
+    binderCallSites.join(",") || "NONE FOUND");
+
+  // A REFUSED CREATE MUST LEAVE NO PIN. Binding before validation let any authenticated principal
+  // permanently claim arbitrary ids with cheap 400s — durable scope bindings admitted for requests
+  // that were refused, with no unbind to undo them.
+  const PIN_LEAK_ENV = "custody-pin-leak";
+  const invalidCreate = await jd("POST", "/v1/hypervisor/environments", {
+    environment_id: PIN_LEAK_ENV,
+    spec: { guardrails: "not-an-object" },
+  }, { as: "B" });
+  const reclaim = await jd("POST", "/v1/hypervisor/environments", { environment_id: PIN_LEAK_ENV, spec: {} }, { as: "A" });
+  ok("a create REFUSED on its spec leaves NO owner pin behind — a refused request must not durably claim the coordinate it was refused at",
+    invalidCreate.status >= 400 && invalidCreate.status < 500 && reclaim.status === 200,
+    `refused ${invalidCreate.status} then A reclaims ${reclaim.status}`);
 
   // ------------------------------------------------------------ RETENTION REACH
   // The estate's ONE deletion path. No second delete route is minted here and none is looked for.
@@ -539,6 +665,52 @@ async function run() {
   ok("and the refused re-capture wrote NO new material — it refuses before a byte is written, not after",
     materialTars().length === tarsBefore.length,
     `${tarsBefore.length} -> ${materialTars().length} tars`);
+
+  // THE ALIAS COORDINATE, END TO END. `safe_id` is many-to-one, so `snap.<hex>` normalizes onto the
+  // daemon-minted `snap_<hex>`. A review demonstrated that normalizing only at the scope-authorize
+  // seam left the lifecycle stream, the retention subject and the tombstone reading the RAW spelling:
+  // a duty declared at an alias was admitted and could then never be executed, while its own refusal
+  // said "retry to converge". A MIXED CONVENTION IS THE SAME DEFECT IN A NEW PLACE.
+  const ALIAS_CAPTURE = captureId.replace("_", ".");
+  ok("PRECONDITION: the capture alias really collides — a different string normalizing onto the minted coordinate",
+    ALIAS_CAPTURE !== captureId && safeId(ALIAS_CAPTURE) === captureId,
+    `${ALIAS_CAPTURE} -> ${safeId(ALIAS_CAPTURE)}`);
+  const aliasRestore = await jd("POST", `/v1/hypervisor/snapshots/${encodeURIComponent(ALIAS_CAPTURE)}/restore`, null, { as: "A" });
+  ok("restoring through the ALIAS answers the same tombstone by NAME — the refusal that makes a deletion auditable is not bypassable by spelling",
+    aliasRestore.status === 410 && code(aliasRestore.j) === "environment_capture_tombstoned",
+    `status ${aliasRestore.status} code ${code(aliasRestore.j)}`);
+
+  // AND A RETENTION DUTY DECLARED AT THE ALIAS MUST BE EXECUTABLE. This is the half that failed: the
+  // scope authorized (it normalizes), the duty was admitted at the caller's spelling, and every
+  // execute answered `retention_deletion_subject_tombstone_failed` — "NOTHING was destroyed — retry
+  // to converge" — forever. An erasure duty that can be declared and never discharged is worse than
+  // one that refuses at declaration.
+  fs.writeFileSync(path.join(workspaceA, "second-capture.txt"), "distinct-content-for-a-second-state-root\n");
+  const second = await jd("POST", "/v1/hypervisor/snapshots", { environment_id: ENV_A }, { as: "A" });
+  const secondId = second.j?.snapshot?.snapshot_ref ?? "";
+  const secondAlias = secondId.replace("_", ".");
+  ok("PRECONDITION: a SECOND capture over distinct content lands its own coordinate and its own material",
+    second.status === 200 && secondId.startsWith("snap_") && materialTars().some((tar) => tar.includes(secondId)),
+    `status ${second.status} ref ${secondId}`);
+  const aliasDeclare = await jd("POST", "/v1/hypervisor/retention/dispositions", {
+    subject_kind: "environment_workspace_capture",
+    subject_ref: secondAlias,
+    policy_basis_ref: POLICY,
+    owner_ref: P.A.owner,
+    idempotency_key: "env-custody-alias-declare-1",
+  }, { as: "A" });
+  const aliasDispositionId = String(aliasDeclare.j?.disposition?.disposition_id ?? "").replace("retention-disposition://", "");
+  ok("a duty declared at the ALIAS stores the CANONICAL subject — the caller's spelling does not travel past the resolver",
+    aliasDeclare.status === 201 && aliasDeclare.j?.disposition?.subject?.subject_ref === secondId,
+    `status ${aliasDeclare.status} subject ${aliasDeclare.j?.disposition?.subject?.subject_ref}`);
+  const aliasExecute = await jd("POST", `/v1/hypervisor/retention/dispositions/${aliasDispositionId}/delete`, {
+    owner_ref: P.A.owner, idempotency_key: "env-custody-alias-delete-1",
+  }, { as: "A" });
+  ok("and it EXECUTES — the duty discharges instead of refusing forever with an instruction to retry",
+    aliasExecute.status === 200
+      && aliasExecute.j?.disposition?.deletion?.evidence?.material_removed === true
+      && !materialTars().some((tar) => tar.includes(secondId)),
+    `status ${aliasExecute.status} code ${code(aliasExecute.j)}`);
 
   // ------------------------------------------------------------ RESTART SURVIVAL
   const pidBefore = daemon?.pid ?? 0;

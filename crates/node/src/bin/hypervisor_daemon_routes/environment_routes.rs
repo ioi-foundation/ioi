@@ -2555,12 +2555,53 @@ pub(crate) async fn handle_environment_create(
         .and_then(|v| v.as_str())
         .map(String::from)
         .unwrap_or_else(gen_env_id);
-    // BEFORE the spec is validated and before anything is persisted: a caller naming an
-    // environment_id another principal already owns is refused at the pin, not at the record.
-    bind_environment_owner(&st.data_dir, &identity, &id)?;
+    // THE AUTHORIZATION DECISION, BEFORE ANYTHING DURABLE AND BEFORE THE RECORD IS READ. The pin is
+    // the authority, so the pin is what decides; the record is only consulted once the pin has said
+    // there is no owner to answer to.
+    // THE AUTHORIZATION DECISION, BEFORE ANYTHING DURABLE AND BEFORE THE RECORD IS READ. The pin is
+    // the authority, so the pin is what decides; the record is only consulted once the pin has said
+    // there is no owner to answer to.
+    //
+    // THERE IS NO ADOPTION. Ownership is bound at the moment a record is ESTABLISHED and never
+    // afterwards, and the second merge-blocking review of this leg is why. An earlier revision let
+    // create adopt an unowned environment that had never materialized a workspace, reasoning that
+    // there was nothing to take — and the review demonstrated that `status.workspace_root` is NULLED
+    // by `POST /environments/:id/delete`, a handler that resolves NO CALLER. Two requests, one of
+    // them unauthenticated: destroy the workspace to clear the field, then adopt. The pin is
+    // genesis-only with no unbind, so the real owner and the deployment administrator were locked
+    // out permanently.
+    //
+    // AN OWNERSHIP DECISION MAY NOT DEPEND ON A MUTABLE FIELD AN UNAUTHENTICATED ROUTE CONTROLS.
+    // What decides here is the pin itself and whether a record already exists — neither of which any
+    // caller can rewrite.
+    match environment_owner_pin(&st.data_dir, &id)? {
+        // Owned: this refuses for every principal but the holder, so create can neither take nor
+        // overwrite another principal's environment.
+        Some(_) => {
+            authorize_environment_custody(&st.data_dir, &identity, &id)?;
+        }
+        // Unowned AND already existing: established by a caller this daemon could not identify, so
+        // there is no principal to hand it to and no honest way to choose one. Fail closed and say
+        // so. Adoption of an unowned environment is a NAMED OPEN RESIDUAL — it needs an
+        // administrator-authorized transition, not a first-come create.
+        None => {
+            if load_env(&st.data_dir, &id).is_some() {
+                return Err(custody_bad(
+                    StatusCode::CONFLICT,
+                    "environment_exists_without_owner",
+                    "this environment already exists and carries no owner pin, so it was established by a caller this daemon could not identify; adopting it would hand it to whoever asked first. Adoption of an unowned environment is a named open residual, not this route",
+                ));
+            }
+        }
+    }
     // Refuses BEFORE any persist when the spec carries an invalid environment-local guardrail
     // declaration; every other field is admitted exactly as before.
+    //
+    // AND BEFORE THE PIN IS BOUND. Binding first left an irrevocable owner pin behind on every
+    // refused create, so a caller could permanently claim arbitrary environment ids with cheap 400s
+    // — durable scope-binding operations admitted for requests that were refused.
     let mut env = new_env(&id, &spec).map_err(app_error_reply)?;
+    bind_environment_owner(&st.data_dir, &identity, &id)?;
     // WS-2: repo-detect-first — if the spec points at a repo, admit a detected recipe and bind it.
     if env["spec"]["recipe_ref"]
         .as_str()
@@ -2660,10 +2701,8 @@ pub(crate) async fn handle_environment_get(
                 "environment registered on first reference",
             );
             persist_env(&st.data_dir, &e)?;
-            // The record is being ESTABLISHED here, so this is one of the two moments an owner can
-            // be recorded without a land grab. It never refuses: an unauthenticated first reference
-            // leaves the environment unowned exactly as before, and the custody gate reads that as
-            // "no principal may capture this workspace".
+            // THE RECORD IS BEING ESTABLISHED HERE, so this is one of the three moments an owner can
+            // be recorded without taking anything from anyone.
             bind_environment_owner_if_resolvable(&st.data_dir, &headers, &id);
             e
         }
@@ -3599,7 +3638,7 @@ fn capture_workspace(
         &st.data_dir,
         identity,
         CAPTURE_SCOPE_KIND,
-        &id,
+        &custody_coordinate(&id),
         &owner_ref,
         &owner_ref,
         &format!("environment-capture-owner:{id}"),
@@ -3704,74 +3743,107 @@ fn custody_owner_tenant(
     Ok(owner_ref.clone())
 }
 
+/// THE ONE COORDINATE RULE FOR THIS MODULE, and it exists because breaking it shipped a
+/// demonstrated cross-principal read AND write in this leg's own first cut.
+///
+/// A GATE IS ONLY AS STRONG AS THE COORDINATE IT KEYS ON. The pin was bound on the RAW caller-supplied
+/// `environment_id` while the record file and the workspace directory are keyed on `safe_id(id)` —
+/// and `safe_id` is MANY-TO-ONE, mapping every character outside `[A-Za-z0-9_-]` to `_`. So
+/// `env.18cb` and `env_18cb` were two distinct pin coordinates over ONE record and ONE workspace.
+/// Every daemon-minted id is `env_{nanos:x}` and therefore always contains `_`, so a colliding raw id
+/// always existed for the default create path: a merge-blocking review created the alias, took a
+/// fresh pin at it, clobbered the victim's environment record, started it onto the victim's own
+/// workspace directory, captured the victim's bytes, and restored over them.
+///
+/// Every caller-supplied id becomes a scope coordinate through here, so the pin coordinate, the
+/// record coordinate and the workspace coordinate are the same string by construction.
+fn custody_coordinate(resource_id: &str) -> String {
+    safe_id(resource_id)
+}
+
 /// Bind this environment to the caller as its owner. Idempotent for the same principal; a DIFFERENT
 /// principal binding an already-pinned environment is refused by the substrate as an owner mismatch.
 ///
-/// Called only where an environment record is ESTABLISHED. On the create route a failure refuses the
-/// create outright, so an environment minted through the route that means "create" always has an
-/// owner. On the first-reference auto-vivify paths a failure leaves the environment UNOWNED exactly
-/// as before — those paths never refused and are not being turned into gates — and every custody act
-/// on an unowned environment then refuses typed. That is fail-closed in the direction that matters:
-/// an environment nobody owns is an environment nobody may capture.
+/// Called only from `POST /v1/hypervisor/environments`. Ownership is minted by the route that means
+/// CREATE and by nothing else: the first-reference auto-vivify paths establish a record and leave it
+/// unowned, and every custody act on an unowned environment refuses typed. That is fail-closed in the
+/// direction that matters — an environment nobody owns is an environment nobody may capture — and it
+/// keeps the ownership-minting surface inside the derived census, which a GET could never be.
 fn bind_environment_owner(
     data_dir: &str,
     identity: &super::substrate_store::RequestIdentity,
     environment_id: &str,
 ) -> Result<super::substrate_store::RequestResourceScope, CustodyReply> {
     let owner_ref = custody_owner_tenant(identity)?;
+    let coordinate = custody_coordinate(environment_id);
     super::substrate_store::bind_request_resource_scope(
         data_dir,
         identity,
         ENVIRONMENT_SCOPE_KIND,
-        environment_id,
+        &coordinate,
         &owner_ref,
         &owner_ref,
-        &format!("environment-owner:{environment_id}"),
+        &format!("environment-owner:{coordinate}"),
     )
     .map_err(custody_scope_refusal)
 }
 
-/// Best-effort ownership for an environment established by FIRST REFERENCE rather than by create.
+/// Record ownership for an environment being ESTABLISHED by first reference.
 ///
-/// `handle_environment_get` and `handle_environment_action` auto-vivify an absent environment, and
-/// they answer unauthenticated callers today. Turning them into authentication gates is a
-/// plane-wide behavioural change with its own blast radius; recording an owner when one is
-/// resolvable is not. An unauthenticated first reference still establishes the record and simply
-/// leaves it unowned, which the custody gate reads as "refuse".
+/// `handle_environment_get` and `handle_environment_action` bring an absent environment into
+/// existence, and they answer unauthenticated callers today. Turning them into authentication gates
+/// is a plane-wide behavioural change with its own blast radius; recording an owner when one is
+/// resolvable is not — and NOT recording one is a regression a review demonstrated end to end. The
+/// cockpit's own documented flow establishes the session workspace through `GET`, so an environment
+/// vivified and then started under an authenticated session could otherwise never acquire an owner
+/// and was permanently uncapturable BY EVERY PRINCIPAL, with no snapshot, backup, restore, or
+/// retention duty available to anyone.
+///
+/// It never refuses: an unauthenticated first reference still establishes the record and leaves it
+/// unowned, and the custody gate reads that as "no principal may capture this workspace". Binding
+/// only ever happens where the record did NOT exist, so this is never a land grab over someone
+/// else's environment.
 fn bind_environment_owner_if_resolvable(data_dir: &str, headers: &HeaderMap, environment_id: &str) {
     if let Ok(identity) = super::substrate_store::resolve_request_identity(data_dir, headers) {
         let _ = bind_environment_owner(data_dir, &identity, environment_id);
     }
 }
 
+/// The environment's owner pin, or `None` when no principal holds custody of it.
+fn environment_owner_pin(
+    data_dir: &str,
+    environment_id: &str,
+) -> Result<Option<super::substrate_store::RequestResourceScope>, CustodyReply> {
+    super::substrate_store::read_request_scope(
+        data_dir,
+        ENVIRONMENT_SCOPE_KIND,
+        &custody_coordinate(environment_id),
+    )
+    .map_err(custody_scope_refusal)
+}
+
 /// Authorize this caller against the environment's own scope pin, per PRINCIPAL.
 ///
 /// The two refusals are deliberately distinguishable, because they are different facts: an
-/// environment with NO pin can never be captured by anyone until it is re-established through the
-/// owning route, while a pin held by another principal is an authorization failure.
+/// environment with NO pin is one no principal holds custody of, while a pin held by another
+/// principal is an authorization failure.
 fn authorize_environment_custody(
     data_dir: &str,
     identity: &super::substrate_store::RequestIdentity,
     environment_id: &str,
 ) -> Result<super::substrate_store::RequestResourceScope, CustodyReply> {
-    let pinned = super::substrate_store::read_request_scope(
-        data_dir,
-        ENVIRONMENT_SCOPE_KIND,
-        environment_id,
-    )
-    .map_err(custody_scope_refusal)?;
-    if pinned.is_none() {
+    if environment_owner_pin(data_dir, environment_id)?.is_none() {
         return Err(custody_bad(
             StatusCode::FORBIDDEN,
             "environment_custody_owner_unbound",
-            "this environment carries no owner pin, so no principal holds custody of its workspace; it was established by first reference or predates the owner model and must be created through POST /v1/hypervisor/environments to acquire one",
+            "this environment carries no owner pin, so no principal holds custody of its workspace; it was established by first reference or predates the owner model, and an environment that already holds a materialized workspace cannot be adopted by whoever asks first",
         ));
     }
     super::substrate_store::authorize_request_resource_scope(
         data_dir,
         identity,
         ENVIRONMENT_SCOPE_KIND,
-        environment_id,
+        &custody_coordinate(environment_id),
         None,
     )
     .map_err(custody_scope_refusal)
@@ -3804,22 +3876,40 @@ pub(crate) fn capture_material_path(data_dir: &str, kind: &str, id: &str) -> std
 /// This is the shape `authorized_backup_by_id` already has on the managed lane, and the reason is
 /// the same: reading the record first and then checking a field on it makes the record the
 /// authority. The scope pin is the authority; the record is what the scope points at.
+/// Returns the CANONICAL coordinate beside the record, because a caller's spelling must not travel
+/// any further than this seam.
+///
+/// A review demonstrated why: normalizing only where the scope is authorized, and carrying the RAW
+/// id onward, left the pin at one coordinate and the lifecycle stream, the retention subject and the
+/// tombstone read at another. A retention duty declared against `snap.18cb…` was admitted (the scope
+/// authorized, because it normalizes) and could then NEVER be executed (the tombstone keyed on the
+/// raw spelling), while its own refusal said "retry to converge". A MIXED CONVENTION IS THE SAME
+/// DEFECT IN A NEW PLACE, so the canonical coordinate is returned and every caller uses it.
 pub(crate) fn authorized_capture_by_id(
     data_dir: &str,
     identity: &super::substrate_store::RequestIdentity,
     capture_id: &str,
-) -> Result<(String, Value, super::substrate_store::RequestResourceScope), CustodyReply> {
+) -> Result<
+    (
+        String,
+        String,
+        Value,
+        super::substrate_store::RequestResourceScope,
+    ),
+    CustodyReply,
+> {
+    let coordinate = custody_coordinate(capture_id);
     let scope = super::substrate_store::authorize_request_resource_scope(
         data_dir,
         identity,
         CAPTURE_SCOPE_KIND,
-        capture_id,
+        &coordinate,
         None,
     )
     .map_err(custody_scope_refusal)?;
     for kind in ["snapshot", "backup"] {
-        if let Some(record) = load_capture(data_dir, kind, capture_id) {
-            return Ok((kind.to_string(), record, scope));
+        if let Some(record) = load_capture(data_dir, kind, &coordinate) {
+            return Ok((kind.to_string(), coordinate, record, scope));
         }
     }
     Err(custody_bad(
@@ -3981,8 +4071,8 @@ pub(crate) fn tombstone_environment_capture(
     disposition_ref: &str,
     idempotency_key: &str,
 ) -> Result<Value, CustodyReply> {
-    let (kind, record, scope) = authorized_capture_by_id(data_dir, identity, capture_id)?;
-    let capture_ref = capture_id.to_string();
+    let (kind, capture_ref, record, scope) =
+        authorized_capture_by_id(data_dir, identity, capture_id)?;
     let state_root = record["state_root"]
         .as_str()
         .unwrap_or_default()
@@ -4125,13 +4215,14 @@ pub(crate) async fn handle_snapshot_restore(
     let identity = custody_identity(&st.data_dir, &headers)?;
     // AUTHORIZATION BEFORE EXISTENCE, on the coordinate the path supplies: the capture's own owner
     // pin decides whether this caller may read these bytes at all, and it is read before the record.
-    let (_kind, snap, _scope) = authorized_capture_by_id(&st.data_dir, &identity, &id)?;
+    let (_kind, capture_ref, snap, _scope) =
+        authorized_capture_by_id(&st.data_dir, &identity, &id)?;
     let app = |c: StatusCode, code: &str, e: String| custody_bad(c, code, e);
     let admitted_root = snap["state_root"].as_str().unwrap_or_default().to_string();
     // A DELETED CAPTURE IS NOT RESTORE MATERIAL, and saying so is what keeps an executed retention
     // deletion legible: reading the missing file first would answer "material missing", the same
     // observable a lost disk produces.
-    refuse_if_capture_deleted(&st.data_dir, &id, &admitted_root)?;
+    refuse_if_capture_deleted(&st.data_dir, &capture_ref, &admitted_root)?;
     let env_id = snap["environment_ref"]
         .as_str()
         .unwrap_or_default()

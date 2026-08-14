@@ -2271,7 +2271,11 @@ pub(crate) fn record_material_destroyed(
         "schema_version": "ioi.managed-backup-material-destroyed.v1",
         "state_root": state_root,
         "destroyed_by_disposition_ref": disposition_ref,
-        "first_destroyed_backup_ref": subject_ref,
+        // The SUBJECT, not "the backup": this stream is now written by both custody lanes, and a
+        // snapshot capture recorded under a field named for a backup is admitted bytes that misname
+        // what happened. No reader consumes it; it is provenance for a human reading the log.
+        "first_destroyed_subject_ref": subject_ref,
+        "first_destroyed_subject_kind": subject_scope_kind,
     });
     let head = admit(
         data_dir,

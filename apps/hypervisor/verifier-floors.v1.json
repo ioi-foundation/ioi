@@ -135,8 +135,8 @@
       "id": "environment-custody",
       "npm_script": "check:environment-custody",
       "source": "apps/hypervisor/scripts/verify-hypervisor-environment-custody.mjs",
-      "runtime_assertions": 47,
-      "assertion_names_sha256": "c816d0161a6e9a9e22c8cf74aef944acdc961ee217e7073c73002af5df223047"
+      "runtime_assertions": 67,
+      "assertion_names_sha256": "3a3ac7388416ea82a4fd14bb9f0582f739bf914566b20552066cdd7aba79fceb"
     },
     {
       "id": "ported-seed",
