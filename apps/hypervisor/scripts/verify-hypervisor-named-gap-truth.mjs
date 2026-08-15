@@ -47,6 +47,37 @@
 // both directions per scar 4, and A FIELD NAMING A ROUTE THAT IS NOT IN THE TABLE IS RED. That is the
 // scope ratchet: moving a claim out of a policed field no longer lowers a printed number, it fails.
 //
+// AND THE FIELD'S POLARITY IS NOT THE MENTION'S POLARITY. This is the narrowing the owner ruled, and
+// it is the difference between what this gate CHECKS and what it would like to claim. Knowing that
+// `missing_authority_contracts[]` is a field ABOUT absence does not make every route named inside one
+// of its ninety-two entries a route that entry DENIES. `models`' entry reads "Inference exists at
+// /v1/chat/completions but is not a governed catalog workflow" — true, precise, and naming a
+// registered route ON PURPOSE. Reading every mention in the field as a denial accused it, which was
+// the third time in this run that inferring intent from English produced a false accusation against a
+// true sentence. Three strikes made it structural, and the owner bound the rule:
+//
+//     A DENIAL IS METHOD-PRECISE. A MENTION WITH NO VERB IS A CITATION.
+//
+// XIII's class and the falsehood this gate found both name the verb they deny — "PATCH/PUT … is
+// GET-only", "DELETE … not yet contracted". So a clause naming a method is judged against that
+// method, and a mention with no method is COUNTED IN ITS OWN PINNED BUCKET and judged by nothing.
+// That bucket IS the residual, stated plainly: this gate does not decide what an absence entry
+// denies. It decides whether a method-precise denial is true.
+//
+// THE REAL FIX IS A SCHEMA, AND IT IS COMMISSIONED RATHER THAN IMPROVISED HERE. Recording what a
+// claim DENIES — a `denies` field carrying route and method per entry, across all ninety-two —
+// replaces inference with declaration and empties the citation bucket by construction. That is a
+// canon schema change over ninety-two tracked entries and it gets its own design-and-review cycle as
+// next-legs XV, beside the `connector_execution_routes` adjudication. A regex does not get to decide
+// what ninety-two canon entries mean, and no label below pretends it does.
+//
+// AND A GATE'S PARSER GETS A GATE'S ADVERSARIAL TREATMENT. This one's route matcher excluded `{}`
+// from a route token, so `{id}` truncated eighteen mentions to their parent collection and every
+// method check ran against the wrong path — a parser defect INSIDE A GATE re-points truth wholesale,
+// and this one hid two live falsehoods at 10/10 green. The matcher normalises `{id}` and `:id` to one
+// form, any `/v1/` prefix is in scope rather than `/v1/hypervisor/` alone, and a negative entry that
+// names no route at all is its own pinned population rather than a silent nothing.
+//
 // WHAT IT DOES NOT ENTAIL, so the label claims only what it checks. Within a POSITIVE field, prose
 // that asserts an absence about something OTHER than the route it cites is not decidable here — those
 // fields cite routes as EVIDENCE ("the plane exists as daemon truth (POST /x)") and the decidable
@@ -337,7 +368,7 @@ function run() {
     staleFields.size === 0,
     staleFields.size ? `STALE: ${[...staleFields].join(", ")}` : "every enumerated field still names at least one route");
 
-  ok("NO FIELD DECLARING AN AUTHORITY MISSING NAMES A ROUTE THIS DAEMON SERVES — the falsified-reason class proper, keyed on the atlas's OWN declared field semantics rather than on parsing English negation, and checked against the router at the point the claim is emitted",
+  ok("NO METHOD-PRECISE DENIAL IN AN ABSENCE FIELD NAMES A METHOD THIS DAEMON SERVES — and that is the whole claim, deliberately narrower than the field it lives in: knowing `missing_authority_contracts[]` is a field ABOUT absence does not make every route named in one of its ninety-two entries a route that entry DENIES, and reading them that way accused a true sentence citing a registered route on purpose; a clause naming a verb is judged against that verb, and nothing else in the field is judged at all",
     decided > 0 && falseNegatives.length === 0,
     falseNegatives.length ? `FALSIFIED: ${falseNegatives.slice(0, 6).join(" ; ")}` : `${decided} route-naming claims checked`);
 
@@ -345,7 +376,7 @@ function run() {
     falsePositives.length === 0,
     falsePositives.length ? `OVERCLAIMED: ${falsePositives.slice(0, 6).join(" ; ")}` : "no emission credits an unregistered route");
 
-  ok("the DECIDED and UNCHECKED populations are both pinned — a claim moved from a checked field into a prose or forward-looking one changes these numbers, so the remainder this gate declines to judge cannot quietly absorb the claims it is supposed to be judging",
+  ok("THE CITATION BUCKET IS PINNED BESIDE THE DECIDED AND UNCHECKED ONES — a mention inside an absence field naming no method is a CITATION this gate refuses to read as a denial, and pinning what it refuses is what stops the refusal becoming a hiding place: a claim moved into a prose or forward-looking field, or a denial reworded to drop its verb, moves these numbers rather than lowering them quietly; emptying this bucket by construction is what the commissioned `denies` schema is for",
     decided === PINNED.atlasRouteMentions.decided && unchecked === PINNED.atlasRouteMentions.unchecked && citedInNegative === PINNED.atlasRouteMentions.citedInNegative,
     `${decided}/${PINNED.atlasRouteMentions.decided} decided, ${unchecked}/${PINNED.atlasRouteMentions.unchecked} prose or forward-looking, ${citedInNegative}/${PINNED.atlasRouteMentions.citedInNegative} cited as evidence inside an absence field without naming a method`);
 

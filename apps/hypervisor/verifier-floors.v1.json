@@ -45,7 +45,7 @@
       "npm_script": "check:named-gap-truth",
       "source": "apps/hypervisor/scripts/verify-hypervisor-named-gap-truth.mjs",
       "runtime_assertions": 10,
-      "assertion_names_sha256": "0d97b2c7b4d3331ebace62d9cad7eefabe4a7348a328282aff9ad8bd51e66bde"
+      "assertion_names_sha256": "0a20bb0b0dcf9ad15b6e3f4542441461bebb9739083c93063e6667dd19966c49"
     },
     {
       "id": "governance-journey",
