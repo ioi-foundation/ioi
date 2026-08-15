@@ -16,5 +16,5 @@ repository = "https://github.com/ioi-foundation/ioi"
 [dependencies]
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
-proc-macro2 = "1"
+proc-macro2 = { version = "1", features = ["span-locations"] }
 syn = { version = "2.0.116", features = ["full", "visit"] }
