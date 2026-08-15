@@ -256,6 +256,7 @@ jobs:
           npm run check:operational-depth --workspace=@ioi/hypervisor-app
           npm run check:ontology-backend-families --workspace=@ioi/hypervisor-app
           npm run check:ontology-admission-census --workspace=@ioi/hypervisor-app
+          npm run check:named-gap-truth --workspace=@ioi/hypervisor-app
 
       # The floor the verifier family never had. Every verifier above is pinned at the number of
       # assertions it actually EXECUTED; deleting assertions from any of them was silently green
