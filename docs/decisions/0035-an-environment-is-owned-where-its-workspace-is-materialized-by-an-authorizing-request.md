@@ -1,344 +1,345 @@
-# ADR 0035: An Environment Is Owned From Its First Durable Byte, By A Request That Could Have Refused
+# ADR 0035: An Environment Is Owned From Its First Durable Byte, And Every Handle To Its Bytes Authorizes
 
-- Status: Proposed — DESIGN ONLY, REVISION 2. No code exists for this ADR and none
-  may be written until this document has survived its adversarial review
-  (next-legs XIV Leg 2d). Revision 1 was DEFEATED; see *Revision history*.
+- Status: Proposed — DESIGN ONLY, REVISION 3, and **SOUND-CONDITIONAL**: one ruling
+  (R1, at the ops surface) cannot be built without a change to
+  `ioi.hypervisor.authority-grant.v1`, which is FILED below as a dependency and is
+  NOT assumed by anything here. Revisions 1 and 2 were each DEFEATED by their own
+  review; see *Revision history*. No code exists and none may be written until this
+  document has survived its review.
 - Date: 2026-08-15
 - Owners: daemon runtime / environment lifecycle / W1.5 disposition
-- Refines: ADR 0031 and ADR 0024 (the one structural law — no second spine),
-  ADR 0030, and the substrate scope pin
-- Closes: defect 1a, open since next-legs XI, gate-asserted open since XIII
-- Confidence: high on the defect and on why the five previous designs failed —
-  all five are measured below. The ruling is agent-proposed under standing
-  program authority and is owner-reversible (see Reversal).
+- Refines: ADR 0031 and ADR 0024 (the one structural law — no second spine), ADR 0030
+- Closes: defect 1a **conditionally** — see *The filed dependency*
+- Confidence: high on the defect and on why six designs failed; all six are measured.
+  Agent-proposed under standing program authority and owner-reversible.
 
 ## Why this is a document and not a branch
 
-Four builds have tried to give an environment an owner. Each was demonstrated broken by a
-merge-blocking review, and the fifth attempt without a ruled design is the demonstrated
-failure mode. Next-legs XIV forbids it in as many words.
+Four builds tried to give an environment an owner and a review demonstrated each one broken. A
+fifth attempt without a ruled design is the demonstrated failure mode, and next-legs XIV forbids
+it.
 
-**Revision 1 of this document was itself defeated, which is the point.** A review found a
-FIFTH failure mode in it, plus six further ship-blockers and five factual errors — at the
-cost of a review round on a document rather than a fifth broken build. Every finding is
-carried below by name.
+**Revisions 1 and 2 of this document were then each defeated by their own review**, finding a
+fifth and a sixth failure mode. Total cost: two review rounds on a document. That is the whole
+argument, and it is why the failure list below is six long instead of four.
 
-## Context: what is actually true today, measured
+## A correction this document owes, at source
 
-Every claim in this section was read from the tree at `6cfdcb5be` and re-verified against
-source after revision 1's review.
+Revision 2 stated as measured fact that the ops-lease minter is "outside `/v1/`, and
+`auth_gate_exempt_path` returns true for every non-`/v1` path, so the global gate never sees it."
+**That is false.** `POST /v1/hypervisor/environments/:id/ops-lease` is registered at
+`hypervisor-daemon.rs:3348` — inside `/v1/`, and inside exactly the environments family. Only the
+CONSUMER (`/supervisor/:env/…`, `hypervisor-daemon.rs:3355-3358`) sits outside.
 
-**Creation happens at THREE seams, and one of them is a GET.** `new_env` is called at
-`environment_routes.rs:2564` (`handle_environment_create`), **`:2652`
-(`handle_environment_get` — a GET that auto-vivifies on first reference and PERSISTS the
-record at `:2666`)**, and `:2679` (`handle_environment_action`, when the id does not exist).
-None of the three resolves a caller: `handle_environment_create` (`:2549`),
-`handle_environment_get` (`:2614`) and `handle_environment_action` (`:2671`) take no
-`HeaderMap`.
+It was written on a reviewer's finding without fetching the ref, which is a scar this program has
+already paid for once. The durable defect is not the path — it is that the lease record carries no
+principal (R1 and *The filed dependency*), and that survives with the auth gate fully enforced.
 
-**CREATE MATERIALIZES NO WORKSPACE.** `new_env` sets `"workspace_root": Value::Null`
-(`:257`). The only call to `provision_local_workspace` is in the `"start"` arm (`:2724`).
-**The record and the workspace are born at two separate client requests** — the fact that
-defeated revision 1 and the single most important line in this document.
+## Context: what is true today, measured
 
-**Provisioning is an idempotent mkdir of a deterministic path.**
-`provision_local_workspace` (`:341`) is a `create_dir_all` of
-`environments/safe_id(id)/workspace`. It cannot refuse and cannot tell a first call from a
-thousandth.
+Read at `6cfdcb5be`. Every citation below was re-verified against source after revision 2's review;
+the file is named where it is not `environment_routes.rs`.
 
-**The lifecycle plane is not two routes.** The estate's own gate already censuses fifteen
-of them — `NAMED_UNOWNED` in `verify-hypervisor-environment-custody.mjs:257-272`. Beyond
-those, handlers that reach workspace bytes with no `HeaderMap` include
-`POST /v1/hypervisor/exec` (`environment_routes.rs:4336`), `POST /v1/hypervisor/env-files`
-(`binding_routes.rs:297`), terminals (`binding_routes.rs:404`, `:608`), logs
-(`operability_routes.rs:901`), watch-state (`:960`), workruns (`:3309`, `:4677`), env-config
-(`:4475`), `maintenance/idle-sweep` (`:3476`, which stops every environment in the estate),
-and `start_preview_server` (`lifecycle_routes.rs:9348`), a separate axum server outside
-`auth_gate` entirely.
+**Creation happens at three seams and one is a GET.** `new_env` is called at `:2564`
+(`handle_environment_create`), `:2652` (`handle_environment_get`, which auto-vivifies and
+**persists at `:2661`**), and `:2679` (`handle_environment_action`). `:5199`/`:5208` are
+`#[cfg(test)]`. None of the three resolves a caller.
 
-**AND THERE IS AN ANONYMOUS TWO-REQUEST CHAIN TO WORKSPACE BYTES THAT NEVER TOUCHES `/v1/`.**
-`handle_env_ops_lease` (`supervisor_routes.rs:31`) takes `State` and `AxumPath` and **no
-`HeaderMap`**; it mints a 3600-second `environment.ops` lease bound to the named environment
-and returns it as a bearer token. `handle_environment_ops` (`:305`) gates on `authed()`
-(`:177`), which checks only that the lease is active and names this environment — **no
-principal is resolved**. Its methods include `ReadFile`, `WriteFile` and `Exec` against
-`status.workspace_root`. The path is outside `/v1/`, and `auth_gate_exempt_path` returns
-true for every non-`/v1` path (`lifecycle_routes.rs:17226-17229`), so the global gate never
-sees it.
+**Create materializes no workspace.** `new_env` sets `"workspace_root": Value::Null` (`:257`); the
+only `provision_local_workspace` call is in the `"start"` arm (`:2724`). Record and workspace are
+born at two separate client requests.
 
-**The scope pin is genesis-only, there is no unbind, and there is NO BIND-ON-BEHALF.**
-`bind_request_resource_scope` (`substrate_store.rs:2899`) refuses with
-`ResourceOwnerMismatch` when a non-matching scope exists, and writes
-`principal_ref: identity.principal_ref` unconditionally (`:2932`). Every one of its call
-sites passes the caller's own identity. **An administrator cannot bind a pin naming somebody
-else.**
+**Identity is resolved on some routes and authorizes nothing.** Three that reach owned bytes today:
 
-**But there is a non-binding read.** `read_request_scope` (`:2887`) is `pub(crate)` exactly
-so that asking "who owns this?" is not itself a mutation.
+| route | identity resolved | reaches the owner's bytes |
+|---|---|---|
+| `POST /environments/:id/scm/publish` | `scm_publication_routes.rs:2719` | reads `workspace_root` at `:2732`, publishes **outward** |
+| `POST /snapshots` | `:4040` | tars the workspace at `:3565-3573` |
+| `POST /environments/:id/backups` | `managed_runtime_routes.rs:2495` | `:1936-1944` |
 
-**And the estate already ships administration WITHOUT pinning.**
-`model_routes::authorize_route_owner` (`model_routes.rs:1497-1524`): the deployment
-administrator administers every route; a record with **no** owner "predates the ownership
-model … NO principal holds a legitimate ownership claim to it. It resolves to the
-deployment, whose administrator is the only party that can dispose of it. Fail-closed to
-every ordinary principal, and recoverable rather than stranded." Its authority is
-`require_authenticated_org_admin` via `RouteCaller.is_deployment_admin` (`:1467`).
+**Bytes are reachable through handles that are not the environment id**: a terminal id
+(`binding_routes.rs:608`), an ops-lease id (`supervisor_routes.rs:305`), an ephemeral preview port
+(`lifecycle_routes.rs:9346-9351`, a second axum server whose state is the bare `workspace_root`
+string), and a workrun id (`:4677`).
 
-**The capture-custody fix binds BEFORE the bytes exist**, and says why in the code
-(`environment_routes.rs:3588-3605`): "Binding first means a capture record can never exist
-on disk without an owner." Bind at `:3592`, `create_dir_all` at `:3603`, `fs::write` at
-`:3605`. **Capture ids are daemon-minted** (`:3585`).
+**`POST /workruns` writes INTO the owned workspace.** `handle_workrun_create` (`:3309`, no
+`HeaderMap`) runs `ensure_git_repo(&ws)` (`:3336`) and
+`git worktree add -b <branch>` (`:3364-3375`) with `run_git` executing `.current_dir(ws)`
+(`:356-360`). A linked worktree shares the owner's object store: the call creates a branch in the
+owner's repo and writes `.git/worktrees/<wr>` into the owner's `.git`, and every
+`handle_workrun_execute` commit (`:4677`) lands in the owner's objects. `handle_workrun_execute`
+derives its environment only from `wr["environment_id"]` (`:4689-4692`), a record field written at
+`:3387` from a caller-supplied body value (`:3313-3316`).
 
-**`environment_id` is CALLER-SUPPLIED** (`:2554-2559`), and `new_env` stores the RAW
-spelling as `"id"` (`:235`).
+**The scope pin is genesis-only, has no unbind, and has no bind-on-behalf.**
+`substrate_store.rs:2899`; `principal_ref: identity.principal_ref` at **`:2938`**.
+**`read_request_scope` (`:2887`) is the non-binding read.**
 
-**`safe_id` is many-to-one** (`:189`), and there are FOUR independent copies of the
-normalizer: `environment_routes::safe_id`, `supervisor_routes::safe`
-(`supervisor_routes.rs:61`), `operability_routes::safe`, and an inline copy in
-`editor_host::env_workspace` (`:189-192`). `supervisor_routes::lease_binds_env` (`:141-147`)
-compares **raw** `environment:<id>` strings.
+**Administration without pinning already ships.** `model_routes::authorize_route_owner`
+(`model_routes.rs:1497-1524`) resolves an unowned record to the deployment, whose administrator is
+the only party that can dispose of it. Authority: `require_authenticated_org_admin`
+(`lifecycle_routes.rs:16287-16294`) = `role == "admin"` **and** live `org://local` membership. Only
+the bootstrap operator is seeded `admin` (`:15707`); SSO auto-join (`:18349`), invite accept
+(`:18684`, `:19181`) and SCIM all grant `member`. **It discriminates.**
 
-**`org://local` is the only constructible organization and every principal holds it.**
+**The capture fix binds before the bytes** — bind `:3592`, `create_dir_all` **`:3605`**,
+`fs::write` **`:3607`** — "Binding first means a capture record can never exist on disk without an
+owner." **Capture ids are daemon-minted (`:3586`).**
 
-**`delete` nulls `status.workspace_root`** (`:3172-3196`), is reachable anonymously, and
-carries a standing commitment in its own carve-out comment (`:3172-3176`): "deletion of an
-EXISTING environment REMAINS CALLABLE under every containment in this cut. **It never
-refuses.**"
+**A collision-free minter already ships**: `gen_opaque` (`lifecycle_routes.rs:15663-15669`), two v4
+UUIDs. `gen_env_id` (`:196-202`) is `format!("env_{nanos:x}")` from a wall clock, with
+`unwrap_or(0)`.
 
-**`auth_enforced` defaults to `auto`** (`lifecycle_routes.rs:15802-15818`, "Default policy
-is OFF").
+**`environment_id` is caller-supplied** (`:2554-2559`) and `new_env` stores the RAW spelling
+(`:235`).
 
-## The five failures, by name
+**EIGHT normalizers are applied to the `environments/` coordinate**, and one DISAGREES:
+`environment_routes::safe_id` (`:189`), `supervisor_routes::safe` (**`:59`**),
+`operability_routes::safe` (`:25`), `editor_host` inline (**`:184-187`**), `binding_routes::safe`
+(`:40`), `agentops_routes::safe` (`:29`), `orchestration_routes::safe` (`:29`), and
+`managed_runtime_routes::safe` (`:142-151`) — **which admits `'.'`**, so `a.b` stays `a.b` there and
+becomes `a_b` everywhere else. `scm_publication_routes.rs:2723-2725` matches `record["id"]` raw,
+through no normalizer at all.
 
-**F1 — pin at create.** Broken because two other routes also create, one of them a GET.
-A pin minted only in `handle_environment_create` covers environments that arrived through
-the door named "create"; every other one is born unowned.
+**A lease carries no principal.** `issue_capability_lease` (`authority_routes.rs:195-240`) writes
+`"subject": subject` (`:148`) from the literal `"operator"` passed at `supervisor_routes.rs:37`.
+`authed()` (`:177-183`) can therefore only check that a lease is active and names this environment.
 
-**F2 — pin at first reference.** First-touch under a different name. Whoever gets there
-first owns it permanently, because the pin is genesis-only with no unbind.
+**`snap["environment_ref"]` is written once** (`:3616`) and no route updates it; `:3851` propagates
+it and `:4110` reads it.
 
-**F3 — pin at workspace materialization.** Reached from a route that resolves no caller and
-never refuses, so the pin minted beside it is F2 with extra steps.
+**`org://local` isolates nothing.** **`delete` nulls `workspace_root`** (`:3172-3196`) and carries a
+carve-out: "deletion of an EXISTING environment REMAINS CALLABLE … **It never refuses.**"
+**`auth_enforced` defaults to `auto`** (`:15802-15819`); "Default policy is OFF" is the `auth_gate`
+doc comment at **`:17239`**.
 
-**F4 — adoption gated on `status.workspace_root`.** A mutable field an anonymous route
-nulls. Two requests, one anonymous, defeated it.
+## The six failures, by name
 
-**F5 — pin at workspace materialization WITH the lifecycle plane made identity-first
-(revision 1 of this document).** Still broken, because create and start are two client
-requests and only start materializes a workspace:
+**F1 pin at create** — two other routes also create, one a GET.
+**F2 pin at first reference** — first-touch renamed; permanent, since there is no unbind.
+**F3 pin at workspace materialization** — reached from a route that never refuses.
+**F4 adoption gated on `status.workspace_root`** — a mutable field an anonymous route nulls.
+**F5 pin at materialization WITH an identity-first lifecycle (revision 1)** — create and start are
+two requests and only start provisions, so P1 creates and P2 starts and P2 owns it forever.
+**F6 identity-first WITHOUT authorization (revision 2)** — P1 creates and starts; P2, any
+authenticated `org://local` member, calls `POST /environments/<id>/scm/publish`; identity resolves,
+so revision 2's R1 is satisfied with **zero code change**, and P1's source is published to a remote
+P2 controls. Revision 2's twelve verifier items all stay green.
 
-1. P1 → `POST /v1/hypervisor/environments {"environment_id":"proj-x"}` → 200, record on
-   disk, **no pin**.
-2. P2 — any principal, since `org://local` isolates nothing — → `POST
-   /v1/hypervisor/environments/proj-x/start`. Authenticated, so revision 1's R1 passes. The
-   record exists, so its R2 passes. Its R3 binds the pin naming **P2**.
-3. P1 is refused on its own environment forever.
-
-Revision 1 blessed this in as many words: "a principal that authenticates and materializes a
-workspace IS the owner." That definition awards P1's environment to P2.
-
-The pattern across all five: **a route that cannot refuse cannot mint ownership** — and
-**ownership must attach to the FIRST durable byte, not to a later one**, because everything
-between the first byte and the pin is a window in which somebody else can become the owner.
+F5 was *a route that cannot refuse cannot mint ownership*. **F6 is its dual: a route that resolves a
+caller but never authorizes cannot honour ownership** — and revision 2's entire apparatus was about
+anonymity.
 
 ## The ruling
 
-### R1 — The closed world is DERIVED FROM HANDLER REACH, not from a list of route names.
+### R1 — Every HANDLE to an environment's bytes AUTHORIZES its caller against the pin.
 
-The set of routes that must resolve a caller is: **every route whose handler can reach
-`environments/<id>/` on disk or `status.workspace_root`.** Derived from the router SOURCE
-and asserted in both directions — nothing unclassified, no stale entry — never a hand list.
-`verify-hypervisor-environment-custody.mjs:257-272` already censuses fifteen and is the
-instrument to extend, not to replace.
+Not "resolves a caller" — that was F6. The obligation is authorization, and the closed world is
+**every route whose handler can reach `environments/<id>/` on disk or `status.workspace_root`,
+enumerated by the HANDLE it takes**, because a path-shaped derivation cannot see three of them:
 
-The closed world explicitly includes:
+| handle | reached by |
+|---|---|
+| environment id | create, get, the wildcard `:action`, exec, env-files, logs, watch-state, env-config, idle-sweep, snapshots, backups, scm/publish |
+| **terminal id** | `binding_routes.rs:404`, `:608` |
+| **ops-lease id** | `supervisor_routes.rs:305` — see *The filed dependency* |
+| **preview port** | `lifecycle_routes.rs:9346-9351` — see *The filed dependency* |
+| **workrun id** | `:3309`, `:4677` |
 
-- the three creating handlers and the wildcard `:action` route;
-- `exec`, `env-files`, terminals, logs, watch-state, workruns, env-config,
-  `maintenance/idle-sweep`;
-- **the supervisor ops surface and its lease minter**, which are outside `/v1/` and
-  therefore outside `auth_gate` entirely;
-- `start_preview_server`, a second axum server serving workspace bytes.
+Every refusal is per-handler and unconditional; none may be delegated to `auth_gate`, whose policy
+defaults to OFF.
 
-**Every refusal is per-handler and unconditional.** None of them may be delegated to
-`auth_gate`, whose `auth_enforced` policy defaults to OFF.
+**The instrument is a build obligation, not an extension of the existing regex.**
+`verify-hypervisor-environment-custody.mjs:211-225` derives by regex over `.route(` chunks filtered
+to `/v1/hypervisor/…` and `environment_routes::`, and is structurally blind to non-`/v1/` paths, to
+the preview server, and to other modules. Its `NAMED_UNOWNED` list (`:257-273`) holds fifteen
+entries, four of which are the projects plane and agent-run transcripts and explicitly not this leg.
+The census this design needs is over handler reach, which that instrument cannot compute — so the
+build must state the closed world it derives and assert it in both directions, and a hand list is
+acceptable ONLY if every entry is justified against a derived over-approximation.
 
-### R2 — Creation happens at exactly ONE seam. All three `new_env` arms outside it are deleted.
+### R2 — Creation happens at exactly one seam; all three `new_env` arms outside it are deleted.
 
-`handle_environment_get`'s auto-vivify (`:2652`) is deleted: a GET may not persist a record.
-`handle_environment_action`'s (`:2679`) is deleted: an action on a non-existent environment
-is a 404. Leaving the GET arm in place is worse than a missed seam — under R6 an anonymous
-GET would mint unbounded records that no ordinary principal can ever delete.
+The GET's auto-vivify (`:2652`) and the action arm (`:2679`) both go. Leaving the GET would mint
+unbounded records under R6 that no ordinary principal can delete.
 
-### R3 — Environment ids are DAEMON-MINTED. A caller-supplied id is refused.
+### R3 — Environment ids are minted by `gen_opaque`, and the bind CAS-refuses a repeat.
 
-This is the ruling revision 1 did not make, and it is what makes the rest safe. Because the
-pin is genesis-only with no unbind and its coordinate is the environment id:
+Revision 2 asserted "daemon-minted ids are never reused" as a property. It is not one:
+`gen_env_id` is a wall clock, so an NTP step-back, two creates inside one nanosecond bucket, or two
+daemons on one `data_dir` reproduce an id — and `unwrap_or(0)` mints `env_0` for everyone, whose
+first caller owns it forever. Under a genesis-only pin that is exactly the hazard daemon-minting was
+supposed to remove.
 
-- a caller-chosen id lets any principal permanently claim arbitrary coordinates, each
-  burning a whole `safe_id` equivalence class, unrecoverable by anyone including the
-  administrator;
-- and after a delete, the pin outlives the bytes, so a caller-chosen id can never be
-  re-created by anyone — a delete would permanently consume the name.
+So: mint with `gen_opaque` (`lifecycle_routes.rs:15663-15669`), and **require the bind to refuse a
+repeat rather than trusting the minter** — the substrate already does this
+(`expected_absent` → `ExpectedAbsentConflict` → `ResourceOwnerMismatch`), so the create path treats
+that refusal as "mint again", not as an error. A caller-supplied id is refused; callers keep a
+`display_name`.
 
-Daemon-minted ids are never reused, so neither hazard exists. **This is why the capture lane
-is immune and it is the axis on which "same shape as the capture fix" actually holds:**
-capture ids are daemon-minted (`:3585`).
+**Blast radius, budgeted rather than discovered:** four verifiers pass a caller-chosen
+`environment_id` and must change — `verify-hypervisor-environment-custody.mjs:309`,
+`verify-hypervisor-backup-restore.mjs:260`, `verify-hypervisor-placement-venue-picker.mjs:135`,
+`verify-hypervisor-cloud-candidate-plane.mjs:191`. The custody one is load-bearing: its alias
+fixture (`:350-353`, `:412`) deliberately chooses an underscore id, and R3 removes the caller's
+ability to choose it. That fixture must be rebuilt against a minted id whose canonical and raw forms
+still differ, or the alias property loses its test.
 
-Callers keep a `display_name`; the id is the daemon's.
+### R4 — The pin binds before the first durable byte AT THE ENVIRONMENT COORDINATE.
 
-### R4 — The pin binds BEFORE the first durable byte, at the one creation seam.
+Bind, then write. A failed write leaves a pin with no bytes and the owner retries; a failed bind
+leaves bytes with no owner, which is indistinguishable from a legacy environment, claimable by
+whichever different principal retries, and **refills at runtime** the class R8 closes once.
 
-Revision 1 had this exactly inverted — it bound "as the LAST act before returning success",
-while the capture fix it cited binds *before* `create_dir_all` and says why. The order
-matters and only one direction is recoverable:
+"First durable byte" is qualified deliberately: `detect_and_admit` (`recipe_routes.rs:358-368`)
+persists a recipe at `:366` from `environment_routes.rs:2574` before `persist_env` at `:2608`. That
+is a durable write the create path makes and it is not at the environment coordinate. The rule binds
+to the coordinate, not to the first write of any kind.
 
-- **bind, then write** — a failed write leaves a pin with no bytes. The owner retries; the
-  pin matches; nothing is stranded.
-- **write, then bind** — a failed bind leaves bytes with no owner, indistinguishable from a
-  legacy environment, refused to everyone and claimable by whichever *different* principal
-  retries. That does not merely risk one stranding: it **refills at runtime** the very class
-  R8 exists to close once, which makes "owned from this leg forward" unattainable.
+`start` and every other handle AUTHORIZE against the existing pin through `read_request_scope`. **No
+route other than create ever mints one.**
 
-So: the create handler resolves its caller, mints the id, binds the pin, and only then
-writes the record. `start` and every other route AUTHORIZE against the existing pin through
-`read_request_scope`. **No route other than create ever mints a pin.** The create→start gap
-disappears because there is no gap: the pin precedes the record, and the record precedes the
-workspace.
+Idempotency key: `environment-owner:<canonical-id>`, mirroring `environment-capture-owner:{id}`
+(`:3598`).
 
-The bind's idempotency key is `environment-owner:<canonical-id>`, mirroring
-`environment-capture-owner:{id}` (`:3598`), so a replay is a replay rather than a
-`SameKeyDifferentBytes` refusal.
+### R5 — One normalizer, canonical in the record, canonical in every plane that keys on the coordinate.
 
-### R5 — One normalizer, canonical in the record, canonical in the lease plane.
+Eight copies collapse to one that RETURNS the canonical coordinate. `new_env` stores the canonical
+id (`:235` today stores the raw one, which also fixes `scm_publication_routes.rs:2723-2725`, the
+ninth reading, which uses no normalizer at all). **`managed_runtime_routes::safe` is the one that
+DISAGREES** — it admits `'.'`, so the managed-backup family resolves a different file than the pin's
+coordinate for any dotted id; collapsing "the four identical copies" would have left the single
+divergence in place. `supervisor_routes::lease_binds_env` (`:141-147`) is re-keyed on the canonical
+coordinate, and its bare-`env_id` disjunction (`:146`) is narrowed with it.
 
-The four independent copies of `safe_id` collapse to one function that RETURNS the canonical
-coordinate. `new_env` stores the CANONICAL id, not the caller's spelling (`:235` today) —
-without that, "the response returns the canonical coordinate" is not achieved. And
-`supervisor_routes::lease_binds_env` (`:141-147`), which compares raw `environment:<id>`
-strings, is re-keyed on the canonical coordinate: a lease plane keyed on a raw spelling
-while the pin is canonical is two coordinate systems over one workspace, which is the
-coordinate trap exactly.
+### R6 — Ownership resolves through the pin. A derived subject is legitimate only where the field it derives from is IMMUTABLE.
 
-### R6 — Ownership is read from the substrate pin, never from a record field.
+`status.workspace_root`, `owner_ref` and every other mutable record field are descriptive.
 
-Every authorization decision resolves through `read_request_scope`. `status.workspace_root`,
-`owner_ref` and every other record field are DESCRIPTIVE. This kills F4 structurally.
+But two paths have no other subject, and revision 2 forbade its own named consequence by forgetting
+why: `handle_snapshot_restore` (`:4092-4095`) receives only the CAPTURE id, so the destination is
+knowable only from `snap["environment_ref"]` (`:4110-4113`). That is legitimate **because that field
+is written once at `:3616` and no route updates it** — immutability, not canonicalization, is what
+makes a derived subject safe. State the clause and the restore check is buildable.
 
-Two specific consequences the design must state rather than imply:
+The same clause refuses `handle_workrun_execute`'s subject: `wr["environment_id"]` is caller-supplied
+(`:3313-3316` → `:3387`), so it is NOT immutable and may not carry authorization. The workrun path
+must derive its environment from the pin at create time and record it as a bound fact.
 
-- **`handle_snapshot_restore` (`:4092`) gains a destination check.** It says today: "NO
-  DESTINATION AUTHORIZATION, because there is nothing to authorize against." There is now.
-  Its subject derives from the canonical coordinate, not from the `snap["environment_ref"]`
-  record field.
-- **`delete`'s never-refuses carve-out is RE-RULED, explicitly.** R1 and R6 make it refuse,
-  which overrides a standing commitment in its own comment (`:3172-3176`). A silent override
-  is how a promise becomes a falsehood. The re-ruling: deletion never refuses **for the
-  owner**, and the cleanup-obligation guarantee is unchanged; it refuses a non-owner, and it
-  refuses an unadopted environment to every ordinary principal while remaining available to
-  the deployment administrator under R7.
+**`delete`'s never-refuses carve-out is re-ruled explicitly** rather than silently overridden: it
+never refuses the OWNER and its cleanup-obligation guarantee is unchanged; it refuses a non-owner;
+and for an unadopted environment it is available to the deployment administrator under R7.
 
-### R7 — Legacy environments are ADMINISTERED, not adopted. No pin is minted for them, ever.
+### R7 — Legacy environments are ADMINISTERED, not adopted.
 
-Revision 1 ruled an "administrator-authorized adoption transition that binds a FIRST pin".
-**That cannot be built**: there is no bind-on-behalf, so such a transition could only bind
-*the administrator* as owner of every legacy environment — and with transfer out of scope
-and no unbind, real users would be locked out permanently.
+There is no bind-on-behalf, so an "adoption" could only make the administrator the permanent owner of
+every legacy environment. Instead: an environment with no pin belongs to the deployment.
+Ordinary principals are refused with a typed reason that says **unadopted**, not "not yours" — the
+truth is "nobody's". The deployment administrator may read, stop and delete it. Nothing binds a pin
+on its behalf.
 
-The estate already ships the right pattern and it needs no substrate change.
-`authorize_route_owner` (`model_routes.rs:1497-1524`) resolves an unowned record to **the
-deployment**, whose administrator is the only party that can dispose of it — fail-closed to
-every ordinary principal and recoverable rather than stranded. The authority is
-`require_authenticated_org_admin` via `RouteCaller.is_deployment_admin` (`:1467`).
+Adopt the half of `authorize_route_owner` that consults the ADMINISTRATOR, not the half that branches
+on a record's `owner_ref` — environment records carry none, and R6 forbids it. The helper is private
+to `model_routes` and keyed to that module's records; the build owes a SHARED helper rather than a
+second copy, because the estate already rules there is "one answer to 'may this principal make this
+crossing'" (`lifecycle_routes.rs:16282-16286`).
 
-So: an environment with no pin belongs to the deployment. Ordinary principals are refused
-with a typed reason that says **unadopted**, not "not yours" — the truth is "nobody's", and
-XIII paid for that distinction. The deployment administrator may read, stop and **delete**
-it. Nothing binds a pin on its behalf.
+### R8 — The reach is not retroactive, and FIVE assertions flip, not one.
 
-**This is why the escape hatch does not fire.** The commission's file-and-stop trigger is
-"no existing authority can carry it". The authority exists. Nothing in this design is
-outside the estate's gift.
+`check:environment-custody` carries the no-binder source test, the capture-harm assertion, the
+restore-harm assertion, and two `NAMED_UNOWNED` entries (`:258`, `:262`) bound to this defect. They
+flip in the LAST commit of a proven fix.
 
-### R8 — The reach is not retroactive, and the gate says so.
+### R9 — `GET /environments` is scoped.
 
-The open-defect assertion in `check:environment-custody` flips in the LAST commit of a proven
-fix, never the first. The honest claim is "owned from this leg forward"; legacy environments
-are administered, not owned, and the residual names exactly that.
+`handle_environments_list` (`:2274-2276`) takes only `State` and returns every environment in the
+estate with absolute `workspace_root` paths. `handle_snapshots_list` (`:4066-4086`) is the estate's
+own fixed shape for exactly this and is the precedent.
 
-## What this design does NOT do
+## The filed dependency — `ioi.hypervisor.authority-grant.v1` carries no principal
 
-- It does not add an unbind. The substrate has none and inventing one is a second spine.
-- It does not make ownership transferable. That is a separate governed act, named here so it
-  cannot be smuggled in.
-- It does not touch the capture custody lane, which already has an owner.
-- It does not state whether an environment pin becomes a third retention subject kind
-  (`retention_routes.rs:171`, `:492`, `:549`). **That is an open question this design does
-  not answer** and it must be answered before the build closes.
-- It does not cover `workrun-workspaces/<wr_id>` (`:3351-3353`), a second copy of workspace
-  bytes written outside any environment coordinate. **Named open.**
+**R1 cannot be built at the ops surface or the preview server without a change this design does not
+make and does not assume.** Both citations, per the two-sources discipline:
+
+- **The requirement**: R1 obliges `handle_environment_ops` (`supervisor_routes.rs:305`) — whose
+  methods are `ReadFile` (`:349`), `WriteFile` (`:410`) and `Exec` (`:556`) — to authorize its
+  caller against the pin. `authed()` (`:177-183`) has no caller to authorize: the bearer it
+  validates is principal-free.
+- **The substrate location**: `issue_capability_lease` (`authority_routes.rs:195-240`) writes
+  `"subject": subject` at `:148`, taking the literal `"operator"` from `supervisor_routes.rs:37`.
+  The grant schema has no principal ref. The same holds for the preview server
+  (`lifecycle_routes.rs:9346-9351`), whose state is the bare `workspace_root` string with no
+  `data_dir` and no headers.
+
+Requiring a session ALONGSIDE the lease is not an escape: the Workbench transport contract drops the
+env path by design (`supervisor_routes.rs:164-166`).
+
+**This is filed, not designed.** A principal ref on a kernel authority grant is the highest
+blast-radius change in the estate — the editor lane and port-preview consume the same records — and
+it does not ride into existence as a footnote in an environment-ownership ADR. It is commissioned as
+XV+ work with its own adversarial cycle.
+
+**Therefore this design is SOUND-CONDITIONAL and defect 1a closes CONDITIONALLY.** Every ruling
+except R1's ops-lease and preview-port rows is buildable today. Those two rows, and the 1a gate
+assertion, stay OPEN until the filed change lands. **No code in this run assumes it.** The honest
+statement at merge is: the environment plane authorizes every handle it can, two handles remain
+unauthorizable by construction, and they are named.
 
 ## The verifier this design implies
 
-Named here so the build cannot narrow it later. Revision 1's list is superseded: a review
-demonstrated that all eight of its items could pass while the property was false.
+Revision 2's twelve are superseded — a review demonstrated all twelve passing while a non-owner
+published the owner's source.
 
 1. **The closed world is every route whose handler can reach `environments/<id>/` or
-   `status.workspace_root`** — derived from source, asserted in both directions. Not "the
-   lifecycle plane", which is undefined and let an anonymous non-`/v1/` chain through.
-2. Every route in that world refuses an anonymous request, PAIRED WITH A COUNT of the
-   durable artifact it must not have produced — no workspace directory, no record, no lease.
-3. **The anonymous ops-lease chain specifically**: minting a lease for another principal's
-   environment is refused, and `WriteFile`/`Exec` are refused without a resolved principal.
-4. A **GET** of a non-existent environment creates nothing on disk; an action on one is a
-   404 and creates nothing.
-5. **The create→start gap**: P1 creates, P2 starts — P2 is refused and P1 still owns it.
-6. **Bind precedes bytes**: an induced write failure after a successful bind leaves no
-   workspace directory and the pin still resolves to P1, who can retry.
-7. A refused create leaves NO pin behind, proven by a subsequent successful create by a
-   different principal.
-8. A caller-supplied `environment_id` is refused, and two creates never produce the same id.
-9. An alias spelling resolves to the SAME pin and is refused for the non-owner — including
-   through the **lease** plane, which is keyed independently.
-10. Delete: the owner is never refused; a non-owner is; a legacy environment is refused to
-    an ordinary principal and available to the deployment administrator.
-11. A legacy (unpinned) environment is refused with **unadopted**, not "not yours".
-12. Mutations RED-ON-TARGET for each, floored in the same commit.
+   `status.workspace_root`, enumerated by handle**, asserted in both directions.
+2. Every route in it refuses an ANONYMOUS request, paired with a count of the durable artifact it
+   must not have produced.
+3. **Every route in it refuses a NON-OWNER**, paired with the same count. This is the item whose
+   absence let F6 through, and it is the property.
+4. `scm/publish`, `snapshots` and `backups` specifically — the three that resolve identity today and
+   authorize nothing.
+5. A GET of a non-existent environment creates nothing; an action on one is a 404.
+6. **The create→start gap**: P1 creates, P2 starts — P2 refused, P1 still owns it.
+7. **Bind precedes bytes**: an induced write failure after a successful bind leaves no workspace
+   directory and the pin still resolves to P1.
+8. A refused create leaves no pin, proven by a later successful create by a different principal.
+9. A caller-supplied `environment_id` is refused; ids come from `gen_opaque`; a forced id collision
+   is refused by the bind and re-minted, not awarded.
+10. An alias spelling resolves to the same pin and is refused for the non-owner — **including
+    through the lease plane and the managed-backup family**, which normalize independently.
+11. A workrun cannot be created or executed against an environment the caller does not own, and no
+    branch or worktree metadata appears in the owner's `.git`.
+12. Delete: the owner is never refused; a non-owner is; a legacy environment is refused to an
+    ordinary principal and available to the deployment administrator.
+13. A legacy environment is refused with **unadopted**, not "not yours".
+14. `GET /environments` returns only the caller's own.
+15. **The two unauthorizable handles are asserted as such** — the ops-lease and preview-port rows
+    are proven still open, so the residual cannot quietly close or quietly widen.
+16. Mutations RED-ON-TARGET for each, floored in the same commit.
 
 ## Revision history
 
-**Revision 1 (2026-08-15) — DEFEATED by adversarial review.** Seven ship-blockers and five
-factual errors:
+**Revision 1 — DEFEATED.** Seven ship-blockers: F5; bind ordered after the bytes; R1 scoped to two
+routes; one `new_env` arm named when there are three; an adoption mechanism that cannot be built;
+caller-chosen ids with no unbind; one normalizer named when there are four. Five factual errors.
 
-- **the fifth failure (F5)**: create and start are two requests and only start provisions, so
-  binding at materialization awards P1's environment to whoever starts it;
-- bind ordered AFTER the bytes, inverting the capture precedent it cited and refilling the
-  unowned class at runtime;
-- R1 scoped to two named routes when handler reach is fifteen-plus, including an anonymous
-  non-`/v1/` chain to `WriteFile`/`Exec`;
-- one `new_env` arm named when there are three, one of them a GET that persists;
-- an adoption mechanism that cannot be built — no bind-on-behalf — while the authority it
-  needed already ships as `authorize_route_owner`;
-- caller-chosen ids plus no unbind, giving permanent squatting and a delete that consumes a
-  name forever;
-- one normalizer named when there are four, with the record and the lease plane both keyed
-  raw.
-- Factual errors corrected: the no-second-spine law is ADR 0031/0024, not "ADR 0034-branch";
-  the ODK bind is not an authority crossing and is not the precedent for R7; "same shape as
-  the capture fix" was false on bind ORDER and true only on daemon-minted ids; the lifecycle
-  plane is not two routes; `new_env` is not one arm.
+**Revision 2 — DEFEATED.** Seven more: F6; the workrun path filed as out-of-scope when it writes
+into the owner's repo; a closed-world predicate its named instrument cannot compute; the ops surface
+needing an unnamed schema change; R6 forbidding its own named consequence; a minter asserted rather
+than named; four normalizers named when there are eight, and the missed one is the only divergent
+one. Ten factual errors, including the `/v1/` claim corrected at the top of this document — written
+on a reviewer's finding without fetching the ref.
 
 ## Reversal
 
-Owner-reversible. If the owner rules that the lifecycle plane must stay anonymous, this ADR
-is superseded and defect 1a stays open with its gate assertion intact — which is the state
-today, and is honest. The cost of that ruling is stated plainly: any authenticated principal
-can capture any environment's workspace and restore its own capture back over it, **and an
-entirely unauthenticated caller can mint an ops lease for any environment and read, write or
-execute inside its workspace.**
+Owner-reversible. If the owner rules the plane must stay as it is, this ADR is superseded and 1a
+stays open with its gate assertion intact. The cost, stated correctly this time — revision 2
+undercounted it because R6 closes only the restore half: any authenticated principal can **capture**
+any environment's workspace (`check:environment-custody` asserts this live) **and** restore its own
+capture back over it, **and** publish its source outward, **and** an ops lease minted for any
+environment grants `ReadFile`/`WriteFile`/`Exec` inside its workspace to whoever holds the bearer.
 
 ## Status of the evidence
 
-This ADR cites source locations at `6cfdcb5be`, re-verified after revision 1's review. It has
-NOT been built and nothing here has been demonstrated live. It is a design, and the next act
-is its review — not a branch.
+Citations re-verified against source after revision 2's review. Nothing here has been built or
+demonstrated live. The next act is this document's review.
