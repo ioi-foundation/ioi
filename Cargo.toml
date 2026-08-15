@@ -17,6 +17,7 @@ members = [
     "crates/consensus",
     "crates/api",
     "crates/types",
+    "crates/ontology-census",
     "crates/crypto",
     "crates/networking",
     "crates/services",

@@ -1,0 +1,20 @@
+# The ontology admission census EXTRACTOR.
+#
+# Its own crate, deliberately. It needs `syn` to read Rust, and `ioi-types` — where this first
+# lived — carries a standing note that it keeps minimal dependencies to remain stable; a parser does
+# not belong in a core type crate's graph. It was briefly an `examples/` target for that reason, but
+# `.gitignore` excludes `examples/` wholesale to keep vendored third-party trees out of the repo, so
+# a load-bearing tool living there would never have reached CI at all.
+[package]
+name = "ioi-ontology-census"
+version = "0.1.0"
+edition = "2021"
+description = "Parses the hypervisor daemon's module graph with syn and emits its record-admission facts as JSON"
+license.workspace = true
+repository = "https://github.com/ioi-foundation/ioi"
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+proc-macro2 = "1"
+syn = { version = "2.0.116", features = ["full", "visit"] }
