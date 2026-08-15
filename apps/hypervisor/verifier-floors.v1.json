@@ -153,6 +153,14 @@
       "assertion_names_sha256": "d8f97b56224f06f837f6ba29d0a2104af58ccfe57cb1f8df5f8304955a9c1c3c"
     },
     {
+      "id": "env-lease-authority",
+      "npm_script": "check:env-lease-authority",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-env-lease-authority.mjs",
+      "runtime_assertions": 14,
+      "assertion_names_sha256": "d5392e84c8669bc4928aae707234b43c413147b18e76937c1164bd822c619e25",
+      "note": "Exercises a PROVEN-LIVE privilege escalation as its finding: a port/editor capability lease driving env-ops WriteFile/Exec, asserted refused by the ABSENCE of the side effect. Includes a named residual (defect 1a) asserted TRUE that flips when the environment owner model lands."
+    },
+    {
       "id": "environment-custody",
       "npm_script": "check:environment-custody",
       "source": "apps/hypervisor/scripts/verify-hypervisor-environment-custody.mjs",

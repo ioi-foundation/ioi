@@ -487,10 +487,32 @@ pub(crate) async fn handle_editor_service_start(
     }
 }
 
+/// A grant may bind THIS editor service's proxy iff it carries the `environment.editor.open` action
+/// AND names this service (or its environment) in its resources. Pure so it is unit-tested without a
+/// live openvscode runtime, which the sandbox cannot install: "any active lease" — the check this
+/// replaced — let a port lease or an editor lease for a different environment bind a victim's IDE.
+fn grant_authorizes_editor_service(grant: &Value, service_id: &str, svc_env: &str) -> bool {
+    if grant.get("action").and_then(|v| v.as_str()) != Some("environment.editor.open") {
+        return false;
+    }
+    let want_service = format!("editor_service:{service_id}");
+    let want_env = format!("environment:{svc_env}");
+    grant
+        .get("resources")
+        .and_then(|r| r.as_array())
+        .map(|arr| {
+            arr.iter().any(|x| {
+                x.as_str() == Some(want_service.as_str())
+                    || (!svc_env.is_empty() && x.as_str() == Some(want_env.as_str()))
+            })
+        })
+        .unwrap_or(false)
+}
+
 /// POST /v1/hypervisor/editor-services/:service_id/expose — bind a lease-authenticated WS proxy
 /// (WS-4) in front of the ready runtime's internal port. Body: `{ lease_id }`. The public URL is
 /// served by the proxy; the raw internal port is never exposed. Fail-closed: requires a ready
-/// service + an active capability lease.
+/// service + a lease that AUTHORIZES this service (`grant_authorizes_editor_service`).
 pub(crate) async fn handle_editor_service_expose(
     State(st): State<Arc<DaemonState>>,
     AxumPath(service_id): AxumPath<String>,
@@ -525,6 +547,29 @@ pub(crate) async fn handle_editor_service_expose(
             StatusCode::OK,
             Json(
                 json!({ "ok": false, "reason": format!("capability lease not active ({})", capability_lease_status(&st.data_dir, &lease_id)), "fail_closed": true }),
+            ),
+        );
+    }
+    // THE LEASE MUST BE FOR THIS EDITOR SERVICE, NOT MERELY ACTIVE. This gate used to check only that
+    // SOME lease was active, so any active lease in the estate — a port-forward lease, an ops lease,
+    // or an editor lease minted for a DIFFERENT environment — bound this service's proxy onto its
+    // workspace. That is the same action-blind/resource-blind hole Leg 4 closed at the `/supervisor/`
+    // env-ops seam, on the editor consumer. The lease must NAME this service (or its environment) in
+    // its resources AND carry the editor action, which is exactly what `handle_editor_access_lease_create`
+    // mints. Owner-binding — that the caller owns the environment — remains the 1a residual.
+    let svc_env = svc
+        .get("environment_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .to_string();
+    let editor_lease_ok = super::authority_routes::load_grant(&st.data_dir, &lease_id)
+        .map(|g| grant_authorizes_editor_service(&g, &service_id, &svc_env))
+        .unwrap_or(false);
+    if !editor_lease_ok {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(
+                json!({ "ok": false, "reason": "the lease does not authorize this editor service — an active lease must carry the `environment.editor.open` action and name this service (or its environment) in its resources", "fail_closed": true }),
             ),
         );
     }
@@ -874,4 +919,56 @@ pub(crate) async fn handle_editor_access_lease_revoke(
             json!({ "ok": ok, "lease_id": lease_id, "revoke": rev_body, "status": if ok { "revoked" } else { "revoke_failed" } }),
         ),
     )
+}
+
+#[cfg(test)]
+mod editor_lease_tests {
+    use super::grant_authorizes_editor_service;
+    use serde_json::json;
+
+    #[test]
+    fn a_matching_editor_lease_authorizes_the_service() {
+        let g = json!({
+            "action": "environment.editor.open",
+            "resources": ["environment:e1", "editor_service:eds_1"],
+        });
+        assert!(grant_authorizes_editor_service(&g, "eds_1", "e1"));
+    }
+
+    #[test]
+    fn the_lease_environment_alone_authorizes_when_it_matches() {
+        let g = json!({ "action": "environment.editor.open", "resources": ["environment:e1"] });
+        assert!(grant_authorizes_editor_service(&g, "eds_1", "e1"));
+    }
+
+    #[test]
+    fn a_port_lease_does_not_authorize_the_editor_service_even_for_the_same_env() {
+        // The exact cross-consumer escalation: a port lease naming e1 must not bind e1's IDE proxy.
+        let g =
+            json!({ "action": "environment.port", "resources": ["environment:e1", "port:8080"] });
+        assert!(!grant_authorizes_editor_service(&g, "eds_1", "e1"));
+    }
+
+    #[test]
+    fn an_ops_lease_does_not_authorize_the_editor_service() {
+        let g = json!({ "action": "environment.ops", "resources": ["environment:e1"] });
+        assert!(!grant_authorizes_editor_service(&g, "eds_1", "e1"));
+    }
+
+    #[test]
+    fn an_editor_lease_for_a_different_environment_does_not_authorize_this_service() {
+        // Cross-principal: an editor lease minted for e2 must not bind e1's service.
+        let g = json!({
+            "action": "environment.editor.open",
+            "resources": ["environment:e2", "editor_service:eds_2"],
+        });
+        assert!(!grant_authorizes_editor_service(&g, "eds_1", "e1"));
+    }
+
+    #[test]
+    fn an_empty_environment_never_matches_by_environment() {
+        // A service with no environment_id must not be authorized by a bare `environment:` prefix.
+        let g = json!({ "action": "environment.editor.open", "resources": ["environment:"] });
+        assert!(!grant_authorizes_editor_service(&g, "eds_1", ""));
+    }
 }

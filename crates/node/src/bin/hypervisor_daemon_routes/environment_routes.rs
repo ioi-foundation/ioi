@@ -767,7 +767,34 @@ pub(crate) async fn handle_env_ports(
 pub(crate) async fn handle_env_port_expose(
     State(st): State<Arc<DaemonState>>,
     AxumPath((id, port)): AxumPath<(String, u64)>,
+    headers: HeaderMap,
 ) -> Result<Json<Value>, AppError> {
+    // POSTURE-RESOLVED CALLER, never the anonymous default, AND THE RESOLVED SUBJECT IS WHAT THE
+    // LEASE CARRIES. This route took no headers and minted an `environment.port` lease with the
+    // literal subject `"operator"` for anyone; Leg 4 proved that an anonymously-minted port lease
+    // drove WriteFile/Exec through `/supervisor/` (the env-ops seam now checks the lease ACTION,
+    // which stops a port lease reaching env-ops — but the mint itself must still resolve a caller so
+    // an exposed/managed surface cannot forge a port lease, and the grant must record WHO minted it
+    // so its own minter can revoke it). Exposed ⇒ 403, managed ⇒ real principal or 401, loopback ⇒
+    // operator. Owner-binding (does this caller own THIS environment) is the 1a residual — resolved
+    // here is the CALLER, not the owner.
+    let subject = match super::authority_routes::resolve_authority_subject(
+        &st.data_dir,
+        &headers,
+        "environment_port_expose_auth_required",
+        "environment_port_expose_exposed",
+    ) {
+        Ok(subject) => subject,
+        Err((code, body)) => {
+            let msg = body
+                .get("error")
+                .and_then(|e| e.get("message"))
+                .and_then(|m| m.as_str())
+                .unwrap_or("authority resolution refused")
+                .to_string();
+            return Err(AppError(code, msg));
+        }
+    };
     let Some(mut env) = load_env(&st.data_dir, &id) else {
         return Ok(Json(
             json!({ "ok": false, "reason": "environment not found" }),
@@ -791,7 +818,7 @@ pub(crate) async fn handle_env_port_expose(
     let listening = port_listening(port);
     let lease = super::authority_routes::issue_capability_lease(
         &st.data_dir,
-        "operator",
+        &subject,
         "environment.port",
         json!([format!("environment:{id}"), format!("port:{port}")]),
         3600,
