@@ -41,6 +41,14 @@ const ANCHOR_FILE = path.join(ROOT, manifest.anchor_file);
  * mapping here rather than mutating the gate blindly is what keeps the re-derivation honest: this
  * harness may move a POPULATION COUNT and nothing else. It cannot relax a claim.
  */
+/**
+ * THE HARNESS MAY MOVE A POPULATION COUNT AND NOTHING ELSE. Every entry below is a measurement of
+ * the census's REACH. `PINNED.unadjudicable` — the per-cause buckets of names this census cannot
+ * resolve — is deliberately absent: those are a CLAIM about the gate's boundary, and a new
+ * unadjudicable name is a name that entered the daemon which the census cannot tell apart from a
+ * second admitter. The keys below are bare identifiers and the bucket keys are quoted strings, so
+ * this holds by construction as well as by rule.
+ */
 const REPIN = [
   [/^(\d+) modules reached, \d+ distinct paths \(pinned \d+\)$/, (m) => [["modules", m[1]]]],
   [/^(\d+)\/\d+ tokens, (\d+)\/\d+ of them family-resolving$/, (m) => [["tokenMentions", m[1]], ["judgedTokenPositions", m[2]]]],
@@ -81,22 +89,48 @@ function rederivePins(stdout) {
 function plant(anchor) {
   const saved = new Map([[GATE, fs.readFileSync(GATE, "utf8")]]);
   const created = [];
-  if (anchor.create) {
-    const p = path.join(ROOT, anchor.create.path);
-    if (fs.existsSync(p)) throw new Error(`anchor ${anchor.id} would overwrite ${anchor.create.path}`);
-    fs.writeFileSync(p, anchor.create.content);
-    created.push(p);
-  }
+  const restore = () => {
+    for (const [f, s] of saved) fs.writeFileSync(f, s);
+    for (const f of created) fs.rmSync(f, { force: true });
+  };
+  // THE ANCHOR POINT IS CHECKED BEFORE ANYTHING IS WRITTEN. Creating a file and then throwing on a
+  // missing anchor leaks that file and over-claims the restore_always rule — a review found exactly
+  // that ordering here.
   const before = fs.readFileSync(ANCHOR_FILE, "utf8");
   saved.set(ANCHOR_FILE, before);
   if (!before.includes(manifest.anchor_find)) {
     throw new Error(`anchor point absent from ${manifest.anchor_file} — the battery cannot plant anything`);
   }
-  fs.writeFileSync(ANCHOR_FILE, before.replace(manifest.anchor_find, `${anchor.insert}${manifest.anchor_find}`));
-  return () => {
-    for (const [f, s] of saved) fs.writeFileSync(f, s);
-    for (const f of created) fs.rmSync(f, { force: true });
-  };
+  try {
+    for (const spec of [anchor.create, anchor.create2].filter(Boolean)) {
+      const p = path.join(ROOT, spec.path);
+      if (fs.existsSync(p)) throw new Error(`anchor ${anchor.id} would overwrite ${spec.path}`);
+      fs.mkdirSync(path.dirname(p), { recursive: true });
+      fs.writeFileSync(p, spec.content);
+      created.push(p);
+    }
+    // A REPLACER FUNCTION, NEVER A REPLACEMENT STRING. `String.replace` reads `$&`, `` $` ``, `$'`
+    // and `$1` in the replacement, so an anchor's own text could plant something other than what
+    // this manifest records — the battery lying about what it tested.
+    fs.writeFileSync(ANCHOR_FILE, before.replace(manifest.anchor_find, () => `${anchor.insert}${manifest.anchor_find}`));
+  } catch (error) {
+    restore();
+    throw error;
+  }
+  return restore;
+}
+
+/**
+ * DOES THE MUTATED DAEMON STILL COMPILE? An anchor that cannot exist is not a mutant — it is a
+ * fiction that scores as caught, because the gate reads source and a nonsensical mutant still moves
+ * the census. A review demonstrated one: `NOT_A_REAL_ARG` scored RED-ON-TARGET. Anchors rot this way
+ * when a signature or a visibility changes under them, and the battery keeps printing its total.
+ */
+function compiles() {
+  const r = spawnSync("cargo", ["check", "--offline", "-q", "--bin", "hypervisor-daemon"], {
+    cwd: ROOT, encoding: "utf8", maxBuffer: 64 * 1024 * 1024,
+  });
+  return { ok: r.status === 0, detail: (r.stderr || "").split("\n").filter((l) => l.startsWith("error")).slice(0, 2).join(" ; ") };
 }
 
 function main() {
@@ -116,6 +150,13 @@ function main() {
     let restore = () => {};
     try {
       restore = plant(anchor);
+      const build = compiles();
+      if (!build.ok) {
+        verdicts.push({ id: anchor.id, class: anchor.class, pass: false, verdict: "INVALID" });
+        console.log(` FAIL  ${"INVALID".padEnd(15)} ${anchor.id.padEnd(32)} the mutated daemon does not compile — this anchor is fiction`);
+        console.log(`          ${build.detail}`);
+        continue;
+      }
       let r = runGate();
       const moved = [];
       // Re-derive pins the way a landing commit would, until only property assertions remain.

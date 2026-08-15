@@ -48,11 +48,29 @@
 // identifier, at every depth of every group — and hands the SAME stream to syn. The token population
 // is total by construction, because a name that is in the file is a token in the file. This file
 // matches the two by SOURCE POSITION: a token that resolves to a family with no AST mention on it is
-// a SILENT MENTION and is RED. A coverage gap can no longer read as safety, because the thing being
-// counted is no longer produced by the thing that might be incomplete.
+// a SILENT MENTION and is RED.
 //
-// AND SINCE THIS FIX LANDED, A DEMONSTRATED SILENCE IS NOT A BUG TO PATCH. It falsifies the design,
-// and the owner's standing instruction is to STOP AND ESCALATE rather than model one more construct.
+// AND THAT WAS FALSIFIED TOO, WHICH IS WHY THE CLAIM BELOW IS SMALLER THAN THE ONE IT REPLACES. A
+// sixth review demonstrated six compiling second-admission paths passing green, and the diagnosis is
+// the same scar ONE LAYER DOWN:
+//
+//     A TOTAL TOKEN POPULATION CLOSES NOTHING UNLESS RESOLUTION OVER IT IS TOTAL.
+//
+// The token walk is total. The population this gate JUDGES is `token ∩ resolves-to-a-family`, and
+// resolution is a PARTIAL FUNCTION — it reads the declarations this census can see, and there are
+// thousands of constant-shaped names it cannot tie to one. Those were `continue`d in silence, with
+// no assertion over them, so the silence check adjudicated 282 of 106,724 tokens while a qualified
+// constant inside macro tokens — where the token walk flattens the path and loses the qualification
+// — reached a writer completely green.
+//
+// THE OWNER RULED: NO THIRD HARDENING EDGE. Entailing the resolver is construct-modelling one layer
+// up, and a design falsified twice does not get to try again. What was wrong is the LABELS' REACH,
+// not the gate's existence — the entailed core is real. So every label below is re-scoped to the
+// RESOLVED population, and EVERY NAME THIS CENSUS CANNOT ADJUDICATE IS COUNTED IN A NAMED BUCKET,
+// PINNED IN BOTH DIRECTIONS. A new unadjudicable name beyond the pin is RED; a name that becomes
+// resolvable shrinks the pin in the commit that resolves it. The buckets are the honest boundary of
+// this gate, stated as a number per cause rather than as a silence — and burning them down, together
+// with entailing the resolver itself, is next-legs XV work beside the atlas `denies` schema.
 //
 // WHAT IT ENTAILS, scoped by owner ruling. For each of the four ONTOLOGY families, exactly one
 // module admits it. That is the commissioned claim, and four assertions below carry it.
@@ -99,7 +117,10 @@ import { fileURLToPath } from "node:url";
 import { emitVerifierCensus } from "./lib/verifier-census.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const ROOT = process.env.IOI_CENSUS_ROOT || path.resolve(HERE, "..", "..", "..");
+// NO ENV OVERRIDE. A merge-blocking gate that can be re-pointed at another tree by an environment
+// variable certifies whichever tree it was aimed at while reporting the same number — the "gate as
+// its own oracle" shape this file exists to remove, wearing a different hat.
+const ROOT = path.resolve(HERE, "..", "..", "..");
 const EXTRACTOR_SRC = path.join(ROOT, "crates/ontology-census/src/main.rs");
 const EXTRACTOR_BIN = path.join(ROOT, "target/debug/ioi-ontology-census");
 const DAEMON_MAIN = path.join(ROOT, "crates/node/src/bin/hypervisor-daemon.rs");
@@ -202,6 +223,30 @@ const PINNED = {
   judgedTokenPositions: 282,
   productionWriterCalls: { family: 72, nonFamilyLiteral: 204, runtimeParameter: 290 },
   productionFsCalls: 228,
+  /**
+   * THE NAMES THIS CENSUS CANNOT ADJUDICATE, by cause. Pinned exactly, both directions.
+   *
+   *   foreign-qualified   — the qualifier names a module this walk does not contain (`StatusCode::…`,
+   *                         `header::AUTHORIZATION`). Structurally cannot be a daemon family constant.
+   *   opaque-initialiser  — a daemon constant whose initialiser this census cannot read to a literal.
+   *                         The sharp one: it IS a daemon name and its value is unknown here.
+   *   bare-undeclared     — a constant-shaped identifier tied to no declaration this census can see.
+   *                         Where a qualified name inside MACRO TOKENS lands, because the token walk
+   *                         flattens the path to its tail.
+   *   ambiguous-module    — two modules share the stem the qualifier names.
+   *   not-a-visible-const — the qualifier resolves, the item is not a constant this census can read.
+   *   resolution-cycle    — const-of-const deeper than the resolver follows.
+   *
+   * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
+   */
+  unadjudicable: {
+    "foreign-qualified": 3228,
+    "opaque-initialiser": 1553,
+    "bare-undeclared": 791,
+    "ambiguous-module": 0,
+    "not-a-visible-const": 0,
+    "resolution-cycle": 0,
+  },
   /** `include!` splices code and is followed; the data forms carry no Rust and are pinned. */
   includes: { splicedCode: 0, dataStr: 31, dataBytes: 0, dataOpaqueArg: 6 },
   /** Compile-time name assembly. Every production one must be READABLE and is followed. */
@@ -221,7 +266,7 @@ const PINNED = {
  * bytes on disk, and the digest the binary carries from its own compile. Moving this pin is a
  * GOVERNED COMMIT ACT — it appears in the diff of any change to the extractor, which is the point.
  */
-const EXTRACTOR_SOURCE_PIN = "417877f8abfc82e1";
+const EXTRACTOR_SOURCE_PIN = "bb299c8ef20bc742";
 
 /** FNV-1a/64 — the digest the extractor bakes its own source under at compile time. */
 function fnv1a64(bytes) {
@@ -281,7 +326,7 @@ function run() {
     if (!byStem.has(m.stem)) byStem.set(m.stem, []);
     byStem.get(m.stem).push(m);
   }
-  ok("the census walks the daemon's REAL module graph from its entry point — every `mod` declaration resolved through `#[path]` and rustc's own nested-before-sibling order, with an unresolvable declaration or an unreadable file aborting the extraction rather than silently shrinking the world the claim is made over",
+  ok("the census walks the module graph it can SEE from the daemon's entry point — every `mod` declaration carrying a bare `#[path]`, resolved in rustc's own nested-before-sibling order, with an unresolvable declaration or an unreadable file aborting extraction rather than silently shrinking the world; it is NOT rustc's file set and does not claim to be, because `mod` has no totality edge and is not getting one: a `#[cfg_attr(…, path = …)]` redirect is invisible here and a `mod` declared inside a `macro_rules!` body never reaches the visitor at all, so rustc would compile one file while this reads another — neither construct exists in this daemon today and entailing the file set belongs to the run that entails the resolver",
     modules.length === PINNED.modules && byKey.size === modules.length,
     `${modules.length} modules reached, ${byKey.size} distinct paths (pinned ${PINNED.modules})`);
 
@@ -293,7 +338,7 @@ function run() {
    * did not merely miss a renamed import — it disguised the miss as a different hole.
    */
   function resolveName(m, name, depth = 0) {
-    if (depth > 6) return { kind: "UNRESOLVED", why: "resolution cycle" };
+    if (depth > 6) return { kind: "UNRESOLVED", bucket: "resolution-cycle", why: "resolution cycle" };
     if (isFamily(name)) return { kind: "LITERAL", value: name };
     const segs = name.split("::");
     const last = segs[segs.length - 1];
@@ -312,18 +357,18 @@ function run() {
       const alias = m.imports.find((i) => i.module_only && i.local === q);
       const stem = alias ? alias.item : q;
       const cands = byStem.get(stem);
-      if (!cands) return { kind: "UNRESOLVED", why: `no module named ${stem}` };
-      if (cands.length > 1) return { kind: "UNRESOLVED", why: `module name ${stem} is ambiguous` };
+      if (!cands) return { kind: "UNRESOLVED", bucket: "foreign-qualified", why: `no module named ${stem}` };
+      if (cands.length > 1) return { kind: "UNRESOLVED", bucket: "ambiguous-module", why: `module name ${stem} is ambiguous` };
       const t = cands[0];
       if (t.consts[last] !== undefined) return { kind: "LITERAL", value: t.consts[last] };
       if (t.const_refs[last] !== undefined) return resolveName(t, t.const_refs[last], depth + 1);
-      if (t.const_opaque.includes(last)) return { kind: "OPAQUE", why: `${stem}::${last} has an initialiser this census cannot read` };
-      return { kind: "UNRESOLVED", why: `${stem}::${last} is not a constant this census can see` };
+      if (t.const_opaque.includes(last)) return { kind: "OPAQUE", bucket: "opaque-initialiser", why: `${stem}::${last} has an initialiser this census cannot read` };
+      return { kind: "UNRESOLVED", bucket: "not-a-visible-const", why: `${stem}::${last} is not a constant this census can see` };
     }
     if (m.consts[last] !== undefined) return { kind: "LITERAL", value: m.consts[last] };
     // `const LOCAL: &str = super::odk_routes::KIND_ONT;` — a constant defined as another constant.
     if (m.const_refs[last] !== undefined) return resolveName(m, m.const_refs[last], depth + 1);
-    if (m.const_opaque.includes(last)) return { kind: "OPAQUE", why: `${last} has an initialiser this census cannot read` };
+    if (m.const_opaque.includes(last)) return { kind: "OPAQUE", bucket: "opaque-initialiser", why: `${last} has an initialiser this census cannot read` };
     const imp = m.imports.find((i) => !i.module_only && !i.glob && i.local === last);
     if (imp && imp.from) {
       const cands = byStem.get(imp.from);
@@ -337,7 +382,7 @@ function run() {
       const cands = byStem.get(g.from);
       if (cands && cands.length === 1 && cands[0].consts[last] !== undefined) return { kind: "LITERAL", value: cands[0].consts[last] };
     }
-    return { kind: "UNRESOLVED", why: `${last} is neither declared here nor imported` };
+    return { kind: "UNRESOLVED", bucket: "bare-undeclared", why: `${last} is neither declared here nor imported` };
   }
 
   // ---------------------------------------------------------------- TOTALITY: token vs role
@@ -376,7 +421,49 @@ function run() {
     }
   }
 
-  ok("EVERY TOKEN THAT RESOLVES TO AN ODK FAMILY CARRIES A SYNTACTIC LABEL — mentions are derived from the file's RAW TOKEN STREAM, which is total by construction because a name in a file is a token in the file, and the AST only assigns roles to positions in it; a token the role-assigner never reached is a SILENT MENTION and fails here, which is what a closed set of roles could not do while the roles and the population had the same author",
+  // ----------------------------------------------------- THE BOUNDARY, COUNTED BY CAUSE
+  //
+  // THE TOKEN POPULATION IS TOTAL; RESOLUTION OVER IT IS NOT. A string literal is self-describing —
+  // its value IS its meaning, so testing it against the interest prefix adjudicates it outright. A
+  // constant-shaped IDENTIFIER is a NAME, and adjudicating it means resolving it to a declaration
+  // this census can see. Thousands cannot be, and they used to be `continue`d in silence, which is
+  // how a qualified constant inside macro tokens reached a writer completely green: the token walk
+  // flattens `super::odk_routes::KIND_ONT` to the bare tail `KIND_ONT`, which resolves to nothing.
+  //
+  // Every one of them is now COUNTED IN A NAMED BUCKET and the buckets are pinned in BOTH
+  // directions. This is not a hardening edge — resolution is not entailed and this gate does not
+  // claim it is. It is the boundary made adjudicable: a number per cause, so a reviewer can read
+  // what the gate cannot see rather than infer it from a silence. A new unadjudicable name beyond
+  // the pin is RED. A name that becomes resolvable SHRINKS the pin in the commit that resolves it.
+  const dropped = {};
+  const bumpDrop = (b) => { dropped[b] = (dropped[b] ?? 0) + 1; };
+  for (const m of modules) {
+    const labelledAt = new Map();
+    for (const men of m.mentions) if (!men.synthesized) labelledAt.set(posKey(men), men);
+    for (const t of m.token_mentions) {
+      if (t.kind !== "ident") continue;
+      // Prefer the AST's QUALIFIED spelling where it has one. The token carries only the tail, and
+      // judging `StatusCode::BAD_REQUEST` by `BAD_REQUEST` alone would file a foreign constant in
+      // the same bucket as a daemon name nobody can find — which would make the pin unreadable.
+      const men = labelledAt.get(posKey(t));
+      const spelling = men && men.name.includes("::") ? men.name : t.text;
+      const r = resolveName(m, spelling);
+      if (r.kind === "LITERAL") continue;
+      bumpDrop(r.bucket ?? r.kind);
+    }
+  }
+  const dropGain = [], dropStale = [];
+  for (const [b, n] of Object.entries(dropped)) {
+    if (PINNED.unadjudicable[b] === undefined) dropGain.push(`UNRECORDED BUCKET ${b} (${n})`);
+    else if (n !== PINNED.unadjudicable[b]) dropGain.push(`${b} ${n}/${PINNED.unadjudicable[b]}`);
+  }
+  for (const [b, n] of Object.entries(PINNED.unadjudicable)) if (dropped[b] === undefined && n !== 0) dropStale.push(`${b} vanished (pinned ${n})`);
+
+  ok("EVERY CONSTANT-SHAPED NAME THIS CENSUS CANNOT ADJUDICATE IS COUNTED IN A NAMED BUCKET, AND THE BUCKETS ARE PINNED IN BOTH DIRECTIONS — the token population is total, but the population this gate JUDGES is `token ∩ resolves-to-a-family`, and resolution is a PARTIAL function whose failures used to be skipped in silence; that is the same defect one layer down from the one this file was rebuilt to fix, and it is answered by COUNTING rather than by a third hardening edge, because a name the census cannot tie to a declaration is exactly what a second admitter looks like from here and a landfill of five thousand is not a residual — a bucket with a cause and a number is",
+    dropGain.length === 0 && dropStale.length === 0,
+    [...dropGain, ...dropStale].join(" ; ") || Object.entries(dropped).sort((a, b) => b[1] - a[1]).map(([b, n]) => `${b}=${n}`).join(" "));
+
+  ok("EVERY TOKEN THAT RESOLVES TO AN ODK FAMILY CARRIES A SYNTACTIC LABEL — the claim is over the RESOLVED population and says so, because a review demonstrated the wider reading false: mentions come from the file's raw token stream, which is total by construction, but a token this census cannot RESOLVE is not judged here at all, it is counted in the bucket pin above; what this assertion entails is that no name the census CAN read reaches a position the role-assigner never labelled",
     silent.length === 0,
     silent.slice(0, 8).join(" ; ") || `${judgedTokens} family-resolving token positions, every one labelled`);
 
@@ -405,7 +492,7 @@ function run() {
     unsplicedCode.length === 0 && splicedCode === PINNED.includes.splicedCode,
     unsplicedCode.join(" ; ") || `${splicedCode}/${PINNED.includes.splicedCode} spliced code includes`);
 
-  ok("THE DATA-INCLUDING FORMS ARE PINNED RATHER THAN FOLLOWED, and that is sound for a different reason than the code form — `include_str!`/`include_bytes!` put BYTES in the program, not Rust, so no writer call can live in one; a constant initialised from one is UNREADABLE to this census and therefore OPAQUE, which the resolver assertion below refuses outright, so their arguments are counted rather than required to be literals",
+  ok("THE DATA-INCLUDING FORMS ARE PINNED RATHER THAN FOLLOWED, and that is sound for a different reason than the code form — `include_str!`/`include_bytes!` put BYTES in the program, not Rust, so no writer call can live in one; a constant initialised from one is UNREADABLE to this census and therefore OPAQUE, which is COUNTED IN THE `opaque-initialiser` BUCKET above rather than refused: an earlier version of this sentence claimed the resolver assertion refused it outright, and that assertion iterates writer calls only, so an OPAQUE constant reaching a RAW FILESYSTEM call was neither refused nor counted",
     dataStr === PINNED.includes.dataStr && dataBytes === PINNED.includes.dataBytes && dataOpaqueArg === PINNED.includes.dataOpaqueArg,
     `include_str!=${dataStr}/${PINNED.includes.dataStr} include_bytes!=${dataBytes}/${PINNED.includes.dataBytes} with ${dataOpaqueArg}/${PINNED.includes.dataOpaqueArg} non-literal arguments`);
 
@@ -587,8 +674,8 @@ function run() {
   // in `consts`, but the same literal inside `const XS: &[&str] = &["<family>"]` does not — and both
   // mint the name just as effectively. The mention carries its role, so both forms are one rule.
   // `static` is covered because `static-init` is a declaring role; `concat!("odk-", "…")` is covered
-  // one assertion earlier, because its tokens surface under the role `macro:concat`, which this gate
-  // does not classify and therefore fails on.
+  // by the role-closure assertion above, because its tokens surface under the role `macro:concat`,
+  // which this gate does not classify and therefore fails on.
   const foreignDeclarations = [];
   for (const m of modules) {
     const here = modId(m.key);

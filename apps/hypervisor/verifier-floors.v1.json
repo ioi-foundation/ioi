@@ -37,8 +37,8 @@
       "id": "ontology-admission-census",
       "npm_script": "check:ontology-admission-census",
       "source": "apps/hypervisor/scripts/verify-hypervisor-ontology-admission-census.mjs",
-      "runtime_assertions": 24,
-      "assertion_names_sha256": "b00344f001689c38b506a4c05adff7d6d42bfce673ecf66bd63696c25e2063ae"
+      "runtime_assertions": 25,
+      "assertion_names_sha256": "6aa8b726f40305b6646380a5c07f082cf93fbcbc6965e8e54e0e24356244b185"
     },
     {
       "id": "governance-journey",

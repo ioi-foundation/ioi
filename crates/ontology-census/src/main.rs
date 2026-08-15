@@ -50,7 +50,7 @@
 //! coverage gap can no longer read as safety, because the thing being counted is no longer produced
 //! by the thing that might be incomplete.
 //!
-//! THREE TOTALITY EDGES, ALL FAIL-CLOSED, because "the tokens of the file" is only total if the set
+//! TWO TOTALITY EDGES, both fail-closed, because "the tokens of the file" is only total if the set
 //! of files and the set of tokens are themselves total:
 //!   1. `include!` SPLICES another file's tokens into this one. A target this walk has not read is
 //!      RED-UNRESOLVED and aborts extraction — never absent. Resolved targets are spliced into the
@@ -58,12 +58,24 @@
 //!   2. A CONSTRUCTED name never appears as a token. `concat!` and `stringify!` are FOLLOWED INTO
 //!      THEIR EXPANSION and the assembled value is emitted as a synthesised mention at the macro's
 //!      own position; an assembly with a piece this census cannot read is reported as unreadable and
-//!      the gate refuses it. Runtime assembly is reported wherever it sits inside a writer's or a
-//!      filesystem call's own arguments, so the gate can test its pieces against family-name
-//!      fragments.
-//!   3. Once this holds, A DEMONSTRATED SILENCE IS NOT A BUG TO PATCH — it is a falsification of the
-//!      design, and the owner's standing instruction is to stop and escalate rather than to model
-//!      one more construct.
+//!      the gate refuses it.
+//!
+//! AND TWO BOUNDARIES THAT ARE NAMED RATHER THAN CLOSED, because a design that has been falsified
+//! twice does not earn a third hardening edge — that is construct-modelling one layer up, and the
+//! owner ruled it out by name.
+//!
+//!   · THE FILE SET IS NOT RUSTC'S FILE SET. `mod` has no totality edge equivalent to `include!`'s
+//!     and is not getting one. A `#[cfg_attr(…, path = …)]` redirect is invisible here — this walk
+//!     reads only a bare `#[path]` — and a `mod` declared inside a `macro_rules!` body never reaches
+//!     `visit_item_mod` at all, because syn hands macro tokens over unparsed. In both cases rustc
+//!     compiles one file and this census reads another, or none. Demonstrated: a syntactically
+//!     invalid decoy makes the daemon build clean and this extractor exit non-zero. Neither
+//!     construct exists in the daemon today; entailing the file set belongs to the run that entails
+//!     the resolver.
+//!   · RESOLUTION IS NOT TOTAL, AND THAT IS THE REAL BOUND. See the gate's header: the token
+//!     population is total, but the population the gate JUDGES is `token ∩ resolves-to-a-family`,
+//!     and resolution is a partial function. Its failures are no longer silent — every one is
+//!     counted in a named, pinned bucket — but they are not adjudicated either.
 //!
 //! WHAT IT EMITS, and nothing more. This tool decides no policy — it does not know what an ontology
 //! family is; the caller passes the prefixes it cares about. It reports what the source SAYS, and the
@@ -292,6 +304,10 @@ fn lit_text(l: &Lit) -> Option<String> {
     match l {
         Lit::Str(s) => Some(s.value()),
         Lit::ByteStr(b) => String::from_utf8(b.value()).ok(),
+        // `c"odk-…"`. A review found this exact hole after byte strings were added for the same
+        // reason: the population claim is over EVERY literal form the language has, and enumerating
+        // two of three is the claim being false about the third.
+        Lit::CStr(c) => c.value().to_str().ok().map(str::to_owned),
         _ => None,
     }
 }
@@ -303,6 +319,9 @@ fn token_lit_text(l: &proc_macro2::Literal) -> Option<(String, &'static str)> {
     }
     if let Ok(b) = syn::parse_str::<syn::LitByteStr>(&raw) {
         return String::from_utf8(b.value()).ok().map(|v| (v, "byte-str"));
+    }
+    if let Ok(c) = syn::parse_str::<syn::LitCStr>(&raw) {
+        return c.value().to_str().ok().map(|v| (v.to_owned(), "c-str"));
     }
     None
 }
