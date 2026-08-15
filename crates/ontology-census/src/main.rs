@@ -398,22 +398,52 @@ impl<'ast> Visit<'ast> for LeafGrab {
     }
 }
 
-/// Literal values and constant-shaped identifiers in a token stream, WITH their positions.
+/// Literal values and constant-shaped identifiers in a token stream, WITH their positions AND WITH
+/// THEIR PATH QUALIFIERS.
+///
+/// REBUILDING THE QUALIFIER IS NOT A NICETY — IT IS THE DIFFERENCE BETWEEN A RIGHT ANSWER AND A
+/// CONFIDENT WRONG ONE. An earlier version recorded `TokenTree::Ident` bare, so
+/// `json!({ "w": persist_record(d, super::odk_routes::KIND_ONT, i, r) })` produced the mention
+/// `KIND_ONT` with the qualifier thrown away. The gate then resolved that bare tail against the
+/// LOCAL module's constant table — and a module declaring its own `const KIND_ONT` made the census
+/// adjudicate another module's family constant as innocent, at zero delta to every pin. Twenty-three
+/// constant names in this daemon are declared in more than one module with different values, so the
+/// collision is ordinary rather than contrived.
+///
+/// The qualifier is IN THE TOKENS; only this function was discarding it. `::` arrives as two joint
+/// `Punct(':')`, so walking back over `Ident ':' ':'` reassembles the path rustc actually resolves,
+/// and the position stays the LAST segment's — the same anchor the raw token walk and the AST both
+/// record, so the three populations still match.
 fn token_values(ts: TokenStream) -> Vec<(String, LineColumn)> {
     let mut out = Vec::new();
     fn walk(ts: TokenStream, out: &mut Vec<(String, LineColumn)>) {
-        for t in ts {
+        let items: Vec<TokenTree> = ts.into_iter().collect();
+        for (i, t) in items.iter().enumerate() {
             match t {
                 TokenTree::Literal(l) => {
-                    if let Some((v, _)) = token_lit_text(&l) {
+                    if let Some((v, _)) = token_lit_text(l) {
                         out.push((v, l.span().start()));
                     }
                 }
-                TokenTree::Ident(i) => {
-                    let n = i.to_string();
-                    if is_const_ident(&n) {
-                        out.push((n, i.span().start()));
+                TokenTree::Ident(id) => {
+                    let n = id.to_string();
+                    if !is_const_ident(&n) {
+                        continue;
                     }
+                    let mut segs = vec![n];
+                    let mut j = i;
+                    while j >= 3
+                        && matches!(&items[j - 1], TokenTree::Punct(p) if p.as_char() == ':')
+                        && matches!(&items[j - 2], TokenTree::Punct(p) if p.as_char() == ':')
+                    {
+                        let TokenTree::Ident(prev) = &items[j - 3] else {
+                            break;
+                        };
+                        segs.push(prev.to_string());
+                        j -= 3;
+                    }
+                    segs.reverse();
+                    out.push((segs.join("::"), id.span().start()));
                 }
                 TokenTree::Group(g) => walk(g.stream(), out),
                 TokenTree::Punct(_) => {}

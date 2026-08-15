@@ -109,6 +109,17 @@
 // is closed only where it sits inside the writer's own argument subtree. Adjudicating the rest needs
 // dataflow this census deliberately does not do, and it is a NAMED RESIDUAL, not a silence: the
 // population it hides in is counted, and growing it moves a pin.
+//
+// AND THE SECOND NAMED RESIDUAL, found by the review of the re-scope and NOT closed here, because a
+// design falsified twice does not earn another hardening edge: ONE-HOP INDIRECTION WITHIN A MODULE.
+// The conservative rule that catches "the function names a family and writes with something it will
+// not spell" is scoped to ONE FUNCTION. Move the literal one function away —
+// `fn put(d, k, i, r) { persist_record(d, k, i, r) }` called as `put(d, "odk-…", i, r)` — and the
+// writer's function names no family while the caller's does. In a module already RECORDED as a
+// toucher of that family, nothing moves at all. Widening the rule to module scope is what would
+// close it, and that fires on 198 of this daemon's production writer functions — a pinned exception
+// list, not a gate. So it is named here, anchored in the battery in both directions, and it is what
+// the XV run that entails the resolver should take up alongside the buckets.
 
 import fs from "node:fs";
 import path from "node:path";
@@ -240,9 +251,9 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 3228,
-    "opaque-initialiser": 1553,
-    "bare-undeclared": 791,
+    "foreign-qualified": 3494,
+    "opaque-initialiser": 1554,
+    "bare-undeclared": 517,
     "ambiguous-module": 0,
     "not-a-visible-const": 0,
     "resolution-cycle": 0,
@@ -266,7 +277,7 @@ const PINNED = {
  * bytes on disk, and the digest the binary carries from its own compile. Moving this pin is a
  * GOVERNED COMMIT ACT — it appears in the diff of any change to the extractor, which is the point.
  */
-const EXTRACTOR_SOURCE_PIN = "bb299c8ef20bc742";
+const EXTRACTOR_SOURCE_PIN = "522060618a90ba05";
 
 /** FNV-1a/64 — the digest the extractor bakes its own source under at compile time. */
 function fnv1a64(bytes) {
@@ -332,7 +343,7 @@ function run() {
     if (!byStem.has(m.stem)) byStem.set(m.stem, []);
     byStem.get(m.stem).push(m);
   }
-  ok("the census walks the module graph it can SEE from the daemon's entry point — every `mod` declaration carrying a bare `#[path]`, resolved in rustc's own nested-before-sibling order, with an unresolvable declaration or an unreadable file aborting extraction rather than silently shrinking the world; it is NOT rustc's file set and does not claim to be, because `mod` has no totality edge and is not getting one: a `#[cfg_attr(…, path = …)]` redirect is invisible here and a `mod` declared inside a `macro_rules!` body never reaches the visitor at all, so rustc would compile one file while this reads another — neither construct exists in this daemon today and entailing the file set belongs to the run that entails the resolver",
+  ok("the census walks the module graph it can SEE from the daemon's entry point — every `mod` declaration it can see, with a bare `#[path]` honoured and the rest resolved in rustc's own nested-before-sibling order, with an unresolvable declaration or an unreadable file aborting extraction rather than silently shrinking the world; it is NOT rustc's file set and does not claim to be, because `mod` has no totality edge and is not getting one: a `#[cfg_attr(…, path = …)]` redirect is invisible here and a `mod` declared inside a `macro_rules!` body never reaches the visitor at all, so rustc would compile one file while this reads another — neither construct exists in this daemon today and entailing the file set belongs to the run that entails the resolver",
     modules.length === PINNED.modules && byKey.size === modules.length,
     `${modules.length} modules reached, ${byKey.size} distinct paths (pinned ${PINNED.modules})`);
 
@@ -442,7 +453,11 @@ function run() {
   // what the gate cannot see rather than infer it from a silence. A new unadjudicable name beyond
   // the pin is RED. A name that becomes resolvable SHRINKS the pin in the commit that resolves it.
   const dropped = {};
-  const bumpDrop = (b) => { dropped[b] = (dropped[b] ?? 0) + 1; };
+  const dropMembers = {};
+  const bumpDrop = (b, name, where) => {
+    dropped[b] = (dropped[b] ?? 0) + 1;
+    (dropMembers[b] ??= new Map()).set(`${name} @${where}`, (dropMembers[b]?.get(`${name} @${where}`) ?? 0) + 1);
+  };
   for (const m of modules) {
     const labelledAt = new Map();
     for (const men of m.mentions) if (!men.synthesized) labelledAt.set(posKey(men), men);
@@ -455,13 +470,18 @@ function run() {
       const spelling = men && men.name.includes("::") ? men.name : t.text;
       const r = resolveName(m, spelling);
       if (r.kind === "LITERAL") continue;
-      bumpDrop(r.bucket ?? r.kind);
+      bumpDrop(r.bucket ?? r.kind, spelling, modId(m.key));
     }
   }
+  // A MOVED BUCKET MUST BE ADJUDICABLE IN THE MOMENT IT MOVES. A bare `792/791` cannot tell a second
+  // admitter's +1 from an ordinary feature commit's +49, and a pin nobody can read in the moment is
+  // a pin that gets widened away. So a moved bucket prints its RAREST members with their module: a
+  // name that has just arrived occurs once, and sorting by frequency floats it to the top.
+  const rarest = (b) => [...(dropMembers[b] ?? new Map())].sort((x, y) => x[1] - y[1]).slice(0, 6).map(([k]) => k).join(", ");
   const dropGain = [], dropStale = [];
   for (const [b, n] of Object.entries(dropped)) {
-    if (PINNED.unadjudicable[b] === undefined) dropGain.push(`UNRECORDED BUCKET ${b} (${n})`);
-    else if (n !== PINNED.unadjudicable[b]) dropGain.push(`${b} ${n}/${PINNED.unadjudicable[b]}`);
+    if (PINNED.unadjudicable[b] === undefined) dropGain.push(`UNRECORDED BUCKET ${b} (${n}) rarest: ${rarest(b)}`);
+    else if (n !== PINNED.unadjudicable[b]) dropGain.push(`${b} ${n}/${PINNED.unadjudicable[b]} — rarest members: ${rarest(b)}`);
   }
   for (const [b, n] of Object.entries(PINNED.unadjudicable)) if (dropped[b] === undefined && n !== 0) dropStale.push(`${b} vanished (pinned ${n})`);
 

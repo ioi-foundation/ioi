@@ -11,7 +11,7 @@
     "restore_always": "The harness rewrites the source it certifies. It restores every file it touched, including on failure. Never edit these files and never run a git write while a battery runs.",
     "repin_may_not_touch_a_claim": "The harness re-derives POPULATION counts only. It may NOT move `PINNED.unadjudicable` — the per-cause buckets of names this census cannot resolve. Those are a CLAIM about the gate's boundary, not a measurement of its reach: a new unadjudicable name is a name that entered the daemon which the census cannot tell from a second admitter. The REPIN table is keyed on bare identifiers and the bucket keys are quoted strings, so this holds by construction as well as by rule.",
     "anchors_must_compile": "Each anchor is compiled with `cargo check --bin hypervisor-daemon` after planting. An anchor that no longer compiles is scored INVALID, never caught: a signature change or a privacy change can rot an anchor into fiction while the battery keeps printing the same total.",
-    "unanchorable": "Two assertions cannot be anchored from daemon source and are listed here rather than left to look covered: the reverse totality edge (a label at a position holding no token) is an extractor-internal invariant that only a mutation of the extractor could trip, and mutating the tool is not mutating the artifact it certifies; and the EXTRACTOR SOURCE PIN is a claim about the extractor's own bytes, demonstrated separately in the leg's commit by editing the extractor and rebuilding."
+    "unanchorable": "Two assertions cannot be anchored from daemon source AT ALL, and are named so they are not left looking covered: the reverse totality edge (a label at a position holding no token) is an extractor-internal invariant only a mutation of the TOOL could trip, and mutating the tool is not mutating the artifact it certifies; and the EXTRACTOR SOURCE PIN is a claim about the extractor's own bytes, demonstrated in the leg's commit by editing the extractor and rebuilding. A previous version of this note said only those two were uncovered, which was FALSE and concealed a real gap: several further assertions carried no anchor, including three of the four commissioned family claims. Those three are anchored now. The four pure population pins are structurally exercised by every anchor's repin round and are not separately anchored."
   },
   "anchor_file": "crates/node/src/bin/hypervisor_daemon_routes/feedback_routes.rs",
   "anchor_find": "fn bad(code: &str, msg: &str) -> (StatusCode, Json<Value>) {",
@@ -198,16 +198,16 @@
     {
       "id": "T2-qualified-const-in-macro-tokens",
       "class": "boundary",
-      "note": "THE ATTACK THAT FALSIFIED THE PREVIOUS DESIGN. A qualified family constant inside `json!` tokens reaches a writer: the token walk flattens the path to its bare tail, so resolution fails and the name used to be dropped in silence. It is now COUNTED in `bare-undeclared`, and the bucket pin refuses it.",
+      "note": "THE ATTACK THAT FALSIFIED AN EARLIER DESIGN, and its verdict MOVED when the extractor stopped discarding path qualifiers inside macro tokens. It used to be counted in `bare-undeclared` because the census resolved the bare tail; now the qualifier is reassembled from the tokens, the name resolves to the family it actually names, and the commissioned claim itself refuses it. Re-aimed rather than left pointing at the bucket, because a mutation that starts passing for a STRONGER reason must be re-aimed, not celebrated.",
       "insert": "fn shadow_t2(data_dir: &str, id: &str, rec: &Value) -> Value {\n    json!({ \"w\": persist_record(data_dir, super::odk_routes::KIND_ONT, id, rec).is_ok() })\n}\n",
-      "red_on": "EVERY CONSTANT-SHAPED NAME THIS CENSUS CANNOT ADJUDICATE IS COUNTED IN A NAMED BUCKET"
+      "red_on": "EXACTLY ONE MODULE ADMITS `odk-domain-ontologies`"
     },
     {
       "id": "T3-qualified-const-macro-raw-fs",
       "class": "boundary",
-      "note": "The same drop bypassing the writers entirely and putting bytes in the family directory.",
+      "note": "The same drop bypassing the writers entirely. Caught by the TOUCHER ratchet rather than the raw-filesystem rule, and the distinction is worth recording: syn hands macro tokens over unparsed, so a filesystem call written inside `json!` produces no `fs_calls` entry at all — the rule that reads enclosing functions never sees it, and what refuses it is the family name appearing in a module not recorded as naming it.",
       "insert": "fn shadow_t3(data_dir: &str, id: &str) -> Value {\n    json!({ \"w\": std::fs::write(std::path::Path::new(data_dir).join(super::odk_routes::KIND_ONT).join(id), b\"{}\").is_ok() })\n}\n",
-      "red_on": "EVERY CONSTANT-SHAPED NAME THIS CENSUS CANNOT ADJUDICATE IS COUNTED IN A NAMED BUCKET"
+      "red_on": "NO MODULE NAMES AN ODK FAMILY IT IS NOT RECORDED AS NAMING"
     },
     {
       "id": "T4-c-string-literal",
@@ -266,6 +266,41 @@
         "content": "fn shadow_n2(data_dir: &str, id: &str, rec: &serde_json::Value) {\n    let _ = super::persist_record(data_dir, \"odk-domain-ontologies\", id, rec);\n}\n"
       },
       "insert": "macro_rules! shadow_mods_n2 {\n    () => { #[path = \"shadow_n2.rs\"] mod shadow_n2; };\n}\nshadow_mods_n2!();\n"
+    },
+    {
+      "id": "F1-foreign-declaration-ontology-receipts",
+      "class": "construct",
+      "note": "The commissioned claim covers FOUR families and only one of them had an anchor. A second name minted outside the owning module is the same attack one family over.",
+      "insert": "const SHADOW_F1: &str = \"odk-ontology-receipts\";\nfn shadow_f1(data_dir: &str, id: &str, rec: &Value) {\n    let _ = persist_record(data_dir, SHADOW_F1, id, rec);\n}\n",
+      "red_on": "EXACTLY ONE MODULE ADMITS `odk-ontology-receipts`"
+    },
+    {
+      "id": "F2-foreign-declaration-ontology-proposals",
+      "class": "construct",
+      "insert": "const SHADOW_F2: &str = \"odk-ontology-proposals\";\nfn shadow_f2(data_dir: &str, id: &str, rec: &Value) {\n    let _ = persist_record(data_dir, SHADOW_F2, id, rec);\n}\n",
+      "red_on": "EXACTLY ONE MODULE ADMITS `odk-ontology-proposals`"
+    },
+    {
+      "id": "F3-foreign-declaration-saved-object-sets",
+      "class": "construct",
+      "insert": "const SHADOW_F3: &str = \"odk-saved-object-sets\";\nfn shadow_f3(data_dir: &str, id: &str, rec: &Value) {\n    let _ = persist_record(data_dir, SHADOW_F3, id, rec);\n}\n",
+      "red_on": "EXACTLY ONE MODULE ADMITS `odk-saved-object-sets`"
+    },
+    {
+      "id": "F4-shadowed-tail-in-macro-tokens",
+      "class": "boundary",
+      "note": "THE ZERO-DELTA ATTACK the re-scope's own review found. A qualified family constant inside macro tokens, with the module declaring its OWN constant of the same tail name — the census used to throw the qualifier away, resolve the bare tail against the local table, and adjudicate another module's family constant as innocent at zero delta to every pin. Twenty-three constant names in this daemon are declared in more than one module with different values, so the collision is ordinary. The extractor reassembles the qualifier from the tokens now, because the qualifier was always IN them.",
+      "insert": "const KIND_ONT: &str = \"feedback-annotations\";\nfn shadow_f4(data_dir: &str, id: &str, rec: &Value) -> Value {\n    json!({ \"w\": persist_record(data_dir, super::odk_routes::KIND_ONT, id, rec).is_ok() })\n}\n",
+      "red_on": "EXACTLY ONE MODULE ADMITS `odk-domain-ontologies`"
+    },
+    {
+      "id": "N3-one-hop-indirection-in-a-recorded-toucher",
+      "class": "named-residual",
+      "expect": "survives",
+      "note": "NAMED RESIDUAL — ONE-HOP INDIRECTION WITHIN A MODULE, and it must be planted in a module ALREADY RECORDED as touching the family or the toucher ratchet catches it for the wrong reason. `governance_routes` is a recorded toucher of `odk-domain-ontologies`, so this pair goes fully green: the writer's function names no family, the caller's does, and the conservative rule that would catch it is scoped to one function. Closing it means module-scope attribution, which fires on 198 of this daemon's production writer functions — a pinned exception list, not a gate. The first cut of this anchor was planted in a non-toucher and the battery scored it RESIDUAL-CLOSED, which is the harness refusing a mis-aimed anchor rather than the residual having closed.",
+      "insert": "fn shadow_n3_put(d: &str, k: &str, i: &str, r: &Value) {\n    let _ = persist_record(d, k, i, r);\n}\nfn shadow_n3_admit(d: &str, i: &str, r: &Value) {\n    shadow_n3_put(d, \"odk-domain-ontologies\", i, r);\n}\n",
+      "anchor_file": "crates/node/src/bin/hypervisor_daemon_routes/governance_routes.rs",
+      "anchor_find": "pub(crate) async fn handle_governance_overview("
     },
     {
       "id": "R1-runtime-assembly-via-local",

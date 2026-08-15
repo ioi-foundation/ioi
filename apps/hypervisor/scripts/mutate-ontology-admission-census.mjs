@@ -20,7 +20,8 @@
 // and its header is over-claiming by omission — so this harness fails on that too.
 //
 // THE HARNESS REWRITES THE SOURCE IT CERTIFIES. Every file it touches is restored, including on
-// failure and on signal. Never edit those files and never run a git write while a battery runs.
+// failure. It does NOT install signal handlers, so a battery killed mid-run can leave a mutant in
+// the tree — verify a commit by replaying the anchors against it, never by grepping for markers.
 
 import fs from "node:fs";
 import path from "node:path";
@@ -89,30 +90,43 @@ function rederivePins(stdout) {
 function plant(anchor) {
   const saved = new Map([[GATE, fs.readFileSync(GATE, "utf8")]]);
   const created = [];
+  const dirsMade = [];
   const restore = () => {
     for (const [f, s] of saved) fs.writeFileSync(f, s);
     for (const f of created) fs.rmSync(f, { force: true });
+    // AND THE DIRECTORIES. git ignores empty directories, so a leaked one is invisible to
+    // `git status` AND to this harness's own tree-restored check — which is exactly how the
+    // previous fix for the file leak left a directory behind and reported a clean tree.
+    for (const d of dirsMade.slice().reverse()) { try { fs.rmdirSync(d); } catch { /* not empty: not ours to remove */ } }
   };
   // THE ANCHOR POINT IS CHECKED BEFORE ANYTHING IS WRITTEN. Creating a file and then throwing on a
   // missing anchor leaks that file and over-claims the restore_always rule — a review found exactly
   // that ordering here.
-  const before = fs.readFileSync(ANCHOR_FILE, "utf8");
-  saved.set(ANCHOR_FILE, before);
-  if (!before.includes(manifest.anchor_find)) {
-    throw new Error(`anchor point absent from ${manifest.anchor_file} — the battery cannot plant anything`);
+  // AN ANCHOR MAY NAME ITS OWN SITE. Some properties only hold in a particular module — the
+  // one-hop-indirection residual is only green in a module already RECORDED as touching the family,
+  // and planted anywhere else the toucher ratchet catches it for a reason that has nothing to do
+  // with the residual. An anchor that cannot be planted where it means something is a mis-aimed
+  // mutation, which is worse than none.
+  const anchorFile = anchor.anchor_file ? path.join(ROOT, anchor.anchor_file) : ANCHOR_FILE;
+  const anchorFind = anchor.anchor_find ?? manifest.anchor_find;
+  const before = fs.readFileSync(anchorFile, "utf8");
+  saved.set(anchorFile, before);
+  if (!before.includes(anchorFind)) {
+    throw new Error(`anchor point absent from ${anchor.anchor_file ?? manifest.anchor_file} — the battery cannot plant anything`);
   }
   try {
     for (const spec of [anchor.create, anchor.create2].filter(Boolean)) {
       const p = path.join(ROOT, spec.path);
       if (fs.existsSync(p)) throw new Error(`anchor ${anchor.id} would overwrite ${spec.path}`);
-      fs.mkdirSync(path.dirname(p), { recursive: true });
+      const dir = path.dirname(p);
+      if (!fs.existsSync(dir)) { fs.mkdirSync(dir, { recursive: true }); dirsMade.push(dir); }
       fs.writeFileSync(p, spec.content);
       created.push(p);
     }
     // A REPLACER FUNCTION, NEVER A REPLACEMENT STRING. `String.replace` reads `$&`, `` $` ``, `$'`
     // and `$1` in the replacement, so an anchor's own text could plant something other than what
     // this manifest records — the battery lying about what it tested.
-    fs.writeFileSync(ANCHOR_FILE, before.replace(manifest.anchor_find, () => `${anchor.insert}${manifest.anchor_find}`));
+    fs.writeFileSync(anchorFile, before.replace(anchorFind, () => `${anchor.insert}${anchorFind}`));
   } catch (error) {
     restore();
     throw error;
@@ -127,10 +141,19 @@ function plant(anchor) {
  * when a signature or a visibility changes under them, and the battery keeps printing its total.
  */
 function compiles() {
-  const r = spawnSync("cargo", ["check", "--locked", "-q", "--bin", "hypervisor-daemon"], {
-    cwd: ROOT, encoding: "utf8", maxBuffer: 64 * 1024 * 1024,
+  // `-p ioi-node` matches the invocation CI already uses to build this binary, so the target
+  // resolves the same way here as it does there.
+  const r = spawnSync("cargo", ["check", "--locked", "-q", "-p", "ioi-node", "--bin", "hypervisor-daemon"], {
+    cwd: ROOT, encoding: "utf8", maxBuffer: 256 * 1024 * 1024,
   });
-  return { ok: r.status === 0, detail: (r.stderr || "").split("\n").filter((l) => l.startsWith("error")).slice(0, 2).join(" ; ") };
+  // THREE OUTCOMES, NEVER TWO. A check that COULD NOT RUN is not an anchor that is fiction, and
+  // conflating them is the same class this battery exists to police: CI reported forty anchors as
+  // "fiction" with an EMPTY error detail, because the failure was the spawn and not the compile.
+  if (r.error || r.status === null) {
+    return { ran: false, detail: `cargo check could not run: ${r.error?.message ?? "no exit status"}` };
+  }
+  const errs = (r.stderr || "").split("\n").filter((l) => l.startsWith("error")).slice(0, 3).join(" ; ");
+  return { ran: true, ok: r.status === 0, detail: errs || `exit ${r.status} with no error line` };
 }
 
 function main() {
@@ -143,7 +166,15 @@ function main() {
     process.exit(2);
   }
   const baseline = (base.stdout || "").trim().split("\n").pop();
-  console.log(`baseline: ${baseline}\n`);
+  // WARM THE COMPILE CHECK ONCE, BEFORE ANY ANCHOR. If `cargo check` cannot run at all, that is one
+  // systemic failure and it must be reported once and plainly — not discovered forty times over as
+  // forty anchors mislabelled "fiction", which is what a CI run actually printed.
+  const warm = compiles();
+  if (!warm.ran || !warm.ok) {
+    console.error(`BLOCKED — the compile check is unusable on this tree, so no anchor can be scored: ${warm.detail}`);
+    process.exit(2);
+  }
+  console.log(`baseline: ${baseline}  ·  compile check usable\n`);
 
   const verdicts = [];
   for (const anchor of manifest.anchors) {
@@ -151,6 +182,7 @@ function main() {
     try {
       restore = plant(anchor);
       const build = compiles();
+      if (!build.ran) throw new Error(build.detail);
       if (!build.ok) {
         verdicts.push({ id: anchor.id, class: anchor.class, pass: false, verdict: "INVALID" });
         console.log(` FAIL  ${"INVALID".padEnd(15)} ${anchor.id.padEnd(32)} the mutated daemon does not compile — this anchor is fiction`);
