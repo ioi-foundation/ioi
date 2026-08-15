@@ -95,6 +95,16 @@ const jd = (p, init) => fetch(`${DAEMON}${p}`, init ? { headers: { "content-type
 
 const pageText = (p) => fetch(`${SERVE}${p}`).then(async (r) => ({ status: r.status, text: await r.text() })).catch(() => ({ status: 0, text: "" }));
 
+/**
+ * A page fetched AS THE OPERATOR. `pageText` sends no cookie, which is right for the anonymous
+ * probes above and wrong for these: object-instance search and the saved-object-set catalog are
+ * identity-scoped, so an anonymous render answers 401 and the surface honestly reports "the plane
+ * did not answer". Comparing that render against a SESSIONED direct probe would be comparing two
+ * different callers and calling the difference a defect.
+ */
+const pageAs = (p) => fetch(`${SERVE}${p}`, { headers: { ...sessionCookie() } })
+  .then(async (r) => ({ status: r.status, text: await r.text() })).catch(() => ({ status: 0, text: "" }));
+
 const MANAGER_ACTIONS = `${"/__ioi/ontology/manager"}/actions`;
 async function act(id, data, { anonymous = false } = {}) {
   const r = await fetch(`${SERVE}${MANAGER_ACTIONS}/${id}`, {
@@ -106,6 +116,46 @@ async function act(id, data, { anonymous = false } = {}) {
   const location = r?.headers?.get("location") || "";
   const q = new URLSearchParams(location.split("?")[1]?.split("#")[0] ?? "");
   return { status: r?.status ?? 0, location, q };
+}
+
+/**
+ * SCRAPE THE RENDERED FORM'S OWN FIELDS — scar 7, and the reason this journey cannot be satisfied by
+ * a control that does not exist.
+ *
+ * A hand-built payload proves the DAEMON works, which was never in doubt: XIII landed all three of
+ * these contracts. What was missing was a SURFACE, and a surface is only proven by submitting what
+ * it actually rendered. So the journey parses the form out of the served HTML, takes its action URL
+ * and every one of its fields with the values the surface put there, and posts THOSE. Delete the
+ * form and there is nothing to scrape; render it with a wrong hidden value and the daemon refuses
+ * the value the surface chose, not the value this test wished for.
+ */
+function scrapeForm(html, cls) {
+  const open = new RegExp(`<form[^>]*class="[^"]*\\b${cls}\\b[^"]*"[^>]*>`, "u").exec(html);
+  if (!open) return null;
+  const action = /action="([^"]+)"/u.exec(open[0])?.[1] || "";
+  const end = html.indexOf("</form>", open.index);
+  const body = html.slice(open.index, end === -1 ? html.length : end);
+  const fields = {};
+  for (const m of body.matchAll(/<input\b([^>]*)>/gu)) {
+    const attrs = m[1];
+    const name = /\bname="([^"]*)"/u.exec(attrs)?.[1];
+    if (!name) continue;
+    fields[name] = /\bvalue="([^"]*)"/u.exec(attrs)?.[1] ?? "";
+  }
+  const disabled = /<button[^>]*\bdisabled\b/u.test(body);
+  return { action, fields, disabled };
+}
+
+/** Submit exactly the scraped fields, with only the values a USER would type filled in. */
+async function submitScraped(form, typed) {
+  const r = await fetch(`${SERVE}${form.action}`, {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded", ...sessionCookie() },
+    body: new URLSearchParams({ ...form.fields, ...typed }).toString(),
+    redirect: "manual",
+  }).catch(() => null);
+  const location = r?.headers?.get("location") || "";
+  return { status: r?.status ?? 0, location, q: new URLSearchParams(location.split("?")[1]?.split("#")[0] ?? "") };
 }
 
 async function run() {
@@ -239,6 +289,72 @@ async function run() {
   const savedSet = await jd("/v1/hypervisor/odk/saved-object-sets");
   ok("the SAVED-OBJECT-SET family is REGISTERED at its route and refuses this anonymous probe — registration plus an identity-first refusal, not that the family answers; it replaces an assertion that claimed saved-set authoring was ABSENT while probing a GET-only route with a POST",
     savedSet.status === 401, `status ${savedSet.status}`);
+
+  // ================= ACC-A: the three SURFACE CONTROLS next-legs XIV Leg 1 bound ==================
+  //
+  // XIII landed these contracts and XIV found the atlas still saying "what is missing is a SURFACE
+  // control bound to it". Each journey below drives the control the way a user does: fetch the page,
+  // SCRAPE THE FORM THE SURFACE RENDERED, submit those exact fields, and then confirm the effect in
+  // the daemon's own truth. A hand-built payload would prove the contract, which was never in doubt.
+
+  // ---- (1) OBJECT-INSTANCE SEARCH — a read control, and its two empties are different facts.
+  const searchPage = await pageAs(`/__ioi/ontology/explorer?ontology=${encodeURIComponent(ontId)}&oq=zzz-no-such-instance`);
+  const searchDirect = await jd("/v1/hypervisor/odk/object-instance-search", {
+    method: "POST", body: JSON.stringify({ ontology_ref: ontId, q: "zzz-no-such-instance", limit: 25 }),
+  });
+  ok("the explorer's object-search control is a BOUND form, not a disabled input — it renders with a name the surface submits and a live submit control",
+    /<input[^>]*class="oe-objq"[^>]*name="oq"/u.test(searchPage.text) && !/class="oe-objsearch"[^>]*>[^<]*<input[^>]*disabled/u.test(searchPage.text),
+    `page ${searchPage.status}`);
+  // THE HALF THAT CARRIES THE FINDING: not that a results box appeared, but that the box says what
+  // the daemon said. The daemon types corpus-absent apart from query-unmatched precisely so a
+  // surface cannot tell a user their query missed when nothing exists to miss.
+  const absenceCode = searchDirect.body?.absence?.code ?? "";
+  ok("the rendered search result reports the DAEMON's typed absence state, distinguishing an absent corpus from a query that matched nothing — rendering both as 'no results' would tell a user their query missed when there was nothing to miss",
+    absenceCode === "object_instance_corpus_absent"
+      ? /Nothing is materialized in this scope/u.test(searchPage.text)
+      : absenceCode === "object_instance_query_unmatched"
+        ? /No instance matched/u.test(searchPage.text)
+        : /match(es)?<\/b>/u.test(searchPage.text),
+    `daemon absence=${absenceCode || "none"}`);
+
+  // ---- (2) SAVED OBJECT SET — an ordinary governed mutation, driven from the rendered form.
+  const explorerPage = await pageAs(`/__ioi/ontology/explorer?ontology=${encodeURIComponent(ontId)}&oq=journey-selection`);
+  const saveForm = scrapeForm(explorerPage.text, "oe-saveform");
+  ok("the explorer renders a SAVE form carrying the selection it is displaying — the fields are the surface's own, so a control that saves something other than what it shows cannot pass this journey",
+    !!saveForm && String(saveForm.fields.ontology_ref || "").includes(ontId) && saveForm.fields.q === "journey-selection" && "name" in saveForm.fields,
+    saveForm ? `action=${saveForm.action} fields=${Object.keys(saveForm.fields).join(",")}` : "no form rendered");
+  const saved = saveForm ? await submitScraped(saveForm, { name: "Journey exploration" }) : { status: 0, q: new URLSearchParams() };
+  ok("submitting the form the surface rendered creates a saved object set through the family's OWNING plane — an ordinary governed mutation, no wallet crossing and no second admission path",
+    saved.status === 303 && !saved.q.get("refused"), `${saved.status} ${saved.location?.slice(0, 110) ?? ""}`);
+  const savedList = await jd("/v1/hypervisor/odk/saved-object-sets", { method: "GET" });
+  const savedRec = (savedList.body?.saved_object_sets ?? []).find((x) => x && x.name === "Journey exploration");
+  ok("the saved set is daemon truth with the SELECTION the form displayed, attributed to the acting principal — the surface's control and the daemon's record agree on what was saved",
+    !!savedRec && savedRec.selection?.q === "journey-selection" && String(savedRec.saved_by || "").length > 0 && savedRec.schema_version === "ioi.hypervisor.odk.saved-object-set.v1",
+    savedRec ? `${savedRec.ref} sel=${JSON.stringify(savedRec.selection)}` : `${(savedList.body?.saved_object_sets ?? []).length} sets`);
+  // THE REFUSAL PATH IS PART OF THE CONTROL. A saved set with no selection saves nothing, and the
+  // surface must say so rather than post an empty selection and relay a 400 without context.
+  const emptySave = saveForm ? await submitScraped({ ...saveForm, fields: { ...saveForm.fields, q: "", object_type_id: "" } }, { name: "Empty" }) : { q: new URLSearchParams() };
+  ok("a save with no selection is REFUSED typed and nothing is recorded — the control refuses in its own words rather than relaying a bare 400",
+    emptySave.q.get("refused") === "saved_object_set_selection_required", emptySave.q.get("refused") || "not refused");
+
+  // ---- (3) ONTOLOGY PROPOSAL — the review interval, proposed against the revision on screen.
+  const proposalsPage = await pageAs(`/__ioi/ontology/manager?ontology=${encodeURIComponent(ontId)}&section=proposals`);
+  const propForm = scrapeForm(proposalsPage.text, "og-propform");
+  ok("the manager's Proposals rail item opens a BOUND pane with a propose form — the rail item was a disabled named gap while the plane existed, which is the defect this leg closes",
+    !!propForm && "title" in propForm.fields && "change_description" in propForm.fields,
+    propForm ? `action=${propForm.action}` : "no form rendered");
+  const proposed = propForm ? await submitScraped(propForm, { title: "Journey proposal", change_description: "proposed by the ACC-A journey" }) : { status: 0, q: new URLSearchParams() };
+  ok("submitting the rendered propose form records a proposal WITH a receipt — an ordinary governed mutation against the plane that owns the family",
+    proposed.status === 303 && !proposed.q.get("refused") && !!proposed.q.get("receipt"),
+    proposed.q.get("receipt") || proposed.q.get("refused") || `status ${proposed.status}`);
+  const propList = await jd("/v1/hypervisor/odk/ontology-proposals", { method: "GET" });
+  const propRec = (propList.body?.ontology_proposals ?? []).find((x) => x && x.title === "Journey proposal");
+  ok("the proposal is daemon truth, PINNED TO THE REVISION IT WAS WRITTEN AGAINST and attributed to the proposer — the review interval is only meaningful if the proposal cannot silently rebase",
+    !!propRec && propRec.status === "open" && typeof propRec.based_on_revision === "number" && String(propRec.proposed_by || "").length > 0,
+    propRec ? `${propRec.ref} r${propRec.based_on_revision} by ${propRec.proposed_by}` : `${(propList.body?.ontology_proposals ?? []).length} proposals`);
+  const emptyProp = propForm ? await submitScraped(propForm, { title: "Names nothing" }) : { q: new URLSearchParams() };
+  ok("a proposal naming NO change is refused typed — an empty proposal proposes nothing, and the control says so before the daemon has to",
+    emptyProp.q.get("refused") === "ontology_proposal_change_required", emptyProp.q.get("refused") || "not refused");
 
   // -- identity gate (W1.1/G-2 finding CLOSED): anonymous authoring refuses typed ----
   // Rule E — the refusal is owed BEFORE any record load: the serve action lane without a

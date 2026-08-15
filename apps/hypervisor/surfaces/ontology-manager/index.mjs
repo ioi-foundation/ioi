@@ -28,6 +28,10 @@ export async function load(ctx) {
   const cm = await createReadClient({ daemon: ctx.daemon }).read("/v1/hypervisor/odk/connector-mappings");
   base.lists.connector_mappings = cm.ok ? (Array.isArray(cm.payload.connector_mappings) ? cm.payload.connector_mappings : []) : null;
   base.lists.policy_views = base.degraded && base.degraded.policy_views ? null : base.lists.policy_views;
+  // The proposal list is scoped by the daemon to the caller; a degraded plane stays NULL so the
+  // pane can say "did not answer" rather than render an unanswered read as an empty review queue.
+  const pr = await createReadClient({ daemon: ctx.daemon }).read("/v1/hypervisor/odk/ontology-proposals");
+  base.lists.ontology_proposals = pr.ok ? (Array.isArray(pr.payload.ontology_proposals) ? pr.payload.ontology_proposals : []) : null;
   base.vocab = (base.overview && base.overview.odk_vocabulary) || { base_value_types: ["string", "integer", "double", "boolean", "timestamp", "enum"], link_cardinalities: ["one_to_one", "one_to_many", "many_to_many"], action_kinds: ["create_object", "modify_object", "delete_object", "function"] };
   return base;
 }
@@ -62,6 +66,11 @@ export const actions = [
   mkAction("upsert-property", ["object_type_id", "def_id", "name", "value_type", "required", "create_new"]),
   mkAction("upsert-link-type", ["def_id", "name", "from", "to", "cardinality", "create_new"]),
   mkAction("upsert-action-type", ["def_id", "name", "kind", "applies_to", "create_new"]),
+  // XIV Leg 1 — SURF-ontology. The ontology PROPOSAL plane landed in XIII (propose / apply /
+  // withdraw, expected_revision CAS, receipted) and no surface control was bound to it. This is an
+  // ordinary governed mutation against an existing contract: same authority client as every other
+  // authoring crossing, no wallet requirement introduced, no second admission path.
+  mkAction("create-proposal", ["title", "rationale", "change_domain", "change_version", "change_description"]),
 ];
 
 const bounded = (v, max) => (typeof v === "string" ? v.slice(0, max) : "");
@@ -86,6 +95,7 @@ function comUpsert(com, collection, entry) {
 // the declared ontology receipt fails CLOSED. The receipt stays ioi.hypervisor.odk.ontology-
 // receipt.v1, validated by schema_version, exactly as before. Reads (current-revision fetch) ride
 // the shared read client, not raw fetch.
+const PROPOSAL_SCHEMA = "ioi.hypervisor.odk.ontology-proposal.v1";
 const ONT_RECEIPT_EXTRACTOR = (payload) =>
   payload && payload.ontology_receipt && payload.ontology_receipt.schema_version === ONT_RECEIPT
     ? payload.ontology_receipt.receipt_ref
@@ -137,6 +147,34 @@ export async function handleAction({ action, fields, daemonFetch, url }) {
   }
   // Every other action edits an existing ontology under optimistic concurrency.
   const ontId = url.searchParams.get("ontology") || fields.ontology || "";
+  if (action.id === "create-proposal") {
+    const title = bounded(fields.title, 200).trim();
+    if (!title) return { kind: "refusal", http: 400, code: "odk_field_required", message: "a proposal needs a title — it is how a reviewer finds it" };
+    // A PROPOSAL THAT NAMES NO CHANGE PROPOSES NOTHING, and the daemon says exactly that. Refusing
+    // here keeps the caller's pane and its typed reason; relaying the 400 would lose which field
+    // was empty.
+    const changes = {};
+    if (bounded(fields.change_domain, 120).trim()) changes.domain = bounded(fields.change_domain, 120).trim();
+    if (bounded(fields.change_version, 60).trim()) changes.version = bounded(fields.change_version, 60).trim();
+    if (fields.change_description !== undefined && bounded(fields.change_description, 2000).trim()) changes.description = bounded(fields.change_description, 2000).trim();
+    if (!Object.keys(changes).length) {
+      return { kind: "refusal", http: 400, code: "ontology_proposal_change_required", message: "a proposal must name at least one change — an empty proposal proposes nothing" };
+    }
+    if (!ontId) return { kind: "refusal", http: 400, code: "odk_ontology_not_found", message: "select an ontology before proposing a change to it" };
+    // THE PROPOSAL IS PINNED TO THE REVISION IT WAS WRITTEN AGAINST. Reading current revision and
+    // passing it as `expected_revision` is what makes the review interval meaningful: a proposal
+    // authored against a revision that has since moved is refused, not silently rebased.
+    const cur0 = await reader.read(`/v1/hypervisor/odk/domain-ontologies/${encodeURIComponent(ontId)}`);
+    const ont0 = cur0.ok && cur0.payload && cur0.payload.ontology ? cur0.payload.ontology : null;
+    if (!ont0) return { kind: "refusal", http: 404, code: "odk_ontology_not_found", message: "select an existing ontology first" };
+    const crossed = await authority.cross("/v1/hypervisor/odk/ontology-proposals", {
+      method: "POST",
+      body: { ontology_ref: ont0.ref || ontId, title, rationale: bounded(fields.rationale, 2000), changes, expected_revision: ont0.revision },
+      grant: fields.wallet_approval_grant,
+      extractReceiptRef: (payload) => (payload && payload.ontology_proposal && payload.ontology_proposal.schema_version === PROPOSAL_SCHEMA ? payload.ontology_proposal.ref : ""),
+    });
+    return fromCrossing(crossed, (c) => ({ kind: "success", createdProposal: c.payload.ontology_proposal.id, receipt_ref: c.receipt_ref, redirect: ontologyContextQuery("/__ioi/ontology/manager", { ontology: ontId, section: "proposals" }) }));
+  }
   const curRead = await reader.read(`/v1/hypervisor/odk/domain-ontologies/${encodeURIComponent(ontId)}`);
   const cur = curRead.ok ? curRead.payload : null;
   if (!cur || cur.ok === false || !cur.ontology) return { kind: "refusal", http: 404, code: "odk_ontology_not_found", message: "select an existing ontology first" };
@@ -233,7 +271,7 @@ function renderOntologyManagerPort(ov, lists, selectedId, opts) {
   // context). The bare route — no section, no definition, no create, no q — renders exactly the
   // certified shell (the inspector aside + authoring appear ONLY under explicit context, in the
   // excluded body region). An unknown section fails closed to discover with a visible note.
-  const KNOWN_SECTIONS = ["discover", "object-types", "properties", "value-types", "link-types", "action-types", "functions", "health", "resources", "configuration", "create"];
+  const KNOWN_SECTIONS = ["discover", "object-types", "properties", "value-types", "link-types", "action-types", "functions", "health", "resources", "configuration", "create", "proposals"];
   const rawSection = sel.section || "";
   const section = rawSection && KNOWN_SECTIONS.includes(rawSection) ? rawSection : (rawSection ? "discover" : "");
   const badSection = !!(rawSection && !KNOWN_SECTIONS.includes(rawSection));
@@ -248,6 +286,11 @@ function renderOntologyManagerPort(ov, lists, selectedId, opts) {
   const projs = (lists.projections || []).filter((p) => selected && p.ontology_ref === selected.ref);
   const totalInstances = msets.reduce((a, m) => a + (m.count || 0), 0);
   const propCount = ots.reduce((n, x) => n + (Array.isArray(x.properties) ? x.properties.length : 0), 0);
+  // The review queue for the ontology in scope. NULL means the plane did not answer — kept distinct
+  // from an empty queue, because "nothing to review" and "we could not ask" are different facts.
+  const allProposals = lists && Array.isArray(lists.ontology_proposals) ? lists.ontology_proposals : (lists && lists.ontology_proposals === null ? null : []);
+  const proposals = allProposals === null ? null : allProposals.filter((pr) => !selected || !pr || pr.ontology_id === selected.id || pr.ontology_ref === selected.ref);
+  const proposalCount = proposals === null ? null : proposals.length;
   const rollup = o.ontology_health || {};
   const idc = (x) => `<code class="om-code">${esc(x || "")}</code>`;
   const hstate = health.status || "empty";
@@ -314,7 +357,7 @@ function renderOntologyManagerPort(ov, lists, selectedId, opts) {
   const sHref = (s) => mHref({ section: s });
   const appRail = `<nav class="og-arail" aria-label="Ontology Manager">
     ${arailItem("compass", "Discover", null, sHref("discover"), { on: true })}
-    ${arailItem("people", "Proposals", null, null, { gap: "Proposals: the ontology proposal plane exists (propose / apply / withdraw, expected_revision CAS, receipted) — no surface control is bound to it yet (named gap)." })}
+    ${arailItem("people", "Proposals", proposalCount, sHref("proposals"))}
     ${arailItem("time", "History", null, sHref("configuration"))}
     <div class="og-adiv"></div>
     <div class="og-asec">Resources</div>
@@ -554,7 +597,34 @@ function renderOntologyManagerPort(ov, lists, selectedId, opts) {
   const createPane = section === "create"
     ? (kindGapPane || kindPane || `<div class="og-inspector" data-testid="og-inspector"><div class="og-ihd"><b>Create ontology</b></div><div class="og-ibody">${ihint("A new DomainOntology draft (revision 1) with a create receipt. Add typed definitions after it exists.")}${ontologyCreateForm}${selected ? ihint("Or add a typed definition to the selected ontology:") + newMenu : ""}</div></div>`)
     : "";
-  const aside = createPane || (def ? inspectorFor() : "");
+  // XIV Leg 1 — THE PROPOSALS CONTROL IS BOUND. The review queue is the daemon's own list; the form
+  // proposes a change against the ontology's CURRENT revision. What a proposal adds over a direct
+  // edit is the review interval — the change exists, validated and attributable, before anyone
+  // applies it. APPLY and WITHDRAW remain unbound and are named as such: closing a gap by claiming
+  // more of the plane than is wired would be the narrowing this run is forbidden to do.
+  const proposalsPane = section === "proposals"
+    ? `<div class="og-inspector" data-testid="og-inspector"><div class="og-ihd"><b>Proposals</b><span class="og-ikind">${proposals === null ? "plane unavailable" : `${proposals.length} open`}</span></div><div class="og-ibody">
+        ${proposals === null
+          ? ihint("The ontology-proposal plane did not answer. This is not an empty review queue.", true)
+          : (proposals.length
+            ? `<ul class="og-proplist">${proposals.slice(0, 20).map((pr) => `<li class="og-propitem"><b>${esc(String(pr.title || pr.id || ""))}</b> <span class="og-propmeta">r${esc(String(pr.based_on_revision ?? ""))} · ${esc(String(pr.status || ""))} · ${esc(String(pr.proposed_by || ""))}</span></li>`).join("")}</ul>`
+            : ihint("No open proposals against this ontology."))}
+        ${selected
+          ? `<form class="og-propform" method="post" action="/__ioi/ontology/manager/actions/create-proposal?ontology=${enc(selected.id)}">
+              <input type="hidden" name="ontology" value="${enc(selected.id)}">
+              <label class="og-plbl">Title <input class="og-ptitle" name="title" required maxlength="200" placeholder="What this change is" aria-label="Proposal title"></label>
+              <label class="og-plbl">Rationale <input class="og-prat" name="rationale" maxlength="2000" placeholder="Why (optional)" aria-label="Proposal rationale"></label>
+              <label class="og-plbl">New domain <input class="og-pdom" name="change_domain" maxlength="120" placeholder="leave blank to keep" aria-label="Proposed domain"></label>
+              <label class="og-plbl">New version <input class="og-pver" name="change_version" maxlength="60" placeholder="leave blank to keep" aria-label="Proposed version"></label>
+              <label class="og-plbl">New description <input class="og-pdesc" name="change_description" maxlength="2000" placeholder="leave blank to keep" aria-label="Proposed description"></label>
+              <button class="og-psubmit" type="submit">Propose change</button>
+              <span class="og-pnote">Proposed against revision ${esc(String(selected.revision ?? ""))} — a proposal authored against a revision that has since moved is refused, never silently rebased.</span>
+            </form>`
+          : ihint("Select an ontology to propose a change to it.")}
+        ${ihint("Applying and withdrawing a proposal are daemon contracts (POST /v1/hypervisor/odk/ontology-proposals/:id/apply and /withdraw) with no surface control bound yet — a named gap.")}
+      </div></div>`
+    : "";
+  const aside = proposalsPane || createPane || (def ? inspectorFor() : "");
 
   // Result banner (#ap-result — the runtime's redirect anchor). Renders only after an action.
   const bn = O.banner || {};

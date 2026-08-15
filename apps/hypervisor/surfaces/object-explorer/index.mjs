@@ -6,6 +6,7 @@ import { bpIcon, EXPLORER_APP_ICON_URI } from "../../scripts/bp-icons.mjs";
 import { ioiGlobalRailHtml, IOI_GRAIL_CSS } from "../chrome.mjs";
 import { escHtml } from "../kit.mjs";
 import { loadOntologyModel, parseOntologyContext, managerLink, managerResourceLink, objectTypeLink, objectSetLink, pipelineNodeLink, lineageLink, vertexLink, provenanceSetLink, semanticBreadcrumb, semanticInspectorShell, disabledSemanticAction, formatRef } from "../ontology-context.mjs";
+import { createReadClient } from "../read-client.mjs";
 
 const CX_ESC = escHtml; // local alias so the moved block stays byte-identical to its serve original
 
@@ -16,8 +17,50 @@ export const meta = {
   certification: "pixel-certifications/explorer.json",
 };
 
+// XIV Leg 1 — SURF-ontology. Two of the three controls XIII left as named gaps bind here. The
+// contracts landed in XIII; what was missing was a SURFACE. The gap was never "no plane" and the
+// atlas said so, which is why closing it is a binding and not a contract.
+const SEARCH_PLANE = "/v1/hypervisor/odk/object-instance-search";
+const SAVED_SETS_PLANE = "/v1/hypervisor/odk/saved-object-sets";
+const SAVED_SET_SCHEMA = "ioi.hypervisor.odk.saved-object-set.v1";
+
+/**
+ * OBJECT-INSTANCE SEARCH IS A READ, and rides the read client even though the daemon spells it
+ * POST — the body carries the query, not a mutation. It answers a TYPED CORPUS-ABSENT state
+ * distinct from "no matches", and rendering those as the same thing would be the surface telling a
+ * user the corpus is empty when the query simply missed.
+ */
+async function loadInstanceSearch(ctx, client) {
+  const q = (ctx.url.searchParams.get("oq") || "").trim();
+  const objectTypeId = (ctx.url.searchParams.get("ot") || "").trim();
+  const ontologyRef = (ctx.url.searchParams.get("ontology") || "").trim();
+  if (!q && !objectTypeId) return null;
+  const body = { limit: 25 };
+  if (q) body.q = q;
+  if (objectTypeId) body.object_type_id = objectTypeId;
+  if (ontologyRef) body.ontology_ref = ontologyRef;
+  const r = await client.read(SEARCH_PLANE, {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
+  });
+  if (!r.ok) return { q, objectTypeId, refused: { code: r.code || "search_unavailable", message: r.message || "the search plane did not answer" } };
+  return { q, objectTypeId, payload: r.payload };
+}
+
 export async function load(ctx) {
-  return loadOntologyModel(ctx.daemon);
+  const client = typeof ctx.daemonFetch === "function"
+    ? createReadClient({ daemon: "", fetchImpl: ctx.daemonFetch })
+    : createReadClient({ daemon: ctx.daemon });
+  const [model, search, saved] = await Promise.all([
+    loadOntologyModel(ctx.daemon),
+    loadInstanceSearch(ctx, client),
+    client.read(SAVED_SETS_PLANE),
+  ]);
+  model.search = search;
+  // The saved-set catalog is scoped per principal by the daemon; a refusal is reported, never
+  // rendered as an empty catalog — an empty list and an unanswered read are different facts.
+  model.savedSets = saved.ok ? (saved.payload.saved_object_sets || []) : null;
+  model.savedSetsRefusal = saved.ok ? null : { code: saved.code || "saved_sets_unavailable", message: saved.message || "the saved-set plane did not answer" };
+  return model;
 }
 
 export function render(model, ctx) {
@@ -28,12 +71,77 @@ export function render(model, ctx) {
     // W2.1 rehome: the module serves at BOTH its legacy and canonical mounts; self-referring
     // forms post back to the mount that rendered them, so scoping works identically at each.
     basePath: ctx.url.pathname,
+    search: model.search,
+    savedSets: model.savedSets,
+    savedSetsRefusal: model.savedSetsRefusal,
+    setQuery: ctx.url.searchParams.get("setq") || "",
+    result: ctx.url.searchParams.get("saved") || "",
+    refusalCode: ctx.url.searchParams.get("refused") || "",
   });
 }
 
-// Selection is read-navigation through the shared ontology context (never a command); no
-// authority exists on this surface — no object editing, no action execution (standing boundary).
-export const actions = [];
+// Object SELECTION remains read-navigation through the shared ontology context. The one authority
+// this surface now carries is SAVING A SET — an ordinary governed mutation against a contract that
+// already existed, with no wallet crossing and no second admission path: it posts to the same
+// `ontology_workbench_routes` plane that owns the family.
+export const actions = [
+  {
+    id: "save-object-set", method: "POST", route: "/actions/save-object-set",
+    fields: ["name", "description", "ontology_ref", "object_type_id", "q"],
+    context: [],
+    authority: { plane: "odk-saved-object-sets", operation: `POST ${SAVED_SETS_PLANE}` },
+    receipt: SAVED_SET_SCHEMA,
+    confirm: false, success: "return-to-surface", refusal: "typed-banner",
+  },
+];
+
+export async function handleAction({ action, fields, daemonFetch, url }) {
+  if (action.id !== "save-object-set") {
+    return { kind: "failure", http: 400, code: "unknown_action", message: "this surface declares one action" };
+  }
+  // No capability, no mutation — the approvals precedent. A module that authored its own identity
+  // headers would be crossing as itself rather than as the caller.
+  if (typeof daemonFetch !== "function") {
+    return { kind: "failure", http: 500, code: "identity_capability_missing", message: "the action runtime supplied no request-scoped daemon capability — refusing to save without the caller's identity" };
+  }
+  const bounded = (v, max) => (typeof v === "string" ? v.slice(0, max).trim() : "");
+  const selection = {};
+  const objectTypeId = bounded(fields.object_type_id, 400);
+  const q = bounded(fields.q, 400);
+  if (objectTypeId) selection.object_type_id = objectTypeId;
+  if (q) selection.q = q;
+  const back = `${url.pathname}${url.search || ""}`;
+  // THE SELECTION IS THE POINT OF A SAVED SET. Posting an empty one would earn the daemon's own
+  // `saved_object_set_selection_required`, but refusing here keeps the caller's context: the
+  // surface can say which control was empty, which a relayed 400 cannot.
+  if (!selection.object_type_id && !selection.q) {
+    return { kind: "refusal", http: 400, code: "saved_object_set_selection_required", message: "a saved set stores a SELECTION — search for objects or pick a type before saving", redirect: back };
+  }
+  const name = bounded(fields.name, 200);
+  if (!name) return { kind: "refusal", http: 400, code: "odk_field_required", message: "`name` is required — a saved set is found by its name", redirect: back };
+  const ontologyRef = bounded(fields.ontology_ref, 400);
+  if (!ontologyRef) return { kind: "refusal", http: 400, code: "odk_field_required", message: "`ontology_ref` is required — a saved set belongs to one ontology", redirect: back };
+
+  const body = { name, ontology_ref: ontologyRef, selection };
+  const description = bounded(fields.description, 2000);
+  if (description) body.description = description;
+  const r = await daemonFetch(SAVED_SETS_PLANE, {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
+  }).then(async (x) => ({ status: x.status, j: await x.json().catch(() => ({})) })).catch(() => null);
+  if (!r) return { kind: "failure", http: 502, code: "daemon_unavailable", message: "the daemon did not answer — nothing was saved", redirect: back };
+  if (r.j && r.j.error) return { kind: "refusal", http: r.status || 400, code: r.j.error.code || "saved_object_set_refused", message: r.j.error.message || "refused — state unchanged", redirect: back };
+  const rec = r.j && r.j.saved_object_set;
+  // A 2xx WITHOUT the declared record fails CLOSED. A surface that reports success on a shape it
+  // cannot recognise is guessing, and the guess is always in the optimistic direction.
+  if (r.status !== 201 || !rec || !rec.ref || rec.schema_version !== SAVED_SET_SCHEMA) {
+    return { kind: "failure", http: 502, code: "saved_object_set_result_invalid", message: `the plane answered without a ${SAVED_SET_SCHEMA} record — failing closed`, redirect: back };
+  }
+  // THE DURABLE REFERENCE IS THE RECORD'S OWN REF. This family emits no separate receipt object —
+  // the record IS the artifact — so that ref is what the surface can prove, and the runtime's
+  // "success without a receipt fails closed" rule is satisfied by evidence rather than by a
+  // placeholder. Claiming a receipt schema this plane never emits would be the decorative version.
+  return { kind: "success", created: rec.ref, receipt_ref: rec.ref, redirect: `${url.pathname}?saved=${encodeURIComponent(rec.id)}` };
+}
 
 // ============================ OBJECT EXPLORER — reference UX PORT (#35, reference_ported).
 // A FAITHFUL source-neutral port of the reference Object Explorer (dark global platform rail + a light
@@ -58,6 +166,40 @@ export const actions = [];
 // shortcuts row + cards · catalog heading/filter/sort band · table header · object-set band. The
 // content block is the reference's responsive rule: max-width 1400, width calc(100% − 120px),
 // centered (margins 60 @1440 → 145 @1920).
+/**
+ * The search result region.
+ *
+ * THE TWO EMPTIES ARE DIFFERENT FACTS, and the daemon types them apart —
+ * `object_instance_corpus_absent` (nothing has been materialized in this scope, so there was nothing
+ * to search) versus `object_instance_query_unmatched` (the corpus was searched and matched nothing).
+ * Rendering both as "no results" would tell a user their query missed when in fact nothing exists to
+ * miss. Every row carries its provenance because an instance with no materializing run behind it is
+ * indistinguishable from an invented one.
+ */
+function renderSearchResults(search, esc) {
+  if (!search) return "";
+  if (search.refused) {
+    return `<div class="oe-sres oe-sres-refused" role="status"><b>The object-instance search plane did not answer.</b> <code>${esc(search.refused.code)}</code> — ${esc(search.refused.message)}. Nothing below is a search result.</div>`;
+  }
+  const p = search.payload || {};
+  const rows = Array.isArray(p.results) ? p.results : [];
+  const corpus = p.corpus || {};
+  const absence = p.absence || null;
+  const scope = `searched ${corpus.object_instances_in_scope ?? 0} instance${corpus.object_instances_in_scope === 1 ? "" : "s"} across ${corpus.materialized_object_sets_in_scope ?? 0} materialized set${corpus.materialized_object_sets_in_scope === 1 ? "" : "s"}`;
+  if (absence) {
+    return `<div class="oe-sres" role="status"><b>${absence.code === "object_instance_corpus_absent" ? "Nothing is materialized in this scope" : "No instance matched"}</b> — ${esc(absence.message)} <span class="oe-sscope">(${esc(scope)})</span></div>`;
+  }
+  const body = rows.map((r) => {
+    const o = r.object && typeof r.object === "object" ? r.object : {};
+    const label = o.title || o.name || o.id || "(untitled instance)";
+    return `<tr><td class="oe-srlabel">${esc(String(label))}</td><td class="oe-srtype">${esc(String(r.object_type_id || ""))}</td><td class="oe-srprov" title="provenance travels with every row">${esc(String(r.materializing_run_ref || "—"))}</td></tr>`;
+  }).join("");
+  return `<div class="oe-sres" role="status">
+    <div class="oe-srhead"><b>${p.total_matched ?? rows.length} match${(p.total_matched ?? rows.length) === 1 ? "" : "es"}</b> <span class="oe-sscope">(${esc(scope)}${p.truncated ? `, showing ${rows.length}` : ""})</span></div>
+    <table class="oe-table oe-srtable"><tbody>${body}</tbody></table>
+  </div>`;
+}
+
 function renderObjectExplorerPort(ov, lists, opts) {
   const enc = encodeURIComponent, esc = CX_ESC;
   const q = (opts && opts.q ? String(opts.q) : "").trim();
@@ -135,14 +277,23 @@ function renderObjectExplorerPort(ov, lists, opts) {
     <form class="oe-ontform" method="GET" action="${esc(basePath)}" title="Scope the catalog to one live ontology — no ontology is globally canonical">${q ? `<input type="hidden" name="q" value="${esc(q)}">` : ""}<select class="oe-ontsel oe-ontlive" name="ontology" aria-label="Ontology scope" onchange="this.form.submit()"><option value=""${scopeOnt ? "" : " selected"}>All ontologies (${ontologies.length})</option>${ontologies.map((oo) => `<option value="${esc(oo.id)}"${scopeOnt && scopeOnt.id === oo.id ? " selected" : ""}>${esc(oo.domain || oo.id)}</option>`).join("")}</select><noscript><button class="oe-ontgo" type="submit">Go</button></noscript></form>
   </div>`;
 
+  // XIV Leg 1 — THE OBJECT SEARCH CONTROL IS BOUND. XIII landed
+  // `POST /v1/hypervisor/odk/object-instance-search` and left this input disabled; the named gap was
+  // a binding, not a contract, and the atlas said so in those words. Faceted narrowing on TOP of the
+  // query stays a named gap and stays disabled — closing a gap by widening what "search" means is
+  // the narrowing this run is forbidden to do.
+  const search = opts && opts.search;
   const hero = `<div class="oe-hero">
     <h2 class="oe-htitle">Object Explorer search</h2>
     <div class="oe-searchrow">
-      <div class="oe-herogrp">
-        <span class="oe-filterby gap" aria-disabled="true" title="Faceted object filters have no surface control yet — the object-instance search plane exists as daemon truth (POST /v1/hypervisor/odk/object-instance-search); faceted narrowing on top of it is the named gap">${bpIcon("filter-funnel")}<span class="oe-fbt">Filter by...</span>${bpIcon("caret-down")}</span>
-        <div class="oe-objsearch" title="Object search has no surface control yet — the object-instance search plane exists as daemon truth (POST /v1/hypervisor/odk/object-instance-search); binding this input to it is the named gap (the catalog below is real)">${bpIcon("search")}<input placeholder="Search for objects..." disabled aria-label="Search for objects (no surface control bound yet, not wired)"><span class="oe-send gap" aria-disabled="true">${bpIcon("send-to")}</span></div>
-      </div>
+      <form class="oe-herogrp" method="get" action="${esc(basePath)}">
+        ${sel.ontology ? `<input type="hidden" name="ontology" value="${esc(sel.ontology)}">` : ""}
+        ${q ? `<input type="hidden" name="q" value="${esc(q)}">` : ""}
+        <span class="oe-filterby gap" aria-disabled="true" title="Faceted object filters remain a named gap — the query below is bound to the object-instance search plane, but narrowing it by facet has no daemon contract">${bpIcon("filter-funnel")}<span class="oe-fbt">Filter by...</span>${bpIcon("caret-down")}</span>
+        <div class="oe-objsearch" title="Object search runs against POST /v1/hypervisor/odk/object-instance-search — ontology-scoped, typed corpus-absent distinct from no-matches">${bpIcon("search")}<input class="oe-objq" name="oq" value="${esc(search && search.q ? search.q : "")}" placeholder="Search for objects..." aria-label="Search for objects across this ontology's instances"><button class="oe-send" type="submit" aria-label="Run object search">${bpIcon("send-to")}</button></div>
+      </form>
     </div>
+    ${renderSearchResults(search, esc)}
   </div>`;
 
   const cards = shortcuts.map((m, i) => {
@@ -180,16 +331,60 @@ function renderObjectExplorerPort(ov, lists, opts) {
     </table>
   </div>`;
 
+  // XIV Leg 1 — THE SAVED-OBJECT-SET CONTROL IS BOUND. The family landed in XIII
+  // (GET/POST /v1/hypervisor/odk/saved-object-sets, scoped per principal); this surface had no
+  // control for it. The catalog below is the REAL saved-set list, and the form saves the selection
+  // the user is actually looking at.
+  const setQuery = (opts && opts.setQuery ? String(opts.setQuery) : "").trim();
+  const savedSets = Array.isArray(opts && opts.savedSets) ? opts.savedSets : null;
+  const savedRefusal = opts && opts.savedSetsRefusal;
+  const searchState = opts && opts.search;
+  const scopedOnt = ontologies.find((o) => o && (o.id === sel.ontology || o.ref === sel.ontology)) || ontologies[0] || null;
+  const scopedRef = scopedOnt ? String(scopedOnt.ref || scopedOnt.id || "") : "";
+  // THE SELECTION IS WHAT IS BEING SAVED, so it is rendered as the form's own fields rather than
+  // reconstructed at submit time: a control that saves something other than what it displays is the
+  // same defect as a reason that names something other than what exists.
+  const saveTypeId = (searchState && searchState.objectTypeId) || sel.objectType || "";
+  const selQ = (searchState && searchState.q) || "";
+  const filtered = savedSets ? savedSets.filter((s) => !setQuery || String(s.name || "").toLowerCase().includes(setQuery.toLowerCase())) : [];
+  const savedRows = filtered.slice(0, 20).map((s) => {
+    const sn = s.selection || {};
+    const what = [sn.object_type_id ? `type ${sn.object_type_id}` : "", sn.q ? `q “${sn.q}”` : ""].filter(Boolean).join(" · ") || "—";
+    return `<tr><td class="oe-ssname">${esc(String(s.name || s.id || ""))}</td><td class="oe-sssel">${esc(what)}</td><td class="oe-ssref">${esc(String(s.ref || ""))}</td></tr>`;
+  }).join("");
+  const savedBody = savedRefusal
+    ? `<tr><td class="oe-none oe-ssrefused">The saved-object-set plane did not answer — <code>${esc(savedRefusal.code)}</code> ${esc(savedRefusal.message)}. This is not an empty catalog.</td></tr>`
+    : (savedRows || `<tr><td class="oe-none">No saved object sets yet${setQuery ? " matching this filter" : ""} — save the selection you are looking at to create one.</td></tr>`);
+  const savedResult = (opts && opts.result)
+    ? `<p class="oe-ssok" role="status">Saved — <code>saved-object-set://${esc(String(opts.result))}</code></p>`
+    : ((opts && opts.refusalCode) ? `<p class="oe-ssrefusal" role="alert">Refused — <code>${esc(String(opts.refusalCode))}</code>. Nothing was saved.</p>` : "");
+  const savedSetsHtml = `<div class="oe-savedbox">
+    <div class="oe-savedhead"><b>Saved object sets</b> <span class="oe-setsub">your explorations, from GET /v1/hypervisor/odk/saved-object-sets</span></div>
+    ${savedResult}
+    <table class="oe-table oe-savedtable"><tbody>${savedBody}</tbody></table>
+    ${scopedRef ? `<form class="oe-saveform" method="post" action="${esc(basePath)}/actions/save-object-set">
+      <input type="hidden" name="ontology" value="${esc(String(scopedOnt.id || ""))}">
+      <input type="hidden" name="ontology_ref" value="${esc(scopedRef)}">
+      <input type="hidden" name="object_type_id" value="${esc(String(saveTypeId))}">
+      <input type="hidden" name="q" value="${esc(String(selQ))}">
+      <label class="oe-savelbl">Name <input class="oe-savename" name="name" required maxlength="200" placeholder="Name this exploration" aria-label="Name for the saved object set"></label>
+      <label class="oe-savelbl">Description <input class="oe-savedesc" name="description" maxlength="2000" placeholder="Optional" aria-label="Description for the saved object set"></label>
+      <button class="oe-savebtn" type="submit"${saveTypeId || selQ ? "" : ` disabled title="A saved set stores a SELECTION — search for objects or select a type first"`}>Save this selection</button>
+      <span class="oe-savewhat">${saveTypeId || selQ ? `saves ${esc([saveTypeId ? `type ${saveTypeId}` : "", selQ ? `q “${selQ}”` : ""].filter(Boolean).join(" · "))}` : "nothing selected yet"}</span>
+    </form>` : `<p class="oe-savegap">No ontology is in scope, so there is no selection to save — saved sets belong to one ontology.</p>`}
+  </div>`;
+
   const setBand = `<div class="oe-setrow">
     <span class="oe-setlabel">Object set catalog <span class="oe-setsub">(explorations and lists)</span></span>
     <span class="oe-setlanes">
-      <input class="oe-setsearch" placeholder="Search explorations..." disabled aria-label="Search explorations (no surface control bound yet, not wired)" title="Exploration search has no surface control yet — the saved-object-set family exists as daemon truth (GET/POST /v1/hypervisor/odk/saved-object-sets); binding this input to it is the named gap">
+      <form class="oe-setfilter" method="get" action="${esc(basePath)}">${sel.ontology ? `<input type="hidden" name="ontology" value="${esc(sel.ontology)}">` : ""}<input class="oe-setsearch" name="setq" value="${esc(setQuery)}" placeholder="Search explorations..." aria-label="Filter saved object sets by name" title="Filters the saved object sets below, read from GET /v1/hypervisor/odk/saved-object-sets"></form>
       <span class="oe-slane on gap" aria-disabled="true" title="named gap">All</span>
       <span class="oe-slane gap" aria-disabled="true" title="Per-user lanes over the MATERIALIZED set catalog are reference-only (named gap) — that catalog records no per-user ownership; saved object sets are a different store and are scoped per principal">Created by me</span>
       <span class="oe-slane gap" aria-disabled="true" title="named gap">Shared with me</span>
       <span class="oe-slane gap" aria-disabled="true" title="named gap">Favorites</span>
     </span>
   </div>
+  ${savedSetsHtml}
   <div class="oe-setbox">
     <table class="oe-table oe-settable">
       <tbody>${msets.length ? msets.slice(0, 20).map(setRow).join("") : `<tr><td class="oe-none">No object sets yet — a materialized set appears once an OntologyProjection reads a source (${projs.length} projection${projs.length === 1 ? "" : "s"} declared). <a href="/__ioi/odk">ODK substrate →</a></td></tr>`}</tbody>
