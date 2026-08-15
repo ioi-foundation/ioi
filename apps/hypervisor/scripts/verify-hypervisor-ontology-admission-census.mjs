@@ -290,7 +290,13 @@ function fnv1a64(bytes) {
  * comparison passes on exactly the hazard it names.
  */
 function deriveCensus() {
-  const build = spawnSync("cargo", ["build", "--offline", "-p", "ioi-ontology-census"], { cwd: ROOT, encoding: "utf8" });
+  // `--locked`, NOT `--offline`. Offline was a network optimisation that fails closed for the wrong
+  // reason — CI has no populated crates.io index at this point and the gate died on
+  // "no matching package named `serde_json`", which says nothing about the census. `--locked` is
+  // what the rest of this estate's CI uses and it carries a real property the pin does not: the
+  // extractor is built from the resolution `Cargo.lock` records, so a dependency move cannot change
+  // its behaviour without a lockfile diff.
+  const build = spawnSync("cargo", ["build", "--locked", "-p", "ioi-ontology-census"], { cwd: ROOT, encoding: "utf8" });
   if (build.status !== 0) throw new Error(`extractor build failed: ${build.stderr || build.stdout}`);
   const run = spawnSync(EXTRACTOR_BIN, ["--interest", "odk-", DAEMON_MAIN], { cwd: ROOT, encoding: "utf8", maxBuffer: 512 * 1024 * 1024 });
   if (run.status !== 0) throw new Error(`extractor failed (${run.status}): ${run.stderr}`);

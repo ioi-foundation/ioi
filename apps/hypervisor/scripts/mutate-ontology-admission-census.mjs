@@ -127,7 +127,7 @@ function plant(anchor) {
  * when a signature or a visibility changes under them, and the battery keeps printing its total.
  */
 function compiles() {
-  const r = spawnSync("cargo", ["check", "--offline", "-q", "--bin", "hypervisor-daemon"], {
+  const r = spawnSync("cargo", ["check", "--locked", "-q", "--bin", "hypervisor-daemon"], {
     cwd: ROOT, encoding: "utf8", maxBuffer: 64 * 1024 * 1024,
   });
   return { ok: r.status === 0, detail: (r.stderr || "").split("\n").filter((l) => l.startsWith("error")).slice(0, 2).join(" ; ") };
