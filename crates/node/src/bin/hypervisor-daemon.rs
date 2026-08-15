@@ -200,6 +200,8 @@ mod verifier_challenge_routes;
 mod wallet_network_capability_client;
 #[path = "hypervisor_daemon_routes/work_frontier_claim_routes.rs"]
 mod work_frontier_claim_routes;
+#[path = "hypervisor_daemon_routes/work_lifecycle_routes.rs"]
+mod work_lifecycle_routes;
 #[path = "hypervisor_daemon_routes/work_result_routes.rs"]
 mod work_result_routes;
 
@@ -2896,6 +2898,18 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/goal-orchestration/work-eligibility-matches/:id",
             axum::routing::get(resource_capability_offer_routes::handle_match_get),
+        )
+        .route(
+            "/v1/work-lifecycle/records",
+            axum::routing::post(work_lifecycle_routes::handle_record_append),
+        )
+        .route(
+            "/v1/work-lifecycle/objects/:object_ref",
+            axum::routing::get(work_lifecycle_routes::handle_object_projection),
+        )
+        .route(
+            "/v1/work-lifecycle/cancellation-plans",
+            axum::routing::post(work_lifecycle_routes::handle_cancellation_plan),
         )
         .route(
             "/v1/goal-orchestration/attempts",

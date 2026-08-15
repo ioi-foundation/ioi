@@ -54,7 +54,7 @@
     },
     "object_ref": {
       "type": "string",
-      "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
     },
     "expected_head": {
       "anyOf": [
@@ -94,14 +94,14 @@
     },
     "authority_ref": {
       "type": "string",
-      "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
     },
     "evidence_refs": {
       "type": "array",
       "uniqueItems": true,
       "items": {
         "type": "string",
-        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
       }
     },
     "receipt_refs": {
@@ -109,7 +109,7 @@
       "uniqueItems": true,
       "items": {
         "type": "string",
-        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
       }
     },
     "phase_transition": {

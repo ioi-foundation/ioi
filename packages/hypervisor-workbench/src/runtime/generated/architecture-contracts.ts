@@ -20835,7 +20835,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/skill-entry/v1": "sha256:3f1bc8b58d8604b5b1bd0562aac17e55f961ee3d3061e5321224161901861a2a",
   "schema://ioi/foundations/skill-manifest/v1": "sha256:cf1ca7a5711a784e57adef9c17d12d4495f22d4c17930847c6ec2061c50b2995",
   "schema://ioi/foundations/system-scoped-object-binding/v1": "sha256:6f2a54cb99566951e3bcec4bd99f864fe0ea61c28621a6a4f68c734c45361917",
-  "schema://ioi/foundations/work-lifecycle-record/v1": "sha256:b04465b2aba647773c44bf8631d2d03f91a7aa6dbb1aeb11bc3e5e59276ad7cd",
+  "schema://ioi/foundations/work-lifecycle-record/v1": "sha256:a2f40a36c815a6f2a3da6bfdac4be7bd1186c79e5fca699cebdf764735db9dca",
   "schema://ioi/foundations/work-result/v3": "sha256:0220d0bb1d76fa05a49decd8554c7debb3d47e855c8856a5298ecd0f2bda51b4",
   "schema://ioi/foundations/workflow-template/v1": "sha256:77f96b713670707d3da8fead21bfab833169aadae340da8290afea549dea8ffd",
   "schema://ioi/foundations/objects/work-frontier-item-envelope/v1": "sha256:a4c5da30ef6014112e6b6f336f9c641dd427f09f86ccc24166833678b157748e",
@@ -68195,7 +68195,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       },
       "object_ref": {
         "type": "string",
-        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
       },
       "expected_head": {
         "anyOf": [
@@ -68235,14 +68235,14 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       },
       "authority_ref": {
         "type": "string",
-        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
       },
       "evidence_refs": {
         "type": "array",
         "uniqueItems": true,
         "items": {
           "type": "string",
-          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
         }
       },
       "receipt_refs": {
@@ -68250,7 +68250,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "uniqueItems": true,
         "items": {
           "type": "string",
-          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
         }
       },
       "phase_transition": {

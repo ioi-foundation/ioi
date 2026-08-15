@@ -2082,6 +2082,22 @@ pub(crate) async fn handle_attempt_create(
         }),
         &intent_tail,
     );
+    // ADR 0034 / INV-35: an Attempt is a child work record under its frontier
+    // item, so it is a work-owning admission edge. Admitted before the single
+    // durable write below; a refused attempt persists nothing.
+    if let Err(super::AppError(_, message)) = super::work_lifecycle_routes::admit_delegation_edge(
+        state.data_dir.as_str(),
+        &format!("work_run://{}", s(&declaration, "frontier_item_ref", "")),
+        "work_run",
+        "running",
+        "work_run",
+        &format!("work_run://{subject_ref}"),
+        // An attempt that has run may have produced effects.
+        "compensatable",
+    ) {
+        return classify(verr("attempt_delegation_refused", message));
+    }
+
     match persist_and_complete_locked(&state.data_dir, &intent_tail, &intent) {
         Ok(()) => (
             StatusCode::CREATED,
@@ -2520,6 +2536,10 @@ pub(crate) async fn handle_finding_create(
         }),
         &intent_tail,
     );
+    if let Err(error) = admit_finding_edge(state.data_dir.as_str(), &attempt_ref, &subject_ref) {
+        return classify(error);
+    }
+
     match persist_and_complete_locked(&state.data_dir, &intent_tail, &intent) {
         Ok(()) => (
             StatusCode::CREATED,
@@ -2527,6 +2547,25 @@ pub(crate) async fn handle_finding_create(
         ),
         Err(error) => classify(error),
     }
+}
+
+/// ADR 0034 / INV-35: a Finding is a child work record under its Attempt.
+/// Admitted before the caller's durable write; a refused finding persists
+/// nothing. Kept as a helper so the gate reads identically at every site.
+fn admit_finding_edge(data_dir: &str, attempt_ref: &str, finding_ref: &str) -> Result<(), VErr> {
+    super::work_lifecycle_routes::admit_delegation_edge(
+        data_dir,
+        &format!("work_run://{attempt_ref}"),
+        "work_run",
+        "running",
+        "work_run",
+        &format!("work_run://{finding_ref}"),
+        // A finding is a declaration, not an effect: retracting it compensates
+        // nothing external.
+        "reversible",
+    )
+    .map(|_| ())
+    .map_err(|super::AppError(_, message)| verr("finding_delegation_refused", message))
 }
 
 fn finding_transition_contract(op: &str, from: &str) -> Result<&'static str, VErr> {
