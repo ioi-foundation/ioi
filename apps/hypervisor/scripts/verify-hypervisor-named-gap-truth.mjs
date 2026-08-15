@@ -111,7 +111,7 @@ const FIELD_SEMANTICS = {
  */
 const PINNED = {
   registeredRoutes: 753,
-  atlasRouteMentions: { decided: 210, unchecked: 41 },
+  atlasRouteMentions: { decided: 230, unchecked: 46, citedInNegative: 1 },
   surfaceStringsNamingARoute: 8,
   // 74 includes this gate's OWN two absence-worded labels. It walks every verifier in the estate and
   // is one of them; excluding itself would be the first exemption, and exemptions are how a closed
@@ -205,7 +205,29 @@ export function clauseAround(text, at) {
 }
 
 const ABSENCE_LABEL = /\b(absent|does not exist|no .{0,24}(?:plane|family|route|contract))\b/iu;
-const ROUTE_IN_TEXT = /\/v1\/hypervisor\/[A-Za-z0-9/_:-]+/gu;
+// THE POPULATION IS WHERE THIS GATE KEPT LOSING. Two live falsehoods sat in the atlas, green at
+// 10/10, and neither was a polarity mistake — both were claims the matcher never looked at:
+//
+//   · `DELETE /v1/hypervisor/odk/domain-ontologies/{id} … not yet contracted`, while the router has
+//     served GET/PATCH/DELETE on `:id` all along. The old character class excluded `{}`, so `{id}`
+//     truncated the route to the parent collection and the method check ran against the wrong path.
+//     Eighteen brace-form mentions were being silently re-pointed that way.
+//   · `materialized-object-sets exposes GET-only routes … no POST retire/delete exists`, while
+//     `.delete(handle_set_delete)` is registered. That one names no `/v1/` token at all, so it was in
+//     NEITHER the decided nor the unchecked population and no pin could move.
+//
+// So: braces are part of a route token and normalise to `:param`; ANY `/v1/` prefix is in scope, not
+// only `/v1/hypervisor/` (258 of the 753 registered routes are outside it); and a negative-field
+// entry that names NO route is counted as its own pinned population rather than vanishing.
+const ROUTE_IN_TEXT = /\/v1\/[A-Za-z0-9/_:{}-]+/gu;
+/** `{id}` and `:id` are the same path parameter written two ways. */
+const normaliseRoute = (r) => r
+  // `{id}` is a path parameter; `{approve,reject,apply}` is an ALTERNATION of four routes written
+  // compactly, and rewriting it to `:id` invents a path nobody registered. Only an identifier-shaped
+  // brace is a parameter; anything else ends the token.
+  .replace(/\{[A-Za-z_][A-Za-z0-9_]*\}/gu, ":id")
+  .replace(/\{.*$/u, "")
+  .replace(/[.,;:/)]+$/u, "");
 const normaliseField = (at) => at.replace(/^surfaces\.[a-z_]+\./u, "").replace(/\[\d+\]/gu, "[]");
 
 /** Walk every string in a JSON value, with a dotted path for the diagnostic. */
@@ -268,7 +290,7 @@ function run() {
   const unknownFields = new Set();
   const staleFields = new Set(Object.keys(FIELD_SEMANTICS));
   const falseNegatives = [], falsePositives = [];
-  let decided = 0, unchecked = 0;
+  let decided = 0, unchecked = 0, citedInNegative = 0;
   for (const [at, text] of jsonStrings(atlas)) {
     ROUTE_IN_TEXT.lastIndex = 0;
     if (!ROUTE_IN_TEXT.test(text)) continue;
@@ -278,9 +300,8 @@ function run() {
     staleFields.delete(field);
     ROUTE_IN_TEXT.lastIndex = 0;
     for (const m of text.matchAll(ROUTE_IN_TEXT)) {
-      const r = m[0].replace(/[.,;:)]+$/u, "");
+      const r = normaliseRoute(m[0]);
       if (polarity === "prose" || polarity === "forward") { unchecked += 1; continue; }
-      decided += 1;
       const clause = clauseAround(text, m.index);
       const methods = [...new Set([...clause.matchAll(/\b(GET|POST|PATCH|PUT|DELETE)\b/gu)].map((x) => x[1]))];
       // THE TWO DIRECTIONS ASK DIFFERENT QUESTIONS. `existing_daemon.actions` writes the compact
@@ -288,9 +309,21 @@ function run() {
       // `/x/:id` — so the decidable claim there is that the family's path is served at all. A
       // MISSING-authority claim is method-precise by nature ("PATCH/PUT /x — route is GET-only"), so
       // that side keeps the method check.
+      // A NEGATIVE FIELD MAY CITE A ROUTE AS EVIDENCE RATHER THAN DENY IT. `models`'
+      // missing-authority row reads "Inference exists at /v1/chat/completions but is not a governed
+      // catalog workflow" — true, precise, and naming a registered route on purpose. Reading every
+      // mention in the field as a denial accused it, which is the third time in this run that
+      // inferring intent from prose produced a false accusation against a true sentence.
+      //
+      // The structural separator, and NOT an English one: a denial is METHOD-PRECISE. XIII's class
+      // and the falsehood this gate just found both name the verb they deny ("PATCH/PUT … is
+      // GET-only", "DELETE … not yet contracted"). A mention with no method token is a citation, and
+      // it is counted rather than judged.
+      if (polarity === "negative" && !methods.length) { citedInNegative += 1; continue; }
+      decided += 1;
       const exists = polarity === "positive"
         ? (routeExists(routes, r) || routeExists(routes, `${r}/:id`))
-        : (methods.length ? methods.some((mm) => routeExists(routes, r, mm)) : routeExists(routes, r));
+        : methods.some((mm) => routeExists(routes, r, mm));
       if (polarity === "negative" && exists) falseNegatives.push(`${at}: declares MISSING authority, but ${methods.join("/") || "some method on"} ${r} IS registered`);
       if (polarity === "positive" && !exists) falsePositives.push(`${at}: cites ${r} as daemon truth, which is NOT registered`);
     }
@@ -313,8 +346,8 @@ function run() {
     falsePositives.length ? `OVERCLAIMED: ${falsePositives.slice(0, 6).join(" ; ")}` : "no emission credits an unregistered route");
 
   ok("the DECIDED and UNCHECKED populations are both pinned — a claim moved from a checked field into a prose or forward-looking one changes these numbers, so the remainder this gate declines to judge cannot quietly absorb the claims it is supposed to be judging",
-    decided === PINNED.atlasRouteMentions.decided && unchecked === PINNED.atlasRouteMentions.unchecked,
-    `${decided}/${PINNED.atlasRouteMentions.decided} decided, ${unchecked}/${PINNED.atlasRouteMentions.unchecked} in prose or forward-looking fields`);
+    decided === PINNED.atlasRouteMentions.decided && unchecked === PINNED.atlasRouteMentions.unchecked && citedInNegative === PINNED.atlasRouteMentions.citedInNegative,
+    `${decided}/${PINNED.atlasRouteMentions.decided} decided, ${unchecked}/${PINNED.atlasRouteMentions.unchecked} prose or forward-looking, ${citedInNegative}/${PINNED.atlasRouteMentions.citedInNegative} cited as evidence inside an absence field without naming a method`);
 
   // ------------------------------------------------------------ the strings a user actually reads
   // THE SURFACE WALK IS LIVE. A previous cut collected these strings and then hardcoded their
@@ -329,7 +362,7 @@ function run() {
     if (!found.length) continue;
     surfaceNamingRoute.push(e);
     for (const m of found) {
-      const r = m[0].replace(/[.,;:)]+$/u, "");
+      const r = normaliseRoute(m[0]);
       if (!routeExists(routes, r) && !routeExists(routes, `${r}/:id`)) {
         surfaceUnregistered.push(`${e.where}: names ${r}, which the router does not serve — "${e.text.slice(0, 70)}…"`);
       }
