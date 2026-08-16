@@ -34,7 +34,7 @@ principal:
 > **INV-37** — the lease SUBJECT is resolved SERVER-SIDE, never a caller-passed constant. A
 > supplied session ref must resolve to a real session record; otherwise the authenticated
 > principal is the subject; otherwise the request is refused. **The "operator" default is gone.**
-> — `editor_routes.rs:733-735`
+> — `editor_routes.rs:730-732`
 
 The ops-lease route simply passes the literal `"operator"` (`supervisor_routes.rs:37`), which is
 the very default INV-37 removed everywhere else. So **there is nothing to file**: the row is
@@ -76,7 +76,7 @@ rooted at the victim workspace (`:252-253`), and `editor_proxy.rs` fronts it wit
 `scm_publication_routes.rs:2765` calls `authorize_environment_owner` (`:2193-2243`) before
 publishing. `managed_runtime_routes.rs:2598-2630` refuses an environment that is not the
 authenticated principal's admitted managed instance. **The unauthorized pair is
-`POST /v1/hypervisor/snapshots` (`:4040`) and `POST /v1/hypervisor/backups` (`:3583`)** — which
+`POST /v1/hypervisor/snapshots` (`:4040`) and `POST /v1/hypervisor/backups` (`:4048`)** — which
 the estate's own verifier already names in prose at
 `verify-hypervisor-environment-custody.mjs:226-229`.
 
@@ -106,7 +106,7 @@ non-canonical id rather than folding it — the shape `durable_fs::is_normalizat
 inside the shared writer: `hypervisor-daemon.rs:4448-4453` derives the FILE NAME, and
 `"environments"` is not in `PROMOTED_DOMAINS` (`substrate_store.rs:42`), so that branch always
 runs. Raw readings persist at `supervisor_routes.rs:146`, `authority_routes.rs:1019-1021`,
-`managed_runtime_routes.rs:2618` and `:3790`, `lifecycle_routes.rs:9635`, `:588`, plus the
+`managed_runtime_routes.rs:2618` and `:3790`, `lifecycle_routes.rs:9635`, `environment_routes.rs:588`, plus the
 raw-keyed `st.live_vms` map (`hypervisor-daemon.rs:275`).
 
 **`environment_id` is caller-supplied** (`:2554-2559`); `new_env` stores it RAW (`:235`).
@@ -140,7 +140,7 @@ modules from its handle table.
 Not a hand list. The census walks the router SOURCE for every registered route in every module,
 and classifies each handler by whether it can reach `environments/<id>/` on disk or
 `status.workspace_root` — transitively, through the module-local helpers that resolve a workspace
-(`env_workspace` in `agentops_routes`, `editor_host`, `supervisor_routes`, `operability_routes`).
+(`env_workspace` in `agentops_routes`, `editor_host`, `supervisor_routes`, `orchestration_routes.rs:109`).
 Every route is classified or the census is RED; the classification is asserted in both directions.
 
 This is the same instrument shape as the ontology admission census (Leg 3a): derived from source,
@@ -260,7 +260,7 @@ Revision 3 filed these behind a schema change that does not exist:
 
 - **the ops-lease mint route** (`supervisor_routes.rs:31`) becomes identity-first, authorizes
   against the pin, and passes the resolved `principal_ref` as `subject` — the INV-37 pattern
-  (`editor_routes.rs:733-735`, `:762-785`, `:795-801`). `authed()` (`:177-183`) then compares
+  (`editor_routes.rs:730-732`, `:762-785`, `:795-801`). `authed()` (`:177-183`) then compares
   `grant["subject"]` against the pin, so **no caller identity is needed at the `/supervisor/` seam
   at all** and the Workbench transport contract (`:164-166`, which drops the env PATH, not headers)
   is untouched;
@@ -314,6 +314,16 @@ evidence two-thirds false (`scm/publish` and managed backups both authorize toda
 normalizers not eight, with the write-side and rejecting copies missed; the deprovisioned-owner
 strand unruled; R7's administrator bypass left unconditional over owned environments; the editor
 proxy's tokenless path missed.
+
+**Revision 4 — CITATION-AUDITED before landing.** An independent audit of ~70 load-bearing
+citations found the two headline reversals SOUND (the ops-lease minter is inside `/v1/` at
+`hypervisor-daemon.rs:3348`; `issue_capability_lease` carries a `subject` and INV-37 resolves a
+principal into it) and every behavioural claim reproducing, and four citation errors, all
+corrected here: the INV-37 quote block is `editor_routes.rs:730-732` not `:733-735`; the
+`POST /backups` handler is `:4048` not `:3583` (a line inside the shared `capture_workspace`
+helper); the `host_ports_in_use` raw read is `environment_routes.rs:588` not `lifecycle_routes.rs`;
+and the fourth workspace-resolving helper is `orchestration_routes.rs:109`, not an `env_workspace`
+in `operability_routes` (which has none). None touched a load-bearing conclusion.
 
 ## Reversal
 
