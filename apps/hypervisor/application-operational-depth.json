@@ -1796,9 +1796,10 @@
           "region": "app-rail",
           "label": "Proposals",
           "reference": "proposal review",
-          "outcome": "disabled_missing_authority",
-          "reason": "the ontology PROPOSAL plane exists as daemon truth (POST /v1/hypervisor/odk/ontology-proposals, apply/withdraw, expected_revision CAS, ontology-plane receipts) — what is missing is a SURFACE control bound to it, so the rail item stays a rendered disabled named gap until one is built. Reclassified from unsupported_reference_session, whose taxonomy reads \"with no IOI product plane\" and became false the moment the plane landed",
-          "implemented": true
+          "outcome": "governed_receipted_action",
+          "reason": "XIV Leg 1 (2026-08-15): the SURFACE control is now bound. The Proposals rail item opens a bound pane: the review queue reads GET /v1/hypervisor/odk/ontology-proposals and the form proposes against the ontology's current revision through POST /v1/hypervisor/odk/ontology-proposals, receipted. APPLYING and WITHDRAWING remain unbound named gaps, and the pane says so rather than implying the whole plane is wired",
+          "implemented": true,
+          "binding": "rail Proposals -> ?section=proposals; GET /v1/hypervisor/odk/ontology-proposals + form POST /v1/hypervisor/odk/ontology-proposals"
         },
         {
           "id": "rail.history",
@@ -2284,9 +2285,10 @@
           "filter",
           "select",
           "inspect",
-          "proof"
+          "proof",
+          "create"
         ],
-        "operational_state": "inspect"
+        "operational_state": "act"
       },
       "reference_control_census": [
         {
@@ -2350,7 +2352,7 @@
           "label": "Filter by... (faceted object filters)",
           "reference": "faceted filter popover over object instances",
           "outcome": "disabled_missing_authority",
-          "reason": "the object-instance SEARCH plane exists as daemon truth (POST /v1/hypervisor/odk/object-instance-search, ontology-scoped, typed corpus-absent vs query-unmatched) — what is missing is a SURFACE control bound to it, and faceted narrowing on top of it. Rendered disabled with a named reason until one is built. Reason corrected 2026-08-14: it previously read \"missing daemon contract: object-instance faceted-search plane\", which went false the moment that plane landed",
+          "reason": "faceted narrowing over object INSTANCES has no daemon contract — this is the remaining gap. XIV Leg 1 bound the QUERY control beside it (POST /v1/hypervisor/odk/object-instance-search); facets are not that route and are not claimed by it",
           "implemented": true
         },
         {
@@ -2358,18 +2360,20 @@
           "region": "hero",
           "label": "Search for objects... input",
           "reference": "full-text object-instance search box",
-          "outcome": "disabled_missing_authority",
-          "reason": "the object-instance SEARCH plane exists as daemon truth (POST /v1/hypervisor/odk/object-instance-search) — what is missing is a SURFACE control bound to it. Rendered disabled with a named reason. Reason corrected 2026-08-14: it previously read \"missing daemon contract: object-instance full-text search plane\", which went false the moment that plane landed",
-          "implemented": true
+          "outcome": "daemon_read",
+          "reason": "XIV Leg 1 (2026-08-15): the SURFACE control is now bound. The hero input posts the query to POST /v1/hypervisor/odk/object-instance-search and renders the answer, including the daemon's typed corpus-absent state kept distinct from a query that matched nothing. It previously read \"what is missing is a SURFACE control bound to it\", which went false when the control landed",
+          "implemented": true,
+          "binding": "form GET ?oq= -> POST /v1/hypervisor/odk/object-instance-search"
         },
         {
           "id": "hero.search-send-btn",
           "region": "hero",
           "label": "Search for objects (WAYF primary button)",
           "reference": "PRIMARY workflow initiator — runs an object search into the Exploration workspace",
-          "outcome": "disabled_missing_authority",
-          "reason": "the object-instance SEARCH plane exists as daemon truth (POST /v1/hypervisor/odk/object-instance-search) and the saved-object-set/exploration family with it (POST /v1/hypervisor/odk/saved-object-sets) — what is missing is a SURFACE control bound to either. The reference's primary intent button, rendered disabled with a named reason. Reason corrected 2026-08-14: it previously read \"missing daemon contract: object-instance search + exploration plane\", which went false the moment those planes landed",
-          "implemented": true
+          "outcome": "daemon_read",
+          "reason": "XIV Leg 1 (2026-08-15): the SURFACE control is now bound. The send control submits the hero query to POST /v1/hypervisor/odk/object-instance-search. Saving the resulting selection is a separate governed control (POST /v1/hypervisor/odk/saved-object-sets)",
+          "implemented": true,
+          "binding": "submit in .oe-herogrp -> POST /v1/hypervisor/odk/object-instance-search"
         },
         {
           "id": "shortcuts.recents-lane",
@@ -2479,9 +2483,10 @@
           "region": "object-set-catalog",
           "label": "Search explorations input",
           "reference": "search over saved explorations/lists",
-          "outcome": "disabled_missing_authority",
-          "reason": "the saved-object-set/exploration family exists as daemon truth (GET/POST /v1/hypervisor/odk/saved-object-sets, per-principal, CAS-guarded) — what is missing is a SURFACE control bound to it. Rendered disabled with a named reason. Reason corrected 2026-08-14: it previously read \"missing daemon contract: exploration/list search plane\", which went false the moment that family landed",
-          "implemented": true
+          "outcome": "daemon_read",
+          "reason": "XIV Leg 1 (2026-08-15): the SURFACE control is now bound. The exploration input filters the saved-object-set catalog read from GET /v1/hypervisor/odk/saved-object-sets. A plane that does not answer renders as an unanswered read, never as an empty catalog",
+          "implemented": true,
+          "binding": "input .oe-setsearch (?setq=) filters the catalog read from GET /v1/hypervisor/odk/saved-object-sets"
         },
         {
           "id": "objectset.owner-lanes",
@@ -2667,7 +2672,8 @@
           "POST /v1/hypervisor/odk/materializing-runs/:id/execute (execute — NOTE lease-acquisition-only: source_contacted=false, rows_extracted=0, object_instances=0; row extraction is the connector-session crossing)",
           "POST /v1/hypervisor/odk/domain-ontologies (create DomainOntology draft — schema root)",
           "POST /v1/hypervisor/odk/ontology-projections (declare projection)",
-          "POST /v1/hypervisor/odk/connector-mappings | /connector-sessions | /capability-lease-plans | /policy-bound-data-views (the ODK substrate ladder that actually materializes rows)"
+          "POST /v1/hypervisor/odk/connector-mappings | /connector-sessions | /capability-lease-plans | /policy-bound-data-views (the ODK substrate ladder that actually materializes rows)",
+          "POST /v1/hypervisor/odk/saved-object-sets (save the displayed selection as an exploration) — WIRED via surface action save-object-set; XIV Leg 1 promoted this surface from inspect to act, and it carries exactly this one authority"
         ],
         "receipts": [
           "materializing-run-receipt family (agentgres://materializing-run-receipt/mrr_*) — request/gateway-decision/lease id+ref/TTL/scope/refusals/release, never credential material",
@@ -2676,8 +2682,8 @@
         ]
       },
       "missing_authority_contracts": [
-        "SURFACE control bound to object-instance search — full-text and faceted narrowing over object INSTANCES (backs reference WAYF 'Search for objects', the hero search input, the 'Filter by...' facets). Faceted narrowing has no contract. The instance-search contract itself is NOT missing as of next-legs XIII; it is recorded in the XIII ledger block, not here, because this field declares missing AUTHORITY.",
-        "SURFACE control bound to saved object sets, plus the per-user lanes over the MATERIALIZED set catalog — Recents/Favorites, 'Your object sets', 'Created by me'/'Shared with me' — which have no contract at all: those lanes render a different store, and nothing records per-user ownership of it. The per-principal saved-object-set contract is NOT missing as of next-legs XIII and is recorded in the XIII ledger block.",
+        "Faceted narrowing over object INSTANCES — the reference 'Filter by...' facets. No faceting contract is registered. The instance-search control itself is no longer missing: XIV Leg 1 bound it to the query plane, and the surface renders its typed absence states",
+        "Per-user lanes over the MATERIALIZED set catalog — Recents/Favorites, 'Created by me'/'Shared with me' — which have no contract at all: those lanes render a different store, and nothing records per-user ownership of it. The saved-object-set control itself is no longer missing: XIV Leg 1 bound reading, filtering and creating to the per-principal family",
         "action-type EXECUTION authority — object action_type DECLARATIONS exist in the COM but there is NO daemon route to execute an action against object instances (backs inspector 'Execute action')",
         "SURFACE workspace bound to the object-instance planes — the reference /exploration?objectTypeRid workspace and its instance grid (dead-XHR in the mirror), plus per-object detail data beyond the rows the instance read returns. The instance READ contract is NOT missing as of next-legs XIII and is recorded in the XIII ledger block.",
         "ontology-scoped catalog view param — minor: a per-view ontology-scope filter (reference ontology selector); the data exists (domain-ontologies) but no scoped catalog read is wired"

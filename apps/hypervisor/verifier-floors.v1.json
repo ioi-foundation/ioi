@@ -23,8 +23,8 @@
       "id": "ontology-journey",
       "npm_script": "check:ontology-journey",
       "source": "apps/hypervisor/scripts/verify-hypervisor-ontology-journey.mjs",
-      "runtime_assertions": 46,
-      "assertion_names_sha256": "edd363be3a0c9f3ed364e33530e6b7e0e39ba8dc66f777a5b2ebd877a1957930"
+      "runtime_assertions": 56,
+      "assertion_names_sha256": "b6fbaf5306d3642c33cd69e52934e4d82c1bfbce9c79d2f88e8b1bcf8c64ccef"
     },
     {
       "id": "ontology-backend-families",
