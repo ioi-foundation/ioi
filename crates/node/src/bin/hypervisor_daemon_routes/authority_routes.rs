@@ -26,10 +26,35 @@ use super::{iso_now, persist_record, read_record_dir, DaemonState};
 /// authority grant/revoke is NEVER caller-asserted. Without this the subject was copied from the
 /// body, so an unauthenticated caller could mint a grant with `resources:["environment:X"]` and any
 /// subject, which `supervisor_routes::lease_binds_env` then turns into a working env-ops WebSocket
-/// lease token (the measured escalation this fix closes). local_development ⇒ the server operator
-/// constant; authenticated_managed ⇒ the authenticated principal (`user://<principal_id>`) or a
-/// typed 401; exposed_untrusted ⇒ a typed 403.
-fn resolve_authority_subject(
+/// lease token. local_development ⇒ the server operator constant; authenticated_managed ⇒ the
+/// authenticated principal (`user://<principal_id>`) or a typed 401; exposed_untrusted ⇒ a typed 403.
+///
+/// THIS CLOSES THE CLASS FOR THE GENERIC GRANT ROUTE ONLY, AND THAT SCOPING WAS A FALSE "CLOSED".
+/// A previous version of this comment said "the measured escalation this fix closes" without
+/// qualification. Next-legs XIV Leg 4 PROVED LIVE that the same escalation is open through two OTHER
+/// minters this fix never touched:
+///   · `environment_routes::handle_env_port_expose` (`POST …/ports/:port/expose`) resolves no caller
+///     — it takes no `HeaderMap` — and mints `environment.port` for any env id, ANONYMOUSLY in the
+///     default posture. A file was written and `bash -lc` was executed through `/supervisor/` with
+///     the returned token.
+///   · `editor_routes::handle_editor_access_lease_create` resolves a principal but performs NO
+///     per-environment authorization on the body-supplied `environment_id`, so any authenticated
+///     NON-OWNER mints an ops bearer over another party's environment.
+/// AND THE ROOT IS `supervisor_routes::lease_binds_env`, WHICH CHECKS ONLY THE GRANT'S RESOURCES AND
+/// NEVER ITS ACTION — so an `environment.port` grant is a full `ReadFile`/`WriteFile`/`Exec` bearer.
+///
+/// WHAT LEG 4 CLOSES, STATED WITHOUT THE FALSE "CLOSED" THIS CORRECTION ITSELF FIRST CARRIED. The
+/// chokepoint: `supervisor_routes::authed` now calls a NEW sibling of `lease_binds_env`,
+/// `lease_authorizes_env_ops`, which requires the grant's ACTION to be `environment.ops` — so a
+/// port or editor lease can no longer drive env-ops. The MINTERS `handle_env_ops_lease` and
+/// `handle_env_port_expose` resolve their CALLER through this function and mint under the resolved
+/// subject, so an exposed/managed surface cannot forge either lease and each grant records who
+/// minted it. What Leg 4 does NOT close, and what the verifier `check:env-lease-authority` asserts
+/// TRUE as a residual: OWNER-BINDING. The minters resolve WHO the caller is, never whether that
+/// caller OWNS the environment — no environment has an owner pin (defect 1a / ADR 0035) — so an
+/// authenticated NON-OWNER can still mint `environment.ops` for another principal's environment in
+/// managed posture. That residual is 1a's shape, and it is open until the owner model lands.
+pub(crate) fn resolve_authority_subject(
     data_dir: &str,
     headers: &HeaderMap,
     code_auth_required: &str,

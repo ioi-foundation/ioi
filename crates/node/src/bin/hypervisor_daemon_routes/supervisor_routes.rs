@@ -31,10 +31,28 @@ use super::DaemonState;
 pub(crate) async fn handle_env_ops_lease(
     State(st): State<Arc<DaemonState>>,
     AxumPath(env_id): AxumPath<String>,
-) -> Json<Value> {
+    headers: HeaderMap,
+) -> Response {
+    // THE SUBJECT IS RESOLVED FROM THE REQUEST POSTURE, NEVER THE LITERAL "operator". This route
+    // used to take no headers and hardcode the operator, so in `exposed_untrusted` and
+    // `authenticated_managed` it minted an env-ops lease that grants ReadFile/WriteFile/Exec for ANY
+    // principal — Next-legs XIV Leg 4 drove that live. The posture resolver refuses an exposed
+    // surface (403) and requires a real principal under managed auth (401); loopback local dev still
+    // resolves to the operator, which is the local trust model. OWNER-BINDING (this principal owns
+    // THIS environment) is the named residual: it requires the environment scope pin that defect 1a
+    // / ADR 0035 introduces, so an authenticated NON-OWNER can still mint here until that lands.
+    let subject = match super::authority_routes::resolve_authority_subject(
+        &st.data_dir,
+        &headers,
+        "environment_ops_lease_auth_required",
+        "environment_ops_lease_exposed",
+    ) {
+        Ok(s) => s,
+        Err((code, body)) => return (code, body).into_response(),
+    };
     let lease = issue_capability_lease(
         &st.data_dir,
-        "operator",
+        &subject,
         "environment.ops",
         json!([format!("environment:{env_id}")]),
         3600,
@@ -44,7 +62,7 @@ pub(crate) async fn handle_env_ops_lease(
         .and_then(|v| v.as_str())
         .unwrap_or_default()
         .to_string();
-    Json(json!({
+    ok_json(json!({
         "accessToken": id,
         "lease_id": id,
         "lease_ref": lease.get("grant_ref"),
@@ -128,16 +146,23 @@ fn bearer(headers: &HeaderMap) -> Option<String> {
         .filter(|v| !v.is_empty())
 }
 
-fn lease_binds_env(data_dir: &str, lease_id: &str, env_id: &str) -> bool {
+/// THE ACTION THE ENV-OPS SEAM REQUIRES. A grant's RESOURCES say which environment; its ACTION says
+/// what it may do. `lease_binds_env` checked only the resources, so EVERY env-scoped lease — a
+/// port-forward lease minted `environment.port`, an editor-open lease minted `environment.editor.open`
+/// — was a full `ReadFile`/`WriteFile`/`Exec` bearer over the workspace. Next-legs XIV Leg 4 proved
+/// that live: an anonymously-minted port lease wrote a file and ran `bash -lc` through this surface.
+/// The env-ops seam requires the exact action the legitimate ops-lease minter (`handle_env_ops_lease`)
+/// issues, and nothing else. This is the chokepoint: every minter's grant flows through it.
+const ENV_OPS_ACTION: &str = "environment.ops";
+
+fn lease_grant(data_dir: &str, lease_id: &str) -> Option<Value> {
     let path = Path::new(data_dir)
         .join("authority-grants")
         .join(format!("{}.json", safe(lease_id)));
-    let Ok(bytes) = std::fs::read(path) else {
-        return false;
-    };
-    let Ok(v): Result<Value, _> = serde_json::from_slice(&bytes) else {
-        return false;
-    };
+    serde_json::from_slice(&std::fs::read(path).ok()?).ok()
+}
+
+fn resources_name_env(v: &Value, env_id: &str) -> bool {
     let needle = format!("environment:{env_id}");
     v.get("resources")
         .and_then(|r| r.as_array())
@@ -146,6 +171,23 @@ fn lease_binds_env(data_dir: &str, lease_id: &str, env_id: &str) -> bool {
                 .any(|x| x.as_str() == Some(needle.as_str()) || x.as_str() == Some(env_id))
         })
         .unwrap_or(false)
+}
+
+fn lease_binds_env(data_dir: &str, lease_id: &str, env_id: &str) -> bool {
+    lease_grant(data_dir, lease_id)
+        .map(|v| resources_name_env(&v, env_id))
+        .unwrap_or(false)
+}
+
+/// A lease may drive the EnvironmentOpsService iff it names this environment in its resources AND
+/// carries the env-ops action. The action check is what stops a port or editor lease being an
+/// arbitrary-write / arbitrary-exec bearer.
+fn lease_authorizes_env_ops(data_dir: &str, lease_id: &str, env_id: &str) -> bool {
+    let Some(v) = lease_grant(data_dir, lease_id) else {
+        return false;
+    };
+    resources_name_env(&v, env_id)
+        && v.get("action").and_then(Value::as_str) == Some(ENV_OPS_ACTION)
 }
 
 /// The environment a lease is bound to (from its `resources: ["environment:<env>"]`).
@@ -173,13 +215,15 @@ pub(crate) async fn handle_ops_lease_resolve(
     Json(json!({ "active": active && env.is_some(), "environment_id": env }))
 }
 
-/// True iff the request carries an active capability lease bound to this environment.
+/// True iff the request carries an active capability lease that AUTHORIZES ENV-OPS on this
+/// environment — active, resources name the environment, AND action is `environment.ops`. The action
+/// half is the Leg 4 fix: `lease_binds_env` alone let a port or editor lease drive `WriteFile`/`Exec`.
 fn authed(data_dir: &str, env_id: &str, headers: &HeaderMap) -> bool {
     let Some(token) = bearer(headers) else {
         return false;
     };
     capability_lease_status(data_dir, &token) == "active"
-        && lease_binds_env(data_dir, &token, env_id)
+        && lease_authorizes_env_ops(data_dir, &token, env_id)
 }
 
 // ---- git helpers --------------------------------------------------------------------------------
