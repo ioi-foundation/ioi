@@ -2,6 +2,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+FORMAL_DIR="internal-docs/architecture/protocols/aft/formal"
+MANIFEST_PATH="${ROOT_DIR}/${FORMAL_DIR}/manual-discharge.json"
 FORMAL_CACHE_DIR="${ROOT_DIR}/.internal/formal-cache"
 JAR_PATH="${FORMAL_CACHE_DIR}/tools/tla/tla2tools.jar"
 JAR_URL="https://github.com/tlaplus/tlaplus/releases/download/v1.8.0/tla2tools.jar"
@@ -10,6 +12,113 @@ TLAPS_INSTALL_DIR="${TLAPS_DIR}/install"
 TLAPS_ARCHIVE="${TLAPS_DIR}/tlapm.tar.gz"
 TLAPM_BIN="${TLAPS_INSTALL_DIR}/bin/tlapm"
 TLAPS_STDLIB="${TLAPS_INSTALL_DIR}/lib/tlapm/stdlib/TLAPS.tla"
+
+# Every TLAPS proof the harness discharges, relative to FORMAL_DIR.
+PROOFS=(
+  "guardian_majority/GuardianMajorityProof.tla"
+  "nested_guardian/NestedGuardianProof.tla"
+  "AsymptoteProof.tla"
+  "canonical_ordering/CanonicalOrderingProof.tla"
+)
+
+# Every TLC model the harness checks, as "cfg|tla", relative to FORMAL_DIR.
+MODELS=(
+  "guardian_majority/GuardianMajority.cfg|guardian_majority/GuardianMajority.tla"
+  "nested_guardian/NestedGuardian.cfg|nested_guardian/NestedGuardian.tla"
+  "Asymptote.cfg|Asymptote.tla"
+  "canonical_ordering/CanonicalOrdering.cfg|canonical_ordering/CanonicalOrdering.tla"
+  "canonical_ordering/CanonicalOrderingRetrievability.cfg|canonical_ordering/CanonicalOrderingRetrievability.tla"
+  "canonical_ordering/CanonicalCollapseRecursiveContinuity.cfg|canonical_ordering/CanonicalCollapseRecursiveContinuity.tla"
+)
+
+# Census: every .tla module under FORMAL_DIR (excluding symlinks and
+# .tlacache) must be either executed by this harness or carried in
+# manual-discharge.json with a reason. An unlisted module fails the build:
+# the formal corpus admits no silent orphans.
+census() {
+  local executed=()
+  local p m
+  for p in "${PROOFS[@]}"; do executed+=("${p}"); done
+  for m in "${MODELS[@]}"; do executed+=("${m##*|}"); done
+
+  EXECUTED_MODULES="$(printf '%s\n' "${executed[@]}")" \
+  FORMAL_DIR_ABS="${ROOT_DIR}/${FORMAL_DIR}" \
+  MANIFEST_PATH="${MANIFEST_PATH}" \
+  python3 <<'PY'
+import json
+import os
+import sys
+
+formal = os.environ["FORMAL_DIR_ABS"]
+executed = set(filter(None, os.environ["EXECUTED_MODULES"].split("\n")))
+manifest_path = os.environ["MANIFEST_PATH"]
+
+discovered = set()
+for root, dirs, files in os.walk(formal):
+    dirs[:] = [d for d in dirs if d != ".tlacache"]
+    for name in files:
+        if not name.endswith(".tla"):
+            continue
+        full = os.path.join(root, name)
+        if os.path.islink(full):
+            continue
+        discovered.add(os.path.relpath(full, formal))
+
+errors = []
+
+for module in sorted(executed):
+    if module not in discovered:
+        errors.append(f"executed module missing on disk: {module}")
+
+try:
+    with open(manifest_path) as fh:
+        manifest = json.load(fh)
+except FileNotFoundError:
+    errors.append(f"manual-discharge manifest missing: {manifest_path}")
+    manifest = {"modules": []}
+except json.JSONDecodeError as exc:
+    print(f"CENSUS FAIL: manifest is not valid JSON: {exc}", file=sys.stderr)
+    sys.exit(1)
+
+required_fields = ("module", "reason", "last_discharged", "discharged_by")
+manual = set()
+for entry in manifest.get("modules", []):
+    missing = [k for k in required_fields if not str(entry.get(k, "")).strip()]
+    if missing:
+        errors.append(
+            f"manifest entry {entry.get('module', '<unnamed>')} missing fields: {missing}"
+        )
+        continue
+    module = entry["module"]
+    if module in manual:
+        errors.append(f"manifest lists module twice: {module}")
+    manual.add(module)
+    if module not in discovered:
+        errors.append(f"manifest lists module not on disk: {module}")
+    if module in executed:
+        errors.append(f"manifest lists module the harness already executes: {module}")
+
+for module in sorted(discovered - executed - manual):
+    errors.append(f"module neither executed by the harness nor manifest-marked: {module}")
+
+if errors:
+    print("CENSUS FAIL:", file=sys.stderr)
+    for err in errors:
+        print(f"  - {err}", file=sys.stderr)
+    sys.exit(1)
+
+print(
+    f"census OK: {len(discovered)} modules = "
+    f"{len(executed)} executed + {len(manual)} manifest-marked (manual)"
+)
+PY
+}
+
+census
+
+if [[ "${1:-}" == "--census-only" ]]; then
+  exit 0
+fi
 
 platform() {
   local os arch
@@ -71,13 +180,12 @@ run_model() {
   popd >/dev/null
 }
 
-run_proof "internal-docs/architecture/protocols/aft/formal/guardian_majority" "GuardianMajorityProof.tla"
-run_proof "internal-docs/architecture/protocols/aft/formal/nested_guardian" "NestedGuardianProof.tla"
-run_proof "internal-docs/architecture/protocols/aft/formal" "AsymptoteProof.tla"
-run_proof "internal-docs/architecture/protocols/aft/formal/canonical_ordering" "CanonicalOrderingProof.tla"
-run_model "internal-docs/architecture/protocols/aft/formal/guardian_majority" "GuardianMajority.cfg" "GuardianMajority.tla"
-run_model "internal-docs/architecture/protocols/aft/formal/nested_guardian" "NestedGuardian.cfg" "NestedGuardian.tla"
-run_model "internal-docs/architecture/protocols/aft/formal" "Asymptote.cfg" "Asymptote.tla"
-run_model "internal-docs/architecture/protocols/aft/formal/canonical_ordering" "CanonicalOrdering.cfg" "CanonicalOrdering.tla"
-run_model "internal-docs/architecture/protocols/aft/formal/canonical_ordering" "CanonicalOrderingRetrievability.cfg" "CanonicalOrderingRetrievability.tla"
-run_model "internal-docs/architecture/protocols/aft/formal/canonical_ordering" "CanonicalCollapseRecursiveContinuity.cfg" "CanonicalCollapseRecursiveContinuity.tla"
+for proof in "${PROOFS[@]}"; do
+  run_proof "${FORMAL_DIR}/$(dirname "${proof}")" "$(basename "${proof}")"
+done
+
+for model in "${MODELS[@]}"; do
+  cfg="${model%%|*}"
+  tla="${model##*|}"
+  run_model "${FORMAL_DIR}/$(dirname "${tla}")" "$(basename "${cfg}")" "$(basename "${tla}")"
+done
