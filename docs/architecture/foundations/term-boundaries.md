@@ -219,7 +219,8 @@ matter:
   [`control-plane.md`](../domains/ioi-ai/control-plane.md) records that the
   current product **has not yet passed** that end-to-end standalone contract, and
   that is the honest present-tense position. Consult
-  [`implementation-matrix.md`](../_meta/implementation-matrix.md) before making
+  [`canon-to-code-delta.md`](../_meta/canon-to-code-delta.md) and the
+  [`work-items/`](../_meta/work-items/) records before making
   any built/partial/planned claim about it.
 - Goal runs and rooms are not Hypervisor surfaces. Work / Goals and
   Work / Rooms are surfaces the orchestration application contributes through

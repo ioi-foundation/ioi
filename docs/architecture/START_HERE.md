@@ -1,20 +1,26 @@
 # Start Here
 
 Status: entry-point shim.
-Canonical owner: [`_meta/start-here.md`](./_meta/start-here.md).
+Canonical owner: [`guide/README.md`](./guide/README.md) for first-read narrative orientation; [`_meta/start-here.md`](./_meta/start-here.md) for problem-to-owner routing and reader paths.
 Supersedes: references that expected a top-level `docs/architecture/START_HERE.md`.
 Superseded by: none.
-Last alignment pass: 2026-07-13.
+Last alignment pass: 2026-08-16.
 Doctrine status: canonical
 Implementation status: mixed (entry shim; see subject owners)
-Last implementation audit: 2026-07-11
+Last implementation audit: 2026-08-16
 
-Read [`_meta/start-here.md`](./_meta/start-here.md) first. It owns the
-five-minute model, target product shape, effect boundary, route-by-problem map,
-reader paths, and common architecture corrections.
+Read the architecture guide first: [`guide/README.md`](./guide/README.md).
+It is the deliberately authored, non-owning book in front of the canon — nine
+chapters from the category problem through one action's path across the effect
+boundary, the bounded institution, distribution, sovereign interop, the
+products, learning under bounds, and current state. Every load-bearing
+statement in it links to the canonical owner that decides the subject.
 
 Then use:
 
+- [`_meta/start-here.md`](./_meta/start-here.md) to route a specific problem
+  to its owner document, follow a role-based reading path, and check the
+  common boundary-mistake register;
 - [`_meta/current-canon-defaults.md`](./_meta/current-canon-defaults.md) for the
   cross-owner target-state digest;
 - [`_meta/source-of-truth-map.md`](./_meta/source-of-truth-map.md) before editing
@@ -24,12 +30,6 @@ Then use:
   canon as built;
 - [`_meta/execution-horizons.md`](./_meta/execution-horizons.md) for convergence
   versus later gated horizons;
-- [`foundations/institutional-learning-boundary.md`](./foundations/institutional-learning-boundary.md)
-  for the enterprise-owned learning, custody, portability, and model-substitution
-  profile;
-- [`foundations/bounded-recursive-improvement.md`](./foundations/bounded-recursive-improvement.md)
-  for optional multi-epoch improvement campaigns, frozen evaluation, and the
-  evidence-to-proposal boundary;
 - [`README.md`](./README.md) for the complete pack index and non-negotiables.
 
 The short target statement is:

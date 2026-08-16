@@ -4,7 +4,8 @@ Status: canonical metadata vocabulary.
 Canonical owner: this file for architecture documentation class names and placement rules.
 Supersedes: ad hoc document-type labels in architecture headers.
 Superseded by: none.
-Last alignment pass: 2026-07-18.
+Last alignment pass: 2026-08-16 (`architecture-guide` class added for the
+non-owning narrative layer under `docs/architecture/guide/`).
 Doctrine status: canonical
 Implementation status: mixed (documentation metadata vocabulary)
 Last implementation audit: 2026-07-18
@@ -18,6 +19,7 @@ This register names the document classes used to keep architecture doctrine, ref
 | Class | Meaning | Primary Home |
 | --- | --- | --- |
 | `canonical-index` | Navigation and ownership index. | `docs/architecture/README.md`, `docs/architecture/_meta/` |
+| `architecture-guide` | Progressive, explanatory, non-owning synthesis. Every load-bearing statement links to a canonical owner. May sequence and clarify doctrine; may not originate or override it. Deleting a guide file may lose reading order, never a fact. | `docs/architecture/guide/` |
 | `canonical-digest` | Current cross-owner architecture defaults that help readers orient before opening subject owners. Digest docs summarize; they do not override owner docs. | `docs/architecture/_meta/` |
 | `canonical-doctrine` | Stable architecture authority prose. | `docs/architecture/foundations/`, `docs/architecture/components/`, `docs/architecture/domains/` |
 | `canonical-reference` | Low-level APIs, object models, endpoint references, and contracts. | `docs/architecture/components/`, selected endpoint references under `docs/architecture/domains/` |

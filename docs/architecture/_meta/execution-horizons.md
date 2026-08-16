@@ -810,6 +810,5 @@ shipped claim. The selected software-change journey binds risk-selected WorkRun 
 ## Related Canon
 
 - [`doc-classes.md`](./doc-classes.md) — the status-axis vocabulary.
-- [`implementation-matrix.md`](./implementation-matrix.md) — per-concept durable-form status.
-- [`canon-to-code-delta.md`](./canon-to-code-delta.md) — the object-level canon-to-code delta and deferred UX backlog.
+- [`canon-to-code-delta.md`](./canon-to-code-delta.md) — the object-level canon-to-code delta and deferred UX backlog; with the [`work-items/`](./work-items/) records, the live per-concept status index (the former implementation matrix is archived).
 - [`../foundations/economic-flywheel-and-pricing-boundaries.md`](../foundations/economic-flywheel-and-pricing-boundaries.md) — what monetizes at each layer.

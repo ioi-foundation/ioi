@@ -6,7 +6,7 @@ Supersedes: the duplicated north-star network proof previously carried in both [
 Superseded by: none.
 Last alignment pass: 2026-08-12.
 Doctrine status: canonical
-Implementation status: mixed (category definition; the network proof is an unmet target — see [`../_meta/implementation-matrix.md`](../_meta/implementation-matrix.md))
+Implementation status: mixed (category definition; the network proof is an unmet target — see [`../_meta/canon-to-code-delta.md`](../_meta/canon-to-code-delta.md))
 Last implementation audit: 2026-08-05
 
 This file is the definitional owner of the Internet of Intelligence category,
@@ -61,8 +61,8 @@ cross-system network proof, and multiplicity alone never satisfies it.
 
 The four forms of plurality this test keeps apart — multi-model, multi-worker,
 multi-node, multi-party — are tabulated in
-[`../_meta/start-here.md`](../_meta/start-here.md); that table is a reader aid
-over this proof, not a second statement of it.
+[`../guide/04-one-institution-across-nodes.md`](../guide/04-one-institution-across-nodes.md);
+that table is a reader aid over this proof, not a second statement of it.
 
 ## The Rival Model, Stated Fairly
 
@@ -236,7 +236,7 @@ measured indicator is owned by
   [`verifiable-bounded-agency.md`](./verifiable-bounded-agency.md) bounds it.
 - It does not claim the current estate passes the north-star network proof. The
   honest distance is recorded by
-  [`../_meta/implementation-matrix.md`](../_meta/implementation-matrix.md) and
+  [`../_meta/canon-to-code-delta.md`](../_meta/canon-to-code-delta.md) and
   the claim coverage index in
   `../../conformance/README.md`; no claim of
   passing may be sourced from this file.
