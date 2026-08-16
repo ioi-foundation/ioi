@@ -583,26 +583,55 @@ fn canonical_collapse_recursive_proof_hash_changes_when_previous_step_changes() 
 }
 
 #[test]
-fn bind_canonical_collapse_continuity_can_emit_succinct_sp1_reference_proof() {
-    let _guard = continuity_env_lock().lock().expect("continuity env lock");
-    let previous_env = std::env::var("IOI_AFT_CONTINUITY_PROOF_SYSTEM").ok();
-    std::env::set_var("IOI_AFT_CONTINUITY_PROOF_SYSTEM", "succinct-sp1-v1");
-
+fn succinct_sp1_labeled_proofs_are_rejected_until_a_real_backend_lands() {
     let previous = sample_canonical_collapse_object(1, None, 0xC1);
     let current = sample_canonical_collapse_object(2, Some(&previous), 0xC2);
+    let mut proof = current.continuity_recursive_proof.clone();
+    proof.proof_system = CanonicalCollapseContinuityProofSystem::SuccinctSp1V1;
 
-    assert_eq!(
-        current.continuity_recursive_proof.proof_system,
-        CanonicalCollapseContinuityProofSystem::SuccinctSp1V1
+    let err = verify_canonical_collapse_recursive_proof(&proof)
+        .expect_err("SuccinctSp1V1 proofs must be rejected by the reference verifier");
+    assert!(
+        err.contains("reserved for a real succinct backend"),
+        "expected the typed reservation error, got: {err}"
     );
-    verify_canonical_collapse_continuity(&current, Some(&previous))
-        .expect("succinct continuity proof should verify");
 
-    if let Some(value) = previous_env {
-        std::env::set_var("IOI_AFT_CONTINUITY_PROOF_SYSTEM", value);
-    } else {
-        std::env::remove_var("IOI_AFT_CONTINUITY_PROOF_SYSTEM");
+    let mut collapse = current.clone();
+    collapse.continuity_recursive_proof = proof;
+    assert!(
+        verify_canonical_collapse_continuity(&collapse, Some(&previous)).is_err(),
+        "continuity verification must reject SuccinctSp1V1-labeled proofs"
+    );
+}
+
+#[test]
+fn no_process_env_reads_in_consensus_collapse_sources() {
+    // Q6 gate: consensus-critical behavior must never vary by process
+    // environment. This scans the consensus sources so a reintroduced
+    // process-environment read fails the test, not a review. The needle
+    // is assembled at runtime so this gate's own source does not trip
+    // the scan.
+    let needle = ["std", "env"].join("::");
+    fn walk(dir: &std::path::Path, needle: &str, offenders: &mut Vec<String>) {
+        for entry in std::fs::read_dir(dir).expect("read consensus source dir") {
+            let path = entry.expect("dir entry").path();
+            if path.is_dir() {
+                walk(&path, needle, offenders);
+            } else if path.extension().is_some_and(|e| e == "rs") {
+                let source = std::fs::read_to_string(&path).expect("read source file");
+                if source.contains(needle) {
+                    offenders.push(path.display().to_string());
+                }
+            }
+        }
     }
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/app/consensus");
+    let mut offenders = Vec::new();
+    walk(&root, &needle, &mut offenders);
+    assert!(
+        offenders.is_empty(),
+        "{needle} must not appear in consensus sources: {offenders:?}"
+    );
 }
 
 #[test]

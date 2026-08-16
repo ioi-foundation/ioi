@@ -21,7 +21,7 @@ use ioi_types::app::{
     canonical_asymptote_observer_challenges_hash, canonical_asymptote_observer_transcripts_hash,
     canonical_collapse_commitment, canonical_collapse_commitment_hash_from_object,
     canonical_collapse_continuity_public_inputs, canonical_collapse_recursive_proof_hash,
-    canonical_collapse_succinct_mock_proof_bytes, canonical_order_public_inputs,
+    canonical_order_public_inputs,
     canonical_order_public_inputs_hash, canonical_sealed_finality_proof_signing_bytes,
     derive_asymptote_observer_assignments, derive_canonical_collapse_object,
     derive_canonical_collapse_object_with_previous, derive_guardian_witness_assignments,
@@ -50,7 +50,6 @@ use ioi_types::codec;
 use ioi_types::error::ChainError;
 use libp2p::identity::Keypair;
 use std::collections::HashMap;
-use std::sync::{Mutex as StdMutex, OnceLock};
 
 fn sample_recovered_restart_entry(
     parent_header: &RecoveredCanonicalHeaderEntry,
@@ -825,11 +824,6 @@ fn extension_certificate_from_predecessor(
         .expect("extension certificate")
 }
 
-fn continuity_env_lock() -> &'static StdMutex<()> {
-    static LOCK: OnceLock<StdMutex<()>> = OnceLock::new();
-    LOCK.get_or_init(|| StdMutex::new(()))
-}
-
 fn test_canonical_collapse_object(
     height: u64,
     previous: Option<&CanonicalCollapseObject>,
@@ -906,7 +900,13 @@ fn insert_published_collapse_chain(
     }
 }
 
-fn bind_succinct_mock_continuity(collapse: &mut CanonicalCollapseObject) {
+/// Relabels a collapse object's continuity proof as `SuccinctSp1V1`, carrying
+/// the zk plugin's own simulated recipe bytes. The kernel no longer defines
+/// any mock succinct bytes (AFT-CB P0.3): the types-level verifier rejects
+/// every succinct-labeled proof until a real backend lands (R4c), so this
+/// helper is only useful to (a) exercise the backend ROUTING directly and
+/// (b) prove the reservation rejection on combined paths.
+fn bind_simulated_succinct_continuity(collapse: &mut CanonicalCollapseObject) {
     let proof = &mut collapse.continuity_recursive_proof;
     let public_inputs = canonical_collapse_continuity_public_inputs(
         &proof.commitment,
@@ -915,8 +915,8 @@ fn bind_succinct_mock_continuity(collapse: &mut CanonicalCollapseObject) {
         proof.previous_recursive_proof_hash,
     );
     proof.proof_system = CanonicalCollapseContinuityProofSystem::SuccinctSp1V1;
-    proof.proof_bytes = canonical_collapse_succinct_mock_proof_bytes(&public_inputs)
-        .expect("succinct mock proof bytes");
+    proof.proof_bytes = zk_driver_succinct::simulated_continuity_proof_bytes(&public_inputs)
+        .expect("simulated succinct proof bytes");
 }
 
 fn link_header_to_previous_collapse(header: &mut BlockHeader, previous: &CanonicalCollapseObject) {

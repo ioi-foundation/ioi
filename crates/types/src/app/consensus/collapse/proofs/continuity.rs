@@ -27,32 +27,18 @@ pub fn canonical_collapse_continuity_public_inputs(
     }
 }
 
-/// Returns the mock proof bytes for the succinct recursive continuity backend.
-pub fn canonical_collapse_succinct_mock_proof_bytes(
-    public_inputs: &CanonicalCollapseContinuityPublicInputs,
-) -> Result<Vec<u8>, String> {
-    Ok(hash_consensus_bytes(&(
-        b"aft::canonical-collapse::succinct-mock-proof::v1",
-        public_inputs,
-    ))?
-    .to_vec())
-}
-
-fn canonical_collapse_continuity_proof_system_from_env() -> CanonicalCollapseContinuityProofSystem {
-    match std::env::var("IOI_AFT_CONTINUITY_PROOF_SYSTEM") {
-        Ok(value) if value.eq_ignore_ascii_case("succinct-sp1-v1") => {
-            CanonicalCollapseContinuityProofSystem::SuccinctSp1V1
-        }
-        _ => CanonicalCollapseContinuityProofSystem::HashPcdV1,
-    }
-}
-
 /// Returns the reference proof bytes for a recursive canonical-collapse proof step.
+///
+/// The reference runtime owns exactly one proof system: the `HashPcdV1` hash
+/// binding. `SuccinctSp1V1` is a reserved wire variant whose bytes can only be
+/// produced and verified by a real succinct backend (AFT-CB leg R4c); until
+/// that backend lands, this function refuses it in both the build and verify
+/// directions, so mock succinct bytes are unconstructable and unverifiable.
 pub fn canonical_collapse_recursive_proof_bytes(
     proof_system: CanonicalCollapseContinuityProofSystem,
     statement_hash: [u8; 32],
     previous_recursive_proof_hash: [u8; 32],
-    public_inputs: &CanonicalCollapseContinuityPublicInputs,
+    _public_inputs: &CanonicalCollapseContinuityPublicInputs,
 ) -> Result<Vec<u8>, String> {
     match proof_system {
         CanonicalCollapseContinuityProofSystem::HashPcdV1 => Ok(hash_consensus_bytes(&(
@@ -62,9 +48,11 @@ pub fn canonical_collapse_recursive_proof_bytes(
             previous_recursive_proof_hash,
         ))?
         .to_vec()),
-        CanonicalCollapseContinuityProofSystem::SuccinctSp1V1 => {
-            canonical_collapse_succinct_mock_proof_bytes(public_inputs)
-        }
+        CanonicalCollapseContinuityProofSystem::SuccinctSp1V1 => Err(
+            "SuccinctSp1V1 continuity proofs are reserved for a real succinct backend; \
+             the reference runtime can neither build nor verify them (AFT-CB R4c)"
+                .into(),
+        ),
     }
 }
 
@@ -80,7 +68,10 @@ pub fn canonical_collapse_recursive_proof(
     collapse: &CanonicalCollapseObject,
     previous: Option<&CanonicalCollapseRecursiveProof>,
 ) -> Result<CanonicalCollapseRecursiveProof, String> {
-    let proof_system = canonical_collapse_continuity_proof_system_from_env();
+    // The reference builder emits only the reference hash binding. Succinct
+    // proofs come only from a real succinct prover (AFT-CB R4c); consensus
+    // behavior never varies by process environment (Q6).
+    let proof_system = CanonicalCollapseContinuityProofSystem::HashPcdV1;
     let previous_recursive_proof_hash = if collapse.height <= 1 {
         if previous.is_some() {
             return Err(format!(

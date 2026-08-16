@@ -75,7 +75,6 @@ use crate::app::{
     SystemTransaction, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
 };
 use crate::codec;
-use std::sync::{Mutex, OnceLock};
 
 fn sample_archived_recovered_history_profile_for_tests(
 ) -> crate::app::ArchivedRecoveredHistoryProfile {
@@ -477,11 +476,6 @@ fn gf256_recovery_coding(share_count: u16, recovery_threshold: u16) -> RecoveryC
         share_count,
         recovery_threshold,
     }
-}
-
-fn continuity_env_lock() -> &'static Mutex<()> {
-    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-    LOCK.get_or_init(|| Mutex::new(()))
 }
 
 fn collect_index_combinations(total: usize, choose: usize) -> Vec<Vec<usize>> {
