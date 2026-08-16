@@ -15,10 +15,7 @@ use ioi_api::{
     zk::ZkProofSystem,
 };
 use ioi_types::{
-    app::{
-        CanonicalCollapseContinuityProofSystem,
-        CanonicalCollapseContinuityPublicInputs,
-    },
+    app::{CanonicalCollapseContinuityProofSystem, CanonicalCollapseContinuityPublicInputs},
     ibc::StateProofScheme,
 };
 use std::sync::Arc; // [FIX] Added async_trait import
