@@ -1,0 +1,313 @@
+{
+  "manifest_version": "ioi.ontology-admission-census-mutants.v1",
+  "effective_date": "2026-08-15",
+  "governing_harness": "apps/hypervisor/scripts/mutate-ontology-admission-census.mjs",
+  "certifies": "apps/hypervisor/scripts/verify-hypervisor-ontology-admission-census.mjs",
+  "purpose": "A green verifier certifies nothing until a MUTATION test proves it red on its own finding. Next-legs XIII's tally was 43 ship-blockers across ten rounds with none caught by a green gate; XIV's Leg 3a was defeated five times, and every round's mutation count lived in a commit message and reproduced nowhere. That is the falsified-count class applied to evidence itself. Each anchor here is a REPLAYABLE second-admission path planted in the daemon's own source, with the assertion it must turn red named alongside it. The count is whatever this harness prints, and it prints it by running.",
+  "rules": {
+    "on_target": "RED is not enough. Each anchor names the assertion whose CLAIM it violates, and the harness requires THAT assertion to fail. A mutant caught only by a population pin is scored OFF-TARGET, because a landing commit re-derives its own pins as a matter of routine.",
+    "repin_first": "Before scoring, the harness re-derives every population pin the mutant moved — exactly what the commit that introduced the mutant would have done. This is what turned seven of the ten silence-class anchors from 'red' into 'green' and produced the finding that rebuilt the extractor.",
+    "residuals_both_ways": "An anchor marked `expect: survives` is a NAMED RESIDUAL the gate does not claim to catch. It is asserted in BOTH directions: if it starts being caught, the gate's stated limits are stale and the header must be re-derived. A residual nobody re-checks becomes a false absence.",
+    "restore_always": "The harness rewrites the source it certifies. It restores every file it touched, including on failure. Never edit these files and never run a git write while a battery runs.",
+    "repin_may_not_touch_a_claim": "The harness re-derives POPULATION counts only. It may NOT move `PINNED.unadjudicable` — the per-cause buckets of names this census cannot resolve. Those are a CLAIM about the gate's boundary, not a measurement of its reach: a new unadjudicable name is a name that entered the daemon which the census cannot tell from a second admitter. The REPIN table is keyed on bare identifiers and the bucket keys are quoted strings, so this holds by construction as well as by rule.",
+    "anchors_must_compile": "Each anchor is compiled with `cargo check --bin hypervisor-daemon` after planting. An anchor that no longer compiles is scored INVALID, never caught: a signature change or a privacy change can rot an anchor into fiction while the battery keeps printing the same total.",
+    "unanchorable": "Two assertions cannot be anchored from daemon source AT ALL, and are named so they are not left looking covered: the reverse totality edge (a label at a position holding no token) is an extractor-internal invariant only a mutation of the TOOL could trip, and mutating the tool is not mutating the artifact it certifies; and the EXTRACTOR SOURCE PIN is a claim about the extractor's own bytes, demonstrated in the leg's commit by editing the extractor and rebuilding. A previous version of this note said only those two were uncovered, which was FALSE and concealed a real gap: several further assertions carried no anchor, including three of the four commissioned family claims. Those three are anchored now. The four pure population pins are structurally exercised by every anchor's repin round and are not separately anchored."
+  },
+  "anchor_file": "crates/node/src/bin/hypervisor_daemon_routes/feedback_routes.rs",
+  "anchor_find": "fn bad(code: &str, msg: &str) -> (StatusCode, Json<Value>) {",
+  "anchors": [
+    {
+      "id": "S1-match-arm-pattern",
+      "class": "silence",
+      "note": "The family reaches a writer through a `match` arm PATTERN. No expression position ever holds it.",
+      "insert": "fn shadow_s1(data_dir: &str, kind: &str, id: &str, rec: &Value) {\n    match kind {\n        k @ \"odk-domain-ontologies\" => {\n            let _ = persist_record(data_dir, k, id, rec);\n        }\n        _ => {}\n    }\n}\n",
+      "red_on": "EXACTLY ONE MODULE ADMITS `odk-domain-ontologies`"
+    },
+    {
+      "id": "S2-include-unwalked-file",
+      "class": "silence",
+      "note": "The entire second admitter lives in a file pulled in by `include!`. The including module's census is unchanged.",
+      "create": {
+        "path": "crates/node/src/bin/hypervisor_daemon_routes/shadow_admit_s2.inc.rs",
+        "content": "fn shadow_s2(data_dir: &str, id: &str, rec: &Value) {\n    let _ = persist_record(data_dir, \"odk-domain-ontologies\", id, rec);\n}\n"
+      },
+      "insert": "include!(\"shadow_admit_s2.inc.rs\");\n",
+      "red_on": "EXACTLY ONE MODULE ADMITS `odk-domain-ontologies`"
+    },
+    {
+      "id": "S3-concat-assembled-name",
+      "class": "silence",
+      "note": "`concat!` builds the family name from two pieces, neither of which is a family name or starts with the interest prefix.",
+      "insert": "fn shadow_s3(data_dir: &str, id: &str, rec: &Value) {\n    let _ = persist_record(data_dir, concat!(\"od\", \"k-domain-ontologies\"), id, rec);\n}\n",
+      "red_on": "EXACTLY ONE MODULE ADMITS `odk-domain-ontologies`"
+    },
+    {
+      "id": "S4-byte-string-literal",
+      "class": "silence",
+      "note": "`b\"odk-…\"` through `from_utf8`. A byte-string literal is not a `Lit::Str` and produced no mention at all.",
+      "insert": "fn shadow_s4(data_dir: &str, id: &str, rec: &Value) {\n    let fam = std::str::from_utf8(b\"odk-domain-ontologies\").unwrap_or(\"\");\n    let _ = persist_record(data_dir, fam, id, rec);\n}\n",
+      "red_on": "EXACTLY ONE MODULE ADMITS `odk-domain-ontologies`"
+    },
+    {
+      "id": "S5-format-split-on-prefix",
+      "class": "silence",
+      "note": "Runtime assembly whose first piece still carries the interest prefix, so the census sees an UNRECORDED family name reaching a writer.",
+      "insert": "fn shadow_s5(data_dir: &str, id: &str, rec: &Value) {\n    let fam = format!(\"{}{}\", \"odk-domain\", \"-ontologies\");\n    let _ = persist_record(data_dir, &fam, id, rec);\n}\n",
+      "red_on": "NO ODK FAMILY GAINS AN ADMISSION PATH BEYOND THE RECORDED MAP"
+    },
+    {
+      "id": "S6-impl-associated-const",
+      "class": "silence",
+      "note": "An associated constant on a local type. Namespaced by type, so a module-flat constant table cannot answer for it.",
+      "insert": "struct ShadowS6;\nimpl ShadowS6 {\n    const FAM: &'static str = \"odk-domain-ontologies\";\n}\nfn shadow_s6(data_dir: &str, id: &str, rec: &Value) {\n    let _ = persist_record(data_dir, ShadowS6::FAM, id, rec);\n}\n",
+      "red_on": "EXACTLY ONE MODULE ADMITS `odk-domain-ontologies`"
+    },
+    {
+      "id": "S7-macro-rules-expansion",
+      "class": "silence",
+      "note": "The writer call and the family name live inside a `macro_rules!` body, which syn hands over as unparsed tokens.",
+      "insert": "macro_rules! shadow_s7 {\n    ($d:expr, $i:expr, $r:expr) => {\n        persist_record($d, \"odk-domain-ontologies\", $i, $r)\n    };\n}\nfn shadow_s7_call(data_dir: &str, id: &str, rec: &Value) {\n    let _ = shadow_s7!(data_dir, id, rec);\n}\n",
+      "red_on": "EXACTLY ONE MODULE ADMITS `odk-domain-ontologies`"
+    },
+    {
+      "id": "S8-attribute-mints-the-name",
+      "class": "silence",
+      "note": "An attribute's tokens are tokens of the file. `#[serde(rename)]` mints the name where no expression visitor reaches.",
+      "insert": "#[derive(serde::Serialize)]\nstruct ShadowS8 {\n    #[serde(rename = \"odk-domain-ontologies\")]\n    v: String,\n}\n",
+      "red_on": "every mention of an ODK family sits in a SYNTACTIC ROLE this gate classifies"
+    },
+    {
+      "id": "S9-if-let-pattern",
+      "class": "silence",
+      "note": "The same pattern hole one construct over, to prove the fix is not `match`-shaped.",
+      "insert": "fn shadow_s9(data_dir: &str, kind: Option<&str>, id: &str, rec: &Value) {\n    if let Some(k @ \"odk-domain-ontologies\") = kind {\n        let _ = persist_record(data_dir, k, id, rec);\n    }\n}\n",
+      "red_on": "EXACTLY ONE MODULE ADMITS `odk-domain-ontologies`"
+    },
+    {
+      "id": "S10-raw-filesystem-behind-a-pattern",
+      "class": "silence",
+      "note": "Bypasses the writers entirely and puts bytes in the family directory, with the name carried by a pattern.",
+      "insert": "fn shadow_s10(data_dir: &str, kind: &str, id: &str) {\n    match kind {\n        k @ \"odk-domain-ontologies\" => {\n            let _ = std::fs::write(std::path::Path::new(data_dir).join(k).join(id), b\"{}\");\n        }\n        _ => {}\n    }\n}\n",
+      "red_on": "NO PRODUCTION FUNCTION MAKES A RAW FILESYSTEM CALL AND NAMES AN ONTOLOGY FAMILY IT DOES NOT OWN"
+    },
+    {
+      "id": "C1-await-in-the-body",
+      "class": "construct",
+      "note": "`.await` defeated an enclosing-function heuristic in the hand-rolled walk; there are hundreds in this daemon.",
+      "insert": "async fn shadow_c1(data_dir: &str, id: &str, rec: &Value) {\n    let _ = tokio::task::yield_now().await;\n    let _ = persist_record(data_dir, \"odk-domain-ontologies\", id, rec);\n}\n",
+      "red_on": "EXACTLY ONE MODULE ADMITS `odk-domain-ontologies`"
+    },
+    {
+      "id": "C2-inside-tokio-spawn",
+      "class": "construct",
+      "insert": "fn shadow_c2(data_dir: String, id: String, rec: Value) {\n    tokio::spawn(async move {\n        let _ = persist_record(&data_dir, \"odk-domain-ontologies\", &id, &rec);\n    });\n}\n",
+      "red_on": "EXACTLY ONE MODULE ADMITS `odk-domain-ontologies`"
+    },
+    {
+      "id": "C3-impl-method",
+      "class": "construct",
+      "note": "Impl methods are the daemon's house style and were invisible to an earlier walk.",
+      "insert": "struct ShadowC3;\nimpl ShadowC3 {\n    fn admit(&self, data_dir: &str, id: &str, rec: &Value) {\n        let _ = persist_record(data_dir, \"odk-domain-ontologies\", id, rec);\n    }\n}\n",
+      "red_on": "EXACTLY ONE MODULE ADMITS `odk-domain-ontologies`"
+    },
+    {
+      "id": "C4-match-arm-guard",
+      "class": "construct",
+      "insert": "fn shadow_c4(data_dir: &str, n: u8, id: &str, rec: &Value) {\n    match n {\n        x if persist_record(data_dir, \"odk-domain-ontologies\", id, rec).is_ok() => {\n            let _ = x;\n        }\n        _ => {}\n    }\n}\n",
+      "red_on": "EXACTLY ONE MODULE ADMITS `odk-domain-ontologies`"
+    },
+    {
+      "id": "C5-struct-literal-field",
+      "class": "construct",
+      "insert": "struct ShadowC5 {\n    fam: &'static str,\n}\nfn shadow_c5(data_dir: &str, id: &str, rec: &Value) {\n    let s = ShadowC5 { fam: \"odk-domain-ontologies\" };\n    let _ = persist_record(data_dir, s.fam, id, rec);\n}\n",
+      "red_on": "NO MODULE NAMES AN ODK FAMILY IT IS NOT RECORDED AS NAMING"
+    },
+    {
+      "id": "C6-array-element",
+      "class": "construct",
+      "insert": "fn shadow_c6(data_dir: &str, id: &str, rec: &Value) {\n    let fams = [\"odk-domain-ontologies\"];\n    let _ = persist_record(data_dir, fams[0], id, rec);\n}\n",
+      "red_on": "NO MODULE NAMES AN ODK FAMILY IT IS NOT RECORDED AS NAMING"
+    },
+    {
+      "id": "C7-nested-fn-item",
+      "class": "construct",
+      "insert": "fn shadow_c7(data_dir: &str, id: &str, rec: &Value) {\n    fn inner(data_dir: &str, id: &str, rec: &Value) {\n        let _ = persist_record(data_dir, \"odk-domain-ontologies\", id, rec);\n    }\n    inner(data_dir, id, rec);\n}\n",
+      "red_on": "EXACTLY ONE MODULE ADMITS `odk-domain-ontologies`"
+    },
+    {
+      "id": "C8-let-else",
+      "class": "construct",
+      "insert": "fn shadow_c8(data_dir: &str, kind: Option<&str>, id: &str, rec: &Value) {\n    let Some(_k) = kind else {\n        let _ = persist_record(data_dir, \"odk-domain-ontologies\", id, rec);\n        return;\n    };\n}\n",
+      "red_on": "EXACTLY ONE MODULE ADMITS `odk-domain-ontologies`"
+    },
+    {
+      "id": "C9-unsafe-block",
+      "class": "construct",
+      "insert": "fn shadow_c9(data_dir: &str, id: &str, rec: &Value) {\n    unsafe {\n        let _ = persist_record(data_dir, \"odk-domain-ontologies\", id, rec);\n    }\n}\n",
+      "red_on": "EXACTLY ONE MODULE ADMITS `odk-domain-ontologies`"
+    },
+    {
+      "id": "C10-macro-argument",
+      "class": "construct",
+      "note": "syn hands a macro's tokens over unparsed, so a writer call inside `json!` reaches no expression visitor.",
+      "insert": "fn shadow_c10(data_dir: &str, id: &str, rec: &Value) -> Value {\n    json!({ \"w\": persist_record(data_dir, \"odk-domain-ontologies\", id, rec).is_ok() })\n}\n",
+      "red_on": "EXACTLY ONE MODULE ADMITS `odk-domain-ontologies`"
+    },
+    {
+      "id": "C11-foreign-const-declaration",
+      "class": "construct",
+      "note": "A second name minted outside the owning module makes every later use read as innocent local code.",
+      "insert": "const SHADOW_C11_FAM: &str = \"odk-domain-ontologies\";\nfn shadow_c11(data_dir: &str, id: &str, rec: &Value) {\n    let _ = persist_record(data_dir, SHADOW_C11_FAM, id, rec);\n}\n",
+      "red_on": "ONLY THE OWNING MODULE DECLARES A CONSTANT NAMING ONE OF ITS ONTOLOGY FAMILIES"
+    },
+    {
+      "id": "C12-static-declaration",
+      "class": "construct",
+      "note": "The declaration rule was once defeated by changing one keyword.",
+      "insert": "static SHADOW_C12_FAM: &str = \"odk-domain-ontologies\";\nfn shadow_c12(data_dir: &str, id: &str, rec: &Value) {\n    let _ = persist_record(data_dir, SHADOW_C12_FAM, id, rec);\n}\n",
+      "red_on": "ONLY THE OWNING MODULE DECLARES A CONSTANT NAMING ONE OF ITS ONTOLOGY FAMILIES"
+    },
+    {
+      "id": "C13-renamed-import-alias",
+      "class": "construct",
+      "note": "`use … as` was invisible to the resolver for a whole round. A previous version of this note claimed the grouped form is \"fifty-eight modules' house style\"; no reading of the tree reproduces 58, so the number is deleted rather than defended.",
+      "insert": "use super::odk_routes::KIND_ONT as SHADOW_C13_DIR;\nfn shadow_c13(data_dir: &str, id: &str, rec: &Value) {\n    let _ = persist_record(data_dir, SHADOW_C13_DIR, id, rec);\n}\n",
+      "red_on": "EXACTLY ONE MODULE ADMITS `odk-domain-ontologies`"
+    },
+    {
+      "id": "C14-cfg-any-test-is-production",
+      "class": "construct",
+      "note": "The test filter must fail toward PRODUCTION. `cfg(any(test, …))` compiles into a production build and may not be dropped.",
+      "insert": "#[cfg(any(test, feature = \"shadow\"))]\nfn shadow_c14(data_dir: &str, id: &str, rec: &Value) {\n    let _ = persist_record(data_dir, \"odk-domain-ontologies\", id, rec);\n}\n",
+      "red_on": "EXACTLY ONE MODULE ADMITS `odk-domain-ontologies`"
+    },
+    {
+      "id": "C15-resolver-that-writes",
+      "class": "construct",
+      "note": "A scheme-mapper that also admits is a second spine whatever the plumbing between them looks like.",
+      "insert": "fn shadow_c15(data_dir: &str, scheme: &str, id: &str, rec: &Value) -> Option<&'static str> {\n    let kind = match scheme {\n        \"ontology\" => Some(\"odk-domain-ontologies\"),\n        _ => None,\n    };\n    if let Some(k) = kind {\n        let _ = persist_record(data_dir, k, id, rec);\n    }\n    kind\n}\n",
+      "red_on": "no function that RESOLVES a family name through a `match` arm also WRITES a record"
+    },
+    {
+      "id": "T1-silence-check-unlabelled-position",
+      "class": "totality",
+      "note": "A family literal inside a `concat!` inside a `#[doc]` attribute. `visit_attribute` labels only `Expr::Lit` for a name-value meta and deliberately does not delegate, so the assembled value lands at a position no rule labels. Supplied by the review that defeated the previous cut — it is the anchor that proves the silence check fires rather than decorates.",
+      "insert": "#[doc = concat!(\"odk-domain-ontologies\", \" notes\")]\npub(crate) fn shadow_t1() {}\n",
+      "red_on": "EVERY TOKEN THAT RESOLVES TO AN ODK FAMILY CARRIES A SYNTACTIC LABEL"
+    },
+    {
+      "id": "T2-qualified-const-in-macro-tokens",
+      "class": "boundary",
+      "note": "THE ATTACK THAT FALSIFIED AN EARLIER DESIGN, and its verdict MOVED when the extractor stopped discarding path qualifiers inside macro tokens. It used to be counted in `bare-undeclared` because the census resolved the bare tail; now the qualifier is reassembled from the tokens, the name resolves to the family it actually names, and the commissioned claim itself refuses it. Re-aimed rather than left pointing at the bucket, because a mutation that starts passing for a STRONGER reason must be re-aimed, not celebrated.",
+      "insert": "fn shadow_t2(data_dir: &str, id: &str, rec: &Value) -> Value {\n    json!({ \"w\": persist_record(data_dir, super::odk_routes::KIND_ONT, id, rec).is_ok() })\n}\n",
+      "red_on": "EXACTLY ONE MODULE ADMITS `odk-domain-ontologies`"
+    },
+    {
+      "id": "T3-qualified-const-macro-raw-fs",
+      "class": "boundary",
+      "note": "The same drop bypassing the writers entirely. Caught by the TOUCHER ratchet rather than the raw-filesystem rule, and the distinction is worth recording: syn hands macro tokens over unparsed, so a filesystem call written inside `json!` produces no `fs_calls` entry at all — the rule that reads enclosing functions never sees it, and what refuses it is the family name appearing in a module not recorded as naming it.",
+      "insert": "fn shadow_t3(data_dir: &str, id: &str) -> Value {\n    json!({ \"w\": std::fs::write(std::path::Path::new(data_dir).join(super::odk_routes::KIND_ONT).join(id), b\"{}\").is_ok() })\n}\n",
+      "red_on": "NO MODULE NAMES AN ODK FAMILY IT IS NOT RECORDED AS NAMING"
+    },
+    {
+      "id": "T4-c-string-literal",
+      "class": "silence",
+      "note": "`c\"odk-…\"`. The third literal form, missed when byte strings were added for exactly this reason — enumerating two of three is the population claim being false about the third.",
+      "insert": "fn shadow_t4(data_dir: &str, id: &str, rec: &Value) {\n    let fam = c\"odk-domain-ontologies\".to_str().unwrap_or(\"\");\n    let _ = persist_record(data_dir, fam, id, rec);\n}\n",
+      "red_on": "EXACTLY ONE MODULE ADMITS `odk-domain-ontologies`"
+    },
+    {
+      "id": "T5-opaque-const-into-raw-fs",
+      "class": "boundary",
+      "note": "A constant initialised from `include_str!` is unreadable to this census. It reaches a raw filesystem call, which the writer-lane resolver assertion never sees — a sentence in this gate once claimed that assertion refused it, and that sentence was false. It is COUNTED in `opaque-initialiser` now.",
+      "create": {
+        "path": "crates/node/src/bin/hypervisor_daemon_routes/shadow_t5.txt",
+        "content": "odk-domain-ontologies"
+      },
+      "insert": "const SHADOW_T5_DIR: &str = include_str!(\"shadow_t5.txt\");\nfn shadow_t5(data_dir: &str, id: &str) {\n    let _ = std::fs::write(std::path::Path::new(data_dir).join(SHADOW_T5_DIR).join(id), b\"{}\");\n}\n",
+      "red_on": "EVERY CONSTANT-SHAPED NAME THIS CENSUS CANNOT ADJUDICATE IS COUNTED IN A NAMED BUCKET"
+    },
+    {
+      "id": "T6-unreadable-const-in-writer",
+      "class": "construct",
+      "note": "Covers the writer-lane resolver assertion, which had no anchor. An `unsafe` initialiser is opaque to this census, and a name it cannot tie to a declaration is exactly what a second admitter looks like from here.",
+      "insert": "const SHADOW_T6: &str = unsafe { std::str::from_utf8_unchecked(b\"odk-domain-ontologies\") };\nfn shadow_t6(data_dir: &str, id: &str, rec: &Value) {\n    let _ = persist_record(data_dir, SHADOW_T6, id, rec);\n}\n",
+      "red_on": "EVERY CONSTANT-SHAPED NAME IN A PRODUCTION WRITER CALL RESOLVES"
+    },
+    {
+      "id": "T7-runtime-assembly-in-writer-args",
+      "class": "construct",
+      "note": "Covers the fragment-assembly assertion, which had no anchor. Assembled inside the writer's OWN arguments from two pieces neither of which is a family name.",
+      "insert": "fn shadow_t7(data_dir: &str, id: &str, rec: &Value) {\n    let _ = persist_record(data_dir, &format!(\"{}{}\", \"od\", \"k-domain-ontologies\"), id, rec);\n}\n",
+      "red_on": "NO STRING-ASSEMBLING CONSTRUCT INSIDE A PRODUCTION WRITER'S"
+    },
+    {
+      "id": "N1-cfg_attr-path-redirect",
+      "class": "named-residual",
+      "expect": "survives",
+      "note": "NAMED RESIDUAL — THE FILE SET IS NOT RUSTC'S FILE SET. `#[cfg_attr(all(), path = …)]` redirects the module rustc compiles; this walk reads only a bare `#[path]`, so it censuses the decoy while rustc censuses the real file. Demonstrated decisively: a syntactically invalid decoy leaves the daemon building clean and this extractor exiting non-zero. `mod` gets no totality edge by owner ruling — a design falsified twice does not earn a third hardening edge — so this is NAMED in the module-graph label rather than claimed closed. If it ever goes RED the label is stale.",
+      "create": {
+        "path": "crates/node/src/bin/hypervisor_daemon_routes/shadow_real.rs",
+        "content": "fn shadow_real(data_dir: &str, id: &str, rec: &serde_json::Value) {\n    let _ = super::persist_record(data_dir, \"odk-domain-ontologies\", id, rec);\n}\n"
+      },
+      "create2": {
+        "path": "crates/node/src/bin/hypervisor_daemon_routes/feedback_routes/shadow_decoy.rs",
+        "content": "// benign\n"
+      },
+      "insert": "#[cfg_attr(all(), path = \"shadow_real.rs\")]\nmod shadow_decoy;\n"
+    },
+    {
+      "id": "N2-mod-inside-macro_rules",
+      "class": "named-residual",
+      "expect": "survives",
+      "note": "NAMED RESIDUAL, same boundary one construct over. A `mod` declared inside a `macro_rules!` body never reaches `visit_item_mod`, because syn hands macro tokens over unparsed — the module does not exist to this census at all, and not even the module count moves.",
+      "create": {
+        "path": "crates/node/src/bin/hypervisor_daemon_routes/shadow_n2.rs",
+        "content": "fn shadow_n2(data_dir: &str, id: &str, rec: &serde_json::Value) {\n    let _ = super::persist_record(data_dir, \"odk-domain-ontologies\", id, rec);\n}\n"
+      },
+      "insert": "macro_rules! shadow_mods_n2 {\n    () => { #[path = \"shadow_n2.rs\"] mod shadow_n2; };\n}\nshadow_mods_n2!();\n"
+    },
+    {
+      "id": "F1-foreign-declaration-ontology-receipts",
+      "class": "construct",
+      "note": "The commissioned claim covers FOUR families and only one of them had an anchor. A second name minted outside the owning module is the same attack one family over.",
+      "insert": "const SHADOW_F1: &str = \"odk-ontology-receipts\";\nfn shadow_f1(data_dir: &str, id: &str, rec: &Value) {\n    let _ = persist_record(data_dir, SHADOW_F1, id, rec);\n}\n",
+      "red_on": "EXACTLY ONE MODULE ADMITS `odk-ontology-receipts`"
+    },
+    {
+      "id": "F2-foreign-declaration-ontology-proposals",
+      "class": "construct",
+      "insert": "const SHADOW_F2: &str = \"odk-ontology-proposals\";\nfn shadow_f2(data_dir: &str, id: &str, rec: &Value) {\n    let _ = persist_record(data_dir, SHADOW_F2, id, rec);\n}\n",
+      "red_on": "EXACTLY ONE MODULE ADMITS `odk-ontology-proposals`"
+    },
+    {
+      "id": "F3-foreign-declaration-saved-object-sets",
+      "class": "construct",
+      "insert": "const SHADOW_F3: &str = \"odk-saved-object-sets\";\nfn shadow_f3(data_dir: &str, id: &str, rec: &Value) {\n    let _ = persist_record(data_dir, SHADOW_F3, id, rec);\n}\n",
+      "red_on": "EXACTLY ONE MODULE ADMITS `odk-saved-object-sets`"
+    },
+    {
+      "id": "F4-shadowed-tail-in-macro-tokens",
+      "class": "boundary",
+      "note": "THE ZERO-DELTA ATTACK the re-scope's own review found. A qualified family constant inside macro tokens, with the module declaring its OWN constant of the same tail name — the census used to throw the qualifier away, resolve the bare tail against the local table, and adjudicate another module's family constant as innocent at zero delta to every pin. Twenty-three constant names in this daemon are declared in more than one module with different values, so the collision is ordinary. The extractor reassembles the qualifier from the tokens now, because the qualifier was always IN them.",
+      "insert": "const KIND_ONT: &str = \"feedback-annotations\";\nfn shadow_f4(data_dir: &str, id: &str, rec: &Value) -> Value {\n    json!({ \"w\": persist_record(data_dir, super::odk_routes::KIND_ONT, id, rec).is_ok() })\n}\n",
+      "red_on": "EXACTLY ONE MODULE ADMITS `odk-domain-ontologies`"
+    },
+    {
+      "id": "N3-one-hop-indirection-in-a-recorded-toucher",
+      "class": "named-residual",
+      "expect": "survives",
+      "note": "NAMED RESIDUAL — ONE-HOP INDIRECTION WITHIN A MODULE, and it must be planted in a module ALREADY RECORDED as touching the family or the toucher ratchet catches it for the wrong reason. `governance_routes` is a recorded toucher of `odk-domain-ontologies`, so this pair goes fully green: the writer's function names no family, the caller's does, and the conservative rule that would catch it is scoped to one function. Closing it means module-scope attribution, which fires on 198 of this daemon's production writer functions — a pinned exception list, not a gate. The first cut of this anchor was planted in a non-toucher and the battery scored it RESIDUAL-CLOSED, which is the harness refusing a mis-aimed anchor rather than the residual having closed.",
+      "insert": "fn shadow_n3_put(d: &str, k: &str, i: &str, r: &Value) {\n    let _ = persist_record(d, k, i, r);\n}\nfn shadow_n3_admit(d: &str, i: &str, r: &Value) {\n    shadow_n3_put(d, \"odk-domain-ontologies\", i, r);\n}\n",
+      "anchor_file": "crates/node/src/bin/hypervisor_daemon_routes/governance_routes.rs",
+      "anchor_find": "pub(crate) async fn handle_governance_overview("
+    },
+    {
+      "id": "R1-runtime-assembly-via-local",
+      "class": "named-residual",
+      "expect": "survives",
+      "note": "THE NAMED RESIDUAL, asserted in both directions. A family name assembled at RUNTIME from pieces that are each innocent, bound to a local, then passed to a writer. Closing it needs dataflow this census does not do: the conservative function-scope rule that would catch it fires on 198 of this daemon's production writer functions, which is a pinned exception list, not a gate. The call lands in the pinned runtime-parameter bucket, so it is COUNTED — a named absence, not a silence. If this anchor ever goes RED, the gate's stated limits are stale and its header must be re-derived.",
+      "insert": "fn shadow_r1(data_dir: &str, id: &str, rec: &Value) {\n    let head = \"od\".to_string();\n    let fam = head + \"k-domain-ontologies\";\n    let _ = persist_record(data_dir, &fam, id, rec);\n}\n"
+    }
+  ]
+}

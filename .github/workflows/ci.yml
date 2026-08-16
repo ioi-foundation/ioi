@@ -89,6 +89,18 @@ jobs:
       - name: Test the shipped Hypervisor daemon
         run: cargo test --locked -p ioi-node --bin hypervisor-daemon
 
+      # A green verifier certifies nothing until a MUTATION proves it red on its own finding. Every
+      # anchor is a replayable second-admission path planted in the daemon's own source, with the
+      # assertion it must turn red named beside it — and the harness re-derives the population pins
+      # the mutant moves first, because a landing commit does, and a pin bump is not a property.
+      # It runs HERE, in the Rust job, because each anchor is scored by a `cargo check --bin
+      # hypervisor-daemon` that must be REAL: the daemon was just built and tested above, so the
+      # target dir is warm and each check is incremental. The product_surfaces job installs no Rust
+      # toolchain, so a cold full-daemon check there exits 101 with no rustc error line — which the
+      # battery correctly reports as a BLOCKED compile check rather than as a passing run.
+      - name: Replay the admission census mutation battery
+        run: npm run mutate:ontology-admission-census --workspace=@ioi/hypervisor-app
+
       - name: Test the Agentgres substrate
         run: cargo test --locked -p agentgres
 
@@ -243,6 +255,7 @@ jobs:
           npm run check:environment-custody --workspace=@ioi/hypervisor-app
           npm run check:operational-depth --workspace=@ioi/hypervisor-app
           npm run check:ontology-backend-families --workspace=@ioi/hypervisor-app
+          npm run check:ontology-admission-census --workspace=@ioi/hypervisor-app
 
       # The floor the verifier family never had. Every verifier above is pinned at the number of
       # assertions it actually EXECUTED; deleting assertions from any of them was silently green
