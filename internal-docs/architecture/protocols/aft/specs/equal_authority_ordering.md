@@ -2,8 +2,9 @@
 
 Status: internal protocol spec (AFT corpus); non-canonical.
 Authority: `docs/architecture/` owners and accepted ADRs are canonical and win on drift; this file is private protocol context only.
-This document defines the architectural meaning of AFT's `99%`
-equal-authority ordering consensus claim.
+This document defines the architectural meaning of AFT's all-but-one
+(`n-1` of `n`) equal-authority ordering consensus claim, which is conditional
+on the AFT model delta (the assumed common publication boundary).
 
 The normative protocol details now live in
 [`canonical_ordering.md`](/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/specs/canonical_ordering.md).
@@ -31,11 +32,11 @@ Under this model, validators remain equal-authority with respect to *eligibility
 to reveal* the next ordered view. They do not each carry equal positive voting
 power in a dense ordering round.
 
-## Why Ordinary Equal-Authority BFT Does Not Reach 99%
+## Why Ordinary Equal-Authority BFT Does Not Reach All-But-One (n-1 of n) Tolerance
 
 If every validator is an equal-authority voter in a standard worst-case BFT
 ordering protocol, then sparse fast committees cannot deterministically include
-an honest observer when faults approach `0.99n`, and dense all-node voting
+an honest observer when faults approach `n-1`, and dense all-node voting
 destroys throughput.
 
 So the ordering layer must change shape:
@@ -181,11 +182,12 @@ This design preserves equal-authority in the sense that:
 Authority no longer comes from privileged committee membership or stake weight.
 Authority comes from revealing a valid canonical proof first.
 
-## 99% Equal-Authority Ordering Consensus
+## All-But-One (n-1 of n) Equal-Authority Ordering Consensus
 
-AFT's `99%` equal-authority ordering consensus claim is:
+AFT's all-but-one (`n-1` of `n`) equal-authority ordering consensus claim,
+conditional on the AFT model delta, is:
 
-- if `99%` of validators are arbitrary but at least one honest validator can
+- if all but one validator (`n-1` of `n`) are arbitrary but at least one honest validator can
   reconstruct the bulletin-board view, derive the canonical order, and publish
   the valid order certificate, then all honest verifiers adopt the same order
   and reject conflicting candidates because the order certificate and omission
@@ -218,8 +220,9 @@ This claim depends on the following assumptions being explicit and enforced:
    next-epoch eviction through `guardian_registry`.
 
 Without these assumptions, the protocol falls back to high-confidence or
-accountable survivability rather than deterministic `99%` equal-authority
-ordering consensus.
+accountable survivability rather than deterministic all-but-one (`n-1` of `n`)
+equal-authority ordering consensus; the claim is conditional on them and on
+the AFT model delta.
 
 ## Relation To Existing AFT Modes
 
@@ -227,8 +230,9 @@ ordering consensus.
   today.
 - `Asymptote` already provides deterministic sealed effects through
   observer- or witness-backed collapse.
-- `Equal-Authority Canonical Ordering` is the layer that gives AFT its `99%`
-  equal-authority ordering consensus claim by moving the same proof-carrying /
+- `Equal-Authority Canonical Ordering` is the layer that gives AFT its
+  all-but-one (`n-1` of `n`) equal-authority ordering consensus claim in the
+  AFT model delta by moving the same proof-carrying /
   collapse idea into ordering itself.
 
 In other words:
@@ -268,16 +272,18 @@ claim:
 
 It should not be summarized as:
 
-- classical `99% Byzantine consensus`
+- classical unconditional percentage-figure Byzantine consensus
 
 It should be summarized as:
 
-- `99%` equal-authority ordering consensus via proof-carrying canonical
+- all-but-one (`n-1` of `n`) equal-authority ordering consensus, conditional
+  on the AFT model delta, via proof-carrying canonical
   ordering, where the first valid revealed order certificate wins, omission is
   objectively provable, and throughput is preserved by separating
   dissemination from verification
 
 Under the accountable-adversary variant, the same ordering surface also carries
-`99%` accountable Byzantine agreement for ordering safety: objective omission
+all-but-one (`n-1` of `n`) accountable Byzantine agreement for ordering
+safety, under the same model-delta conditionality: objective omission
 evidence is no longer merely informative, but penalty-bearing and
 epoch-removing.

@@ -24,7 +24,7 @@
   linkcolor=blue!50!black,
   urlcolor=blue!50!black,
   citecolor=blue!50!black,
-  pdftitle={Asymptote Fault Tolerance (AFT): Breaking the Indefinite-Suppression Lower Bound with Relay-Free Deterministic 99\% Byzantine Fault Tolerance},
+  pdftitle={Asymptote Fault Tolerance (AFT): Relay-Free Deterministic All-But-One (n-1 of n) Byzantine Safety in the AFT Model Delta},
   pdfauthor={IOI}
 }
 
@@ -81,13 +81,25 @@
 
 \setlength{\emergencystretch}{3em}
 
-\title{Asymptote Fault Tolerance (AFT): Breaking the Indefinite-Suppression Lower Bound with Relay-Free Deterministic 99\% Byzantine Fault Tolerance}
+\title{Asymptote Fault Tolerance (AFT): Relay-Free Deterministic All-But-One (\(n-1\) of \(n\)) Byzantine Safety in the AFT Model Delta}
 \author{IOI}
 \date{March 17, 2026}
 
 \begin{document}
 
 \maketitle
+
+\doctrinebox{\textbf{Conditionality and exact-figures note.} Every result in
+this paper is proven within the AFT model delta \(M_{\mathrm{AFT}}\) --- an
+assumed common publication boundary whose non-circular construction is the
+subject of, and is tracked by, the AFT-CB program. The public claim surface is
+governed by the whitepaper's \S 5.3 assumption ledger (A1--A9) and prints only
+the interim conditional claim until that program's gates pass. Tolerance
+figures appear in this paper only in exact all-but-one form: ``all-but-one
+(\(n-1\) of \(n\)) Byzantine safety.'' A rounded percentage is never printed
+as a tolerance figure, because with \(n = 16\)--\(64\) validators the true
+all-but-one maximum is \(93.75\%\)--\(98.4375\%\); the all-but-one statement
+is both stronger and exact.}
 
 \begin{abstract}
 Asymptote Fault Tolerance (\AFT{}) is a family of consensus and settlement
@@ -113,9 +125,10 @@ with canonical observer challenges dominating unsafe releases.
 constructions.
 
 This paper is self-contained and normative for the protocol family. Its
-ordering subtheorem remains \code{99\%} equal-authority ordering consensus
-under explicit bulletin-publication, cutoff, omission, protocol-native
-retrievability, and proof-soundness assumptions. The runtime also
+ordering subtheorem remains all-but-one (\(n-1\) of \(n\)) equal-authority
+ordering consensus, conditional on the AFT model delta's assumed common
+publication boundary and on explicit bulletin-publication, cutoff, omission,
+protocol-native retrievability, and proof-soundness assumptions. The runtime also
 internalizes compact signed publication-frontier metadata on the hot path:
 positive committed blocks carry a predecessor-linked frontier summary and
 compact availability-receipt binding, while same-slot conflicts or stale parent
@@ -142,8 +155,9 @@ while validators publish only compact commitments, receipts, frontiers, and
 challenges as the echo layer. Payload delivery is relay-free; equivocation and
 omission detection still require compressed honest-party information flow.
 
-In that model delta, \AFT{} is \code{relay-free, coordinator-free,
-pure-software deterministic 99\% Byzantine Tolerance}: the classical threshold
+In that model delta, and conditional on it, \AFT{} is \term{relay-free,
+coordinator-free, pure-software deterministic all-but-one (\(n-1\) of \(n\))
+Byzantine safety}: the classical threshold
 stops being load-bearing because the DLS adversary's indefinite-suppression
 move is no longer legal, not because an impossibility theorem is violated
 inside its own model. Compact bindings stay on the hot path while cold-path
@@ -178,10 +192,12 @@ Implementation correspondence is included below as exact symbol references.
 That section is non-normative. The protocol and theorem content of the paper
 stands on its own.
 
-The strongest theorem surface of the runtime is singular.
-\AFT{} claims not only \code{99\%} equal-authority ordering for the ordering
-layer, but relay-free, coordinator-free, pure-software deterministic
-\code{99\% Byzantine Tolerance} for durable ordering and sealed-effect safety,
+The strongest theorem surface of the runtime is singular, and it is
+conditional on the AFT model delta.
+\AFT{} claims not only all-but-one (\(n-1\) of \(n\)) equal-authority ordering
+for the ordering layer, but relay-free, coordinator-free, pure-software
+deterministic all-but-one (\(n-1\) of \(n\)) Byzantine safety for durable
+ordering and sealed-effect safety in the AFT model delta,
 with public-state continuity as its protocol-internal safety carrier rather
 than dense positive quorum intersection. Compact hot-path bindings plus
 cold-path recovery / reveal / reconstruction materialize the same recovered
@@ -222,7 +238,8 @@ classical model and inside \AFT{}'s explicit model delta.
 \paragraph{Singular theorem sentence.}
 The theorem surface of this repository is now singular all the way up:
 \AFT{} claims relay-free, coordinator-free, pure-software deterministic
-\code{99\% Byzantine Tolerance}. It breaks the classical threshold in the
+all-but-one (\(n-1\) of \(n\)) Byzantine safety in the AFT model delta. It
+breaks the classical threshold in the
 precise model-relative sense that the theorem is proved in the AFT model delta,
 where published admissible artifacts cannot be indefinitely suppressed from
 correct parties and where that delta is realized without a trusted relay.
@@ -1147,7 +1164,8 @@ If these degrade, the protocol prefers stalling over accepting unsafe evidence.
 \section{Canonical Ordering}
 
 \code{CanonicalOrdering} is the proof-carrying ordering path that gives
-\AFT{} its \code{99\%} equal-authority ordering consensus claim.
+\AFT{} its all-but-one (\(n-1\) of \(n\)) equal-authority ordering consensus
+claim in the AFT model delta.
 
 \subsection{Objective}
 
@@ -1435,7 +1453,7 @@ binds the claimed surface compactly; the retrievability plane reconstructs or
 objectively aborts that same surface; both terminate on the same canonical
 close-or-abort object.
 
-\subsection{\texorpdfstring{\(99\%\)}{99\%} equal-authority ordering consensus}
+\subsection{\texorpdfstring{All-but-one (\(n-1\) of \(n\))}{All-but-one (n-1 of n)} equal-authority ordering consensus}
 
 \AFT{}'s ordering claim is a proof-carrying consensus theorem whose decisive
 object is revealed rather than manufactured by dense positive yes-votes.
@@ -1443,8 +1461,8 @@ Revelation is not a weaker post hoc reporting layer here; it is the equal-
 authority surfacing mechanism for the uniquely valid public execution object
 already fixed by the closed public boundary.
 
-\begin{theorem}[99\% Equal-Authority Ordering Consensus]
-Assume:
+\begin{theorem}[All-But-One (\(n-1\) of \(n\)) Equal-Authority Ordering Consensus in the AFT Model Delta]
+Assume, in the AFT model delta (the assumed common publication boundary):
 \begin{enumerate}[leftmargin=1.5em]
 \item the closed bulletin surface \(B_h\) bound by the carried publication
 frontier and bulletin commitment is governed by a canonical bulletin close and
@@ -1457,7 +1475,8 @@ proofs are objectively verifiable,
 objective contradiction objects,
 \item the proof system is sound.
 \end{enumerate}
-Then even if \(99\%\) of validators behave arbitrarily, they cannot create a
+Then even if all but one validator (\(n-1\) of \(n\)) behaves arbitrarily,
+they cannot create a
 conflicting valid canonical-order outcome for slot \(h\). More strongly,
 every honest validator that observes the same closed ordering boundary derives
 the same positive order object or omission-dominated abort.
@@ -1480,7 +1499,7 @@ reconstructable ordered set.
   good/.style={draw, rounded corners, text width=3.62cm, minimum height=1.18cm, align=center, inner sep=4pt, fill=green!8},
   note/.style={font=\scriptsize, align=center, inner sep=1.6pt, fill=white, fill opacity=0.9, text opacity=1}
 ]
-\node[bad] (attackers) {\textbf{\(99\%\) Byzantine}\\suppress bulletin\\entries\\or publish \(C_{\mathrm{bad}}\)};
+\node[bad] (attackers) {\textbf{\(n-1\) of \(n\) Byzantine}\\suppress bulletin\\entries\\or publish \(C_{\mathrm{bad}}\)};
 \node[stage, right=2.45cm of attackers] (bulletin) {\textbf{Public surface}\\canonical cutoff \(\tau_h\)\\bulletin \(B_h\) fixed};
 \node[stage, right=2.45cm of bulletin] (verifier) {\textbf{Public verifier}\\checks proof soundness\\checks omission\\dominance};
 \node[good, below=1.82cm of bulletin] (recoverer) {\textbf{Any honest}\\\textbf{validator}\\extracts \(B_h\)\\derives \(OCert_h\) or \(\Omega(h, tx)\)};
@@ -1501,9 +1520,9 @@ omission proof \(\Omega(h, tx)\) that kills the bad candidate.}
 \label{fig:omission-dominance-recovery}
 \end{figure}
 
-The strongest shorthand is:
+The strongest shorthand, in the AFT model delta, is:
 \[
-99\% \text{ of validators may behave arbitrarily,}
+n-1 \text{ of } n \text{ validators may behave arbitrarily,}
 \]
 \[
 \text{because the closed ordering boundary admits one deterministically}
@@ -1513,12 +1532,14 @@ The strongest shorthand is:
 \]
 
 This is equal-authority because any validator may reveal the winning
-certificate. It is \code{99\%}-fault tolerant because correctness does not
+certificate. It tolerates all but one Byzantine validator (\(n-1\) of \(n\))
+because correctness does not
 depend on a dense majority of positive votes. This section isolates the
 ordering lane, not the theorem ceiling. Once composed with endogenous
 retrievability, canonical collapse, recovery and restart continuity, and
 collapse-bound sealed-effect gating, the promoted \AFT{} theorem surface is
-exactly the paper's relay-free deterministic \code{99\% Byzantine Tolerance}
+exactly the paper's relay-free deterministic all-but-one (\(n-1\) of \(n\))
+Byzantine safety
 claim in the AFT model delta.
 
 With the accountable publication rules of
@@ -2000,7 +2021,8 @@ recovery-family contract, canonical-collapse / replay retrievability anchor, and
 recovered-state historical retrievability surface are therefore part of ordinary endogenous
 \AFT{} history rather than a narrower theorem-side qualifier. The directly
 discharged recurrence/reduction/totality/collapse chain closes the former
-distance to the relay-free deterministic \code{99\% Byzantine Tolerance}
+distance to the relay-free deterministic all-but-one (\(n-1\) of \(n\))
+Byzantine safety
 theorem in \(M_{\mathrm{AFT}}\), so no recoverability or architecture-specific semantic
 gap remains at the AFT theorem surface.
 
@@ -2056,8 +2078,9 @@ Appendix~\ref{appendix:formal-artifacts} so that the served yellow paper
 remains self-contained outside the repository.
 
 These formal surfaces prove the deterministic safety kernels that the broader
-classical-agreement bridge builds on. The full ordinary classical
-\code{99\% Byzantine agreement} sentence is then completed by the recurring,
+classical-agreement bridge builds on. The full promoted all-but-one
+(\(n-1\) of \(n\)) Byzantine agreement sentence --- conditional on the AFT
+model delta --- is then completed by the recurring,
 reduction, totality, and collapse layers discussed above, rather than by these
 module-local safety kernels in isolation. Compact publication-frontier
 summaries internalize same-slot and predecessor consistency on the live path,
@@ -2384,7 +2407,7 @@ published \code{Narwhal/Tusk/Bullshark} environments.
 
 \section{Related Work}
 
-Geeq's Proof of Honesty (PoH) is important prior work in the ``99\%'' direction:
+Geeq's Proof of Honesty (PoH) is important prior work in the ``99\%'' (their figure, not an \AFT{} claim) direction:
 it argues for globally honest and canonical chain recovery in pure software
 under assumptions including at least one honest node and an honest relay, and
 it uses public evidence plus user-side verification to push beyond ordinary
@@ -2430,15 +2453,18 @@ path,
 \item a public-state-continuity formulation in which closed slot boundaries
 admit at most one positive public execution object and conflicting candidates
 admit short objective obstruction witnesses,
-\item \code{99\%} equal-authority ordering consensus under explicit
+\item all-but-one (\(n-1\) of \(n\)) equal-authority ordering consensus in the
+AFT model delta, under explicit
 assumptions,
 \item deterministic sealed-effect collapse with challenge dominance,
 \item a relay-free, coordinator-free, pure-software model-delta
-theorem yielding deterministic \code{99\% Byzantine Tolerance} for durable
+theorem yielding deterministic all-but-one (\(n-1\) of \(n\)) Byzantine safety
+for durable
 ordering and sealed-effect safety over the explicit bulletin /
-retrievability surface,
+retrievability surface, conditional on the AFT model delta,
 \item that the whole \AFT{} stack breaks the classical indefinite-suppression
-lower bound by identifying the first illegal adversary step and realizing the
+lower bound, in the AFT model delta, by identifying the first illegal
+adversary step and realizing the
 visibility delta without a trusted relay,
 \item a witness-augmented mode for layered threshold constructions,
 \item machine-checked deterministic safety kernels for the major protocol
@@ -2480,7 +2506,7 @@ The runtime supports a stronger theorem than the older accountable summary
 because the mechanism and system model are now stated directly at theorem
 surface.
 
-\begin{theorem}[Relay-Free Deterministic 99\% Byzantine Tolerance in \(M_{\mathrm{AFT}}\)]
+\begin{theorem}[Relay-Free Deterministic All-But-One (\(n-1\) of \(n\)) Byzantine Safety in \(M_{\mathrm{AFT}}\)]
 Assume the system model of Section~\ref{sec:system-model}, including the
 direct-dissemination / compressed-echo delta of
 Lemma~\ref{lem:direct-dissemination-echo}, guardian
@@ -2491,7 +2517,8 @@ bulletin-close extraction-or-abort for the bulletin surface bound by those
 frontiers,
 deterministic transcript/challenge derivation for sealing, durable state
 advancement only through canonical collapse, and irreversible-effect release
-only through collapse-bound sealed proofs. Then up to \(99\%\) of validators
+only through collapse-bound sealed proofs. Then all but one validator
+(\(n-1\) of \(n\))
 may behave arbitrarily without creating a conflicting valid durable
 canonical-order outcome or a conflicting valid sealed-effect release outcome.
 Honest validators that observe the same closed public boundary derive the same
@@ -2547,7 +2574,7 @@ rather than merely shaving off an optional refinement.
 
 \begin{proposition}[Scoped Witness-Coded Constructive Corollary]
 Assume the hypotheses of the relay-free deterministic
-\code{99\% Byzantine Tolerance} theorem in \(M_{\mathrm{AFT}}\), plus sound witness assignment and witness
+all-but-one (\(n-1\) of \(n\)) Byzantine safety theorem in \(M_{\mathrm{AFT}}\), plus sound witness assignment and witness
 certificate binding, a completed witness-coded recovery family with compact
 hot-path bindings and cold-path share delivery / reveal / reconstruction, and
 availability of the retained recovered publication surface together with any

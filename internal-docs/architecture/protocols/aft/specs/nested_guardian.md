@@ -298,13 +298,16 @@ bounded anchored-read / recovered parent-block / parent-state-root execution
 continuation, or the total absence of non-parity redundancy. The
 theorem-scope promotion and historical-retrievability internalization work are
 now complete. This is not a tentative side theorem; it is the live repository
-claim that the whole AFT stack universally breaks the lower bound with no
-qualifiers plus `99% Byzantine Tolerance` inside the AFT architecture. It
-should be read as a categorical architectural result, not
-as a half-promoted corollary waiting for another qualifier to fall away. That
-same achieved result is now also promoted directly to unconditional classical
-`99% Byzantine agreement` in the ordinary dense-vote permissioned model. The
-canonical statement of that promotion lives in
+claim that the whole AFT stack breaks the classical indefinite-suppression
+lower bound in the AFT model delta, yielding all-but-one (`n-1` of `n`)
+Byzantine safety inside the AFT architecture — a claim conditional on that
+model delta (the assumed common publication boundary), never an unconditional
+classical one. It
+should be read as an architectural result within `M_AFT`, not
+as a half-promoted corollary waiting for another qualifier to fall away, and
+not as classical dense-vote Byzantine agreement in the ordinary
+permissioned message-passing model. The
+canonical statement of that claim lives in
 [`yellow_paper.tex`](/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/specs/yellow_paper.tex),
 not as an open theorem gap, but as the final specification.
 
