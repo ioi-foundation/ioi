@@ -147,8 +147,10 @@ Assumes: A2, A3, A4, A5.
 slot, post-GST (A5), seals advance at bounded cadence: each pipeline phase
 (§0) completes within a bounded number of message delays, so consecutive
 seals close within a bounded interval. A single non-responsive member
-freezes seal cadence — never the chain (T4a) — until a §9 handover, §16
-succession, or §14 re-genesis.
+freezes seal cadence — never the chain (T4a) — until a §9 handover or a
+§14 re-genesis. (The §16 succession extension is design-open with its
+claims withdrawn and is deliberately not listed as an operative exit —
+the round-3 audit caught this sentence still selling it.)
 
 **Proof.** Two model inputs are named, not smuggled (P1.3 round 1, AC-7):
 this theorem reads A5's delivery bound in its ledgered form — PAIRWISE
@@ -197,7 +199,9 @@ Pairing: L1 (applied per configuration).
 
 ## T5b — Bootstrap (validity + freshness, separately)
 
-Assumes: A1, A7, A6 (mechanism as deployed; A9 iff mechanism iv).
+Assumes: A1, A7, A6 (anchor as deployed; A9 iff the elapsed-history
+hardening is enabled — the hardening is not an anchor and cannot be the
+deployed mechanism, per its round-2 downgrade).
 
 **Statement.** A newcomer that (1) verifies the lineage's recursive proof
 chain from genesis and (2) runs exactly one deployed A6 freshness
@@ -255,12 +259,14 @@ so A2 at v+1 continues the induction. No step consults stake weight — the
 chain is honesty-inductive, not weight-inductive. The silence claim is
 structural rather than behavioral: §10.2 defines the action set, and no
 action in it takes a non-response record as input (P2.3 asserts this over
-the formal action set; R5 makes it unrepresentable in types). §16's
-succession is a pre-signed T5c′-class transition (its authority is the
-formation-time unanimity, §16.1), and §14's re-genesis is typed as a root:
-`prev_seal_hash` chains do not cross it and verifiers report a seam
-(§14.3), so it cannot be mistaken for — or claim the guarantees of —
-continuity. ∎
+the formal action set; R5 makes it unrepresentable in types). The §16
+draft's succession WOULD be a pre-signed T5c′-class transition if the
+design-open extension lands (its authority would be formation-time
+unanimity — nothing in THIS theorem depends on it; the operative
+transition set is §9 handover alone, plus §14 roots which are not
+transitions), and §14's re-genesis is typed as a root: `prev_seal_hash`
+chains do not cross it and verifiers report a seam (§14.4), so it cannot
+be mistaken for — or claim the guarantees of — continuity. ∎
 
 Mechanization: P2.3 (T5c′ obligation + the no-silence action-set
 assertion). Pairing: L2 (unanimity forced at f = n−1) and L1.
@@ -481,7 +487,9 @@ same-slot double-seal into a "fresh lineage" via a self-serving re-genesis
 — is closed UPSTREAM OF THIS THEOREM, by §14.2's admissibility machinery:
 a root whose own embedded chain reference shows the prior lineage
 non-stale is self-refuting and participation in it slashable, and
-continuity always outranks a root. That closure's clock consumes A9 on
+continuity outranks an unhardened root while a hardened root is final
+(§14.2's bounded orphaning — the round-3 audit's R3-F4 killed the
+unconditional form). That closure's clock consumes A9 on
 §14's OWN Assumes line (per R2-F9 — it is §14's assumption, and this
 sentence attributes rather than absorbs it); T9's core claim and its A1
 line are untouched by it. So the maneuver changes the offense's name,
