@@ -51,17 +51,20 @@ attribution-preserving multisignature, §12).
 | A7 | proof-system soundness for succinct verification (full replay needs only A1) |
 | A8 | per-seal key evolution with verified immediate erasure; NO signing-capable material ever persists to any medium that outlives its slot — the durable journal stores signature OUTPUTS only (§2, §13); PQ one-time/hash-based migration path |
 | A9 | VDF sequentiality with bounded adversary hardware advantage σ (physical; T5d-class succession and the A6-iv hardening only) |
-| A10 | succession-path publication delivery: while a succession grace window is active, an object published to the succession medium (an old-ring final-ack share or an assembled seal) is delivered to the acting successor within `G_deliv` ticks. A scoped partial-synchrony assumption, consumed by T5d ALONE — the uniqueness/lineage ladder (T1–T3, T5a, T5c′) never cites it |
+| A10 | succession-medium observation: an object ANCHORED in the pre-named succession medium (§16.0) by tick X is observed by the acting successor within `G_deliv` further ticks. A scoped availability assumption on one public bulletin — not cross-partition delivery — consumed by T5d ALONE; the uniqueness/lineage ladder (T1–T3, T5a, T5c′) never cites it |
 
 **Where synchrony lives, exactly.** The uniqueness/lineage ladder (T1, T2,
 T3, T5a, T5c′) consumes no timing assumption of any kind. The live tier and
 seal cadence consume A5. The OPTIONAL pre-consented succession extension
-(§16, T5d) consumes A10 — a delivery bound scoped to its grace window —
-because succession under pure asynchrony is impossible: distinguishing a
-dead ring from a partitioned one is exactly the distinction an asynchronous
-system cannot make, and the review that forced this paragraph (P1.3 round
-1, drill i) demonstrated the failure concretely. The ledger prices that
-honestly instead of hiding it.
+(§16, T5d) consumes A10 — an observation bound on one pre-named public
+medium — because succession under pure asynchrony is impossible:
+distinguishing a dead ring from a partitioned one is exactly the
+distinction an asynchronous system cannot make, and the review that forced
+this paragraph (P1.3 round 1, drill i) demonstrated the failure
+concretely. The design answers with pre-agreed priority (the old ring's
+own signature voids its untimely material, §16.3) so that A10 carries only
+the successor's view of the medium, and the ledger prices that honestly
+instead of hiding it.
 
 Rule format: every section carries an `Assumes:` line naming the ledger
 entries its rules consume. A rule that needs an assumption not on that line
@@ -589,9 +592,23 @@ Succession is continuity that the ring itself signed in advance — never an
 emergency power. This section was rebuilt by the P1.3 round-1 refutation
 (drill i): the original grace-window argument assumed publication implied
 timely delivery, which asynchrony does not grant. The repaired mechanism
-stands on three legs: an objective trigger (A9), share expiry pre-signed
-at formation (kills late assembly with no timing assumption), and a
-scoped delivery bound (A10) for what is actually published.
+resolves the old-ring/successor race by PRE-AGREED PRIORITY rather than by
+network luck: the ring's own formation-time signature makes its post-halt
+seals bind only if timely ANCHORED in a pre-named public medium, so under
+partition the succession side wins deterministically — by the old ring's
+own standing order — and A10 shrinks to a local observation bound on that
+medium. Three legs: an objective trigger (A9), per-slot authority expiry +
+an anchoring deadline pre-signed at formation (both checkable with no
+delivery assumption), and A10 for the successor's view of the medium.
+
+0. **The succession medium**: the pre-signed policy names a public
+   anchoring point — a bulletin the standby and any watchtower serve,
+   whose entries are tick-stamped against the VDF chain (§15) — as THE
+   place where post-halt old-ring material binds. Anchoring is
+   permissionless writing plus tick reference; the medium confers no
+   authority of its own (it is where bindingness is measured, not who
+   decides it — the deciding rule was signed by the old ring at
+   formation).
 
 1. **Policy signing at formation**: at its own formation, configuration
    `C_v` unanimously pre-signs a standby policy: the standby configuration
@@ -607,41 +624,51 @@ scoped delivery bound (A10) for what is actually published.
    on "≥ `T_halt` VDF ticks since the last seal" (§15). A non-response
    record is never a trigger (§10). No succession exists that the old ring
    did not unanimously pre-sign (at formation or by sealed refresh).
-3. **Share expiry (pre-signed at formation)**: every final-ack share is
-   tick-stamped — the §12.2 tuple carries `tick_ref`, a recent VDF chain
-   value at signing time — and the formation policy the ring itself
-   signed makes a share VALID FOR SEAL ASSEMBLY only if the assembled
-   certificate is published within `T_expire` ticks of the share's
-   `tick_ref`. A certificate whose shares are expired at its publication
-   tick is INVALID BY THE RING'S OWN PRE-SIGNED RULE — objectively
-   checkable (A9), consuming no delivery assumption. This kills withheld
-   assembly: shares collected quietly cannot become a valid seal later.
+3. **Per-slot authority expiry and the anchoring deadline (pre-signed at
+   formation)**: every final-ack share is tick-stamped — the §12.2 tuple
+   carries `tick_ref`, a recent VDF chain value at signing time. The
+   formation policy the ring itself unanimously signed states, for every
+   slot `s` with predecessor seal at tick `t_{s−1}`:
+   (a) a share for slot `s` whose `tick_ref ≥ t_{s−1} + T_halt` is VOID —
+   the ring's sealing authority for `s` expires at exactly the tick where
+   the succession trigger for `s` arms (rule 2), by the ring's own
+   standing order; and
+   (b) an old-ring seal for slot `s` BINDS only if anchored in the
+   succession medium (rule 0) by tick `t_{s−1} + T_halt + T_expire`;
+   anchored later or never, it is VOID — not late, VOID.
+   Both conditions are objectively checkable from signed stamps and the
+   chain (A9), consuming no delivery assumption. Together they kill both
+   round-1 arms and the fresh-shares variant this section's first repair
+   missed: quietly collected shares cannot become a binding seal later
+   (b), and a partitioned old ring signing fresh shares after the trigger
+   armed produces only void material (a).
 4. **Grace window with preemption, under A10**: after activation, `S_v`
    may produce fallback seals, but a fallback-released irreversible
-   effect waits `G` ticks, where `G ≥ T_expire + G_deliv` (σ-margined,
-   §15.4). During the window: a DELIVERED conflicting old-ring seal
-   preempts the fallback (the fallback aborts, the old-ring seal stands);
-   a DELIVERED unexpired conflicting old-ring SHARE holds the affected
-   slot's release until that share's expiry passes (bounded — then it is
-   dead by rule 3). At the window's end no valid conflicting old-ring
-   seal can exist unseen: any real seal contains the honest member's
-   share (A2); the honest member published that share at signing (duty,
-   rule 5); published objects are delivered within `G_deliv` (A10); and
-   any certificate built on that share had to be published before the
-   share expired (rule 3) — so it was delivered inside the window, or it
-   is invalid forever.
+   effect for slot `s` waits until tick `t_{s−1} + T_halt + G`, where
+   `G ≥ T_expire + G_deliv` (σ-margined, §15.4). A conflicting old-ring
+   seal observed in the medium preempts the fallback (the fallback
+   aborts, the old-ring seal stands). At release time no binding
+   conflicting seal can exist unobserved: a binding seal was anchored by
+   `t_{s−1} + T_halt + T_expire` (rule 3b), and the successor observes
+   everything anchored by then within `G_deliv` further ticks (A10) —
+   strictly before release. Material surfacing after release is void by
+   rule 3, so the released effect never faces a binding rival. Under
+   partition, the old ring simply cannot anchor in time and its
+   post-trigger material is void — the succession side wins by the old
+   ring's own pre-signed priority rule, not by a race.
 5. **Honest-publication duty, re-scoped to what a member actually
-   holds**: an honest member publishes its OWN final-ack share at signing
-   time (part of honest signing, accepted at seat acceptance §9), and
-   any party holding an ASSEMBLED certificate publishes it upon
-   assembly. The duty is dischargeable by construction — a signer always
-   holds its share; nobody is obligated to publish an object it never
-   held (the round-1 refutation's second arm). Crash boundary: a signer
-   that crashes between journaling and publishing republishes on
-   recovery (§2.2); if recovery outruns `T_expire`, its share is dead by
-   rule 3 — a bounded liveness loss for that slot, never a safety hole,
-   and exactly why expiry rather than recovery-latency-bounding is the
-   mechanism (recovery time appears in no safety argument).
+   holds**: an honest member publishes its OWN final-ack share upon
+   signing and anchors any ASSEMBLED certificate it holds upon assembly
+   (part of honest signing, accepted at seat acceptance §9). The duty is
+   dischargeable by construction — a signer always holds its share;
+   nobody is obligated to publish an object it never held (the round-1
+   refutation's second arm). It is a liveness courtesy that lets a
+   briefly-partitioned honest ring win the anchoring race where it can;
+   SAFETY never rests on it — rules 3–4 close the race by voidness, not
+   by anyone's diligence. Crash boundary likewise: a signer that crashes
+   and recovers after the deadlines finds its material void — a bounded
+   liveness loss, never a safety hole; recovery time appears in no
+   safety argument.
 6. **Continuity typing**: fallback seals carry the succession-transition
    type (T5c′-class, pre-signed); re-genesis (§14) remains the only root
    event. Cadence resumes under `S_v` with continuity labels intact.
@@ -741,7 +768,8 @@ equivocation → §1.3 + §12.5; (d) proposer equivocation across retries →
 proof-of-silence reconfiguration → §10 (including its exact-line
 paragraph); (g) staged double-seal forensics → §12.5 (holder-relative,
 §12.3) + §14.2 (lineage escape closed); (h) post-unbond key compromise →
-§13.3 + §7.4; (i) hidden-seal succession → §16.3–16.5 (share expiry +
-A10 delivery + re-scoped duty); (j) standby capture → §16.1/16.7 +
+§13.3 + §7.4; (i) hidden-seal succession → §16.0–16.5 (authority expiry +
+anchoring deadline + A10 observation + re-scoped duty); (j) standby
+capture → §16.1/16.7 +
 §17.1–17.2; (k) σ-speedup → §15.4 (wait thresholds) + §15.5 (comparison
 downgraded to hardening).
