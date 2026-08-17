@@ -361,3 +361,88 @@ fn canonical_collapse_commitment_stays_stable_across_materialized_ordering_bundl
     );
 }
 
+
+#[test]
+fn r1_baseline_censorship_is_invisible_to_the_pre_cut_builder() {
+    // AFT-CB R1 BASELINE (pre-cut evidence, to be replaced by the leg):
+    // two transactions are admitted — the boundary an honest closer would
+    // have sealed — but the block includes only one. The pre-cut builder
+    // derives the bulletin FROM the block's own transactions, so the
+    // censored tx cannot even be EXPRESSED, the certificate builds, and
+    // verification is green. Censorship is structurally invisible: Q1.
+    let base_header = BlockHeader {
+        height: 12,
+        view: 1,
+        parent_hash: [19u8; 32],
+        parent_state_root: StateRoot(vec![1u8; 32]),
+        state_root: StateRoot(vec![2u8; 32]),
+        transactions_root: vec![],
+        timestamp: 1_750_000_778,
+        timestamp_ms: 1_750_000_778_000,
+        gas_used: 0,
+        validator_set: Vec::new(),
+        producer_account_id: AccountId([4u8; 32]),
+        producer_key_suite: SignatureSuite::ED25519,
+        producer_pubkey_hash: [5u8; 32],
+        producer_pubkey: Vec::new(),
+        signature: Vec::new(),
+        oracle_counter: 0,
+        oracle_trace_hash: [0u8; 32],
+        parent_qc: QuorumCertificate::default(),
+        previous_canonical_collapse_commitment_hash: [0u8; 32],
+        canonical_collapse_extension_certificate: None,
+        publication_frontier: None,
+        guardian_certificate: None,
+        sealed_finality_proof: None,
+        canonical_order_certificate: None,
+        timeout_certificate: None,
+    };
+    let included_tx = ChainTransaction::System(Box::new(SystemTransaction {
+        header: SignHeader {
+            account_id: AccountId([12u8; 32]),
+            nonce: 1,
+            chain_id: ChainId(1),
+            tx_version: 1,
+            session_auth: None,
+        },
+        payload: SystemPayload::CallService {
+            service_id: "guardian_registry".into(),
+            method: "publish_aft_bulletin_commitment@v1".into(),
+            params: vec![3],
+        },
+        signature_proof: SignatureProof::default(),
+    }));
+    // The censored transaction: admitted, then silently dropped. It
+    // appears NOWHERE below — that absence is the defect.
+    let _censored_tx = ChainTransaction::System(Box::new(SystemTransaction {
+        header: SignHeader {
+            account_id: AccountId([13u8; 32]),
+            nonce: 1,
+            chain_id: ChainId(1),
+            tx_version: 1,
+            session_auth: None,
+        },
+        payload: SystemPayload::CallService {
+            service_id: "guardian_registry".into(),
+            method: "publish_aft_canonical_order_artifact_bundle@v1".into(),
+            params: vec![4],
+        },
+        signature_proof: SignatureProof::default(),
+    }));
+
+    let ordered_transactions = canonicalize_transactions_for_header(&base_header, &[included_tx])
+        .expect("canonicalized transactions");
+    let tx_hashes: Vec<[u8; 32]> = ordered_transactions
+        .iter()
+        .map(|tx| tx.hash().expect("tx hash"))
+        .collect();
+    let mut header = base_header;
+    header.transactions_root =
+        canonical_transaction_root_from_hashes(&tx_hashes).expect("transactions root");
+
+    let certificate =
+        build_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
+            .expect("BASELINE: the censoring block builds its certificate");
+    verify_canonical_order_certificate(&header, &certificate, None, None, None)
+        .expect("BASELINE: the censoring block verifies green — censorship invisible");
+}
