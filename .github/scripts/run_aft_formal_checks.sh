@@ -19,6 +19,7 @@ PROOFS=(
   "nested_guardian/NestedGuardianProof.tla"
   "AsymptoteProof.tla"
   "canonical_ordering/CanonicalOrderingProof.tla"
+  "common_boundary/BoundaryRingProof.tla"
 )
 
 # Every TLC model the harness checks, as "cfg|tla", relative to FORMAL_DIR.
@@ -29,6 +30,8 @@ MODELS=(
   "canonical_ordering/CanonicalOrdering.cfg|canonical_ordering/CanonicalOrdering.tla"
   "canonical_ordering/CanonicalOrderingRetrievability.cfg|canonical_ordering/CanonicalOrderingRetrievability.tla"
   "canonical_ordering/CanonicalCollapseRecursiveContinuity.cfg|canonical_ordering/CanonicalCollapseRecursiveContinuity.tla"
+  "common_boundary/BoundaryRing.cfg|common_boundary/BoundaryRing.tla"
+  "common_boundary/BoundaryRing4.cfg|common_boundary/BoundaryRing.tla"
 )
 
 # Census: every .tla module under FORMAL_DIR (excluding symlinks and
