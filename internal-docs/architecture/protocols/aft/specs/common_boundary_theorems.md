@@ -275,7 +275,17 @@ assertion). Pairing: L2 (unanimity forced at f = n−1) and L1.
 
 Assumes: A1, A2, A3, A9, A10.
 
-**STATUS: DESIGN OPEN — CLAIM WITHDRAWN (P1.3 rounds 1–2).** The round-1
+**STATUS: WITHDRAWN FOR THIS PROGRAM CYCLE — v3 REFUTED AT REVIEW ROUND
+5 (three formulations refuted: rounds 1, 2, 5).** The round-5 review
+proved the SuccessionClock kernel discharges a strictly NARROWED
+statement (the Byzantine standby has no modeled behavior; obs_commit is
+never adversary-chosen; the theorem's "binding" restriction excludes
+exactly the genuine-but-void rivals that still fork executors — R5-F3),
+and refuted the v3 spec twice independently (R5-F1 obs_commit padding;
+R5-F2 unwired voidness + the expiry/void contradiction). T5d does not
+return this cycle; the final flagship rung stays unreachable; the v4
+conditions are recorded in spec §16's banner and the review file.
+Historical record of the first two refutations: The round-1
 formulation was refuted (publication ≠ delivery under asynchrony); its
 round-2 repair was refuted in turn (the succession medium is an unmodeled
 consensus object with no consistency rule and no stamp witness —
