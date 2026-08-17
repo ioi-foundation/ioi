@@ -3,7 +3,7 @@
 Status: internal protocol spec (AFT corpus); non-canonical; research candidate.
 Authority: `docs/architecture/` owners and accepted ADRs are canonical and win
 on drift; this file is private protocol context only. The assumption ledger's
-single owner is the whitepaper §5.3 (A1–A9); this spec restates the ledger for
+single owner is the whitepaper §5.3 (A1–A10); this spec restates the ledger for
 self-containment and cites it per rule. Every safety statement here is
 conditional on the AFT common-boundary model delta; nothing in this document
 is an unconditional quantitative security claim.
@@ -11,7 +11,7 @@ is an unconditional quantitative security claim.
 This document is the AFT-CB P1.1 protocol specification. It defines the
 Boundary Ring, the Unanimous Boundary Close (UBC), and every named protocol
 subtlety as its own normative section (§1–§19). Paper theorems land beside
-this file as `common_boundary_theorems.md` (P1.2 — not yet filed);
+this file as [`common_boundary_theorems.md`](./common_boundary_theorems.md) (P1.2);
 mechanized kernels land under `../formal/common_boundary/` (P2.x). The
 Boundary Ring is evidence formation inside the kernel-owned collapse plane —
 no rule in this spec mints authority beside it.
@@ -45,12 +45,12 @@ attribution-preserving multisignature, §12).
 | A1 | signature unforgeability + hash collision resistance |
 | A2 | MHA: ≥1 honest, non-equivocating signer per committed configuration (economically bought, never proven) |
 | A3 | honest single-final-ack discipline over crash-consistent storage |
-| A4 | anti-eclipse: a submitter can reach ≥1 honest signer (completeness only) |
+| A4 | reachability to ≥1 honest signer: for submitters (completeness, T2) and for retrievers (availability's serving path, T3) — re-scoped by the P1.3 round-2 review from "completeness only", which T3's repaired statement had outgrown |
 | A5 | post-GST Δ-synchrony — pairwise delivery within Δ between honest parties (full honest mesh) — + bounded dishonest live-tier weight (live tier and seal cadence only; no strong-ring safety rule cites A5) |
 | A6 | a historical-freshness ANCHOR, exactly one deployed, separately priced (bootstrap only): (i) recent checkpoint within W; (ii) forward-secure/puncturable keys + secure erasure (structurally always-on here, §13); (iii) external objective checkpoint. (iv) VDF elapsed-history is a HARDENING layer over an anchor — it raises the real-time cost of long-range forgery (requires A9) and is NOT a standalone anchor (§15.5) |
 | A7 | proof-system soundness for succinct verification (full replay needs only A1) |
 | A8 | per-seal key evolution with verified immediate erasure; NO signing-capable material ever persists to any medium that outlives its slot — the durable journal stores signature OUTPUTS only (§2, §13); PQ one-time/hash-based migration path |
-| A9 | VDF sequentiality with bounded adversary hardware advantage σ (physical; T5d-class succession and the A6-iv hardening only) |
+| A9 | VDF sequentiality with bounded adversary hardware advantage σ (physical). Scope stated at its true blast radius (P1.3 round-2 correction): A9 is the protocol's objective clock wherever ticks are read — cadence references (§3), deadlines (§8), tick stamps (§11–§12), re-genesis admissibility (§14), the chain itself (§15), sortition (§17) — with SAFETY-critical consumption confined to the A6-iv hardening (T5b) and the design-open succession extension (T5d) |
 | A10 | succession-medium observation: an object ANCHORED in the pre-named succession medium (§16.0) by tick X is observed by the acting successor within `G_deliv` further ticks. A scoped availability assumption on one public bulletin — not cross-partition delivery — consumed by T5d ALONE; the uniqueness/lineage ladder (T1–T3, T5a, T5c′) never cites it |
 
 **Where synchrony lives, exactly.** The uniqueness/lineage ladder (T1, T2,
@@ -92,7 +92,10 @@ independent ways** (either alone suffices; both are mandatory):
 - **Final-ack**: signed by the member's PER-SEAL key `k_s` (§13) over the
   domain-tagged FULL seal tuple of §12.2 —
   `("aft-cb/final-ack", lineage_id, v, s, boundary_root, batch_root,
-  prev_seal_hash)` — attempt-UNtagged, exactly one per `(v, s)` per honest
+  prev_seal_hash, tick_ref)` — byte-identical to §12.2's tuple (the P1.3
+  round-2 review caught this sentence omitting `tick_ref`; there is
+  exactly one final-ack encoding and §12.2 owns it) — attempt-UNtagged,
+  exactly one per `(v, s)` per honest
   member, forever (A3). An honest member emits a final-ack only after the
   validate-and-hold obligation (§4) is discharged and `B ⊇` its own
   declared set, and only through the journal protocol (§2). A pre-ack is
@@ -103,6 +106,13 @@ independent ways** (either alone suffices; both are mandatory):
   work beyond the budget (a typed refusal, not a silent drop). This bounds
   the fetch-and-validate work a Byzantine proposer can extract per turn
   (the §4 obligation is byte-expensive by design).
+- **Volume bound**: `V_slot` is a deployment parameter bounding a slot's
+  total boundary bytes. A member refuses (typed) to pre-ack or final-ack
+  any candidate whose byte set exceeds `V_slot`, and declared-set
+  commitments beyond it are refused at RECONCILE — so the bound T4b's
+  cadence proof conditions on is maintained by a rule, not assumed
+  (added for the P1.3 round-2 review's R2-F15: a theorem-only token is
+  not a bound).
 
 **Rules.**
 1. A close (§12) is assembled from final-acks only; pre-acks never enter a
@@ -261,8 +271,9 @@ Membership change must not tear custody (§4) mid-horizon.
 
 ## 7. Bootstrap
 
-Assumes: A1, A7 (succinct path) or A1 alone (full replay); A6 by deployed
-mechanism; A6-iv additionally A9; A8 where mechanism (ii) is deployed.
+Assumes: A1, A7 (succinct path) or A1 alone (full replay); A6 anchor as
+deployed; A9 iff the elapsed-history hardening is enabled; A8 where
+anchor (ii) is deployed.
 
 A newcomer establishes two separate things — validity and freshness — and
 the spec keeps them separate:
@@ -270,27 +281,30 @@ the spec keeps them separate:
 1. **Validity**: verify the recursive proof chain from genesis (A7), or
    replay-verify the full chain under A1 alone. This proves internal
    consistency of a lineage, never that it is the LIVE lineage.
-2. **Freshness**: exactly one A6 mechanism, deployed by explicit
-   configuration and cited by name in the newcomer's verification record:
+2. **Freshness**: exactly one A6 ANCHOR, deployed by explicit
+   configuration and cited by name in the newcomer's verification record
+   (the anchor menu has three entries — the round-2 review's R2-F12
+   caught the hardening still enumerated as a fourth deployable choice,
+   contradicting its own downgrade):
    - (i) a recent authenticated checkpoint within window `W` (= unbonding
      window);
    - (ii) forward-secure/puncturable signatures + secure key erasure — old
      configurations become physically unable to re-sign history (realized
      by A8's per-seal evolution, §13);
-   - (iii) an external objective checkpoint;
-   - (iv) VDF elapsed-history — a HARDENING layer over one of the anchors
-     above, never standalone (§15.5): the embedded chain forces a
-     long-range fork to be re-run in real sequential time (A9), pricing
-     and delaying the attack; it cannot by itself select the live head
-     against a patient forger. In this protocol, (ii) is structurally
-     always on (§13), so (iv) hardens an anchor that always exists.
+   - (iii) an external objective checkpoint.
+   Separately, the VDF elapsed-history HARDENING (§15.5) may be enabled
+   over whichever anchor is deployed — it is not a menu member and can
+   never be the cited mechanism: it prices and delays long-range forgery
+   (A9); it cannot select the live head against a patient forger. Anchor
+   (ii) is structurally always on here (§13), so the hardening always
+   has an anchor beneath it.
 3. **Out-of-model is stated, not smoothed**: a newcomer with NO live A6
    anchor is outside the model and the spec says so; no rule pretends
    recursion alone — or tick length alone — yields freshness.
 4. **Long-range forks self-incriminate**: conflicting UBCs for one slot
    identify the forked configuration's entire signer set (§12), so
    cross-checking k independent sources detects equivocation and produces
-   the forensic record. Under mechanism (ii)/A8, post-unbond compromise of
+   the forensic record. Under anchor (ii)/A8, post-unbond compromise of
    ALL former members yields no key capable of signing historical slots —
    history is unforgeable even then (§13).
 
@@ -413,8 +427,16 @@ A9.
    stall delays irreversible release and nothing else. Reversible effects
    ride live-tier finality and say so on their receipts (§19).
 5. **Stall semantics**: a withheld ack stalls the seal, never the chain.
-   The exits from a stalled ring are exactly §9, §16, §14 — in that
-   escalation order, all loud.
+   The OPERATIVE exits from a stalled ring are §9 handover and §14
+   labeled re-genesis — both loud; the §16 pre-consented-succession
+   extension is design-open (claims withdrawn, see its status banner)
+   and joins this list only when its respecification survives review.
+   A stalled ring retains its sealing authority indefinitely under the
+   operative rules — stall is harmless-forever, and in particular the
+   handover exit remains reachable at any later time (the round-2 review
+   showed the withdrawn draft's unconditional expiry silently converted
+   stall into forfeiture and made handover unreachable past T_halt; no
+   normative rule does that).
 
 ## 12. Attribution-preserving certificate encoding
 
@@ -474,7 +496,12 @@ Assumes: A1, A8; realizes A6 mechanism (ii).
    at all): the discipline is: sign the share
    with `SK_s` → journal the share (the finished signature — §2.1) →
    DESTRUCTIVELY update `SK_s → SK_{s+1}` on the durable medium (one-way;
-   `SK_s` unrecoverable from `SK_{s+1}`, A1) → transmit. Crash recovery:
+   `SK_s` unrecoverable from `SK_{s+1}`, A1; the update is ATOMIC —
+   write-new-then-atomic-swap or equivalent, so a crash mid-update leaves
+   exactly one coherent state, added for the round-2 review's R2-F14: a
+   torn key state would be permanent seat death, and while that is a
+   liveness fault only, an unstated atomicity requirement is still an
+   unstated requirement) → transmit. Crash recovery:
    if the journal holds the share for `s` and the durable state is still
    `SK_s`, complete the update FIRST, then re-transmit the journaled
    bytes; recovery never re-signs (§2.2). A crash before journaling
@@ -508,28 +535,43 @@ Assumes: A1, A8; realizes A6 mechanism (ii).
 
 ## 14. Anchored re-genesis (typed lineage root)
 
-Assumes: A1; the anchor cites its own deployed A6 mechanism.
+Assumes: A1, A9 (the admissibility clock); the anchor cites its own
+deployed A6 mechanism. (A9 joined this line by the round-2 review's
+R2-F9: rule 2's clock consumed it while the line omitted it.)
 
 Re-genesis is the last exit: only on loss of ring AND standby.
 
 1. **The ceremony**: a re-genesis record is a TYPED ROOT — it carries a
    `root` marker, a fresh `lineage_id`, the anchor mechanism label (which
-   A6 mechanism grounds the new lineage's freshness), and a reference to
-   the terminal state of the prior lineage it succeeds administratively.
-2. **Admissibility is objective, not self-attested**: a root record is
-   admissible to a verifier only if the prior lineage it references shows
-   ≥ `T_root` VDF ticks without a seal at the root's publication tick
-   (verifiable from the prior lineage's embedded chain, A9) — "loss of
-   ring AND standby" is thereby checked against the clock, never taken
-   from the claimants. **Participation in an inadmissible root is
-   slashable**: a bonded member whose acceptance signature appears in a
-   root record published while its prior lineage was not tick-stale has
-   signed the objective evidence of its own offense (the root record plus
-   the live prior chain), and its bond is forfeit. This closes the
-   lineage-escape maneuver: a ring cannot convert a slashable same-slot
-   double-seal into an unslashable "fresh lineage" fork, because minting
-   the fresh lineage against a live prior lineage is itself the
-   slashable, fully attributed act.
+   A6 anchor grounds the new lineage's freshness), a reference to the
+   terminal state of the prior lineage it succeeds administratively, and
+   an EMBEDDED CHAIN REFERENCE `tick_root`: a recent value of the prior
+   lineage's seal-seeded VDF chain (§15.1), which proves the record was
+   minted no earlier than `tick_root` (added by the round-2 review's
+   R2-F8: without a tick binding, the admissibility clock had nothing to
+   bind to).
+2. **Admissibility is objective, and continuity always outranks a
+   root**: a root record is admissible only if the prior lineage shows
+   ≥ `T_root` seal-free ticks AT ITS EMBEDDED `tick_root` (verifiable by
+   anyone from the prior lineage's chain, A9 — the seal-seeded chain is
+   single-valued because only seals fold into it), with the parameter
+   constraint `T_root > T_halt + G + the standby's own sealing margin`
+   pre-published so a root can never be admissible while a live standby
+   is inside its succession machinery. **A prior-lineage seal at any tick
+   after `tick_root` ORPHANS the root**: verifiers prefer continuity
+   over roots always, so a root minted against a lineage that later
+   resumes sealing simply dies — no rule ever chooses a root over a
+   continuing lineage. **Slashing is confined to what the record itself
+   exhibits**: a bonded member whose acceptance signature appears in a
+   root whose OWN embedded `tick_root` shows the prior lineage NOT
+   `T_root`-stale has co-signed the objective evidence of its offense
+   (the record refutes itself against the public chain), and its bond is
+   forfeit. A root with an honestly stale `tick_root` that is later
+   orphaned by a resumed lineage is not an offense — it is simply void.
+   This closes the lineage-escape maneuver: minting a fresh lineage
+   against a live prior lineage is either self-refuting (slashable) or
+   orphaned by the next real seal (worthless), so a same-slot double-seal
+   cannot be laundered into an unslashable fork.
 3. **A root is never continuity**: the new lineage's seal chain starts at
    the root; `prev_seal_hash` chains (§12) do not cross it; the uniqueness
    theorems quantify WITHIN one anchored lineage.
@@ -588,18 +630,44 @@ permissionless.
 
 Assumes: A2, A3, A9, A10; A1 for all signatures.
 
-Succession is continuity that the ring itself signed in advance — never an
-emergency power. This section was rebuilt by the P1.3 round-1 refutation
-(drill i): the original grace-window argument assumed publication implied
-timely delivery, which asynchrony does not grant. The repaired mechanism
-resolves the old-ring/successor race by PRE-AGREED PRIORITY rather than by
-network luck: the ring's own formation-time signature makes its post-halt
-seals bind only if timely ANCHORED in a pre-named public medium, so under
-partition the succession side wins deterministically — by the old ring's
-own standing order — and A10 shrinks to a local observation bound on that
-medium. Three legs: an objective trigger (A9), per-slot authority expiry +
-an anchoring deadline pre-signed at formation (both checkable with no
-delivery assumption), and A10 for the successor's view of the medium.
+**STATUS: DESIGN OPEN — CLAIMS WITHDRAWN (P1.3 rounds 1–2).** Two
+successive formulations of this section's safety mechanism were refuted
+by independent adversarial review: round 1 broke the publication-duty
+grace window (publication is not delivery under asynchrony); round 2
+broke its repair (the "succession medium" bulletin is an unmodeled
+consensus object — multi-server, no consistency rule, no cryptographic
+stamp witness — so "anchored by tick X" is observer-relative and the
+forbidden state is reconstructible through a medium partition or a
+backdated stamp). Per the estate's standing scar — a twice-falsified
+design earns no third hardening edge in the same run — and the program
+doc's own named fallback, the succession EXTENSION's claims are
+WITHDRAWN: T5d is design-open, the final claim-ladder rung remains
+unreachable, and the OPERATIVE exits on ring death are §9 handover
+(while the ring can still seal) and §14 labeled anchored re-genesis.
+The rules below stand as the twice-falsified DRAFT, kept for the
+respecification's benefit and explicitly NON-NORMATIVE.
+
+**Respecification commissioned (P2.7), with the direction both reviews
+point at recorded here**: eliminate the bulletin entirely — bindingness
+of a rival old-ring seal is MEMBERSHIP IN THE STANDBY'S OWN UBC-COMMITTED
+OBSERVATION SET: every fallback seal embeds a signed commitment to the
+set of old-ring objects the standby observed; under the standby
+configuration's OWN MHA (the same trust class as every other seal), its
+honest member refuses to sign a commitment omitting an observed rival,
+making adjudication priced rather than circular; no stamps exist to
+forge (R2-F2 dissolves) and single-valuedness is the standby
+certificate's uniqueness, i.e. T1 applied to `S_v` (R2-F1 dissolves).
+A10 re-scopes to submission-to-standby observation. Authority expiry
+becomes CONDITIONAL on a standby activation record (a UBC of `S_v`,
+verifiable against the seal-seeded chain), so a slow ring with no active
+succession forfeits nothing (R2-F3 dissolves). Bindingness must then be
+wired into §11.3 seal validity, §12 verification, and §19's vectors
+(R2-F4), preemption restricted to BINDING rivals (R2-F7), and the
+tick_ref honesty split (R2-F6) modeled as advisory-only. The
+respecification carries its own adversarial review before any claim
+returns to the ladder.
+
+The draft below is retained verbatim-in-substance for that work:
 
 0. **The succession medium**: the pre-signed policy names a public
    anchoring point — a bulletin the standby and any watchtower serve,
@@ -739,7 +807,7 @@ authorized each effect. Three typed per-effect SLAs:
 |---|---|---|---|---|
 | `live-QC` | live-tier BFT finality | A1 + the live engine's own vector (A5-class) | seconds-class, optimistically responsive | cheapest |
 | `sealed` | UBC super-finality (§11, §12) | A1, A2, A3 (+A4 for completeness claims) | seal cadence (`W_seal` ticks) | bond-backed |
-| `sealed+anchored` | sealed, plus the deployed freshness anchor | `sealed` vector + A6(mechanism as deployed) (+A9 for A6-iv) | seal cadence + anchor availability | dearest |
+| `sealed+anchored` | sealed, plus the deployed freshness anchor | `sealed` vector + A6(anchor as deployed) (+A9 iff the elapsed-history hardening is enabled) | seal cadence + anchor availability | dearest |
 
 1. Every effect declaration names its required class; the executor refuses
    release below it (irreversible effects are `sealed` or above, §11.4).
