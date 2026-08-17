@@ -111,7 +111,6 @@ impl SuccinctDriver {
             _config: Arc::new(config),
         }
     }
-
 }
 
 impl CanonicalCollapseContinuityVerifier for SuccinctDriver {

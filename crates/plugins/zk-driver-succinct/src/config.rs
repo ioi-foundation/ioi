@@ -49,8 +49,8 @@ impl SuccinctDriverConfig {
             beacon_vkey_bytes: Vec::new(),
             state_inclusion_vkey_hash: String::new(),
             state_inclusion_vkey_bytes: Vec::new(),
-            canonical_collapse_continuity_vkey_hash:
-                CANONICAL_COLLAPSE_CONTINUITY_VKEY_PIN.to_string(),
+            canonical_collapse_continuity_vkey_hash: CANONICAL_COLLAPSE_CONTINUITY_VKEY_PIN
+                .to_string(),
             canonical_collapse_continuity_vkey_bytes: pin_bytes(
                 CANONICAL_COLLAPSE_CONTINUITY_VKEY_PIN,
             ),
@@ -78,14 +78,10 @@ mod pin_tests {
     /// governance surface, this constant is the enforcement surface.
     #[test]
     fn config_pin_matches_governed_vkey_document() {
-        let doc_path = concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../../aft-proofs/vkey.json"
-        );
+        let doc_path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../aft-proofs/vkey.json");
         let doc = std::fs::read_to_string(doc_path)
             .expect("governed pin document crates/aft-proofs/vkey.json exists");
-        let parsed: serde_json::Value =
-            serde_json::from_str(&doc).expect("vkey.json parses");
+        let parsed: serde_json::Value = serde_json::from_str(&doc).expect("vkey.json parses");
         assert_eq!(
             parsed["vkey_bytes32"].as_str().expect("vkey_bytes32 field"),
             CANONICAL_COLLAPSE_CONTINUITY_VKEY_PIN,

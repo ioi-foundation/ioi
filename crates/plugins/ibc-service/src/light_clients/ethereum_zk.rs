@@ -24,7 +24,6 @@ impl EthereumZkLightClient {
             zk_driver: Arc::new(SuccinctDriver::new(config)),
         }
     }
-
 }
 
 #[async_trait]
