@@ -3,7 +3,7 @@
 Status: internal protocol spec (AFT corpus); non-canonical; research candidate.
 Authority: `docs/architecture/` owners and accepted ADRs are canonical and win
 on drift. The assumption ledger's single owner is the whitepaper §5.3
-(A1–A9); protocol rules cited as §n live in
+(A1–A10); protocol rules cited as §n live in
 [`common_boundary.md`](./common_boundary.md) (P1.1). Every proof here is a
 **paper proof** — checked by hand, not by TLAPS; the mechanized successors
 land under `../formal/common_boundary/` (P2.x) and each theorem below names
@@ -13,7 +13,7 @@ model delta.
 
 Machine-checkable convention (enforced by
 `.github/scripts/check_aft_theorem_assumes.sh`): every theorem block carries
-exactly one `Assumes:` line; only `A1`–`A9` tokens (or `none`) appear on it;
+exactly one `Assumes:` line; only `A1`–`A10` tokens (or `none`) appear on it;
 no safety theorem lists A5 (T4a/T4b are the only blocks permitted to);
 A9 appears only in T5b (the A6-iv hardening) and T5d; A10 (the
 succession-medium observation bound) appears only in T5d; T8 is stated as a
@@ -91,9 +91,11 @@ byte set, recomputed the boundary root, and retains and serves the bytes
 through `T_retrievable`; under A2 at least one signer is honest (hence
 compliant), so a sealed boundary's bytes are HELD AND SERVED through the
 horizon, deterministically — with zero audit records — and a retriever
-that can reach at least one honest signer (the A4-class reachability this
-line now names, per P1.3 round 1's AC-6: possession is A1+A2, retrieval
-additionally needs reach) obtains them. Deletion by the other n−1 members
+that can reach at least one honest signer obtains them. (A4 is on this
+line per round 1's AC-6 — possession is A1+A2, retrieval additionally
+needs reach — and the LEDGER's A4 row was re-scoped in round 2 (R2-F11)
+to cover the retriever edge explicitly, so this use now matches the
+owner's text rather than stretching it.) Deletion by the other n−1 members
 does not affect retrievability.
 
 **Proof.** By §4, validate-and-hold is a signing obligation: the final-ack
@@ -247,7 +249,8 @@ from every member of `C_{v+1}` (A1 for both). Induction: if `C_v` is the
 unique version-v configuration of its lineage (T5a under A2 at v), then
 any closed transition is unique (T1 at the transition slot), and its
 successor is the unique version-(v+1) configuration; acceptance makes the
-successor's obligations (§4, §13, §16.4) contractual from its first slot,
+successor's obligations (§4, §13, and the §16 draft's publication duty —
+that last design-open) contractual from its first slot,
 so A2 at v+1 continues the induction. No step consults stake weight — the
 chain is honesty-inductive, not weight-inductive. The silence claim is
 structural rather than behavioral: §10.2 defines the action set, and no
@@ -264,10 +267,25 @@ assertion). Pairing: L2 (unanimity forced at f = n−1) and L1.
 
 ## T5d — Pre-consented succession safety
 
-Assumes: A2, A3, A9, A10.
+Assumes: A1, A2, A3, A9, A10.
 
-**Statement (rebuilt after the P1.3 round-1 refutation of its
-predecessor).** No reachable state contains both a fallback-released
+**STATUS: DESIGN OPEN — CLAIM WITHDRAWN (P1.3 rounds 1–2).** The round-1
+formulation was refuted (publication ≠ delivery under asynchrony); its
+round-2 repair was refuted in turn (the succession medium is an unmodeled
+consensus object with no consistency rule and no stamp witness —
+R2-F1/R2-F2 — and its voidness rules broke normal operation, R2-F3).
+Per the estate's twice-falsified-design scar and the program doc's named
+fallback, this theorem's claim is WITHDRAWN: the block below is the
+refuted-and-repaired DRAFT kept for the P2.7 respecification (whose
+commissioned direction — standby-UBC-committed observation sets under
+`S_v`'s own MHA, no bulletin, no stamps — is recorded in spec §16's
+status banner), the final claim-ladder rung remains unreachable, and the
+operative exits on ring death are §9 handover and §14 labeled
+re-genesis. No downstream surface may cite T5d until the respecification
+survives its own adversarial review. (A1 joined the Assumes line per
+R2-F10.5 — the draft proof verifies signatures throughout.)
+
+**Draft statement (non-normative, rebuilt after round 1).** No reachable state contains both a fallback-released
 irreversible effect for a slot and a BINDING conflicting old-ring seal for
 that slot — where bindingness is the old ring's own formation-time
 pre-signed rule (§16.3): a share stamped at or past the slot's authority
@@ -460,10 +478,14 @@ the conflicting certificates, so 1.0 is the ceiling and T9 meets it. The
 economic floor follows: n bonds are simultaneously slashable on the
 evidence. The lineage-escape variant (P1.3 round 1, F11) — converting a
 same-slot double-seal into a "fresh lineage" via a self-serving re-genesis
-— is closed upstream: §14.2 makes a root against a non-tick-stale prior
-lineage inadmissible and PARTICIPATION in it slashable on objective
-evidence (the root record plus the live prior chain), so the maneuver
-changes the offense's name, not its price. ∎
+— is closed UPSTREAM OF THIS THEOREM, by §14.2's admissibility machinery:
+a root whose own embedded chain reference shows the prior lineage
+non-stale is self-refuting and participation in it slashable, and
+continuity always outranks a root. That closure's clock consumes A9 on
+§14's OWN Assumes line (per R2-F9 — it is §14's assumption, and this
+sentence attributes rather than absorbs it); T9's core claim and its A1
+line are untouched by it. So the maneuver changes the offense's name,
+not its price. ∎
 
 Mechanization: P2.6 (attribution completeness); R9 (share-level
 verification in the signer); the economic floor is P4.2's parameter work.
@@ -654,7 +676,7 @@ this table has zero `L-OPEN` rows (P4.4 gate).
 | T5a membership canonicity | L1 (per configuration) | cited |
 | T5b bootstrap | L-LR (long-range indistinguishability — a NECESSITY bound: it forces some anchor, and does not certify any mechanism's sufficiency; mechanism (iv) is accordingly a hardening layer only, per F6) | cited |
 | T5c′ reconfiguration | L2 + L1 | cited |
-| T5d succession safety | — | **L-OPEN** (necessity of a scoped observation assumption — A10-class — for any safe succession: conjectured forced by the round-1 asynchrony refutation; formalization open) |
+| T5d succession safety | — | **L-OPEN + CLAIM WITHDRAWN** (refuted rounds 1–2; design-open pending the P2.7 respecification and its own review; the lower-bound question — necessity of a scoped observation assumption for any safe succession — remains open with it) |
 | T6 composition | L-M (above-meet unsoundness) | cited |
 | T7 forensic accountability | L9 (attribution cap) | cited |
 | T8 selection supply | — | **L-OPEN** (cheapest-capture supply bound: P4.2 analysis) |
