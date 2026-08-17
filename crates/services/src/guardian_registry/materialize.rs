@@ -191,11 +191,52 @@ impl GuardianRegistry {
                 ioi_types::app::canonical_collapse_eq_on_header_surface(&existing, &collapse)
                     && existing.sealing.is_none()
                     && collapse.sealing.is_some();
+            // AFT-CB R3 (kills Q7): abort supersedes only PRE-SEAL. An
+            // existing SEALED close is immutable — an abort-carrying
+            // publication against it is a conflict like any other, and
+            // the attempt itself is post-close evidence for the
+            // resolution log.
+            let existing_sealed_close = existing
+                .sealing
+                .as_ref()
+                .map(|sealing| sealing.kind == CanonicalCollapseKind::Close)
+                .unwrap_or(false);
+            let abort_supersedes_pre_seal =
+                new_has_abort && !existing_has_abort && !existing_sealed_close;
             if existing != collapse
-                && !(new_has_abort && !existing_has_abort)
+                && !abort_supersedes_pre_seal
                 && !anchor_only_upgrade
                 && !sealing_only_upgrade
             {
+                if new_has_abort && existing_sealed_close {
+                    Self::append_aft_resolution_record(
+                        state,
+                        &AftResolutionRecord {
+                            height: collapse.height,
+                            kind: AftResolutionKind::PostCloseAbortEvidence,
+                            evidence_hash: sha256(
+                                &codec::to_bytes_canonical(&collapse)
+                                    .map_err(TransactionError::Serialization)?,
+                            )
+                            .map_err(|e| TransactionError::Invalid(e.to_string()))
+                            .and_then(|digest| {
+                                digest.try_into().map_err(|_| {
+                                    TransactionError::Invalid(
+                                        "invalid resolution evidence hash length".into(),
+                                    )
+                                })
+                            })?,
+                            details:
+                                "abort-carrying collapse publication refused against a sealed close"
+                                    .into(),
+                        },
+                    )?;
+                    return Err(TransactionError::Invalid(
+                        "abort cannot supersede a sealed canonical collapse close; the attempt \
+                         was recorded in the resolution log (AFT-CB R3)"
+                            .into(),
+                    ));
+                }
                 return Err(TransactionError::Invalid(
                     "conflicting canonical collapse object already published for height".into(),
                 ));
@@ -214,6 +255,32 @@ impl GuardianRegistry {
         state.insert(
             &aft_canonical_collapse_object_key(collapse.height),
             &codec::to_bytes_canonical(&collapse).map_err(TransactionError::Serialization)?,
+        )?;
+        Ok(())
+    }
+
+    /// Appends one record to a height's append-only resolution log
+    /// (AFT-CB R3). The log is the ONLY landing place for post-close
+    /// evidence: no materializer deletes or rewrites a sealed close.
+    pub(super) fn append_aft_resolution_record(
+        state: &mut dyn StateAccess,
+        record: &AftResolutionRecord,
+    ) -> Result<(), TransactionError> {
+        let head = state
+            .get(&aft_resolution_log_head_key(record.height))?
+            .map(|bytes| {
+                codec::from_bytes_canonical::<u64>(&bytes).map_err(StateError::InvalidValue)
+            })
+            .transpose()
+            .map_err(TransactionError::State)?
+            .unwrap_or(0);
+        state.insert(
+            &aft_resolution_log_entry_key(record.height, head),
+            &codec::to_bytes_canonical(record).map_err(TransactionError::Serialization)?,
+        )?;
+        state.insert(
+            &aft_resolution_log_head_key(record.height),
+            &codec::to_bytes_canonical(&(head + 1)).map_err(TransactionError::Serialization)?,
         )?;
         Ok(())
     }
@@ -247,44 +314,55 @@ impl GuardianRegistry {
         state: &mut dyn StateAccess,
         abort: AsymptoteObserverCanonicalAbort,
     ) -> Result<(), TransactionError> {
-        state.delete(&guardian_registry_observer_canonical_close_key(
-            abort.epoch,
-            abort.height,
-            abort.view,
-        ))?;
+        // AFT-CB R3 (kills Q5): the abort record lands as evidence; it
+        // deletes nothing and rewrites nothing. A previously published
+        // observer close stays on disk — the contradiction PAIR is the
+        // forensic value, and read-side precedence (abort dominates) is
+        // the resolution, never destruction of a signed statement.
         state.insert(
             &guardian_registry_observer_canonical_abort_key(abort.epoch, abort.height, abort.view),
             &codec::to_bytes_canonical(&abort).map_err(TransactionError::Serialization)?,
         )?;
 
-        if let Some(mut collapse) = Self::load_canonical_collapse_object(state, abort.height)
+        // Post-close evidence: if the canonical collapse for this height
+        // already carries a matching sealed close, the abort CANNOT
+        // mutate it (the Q5 path did exactly that — kind/state/roots
+        // rewritten in place and continuity re-bound). It lands in the
+        // append-only resolution log instead: slashing-grade evidence
+        // plus a descendant fence over the contested slot.
+        if let Some(collapse) = Self::load_canonical_collapse_object(state, abort.height)
             .map_err(TransactionError::State)?
         {
-            if let Some(sealing) = collapse.sealing.as_mut() {
+            if let Some(sealing) = collapse.sealing.as_ref() {
                 if sealing.epoch == abort.epoch
                     && sealing.height == abort.height
                     && sealing.view == abort.view
+                    && sealing.kind == CanonicalCollapseKind::Close
                 {
-                    sealing.kind = CanonicalCollapseKind::Abort;
-                    sealing.finality_tier = FinalityTier::BaseFinal;
-                    sealing.collapse_state = CollapseState::Abort;
-                    sealing.transcripts_root = abort.transcripts_root;
-                    sealing.challenges_root = abort.challenges_root;
-                    sealing.resolution_hash =
-                        canonical_asymptote_observer_canonical_abort_hash(&abort)
-                            .map_err(TransactionError::Invalid)?;
-                    let previous = if collapse.height <= 1 {
-                        None
-                    } else {
-                        Self::load_canonical_collapse_object(state, collapse.height - 1)
-                            .map_err(TransactionError::State)?
-                    };
-                    bind_canonical_collapse_continuity(&mut collapse, previous.as_ref())
+                    let evidence_hash = canonical_asymptote_observer_canonical_abort_hash(&abort)
                         .map_err(TransactionError::Invalid)?;
-                    state.insert(
-                        &aft_canonical_collapse_object_key(collapse.height),
-                        &codec::to_bytes_canonical(&collapse)
-                            .map_err(TransactionError::Serialization)?,
+                    Self::append_aft_resolution_record(
+                        state,
+                        &AftResolutionRecord {
+                            height: abort.height,
+                            kind: AftResolutionKind::PostCloseAbortEvidence,
+                            evidence_hash,
+                            details: "observer canonical abort published against a sealed \
+                                      close; the close is immutable and the abort stands as \
+                                      slashing evidence"
+                                .into(),
+                        },
+                    )?;
+                    Self::append_aft_resolution_record(
+                        state,
+                        &AftResolutionRecord {
+                            height: abort.height,
+                            kind: AftResolutionKind::DescendantFence,
+                            evidence_hash,
+                            details: "descendants of the contested sealed close are fenced \
+                                      pending forward remedy"
+                                .into(),
+                        },
                     )?;
                 }
             }

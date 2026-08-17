@@ -1238,6 +1238,40 @@ pub struct AsymptoteObserverCanonicalAbort {
     pub challenge_cutoff_timestamp_ms: u64,
 }
 
+/// Kind of one append-only AFT resolution-log record (AFT-CB R3).
+///
+/// A sealed close is immutable: post-close evidence never deletes or
+/// rewrites it — it lands here instead, as slashing evidence, a
+/// forward-remedy statement, or a descendant fence.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum AftResolutionKind {
+    /// A signed abort statement arrived for an already-sealed close:
+    /// slashing-grade evidence against its signers, never a mutation.
+    #[default]
+    PostCloseAbortEvidence,
+    /// A forward remedy: the corrective action is a NEW record in a
+    /// later slot, never a rewrite of the sealed one.
+    ForwardRemedy,
+    /// A fence over descendants of contested post-close state, so
+    /// downstream consumers can refuse to extend it without any
+    /// history mutation.
+    DescendantFence,
+}
+
+/// One append-only AFT resolution-log record (AFT-CB R3).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, Default)]
+pub struct AftResolutionRecord {
+    /// Slot height the record resolves about.
+    pub height: u64,
+    /// What kind of resolution statement this record is.
+    pub kind: AftResolutionKind,
+    /// Canonical hash of the evidence object the record points at.
+    pub evidence_hash: [u8; 32],
+    /// Human-auditable summary of the resolution statement.
+    pub details: String,
+}
+
 /// Finality tier requested or returned by aft consensus and effect receipts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, Default)]
 #[serde(rename_all = "snake_case")]

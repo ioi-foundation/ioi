@@ -1082,10 +1082,17 @@ fn observer_canonical_abort_dominates_close_but_close_cannot_override_abort() {
         ))
         .unwrap();
     });
-    assert!(close_first_state
-        .get(&guardian_registry_observer_canonical_close_key(9, 22, 1))
-        .unwrap()
-        .is_none());
+    // AFT-CB R3 (Q5 killed): the abort no longer DELETES the close — both
+    // signed statements persist as the contradiction pair, and the abort
+    // dominates by precedence, not by destruction.
+    let persisted_close: AsymptoteObserverCanonicalClose = codec::from_bytes_canonical(
+        &close_first_state
+            .get(&guardian_registry_observer_canonical_close_key(9, 22, 1))
+            .unwrap()
+            .expect("close persists after abort (immutable statement)"),
+    )
+    .unwrap();
+    assert_eq!(persisted_close, close);
     let stored_abort: AsymptoteObserverCanonicalAbort = codec::from_bytes_canonical(
         &close_first_state
             .get(&guardian_registry_observer_canonical_abort_key(9, 22, 1))
@@ -1164,10 +1171,13 @@ fn reporting_observer_challenge_materializes_challenge_commitment_and_abort_from
         .unwrap();
     });
 
+    // AFT-CB R3 (Q5 killed): the challenge-derived abort no longer deletes
+    // the published close; both statements persist and the abort dominates
+    // by precedence.
     assert!(state
         .get(&guardian_registry_observer_canonical_close_key(11, 24, 2))
         .unwrap()
-        .is_none());
+        .is_some());
     let stored_commitment: AsymptoteObserverChallengeCommitment = codec::from_bytes_canonical(
         &state
             .get(&guardian_registry_observer_challenge_commitment_key(
@@ -1227,4 +1237,110 @@ fn canonical_observer_policy_requires_non_zero_challenge_window() {
     assert!(err
         .to_string()
         .contains("canonical observer sealing mode requires a non-zero challenge window"));
+}
+
+#[test]
+fn observer_abort_after_sealed_close_logs_evidence_without_mutation() {
+    // AFT-CB R3 gate (Q5 killed): replaying the old abort-after-close
+    // sequence yields resolution-log entries, never object mutation —
+    // the sealed collapse is byte-identical and no close key vanishes.
+    let registry = production_registry();
+    let mut sealed = CanonicalCollapseObject {
+        height: 63,
+        previous_canonical_collapse_commitment_hash: [0u8; 32],
+        continuity_accumulator_hash: [0u8; 32],
+        continuity_recursive_proof: Default::default(),
+        ordering: ioi_types::app::CanonicalOrderingCollapse {
+            height: 63,
+            kind: CanonicalCollapseKind::Close,
+            ..Default::default()
+        },
+        sealing: Some(ioi_types::app::CanonicalSealingCollapse {
+            epoch: 6,
+            height: 63,
+            view: 1,
+            kind: CanonicalCollapseKind::Close,
+            ..Default::default()
+        }),
+        transactions_root_hash: [170u8; 32],
+        resulting_state_root_hash: [171u8; 32],
+        archived_recovered_history_checkpoint_hash: [0u8; 32],
+        archived_recovered_history_profile_activation_hash: [0u8; 32],
+        archived_recovered_history_retention_receipt_hash: [0u8; 32],
+    };
+    ioi_types::app::bind_canonical_collapse_continuity(&mut sealed, None).unwrap();
+    let sealed_bytes = codec::to_bytes_canonical(&sealed).unwrap();
+
+    let abort = AsymptoteObserverCanonicalAbort {
+        epoch: 6,
+        height: 63,
+        view: 1,
+        assignments_hash: [172u8; 32],
+        transcripts_root: [173u8; 32],
+        challenges_root: [174u8; 32],
+        transcript_count: 1,
+        challenge_count: 1,
+        challenge_cutoff_timestamp_ms: 1_790_000_000,
+    };
+
+    let mut state = MockState::default();
+    state
+        .insert(&aft_canonical_collapse_object_key(63), &sealed_bytes)
+        .unwrap();
+    with_ctx(|ctx| {
+        run_async(registry.handle_service_call(
+            &mut state,
+            "publish_asymptote_observer_canonical_abort@v1",
+            &codec::to_bytes_canonical(&abort).unwrap(),
+            ctx,
+        ))
+        .unwrap();
+    });
+
+    // The sealed collapse is untouched: no kind/state/root rewrite, no
+    // continuity re-bind.
+    assert_eq!(
+        state
+            .get(&aft_canonical_collapse_object_key(63))
+            .unwrap()
+            .expect("collapse persists"),
+        sealed_bytes,
+        "sealed collapse must be byte-identical after the observer abort"
+    );
+
+    // The abort record itself persists as evidence.
+    assert!(state
+        .get(&guardian_registry_observer_canonical_abort_key(6, 63, 1))
+        .unwrap()
+        .is_some());
+
+    // Post-close evidence + descendant fence in the append-only log.
+    let head: u64 = codec::from_bytes_canonical(
+        &state
+            .get(&aft_resolution_log_head_key(63))
+            .unwrap()
+            .expect("resolution log head exists"),
+    )
+    .unwrap();
+    assert_eq!(head, 2, "evidence + fence appended");
+    let first: AftResolutionRecord = codec::from_bytes_canonical(
+        &state
+            .get(&aft_resolution_log_entry_key(63, 0))
+            .unwrap()
+            .expect("evidence record"),
+    )
+    .unwrap();
+    assert_eq!(first.kind, AftResolutionKind::PostCloseAbortEvidence);
+    let second: AftResolutionRecord = codec::from_bytes_canonical(
+        &state
+            .get(&aft_resolution_log_entry_key(63, 1))
+            .unwrap()
+            .expect("fence record"),
+    )
+    .unwrap();
+    assert_eq!(second.kind, AftResolutionKind::DescendantFence);
+    assert_eq!(
+        first.evidence_hash,
+        canonical_asymptote_observer_canonical_abort_hash(&abort).unwrap()
+    );
 }
