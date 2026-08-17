@@ -104,7 +104,18 @@ table=$(awk '/^## Lower-bound pairing table/,0' "$DOC")
 rows=$(grep -cE '^\| T[0-9]' <<<"$table" || true)
 [[ "$rows" -ge 13 ]] || err "pairing table: expected >=13 positive-theorem rows, found $rows"
 while IFS= read -r row; do
-  if ! grep -qE 'cited|L-OPEN' <<<"$row"; then
+  if grep -q 'L-OPEN' <<<"$row"; then
+    continue
+  fi
+  # A row that is not L-OPEN claims a citation: the WORD "cited" is not
+  # a citation — the lower-bound column (second cell) must actually name
+  # a bound (L1/L2/L9/L-E/L-H/L-LR/L-M class token). Found by the R10
+  # drill: swapping L-OPEN for the bare word "cited" passed this gate.
+  bound_col=$(awk -F'|' '{print $3}' <<<"$row")
+  if ! grep -qE 'L-?[0-9]+|L-[A-Z]+' <<<"$bound_col"; then
+    err "pairing row claims a citation but its lower-bound column names no bound: ${row:0:60}"
+  fi
+  if ! grep -q 'cited' <<<"$row"; then
     err "pairing row neither cites a bound nor records L-OPEN: ${row:0:60}"
   fi
 done < <(grep -E '^\| T[0-9]' <<<"$table")
