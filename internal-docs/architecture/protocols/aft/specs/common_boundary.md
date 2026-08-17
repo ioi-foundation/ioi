@@ -564,7 +564,9 @@ Re-genesis is the last exit: only on loss of ring AND standby.
    R2-F8: without a tick binding, the admissibility clock had nothing to
    bind to).
 2. **Admissibility is objective; continuity outranks an UNHARDENED
-   root; a hardened root is final**: a root record is admissible only if
+   root; a hardened root's finality is conditional and contest fails
+   closed (see the round-4 correction below)**: a root record is
+   admissible only if
    the prior lineage shows ≥ `T_root` seal-free ticks AT ITS EMBEDDED
    `tick_root` (verifiable by anyone from the prior lineage's chain, A9
    — the seal-seeded chain is single-valued because only seals fold into
@@ -575,12 +577,15 @@ Re-genesis is the last exit: only on loss of ring AND standby.
    window**: for `W_root` ticks of the NEW lineage's chain after the
    root, the root is PROVISIONAL — a prior-lineage seal surfacing in
    that window orphans it, and the root lineage releases NO irreversible
-   effect before hardening. At `W_root` the root HARDENS: it is final,
-   and a prior-lineage seal surfacing later — necessarily a
-   withheld-assembly artifact, since the lineage was `T_root`-stale at
-   `tick_root` and stayed seal-free through the window — is VOID against
-   the hardened root: it orphans nothing, releases nothing, and stands
-   only as evidence. (This window exists because the round-3 audit's
+   effect before hardening. At `W_root` the root HARDENS: uncontested,
+   its effects flow normally from then on; contested — a prior-lineage
+   seal or a rival root surfacing later — release on the contested
+   slots FAILS CLOSED and no claimant is ranked, because finality
+   across the seam is conditional on the P2.7 observation story (the
+   correction below; the earlier text asserted the late seal
+   "necessarily a withheld-assembly artifact" and VOID, which round 4
+   refuted — an over-long partition produces the same surface with all
+   parties honest). (This window exists because the round-3 audit's
    R3-F4 showed unconditional retroactive orphaning was a zero-cost
    kill switch: one withholder completing a stalled slot's seal late
    could void a root that had already released effects. Bounded
