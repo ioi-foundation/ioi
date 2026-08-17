@@ -315,6 +315,16 @@ jobs:
       - name: Formal census (no silent orphan modules)
         run: bash .github/scripts/run_aft_formal_checks.sh --census-only
 
+      # Claim discipline is part of the same floor: no unconditional or
+      # rounded tolerance claim in the AFT corpus, and the whitepaper's
+      # A1–A9 assumption ledger + interim conditional claim stay intact.
+      # Both cheap; run on every build.
+      - name: AFT claim discipline (no unconditional / rounded tolerance claims)
+        run: bash .github/scripts/check_aft_claim_discipline.sh
+
+      - name: Whitepaper assumption ledger + interim claim intact
+        run: bash .github/scripts/check_aft_whitepaper_claims.sh
+
       - name: Determine whether formal sources changed
         id: formal_diff
         run: |
