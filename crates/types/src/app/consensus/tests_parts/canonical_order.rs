@@ -120,7 +120,7 @@ fn committed_surface_canonical_order_certificate_verifies_for_canonical_block() 
         canonical_transaction_root_from_hashes(&tx_hashes).expect("transactions root");
 
     let certificate =
-        build_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
+        build_single_member_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
             .expect("build committed-surface certificate");
     let bulletin_close = build_canonical_bulletin_close(
         &certificate.bulletin_commitment,
@@ -363,13 +363,19 @@ fn canonical_collapse_commitment_stays_stable_across_materialized_ordering_bundl
 
 
 #[test]
-fn r1_baseline_censorship_is_invisible_to_the_pre_cut_builder() {
-    // AFT-CB R1 BASELINE (pre-cut evidence, to be replaced by the leg):
-    // two transactions are admitted — the boundary an honest closer would
-    // have sealed — but the block includes only one. The pre-cut builder
-    // derives the bulletin FROM the block's own transactions, so the
-    // censored tx cannot even be EXPRESSED, the certificate builds, and
-    // verification is green. Censorship is structurally invisible: Q1.
+fn r1_censorship_gate_unjustified_omission_refused_and_justified_omission_verifies() {
+    // AFT-CB R1 — the censorship gate (this test REPLACED the recorded
+    // baseline `r1_baseline_censorship_is_invisible_to_the_pre_cut_builder`,
+    // which proved the pre-cut builder verified a censoring block GREEN
+    // because the boundary was inexpressible; see the leg's evidence
+    // commit). Now the boundary is closed FIRST and consumed:
+    //  (a) a block omitting a boundary member without justification is
+    //      REFUSED at build;
+    //  (b) the same omission WITH a typed justification builds and
+    //      verifies;
+    //  (c) stripping the justification from the verified certificate
+    //      makes verification RED (the proof binding catches it), and a
+    //      re-bound certificate without it fails the root equation.
     let base_header = BlockHeader {
         height: 12,
         view: 1,
@@ -412,9 +418,7 @@ fn r1_baseline_censorship_is_invisible_to_the_pre_cut_builder() {
         },
         signature_proof: SignatureProof::default(),
     }));
-    // The censored transaction: admitted, then silently dropped. It
-    // appears NOWHERE below — that absence is the defect.
-    let _censored_tx = ChainTransaction::System(Box::new(SystemTransaction {
+    let censored_tx = ChainTransaction::System(Box::new(SystemTransaction {
         header: SignHeader {
             account_id: AccountId([13u8; 32]),
             nonce: 1,
@@ -430,6 +434,15 @@ fn r1_baseline_censorship_is_invisible_to_the_pre_cut_builder() {
         signature_proof: SignatureProof::default(),
     }));
 
+    // The boundary closes over BOTH admitted transactions.
+    let boundary = close_reference_single_member_boundary(
+        &base_header,
+        &[included_tx.clone(), censored_tx.clone()],
+    )
+    .expect("close boundary");
+    let censored_hash = censored_tx.hash().expect("censored tx hash");
+
+    // The block orders only the included tx.
     let ordered_transactions = canonicalize_transactions_for_header(&base_header, &[included_tx])
         .expect("canonicalized transactions");
     let tx_hashes: Vec<[u8; 32]> = ordered_transactions
@@ -440,9 +453,42 @@ fn r1_baseline_censorship_is_invisible_to_the_pre_cut_builder() {
     header.transactions_root =
         canonical_transaction_root_from_hashes(&tx_hashes).expect("transactions root");
 
-    let certificate =
-        build_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
-            .expect("BASELINE: the censoring block builds its certificate");
+    // (a) No justification: the censoring block is REFUSED.
+    let err = build_committed_surface_canonical_order_certificate(
+        &header,
+        &ordered_transactions,
+        &boundary,
+        &[],
+    )
+    .expect_err("unjustified omission must refuse");
+    assert!(
+        err.contains("omitted from the block without justification"),
+        "unexpected error: {err}"
+    );
+
+    // (b) With a typed justification the block builds and verifies.
+    let justification = BoundaryOmissionJustification {
+        tx_hash: censored_hash,
+        reason: BoundaryOmissionReason::Expired,
+        details: "validity window elapsed before the slot".into(),
+    };
+    let certificate = build_committed_surface_canonical_order_certificate(
+        &header,
+        &ordered_transactions,
+        &boundary,
+        std::slice::from_ref(&justification),
+    )
+    .expect("justified omission builds");
     verify_canonical_order_certificate(&header, &certificate, None, None, None)
-        .expect("BASELINE: the censoring block verifies green — censorship invisible");
+        .expect("justified omission verifies");
+
+    // (c) Stripping the justification makes verification RED.
+    let mut stripped = certificate.clone();
+    stripped.boundary_omission_justifications.clear();
+    let err = verify_canonical_order_certificate(&header, &stripped, None, None, None)
+        .expect_err("stripped justification must fail verification");
+    assert!(
+        err.contains("justification root"),
+        "the proof binding catches the strip, got: {err}"
+    );
 }

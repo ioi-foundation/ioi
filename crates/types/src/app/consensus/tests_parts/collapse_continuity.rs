@@ -117,7 +117,7 @@ fn derive_canonical_collapse_object_binds_order_close_and_sealed_close() {
     header.transactions_root =
         canonical_transaction_root_from_hashes(&tx_hashes).expect("transactions root");
     let certificate =
-        build_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
+        build_single_member_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
             .expect("build committed-surface certificate");
     header.canonical_order_certificate = Some(certificate.clone());
     header.state_root = StateRoot(certificate.resulting_state_root_hash.to_vec());

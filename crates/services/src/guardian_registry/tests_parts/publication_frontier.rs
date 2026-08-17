@@ -192,7 +192,7 @@ fn publishing_aft_canonical_order_artifact_bundle_with_missing_entry_is_rejected
     let mut header = base_header;
     header.transactions_root = canonical_transaction_root_from_hashes(&tx_hashes).unwrap();
     let certificate =
-        build_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
+        build_single_member_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
             .unwrap();
     let mut bundle = canonical_order_publication_bundle_with_retrievability(
         &certificate,
@@ -285,7 +285,7 @@ fn publishing_aft_canonical_order_artifact_bundle_with_wrong_height_is_rejected(
     let mut header = base_header;
     header.transactions_root = canonical_transaction_root_from_hashes(&tx_hashes).unwrap();
     let certificate =
-        build_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
+        build_single_member_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
             .unwrap();
     let mut bundle = canonical_order_publication_bundle_with_retrievability(
         &certificate,
@@ -378,7 +378,7 @@ fn publishing_aft_canonical_order_artifact_bundle_after_abort_is_rejected() {
     let mut header = base_header;
     header.transactions_root = canonical_transaction_root_from_hashes(&tx_hashes).unwrap();
     let certificate =
-        build_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
+        build_single_member_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
             .unwrap();
     let bundle = canonical_order_publication_bundle_with_retrievability(
         &certificate,
@@ -485,7 +485,7 @@ fn publishing_contradictory_shard_manifest_challenge_materializes_abort() {
     let mut header = base_header;
     header.transactions_root = canonical_transaction_root_from_hashes(&tx_hashes).unwrap();
     let certificate =
-        build_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
+        build_single_member_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
             .unwrap();
     let bundle = canonical_order_publication_bundle_with_retrievability(
         &certificate,
@@ -1375,7 +1375,7 @@ fn publishing_contradictory_custody_receipt_challenge_materializes_abort() {
     let mut header = base_header;
     header.transactions_root = canonical_transaction_root_from_hashes(&tx_hashes).unwrap();
     let certificate =
-        build_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
+        build_single_member_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
             .unwrap();
     let bundle = canonical_order_publication_bundle_with_retrievability(
         &certificate,

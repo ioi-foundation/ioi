@@ -39,7 +39,7 @@ use ioi_types::app::{
     archived_recovered_restart_page_range_for_profile, build_archived_recovered_history_checkpoint,
     build_archived_recovered_history_profile, build_archived_recovered_history_profile_activation,
     build_archived_recovered_history_retention_receipt, build_archived_recovered_history_segment,
-    build_archived_recovered_restart_page, build_committed_surface_canonical_order_certificate,
+    build_archived_recovered_restart_page, build_single_member_committed_surface_canonical_order_certificate,
     canonical_archived_recovered_history_checkpoint_hash,
     canonical_archived_recovered_history_profile_activation_hash,
     canonical_archived_recovered_history_profile_hash,
@@ -595,7 +595,7 @@ fn sample_recovered_publication_fixture_3_of_7_with_parent(
     header.transactions_root =
         canonical_transaction_root_from_hashes(&tx_hashes).expect("transactions root");
     let certificate =
-        build_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
+        build_single_member_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
             .expect("committed-surface certificate");
     header.canonical_order_certificate = Some(certificate.clone());
     let execution_object = derive_canonical_order_execution_object(&header, &ordered_transactions)

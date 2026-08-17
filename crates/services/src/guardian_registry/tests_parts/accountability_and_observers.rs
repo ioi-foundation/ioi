@@ -132,7 +132,7 @@ fn publishing_aft_canonical_order_artifact_bundle_with_omission_proof_materializ
     let mut header = base_header;
     header.transactions_root = canonical_transaction_root_from_hashes(&tx_hashes).unwrap();
     let mut certificate =
-        build_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
+        build_single_member_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
             .unwrap();
     let offender = AccountId([44u8; 32]);
     let omission = OmissionProof {
@@ -336,7 +336,7 @@ fn reporting_aft_omission_after_positive_ordering_artifacts_materializes_abort_d
     let mut header = base_header;
     header.transactions_root = canonical_transaction_root_from_hashes(&tx_hashes).unwrap();
     let certificate =
-        build_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
+        build_single_member_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
             .unwrap();
     let bundle = canonical_order_publication_bundle_with_retrievability(
         &certificate,

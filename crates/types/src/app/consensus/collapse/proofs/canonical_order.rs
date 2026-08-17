@@ -182,6 +182,10 @@ pub fn build_reference_canonical_order_certificate(
         header.timestamp.saturating_mul(1000),
         transactions,
     )?;
+    // The reference HashBindingV1 lane closes its boundary over its own
+    // surface (n = 1, no omissions) — the R1 gate proper lives on the
+    // committed-surface lane.
+    let boundary = close_reference_single_member_boundary(header, transactions)?;
     let ordered_transactions_root_hash =
         to_root_hash(&header.transactions_root).map_err(|e| e.to_string())?;
     let resulting_state_root_hash =
@@ -203,6 +207,8 @@ pub fn build_reference_canonical_order_certificate(
         resulting_state_root_hash,
         proof: CanonicalOrderProof::default(),
         omission_proofs: Vec::new(),
+        boundary_tx_hashes: boundary.tx_hashes,
+        boundary_omission_justifications: Vec::new(),
     };
     let public_inputs = canonical_order_public_inputs(header, &certificate)?;
     let public_inputs_hash = canonical_order_public_inputs_hash(&public_inputs)?;
@@ -214,20 +220,108 @@ pub fn build_reference_canonical_order_certificate(
     Ok(certificate)
 }
 
-/// Builds a succinct committed-surface canonical-order certificate for a finalized block.
+/// Closes the reference-single-member boundary for a slot (AFT-CB R1):
+/// the producing node (n = 1, HONESTLY LABELED) closes its admitted
+/// surface BEFORE the block consumes it. R5's ring membership plane
+/// replaces this closer with the UBC-closed boundary; the seam — block
+/// production consuming a previously closed boundary — is what this leg
+/// lands.
+pub fn close_reference_single_member_boundary(
+    header: &BlockHeader,
+    admitted_transactions: &[ChainTransaction],
+) -> Result<ClosedBoundary, String> {
+    let mut tx_hashes = Vec::with_capacity(admitted_transactions.len());
+    for tx in admitted_transactions {
+        tx_hashes.push(tx.hash().map_err(|e| e.to_string())?);
+    }
+    tx_hashes.sort_unstable();
+    ensure_sorted_unique_tx_hashes(&tx_hashes)?;
+    Ok(ClosedBoundary {
+        height: header.height,
+        cutoff_timestamp_ms: header.timestamp.saturating_mul(1000),
+        tx_hashes,
+    })
+}
+
+/// Returns the canonical commitment root over a boundary-omission
+/// justification set (AFT-CB R1).
+pub fn canonical_boundary_omission_justification_root(
+    justifications: &[BoundaryOmissionJustification],
+) -> Result<[u8; 32], String> {
+    hash_consensus_bytes(&justifications)
+}
+
+/// Builds a succinct committed-surface canonical-order certificate for a
+/// finalized block, CONSUMING a previously closed boundary (AFT-CB R1).
+///
+/// The bulletin commitment is built FROM THE BOUNDARY — never from the
+/// block's own transactions (the deleted Q1 path). The block must be a
+/// subset of the boundary, and every boundary member absent from the
+/// block must carry a typed omission justification; anything else is a
+/// refusal, so censorship is observable by construction.
 pub fn build_committed_surface_canonical_order_certificate(
     header: &BlockHeader,
     transactions: &[ChainTransaction],
+    boundary: &ClosedBoundary,
+    boundary_omission_justifications: &[BoundaryOmissionJustification],
 ) -> Result<CanonicalOrderCertificate, String> {
-    let entries = build_bulletin_surface_entries(header.height, transactions)?;
-    let tx_hashes: Vec<[u8; 32]> = entries.iter().map(|entry| entry.tx_hash).collect();
+    if boundary.height != header.height {
+        return Err("closed boundary height does not match block height".into());
+    }
+    ensure_sorted_unique_tx_hashes(&boundary.tx_hashes)?;
+    let boundary_set: std::collections::BTreeSet<[u8; 32]> =
+        boundary.tx_hashes.iter().copied().collect();
+
+    let mut block_tx_hashes = Vec::with_capacity(transactions.len());
+    for tx in transactions {
+        let tx_hash = tx.hash().map_err(|e| e.to_string())?;
+        if !boundary_set.contains(&tx_hash) {
+            return Err("block transaction outside the closed boundary".into());
+        }
+        block_tx_hashes.push(tx_hash);
+    }
+    let block_set: std::collections::BTreeSet<[u8; 32]> =
+        block_tx_hashes.iter().copied().collect();
+
+    let mut justified = std::collections::BTreeSet::new();
+    for justification in boundary_omission_justifications {
+        if !boundary_set.contains(&justification.tx_hash) {
+            return Err(
+                "boundary-omission justification names a hash outside the closed boundary".into(),
+            );
+        }
+        if block_set.contains(&justification.tx_hash) {
+            return Err(
+                "boundary-omission justification names a transaction the block includes".into(),
+            );
+        }
+        if !justified.insert(justification.tx_hash) {
+            return Err("duplicate boundary-omission justification".into());
+        }
+    }
+
+
+    for member in &boundary.tx_hashes {
+        if !block_set.contains(member) && !justified.contains(member) {
+            return Err(
+                "boundary member omitted from the block without justification (AFT-CB R1)".into(),
+            );
+        }
+    }
+
     let bulletin_commitment = build_bulletin_commitment_from_hashes(
-        header.height,
-        header.timestamp.saturating_mul(1000),
-        &tx_hashes,
+        boundary.height,
+        boundary.cutoff_timestamp_ms,
+        &boundary.tx_hashes,
     )?;
     let randomness_beacon = derive_reference_ordering_randomness_beacon(header)?;
-    let expected_order = canonical_order_tx_hashes(&randomness_beacon, &tx_hashes)?;
+    let included: Vec<[u8; 32]> = boundary
+        .tx_hashes
+        .iter()
+        .copied()
+        .filter(|tx_hash| !justified.contains(tx_hash))
+        .collect();
+    let expected_order = canonical_order_tx_hashes(&randomness_beacon, &included)?;
     let expected_transactions_root = canonical_transaction_root_from_hashes(&expected_order)?;
     if header.transactions_root != expected_transactions_root {
         return Err("block transactions do not match the committed canonical order".into());
@@ -248,6 +342,9 @@ pub fn build_committed_surface_canonical_order_certificate(
             &bulletin_availability_certificate,
         )?,
         omission_commitment_root: canonical_omission_commitment_root(&omission_proofs)?,
+        boundary_omission_justification_root: canonical_boundary_omission_justification_root(
+            boundary_omission_justifications,
+        )?,
     };
 
     let mut certificate = CanonicalOrderCertificate {
@@ -259,6 +356,8 @@ pub fn build_committed_surface_canonical_order_certificate(
         resulting_state_root_hash,
         proof: CanonicalOrderProof::default(),
         omission_proofs,
+        boundary_tx_hashes: boundary.tx_hashes.clone(),
+        boundary_omission_justifications: boundary_omission_justifications.to_vec(),
     };
     let public_inputs = canonical_order_public_inputs(header, &certificate)?;
     let public_inputs_hash = canonical_order_public_inputs_hash(&public_inputs)?;
@@ -268,6 +367,20 @@ pub fn build_committed_surface_canonical_order_certificate(
         proof_bytes: codec::to_bytes_canonical(&proof).map_err(|e| e.to_string())?,
     };
     Ok(certificate)
+}
+
+/// Builds the committed-surface certificate under the reference-single-
+/// member provider (AFT-CB R1, HONESTLY LABELED n = 1): the producing
+/// node closes its boundary over exactly the transactions it commits,
+/// with no omissions. The boundary is closed FIRST and the builder
+/// verifies against it — R5's ring plane replaces the closer, not the
+/// seam.
+pub fn build_single_member_committed_surface_canonical_order_certificate(
+    header: &BlockHeader,
+    transactions: &[ChainTransaction],
+) -> Result<CanonicalOrderCertificate, String> {
+    let boundary = close_reference_single_member_boundary(header, transactions)?;
+    build_committed_surface_canonical_order_certificate(header, transactions, &boundary, &[])
 }
 
 /// Verifies a canonical order certificate against a block header and optional published bulletin.
@@ -362,6 +475,73 @@ pub fn verify_canonical_order_certificate(
             if omission_commitment_root != proof.omission_commitment_root {
                 return Err(
                     "committed-surface canonical order proof does not match the omission commitment root"
+                        .into(),
+                );
+            }
+            // AFT-CB R1 — the censorship gate. The certificate carries
+            // its closed boundary; verification is self-contained:
+            // (1) the boundary rebuilds the bulletin commitment, so the
+            //     carried set IS the committed one;
+            // (2) every justification names a boundary member the block
+            //     does not include, exactly once, and the set is bound
+            //     into the proof (stripping one breaks the binding);
+            // (3) the included set is boundary MINUS justified, and its
+            //     canonical order must reproduce the header's
+            //     transactions root — an unjustified omission changes
+            //     the included set and the root equation fails.
+            // An EMPTY boundary is legitimate (an empty slot); a legacy
+            // certificate that omitted its boundary while committing a
+            // non-empty bulletin fails the rebuild-equality just below —
+            // the commitment equation, not an emptiness check, is the
+            // gate.
+            ensure_sorted_unique_tx_hashes(&certificate.boundary_tx_hashes)?;
+            let rebuilt_commitment = build_bulletin_commitment_from_hashes(
+                certificate.height,
+                certificate.bulletin_commitment.cutoff_timestamp_ms,
+                &certificate.boundary_tx_hashes,
+            )?;
+            if rebuilt_commitment != certificate.bulletin_commitment {
+                return Err(
+                    "carried boundary does not rebuild the certificate's bulletin commitment"
+                        .into(),
+                );
+            }
+            let justification_root = canonical_boundary_omission_justification_root(
+                &certificate.boundary_omission_justifications,
+            )?;
+            if justification_root != proof.boundary_omission_justification_root {
+                return Err(
+                    "committed-surface canonical order proof does not match the boundary-omission justification root"
+                        .into(),
+                );
+            }
+            let boundary_set: std::collections::BTreeSet<[u8; 32]> =
+                certificate.boundary_tx_hashes.iter().copied().collect();
+            let mut justified = std::collections::BTreeSet::new();
+            for justification in &certificate.boundary_omission_justifications {
+                if !boundary_set.contains(&justification.tx_hash) {
+                    return Err(
+                        "boundary-omission justification names a hash outside the closed boundary"
+                            .into(),
+                    );
+                }
+                if !justified.insert(justification.tx_hash) {
+                    return Err("duplicate boundary-omission justification".into());
+                }
+            }
+            let included: Vec<[u8; 32]> = certificate
+                .boundary_tx_hashes
+                .iter()
+                .copied()
+                .filter(|tx_hash| !justified.contains(tx_hash))
+                .collect();
+            let expected_order =
+                canonical_order_tx_hashes(&certificate.randomness_beacon, &included)?;
+            let expected_root = canonical_transaction_root_from_hashes(&expected_order)?;
+            let expected_root_hash = to_root_hash(&expected_root).map_err(|e| e.to_string())?;
+            if expected_root_hash != certificate.ordered_transactions_root_hash {
+                return Err(
+                    "boundary member omitted from the block without justification (AFT-CB R1)"
                         .into(),
                 );
             }

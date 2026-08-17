@@ -662,7 +662,7 @@ fn publishing_aft_canonical_order_artifact_bundle_persists_registry_state() {
     let mut header = base_header;
     header.transactions_root = canonical_transaction_root_from_hashes(&tx_hashes).unwrap();
     let certificate =
-        build_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
+        build_single_member_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
             .unwrap();
     let bundle = canonical_order_publication_bundle_with_retrievability(
         &certificate,
@@ -845,7 +845,7 @@ fn extracting_published_bulletin_surface_returns_canonical_entries() {
     header.transactions_root = canonical_transaction_root_from_hashes(&tx_hashes).unwrap();
 
     let certificate =
-        build_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
+        build_single_member_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
             .unwrap();
     let entries = build_bulletin_surface_entries(header.height, &ordered_transactions).unwrap();
     let bundle =
@@ -945,7 +945,7 @@ fn extracting_published_bulletin_surface_requires_positive_reconstruction_certif
     header.transactions_root = canonical_transaction_root_from_hashes(&tx_hashes).unwrap();
 
     let certificate =
-        build_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
+        build_single_member_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
             .unwrap();
     let entries = build_bulletin_surface_entries(header.height, &ordered_transactions).unwrap();
     let bundle =
@@ -1048,7 +1048,7 @@ fn publishing_aft_canonical_order_artifact_bundle_persists_extractable_close_sur
     let mut header = base_header;
     header.transactions_root = canonical_transaction_root_from_hashes(&tx_hashes).unwrap();
     let certificate =
-        build_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
+        build_single_member_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
             .unwrap();
     let bundle = canonical_order_publication_bundle_with_retrievability(
         &certificate,
@@ -1114,6 +1114,8 @@ fn publishing_aft_order_certificate_legacy_method_is_rejected() {
             proof_bytes: vec![77u8; 32],
         },
         omission_proofs: Vec::new(),
+        boundary_tx_hashes: Vec::new(),
+        boundary_omission_justifications: Vec::new(),
     };
 
     let mut state = MockState::default();
@@ -1246,7 +1248,7 @@ fn publishing_aft_canonical_collapse_object_persists_registry_state() {
     let mut header = base_header;
     header.transactions_root = canonical_transaction_root_from_hashes(&tx_hashes).unwrap();
     header.canonical_order_certificate = Some(
-        build_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
+        build_single_member_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
             .unwrap(),
     );
     let mut previous = CanonicalCollapseObject {

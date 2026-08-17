@@ -632,7 +632,7 @@ async fn publish_experimental_locally_held_recovery_share_materials_enqueues_pub
         recover_recoverable_slot_payload_v3_from_share_materials(&published_materials[..3])
             .expect("payload should reconstruct from three published parity-family share reveals");
     let expected_certificate =
-        build_committed_surface_canonical_order_certificate(&block.header, &block.transactions)
+        build_single_member_committed_surface_canonical_order_certificate(&block.header, &block.transactions)
             .expect("canonical order certificate");
     let expected_payload = build_recoverable_slot_payload_v3(
         &block.header,

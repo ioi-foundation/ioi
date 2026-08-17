@@ -25,7 +25,7 @@ use ioi_types::app::{
     build_archived_recovered_restart_page, build_bulletin_custody_receipt,
     build_bulletin_retrievability_profile, build_bulletin_shard_manifest,
     build_bulletin_surface_entries,
-    build_committed_surface_canonical_order_certificate,
+    build_single_member_committed_surface_canonical_order_certificate,
     canonical_archived_recovered_history_checkpoint_hash,
     canonical_archived_recovered_history_profile_hash,
     canonical_archived_recovered_history_retention_receipt_hash,
@@ -288,7 +288,7 @@ fn sample_canonical_order_publication_bundle_with_retrievability(
     let mut header = base_header;
     header.transactions_root = canonical_transaction_root_from_hashes(&tx_hashes).unwrap();
     let certificate =
-        build_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
+        build_single_member_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
             .unwrap();
     canonical_order_publication_bundle_with_retrievability(
         &certificate,
@@ -639,7 +639,7 @@ fn sample_recovered_publication_bundle_fixture_with_scheme_and_optional_omission
     header.transactions_root =
         canonical_transaction_root_from_hashes(&tx_hashes).expect("transactions root");
     let mut certificate =
-        build_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
+        build_single_member_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
             .expect("build committed-surface certificate");
     if let Some((offender_account_id, tx_hash)) = omission {
         certificate.omission_proofs = vec![OmissionProof {
