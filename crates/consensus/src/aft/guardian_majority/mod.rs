@@ -276,7 +276,12 @@ struct SharedContinuityVerifier(Arc<dyn CanonicalCollapseContinuityVerifier>);
 
 impl Default for SharedContinuityVerifier {
     fn default() -> Self {
-        Self(Arc::new(SuccinctDriver::default()))
+        // The governed pin, not a mock (AFT-CB R4c): succinct-labeled
+        // proofs verify only through the native SP1 backend against the
+        // pinned vkey, and refuse in builds without that backend.
+        Self(Arc::new(SuccinctDriver::new(
+            zk_driver_succinct::config::SuccinctDriverConfig::pinned(),
+        )))
     }
 }
 

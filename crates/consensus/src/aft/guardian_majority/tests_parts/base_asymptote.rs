@@ -1,20 +1,20 @@
 #[test]
-fn verify_canonical_collapse_backend_accepts_and_rejects_simulated_succinct_proofs() {
-    // Backend ROUTING only: the engine routes SuccinctSp1V1 to the zk
-    // driver, whose simulated lane accepts its own private recipe bytes and
-    // rejects mutations. The combined runtime path still rejects every
-    // succinct-labeled object at the types layer (AFT-CB R4c).
+fn verify_canonical_collapse_backend_refuses_succinct_without_native_backend() {
+    // Backend ROUTING: the engine routes SuccinctSp1V1 to the zk driver,
+    // which since AFT-CB R4c has NO simulated lane — a build without the
+    // native SP1 backend refuses even bytes that satisfy the retired
+    // simulated recipe. (This test suite builds the driver non-native.)
     let engine = GuardianMajorityEngine::new(AftSafetyMode::Asymptote);
     let mut collapse = test_canonical_collapse_object(1, None, [0x21u8; 32], [0x22u8; 32]);
     bind_simulated_succinct_continuity(&mut collapse);
 
-    engine
+    let err = engine
         .verify_canonical_collapse_backend(&collapse)
-        .expect("simulated succinct backend proof should verify");
-
-    let mut mutated = collapse.clone();
-    mutated.continuity_recursive_proof.proof_bytes[0] ^= 0xFF;
-    assert!(engine.verify_canonical_collapse_backend(&mutated).is_err());
+        .expect_err("succinct-labeled proof must refuse without the native backend");
+    assert!(
+        err.to_string().contains("native SP1 backend"),
+        "refusal names the missing backend, got: {err}"
+    );
 }
 
 #[test]

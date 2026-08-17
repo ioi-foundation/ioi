@@ -173,11 +173,12 @@ fn align_block_parent_to_previous_result(
 }
 
 #[test]
-fn verify_canonical_collapse_backend_accepts_and_rejects_simulated_succinct_proofs() {
-    // Backend ROUTING only: the validator routes SuccinctSp1V1 to the zk
-    // driver, whose simulated lane accepts its own private recipe bytes and
-    // rejects mutations. The combined persisted path still rejects every
-    // succinct-labeled object at the types layer (AFT-CB R4c).
+fn verify_canonical_collapse_backend_refuses_succinct_without_native_backend() {
+    // Backend ROUTING: the validator routes SuccinctSp1V1 to the zk
+    // driver, which since AFT-CB R4c has NO simulated lane — a build
+    // without the native SP1 backend refuses even bytes that satisfy the
+    // retired simulated recipe. (This test suite builds the driver
+    // non-native.)
     let mut collapse = CanonicalCollapseObject {
         height: 1,
         previous_canonical_collapse_commitment_hash: [0u8; 32],
@@ -195,12 +196,12 @@ fn verify_canonical_collapse_backend_accepts_and_rejects_simulated_succinct_proo
         .expect("bind continuity");
     bind_simulated_succinct_continuity(&mut collapse);
 
-    verify_canonical_collapse_backend(&collapse)
-        .expect("simulated succinct backend proof should verify");
-
-    let mut mutated = collapse.clone();
-    mutated.continuity_recursive_proof.proof_bytes[0] ^= 0xFF;
-    assert!(verify_canonical_collapse_backend(&mutated).is_err());
+    let err = verify_canonical_collapse_backend(&collapse)
+        .expect_err("succinct-labeled proof must refuse without the native backend");
+    assert!(
+        err.to_string().contains("native SP1 backend"),
+        "refusal names the missing backend, got: {err}"
+    );
 }
 
 #[tokio::test]
@@ -573,10 +574,14 @@ async fn require_persisted_aft_canonical_collapse_rejects_succinct_labeled_previ
     let error = require_persisted_aft_canonical_collapse_for_block(&client, &block)
         .await
         .expect_err("succinct-labeled predecessor should fail");
+    let message = error.to_string();
     assert!(
-        error
-            .to_string()
-            .contains("reserved for a real succinct backend"),
+        // Either refusal layer is the honest outcome (AFT-CB R4c): the
+        // types-level reference runtime refuses succinct-labeled proofs
+        // it cannot own, and the driver refuses without the native SP1
+        // backend. Both are refusals, never a weaker mismatch error.
+        message.contains("reserved for a real succinct backend")
+            || message.contains("requires the native SP1 backend"),
         "unexpected error: {error}"
     );
 }

@@ -25,13 +25,6 @@ impl EthereumZkLightClient {
         }
     }
 
-    /// Create a new client with default (mock) configuration.
-    pub fn new_mock(chain_id: String) -> Self {
-        Self {
-            chain_id,
-            zk_driver: Arc::new(SuccinctDriver::new_mock()),
-        }
-    }
 }
 
 #[async_trait]

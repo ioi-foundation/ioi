@@ -23,12 +23,13 @@ use std::sync::Arc; // [FIX] Added async_trait import
 // Re-export canonical types from the shared crate
 pub use zk_types::{BeaconPublicInputs, StateInclusionPublicInputs};
 
-/// Deterministic proof bytes for the SIMULATED (non-native) continuity lane.
+/// Deterministic bytes matching the RETIRED simulated continuity recipe.
 ///
-/// This is the plugin's own simulation rule, private to the simulated driver:
-/// the kernel reference runtime no longer defines or accepts any mock
-/// succinct bytes (AFT-CB P0.3). Real `SuccinctSp1V1` bytes come only from
-/// the SP1 backend behind the `native` feature.
+/// AFT-CB R4c: no verification path accepts these bytes anymore — the
+/// succinct continuity lane verifies only through the native SP1 backend
+/// and REFUSES in builds without it. This function survives solely so
+/// adversarial tests can construct "bytes that would have satisfied the
+/// old mock" and prove every layer now rejects them.
 pub fn simulated_continuity_proof_bytes(
     public_inputs: &CanonicalCollapseContinuityPublicInputs,
 ) -> Result<Vec<u8>, ioi_api::error::CryptoError> {
@@ -101,21 +102,16 @@ pub struct SuccinctDriver {
 }
 
 impl SuccinctDriver {
+    /// The only constructor (AFT-CB R4c): a driver exists only over an
+    /// explicitly chosen configuration. The mock constructor and the
+    /// `Default` impl that routed to it are deleted, not gated — use
+    /// `SuccinctDriverConfig::pinned()` for the governed AFT pin.
     pub fn new(config: SuccinctDriverConfig) -> Self {
         Self {
             _config: Arc::new(config),
         }
     }
 
-    pub fn new_mock() -> Self {
-        Self::new(SuccinctDriverConfig::default())
-    }
-}
-
-impl Default for SuccinctDriver {
-    fn default() -> Self {
-        Self::new_mock()
-    }
 }
 
 impl CanonicalCollapseContinuityVerifier for SuccinctDriver {
@@ -130,11 +126,25 @@ impl CanonicalCollapseContinuityVerifier for SuccinctDriver {
                 "HashPcdV1 continuity proofs are verified by the reference runtime, not the succinct driver".into(),
             )),
             CanonicalCollapseContinuityProofSystem::SuccinctSp1V1 => {
-                let public_inputs_bytes = bincode::serialize(public_inputs)
-                    .map_err(|e| CoreError::Custom(format!("Serialization failed: {}", e)))?;
                 #[cfg(feature = "native")]
                 {
                     use crate::sp1_backend::Sp1ProofSystem;
+                    // The vkey is the governed trust anchor (AFT-CB R4c):
+                    // unpinned/unprovisioned is a refusal state, never a
+                    // fallback to any weaker check.
+                    if self
+                        ._config
+                        .canonical_collapse_continuity_vkey_bytes
+                        .is_empty()
+                    {
+                        return Err(CoreError::Custom(
+                            "SuccinctSp1V1 continuity vkey is unprovisioned; \
+                             verification refuses (AFT-CB R4c)"
+                                .into(),
+                        ));
+                    }
+                    let public_inputs_bytes = bincode::serialize(public_inputs)
+                        .map_err(|e| CoreError::Custom(format!("Serialization failed: {}", e)))?;
                     let valid = Sp1ProofSystem::verify(
                         &self._config.canonical_collapse_continuity_vkey_bytes,
                         &proof.to_vec(),
@@ -151,14 +161,18 @@ impl CanonicalCollapseContinuityVerifier for SuccinctDriver {
 
                 #[cfg(not(feature = "native"))]
                 {
-                    let valid = SimulatedGroth16::verify(&(), &proof.to_vec(), &public_inputs_bytes)
-                        .map_err(|e| CoreError::Crypto(e.to_string()))?;
-                    if !valid {
-                        return Err(CoreError::Custom(
-                            "mock canonical collapse continuity verification failed".into(),
-                        ));
-                    }
-                    Ok(())
+                    // AFT-CB R4c: the succinct path's only backend is the
+                    // real one. A build without the native SP1 backend
+                    // REFUSES succinct-labeled proofs — there is no
+                    // simulated fallback on this lane. (`proof` and
+                    // `public_inputs` are intentionally unread here.)
+                    let _ = proof;
+                    Err(CoreError::Custom(
+                        "SuccinctSp1V1 continuity verification requires the native \
+                         SP1 backend; this build carries none and refuses \
+                         (AFT-CB R4c — no simulated fallback)"
+                            .into(),
+                    ))
                 }
             }
         }

@@ -368,7 +368,7 @@ fn verify_canonical_collapse_backend(collapse: &CanonicalCollapseObject) -> Resu
                 proof.payload_hash,
                 proof.previous_recursive_proof_hash,
             );
-            SuccinctDriver::default()
+            SuccinctDriver::new(zk_driver_succinct::config::SuccinctDriverConfig::pinned())
                 .verify_canonical_collapse_continuity(
                     proof.proof_system,
                     &proof.proof_bytes,

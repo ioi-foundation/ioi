@@ -332,6 +332,12 @@ jobs:
       - name: Theorem Assumes discipline (common boundary)
         run: bash .github/scripts/check_aft_theorem_assumes.sh
 
+      # R4c's gate: the release tree contains no mock succinct-proof
+      # constructor, the succinct continuity lane has no simulated
+      # fallback, and the driver pin matches the governed vkey.json.
+      - name: No mock proof constructor (succinct lane real-or-refuse)
+        run: bash .github/scripts/check_aft_no_mock_proof.sh
+
       - name: Determine whether formal sources changed
         id: formal_diff
         run: |

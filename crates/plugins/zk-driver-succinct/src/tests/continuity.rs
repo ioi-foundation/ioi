@@ -1,3 +1,4 @@
+use crate::config::SuccinctDriverConfig;
 use crate::{simulated_continuity_proof_bytes, SuccinctDriver};
 use ioi_api::consensus::CanonicalCollapseContinuityVerifier;
 use ioi_types::app::{
@@ -18,42 +19,56 @@ fn sample_public_inputs() -> CanonicalCollapseContinuityPublicInputs {
     }
 }
 
+/// AFT-CB R4c cfg-audit: a build WITHOUT the native SP1 backend refuses
+/// SuccinctSp1V1 continuity verification outright — even for bytes that
+/// satisfy the retired simulated recipe. There is no simulated fallback
+/// on this lane.
+#[cfg(not(feature = "native"))]
 #[test]
-fn simulated_continuity_verifier_accepts_valid_succinct_proof() {
-    let driver = SuccinctDriver::new_mock();
+fn non_native_build_refuses_succinct_continuity_even_for_old_recipe_bytes() {
+    let driver = SuccinctDriver::new(SuccinctDriverConfig::pinned());
     let inputs = sample_public_inputs();
-    let proof = simulated_continuity_proof_bytes(&inputs).expect("simulated proof");
+    let old_recipe = simulated_continuity_proof_bytes(&inputs).expect("recipe bytes");
 
-    driver
+    let err = driver
         .verify_canonical_collapse_continuity(
             CanonicalCollapseContinuityProofSystem::SuccinctSp1V1,
-            &proof,
+            &old_recipe,
             &inputs,
         )
-        .expect("simulated succinct continuity proof should verify");
-}
-
-#[test]
-fn simulated_continuity_verifier_rejects_mutated_succinct_proof() {
-    let driver = SuccinctDriver::new_mock();
-    let inputs = sample_public_inputs();
-    let mut proof = simulated_continuity_proof_bytes(&inputs).expect("simulated proof");
-    proof[0] ^= 0xFF;
-
-    let result = driver.verify_canonical_collapse_continuity(
-        CanonicalCollapseContinuityProofSystem::SuccinctSp1V1,
-        &proof,
-        &inputs,
-    );
+        .expect_err("non-native build must refuse the succinct lane");
     assert!(
-        result.is_err(),
-        "mutated succinct continuity proof must fail"
+        err.to_string().contains("native SP1 backend"),
+        "refusal must name the missing backend, got: {err}"
     );
 }
 
+/// AFT-CB R4c: a native build with an UNPROVISIONED vkey refuses — the
+/// pin is the trust anchor, and its absence is a refusal state, never a
+/// fallback.
+#[cfg(feature = "native")]
 #[test]
-fn simulated_continuity_verifier_rejects_reference_hash_proof_system() {
-    let driver = SuccinctDriver::new_mock();
+fn native_build_refuses_unprovisioned_continuity_vkey() {
+    let config = SuccinctDriverConfig {
+        canonical_collapse_continuity_vkey_bytes: Vec::new(),
+        ..SuccinctDriverConfig::pinned()
+    };
+    let driver = SuccinctDriver::new(config);
+    let inputs = sample_public_inputs();
+
+    let err = driver
+        .verify_canonical_collapse_continuity(
+            CanonicalCollapseContinuityProofSystem::SuccinctSp1V1,
+            &[0u8; 32],
+            &inputs,
+        )
+        .expect_err("unprovisioned vkey must refuse");
+    assert!(err.to_string().contains("unprovisioned"));
+}
+
+#[test]
+fn continuity_verifier_rejects_reference_hash_proof_system() {
+    let driver = SuccinctDriver::new(SuccinctDriverConfig::pinned());
     let inputs = sample_public_inputs();
 
     let result = driver.verify_canonical_collapse_continuity(
