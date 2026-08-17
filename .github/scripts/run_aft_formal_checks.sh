@@ -20,6 +20,7 @@ PROOFS=(
   "AsymptoteProof.tla"
   "canonical_ordering/CanonicalOrderingProof.tla"
   "common_boundary/BoundaryRingProof.tla"
+  "common_boundary/CustodyObligationProof.tla"
 )
 
 # Every TLC model the harness checks, as "cfg|tla", relative to FORMAL_DIR.
@@ -32,6 +33,7 @@ MODELS=(
   "canonical_ordering/CanonicalCollapseRecursiveContinuity.cfg|canonical_ordering/CanonicalCollapseRecursiveContinuity.tla"
   "common_boundary/BoundaryRing.cfg|common_boundary/BoundaryRing.tla"
   "common_boundary/BoundaryRing4.cfg|common_boundary/BoundaryRing.tla"
+  "common_boundary/CustodyObligation.cfg|common_boundary/CustodyObligation.tla"
   "common_boundary/BoundaryLiveness.cfg|common_boundary/BoundaryLiveness.tla"
   "common_boundary/BoundaryLivenessHandover.cfg|common_boundary/BoundaryLiveness.tla"
 )

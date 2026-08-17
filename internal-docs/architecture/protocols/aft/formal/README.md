@@ -18,8 +18,9 @@ Layout:
 - [`canonical_ordering/README.md`](/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/formal/canonical_ordering/README.md)
   covers the proof-carrying equal-authority canonical-ordering model: succinct
   witness commitments, canonical bulletin close, omission dominance,
-  uniqueness, endogenous retrievability, and the repository's `99%`
-  equal-authority ordering consensus claim, plus current-runtime mandatory
+  uniqueness, endogenous retrievability, and the repository's all-but-one
+  (`n-1` of `n`) equal-authority ordering consensus claim (conditional on the
+  AFT model delta; requalified per AFT-CB P0.2), plus current-runtime mandatory
   closed-slot extraction-or-abort before positive order admission. That
   package now also ships executable TLC witnesses for a concrete
   omission-dominance case and the protocol-native retrievability plane.
@@ -122,8 +123,8 @@ close-or-abort safety core; the accountable-penalty wiring is now an
 implementation and policy layer above that kernel.
 
 Taken together, the canonical-ordering, `Asymptote`, and nested-guardian
-packages should now be read as one formal kernel for `99% Byzantine Tolerance`
-in the AFT model delta: a fixed public boundary admits at most one durable
+packages should now be read as one formal kernel for all-but-one (`n-1` of
+`n`) Byzantine safety in the AFT model delta (requalified per AFT-CB P0.2): a fixed public boundary admits at most one durable
 close-or-abort result, conflicting candidates are killed by short objective
 negative witnesses, durable execution or sealed release advances only through
 canonical collapse, and deeper recovered history is ordinary endogenous AFT
@@ -139,9 +140,10 @@ classical adversary's indefinite-suppression step. The package should therefore
 be read against one singular theorem statement:
 
 - \AFT{} has one singular theorem surface for relay-free, coordinator-free,
-  pure-software deterministic `99% Byzantine Tolerance` in the AFT model delta,
-  breaking the classical indefinite-suppression lower bound without claiming to
-  refute DLS / PBFT inside its own quantified model.
+  pure-software deterministic all-but-one (`n-1` of `n`) Byzantine safety in
+  the AFT model delta (requalified per AFT-CB P0.2; safety with possible
+  stall, never all-but-one live consensus), stated without claiming to refute
+  DLS / PBFT inside its own quantified model.
 - Proof-carrying public evidence, endogenous historical continuation,
   collapse-gated durability, restart continuity, direct dissemination, and
   compressed echo are the realizing architecture of that model-delta sentence,

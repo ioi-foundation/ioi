@@ -218,10 +218,13 @@ chain. The live runtime no longer has an unresolved theorem-side recovery
 scope gap here: close-or-abort integration, recovered closed-slot extraction,
 authoritative collapse / replay / header extraction, restart continuation,
 and deeper historical continuation are now part of one singular AFT theorem
-surface. That singular theorem surface is now also promoted repository-wide to
-unconditional classical `99% Byzantine agreement`. What remains here is package
-hygiene, proof maintenance, and any broader stress coverage we want on top of
-that finished bridge.
+surface. That singular theorem surface is stated repository-wide as all-but-one
+(`n-1` of `n`) Byzantine safety, conditional on the AFT model delta — the
+earlier "promoted unconditional classical" phrasing here was the Q10 overclaim,
+requalified per AFT-CB P0.2 (this sentence sat outside that leg's
+specs-directory sweep fence and was corrected at P2.4). What remains here is
+package hygiene, proof maintenance, and any broader stress coverage we want on
+top of that bridge.
 
 Its job is to keep the runtime’s witness-assignment, reassignment, and
 witness-admissibility rules aligned with the implementation.
