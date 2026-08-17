@@ -51,20 +51,21 @@ attribution-preserving multisignature, §12).
 | A7 | proof-system soundness for succinct verification (full replay needs only A1) |
 | A8 | per-seal key evolution with verified immediate erasure; NO signing-capable material ever persists to any medium that outlives its slot — the durable journal stores signature OUTPUTS only (§2, §13); PQ one-time/hash-based migration path |
 | A9 | VDF sequentiality with bounded adversary hardware advantage σ (physical). Scope stated at its true blast radius (P1.3 round-2 correction): A9 is the protocol's objective clock wherever ticks are read — cadence references (§3), deadlines (§8), tick stamps (§11–§12), re-genesis admissibility (§14), the chain itself (§15), sortition (§17) — with SAFETY-critical consumption confined to the A6-iv hardening (T5b) and the design-open succession extension (T5d) |
-| A10 | succession-medium observation: an object ANCHORED in the pre-named succession medium (§16.0) by tick X is observed by the acting successor within `G_deliv` further ticks. A scoped availability assumption on one public bulletin — not cross-partition delivery — consumed by T5d ALONE; the uniqueness/lineage ladder (T1–T3, T5a, T5c′) never cites it |
+| A10 | succession-path observation — PROVISIONAL (matching the whitepaper owner): a bound on the acting successor's view of pre-consented-succession evidence. Round 2 refuted the bulletin formulation this row first carried; the succession extension is design-open (§16 status banner) and this entry's final shape (commissioned: observation of a standby-UBC-committed set, not a bulletin) lands with the P2.7 respecification and its review. Consumed by the design-open extension alone; the uniqueness/lineage ladder (T1–T3, T5a, T5c′) never cites it |
 
 **Where synchrony lives, exactly.** The uniqueness/lineage ladder (T1, T2,
 T3, T5a, T5c′) consumes no timing assumption of any kind. The live tier and
-seal cadence consume A5. The OPTIONAL pre-consented succession extension
-(§16, T5d) consumes A10 — an observation bound on one pre-named public
-medium — because succession under pure asynchrony is impossible:
+seal cadence consume A5. The pre-consented succession extension (§16, T5d)
+would consume A10, and is DESIGN-OPEN with its claims withdrawn (see §16's
+status banner): succession under pure asynchrony is impossible —
 distinguishing a dead ring from a partitioned one is exactly the
-distinction an asynchronous system cannot make, and the review that forced
-this paragraph (P1.3 round 1, drill i) demonstrated the failure
-concretely. The design answers with pre-agreed priority (the old ring's
-own signature voids its untimely material, §16.3) so that A10 carries only
-the successor's view of the medium, and the ledger prices that honestly
-instead of hiding it.
+distinction an asynchronous system cannot make (P1.3 round 1, drill i,
+demonstrated it concretely) — and two successive attempts to discharge
+that impossibility through a scoped assumption were refuted (rounds 1–2).
+A10 is therefore PROVISIONAL in the ledger, and no operative rule in this
+spec consumes it; the operative exits on ring death are §9 handover and
+§14 labeled re-genesis, which consume no timing assumption beyond A9's
+objective clock for §14's admissibility.
 
 Rule format: every section carries an `Assumes:` line naming the ledger
 entries its rules consume. A rule that needs an assumption not on that line
@@ -349,8 +350,9 @@ strong-ring transition, and it requires all of:
    MEMBER ORDERING — ascending hash of member public key, the ordering
    every §12.1 bitmap indexes — and its policy hash).
 2. **New-ring acceptance**: a signature from every member of `C_{v+1}`
-   accepting the seat and its obligations (§4 custody, §13 key discipline,
-   §16 honest-publication duty).
+   accepting the seat and its obligations (§4 custody, §13 key
+   discipline; the §16 draft's publication duty joins this list only if
+   the design-open succession extension lands).
 3. **Custody succession** per §6 before any outgoing bond releases.
 
 The transition record rides a sealed batch, so lineage is itself sealed
@@ -380,10 +382,12 @@ strong-ring safety rules by the ledger itself).
 2. The transition action set of this protocol contains NO action whose
    input is an attested-silence record. (P2.3 asserts this mechanically
    over the formal model; R5 makes it unrepresentable in types.)
-3. The only strong-ring exits are: the unanimous handover (§9), the
-   pre-consented succession on the objective VDF trigger (§16), and the
-   labeled anchored re-genesis (§14). Each is loud, typed, and none
-   consumes a silence record.
+3. The OPERATIVE strong-ring exits are: the unanimous handover (§9) and
+   the labeled anchored re-genesis (§14) — each loud, typed, and
+   consuming no silence record. The pre-consented succession extension
+   (§16) is design-open with its claims withdrawn and joins this list
+   only when its respecification survives review; its trigger would
+   likewise consume no silence record.
 4. Silence records retain their §8 powers only: fail-closed effect
    blocking, slashing evidence, voluntary pressure.
 
@@ -398,9 +402,13 @@ and its authority is the configuration's OWN formation-time unanimous
 signature — the ring pre-consented to the exact condition, so activation
 executes the ring's standing order rather than overriding it. The
 residual truth in the reviewer's observation is priced rather than
-denied: a partition can make a live ring look seal-silent, which is why
-succession is not fork-safe by cleverness but by the §16 preemption
-machinery under its own scoped delivery assumption (A10) — see T5d.
+denied: a partition can make a live ring look seal-silent — and making
+succession fork-safe despite that is exactly the twice-refuted, still
+DESIGN-OPEN problem recorded in §16's status banner (T5d's claim is
+withdrawn; A10 is provisional). Until the P2.7 respecification survives
+review, the tick trigger's promotion of a partition into a
+reconfiguration event is a reason succession stays withdrawn, not a
+priced feature.
 
 ## 11. Batch-seal cadence and irreversible-effect binding
 
@@ -456,8 +464,11 @@ detail; T7 is proven against THIS format.
    boundary_root, batch_root, prev_seal_hash, tick_ref)` —
    domain-separated, byte-specified. `prev_seal_hash` chains seals;
    `lineage_id` types the lineage (§14); `tick_ref` is the signing-time
-   VDF reference that drives share expiry (§16.3); the domain tag and the
-   per-seal key separate final-acks from pre-acks cryptographically (§1).
+   VDF reference — ADVISORY in the operative rules (it stamps when a
+   share was signed, at earliest); its load-bearing uses belong to the
+   design-open succession extension (§16 draft) and are withdrawn with
+   it; the domain tag and the per-seal key separate final-acks from
+   pre-acks cryptographically (§1).
 3. **Transport is part of the theorem, stated honestly**: honest members
    broadcast their shares and any certificate they assemble (full ring +
    watchtowers, §17) — never point-to-point-only. This binds HONEST
@@ -550,28 +561,42 @@ Re-genesis is the last exit: only on loss of ring AND standby.
    minted no earlier than `tick_root` (added by the round-2 review's
    R2-F8: without a tick binding, the admissibility clock had nothing to
    bind to).
-2. **Admissibility is objective, and continuity always outranks a
-   root**: a root record is admissible only if the prior lineage shows
-   ≥ `T_root` seal-free ticks AT ITS EMBEDDED `tick_root` (verifiable by
-   anyone from the prior lineage's chain, A9 — the seal-seeded chain is
-   single-valued because only seals fold into it), with the parameter
-   constraint `T_root > T_halt + G + the standby's own sealing margin`
-   pre-published so a root can never be admissible while a live standby
-   is inside its succession machinery. **A prior-lineage seal at any tick
-   after `tick_root` ORPHANS the root**: verifiers prefer continuity
-   over roots always, so a root minted against a lineage that later
-   resumes sealing simply dies — no rule ever chooses a root over a
-   continuing lineage. **Slashing is confined to what the record itself
-   exhibits**: a bonded member whose acceptance signature appears in a
-   root whose OWN embedded `tick_root` shows the prior lineage NOT
-   `T_root`-stale has co-signed the objective evidence of its offense
-   (the record refutes itself against the public chain), and its bond is
-   forfeit. A root with an honestly stale `tick_root` that is later
-   orphaned by a resumed lineage is not an offense — it is simply void.
-   This closes the lineage-escape maneuver: minting a fresh lineage
-   against a live prior lineage is either self-refuting (slashable) or
-   orphaned by the next real seal (worthless), so a same-slot double-seal
-   cannot be laundered into an unslashable fork.
+2. **Admissibility is objective; continuity outranks an UNHARDENED
+   root; a hardened root is final**: a root record is admissible only if
+   the prior lineage shows ≥ `T_root` seal-free ticks AT ITS EMBEDDED
+   `tick_root` (verifiable by anyone from the prior lineage's chain, A9
+   — the seal-seeded chain is single-valued because only seals fold into
+   it). `T_root` is a pre-published protocol constant that strictly
+   exceeds the total window of ANY configured succession machinery (a
+   constraint stated here against the constants themselves, not against
+   the design-open §16 draft's internals — R3-F5). **The hardening
+   window**: for `W_root` ticks of the NEW lineage's chain after the
+   root, the root is PROVISIONAL — a prior-lineage seal surfacing in
+   that window orphans it, and the root lineage releases NO irreversible
+   effect before hardening. At `W_root` the root HARDENS: it is final,
+   and a prior-lineage seal surfacing later — necessarily a
+   withheld-assembly artifact, since the lineage was `T_root`-stale at
+   `tick_root` and stayed seal-free through the window — is VOID against
+   the hardened root: it orphans nothing, releases nothing, and stands
+   only as evidence. (This window exists because the round-3 audit's
+   R3-F4 showed unconditional retroactive orphaning was a zero-cost
+   kill switch: one withholder completing a stalled slot's seal late
+   could void a root that had already released effects. Bounded
+   orphaning + no-release-before-hardening removes the released-effects
+   arm entirely; the residual cost is that re-genesis — already the
+   disaster path — waits `W_root` before settling irreversibly, a
+   priced settlement delay, σ-margined like every tick constant.)
+   **Slashing is confined to what the record itself exhibits**: a bonded
+   member whose acceptance signature appears in a root whose OWN
+   embedded `tick_root` shows the prior lineage NOT `T_root`-stale has
+   co-signed the objective evidence of its offense (the record refutes
+   itself against the public chain), and its bond is forfeit. A root
+   with an honestly stale `tick_root` orphaned inside its hardening
+   window is not an offense — it is simply void. This closes the
+   lineage-escape maneuver: minting a fresh lineage against a live prior
+   lineage is either self-refuting (slashable) or orphaned within the
+   window (worthless), so a same-slot double-seal cannot be laundered
+   into an unslashable fork.
 3. **A root is never continuity**: the new lineage's seal chain starts at
    the root; `prev_seal_hash` chains (§12) do not cross it; the uniqueness
    theorems quantify WITHIN one anchored lineage.
@@ -662,8 +687,12 @@ becomes CONDITIONAL on a standby activation record (a UBC of `S_v`,
 verifiable against the seal-seeded chain), so a slow ring with no active
 succession forfeits nothing (R2-F3 dissolves). Bindingness must then be
 wired into §11.3 seal validity, §12 verification, and §19's vectors
-(R2-F4), preemption restricted to BINDING rivals (R2-F7), and the
-tick_ref honesty split (R2-F6) modeled as advisory-only. The
+(R2-F4), preemption restricted to BINDING rivals (R2-F7), the tick_ref
+honesty split (R2-F6) modeled as advisory-only, and the standby-refresh
+mitigation NOT reproduced in its unanimity-gated form — one Byzantine
+member vetoes refresh forever, so the exposure bound it advertised was
+adversary-controllable (R2-F13; the respec needs a refresh that degrades
+gracefully or an honest statement that the formation draw is final). The
 respecification carries its own adversarial review before any claim
 returns to the ladder.
 
@@ -826,18 +855,22 @@ authorized each effect. Three typed per-effect SLAs:
 ## Index of dispatched adversarial drills
 
 For P1.3's convenience — the drill → dispatching rules map (informative;
-updated after round 1, whose findings rebuilt §16 and requalified §15.5):
-(a) six-step pre-GST partition → §1.4 + §1's domain separation; (b)
-honest-split partition → §1.4 (and §16's promotion of a long partition
-into succession is priced at T5d under A10); (c) all-but-one-Byzantine
-equivocation → §1.3 + §12.5; (d) proposer equivocation across retries →
-§1.3 + the §1 attempt budget; (e) crash-recovery double-final-ack →
-§2.2–2.4 + §13.2 (one unified journal-the-share discipline); (f)
-proof-of-silence reconfiguration → §10 (including its exact-line
-paragraph); (g) staged double-seal forensics → §12.5 (holder-relative,
-§12.3) + §14.2 (lineage escape closed); (h) post-unbond key compromise →
-§13.3 + §7.4; (i) hidden-seal succession → §16.0–16.5 (authority expiry +
-anchoring deadline + A10 observation + re-scoped duty); (j) standby
-capture → §16.1/16.7 +
-§17.1–17.2; (k) σ-speedup → §15.4 (wait thresholds) + §15.5 (comparison
-downgraded to hardening).
+updated after rounds 1–3; entries whose subject is the design-open
+succession extension say so rather than asserting a dispatch):
+(a) six-step pre-GST partition → §1.4 + §1's domain separation (round 2:
+HOLDS clean); (b) honest-split partition → §1.4 for safety (round 2:
+HOLDS); the promotion of a long partition into succession is a reason
+the §16 extension is WITHDRAWN, not a priced feature — no dispatch is
+claimed; (c) all-but-one-Byzantine equivocation → §1.3 + §12.5 (round 2:
+HOLDS clean); (d) proposer equivocation across retries → §1.3 + the §1
+attempt budget (round 2: HOLDS clean); (e) crash-recovery
+double-final-ack → §2.2–2.4 + §13.2 (round 2: HOLDS); (f)
+proof-of-silence reconfiguration → §10 (round 2: HOLDS clean); (g)
+staged double-seal forensics → §12.5 (holder-relative, §12.3) + §14.2
+(round 2: HOLDS); (h) post-unbond key compromise → §13.3 + §7.4 (round
+2: HOLDS clean); (i) hidden-seal succession → NO DISPATCH CLAIMED —
+REFUTED-AS-SPECIFIED twice (rounds 1–2); the claim is withdrawn and the
+drill re-arms against the P2.7 respecification; (j) standby capture →
+§17.1–17.2 for the primary; the standby story is design-open with §16
+and priced only probabilistically (T8); (k) σ-speedup → §15.4 (wait
+thresholds) + §15.5 (comparison downgraded to hardening).
