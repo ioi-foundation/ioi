@@ -50,7 +50,7 @@ attribution-preserving multisignature, §12).
 | A6 | a historical-freshness ANCHOR, exactly one deployed, separately priced (bootstrap only): (i) recent checkpoint within W; (ii) forward-secure/puncturable keys + secure erasure (structurally always-on here, §13); (iii) external objective checkpoint. (iv) VDF elapsed-history is a HARDENING layer over an anchor — it raises the real-time cost of long-range forgery (requires A9) and is NOT a standalone anchor (§15.5) |
 | A7 | proof-system soundness for succinct verification (full replay needs only A1) |
 | A8 | per-seal key evolution with verified immediate erasure; NO signing-capable material ever persists to any medium that outlives its slot — the durable journal stores signature OUTPUTS only (§2, §13); PQ one-time/hash-based migration path |
-| A9 | VDF sequentiality with bounded adversary hardware advantage σ (physical). Scope stated at its true blast radius (P1.3 round-2 correction): A9 is the protocol's objective clock wherever ticks are read — cadence references (§3), deadlines (§8), tick stamps (§11–§12), re-genesis admissibility (§14), the chain itself (§15), sortition (§17) — with SAFETY-critical consumption confined to the A6-iv hardening (T5b) and the design-open succession extension (T5d) |
+| A9 | VDF sequentiality with bounded adversary hardware advantage σ (physical). Scope stated at its true blast radius (P1.3 round-2 correction): A9 is the protocol's objective clock wherever ticks are read — cadence references (§3), deadlines (§8), tick stamps (§11–§12), re-genesis admissibility (§14), the chain itself (§15), sortition (§17) — with SAFETY-critical consumption confined to the A6-iv hardening (T5b), §14's fail-closed admissibility and hardening waits (refusal clocks, never adjudication), and the design-open succession extension (T5d) |
 | A10 | succession-path observation — PROVISIONAL (matching the whitepaper owner): a bound on the acting successor's view of pre-consented-succession evidence. Round 2 refuted the bulletin formulation this row first carried; the succession extension is design-open (§16 status banner) and this entry's final shape (commissioned: observation of a standby-UBC-committed set, not a bulletin) lands with the P2.7 respecification and its review. Consumed by the design-open extension alone; the uniqueness/lineage ladder (T1–T3, T5a, T5c′) never cites it |
 
 **Where synchrony lives, exactly.** The uniqueness/lineage ladder (T1, T2,
@@ -362,7 +362,9 @@ full-configuration self-incrimination (§12). The ceremony makes lineage
 MHA-inductive end to end with no weight anywhere in the strong chain.
 Membership entry/exit machinery (bonded registration, activation queue
 `D_act`, churn cap `c_max`, unbonding window `W`) feeds candidates into
-handovers; none of it moves a seat outside this ceremony or §16/§14.
+handovers; none of it moves a seat outside this ceremony, a §14 root
+event, or — if the design-open §16 extension ever lands — its
+pre-consented transition.
 
 ## 10. The proof-of-silence prohibition
 
@@ -597,6 +599,36 @@ Re-genesis is the last exit: only on loss of ring AND standby.
    lineage is either self-refuting (slashable) or orphaned within the
    window (worthless), so a same-slot double-seal cannot be laundered
    into an unslashable fork.
+
+   **What hardening does and does not claim (round-4 correction — the
+   finality assertion is WITHDRAWN to conditional).** The round-4 audit
+   showed "at `W_root` the root is FINAL" was itself a cross-lineage
+   adjudication claim with no observation assumption behind it — the
+   same class rounds 1–2 refuted for succession: the window boundary is
+   a cross-chain observation event nothing timestamps, an unpublished
+   root can mature privately, a partition longer than `T_root + W_root`
+   can leave BOTH a live prior lineage and a hardened root releasing
+   effects with all parties honest, and two roots against one dead
+   lineage have no rank. Therefore, operatively:
+   (a) the FAIL-CLOSED arms above are the normative content — a root
+   releases nothing irreversible before hardening, and any observed
+   prior-lineage seal inside the window orphans it;
+   (b) POST-hardening, an effect executor that OBSERVES a conflicting
+   claimant — late prior-lineage continuity, or a second hardened root —
+   REFUSES irreversible release on the contested slots (fail-closed,
+   unsealed-over-unsafe applied across the seam), and verifiers report
+   every claimant with the typed seam (§14.4), ranking nothing;
+   (c) the finality of a hardened root is CONDITIONAL on the same
+   to-be-specified observation machinery as succession — cross-lineage
+   adjudication (root-vs-late-continuity, root-vs-root) is ONE problem
+   with §16's, and the P2.7 respecification owes ONE story for both,
+   with this window marked conditional until that story survives
+   review. An uncontested hardened root — the actual disaster-recovery
+   case, where the prior lineage is truly dead and nothing ever
+   surfaces — flows effects normally after `W_root`; contest, however
+   rare, fails closed instead of being adjudicated by an assertion.
+   The A9 this clock consumes is on §14's Assumes line; its
+   safety-critical role here is confined to these fail-closed waits.
 3. **A root is never continuity**: the new lineage's seal chain starts at
    the root; `prev_seal_hash` chains (§12) do not cross it; the uniqueness
    theorems quantify WITHIN one anchored lineage.
@@ -692,7 +724,12 @@ honesty split (R2-F6) modeled as advisory-only, and the standby-refresh
 mitigation NOT reproduced in its unanimity-gated form — one Byzantine
 member vetoes refresh forever, so the exposure bound it advertised was
 adversary-controllable (R2-F13; the respec needs a refresh that degrades
-gracefully or an honest statement that the formation draw is final). The
+gracefully or an honest statement that the formation draw is final).
+**The respec's scope is widened by round 4**: cross-lineage adjudication
+is ONE problem appearing twice — succession (old ring vs standby) and
+re-genesis (root vs late continuity, root vs root; R4-F2/F3/F4) — and
+the respecification owes ONE observation-assumption story covering
+both, with §14.2's hardening window conditional on it until then. The
 respecification carries its own adversarial review before any claim
 returns to the ladder.
 
