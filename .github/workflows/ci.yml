@@ -300,3 +300,57 @@ jobs:
       # deliberately rather than closed by guessing: `OQ-4` — whether the ioi.ai web UI ships, and
       # from which root — is an open question in the implementation guide, and inventing a
       # working-directory here would answer it by accident.
+
+  aft_formal_floor:
+    name: AFT Formal Floor
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # The census is the floor: every .tla module under the AFT formal tree
+      # must be either executed by the harness or carried in
+      # manual-discharge.json with a reason. Cheap; runs on every build.
+      - name: Formal census (no silent orphan modules)
+        run: bash .github/scripts/run_aft_formal_checks.sh --census-only
+
+      - name: Determine whether formal sources changed
+        id: formal_diff
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            RANGE="origin/${{ github.base_ref }}...HEAD"
+          else
+            BEFORE="${{ github.event.before }}"
+            if [[ -z "$BEFORE" || "$BEFORE" =~ ^0+$ ]]; then
+              echo "changed=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            RANGE="$BEFORE..${{ github.sha }}"
+          fi
+          if git diff --name-only $RANGE -- \
+              internal-docs/architecture/protocols/aft/formal \
+              .github/scripts/run_aft_formal_checks.sh \
+              | grep -q .; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install Java for TLC
+        if: steps.formal_diff.outputs.changed == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # Full discharge (4 TLAPS proofs + 6 TLC models) runs when the formal
+      # tree or the harness changed; the census above runs unconditionally.
+      - name: Full formal discharge (proofs + models)
+        if: steps.formal_diff.outputs.changed == 'true'
+        run: bash .github/scripts/run_aft_formal_checks.sh

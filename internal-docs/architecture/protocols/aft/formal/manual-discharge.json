@@ -1,0 +1,83 @@
+{
+  "policy": "Every .tla module under this directory (excluding symlinks and .tlacache) must be either executed by .github/scripts/run_aft_formal_checks.sh or carried here with a reason. The census in that script enforces this in CI; an unlisted module fails the build. Entries here are honest debt markers, not endorsements: promotion into the executed harness retires an entry.",
+  "modules": [
+    {
+      "module": "canonical_ordering/CanonicalOrderingOmissionTrace.tla",
+      "reason": "Bounded TLC witness trace reaching the concrete omission-dominance state; a witness artifact run on demand, not a standing invariant check.",
+      "last_discharged": "pre-2026-08-16 (date not recorded in-repo)",
+      "discharged_by": "manual TLC run by the corpus authors; see canonical_ordering/README.md"
+    },
+    {
+      "module": "nested_guardian/NestedGuardianRecovery.tla",
+      "reason": "Bounded TLC model of threshold recovery-or-missingness; not yet promoted into the standing harness lane.",
+      "last_discharged": "pre-2026-08-16 (date not recorded in-repo)",
+      "discharged_by": "manual TLC run by the corpus authors; see nested_guardian/README.md"
+    },
+    {
+      "module": "nested_guardian/NestedGuardianLiveness.tla",
+      "reason": "Bounded churn liveness harness (post-GST weak fairness); long TLC runtime; not yet promoted into the standing harness lane.",
+      "last_discharged": "pre-2026-08-16 (date not recorded in-repo)",
+      "discharged_by": "manual TLC run by the corpus authors; see nested_guardian/README.md"
+    },
+    {
+      "module": "nested_guardian/NestedGuardianRecurringLiveness.tla",
+      "reason": "Cycle-parameterized recurring churn/finalize/bootstrap liveness kernel; long TLC runtime; not yet promoted into the standing harness lane.",
+      "last_discharged": "pre-2026-08-16 (date not recorded in-repo)",
+      "discharged_by": "manual TLC run by the corpus authors; see nested_guardian/README.md"
+    },
+    {
+      "module": "nested_guardian/NestedGuardianRecurringLivenessCore.tla",
+      "reason": "Shared core module instantiated by the recurring liveness harnesses; discharged through its instantiating modules' manual runs.",
+      "last_discharged": "pre-2026-08-16 (date not recorded in-repo)",
+      "discharged_by": "manual runs of the instantiating modules; see nested_guardian/README.md"
+    },
+    {
+      "module": "nested_guardian/NestedGuardianRecurringLivenessFourCycle.tla",
+      "reason": "Four-cycle instantiation of the recurring liveness core (sharpens the bounded-reuse vs unbounded-recurrence gap); long TLC runtime; manual lane.",
+      "last_discharged": "pre-2026-08-16 (date not recorded in-repo)",
+      "discharged_by": "manual TLC run by the corpus authors; see nested_guardian/README.md"
+    },
+    {
+      "module": "nested_guardian/NestedGuardianRecoveryRecurringLiveness.tla",
+      "reason": "Recovery-gated recurring liveness harness; long TLC runtime; manual lane.",
+      "last_discharged": "pre-2026-08-16 (date not recorded in-repo)",
+      "discharged_by": "manual TLC run by the corpus authors; see nested_guardian/README.md"
+    },
+    {
+      "module": "nested_guardian/NestedGuardianRecoveryRecurringLivenessCore.tla",
+      "reason": "Shared core module for the recovery-gated recurring harnesses; discharged through its instantiating modules' manual runs.",
+      "last_discharged": "pre-2026-08-16 (date not recorded in-repo)",
+      "discharged_by": "manual runs of the instantiating modules; see nested_guardian/README.md"
+    },
+    {
+      "module": "nested_guardian/NestedGuardianRecoveryRecurringInductionCore.tla",
+      "reason": "Packages the base + bounded-step premise contracts for closed-prefix induction. NOTE: flagged Q3 by the AFT-CB program \u2014 its liveness base is an assumed premise contract; superseded-by-derivation is scheduled (P2.2).",
+      "last_discharged": "pre-2026-08-16 (date not recorded in-repo)",
+      "discharged_by": "manual tlapm --timing run recorded in formal/README.md"
+    },
+    {
+      "module": "nested_guardian/NestedGuardianRecoveryRecurringProof.tla",
+      "reason": "Parameterized recurrence theorem over arbitrary TotalCycles; tlapm runtime too long for the standing PR lane.",
+      "last_discharged": "pre-2026-08-16 (date not recorded in-repo)",
+      "discharged_by": "manual tlapm --timing run recorded in formal/README.md"
+    },
+    {
+      "module": "nested_guardian/NestedGuardianRecoveryClassicalAgreementReduction.tla",
+      "reason": "Finite classical-agreement reduction; tlapm runtime too long for the standing PR lane.",
+      "last_discharged": "pre-2026-08-16 (date not recorded in-repo)",
+      "discharged_by": "manual tlapm --timing run recorded in formal/README.md"
+    },
+    {
+      "module": "nested_guardian/NestedGuardianRecoveryClassicalAgreementTotality.tla",
+      "reason": "Total classical-agreement history lift; tlapm runtime too long for the standing PR lane.",
+      "last_discharged": "pre-2026-08-16 (date not recorded in-repo)",
+      "discharged_by": "manual tlapm --timing run recorded in formal/README.md"
+    },
+    {
+      "module": "nested_guardian/NestedGuardianRecoveryClassicalAgreementCollapse.tla",
+      "reason": "Semantic-collapse wrapper carrying the corpus's final recurrence sentence; tlapm runtime too long for the standing PR lane. NOTE: its headline claim is requalified by the AFT-CB program (P0.2).",
+      "last_discharged": "pre-2026-08-16 (date not recorded in-repo)",
+      "discharged_by": "manual tlapm --timing run recorded in formal/README.md"
+    }
+  ]
+}
