@@ -30,10 +30,21 @@ jobs:
       # deprecated actions-rs shim confuses sp1up's toolchain-tag detection
       # (it asked for succinct-1.94.0-64bit, a tag that does not exist).
       - name: Install the succinct toolchain
+        # The bootstrap's inner curl carries no --fail, so a rate-limited
+        # raw.githubusercontent response lands an HTML page at
+        # ~/.sp1/bin/sp1up and executes as shell (observed on this lane).
+        # Fetch sp1up ourselves with --fail + retries and refuse anything
+        # that is not a script before running it.
         run: |
-          curl -sL https://sp1up.succinct.xyz -o /tmp/sp1up-install.sh
-          bash /tmp/sp1up-install.sh
-          ~/.sp1/bin/sp1up
+          set -euo pipefail
+          mkdir -p "$HOME/.sp1/bin"
+          for i in 1 2 3 4 5; do
+            curl -sL --fail --retry 5 --retry-delay 10               https://raw.githubusercontent.com/succinctlabs/sp1/main/sp1up/sp1up               -o "$HOME/.sp1/bin/sp1up" && break
+            echo "sp1up download attempt $i failed; retrying" && sleep 15
+          done
+          head -c 2 "$HOME/.sp1/bin/sp1up" | grep -q '#!'             || { echo 'downloaded sp1up is not a script'; head -3 "$HOME/.sp1/bin/sp1up"; exit 1; }
+          chmod +x "$HOME/.sp1/bin/sp1up"
+          "$HOME/.sp1/bin/sp1up"
           echo "$HOME/.sp1/bin" >> "$GITHUB_PATH"
 
       - name: Cache aft-proofs target
