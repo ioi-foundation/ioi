@@ -32,6 +32,8 @@ MODELS=(
   "canonical_ordering/CanonicalCollapseRecursiveContinuity.cfg|canonical_ordering/CanonicalCollapseRecursiveContinuity.tla"
   "common_boundary/BoundaryRing.cfg|common_boundary/BoundaryRing.tla"
   "common_boundary/BoundaryRing4.cfg|common_boundary/BoundaryRing.tla"
+  "common_boundary/BoundaryLiveness.cfg|common_boundary/BoundaryLiveness.tla"
+  "common_boundary/BoundaryLivenessHandover.cfg|common_boundary/BoundaryLiveness.tla"
 )
 
 # Census: every .tla module under FORMAL_DIR (excluding symlinks and
