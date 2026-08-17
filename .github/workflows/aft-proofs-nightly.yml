@@ -26,13 +26,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libclang-dev golang-go
 
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: 1.93.1
-          override: true
-
+      # The runner's preinstalled rustup/stable is used for host code; the
+      # deprecated actions-rs shim confuses sp1up's toolchain-tag detection
+      # (it asked for succinct-1.94.0-64bit, a tag that does not exist).
       - name: Install the succinct toolchain
         run: |
           curl -sL https://sp1up.succinct.xyz -o /tmp/sp1up-install.sh
