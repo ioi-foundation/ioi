@@ -487,9 +487,12 @@ same-slot double-seal into a "fresh lineage" via a self-serving re-genesis
 — is closed UPSTREAM OF THIS THEOREM, by §14.2's admissibility machinery:
 a root whose own embedded chain reference shows the prior lineage
 non-stale is self-refuting and participation in it slashable, and
-continuity outranks an unhardened root while a hardened root is final
-(§14.2's bounded orphaning — the round-3 audit's R3-F4 killed the
-unconditional form). That closure's clock consumes A9 on
+continuity outranks an unhardened root, while a hardened root's finality
+is CONDITIONAL and contest fails closed (§14.2's bounded orphaning plus
+the round-4 correction: cross-lineage adjudication awaits the P2.7
+observation story; the escape-closure itself — self-refuting roots
+slashable, live-lineage roots orphanable — stands on the objective
+chain alone). That closure's clock consumes A9 on
 §14's OWN Assumes line (per R2-F9 — it is §14's assumption, and this
 sentence attributes rather than absorbs it); T9's core claim and its A1
 line are untouched by it. So the maneuver changes the offense's name,
