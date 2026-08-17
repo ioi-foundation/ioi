@@ -1868,3 +1868,176 @@ fn publishing_recovery_registry_objects_round_trips_and_preserves_multiple_recei
         .is_some());
 }
 
+
+#[test]
+fn abort_cannot_supersede_sealed_close_and_lands_in_resolution_log() {
+    // AFT-CB R3 gate (Q7 killed): an abort-carrying collapse against an
+    // existing SEALED close is a typed rejection, and the attempt itself
+    // lands in the append-only resolution log. The sealed object is
+    // byte-identical afterwards.
+    let registry = production_registry();
+    let mut sealed = CanonicalCollapseObject {
+        height: 61,
+        previous_canonical_collapse_commitment_hash: [0u8; 32],
+        continuity_accumulator_hash: [0u8; 32],
+        continuity_recursive_proof: Default::default(),
+        ordering: ioi_types::app::CanonicalOrderingCollapse {
+            height: 61,
+            kind: CanonicalCollapseKind::Close,
+            ..Default::default()
+        },
+        sealing: Some(ioi_types::app::CanonicalSealingCollapse {
+            epoch: 5,
+            height: 61,
+            view: 2,
+            kind: CanonicalCollapseKind::Close,
+            ..Default::default()
+        }),
+        transactions_root_hash: [150u8; 32],
+        resulting_state_root_hash: [151u8; 32],
+        archived_recovered_history_checkpoint_hash: [0u8; 32],
+        archived_recovered_history_profile_activation_hash: [0u8; 32],
+        archived_recovered_history_retention_receipt_hash: [0u8; 32],
+    };
+    ioi_types::app::bind_canonical_collapse_continuity(&mut sealed, None).unwrap();
+
+    let mut aborting = CanonicalCollapseObject {
+        height: 61,
+        previous_canonical_collapse_commitment_hash: [0u8; 32],
+        continuity_accumulator_hash: [0u8; 32],
+        continuity_recursive_proof: Default::default(),
+        ordering: ioi_types::app::CanonicalOrderingCollapse {
+            height: 61,
+            kind: CanonicalCollapseKind::Abort,
+            ..Default::default()
+        },
+        sealing: None,
+        transactions_root_hash: [152u8; 32],
+        resulting_state_root_hash: [153u8; 32],
+        archived_recovered_history_checkpoint_hash: [0u8; 32],
+        archived_recovered_history_profile_activation_hash: [0u8; 32],
+        archived_recovered_history_retention_receipt_hash: [0u8; 32],
+    };
+    ioi_types::app::bind_canonical_collapse_continuity(&mut aborting, None).unwrap();
+
+    let mut state = MockState::default();
+    with_ctx(|ctx| {
+        run_async(registry.handle_service_call(
+            &mut state,
+            "publish_aft_canonical_collapse_object@v1",
+            &codec::to_bytes_canonical(&sealed).unwrap(),
+            ctx,
+        ))
+        .unwrap();
+        let err = run_async(registry.handle_service_call(
+            &mut state,
+            "publish_aft_canonical_collapse_object@v1",
+            &codec::to_bytes_canonical(&aborting).unwrap(),
+            ctx,
+        ))
+        .unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("abort cannot supersede a sealed canonical collapse close"),
+            "unexpected error: {err}"
+        );
+    });
+
+    let persisted: CanonicalCollapseObject = codec::from_bytes_canonical(
+        &state
+            .get(&aft_canonical_collapse_object_key(61))
+            .unwrap()
+            .expect("sealed collapse persists"),
+    )
+    .unwrap();
+    assert_eq!(persisted, sealed, "sealed close is byte-identical after the attempt");
+
+    let head: u64 = codec::from_bytes_canonical(
+        &state
+            .get(&aft_resolution_log_head_key(61))
+            .unwrap()
+            .expect("resolution log head exists"),
+    )
+    .unwrap();
+    assert_eq!(head, 1, "exactly one resolution record appended");
+    let record: AftResolutionRecord = codec::from_bytes_canonical(
+        &state
+            .get(&aft_resolution_log_entry_key(61, 0))
+            .unwrap()
+            .expect("resolution record stored"),
+    )
+    .unwrap();
+    assert_eq!(record.height, 61);
+    assert_eq!(record.kind, AftResolutionKind::PostCloseAbortEvidence);
+}
+
+#[test]
+fn abort_still_supersedes_unsealed_collapse_pre_seal() {
+    // AFT-CB R3: abort supersession survives PRE-SEAL — only the sealed
+    // close became immutable.
+    let registry = production_registry();
+    let mut unsealed = CanonicalCollapseObject {
+        height: 62,
+        previous_canonical_collapse_commitment_hash: [0u8; 32],
+        continuity_accumulator_hash: [0u8; 32],
+        continuity_recursive_proof: Default::default(),
+        ordering: ioi_types::app::CanonicalOrderingCollapse {
+            height: 62,
+            kind: CanonicalCollapseKind::Close,
+            ..Default::default()
+        },
+        sealing: None,
+        transactions_root_hash: [160u8; 32],
+        resulting_state_root_hash: [161u8; 32],
+        archived_recovered_history_checkpoint_hash: [0u8; 32],
+        archived_recovered_history_profile_activation_hash: [0u8; 32],
+        archived_recovered_history_retention_receipt_hash: [0u8; 32],
+    };
+    ioi_types::app::bind_canonical_collapse_continuity(&mut unsealed, None).unwrap();
+
+    let mut aborting = CanonicalCollapseObject {
+        height: 62,
+        previous_canonical_collapse_commitment_hash: [0u8; 32],
+        continuity_accumulator_hash: [0u8; 32],
+        continuity_recursive_proof: Default::default(),
+        ordering: ioi_types::app::CanonicalOrderingCollapse {
+            height: 62,
+            kind: CanonicalCollapseKind::Abort,
+            ..Default::default()
+        },
+        sealing: None,
+        transactions_root_hash: [162u8; 32],
+        resulting_state_root_hash: [163u8; 32],
+        archived_recovered_history_checkpoint_hash: [0u8; 32],
+        archived_recovered_history_profile_activation_hash: [0u8; 32],
+        archived_recovered_history_retention_receipt_hash: [0u8; 32],
+    };
+    ioi_types::app::bind_canonical_collapse_continuity(&mut aborting, None).unwrap();
+
+    let mut state = MockState::default();
+    with_ctx(|ctx| {
+        run_async(registry.handle_service_call(
+            &mut state,
+            "publish_aft_canonical_collapse_object@v1",
+            &codec::to_bytes_canonical(&unsealed).unwrap(),
+            ctx,
+        ))
+        .unwrap();
+        run_async(registry.handle_service_call(
+            &mut state,
+            "publish_aft_canonical_collapse_object@v1",
+            &codec::to_bytes_canonical(&aborting).unwrap(),
+            ctx,
+        ))
+        .expect("pre-seal abort supersession still applies");
+    });
+
+    let persisted: CanonicalCollapseObject = codec::from_bytes_canonical(
+        &state
+            .get(&aft_canonical_collapse_object_key(62))
+            .unwrap()
+            .expect("collapse persists"),
+    )
+    .unwrap();
+    assert_eq!(persisted, aborting, "pre-seal abort superseded the unsealed close");
+}

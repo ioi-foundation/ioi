@@ -96,6 +96,10 @@ pub const AFT_MISSING_RECOVERY_SHARE_PREFIX: &[u8] = b"aft::recovery::missing_sh
 pub const AFT_COLLAPSE_OBJECT_PREFIX: &[u8] = b"aft::collapse::";
 /// State key prefix for recorded AFT omission proofs by height and transaction hash.
 pub const AFT_OMISSION_PROOF_PREFIX: &[u8] = b"aft::ordering::omission::";
+/// State key prefix for the append-only AFT resolution log (AFT-CB R3):
+/// post-close evidence lands here as records — closes themselves are
+/// immutable and no materializer deletes or rewrites them.
+pub const AFT_RESOLUTION_LOG_PREFIX: &[u8] = b"aft::resolution_log::";
 
 /// Builds the canonical state key for a published AFT bulletin-board commitment.
 pub fn aft_bulletin_commitment_key(height: u64) -> Vec<u8> {
@@ -407,6 +411,24 @@ pub fn aft_missing_recovery_share_key(height: u64, witness_manifest_hash: &[u8; 
 /// Builds the canonical state key for the protocol-wide AFT collapse object.
 pub fn aft_canonical_collapse_object_key(height: u64) -> Vec<u8> {
     [AFT_COLLAPSE_OBJECT_PREFIX, &height.to_be_bytes()].concat()
+}
+
+/// Builds the head-counter key of a height's append-only resolution log:
+/// the number of entries appended so far (AFT-CB R3).
+pub fn aft_resolution_log_head_key(height: u64) -> Vec<u8> {
+    [AFT_RESOLUTION_LOG_PREFIX, &height.to_be_bytes(), b"::head"].concat()
+}
+
+/// Builds the state key of one resolution-log entry. Entries are only
+/// ever appended at the head index; no writer deletes or overwrites one.
+pub fn aft_resolution_log_entry_key(height: u64, index: u64) -> Vec<u8> {
+    [
+        AFT_RESOLUTION_LOG_PREFIX,
+        &height.to_be_bytes(),
+        b"::entry::",
+        &index.to_be_bytes(),
+    ]
+    .concat()
 }
 
 /// Builds the canonical state key for an AFT omission proof.
