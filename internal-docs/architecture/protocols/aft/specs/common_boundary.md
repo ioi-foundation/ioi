@@ -690,138 +690,102 @@ permissionless.
 
 ## 16. Pre-consented succession
 
-Assumes: A2, A3, A9, A10; A1 for all signatures.
+Assumes: A2 (per configuration — including the standby's own), A3, A9,
+A10; A1 for all signatures.
 
-**STATUS: DESIGN OPEN — CLAIMS WITHDRAWN (P1.3 rounds 1–2).** Two
-successive formulations of this section's safety mechanism were refuted
-by independent adversarial review: round 1 broke the publication-duty
-grace window (publication is not delivery under asynchrony); round 2
-broke its repair (the "succession medium" bulletin is an unmodeled
-consensus object — multi-server, no consistency rule, no cryptographic
-stamp witness — so "anchored by tick X" is observer-relative and the
-forbidden state is reconstructible through a medium partition or a
-backdated stamp). Per the estate's standing scar — a twice-falsified
-design earns no third hardening edge in the same run — and the program
-doc's own named fallback, the succession EXTENSION's claims are
-WITHDRAWN: T5d is design-open, the final claim-ladder rung remains
-unreachable, and the OPERATIVE exits on ring death are §9 handover
-(while the ring can still seal) and §14 labeled anchored re-genesis.
-The rules below stand as the twice-falsified DRAFT, kept for the
-respecification's benefit and explicitly NON-NORMATIVE.
+**STATUS: RESPECIFIED (v3) — PENDING ITS OWN ADVERSARIAL REVIEW.** Two
+earlier formulations were refuted by independent review (round 1:
+publication is not delivery under asynchrony; round 2: the "succession
+medium" bulletin was an unmodeled consensus object). This v3 delivers
+the commissioned direction — bindingness by membership in the standby's
+own UBC-committed observation set, no bulletin, no stamps — and is
+mechanized in `formal/common_boundary/SuccessionClock.tla`. Per the
+program's review discipline, T5d's claim RETURNS TO THE LADDER ONLY
+when this respecification survives a fresh-context adversarial review;
+until then the operative exits on ring death remain §9 handover and §14
+labeled re-genesis, and the final claim-ladder rung stays unreachable.
 
-**Respecification commissioned (P2.7), with the direction both reviews
-point at recorded here**: eliminate the bulletin entirely — bindingness
-of a rival old-ring seal is MEMBERSHIP IN THE STANDBY'S OWN UBC-COMMITTED
-OBSERVATION SET: every fallback seal embeds a signed commitment to the
-set of old-ring objects the standby observed; under the standby
-configuration's OWN MHA (the same trust class as every other seal), its
-honest member refuses to sign a commitment omitting an observed rival,
-making adjudication priced rather than circular; no stamps exist to
-forge (R2-F2 dissolves) and single-valuedness is the standby
-certificate's uniqueness, i.e. T1 applied to `S_v` (R2-F1 dissolves).
-A10 re-scopes to submission-to-standby observation. Authority expiry
-becomes CONDITIONAL on a standby activation record (a UBC of `S_v`,
-verifiable against the seal-seeded chain), so a slow ring with no active
-succession forfeits nothing (R2-F3 dissolves). Bindingness must then be
-wired into §11.3 seal validity, §12 verification, and §19's vectors
-(R2-F4), preemption restricted to BINDING rivals (R2-F7), the tick_ref
-honesty split (R2-F6) modeled as advisory-only, and the standby-refresh
-mitigation NOT reproduced in its unanimity-gated form — one Byzantine
-member vetoes refresh forever, so the exposure bound it advertised was
-adversary-controllable (R2-F13; the respec needs a refresh that degrades
-gracefully or an honest statement that the formation draw is final).
-**The respec's scope is widened by round 4**: cross-lineage adjudication
-is ONE problem appearing twice — succession (old ring vs standby) and
-re-genesis (root vs late continuity, root vs root; R4-F2/F3/F4) — and
-the respecification owes ONE observation-assumption story covering
-both, with §14.2's hardening window conditional on it until then. The
-respecification carries its own adversarial review before any claim
-returns to the ladder.
-
-The draft below is retained verbatim-in-substance for that work:
-
-0. **The succession medium**: the pre-signed policy names a public
-   anchoring point — a bulletin the standby and any watchtower serve,
-   whose entries are tick-stamped against the VDF chain (§15) — as THE
-   place where post-halt old-ring material binds. Anchoring is
-   permissionless writing plus tick reference; the medium confers no
-   authority of its own (it is where bindingness is measured, not who
-   decides it — the deciding rule was signed by the old ring at
-   formation).
-
-1. **Policy signing at formation**: at its own formation, configuration
-   `C_v` unanimously pre-signs a standby policy: the standby configuration
-   `S_v` (drawn under §17's sortition and diversity floors), the activation
-   threshold `T_halt`, the grace window `G`, and the share-expiry bound
-   `T_expire` (rule 3). The pre-signature is a T5c′-class transition
-   signed at formation — activation adds no new ring authority.
-   **Refresh**: any later seal of `C_v` MAY carry a unanimously re-signed
-   replacement standby drawn from the then-current beacon; the effective
-   policy is the most recently sealed one, so the standby's exposure
-   window is the interval since the last refresh, not `C_v`'s lifetime.
-2. **The objective trigger, and nothing else**: succession activates only
-   on "≥ `T_halt` VDF ticks since the last seal" (§15). A non-response
-   record is never a trigger (§10). No succession exists that the old ring
-   did not unanimously pre-sign (at formation or by sealed refresh).
-3. **Per-slot authority expiry and the anchoring deadline (pre-signed at
-   formation)**: every final-ack share is tick-stamped — the §12.2 tuple
-   carries `tick_ref`, a recent VDF chain value at signing time. The
-   formation policy the ring itself unanimously signed states, for every
-   slot `s` with predecessor seal at tick `t_{s−1}`:
-   (a) a share for slot `s` whose `tick_ref ≥ t_{s−1} + T_halt` is VOID —
-   the ring's sealing authority for `s` expires at exactly the tick where
-   the succession trigger for `s` arms (rule 2), by the ring's own
-   standing order; and
-   (b) an old-ring seal for slot `s` BINDS only if anchored in the
-   succession medium (rule 0) by tick `t_{s−1} + T_halt + T_expire`;
-   anchored later or never, it is VOID — not late, VOID.
-   Both conditions are objectively checkable from signed stamps and the
-   chain (A9), consuming no delivery assumption. Together they kill both
-   round-1 arms and the fresh-shares variant this section's first repair
-   missed: quietly collected shares cannot become a binding seal later
-   (b), and a partitioned old ring signing fresh shares after the trigger
-   armed produces only void material (a).
-4. **Grace window with preemption, under A10**: after activation, `S_v`
-   may produce fallback seals, but a fallback-released irreversible
-   effect for slot `s` waits until tick `t_{s−1} + T_halt + G`, where
-   `G ≥ T_expire + G_deliv` (σ-margined, §15.4). A conflicting old-ring
-   seal observed in the medium preempts the fallback (the fallback
-   aborts, the old-ring seal stands). At release time no binding
-   conflicting seal can exist unobserved: a binding seal was anchored by
-   `t_{s−1} + T_halt + T_expire` (rule 3b), and the successor observes
-   everything anchored by then within `G_deliv` further ticks (A10) —
-   strictly before release. Material surfacing after release is void by
-   rule 3, so the released effect never faces a binding rival. Under
-   partition, the old ring simply cannot anchor in time and its
-   post-trigger material is void — the succession side wins by the old
-   ring's own pre-signed priority rule, not by a race.
-5. **Honest-publication duty, re-scoped to what a member actually
-   holds**: an honest member publishes its OWN final-ack share upon
-   signing and anchors any ASSEMBLED certificate it holds upon assembly
-   (part of honest signing, accepted at seat acceptance §9). The duty is
-   dischargeable by construction — a signer always holds its share;
-   nobody is obligated to publish an object it never held (the round-1
-   refutation's second arm). It is a liveness courtesy that lets a
-   briefly-partitioned honest ring win the anchoring race where it can;
-   SAFETY never rests on it — rules 3–4 close the race by voidness, not
-   by anyone's diligence. Crash boundary likewise: a signer that crashes
-   and recovers after the deadlines finds its material void — a bounded
-   liveness loss, never a safety hole; recovery time appears in no
-   safety argument.
-6. **Continuity typing**: fallback seals carry the succession-transition
-   type (T5c′-class, pre-signed); re-genesis (§14) remains the only root
-   event. Cadence resumes under `S_v` with continuity labels intact.
-7. **Standby capture is priced, not assumed away**: `S_v` is pre-named —
-   that is what pre-consent costs — so from its (re)signing until
-   activation or replacement it is a KNOWN target; rule 1's refresh
-   bounds that exposure to the inter-refresh interval, diversity floors
-   and queueing (§17) raise its capture price, and the residual is
-   modeled probabilistically in T8's standby-capture term — never
-   composed into a deterministic tolerance figure. A Byzantine old-ring
-   majority that griefs cadence to force succession into a captured
-   standby is the composed attack that term must price (P4.2); the
-   deterministic ladder never claimed to prevent it, and says so here
-   rather than implying otherwise.
+0. **The standby is the adjudicator, and it is priced like every other
+   ring**: `S_v` is a configuration with its own per-configuration MHA
+   (A2 applies to it exactly as to `C_v` — the same trust class as every
+   seal in this protocol). There is NO bulletin, NO anchoring medium,
+   and NO tick-stamped publication record anywhere in this design: the
+   only observation truth is what the standby's own sealed certificates
+   commit to.
+1. **Policy signing at formation**: `C_v` unanimously pre-signs the
+   standby policy {`S_v` (drawn under §17's sortition and diversity
+   floors), `T_halt`, `G`} at its own formation. **The formation draw is
+   final in the worst case** (stated per the round-2 finding R2-F13,
+   not smoothed): a later unanimous seal MAY refresh the standby, but
+   one Byzantine member vetoes refresh forever, so the standby's
+   exposure window is `C_v`'s lifetime under an adversarial ring — a
+   T8-priced fact, never a mitigated one.
+2. **The activation record**: succession activates only through a UBC of
+   `S_v` over the typed tuple ("aft-cb/activate", lineage, v, `T_a`),
+   valid iff the seal-seeded chain (§15.1 — single-valued, because only
+   seals fold into it) shows ≥ `T_halt` seal-free ticks at `T_a` (A9).
+   An honest standby member signs the activation only after verifying
+   that chain condition itself. Succession authority is the
+   formation-time pre-signature plus this record; no silence-derived
+   input exists (§10), and activation is a T5c′-class continuity
+   transition.
+3. **Authority expiry, conditional on activation**: old-ring final-ack
+   shares for slots at or after the activation point are VOID iff their
+   `tick_ref` (§12.2) postdates `T_a`. Absent an activation record,
+   nothing expires and a slow-but-alive ring forfeits nothing — stall
+   remains harmless-forever on the operative path.
+4. **Observation-committed fallback seals**: every fallback seal of
+   `S_v` embeds `obs_commit` — the union of its signers' observed
+   old-ring objects for the covered slots, committed inside the signed
+   certificate. An HONEST standby member refuses to sign a fallback
+   seal (a) whose `obs_commit` omits any old-ring object that member
+   has observed for the covered slots, or (b) for a slot where that
+   member has observed a RIVAL old-ring seal at all — preemption fires
+   on binding rivals by refusal, before any certificate exists. Under
+   A2(`S_v`), an assembled fallback seal therefore commits every
+   honest-observed object and exists only where no honest standby
+   member had observed a rival seal.
+5. **Bindingness is membership in the committed observation set**: a
+   rival old-ring seal BINDS against the fallback lineage iff it is in
+   the relevant fallback seal's `obs_commit` — the adjudication rule the
+   old ring itself pre-signed at formation ("post-activation, our
+   material binds as observed by the acting standby's sealed
+   commitments"). Third parties verify bindingness from the certificate
+   alone; single-valuedness of the adjudication is the standby
+   certificate's own uniqueness — T1 applied to `S_v`. A rival that
+   never entered any commitment is VOID BY THE OLD RING'S OWN POLICY:
+   not suppressed, not adjudicated late — void, with the old ring's
+   formation signature as the authority.
+6. **Release wait and A10's exact load**: fallback irreversible effects
+   wait `G ≥ G_deliv` ticks after `T_a`. A10 (submission-to-standby
+   observation: an object submitted to the standby set is observed by
+   at least one honest standby member within `G_deliv` ticks) is the
+   honest old ring's protection: submit the rival seal within the
+   window → an honest member observes it → rule 4(b) blocks the
+   fallback seal for that slot entirely. An old ring that cannot reach
+   the standby in time loses those slots by its own pre-signed rule — a
+   liveness cost under partition, never a fork. A10 carries reach to
+   ONE honest standby member (the same shape as A4), not consistency of
+   any shared object.
+7. **The T5d-v3 claim** (mechanized at SuccessionClock; normative only
+   after the respec review): no reachable state contains a
+   fallback-released irreversible effect for a slot AND a BINDING rival
+   old-ring seal for that slot. Unobserved rivals are void by rule 5.
+   Assumes A2(`S_v`), A3, A9, A10 — and note what fell away: no
+   delivery bound on any medium, no stamp integrity, no recovery-latency
+   bound.
+8. **The submission duty**: an honest old-ring member that learns of an
+   activation submits its in-flight material to the standby set upon
+   signing — a liveness courtesy that maximizes the old ring's own
+   protection under rule 6; SAFETY never rests on it.
+9. **Cross-lineage adjudication, unified (round-4 scope)**: §14's
+   root-hardening contest resolution adopts THIS shape — a hardening
+   root's ring commits, in its own sealed records, the prior-lineage
+   material it observed during `W_root`, and contested finality is
+   adjudicated by those commitments under the root ring's own MHA;
+   until this design's review passes, §14's contested release keeps
+   failing closed exactly as written. One observation story, both
+   seams.
 
 ## 17. Sortition seat assignment, diversity floors, watchtowers
 
@@ -901,18 +865,19 @@ updated after rounds 1–3; entries whose subject is the design-open
 succession extension say so rather than asserting a dispatch):
 (a) six-step pre-GST partition → §1.4 + §1's domain separation (round 2:
 HOLDS clean); (b) honest-split partition → §1.4 for safety (round 2:
-HOLDS); the promotion of a long partition into succession is a reason
-the §16 extension is WITHDRAWN, not a priced feature — no dispatch is
-claimed; (c) all-but-one-Byzantine equivocation → §1.3 + §12.5 (round 2:
+HOLDS); the promotion of a long partition into succession is priced by
+the §16 v3 respecification (pending its own review — no dispatch claimed
+until it passes); (c) all-but-one-Byzantine equivocation → §1.3 + §12.5 (round 2:
 HOLDS clean); (d) proposer equivocation across retries → §1.3 + the §1
 attempt budget (round 2: HOLDS clean); (e) crash-recovery
 double-final-ack → §2.2–2.4 + §13.2 (round 2: HOLDS); (f)
 proof-of-silence reconfiguration → §10 (round 2: HOLDS clean); (g)
 staged double-seal forensics → §12.5 (holder-relative, §12.3) + §14.2
 (round 2: HOLDS); (h) post-unbond key compromise → §13.3 + §7.4 (round
-2: HOLDS clean); (i) hidden-seal succession → NO DISPATCH CLAIMED —
-REFUTED-AS-SPECIFIED twice (rounds 1–2); the claim is withdrawn and the
-drill re-arms against the P2.7 respecification; (j) standby capture →
+2: HOLDS clean); (i) hidden-seal succession → the §16 v3 respecification's rules 4–6
+(observation-committed refusal + void-by-policy) are the CANDIDATE
+dispatch, pending the respec's own review — refuted twice before, so no
+dispatch is CLAIMED until that review passes; (j) standby capture →
 §17.1–17.2 for the primary; the standby story is design-open with §16
 and priced only probabilistically (T8); (k) σ-speedup → §15.4 (wait
 thresholds) + §15.5 (comparison downgraded to hardening).
