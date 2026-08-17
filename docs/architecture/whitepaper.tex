@@ -7303,12 +7303,15 @@ registry. Nothing safety-critical cites A5.
   \textbf{A3} honest single-final-ack discipline over crash-consistent
   storage.
 \item
-  \textbf{A4} anti-eclipse: a submitter can reach at least one honest
-  signer (completeness only).
+  \textbf{A4} reachability to at least one honest signer: for submitters
+  (completeness) and for retrievers (availability's serving path) — the
+  second edge added by program review round 2, whose audit found the
+  availability theorem consuming it while this row disclaimed it.
 \item
-  \textbf{A5} post-GST synchrony and bounded dishonest bonded weight
-  (liveness and the live tier only; no strong-lineage safety claim cites
-  A5).
+  \textbf{A5} post-GST synchrony — pairwise delivery within the bound
+  between honest parties, i.e.\ a full honest mesh — and bounded
+  dishonest bonded weight (liveness, seal cadence, and the live tier
+  only; no strong-lineage safety claim cites A5).
 \item
   \textbf{A6} a historical-freshness anchor, exactly one deployed, each
   separately priced: a recent authenticated checkpoint; forward-secure or
@@ -7330,18 +7333,24 @@ registry. Nothing safety-critical cites A5.
   including full-media imaging).
 \item
   \textbf{A9} verifiable-delay-function sequentiality with a bounded,
-  published adversary hardware advantage (a physical assumption, used only
-  by succession timing and the elapsed-history hardening).
+  published adversary hardware advantage (a physical assumption). Its
+  true blast radius, stated per program review round 2: A9 is the
+  protocol's objective clock wherever ticks are read — cadence
+  references, evidence deadlines, tick stamps, re-genesis admissibility,
+  sortition — with safety-critical consumption confined to the
+  elapsed-history hardening and the design-open succession extension.
 \item
-  \textbf{A10} succession-medium observation: an object anchored in the
-  pre-named public succession medium by a given tick is observed by the
-  acting successor within a bounded further tick count. A scoped
-  availability assumption on one bulletin — not cross-partition delivery
-  — consumed by pre-consented succession alone; the uniqueness and
-  lineage ladder never cites it. Added by program review round 1, which
-  refuted the prior succession argument under pure asynchrony: succession
-  cannot distinguish a dead ring from a partitioned one without some such
-  bound, so the ledger prices it explicitly.
+  \textbf{A10} succession-path observation: a bound on the acting
+  successor's view of pre-consented-succession evidence. Added by
+  program review round 1, which refuted the prior succession argument
+  under pure asynchrony (succession cannot distinguish a dead ring from
+  a partitioned one without some such bound); review round 2 then
+  refuted the bulletin-based formulation this row first priced, so the
+  succession extension's claims are withdrawn to design-open and this
+  entry is PROVISIONAL: its final shape (currently commissioned as
+  observation of a standby-committed set, not a bulletin) lands with the
+  respecification and its own review. Consumed by the succession
+  extension alone; the uniqueness and lineage ladder never cites it.
 \end{itemize}
 
 Until the program's proof and validation gates pass, the only claim printed
