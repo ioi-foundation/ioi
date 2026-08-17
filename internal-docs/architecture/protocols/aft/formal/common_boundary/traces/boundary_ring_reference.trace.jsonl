@@ -1,0 +1,12 @@
+{"constants":{"ring":["m1","m2","m3"],"honest":["m1"],"slots":["s1","s2"],"roots":["rX","rY"],"artifacts":["a1"],"no_root":"NoRoot"}}
+{"action":"Deliver","artifact":"a1","member":"m1"}
+{"action":"Deliver","artifact":"a1","member":"m2"}
+{"action":"HonestDeclare","member":"m1","slot":"s1","artifacts":["a1"]}
+{"action":"ByzantineDeclare","member":"m2","slot":"s1","artifacts":["a1"]}
+{"action":"HonestFinalAck","member":"m1","slot":"s1","root":"rX"}
+{"action":"ByzantineEmit","member":"m2","slot":"s1","root":"rX"}
+{"action":"ByzantineEmit","member":"m3","slot":"s1","root":"rX"}
+{"action":"ByzantineEmit","member":"m2","slot":"s1","root":"rY"}
+{"action":"ByzantineEmit","member":"m3","slot":"s1","root":"rY"}
+{"action":"Close","slot":"s1","root":"rX"}
+{"action":"HonestFinalAck","member":"m1","slot":"s2","root":"rY"}

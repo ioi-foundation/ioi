@@ -1,3 +1,4 @@
+pub mod boundary_ring_trace;
 pub mod experimental;
 pub mod guardian_majority;
 

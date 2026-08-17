@@ -45,6 +45,17 @@ MODELS=(
   "common_boundary/SuccessionClock.cfg|common_boundary/SuccessionClock.tla"
 )
 
+# Every trace-conformance replay (AFT-CB R13 / C4a), as
+# "trace|base-module|generated-module-name", relative to FORMAL_DIR.
+# The committed trace is emitted by the Rust reference driver
+# (crates/consensus/src/aft/boundary_ring_trace.rs) and byte-pinned by
+# the cargo test boundary_ring_reference_trace_matches_committed_golden;
+# this harness replays it against the TLA kernel, closing
+# code <-> committed trace <-> model.
+TRACES=(
+  "common_boundary/traces/boundary_ring_reference.trace.jsonl|common_boundary/BoundaryRing.tla|BoundaryRingTraceReference"
+)
+
 # Census: every .tla module under FORMAL_DIR (excluding symlinks and
 # .tlacache) must be either executed by this harness or carried in
 # manual-discharge.json with a reason. An unlisted module fails the build:
@@ -194,6 +205,27 @@ run_model() {
   popd >/dev/null
 }
 
+run_trace() {
+  local trace_rel="$1"
+  local base_rel="$2"
+  local module="$3"
+  local workdir
+
+  workdir="$(mktemp -d)"
+  python3 "${ROOT_DIR}/.github/scripts/gen_aft_trace_module.py" \
+    "${ROOT_DIR}/${FORMAL_DIR}/${trace_rel}" "${module}" "${workdir}"
+  cp "${ROOT_DIR}/${FORMAL_DIR}/${base_rel}" "${workdir}/"
+  pushd "${workdir}" >/dev/null
+  # Deadlock checking stays ON here (NO -deadlock flag, unlike run_model):
+  # a mid-trace disabled action — a step the code took that the model
+  # refuses — deadlocks, and that deadlock IS the divergence signal the
+  # trace-conformance lane exists for.  The generated terminal state
+  # self-loops, so a fully-replayed trace never deadlocks.
+  java -cp "${JAR_PATH}" tlc2.TLC -cleanup -config "${module}.cfg" "${module}.tla"
+  popd >/dev/null
+  rm -rf "${workdir}"
+}
+
 for proof in "${PROOFS[@]}"; do
   run_proof "${FORMAL_DIR}/$(dirname "${proof}")" "$(basename "${proof}")"
 done
@@ -202,4 +234,9 @@ for model in "${MODELS[@]}"; do
   cfg="${model%%|*}"
   tla="${model##*|}"
   run_model "${FORMAL_DIR}/$(dirname "${tla}")" "$(basename "${cfg}")" "$(basename "${tla}")"
+done
+
+for trace in "${TRACES[@]}"; do
+  rest="${trace#*|}"
+  run_trace "${trace%%|*}" "${rest%%|*}" "${rest##*|}"
 done
