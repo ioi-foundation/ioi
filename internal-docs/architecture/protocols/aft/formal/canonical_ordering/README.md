@@ -54,9 +54,20 @@ As with the other AFT proof surfaces, the package is split:
   custody-response publication, positive reconstruction certification,
   objective retrievability challenges, positive extraction, historical
   retrievability promotion, and deterministic reconstruction abort.
+  DISPOSITION (AFT-CB P2.4, 2026-08-17): RETAINED as this lane's own
+  retrievability model and SUPERSEDED-FOR-THE-BOUNDARY-LANE by
+  `../common_boundary/CustodyObligation.tla` — the boundary lane's custody
+  truth is the validate-and-hold signing obligation (full replication per
+  compliant signer; audits optional and never load-bearing), not this
+  plane's shard/custody-assignment machinery. Not deleted: it models the
+  canonical_ordering corpus's own plane, which still stands; clean-slate
+  deletion applies only to true supersession, and cross-lane it is not.
 
-The prose spec states the full `99%` equal-authority ordering consensus theorem
-over canonical bulletin close, omission dominance, endogenous retrievability,
+The prose spec states the all-but-one (`n-1` of `n`) equal-authority ordering
+consensus claim, conditional on the AFT model delta (requalified by AFT-CB
+P0.2; this sentence previously carried the retired `99%` figure and sat
+outside that leg's specs-directory sweep fence — corrected at P2.4), over
+canonical bulletin close, omission dominance, endogenous retrievability,
 and proof soundness. The live runtime has now narrowed the hot-path theorem
 boundary: honest positive ordering carries a compact signed publication frontier
 plus objective contradiction objects for same-slot frontier conflicts and stale
