@@ -15,7 +15,8 @@ Machine-checkable convention (enforced by
 `.github/scripts/check_aft_theorem_assumes.sh`): every theorem block carries
 exactly one `Assumes:` line; only `A1`–`A9` tokens (or `none`) appear on it;
 no safety theorem lists A5 (T4a/T4b are the only blocks permitted to);
-A9 appears only in T5b (the A6-iv mechanism) and T5d; T8 is stated as a
+A9 appears only in T5b (the A6-iv hardening) and T5d; A10 (the
+succession-medium observation bound) appears only in T5d; T8 is stated as a
 probability, carries its full model, and appears in no deterministic
 theorem's proof; T1's block contains no timing vocabulary; the pairing
 table exists and every row is a citation or a named `L-OPEN`.
@@ -46,7 +47,12 @@ member that cannot read its journal refuses the slot). So no member of
 `C_v` is honest, contradicting A2. Retries do not weaken the argument:
 pre-acks are attempt-tagged and never enter a certificate (§1.1); the
 final-ack is attempt-untagged, so uniqueness quantifies over the slot, not
-the attempt. ∎
+the attempt. One structural premise is named rather than smuggled (P1.3
+round 1, AC-8): the proof consumes the fact that a pre-ack can never be
+reinterpreted as a final-ack share — §1 now establishes this doubly
+(distinct signing keys, distinct domain tags over distinct tuples), so a
+certificate verifier structurally cannot accept promoted pre-acks; this is
+a wire-format premise of the theorem in exactly the T7 sense. ∎
 
 Mechanization: P2.1 (`BoundaryRing.tla` + TLAPS inductive invariant).
 Pairing: L1.
@@ -78,14 +84,17 @@ Pairing: L-E.
 
 ## T3 — Availability (custody-attested)
 
-Assumes: A1, A2.
+Assumes: A1, A2, A4.
 
 **Statement.** A UBC implies that every compliant signer obtained the full
 byte set, recomputed the boundary root, and retains and serves the bytes
 through `T_retrievable`; under A2 at least one signer is honest (hence
-compliant), so a sealed boundary's bytes are retrievable through the
-horizon, deterministically — with zero audit records. Deletion by the other
-n−1 members does not affect retrievability.
+compliant), so a sealed boundary's bytes are HELD AND SERVED through the
+horizon, deterministically — with zero audit records — and a retriever
+that can reach at least one honest signer (the A4-class reachability this
+line now names, per P1.3 round 1's AC-6: possession is A1+A2, retrieval
+additionally needs reach) obtains them. Deletion by the other n−1 members
+does not affect retrievability.
 
 **Proof.** By §4, validate-and-hold is a signing obligation: the final-ack
 signature MEANS the signer obtained the bytes, recomputed the root, and
@@ -93,7 +102,10 @@ committed to retain and serve. This is definitional, not detective — a
 signer that signed without holding is dishonest by definition. A UBC
 carries all n signatures (A1: none forged), so all n made the commitment;
 A2 supplies one honest member, which therefore actually holds and serves.
-Retrieval needs one holder, so the other n−1 deleting is harmless. The
+Retrieval needs one holder plus a path to it: the retriever reaching that
+honest signer is exactly the A4-class reachability now on the Assumes line
+— possession alone (A1+A2) does not hand bytes across a network. The
+other n−1 deleting is harmless. The
 pairwise audit lane (§4) produces slashing evidence and is not load-bearing:
 no step of this proof consults an audit record, which is exactly the
 zero-audit gate P2.4 checks. ∎
@@ -136,18 +148,23 @@ seals close within a bounded interval. A single non-responsive member
 freezes seal cadence — never the chain (T4a) — until a §9 handover, §16
 succession, or §14 re-genesis.
 
-**Proof.** Post-GST every message among responsive members arrives within
-Δ (A5). COLLECT and RECONCILE converge: set-digest exchange over a full
-mesh of n nodes reaches a fixed point in O(diameter) = O(1) rounds for
-full mesh, each round ≤ Δ. The proposer assembles B = union of declared
-sets (bounded bytes per slot by deployment parameter), members discharge
-validate-and-hold in bounded local work, journal (A3's storage is live for
-honest members) and final-ack within Δ, and the closing member assembles
-the n-share certificate within Δ. Every step needs all n (unanimity), so
-one withheld ack blocks the CLOSE step — cadence freezes; no rule
-substitutes a smaller quorum (that is L2's forced trade, accepted). The
-chain continues by T4a. Completeness within the closed slot is preserved
-under A4 (T2's condition). ∎
+**Proof.** Two model inputs are named, not smuggled (P1.3 round 1, AC-7):
+this theorem reads A5's delivery bound in its ledgered form — PAIRWISE
+delivery within Δ between honest parties, i.e. the full honest mesh is
+part of what A5 asserts — and it consumes the deployment parameter
+`V_slot` bounding per-slot artifact volume, which appears in this
+statement's cadence bound as stated, not silently. Post-GST every message
+among responsive members arrives within Δ (A5). COLLECT and RECONCILE
+converge: set-digest exchange over the full mesh reaches a fixed point in
+O(1) rounds, each round ≤ Δ. The proposer assembles B = union of declared
+sets (≤ `V_slot` bytes), members discharge validate-and-hold in local work
+bounded by `V_slot`, journal (A3's storage is live for honest members) and
+final-ack within Δ, and the closing member assembles the n-share
+certificate within Δ. Every step needs all n (unanimity), so one withheld
+ack blocks the CLOSE step — cadence freezes; no rule substitutes a smaller
+quorum (that is L2's forced trade, accepted). The chain continues by T4a.
+Completeness within the closed slot is preserved under A4 (T2's
+condition). ∎
 
 Mechanization: P2.2 (`BoundaryLiveness.tla`: TLC positive seal advancement
 at n≤4, plus the freeze direction under one silent member — both labeled
@@ -196,13 +213,19 @@ self-incriminating (T5a) and slashable — cross-checking k sources detects
 it; (ii) with per-seal evolution and verified erasure (A8, §13), former
 members' historical keys do not exist, so no party can re-sign old slots:
 a fork purporting to be history fails share verification (A1); (iii) an
-external objective checkpoint pins the head by assumption; (iv) the
-lineage-embedded VDF chain (§15) makes elapsed history physically
-comparable: a long-range forger must re-run sequential work in real time,
-and the σ margin (A9) bounds the apparent-time compression, so the fresher
-lineage is identifiable by tick length. Each mechanism's cost and
-assumption are stated in the deployment record; the theorem never claims
-freshness without naming which one is live. ∎
+external objective checkpoint pins the head by assumption; (iv) —
+REQUALIFIED by P1.3 round 1 (its drill k refuted the standalone reading) —
+the lineage-embedded VDF chain (§15) is a HARDENING layer, never a
+standalone anchor: it forces a long-range forger to re-run sequential
+work in real time (A9), making recent forks physically impossible within
+`elapsed/σ` and old forks slow and expensive, but a PATIENT or σ-fast
+forger accumulates an equal-or-longer tick chain that tick comparison
+cannot reject — tick length evidences work and elapsed time, never WHICH
+history is live. Freshness under (iv) therefore rests on the anchor it
+hardens — here structurally (ii), since per-seal evolution + erasure is
+mandatory (§13), so the forger's keys do not exist. Each mechanism's cost
+and assumption are stated in the deployment record; the theorem never
+claims freshness without naming which anchor is live. ∎
 
 Mechanization: P2.3 (bootstrap-freshness obligation, A6-conditional in the
 theorem statement itself). Pairing: L-LR.
@@ -241,43 +264,63 @@ assertion). Pairing: L2 (unanimity forced at f = n−1) and L1.
 
 ## T5d — Pre-consented succession safety
 
-Assumes: A2, A3, A9.
+Assumes: A2, A3, A9, A10.
 
-**Statement.** No reachable state contains both a fallback-released
-irreversible effect and a conflicting published old-ring seal. Succession
-activates only on the objective trigger "≥ T_halt VDF ticks since the last
-seal", is pre-signed by the full old ring at its own formation, and
-preserves continuity typing.
+**Statement (rebuilt after the P1.3 round-1 refutation of its
+predecessor).** No reachable state contains both a fallback-released
+irreversible effect for a slot and a BINDING conflicting old-ring seal for
+that slot — where bindingness is the old ring's own formation-time
+pre-signed rule (§16.3): a share stamped at or past the slot's authority
+expiry (`t_{s−1} + T_halt`) is void, and a seal not anchored in the
+pre-named succession medium by `t_{s−1} + T_halt + T_expire` is void.
+Succession activates only on the objective trigger, is pre-signed by the
+full old ring, and preserves continuity typing. The predecessor claim —
+quantifying over "published" rather than "binding" seals — was REFUTED
+under pure asynchrony (P1.3 round 1, drill i) and is not restored; this
+statement is the honest, weaker-but-real one: late-surfacing old-ring
+material is not prevented, it is VOID, by the old ring's own signature.
 
-**Proof.** Fallback effects release only after the grace window `G` ticks
-from activation (§16.3), and tick thresholds are real-time sound under A9:
-an adversary with hardware advantage ≤ σ cannot make `T_halt + G` ticks
-elapse before the corresponding wall time, because every threshold carries
-a ≥σ multiplicative margin (§15.4). Suppose a conflicting old-ring seal
-`S` exists. Case 1: `S` is published before the fallback effect releases.
-Then it is published either before activation — in which case the trigger
-condition "≥ T_halt ticks since the LAST SEAL" was false and activation
-never occurred (the chain binds seal hashes, §15.1, so the tick count
-since `S` is objective) — or during `G`, in which case §16.3 preempts and
-the fallback aborts. Either way no fallback release coexists with
-published `S`. Case 2: `S` is unpublished at release time. `S` carries all
-n old-ring shares (it is a UBC); by A2 one signer is honest; by the
-honest-publication duty (§16.4, accepted at seat acceptance) that signer
-published `S` upon signing — so `S` unpublished implies its honest-signer
-count is zero, contradicting A2. A "seal" surfacing later without ever
-having been published is therefore a certificate whose entire signer set
-breached the duty: attributable dishonesty (§12.5), not a safety
-counterexample. Crash consistency (A3) covers the boundary case: an honest
-signer that crashed between signing and publishing recovers its journal
-(§2) and publishes on restart, within the σ-margined grace window sized to
-include recovery. Activation adds no new ring authority: the transition
-was unanimously signed at formation (§16.1), making it a T5c′-class
-continuity step; re-genesis remains the only root. ∎
+**Proof.** All thresholds are σ-margined (§15.4), so under A9 tick
+comparisons are real-time sound. Consider slot `s` with predecessor seal
+tick `t_{s−1}`, and suppose a binding conflicting old-ring seal `S`
+exists. By bindingness (§16.3b), `S` was anchored in the succession medium
+by tick `t_{s−1} + T_halt + T_expire`. By A10, the acting successor
+observes everything anchored by that tick within `G_deliv` further ticks —
+that is, by `t_{s−1} + T_halt + T_expire + G_deliv ≤ t_{s−1} + T_halt + G`
+(§16.4's constraint on `G`). The fallback releases `s`'s irreversible
+effects no earlier than `t_{s−1} + T_halt + G`, and a conflicting observed
+seal preempts release (§16.4). So `S` was observed before release and the
+fallback aborted — contradiction. Hence no binding conflicting seal
+coexists with a released fallback effect. Conversely, material surfacing
+after release is void by §16.3 (fresh post-trigger shares void by stamp;
+late-anchored assemblies void by deadline — both checkable from signed
+stamps and the chain, A9, with no delivery assumption), so the released
+effect never faces a binding rival. A2/A3 situate the theorem: the trigger
+tick is objective from the seal-seeded chain (§15.1); honest members'
+single-final-ack discipline (A3) keeps the old ring's pre-trigger sealing
+unique (T1), so "the last seal" is well-defined; and the
+honest-publication duty (§16.5) is a liveness courtesy — no step of this
+proof consults it, and no step consults crash-recovery latency.
+Activation adds no new ring authority: the transition was unanimously
+signed at formation or by sealed refresh (§16.1), a T5c′-class continuity
+step; re-genesis remains the only root. ∎
 
-Mechanization: P2.7 (`SuccessionClock.tla`: the reachability theorem, the
-no-silence trigger assertion, the grace-window mutation). Pairing: L-OPEN
-(no lower bound is yet cited for the necessity of a grace window under
-asynchronous publication; candidate for P4-era work).
+**What A10 does and does not carry.** A10 is an observation bound on ONE
+pre-named public bulletin — the successor's view of the medium — not
+cross-partition delivery. Under a partition that cuts the old ring off
+from the medium, the old ring's post-trigger material is void by its own
+pre-signed rule and the successor proceeds safely; the partitioned honest
+old ring loses those slots (a priced liveness cost), it does not fork
+history. Succession under pure asynchrony with no such assumption is
+impossible — a dead ring and a partitioned ring are indistinguishable —
+and the ledger now prices this (A10) instead of the proof smuggling it.
+
+Mechanization: P2.7 (`SuccessionClock.tla`: the reachability theorem over
+BINDING seals, the voidness rules, the no-silence trigger assertion, the
+grace-window and anchoring-deadline mutations). Pairing: L-OPEN (the
+necessity of a scoped observation assumption for any safe succession —
+conjectured forced by the round-1 asynchrony argument; formalization
+open).
 
 ## T6 — Composition (the lattice meet)
 
@@ -315,11 +358,17 @@ exhaustive-match-by-construction). Pairing: L-M.
 Assumes: A1.
 
 **Statement.** Proven against the wire format of §12, not an abstraction:
-above the fault threshold, either no seal exists for a slot, or any two
-conflicting seals for `(v, s)` yield a cryptographically attributable set
-containing every participant necessary for the violation — for n-of-n
-UBCs, the entire configuration. The extraction procedure is specified and
-runs on public data.
+above the fault threshold, either no seal exists for a slot, or ANY PARTY
+HOLDING both conflicting seals for `(v, s)` extracts a cryptographically
+attributable set containing every participant necessary for the violation
+— for n-of-n UBCs, the entire configuration. Holder-relative, stated so
+after P1.3 round 1 (F10): §12.3's broadcast duty binds honest members
+only, so an all-Byzantine signer set can complete a second certificate
+over private channels and withhold it — surfacing is guaranteed by USE
+(a certificate must be presented to be acted on, and presentation makes
+its recipient a holder), by honest broadcast, and by watchtowers, never
+by wire-format magic. The extraction procedure is specified and runs on
+the two certificates alone.
 
 **Proof.** Conflicting seals `U_X`, `U_Y` are bitmap-complete with
 individually verifiable shares over domain-separated tuples (§12.1–12.2),
@@ -375,12 +424,18 @@ independent. (3) The adaptive-corruption term exists because sortition
 (§17.1) narrows targeting to after-seating/before-sealing; the beacon's
 unpredictability enters as a model parameter (its physical grounding lives
 in §15, cited by the mechanisms that consume it, not here). (4) The standby-capture term exists because C2's
-standby is known in advance (§16.6). (5) Composition rule: T8 composes
-with the deterministic ladder ONLY as "deterministic safety conditioned on
-the selection event" — this document and every downstream surface are
-forbidden from converting this probability into a deterministic
-Byzantine-tolerance figure, and the deterministic theorems above neither
-cite this block nor depend on it.
+standby is known in advance (§16.1/§16.7). (5) Composition rule: T8
+composes with the deterministic ladder ONLY as "deterministic safety
+conditioned on the selection event" — this document and every downstream
+surface are forbidden from converting this probability into a
+deterministic Byzantine-tolerance figure, and the deterministic theorems
+above neither cite this block nor depend on it. (6) Substance disclosure
+(P1.3 round 1, F15): the adaptive term's unpredictability parameter is
+grounded in the same physical VDF property the ledger prices for the
+deterministic mechanisms; if the published σ is falsified, the adaptive
+term must be recomputed — a model-input dependence, deliberately not a
+ledger citation, because this block makes no deterministic claim for a
+ledger line to guard.
 
 Mechanization: none (economic model; P4.2 owns the published computation).
 Pairing: L-OPEN (a supply lower bound — the cheapest capture strategy —
@@ -396,14 +451,19 @@ slashable floor `n × bond`. The convicted-to-necessary ratio is 1.0, which
 is maximal (L9): finality with a price tag, by construction.
 
 **Proof.** By T7, two conflicting seals convict every member of `C_v`
-individually and publicly. Each conviction is an A1-sound share pair
-(§12.5) admissible as slashing evidence against that member's bond (the
-bond exists by the membership plane's registration rule, §9). The
+individually, for any holder of both. Each conviction is an A1-sound share
+pair (§12.5) admissible as slashing evidence against that member's bond
+(the bond exists by the membership plane's registration rule, §9). The
 violation requires all n (a UBC is n-of-n), so necessary = n and convicted
 = n: ratio 1.0. L9 states no protocol can attribute beyond the signers of
 the conflicting certificates, so 1.0 is the ceiling and T9 meets it. The
-economic floor follows: n bonds are simultaneously slashable on public
-evidence. ∎
+economic floor follows: n bonds are simultaneously slashable on the
+evidence. The lineage-escape variant (P1.3 round 1, F11) — converting a
+same-slot double-seal into a "fresh lineage" via a self-serving re-genesis
+— is closed upstream: §14.2 makes a root against a non-tick-stale prior
+lineage inadmissible and PARTICIPATION in it slashable on objective
+evidence (the root record plus the live prior chain), so the maneuver
+changes the offense's name, not its price. ∎
 
 Mechanization: P2.6 (attribution completeness); R9 (share-level
 verification in the signer); the economic floor is P4.2's parameter work.
@@ -519,11 +579,14 @@ are genuine, merely re-used. A newcomer holding both chains sees two
 A1-valid, structurally identical lineages. Any deciding rule computable
 from the chains alone decides identically on both under relabeling (the
 construction is symmetric). Distinguishing them requires an input from
-OUTSIDE the chains: a recent checkpoint (A6-i/iii), a cryptographic
+OUTSIDE the chains: a recent checkpoint (A6-i/iii), or a cryptographic
 guarantee that old keys cannot re-sign (A6-ii — which is why A8's erasure
-defeats the construction: the keys to re-use no longer exist), or a
-physical cost asymmetry (A6-iv: the fork lacks the real elapsed VDF
-chain). Each is exactly an A6 mechanism; none is free. ∎
+defeats the construction: the keys to re-use no longer exist). A physical
+cost asymmetry (A6-iv) is deliberately NOT listed as a distinguisher: as
+P1.3 round 1 established (F6), a patient or σ-fast forger accumulates an
+equal-or-longer VDF chain, so tick length alone cannot select the live
+head — (iv) prices and delays the construction; it does not defeat it.
+Each anchor is exactly an A6 mechanism; none is free. ∎
 
 Pairs with: T5b.
 
@@ -589,9 +652,9 @@ this table has zero `L-OPEN` rows (P4.4 gate).
 | T4a live-tier liveness | — | **L-OPEN** (engine's asynchronous bound is R10's subject) |
 | T4b seal cadence | L2 (unanimity forces 1-withholder stall) | cited |
 | T5a membership canonicity | L1 (per configuration) | cited |
-| T5b bootstrap | L-LR (long-range indistinguishability) | cited |
+| T5b bootstrap | L-LR (long-range indistinguishability — a NECESSITY bound: it forces some anchor, and does not certify any mechanism's sufficiency; mechanism (iv) is accordingly a hardening layer only, per F6) | cited |
 | T5c′ reconfiguration | L2 + L1 | cited |
-| T5d succession safety | — | **L-OPEN** (necessity of a grace window under asynchronous publication: unproven, P4-era) |
+| T5d succession safety | — | **L-OPEN** (necessity of a scoped observation assumption — A10-class — for any safe succession: conjectured forced by the round-1 asynchrony refutation; formalization open) |
 | T6 composition | L-M (above-meet unsoundness) | cited |
 | T7 forensic accountability | L9 (attribution cap) | cited |
 | T8 selection supply | — | **L-OPEN** (cheapest-capture supply bound: P4.2 analysis) |

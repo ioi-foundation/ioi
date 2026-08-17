@@ -3,10 +3,11 @@
 #
 # Over internal-docs/architecture/protocols/aft/specs/common_boundary_theorems.md:
 #   1. every theorem block (## T* / ## L*) carries exactly one `Assumes:` line;
-#   2. that line's assumption tokens are only A1..A9 (or the literal `none`);
+#   2. that line's assumption tokens are only A1..A10 (or the literal `none`);
 #   3. A5 appears on no Assumes line outside T4a/T4b (no safety theorem may
 #      consume synchrony);
-#   4. A9 appears on no Assumes line outside T5b (the A6-iv mechanism) and T5d;
+#   4. A9 appears on no Assumes line outside T5b (the A6-iv hardening) and
+#      T5d; A10 (succession-medium observation) outside T5d nowhere at all;
 #   5. T8 is stated as a probability, carries its adversary-budget,
 #      constituency-correlation, adaptive-corruption, and standby-capture
 #      model, and the token T8 appears in no other theorem block;
@@ -49,6 +50,7 @@ block_of() { # $1 = id → block text
 
 A5_ALLOWED=" T4a T4b "
 A9_ALLOWED=" T5b T5d "
+A10_ALLOWED=" T5d "
 
 for id in "${ids[@]}"; do
   block="$(block_of "$id")"
@@ -58,9 +60,9 @@ for id in "${ids[@]}"; do
     continue
   fi
   line="$(grep '^Assumes:' <<<"$block")"
-  # tokens: every A<digits> on the line must be A1..A9; 'none' is permitted
+  # tokens: every A<digits> on the line must be A1..A10; 'none' is permitted
   while read -r tok; do
-    [[ "$tok" =~ ^A[1-9]$ ]] || err "$id: Assumes token '$tok' outside A1..A9"
+    [[ "$tok" =~ ^A([1-9]|10)$ ]] || err "$id: Assumes token '$tok' outside A1..A10"
   done < <(grep -oE 'A[0-9]+' <<<"$line" || true)
   if ! grep -qE '^Assumes: (none|A[1-9])' <<<"$line"; then
     err "$id: Assumes line must start with a ledger token or 'none'"
@@ -70,6 +72,9 @@ for id in "${ids[@]}"; do
   fi
   if grep -qE '\bA9\b' <<<"$line" && [[ "$A9_ALLOWED" != *" $id "* ]]; then
     err "$id: cites A9 — the physical clock is barred outside T5b (A6-iv) and T5d"
+  fi
+  if grep -qE '\bA10\b' <<<"$line" && [[ "$A10_ALLOWED" != *" $id "* ]]; then
+    err "$id: cites A10 — the succession-medium observation bound is barred outside T5d"
   fi
   # T8 must not leak into deterministic theorem blocks
   if [[ "$id" != "T8" ]] && grep -qE '\bT8\b' <<<"$block"; then
@@ -108,4 +113,4 @@ if [[ $fail -ne 0 ]]; then
   echo "check_aft_theorem_assumes: FAILED"
   exit 1
 fi
-echo "theorem convention OK: ${#ids[@]} blocks; Assumes discipline (A5->T4a/T4b only, A9->T5b/T5d only), T8 probabilistic + quarantined, T1 timing-free, pairing table complete"
+echo "theorem convention OK: ${#ids[@]} blocks; Assumes discipline (A5->T4a/T4b only, A9->T5b/T5d only, A10->T5d only), T8 probabilistic + quarantined, T1 timing-free, pairing table complete"
