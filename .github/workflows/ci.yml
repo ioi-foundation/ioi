@@ -325,6 +325,12 @@ jobs:
       - name: Whitepaper assumption ledger + interim claim intact
         run: bash .github/scripts/check_aft_whitepaper_claims.sh
 
+      # P1.2's machine convention: Assumes-line discipline over the
+      # common-boundary theorem corpus (A5/A9/A10 scoping, T8 quarantine,
+      # T1 timing denylist, pairing-table completeness).
+      - name: Theorem Assumes discipline (common boundary)
+        run: bash .github/scripts/check_aft_theorem_assumes.sh
+
       - name: Determine whether formal sources changed
         id: formal_diff
         run: |
