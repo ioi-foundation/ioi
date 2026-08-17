@@ -250,14 +250,19 @@ async fn asymptote_handle_quorum_certificate_advances_with_recursive_proof_backe
 }
 
 #[tokio::test]
-async fn asymptote_handle_quorum_certificate_advances_with_valid_succinct_predecessor_proof() {
+async fn asymptote_handle_quorum_certificate_rejects_succinct_labeled_predecessor_proof() {
+    // AFT-CB R4c: SuccinctSp1V1 is reserved for a real succinct backend.
+    // Even a predecessor whose bytes satisfy the zk plugin's simulated
+    // recipe must not let the pipeline advance. The header links are built
+    // manually because the extension-certificate builder itself refuses
+    // succinct-labeled predecessors.
     let mut engine = GuardianMajorityEngine::new(AftSafetyMode::Asymptote);
     engine.remember_validator_count(3, 3);
 
     let grandparent_collapse = test_canonical_collapse_object(1, None, [80u8; 32], [81u8; 32]);
     let mut previous_collapse =
         test_canonical_collapse_object(2, Some(&grandparent_collapse), [82u8; 32], [83u8; 32]);
-    bind_succinct_mock_continuity(&mut previous_collapse);
+    bind_simulated_succinct_continuity(&mut previous_collapse);
     engine
         .committed_collapses
         .insert(grandparent_collapse.height, grandparent_collapse.clone());
@@ -266,7 +271,16 @@ async fn asymptote_handle_quorum_certificate_advances_with_valid_succinct_predec
         .insert(previous_collapse.height, previous_collapse.clone());
 
     let mut header = build_progress_parent_header(3, 0);
-    link_header_to_previous_collapse(&mut header, &previous_collapse);
+    header.previous_canonical_collapse_commitment_hash =
+        canonical_collapse_commitment_hash_from_object(&previous_collapse).unwrap();
+    header.canonical_collapse_extension_certificate = Some(CanonicalCollapseExtensionCertificate {
+        predecessor_commitment: canonical_collapse_commitment(&previous_collapse),
+        predecessor_recursive_proof_hash: canonical_collapse_recursive_proof_hash(
+            &previous_collapse.continuity_recursive_proof,
+        )
+        .unwrap(),
+    });
+    header.parent_state_root = StateRoot(previous_collapse.resulting_state_root_hash.to_vec());
     let block_hash = to_root_hash(&header.hash().unwrap()).unwrap();
     engine
         .seen_headers
@@ -288,13 +302,12 @@ async fn asymptote_handle_quorum_certificate_advances_with_valid_succinct_predec
 
     <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::handle_quorum_certificate(
         &mut engine,
-        qc.clone(),
+        qc,
     )
     .await
     .unwrap();
 
-    assert_eq!(engine.highest_qc.height, qc.height);
-    assert_eq!(engine.highest_qc.block_hash, qc.block_hash);
+    assert!(engine.highest_qc.height < 3);
 }
 
 #[tokio::test]
@@ -305,7 +318,7 @@ async fn asymptote_handle_quorum_certificate_rejects_invalid_succinct_predecesso
     let grandparent_collapse = test_canonical_collapse_object(1, None, [84u8; 32], [85u8; 32]);
     let mut previous_collapse =
         test_canonical_collapse_object(2, Some(&grandparent_collapse), [86u8; 32], [87u8; 32]);
-    bind_succinct_mock_continuity(&mut previous_collapse);
+    bind_simulated_succinct_continuity(&mut previous_collapse);
     previous_collapse
         .continuity_recursive_proof
         .proof_bytes

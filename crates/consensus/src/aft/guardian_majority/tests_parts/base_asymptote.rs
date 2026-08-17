@@ -1,21 +1,16 @@
 #[test]
-fn verify_canonical_collapse_backend_accepts_and_rejects_succinct_mock_proofs() {
+fn verify_canonical_collapse_backend_accepts_and_rejects_simulated_succinct_proofs() {
+    // Backend ROUTING only: the engine routes SuccinctSp1V1 to the zk
+    // driver, whose simulated lane accepts its own private recipe bytes and
+    // rejects mutations. The combined runtime path still rejects every
+    // succinct-labeled object at the types layer (AFT-CB R4c).
     let engine = GuardianMajorityEngine::new(AftSafetyMode::Asymptote);
     let mut collapse = test_canonical_collapse_object(1, None, [0x21u8; 32], [0x22u8; 32]);
-    let proof = &mut collapse.continuity_recursive_proof;
-    let public_inputs = canonical_collapse_continuity_public_inputs(
-        &proof.commitment,
-        proof.previous_canonical_collapse_commitment_hash,
-        proof.payload_hash,
-        proof.previous_recursive_proof_hash,
-    );
-    proof.proof_system = CanonicalCollapseContinuityProofSystem::SuccinctSp1V1;
-    proof.proof_bytes = canonical_collapse_succinct_mock_proof_bytes(&public_inputs)
-        .expect("succinct mock proof bytes");
+    bind_simulated_succinct_continuity(&mut collapse);
 
     engine
         .verify_canonical_collapse_backend(&collapse)
-        .expect("succinct backend proof should verify");
+        .expect("simulated succinct backend proof should verify");
 
     let mut mutated = collapse.clone();
     mutated.continuity_recursive_proof.proof_bytes[0] ^= 0xFF;

@@ -1,8 +1,8 @@
-use crate::SuccinctDriver;
+use crate::{simulated_continuity_proof_bytes, SuccinctDriver};
 use ioi_api::consensus::CanonicalCollapseContinuityVerifier;
 use ioi_types::app::{
-    canonical_collapse_succinct_mock_proof_bytes, CanonicalCollapseCommitment,
-    CanonicalCollapseContinuityProofSystem, CanonicalCollapseContinuityPublicInputs,
+    CanonicalCollapseCommitment, CanonicalCollapseContinuityProofSystem,
+    CanonicalCollapseContinuityPublicInputs,
 };
 
 fn sample_public_inputs() -> CanonicalCollapseContinuityPublicInputs {
@@ -19,10 +19,10 @@ fn sample_public_inputs() -> CanonicalCollapseContinuityPublicInputs {
 }
 
 #[test]
-fn mock_continuity_verifier_accepts_valid_succinct_proof() {
+fn simulated_continuity_verifier_accepts_valid_succinct_proof() {
     let driver = SuccinctDriver::new_mock();
     let inputs = sample_public_inputs();
-    let proof = canonical_collapse_succinct_mock_proof_bytes(&inputs).expect("mock proof");
+    let proof = simulated_continuity_proof_bytes(&inputs).expect("simulated proof");
 
     driver
         .verify_canonical_collapse_continuity(
@@ -30,14 +30,14 @@ fn mock_continuity_verifier_accepts_valid_succinct_proof() {
             &proof,
             &inputs,
         )
-        .expect("succinct continuity proof should verify");
+        .expect("simulated succinct continuity proof should verify");
 }
 
 #[test]
-fn mock_continuity_verifier_rejects_mutated_succinct_proof() {
+fn simulated_continuity_verifier_rejects_mutated_succinct_proof() {
     let driver = SuccinctDriver::new_mock();
     let inputs = sample_public_inputs();
-    let mut proof = canonical_collapse_succinct_mock_proof_bytes(&inputs).expect("mock proof");
+    let mut proof = simulated_continuity_proof_bytes(&inputs).expect("simulated proof");
     proof[0] ^= 0xFF;
 
     let result = driver.verify_canonical_collapse_continuity(
@@ -52,7 +52,7 @@ fn mock_continuity_verifier_rejects_mutated_succinct_proof() {
 }
 
 #[test]
-fn mock_continuity_verifier_rejects_reference_hash_proof_system() {
+fn simulated_continuity_verifier_rejects_reference_hash_proof_system() {
     let driver = SuccinctDriver::new_mock();
     let inputs = sample_public_inputs();
 

@@ -5,7 +5,7 @@ use ioi_api::chain::QueryStateResponse;
 use ioi_types::app::{
     canonical_collapse_commitment, canonical_collapse_commitment_hash_from_object,
     canonical_collapse_continuity_public_inputs, canonical_collapse_extension_certificate,
-    canonical_collapse_recursive_proof_hash, canonical_collapse_succinct_mock_proof_bytes,
+    canonical_collapse_recursive_proof_hash,
     set_canonical_collapse_archived_recovered_history_anchor, AccountId,
     CanonicalCollapseContinuityProofSystem, CanonicalCollapseExtensionCertificate,
     QuorumCertificate, SignatureSuite, StateAnchor, StateRoot,
@@ -13,8 +13,8 @@ use ioi_types::app::{
 use ioi_types::error::ChainError;
 use std::any::Any;
 use std::collections::BTreeMap;
-use std::sync::{Mutex as StdMutex, OnceLock};
 use tokio::sync::Mutex;
+use zk_driver_succinct::simulated_continuity_proof_bytes;
 
 #[derive(Debug, Default)]
 struct TestWorkloadClient {
@@ -146,7 +146,13 @@ fn sample_block() -> Block<ChainTransaction> {
     }
 }
 
-fn bind_succinct_mock_continuity(collapse: &mut CanonicalCollapseObject) {
+/// Relabels a collapse object's continuity proof as `SuccinctSp1V1`, carrying
+/// the zk plugin's own simulated recipe bytes. The kernel no longer defines
+/// any mock succinct bytes (AFT-CB P0.3): the types-level verifier rejects
+/// every succinct-labeled proof until a real backend lands (R4c), so this
+/// helper is only useful to (a) exercise the backend ROUTING directly and
+/// (b) prove the reservation rejection on persisted paths.
+fn bind_simulated_succinct_continuity(collapse: &mut CanonicalCollapseObject) {
     let proof = &mut collapse.continuity_recursive_proof;
     let public_inputs = canonical_collapse_continuity_public_inputs(
         &proof.commitment,
@@ -155,8 +161,8 @@ fn bind_succinct_mock_continuity(collapse: &mut CanonicalCollapseObject) {
         proof.previous_recursive_proof_hash,
     );
     proof.proof_system = CanonicalCollapseContinuityProofSystem::SuccinctSp1V1;
-    proof.proof_bytes = canonical_collapse_succinct_mock_proof_bytes(&public_inputs)
-        .expect("succinct mock proof bytes");
+    proof.proof_bytes =
+        simulated_continuity_proof_bytes(&public_inputs).expect("simulated succinct proof bytes");
 }
 
 fn align_block_parent_to_previous_result(
@@ -166,13 +172,12 @@ fn align_block_parent_to_previous_result(
     block.header.parent_state_root = StateRoot(previous.resulting_state_root_hash.to_vec());
 }
 
-fn continuity_env_lock() -> &'static StdMutex<()> {
-    static LOCK: OnceLock<StdMutex<()>> = OnceLock::new();
-    LOCK.get_or_init(|| StdMutex::new(()))
-}
-
 #[test]
-fn verify_canonical_collapse_backend_accepts_and_rejects_succinct_mock_proofs() {
+fn verify_canonical_collapse_backend_accepts_and_rejects_simulated_succinct_proofs() {
+    // Backend ROUTING only: the validator routes SuccinctSp1V1 to the zk
+    // driver, whose simulated lane accepts its own private recipe bytes and
+    // rejects mutations. The combined persisted path still rejects every
+    // succinct-labeled object at the types layer (AFT-CB R4c).
     let mut collapse = CanonicalCollapseObject {
         height: 1,
         previous_canonical_collapse_commitment_hash: [0u8; 32],
@@ -188,9 +193,10 @@ fn verify_canonical_collapse_backend_accepts_and_rejects_succinct_mock_proofs() 
     };
     ioi_types::app::bind_canonical_collapse_continuity(&mut collapse, None)
         .expect("bind continuity");
-    bind_succinct_mock_continuity(&mut collapse);
+    bind_simulated_succinct_continuity(&mut collapse);
 
-    verify_canonical_collapse_backend(&collapse).expect("succinct backend proof should verify");
+    verify_canonical_collapse_backend(&collapse)
+        .expect("simulated succinct backend proof should verify");
 
     let mut mutated = collapse.clone();
     mutated.continuity_recursive_proof.proof_bytes[0] ^= 0xFF;
@@ -245,66 +251,6 @@ async fn require_persisted_aft_canonical_collapse_accepts_matching_state() {
         .await
         .expect("persisted collapse");
     assert_eq!(loaded, collapse);
-}
-
-#[tokio::test]
-async fn require_persisted_aft_canonical_collapse_accepts_matching_succinct_state() {
-    let _guard = continuity_env_lock().lock().expect("continuity env lock");
-    let previous_env = std::env::var("IOI_AFT_CONTINUITY_PROOF_SYSTEM").ok();
-    std::env::set_var("IOI_AFT_CONTINUITY_PROOF_SYSTEM", "succinct-sp1-v1");
-
-    let mut block = sample_block();
-    let previous = CanonicalCollapseObject {
-        height: block.header.height - 1,
-        previous_canonical_collapse_commitment_hash: [0u8; 32],
-        continuity_accumulator_hash: [0u8; 32],
-        continuity_recursive_proof: Default::default(),
-        archived_recovered_history_checkpoint_hash: [0u8; 32],
-        archived_recovered_history_profile_activation_hash: [0u8; 32],
-        archived_recovered_history_retention_receipt_hash: [0u8; 32],
-        ordering: Default::default(),
-        sealing: None,
-        transactions_root_hash: [3u8; 32],
-        resulting_state_root_hash: [4u8; 32],
-    };
-    let mut previous = previous;
-    ioi_types::app::bind_canonical_collapse_continuity(&mut previous, None)
-        .expect("bind previous continuity");
-    align_block_parent_to_previous_result(&mut block, &previous);
-    block.header.previous_canonical_collapse_commitment_hash =
-        canonical_collapse_commitment_hash_from_object(&previous).expect("previous hash");
-    block.header.canonical_collapse_extension_certificate = Some(
-        canonical_collapse_extension_certificate(block.header.height, &previous)
-            .expect("extension certificate"),
-    );
-    let collapse = derive_canonical_collapse_object_with_previous(
-        &block.header,
-        &block.transactions,
-        Some(&previous),
-    )
-    .expect("collapse");
-    let previous_key = aft_canonical_collapse_object_key(previous.height);
-    let key = aft_canonical_collapse_object_key(block.header.height);
-    let client = TestWorkloadClient::default();
-    client.raw_state.lock().await.insert(
-        previous_key,
-        codec::to_bytes_canonical(&previous).expect("encode previous"),
-    );
-    client.raw_state.lock().await.insert(
-        key,
-        codec::to_bytes_canonical(&collapse).expect("encode collapse"),
-    );
-
-    let loaded = require_persisted_aft_canonical_collapse_for_block(&client, &block)
-        .await
-        .expect("persisted succinct collapse");
-    assert_eq!(loaded, collapse);
-
-    if let Some(value) = previous_env {
-        std::env::set_var("IOI_AFT_CONTINUITY_PROOF_SYSTEM", value);
-    } else {
-        std::env::remove_var("IOI_AFT_CONTINUITY_PROOF_SYSTEM");
-    }
 }
 
 #[tokio::test]
@@ -366,11 +312,9 @@ async fn require_persisted_aft_canonical_collapse_accepts_archived_anchor_upgrad
 }
 
 #[tokio::test]
-async fn require_persisted_aft_canonical_collapse_rejects_corrupted_succinct_previous_chain() {
-    let _guard = continuity_env_lock().lock().expect("continuity env lock");
-    let previous_env = std::env::var("IOI_AFT_CONTINUITY_PROOF_SYSTEM").ok();
-    std::env::set_var("IOI_AFT_CONTINUITY_PROOF_SYSTEM", "succinct-sp1-v1");
-
+async fn require_persisted_aft_canonical_collapse_rejects_corrupted_previous_chain() {
+    // The persisted predecessor chain is HashPcdV1; corrupting the persisted
+    // predecessor's proof bytes must fail durable-state advancement.
     let mut block = sample_block();
     let previous = CanonicalCollapseObject {
         height: block.header.height - 1,
@@ -418,20 +362,13 @@ async fn require_persisted_aft_canonical_collapse_rejects_corrupted_succinct_pre
 
     let error = require_persisted_aft_canonical_collapse_for_block(&client, &block)
         .await
-        .expect_err("corrupted succinct predecessor chain should fail");
+        .expect_err("corrupted predecessor chain should fail");
     assert!(
         error
             .to_string()
-            .contains("persisted canonical collapse object does not match")
-            || error.to_string().contains("continuity verification failed"),
+            .contains("canonical collapse proof bytes mismatch"),
         "unexpected error: {error}"
     );
-
-    if let Some(value) = previous_env {
-        std::env::set_var("IOI_AFT_CONTINUITY_PROOF_SYSTEM", value);
-    } else {
-        std::env::remove_var("IOI_AFT_CONTINUITY_PROOF_SYSTEM");
-    }
 }
 
 #[tokio::test]
@@ -588,7 +525,15 @@ async fn resolve_live_aft_canonical_collapse_accepts_archived_anchor_upgrade() {
 }
 
 #[tokio::test]
-async fn require_persisted_aft_canonical_collapse_accepts_matching_succinct_backend_state() {
+async fn require_persisted_aft_canonical_collapse_rejects_succinct_labeled_previous_until_real_backend(
+) {
+    // AFT-CB R4c: SuccinctSp1V1 is a reserved wire variant. Even a persisted
+    // predecessor whose bytes satisfy the zk plugin's simulated recipe (so
+    // the backend ROUTING would accept it) must fail durable-state
+    // advancement, because the types-level verifier refuses every
+    // succinct-labeled proof until a real backend lands. The header links
+    // are built manually because the extension-certificate builder itself
+    // refuses succinct-labeled predecessors.
     let mut block = sample_block();
     let previous = CanonicalCollapseObject {
         height: block.header.height - 1,
@@ -606,40 +551,41 @@ async fn require_persisted_aft_canonical_collapse_accepts_matching_succinct_back
     let mut previous = previous;
     ioi_types::app::bind_canonical_collapse_continuity(&mut previous, None)
         .expect("bind previous continuity");
-    bind_succinct_mock_continuity(&mut previous);
+    bind_simulated_succinct_continuity(&mut previous);
     block.header.parent_state_root = StateRoot(previous.resulting_state_root_hash.to_vec());
     block.header.previous_canonical_collapse_commitment_hash =
         canonical_collapse_commitment_hash_from_object(&previous).expect("previous hash");
-    block.header.canonical_collapse_extension_certificate = Some(
-        canonical_collapse_extension_certificate(block.header.height, &previous)
-            .expect("extension certificate"),
-    );
-    let collapse = derive_canonical_collapse_object_with_previous(
-        &block.header,
-        &block.transactions,
-        Some(&previous),
-    )
-    .expect("collapse");
+    block.header.canonical_collapse_extension_certificate =
+        Some(CanonicalCollapseExtensionCertificate {
+            predecessor_commitment: canonical_collapse_commitment(&previous),
+            predecessor_recursive_proof_hash: canonical_collapse_recursive_proof_hash(
+                &previous.continuity_recursive_proof,
+            )
+            .expect("predecessor proof hash"),
+        });
     let previous_key = aft_canonical_collapse_object_key(previous.height);
-    let key = aft_canonical_collapse_object_key(block.header.height);
     let client = TestWorkloadClient::default();
     client.raw_state.lock().await.insert(
         previous_key,
         codec::to_bytes_canonical(&previous).expect("encode previous"),
     );
-    client.raw_state.lock().await.insert(
-        key,
-        codec::to_bytes_canonical(&collapse).expect("encode collapse"),
-    );
 
-    let loaded = require_persisted_aft_canonical_collapse_for_block(&client, &block)
+    let error = require_persisted_aft_canonical_collapse_for_block(&client, &block)
         .await
-        .expect("persisted succinct collapse");
-    assert_eq!(loaded, collapse);
+        .expect_err("succinct-labeled predecessor should fail");
+    assert!(
+        error
+            .to_string()
+            .contains("reserved for a real succinct backend"),
+        "unexpected error: {error}"
+    );
 }
 
 #[tokio::test]
-async fn require_persisted_aft_canonical_collapse_rejects_invalid_succinct_backend_proof() {
+async fn require_persisted_aft_canonical_collapse_rejects_corrupted_persisted_proof_bytes() {
+    // The persisted CURRENT collapse carries corrupted HashPcdV1 proof
+    // bytes; the persisted-chain walk must reject it even though the
+    // derived expectation itself is valid.
     let mut block = sample_block();
     let previous = CanonicalCollapseObject {
         height: block.header.height - 1,
@@ -657,18 +603,13 @@ async fn require_persisted_aft_canonical_collapse_rejects_invalid_succinct_backe
     let mut previous = previous;
     ioi_types::app::bind_canonical_collapse_continuity(&mut previous, None)
         .expect("bind previous continuity");
-    bind_succinct_mock_continuity(&mut previous);
     block.header.parent_state_root = StateRoot(previous.resulting_state_root_hash.to_vec());
     block.header.previous_canonical_collapse_commitment_hash =
         canonical_collapse_commitment_hash_from_object(&previous).expect("previous hash");
-    block.header.canonical_collapse_extension_certificate =
-        Some(CanonicalCollapseExtensionCertificate {
-            predecessor_commitment: canonical_collapse_commitment(&previous),
-            predecessor_recursive_proof_hash: canonical_collapse_recursive_proof_hash(
-                &previous.continuity_recursive_proof,
-            )
-            .expect("predecessor proof hash"),
-        });
+    block.header.canonical_collapse_extension_certificate = Some(
+        canonical_collapse_extension_certificate(block.header.height, &previous)
+            .expect("extension certificate"),
+    );
     let collapse = derive_canonical_collapse_object_with_previous(
         &block.header,
         &block.transactions,
@@ -691,14 +632,11 @@ async fn require_persisted_aft_canonical_collapse_rejects_invalid_succinct_backe
 
     let error = require_persisted_aft_canonical_collapse_for_block(&client, &block)
         .await
-        .expect_err("invalid succinct proof should fail");
+        .expect_err("corrupted persisted proof bytes should fail");
     assert!(
         error
             .to_string()
-            .contains("persisted canonical collapse continuity verification failed")
-            || error
-                .to_string()
-                .contains("canonical collapse continuity backend verification failed"),
+            .contains("persisted canonical collapse continuity verification failed"),
         "unexpected error: {error}"
     );
 }

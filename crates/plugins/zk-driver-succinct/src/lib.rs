@@ -15,16 +15,35 @@ use ioi_api::{
     zk::ZkProofSystem,
 };
 use ioi_types::{
-    app::{
-        canonical_collapse_succinct_mock_proof_bytes, CanonicalCollapseContinuityProofSystem,
-        CanonicalCollapseContinuityPublicInputs,
-    },
+    app::{CanonicalCollapseContinuityProofSystem, CanonicalCollapseContinuityPublicInputs},
     ibc::StateProofScheme,
 };
 use std::sync::Arc; // [FIX] Added async_trait import
 
 // Re-export canonical types from the shared crate
 pub use zk_types::{BeaconPublicInputs, StateInclusionPublicInputs};
+
+/// Deterministic proof bytes for the SIMULATED (non-native) continuity lane.
+///
+/// This is the plugin's own simulation rule, private to the simulated driver:
+/// the kernel reference runtime no longer defines or accepts any mock
+/// succinct bytes (AFT-CB P0.3). Real `SuccinctSp1V1` bytes come only from
+/// the SP1 backend behind the `native` feature.
+pub fn simulated_continuity_proof_bytes(
+    public_inputs: &CanonicalCollapseContinuityPublicInputs,
+) -> Result<Vec<u8>, ioi_api::error::CryptoError> {
+    let inputs = bincode::serialize(public_inputs).map_err(|e| {
+        ioi_api::error::CryptoError::InvalidInput(format!(
+            "canonical collapse continuity public inputs invalid: {}",
+            e
+        ))
+    })?;
+    let mut preimage = b"zk-driver-succinct::simulated-continuity::v1".to_vec();
+    preimage.extend_from_slice(&inputs);
+    let digest = Sha256::digest(&preimage)
+        .map_err(|e| ioi_api::error::CryptoError::OperationFailed(e.to_string()))?;
+    Ok(digest.as_ref().to_vec())
+}
 
 /// A dummy ZK backend for simulation, fulfilling the ZkProofSystem trait.
 #[derive(Debug, Clone, Default)]
@@ -46,13 +65,7 @@ impl ZkProofSystem for SimulatedGroth16 {
         let target_root: [u8; 32] = if let Ok(inputs) =
             bincode::deserialize::<CanonicalCollapseContinuityPublicInputs>(public_inputs)
         {
-            let expected_proof =
-                canonical_collapse_succinct_mock_proof_bytes(&inputs).map_err(|e| {
-                    ioi_api::error::CryptoError::InvalidInput(format!(
-                        "canonical collapse continuity public inputs invalid: {}",
-                        e
-                    ))
-                })?;
+            let expected_proof = simulated_continuity_proof_bytes(&inputs)?;
             return Ok(proof == expected_proof.as_slice());
         } else if let Ok(inputs) = bincode::deserialize::<BeaconPublicInputs>(public_inputs) {
             inputs.new_state_root

@@ -1263,24 +1263,24 @@ fn asymptote_observe_committed_block_accepts_header_compatible_materialized_coll
 }
 
 #[test]
-fn asymptote_observe_committed_block_with_matching_succinct_collapse_enables_reset_promotion() {
-    let _guard = continuity_env_lock().lock().expect("continuity env lock");
-    let previous_env = std::env::var("IOI_AFT_CONTINUITY_PROOF_SYSTEM").ok();
-    std::env::set_var("IOI_AFT_CONTINUITY_PROOF_SYSTEM", "succinct-sp1-v1");
-
+fn asymptote_observe_committed_block_rejects_succinct_labeled_collapse_until_real_backend() {
+    // AFT-CB R4c: SuccinctSp1V1 is a reserved wire variant. Until a real
+    // succinct backend lands, the reference runtime rejects any
+    // succinct-labeled collapse object outright — even one whose bytes
+    // satisfy the zk plugin's simulated recipe.
     let mut engine = GuardianMajorityEngine::new(AftSafetyMode::Asymptote);
     let collapse_chain = test_canonical_collapse_chain_ending(4, [0x31u8; 32], [0x32u8; 32]);
     seed_committed_collapse_chain(&mut engine, &collapse_chain);
     let previous_collapse = collapse_chain.last().unwrap().clone();
     let mut committed_header = build_progress_parent_header(5, 0);
     link_header_to_previous_collapse(&mut committed_header, &previous_collapse);
-    let committed_hash = to_root_hash(&committed_header.hash().unwrap()).unwrap();
-    let committed_collapse = derive_canonical_collapse_object_with_previous(
+    let mut committed_collapse = derive_canonical_collapse_object_with_previous(
         &committed_header,
         &[],
         Some(&previous_collapse),
     )
     .unwrap();
+    bind_simulated_succinct_continuity(&mut committed_collapse);
 
     let accepted =
         <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::observe_committed_block(
@@ -1289,27 +1289,17 @@ fn asymptote_observe_committed_block_with_matching_succinct_collapse_enables_res
             Some(&committed_collapse),
         );
 
-    assert!(accepted);
-    <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::reset(&mut engine, 5);
-
-    assert_eq!(engine.highest_qc.height, 5);
-    assert_eq!(engine.highest_qc.block_hash, committed_hash);
-
-    if let Some(value) = previous_env {
-        std::env::set_var("IOI_AFT_CONTINUITY_PROOF_SYSTEM", value);
-    } else {
-        std::env::remove_var("IOI_AFT_CONTINUITY_PROOF_SYSTEM");
-    }
+    assert!(!accepted);
 }
 
 #[test]
-fn asymptote_observe_committed_block_rejects_corrupted_local_succinct_predecessor_chain() {
-    let _guard = continuity_env_lock().lock().expect("continuity env lock");
-    let previous_env = std::env::var("IOI_AFT_CONTINUITY_PROOF_SYSTEM").ok();
-    std::env::set_var("IOI_AFT_CONTINUITY_PROOF_SYSTEM", "succinct-sp1-v1");
-
+fn asymptote_observe_committed_block_rejects_corrupted_local_predecessor_chain() {
+    // The locally stored predecessor chain is HashPcdV1; corrupting the
+    // stored predecessor's proof bytes must reject the committed-block hint.
     let mut engine = GuardianMajorityEngine::new(AftSafetyMode::Asymptote);
-    let previous_collapse = test_canonical_collapse_object(4, None, [0x41u8; 32], [0x42u8; 32]);
+    let collapse_chain = test_canonical_collapse_chain_ending(4, [0x41u8; 32], [0x42u8; 32]);
+    seed_committed_collapse_chain(&mut engine, &collapse_chain);
+    let previous_collapse = collapse_chain.last().unwrap().clone();
     let mut stored_previous = previous_collapse.clone();
     stored_previous.continuity_recursive_proof.proof_bytes[0] ^= 0xFF;
     engine
@@ -1332,10 +1322,4 @@ fn asymptote_observe_committed_block_rejects_corrupted_local_succinct_predecesso
         );
 
     assert!(!accepted);
-
-    if let Some(value) = previous_env {
-        std::env::set_var("IOI_AFT_CONTINUITY_PROOF_SYSTEM", value);
-    } else {
-        std::env::remove_var("IOI_AFT_CONTINUITY_PROOF_SYSTEM");
-    }
 }
