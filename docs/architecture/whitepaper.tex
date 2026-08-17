@@ -7285,6 +7285,71 @@ is missing or inconsistent, the slot aborts rather than settling unsafe
 state. No claim is made here that this design exceeds classical BFT bounds
 or is safe under a particular Byzantine threshold.
 
+\textbf{Assumption ledger and claim discipline (AFT-CB program).} Every
+claim this candidate makes cites only the following ledger entries; the
+program that owns this discipline is tracked in the internal research
+registry. Nothing safety-critical cites A5.
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{A1} signature unforgeability and hash collision resistance.
+\item
+  \textbf{A2} Minimal Honesty Axiom (MHA): at least one honest,
+  non-equivocating signer per publicly committed signer configuration.
+  Economically bought (bonds, diversity floors, activation queues), never
+  proven, and stated so.
+\item
+  \textbf{A3} honest single-final-ack discipline over crash-consistent
+  storage.
+\item
+  \textbf{A4} anti-eclipse: a submitter can reach at least one honest
+  signer (completeness only).
+\item
+  \textbf{A5} post-GST synchrony and bounded dishonest bonded weight
+  (liveness and the live tier only; no strong-lineage safety claim cites
+  A5).
+\item
+  \textbf{A6} a historical-freshness mechanism, exactly one of four, each
+  separately priced: a recent authenticated checkpoint; forward-secure or
+  puncturable signatures with secure key erasure; an external objective
+  checkpoint; or verifiable-delay elapsed-history (requires A9).
+\item
+  \textbf{A7} proof-system soundness (succinct verification only;
+  full-replay verification needs A1 alone).
+\item
+  \textbf{A8} per-seal key evolution with verified immediate erasure
+  (everlasting safety against later compromise of former members).
+\item
+  \textbf{A9} verifiable-delay-function sequentiality with a bounded,
+  published adversary hardware advantage (a physical assumption, used only
+  by succession timing and freshness comparison).
+\end{itemize}
+
+Until the program's proof and validation gates pass, the only claim printed
+for this candidate is the conditional form:
+
+\begin{quote}
+Conditional weight-independent deterministic finality over a
+common-publication substrate, with bounded-resource liveness and
+genesis-relative succinct verification.
+\end{quote}
+
+\textbf{Positioning on the impossibility frontier.} The candidate does not
+evade FLP, DLS, or the permissionless-consensus hierarchy: transferable
+finality certificates require a known bonded signer set per close, so the
+committed configuration is the admission price the theorems charge, not a
+removable weakness. Within one configuration, unanimity plus one honest,
+non-equivocating signer yields deterministic, asynchronous,
+weight-independent uniqueness and pre-cutoff inclusion; the quorum trade is
+exact (safety needs \(2q - n > f\), liveness needs \(q \leq n - f\), so at
+\(f = n-1\) only \(q = n\) is safe and one withholder can stall). This is
+all-but-one Byzantine safety with possible stall, never all-but-one live
+consensus; positive progress and reconfiguration carry separately stated
+synchrony and adversarial-weight bounds. Tolerance figures are stated in
+the exact all-but-one form; no rounded percentage tolerance figure is used
+anywhere in this candidate's claims.
+
 \textbf{Synchrony and challenge-epoch baseline.} The candidate assumes a
 weak-synchrony model: after Global Stabilization Time (GST), public messages are delivered
 within a bounded \(\Delta_{\mathrm{publish}}\), retrieval requests
