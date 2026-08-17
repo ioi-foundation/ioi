@@ -693,17 +693,26 @@ permissionless.
 Assumes: A2 (per configuration — including the standby's own), A3, A9,
 A10; A1 for all signatures.
 
-**STATUS: RESPECIFIED (v3) — PENDING ITS OWN ADVERSARIAL REVIEW.** Two
-earlier formulations were refuted by independent review (round 1:
-publication is not delivery under asynchrony; round 2: the "succession
-medium" bulletin was an unmodeled consensus object). This v3 delivers
-the commissioned direction — bindingness by membership in the standby's
-own UBC-committed observation set, no bulletin, no stamps — and is
-mechanized in `formal/common_boundary/SuccessionClock.tla`. Per the
-program's review discipline, T5d's claim RETURNS TO THE LADDER ONLY
-when this respecification survives a fresh-context adversarial review;
-until then the operative exits on ring death remain §9 handover and §14
-labeled re-genesis, and the final claim-ladder rung stays unreachable.
+**STATUS: v3 REFUTED (review round 5) — DESIGN OPEN; EVERY RULE BELOW IS
+NON-NORMATIVE.** Three formulations of pre-consented succession have now
+been refuted by independent fresh-context review (round 1: publication
+is not delivery; round 2: the bulletin was an unmodeled consensus
+object; round 5, against THIS v3: Byzantine obs_commit padding passes
+both refusal rules and no release rule checks bindingness — R5-F1;
+void-by-policy was never wired into §11.3/§12/§19, and rules 3 and 5
+below give OPPOSITE verdicts on the same rival seal — R5-F2; the
+mechanized kernel proves a strictly narrowed statement — R5-F3; full
+findings in the program's reviews registry, p2-7-respec-review.md).
+T5d is WITHDRAWN for this program cycle: the operative exits on ring
+death are §9 handover and §14 labeled re-genesis, the final
+claim-ladder rung is unreachable (as the program doc's own fallback
+pre-named), and a v4 — if ever attempted — must satisfy the round-5
+conditions: wire voidness into the operative release surfaces,
+reconcile the expiry/void rules, close the padding hole, decide whether
+A2(C_v) joins the assumption line, and re-mechanize against a FAITHFUL
+adversary model. The v3 text is retained below as the refuted draft,
+because a refuted design labeled refuted is worth more than a deleted
+one.
 
 0. **The standby is the adjudicator, and it is priced like every other
    ring**: `S_v` is a configuration with its own per-configuration MHA
