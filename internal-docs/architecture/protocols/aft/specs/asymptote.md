@@ -339,8 +339,10 @@ The on-chain `AsymptotePolicy` controls:
   explicit public-evidence assumptions
 - a fail-closed settlement discipline for irreversible effects
 
-It should not be described as a classical unconditional “99% Byzantine fault
-tolerance” theorem.
+It should not be described as a classical unconditional percentage-figure
+Byzantine-fault-tolerance theorem. The family-level claim it supports is
+all-but-one (`n-1` of `n`) Byzantine safety, conditional on the AFT model
+delta.
 
 The old sampling formula remains only as historical analytical context for the
 superseded affirmative sampled-observer lane. The normative observer claim is

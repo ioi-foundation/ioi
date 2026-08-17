@@ -4,7 +4,8 @@ Status: internal protocol spec (AFT corpus); non-canonical.
 Authority: `docs/architecture/` owners and accepted ADRs are canonical and win on drift; this file is private protocol context only.
 This document is the normative protocol model for AFT's proof-carrying
 equal-authority ordering path. It is the ordering-specific component of the
-repository's broader `99% Byzantine Tolerance` claim in the AFT model delta:
+repository's broader all-but-one (`n-1` of `n`) Byzantine safety claim,
+conditional on the AFT model delta:
 admissible content-addressed artifacts cannot be indefinitely suppressed from
 correct parties after stabilization, and that visibility resource is realized
 by direct authenticated dissemination plus compressed public echo.
@@ -509,8 +510,9 @@ total absence of non-parity redundancy; the former scope boundary beyond the
 completed recovery-family contract is now closed. The stronger follow-on
 program is closed too: this achieved result explicitly claims the whole AFT
 stack breaks the classical indefinite-suppression lower bound in the AFT model
-delta, and the `99% Byzantine Tolerance` result should be sold as finished and
-categorical in that model. It should not be framed as a refutation of DLS/PBFT
+delta, and the all-but-one (`n-1` of `n`) Byzantine safety result is finished
+in, and remains conditional on, that model delta. It should not be framed as
+a refutation of DLS/PBFT
 while remaining inside the bare dense-vote message-passing model.
 
 The current registry shape is:
@@ -780,10 +782,11 @@ In other words, the ordered set is not only unique; it is deterministically
 extractable from the published closed-slot bulletin surface by any honest node
 with bulletin access.
 
-## 99% Equal-Authority Ordering Consensus Theorem
+## All-But-One (n-1 of n) Equal-Authority Ordering Consensus Theorem
 
 AFT's ordering theorem is the ordering-specific PSC theorem rather than a
-classical dense-vote BFT theorem.
+classical dense-vote BFT theorem. It is conditional on the AFT model delta
+(the assumed common publication boundary).
 
 ```text
 Theorem (Ordering PSC over the Bulletin Substrate)
@@ -796,7 +799,8 @@ Assume:
   5. honest validators run the deterministic closed-slot extractor and
      close-or-abort derivation on the same public boundary.
 
-Then even if `99%` of validators behave arbitrarily, they cannot create a
+Then even if all but one validator (n-1 of n) behaves arbitrarily, they
+cannot create a
 conflicting valid canonical-order outcome for slot h. More strongly, every
 honest validator that observes the same closed boundary derives the same
 CanonicalOrderExecutionObject_h or CanonicalOrderAbort_h; publication may
@@ -807,15 +811,17 @@ This is the repository's ordering-specific statement:
 
 - it remains equal-authority because any validator can independently derive and
   publish the same decisive object,
-- it is `99%`-fault tolerant because correctness does not depend on a majority
+- it tolerates all but one Byzantine validator (`n-1` of `n`) because
+  correctness does not depend on a majority
   of positive votes,
-- it does not overclaim a classical dense-vote `99% Byzantine consensus`
-  theorem.
+- it does not overclaim a classical dense-vote percentage-figure Byzantine
+  consensus theorem.
 
-The strongest shorthand is:
+The strongest shorthand, in the AFT model delta, is:
 
 ```text
-`99%` of validators may behave arbitrarily without creating a conflicting
+all but one validator (n-1 of n) may behave arbitrarily without creating a
+conflicting
 valid ordering outcome, because the closed bulletin boundary admits one
 deterministically derivable close-or-abort result.
 ```
@@ -868,10 +874,11 @@ concrete `CommittedSurfaceV1` proof family satisfies.
 
 This model should not be described as:
 
-- classical `99% Byzantine fault tolerance`
+- classical unconditional percentage-figure Byzantine fault tolerance
 
 It should be described as:
 
-- `99%` equal-authority ordering consensus via proof-carrying canonical
+- all-but-one (`n-1` of `n`) equal-authority ordering consensus, conditional
+  on the AFT model delta, via proof-carrying canonical
   ordering with uniqueness and recoverability under public bulletin / DA
   assumptions.
