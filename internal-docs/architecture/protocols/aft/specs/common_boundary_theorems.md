@@ -136,8 +136,10 @@ tracked as R10 and deliberately NOT claimed here. ∎
 
 Mechanization: P2.2's two-tier separation property (live-tier progress
 abstraction stays green while the ring is stalled). Pairing: L-OPEN
-(the live engine's own asynchronous bound is R10's subject; no lower
-bound is cited until the fallback is landed or the residual filed).
+(the live engine's own asynchronous bound is R10's subject; the residual
+is FILED as RES-R10 with the assessment and fallback design in
+`r10_live_tier_async_fallback.md` — the row closes only when the
+sim-exercised fallback lands, and the flagship stays gated on it).
 
 ## T4b — Seal cadence
 
@@ -692,7 +694,7 @@ this table has zero `L-OPEN` rows (P4.4 gate).
 | T1 uniqueness | L1 (zero-honest equivocation) | cited |
 | T2 completeness | L-E (eclipse) | cited |
 | T3 availability | L-H (holder necessity) | cited |
-| T4a live-tier liveness | — | **L-OPEN** (engine's asynchronous bound is R10's subject) |
+| T4a live-tier liveness | — | **L-OPEN** (engine's asynchronous bound is R10's subject; RES-R10 FILED — assessment + fallback design in `r10_live_tier_async_fallback.md`; closes only on the sim-exercised fallback) |
 | T4b seal cadence | L2 (unanimity forces 1-withholder stall) | cited |
 | T5a membership canonicity | L1 (per configuration) | cited |
 | T5b bootstrap | L-LR (long-range indistinguishability — a NECESSITY bound: it forces some anchor, and does not certify any mechanism's sufficiency; mechanism (iv) is accordingly a hardening layer only, per F6) | cited |
