@@ -9,6 +9,7 @@ accepted ADRs remain canonical.
 Current theorem/protocol reference:
 
 - [`yellow_paper.tex`](./yellow_paper.tex): standalone LaTeX yellow paper for Asymptote Fault Tolerance (AFT), including the final theorem surface, self-contained protocol coverage, embedded formal-artifact context, and implementation correspondence
+- [`common_boundary.md`](./common_boundary.md): AFT-CB P1.1 protocol specification — Boundary Ring + Unanimous Boundary Close: the nineteen-section normative spec (ack state machine, ack journal, oracle-free cutoffs, validate-and-hold, live-tier-only ejection, custody succession, bootstrap, receipt-or-silence, handover ceremony, proof-of-silence prohibition, batch-seal cadence, attribution-preserving encoding, per-seal key evolution, anchored re-genesis, VDF chain, pre-consented succession, sortition + watchtowers, the `pq` bit, the finality menu), every rule citing the A1–A9 ledger entries it consumes; conditional on the AFT model delta
 
 Current follow-on design program:
 
