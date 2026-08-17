@@ -47,11 +47,18 @@ As with `GuardianMajority`, the proof surface is split:
   with the recovery kernel and exports the recovery-transfer landing
   soundness condition plus an explicit recovery-recurring recurrence contract
   and bounded closed-prefix recurrence properties.
-- `NestedGuardianRecoveryRecurringInductionCore.tla` packages the first
-  induction-shaped layer over that recovery-inclusive recurring core: it
-  binds the base closed-prefix obligation together with the bounded step
-  obligations up to cycle `c` and checks that those premises suffice to close
-  the prefix at cycle `c`.
+- `NestedGuardianRecoveryRecurringInductionCore.tla` is a PREMISE-CONTRACT
+  KERNEL (requalified 2026-08-17, AFT-CB P2.2): it packages the first
+  induction-shaped layer over that recovery-inclusive recurring core,
+  binding the base closed-prefix obligation together with the bounded step
+  obligations up to cycle `c` and checking that those premises suffice to
+  close the prefix at cycle `c`. The premises themselves — including
+  `RecoveryInductionBase == <>RecoveryClosedPrefix(1)` — are ASSUMED
+  contracts, never derived here from a Byzantine network plus a
+  dishonest-weight bound; the boundary lane checks its own cadence
+  obligations directly under explicit fairness in
+  `../common_boundary/BoundaryLiveness.tla` (model-checked at n≤4, stated
+  as such) rather than inheriting these premises.
 - `NestedGuardianRecoveryRecurringProof.tla` packages the next proof-oriented
   layer: it lifts the bounded induction kernel into a parameterized
   recurrence theorem surface over arbitrary `TotalCycles`.

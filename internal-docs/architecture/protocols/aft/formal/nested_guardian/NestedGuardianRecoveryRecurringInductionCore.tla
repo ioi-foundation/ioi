@@ -1,4 +1,16 @@
 ---- MODULE NestedGuardianRecoveryRecurringInductionCore ----
+(***************************************************************************)
+(* PREMISE-CONTRACT KERNEL (requalified 2026-08-17, AFT-CB P2.2, standing  *)
+(* rule 2 — labels claim only what is checked).  `RecoveryInductionBase == *)
+(* <>RecoveryClosedPrefix(1)` and the step contracts below are PREMISES:   *)
+(* assumed contracts whose sufficiency to close the prefix is what this    *)
+(* module checks — the premises themselves are NOT derived here from a     *)
+(* Byzantine network plus a dishonest-weight bound (the Q3 finding).  The  *)
+(* boundary lane's successor does not inherit these premises: the          *)
+(* common-boundary cadence obligations are checked directly, under         *)
+(* explicit fairness, in common_boundary/BoundaryLiveness.tla              *)
+(* (model-checked at n≤4, stated as such — never "proven").               *)
+(***************************************************************************)
 EXTENDS Naturals, FiniteSets, TLC
 
 CONSTANT Validators, Witnesses, Blocks, Slots, Epochs, QuorumSize, MaxReassignmentDepth,
