@@ -46,11 +46,22 @@ attribution-preserving multisignature, §12).
 | A2 | MHA: ≥1 honest, non-equivocating signer per committed configuration (economically bought, never proven) |
 | A3 | honest single-final-ack discipline over crash-consistent storage |
 | A4 | anti-eclipse: a submitter can reach ≥1 honest signer (completeness only) |
-| A5 | post-GST Δ-synchrony + bounded dishonest live-tier weight (live tier and seal cadence only; no strong-ring safety rule cites A5) |
-| A6 | a historical-freshness mechanism, exactly one deployed, separately priced (bootstrap only): (i) recent checkpoint within W; (ii) forward-secure/puncturable keys + secure erasure; (iii) external objective checkpoint; (iv) VDF elapsed-history (requires A9) |
+| A5 | post-GST Δ-synchrony — pairwise delivery within Δ between honest parties (full honest mesh) — + bounded dishonest live-tier weight (live tier and seal cadence only; no strong-ring safety rule cites A5) |
+| A6 | a historical-freshness ANCHOR, exactly one deployed, separately priced (bootstrap only): (i) recent checkpoint within W; (ii) forward-secure/puncturable keys + secure erasure (structurally always-on here, §13); (iii) external objective checkpoint. (iv) VDF elapsed-history is a HARDENING layer over an anchor — it raises the real-time cost of long-range forgery (requires A9) and is NOT a standalone anchor (§15.5) |
 | A7 | proof-system soundness for succinct verification (full replay needs only A1) |
-| A8 | per-seal key evolution with verified immediate erasure; PQ one-time/hash-based migration path |
-| A9 | VDF sequentiality with bounded adversary hardware advantage σ (physical; T5d-class succession and A6-iv only) |
+| A8 | per-seal key evolution with verified immediate erasure; NO signing-capable material ever persists to any medium that outlives its slot — the durable journal stores signature OUTPUTS only (§2, §13); PQ one-time/hash-based migration path |
+| A9 | VDF sequentiality with bounded adversary hardware advantage σ (physical; T5d-class succession and the A6-iv hardening only) |
+| A10 | succession-path publication delivery: while a succession grace window is active, an object published to the succession medium (an old-ring final-ack share or an assembled seal) is delivered to the acting successor within `G_deliv` ticks. A scoped partial-synchrony assumption, consumed by T5d ALONE — the uniqueness/lineage ladder (T1–T3, T5a, T5c′) never cites it |
+
+**Where synchrony lives, exactly.** The uniqueness/lineage ladder (T1, T2,
+T3, T5a, T5c′) consumes no timing assumption of any kind. The live tier and
+seal cadence consume A5. The OPTIONAL pre-consented succession extension
+(§16, T5d) consumes A10 — a delivery bound scoped to its grace window —
+because succession under pure asynchrony is impossible: distinguishing a
+dead ring from a partitioned one is exactly the distinction an asynchronous
+system cannot make, and the review that forced this paragraph (P1.3 round
+1, drill i) demonstrated the failure concretely. The ledger prices that
+honestly instead of hiding it.
 
 Rule format: every section carries an `Assumes:` line naming the ledger
 entries its rules consume. A rule that needs an assumption not on that line
@@ -64,16 +75,31 @@ Assumes: A1, A2, A3.
 
 Per slot key `(v, s)` — configuration version `v`, seal slot `s` — the
 proposer may retry candidate boundaries. Retries are safe because pre-acks
-and final-acks are different objects:
+and final-acks are different objects, **cryptographically separated in two
+independent ways** (either alone suffices; both are mandatory):
 
-- **Pre-ack** `(v, s, attempt, boundary_root)`: attempt-tagged, advisory,
-  revocable, unbounded in count across attempts. A pre-ack commits to
-  nothing beyond "this candidate covers my declared set as of this attempt".
-- **Final-ack** `(v, s, boundary_root)`: attempt-UNtagged, exactly one per
-  `(v, s)` per honest member, forever (A3). An honest member emits a
-  final-ack only after the validate-and-hold obligation (§4) is discharged
-  and `B ⊇` its own declared set, and only through the journal protocol
-  (§2).
+- **Pre-ack**: signed by the member's long-lived IDENTITY key (never the
+  per-seal key) over the domain-tagged tuple
+  `("aft-cb/pre-ack", lineage_id, v, s, attempt, boundary_root)` —
+  attempt-tagged, advisory, superseded by any later pre-ack for the same
+  slot, bounded per proposer turn (below). A pre-ack commits to nothing
+  beyond "this candidate covers my declared set as of this attempt"; it
+  can never satisfy a certificate verifier, which checks the final-ack
+  domain tag and the per-seal key.
+- **Final-ack**: signed by the member's PER-SEAL key `k_s` (§13) over the
+  domain-tagged FULL seal tuple of §12.2 —
+  `("aft-cb/final-ack", lineage_id, v, s, boundary_root, batch_root,
+  prev_seal_hash)` — attempt-UNtagged, exactly one per `(v, s)` per honest
+  member, forever (A3). An honest member emits a final-ack only after the
+  validate-and-hold obligation (§4) is discharged and `B ⊇` its own
+  declared set, and only through the journal protocol (§2). A pre-ack is
+  therefore unpromotable into a final-ack share: different key, different
+  domain tag, different tuple.
+- **Attempt budget**: a proposer's turn carries a deployment-parameter
+  budget `K_att` of candidate attempts; members refuse validate-and-hold
+  work beyond the budget (a typed refusal, not a silent drop). This bounds
+  the fetch-and-validate work a Byzantine proposer can extract per turn
+  (the §4 obligation is byte-expensive by design).
 
 **Rules.**
 1. A close (§12) is assembled from final-acks only; pre-acks never enter a
@@ -104,25 +130,39 @@ write-ahead journal; A3 is exactly the assumption that honest members keep
 this journal on crash-consistent storage.
 
 **Rules.**
-1. **Journal-before-signature-release**: an honest member durably records
-   `(v, s, boundary_root)` (fsync or equivalent) BEFORE its final-ack
-   share leaves the process boundary. A share observed on the network
-   implies a journal entry exists.
-2. **Recovery replays, never re-decides**: on restart, the member reads the
-   journal. If an entry exists for `(v, s)`, the member may only re-emit
-   the journaled tuple — byte-identical root — never evaluate the slot
-   fresh. This kills the crash-recovery double-final-ack: the second
-   "decision" is a replay of the first by construction.
+1. **The journal stores the SIGNED SHARE, never key material**: the entry
+   for `(v, s)` is the transmit-form final-ack share itself — the full
+   §12.2 tuple plus the `k_s` signature over it. Signing and journaling
+   are one local sequence: derive the share, durably record it (fsync or
+   equivalent), and only then let it leave the process boundary. A share
+   observed on the network implies a journal entry exists. The journal
+   itself holds signature OUTPUTS only — exactly what the network would
+   eventually hold anyway; the sole durable secret is the current
+   forward-secure key state, destructively updated per §13.2 so no PRIOR
+   slot's key is recoverable from any later image (A8).
+2. **Recovery replays bytes, never re-signs and never re-decides**: on
+   restart, the member reads the journal. If an entry exists for `(v, s)`,
+   the member first completes the §13.2 key-state update if the crash
+   interrupted it, then may only re-transmit the journaled share —
+   byte-identical — never evaluate the slot fresh and never re-sign
+   (nothing needs a key: the journal holds the finished signature). This
+   kills the crash-recovery double-final-ack (the second "decision" is a
+   byte replay of the first) and bounds the key-compromise surface to
+   the current, not-yet-used key state (§13.3's scope note) — historical
+   keys are unrecoverable from any post-crash image.
 3. **Corrupt or unreadable journal fails closed**: a member that cannot
    establish whether it final-acked `(v, s)` MUST NOT final-ack `(v, s)`.
    The cost is stalled cadence for that slot (§11's stall semantics), never
    a safety risk. Cadence is the price of honesty here, and the live tier
    does not wait (§11).
 4. Journal entries are retained at least until the slot's seal is observed
-   sealed and the retention horizon of §4 has begun; §13's key-erasure
-   ordering is defined against this journal (erase only after the share for
-   `s` is journaled — the journal replays the share, so the key need not
-   survive).
+   sealed and the retention horizon of §4 has begun. Ordering with §13:
+   sign → journal the share → destructive key-state update → transmit.
+   The update precedes first transmission; a crash at any point either
+   left no share anywhere (safe: the slot is fresh, and rule 3 governs
+   doubt) or left the journaled share (safe: replay-only, update
+   completed on recovery). After the update, no interleaving leaves a
+   durable image from which the slot's signing key is recoverable.
 
 ## 3. Cutoff clocking without a synchrony oracle
 
@@ -235,12 +275,15 @@ the spec keeps them separate:
      configurations become physically unable to re-sign history (realized
      by A8's per-seal evolution, §13);
    - (iii) an external objective checkpoint;
-   - (iv) VDF elapsed-history — the lineage embeds the VDF chain (§15), so
-     a long-range fork must be re-run in real sequential time and
-     freshness is physically comparable (A9), with no checkpoint provider.
+   - (iv) VDF elapsed-history — a HARDENING layer over one of the anchors
+     above, never standalone (§15.5): the embedded chain forces a
+     long-range fork to be re-run in real sequential time (A9), pricing
+     and delaying the attack; it cannot by itself select the live head
+     against a patient forger. In this protocol, (ii) is structurally
+     always on (§13), so (iv) hardens an anchor that always exists.
 3. **Out-of-model is stated, not smoothed**: a newcomer with NO live A6
-   mechanism is outside the model and the spec says so; no rule pretends
-   recursion alone yields freshness.
+   anchor is outside the model and the spec says so; no rule pretends
+   recursion alone — or tick length alone — yields freshness.
 4. **Long-range forks self-incriminate**: conflicting UBCs for one slot
    identify the forked configuration's entire signer set (§12), so
    cross-checking k independent sources detects equivocation and produces
@@ -285,7 +328,9 @@ The assurance-preserving handover `C_v → C_{v+1}` is the ONLY ordinary
 strong-ring transition, and it requires all of:
 
 1. **Old-ring unanimity**: an n-of-n UBC of `C_v` over the typed transition
-   record naming `C_{v+1}` (its members, their seats, its policy hash).
+   record naming `C_{v+1}` (its members, their seats in the CANONICAL
+   MEMBER ORDERING — ascending hash of member public key, the ordering
+   every §12.1 bitmap indexes — and its policy hash).
 2. **New-ring acceptance**: a signature from every member of `C_{v+1}`
    accepting the seat and its obligations (§4 custody, §13 key discipline,
    §16 honest-publication duty).
@@ -315,15 +360,30 @@ strong-ring safety rules by the ledger itself).
 1. No accumulation of non-response records — any count, any attestation
    weight, any duration — constitutes authority to remove a strong-ring
    member, seat a replacement, or activate succession.
-2. The transition action set of this protocol contains NO silence-derived
-   action. (P2.3 asserts this mechanically over the formal model; R5 makes
-   it unrepresentable in types.)
+2. The transition action set of this protocol contains NO action whose
+   input is an attested-silence record. (P2.3 asserts this mechanically
+   over the formal model; R5 makes it unrepresentable in types.)
 3. The only strong-ring exits are: the unanimous handover (§9), the
    pre-consented succession on the objective VDF trigger (§16), and the
    labeled anchored re-genesis (§14). Each is loud, typed, and none
    consumes a silence record.
 4. Silence records retain their §8 powers only: fail-closed effect
    blocking, slashing evidence, voluntary pressure.
+
+**The exact line this section draws** (sharpened by P1.3 round 1, which
+correctly observed that §16's tick trigger infers ring failure from the
+absence of a seal): what is prohibited is authority minted from OTHER
+PARTIES' CLAIMS about a member's silence — subjective, unattributable-to-
+physics evidence, in any aggregation. What §16 executes is different in
+kind on two axes, and both are load-bearing: its clock is OBJECTIVE
+(elapsed VDF ticks, verifiable by anyone under A9 — not an attestation),
+and its authority is the configuration's OWN formation-time unanimous
+signature — the ring pre-consented to the exact condition, so activation
+executes the ring's standing order rather than overriding it. The
+residual truth in the reviewer's observation is priced rather than
+denied: a partition can make a live ring look seal-silent, which is why
+succession is not fork-safe by cleverness but by the §16 preemption
+machinery under its own scoped delivery assumption (A10) — see T5d.
 
 ## 11. Batch-seal cadence and irreversible-effect binding
 
@@ -363,14 +423,25 @@ detail; T7 is proven against THIS format.
 1. **Bitmap multisig with individually verifiable shares**: a seal
    certificate carries a member bitmap of `C_v` and, for each set bit, that
    member's individually verifiable signature share over the exact signed
-   tuple. A UBC requires every bit set and every share verifying.
-2. **The signed tuple** is `(lineage_id, v, s, boundary_root, batch_root,
-   prev_seal_hash)` — domain-separated, byte-specified. Including
-   `prev_seal_hash` chains seals; `lineage_id` types the lineage (§14).
-3. **Transport is part of the theorem**: shares are broadcast to the full
-   ring (and available to watchtowers, §17) — not point-to-point-only — so
-   a conflicting-seal transcript is assemblable by any observer holding
-   both certificates.
+   tuple. A UBC requires every bit set and every share verifying. The
+   bitmap indexes the CANONICAL MEMBER ORDERING fixed and signed inside
+   the §9 configuration record (ascending hash of member public key) —
+   there is no other ordering, so "bit i" names one member beyond dispute.
+2. **The signed tuple** is `("aft-cb/final-ack", lineage_id, v, s,
+   boundary_root, batch_root, prev_seal_hash, tick_ref)` —
+   domain-separated, byte-specified. `prev_seal_hash` chains seals;
+   `lineage_id` types the lineage (§14); `tick_ref` is the signing-time
+   VDF reference that drives share expiry (§16.3); the domain tag and the
+   per-seal key separate final-acks from pre-acks cryptographically (§1).
+3. **Transport is part of the theorem, stated honestly**: honest members
+   broadcast their shares and any certificate they assemble (full ring +
+   watchtowers, §17) — never point-to-point-only. This binds HONEST
+   members; a fully Byzantine signer set can complete a certificate over
+   private channels and withhold it, so surfacing is guaranteed by use,
+   not by wire: a certificate must be presented to be acted on, and
+   presentation makes its holder a transcript source. The forensic claim
+   is therefore holder-relative (§12.5, T7): any party holding both
+   conflicting certificates convicts every participant.
 4. **No attribution-destroying aggregation on any seal path**: an opaque
    aggregate that cannot be decomposed into per-member verifiable shares
    forfeits the forensic guarantee and is inadmissible, whatever its size
@@ -387,20 +458,41 @@ detail; T7 is proven against THIS format.
 
 Assumes: A1, A8; realizes A6 mechanism (ii).
 
-1. **Evolution**: member keys are one-time/forward-secure per seal slot:
-   after use for slot `s`, the member derives the slot-`s+1` key and
-   SECURELY ERASES the slot-`s` key. Derivation is one-way (A1): the
-   erased key is unrecoverable from the successor or from storage.
-2. **Ordering against the journal (§2)**: erase `k_s` only after the
-   final-ack share for `s` is journaled and transmitted. Crash recovery
-   replays the journaled share — it never re-signs — so the key need not
-   outlive its single use. A member that crashes before journaling never
-   signed; it re-evaluates the slot with the still-held key.
-3. **Everlasting safety**: compromise of a member — or ALL former members —
-   after unbonding yields no key capable of signing any historical slot;
-   forged history fails share verification (A1) because the only keys that
-   could have signed it no longer exist (A8). This is what makes
-   bootstrap mechanism (ii) real rather than aspirational.
+1. **Evolution**: member PER-SEAL keys are one-time/forward-secure per
+   seal slot: after use for slot `s`, the member derives the slot-`s+1`
+   key and SECURELY ERASES the slot-`s` key. Derivation is one-way (A1):
+   the erased key is unrecoverable from the successor or from storage.
+   The per-seal key signs final-ack shares ONLY; pre-acks, declared-set
+   commitments, receipts, and transport ride the member's long-lived
+   identity key (§1), so spending `k_s` never blocks advisory traffic.
+2. **Ordering against the journal (§2), exactly** (notation: `k_s` is the
+   slot-`s` signing capability; it exists only within the durable
+   forward-secure state `SK_s`, which is how the chain survives crashes
+   at all): the discipline is: sign the share
+   with `SK_s` → journal the share (the finished signature — §2.1) →
+   DESTRUCTIVELY update `SK_s → SK_{s+1}` on the durable medium (one-way;
+   `SK_s` unrecoverable from `SK_{s+1}`, A1) → transmit. Crash recovery:
+   if the journal holds the share for `s` and the durable state is still
+   `SK_s`, complete the update FIRST, then re-transmit the journaled
+   bytes; recovery never re-signs (§2.2). A crash before journaling
+   leaked nothing (§2.1) and the member re-evaluates the slot fresh with
+   `SK_s`. Single-final-ack (§1.2) and one-time keys are the same
+   discipline seen twice: a member's one final-ack per slot is exactly
+   its one use of `SK_s`.
+3. **Everlasting safety, and its exact scope**: compromise of a member —
+   or ALL former members, including imaging every durable medium any of
+   them holds — AFTER unbonding yields no key capable of signing any
+   historical slot: by the destructive update, the imaged state is some
+   `SK_t` with `t` far past every sealed slot, and prior keys are
+   unrecoverable from it (A1 one-wayness). Forged history fails share
+   verification because the keys that could sign it no longer exist in
+   any recoverable form (A8). Scope stated honestly: the crash-window
+   image of a CURRENT member can expose that member's current, not-yet-
+   used `SK` — that is a live-member compromise, outside A8's claim,
+   handled by the ordinary "corrupt member" case of the fault model (the
+   uniqueness ladder tolerates n−1 corrupt members). What A8 buys is
+   that HISTORY cannot be re-signed after the fact, which is what
+   bootstrap mechanism (ii) needs to be real rather than aspirational.
 4. **Erasure is verified, not asserted**: the signer implementation must
    demonstrate (R9's erasure test) that after sealing, prior key material
    is absent from its storage. A signer that cannot demonstrate erasure
@@ -421,14 +513,28 @@ Re-genesis is the last exit: only on loss of ring AND standby.
    `root` marker, a fresh `lineage_id`, the anchor mechanism label (which
    A6 mechanism grounds the new lineage's freshness), and a reference to
    the terminal state of the prior lineage it succeeds administratively.
-2. **A root is never continuity**: the new lineage's seal chain starts at
+2. **Admissibility is objective, not self-attested**: a root record is
+   admissible to a verifier only if the prior lineage it references shows
+   ≥ `T_root` VDF ticks without a seal at the root's publication tick
+   (verifiable from the prior lineage's embedded chain, A9) — "loss of
+   ring AND standby" is thereby checked against the clock, never taken
+   from the claimants. **Participation in an inadmissible root is
+   slashable**: a bonded member whose acceptance signature appears in a
+   root record published while its prior lineage was not tick-stale has
+   signed the objective evidence of its own offense (the root record plus
+   the live prior chain), and its bond is forfeit. This closes the
+   lineage-escape maneuver: a ring cannot convert a slashable same-slot
+   double-seal into an unslashable "fresh lineage" fork, because minting
+   the fresh lineage against a live prior lineage is itself the
+   slashable, fully attributed act.
+3. **A root is never continuity**: the new lineage's seal chain starts at
    the root; `prev_seal_hash` chains (§12) do not cross it; the uniqueness
    theorems quantify WITHIN one anchored lineage.
-3. **Verifier semantics**: a lineage query across a root reports two
+4. **Verifier semantics**: a lineage query across a root reports two
    lineages and the typed seam — never one continuous history. A verifier
    that presents a root-crossing history as one lineage violates this spec
    (P2.3's model asserts distinguishability by construction).
-4. **The lattice sees the seam**: objects sealed under the new lineage
+5. **The lattice sees the seam**: objects sealed under the new lineage
    carry the root's anchor label in their assumption vector (§18, §19), so
    downstream consumers cannot silently treat re-genesis finality as
    pre-genesis finality.
@@ -452,58 +558,104 @@ permissionless.
    verifiers of the same chain segment count the same ticks (R11's gate).
 4. **Published σ margin**: the assumed bound on adversary hardware speedup
    is published and audited. Every tick threshold in this spec (`T_halt`,
-   the §16 grace window `G`, §8 deadlines) is set with at least a
-   σ-multiplicative safety margin, so an adversary σ-times faster than the
-   honest evaluator cannot cross a threshold before real elapsed time
-   does.
-5. **Elapsed-history freshness** (A6-iv): the lineage-embedded chain makes
-   fork freshness physically comparable — a long-range forger must re-run
-   sequential work in real time; two candidate histories' elapsed
-   tick-lengths are compared under the same published σ margin (a σ-fast
-   adversary shortens apparent elapsed time by at most σ, and the margin
-   absorbs it).
+   the §16 grace window `G`, `T_expire`, `T_root`, §8 deadlines) is set
+   with at least a σ-multiplicative safety margin, so an adversary
+   σ-times faster than the honest evaluator cannot cross a threshold
+   before real elapsed time does. The margin's cost is named: honest
+   waits inflate by the same factor — a genuinely dead ring is succeeded
+   only after `σ ×` the intended halt time, and settlement behind a
+   grace window pays `σ × G` — a real liveness/latency price, parameterized
+   at P4.2, not hidden.
+5. **Elapsed-history hardening** (A6-iv — a hardening layer, NOT a
+   standalone freshness anchor): the lineage-embedded chain forces a
+   long-range forger to re-run sequential work in real time, which the σ
+   bound prices — a fork younger than `elapsed/σ` real time is physically
+   impossible, so recent forks are detectable and old ones are made
+   expensive and SLOW. What the comparison cannot do — stated because the
+   P1.3 round-1 review proved the earlier sentence here wrong — is
+   reject a PATIENT or σ-fast forger who accumulates an equal-or-longer
+   tick chain: permissionless evaluation means tick length is evidence
+   of work and elapsed time, never of WHICH history is live. Freshness
+   therefore always rests on a deployed A6 anchor — (i)/(iii)
+   checkpoint-class, or (ii) key erasure, which this protocol runs
+   structurally (§13) so the forger's keys do not exist — with A6-iv
+   raising the residual attack's cost and delay on top.
 
 ## 16. Pre-consented succession
 
-Assumes: A2, A3, A9; A1 for all signatures.
+Assumes: A2, A3, A9, A10; A1 for all signatures.
 
 Succession is continuity that the ring itself signed in advance — never an
-emergency power.
+emergency power. This section was rebuilt by the P1.3 round-1 refutation
+(drill i): the original grace-window argument assumed publication implied
+timely delivery, which asynchrony does not grant. The repaired mechanism
+stands on three legs: an objective trigger (A9), share expiry pre-signed
+at formation (kills late assembly with no timing assumption), and a
+scoped delivery bound (A10) for what is actually published.
 
 1. **Policy signing at formation**: at its own formation, configuration
    `C_v` unanimously pre-signs a standby policy: the standby configuration
    `S_v` (drawn under §17's sortition and diversity floors), the activation
-   threshold `T_halt`, and the grace window `G`. The pre-signature is a
-   T5c′-class transition signed at formation — activation adds no new
-   ring authority.
+   threshold `T_halt`, the grace window `G`, and the share-expiry bound
+   `T_expire` (rule 3). The pre-signature is a T5c′-class transition
+   signed at formation — activation adds no new ring authority.
+   **Refresh**: any later seal of `C_v` MAY carry a unanimously re-signed
+   replacement standby drawn from the then-current beacon; the effective
+   policy is the most recently sealed one, so the standby's exposure
+   window is the interval since the last refresh, not `C_v`'s lifetime.
 2. **The objective trigger, and nothing else**: succession activates only
    on "≥ `T_halt` VDF ticks since the last seal" (§15). A non-response
    record is never a trigger (§10). No succession exists that the old ring
-   did not unanimously pre-sign at formation.
-3. **Fallback grace window with preemption**: after activation, `S_v` may
-   produce fallback seals, but a fallback-released irreversible effect
-   waits `G` ticks, during which ANY published old-ring seal conflicting
-   with the fallback preempts it — the fallback aborts, the old-ring seal
-   stands.
-4. **Honest-publication duty**: publishing a seal one has signed is part of
-   honest signing (accepted at seat acceptance, §9). Under MHA (A2), any
-   real old-ring seal has an honest signer, who published it — so no
-   hidden conflicting old-ring seal survives past the grace window. The
-   hidden-seal attack (a Byzantine old ring lets the fallback activate,
-   then reveals a withheld seal) is dispatched in both windows: revealed
-   during `G`, it preempts; "revealed" after `G`, it cannot exist as a
-   REAL seal under A2 + the duty, because its honest signer would have
-   published it — a certificate surfacing late without ever having been
-   published is attributable dishonesty of its entire signer set (§12).
-5. **Continuity typing**: fallback seals carry the succession-transition
-   type (T5c′-class, pre-signed at formation); re-genesis (§14) remains
-   the only root event. Cadence resumes under `S_v` with continuity labels
-   intact.
-6. **Standby capture is priced, not assumed away**: `S_v` is public in
-   advance; its capture resistance comes from the same sortition
-   unpredictability at ITS formation, diversity floors, and queueing
-   (§17), and is modeled probabilistically in T8's standby-capture term —
-   never composed into a deterministic tolerance figure.
+   did not unanimously pre-sign (at formation or by sealed refresh).
+3. **Share expiry (pre-signed at formation)**: every final-ack share is
+   tick-stamped — the §12.2 tuple carries `tick_ref`, a recent VDF chain
+   value at signing time — and the formation policy the ring itself
+   signed makes a share VALID FOR SEAL ASSEMBLY only if the assembled
+   certificate is published within `T_expire` ticks of the share's
+   `tick_ref`. A certificate whose shares are expired at its publication
+   tick is INVALID BY THE RING'S OWN PRE-SIGNED RULE — objectively
+   checkable (A9), consuming no delivery assumption. This kills withheld
+   assembly: shares collected quietly cannot become a valid seal later.
+4. **Grace window with preemption, under A10**: after activation, `S_v`
+   may produce fallback seals, but a fallback-released irreversible
+   effect waits `G` ticks, where `G ≥ T_expire + G_deliv` (σ-margined,
+   §15.4). During the window: a DELIVERED conflicting old-ring seal
+   preempts the fallback (the fallback aborts, the old-ring seal stands);
+   a DELIVERED unexpired conflicting old-ring SHARE holds the affected
+   slot's release until that share's expiry passes (bounded — then it is
+   dead by rule 3). At the window's end no valid conflicting old-ring
+   seal can exist unseen: any real seal contains the honest member's
+   share (A2); the honest member published that share at signing (duty,
+   rule 5); published objects are delivered within `G_deliv` (A10); and
+   any certificate built on that share had to be published before the
+   share expired (rule 3) — so it was delivered inside the window, or it
+   is invalid forever.
+5. **Honest-publication duty, re-scoped to what a member actually
+   holds**: an honest member publishes its OWN final-ack share at signing
+   time (part of honest signing, accepted at seat acceptance §9), and
+   any party holding an ASSEMBLED certificate publishes it upon
+   assembly. The duty is dischargeable by construction — a signer always
+   holds its share; nobody is obligated to publish an object it never
+   held (the round-1 refutation's second arm). Crash boundary: a signer
+   that crashes between journaling and publishing republishes on
+   recovery (§2.2); if recovery outruns `T_expire`, its share is dead by
+   rule 3 — a bounded liveness loss for that slot, never a safety hole,
+   and exactly why expiry rather than recovery-latency-bounding is the
+   mechanism (recovery time appears in no safety argument).
+6. **Continuity typing**: fallback seals carry the succession-transition
+   type (T5c′-class, pre-signed); re-genesis (§14) remains the only root
+   event. Cadence resumes under `S_v` with continuity labels intact.
+7. **Standby capture is priced, not assumed away**: `S_v` is pre-named —
+   that is what pre-consent costs — so from its (re)signing until
+   activation or replacement it is a KNOWN target; rule 1's refresh
+   bounds that exposure to the inter-refresh interval, diversity floors
+   and queueing (§17) raise its capture price, and the residual is
+   modeled probabilistically in T8's standby-capture term — never
+   composed into a deterministic tolerance figure. A Byzantine old-ring
+   majority that griefs cadence to force succession into a captured
+   standby is the composed attack that term must price (P4.2); the
+   deterministic ladder never claimed to prevent it, and says so here
+   rather than implying otherwise.
 
 ## 17. Sortition seat assignment, diversity floors, watchtowers
 
@@ -578,11 +730,18 @@ authorized each effect. Three typed per-effect SLAs:
 
 ## Index of dispatched adversarial drills
 
-For P1.3's convenience — the drill → dispatching rules map (informative):
-(a) six-step pre-GST partition → §1.4; (b) honest-split partition → §1.4;
-(c) all-but-one-Byzantine equivocation → §1.3 + §12.5; (d) proposer
-equivocation across retries → §1.3; (e) crash-recovery double-final-ack →
-§2.2–2.3; (f) proof-of-silence reconfiguration → §10; (g) staged
-double-seal forensics → §12.5; (h) post-unbond key compromise → §13.3 +
-§7.4; (i) hidden-seal succession → §16.4; (j) standby capture → §16.6 +
-§17.1–17.2; (k) σ-speedup → §15.4–15.5.
+For P1.3's convenience — the drill → dispatching rules map (informative;
+updated after round 1, whose findings rebuilt §16 and requalified §15.5):
+(a) six-step pre-GST partition → §1.4 + §1's domain separation; (b)
+honest-split partition → §1.4 (and §16's promotion of a long partition
+into succession is priced at T5d under A10); (c) all-but-one-Byzantine
+equivocation → §1.3 + §12.5; (d) proposer equivocation across retries →
+§1.3 + the §1 attempt budget; (e) crash-recovery double-final-ack →
+§2.2–2.4 + §13.2 (one unified journal-the-share discipline); (f)
+proof-of-silence reconfiguration → §10 (including its exact-line
+paragraph); (g) staged double-seal forensics → §12.5 (holder-relative,
+§12.3) + §14.2 (lineage escape closed); (h) post-unbond key compromise →
+§13.3 + §7.4; (i) hidden-seal succession → §16.3–16.5 (share expiry +
+A10 delivery + re-scoped duty); (j) standby capture → §16.1/16.7 +
+§17.1–17.2; (k) σ-speedup → §15.4 (wait thresholds) + §15.5 (comparison
+downgraded to hardening).
