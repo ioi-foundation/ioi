@@ -1,0 +1,28 @@
+[package]
+name = "aft-proofs-harness"
+version = "0.1.0"
+edition = "2021"
+default-run = "chain"
+
+[[bin]]
+name = "chain"
+path = "src/bin/chain.rs"
+
+[[bin]]
+name = "drills"
+path = "src/bin/drills.rs"
+
+[dependencies]
+ed25519-dalek = "2"
+sha2 = "0.10"
+hex = "0.4.3"
+serde_json = "1"
+bincode = "1"
+sp1-sdk = { version = "6.0.1", features = ["blocking", "native-gnark"] }
+# sp1-prover 6.4.0 calls TempDir::keep(), a method only from tempfile 3.20;
+# without this floor the resolved 3.19 fails to compile (upstream pin bug,
+# recorded in the AFT-CB ledger at P2.5).
+tempfile = ">=3.20"
+
+[build-dependencies]
+sp1-build = "6.0.1"

@@ -1,0 +1,58 @@
+name: AFT Proofs Nightly
+
+# AFT-CB P2.5: the real-backend lane. Proving is ~30s/step on CPU but the
+# toolchain install and cold build dominate, so this runs nightly and on
+# demand — never in the per-PR pipeline (the root workspace excludes
+# crates/aft-proofs entirely).
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "crates/aft-proofs/**"
+      - ".github/workflows/aft-proofs-nightly.yml"
+
+jobs:
+  prove_chain:
+    name: 3-step continuity chain + refusal drills
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Native deps for the gnark FFI build
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libclang-dev golang-go
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: 1.93.1
+          override: true
+
+      - name: Install the succinct toolchain
+        run: |
+          curl -sL https://sp1up.succinct.xyz -o /tmp/sp1up-install.sh
+          bash /tmp/sp1up-install.sh
+          ~/.sp1/bin/sp1up
+          echo "$HOME/.sp1/bin" >> "$GITHUB_PATH"
+
+      - name: Cache aft-proofs target
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            crates/aft-proofs/target
+          key: ${{ runner.os }}-aft-proofs-${{ hashFiles('crates/aft-proofs/**/Cargo.toml') }}
+
+      - name: 3-step continuity chain (prove + verify + pin check)
+        working-directory: crates/aft-proofs
+        run: cargo run --release --bin chain
+
+      - name: Refusal drills (corrupt byte, foreign vkey)
+        working-directory: crates/aft-proofs
+        run: cargo run --release --bin drills

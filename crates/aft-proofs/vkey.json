@@ -1,0 +1,4 @@
+{
+  "note": "The governed verifying-key pin for the aft-continuity guest (AFT-CB P2.5). Changing this value is a protocol-parameter change: it lands only through a reviewed PR that names the guest change forcing it. UNPINNED is a refusal state, never a fallback.",
+  "vkey_bytes32": "0x00ccba8a34fdefd3b465c31e26fe7f953da63e4cd371dbdf9179974e47a5cf02"
+}
