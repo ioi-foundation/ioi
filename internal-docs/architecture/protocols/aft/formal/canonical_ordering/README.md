@@ -3,8 +3,10 @@
 Status: internal formal-model note (AFT corpus); non-canonical.
 Authority: `docs/architecture/` owners and accepted ADRs are canonical and win on drift; this file is private protocol context only.
 This directory contains the formal artifacts for AFT's proof-carrying
-equal-authority canonical-ordering model and its `99%` equal-authority
-ordering consensus claim.
+equal-authority canonical-ordering model and its all-but-one (`n-1` of `n`)
+equal-authority ordering consensus claim, conditional on the AFT model delta
+(requalified per AFT-CB P0.2; the retired `99%` figure is neither exact nor
+maximal).
 
 The corresponding internal prose note lives at
 [`../../specs/canonical_ordering.md`](../../specs/canonical_ordering.md).

@@ -7,18 +7,27 @@
 # form is "all-but-one (n-1 of n) Byzantine safety", conditional on the AFT
 # model delta (the assumed common publication boundary).
 #
-# This gate scans internal-docs/architecture/protocols/aft/specs/ for any
-# "99%" spelling (tex: 99\%, 99 \%, $99\%$; md: bare 99%) and fails on every
-# hit that is not one of two narrow, content-matched allowances:
+# This gate scans internal-docs/architecture/protocols/aft/specs/ AND
+# internal-docs/architecture/protocols/aft/formal/ (the formal-tree READMEs
+# were outside the original fence and shipped six stale claims, found at
+# AFT-CB P2.4) for any "99%" spelling (tex: 99\%, 99 \%, $99\%$; md: bare
+# 99%) and fails on every hit that is not one of three narrow,
+# content-matched allowances:
 #   (a) a latency percentile token (p99) -- a measurement column, not a claim;
 #   (b) a line describing PRIOR work that carries the explicit prior-art
 #       marker "(their figure, not an AFT claim)" next to a named prior system
 #       (Geeq's Proof of Honesty). The allowance matches line content, never a
-#       whole file.
+#       whole file;
+#   (c) an explicit retirement/requalification sentence -- the line names the
+#       figure as retired ("retired ... 99"), cites the requalifying leg
+#       ("requalified per AFT-CB"), or marks the bound historical ("is no
+#       longer the normative"). Mentioning the dead figure while burying it
+#       is allowed; asserting it is not.
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SPECS_DIR="${ROOT_DIR}/internal-docs/architecture/protocols/aft/specs"
+FORMAL_DIR="${ROOT_DIR}/internal-docs/architecture/protocols/aft/formal"
 
 # 99 followed (after optional whitespace and optional TeX escape backslash)
 # by a percent sign; also the plain TeX spelling 99\%.
@@ -27,6 +36,9 @@ PATTERN='99[[:space:]]*\\?%'
 # (b) explicit prior-art marker: the Geeq prior-work sentence, matched by
 # content (named prior system + "prior work" + "(their figure)").
 PRIOR_ART_ALLOW="Geeq's Proof of Honesty.*prior work.*\(their figure, not an .{0,2}AFT.{0,2} claim\)"
+
+# (c) retirement/requalification allowance, content-matched on the line.
+RETIRED_ALLOW="retired.{0,20}99|requalified per AFT-CB|is no longer the normative"
 
 if [ ! -d "${SPECS_DIR}" ]; then
   echo "check_aft_claim_discipline: specs dir not found: ${SPECS_DIR}" >&2
@@ -52,14 +64,19 @@ while IFS= read -r hit; do
     continue
   fi
 
+  # (c) retirement/requalification allowance, content-matched on the line.
+  if printf '%s' "${line}" | grep -qE "${RETIRED_ALLOW}"; then
+    continue
+  fi
+
   echo "CLAIM-DISCIPLINE VIOLATION: ${file}:${line_no}:${line}"
   violations=$((violations + 1))
-done < <(grep -rnE --include='*.tex' --include='*.md' "${PATTERN}" "${SPECS_DIR}" || true)
+done < <(grep -rnE --include='*.tex' --include='*.md' "${PATTERN}" "${SPECS_DIR}" "${FORMAL_DIR}" || true)
 
 if [ "${violations}" -ne 0 ]; then
-  echo "FAIL: ${violations} unqualified 99% tolerance spelling(s) in ${SPECS_DIR}." >&2
+  echo "FAIL: ${violations} unqualified 99% tolerance spelling(s) in the AFT specs/formal corpus." >&2
   echo "Required form: all-but-one (n-1 of n) Byzantine safety, conditional on the AFT model delta." >&2
   exit 1
 fi
 
-echo "PASS: no unqualified 99% tolerance spellings in ${SPECS_DIR}."
+echo "PASS: no unqualified 99% tolerance spellings in the AFT specs/formal corpus."
