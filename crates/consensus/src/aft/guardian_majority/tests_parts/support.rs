@@ -101,6 +101,8 @@ fn sample_recovered_restart_entry(
             resulting_state_root_hash: certified_entry.header.resulting_state_root_hash,
             proof: CanonicalOrderProof::default(),
             omission_proofs: Vec::new(),
+            boundary_tx_hashes: Vec::new(),
+            boundary_omission_justifications: Vec::new(),
         },
         ordered_transaction_bytes: Vec::new(),
         canonical_order_publication_bundle_bytes: Vec::new(),
