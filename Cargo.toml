@@ -5,7 +5,11 @@ resolver = "2"
 exclude = [
     "crates/cli/tests/fixtures/mock-verifier",
     # [FIX] Updated exclusion path to match new directory structure
-    "crates/plugins/sp1-guests" 
+    "crates/plugins/sp1-guests",
+    # AFT-CB P2.5: the real recursive-backend workspace builds with the
+    # succinct toolchain in its own nightly lane; the root build never
+    # touches it.
+    "crates/aft-proofs",
 ]
 members = [
     "crates/agentgres",

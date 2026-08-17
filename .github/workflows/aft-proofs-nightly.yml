@@ -1,0 +1,67 @@
+name: AFT Proofs Nightly
+
+# AFT-CB P2.5: the real-backend lane. Proving is ~30s/step on CPU but the
+# toolchain install and cold build dominate, so this runs nightly and on
+# demand — never in the per-PR pipeline (the root workspace excludes
+# crates/aft-proofs entirely).
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+  # NO pull_request trigger: `cargo prove install-toolchain` misdetects the
+  # release tag on GitHub runners ("succinct-1.94.0-64bit" — no such
+  # asset) while the identical cargo-prove works locally; until that is
+  # run to ground (named residual in the AFT-CB ledger, P2.5 block), the
+  # lane runs nightly + on dispatch, where a red is visible but does not
+  # gate merges the leg already evidenced locally.
+
+jobs:
+  prove_chain:
+    name: 3-step continuity chain + refusal drills
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Native deps for the gnark FFI build
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libclang-dev golang-go
+
+      # The runner's preinstalled rustup/stable is used for host code; the
+      # deprecated actions-rs shim confuses sp1up's toolchain-tag detection
+      # (it asked for succinct-1.94.0-64bit, a tag that does not exist).
+      - name: Install the succinct toolchain
+        # The bootstrap's inner curl carries no --fail, so a rate-limited
+        # raw.githubusercontent response lands an HTML page at
+        # ~/.sp1/bin/sp1up and executes as shell (observed on this lane).
+        # Fetch sp1up ourselves with --fail + retries and refuse anything
+        # that is not a script before running it.
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.sp1/bin"
+          for i in 1 2 3 4 5; do
+            curl -sL --fail --retry 5 --retry-delay 10               https://raw.githubusercontent.com/succinctlabs/sp1/main/sp1up/sp1up               -o "$HOME/.sp1/bin/sp1up" && break
+            echo "sp1up download attempt $i failed; retrying" && sleep 15
+          done
+          head -c 2 "$HOME/.sp1/bin/sp1up" | grep -q '#!'             || { echo 'downloaded sp1up is not a script'; head -3 "$HOME/.sp1/bin/sp1up"; exit 1; }
+          chmod +x "$HOME/.sp1/bin/sp1up"
+          "$HOME/.sp1/bin/sp1up"
+          echo "$HOME/.sp1/bin" >> "$GITHUB_PATH"
+
+      - name: Cache aft-proofs target
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            crates/aft-proofs/target
+          key: ${{ runner.os }}-aft-proofs-${{ hashFiles('crates/aft-proofs/**/Cargo.toml') }}
+
+      - name: 3-step continuity chain (prove + verify + pin check)
+        working-directory: crates/aft-proofs
+        run: cargo run --release --bin chain
+
+      - name: Refusal drills (corrupt byte, foreign vkey)
+        working-directory: crates/aft-proofs
+        run: cargo run --release --bin drills
