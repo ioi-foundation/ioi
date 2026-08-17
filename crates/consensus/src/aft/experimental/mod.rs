@@ -23,17 +23,18 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 mod confidence;
-mod vrf;
+// The former `vrf` module (a simulated sortition whose proof EQUALED its
+// output — no soundness) was deleted by AFT-CB leg P0.4. It was held as a
+// field but never invoked. Real committee sampling, if it returns, arrives
+// as sortition from the VDF beacon (AFT-CB R11/R5), never as a simulation
+// promotable by accident.
 
 use self::confidence::ConfidenceTracker;
-use self::vrf::Sortition;
 
 #[derive(Debug, Clone)]
 pub struct ExperimentalSamplingEngine {
     /// Current sampling round.
     pub current_round: u64,
-    /// Cryptographic sortition logic.
-    sortition: Arc<Mutex<Sortition>>,
     /// Confidence score tracker.
     confidence: Arc<Mutex<ConfidenceTracker>>,
     /// The preferred tip of this node.
@@ -46,8 +47,6 @@ impl Default for ExperimentalSamplingEngine {
     fn default() -> Self {
         Self {
             current_round: 0,
-            // [FIX] Initialize with dummy key; real key injected via set_key or constructor
-            sortition: Arc::new(Mutex::new(Sortition::new(vec![0u8; 32]))),
             confidence: Arc::new(Mutex::new(ConfidenceTracker::new(6))), // Lambda = 6
             preferred_tip: [0u8; 32],
             samples: Vec::new(),
@@ -198,4 +197,20 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
     }
 
     fn reset(&mut self, _height: u64) {}
+}
+
+#[cfg(test)]
+mod disposal_tests {
+    // AFT-CB P0.4 gate: the simulated VRF (proof == output, no soundness)
+    // stays deleted. If sortition returns, it arrives as a real
+    // construction (VDF-beacon sortition, AFT-CB R11/R5), reviewed on its
+    // own merits — never a simulation promotable by accident.
+    #[test]
+    fn simulated_vrf_module_stays_deleted() {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/aft/experimental/vrf.rs");
+        assert!(
+            !std::path::Path::new(path).exists(),
+            "simulated VRF module reappeared at {path}"
+        );
+    }
 }
