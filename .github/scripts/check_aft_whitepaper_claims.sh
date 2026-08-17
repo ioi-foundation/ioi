@@ -2,8 +2,9 @@
 set -euo pipefail
 
 # AFT-CB P0.1 gate: the whitepaper's AFT section (§5.3) must carry the
-# A1–A9 assumption ledger, the interim conditional claim, and no rounded
-# percentage tolerance claim. Fails the build otherwise.
+# A1–A10 assumption ledger (A10 added by the P1.3 round-1 reopen), the
+# interim conditional claim, and no rounded percentage tolerance claim.
+# Fails the build otherwise.
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 WHITEPAPER="${ROOT_DIR}/docs/architecture/whitepaper.tex"
@@ -26,7 +27,7 @@ section = tail[: next_sub.start() + 1] if next_sub else tail
 
 errors = []
 
-for i in range(1, 10):
+for i in range(1, 11):
     if not re.search(r"\\textbf\{A%d\}" % i, section):
         errors.append(f"assumption ledger row A{i} missing")
 
@@ -54,5 +55,5 @@ if errors:
         print(f"  - {err}", file=sys.stderr)
     sys.exit(1)
 
-print(f"claims OK: A1–A9 ledger + interim claim present; no rounded tolerance figures ({len(section)} chars scanned)")
+print(f"claims OK: A1–A10 ledger + interim claim present; no rounded tolerance figures ({len(section)} chars scanned)")
 PY
