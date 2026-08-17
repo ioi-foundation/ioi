@@ -6,3 +6,4 @@ include!("tests_parts/recoverable_payload_hashes.rs");
 include!("tests_parts/archived_history.rs");
 include!("tests_parts/payload_reconstruction.rs");
 include!("tests_parts/collapse_continuity.rs");
+include!("tests_parts/assumption_lattice.rs");
