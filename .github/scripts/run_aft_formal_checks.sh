@@ -22,6 +22,7 @@ PROOFS=(
   "common_boundary/BoundaryRingProof.tla"
   "common_boundary/CustodyObligationProof.tla"
   "common_boundary/MembershipTransitionProof.tla"
+  "common_boundary/ForensicAccountabilityProof.tla"
 )
 
 # Every TLC model the harness checks, as "cfg|tla", relative to FORMAL_DIR.
@@ -38,6 +39,8 @@ MODELS=(
   "common_boundary/BoundaryLiveness.cfg|common_boundary/BoundaryLiveness.tla"
   "common_boundary/BoundaryLivenessHandover.cfg|common_boundary/BoundaryLiveness.tla"
   "common_boundary/MembershipTransition.cfg|common_boundary/MembershipTransition.tla"
+  "common_boundary/ForensicAccountability.cfg|common_boundary/ForensicAccountability.tla"
+  "common_boundary/ForensicAccountabilityAllByz.cfg|common_boundary/ForensicAccountability.tla"
 )
 
 # Census: every .tla module under FORMAL_DIR (excluding symlinks and
