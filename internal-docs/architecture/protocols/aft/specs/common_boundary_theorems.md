@@ -275,7 +275,17 @@ assertion). Pairing: L2 (unanimity forced at f = n−1) and L1.
 
 Assumes: A1, A2, A3, A9, A10.
 
-**STATUS: DESIGN OPEN — CLAIM WITHDRAWN (P1.3 rounds 1–2).** The round-1
+**STATUS: RESPECIFIED (v3) AT P2.7 — CLAIM STILL GATED ON THE RESPEC'S
+OWN REVIEW.** Spec §16 v3 delivers the commissioned observation-
+commitment design (standby adjudicates under its OWN MHA; bindingness =
+membership in the fallback seal's committed observation set; preemption
+by honest refusal; unobserved rivals void by the old ring's formation
+signature; no bulletin, no stamps, no delivery bound), mechanized in
+`SuccessionClock.tla` — "no released fallback effect coexists with a
+BINDING rival" proven (135 obligations) with activation justification.
+The claim below remains NON-NORMATIVE until the respecification survives
+a fresh-context adversarial review. Historical record of the two
+refutations: The round-1
 formulation was refuted (publication ≠ delivery under asynchrony); its
 round-2 repair was refuted in turn (the succession medium is an unmodeled
 consensus object with no consistency rule and no stamp witness —
