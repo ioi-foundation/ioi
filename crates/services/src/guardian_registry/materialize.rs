@@ -285,6 +285,214 @@ impl GuardianRegistry {
         Ok(())
     }
 
+    /// The activation depth (D_act) for the ring membership queue and
+    /// the per-handover churn cap (AFT-CB R5 stage 3). Constants at the
+    /// reference stage; governance parameterization is a NAMED RESIDUAL
+    /// for the improvement-governance plane.
+    pub(super) const RING_ACTIVATION_DEPTH_EVENTS: u64 = 2;
+    /// Maximum members that may JOIN in one handover.
+    pub(super) const RING_HANDOVER_CHURN_CAP: usize = 2;
+
+    fn bump_ring_event_counter(state: &mut dyn StateAccess) -> Result<u64, TransactionError> {
+        let next = state
+            .get(GUARDIAN_RING_EVENT_COUNTER_KEY)?
+            .map(|bytes| {
+                codec::from_bytes_canonical::<u64>(&bytes).map_err(StateError::InvalidValue)
+            })
+            .transpose()
+            .map_err(TransactionError::State)?
+            .unwrap_or(0)
+            + 1;
+        state.insert(
+            GUARDIAN_RING_EVENT_COUNTER_KEY,
+            &codec::to_bytes_canonical(&next).map_err(TransactionError::Serialization)?,
+        )?;
+        Ok(next)
+    }
+
+    fn load_ring_queue(state: &dyn StateAccess) -> Result<RingActivationQueue, TransactionError> {
+        Ok(state
+            .get(GUARDIAN_RING_QUEUE_KEY)?
+            .map(|bytes| {
+                codec::from_bytes_canonical::<RingActivationQueue>(&bytes)
+                    .map_err(StateError::InvalidValue)
+            })
+            .transpose()
+            .map_err(TransactionError::State)?
+            .unwrap_or(RingActivationQueue {
+                entries: Vec::new(),
+                activation_depth_events: Self::RING_ACTIVATION_DEPTH_EVENTS,
+            }))
+    }
+
+    fn store_ring_queue(
+        state: &mut dyn StateAccess,
+        queue: &RingActivationQueue,
+    ) -> Result<(), TransactionError> {
+        state.insert(
+            GUARDIAN_RING_QUEUE_KEY,
+            &codec::to_bytes_canonical(queue).map_err(TransactionError::Serialization)?,
+        )?;
+        Ok(())
+    }
+
+    pub(super) fn load_live_ring_config(
+        state: &dyn StateAccess,
+    ) -> Result<Option<BoundaryRingConfig>, TransactionError> {
+        let Some(version_bytes) = state.get(GUARDIAN_RING_LIVE_VERSION_KEY)? else {
+            return Ok(None);
+        };
+        let version: u64 = codec::from_bytes_canonical(&version_bytes)
+            .map_err(StateError::InvalidValue)
+            .map_err(TransactionError::State)?;
+        let Some(config_bytes) = state.get(&guardian_ring_config_key(version))? else {
+            return Err(TransactionError::Invalid(
+                "live ring version points at a missing configuration".into(),
+            ));
+        };
+        codec::from_bytes_canonical(&config_bytes)
+            .map(Some)
+            .map_err(StateError::InvalidValue)
+            .map_err(TransactionError::State)
+    }
+
+    /// AFT-CB R5 stage 3: a bonded registration enters the PUBLIC
+    /// activation queue, stamped with the ring plane's event ordinal.
+    pub(super) fn materialize_ring_member_registration(
+        state: &mut dyn StateAccess,
+        mut registration: RingMemberRegistration,
+    ) -> Result<(), TransactionError> {
+        if registration.bond_amount == 0 {
+            return Err(TransactionError::Invalid(
+                "ring registration requires a non-zero bond".into(),
+            ));
+        }
+        let mut queue = Self::load_ring_queue(state)?;
+        if queue
+            .entries
+            .iter()
+            .any(|entry| entry.account_id == registration.account_id)
+        {
+            return Err(TransactionError::Invalid(
+                "account is already queued for ring membership".into(),
+            ));
+        }
+        if let Some(live) = Self::load_live_ring_config(state)? {
+            if live.members.contains(&registration.account_id) {
+                return Err(TransactionError::Invalid(
+                    "account is already a live ring member".into(),
+                ));
+            }
+        }
+        registration.registered_at_event = Self::bump_ring_event_counter(state)?;
+        queue.entries.push(registration);
+        Self::store_ring_queue(state, &queue)
+    }
+
+    /// AFT-CB R5 stage 3: the genesis ring configuration — version 1,
+    /// publishable exactly once, before any live configuration exists.
+    pub(super) fn materialize_ring_genesis_config(
+        state: &mut dyn StateAccess,
+        config: BoundaryRingConfig,
+    ) -> Result<(), TransactionError> {
+        if config.version != 1 || config.members.is_empty() || config.closed_by.is_some() {
+            return Err(TransactionError::Invalid(
+                "ring genesis must be an open version-1 configuration with members".into(),
+            ));
+        }
+        if state.get(GUARDIAN_RING_LIVE_VERSION_KEY)?.is_some() {
+            return Err(TransactionError::Invalid(
+                "a live ring configuration already exists; use the handover ceremony".into(),
+            ));
+        }
+        state.insert(
+            &guardian_ring_config_key(config.version),
+            &codec::to_bytes_canonical(&config).map_err(TransactionError::Serialization)?,
+        )?;
+        state.insert(
+            GUARDIAN_RING_LIVE_VERSION_KEY,
+            &codec::to_bytes_canonical(&config.version).map_err(TransactionError::Serialization)?,
+        )?;
+        Self::bump_ring_event_counter(state)?;
+        Ok(())
+    }
+
+    /// AFT-CB R5 stage 3: the assurance-preserving handover against the
+    /// STORED live configuration — old-ring unanimity + full new-ring
+    /// acceptance (verified by the types-layer builder), every joiner
+    /// drawn ACTIVATABLE from the public queue (D_act respected), and
+    /// the churn cap enforced. On success the old configuration closes
+    /// with its successor named and the new one becomes live.
+    pub(super) fn materialize_ring_handover(
+        state: &mut dyn StateAccess,
+        publication: RingHandoverPublication,
+    ) -> Result<(), TransactionError> {
+        let Some(live) = Self::load_live_ring_config(state)? else {
+            return Err(TransactionError::Invalid(
+                "no live ring configuration exists; publish the genesis first".into(),
+            ));
+        };
+        build_assurance_preserving_handover(
+            &live,
+            &publication.new_config,
+            &publication.approvals,
+            &publication.acceptances,
+        )
+        .map_err(TransactionError::Invalid)?;
+
+        let old_members: BTreeSet<&AccountId> = live.members.iter().collect();
+        let joiners: Vec<&AccountId> = publication
+            .new_config
+            .members
+            .iter()
+            .filter(|member| !old_members.contains(member))
+            .collect();
+
+        if joiners.len() > Self::RING_HANDOVER_CHURN_CAP {
+            return Err(TransactionError::Invalid(
+                "handover exceeds the ring churn cap".into(),
+            ));
+        }
+        let current_event = Self::bump_ring_event_counter(state)?;
+        let mut queue = Self::load_ring_queue(state)?;
+        for joiner in &joiners {
+            let activatable = queue
+                .activatable_at(current_event)
+                .iter()
+                .any(|entry| entry.account_id == **joiner);
+            if !activatable {
+                return Err(TransactionError::Invalid(
+                    "handover joiner is not an activatable queued registrant (D_act)".into(),
+                ));
+            }
+        }
+        queue
+            .entries
+            .retain(|entry| !joiners.iter().any(|joiner| **joiner == entry.account_id));
+        Self::store_ring_queue(state, &queue)?;
+
+        let mut closed = live;
+        closed.closed_by = Some(RingConfigClose {
+            successor_version: publication.new_config.version,
+            closed_at_event: current_event,
+        });
+        state.insert(
+            &guardian_ring_config_key(closed.version),
+            &codec::to_bytes_canonical(&closed).map_err(TransactionError::Serialization)?,
+        )?;
+        state.insert(
+            &guardian_ring_config_key(publication.new_config.version),
+            &codec::to_bytes_canonical(&publication.new_config)
+                .map_err(TransactionError::Serialization)?,
+        )?;
+        state.insert(
+            GUARDIAN_RING_LIVE_VERSION_KEY,
+            &codec::to_bytes_canonical(&publication.new_config.version)
+                .map_err(TransactionError::Serialization)?,
+        )?;
+        Ok(())
+    }
+
     pub(super) fn materialize_publication_frontier_contradiction(
         state: &mut dyn StateAccess,
         contradiction: PublicationFrontierContradiction,
