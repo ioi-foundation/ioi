@@ -84,6 +84,8 @@ use tokio_rustls::{
 };
 use tonic::transport::Channel;
 
+pub mod seal_signer;
+
 include!("guardian/types.rs");
 include!("guardian/support.rs");
 include!("guardian/signing.rs");
