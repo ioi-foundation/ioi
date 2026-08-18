@@ -79,4 +79,34 @@ if [ "${violations}" -ne 0 ]; then
   exit 1
 fi
 
-echo "PASS: no unqualified 99% tolerance spellings in the AFT specs/formal corpus."
+# AFT-CB P4.4 flagship-gating: neither flagship rung may appear in the
+# corpus as a BARE assertion. The distinctive rung phrase "frontier-
+# complete" may appear ONLY on a line that also carries a blocked/gated
+# marker (BLOCKED, "does not print", "gated on", "unreachable", "cannot
+# print", "REMAINING EDITORIAL", or the adjudication's quoting context).
+# Both flagship rungs are blocked this cycle (RES-R10, T5d withdrawn,
+# RES-R11/R12, three L-OPEN rows); a bare assertion of frontier-
+# completeness is therefore a false claim and fails the gate. This gate
+# is mutation-tested (AFT-CB standing rule 3): a bare "frontier-complete
+# consensus architecture" line must turn it RED.
+FLAGSHIP_PATTERN='frontier-complete'
+FLAGSHIP_ALLOW='BLOCKED|does not print|cannot print|gated on|unreachable|REMAINING EDITORIAL|only where.*marked|no flagship rung|flagship rung is absent|flagship strings|frontier-completeness flagship|the .{0,3}frontier-complete.{0,3} strings'
+flagship_violations=0
+while IFS= read -r hit; do
+  file="${hit%%:*}"
+  rest="${hit#*:}"
+  line_no="${rest%%:*}"
+  line="${rest#*:}"
+  if printf '%s' "${line}" | grep -qE "${FLAGSHIP_ALLOW}"; then
+    continue
+  fi
+  echo "FLAGSHIP-GATING VIOLATION (bare flagship assertion): ${file}:${line_no}:${line}" >&2
+  flagship_violations=$((flagship_violations + 1))
+done < <(grep -rnE --include='*.tex' --include='*.md' "${FLAGSHIP_PATTERN}" "${SPECS_DIR}" "${FORMAL_DIR}" || true)
+
+if [ "${flagship_violations}" -ne 0 ]; then
+  echo "FAIL: ${flagship_violations} bare flagship assertion(s) — a flagship rung printed without its blocked/gated marker while its condition set is open (see p4_claim_adjudication.md)." >&2
+  exit 1
+fi
+
+echo "PASS: no unqualified 99% tolerance spellings, and no bare flagship assertions, in the AFT specs/formal corpus."
