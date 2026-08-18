@@ -1,5 +1,14 @@
 # AFT-CB P4.4 — Claim Adjudication
 
+> **STATUS SUPERSESSION (2026-08-18, at `59294c96c`).** The yellow-paper
+> v2 rewrite this document required is COMPLETE and merged (#333,
+> `59294c96c`), including the owner-directed maximality presentation
+> recorded below; R4c is merged (#318), so Q4 is killed at both layers.
+> References below to the rewrite as "remaining editorial work" are
+> historical — the merged manuscript IS the adjudicated final version,
+> and this adjudication continues to bind it (the flagship rungs remain
+> blocked and machine-gated).
+
 This document adjudicates exactly which claim the program may print, and
 enumerates the precise gates blocking each flagship rung. It is the
 authority the machine gate enforces: `check_aft_claim_discipline.sh`
