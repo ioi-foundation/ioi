@@ -44,6 +44,7 @@ pub mod media;
 pub mod model_registry;
 /// Data structures for reporting and penalizing misbehavior.
 pub mod penalties;
+pub mod ring_membership;
 /// Unified agent runtime substrate and cognitive-loop contracts.
 pub mod runtime;
 /// Compatibility re-export surface for unified agent runtime contracts.
@@ -92,6 +93,7 @@ pub use inference::*;
 pub use media::*;
 pub use model_registry::*;
 pub use penalties::*;
+pub use ring_membership::*;
 pub use runtime_contracts::*;
 pub use settlement::*;
 pub use system_activation::*;
