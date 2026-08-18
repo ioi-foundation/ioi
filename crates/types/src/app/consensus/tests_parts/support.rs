@@ -7,7 +7,7 @@ use super::{
     build_archived_recovered_history_retention_receipt, build_archived_recovered_history_segment,
     build_archived_recovered_restart_page, build_bulletin_custody_assignment,
     build_bulletin_custody_response, build_canonical_bulletin_close,
-    build_committed_surface_canonical_order_certificate, build_publication_frontier,
+    build_single_member_committed_surface_canonical_order_certificate, build_publication_frontier,
     build_reference_canonical_order_certificate,
     canonical_archived_recovered_history_checkpoint_hash,
     canonical_archived_recovered_history_profile_activation_hash,
@@ -319,7 +319,7 @@ fn sample_committed_surface_ordering_fixture(
         .collect();
     header.transactions_root =
         canonical_transaction_root_from_hashes(&tx_hashes).expect("transactions root");
-    let certificate = build_committed_surface_canonical_order_certificate(&header, &transactions)
+    let certificate = build_single_member_committed_surface_canonical_order_certificate(&header, &transactions)
         .expect("build committed-surface certificate");
     header.canonical_order_certificate = Some(certificate.clone());
     (header, transactions, certificate)

@@ -313,7 +313,7 @@ where
         (ctx.config.aft_safety_mode, ctx.config.consensus_type)
     };
     if matches!(aft_mode, AftSafetyMode::Asymptote) {
-        match build_committed_surface_canonical_order_certificate(
+        match build_single_member_committed_surface_canonical_order_certificate(
             &final_block.header,
             &final_block.transactions,
         ) {

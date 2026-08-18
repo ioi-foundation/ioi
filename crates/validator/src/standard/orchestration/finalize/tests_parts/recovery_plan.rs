@@ -3,7 +3,7 @@ fn experimental_recovery_scaffold_changes_with_witness_manifest() {
     let mut header = sample_block_header();
     header.transactions_root =
         ioi_types::app::canonical_transaction_root_from_hashes(&[]).expect("transactions root");
-    let certificate = build_committed_surface_canonical_order_certificate(&header, &[])
+    let certificate = build_single_member_committed_surface_canonical_order_certificate(&header, &[])
         .expect("canonical order certificate");
     let scaffold_a = build_experimental_recovery_scaffold_artifacts(&header, &[], [0x41u8; 32], 0)
         .expect("scaffold a");
@@ -43,7 +43,7 @@ fn experimental_multi_witness_recovery_plan_changes_with_membership() {
     let mut header = sample_block_header();
     header.transactions_root =
         ioi_types::app::canonical_transaction_root_from_hashes(&[]).expect("transactions root");
-    let certificate = build_committed_surface_canonical_order_certificate(&header, &[])
+    let certificate = build_single_member_committed_surface_canonical_order_certificate(&header, &[])
         .expect("canonical order certificate");
     let witness_seed = sample_guardian_witness_seed();
     let plan_a = build_experimental_multi_witness_recovery_plan(
@@ -101,7 +101,7 @@ fn experimental_multi_witness_recovery_plan_changes_with_threshold() {
     let mut header = sample_block_header();
     header.transactions_root =
         ioi_types::app::canonical_transaction_root_from_hashes(&[]).expect("transactions root");
-    let certificate = build_committed_surface_canonical_order_certificate(&header, &[])
+    let certificate = build_single_member_committed_surface_canonical_order_certificate(&header, &[])
         .expect("canonical order certificate");
     let witness_seed = sample_guardian_witness_seed();
     let witness_set =
@@ -430,7 +430,7 @@ fn experimental_multi_witness_recovery_share_material_builds_and_verifies_for_fo
 fn experimental_multi_witness_recovery_share_material_reconstructs_publication_bundle_payload_from_three_of_four_shards(
 ) {
     let (header, transactions) = sample_block_header_with_ordered_transactions(0x52);
-    let certificate = build_committed_surface_canonical_order_certificate(&header, &transactions)
+    let certificate = build_single_member_committed_surface_canonical_order_certificate(&header, &transactions)
         .expect("canonical order certificate");
     let witness_seed = sample_guardian_witness_seed();
     let witness_set =
@@ -492,7 +492,7 @@ fn experimental_multi_witness_recovery_share_material_reconstructs_publication_b
 fn experimental_multi_witness_recovery_share_material_reconstructs_publication_bundle_payload_from_two_of_four_gf256_shards(
 ) {
     let (header, transactions) = sample_block_header_with_ordered_transactions(0x5a);
-    let certificate = build_committed_surface_canonical_order_certificate(&header, &transactions)
+    let certificate = build_single_member_committed_surface_canonical_order_certificate(&header, &transactions)
         .expect("canonical order certificate");
     let witness_seed = sample_guardian_witness_seed();
     let witness_set =
@@ -553,7 +553,7 @@ fn experimental_multi_witness_recovery_share_material_reconstructs_publication_b
 fn experimental_multi_witness_recovery_share_material_reconstructs_publication_bundle_payload_from_three_of_five_gf256_shards(
 ) {
     let (header, transactions) = sample_block_header_with_ordered_transactions(0x5c);
-    let certificate = build_committed_surface_canonical_order_certificate(&header, &transactions)
+    let certificate = build_single_member_committed_surface_canonical_order_certificate(&header, &transactions)
         .expect("canonical order certificate");
     let witness_seed = sample_guardian_witness_seed();
     let witness_set = sample_guardian_witness_set(vec![
@@ -620,7 +620,7 @@ fn experimental_multi_witness_recovery_share_material_reconstructs_publication_b
 fn experimental_multi_witness_recovery_share_material_reconstructs_publication_bundle_payload_from_three_of_seven_gf256_shards(
 ) {
     let (header, transactions) = sample_block_header_with_ordered_transactions(0x5d);
-    let certificate = build_committed_surface_canonical_order_certificate(&header, &transactions)
+    let certificate = build_single_member_committed_surface_canonical_order_certificate(&header, &transactions)
         .expect("canonical order certificate");
     let witness_seed = sample_guardian_witness_seed();
     let witness_set = sample_guardian_witness_set(vec![
@@ -689,7 +689,7 @@ fn experimental_multi_witness_recovery_share_material_reconstructs_publication_b
 fn experimental_multi_witness_recovery_share_material_reconstructs_full_positive_close_surface_from_three_of_seven_gf256_shards(
 ) {
     let (header, transactions) = sample_block_header_with_ordered_transactions(0x5e);
-    let certificate = build_committed_surface_canonical_order_certificate(&header, &transactions)
+    let certificate = build_single_member_committed_surface_canonical_order_certificate(&header, &transactions)
         .expect("canonical order certificate");
     let witness_seed = sample_guardian_witness_seed();
     let witness_set = sample_guardian_witness_set(vec![
@@ -861,7 +861,7 @@ fn experimental_multi_witness_recovery_recovered_surfaces_chain_publication_fron
 fn experimental_multi_witness_recovery_share_material_reconstructs_publication_bundle_payload_from_four_of_six_gf256_shards(
 ) {
     let (header, transactions) = sample_block_header_with_ordered_transactions(0x5f);
-    let certificate = build_committed_surface_canonical_order_certificate(&header, &transactions)
+    let certificate = build_single_member_committed_surface_canonical_order_certificate(&header, &transactions)
         .expect("canonical order certificate");
     let witness_seed = sample_guardian_witness_seed();
     let witness_set = sample_guardian_witness_set(vec![
@@ -930,7 +930,7 @@ fn experimental_multi_witness_recovery_share_material_reconstructs_publication_b
 fn experimental_multi_witness_recovery_share_material_reconstructs_publication_bundle_payload_from_four_of_seven_gf256_shards(
 ) {
     let (header, transactions) = sample_block_header_with_ordered_transactions(0x62);
-    let certificate = build_committed_surface_canonical_order_certificate(&header, &transactions)
+    let certificate = build_single_member_committed_surface_canonical_order_certificate(&header, &transactions)
         .expect("canonical order certificate");
     let witness_seed = sample_guardian_witness_seed();
     let witness_set = sample_guardian_witness_set(vec![

@@ -82,6 +82,64 @@ pub struct CommittedSurfaceCanonicalOrderProof {
     /// Canonical commitment over the omission set for the slot.
     #[serde(default)]
     pub omission_commitment_root: [u8; 32],
+    /// Canonical commitment over the boundary-omission justification set
+    /// (AFT-CB R1): binds which boundary members the block was permitted
+    /// to omit, so stripping a justification breaks the proof.
+    #[serde(default)]
+    pub boundary_omission_justification_root: [u8; 32],
+}
+
+/// Why a closed-boundary member was legitimately omitted from a block
+/// (AFT-CB R1). The reason is a TYPED claim carried by the certificate;
+/// at the reference-single-member stage it is producer-asserted, and its
+/// deep validity becomes ring-adjudicated when R5 lands the full plane.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum BoundaryOmissionReason {
+    /// The transaction fails validation against the slot's parent state.
+    #[default]
+    Invalid,
+    /// The transaction is a duplicate of one already committed.
+    Duplicate,
+    /// The transaction's own validity window expired before the slot.
+    Expired,
+}
+
+/// A typed justification for omitting one closed-boundary member from a
+/// block (AFT-CB R1). Every boundary member absent from the block MUST
+/// carry one — an unjustified omission makes the block invalid.
+#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, Serialize, Deserialize, Default)]
+pub struct BoundaryOmissionJustification {
+    /// Canonical hash of the omitted boundary member.
+    pub tx_hash: [u8; 32],
+    /// The typed reason for the omission.
+    #[serde(default)]
+    pub reason: BoundaryOmissionReason,
+    /// Human-auditable detail for the omission claim.
+    #[serde(default)]
+    pub details: String,
+}
+
+/// A boundary closed BEFORE block production (AFT-CB R1): the set of
+/// transactions the block is obliged to order. Block production CONSUMES
+/// this object; it never derives it from the block's own contents — that
+/// inversion is what makes censorship observable (Q1).
+///
+/// REFERENCE-SINGLE-MEMBER LABEL: until R5 lands the ring membership
+/// plane, the only closer is `close_reference_single_member_boundary`
+/// (n = 1: the producing node closes over its own admitted surface).
+/// The SEAM is honest — the builder verifies against whatever boundary
+/// it is handed — while the closer's authority is exactly one member's.
+#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, Serialize, Deserialize, Default)]
+pub struct ClosedBoundary {
+    /// Slot / height the boundary is closed for.
+    pub height: u64,
+    /// Public cutoff the boundary was closed at (ms).
+    #[serde(default)]
+    pub cutoff_timestamp_ms: u64,
+    /// Sorted, unique canonical hashes of every boundary member.
+    #[serde(default)]
+    pub tx_hashes: Vec<[u8; 32]>,
 }
 
 /// Objective proof that a candidate canonical order omitted an eligible transaction.
@@ -127,6 +185,16 @@ pub struct CanonicalOrderCertificate {
     /// Objective omission proofs, if any. A non-empty set dominates the candidate order.
     #[serde(default)]
     pub omission_proofs: Vec<OmissionProof>,
+    /// The closed boundary's member hashes (AFT-CB R1): the certificate
+    /// carries its boundary so verification is self-contained — the
+    /// verifier recomputes the included set as boundary minus justified
+    /// omissions and demands the ordered root match.
+    #[serde(default)]
+    pub boundary_tx_hashes: Vec<[u8; 32]>,
+    /// Typed justifications for every boundary member absent from the
+    /// block (AFT-CB R1). An omission without one invalidates the block.
+    #[serde(default)]
+    pub boundary_omission_justifications: Vec<BoundaryOmissionJustification>,
 }
 
 fn hash_consensus_bytes<T: Encode>(value: &T) -> Result<[u8; 32], String> {

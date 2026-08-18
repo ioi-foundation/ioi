@@ -809,7 +809,7 @@ fn assert_coded_recovery_family_subset_conformance_case(
     recovery_threshold: u16,
 ) {
     let (header, transactions) = sample_block_header_with_ordered_transactions(transaction_seed);
-    let certificate = build_committed_surface_canonical_order_certificate(&header, &transactions)
+    let certificate = build_single_member_committed_surface_canonical_order_certificate(&header, &transactions)
         .expect("canonical order certificate");
     let witness_seed = sample_guardian_witness_seed();
     let witness_set =

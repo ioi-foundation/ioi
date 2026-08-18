@@ -311,7 +311,7 @@ async fn publish_canonical_order_artifacts_enqueues_bulletin_surface_and_certifi
     header.transactions_root = ioi_types::app::canonical_transaction_root_from_hashes(&tx_hashes)
         .expect("transactions root");
     header.canonical_order_certificate = Some(
-        build_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
+        build_single_member_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
             .expect("build committed-surface certificate"),
     );
 

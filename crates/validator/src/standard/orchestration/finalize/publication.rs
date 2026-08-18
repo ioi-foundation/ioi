@@ -361,8 +361,9 @@ pub(super) fn materialize_experimental_multi_witness_recovery_share_materials_fr
     transactions: &[ChainTransaction],
     plan: &ExperimentalMultiWitnessRecoveryPlan,
 ) -> Result<Vec<RecoveryShareMaterial>> {
-    let certificate = build_committed_surface_canonical_order_certificate(header, transactions)
-        .map_err(|error| anyhow!(error))?;
+    let certificate =
+        build_single_member_committed_surface_canonical_order_certificate(header, transactions)
+            .map_err(|error| anyhow!(error))?;
     let block_commitment_hash = canonical_block_commitment_hash(header)?;
     let recoverable_payload = recovery_coding_uses_recoverable_payload(plan.coding)
         .then(|| build_recoverable_slot_payload_v3(header, transactions, &certificate))
@@ -482,8 +483,9 @@ pub(super) fn build_experimental_recovery_scaffold_artifacts(
         ));
     }
 
-    let certificate = build_committed_surface_canonical_order_certificate(header, transactions)
-        .map_err(|error| anyhow!(error))?;
+    let certificate =
+        build_single_member_committed_surface_canonical_order_certificate(header, transactions)
+            .map_err(|error| anyhow!(error))?;
     // Reuse the committed-surface recoverability root as the shared payload seed.
     // It does not carry witness/coding semantics on its own; the scaffold layers
     // those semantics above it with witness-local commitments.
@@ -592,8 +594,9 @@ pub(super) fn build_experimental_multi_witness_recovery_plan_from_assignments(
         ));
     }
 
-    let certificate = build_committed_surface_canonical_order_certificate(header, transactions)
-        .map_err(|error| anyhow!(error))?;
+    let certificate =
+        build_single_member_committed_surface_canonical_order_certificate(header, transactions)
+            .map_err(|error| anyhow!(error))?;
     let payload_commitment_hash = certificate
         .bulletin_availability_certificate
         .recoverability_root;
@@ -718,8 +721,9 @@ pub(super) fn build_experimental_multi_witness_recovery_plan(
         ));
     }
 
-    let certificate = build_committed_surface_canonical_order_certificate(header, transactions)
-        .map_err(|error| anyhow!(error))?;
+    let certificate =
+        build_single_member_committed_surface_canonical_order_certificate(header, transactions)
+            .map_err(|error| anyhow!(error))?;
     let assignments = derive_guardian_witness_assignments(
         witness_seed,
         witness_set,

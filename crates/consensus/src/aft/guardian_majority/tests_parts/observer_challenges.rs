@@ -250,6 +250,8 @@ async fn asymptote_accepts_valid_canonical_order_certificate() {
             proof_bytes: Vec::new(),
         },
         omission_proofs: Vec::new(),
+        boundary_tx_hashes: Vec::new(),
+        boundary_omission_justifications: Vec::new(),
     };
     let public_inputs = canonical_order_public_inputs(&header, &template_certificate).unwrap();
     let public_inputs_hash = canonical_order_public_inputs_hash(&public_inputs).unwrap();
@@ -365,6 +367,8 @@ async fn asymptote_rejects_canonical_order_certificate_with_mismatched_published
             proof_bytes: Vec::new(),
         },
         omission_proofs: Vec::new(),
+        boundary_tx_hashes: Vec::new(),
+        boundary_omission_justifications: Vec::new(),
     };
     let public_inputs = canonical_order_public_inputs(&header, &template_certificate).unwrap();
     let public_inputs_hash = canonical_order_public_inputs_hash(&public_inputs).unwrap();
@@ -469,6 +473,8 @@ async fn asymptote_rejects_canonical_order_certificate_with_mismatched_published
             proof_bytes: Vec::new(),
         },
         omission_proofs: Vec::new(),
+        boundary_tx_hashes: Vec::new(),
+        boundary_omission_justifications: Vec::new(),
     };
     let public_inputs = canonical_order_public_inputs(&header, &template_certificate).unwrap();
     let public_inputs_hash = canonical_order_public_inputs_hash(&public_inputs).unwrap();
@@ -586,6 +592,8 @@ async fn asymptote_rejects_canonical_order_certificate_with_omission_proof() {
             bulletin_root: bulletin.bulletin_root,
             details: "omitted from canonical order".into(),
         }],
+        boundary_tx_hashes: Vec::new(),
+        boundary_omission_justifications: Vec::new(),
     };
     let public_inputs = canonical_order_public_inputs(&header, &template_certificate).unwrap();
     let public_inputs_hash = canonical_order_public_inputs_hash(&public_inputs).unwrap();
@@ -679,6 +687,8 @@ async fn asymptote_rejects_canonical_order_certificate_when_published_abort_exis
             proof_bytes: Vec::new(),
         },
         omission_proofs: Vec::new(),
+        boundary_tx_hashes: Vec::new(),
+        boundary_omission_justifications: Vec::new(),
     };
     let public_inputs = canonical_order_public_inputs(&header, &template_certificate).unwrap();
     let public_inputs_hash = canonical_order_public_inputs_hash(&public_inputs).unwrap();
@@ -785,6 +795,8 @@ async fn asymptote_rejects_canonical_order_certificate_without_publication_front
             proof_bytes: Vec::new(),
         },
         omission_proofs: Vec::new(),
+        boundary_tx_hashes: Vec::new(),
+        boundary_omission_justifications: Vec::new(),
     };
     let public_inputs = canonical_order_public_inputs(&header, &template_certificate).unwrap();
     let public_inputs_hash = canonical_order_public_inputs_hash(&public_inputs).unwrap();
@@ -876,6 +888,8 @@ async fn asymptote_rejects_conflicting_published_publication_frontier() {
             proof_bytes: Vec::new(),
         },
         omission_proofs: Vec::new(),
+        boundary_tx_hashes: Vec::new(),
+        boundary_omission_justifications: Vec::new(),
     };
     let public_inputs = canonical_order_public_inputs(&header, &template_certificate).unwrap();
     let public_inputs_hash = canonical_order_public_inputs_hash(&public_inputs).unwrap();

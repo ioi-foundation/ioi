@@ -120,7 +120,7 @@ fn committed_surface_canonical_order_certificate_verifies_for_canonical_block() 
         canonical_transaction_root_from_hashes(&tx_hashes).expect("transactions root");
 
     let certificate =
-        build_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
+        build_single_member_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
             .expect("build committed-surface certificate");
     let bulletin_close = build_canonical_bulletin_close(
         &certificate.bulletin_commitment,
@@ -361,3 +361,134 @@ fn canonical_collapse_commitment_stays_stable_across_materialized_ordering_bundl
     );
 }
 
+
+#[test]
+fn r1_censorship_gate_unjustified_omission_refused_and_justified_omission_verifies() {
+    // AFT-CB R1 — the censorship gate (this test REPLACED the recorded
+    // baseline `r1_baseline_censorship_is_invisible_to_the_pre_cut_builder`,
+    // which proved the pre-cut builder verified a censoring block GREEN
+    // because the boundary was inexpressible; see the leg's evidence
+    // commit). Now the boundary is closed FIRST and consumed:
+    //  (a) a block omitting a boundary member without justification is
+    //      REFUSED at build;
+    //  (b) the same omission WITH a typed justification builds and
+    //      verifies;
+    //  (c) stripping the justification from the verified certificate
+    //      makes verification RED (the proof binding catches it), and a
+    //      re-bound certificate without it fails the root equation.
+    let base_header = BlockHeader {
+        height: 12,
+        view: 1,
+        parent_hash: [19u8; 32],
+        parent_state_root: StateRoot(vec![1u8; 32]),
+        state_root: StateRoot(vec![2u8; 32]),
+        transactions_root: vec![],
+        timestamp: 1_750_000_778,
+        timestamp_ms: 1_750_000_778_000,
+        gas_used: 0,
+        validator_set: Vec::new(),
+        producer_account_id: AccountId([4u8; 32]),
+        producer_key_suite: SignatureSuite::ED25519,
+        producer_pubkey_hash: [5u8; 32],
+        producer_pubkey: Vec::new(),
+        signature: Vec::new(),
+        oracle_counter: 0,
+        oracle_trace_hash: [0u8; 32],
+        parent_qc: QuorumCertificate::default(),
+        previous_canonical_collapse_commitment_hash: [0u8; 32],
+        canonical_collapse_extension_certificate: None,
+        publication_frontier: None,
+        guardian_certificate: None,
+        sealed_finality_proof: None,
+        canonical_order_certificate: None,
+        timeout_certificate: None,
+    };
+    let included_tx = ChainTransaction::System(Box::new(SystemTransaction {
+        header: SignHeader {
+            account_id: AccountId([12u8; 32]),
+            nonce: 1,
+            chain_id: ChainId(1),
+            tx_version: 1,
+            session_auth: None,
+        },
+        payload: SystemPayload::CallService {
+            service_id: "guardian_registry".into(),
+            method: "publish_aft_bulletin_commitment@v1".into(),
+            params: vec![3],
+        },
+        signature_proof: SignatureProof::default(),
+    }));
+    let censored_tx = ChainTransaction::System(Box::new(SystemTransaction {
+        header: SignHeader {
+            account_id: AccountId([13u8; 32]),
+            nonce: 1,
+            chain_id: ChainId(1),
+            tx_version: 1,
+            session_auth: None,
+        },
+        payload: SystemPayload::CallService {
+            service_id: "guardian_registry".into(),
+            method: "publish_aft_canonical_order_artifact_bundle@v1".into(),
+            params: vec![4],
+        },
+        signature_proof: SignatureProof::default(),
+    }));
+
+    // The boundary closes over BOTH admitted transactions.
+    let boundary = close_reference_single_member_boundary(
+        &base_header,
+        &[included_tx.clone(), censored_tx.clone()],
+    )
+    .expect("close boundary");
+    let censored_hash = censored_tx.hash().expect("censored tx hash");
+
+    // The block orders only the included tx.
+    let ordered_transactions = canonicalize_transactions_for_header(&base_header, &[included_tx])
+        .expect("canonicalized transactions");
+    let tx_hashes: Vec<[u8; 32]> = ordered_transactions
+        .iter()
+        .map(|tx| tx.hash().expect("tx hash"))
+        .collect();
+    let mut header = base_header;
+    header.transactions_root =
+        canonical_transaction_root_from_hashes(&tx_hashes).expect("transactions root");
+
+    // (a) No justification: the censoring block is REFUSED.
+    let err = build_committed_surface_canonical_order_certificate(
+        &header,
+        &ordered_transactions,
+        &boundary,
+        &[],
+    )
+    .expect_err("unjustified omission must refuse");
+    assert!(
+        err.contains("omitted from the block without justification"),
+        "unexpected error: {err}"
+    );
+
+    // (b) With a typed justification the block builds and verifies.
+    let justification = BoundaryOmissionJustification {
+        tx_hash: censored_hash,
+        reason: BoundaryOmissionReason::Expired,
+        details: "validity window elapsed before the slot".into(),
+    };
+    let certificate = build_committed_surface_canonical_order_certificate(
+        &header,
+        &ordered_transactions,
+        &boundary,
+        std::slice::from_ref(&justification),
+    )
+    .expect("justified omission builds");
+    verify_canonical_order_certificate(&header, &certificate, None, None, None)
+        .expect("justified omission verifies");
+
+    // (c) Stripping the justification makes verification RED.
+    let mut stripped = certificate.clone();
+    stripped.boundary_omission_justifications.clear();
+    let err = verify_canonical_order_certificate(&header, &stripped, None, None, None)
+        .expect_err("stripped justification must fail verification");
+    assert!(
+        err.contains("justification root"),
+        "the proof binding catches the strip, got: {err}"
+    );
+}

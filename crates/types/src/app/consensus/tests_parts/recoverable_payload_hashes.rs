@@ -18,6 +18,8 @@ fn recoverable_slot_payload_hash_changes_with_transaction_hashes() {
         resulting_state_root_hash: [36u8; 32],
         proof: Default::default(),
         omission_proofs: Vec::new(),
+        boundary_tx_hashes: Vec::new(),
+        boundary_omission_justifications: Vec::new(),
     };
     let mut payload = RecoverableSlotPayloadV1 {
         height: 11,
@@ -54,6 +56,8 @@ fn recoverable_slot_payload_v2_hash_changes_with_transaction_bytes() {
         resulting_state_root_hash: [46u8; 32],
         proof: Default::default(),
         omission_proofs: Vec::new(),
+        boundary_tx_hashes: Vec::new(),
+        boundary_omission_justifications: Vec::new(),
     };
     let mut payload = RecoverableSlotPayloadV2 {
         height: 12,
@@ -91,6 +95,8 @@ fn recoverable_slot_payload_v3_hash_changes_with_publication_bundle_bytes() {
         resulting_state_root_hash: [56u8; 32],
         proof: Default::default(),
         omission_proofs: Vec::new(),
+        boundary_tx_hashes: Vec::new(),
+        boundary_omission_justifications: Vec::new(),
     };
     let mut payload = RecoverableSlotPayloadV3 {
         height: 13,
