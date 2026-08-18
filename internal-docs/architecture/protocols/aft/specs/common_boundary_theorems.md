@@ -705,6 +705,4 @@ this table has zero `L-OPEN` rows (P4.4 gate).
 | T8 selection supply | — | **L-OPEN** (cheapest-capture supply bound: P4.2 analysis) |
 | T9 maximal accountable safety | L9 (ratio 1.0 is the cap) | cited |
 
-Three `L-OPEN` rows stand. Per the claim ladder, the frontier-completeness
-flagship does not print while any row is open; the interim conditional
-claim (whitepaper §5.3) does not require this table to be closed.
+Three `L-OPEN` rows stand. Per the claim ladder, the frontier-completeness flagship does not print while any row is open (see `p4_claim_adjudication.md`); the interim conditional claim (whitepaper §5.3) does not require this table to be closed.
