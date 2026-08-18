@@ -1,6 +1,7 @@
 // Path: crates/drivers/src/provisioning/mod.rs
 
 pub mod akash;
+pub mod akash_console;
 pub mod aws;
 
 // Abstract interface for any cloud provider (Web2 or Web3).
