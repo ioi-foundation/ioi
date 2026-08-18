@@ -492,3 +492,120 @@ fn r1_censorship_gate_unjustified_omission_refused_and_justified_omission_verifi
         "the proof binding catches the strip, got: {err}"
     );
 }
+
+#[test]
+fn r2_availability_standing_derives_from_close_with_zero_audit_records() {
+    // AFT-CB R2 gates: availability standing derives from the CLOSE
+    // (validate-and-hold is the signature's meaning), never from a
+    // self-issued object — and a close verifies with ZERO audit records:
+    // no audit input even exists in the verification signature, and this
+    // test pins that a bare close + commitment + binding suffice.
+    let base_header = BlockHeader {
+        height: 13,
+        view: 1,
+        parent_hash: [21u8; 32],
+        parent_state_root: StateRoot(vec![1u8; 32]),
+        state_root: StateRoot(vec![2u8; 32]),
+        transactions_root: vec![],
+        timestamp: 1_750_000_779,
+        timestamp_ms: 1_750_000_779_000,
+        gas_used: 0,
+        validator_set: Vec::new(),
+        producer_account_id: AccountId([4u8; 32]),
+        producer_key_suite: SignatureSuite::ED25519,
+        producer_pubkey_hash: [5u8; 32],
+        producer_pubkey: Vec::new(),
+        signature: Vec::new(),
+        oracle_counter: 0,
+        oracle_trace_hash: [0u8; 32],
+        parent_qc: QuorumCertificate::default(),
+        previous_canonical_collapse_commitment_hash: [0u8; 32],
+        canonical_collapse_extension_certificate: None,
+        publication_frontier: None,
+        guardian_certificate: None,
+        sealed_finality_proof: None,
+        canonical_order_certificate: None,
+        timeout_certificate: None,
+    };
+    let tx = ChainTransaction::System(Box::new(SystemTransaction {
+        header: SignHeader {
+            account_id: AccountId([14u8; 32]),
+            nonce: 1,
+            chain_id: ChainId(1),
+            tx_version: 1,
+            session_auth: None,
+        },
+        payload: SystemPayload::CallService {
+            service_id: "guardian_registry".into(),
+            method: "publish_aft_bulletin_commitment@v1".into(),
+            params: vec![5],
+        },
+        signature_proof: SignatureProof::default(),
+    }));
+    let ordered = canonicalize_transactions_for_header(&base_header, &[tx]).expect("ordered");
+    let hashes: Vec<[u8; 32]> = ordered.iter().map(|t| t.hash().expect("hash")).collect();
+    let mut header = base_header;
+    header.transactions_root = canonical_transaction_root_from_hashes(&hashes).expect("root");
+
+    let certificate =
+        build_single_member_committed_surface_canonical_order_certificate(&header, &ordered)
+            .expect("certificate");
+    let close = build_canonical_bulletin_close(
+        &certificate.bulletin_commitment,
+        &certificate.bulletin_availability_certificate,
+    )
+    .expect("close");
+
+    let standing = availability_standing_from_close(
+        &close,
+        &certificate.bulletin_commitment,
+        &certificate.bulletin_availability_certificate,
+    )
+    .expect("standing derives from a verified close with zero audit records");
+    assert_eq!(standing.height, header.height);
+    assert_eq!(
+        standing.holder_count, 1,
+        "reference-single-member: exactly one validate-and-hold signer"
+    );
+    assert_eq!(
+        standing.close_hash,
+        super::canonical_bulletin_close_hash(&close).expect("close hash")
+    );
+
+    // A tampered close confers no standing.
+    let mut tampered = close.clone();
+    tampered.bulletin_commitment_hash = [0xAB; 32];
+    assert!(availability_standing_from_close(
+        &tampered,
+        &certificate.bulletin_commitment,
+        &certificate.bulletin_availability_certificate,
+    )
+    .is_err());
+}
+
+#[test]
+fn r2_source_fence_no_self_attested_availability_builder() {
+    // AFT-CB R2 fence: the self-attested availability-certificate
+    // builder is DELETED, not renamed-and-kept. This test reads the
+    // collapse proofs sources and pins the absence of the old public
+    // constructor name; reintroducing it (under the old name) turns
+    // this RED without any CI-workflow change.
+    let proofs_dir = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/src/app/consensus/collapse/proofs"
+    );
+    let mut checked = 0;
+    for entry in std::fs::read_dir(proofs_dir).expect("proofs dir") {
+        let path = entry.expect("entry").path();
+        if path.extension().and_then(|e| e.to_str()) != Some("rs") {
+            continue;
+        }
+        let source = std::fs::read_to_string(&path).expect("read source");
+        assert!(
+            !source.contains(concat!("pub fn ", "build_bulletin_availability_certificate")),
+            "self-attested availability builder reintroduced in {path:?}"
+        );
+        checked += 1;
+    }
+    assert!(checked >= 3, "expected to scan the proofs sources");
+}

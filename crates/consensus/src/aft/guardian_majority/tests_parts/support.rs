@@ -15,7 +15,7 @@ use ioi_types::app::{
     aft_bulletin_availability_certificate_key, aft_bulletin_commitment_key,
     aft_canonical_bulletin_close_key, aft_canonical_collapse_object_key,
     aft_canonical_order_abort_key, aft_publication_frontier_key,
-    build_bulletin_availability_certificate, build_canonical_bulletin_close,
+    derive_bulletin_availability_binding, build_canonical_bulletin_close,
     build_publication_frontier, build_reference_canonical_order_certificate,
     build_reference_canonical_order_proof_bytes, canonical_asymptote_observer_assignments_hash,
     canonical_asymptote_observer_challenges_hash, canonical_asymptote_observer_transcripts_hash,

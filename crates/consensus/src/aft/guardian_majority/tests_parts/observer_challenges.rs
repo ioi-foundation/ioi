@@ -255,7 +255,7 @@ async fn asymptote_accepts_valid_canonical_order_certificate() {
     };
     let public_inputs = canonical_order_public_inputs(&header, &template_certificate).unwrap();
     let public_inputs_hash = canonical_order_public_inputs_hash(&public_inputs).unwrap();
-    let bulletin_availability_certificate = build_bulletin_availability_certificate(
+    let bulletin_availability_certificate = derive_bulletin_availability_binding(
         &bulletin,
         &randomness_beacon,
         &public_inputs.ordered_transactions_root_hash,
@@ -372,7 +372,7 @@ async fn asymptote_rejects_canonical_order_certificate_with_mismatched_published
     };
     let public_inputs = canonical_order_public_inputs(&header, &template_certificate).unwrap();
     let public_inputs_hash = canonical_order_public_inputs_hash(&public_inputs).unwrap();
-    let bulletin_availability_certificate = build_bulletin_availability_certificate(
+    let bulletin_availability_certificate = derive_bulletin_availability_binding(
         &bulletin,
         &randomness_beacon,
         &public_inputs.ordered_transactions_root_hash,
@@ -478,7 +478,7 @@ async fn asymptote_rejects_canonical_order_certificate_with_mismatched_published
     };
     let public_inputs = canonical_order_public_inputs(&header, &template_certificate).unwrap();
     let public_inputs_hash = canonical_order_public_inputs_hash(&public_inputs).unwrap();
-    let bulletin_availability_certificate = build_bulletin_availability_certificate(
+    let bulletin_availability_certificate = derive_bulletin_availability_binding(
         &bulletin,
         &randomness_beacon,
         &public_inputs.ordered_transactions_root_hash,
@@ -597,7 +597,7 @@ async fn asymptote_rejects_canonical_order_certificate_with_omission_proof() {
     };
     let public_inputs = canonical_order_public_inputs(&header, &template_certificate).unwrap();
     let public_inputs_hash = canonical_order_public_inputs_hash(&public_inputs).unwrap();
-    let bulletin_availability_certificate = build_bulletin_availability_certificate(
+    let bulletin_availability_certificate = derive_bulletin_availability_binding(
         &bulletin,
         &randomness_beacon,
         &public_inputs.ordered_transactions_root_hash,
@@ -692,7 +692,7 @@ async fn asymptote_rejects_canonical_order_certificate_when_published_abort_exis
     };
     let public_inputs = canonical_order_public_inputs(&header, &template_certificate).unwrap();
     let public_inputs_hash = canonical_order_public_inputs_hash(&public_inputs).unwrap();
-    let bulletin_availability_certificate = build_bulletin_availability_certificate(
+    let bulletin_availability_certificate = derive_bulletin_availability_binding(
         &bulletin,
         &randomness_beacon,
         &public_inputs.ordered_transactions_root_hash,
@@ -800,7 +800,7 @@ async fn asymptote_rejects_canonical_order_certificate_without_publication_front
     };
     let public_inputs = canonical_order_public_inputs(&header, &template_certificate).unwrap();
     let public_inputs_hash = canonical_order_public_inputs_hash(&public_inputs).unwrap();
-    let bulletin_availability_certificate = build_bulletin_availability_certificate(
+    let bulletin_availability_certificate = derive_bulletin_availability_binding(
         &bulletin,
         &randomness_beacon,
         &public_inputs.ordered_transactions_root_hash,
@@ -893,7 +893,7 @@ async fn asymptote_rejects_conflicting_published_publication_frontier() {
     };
     let public_inputs = canonical_order_public_inputs(&header, &template_certificate).unwrap();
     let public_inputs_hash = canonical_order_public_inputs_hash(&public_inputs).unwrap();
-    let bulletin_availability_certificate = build_bulletin_availability_certificate(
+    let bulletin_availability_certificate = derive_bulletin_availability_binding(
         &bulletin,
         &randomness_beacon,
         &public_inputs.ordered_transactions_root_hash,

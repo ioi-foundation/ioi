@@ -413,6 +413,23 @@ pub fn aft_canonical_collapse_object_key(height: u64) -> Vec<u8> {
     [AFT_COLLAPSE_OBJECT_PREFIX, &height.to_be_bytes()].concat()
 }
 
+/// Builds the state key for one OPTIONAL availability audit record
+/// (AFT-CB R2). Additive slashing evidence only — no verification path
+/// reads these keys.
+pub fn aft_availability_audit_record_key(
+    height: u64,
+    auditor: &[u8; 32],
+    holder: &[u8; 32],
+) -> Vec<u8> {
+    [
+        b"aft::availability_audit::".as_slice(),
+        &height.to_be_bytes(),
+        auditor.as_ref(),
+        holder.as_ref(),
+    ]
+    .concat()
+}
+
 /// Builds the head-counter key of a height's append-only resolution log:
 /// the number of entries appended so far (AFT-CB R3).
 pub fn aft_resolution_log_head_key(height: u64) -> Vec<u8> {
