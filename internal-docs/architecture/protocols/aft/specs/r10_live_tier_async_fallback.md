@@ -74,7 +74,11 @@ de-risk the expensive one:
   `timeout_for_view` by the existing `backoff_factor`; RELAY formed TCs
   so every honest node enters the new view within one message delay of
   the first post-GST entrant. This alone repairs post-GST recovery time
-  and is buildable today, engine-local.
+  and is buildable today, engine-local. **STATUS: adaptive backoff LANDED
+  (RES-R10 D1, pacemaker `consecutive_timeouts` + capped geometric
+  backoff, mutation-drilled); the `adopt_relayed_view` synchronizer seam
+  is in place and the TC-relay broadcast is the runtime-integration
+  follow-up. D2–D4 remain gated on a fresh theorem review.**
 
 - **D2 — Fallback trigger.** After k consecutive TC formations at one
   height without a commit, that height's ordering switches to the
@@ -82,16 +86,31 @@ de-risk the expensive one:
   trigger consumes only records the engine already forms (TCs), so it
   adds no new message type.
 
-- **D3 — The pessimistic path needs a common coin.** Options:
-  (a) threshold-BLS coin — needs a DKG and a pairing assumption
-  (pq: false; tension with C7's PQ-awareness);
-  (b) VDF-derived coin from the R11 clock plane — slower per fallback
-  round, but R11 lands a VDF anyway and stays PQ-aware;
-  (c) committee hash-coin — weaker adversary model, cheapest.
-  **Recommendation: defer the coin choice to rendezvous with R11**, and
-  treat any coin primitive as an externally-vetted cryptographic choice
-  (ADR 0033 licensing rider; rule-12 escalation before an unvetted
-  primitive becomes load-bearing).
+- **D3 — The pessimistic path needs a common coin, and the coin is NOT
+  the R11 clock.** CORRECTED per the in-session VDF/coin review
+  (`r11_vdf_coin_review.md`, §6/§9): a VDF is a deterministic PUBLIC
+  function holding no secret, so the delay only postpones WHEN the value
+  is known — and the clock's own tolerated hardware-advantage σ means a
+  σ-fast adversary computes the "coin" EARLY, the exact opposite of the
+  unpredictability a coin requires. The R11 clock and this coin therefore
+  cannot be one primitive; option (b) below is retired as a standalone
+  coin. Remaining options, each a SEPARATE secret-holding cryptographic
+  adoption on its own merits:
+  (a) threshold-BLS/PVSS coin — the standard choice (unpredictable +
+  bias-resistant under an honest threshold), at the cost of a DKG and a
+  pairing assumption (pq: false; tension with C7), and it must reconcile
+  with the engine's accountability-anchored (not 2/3-intersection) safety
+  story;
+  (b) ~~VDF-derived coin from the R11 clock plane~~ RETIRED as a
+  standalone coin: a VDF can appear only as an anti-grinding backstop
+  over a commit-reveal beacon, and only under a synchrony assumption the
+  async fallback lacks — i.e. not in the setting D3 exists to cover;
+  (c) committee hash-coin — weakest adversary model (honest committee
+  majority that cannot grind), cheapest, scope explicitly if chosen.
+  **Recommendation: adopt a genuine secret-holding coin primitive as its
+  own externally-vetted cryptographic choice** (ADR 0033 licensing rider;
+  rule-12 escalation before an unvetted primitive becomes load-bearing) —
+  do NOT wait on or assume the R11 VDF for it.
 
 - **D4 — Safety composition rule.** The coin SCHEDULES, never
   authorizes: every fallback-path decision carries the same signed-header
