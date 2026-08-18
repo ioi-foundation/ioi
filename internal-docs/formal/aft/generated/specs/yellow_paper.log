@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.2.20)  18 AUG 2026 11:26
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.2.20)  18 AUG 2026 11:37
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1087,40 +1087,40 @@ lm-rm.enc}]
 Package microtype Info: Character `029' is missing
 (microtype)             in font `T1/lmr/m/sc/10.95'.
 (microtype)             Ignoring protrusion settings for this character.
-LaTeX Font Info:    Trying to load font information for TS1+lmr on input line 1
-91.
+LaTeX Font Info:    Trying to load font information for TS1+lmr on input line 2
+15.
 
 (/usr/share/texmf/tex/latex/lm/ts1lmr.fd
 File: ts1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 ) [2{/usr/share/texmf/fonts/enc/dvips/lm/lm-ts1.enc}] [3] [4] [5] [6]
-Underfull \hbox (badness 1097) in paragraph at lines 508--508
+Underfull \hbox (badness 1097) in paragraph at lines 532--532
 []|\T1/lmr/m/n/10 (+20) Public bul-letin com-mit-
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 508--508
+Underfull \hbox (badness 10000) in paragraph at lines 532--532
 []|\T1/lmtt/m/n/10 SealedFinalityProof
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 524--524
+Underfull \hbox (badness 10000) in paragraph at lines 548--548
 []|\T1/lmr/m/n/10 (+20) Live through
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 524--524
+Underfull \hbox (badness 10000) in paragraph at lines 548--548
 []|\T1/lmr/m/n/10 (+20) Experimental op-er-a-
  []
 
 [7] [8] [9] [10]
-Overfull \hbox (34.92125pt too wide) in paragraph at lines 762--766
+Overfull \hbox (34.92125pt too wide) in paragraph at lines 786--790
 \T1/lmtt/m/n/10.95 ConflictingTranscript \T1/lmr/m/n/10.95 (-20) blame the as-s
 igned ob-server; \T1/lmtt/m/n/10.95 TranscriptMismatch\T1/lmr/m/n/10.95 (-20) ,
  \T1/lmtt/m/n/10.95 VetoTranscriptPresent\T1/lmr/m/n/10.95 (-20) ,
  []
 
 [11] [12{/usr/share/texmf/fonts/enc/dvips/lm/lm-mathex.enc}]
-Overfull \hbox (7.09868pt too wide) in paragraph at lines 871--916
+Overfull \hbox (7.09868pt too wide) in paragraph at lines 895--940
 \T1/lmtt/m/n/10.95 CanonicalCollapseObject \T1/lmr/m/n/10.95 (-20) also car-rie
 s a rolling \T1/lmtt/m/n/10.95 previous_canonical_collapse_commitment_hash\T1/l
 mr/m/n/10.95 (-20) ,
@@ -1129,27 +1129,27 @@ mr/m/n/10.95 (-20) ,
 [13]
 
 LaTeX Font Warning: Font shape `T1/lmr/m/scit' undefined
-(Font)              using `T1/lmr/m/scsl' instead on input line 922.
+(Font)              using `T1/lmr/m/scsl' instead on input line 946.
 
 [14] [15] [16] [17] [18]
-Overfull \hbox (2.07002pt too wide) in paragraph at lines 1307--1307
+Overfull \hbox (2.07002pt too wide) in paragraph at lines 1331--1331
 []|[]| 
  []
 
 
-Overfull \hbox (19.07002pt too wide) in paragraph at lines 1307--1307
+Overfull \hbox (19.07002pt too wide) in paragraph at lines 1331--1331
 []|[]| 
  []
 
 [19] [20] [21] [22] [23] [24] [25] [26] [27]
-Overfull \hbox (96.32828pt too wide) in paragraph at lines 1729--1732
+Overfull \hbox (96.32828pt too wide) in paragraph at lines 1753--1756
 []\T1/lmr/m/n/10.95 (-20) exactly one canon-i-cal out-come ob-ject: \T1/lmtt/m/
 n/10.95 AsymptoteObserverCanonicalClose \T1/lmr/m/n/10.95 (-20) or \T1/lmtt/m/n
 /10.95 AsymptoteObserverCanonicalAbort\T1/lmr/m/n/10.95 (-20) . 
  []
 
 [28]
-Overfull \hbox (187.0389pt too wide) detected at line 1814
+Overfull \hbox (187.0389pt too wide) detected at line 1838
 []\OT1/lmr/m/n/10.95 (\OML/lmm/m/it/10.95 e\OT1/lmr/m/n/10.95 )  \OMS/lmsy/m/n/
 10.95 ([])  []\OT1/lmr/m/n/10.95 ([](\OML/lmm/m/it/10.95 e\OT1/lmr/m/n/10.95 ))
  \OMS/lmsy/m/n/10.95 ^ []\OT1/lmr/m/n/10.95 ([](\OML/lmm/m/it/10.95 e\OT1/lmr/m
@@ -1161,12 +1161,12 @@ T1/lmr/m/n/10.95 ) \OMS/lmsy/m/n/10.95 ^ []\OT1/lmr/m/n/10.95 (\OML/lmm/m/it/10
  []
 
 [29] [30] [31] [32] [33] [34] [35] [36] [37] [38] [39]
-Underfull \hbox (badness 10000) in paragraph at lines 2502--2502
+Underfull \hbox (badness 10000) in paragraph at lines 2526--2526
 []|\T1/lmr/m/n/10 (+20) L-OPEN (cheapest-capture
  []
 
 [40]
-Overfull \hbox (411.34952pt too wide) in paragraph at lines 2562--2570
+Overfull \hbox (411.34952pt too wide) in paragraph at lines 2586--2594
 \T1/lmr/m/n/10.95 (-20) The for-mal pack-age in-cludes an ex-e-cutable TLC wit-
 ness mod-ule, \T1/lmtt/m/n/10.95 internal-docs/architecture/protocols/aft/forma
 l/canonical_ordering/CanonicalOrderingOmissionTrace.tla\T1/lmr/m/n/10.95 (-20) 
@@ -1174,14 +1174,14 @@ l/canonical_ordering/CanonicalOrderingOmissionTrace.tla\T1/lmr/m/n/10.95 (-20)
  []
 
 
-Overfull \hbox (166.77676pt too wide) in paragraph at lines 2562--2570
+Overfull \hbox (166.77676pt too wide) in paragraph at lines 2586--2594
 \T1/lmr/m/n/10.95 (-20) paired with \T1/lmtt/m/n/10.95 internal-docs/architectu
 re/protocols/aft/formal/canonical_ordering/CanonicalOrderingOmissionTrace.cfg\T
 1/lmr/m/n/10.95 (-20) .
  []
 
 [41]
-Overfull \hbox (494.19041pt too wide) in paragraph at lines 2587--2603
+Overfull \hbox (494.19041pt too wide) in paragraph at lines 2611--2627
 []\T1/lmr/m/n/10.95 (-20) The same for-mal pack-age car-ries a bounded recursiv
 e-continuity model, \T1/lmtt/m/n/10.95 internal-docs/architecture/protocols/aft
 /formal/canonical_ordering/CanonicalCollapseRecursiveContinuity.tla\T1/lmr/m/n/
@@ -1189,93 +1189,93 @@ e-continuity model, \T1/lmtt/m/n/10.95 internal-docs/architecture/protocols/aft
  []
 
 
-Overfull \hbox (201.26917pt too wide) in paragraph at lines 2587--2603
+Overfull \hbox (201.26917pt too wide) in paragraph at lines 2611--2627
 \T1/lmr/m/n/10.95 (-20) paired with \T1/lmtt/m/n/10.95 internal-docs/architectu
 re/protocols/aft/formal/canonical_ordering/CanonicalCollapseRecursiveContinuity
 .cfg\T1/lmr/m/n/10.95 (-20) .
  []
 
 
-Underfull \hbox (badness 3919) in paragraph at lines 2647--2647
+Underfull \hbox (badness 3919) in paragraph at lines 2671--2671
 []|\T1/lmtt/m/n/8 CanonicalOrderProofSystem\T1/lmr/m/n/8 (+20) , with con-crete
  vari-ants \T1/lmtt/m/n/8 HashBindingV1 \T1/lmr/m/n/8 (+20) and
  []
 
 [42]
-Underfull \hbox (badness 1082) in paragraph at lines 2683--2683
+Underfull \hbox (badness 1082) in paragraph at lines 2707--2707
 []|\T1/lmtt/m/n/10 AsymptoteObserverChallenge\T1/lmr/m/n/10 (+20) , with kinds 
 \T1/lmtt/m/n/10 MissingTranscript\T1/lmr/m/n/10 (+20) ,
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 2683--2683
+Underfull \hbox (badness 10000) in paragraph at lines 2707--2707
 \T1/lmtt/m/n/10 TranscriptMismatch\T1/lmr/m/n/10 (+20) , \T1/lmtt/m/n/10 VetoTr
 anscriptPresent\T1/lmr/m/n/10 (+20) ,
  []
 
 [43]
-Underfull \hbox (badness 10000) in paragraph at lines 2708--2708
+Underfull \hbox (badness 10000) in paragraph at lines 2732--2732
 []|\T1/lmtt/m/n/10 ClosedBoundary\T1/lmr/m/n/10 (+20) , \T1/lmtt/m/n/10 Boundar
 yOmissionJustification\T1/lmr/m/n/10 (+20) ,
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 2708--2708
+Underfull \hbox (badness 10000) in paragraph at lines 2732--2732
 []|\T1/lmtt/m/n/10 derive_bulletin_availability_binding\T1/lmr/m/n/10 (+20) ,
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 2708--2708
+Underfull \hbox (badness 10000) in paragraph at lines 2732--2732
 []|\T1/lmtt/m/n/10 AftResolutionRecord\T1/lmr/m/n/10 (+20) , \T1/lmtt/m/n/10 Af
 tResolutionKind\T1/lmr/m/n/10 (+20) ,
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 2708--2708
+Underfull \hbox (badness 10000) in paragraph at lines 2732--2732
 []|\T1/lmtt/m/n/10 CertificateProfile\T1/lmr/m/n/10 (+20) , \T1/lmtt/m/n/10 Ass
 umptionLabel\T1/lmr/m/n/10 (+20) , \T1/lmtt/m/n/10 assumption_meet\T1/lmr/m/n/1
 0 (+20) ,
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 2708--2708
+Underfull \hbox (badness 10000) in paragraph at lines 2732--2732
 []|\T1/lmtt/m/n/10 RingMemberRegistration\T1/lmr/m/n/10 (+20) , \T1/lmtt/m/n/10
  RingActivationQueue\T1/lmr/m/n/10 (+20) ,
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 2708--2708
+Underfull \hbox (badness 10000) in paragraph at lines 2732--2732
 \T1/lmtt/m/n/10 BoundaryRingConfig\T1/lmr/m/n/10 (+20) , \T1/lmtt/m/n/10 Assura
 ncePreservingHandover\T1/lmr/m/n/10 (+20) ,
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 2708--2708
+Underfull \hbox (badness 10000) in paragraph at lines 2732--2732
 \T1/lmtt/m/n/10 AnchoredRegenesisRoot\T1/lmr/m/n/10 (+20) , \T1/lmtt/m/n/10 Liv
 eTierEjection\T1/lmr/m/n/10 (+20) ,
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 2708--2708
+Underfull \hbox (badness 10000) in paragraph at lines 2732--2732
 \T1/lmtt/m/n/10 CustodyHandoverReceipt\T1/lmr/m/n/10 (+20) , \T1/lmtt/m/n/10 as
 sign_seats\T1/lmr/m/n/10 (+20) ,
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 2708--2708
+Underfull \hbox (badness 10000) in paragraph at lines 2732--2732
 []|\T1/lmtt/m/n/10 register_ring_member@v1\T1/lmr/m/n/10 (+20) , \T1/lmtt/m/n/1
 0 publish_ring_genesis_config@v1\T1/lmr/m/n/10 (+20) ,
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 2708--2708
+Underfull \hbox (badness 10000) in paragraph at lines 2732--2732
 []|\T1/lmtt/m/n/10 EvolvingSealSigner\T1/lmr/m/n/10 (+20) , \T1/lmtt/m/n/10 Sea
 lShare\T1/lmr/m/n/10 (+20) , \T1/lmtt/m/n/10 verify_seal_share\T1/lmr/m/n/10 (+
 20) ,
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 2713--2719
+Underfull \hbox (badness 10000) in paragraph at lines 2737--2743
 \T1/lmtt/m/n/10.95 ioi_crypto::sign::guardian_committee\T1/lmr/m/n/10.95 (+20) 
 , \T1/lmtt/m/n/10.95 ioi_services::guardian_registry\T1/lmr/m/n/10.95 (+20) , a
 nd the
@@ -1286,47 +1286,47 @@ Overfull \vbox (126.58403pt too high) has occurred while \output is active []
 
 
 [46]
-Underfull \hbox (badness 1057) in paragraph at lines 2753--2790
+Underfull \hbox (badness 1057) in paragraph at lines 2777--2814
 \T1/lmr/m/n/10.95 (+20) tion, val-ida-tor fi-nal-iza-tion pub-lishes a protocol
 -visible \T1/lmtt/m/n/10.95 CanonicalCollapseObject \T1/lmr/m/n/10.95 (+20) thr
 ough
  []
 
 
-Underfull \hbox (badness 2626) in paragraph at lines 2753--2790
+Underfull \hbox (badness 2626) in paragraph at lines 2777--2814
 \T1/lmtt/m/n/10.95 publish_aft_canonical_collapse_object@v1 \T1/lmr/m/n/10.95 (
 +20) af-ter lo-cal post-commit header en-rich-ment,
  []
 
 
-Overfull \hbox (245.39755pt too wide) in paragraph at lines 2753--2790
+Overfull \hbox (245.39755pt too wide) in paragraph at lines 2777--2814
 \T1/lmtt/m/n/10.95 guardian_registry \T1/lmr/m/n/10.95 (-20) ex-poses \T1/lmtt/
 m/n/10.95 load_canonical_collapse_object\T1/lmr/m/n/10.95 (-20) , and \T1/lmtt/
 m/n/10.95 GuardianMajorityEngine::verify_published_canonical_collapse_object
  []
 
 
-Overfull \hbox (30.57375pt too wide) in paragraph at lines 2753--2790
+Overfull \hbox (30.57375pt too wide) in paragraph at lines 2777--2814
 \T1/lmr/m/n/10.95 (-20) con-ti-nu-ity slice, val-ida-tor or-ches-tra-tion now s
 igns both \T1/lmtt/m/n/10.95 previous_canonical_collapse_commitment_hash
  []
 
 
-Underfull \hbox (badness 2393) in paragraph at lines 2753--2790
+Underfull \hbox (badness 2393) in paragraph at lines 2777--2814
 \T1/lmr/m/n/10.95 (+20) and a typed \T1/lmtt/m/n/10.95 CanonicalCollapseExtensi
 onCertificate \T1/lmr/m/n/10.95 (+20) into each pro-duced AFT block
  []
 
-[47] [48] [49] [50] [51] [52]
+[47] [48] [49] [50] [51] [52] [53]
 
 LaTeX Font Warning: Font shape `T1/lmr/m/scit' undefined
-(Font)              using `T1/lmr/m/scsl' instead on input line 3173.
+(Font)              using `T1/lmr/m/scsl' instead on input line 3248.
 
-[53] [54]
+[54] [55]
 LaTeX Font Info:    Font shape `T1/lmtt/bx/n' in size <10.95> not available
-(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 3258.
+(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 3333.
 LaTeX Font Info:    Trying to load font information for TS1+lmtt on input line 
-3258.
+3333.
  (/usr/share/texmf/tex/latex/lm/ts1lmtt.fd
 File: ts1lmtt.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
@@ -1337,31 +1337,31 @@ Package microtype Info: Loading generic protrusion settings for font family
 Package microtype Info: Character `texttrademark ' is missing
 (microtype)             in font `TS1/lmtt/m/n/9'.
 (microtype)             Ignoring protrusion settings for this character.
- [55
+ [56
 
-] [56] [57]
+] [57] [58]
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <9> on input line 3264.
- [58]
-[59] [60] [61] [62] [63
+(Font)              <9> on input line 3339.
+ [59]
+[60] [61] [62] [63] [64
 
-] [64] [65] [66] [67] [68] [69
+] [65] [66] [67] [68] [69] [70
 
-] [70] [71] [72] [73]
-[74] [75] [76] [77] [78] [79
+] [71] [72] [73] [74]
+[75] [76] [77] [78] [79] [80
 
-] [80] [81] [82] [83] [84] [85] [86] [87] [88
+] [81] [82] [83] [84] [85] [86] [87] [88] [89
 
 ]
-[89] [90] [91] [92
+[90] [91] [92] [93
 
-] [93] [94] [95] [96] [97] [98] [99] [100] [101] [102]
-[103] [104] [105] [106] [107] [108] [109] [110
+] [94] [95] [96] [97] [98] [99] [100] [101] [102] [103]
+[104] [105] [106] [107] [108] [109] [110] [111
 
-] [111] [112] [113] [114]
-[115] [116] [117] [118] [119] [120] [121] [122] [123] [124] [125] [126]
-[127] [128] [129] [130] [131] [132] [133] [134] [135] [136] [137] [138]
-[139] [140] [141] [142] [143] [144]
+] [112] [113] [114] [115]
+[116] [117] [118] [119] [120] [121] [122] [123] [124] [125] [126] [127]
+[128] [129] [130] [131] [132] [133] [134] [135] [136] [137] [138] [139]
+[140] [141] [142] [143] [144] [145]
 (/home/heathledger/Documents/ioi/repos/ioi/internal-docs/formal/aft/generated/s
 pecs/yellow_paper.aux)
  ***********
@@ -1373,14 +1373,14 @@ L3 programming layer <2024-01-22>
 LaTeX Font Warning: Some font shapes were not available, defaults substituted.
 
 Package rerunfilecheck Info: File `yellow_paper.out' has not changed.
-(rerunfilecheck)             Checksum: 71840B656263339DCA98004922A6EADD;23020.
+(rerunfilecheck)             Checksum: 7DDB0C9CB1633895140406B386700E23;23192.
  ) 
 Here is how much of TeX's memory you used:
- 28423 strings out of 476182
- 531005 string characters out of 5795595
+ 28437 strings out of 476182
+ 531189 string characters out of 5795595
  1996975 words of memory out of 5000000
- 49117 multiletter control sequences out of 15000+600000
- 681265 words of font info for 333 fonts, out of 8000000 for 9000
+ 49119 multiletter control sequences out of 15000+600000
+ 681759 words of font info for 338 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
  102i,12n,107p,1009b,859s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </usr/share/texmf/fonts/type1/public/lm/lmbx10.pfb></usr/share/texmf/fonts/ty
@@ -1402,10 +1402,10 @@ type1/public/lm/lmtk10.pfb></usr/share/texmf/fonts/type1/public/lm/lmtt10.pfb><
 /usr/share/texmf/fonts/type1/public/lm/lmtt8.pfb></usr/share/texmf/fonts/type1/
 public/lm/lmtt9.pfb></usr/share/texmf/fonts/type1/public/lm/lmtti10.pfb>
 Output written on /home/heathledger/Documents/ioi/repos/ioi/internal-docs/forma
-l/aft/generated/specs/yellow_paper.pdf (144 pages, 963808 bytes).
+l/aft/generated/specs/yellow_paper.pdf (145 pages, 969868 bytes).
 PDF statistics:
- 1448 PDF objects out of 1728 (max. 8388607)
- 1227 compressed objects within 13 object streams
- 346 named destinations out of 1000 (max. 500000)
- 66445 words of extra memory for PDF output out of 74296 (max. 10000000)
+ 1462 PDF objects out of 1728 (max. 8388607)
+ 1240 compressed objects within 13 object streams
+ 348 named destinations out of 1000 (max. 500000)
+ 66453 words of extra memory for PDF output out of 74296 (max. 10000000)
 

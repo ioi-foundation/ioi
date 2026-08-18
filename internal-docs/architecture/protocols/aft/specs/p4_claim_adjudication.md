@@ -74,6 +74,30 @@ formation" phrases require exactly the two residual planes (R11, R12);
 "held to its proofs by continuous conformance" is R13-green (satisfied)
 but the rung needs its full set. It cannot print this cycle.
 
+## Maximality presentation (owner-directed, 2026-08-18)
+
+The owner directed the yellow paper's claims to their maximum defensible
+strength. The adjudicated resolution: the defensible superlative is
+PROVABLE MAXIMALITY, not comparison. Two presentation-level claims are
+authorized because each is a CITED positive-theorem/lower-bound pair in
+the pairing table — the ceiling and the achievement print together:
+
+- **Safety at the terminal threshold** (T1 + L1): no protocol in any
+  model exceeds all-but-one for safety, and AFT meets that ceiling,
+  mechanized. "The safety axis ends here" is a theorem, not marketing.
+- **Accountability at the attribution ceiling** (T9 + L9): ratio 1.0 is
+  the cap and AFT meets it.
+
+The carrier-replacement framing ("the classical bound is refused, not
+refuted — its carrier is replaced, and in the replaced carrier the
+threshold ascends to the information-theoretic maximum") is promoted to
+the abstract. Conditions preserved: the model delta stays first-class,
+the liveness price (L2's forced trade) and the residual list print
+BESIDE the maximality claims, no rounded figure appears, and the blocked
+flagship rungs remain unprinted — this presentation strengthens the
+SAFETY-AXIS claims, which are closed, and touches no completeness-class
+rung, which are not.
+
 ## Adjudication summary
 
 - **Prints now:** the §9 upgraded claim (deterministic all-but-one

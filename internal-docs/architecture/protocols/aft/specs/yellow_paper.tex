@@ -24,7 +24,7 @@
   linkcolor=blue!50!black,
   urlcolor=blue!50!black,
   citecolor=blue!50!black,
-  pdftitle={Asymptote Fault Tolerance (AFT): Relay-Free Deterministic All-But-One (n-1 of n) Byzantine Safety in the AFT Model Delta},
+  pdftitle={Asymptote Fault Tolerance (AFT): Maximal Deterministic Byzantine Safety - All-But-One (n-1 of n), Relay-Free, Fully Attributable - in the AFT Model Delta},
   pdfauthor={IOI}
 }
 
@@ -92,7 +92,7 @@
 
 \setlength{\emergencystretch}{3em}
 
-\title{Asymptote Fault Tolerance (AFT): Relay-Free Deterministic All-But-One (\(n-1\) of \(n\)) Byzantine Safety in the AFT Model Delta}
+\title{Asymptote Fault Tolerance (AFT): Maximal Deterministic Byzantine Safety --- All-But-One (\(n-1\) of \(n\)), Relay-Free, Fully Attributable --- in the AFT Model Delta}
 \author{IOI}
 \date{March 17, 2026}
 
@@ -177,6 +177,30 @@ collapse, replay-prefix, execution-restart, and restart-ancestry surfaces
 through the AFT-native recovery-family contract. Accountable publication and
 validator removal remain operational reinforcement, not the source of
 correctness.
+
+Stated at full strength: within the model delta, \AFT{} occupies the two
+ceilings of the safety--accountability plane simultaneously, and both
+ceilings are theorems, not comparisons. All-but-one is not merely a large
+threshold but the \emph{terminal} one --- with zero honest signers,
+equivocation is unpreventable by any protocol in any model (the
+zero-honest bound), so no consensus method, in any model, can ever claim
+a stronger safety threshold than \(n-1\) of \(n\); \AFT{} claims exactly
+that threshold, weight-independently, with a mechanized proof.
+Symmetrically, no protocol can attribute a violation beyond the signers
+of the conflicting certificates (the attribution cap), and \AFT{}
+attributes exactly that set --- every member of the violating
+configuration, individually, from the two certificates alone. There is no
+stronger safety claim and no stronger accountability claim available to
+any consensus protocol; \AFT{} prints both, paired with the
+impossibility results that make them ceilings. The price is stated
+beside the claim: unanimity means one withholder freezes seal cadence
+(the forced trade of the unanimity bound --- never chain progress, which
+continues on the live tier), live-tier liveness remains
+synchrony-conditional, and the classical lower bound is refused rather
+than refuted: its carrier --- dense positive voting relayed through the
+same parties the adversary may control --- is replaced by direct
+publication with compressed public echo, and in the replaced carrier the
+safety threshold ascends to its information-theoretic maximum.
 \end{abstract}
 
 \section{Scope and Status}
@@ -2989,6 +3013,49 @@ liveness. Stronger ``completeness''-class rungs exist in the program's
 claim ladder and are BLOCKED --- they do not print here or anywhere,
 and the enumerated open gates live in the adjudication document.
 
+\subsection{The maximality claims}
+\label{sec:maximality}
+
+Two claims in this paper are superlatives, and both are theorems rather
+than comparisons --- each is a cited positive-theorem/lower-bound pair in
+the corpus (Section~\ref{sec:pairing-table}), so the ceiling and the
+achievement print together:
+
+\begin{itemize}[leftmargin=1.5em]
+\item \textbf{Safety at the terminal threshold (T1 paired with L1).}
+With zero honest signers, two conflicting \(n\)-of-\(n\) certificates
+are constructible by any adversary in any model --- equivocation is
+unpreventable, so \emph{no consensus protocol can claim a stronger
+safety threshold than all-but-one}. Within the model delta, \AFT{}'s
+certified-boundary safety meets that terminal threshold exactly,
+weight-independently, under A1--A3 alone, with the mechanized kernel of
+Appendix~\ref{app:cb-ring-proof} as the machine-checked proof. On the
+safety axis there is nothing above this point to claim; the axis ends
+here.
+\item \textbf{Accountability at the attribution ceiling (T9 paired with
+L9).} No protocol can attribute a violation beyond the signers of the
+conflicting certificates --- ratio 1.0 of convicted to necessary is the
+cap. \AFT{} meets the cap: a seal-uniqueness violation convicts the
+entire configuration, member by member, from the two certificates alone,
+with slashable floor \(n \times \mathrm{bond}\). Safety violations are
+not merely detected; they are maximally expensive and maximally
+attributed, by construction.
+\end{itemize}
+
+The classical comparison, stated precisely: no protocol in the classical
+carrier exceeds \(f < n/3\) for agreement, because the
+indefinite-suppression move is legal there. \AFT{} does not out-tune
+that family inside its own model --- it replaces the carrier, which
+makes the suppression move illegal, and in the replaced carrier the
+safety threshold ascends from a fraction to the information-theoretic
+maximum. Prior work has gestured at this territory with rounded prose
+figures; this paper's form of the claim is exact (\(n-1\) of \(n\),
+never a rounded percentage), mechanized (TLAPS, with the trace lane
+holding the runtime to the kernel on every build), and attributed (every
+violator convicted individually). The liveness price and the residual
+list (Section~\ref{sec:residuals}) print beside these claims and are
+part of them.
+
 \subsection{Claims}
 
 This paper additionally claims:
@@ -3022,7 +3089,15 @@ retrievability surface, conditional on the AFT model delta,
 \item that the whole \AFT{} stack breaks the classical indefinite-suppression
 lower bound, in the AFT model delta, by identifying the first illegal
 adversary step and realizing the
-visibility delta without a trusted relay,
+visibility delta without a trusted relay --- the classical threshold is
+not out-tuned but made moot by replacing its carrier,
+\item safety at the terminal threshold: no protocol in any model can
+exceed all-but-one for safety (L1), and \AFT{} meets that ceiling
+weight-independently with a mechanized proof
+(Section~\ref{sec:maximality}),
+\item accountability at the attribution ceiling: convicted-to-necessary
+ratio 1.0 (T9/L9), every violator individually, from the two
+certificates alone,
 \item the common-boundary theorem corpus of
 Section~\ref{sec:aft-cb-corpus}: T1--T9 with explicit Assumes lines over
 the A1--A10 ledger, each theorem paired with its necessity bound, with the
