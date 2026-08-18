@@ -7,3 +7,4 @@ include!("tests_parts/archived_history.rs");
 include!("tests_parts/payload_reconstruction.rs");
 include!("tests_parts/collapse_continuity.rs");
 include!("tests_parts/assumption_lattice.rs");
+include!("tests_parts/measured_wire_costs.rs");
