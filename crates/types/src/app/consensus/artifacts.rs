@@ -1201,6 +1201,44 @@ pub struct CanonicalBulletinClose {
     pub entry_count: u32,
 }
 
+/// Outcome of one optional availability audit probe (AFT-CB R2).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum AvailabilityAuditOutcome {
+    /// The probed holder served the requested bytes.
+    #[default]
+    Served,
+    /// The probed holder failed to serve within the probe window.
+    FailedToServe,
+}
+
+/// An OPTIONAL availability audit-enforcement record (AFT-CB R2):
+/// slashing-grade evidence from a pairwise audit probe, ADDITIVE ONLY.
+/// No verification path consults these — a close verifies with zero
+/// audit records (the zero-audit gate pins that), because availability
+/// standing is the close signature's validate-and-hold meaning, and
+/// audits only ENFORCE it after the fact.
+#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, Serialize, Deserialize, Default)]
+pub struct AvailabilityAuditRecord {
+    /// Slot / height whose sealed surface was probed.
+    pub height: u64,
+    /// The auditing account.
+    #[serde(default)]
+    pub auditor_account_id: AccountId,
+    /// The probed holder account.
+    #[serde(default)]
+    pub holder_account_id: AccountId,
+    /// Canonical hash of the probed transaction, if entry-scoped.
+    #[serde(default)]
+    pub tx_hash: [u8; 32],
+    /// The probe outcome.
+    #[serde(default)]
+    pub outcome: AvailabilityAuditOutcome,
+    /// Human-auditable probe detail.
+    #[serde(default)]
+    pub details: String,
+}
+
 /// Compact receipt carried by the live protocol for a publication surface's availability binding.
 #[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, Serialize, Deserialize, Default)]
 pub struct PublicationAvailabilityReceipt {

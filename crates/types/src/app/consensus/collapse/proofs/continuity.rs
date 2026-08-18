@@ -613,8 +613,19 @@ fn canonical_recoverability_root(
     ))
 }
 
-/// Builds the explicit bulletin availability certificate for a canonical order surface.
-pub fn build_bulletin_availability_certificate(
+/// Derives the bulletin availability BINDING for a canonical order
+/// surface (AFT-CB R2).
+///
+/// This object is a deterministic hash pair over PUBLIC inputs — anyone
+/// can derive it, and deriving it attests NOTHING about anyone holding
+/// bytes. It exists purely to bind the bulletin / order / post-state
+/// surface into one commitment. Availability STANDING is the close: a
+/// close signature MEANS validate-and-hold (spec §4, T3), so standing
+/// derives from a verified close via
+/// [`availability_standing_from_close`] — never from this derivation.
+/// The self-attested availability-certificate builder this replaced is
+/// deleted; a source-fence test pins its absence.
+pub fn derive_bulletin_availability_binding(
     bulletin_commitment: &BulletinCommitment,
     randomness_beacon: &[u8; 32],
     ordered_transactions_root_hash: &[u8; 32],
@@ -629,6 +640,42 @@ pub fn build_bulletin_availability_certificate(
             ordered_transactions_root_hash,
             resulting_state_root_hash,
         )?,
+    })
+}
+
+/// Availability standing derived FROM a verified close (AFT-CB R2).
+///
+/// REFERENCE-SINGLE-MEMBER LABEL: with n = 1 the close is the producing
+/// node's own validate-and-hold statement — one holder. R5's ring plane
+/// generalizes the holder set to the full membership; the SEAM (standing
+/// derives from the close, never from a self-issued object) is what this
+/// leg lands.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CloseDerivedAvailabilityStanding {
+    /// Slot / height the standing covers.
+    pub height: u64,
+    /// Canonical hash of the close the standing derives from.
+    pub close_hash: [u8; 32],
+    /// Number of signers whose validate-and-hold obligation backs the
+    /// standing (1 at the reference stage; the ring's n after R5).
+    pub holder_count: u32,
+}
+
+/// Derives availability standing from a close and its bulletin
+/// commitment (AFT-CB R2). The close must verify against the commitment
+/// and the availability binding — a bare availability object confers no
+/// standing, and NO audit record is consulted (audits are additive
+/// slashing evidence, never load-bearing; the zero-audit gate pins this).
+pub fn availability_standing_from_close(
+    close: &CanonicalBulletinClose,
+    bulletin_commitment: &BulletinCommitment,
+    bulletin_availability_binding: &BulletinAvailabilityCertificate,
+) -> Result<CloseDerivedAvailabilityStanding, String> {
+    verify_canonical_bulletin_close(close, bulletin_commitment, bulletin_availability_binding)?;
+    Ok(CloseDerivedAvailabilityStanding {
+        height: close.height,
+        close_hash: canonical_bulletin_close_hash(close)?,
+        holder_count: 1,
     })
 }
 

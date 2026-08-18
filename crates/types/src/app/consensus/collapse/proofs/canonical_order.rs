@@ -191,7 +191,7 @@ pub fn build_reference_canonical_order_certificate(
     let resulting_state_root_hash =
         to_root_hash(&header.state_root.0).map_err(|e| e.to_string())?;
     let randomness_beacon = derive_reference_ordering_randomness_beacon(header)?;
-    let bulletin_availability_certificate = build_bulletin_availability_certificate(
+    let bulletin_availability_certificate = derive_bulletin_availability_binding(
         &bulletin_commitment,
         &randomness_beacon,
         &ordered_transactions_root_hash,
@@ -331,7 +331,7 @@ pub fn build_committed_surface_canonical_order_certificate(
     let resulting_state_root_hash =
         to_root_hash(&header.state_root.0).map_err(|e| e.to_string())?;
     let omission_proofs = Vec::new();
-    let bulletin_availability_certificate = build_bulletin_availability_certificate(
+    let bulletin_availability_certificate = derive_bulletin_availability_binding(
         &bulletin_commitment,
         &randomness_beacon,
         &ordered_transactions_root_hash,
