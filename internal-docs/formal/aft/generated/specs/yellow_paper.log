@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.2.20)  18 AUG 2026 12:31
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.2.20)  18 AUG 2026 12:40
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1402,7 +1402,7 @@ type1/public/lm/lmtk10.pfb></usr/share/texmf/fonts/type1/public/lm/lmtt10.pfb><
 /usr/share/texmf/fonts/type1/public/lm/lmtt8.pfb></usr/share/texmf/fonts/type1/
 public/lm/lmtt9.pfb></usr/share/texmf/fonts/type1/public/lm/lmtti10.pfb>
 Output written on /home/heathledger/Documents/ioi/repos/ioi/internal-docs/forma
-l/aft/generated/specs/yellow_paper.pdf (145 pages, 970298 bytes).
+l/aft/generated/specs/yellow_paper.pdf (145 pages, 969300 bytes).
 PDF statistics:
  1462 PDF objects out of 1728 (max. 8388607)
  1240 compressed objects within 13 object streams
