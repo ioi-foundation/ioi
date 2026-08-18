@@ -1,7 +1,7 @@
 use super::honest_ring;
 use super::*;
 use crate::aft::ring_membership_sim::BoundaryRingMembershipSim;
-use ioi_types::app::{AccountId, BoundaryRingConfig};
+use ioi_types::app::{AccountId, BoundaryRingConfig, WatchtowerCountersignRecord};
 
 fn account(b: u8) -> AccountId {
     AccountId([b; 32])
@@ -45,17 +45,38 @@ fn partition_stalls_seals_but_not_the_live_tier_then_heals_to_a_unique_seal() {
     assert!(!sim.has_conflicting_seals(), "the seal is unique");
 }
 
-/// ECLIPSE drill (T2 completeness): an artifact reaching NO honest
-/// signer is not sealed — and that exclusion is exactly A4 (reach), the
-/// named assumption, not a completeness failure.
+/// ECLIPSE drill (real sim, T2 completeness under A4 reach): an artifact
+/// that reaches NO honest signer collects no ack, so `try_seal` never
+/// assembles it — the exclusion is the A4 reach boundary, named, not a
+/// completeness failure. The control: the SAME artifact seals once it
+/// reaches the ring, so the drill distinguishes "unreached" from "broken
+/// completeness" rather than asserting a constant.
+///
+/// Mutation drill (RED): delete the missing-ack `return Ok(false)` guard
+/// in `BoundaryRingMembershipSim::try_seal` → the eclipsed artifact seals
+/// with zero acks → the first assertion fails.
 #[test]
-fn eclipse_names_the_reach_assumption_rather_than_violating_completeness() {
-    let reached_an_honest_signer = false;
-    let sealed_contains_artifact = reached_an_honest_signer;
+fn eclipse_names_reach_on_the_real_sim_while_a_reached_artifact_seals() {
+    let mut sim = honest_ring(&[1, 2, 3, 4]);
+    let eclipsed = [0xEC; 32];
+
+    // The eclipsed artifact reaches no signer: no member ever acked it.
     assert!(
-        !sealed_contains_artifact,
-        "eclipsed artifact absent — an A4 (reach) boundary, T2 intact"
+        !sim.try_seal(1, eclipsed).expect("try"),
+        "an unreached artifact cannot seal — the A4 reach boundary, not a T2 failure"
     );
+    assert!(sim.seals.is_empty(), "the eclipsed slot stayed empty");
+
+    // A4 named, not violated: had it reached all four honest signers it
+    // WOULD seal — so the absence above is reach, not broken completeness.
+    for m in [1u8, 2, 3, 4] {
+        sim.honest_final_ack(&account(m), 2, eclipsed).expect("ack");
+    }
+    assert!(
+        sim.try_seal(2, eclipsed).expect("try"),
+        "the SAME artifact seals once it reaches the ring"
+    );
+    assert!(!sim.has_conflicting_seals(), "the reached seal is unique");
 }
 
 /// CUSTODY-DELETION drill (T3 availability, A2): n−1 delete post-seal;
@@ -111,18 +132,64 @@ fn long_range_bootstrap_rejects_with_anchor_and_is_out_of_model_without() {
     assert_eq!(bootstrap_decision(false), BootstrapOutcome::OutOfModel);
 }
 
-/// PROOF-OF-SILENCE drill (R5 type enforcement): an attested
-/// non-response campaign of any size produces ZERO strong-ring
-/// transitions.
+/// PROOF-OF-SILENCE drill (real sim, R5 type enforcement + T4a): an
+/// attested non-response campaign — watchtower countersignatures from
+/// anyone, at any volume, with every ring member withholding — moves NO
+/// state. The sim advances only on real n-of-n acks (`try_seal`) or a
+/// real approved `handover`; it never reads a watchtower record back, so
+/// no flood of them seals a slot or replaces the ring. Silence has no
+/// constructor. This holds structurally — it does not even need A2.
+///
+/// Mutation drill (RED): give `BoundaryRingMembershipSim::try_seal` a
+/// watchtower-derived shortcut (seal when `!self.watchtower_records
+/// .is_empty()`) → the campaign seals a slot from silence → the
+/// `!sealed` assertion fails.
 #[test]
-fn proof_of_silence_campaign_produces_no_strong_ring_transition() {
-    for campaign_size in [0usize, 1, 10, 1000] {
-        assert_eq!(
-            proof_of_silence_transitions_produced(campaign_size),
-            0,
-            "no silence-derived transition exists at any campaign size"
-        );
+fn proof_of_silence_campaign_moves_no_state_on_the_real_sim() {
+    let mut sim = honest_ring(&[1, 2, 3, 4]);
+    let start_version = sim.config.version;
+    let (slot, root) = (1u64, [0x5A; 32]);
+
+    // Every ring member goes silent: withholds all acks.
+    for m in [1u8, 2, 3, 4] {
+        sim.members
+            .get_mut(&account(m))
+            .expect("member")
+            .withholding = true;
     }
+
+    // The adversary floods attested non-response: watchtower
+    // countersignatures from arbitrary accounts, at volume.
+    for i in 0..1000u64 {
+        sim.record_watchtower(WatchtowerCountersignRecord {
+            height: slot,
+            watcher_account_id: account((i % 251) as u8),
+            seal_hash: root,
+            signature_bytes: vec![0xFF; 8],
+        });
+    }
+
+    // No seal formed from silence, at this slot or anywhere.
+    assert!(
+        !sim.try_seal(slot, root).expect("try"),
+        "silence seals nothing"
+    );
+    assert!(sim.seals.is_empty(), "the campaign sealed no slot");
+    assert!(!sim.has_conflicting_seals());
+
+    // No strong-ring transition: the live configuration is unchanged and
+    // nothing was closed — silence has no handover path.
+    assert_eq!(
+        sim.config.version, start_version,
+        "no silence-derived ring transition"
+    );
+    assert!(
+        sim.closed_configs.is_empty(),
+        "no ring was closed by silence"
+    );
+
+    // The 1000 records were recorded but gated nothing.
+    assert_eq!(sim.watchtower_records.len(), 1000);
 }
 
 /// POST-COMPROMISE drill (A8 everlasting safety): a re-genesis root
