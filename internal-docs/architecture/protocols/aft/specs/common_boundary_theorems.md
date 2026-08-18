@@ -277,16 +277,35 @@ assertion). Pairing: L2 (unanimity forced at f = n−1) and L1.
 
 Assumes: A1, A2, A3, A9, A10.
 
-**STATUS: WITHDRAWN FOR THIS PROGRAM CYCLE — v3 REFUTED AT REVIEW ROUND
-5 (three formulations refuted: rounds 1, 2, 5).** The round-5 review
-proved the SuccessionClock kernel discharges a strictly NARROWED
+**STATUS: RESOLVED (2026-08-18) — RESPONSIVE succession is PROVEN
+IMPOSSIBLE; SCHEDULED succession is SAFE and MECHANIZED.** A clean-slate
+theorem challenge (two procedurally-isolated fresh-context theorists,
+each given only the model and the safety property, blind to v1–v3)
+CONVERGED on the answer the three refuted formulations were circling:
+detection-triggered (responsive) succession cannot be both safe and live
+in the asynchronous model — a dead ring is indistinguishable from a
+partitioned one (CAP + FLP; robust to randomization). The verifiable
+clock cannot help because it certifies elapsed TIME, never the original
+ring's future INACTION. The only escape is a CLOCK-FENCED LEASE
+pre-consented at formation (an honest member emits no signature past a
+public deadline `T`); because seals are n-of-n, one fenced honest member
+vetoes every future original seal, so a SCHEDULED succession (standby
+seals strictly above the fence, slot-disjoint from the original) is safe
+with no cross-ring view. This is machine-checked in
+`SuccessionSchedule.tla` (TLC green; deleting the fence reproduces the
+fork), and the full adjudication is in `p4`-adjacent
+`t5d_succession_resolution.md`. The prior "v4 conditions" question is
+answered: there is no v4 RESPONSIVE design to find. The final flagship
+rung stays unreachable (it was gated on a mechanized *positive*
+pre-consented-succession theorem with R11+R12 landed; the resolution
+sharpens that residual into an impossibility rather than opening the
+rung). Historical record of the refutation rounds follows. The round-5
+review proved the SuccessionClock kernel discharges a strictly NARROWED
 statement (the Byzantine standby has no modeled behavior; obs_commit is
 never adversary-chosen; the theorem's "binding" restriction excludes
 exactly the genuine-but-void rivals that still fork executors — R5-F3),
 and refuted the v3 spec twice independently (R5-F1 obs_commit padding;
-R5-F2 unwired voidness + the expiry/void contradiction). T5d does not
-return this cycle; the final flagship rung stays unreachable; the v4
-conditions are recorded in spec §16's banner and the review file.
+R5-F2 unwired voidness + the expiry/void contradiction).
 Historical record of the first two refutations: The round-1
 formulation was refuted (publication ≠ delivery under asynchrony); its
 round-2 repair was refuted in turn (the succession medium is an unmodeled
@@ -351,12 +370,18 @@ history. Succession under pure asynchrony with no such assumption is
 impossible — a dead ring and a partitioned ring are indistinguishable —
 and the ledger now prices this (A10) instead of the proof smuggling it.
 
-Mechanization: P2.7 (`SuccessionClock.tla`: the reachability theorem over
-BINDING seals, the voidness rules, the no-silence trigger assertion, the
-grace-window and anchoring-deadline mutations). Pairing: L-OPEN (the
-necessity of a scoped observation assumption for any safe succession —
-conjectured forced by the round-1 asynchrony argument; formalization
-open).
+Mechanization: the resolution kernel is `SuccessionSchedule.tla` (TLC:
+scheduled succession safe — `Disjoint` and `NoFork` hold over all
+reachable states; the fence-deleted mutation reaches the fork,
+mechanizing the impossibility). `SuccessionClock.tla` survives as the
+honestly-narrowed P2.7 kernel of the withdrawn responsive draft.
+Pairing: L-OPEN in the flagship sense, but the succession lower-bound
+question is now ANSWERED: safe succession with liveness is impossible in
+the pure async model, forced (by two convergent reductions) to require a
+scoped assumption — the clock-fenced lease (necessary and sufficient for
+the scheduled form), plus a known staleness bound only for gapless
+continuation. Formalization is no longer open; it is
+`t5d_succession_resolution.md` + `SuccessionSchedule.tla`.
 
 ## T6 — Composition (the lattice meet)
 

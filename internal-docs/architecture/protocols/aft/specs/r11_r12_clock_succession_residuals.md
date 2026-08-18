@@ -87,20 +87,31 @@ activation only on the objective tick trigger, a fallback grace window
 with published-old-seal preemption, the honest-publication duty enforced
 in the signer, standby diversity against targeted capture.
 
-**Why it is a residual and not a build.** Two independent gates, either
-of which suffices:
+**Why it is a residual and not a build — and, since 2026-08-18, why the
+RESPONSIVE version is not merely open but IMPOSSIBLE.** Two independent
+gates, either of which suffices:
 
-1. **T5d is WITHDRAWN for this cycle.** Three formulations were refuted
-   across five review rounds (publication≠delivery; the bulletin as an
-   unmodeled consensus object; observation-committed adjudication whose
-   refusal rules Byzantine padding satisfies). The operative exits
-   remain §9 handover and §14 labeled re-genesis; §16's banner carries
-   the v4 conditions. Building R12's activation path would put runtime
-   under a safety statement the program itself refuted.
-2. **R11 is a residual.** The "objective tick trigger" IS the VDF
-   clock; without it, activation would fall back to wall-clock or
-   silence-derived triggers — the exact defect classes the program
-   exists to kill.
+1. **T5d is RESOLVED as an impossibility (was: withdrawn).** The
+   clean-slate theorem challenge (`t5d_succession_resolution.md`,
+   mechanized in `SuccessionSchedule.tla`) proved that RESPONSIVE
+   succession — activation triggered by evidence the original ring died,
+   which is exactly what R12's "kill-one-member → T_halt → activate"
+   path is — cannot be safe and live in the async model. So R12's
+   responsive activation path is not awaiting a fourth design; it is
+   provably unbuildable. What IS safe is SCHEDULED succession under a
+   clock-fenced lease pre-consented at formation (the standby seals
+   strictly above a public fence, slot-disjoint from the original). R12
+   is accordingly re-scoped: if it is ever built, it is the SCHEDULED
+   form (a formation-time lease + fence), never the responsive form. The
+   operative exits remain §9 handover and §14 labeled re-genesis — both
+   already scheduled/consented, i.e. exactly the safe shape.
+2. **R11 is a residual.** The clock-fenced lease still needs the
+   objective tick trigger — the VDF clock — for the fence deadline to be
+   publicly verifiable; without R11, activation would fall back to
+   wall-clock or silence-derived triggers, the exact defect classes the
+   program exists to kill. (The clock provides the fence's *time*; per
+   `t5d_succession_resolution.md` it provably cannot provide death
+   *detection*, which is why the lease, not a timeout, is load-bearing.)
 
 **What exists today, honestly labeled.** The pieces of R12 that are
 SAFE without the theorem all landed elsewhere: R9's signer makes the
@@ -111,11 +122,16 @@ R3's resolution log holds post-close evidence without mutation. What
 did NOT land — deliberately — is any path that ACTIVATES a successor
 ring from elapsed time or non-response.
 
-**Closing condition.** T5d v4 survives its own adversarial review
-(the §16 banner's conditions) AND R11 closes; then R12's build follows
-the leg spec's gates (kill-one-member cadence-freeze → T_halt →
-activation with continuity labels; the hidden-seal grace-window drill)
-and mutations.
+**Closing condition (re-scoped after the T5d resolution).** The
+RESPONSIVE R12 is closed as impossible — nothing to build. A SCHEDULED
+R12, if the owner wants it, closes when R11 lands (the clock for the
+fence deadline) and the formation-time lease is wired into the
+membership plane (an honest member's signing is fenced at a public
+deadline, mechanically enforced) — its safety is already mechanized in
+`SuccessionSchedule.tla`, so its build gate is integration, not a new
+theorem. The kill-one-member/T_halt "detect death then activate" gates
+from the original leg spec are RETIRED: they describe the impossible
+responsive form.
 
 ## Claim-surface effects
 

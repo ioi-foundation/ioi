@@ -43,6 +43,7 @@ MODELS=(
   "common_boundary/ForensicAccountability.cfg|common_boundary/ForensicAccountability.tla"
   "common_boundary/ForensicAccountabilityAllByz.cfg|common_boundary/ForensicAccountability.tla"
   "common_boundary/SuccessionClock.cfg|common_boundary/SuccessionClock.tla"
+  "common_boundary/SuccessionSchedule.cfg|common_boundary/SuccessionSchedule.tla"
 )
 
 # Every trace-conformance replay (AFT-CB R13 / C4a), as
