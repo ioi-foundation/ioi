@@ -36,10 +36,44 @@ that need:
 **Owner action (rule 12):** select and commission review of a VDF
 construction/library. Until then the residual stands.
 
+**In-session assessment (2026-08-18, advisory — does NOT close this
+residual).** A procedurally-isolated fresh-context review
+(`r11_vdf_coin_review.md`) scoped the decision: the recommended clock
+candidate is **class-group Wesolowski** via an independently-vetted
+chiavdf-derived dependency — the only candidate that is today
+trusted-setup-free, permissionless (one honest evaluator), succinctly
+verifiable, mainnet-hardened, Apache-2.0, and carries an EMPIRICAL σ
+anchor (ASIC advantage measured ≈3.6×–9.1×). Isogeny VDFs are a
+PQ watch item, not an option (no vetted library, no empirical σ,
+trusted-setup/pairing baggage on the mature variant, unsettled
+post-SIDH assumptions). The single most important number to externally
+vet is **σ set ABOVE the demonstrated ASIC ceiling with margin** — an
+under-set σ is a real safety hole feeding the T5b/§14 fail-closed waits.
+The class-group VDF is NOT post-quantum; adoption is safe only because
+A9's safety-critical uses are confined and fail-closed, and only if the
+`pq` bit + beacon abstraction genuinely permit a construction swap
+without re-genesis (must be vetted). Adoption still requires external
+crypto review + an ADR-0033 decision (rule 12); the in-session review's
+confidence closes nothing.
+
+**The clock and the async coin are SEPARATE residuals — they cannot be
+collapsed.** The clock (this leg) needs a public, deterministic,
+verifiable function; R10's D3 common coin needs a SECRET,
+unpredictable, bias-resistant value. The determinism that makes a VDF a
+good clock is exactly what disqualifies it as a coin, so a VDF-derived
+coin is not available (`r11_vdf_coin_review.md` §9; the R10 design's D3
+option (b) is retired accordingly). A subtle but load-bearing
+distinction the review flags: R5 sortition safely relies on the beacon
+being unpredictable UNTIL IT EXISTS (a temporal-ordering,
+anti-precomputation guarantee), which is strictly weaker than the
+secrecy-at-reveal a coin needs — conflating the two is the trap.
+
 **What exists today, honestly labeled.** The C5 sortition rider (R5)
 consumes a beacon ABSTRACTION with the reference ordering beacon behind
-it; R10's fallback design (D3) defers its common-coin choice to this
-leg's rendezvous. Both are labeled in their own records.
+it (the temporal-ordering guarantee above, which the beacon abstraction
+legitimately supplies); R10's fallback design (D3) now names its coin as
+a SEPARATE secret-holding adoption, not this leg's VDF. Both are labeled
+in their own records.
 
 **Closing condition.** A vetted construction lands behind the beacon
 abstraction; the e2e gates from the leg spec run (lineage chain verifies
