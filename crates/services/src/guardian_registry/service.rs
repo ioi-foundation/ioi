@@ -440,6 +440,18 @@ impl BlockchainService for GuardianRegistry {
                 )?;
                 Ok(())
             }
+            "register_ring_member@v1" => {
+                let registration: RingMemberRegistration = codec::from_bytes_canonical(params)?;
+                Self::materialize_ring_member_registration(state, registration)
+            }
+            "publish_ring_genesis_config@v1" => {
+                let config: BoundaryRingConfig = codec::from_bytes_canonical(params)?;
+                Self::materialize_ring_genesis_config(state, config)
+            }
+            "publish_ring_handover@v1" => {
+                let publication: RingHandoverPublication = codec::from_bytes_canonical(params)?;
+                Self::materialize_ring_handover(state, publication)
+            }
             "publish_aft_bulletin_commitment@v1" => {
                 let bulletin: BulletinCommitment = codec::from_bytes_canonical(params)?;
                 if bulletin.height == 0 {

@@ -6,3 +6,4 @@ include!("tests_parts/recovered_windows.rs");
 include!("tests_parts/recovered_prefix_extractors.rs");
 include!("tests_parts/recovered_publication_bundles.rs");
 include!("tests_parts/accountability_and_observers.rs");
+include!("tests_parts/ring_membership_plane.rs");

@@ -53,6 +53,20 @@ pub const GUARDIAN_REGISTRY_OBSERVER_CANONICAL_CLOSE_PREFIX: &[u8] =
 pub const GUARDIAN_REGISTRY_OBSERVER_CANONICAL_ABORT_PREFIX: &[u8] =
     b"guardian::observer_canonical_abort::";
 
+/// State key for the public ring-membership activation queue (AFT-CB R5).
+pub const GUARDIAN_RING_QUEUE_KEY: &[u8] = b"guardian::ring::queue";
+/// State key prefix for versioned Boundary Ring configurations (AFT-CB R5).
+pub const GUARDIAN_RING_CONFIG_PREFIX: &[u8] = b"guardian::ring::config::";
+/// State key for the live Boundary Ring configuration version (AFT-CB R5).
+pub const GUARDIAN_RING_LIVE_VERSION_KEY: &[u8] = b"guardian::ring::live_version";
+/// State key for the ring plane's monotone protocol-event counter (AFT-CB R5).
+pub const GUARDIAN_RING_EVENT_COUNTER_KEY: &[u8] = b"guardian::ring::event_counter";
+
+/// Builds the canonical state key for one versioned ring configuration.
+pub fn guardian_ring_config_key(version: u64) -> Vec<u8> {
+    [GUARDIAN_RING_CONFIG_PREFIX, &version.to_be_bytes()].concat()
+}
+
 /// Builds the canonical state key for a guardian committee manifest hash.
 pub fn guardian_registry_committee_key(manifest_hash: &[u8; 32]) -> Vec<u8> {
     [GUARDIAN_REGISTRY_COMMITTEE_PREFIX, manifest_hash.as_ref()].concat()

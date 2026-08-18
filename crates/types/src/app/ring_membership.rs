@@ -442,6 +442,19 @@ pub fn assign_seats(
     Ok(seats)
 }
 
+/// The wire form of a ring handover publication (AFT-CB R5 stage 3):
+/// the successor configuration plus the signed ceremony records the
+/// registry verifies against its STORED live configuration.
+#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, Serialize, Deserialize, Default)]
+pub struct RingHandoverPublication {
+    /// The successor configuration to activate.
+    pub new_config: BoundaryRingConfig,
+    /// Old-ring approvals (must reach unanimity over the stored config).
+    pub approvals: Vec<HandoverApproval>,
+    /// New-ring acceptances (every successor member).
+    pub acceptances: Vec<HandoverAcceptance>,
+}
+
 /// A watchtower countersignature over a seal (C6): accepted from ANYONE
 /// and GATING NOTHING. It exists so external observers can bind their
 /// own attestations into the public record; no verification path in the
