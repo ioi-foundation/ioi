@@ -68,19 +68,6 @@ pub fn bootstrap_decision(has_live_anchor: bool) -> BootstrapOutcome {
     }
 }
 
-/// A proof-of-silence campaign against the strong ring: attested
-/// non-response records are submitted, and the question is whether ANY
-/// strong-ring transition results. The type system already answers no
-/// (R5: no silence-derived transition is constructible); this drill
-/// makes the campaign explicit and counts the transitions it produced.
-pub fn proof_of_silence_transitions_produced(non_response_reports: usize) -> usize {
-    // No matter how many non-response reports arrive, the strong ring
-    // has no silence-derived transition constructor. The count is the
-    // truth: zero.
-    let _ = non_response_reports;
-    0
-}
-
 /// Builds a fresh n-member honest membership simulator for the drills
 /// that need one.
 pub(crate) fn honest_ring(members: &[u8]) -> BoundaryRingMembershipSim {
