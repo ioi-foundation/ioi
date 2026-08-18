@@ -79,6 +79,17 @@
 ]{#4}
 }
 
+% Unicode characters appearing inside verbatim-embedded formal artifacts
+% (TLA comments use them); declared so pdflatex renders the appendix.
+\DeclareUnicodeCharacter{00A7}{\S}
+\DeclareUnicodeCharacter{2013}{--}
+\DeclareUnicodeCharacter{2014}{---}
+\DeclareUnicodeCharacter{2032}{\ensuremath{'}}
+\DeclareUnicodeCharacter{21D2}{\ensuremath{\Rightarrow}}
+\DeclareUnicodeCharacter{2212}{\ensuremath{-}}
+\DeclareUnicodeCharacter{2264}{\ensuremath{\le}}
+\DeclareUnicodeCharacter{2265}{\ensuremath{\ge}}
+
 \setlength{\emergencystretch}{3em}
 
 \title{Asymptote Fault Tolerance (AFT): Relay-Free Deterministic All-But-One (\(n-1\) of \(n\)) Byzantine Safety in the AFT Model Delta}
@@ -1288,8 +1299,8 @@ objects:
 \shortstack[l]{\code{CanonicalBulletin}\\\code{Close}} & \shortstack[l]{\code{(height, cutoff\_timestamp\_ms, bulletin\_commitment\_hash,}\\\code{bulletin\_availability\_certificate\_hash,}\\\code{bulletin\_retrievability\_profile\_hash, bulletin\_shard\_manifest\_hash,}\\\code{bulletin\_custody\_receipt\_hash, entry\_count)}} \\
 \shortstack[l]{\code{CanonicalOrder}\\\code{PublicInputs}} & \shortstack[l]{\code{(height, parent\_state\_root\_hash, bulletin\_commitment\_hash,}\\\code{randomness\_beacon, ordered\_transactions\_root\_hash,}\\\code{resulting\_state\_root\_hash, cutoff\_timestamp\_ms)}} \\
 \code{CanonicalOrderProofSystem} & concrete variants \code{HashBindingV1} and \code{CommittedSurfaceV1} \\
-\shortstack[l]{\code{CommittedSurface}\\\code{CanonicalOrderProof}} & \code{(recoverability\_root, omission\_commitment\_root)} \\
-\shortstack[l]{\code{CanonicalOrder}\\\code{Certificate}} & \shortstack[l]{\code{(height, bulletin\_commitment, bulletin\_availability\_certificate,}\\\code{randomness\_beacon, ordered\_transactions\_root\_hash,}\\\code{resulting\_state\_root\_hash, proof, omission\_proofs)}} \\
+\shortstack[l]{\code{CommittedSurface}\\\code{CanonicalOrderProof}} & \shortstack[l]{\code{(bulletin\_availability\_certificate\_hash, omission\_commitment\_root,}\\\code{boundary\_omission\_justification\_root)}} \\
+\shortstack[l]{\code{CanonicalOrder}\\\code{Certificate}} & \shortstack[l]{\code{(height, bulletin\_commitment, bulletin\_availability\_certificate,}\\\code{randomness\_beacon, ordered\_transactions\_root\_hash,}\\\code{resulting\_state\_root\_hash, proof, omission\_proofs,}\\\code{boundary\_tx\_hashes, boundary\_omission\_justifications)}} \\
 \shortstack[l]{\code{CanonicalOrder}\\\code{PublicationBundle}} & \shortstack[l]{\code{(bulletin\_commitment, bulletin\_entries, bulletin\_availability\_certificate,}\\\code{bulletin\_retrievability\_profile, bulletin\_shard\_manifest,}\\\code{bulletin\_custody\_receipt, canonical\_order\_certificate)}} \\
 \shortstack[l]{\code{CanonicalOrder}\\\code{Abort}} & \shortstack[l]{\code{(height, reason, details, bulletin\_commitment\_hash,}\\\code{bulletin\_availability\_certificate\_hash, bulletin\_close\_hash,}\\\code{canonical\_order\_certificate\_hash)}} \\
 \bottomrule
@@ -1888,6 +1899,182 @@ challenge commitment, and close-or-abort objects as ordinary
 \code{guardian\_registry} transactions after the sealed header is formed. The
 same surface is carried inside the proof for immediate block verification.
 
+\section{The Common Boundary and the Seal Ring}
+\label{sec:common-boundary}
+
+The AFT-CB program restated the strong-tier settlement layer as a single
+construction: the \term{Common Boundary}. Where the Asymptote surface of
+the previous section describes the deployed observer-sealing runtime, this
+section describes the mechanized seal-ring architecture that the theorem
+corpus of Section~\ref{sec:aft-cb-corpus} proves and that the runtime is
+converging onto. Status labels are exact and load-bearing: the kernels are
+mechanized (Appendix~\ref{appendix:formal-artifacts}), the membership
+types, membership simulator, registry wiring, hardened signer, and the
+runtime inversions below are landed in the repository, and the full
+multi-member ring runtime is future work behind an honestly labeled
+reference seam.
+
+\subsection{The Unanimous Boundary Close}
+
+One signer configuration \(C_v\) of \(n\) members forms one
+\term{Unanimous Boundary Close} per seal slot: an \(n\)-of-\(n\)
+certificate of individually verifiable final-ack shares over a
+domain-separated tuple binding the slot's closed boundary root. Three
+disciplines carry the entire safety story:
+
+\begin{itemize}[leftmargin=1.5em]
+\item \textbf{Journal-guarded single final-ack (A3).} An honest member
+journals its chosen root for a slot in the same atomic step that lets the
+share exist; recovery replays bytes and never re-decides. The journal is
+the only thing standing between \(n-1\) Byzantine equivocators and a
+double seal --- and by T1 it suffices.
+\item \textbf{\(n\)-of-\(n\) close.} Every current member's share over the
+exact \((\mathrm{slot}, \mathrm{root})\) pair is required; no smaller
+quorum exists anywhere in the construction. The forced trade (L2) is
+accepted openly: one withholder freezes seal cadence, never the chain.
+\item \textbf{Validate-and-hold as the signature's meaning (T3).} The
+final-ack \emph{is} the custody commitment; availability standing derives
+from the close itself, and a close verifies with zero audit records.
+\end{itemize}
+
+\subsection{Two-tier separation}
+
+The live tier (GuardianMajority) produces, orders, and commits blocks
+under its own weight-and-synchrony model; the seal ring closes boundaries
+above it. The only protocol edge from ring to live tier is the release
+gate for effects \emph{typed} irreversible: block production consults no
+seal, and a ring stall delays irreversible-effect release and nothing
+else (unsealed-over-unsafe, T4a). The trade runs in both directions ---
+the live tier's fault bound never contaminates the ring's
+weight-independent uniqueness, and the ring's unanimity requirement never
+throttles chain progress.
+
+\subsection{The membership plane}
+
+Ring membership is event-driven and type-enforced
+(\code{crates/types/src/app/ring\_membership.rs} plus the guardian
+registry's service wiring):
+
+\begin{itemize}[leftmargin=1.5em]
+\item \textbf{Bonded registration and the public queue.} Registrants post
+a bond and enter a public activation queue with an event-depth delay
+(\(D_{\mathrm{act}}\)), so admission cannot be timed adversarially and
+the honest set always has public warning of a capture attempt.
+\item \textbf{Event-driven versioned configurations.} A configuration
+lives until a close record names its successor; no calendar time exists
+anywhere in the plane.
+\item \textbf{The assurance-preserving handover is the only strong-ring
+transition.} It is constructible solely from signed old-ring-unanimous
+approvals plus acceptance from every new member. No type represents
+non-response, so a transition ``from silence'' has no expressible input
+--- the proof-of-silence attack is unrepresentable rather than merely
+rejected (T5c\('\)).
+\item \textbf{Typed re-genesis.} An anchored re-genesis is a lineage
+root, never continuity; the lineage query cannot answer ``continuous
+across a root.''
+\item \textbf{Live-tier-only ejection.} Liveness faults eject a member
+from live-tier duty on live-tier weight; the ejection types are fenced
+from every seal and ring-configuration surface, so strong-ring standing
+exits only via handover or re-genesis.
+\item \textbf{Custody succession gates bond release.} A departing
+member's bond releases only against a custody handover receipt carrying
+the successor's acknowledgement --- succession without reconstruction is
+refused.
+\item \textbf{Riders.} Seat assignment is deterministic sortition over a
+beacon abstraction across constituency diversity floors (the beacon is
+the reference ordering beacon until a vetted VDF lands --- an honest
+label, not a security claim); watchtower countersignatures are accepted
+from anyone and gate nothing.
+\end{itemize}
+
+The plane is exercised by a membership simulator at \(n \le 8\) whose
+gates are the corpus's scenario proofs: a withholder freezes cadence
+while the live tier produces; three-Byzantine-of-four equivocation yields
+zero conflicting seals; succession without reconstruction refuses bond
+release; the handover ceremony completes end to end with lineage
+preserved while a re-genesis severs it; sortition reproduces from the
+beacon and the seal outcome is byte-identical with and without
+watchtower records.
+
+\subsection{The hardened signer}
+
+The seal path's signer (\code{crates/validator/.../guardian/seal\_signer.rs})
+implements the wire discipline T7 is proven against, plus the A8
+everlasting-safety mechanism:
+
+\begin{itemize}[leftmargin=1.5em]
+\item \textbf{Attribution-preserving shares.} Every share carries its own
+per-seal public key and signature over a domain-separated tuple ---
+individually verifiable, never an opaque aggregate --- so forensic
+extraction names every double-signer from the shares alone.
+\item \textbf{Per-seal key evolution with verified immediate erasure.}
+One keypair per seal index derives from a hash-ratcheting seed; the spent
+seed is overwritten in the emitting call, the erasure is byte-verified
+against the persisted state, and a spent index is structurally
+unreachable. Compromise after seal \(i\) yields only future seeds.
+\item \textbf{Emitting is publishing.} Share emission returns the
+publication record in the same act, so withholding requires deliberately
+discarding what the signer already handed back --- the honest-publication
+duty as mechanism rather than assumption.
+\end{itemize}
+
+\subsection{Runtime inversions landed by the program}
+
+Four inversions moved the production ordering path from
+internally-consistent to boundary-honest, each with its defect class
+named and killed:
+
+\begin{itemize}[leftmargin=1.5em]
+\item \textbf{Boundary-before-block.} The committed-surface certificate
+builder \emph{consumes} a previously closed boundary; the
+bulletin-from-block-transactions path is deleted. Certificates carry
+their boundary and typed omission justifications, verification is
+self-contained (the included set --- boundary minus justified omissions
+--- must reproduce the header's transaction root), and the program's
+baseline commit records the pre-inversion code verifying a censoring
+block as valid. The current closer is an honestly labeled
+reference-single-member seam that the ring plane replaces.
+\item \textbf{Custody-attested availability.} The self-attested
+availability-certificate constructor is deleted; what remains is a
+deterministic binding derivable by anyone, and availability
+\emph{standing} derives only from a verified close. An additive audit
+lane exists for slashing evidence and is consulted by no verification
+path.
+\item \textbf{Immutable closes.} An abort supersedes only pre-seal state;
+an abort against a sealed close is a typed rejection whose attempt is
+itself recorded. Post-close evidence lands in an append-only resolution
+log (slashing evidence, forward remedies, descendant fences) --- history
+is never rewritten, and the sealed object is byte-identical after any
+attempt.
+\item \textbf{Real-or-refuse succinct verification.} The succinct
+continuity lane verifies only through the real proving backend against a
+governed, test-pinned verifying key; a build without the backend refuses
+rather than simulating, and no mock constructor survives anywhere in the
+release tree (a CI gate holds the absence).
+\end{itemize}
+
+\subsection{The assumption lattice at the type layer}
+
+The T6 lattice is implemented in the collapse types: every certificate
+profile carries a machine-readable assumption label, adding a profile
+without deciding its label is a compile error, and a collapse object's
+effective guarantee is computed as the meet of its constituents ---
+minimum rank, union of consumed assumptions, AND of the post-quantum bit.
+Evidence-only constituents (continuity bindings, typed roots) contribute
+assumptions and the pq bit but neither grant nor degrade rank, and a
+finality receipt is issuable only for a class the meet honestly supports.
+
+\subsection{Continuous conformance}
+
+The trace-conformance lane closes the loop between code and model: a
+reference driver executes boundary-ring steps under the kernel's exact
+guards and emits a committed trace; a generator turns that trace into a
+TLC-checkable module extending \code{BoundaryRing}; the replay runs on
+every build with deadlock detection as the divergence signal. A step the
+code takes that the model refuses is a red build, which makes the
+proven-spec-beside-divergent-code defect class --- the class the program
+was founded on --- structurally visible.
+
 \section{NestedGuardian: Witness-Augmented Research Mode}
 
 \code{NestedGuardian} explores a layered threshold construction:
@@ -2049,6 +2236,272 @@ The family-level discipline is simple: if an assumption fails, \AFT{} should
 degrade to stalling, aborting, or withholding release before it degrades to
 unsafe irreversible behavior.
 
+\section{The Common-Boundary Theorem Corpus (AFT-CB)}
+\label{sec:aft-cb-corpus}
+
+The AFT Common-Boundary research program (AFT-CB) restated the strong-tier
+settlement story as a theorem corpus with a single machine-checked
+discipline: every theorem carries an explicit \term{Assumes} line drawn
+from a ten-entry assumption ledger, every positive theorem is paired with
+the lower bound that makes its trade forced, and every claim any AFT
+surface prints is gated by checkers that fail the build on an unconditional
+or over-rounded assertion. The full paper proofs live in the corpus
+document (\code{specs/common\_boundary\_theorems.md}); their mechanized
+successors are the TLAPS/TLC kernels of Appendix~\ref{appendix:formal-artifacts};
+the ledger's single owner is the public whitepaper's research-candidate
+section, mirrored here; and the claim surface is bound by the program's
+claim adjudication (\code{specs/p4\_claim\_adjudication.md}). This section
+is the citation spine the rest of the paper hangs from.
+
+\subsection{The assumption ledger (A1--A10)}
+\label{sec:assumption-ledger}
+
+Every deterministic statement in the corpus consumes only entries from
+this ledger, named on its own \term{Assumes} line. Machine discipline
+(enforced in CI): no safety theorem may cite A5 (synchrony is confined to
+liveness); A9 appears only where the physical clock is genuinely consumed;
+A10 belongs to the design-open succession extension alone.
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.06\textwidth} X}
+\toprule
+\textbf{Id} & \textbf{Assumption} \\
+\midrule
+A1 & Signature unforgeability and hash collision resistance. \\
+A2 & Minimal Honesty Axiom (MHA): at least one honest, non-equivocating
+signer per publicly committed signer configuration. Economically bought
+(bonds, diversity floors, activation queues), never proven, and stated so. \\
+A3 & Honest single-final-ack discipline over crash-consistent storage:
+the journal entry is written in the same atomic step that lets the share
+exist, and recovery replays bytes without re-deciding. \\
+A4 & Reachability to at least one honest signer --- for submitters
+(completeness) and for retrievers (availability's serving path). \\
+A5 & Post-GST synchrony as a full honest mesh (pairwise delivery within
+the bound between honest parties) and bounded dishonest bonded weight.
+Liveness, seal cadence, and the live tier only; no strong-lineage safety
+claim cites A5. \\
+A6 & A historical-freshness anchor, exactly one deployed, each separately
+priced: a recent authenticated checkpoint; forward-secure or puncturable
+signatures with secure key erasure; or an external objective checkpoint.
+Verifiable-delay elapsed history is a hardening layer over an anchor,
+never a standalone anchor. \\
+A7 & Proof-system soundness (succinct verification only; full-replay
+verification needs A1 alone). \\
+A8 & Per-seal key evolution with verified immediate erasure: no
+signing-capable material ever persists to a medium that outlives its
+slot, so later compromise of former members --- including full-media
+imaging --- forges nothing (everlasting safety). \\
+A9 & Verifiable-delay-function sequentiality with a bounded, published
+adversary hardware advantage (a physical assumption). The protocol's
+objective clock wherever ticks are read; safety-critical consumption is
+confined to the elapsed-history hardening and the design-open succession
+extension. \\
+A10 & Succession-path observation: a bound on the acting successor's view
+of pre-consented-succession evidence. PROVISIONAL --- consumed by the
+succession extension alone, whose claims are withdrawn to design-open;
+the uniqueness and lineage ladder never cites it. \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\subsection{Theorems T1--T9}
+\label{sec:corpus-theorems}
+
+Statements are condensed; the corpus document carries each full proof, and
+each entry names its mechanization artifact and its lower-bound pairing.
+Throughout, a \term{Unanimous Boundary Close} (UBC) for a configuration
+\(C_v\) and seal slot \(s\) is an \(n\)-of-\(n\) certificate of
+individually verifiable final-ack shares over a domain-separated tuple.
+
+\paragraph{T1 --- Uniqueness within one configuration.}
+\textit{Assumes A1, A2, A3.} At most one UBC exists per \((v, s)\): two
+closes over different boundary roots imply every member of \(C_v\)
+final-acked both, so zero members are honest (\(\lnot\)A2). The claim is
+weight-independent and holds under adversarial delivery and scheduling;
+retries never weaken it because pre-acks are attempt-tagged and can never
+be reinterpreted as final-ack shares (a wire-format premise, stated as
+such). \textit{Mechanization:} \code{BoundaryRing.tla} + TLAPS inductive
+invariant; TLC at the one-honest-member corner. \textit{Pairing:} L1.
+
+\paragraph{T2 --- Completeness (censorship at the seal layer).}
+\textit{Assumes A1, A2, A4.} An artifact received by at least one honest
+signer before that signer's local cutoff is contained in every boundary
+that signer final-acks, hence in the unique close. Censoring an artifact
+out of a sealed boundary requires corrupting all \(n\) signers
+(\(\lnot\)A2) or preventing it from reaching any honest signer
+(\(\lnot\)A4). Post-close omission from a sealed batch is either carried
+by a typed, verifiable omission justification or invalidates the seal.
+\textit{Mechanization:} completeness invariant over declared sets
+(\code{BoundaryRing.tla}). \textit{Pairing:} L-E (eclipse).
+
+\paragraph{T3 --- Availability (custody-attested).}
+\textit{Assumes A1, A2, A4.} Validate-and-hold is a signing obligation: the
+final-ack signature \emph{means} the signer obtained the bytes, recomputed
+the root, and committed to retain and serve. A UBC therefore implies every
+compliant signer holds; under A2 one signer actually does, so a sealed
+boundary's bytes are held and served through the horizon with \emph{zero}
+audit records --- the audit lane produces slashing evidence and is proven
+non-load-bearing. Deletion by the other \(n-1\) members is harmless;
+retrieval additionally needs A4's reach edge.
+\textit{Mechanization:} \code{CustodyObligation.tla} (close-time
+replication at compliant signers; zero-audit witness).
+\textit{Pairing:} L-H (holder necessity).
+
+\paragraph{T4a --- Live-tier liveness.}
+\textit{Assumes A5.} Block production advances under the live engine's own
+fault bound and partial-synchrony assumption, independently of the ring:
+no Boundary Ring rule appears in the proposal, vote, or commit path. A
+ring stall delays only the release of effects \emph{typed} irreversible
+(unsealed-over-unsafe); the engine's asynchronous-fallback obligation is a
+named residual (RES-R10), deliberately not claimed.
+\textit{Mechanization:} the two-tier separation property of
+\code{BoundaryLiveness.tla}. \textit{Pairing:} L-OPEN --- the row closes
+only when the sim-exercised fallback lands.
+
+\paragraph{T4b --- Seal cadence.}
+\textit{Assumes A2, A3, A4, A5.} With all \(n\) members responsive and
+honest-behaving post-GST, seals advance at bounded cadence (each pipeline
+phase completes within a bounded number of message delays, per-slot volume
+bounded by the deployment parameter). One non-responsive member freezes
+seal cadence --- never the chain (T4a) --- until a handover or a labeled
+re-genesis; no rule substitutes a smaller quorum.
+\textit{Mechanization:} \code{BoundaryLiveness.tla}, model-checked at
+\(n \le 4\) in both the advancement and freeze directions.
+\textit{Pairing:} L2 (unanimity forces the one-withholder stall).
+
+\paragraph{T5a --- Membership canonicity.}
+\textit{Assumes A1, A2, A3.} For lineage segments whose transitions are
+UBC-closed, two lineages diverging at version \(v\) imply
+full-configuration self-incrimination at the transition slot (T1's
+argument verbatim), so under per-configuration MHA the configuration
+lineage from a root is unique.
+\textit{Mechanization:} \code{MembershipTransition.tla}.
+\textit{Pairing:} L1, applied per configuration.
+
+\paragraph{T5b --- Bootstrap (validity and freshness, separately).}
+\textit{Assumes A1, A7, A6 (anchor as deployed; A9 iff the elapsed-history
+hardening is enabled).} A newcomer that verifies the lineage's recursive
+proof chain from genesis and runs exactly one deployed A6 freshness
+mechanism obtains validity under A7 (or A1 alone via full replay) and
+freshness under the deployed mechanism's own assumption, cited by name. A
+newcomer with no live A6 mechanism is out of model --- stated, not
+smoothed. The VDF chain is a hardening layer only: tick length evidences
+work and elapsed time, never \emph{which} history is live.
+\textit{Mechanization:} bootstrap-freshness obligation
+(\code{MembershipTransition.tla}), A6-conditional in the statement
+itself. \textit{Pairing:} L-LR (long-range indistinguishability, a
+necessity bound).
+
+\paragraph{T5c\('\) --- Assurance-preserving reconfiguration.}
+\textit{Assumes A1, A2, A3.} Every strong-ring transition carries old-ring
+unanimity \emph{and} new-ring acceptance, so configuration lineage is
+MHA-inductive end to end with no weight anywhere in the strong chain. No
+proof-of-silence path exists: the transition action set contains no
+silence-derived action --- asserted over the formal action set and made
+unrepresentable in the runtime's types. An anchored re-genesis is a typed
+lineage root, never continuity.
+\textit{Mechanization:} \code{MembershipTransition.tla} (transition
+obligation + the no-silence action-set assertion); the membership plane's
+type layer. \textit{Pairing:} L2 and L1.
+
+\paragraph{T5d --- Pre-consented succession safety (withdrawn).}
+\textit{Assumes A1, A2, A3, A9, A10.} The succession extension's safety
+claim is \emph{withdrawn for this cycle}: three successive formulations
+were refuted by the program's own adversarial reviews, and the operative
+exits from a dead ring remain the unanimous handover and the labeled
+re-genesis. \code{SuccessionClock.tla} survives as an honestly narrowed
+kernel; the conditions a fourth formulation must meet are recorded in the
+specification's status banner.
+\textit{Pairing:} L-OPEN, claim withdrawn.
+
+\paragraph{T6 --- Composition (the lattice meet).}
+\textit{Assumes A1.} Every certificate profile carries a machine-readable
+assumption label; the collapse verifier computes the meet over all
+constituents; a composed object's effective guarantee is exactly its
+weakest constituent's, including the post-quantum bit (AND). Reporting the
+meet is exact --- anything stronger is unsound (L-M), anything weaker
+discards guarantee --- and exhaustive matching over profiles makes a
+silently unlabeled new profile a compile error.
+\textit{Mechanization:} the runtime lattice's unit gates (meet, pq-meet,
+exhaustive-match-by-construction). \textit{Pairing:} L-M (above-meet
+unsoundness).
+
+\paragraph{T7 --- Forensic accountability (accountable degradation).}
+\textit{Assumes A1.} Proven against the wire format, not an abstraction:
+above the fault threshold, either no seal exists for a slot, or any party
+holding both conflicting seals extracts a cryptographically attributable
+set containing every participant necessary for the violation --- for
+\(n\)-of-\(n\) UBCs, the entire configuration. The extraction runs on the
+two certificates alone; the wire-format smallnesses (individually
+verifiable shares, domain separation, broadcast duty) are premises, and
+the theorem is false without them. Holder-relativity is stated: an
+all-Byzantine set can complete a second certificate privately; surfacing
+is guaranteed by use, honest broadcast, and watchtowers, never by
+wire-format magic.
+\textit{Mechanization:} \code{ForensicAccountability.tla} over the
+wire-level certificate structure, including the staged all-Byzantine
+double-seal trace extracting the full set. \textit{Pairing:} L9.
+
+\paragraph{T8 --- Selection supply (probabilistic, forever separate).}
+\textit{Assumes: none --- an economic model, not a ledger-consuming
+theorem.} Under a stated model (adversary budget, bond schedule,
+constituency-correlation structure over the diversity floors, an
+adaptive-corruption window from sortition unpredictability, and a
+standby-capture term), the probability that open selection yields at
+least one honest signer in a formed configuration is published \emph{as a
+probability} with all model inputs. The composition rule is absolute:
+deterministic safety is only ever ``conditioned on the selection event,''
+and no surface may convert this probability into a deterministic
+Byzantine-tolerance figure --- the corpus's checkers enforce the ban.
+\textit{Mechanization:} none (the economics memo owns the published
+computation). \textit{Pairing:} L-OPEN --- the cheapest-capture supply
+bound is analysis work, recorded open.
+
+\paragraph{T9 --- Maximal accountable safety.}
+\textit{Assumes A1.} Any seal-uniqueness violation cryptographically
+convicts the entire violating coalition --- all \(n\) signers --- with
+slashable floor \(n \times \mathrm{bond}\). The convicted-to-necessary
+ratio is 1.0, which is maximal: L9 states no protocol can attribute
+beyond the signers of the conflicting certificates, and T9 meets that
+ceiling. The lineage-escape maneuver (laundering a double-seal through a
+self-serving re-genesis) is closed upstream by root-admissibility rules,
+so the maneuver changes the offense's name, not its price.
+\textit{Mechanization:} \code{ForensicAccountability.tla} (attribution
+completeness); share-level verification in the hardened signer.
+\textit{Pairing:} L9 (the attribution cap).
+
+\subsection{Lower-bound pairing}
+\label{sec:pairing-table}
+
+Each positive theorem is paired with the necessity bound that makes its
+trade forced; three rows are honestly open. Per the program's claim
+ladder, no flagship-completeness rung prints while any row is open --- the
+corpus's own checkers enforce the gate (Section~\ref{sec:claims}).
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.30\textwidth} >{\raggedright\arraybackslash}p{0.34\textwidth} X}
+\toprule
+\textbf{Positive theorem} & \textbf{Lower bound} & \textbf{Status} \\
+\midrule
+T1 uniqueness & L1 (zero-honest equivocation) & cited \\
+T2 completeness & L-E (eclipse) & cited \\
+T3 availability & L-H (holder necessity) & cited \\
+T4a live-tier liveness & --- & L-OPEN (RES-R10: the engine's asynchronous bound) \\
+T4b seal cadence & L2 (unanimity forces the one-withholder stall) & cited \\
+T5a membership canonicity & L1 (per configuration) & cited \\
+T5b bootstrap & L-LR (long-range indistinguishability; a necessity bound that forces \emph{some} anchor) & cited \\
+T5c\('\) reconfiguration & L2 + L1 & cited \\
+T5d succession safety & --- & L-OPEN; claim withdrawn \\
+T6 composition & L-M (above-meet unsoundness) & cited \\
+T7 forensic accountability & L9 (attribution cap) & cited \\
+T8 selection supply & --- & L-OPEN (cheapest-capture supply bound) \\
+T9 maximal accountable safety & L9 (ratio 1.0 is the cap) & cited \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
 \section{Formal Results}
 
 The repository's machine-checked surfaces align with the protocol family as
@@ -2068,6 +2521,15 @@ follows:
 \code{Asymptote} & executable bounded checks for transcript publication, challenge publication, canonical close, and canonical abort \\
 \code{NestedGuardianProof} & \shortstack[l]{witness-assignment soundness,\\witness-certificates-stay-assigned,\\\code{InvariantImpliesSafety}} \\
 \code{NestedGuardian} & executable bounded checks for reassignment, outage, and checkpoint admissibility \\
+\midrule
+\code{BoundaryRingProof} & T1 uniqueness via a TLAPS inductive invariant over an unconstrained Byzantine adversary; no admitted-equals-canonical definition anywhere in the module \\
+\code{BoundaryRing} & TLC exploration at the one-honest-member corner (\(n = 3\)) and at \(n = 4\) \\
+\code{BoundaryLiveness} & two-tier separation (live progress under a ring stall) and seal-cadence advancement plus the freeze direction, model-checked at \(n \le 4\) \\
+\code{MembershipTransitionProof} & T5a lineage canonicity, the T5c\('\) transition obligation, the no-silence action-set assertion, and typed lineage roots \\
+\code{CustodyObligationProof} & T3 validate-and-hold: close-time replication at compliant signers, the zero-audit witness, and reconstruct-before-release \\
+\code{ForensicAccountabilityProof} & T7 against the wire-level certificate structure, including the staged all-Byzantine double-seal extraction \\
+\code{SuccessionClockProof} & the honestly narrowed succession kernel (T5d itself withdrawn; the kernel header states the narrowing) \\
+\code{BoundaryRingTraceReference} & the trace-conformance lane: a committed reference trace replays against \code{BoundaryRing} with deadlock detection as the divergence signal, on every build \\
 \bottomrule
 \end{tabularx}
 \end{center}
@@ -2217,6 +2679,31 @@ Divergence signal & \code{DivergenceSignal}, \code{DivergenceSignalKind} \\
 Sealed finality proof & \code{SealedFinalityProof} \\
 Observer binding for sealed effects & \code{sealed\_finality\_proof\_observer\_binding} \\
 Proof-carrying effect object & \code{SealObject} \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\subsection{Common-boundary and membership symbols}
+
+The AFT-CB program's runtime surfaces are public Rust symbols on the same
+re-export path. They realize the objects of
+Section~\ref{sec:common-boundary}.
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.32\textwidth} X}
+\toprule
+\textbf{Abstract object} & \textbf{Current runtime symbols} \\
+\midrule
+Closed boundary (R1) & \code{ClosedBoundary}, \code{BoundaryOmissionJustification}, \code{close\_reference\_single\_member\_boundary} \\
+Availability binding / standing (R2) & \code{derive\_bulletin\_availability\_binding}, \code{availability\_standing\_from\_close}, \code{AvailabilityAuditRecord} \\
+Resolution log (R3) & \code{AftResolutionRecord}, \code{AftResolutionKind}, \code{aft\_resolution\_log\_entry\_key} \\
+Assumption lattice (T6) & \code{CertificateProfile}, \code{AssumptionLabel}, \code{assumption\_meet}, \code{FinalityReceipt} \\
+Ring membership plane (R5) & \code{RingMemberRegistration}, \code{RingActivationQueue}, \code{BoundaryRingConfig}, \code{AssurancePreservingHandover}, \code{AnchoredRegenesisRoot}, \code{LiveTierEjection}, \code{CustodyHandoverReceipt}, \code{assign\_seats}, \code{WatchtowerCountersignRecord} \\
+Membership registry wiring (R5) & \code{register\_ring\_member@v1}, \code{publish\_ring\_genesis\_config@v1}, \code{publish\_ring\_handover@v1} \\
+Hardened seal signer (R9) & \code{EvolvingSealSigner}, \code{SealShare}, \code{verify\_seal\_share}, \code{extract\_double\_signers} \\
+Trace conformance (R13) & \code{BoundaryRingDriver}, the committed reference trace, and the replay generator in the formal-floor CI job \\
+Succinct continuity (R4c) & \code{SuccinctDriverConfig::pinned}, the governed verifying-key pin, and the no-mock CI gate \\
 \bottomrule
 \end{tabularx}
 \end{center}
@@ -2405,6 +2892,46 @@ optimized ceilings and not as apples-to-apples superiority claims over
 published \code{Narwhal/Tusk/Bullshark} environments.
 \end{itemize}
 
+\subsection{Measured costs, reproduction-classed}
+\label{sec:measured-costs}
+
+The AFT-CB program's measured-cost discipline: every number carries its
+reproduction class, and a number without a reproduction path is not
+printed.
+
+\paragraph{Class A --- exact, zero variance (gate-pinned).} The
+SCALE-encoded byte sizes of the canonical objects, pinned by a repository
+test so any wire-format change surfaces in review:
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.34\textwidth} >{\raggedleft\arraybackslash}p{0.10\textwidth} X}
+\toprule
+\textbf{Quantity} & \textbf{Bytes} & \textbf{Reading} \\
+\midrule
+Validate-and-hold binding & 72 & per sealed slot, ring-size independent \\
+Canonical bulletin close & 180 & the sealed-slot commitment \\
+Optional audit record & 106 & strictly marginal: a close verifies with zero audit records, so the at-rest audit cost is zero and 106\,B is paid only per recorded probe \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\paragraph{Class B --- reproduces within CPU variance.} The real succinct
+continuity backend proves one recursion step in roughly 27 seconds of CPU
+(about 84 seconds wall for the three-step end-to-end chain, CPU backend),
+reproduced by the repository's nightly proof lane. GPU or prover-network
+backends would shift these by an order of magnitude and are out of scope
+for an in-repository measurement.
+
+\paragraph{Class C --- box-variable, deferred.} Boundary-close latency
+and sustained throughput at \(n \in \{4, 8\}\) come from the existing
+paper-benchmark harness; the instrument is built, and the figures await a
+pinned benchmark runner because a number measured on a variable
+development box would fail its own reproduce-within-variance gate
+(Section~\ref{sec:residuals}). The native measurements earlier in this
+section predate this discipline and are retained as architectural
+positioning only.
+
 \section{Related Work}
 
 Geeq's Proof of Honesty (PoH) is important prior work in the ``99\%'' (their figure, not an \AFT{} claim) direction:
@@ -2437,16 +2964,44 @@ public boundary derive the same decisive object, and publication is downstream
 of that deterministic derivation rather than its source.
 
 \section{Claims and Non-Claims}
+\label{sec:claims}
+
+\subsection{The headline claim}
+
+The claim this paper prints, adopted verbatim from the AFT-CB program's
+claim adjudication and machine-gated in CI (no stronger sentence can enter
+this corpus without failing the build):
+
+\begin{quote}
+\textbf{Deterministic all-but-one safety for certified boundaries; live
+consensus under separately bounded adversarial weight and eventual
+synchrony.}
+\end{quote}
+
+Both halves state their own conditions. The first half is T1
+(Section~\ref{sec:corpus-theorems}): weight-independent, mechanized, and
+unconditional under the Minimal Honesty Axiom --- which is economically
+bought, never proven, and priced rather than assumed away. The second
+half is T4a, and it \emph{names} its two conditions (bounded adversarial
+weight; eventual synchrony), which is exactly why the named asynchronous
+residual does not undercut it: the claim never asserted asynchronous
+liveness. Stronger ``completeness''-class rungs exist in the program's
+claim ladder and are BLOCKED --- they do not print here or anywhere,
+and the enumerated open gates live in the adjudication document.
 
 \subsection{Claims}
 
-This paper claims:
+This paper additionally claims:
 
 \begin{itemize}[leftmargin=1.5em]
 \item a production guardian-backed base-finality model in which validator
 quorums are composed with guardian committee admissibility,
 \item proof-carrying canonical ordering with omission dominance and uniqueness,
 plus protocol-native endogenous retrievability,
+\item boundary-honest ordering: the committed-surface certificate consumes
+a previously closed boundary, carries typed omission justifications, and
+its verification is self-contained --- an unjustified omission is an
+invalid block, so censorship is observable by construction,
 \item compact signed publication-frontier summaries and short contradiction
 objects that internalize same-slot and predecessor consistency on the live
 path,
@@ -2456,7 +3011,9 @@ admit short objective obstruction witnesses,
 \item all-but-one (\(n-1\) of \(n\)) equal-authority ordering consensus in the
 AFT model delta, under explicit
 assumptions,
-\item deterministic sealed-effect collapse with challenge dominance,
+\item deterministic sealed-effect collapse with challenge dominance, with
+sealed closes immutable and post-close evidence confined to an append-only
+resolution log,
 \item a relay-free, coordinator-free, pure-software model-delta
 theorem yielding deterministic all-but-one (\(n-1\) of \(n\)) Byzantine safety
 for durable
@@ -2466,6 +3023,16 @@ retrievability surface, conditional on the AFT model delta,
 lower bound, in the AFT model delta, by identifying the first illegal
 adversary step and realizing the
 visibility delta without a trusted relay,
+\item the common-boundary theorem corpus of
+Section~\ref{sec:aft-cb-corpus}: T1--T9 with explicit Assumes lines over
+the A1--A10 ledger, each theorem paired with its necessity bound, with the
+mechanized kernels of Appendix~\ref{appendix:formal-artifacts} as their
+machine-checked successors and a trace-conformance lane holding code to
+the uniqueness kernel on every build,
+\item forensic accountability at the attribution ceiling: a
+seal-uniqueness violation convicts the entire configuration individually
+from the two certificates alone (T7/T9), with the wire discipline
+implemented in the hardened signer,
 \item a witness-augmented mode for layered threshold constructions,
 \item machine-checked deterministic safety kernels for the major protocol
 surfaces.
@@ -2497,6 +3064,49 @@ witness, and outage schedules,
 \item an apples-to-apples measured throughput superiority over
 \code{HotStuff}, \code{Narwhal}, \code{Tusk}, or \code{Bullshark} from the
 current repository alone.
+\end{itemize}
+
+\subsection{Named residuals (the limitations list)}
+\label{sec:residuals}
+
+The AFT-CB program closed complete-with-residuals, and this paper carries
+the residual list verbatim rather than smoothing it. None of these is a
+silent gap; each names its closing condition in the program record.
+
+\begin{itemize}[leftmargin=1.5em]
+\item \textbf{The MHA is bought, not proven.} T1's safety is conditional
+on at least one honest signer per configuration; the economics memo
+prices how open selection \emph{supplies} that condition (T8, as a
+probability only), and no surface converts that price into a
+deterministic tolerance figure.
+\item \textbf{RES-R10 --- asynchronous liveness.} The live engine's
+recovery is timeout-driven and fully deterministic, so no asynchronous
+progress guarantee is possible without a common coin (an
+engine-structure change). The fallback is designed (view synchronizer,
+trigger, coin options) and not built; T4a's pairing row stays open and
+every completeness-class claim rung stays gated on it.
+\item \textbf{RES-R11 --- the VDF clock plane.} Every candidate
+construction requires externally vetted cryptography (class-group,
+isogeny, or checkpointed-hash approaches each fail a stated requirement
+today); selection and review are an owner action. Sortition's beacon is
+the reference ordering beacon until this closes --- an honest label, not
+a security bound.
+\item \textbf{RES-R12 and the T5d withdrawal --- succession.} Three
+successive succession formulations were refuted by the program's own
+adversarial reviews; the claim is withdrawn, the operative exits from a
+dead ring are the unanimous handover and the labeled re-genesis, and no
+path in the estate activates a successor ring from elapsed time or
+non-response. The conditions a fourth formulation must meet are
+recorded in the specification's status banner.
+\item \textbf{RES-P4.3-throughput.} Close-latency and throughput figures
+at \(n \in \{4, 8\}\) await a pinned benchmark runner; the instrument
+exists and the reproduction command is recorded, but a number measured on
+a variable box would fail its own reproduce-within-variance gate and is
+therefore not printed (Section~\ref{sec:measured-costs}).
+\item \textbf{R14 --- the verified verifier.} A spec-extracted or
+refinement-proven UBC verifier remains a design-permitted residual; its
+outward complement (an independent twin implementation against exported
+conformance vectors) is filed as an owner packet.
 \end{itemize}
 
 \subsection{Model-delta public-state-continuity theorem}
@@ -2763,6 +3373,82 @@ than as a raw repository dump.
   {app:ng-recovery-collapse}
   {\detokenize{internal-docs/architecture/protocols/aft/formal/nested_guardian/NestedGuardianRecoveryClassicalAgreementCollapse.tla}}
   {\detokenize{../formal/nested_guardian/NestedGuardianRecoveryClassicalAgreementCollapse.tla}}
+
+\artifactgroup
+  {Common Boundary (AFT-CB)}
+  {The mechanized kernels of the common-boundary theorem corpus
+  (Section~\ref{sec:aft-cb-corpus}): the Boundary Ring uniqueness kernel
+  and its TLAPS discharge, the liveness and two-tier separation model,
+  the membership-transition and custody-obligation kernels with their
+  proofs, the wire-level forensic-accountability kernel, and the honestly
+  narrowed succession clock (its full safety claim withdrawn; the kernel
+  header states the narrowing).}
+
+\embedartifact
+  {BoundaryRing.tla}
+  {app:cb-ring-model}
+  {\detokenize{internal-docs/architecture/protocols/aft/formal/common_boundary/BoundaryRing.tla}}
+  {\detokenize{../formal/common_boundary/BoundaryRing.tla}}
+
+\embedartifact
+  {BoundaryRingProof.tla}
+  {app:cb-ring-proof}
+  {\detokenize{internal-docs/architecture/protocols/aft/formal/common_boundary/BoundaryRingProof.tla}}
+  {\detokenize{../formal/common_boundary/BoundaryRingProof.tla}}
+
+\embedartifact
+  {BoundaryLiveness.tla}
+  {app:cb-liveness-model}
+  {\detokenize{internal-docs/architecture/protocols/aft/formal/common_boundary/BoundaryLiveness.tla}}
+  {\detokenize{../formal/common_boundary/BoundaryLiveness.tla}}
+
+\embedartifact
+  {MembershipTransition.tla}
+  {app:cb-membership-model}
+  {\detokenize{internal-docs/architecture/protocols/aft/formal/common_boundary/MembershipTransition.tla}}
+  {\detokenize{../formal/common_boundary/MembershipTransition.tla}}
+
+\embedartifact
+  {MembershipTransitionProof.tla}
+  {app:cb-membership-proof}
+  {\detokenize{internal-docs/architecture/protocols/aft/formal/common_boundary/MembershipTransitionProof.tla}}
+  {\detokenize{../formal/common_boundary/MembershipTransitionProof.tla}}
+
+\embedartifact
+  {CustodyObligation.tla}
+  {app:cb-custody-model}
+  {\detokenize{internal-docs/architecture/protocols/aft/formal/common_boundary/CustodyObligation.tla}}
+  {\detokenize{../formal/common_boundary/CustodyObligation.tla}}
+
+\embedartifact
+  {CustodyObligationProof.tla}
+  {app:cb-custody-proof}
+  {\detokenize{internal-docs/architecture/protocols/aft/formal/common_boundary/CustodyObligationProof.tla}}
+  {\detokenize{../formal/common_boundary/CustodyObligationProof.tla}}
+
+\embedartifact
+  {ForensicAccountability.tla}
+  {app:cb-forensic-model}
+  {\detokenize{internal-docs/architecture/protocols/aft/formal/common_boundary/ForensicAccountability.tla}}
+  {\detokenize{../formal/common_boundary/ForensicAccountability.tla}}
+
+\embedartifact
+  {ForensicAccountabilityProof.tla}
+  {app:cb-forensic-proof}
+  {\detokenize{internal-docs/architecture/protocols/aft/formal/common_boundary/ForensicAccountabilityProof.tla}}
+  {\detokenize{../formal/common_boundary/ForensicAccountabilityProof.tla}}
+
+\embedartifact
+  {SuccessionClock.tla}
+  {app:cb-succession-model}
+  {\detokenize{internal-docs/architecture/protocols/aft/formal/common_boundary/SuccessionClock.tla}}
+  {\detokenize{../formal/common_boundary/SuccessionClock.tla}}
+
+\embedartifact
+  {SuccessionClockProof.tla}
+  {app:cb-succession-proof}
+  {\detokenize{internal-docs/architecture/protocols/aft/formal/common_boundary/SuccessionClockProof.tla}}
+  {\detokenize{../formal/common_boundary/SuccessionClockProof.tla}}
 
 \begin{thebibliography}{99}
 
