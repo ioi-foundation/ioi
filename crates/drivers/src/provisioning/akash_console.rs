@@ -111,11 +111,14 @@ pub struct AkashBid {
 
 // ----- read-only operations (never spend) -----
 
-/// Read-only credential probe. A `200` proves the sealed key authenticates,
-/// which is how an akash account transitions to `status == "verified"` WITHOUT
-/// any spend. `GET /v1/wallet-settings`.
+/// Read-only credential probe. Lists deployments with a minimal page: a managed
+/// key that authenticates returns `200` (even with an empty list), so this is
+/// the reliable "does the key authenticate" check. (`/v1/wallet-settings` was
+/// the first choice but 404s on an account that has no settings configured yet,
+/// even when the key is valid.) A `2xx` is how an akash account transitions to
+/// `status == "verified"` WITHOUT any spend. `GET /v1/deployments?skip=0&limit=1`.
 pub fn verify_key(api_key: &str) -> ConsoleRequest {
-    ConsoleRequest::get(api_key, "/v1/wallet-settings")
+    ConsoleRequest::get(api_key, "/v1/deployments?skip=0&limit=1")
 }
 
 /// List existing deployments (read-only). `GET /v1/deployments?skip=&limit=`.
