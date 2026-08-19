@@ -485,6 +485,42 @@ pub fn bid_passes_ceiling(
     Ok(())
 }
 
+/// C7 Stage B — is auto-top-up ENABLED on this deployment? The managed Console API funds a
+/// one-time escrow (no auto-top-up in the create flow), so a compliant deployment carries no
+/// enabled auto-top-up flag and this returns false ("provably cannot apply"). Defensive: if any
+/// `auto*top*up` field anywhere in the detail is truthy, this returns true and Stage B refuses +
+/// closes rather than open a lease that could exceed the deposit bound. Read the whole detail
+/// recursively so a nested representation cannot hide.
+pub fn deployment_has_auto_topup(resp: &Value) -> bool {
+    fn walk(v: &Value) -> bool {
+        match v {
+            Value::Object(map) => map.iter().any(|(k, val)| {
+                let key = k.to_ascii_lowercase().replace(['_', '-'], "");
+                (key.contains("autotopup")
+                    || key.contains("autodeposit")
+                    || key.contains("autorefill"))
+                    && truthy(val)
+                    || walk(val)
+            }),
+            Value::Array(a) => a.iter().any(walk),
+            _ => false,
+        }
+    }
+    fn truthy(v: &Value) -> bool {
+        match v {
+            Value::Bool(b) => *b,
+            Value::String(s) => matches!(
+                s.to_ascii_lowercase().as_str(),
+                "true" | "on" | "enabled" | "1"
+            ),
+            Value::Number(n) => n.as_f64().map(|f| f != 0.0).unwrap_or(false),
+            Value::Object(_) | Value::Array(_) => true, // a present config object counts as "on"
+            Value::Null => false,
+        }
+    }
+    walk(resp)
+}
+
 /// The deployment `state` from a `getDeployment` response
 /// (`{"data": {"deployment": {"state": "…"}}}`), e.g. `"active"`/`"closed"`.
 pub fn parse_deployment_state(resp: &Value) -> Option<String> {

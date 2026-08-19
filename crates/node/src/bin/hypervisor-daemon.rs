@@ -530,6 +530,17 @@ async fn async_main() -> anyhow::Result<()> {
     seed_default_state(&data_dir);
     lifecycle_routes::ensure_identity_foundation(&data_dir)
         .map_err(|error| anyhow::anyhow!("identity foundation blocks readiness: {error}"))?;
+    // C7 restart recovery — a funded akash deposit whose two-stage flow never reached a terminal
+    // Stage B outcome (crash mid-flight) is stranded; mark each reconciliation_required so a funded
+    // deposit is never silently lost. Marking only; the live close + refund confirm is a follow-up.
+    let akash_stranded = provider_routes::reconcile_stranded_akash_deployments(&data_dir);
+    if !akash_stranded.is_empty() {
+        tracing::warn!(
+            count = akash_stranded.len(),
+            dseqs = ?akash_stranded,
+            "akash restart recovery: stranded deployment(s) marked reconciliation_required"
+        );
+    }
     // A retained M4 child intent makes its owner registry part of recovery truth. Census that
     // complete registry before recovery so malformed, relocated, or ambiguous owner bytes fence
     // the pending intent. Superseded WorkResult compatibility folds were deleted under ADR 0022.

@@ -4702,6 +4702,33 @@ fn load_akash_deployment(data_dir: &str, account_id: &str, env_ref: &str) -> Opt
     mine.pop()
 }
 
+/// C7 restart recovery — a `deployment_created` record with no terminal (lease_accepted / closed /
+/// reconciliation) state is STRANDED: the daemon funded an akash deposit but did not reach a Stage B
+/// terminal outcome before it stopped. Scan for these and transition each to
+/// `reconciliation_required`, so a funded deposit is never silently lost. Returns the stranded
+/// dseqs. Marks records only; the live close + escrow-refund confirmation is a follow-up step that
+/// needs the credential (closed != refund_settled).
+pub(crate) fn reconcile_stranded_akash_deployments(data_dir: &str) -> Vec<String> {
+    let stranded: Vec<Value> = read_record_dir(data_dir, AKASH_DEPLOYMENT_KIND)
+        .into_iter()
+        .filter(|d| text(d, "state") == "deployment_created")
+        .collect();
+    let mut dseqs = Vec::new();
+    for rec in stranded {
+        let dseq = text(&rec, "dseq").to_string();
+        let id = format!("akdep_intent_{dseq}");
+        let mut updated = rec.clone();
+        if let Some(o) = updated.as_object_mut() {
+            o.insert("state".into(), json!("reconciliation_required"));
+            o.insert("reconciled_at".into(), json!(iso_now()));
+            o.insert("reconcile_note".into(), json!("STRANDED on restart: the deposit was funded but Stage B never reached a terminal outcome. Close the deployment from the provider console and confirm the escrow refund; the daemon marks it here so the funded deposit is not silently lost."));
+        }
+        let _ = persist_record(data_dir, AKASH_DEPLOYMENT_KIND, &id, &updated);
+        dseqs.push(dseq);
+    }
+    dseqs
+}
+
 struct AkashProvider {
     account: Value,
 }
@@ -4891,6 +4918,26 @@ impl AkashProvider {
                         "akash_console_create_no_manifest — create response had no data.manifest",
                     )?;
 
+                    // Journal the deployment_create transition NOW — the deposit is funded, so a
+                    // crash mid-Stage-B must leave a recoverable record. Keyed by dseq; restart
+                    // recovery (reconcile_stranded_akash_deployments) reconciles any record left in
+                    // `deployment_created` with no terminal (lease_accepted / closed) outcome.
+                    let intent_rec_id = format!("akdep_intent_{dseq}");
+                    let _ = persist_record(
+                        data_dir,
+                        AKASH_DEPLOYMENT_KIND,
+                        &intent_rec_id,
+                        &json!({
+                            "schema_version": "ioi.hypervisor.akash-deployment.v1",
+                            "record_id": intent_rec_id, "dseq": dseq,
+                            "account_id": self.account_id(), "environment_ref": env_ref,
+                            "state": "deployment_created", "deposit_usd": deposit,
+                            "sdl_hash": text(plan, "sdl_hash"), "provider_address": pinned_provider,
+                            "note": "Stage A committed: deposit funded, awaiting Stage B. A record left in this state past a restart is stranded and gets reconciled (closed).",
+                            "execution_mode": "live_console_api", "at": iso_now(),
+                        }),
+                    );
+
                     // ── THE DEPOSIT IS NOW FUNDED (the deployment exists). From here, ANY failure
                     //    before the lease opens MUST close the deployment — Stage B is wrapped so it
                     //    does. Stage B is the REAL post-bid quote gate: poll bids, accept ONLY the
@@ -4924,6 +4971,18 @@ impl AkashProvider {
                         })??;
                         // Ceiling: the bid must price in the accepted denom AND be ≤ the SDL max.
                         ac::bid_passes_ceiling(bid_amount, &bid_denom, &ceiling_denom, ceiling_amount)?;
+                        // Auto-top-up must be PROVABLY off before the lease opens (checked now the
+                        // DSEQ exists). If the deployment cannot be read, or carries an enabled
+                        // auto-top-up, the deposit is not provably the hard bound → refuse (→ close).
+                        let (adc, add) = send(ac::get_deployment(&api_key, &dseq)).await?;
+                        if !(200..300).contains(&adc) {
+                            return Err(format!(
+                                "akash_auto_topup_unprovable — could not read deployment {dseq} to prove auto-top-up off (http {adc})"
+                            ));
+                        }
+                        if ac::deployment_has_auto_topup(&add) {
+                            return Err("akash_auto_topup_enabled — the deployment has auto-top-up enabled; refusing a lease that could exceed the deposit bound".into());
+                        }
                         // Open the lease against the accepted, in-ceiling, wallet-pinned bid.
                         let (lc, ll) =
                             send(ac::create_lease(&api_key, &manifest, &dseq, &bid)).await?;
@@ -4937,14 +4996,39 @@ impl AkashProvider {
                         Ok(v) => v,
                         Err(e) => {
                             // The deposit is funded but the lease did not open — CLOSE the deployment
-                            // so escrow stops. (Piece 4 refines this into a separately-journaled
-                            // close outcome + reconciliation_required if the close is unconfirmed.)
+                            // so escrow stops, and JOURNAL the close outcome separately. A 2xx close
+                            // is `deposit_closed_refund_pending`: the close is accepted but the
+                            // escrow refund is the provider's async settlement, so closed ≠
+                            // refund_settled. A non-2xx / unreachable close is
+                            // `reconciliation_required`: the deposit may still be funded — reconcile.
                             let close_http = send(ac::close_deployment(&api_key, &dseq))
                                 .await
                                 .map(|(c, _)| c)
                                 .unwrap_or(0);
+                            let close_state = if (200..300).contains(&close_http) {
+                                "deposit_closed_refund_pending"
+                            } else {
+                                "reconciliation_required"
+                            };
+                            // Transition the SAME dseq-keyed record to its terminal close state, so
+                            // restart recovery does not see it as stranded.
+                            let close_id = format!("akdep_intent_{dseq}");
+                            let _ = persist_record(
+                                data_dir,
+                                AKASH_DEPLOYMENT_KIND,
+                                &close_id,
+                                &json!({
+                                    "schema_version": "ioi.hypervisor.akash-deployment.v1",
+                                    "record_id": close_id, "dseq": dseq,
+                                    "account_id": self.account_id(), "environment_ref": env_ref,
+                                    "state": close_state, "close_http": close_http,
+                                    "stage_b_error": e,
+                                    "note": "Stage B refused AFTER the deposit was funded; the deployment was closed. deposit_closed_refund_pending = close accepted, escrow refund is the provider's async settlement (closed != refund_settled). reconciliation_required = close unconfirmed; reconcile from the provider console.",
+                                    "execution_mode": "live_console_api", "at": iso_now(),
+                                }),
+                            );
                             return Err(format!(
-                                "akash_stage_b_refused_deposit_closed: {e} | close_http={close_http} dseq={dseq}"
+                                "akash_stage_b_refused ({close_state}): {e} | close_http={close_http} dseq={dseq}"
                             ));
                         }
                     };
@@ -4968,6 +5052,25 @@ impl AkashProvider {
             let record_id = format!("akdep_{stamp:x}");
             let deployment_ref = format!("akash-deployment://{record_id}");
             let real_dseq = text(&live, "dseq").to_string();
+            // Transition the dseq-keyed deployment_create record to its TERMINAL lease_accepted
+            // state, binding the accepted bid + burn rate — so restart recovery does not see it as
+            // stranded. (Stage B already verified pin + denom + ceiling before the lease opened.)
+            let lease_rec_id = format!("akdep_intent_{real_dseq}");
+            let _ = persist_record(
+                data_dir,
+                AKASH_DEPLOYMENT_KIND,
+                &lease_rec_id,
+                &json!({
+                    "schema_version": "ioi.hypervisor.akash-deployment.v1",
+                    "record_id": lease_rec_id, "dseq": real_dseq,
+                    "account_id": self.account_id(), "environment_ref": env_ref,
+                    "state": "lease_accepted", "provider_address": text(&live, "provider"),
+                    "gseq": live["gseq"], "oseq": live["oseq"],
+                    "deposit_usd": live["deposit_usd"], "burn_rate": live["burn_rate"],
+                    "note": "Stage B accepted the wallet-pinned bid within the SDL ceiling; the lease opened.",
+                    "execution_mode": "live_console_api", "at": iso_now(),
+                }),
+            );
             let provider_address = text(&live, "provider").to_string();
             let bid_id = format!("akbid_{stamp:x}");
             let bid_rec = json!({
@@ -7722,6 +7825,45 @@ mod containment_tests {
             !serialized.contains("manifest-echo"),
             "the raw provider evidence was stored verbatim instead of hashed"
         );
+    }
+
+    // ---- MEC akash two-stage: restart recovery of a stranded funded deposit ----
+    #[test]
+    fn restart_recovery_marks_only_stranded_deployment_created_records() {
+        let dir = tempfile::tempdir().unwrap();
+        let data_dir = dir.path().to_str().unwrap();
+        // A stranded Stage-A record (deposit funded, no terminal outcome) + a completed one.
+        persist_record(
+            data_dir,
+            AKASH_DEPLOYMENT_KIND,
+            "akdep_intent_100",
+            &json!({ "state": "deployment_created", "dseq": "100", "account_id": "a", "environment_ref": "e" }),
+        )
+        .unwrap();
+        persist_record(
+            data_dir,
+            AKASH_DEPLOYMENT_KIND,
+            "akdep_intent_200",
+            &json!({ "state": "lease_accepted", "dseq": "200", "account_id": "a", "environment_ref": "e" }),
+        )
+        .unwrap();
+        let stranded = reconcile_stranded_akash_deployments(data_dir);
+        assert_eq!(
+            stranded,
+            vec!["100".to_string()],
+            "only the funded-but-unfinished deposit is stranded"
+        );
+        let recs = read_record_dir(data_dir, AKASH_DEPLOYMENT_KIND);
+        let r100 = recs.iter().find(|r| text(r, "dseq") == "100").unwrap();
+        assert_eq!(text(r100, "state"), "reconciliation_required");
+        let r200 = recs.iter().find(|r| text(r, "dseq") == "200").unwrap();
+        assert_eq!(
+            text(r200, "state"),
+            "lease_accepted",
+            "a completed deploy is untouched"
+        );
+        // Idempotent: a second pass finds nothing new (the record is no longer deployment_created).
+        assert!(reconcile_stranded_akash_deployments(data_dir).is_empty());
     }
 
     // ---- CARVE-OUT: provider deletion stays callable and reports exactly ----

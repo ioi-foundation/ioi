@@ -401,3 +401,21 @@ fn bid_passes_ceiling_enforces_denom_and_amount_exactly() {
         .unwrap_err()
         .contains("denom_mismatch"));
 }
+
+#[test]
+fn deployment_has_auto_topup_detects_any_enabled_representation() {
+    // A compliant one-time-deposit deployment carries no enabled auto-top-up → provably off.
+    assert!(!deployment_has_auto_topup(
+        &json!({ "data": { "deployment": { "state": "active", "deposit": "1000000" } } })
+    ));
+    // Enabled representations anywhere in the detail are caught (bool, string, nested object).
+    assert!(deployment_has_auto_topup(&json!({ "autoTopUp": true })));
+    assert!(deployment_has_auto_topup(
+        &json!({ "data": { "auto_top_up": "enabled" } })
+    ));
+    assert!(deployment_has_auto_topup(
+        &json!({ "settings": { "auto-refill": { "threshold": 5 } } })
+    ));
+    // A present-but-off flag is not "on".
+    assert!(!deployment_has_auto_topup(&json!({ "autoTopup": false })));
+}
