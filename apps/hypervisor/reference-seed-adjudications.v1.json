@@ -1,6 +1,6 @@
 {
   "schema": "ioi.hypervisor.reference-seed-adjudications.v1",
-  "doctrine": "Estate-wide seed adjudications (W1 sweep). Each record re-adjudicates a seed (or a named gap) against the reference surface behind it: the reference route, its EXPRESSED IA (\u00a73.2 \u2014 facets, columns, tabs, empty-state copy; an empty body is never itself a blocker), the estate plane (or its absence), and the outcome. Outcomes: portable | absent_confirmed | donor_ported | capture_broken_no_donor. The sources proof pass (Syncs et al.) lives in reference-gap-adjudication.v1.json; this file carries every subsequent W1 record.",
+  "doctrine": "Estate-wide seed adjudications (W1 sweep). Each record re-adjudicates a seed (or a named gap) against the reference surface behind it: the reference route, its EXPRESSED IA (\u00a73.2 \u2014 facets, columns, tabs, empty-state copy; an empty body is never itself a blocker), the estate plane (or its absence), and the outcome. Outcomes: portable | absent_confirmed | boundary_held (the reference lane EXPRESSES IA but a standing authority boundary rules the port out \u2014 the gap stands citing the ruling AND the IA evidence, never pretending absence) | donor_ported | capture_broken_no_donor. The sources proof pass (Syncs et al.) lives in reference-gap-adjudication.v1.json; this file carries every subsequent W1 record.",
   "recorded": "2026-08-19",
   "atlas": "reference-family-atlas.v1.json",
   "records": [
@@ -167,6 +167,79 @@
       "estate_plane": "POST /v1/hypervisor/data-sources (declare, dsr_ receipts) \u2014 the port's governed declare form already ships",
       "outcome": "portable",
       "reason": "the reference declare-form IA (16 facet groups) is NOW ON RECORD; the port's existing receipted form satisfies the verb \u2014 layout alignment is a later cheap pass citing this state, not a W1 build. Bonus: this recording independently re-confirms the Syncs adjudication (cols=6 at the syncs lane)"
+    },
+    {
+      "action": "STU-4",
+      "seed": "designer",
+      "owner": "Studio",
+      "reference_route": "http://localhost:9225/workspace/solution-design/create",
+      "atlas_state": "authoring:/workspace/solution-design/create",
+      "expressed_ia": {
+        "facet_groups": 6,
+        "expresses_ia": true
+      },
+      "estate_plane": "ODK composition/descriptor planes (the port renders composition truth read-only)",
+      "outcome": "portable",
+      "reason": "New-Diagram authoring expresses IA (6 facet groups) \u2014 PORTABLE, backlogged as the declared later authority-crossing cut (in-canvas authoring); recorded, never silent"
+    },
+    {
+      "action": "STU-4",
+      "seed": "designer",
+      "owner": "Studio",
+      "reference_route": "http://localhost:9225/workspace/solution-design/onboarding",
+      "atlas_state": "authoring:/workspace/solution-design/onboarding",
+      "expressed_ia": {
+        "facet_groups": 1,
+        "expresses_ia": false
+      },
+      "estate_plane": "n/a",
+      "outcome": "absent_confirmed",
+      "reason": "Start-planning walkthrough lane expresses no IA on the mirror; gap stands citing this record"
+    },
+    {
+      "action": "STU-4",
+      "seed": "machinery",
+      "owner": "Studio",
+      "reference_route": "http://localhost:9225/workspace/machinery-app/process",
+      "atlas_state": "tab_lane:/workspace/machinery-app/process",
+      "expressed_ia": {
+        "facet_groups": 2,
+        "expresses_ia": true
+      },
+      "estate_plane": "inert #30 state-machine plane (definitions only)",
+      "outcome": "boundary_held",
+      "reason": "the New-graph lane EXPRESSES IA \u2014 but DEFINITION-ONLY IS THE HARD BOUNDARY (standing ruling: no run/step/execute, graph authoring = later authority-crossing cut); the gap stands on the RULING, with the IA evidence honestly on record rather than claimed absent"
+    },
+    {
+      "action": "DAT-3",
+      "seed": "ingest",
+      "owner": "Data",
+      "reference_route": "http://localhost:9225/workspace/hyperauto/ (+ /create)",
+      "atlas_states": [
+        "landing",
+        "authoring:/workspace/hyperauto/create"
+      ],
+      "expressed_ia": {
+        "facet_groups": 1,
+        "expresses_ia": false
+      },
+      "estate_plane": "pipeline creation is the Data ladder (/__ioi/pipeline, certified)",
+      "outcome": "absent_confirmed",
+      "reason": "HyperAuto expresses no IA at any recorded state \u2014 the D6 authoring_flow graft into Pipeline Builder is REFUTED; the Data ladder stands alone"
+    },
+    {
+      "action": "MIS-2",
+      "seed": "incidents",
+      "owner": "Missions",
+      "reference_route": "http://localhost:9225/workspace/issues-app/settings",
+      "atlas_state": "tab_lane:/workspace/issues-app/settings",
+      "expressed_ia": {
+        "facet_groups": 1,
+        "expresses_ia": false
+      },
+      "estate_plane": "certified Issues port (evidence stands)",
+      "outcome": "absent_confirmed",
+      "reason": "app-settings subroute expresses no IA; nothing uncaptured remains for the family"
     }
   ]
 }

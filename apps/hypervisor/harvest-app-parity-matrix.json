@@ -71,7 +71,8 @@
       "binding": "faithful port of the reference Solution Designer landing over real ODK composition truth \u2014 dark global rail + light app header (app chip \u00b7 Solution Designer \u00b7 New Diagram/Help as named gaps) + hero band (title \u00b7 description \u00b7 verbatim reference illustration) + the AIP-architect banner card (Start planning as a named gap) + the template-gallery card (the reference's own static template-library strip, verbatim capture chrome) + the View row (Recents active \u00b7 Favorites gap \u00b7 Open Diagram gap) + the Recents table whose rows are the REAL domain ontologies (the estate's solution designs: ref + created/updated dates + concept/component/resource census; honest em-dashes where the ODK plane records no principal/view tracking) + below-the-fold full composition truth (COM concepts \u00b7 mapping/policy-view/projection components \u00b7 materialized-set/domain-app resources, real refs)",
       "candidate_surface": "/__ioi/studio/designer",
       "shell_pixel_certified": true,
-      "shell_pixel_certification_artifact": "pixel-certifications/designer.json"
+      "shell_pixel_certification_artifact": "pixel-certifications/designer.json",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#designer"
     },
     {
       "owner": "Studio",
@@ -106,7 +107,8 @@
       "binding": "faithful port of the reference Machinery landing over the inert daemon state-machine plane \u2014 dark global rail + light app header (machinery tile \u00b7 Recent-installations store dropdown \u00b7 New graph \u00b7 Help as named gaps) + hero band (title \u00b7 description \u00b7 verbatim reference illustration under the reference's own white-gradient content overlay) + the View row (Recents active \u00b7 Favorites gap) + the viewport-height-ruled Recents table whose rows are the REAL state-machine DEFINITIONS (name \u00b7 ref \u00b7 created/updated dates \u00b7 declared states/transitions/guards census \u00b7 health/status; declared owner_refs rendered honestly, em-dashes where the plane records no principal/view tracking) + the Explore-reference-examples band (the reference's own marketplace example cards, verbatim capture chrome) + below-the-fold full DEFINITION truth (states initial/normal/final \u00b7 transitions from\u2192to/event/guard \u00b7 guards \u00b7 declared inputs/outputs \u00b7 owners \u00b7 history \u00b7 the daemon's own authority_note)",
       "candidate_surface": "/__ioi/studio/machinery",
       "shell_pixel_certified": true,
-      "shell_pixel_certification_artifact": "pixel-certifications/machinery.json"
+      "shell_pixel_certification_artifact": "pixel-certifications/machinery.json",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#machinery"
     },
     {
       "owner": "Studio",
@@ -227,7 +229,9 @@
       "note": "source-first pipeline wizard; unbound",
       "reference_clean_state": "shell_clean_only",
       "reference_clean_reason": "shell regions [rail, header, body] render clean but the body carries no real data (rows 0/0 \u00b7 nodes 0 \u00b7 cards 2)",
-      "reference_clean_artifact": "reference-clean-sweep.json"
+      "reference_clean_artifact": "reference-clean-sweep.json",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#ingest",
+      "remediation_state": "absent_confirmed"
     },
     {
       "owner": "Data",
@@ -863,7 +867,8 @@
       "binding": "faithful port of the reference Issues inbox over the real Missions incident truth \u2014 dark global rail + light header (app chip \u00b7 Issues \u00b7 search \u00b7 New \u00b7 settings) + a light status/filter sidebar (Open/Closed/All lanes with live counts \u00b7 Priority/Assignees/Reporters/Mentions/Labels/Support-types/date facets as faithful named-gap filters) + the incident list (real GoalRun blockers + run failures: reason code \u00b7 subject id \u00b7 created age \u00b7 kind pill \u00b7 proof link into the run timeline); open = blockers on non-terminal runs + failed runs, closed = blockers recorded on terminal runs \u2014 every row is daemon truth",
       "candidate_surface": "/__ioi/missions/incidents",
       "shell_pixel_certified": true,
-      "shell_pixel_certification_artifact": "pixel-certifications/incidents.json"
+      "shell_pixel_certification_artifact": "pixel-certifications/incidents.json",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#incidents"
     },
     {
       "owner": "Governance",

@@ -44,11 +44,8 @@
       "competitors": [
         {
           "seed": "ingest",
-          "disposition": "combined-seed candidate (D6 authoring_flow into Pipeline Builder) \u2014 role decided by DAT-3"
+          "disposition": "D6 authoring_flow graft REFUTED \u2014 ingest absent_confirmed (reference-seed-adjudications.v1.json#ingest); the Data ladder stands alone"
         }
-      ],
-      "pending_roles": [
-        "DAT-3"
       ]
     },
     {

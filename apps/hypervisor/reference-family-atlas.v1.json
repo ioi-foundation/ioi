@@ -896,7 +896,281 @@
         }
       ],
       "errors": []
+    },
+    "designer": {
+      "slug": "designer",
+      "owner": "Studio",
+      "reference_base": "http://localhost:9225/workspace/solution-design/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/solution-design/"
+          },
+          "url": "http://localhost:9225/workspace/solution-design/splash",
+          "ia": {
+            "title": "Solution Designer",
+            "headings": [
+              "Solution Designer",
+              "Many ways to ingest data in Foundry",
+              "Generate Pipeline via No-code Tools",
+              "Generate Pipeline via Pro-code Tools"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "OBJECT",
+              "ACTIONS",
+              "FOUNDRY RULES",
+              "DATA CONNECTOR",
+              "WORKSHOP",
+              "DATASET",
+              "NOTIFICATIONS",
+              "EXTERNAL SYSTEM",
+              "WEBHOOK",
+              "USER GROUP",
+              "MODEL",
+              "MODELING OBJECTIVE",
+              "CODE REPOSITORY",
+              "PIPELINE BUILDER",
+              "NOTEPAD"
+            ],
+            "rows": 0,
+            "cards": 667,
+            "empty_copy": "",
+            "text_len": 35310
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/designer/landing.png"
+        },
+        {
+          "key": "authoring:/workspace/solution-design/create",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/solution-design/create"
+          },
+          "url": "http://localhost:9225/workspace/solution-design/scratch",
+          "ia": {
+            "title": "Solution Designer",
+            "headings": [
+              "Welcome to Solution Designer"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "CONCEPT",
+              "COMPONENT",
+              "RESOURCE",
+              "BETA",
+              "AIP CRITIC"
+            ],
+            "rows": 0,
+            "cards": 6,
+            "empty_copy": "Get started by adding nodes, loading a graph from Data Lineage, or exploring reference exam",
+            "text_len": 674
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/designer/authoring_workspace_solution-design_create.png"
+        },
+        {
+          "key": "authoring:/workspace/solution-design/onboarding",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/solution-design/onboarding"
+          },
+          "url": "http://localhost:9225/workspace/solution-design/onboarding",
+          "ia": {
+            "title": "Solution Designer",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 7,
+            "empty_copy": "",
+            "text_len": 692
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/designer/authoring_workspace_solution-design_onboarding.png"
+        }
+      ],
+      "errors": []
+    },
+    "machinery": {
+      "slug": "machinery",
+      "owner": "Studio",
+      "reference_base": "http://localhost:9225/workspace/machinery-app/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/machinery-app/"
+          },
+          "url": "http://localhost:9225/workspace/machinery-app/",
+          "ia": {
+            "title": "Machinery",
+            "headings": [
+              "Machinery"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "FILES",
+              "CREATOR",
+              "LAST EDITED BY",
+              "LAST VIEWED"
+            ],
+            "rows": 0,
+            "cards": 3,
+            "empty_copy": "",
+            "text_len": 4973
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/machinery/landing.png"
+        },
+        {
+          "key": "tab_lane:/workspace/machinery-app/process",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/machinery-app/process"
+          },
+          "url": "http://localhost:9225/workspace/machinery-app/process",
+          "ia": {
+            "title": "Machinery",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "NAVIGATION TREE"
+            ],
+            "rows": 0,
+            "cards": 0,
+            "empty_copy": "get started building your Machinery graph",
+            "text_len": 354
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/machinery/tab_lane_workspace_machinery-app_process.png"
+        }
+      ],
+      "errors": []
+    },
+    "ingest": {
+      "slug": "ingest",
+      "owner": "Data",
+      "reference_base": "http://localhost:9225/workspace/hyperauto/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/hyperauto/"
+          },
+          "url": "http://localhost:9225/workspace/hyperauto/pipeline",
+          "ia": {
+            "title": "HyperAuto",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 2,
+            "empty_copy": "no existing HyperAuto pipelines",
+            "text_len": 398
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/ingest/landing.png"
+        },
+        {
+          "key": "authoring:/workspace/hyperauto/create",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/hyperauto/create"
+          },
+          "url": "http://localhost:9225/workspace/hyperauto/create",
+          "ia": {
+            "title": "HyperAuto",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 11,
+            "empty_copy": "",
+            "text_len": 563
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/ingest/authoring_workspace_hyperauto_create.png"
+        }
+      ],
+      "errors": []
+    },
+    "incidents": {
+      "slug": "incidents",
+      "owner": "Missions",
+      "reference_base": "http://localhost:9225/workspace/issues-app/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/issues-app/"
+          },
+          "url": "http://localhost:9225/workspace/issues-app/",
+          "ia": {
+            "title": "Issues • Open (0)",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "FILTERS"
+            ],
+            "rows": 0,
+            "cards": 0,
+            "empty_copy": "No issues to display",
+            "text_len": 628
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/incidents/landing.png"
+        },
+        {
+          "key": "tab_lane:/workspace/issues-app/settings",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/issues-app/settings"
+          },
+          "url": "http://localhost:9225/workspace/issues-app/settings/labels",
+          "ia": {
+            "title": "Settings • Labels",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 0,
+            "empty_copy": "No labels yet",
+            "text_len": 324
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/incidents/tab_lane_workspace_issues-app_settings.png"
+        }
+      ],
+      "errors": []
     }
   },
-  "recorded_at": "2026-08-19T23:49:05.222Z"
+  "recorded_at": "2026-08-19T23:52:44.850Z"
 }
