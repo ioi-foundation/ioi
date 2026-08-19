@@ -4980,6 +4980,11 @@ impl AkashProvider {
                     // recovery (reconcile_stranded_akash_deployments) reconciles any record left in
                     // `deployment_created` with no terminal (lease_accepted / closed) outcome.
                     let intent_rec_id = format!("akdep_intent_{dseq}");
+                    // CLASSIFIED (reconciliation evidence, checked-elsewhere): the deployment_create
+                    // MUTATION TRUTH is the shared-foundation C2 INTENT journal, committed and
+                    // checked in handle_provider_op BEFORE this external op. This dseq-keyed akash
+                    // record is provider-native reconciliation evidence for restart recovery; a lost
+                    // write leaves the C2 intent as the state truth, so it is not owed the shared path.
                     let _ = persist_record(
                         data_dir,
                         AKASH_DEPLOYMENT_KIND,
@@ -5089,6 +5094,10 @@ impl AkashProvider {
                             // Transition the SAME dseq-keyed record to its terminal close state, so
                             // restart recovery does not see it as stranded.
                             let close_id = format!("akdep_intent_{dseq}");
+                            // CLASSIFIED (reconciliation evidence, checked-elsewhere): the close
+                            // outcome MUTATION TRUTH is the shared-foundation C2 failure-outcome
+                            // journal (committed by handle_provider_op on Err); this record is
+                            // provider-native close/refund evidence, not owed the shared path.
                             let _ = persist_record(
                                 data_dir,
                                 AKASH_DEPLOYMENT_KIND,
@@ -5132,6 +5141,10 @@ impl AkashProvider {
             // state, binding the accepted bid + burn rate — so restart recovery does not see it as
             // stranded. (Stage B already verified pin + denom + ceiling before the lease opened.)
             let lease_rec_id = format!("akdep_intent_{real_dseq}");
+            // CLASSIFIED (reconciliation evidence, checked-elsewhere): the lease_accept MUTATION
+            // TRUTH is the shared-foundation C2 OUTCOME journal + the provider-operation receipt,
+            // committed by handle_provider_op after this returns Ok. This record is provider-native
+            // evidence; a lost write leaves the journal as truth, so it is not owed the shared path.
             let _ = persist_record(
                 data_dir,
                 AKASH_DEPLOYMENT_KIND,
