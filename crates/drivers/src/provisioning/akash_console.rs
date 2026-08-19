@@ -485,6 +485,73 @@ pub fn bid_passes_ceiling(
     Ok(())
 }
 
+/// Parse a bid `amount` leniently to an EXACT Decimal (integer or canonical decimal string; never
+/// a float). `None` → skip this bid in a scan (an unreadable price never qualifies).
+fn parse_decimal_value(v: &Value) -> Option<Decimal> {
+    if let Some(i) = v.as_i64() {
+        Some(Decimal::from(i))
+    } else if let Some(u) = v.as_u64() {
+        Some(Decimal::from(u))
+    } else if let Some(s) = v.as_str() {
+        Decimal::from_str_exact(s.trim()).ok()
+    } else {
+        None
+    }
+}
+
+/// C7 `any_marketplace` — the DETERMINISTIC lowest QUALIFIED bid across the whole marketplace:
+/// among every bid that prices in the accepted denom AND within `(0, ceiling]`, pick the lowest
+/// exact amount, tie-broken by provider address (ascending). Returns `None` if NO bid qualifies
+/// (the caller keeps polling, then closes the deposit if none qualifies in the window). This is the
+/// authorized selection under a `mode: any_marketplace` selector — the selected provider is then
+/// committed into the candidate, journal, receipt, and state root.
+pub fn select_lowest_qualified_bid(
+    resp: &Value,
+    ceiling_denom: &str,
+    ceiling: Decimal,
+) -> Option<(AkashBid, Decimal, String)> {
+    let bids = resp.pointer("/data/data").and_then(Value::as_array)?;
+    let mut best: Option<(AkashBid, Decimal, String)> = None;
+    for entry in bids {
+        let Some(id) = entry.pointer("/bid/id") else {
+            continue;
+        };
+        let (Some(provider), Some(gseq), Some(oseq)) = (
+            id.get("provider").and_then(Value::as_str),
+            id.get("gseq").and_then(Value::as_i64),
+            id.get("oseq").and_then(Value::as_i64),
+        ) else {
+            continue;
+        };
+        let price = entry.pointer("/bid/price");
+        let Some(denom) = price.and_then(|p| p.get("denom")).and_then(Value::as_str) else {
+            continue;
+        };
+        let Some(amount) = price
+            .and_then(|p| p.get("amount"))
+            .and_then(parse_decimal_value)
+        else {
+            continue;
+        };
+        // Qualified: accepted denom, positive, at or below the ceiling.
+        if denom != ceiling_denom || amount <= Decimal::ZERO || amount > ceiling {
+            continue;
+        }
+        let candidate = AkashBid {
+            gseq,
+            oseq,
+            provider: provider.to_string(),
+        };
+        // Keep the current best iff it is <= the new one by (amount, provider address).
+        let keep = matches!(&best, Some((bb, ba, _))
+            if *ba < amount || (*ba == amount && bb.provider.as_str() <= provider));
+        if !keep {
+            best = Some((candidate, amount, denom.to_string()));
+        }
+    }
+    best
+}
+
 /// C7 Stage B — is auto-top-up ENABLED on this deployment? The managed Console API funds a
 /// one-time escrow (no auto-top-up in the create flow), so a compliant deployment carries no
 /// enabled auto-top-up flag and this returns false ("provably cannot apply"). Defensive: if any

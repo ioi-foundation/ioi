@@ -4729,6 +4729,58 @@ pub(crate) fn reconcile_stranded_akash_deployments(data_dir: &str) -> Vec<String
     dseqs
 }
 
+/// C7 provider_selector — the typed, wallet-bound admissible-provider policy. A clean typed break:
+/// NO legacy `provider_address` alias, no migration branch, no fallback from exact to any_marketplace.
+/// Returns the CANONICAL selector (exactly the allowed fields) on success, or a refusal reason.
+///   { "mode": "exact",           "address": "akash1..." }
+///   { "mode": "any_marketplace", "selection": "lowest_qualified_bid" }
+/// The wallet approves the admissible set; Stage B selects and records the actual provider.
+fn validate_provider_selector(sel: &Value) -> Result<Value, String> {
+    let obj = sel.as_object().ok_or(
+        "provider_selector is required — an object with mode 'exact' (address) or 'any_marketplace' (selection)",
+    )?;
+    let mode = obj
+        .get("mode")
+        .and_then(Value::as_str)
+        .ok_or("provider_selector.mode is required")?;
+    match mode {
+        "exact" => {
+            for k in obj.keys() {
+                if k != "mode" && k != "address" {
+                    return Err(format!(
+                        "provider_selector.exact has unknown field '{k}' (allowed: mode, address)"
+                    ));
+                }
+            }
+            let address = obj
+                .get("address")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .trim();
+            if address.is_empty() {
+                return Err("provider_selector.exact requires one non-empty 'address'".into());
+            }
+            Ok(json!({ "mode": "exact", "address": address }))
+        }
+        "any_marketplace" => {
+            for k in obj.keys() {
+                if k != "mode" && k != "selection" {
+                    return Err(format!(
+                        "provider_selector.any_marketplace has unknown field '{k}' (allowed: mode, selection)"
+                    ));
+                }
+            }
+            if obj.get("selection").and_then(Value::as_str) != Some("lowest_qualified_bid") {
+                return Err("provider_selector.any_marketplace requires selection == 'lowest_qualified_bid' (the only deterministic selection today)".into());
+            }
+            Ok(json!({ "mode": "any_marketplace", "selection": "lowest_qualified_bid" }))
+        }
+        other => Err(format!(
+            "provider_selector.mode '{other}' is unknown (allowed: exact, any_marketplace)"
+        )),
+    }
+}
+
 struct AkashProvider {
     account: Value,
 }
@@ -4867,10 +4919,15 @@ impl AkashProvider {
                 ));
             }
 
-            // C6 provider-pin: the caller may pin the provider address (the one the
-            // wallet challenge hashed into the approval). If set, the daemon deploys
-            // on THAT provider or refuses — it never falls through to the cheapest.
-            let pinned_provider = text(plan, "provider_address").to_string();
+            // provider_selector: the wallet-approved ADMISSIBLE provider set (bound into the
+            // approval facets at Stage A). Stage B selects the actual provider under it — exact
+            // address, or the deterministic lowest-qualified marketplace bid — and records it.
+            let selector = plan
+                .get("provider_selector")
+                .cloned()
+                .unwrap_or(Value::Null);
+            let selector_mode = text(&selector, "mode").to_string();
+            let selector_address = text(&selector, "address").to_string();
 
             // Run the async create→bid→lease→status flow from this sync body,
             // mirroring the live Vast path.
@@ -4932,7 +4989,7 @@ impl AkashProvider {
                             "record_id": intent_rec_id, "dseq": dseq,
                             "account_id": self.account_id(), "environment_ref": env_ref,
                             "state": "deployment_created", "deposit_usd": deposit,
-                            "sdl_hash": text(plan, "sdl_hash"), "provider_address": pinned_provider,
+                            "sdl_hash": text(plan, "sdl_hash"), "provider_selector": selector.clone(),
                             "note": "Stage A committed: deposit funded, awaiting Stage B. A record left in this state past a restart is stranded and gets reconciled (closed).",
                             "execution_mode": "live_console_api", "at": iso_now(),
                         }),
@@ -4949,17 +5006,28 @@ impl AkashProvider {
                         rust_decimal::Decimal::from_str_exact(text(plan, "ceiling_amount").trim())
                             .unwrap_or_default();
                     let stage_b: Result<(ac::AkashBid, String), String> = async {
-                        if pinned_provider.is_empty() {
-                            return Err("akash_provider_pin_required — no wallet-approved provider to accept a bid from".into());
-                        }
-                        // poll for the PINNED provider's priced bid (up to 10× at 6s).
+                        // Poll (up to 10× at 6s) for a bid that satisfies the wallet-approved
+                        // selector: exact → the authorized address's bid; any_marketplace → the
+                        // DETERMINISTIC lowest qualified (in-ceiling) bid.
                         let mut priced: Option<
                             Result<(ac::AkashBid, rust_decimal::Decimal, String), String>,
                         > = None;
                         for _ in 0..10 {
                             let (bc, bl) = send(ac::list_bids(&api_key, &dseq)).await?;
                             if (200..300).contains(&bc) {
-                                if let Some(p) = ac::parse_pinned_bid_priced(&bl, &pinned_provider) {
+                                let picked = match selector_mode.as_str() {
+                                    "exact" => ac::parse_pinned_bid_priced(&bl, &selector_address),
+                                    "any_marketplace" => ac::select_lowest_qualified_bid(
+                                        &bl,
+                                        &ceiling_denom,
+                                        ceiling_amount,
+                                    )
+                                    .map(Ok),
+                                    other => Some(Err(format!(
+                                        "akash_selector_mode_unknown — '{other}' (Stage A should have refused this)"
+                                    ))),
+                                };
+                                if let Some(p) = picked {
                                     priced = Some(p);
                                     break;
                                 }
@@ -4967,10 +5035,18 @@ impl AkashProvider {
                             tokio::time::sleep(std::time::Duration::from_secs(6)).await;
                         }
                         let (bid, bid_amount, bid_denom) = priced.ok_or_else(|| {
-                            format!("akash_pinned_provider_did_not_bid — '{pinned_provider}' returned no bid in the polling window")
+                            format!("akash_no_qualified_bid — no bid satisfied the '{selector_mode}' selector within the polling window")
                         })??;
-                        // Ceiling: the bid must price in the accepted denom AND be ≤ the SDL max.
+                        // The bid must price in the accepted denom AND be ≤ the SDL max (the exact
+                        // path needs this; any_marketplace already filtered — re-checked uniformly).
                         ac::bid_passes_ceiling(bid_amount, &bid_denom, &ceiling_denom, ceiling_amount)?;
+                        // Prove the SELECTED provider satisfies the selector.
+                        if selector_mode == "exact" && bid.provider != selector_address {
+                            return Err(format!(
+                                "akash_selector_mismatch — selected '{}' != exact '{selector_address}'",
+                                bid.provider
+                            ));
+                        }
                         // Auto-top-up must be PROVABLY off before the lease opens (checked now the
                         // DSEQ exists). If the deployment cannot be read, or carries an enabled
                         // auto-top-up, the deposit is not provably the hard bound → refuse (→ close).
@@ -5064,10 +5140,11 @@ impl AkashProvider {
                     "schema_version": "ioi.hypervisor.akash-deployment.v1",
                     "record_id": lease_rec_id, "dseq": real_dseq,
                     "account_id": self.account_id(), "environment_ref": env_ref,
-                    "state": "lease_accepted", "provider_address": text(&live, "provider"),
+                    "state": "lease_accepted", "provider_selector": selector,
+                    "selected_provider": text(&live, "provider"),
                     "gseq": live["gseq"], "oseq": live["oseq"],
                     "deposit_usd": live["deposit_usd"], "burn_rate": live["burn_rate"],
-                    "note": "Stage B accepted the wallet-pinned bid within the SDL ceiling; the lease opened.",
+                    "note": "Stage B selected the provider under the wallet-approved selector and within the SDL ceiling; the lease opened.",
                     "execution_mode": "live_console_api", "at": iso_now(),
                 }),
             );
@@ -6631,18 +6708,17 @@ pub(crate) async fn handle_provider_op(
                             Err(e) => return refuse_a("akash_sdl_rejected", e),
                         };
                     let sdl_hash = sha256_bytes(sdl_yaml.as_bytes());
-                    // 3) provider pin REQUIRED — the wallet approves WHERE the money goes; Stage B
-                    //    accepts a bid ONLY from this provider.
-                    let pin = body
-                        .pointer("/plan/provider_address")
-                        .and_then(Value::as_str)
-                        .unwrap_or("");
-                    if pin.is_empty() {
-                        return refuse_a(
-                            "akash_provider_pin_required",
-                            "provide plan.provider_address — the wallet-approved provider Stage B accepts a bid from".into(),
-                        );
-                    }
+                    // 3) provider_selector REQUIRED — the wallet approves the ADMISSIBLE provider
+                    //    SET (an exact address, or any_marketplace with deterministic selection),
+                    //    not necessarily one address. Stage B selects + records the ACTUAL provider
+                    //    from real bids and proves it satisfied the selector. No provider_address.
+                    let selector = match validate_provider_selector(
+                        body.pointer("/plan/provider_selector")
+                            .unwrap_or(&Value::Null),
+                    ) {
+                        Ok(s) => s,
+                        Err(e) => return refuse_a("akash_provider_selector_invalid", e),
+                    };
                     // 4) auto-top-up must not be requested (Stage B re-verifies against the DSEQ).
                     if body.pointer("/plan/auto_topup").and_then(Value::as_bool) == Some(true) {
                         return refuse_a(
@@ -6663,7 +6739,7 @@ pub(crate) async fn handle_provider_op(
                     }
                     vast_gate = json!({
                         "stage": "deployment_intent",
-                        "provider_address": pin,
+                        "provider_selector": selector,
                         "sdl": sdl_yaml,
                         "sdl_hash": sdl_hash,
                         "deposit_usd": deposit,
@@ -6964,6 +7040,7 @@ pub(crate) async fn handle_provider_op(
                             "network_posture",
                             "deployment_class",
                             "provider_address",
+                            "provider_selector",
                             "bid_ref",
                             "persistent_storage",
                             "sdl_hash",
@@ -7871,6 +7948,39 @@ mod containment_tests {
         );
         // Idempotent: a second pass finds nothing new (the record is no longer deployment_created).
         assert!(reconcile_stranded_akash_deployments(data_dir).is_empty());
+    }
+
+    #[test]
+    fn provider_selector_is_a_clean_typed_break_no_provider_address_alias() {
+        // exact: canonicalizes to {mode, address}.
+        let ex = validate_provider_selector(&json!({ "mode": "exact", "address": "akash1abc" }))
+            .expect("exact with an address is valid");
+        assert_eq!(ex, json!({ "mode": "exact", "address": "akash1abc" }));
+        // any_marketplace: requires the deterministic selection.
+        let mkt = validate_provider_selector(
+            &json!({ "mode": "any_marketplace", "selection": "lowest_qualified_bid" }),
+        )
+        .expect("any_marketplace with lowest_qualified_bid is valid");
+        assert_eq!(mkt["mode"], "any_marketplace");
+        // Refusals (the mutation drills):
+        assert!(validate_provider_selector(&Value::Null).is_err()); // missing selector
+        assert!(validate_provider_selector(&json!({ "mode": "wildcard" })).is_err()); // unknown mode
+        assert!(validate_provider_selector(&json!({ "mode": "exact" })).is_err()); // exact, no address
+        assert!(validate_provider_selector(&json!({ "mode": "exact", "address": "" })).is_err()); // empty address
+        assert!(
+            validate_provider_selector(&json!({ "mode": "exact", "address": "a", "x": 1 }))
+                .is_err()
+        ); // unknown field
+        assert!(validate_provider_selector(
+            &json!({ "mode": "any_marketplace", "selection": "cheapest" })
+        )
+        .is_err()); // non-deterministic selection
+        assert!(
+            validate_provider_selector(&json!({ "mode": "any_marketplace", "address": "a" }))
+                .is_err()
+        ); // wrong field for mode
+           // The clean break: a bare provider_address is NOT a selector (no mode) → refused.
+        assert!(validate_provider_selector(&json!({ "provider_address": "akash1abc" })).is_err());
     }
 
     // ---- CARVE-OUT: provider deletion stays callable and reports exactly ----

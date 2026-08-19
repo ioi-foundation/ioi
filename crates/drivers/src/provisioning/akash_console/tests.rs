@@ -403,6 +403,40 @@ fn bid_passes_ceiling_enforces_denom_and_amount_exactly() {
 }
 
 #[test]
+fn select_lowest_qualified_bid_is_deterministic_and_ceiling_bounded() {
+    let ceiling = Decimal::from(1000);
+    let resp = json!({ "data": { "data": [
+        { "bid": { "id": { "gseq": 1, "oseq": 1, "provider": "akash1zzz" }, "price": { "amount": "500",  "denom": "uact" } } },
+        { "bid": { "id": { "gseq": 1, "oseq": 3, "provider": "akash1mmm" }, "price": { "amount": "250",  "denom": "uact" } } },
+        { "bid": { "id": { "gseq": 1, "oseq": 4, "provider": "akash1www" }, "price": { "amount": "2000", "denom": "uact" } } },
+        { "bid": { "id": { "gseq": 1, "oseq": 5, "provider": "akash1ddd" }, "price": { "amount": "100",  "denom": "uakt" } } }
+    ]}});
+    // Lowest qualified price wins; over-ceiling (2000) and wrong-denom (uakt) are excluded.
+    let (bid, amount, denom) = select_lowest_qualified_bid(&resp, "uact", ceiling).unwrap();
+    assert_eq!(bid.provider, "akash1mmm");
+    assert_eq!(amount, Decimal::from(250));
+    assert_eq!(denom, "uact");
+    // Deterministic tie-break: equal price → lowest provider address.
+    let tie = json!({ "data": { "data": [
+        { "bid": { "id": { "gseq": 1, "oseq": 1, "provider": "akash1zzz" }, "price": { "amount": "500", "denom": "uact" } } },
+        { "bid": { "id": { "gseq": 1, "oseq": 2, "provider": "akash1aaa" }, "price": { "amount": "500", "denom": "uact" } } }
+    ]}});
+    assert_eq!(
+        select_lowest_qualified_bid(&tie, "uact", ceiling)
+            .unwrap()
+            .0
+            .provider,
+        "akash1aaa"
+    );
+    // No qualified bid (all over ceiling or wrong denom) → None (caller keeps polling, then closes).
+    let none = json!({ "data": { "data": [
+        { "bid": { "id": { "gseq": 1, "oseq": 1, "provider": "akash1x" }, "price": { "amount": "5000", "denom": "uact" } } },
+        { "bid": { "id": { "gseq": 1, "oseq": 2, "provider": "akash1y" }, "price": { "amount": "100",  "denom": "uakt" } } }
+    ]}});
+    assert!(select_lowest_qualified_bid(&none, "uact", ceiling).is_none());
+}
+
+#[test]
 fn deployment_has_auto_topup_detects_any_enabled_representation() {
     // A compliant one-time-deposit deployment carries no enabled auto-top-up → provably off.
     assert!(!deployment_has_auto_topup(
