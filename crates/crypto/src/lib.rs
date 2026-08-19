@@ -21,6 +21,7 @@ pub mod algorithms;
 pub mod error;
 pub mod kem;
 pub mod key_store;
+pub(crate) mod rng;
 pub mod security;
 pub mod sign;
 pub mod transport;

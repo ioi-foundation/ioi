@@ -99,7 +99,7 @@ impl KeyEncapsulation for EcdhKEM {
     type Encapsulated = EcdhEncapsulated;
 
     fn generate_keypair(&self) -> Result<Self::KeyPair, CryptoError> {
-        let mut rng = rand::thread_rng();
+        let mut rng = crate::rng::os_rng();
 
         match self.curve {
             EcdhCurve::P256 => {
@@ -130,7 +130,7 @@ impl KeyEncapsulation for EcdhKEM {
     }
 
     fn encapsulate(&self, public_key: &Self::PublicKey) -> Result<Self::Encapsulated, CryptoError> {
-        let mut rng = rand::thread_rng();
+        let mut rng = crate::rng::os_rng();
 
         match (self.curve, public_key) {
             (EcdhCurve::P256, EcdhPublicKey::P256(pk)) => {
@@ -171,15 +171,27 @@ impl KeyEncapsulation for EcdhKEM {
         match (self.curve, private_key) {
             (EcdhCurve::P256, EcdhPrivateKey::P256(sk)) => {
                 let ct = EcdhK256Ciphertext::from_bytes(&encapsulated.ciphertext)?;
-                Ok(EcdhK256::decapsulate(sk, &ct)?.to_bytes_zeroizing())
+                Ok(Zeroizing::new(
+                    EcdhK256::decapsulate(sk, &ct)?
+                        .to_bytes_zeroizing()
+                        .to_vec(),
+                ))
             }
             (EcdhCurve::P384, EcdhPrivateKey::P384(sk)) => {
                 let ct = EcdhP384Ciphertext::from_bytes(&encapsulated.ciphertext)?;
-                Ok(EcdhP384::decapsulate(sk, &ct)?.to_bytes_zeroizing())
+                Ok(Zeroizing::new(
+                    EcdhP384::decapsulate(sk, &ct)?
+                        .to_bytes_zeroizing()
+                        .to_vec(),
+                ))
             }
             (EcdhCurve::P521, EcdhPrivateKey::P521(sk)) => {
                 let ct = EcdhP521Ciphertext::from_bytes(&encapsulated.ciphertext)?;
-                Ok(EcdhP521::decapsulate(sk, &ct)?.to_bytes_zeroizing())
+                Ok(Zeroizing::new(
+                    EcdhP521::decapsulate(sk, &ct)?
+                        .to_bytes_zeroizing()
+                        .to_vec(),
+                ))
             }
             _ => Err(CryptoError::DecapsulationFailed),
         }

@@ -103,7 +103,7 @@ tonic = { version = "0.12", features = ["tls", "transport"] }
 
 # --- Cryptography ---
 rand = { version = "0.8" }
-dcrypt = { version = "1.2.2", features = ["full"] }
+dcrypt = { version = "4.0.1", features = ["full"] }
 
 # --- CLI & Logging ---
 clap = { version = "4", features = ["derive"] }

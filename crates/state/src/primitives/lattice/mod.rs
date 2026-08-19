@@ -11,7 +11,7 @@
 //! commitment. Future work could explore zero-knowledge openings if hiding properties are required.
 
 use dcrypt::algorithms::poly::{
-    params::{Kyber256Params, Modulus},
+    params::{MlDsaParams, Modulus},
     polynomial::Polynomial,
     sampling::{CbdSampler, DefaultSamplers, UniformSampler},
 };
@@ -24,14 +24,24 @@ use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
+/// OS-seeded CSPRNG bridge for dcrypt v4 (see crates/crypto/src/rng.rs). v4's
+/// samplers require dcrypt's own `CryptoRng`; seed its ChaCha20 CSPRNG from OS
+/// entropy.
+fn os_rng() -> dcrypt::internal::ChaCha20Rng {
+    use rand::RngCore as _;
+    let mut seed = [0u8; 32];
+    rand::rngs::OsRng.fill_bytes(&mut seed);
+    dcrypt::internal::ChaCha20Rng::from_seed(seed)
+}
+
 /// Public parameters for the lattice commitment scheme.
 /// In a real system, these would be generated from a trusted setup or derived from a seed.
 #[derive(Debug, Clone)]
 pub struct LatticeParams {
     /// A public matrix `A` of polynomials. Dimensions: K x K.
-    pub matrix_a: Vec<Vec<Polynomial<Kyber256Params>>>,
+    pub matrix_a: Vec<Vec<Polynomial<MlDsaParams>>>,
     /// A public vector `G` of polynomials.
-    pub vector_g: Vec<Polynomial<Kyber256Params>>,
+    pub vector_g: Vec<Polynomial<MlDsaParams>>,
     /// The dimension of the module (K from Kyber).
     pub dimension_k: usize,
     /// The eta parameter for sampling the secret vector from a Centered Binomial Distribution.
@@ -42,16 +52,14 @@ impl LatticeParams {
     /// Creates a new, insecure set of parameters for testing purposes.
     /// In production, `A` and `G` MUST be generated from a secure random seed.
     pub fn new_insecure_for_testing(dimension_k: usize, eta: u8) -> Result<Self, CryptoError> {
-        let mut rng = rand::rngs::OsRng;
+        let mut rng = os_rng();
 
         // Generate a random public matrix A
         let matrix_a = (0..dimension_k)
             .map(|_| {
                 (0..dimension_k)
                     .map(|_| {
-                        <DefaultSamplers as UniformSampler<Kyber256Params>>::sample_uniform(
-                            &mut rng,
-                        )
+                        <DefaultSamplers as UniformSampler<MlDsaParams>>::sample_uniform(&mut rng)
                     })
                     .collect::<Result<_, _>>()
             })
@@ -60,7 +68,7 @@ impl LatticeParams {
 
         // Generate a random public vector G
         let vector_g = (0..dimension_k)
-            .map(|_| <DefaultSamplers as UniformSampler<Kyber256Params>>::sample_uniform(&mut rng))
+            .map(|_| <DefaultSamplers as UniformSampler<MlDsaParams>>::sample_uniform(&mut rng))
             .collect::<Result<_, _>>()
             .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
 
@@ -150,11 +158,11 @@ impl AsRef<[u8]> for LatticeProof {
 
 /// Helper function to perform matrix-vector multiplication with polynomials.
 fn mat_vec_mul(
-    matrix: &[Vec<Polynomial<Kyber256Params>>],
-    vector: &[Polynomial<Kyber256Params>],
-) -> Vec<Polynomial<Kyber256Params>> {
+    matrix: &[Vec<Polynomial<MlDsaParams>>],
+    vector: &[Polynomial<MlDsaParams>],
+) -> Vec<Polynomial<MlDsaParams>> {
     let k = matrix.len();
-    let mut result = vec![Polynomial::<Kyber256Params>::zero(); k];
+    let mut result = vec![Polynomial::<MlDsaParams>::zero(); k];
 
     for i in 0..k {
         for (j, vector_j) in vector.iter().enumerate().take(k) {
@@ -171,17 +179,17 @@ fn mat_vec_mul(
 
 /// Helper function to perform scalar-vector multiplication with polynomials.
 fn scalar_vec_mul(
-    scalar: &Polynomial<Kyber256Params>,
-    vector: &[Polynomial<Kyber256Params>],
-) -> Vec<Polynomial<Kyber256Params>> {
+    scalar: &Polynomial<MlDsaParams>,
+    vector: &[Polynomial<MlDsaParams>],
+) -> Vec<Polynomial<MlDsaParams>> {
     vector.iter().map(|p| p.schoolbook_mul(scalar)).collect()
 }
 
 /// Helper to add two vectors of polynomials.
 fn vec_add(
-    vec_a: &[Polynomial<Kyber256Params>],
-    vec_b: &[Polynomial<Kyber256Params>],
-) -> Vec<Polynomial<Kyber256Params>> {
+    vec_a: &[Polynomial<MlDsaParams>],
+    vec_b: &[Polynomial<MlDsaParams>],
+) -> Vec<Polynomial<MlDsaParams>> {
     vec_a
         .iter()
         .zip(vec_b.iter())
@@ -242,17 +250,14 @@ impl CommitmentScheme for LatticeCommitmentScheme {
         }
         let message_hash = sha256(&combined)?;
 
-        let m_coeffs = expand_message_to_ring(&message_hash, Kyber256Params::N, Kyber256Params::Q)?;
-        let m_poly = Polynomial::<Kyber256Params>::from_coeffs(&m_coeffs)
+        let m_coeffs = expand_message_to_ring(&message_hash, MlDsaParams::N, MlDsaParams::Q)?;
+        let m_poly = Polynomial::<MlDsaParams>::from_coeffs(&m_coeffs)
             .map_err(|e| CryptoError::InvalidInput(e.to_string()))?;
 
-        let mut rng = rand::rngs::OsRng;
-        let r_vec: Vec<Polynomial<Kyber256Params>> = (0..self.params.dimension_k)
+        let mut rng = os_rng();
+        let r_vec: Vec<Polynomial<MlDsaParams>> = (0..self.params.dimension_k)
             .map(|_| {
-                <DefaultSamplers as CbdSampler<Kyber256Params>>::sample_cbd(
-                    &mut rng,
-                    self.params.eta,
-                )
+                <DefaultSamplers as CbdSampler<MlDsaParams>>::sample_cbd(&mut rng, self.params.eta)
             })
             .collect::<Result<_, _>>()
             .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
@@ -261,8 +266,10 @@ impl CommitmentScheme for LatticeCommitmentScheme {
         let mg_term = scalar_vec_mul(&m_poly, &self.params.vector_g);
         let commitment_vec = vec_add(&ar_term, &mg_term);
 
-        let commitment_coeffs: Vec<Vec<u32>> =
-            commitment_vec.into_iter().map(|p| p.coeffs).collect();
+        let commitment_coeffs: Vec<Vec<u32>> = commitment_vec
+            .into_iter()
+            .map(|p| p.coeffs.to_vec())
+            .collect();
 
         // Calculate digest for tree compatibility
         let digest_bytes = {
@@ -287,17 +294,14 @@ impl CommitmentScheme for LatticeCommitmentScheme {
         _selector: &Selector,
         value: &Self::Value,
     ) -> Result<Self::Proof, CryptoError> {
-        let mut rng = rand::rngs::OsRng;
-        let r_vec: Vec<Polynomial<Kyber256Params>> = (0..self.params.dimension_k)
+        let mut rng = os_rng();
+        let r_vec: Vec<Polynomial<MlDsaParams>> = (0..self.params.dimension_k)
             .map(|_| {
-                <DefaultSamplers as CbdSampler<Kyber256Params>>::sample_cbd(
-                    &mut rng,
-                    self.params.eta,
-                )
+                <DefaultSamplers as CbdSampler<MlDsaParams>>::sample_cbd(&mut rng, self.params.eta)
             })
             .collect::<Result<_, _>>()
             .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
-        let r_coeffs = r_vec.into_iter().map(|p| p.coeffs).collect();
+        let r_coeffs = r_vec.into_iter().map(|p| p.coeffs.to_vec()).collect();
 
         Ok(LatticeProof {
             message: value.clone(),
@@ -321,30 +325,29 @@ impl CommitmentScheme for LatticeCommitmentScheme {
             Ok(h) => h,
             Err(_) => return false,
         };
-        let m_coeffs =
-            match expand_message_to_ring(&message_hash, Kyber256Params::N, Kyber256Params::Q) {
-                Ok(c) => c,
-                Err(_) => return false,
-            };
-        let m_poly = match Polynomial::<Kyber256Params>::from_coeffs(&m_coeffs) {
+        let m_coeffs = match expand_message_to_ring(&message_hash, MlDsaParams::N, MlDsaParams::Q) {
+            Ok(c) => c,
+            Err(_) => return false,
+        };
+        let m_poly = match Polynomial::<MlDsaParams>::from_coeffs(&m_coeffs) {
             Ok(p) => p,
             Err(_) => return false,
         };
 
-        let r_vec: Vec<Polynomial<Kyber256Params>> = match proof
+        let r_vec: Vec<Polynomial<MlDsaParams>> = match proof
             .secret_vector_r
             .iter()
-            .map(|coeffs| Polynomial::<Kyber256Params>::from_coeffs(coeffs))
+            .map(|coeffs| Polynomial::<MlDsaParams>::from_coeffs(coeffs))
             .collect()
         {
             Ok(v) => v,
             Err(_) => return false,
         };
 
-        let commitment_vec: Vec<Polynomial<Kyber256Params>> = match commitment
+        let commitment_vec: Vec<Polynomial<MlDsaParams>> = match commitment
             .coeffs()
             .iter()
-            .map(|coeffs| Polynomial::<Kyber256Params>::from_coeffs(coeffs))
+            .map(|coeffs| Polynomial::<MlDsaParams>::from_coeffs(coeffs))
             .collect()
         {
             Ok(v) => v,

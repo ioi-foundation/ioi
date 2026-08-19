@@ -3048,9 +3048,9 @@ dependencies = [
 
 [[package]]
 name = "dcrypt"
-version = "1.2.2"
+version = "4.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "00d2be51097a9009342e706cb8da978f04dba6c822b726e8d3996c012d8600f4"
+checksum = "2392c8d2a3d1a1fa22902e09a49bc164d8e9bbc18e0e52f6b22879f43764253e"
 dependencies = [
  "dcrypt-algorithms",
  "dcrypt-api",
@@ -3062,69 +3062,46 @@ dependencies = [
  "dcrypt-pke",
  "dcrypt-sign",
  "dcrypt-symmetric",
- "rand 0.8.5",
- "serde",
- "subtle",
- "thiserror 1.0.69",
- "zeroize",
 ]
 
 [[package]]
 name = "dcrypt-algorithms"
-version = "1.2.2"
+version = "4.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "42d888bd72a72c4b68336170806e12ac0e3bf42fd8ca8f024c9b63b2152085f2"
+checksum = "9cd706907c27aa8d59dbdc7d58556bbc676ef5046ac7381cbb66c8994cf59eea"
 dependencies = [
  "base64 0.22.1",
- "byteorder",
  "dcrypt-api",
  "dcrypt-common",
  "dcrypt-internal",
  "dcrypt-params",
- "getrandom 0.2.17",
  "hex",
- "portable-atomic",
- "rand 0.8.5",
- "rand_chacha 0.3.1",
- "rand_core 0.6.4",
- "serde",
- "serde_json",
- "subtle",
- "zeroize",
 ]
 
 [[package]]
 name = "dcrypt-api"
-version = "1.2.2"
+version = "4.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a44ff5fe7edfd375da57e0a51df8ae65cd565d5935bf6bf0e2e8bd1aacd13d4"
+checksum = "7a291d77f67a3ae4bd219af1eadd090ae0cfbe3121cd23d2ec8d049ca1d09152"
 dependencies = [
  "dcrypt-internal",
- "rand 0.8.5",
- "subtle",
- "thiserror 1.0.69",
- "zeroize",
 ]
 
 [[package]]
 name = "dcrypt-common"
-version = "1.2.2"
+version = "4.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f66b8e6d058d4bb7956926af7b3654c985d618f2457fbaae635b3e502fc10198"
+checksum = "9fac884a88d7970a181e3733fad4cae0f4620ae28c6983430ab1e3bd00b699cc"
 dependencies = [
  "dcrypt-api",
  "dcrypt-internal",
- "rand 0.8.5",
- "subtle",
- "thiserror 1.0.69",
- "zeroize",
 ]
 
 [[package]]
 name = "dcrypt-hybrid"
-version = "1.2.2"
+version = "4.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6301f323de1c679276678d26e604135a1b91cb2da168b4dd2ff6598cc2239943"
+checksum = "a514de585eb5763d9bd567e5373bc8deb7121194db0786a2dfcf637e1c9200d0"
 dependencies = [
  "dcrypt-algorithms",
  "dcrypt-api",
@@ -3133,96 +3110,69 @@ dependencies = [
  "dcrypt-kem",
  "dcrypt-params",
  "dcrypt-sign",
- "rand 0.8.5",
- "zeroize",
 ]
 
 [[package]]
 name = "dcrypt-internal"
-version = "1.2.2"
+version = "4.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a5f88c66ee04f4730868bb4ce1744cf082a46726a74671a7b98f18b765cac9b"
-dependencies = [
- "subtle",
- "thiserror 1.0.69",
- "zeroize",
-]
+checksum = "234125ccc638160e362f7146b32705ab806da8133668e7dca9c3a094469e3c0e"
 
 [[package]]
 name = "dcrypt-kem"
-version = "1.2.2"
+version = "4.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ced88d7906c51e863feff78a92e11777b98d75f735afee94132f296380698325"
+checksum = "682ce4cef9357a6475cfcadb4e37c6a8975abf85367c9fea36d86d3a92198d94"
 dependencies = [
  "dcrypt-algorithms",
  "dcrypt-api",
  "dcrypt-common",
  "dcrypt-internal",
- "dcrypt-params",
- "rand 0.8.5",
- "subtle",
- "zeroize",
 ]
 
 [[package]]
 name = "dcrypt-params"
-version = "1.2.2"
+version = "4.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b54fbdfe834e0fed4e3f67a12badc3b726971c7dd6c24b48f1592f8bcd20e95"
+checksum = "68f6199c5db58c65ca9a26d3978d0dd53d1bd4ea24e23b87c1658b7ff0b67039"
 
 [[package]]
 name = "dcrypt-pke"
-version = "1.2.2"
+version = "4.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1def0e81b951a44dde43d03c4aad101864faea02e36f63826f0b136f8214f2bd"
+checksum = "5571f7f14f1929683b2f729f8c4cb8ab355e8a09a168fe18506bfefd45afc467"
 dependencies = [
  "dcrypt-algorithms",
  "dcrypt-api",
  "dcrypt-common",
  "dcrypt-internal",
  "dcrypt-params",
- "rand 0.8.5",
- "subtle",
- "thiserror 1.0.69",
- "zeroize",
 ]
 
 [[package]]
 name = "dcrypt-sign"
-version = "1.2.2"
+version = "4.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fb0f3feaa0348fdec62b85cb29a60eb2b9a32865597aa32694b63226ab5f9bce"
+checksum = "c1ffecc0c2498fbd21368dafd1a0b0091273e9381a2442aefa6e05a8bc423226"
 dependencies = [
  "dcrypt-algorithms",
  "dcrypt-api",
  "dcrypt-common",
  "dcrypt-internal",
  "dcrypt-params",
- "rand 0.8.5",
- "subtle",
- "zeroize",
 ]
 
 [[package]]
 name = "dcrypt-symmetric"
-version = "1.2.2"
+version = "4.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4b19920390a2f80905bd50563b5327f0ba2336d02cc160c991c2558c506e603c"
+checksum = "2ac343de6baa1d9e0b68df381dbcf9aeb88461c6d7bf02e5f507e7a94a2e3b50"
 dependencies = [
- "base64 0.13.1",
- "byteorder",
+ "base64 0.22.1",
  "dcrypt-algorithms",
  "dcrypt-api",
- "dcrypt-common",
  "dcrypt-internal",
  "dcrypt-params",
- "hkdf 0.12.4",
- "hmac 0.12.1",
- "pbkdf2 0.11.0",
- "rand 0.8.5",
- "sha2 0.10.9",
- "subtle",
- "zeroize",
 ]
 
 [[package]]
@@ -9640,17 +9590,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "password-hash"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7676374caaee8a325c9e7a2ae557f216c5563a171d6997b0ef8a65af35147700"
-dependencies = [
- "base64ct",
- "rand_core 0.6.4",
- "subtle",
-]
-
-[[package]]
 name = "pasta_curves"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9699,9 +9638,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "83a0692ec44e4cf1ef28ca317f14f8f07da2d95ec3fa01f86e4467b725e60917"
 dependencies = [
  "digest 0.10.7",
- "hmac 0.12.1",
- "password-hash",
- "sha2 0.10.9",
 ]
 
 [[package]]
