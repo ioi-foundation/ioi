@@ -10,8 +10,7 @@ use zeroize::Zeroizing;
 
 // --- FIX: NO LONGER IMPORT FROM `engine` ---
 // We only import the concrete, public KEMs and their associated types.
-use dcrypt::hybrid::kem::{EcdhP256Kyber512, EcdhP256Kyber768, EcdhP384Kyber1024};
-use rand::thread_rng;
+use dcrypt::hybrid::kem::{EcdhP256MlKem512, EcdhP256MlKem768, EcdhP384MlKem1024};
 
 /* -------------------------------------------------------------------------------------------------
  * SECURITY REVIEW (2025-10-02): Hybrid KEM Combiner Verification: PASSED
@@ -102,19 +101,19 @@ impl KeyEncapsulation for HybridKEM {
     type Encapsulated = HybridEncapsulated;
 
     fn generate_keypair(&self) -> Result<Self::KeyPair, CryptoError> {
-        let mut rng = thread_rng();
+        let mut rng = crate::rng::os_rng();
 
         let (pk_bytes, sk_bytes) = match self.level {
             SecurityLevel::Level1 => {
-                let (pk, sk) = EcdhP256Kyber512::keypair(&mut rng)?;
+                let (pk, sk) = EcdhP256MlKem512::keypair(&mut rng)?;
                 (pk.to_bytes(), sk.to_bytes_zeroizing().to_vec())
             }
             SecurityLevel::Level3 => {
-                let (pk, sk) = EcdhP256Kyber768::keypair(&mut rng)?;
+                let (pk, sk) = EcdhP256MlKem768::keypair(&mut rng)?;
                 (pk.to_bytes(), sk.to_bytes_zeroizing().to_vec())
             }
             SecurityLevel::Level5 => {
-                let (pk, sk) = EcdhP384Kyber1024::keypair(&mut rng)?;
+                let (pk, sk) = EcdhP384MlKem1024::keypair(&mut rng)?;
                 (pk.to_bytes(), sk.to_bytes_zeroizing().to_vec())
             }
             _ => unreachable!(),
@@ -134,22 +133,22 @@ impl KeyEncapsulation for HybridKEM {
     }
 
     fn encapsulate(&self, public_key: &Self::PublicKey) -> Result<Self::Encapsulated, CryptoError> {
-        let mut rng = thread_rng();
+        let mut rng = crate::rng::os_rng();
 
         let (ct_bytes, ss_bytes) = match public_key.level {
             SecurityLevel::Level1 => {
-                let pk = <EcdhP256Kyber512 as Kem>::PublicKey::from_bytes(&public_key.bytes)?;
-                let (ct, ss) = EcdhP256Kyber512::encapsulate(&mut rng, &pk)?;
+                let pk = <EcdhP256MlKem512 as Kem>::PublicKey::from_bytes(&public_key.bytes)?;
+                let (ct, ss) = EcdhP256MlKem512::encapsulate(&mut rng, &pk)?;
                 (ct.to_bytes(), ss.to_bytes_zeroizing().to_vec())
             }
             SecurityLevel::Level3 => {
-                let pk = <EcdhP256Kyber768 as Kem>::PublicKey::from_bytes(&public_key.bytes)?;
-                let (ct, ss) = EcdhP256Kyber768::encapsulate(&mut rng, &pk)?;
+                let pk = <EcdhP256MlKem768 as Kem>::PublicKey::from_bytes(&public_key.bytes)?;
+                let (ct, ss) = EcdhP256MlKem768::encapsulate(&mut rng, &pk)?;
                 (ct.to_bytes(), ss.to_bytes_zeroizing().to_vec())
             }
             SecurityLevel::Level5 => {
-                let pk = <EcdhP384Kyber1024 as Kem>::PublicKey::from_bytes(&public_key.bytes)?;
-                let (ct, ss) = EcdhP384Kyber1024::encapsulate(&mut rng, &pk)?;
+                let pk = <EcdhP384MlKem1024 as Kem>::PublicKey::from_bytes(&public_key.bytes)?;
+                let (ct, ss) = EcdhP384MlKem1024::encapsulate(&mut rng, &pk)?;
                 (ct.to_bytes(), ss.to_bytes_zeroizing().to_vec())
             }
             _ => unreachable!(),
@@ -170,28 +169,30 @@ impl KeyEncapsulation for HybridKEM {
         let ss_bytes = match private_key._level {
             SecurityLevel::Level1 => {
                 // FIX: Use the now-functional from_bytes methods from dcrypt's public API
-                let sk = <EcdhP256Kyber512 as Kem>::SecretKey::from_bytes(&private_key.bytes)?;
+                let sk = <EcdhP256MlKem512 as Kem>::SecretKey::from_bytes(&private_key.bytes)?;
                 let ct =
-                    <EcdhP256Kyber512 as Kem>::Ciphertext::from_bytes(&encapsulated.ciphertext)?;
-                EcdhP256Kyber512::decapsulate(&sk, &ct)?.to_bytes_zeroizing()
+                    <EcdhP256MlKem512 as Kem>::Ciphertext::from_bytes(&encapsulated.ciphertext)?;
+                EcdhP256MlKem512::decapsulate(&sk, &ct)?.to_bytes_zeroizing()
             }
             SecurityLevel::Level3 => {
                 // FIX: Use the now-functional from_bytes methods from dcrypt's public API
-                let sk = <EcdhP256Kyber768 as Kem>::SecretKey::from_bytes(&private_key.bytes)?;
+                let sk = <EcdhP256MlKem768 as Kem>::SecretKey::from_bytes(&private_key.bytes)?;
                 let ct =
-                    <EcdhP256Kyber768 as Kem>::Ciphertext::from_bytes(&encapsulated.ciphertext)?;
-                EcdhP256Kyber768::decapsulate(&sk, &ct)?.to_bytes_zeroizing()
+                    <EcdhP256MlKem768 as Kem>::Ciphertext::from_bytes(&encapsulated.ciphertext)?;
+                EcdhP256MlKem768::decapsulate(&sk, &ct)?.to_bytes_zeroizing()
             }
             SecurityLevel::Level5 => {
                 // FIX: Use the now-functional from_bytes methods from dcrypt's public API
-                let sk = <EcdhP384Kyber1024 as Kem>::SecretKey::from_bytes(&private_key.bytes)?;
+                let sk = <EcdhP384MlKem1024 as Kem>::SecretKey::from_bytes(&private_key.bytes)?;
                 let ct =
-                    <EcdhP384Kyber1024 as Kem>::Ciphertext::from_bytes(&encapsulated.ciphertext)?;
-                EcdhP384Kyber1024::decapsulate(&sk, &ct)?.to_bytes_zeroizing()
+                    <EcdhP384MlKem1024 as Kem>::Ciphertext::from_bytes(&encapsulated.ciphertext)?;
+                EcdhP384MlKem1024::decapsulate(&sk, &ct)?.to_bytes_zeroizing()
             }
             _ => return Err(CryptoError::DecapsulationFailed),
         };
-        Ok(ss_bytes)
+        // dcrypt v4 shared-secret bytes come back as its own zeroizing box type;
+        // hand back the crate's `Zeroizing<Vec<u8>>` contract.
+        Ok(Zeroizing::new(ss_bytes.to_vec()))
     }
 }
 

@@ -326,7 +326,7 @@ impl KZGCommitmentScheme {
             .ok_or_else(|| {
                 CryptoError::InvalidInput("SRS size insufficient for polynomial degree".into())
             })?;
-        let commitment_point = G1Projective::msm(points_slice, &p_poly.coeffs)
+        let commitment_point = G1Projective::msm_vartime(points_slice, &p_poly.coeffs)
             .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
 
         let commitment = KZGCommitment(G1Affine::from(commitment_point).to_compressed().to_vec());
@@ -386,7 +386,7 @@ impl KZGCommitmentScheme {
                     "SRS size insufficient for quotient polynomial degree".into(),
                 )
             })?;
-        let proof_w = G1Projective::msm(points_slice, &q_poly.coeffs)
+        let proof_w = G1Projective::msm_vartime(points_slice, &q_poly.coeffs)
             .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
         Ok(KZGProof(G1Affine::from(proof_w).to_compressed().to_vec()))
     }

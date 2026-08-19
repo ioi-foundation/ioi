@@ -128,10 +128,15 @@ pub fn evidence_id(report: &FailureReport) -> Result<[u8; 32], CoreError> {
 
     // Hash the canonical bytes to produce the unique, replay-protected ID.
     // Use the one-shot generate function from dcrypt's Blake3Xof.
-    let hash_vec =
+    let hash =
         Blake3Xof::generate(&canonical_bytes, 32).map_err(|e| CoreError::Crypto(e.to_string()))?;
 
-    hash_vec.try_into().map_err(|v: Vec<u8>| {
-        CoreError::Crypto(format!("Invalid hash length: expected 32, got {}", v.len()))
+    // dcrypt v4 hardens XOF output into a zeroizing byte type; copy the 32
+    // bytes out through its slice view.
+    <[u8; 32]>::try_from(&hash[..]).map_err(|_| {
+        CoreError::Crypto(format!(
+            "Invalid hash length: expected 32, got {}",
+            hash.len()
+        ))
     })
 }

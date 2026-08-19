@@ -4,7 +4,6 @@
 use crate::error::CryptoError;
 use dcrypt::api::Signature as SignatureTrait;
 use ioi_api::crypto::{SerializableKey, Signature, SigningKey, SigningKeyPair, VerifyingKey};
-use rand::rngs::OsRng;
 
 // Import dcrypt Ed25519 module with module qualification
 use dcrypt::sign::eddsa;
@@ -30,7 +29,7 @@ pub struct Ed25519PrivateKey(eddsa::Ed25519SecretKey);
 impl Ed25519KeyPair {
     /// Generate a new Ed25519 key pair
     pub fn generate() -> Result<Self, CryptoError> {
-        let mut rng = OsRng;
+        let mut rng = crate::rng::os_rng();
 
         // Generate key pair using dcrypt
         let (public_key, secret_key) =

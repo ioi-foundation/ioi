@@ -48,12 +48,12 @@ fn test_key_serialization() {
 
     // Test public key serialization
     let pk_bytes = keypair.public_key().to_bytes();
-    let pk_restored = DilithiumPublicKey::from_bytes(&pk_bytes).unwrap();
+    let pk_restored = MldsaPublicKey::from_bytes(&pk_bytes).unwrap();
     assert_eq!(pk_bytes, pk_restored.to_bytes());
 
     // Test private key serialization
     let sk_bytes = keypair.private_key().to_bytes();
-    let sk_restored = DilithiumPrivateKey::from_bytes(&sk_bytes).unwrap();
+    let sk_restored = MldsaPrivateKey::from_bytes(&sk_bytes).unwrap();
     assert_eq!(sk_bytes, sk_restored.to_bytes());
 
     // Test signature with restored keys
@@ -82,7 +82,7 @@ fn test_signature_serialization() {
 fn test_wrong_key_size_detection() {
     // Test with invalid key sizes
     let invalid_pk = vec![0u8; 1000]; // Invalid size
-    let pk_result = DilithiumPublicKey::from_bytes(&invalid_pk);
+    let pk_result = MldsaPublicKey::from_bytes(&invalid_pk);
     assert!(pk_result.is_err());
 }
 

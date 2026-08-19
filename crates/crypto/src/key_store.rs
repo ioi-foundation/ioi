@@ -71,13 +71,13 @@ pub fn encrypt_key(secret: &[u8], passphrase: &str) -> Result<Vec<u8>, CryptoErr
     // For now, we rely on the implementation defaults matching our header claims, or the header
     // serving as the source of truth for future agility.
 
-    let kek: [u8; KEK_LEN] = kdf
+    let kek = kdf
         .builder()
         .with_ikm(passphrase.as_bytes())
         .with_salt(&salt)
         .with_info(b"ioi-guardian-key-wrapping")
         .with_output_length(KEK_LEN)
-        .derive_array()
+        .derive_array::<KEK_LEN>()
         .map_err(|e| CryptoError::OperationFailed(format!("Argon2 derivation failed: {}", e)))?;
 
     // 4. Encrypt
@@ -169,13 +169,13 @@ pub fn decrypt_key(data: &[u8], passphrase: &str) -> Result<SensitiveBytes, Cryp
 
     // In a full implementation, we would apply _mem_kib, _iters, _lanes here.
 
-    let kek: [u8; KEK_LEN] = kdf
+    let kek = kdf
         .builder()
         .with_ikm(passphrase.as_bytes())
         .with_salt(salt)
         .with_info(b"ioi-guardian-key-wrapping")
         .with_output_length(KEK_LEN)
-        .derive_array()
+        .derive_array::<KEK_LEN>()
         .map_err(|e| CryptoError::OperationFailed(format!("Argon2 derivation failed: {}", e)))?;
 
     // 4. Decrypt
@@ -222,15 +222,15 @@ const PW_HASH_INFO: &[u8] = b"ioi-hypervisor-password-v1";
 
 fn derive_password_hash(password: &str, salt: &[u8]) -> Result<[u8; PW_HASH_LEN], CryptoError> {
     let kdf = Argon2::<SALT_LEN>::new();
-    let out: [u8; PW_HASH_LEN] = kdf
+    let out = kdf
         .builder()
         .with_ikm(password.as_bytes())
         .with_salt(salt)
         .with_info(PW_HASH_INFO)
         .with_output_length(PW_HASH_LEN)
-        .derive_array()
+        .derive_array::<PW_HASH_LEN>()
         .map_err(|e| CryptoError::OperationFailed(format!("Argon2 password hash failed: {}", e)))?;
-    Ok(out)
+    Ok(*out)
 }
 
 /// Hash a password with Argon2id. Returns `salt(16) || hash(32)` (48 bytes) — persist these bytes.
