@@ -1,0 +1,192 @@
+{
+  "schema": "ioi.hypervisor.reference-family-atlas.v1",
+  "doctrine": "recorded reference interaction states per seed — landing + tab lanes + in-app sub-routes, each with its expressed-IA census (§3.2 evidence). A lane with no recorded state is not shippable.",
+  "origin": "http://localhost:9225",
+  "seeds": {
+    "monitors": {
+      "slug": "monitors",
+      "owner": "Automations",
+      "reference_base": "http://localhost:9225/workspace/object-monitoring/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/object-monitoring/"
+          },
+          "url": "http://localhost:9225/workspace/object-monitoring/",
+          "ia": {
+            "title": "Automate",
+            "headings": [
+              "Create and manage automations",
+              "Getting started",
+              "Active automations",
+              "Recently viewed",
+              "Recently triggered"
+            ],
+            "tabs": [
+              "Overview",
+              "Automations"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "FILES",
+              "CREATOR",
+              "LAST EDITED BY",
+              "LAST VIEWED"
+            ],
+            "rows": 0,
+            "cards": 17,
+            "empty_copy": "Get started by creating a new automation or adding yourself to existing automations.",
+            "text_len": 6016
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/monitors/landing.png"
+        },
+        {
+          "key": "tab:Overview",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/object-monitoring/",
+            "clickTab": "Overview"
+          },
+          "url": "http://localhost:9225/workspace/object-monitoring/",
+          "ia": {
+            "title": "Automate",
+            "headings": [
+              "Create and manage automations",
+              "Getting started",
+              "Active automations",
+              "Recently viewed",
+              "Recently triggered"
+            ],
+            "tabs": [
+              "Overview",
+              "Automations"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "FILES",
+              "CREATOR",
+              "LAST EDITED BY",
+              "LAST VIEWED"
+            ],
+            "rows": 0,
+            "cards": 17,
+            "empty_copy": "Get started by creating a new automation or adding yourself to existing automations.",
+            "text_len": 6016
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/monitors/tab_Overview.png"
+        },
+        {
+          "key": "tab:Automations",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/object-monitoring/",
+            "clickTab": "Automations"
+          },
+          "url": "http://localhost:9225/workspace/object-monitoring/",
+          "ia": {
+            "title": "Automate",
+            "headings": [
+              "Create and manage automations",
+              "Getting started",
+              "Active automations",
+              "Recently viewed",
+              "Recently triggered"
+            ],
+            "tabs": [
+              "Overview",
+              "Automations"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "FILES",
+              "CREATOR",
+              "LAST EDITED BY",
+              "LAST VIEWED"
+            ],
+            "rows": 0,
+            "cards": 17,
+            "empty_copy": "Get started by creating a new automation or adding yourself to existing automations.",
+            "text_len": 6016
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/monitors/tab_Automations.png"
+        },
+        {
+          "key": "tab_lane:/workspace/object-monitoring/automations",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/object-monitoring/automations"
+          },
+          "url": "http://localhost:9225/workspace/object-monitoring/automations",
+          "ia": {
+            "title": "Automate",
+            "headings": [
+              "Filters"
+            ],
+            "tabs": [
+              "Overview",
+              "Automations"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "STATUS",
+              "CONDITION",
+              "EFFECTS",
+              "RECEIVING NOTIFICATIONS",
+              "OWNER",
+              "CREATOR",
+              "EXPIRATION DATE"
+            ],
+            "rows": 0,
+            "cards": 1,
+            "empty_copy": "No automations",
+            "text_len": 476
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/monitors/tab_lane_workspace_object-monitoring_automations.png"
+        }
+      ],
+      "errors": []
+    },
+    "scheduler": {
+      "slug": "scheduler",
+      "owner": "Automations",
+      "reference_base": "http://localhost:9225/workspace/scheduler/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/scheduler/"
+          },
+          "url": "http://localhost:9225/workspace/scheduler/find?v=1&uid=fe77707c-1590-4b15-9dca-9f92e943d79d&s=LAST_UPDATED_DATE&dir=DESCENDING",
+          "ia": {
+            "title": "Find schedules",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 0,
+            "empty_copy": "No schedules found",
+            "text_len": 415
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/scheduler/landing.png"
+        }
+      ],
+      "errors": []
+    }
+  },
+  "recorded_at": "2026-08-19T22:59:49.798Z"
+}

@@ -5,89 +5,353 @@
   "branch": "hv/reference-ux-remediation",
   "base": "origin/master@539a99bb5e0d",
   "started": "2026-08-19",
-  "status_vocabulary": ["queued", "in_progress", "done", "blocked", "held_for_owner"],
+  "status_vocabulary": [
+    "queued",
+    "in_progress",
+    "done",
+    "blocked",
+    "held_for_owner"
+  ],
   "hold_gates": {
-    "GRE-1": "greenfield chrome ruling — owner decision, W6",
-    "GRE-2": "every canonical-route transfer (AUT-3, STU-3, all W5 transfers) — owner go per transfer",
-    "E7-retirement": "cutover retirement of any legacy lane — owner go",
-    "landing-divergence": "any landing-tab divergence from reference behavior — record divergence, default reference"
+    "GRE-1": "greenfield chrome ruling \u2014 owner decision, W6",
+    "GRE-2": "every canonical-route transfer (AUT-3, STU-3, all W5 transfers) \u2014 owner go per transfer",
+    "E7-retirement": "cutover retirement of any legacy lane \u2014 owner go",
+    "landing-divergence": "any landing-tab divergence from reference behavior \u2014 record divergence, default reference"
   },
   "owner_gos_recorded": [],
   "waves": {
     "W0": [
-      {"id": "I-1", "title": "sub-route census recorder", "status": "done", "commit": "bootstrap", "note": "pre-existing: scripts/record-reference-subroute-census.mjs + reference-subroute-census.v1.json"},
-      {"id": "I-2", "title": "gap adjudication record", "status": "done", "commit": "bootstrap", "note": "pre-existing: reference-gap-adjudication.v1.json (sources proof pass: 1 portable, 3 absent_confirmed)"},
-      {"id": "I-3", "title": "family atlas recorder (generalize pipeline-reference-atlas)", "status": "queued"},
-      {"id": "I-5", "title": "unified gap contract (aria-disabled + title + data-ioi-disabled-reason, one verifier)", "status": "queued"},
-      {"id": "I-6", "title": "matrix vocabulary upgrade (adjudication_ref, donor_capture, landing_designation, terminal states)", "status": "queued"}
+      {
+        "id": "I-1",
+        "title": "sub-route census recorder",
+        "status": "done",
+        "commit": "bootstrap",
+        "note": "pre-existing: scripts/record-reference-subroute-census.mjs + reference-subroute-census.v1.json"
+      },
+      {
+        "id": "I-2",
+        "title": "gap adjudication record",
+        "status": "done",
+        "commit": "bootstrap",
+        "note": "pre-existing: reference-gap-adjudication.v1.json (sources proof pass: 1 portable, 3 absent_confirmed)"
+      },
+      {
+        "id": "I-3",
+        "title": "family atlas recorder (generalize pipeline-reference-atlas)",
+        "status": "done",
+        "commit": "b944fe37b",
+        "evidence": "recorder built + proof run on Automations family: 5 states recorded; monitors tab_lane:/automations expresses_ia=true (8 facet groups), scheduler landing expresses_ia=false \u2014 the \u00a73.2 instrument works"
+      },
+      {
+        "id": "I-5",
+        "title": "unified gap contract (aria-disabled + title + data-ioi-disabled-reason, one verifier)",
+        "status": "queued"
+      },
+      {
+        "id": "I-6",
+        "title": "matrix vocabulary upgrade (adjudication_ref, donor_capture, landing_designation, terminal states)",
+        "status": "queued"
+      }
     ],
     "W1": [
-      {"id": "AUT-4", "title": "scheduler seed adjudication", "status": "queued"},
-      {"id": "STU-4", "title": "designer create/onboarding + machinery process adjudications", "status": "queued"},
-      {"id": "DAT-2", "title": "sources/new authoring IA adjudication", "status": "queued"},
-      {"id": "DAT-3", "title": "ingest (HyperAuto) create-wizard adjudication (D6 authoring_flow candidate)", "status": "queued"},
-      {"id": "DAT-4", "title": "dataset donor search", "status": "queued"},
-      {"id": "ONT-1", "title": "explorer New-exploration adjudication", "status": "queued"},
-      {"id": "ONT-2.recon", "title": "hubble atlas-drive for object-detail donor (D6 detail_view)", "status": "queued"},
-      {"id": "EVA-1", "title": "evalsuites create-new adjudication", "status": "queued"},
-      {"id": "EVA-2.recon", "title": "analysis (Insight) Workbooks/Object-sets atlas-drive", "status": "queued"},
-      {"id": "EVA-3", "title": "quiver adjudication", "status": "queued"},
-      {"id": "FOU-2", "title": "modelstudio/inference donor search", "status": "queued"},
-      {"id": "MAR-1", "title": "registry (Artifacts) adjudication", "status": "queued"},
-      {"id": "MAR-2", "title": "store-instance routes terminal record", "status": "queued"},
-      {"id": "MIS-1.recon", "title": "jobs (Builds) atlas-drive past splash", "status": "queued"},
-      {"id": "MIS-2", "title": "incidents settings subroute adjudication", "status": "queued"},
-      {"id": "GOV-1", "title": "governance family atlas (verify-only)", "status": "queued"},
-      {"id": "IMP-1", "title": "changes exemplar atlas record (verify-only)", "status": "queued"},
-      {"id": "DEV-3", "title": "developer donor record (devconsole)", "status": "queued"},
-      {"id": "DOM-2", "title": "slate splash boot evidence + fusion donor search", "status": "queued"},
-      {"id": "ENV-1", "title": "map adjudication", "status": "queued"},
-      {"id": "PRO-1.recon", "title": "lineage (Monocle) 6-tab atlas-drive", "status": "queued"},
-      {"id": "PRO-2.recon", "title": "vertex graph/create adjudication", "status": "queued"}
+      {
+        "id": "AUT-4",
+        "title": "scheduler seed adjudication",
+        "status": "queued"
+      },
+      {
+        "id": "STU-4",
+        "title": "designer create/onboarding + machinery process adjudications",
+        "status": "queued"
+      },
+      {
+        "id": "DAT-2",
+        "title": "sources/new authoring IA adjudication",
+        "status": "queued"
+      },
+      {
+        "id": "DAT-3",
+        "title": "ingest (HyperAuto) create-wizard adjudication (D6 authoring_flow candidate)",
+        "status": "queued"
+      },
+      {
+        "id": "DAT-4",
+        "title": "dataset donor search",
+        "status": "queued"
+      },
+      {
+        "id": "ONT-1",
+        "title": "explorer New-exploration adjudication",
+        "status": "queued"
+      },
+      {
+        "id": "ONT-2.recon",
+        "title": "hubble atlas-drive for object-detail donor (D6 detail_view)",
+        "status": "queued"
+      },
+      {
+        "id": "EVA-1",
+        "title": "evalsuites create-new adjudication",
+        "status": "queued"
+      },
+      {
+        "id": "EVA-2.recon",
+        "title": "analysis (Insight) Workbooks/Object-sets atlas-drive",
+        "status": "queued"
+      },
+      {
+        "id": "EVA-3",
+        "title": "quiver adjudication",
+        "status": "queued"
+      },
+      {
+        "id": "FOU-2",
+        "title": "modelstudio/inference donor search",
+        "status": "queued"
+      },
+      {
+        "id": "MAR-1",
+        "title": "registry (Artifacts) adjudication",
+        "status": "queued"
+      },
+      {
+        "id": "MAR-2",
+        "title": "store-instance routes terminal record",
+        "status": "queued"
+      },
+      {
+        "id": "MIS-1.recon",
+        "title": "jobs (Builds) atlas-drive past splash",
+        "status": "queued"
+      },
+      {
+        "id": "MIS-2",
+        "title": "incidents settings subroute adjudication",
+        "status": "queued"
+      },
+      {
+        "id": "GOV-1",
+        "title": "governance family atlas (verify-only)",
+        "status": "queued"
+      },
+      {
+        "id": "IMP-1",
+        "title": "changes exemplar atlas record (verify-only)",
+        "status": "queued"
+      },
+      {
+        "id": "DEV-3",
+        "title": "developer donor record (devconsole)",
+        "status": "queued"
+      },
+      {
+        "id": "DOM-2",
+        "title": "slate splash boot evidence + fusion donor search",
+        "status": "queued"
+      },
+      {
+        "id": "ENV-1",
+        "title": "map adjudication",
+        "status": "queued"
+      },
+      {
+        "id": "PRO-1.recon",
+        "title": "lineage (Monocle) 6-tab atlas-drive",
+        "status": "queued"
+      },
+      {
+        "id": "PRO-2.recon",
+        "title": "vertex graph/create adjudication",
+        "status": "queued"
+      }
     ],
-    "W1_exit_gate": {"rule": "zero undesignated click targets — every §4.1 LATER row flips to designation or terminal absence (E8)", "status": "pending"},
+    "W1_exit_gate": {
+      "rule": "zero undesignated click targets \u2014 every \u00a74.1 LATER row flips to designation or terminal absence (E8)",
+      "status": "pending"
+    },
     "W2": [
-      {"id": "AUT-1", "title": "Automations tab (live faceted list) inside certified Automate shell", "status": "queued"},
-      {"id": "AUT-2", "title": "rehome cockpit verbs under Automate grammar", "status": "queued"},
-      {"id": "AUT-3", "title": "canonical /automations transfer", "status": "queued", "gate": "GRE-2"},
-      {"id": "DAT-1", "title": "Syncs lane (read-only over materializing-runs) per recorded adjudication", "status": "queued"}
+      {
+        "id": "AUT-1",
+        "title": "Automations tab (live faceted list) inside certified Automate shell",
+        "status": "queued"
+      },
+      {
+        "id": "AUT-2",
+        "title": "rehome cockpit verbs under Automate grammar",
+        "status": "queued"
+      },
+      {
+        "id": "AUT-3",
+        "title": "canonical /automations transfer",
+        "status": "queued",
+        "gate": "GRE-2"
+      },
+      {
+        "id": "DAT-1",
+        "title": "Syncs lane (read-only over materializing-runs) per recorded adjudication",
+        "status": "queued"
+      }
     ],
     "W3": [
-      {"id": "I-4", "title": "splash-landing shared grammar template", "status": "queued"},
-      {"id": "STU-1", "title": "module origin-align + I-4 port (Workshop Home)", "status": "queued"},
-      {"id": "STU-2", "title": "workshop D6 combined-seed record (donor: module)", "status": "queued"},
-      {"id": "DEV-1", "title": "widgets origin-align + port", "status": "queued"},
-      {"id": "WOR-1", "title": "workspaces + notepad origin-align + I-4 ports", "status": "queued"},
-      {"id": "DOM-1", "title": "logic + contour origin-align + I-4 ports", "status": "queued"},
-      {"id": "FOU-1", "title": "Registered-models lane (post-adjudication)", "status": "queued"}
+      {
+        "id": "I-4",
+        "title": "splash-landing shared grammar template",
+        "status": "queued"
+      },
+      {
+        "id": "STU-1",
+        "title": "module origin-align + I-4 port (Workshop Home)",
+        "status": "queued"
+      },
+      {
+        "id": "STU-2",
+        "title": "workshop D6 combined-seed record (donor: module)",
+        "status": "queued"
+      },
+      {
+        "id": "DEV-1",
+        "title": "widgets origin-align + port",
+        "status": "queued"
+      },
+      {
+        "id": "WOR-1",
+        "title": "workspaces + notepad origin-align + I-4 ports",
+        "status": "queued"
+      },
+      {
+        "id": "DOM-1",
+        "title": "logic + contour origin-align + I-4 ports",
+        "status": "queued"
+      },
+      {
+        "id": "FOU-1",
+        "title": "Registered-models lane (post-adjudication)",
+        "status": "queued"
+      }
     ],
     "W4": [
-      {"id": "PRO-1.build", "title": "Monocle light shell over lineage substrate (portable tab set)", "status": "queued"},
-      {"id": "PRO-2.build", "title": "vertex light shell", "status": "queued"},
-      {"id": "EVA-2.build", "title": "analysis port (if plane binds)", "status": "queued"},
-      {"id": "DEV-2", "title": "devconsole landing + Applications lane over connector estate", "status": "queued"},
-      {"id": "MIS-1.build", "title": "jobs light Builds grammar over missions substrate", "status": "queued"},
-      {"id": "ONT-2.build", "title": "object detail lanes inside explorer (donor: hubble)", "status": "queued"},
-      {"id": "WOR-2", "title": "repositories port (donor: code) over SCM connector plane", "status": "queued"}
+      {
+        "id": "PRO-1.build",
+        "title": "Monocle light shell over lineage substrate (portable tab set)",
+        "status": "queued"
+      },
+      {
+        "id": "PRO-2.build",
+        "title": "vertex light shell",
+        "status": "queued"
+      },
+      {
+        "id": "EVA-2.build",
+        "title": "analysis port (if plane binds)",
+        "status": "queued"
+      },
+      {
+        "id": "DEV-2",
+        "title": "devconsole landing + Applications lane over connector estate",
+        "status": "queued"
+      },
+      {
+        "id": "MIS-1.build",
+        "title": "jobs light Builds grammar over missions substrate",
+        "status": "queued"
+      },
+      {
+        "id": "ONT-2.build",
+        "title": "object detail lanes inside explorer (donor: hubble)",
+        "status": "queued"
+      },
+      {
+        "id": "WOR-2",
+        "title": "repositories port (donor: code) over SCM connector plane",
+        "status": "queued"
+      }
     ],
     "W5": [
-      {"id": "STU-3", "title": "/studio landing re-shell (Designer grammar)", "status": "queued", "gate": "GRE-2"},
-      {"id": "DAT-5", "title": "/data landing (family splash)", "status": "queued", "gate": "GRE-2"},
-      {"id": "ONT-3", "title": "/ontology landing", "status": "queued", "gate": "GRE-2"},
-      {"id": "EVA-4", "title": "/evaluations landing", "status": "queued", "gate": "GRE-2"},
-      {"id": "FOU-3", "title": "/foundry landing", "status": "queued", "gate": "GRE-2"},
-      {"id": "WOR-3", "title": "/developer-workspace landing", "status": "queued", "gate": "GRE-2"},
-      {"id": "PRO-3", "title": "/provenance landing (post PRO-1/2 designation)", "status": "queued", "gate": "GRE-2"}
+      {
+        "id": "STU-3",
+        "title": "/studio landing re-shell (Designer grammar)",
+        "status": "queued",
+        "gate": "GRE-2"
+      },
+      {
+        "id": "DAT-5",
+        "title": "/data landing (family splash)",
+        "status": "queued",
+        "gate": "GRE-2"
+      },
+      {
+        "id": "ONT-3",
+        "title": "/ontology landing",
+        "status": "queued",
+        "gate": "GRE-2"
+      },
+      {
+        "id": "EVA-4",
+        "title": "/evaluations landing",
+        "status": "queued",
+        "gate": "GRE-2"
+      },
+      {
+        "id": "FOU-3",
+        "title": "/foundry landing",
+        "status": "queued",
+        "gate": "GRE-2"
+      },
+      {
+        "id": "WOR-3",
+        "title": "/developer-workspace landing",
+        "status": "queued",
+        "gate": "GRE-2"
+      },
+      {
+        "id": "PRO-3",
+        "title": "/provenance landing (post PRO-1/2 designation)",
+        "status": "queued",
+        "gate": "GRE-2"
+      }
     ],
     "W6": [
-      {"id": "E-audit", "title": "E1-E9 acceptance checklist audit", "status": "queued"},
-      {"id": "one-surface-audit", "title": "E7: every click resolves to exactly one surface", "status": "queued", "gate": "E7-retirement"},
-      {"id": "DOC-1", "title": "documentation reconciliation (conflation-era corpus)", "status": "queued"},
-      {"id": "census-rerun", "title": "final census re-run", "status": "queued"},
-      {"id": "GRE-1", "title": "greenfield chrome ruling", "status": "held_for_owner", "gate": "GRE-1"}
+      {
+        "id": "E-audit",
+        "title": "E1-E9 acceptance checklist audit",
+        "status": "queued"
+      },
+      {
+        "id": "one-surface-audit",
+        "title": "E7: every click resolves to exactly one surface",
+        "status": "queued",
+        "gate": "E7-retirement"
+      },
+      {
+        "id": "DOC-1",
+        "title": "documentation reconciliation (conflation-era corpus)",
+        "status": "queued"
+      },
+      {
+        "id": "census-rerun",
+        "title": "final census re-run",
+        "status": "queued"
+      },
+      {
+        "id": "GRE-1",
+        "title": "greenfield chrome ruling",
+        "status": "held_for_owner",
+        "gate": "GRE-1"
+      }
     ]
   },
   "iterations": [
-    {"n": 1, "date": "2026-08-19", "did": "BOOTSTRAP: branch hv/reference-ux-remediation off origin/master@539a99bb5e0d; committed census recorder + census + gap adjudication; ledger initialized (42 actions across W0-W6; I-1/I-2 pre-done)", "next": "W0: I-3 family atlas recorder"}
+    {
+      "n": 1,
+      "date": "2026-08-19",
+      "did": "BOOTSTRAP: branch hv/reference-ux-remediation off origin/master@539a99bb5e0d; committed census recorder + census + gap adjudication; ledger initialized (42 actions across W0-W6; I-1/I-2 pre-done)",
+      "next": "W0: I-3 family atlas recorder"
+    },
+    {
+      "n": 2,
+      "date": "2026-08-19",
+      "did": "I-3 family atlas recorder built (record-family-reference-atlas.mjs) + tracked manifest reference-family-atlas.v1.json; proof-run Automations family (5 states)",
+      "next": "W0: I-5 unified gap contract"
+    }
   ]
 }
