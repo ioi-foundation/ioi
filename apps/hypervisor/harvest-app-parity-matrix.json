@@ -318,7 +318,9 @@
       "note": "dataset preview/table; unbound",
       "reference_clean_state": "data_failed",
       "reference_clean_reason": "shell boots but the body reports a data failure (\"__apps is not a dataset\") with captured (non-404) lanes",
-      "reference_clean_artifact": "reference-clean-sweep.json"
+      "reference_clean_artifact": "reference-clean-sweep.json",
+      "remediation_state": "capture_broken_no_donor",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#dataset"
     },
     {
       "owner": "Ontology",
@@ -540,7 +542,9 @@
       "note": "model studio; unbound",
       "reference_clean_state": "data_failed",
       "reference_clean_reason": "shell boots but the body reports a data failure (\"Page not found\") with captured (non-404) lanes",
-      "reference_clean_artifact": "reference-clean-sweep.json"
+      "reference_clean_artifact": "reference-clean-sweep.json",
+      "remediation_state": "capture_broken_no_donor",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#modelstudio"
     },
     {
       "owner": "Foundry",
@@ -556,7 +560,9 @@
       "note": "inference app; unbound",
       "reference_clean_state": "data_failed",
       "reference_clean_reason": "shell boots but the body reports a data failure (\"Failed to load current space\") with captured (non-404) lanes",
-      "reference_clean_artifact": "reference-clean-sweep.json"
+      "reference_clean_artifact": "reference-clean-sweep.json",
+      "remediation_state": "capture_broken_no_donor",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#inference"
     },
     {
       "owner": "Marketplace",
@@ -591,7 +597,8 @@
       "binding": "faithful port of the reference Marketplace browse over the real daemon marketplace substrate \u2014 dark global rail + light header (app chip \u00b7 Marketplace \u00b7 product search \u00b7 Installations \u00b7 Help as named gaps) + hero (title \u00b7 Discover subtitle \u00b7 reference illustration) + the Stores table whose single row IS the estate's governed listing plane with its live product count + the install-first-product wizard band as reference chrome (installing is a named gap \u2014 products enter through draft \u2192 admitted review \u2192 open release on the substrate)",
       "candidate_surface": "/__ioi/marketplace/listings",
       "shell_pixel_certified": true,
-      "shell_pixel_certification_artifact": "pixel-certifications/listings.json"
+      "shell_pixel_certification_artifact": "pixel-certifications/listings.json",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#listings"
     },
     {
       "owner": "Marketplace",

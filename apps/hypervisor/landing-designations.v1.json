@@ -129,15 +129,12 @@
       "competitors": [
         {
           "seed": "modelstudio",
-          "disposition": "grammar unknown until donor search \u2014 FOU-2"
+          "disposition": "capture_broken_no_donor (reference-seed-adjudications.v1.json)"
         },
         {
           "seed": "inference",
-          "disposition": "grammar unknown until donor search \u2014 FOU-2"
+          "disposition": "capture_broken_no_donor (reference-seed-adjudications.v1.json)"
         }
-      ],
-      "pending_roles": [
-        "FOU-2"
       ]
     },
     {
@@ -239,9 +236,9 @@
     },
     {
       "click_target": "seed:dataset",
-      "status": "LATER",
-      "pending_action": "DAT-4",
-      "note": "terminal-truth record pending donor search"
+      "status": "TERMINAL",
+      "note": "capture_broken_no_donor \u2014 preview grammar survives inside the certified pipeline port",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#dataset"
     },
     {
       "click_target": "seed:scheduler",

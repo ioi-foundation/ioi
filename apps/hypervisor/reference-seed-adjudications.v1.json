@@ -240,6 +240,64 @@
       "estate_plane": "certified Issues port (evidence stands)",
       "outcome": "absent_confirmed",
       "reason": "app-settings subroute expresses no IA; nothing uncaptured remains for the family"
+    },
+    {
+      "action": "DAT-4",
+      "seed": "dataset",
+      "owner": "Data",
+      "reference_route": "http://localhost:9225/workspace/dataset/",
+      "atlas_state": "landing",
+      "expressed_ia": {
+        "facet_groups": 1,
+        "expresses_ia": false
+      },
+      "donor_search": "atlas landing dead (no IA); crawl index (75 routes) never reached a dataset app; grammar-compatible sibling: the CERTIFIED pipeline port's Preview tray states already carry the dataset-preview grammar in-place (pipeline-reference-atlas tab-preview/node-selected) \u2014 a bounded pane, not a standalone-page donor",
+      "estate_plane": "dataset truth is served on the certified Data surfaces (pipeline Preview tray; sources registry)",
+      "outcome": "capture_broken_no_donor",
+      "reason": "no standalone donor boots; NO standalone dataset app will exist \u2014 the preview grammar survives inside the certified pipeline port, where dataset truth already renders"
+    },
+    {
+      "action": "FOU-2",
+      "seed": "modelstudio",
+      "owner": "Foundry",
+      "reference_route": "http://localhost:9225/workspace/model-studio/",
+      "atlas_state": "landing",
+      "expressed_ia": {
+        "facet_groups": 1,
+        "expresses_ia": false
+      },
+      "donor_search": "atlas landing dead; crawl never reached it; sibling grammars incompatible (Model Catalog is a catalog \u2014 a catalog cannot donate an editor_canvas shell)",
+      "estate_plane": "model authoring/fine-tuning has no daemon plane (typed absences on the models port)",
+      "outcome": "capture_broken_no_donor",
+      "reason": "terminal: no donor, no plane \u2014 the models port's fine-tuning/studio gaps stand citing this record"
+    },
+    {
+      "action": "FOU-2",
+      "seed": "inference",
+      "owner": "Foundry",
+      "reference_route": "http://localhost:9225/workspace/foundry-inference-app/",
+      "atlas_state": "landing",
+      "expressed_ia": {
+        "facet_groups": 1,
+        "expresses_ia": false
+      },
+      "donor_search": "atlas landing dead; crawl never reached it; no wizard-grammar sibling boots in the Foundry family",
+      "estate_plane": "inference exists at /v1/chat/completions but is not a governed catalog workflow (named on the models port)",
+      "outcome": "capture_broken_no_donor",
+      "reason": "terminal: no donor; the inference gap stands citing this record"
+    },
+    {
+      "action": "MAR-2",
+      "seed": "listings",
+      "owner": "Marketplace",
+      "reference_route": "8 store-instance routes under /workspace/marketplace/store/ri.marketplace.main.remote-store.*",
+      "atlas_state": "census kind=instance (9 instance routes recorded)",
+      "expressed_ia": {
+        "note": "instance records carry vendor example store data"
+      },
+      "estate_plane": "the certified listings port renders the estate's real marketplace objects",
+      "outcome": "boundary_held",
+      "reason": "TERMINAL BY KIND: store instances are vendor example data \u2014 never port targets, never estate truth (the census classifies them `instance`); recorded so the kind is matrix-terminal, not silently skipped"
     }
   ]
 }
