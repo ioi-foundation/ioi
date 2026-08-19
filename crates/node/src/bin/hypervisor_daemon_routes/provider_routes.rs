@@ -4623,6 +4623,10 @@ const AKASH_BID_KIND: &str = "akash-bids";
 const AKASH_LEASE_KIND: &str = "akash-leases";
 const AKASH_ENDPOINT_KIND: &str = "akash-endpoints";
 const AKASH_REDEPLOY_KIND: &str = "akash-redeploy-plans";
+/// Per-deploy deposit ceiling for the managed Console API live path — defense
+/// in depth beside the wallet-gated CapabilityLease. A single live create may
+/// fund at most this many dollars of escrow; larger deposits are refused.
+const AKASH_MAX_DEPLOY_DEPOSIT_USD: f64 = 5.0;
 
 /// Canonical SDL manifest from the validated bid candidate (+ body overrides). The SDL declares
 /// an ssh service — exec/custody ride it (canon: SSH only when the deployment explicitly
@@ -4771,11 +4775,196 @@ impl AkashProvider {
     ) -> Result<Value, String> {
         let mode = self.mode();
         if mode == "live" {
-            let has_credential = load_account_credential(data_dir, self.account_id()).is_some();
-            if !has_credential {
+            // M2b — REAL managed Console API deploy. Reaching here already means
+            // the wallet-gated CapabilityLease authorized this op (create is only
+            // dispatched after authorize_capability_lease succeeds), so this is an
+            // authorized, customer-borne spend. Deposit is additionally capped.
+            let Some(cred) = load_account_credential(data_dir, self.account_id()) else {
                 return Err("akash_live_credentials_absent — live deployments need a bound, resolvable credential; live execution is never claimed unauthenticated".into());
+            };
+            let api_key = cred["sealed_token"]
+                .as_str()
+                .and_then(open_scm_token)
+                .ok_or(
+                    "akash_live_credential_unresolvable — the sealed Console key did not decrypt",
+                )?;
+
+            // The SDL is the standard Akash YAML the Console deploys verbatim — the
+            // caller supplies the exact manifest; we never synthesize spend inputs.
+            let sdl_yaml = plan
+                .get("sdl_yaml")
+                .and_then(Value::as_str)
+                .ok_or("akash_live_sdl_required — provide plan.sdl_yaml (the Akash SDL manifest to deploy)")?
+                .to_string();
+            let deposit = plan
+                .get("deposit_usd")
+                .and_then(Value::as_f64)
+                .unwrap_or(1.0);
+            if !(deposit > 0.0 && deposit <= AKASH_MAX_DEPLOY_DEPOSIT_USD) {
+                return Err(format!(
+                    "akash_deposit_out_of_bounds — deposit ${deposit} must be > 0 and ≤ ${AKASH_MAX_DEPLOY_DEPOSIT_USD} (per-deploy cap)"
+                ));
             }
-            return Err("akash_live_deployment_tx_not_implemented — the on-chain deployment/bid/lease transaction flow lands with the live harness cut; a fake deployment is never minted".into());
+
+            // Run the async create→bid→lease→status flow from this sync body,
+            // mirroring the live Vast path.
+            let live: Value = tokio::task::block_in_place(|| {
+                tokio::runtime::Handle::current().block_on(async {
+                    use ioi_drivers::provisioning::akash_console as ac;
+                    let client = reqwest::Client::new();
+                    let send = |req: ac::ConsoleRequest| {
+                        let client = client.clone();
+                        async move {
+                            let (hn, hv) = req.header();
+                            let url = format!("{}{}", ac::AKASH_CONSOLE_BASE_URL, req.path);
+                            let rb = match req.method {
+                                ac::ConsoleMethod::Get => client.get(&url),
+                                ac::ConsoleMethod::Post => client.post(&url),
+                                ac::ConsoleMethod::Put => client.put(&url),
+                                ac::ConsoleMethod::Delete => client.delete(&url),
+                            }
+                            .header(hn, hv)
+                            .timeout(std::time::Duration::from_secs(60));
+                            let rb = if let Some(b) = &req.body {
+                                rb.json(b)
+                            } else {
+                                rb
+                            };
+                            let resp = rb
+                                .send()
+                                .await
+                                .map_err(|e| format!("akash_console_http_failed: {e}"))?;
+                            let code = resp.status().as_u16();
+                            let body: Value = resp.json().await.unwrap_or(Value::Null);
+                            Ok::<(u16, Value), String>((code, body))
+                        }
+                    };
+
+                    // 1. create deployment (funds the escrow — the spend point)
+                    let (code, cd) =
+                        send(ac::create_deployment(&api_key, &sdl_yaml, deposit)).await?;
+                    if !(200..300).contains(&code) {
+                        return Err(format!("akash_console_create_failed: http {code} {cd}"));
+                    }
+                    let dseq = ac::parse_created_dseq(&cd)
+                        .ok_or("akash_console_create_no_dseq — create response had no data.dseq")?;
+                    let manifest = ac::parse_created_manifest(&cd).ok_or(
+                        "akash_console_create_no_manifest — create response had no data.manifest",
+                    )?;
+
+                    // 2. poll bids (up to 10× at 6s), pick the cheapest
+                    let mut selected = None;
+                    for _ in 0..10 {
+                        let (bc, bl) = send(ac::list_bids(&api_key, &dseq)).await?;
+                        if (200..300).contains(&bc) {
+                            if let Some(b) = ac::parse_cheapest_bid(&bl) {
+                                selected = Some(b);
+                                break;
+                            }
+                        }
+                        tokio::time::sleep(std::time::Duration::from_secs(6)).await;
+                    }
+                    let bid = selected.ok_or(
+                        "akash_console_no_bids — no provider bid within the polling window",
+                    )?;
+
+                    // 3. create the lease against the selected bid
+                    let (lc, ll) = send(ac::create_lease(&api_key, &manifest, &dseq, &bid)).await?;
+                    if !(200..300).contains(&lc) {
+                        return Err(format!("akash_console_lease_failed: http {lc} {ll}"));
+                    }
+
+                    // 4. status snapshot
+                    let (_sc, sd) = send(ac::get_deployment(&api_key, &dseq)).await?;
+                    let dep_state =
+                        ac::parse_deployment_state(&sd).unwrap_or_else(|| "unknown".into());
+
+                    Ok::<Value, String>(json!({
+                        "dseq": dseq, "provider": bid.provider, "gseq": bid.gseq,
+                        "oseq": bid.oseq, "deployment_state": dep_state, "deposit_usd": deposit,
+                    }))
+                })
+            })?;
+
+            // Persist REAL records — same custody discipline as the simulator path,
+            // execution_mode = live_console_api, provider-native ids as evidence.
+            let stamp = nanos();
+            let record_id = format!("akdep_{stamp:x}");
+            let deployment_ref = format!("akash-deployment://{record_id}");
+            let real_dseq = text(&live, "dseq").to_string();
+            let provider_address = text(&live, "provider").to_string();
+            let bid_id = format!("akbid_{stamp:x}");
+            let bid_rec = json!({
+                "schema_version": "ioi.hypervisor.akash-bid.v1",
+                "record_id": bid_id, "bid_ref": format!("akash-bid://{bid_id}"),
+                "deployment_ref": deployment_ref, "environment_ref": env_ref,
+                "account_ref": self.account["account_ref"], "provider_address": provider_address,
+                "gseq": live["gseq"], "oseq": live["oseq"], "state": "selected",
+                "execution_mode": "live_console_api",
+                "note": "REAL managed-Console bid — provider-native ids are evidence, never authority",
+                "at": iso_now(),
+            });
+            persist_record(data_dir, AKASH_BID_KIND, &bid_id, &bid_rec)
+                .map_err(|e| format!("provider_operation_persistence_failed — akash bid record {bid_id} did not commit: {e}"))?;
+            let lease_id = format!("aklease_{stamp:x}");
+            let lease_rec = json!({
+                "schema_version": "ioi.hypervisor.akash-lease.v1",
+                "record_id": lease_id, "lease_ref": format!("akash-lease://{lease_id}"),
+                "deployment_ref": deployment_ref, "bid_ref": bid_rec["bid_ref"],
+                "environment_ref": env_ref, "account_ref": self.account["account_ref"],
+                "provider_address": provider_address, "state": "open",
+                "execution_mode": "live_console_api", "deposit_usd": live["deposit_usd"],
+                "spend_note": "REAL customer-borne lease spend accrues (deposit-funded escrow) until the lease closes",
+                "opened_at": iso_now(),
+            });
+            persist_record(data_dir, AKASH_LEASE_KIND, &lease_id, &lease_rec)
+                .map_err(|e| format!("provider_spend_exposure_persistence_failed — akash lease record {lease_id} (REAL accruing spend) did not commit: {e}"))?;
+            let mut dep = json!({
+                "schema_version": "ioi.hypervisor.akash-deployment.v1",
+                "record_id": record_id, "deployment_ref": deployment_ref, "dseq": real_dseq,
+                "account_id": self.account_id(), "account_ref": self.account["account_ref"],
+                "environment_ref": env_ref, "status": "deployment_created",
+                "execution_mode": "live_console_api", "sdl_yaml_bytes": sdl_yaml.len(),
+                "bid_ref": bid_rec["bid_ref"], "lease_ref": lease_rec["lease_ref"],
+                "deposit_usd": live["deposit_usd"], "deployment_state": live["deployment_state"],
+                "provider_native": { "dseq": real_dseq, "provider": provider_address, "note": "REAL managed-Console deployment — dseq/provider are provider-native evidence; daemon custody state roots remain restore truth" },
+                "redeployed_from": redeployed_from.cloned().unwrap_or(Value::Null),
+                "events": [], "created_at": iso_now(),
+            });
+            Self::push_event(
+                &mut dep,
+                "deployment_created",
+                format!("REAL Console deployment dseq={real_dseq}"),
+            );
+            Self::push_event(
+                &mut dep,
+                "bid_selected",
+                format!("provider {provider_address} selected"),
+            );
+            Self::push_event(
+                &mut dep,
+                "lease_opened",
+                format!(
+                    "lease open, ${} deposit escrow — customer-borne until close",
+                    text(&live, "deposit_usd")
+                ),
+            );
+            if let Some(old) = redeployed_from {
+                Self::push_event(
+                    &mut dep,
+                    "redeployed_from",
+                    format!("fresh deployment replacing {}", old.as_str().unwrap_or("?")),
+                );
+            }
+            self.save_deployment(data_dir, &dep)?;
+            return Ok(json!({
+                "provider_operation_ref": format!("provider-account://{}/op/create/{}", self.account_id(), safe(env_ref)),
+                "deployment": { "deployment_ref": deployment_ref, "dseq": real_dseq, "status": text(&live, "deployment_state"), "execution_mode": "live_console_api" },
+                "bid_ref": bid_rec["bid_ref"], "lease_ref": lease_rec["lease_ref"],
+                "provider_native": dep["provider_native"],
+                "spend": "REAL — deposit-funded lease accrues until close; run delete/close to stop",
+                "teardown_required": true,
+            }));
         }
         if mode != "simulator" {
             return Err(
