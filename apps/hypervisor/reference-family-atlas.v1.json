@@ -562,7 +562,341 @@
         }
       ],
       "errors": []
+    },
+    "explorer": {
+      "slug": "explorer",
+      "owner": "Ontology",
+      "reference_base": "http://localhost:9225/workspace/hubble/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/hubble/"
+          },
+          "url": "http://localhost:9225/workspace/hubble/",
+          "ia": {
+            "title": "Object Explorer",
+            "headings": [],
+            "tabs": [
+              "New exploration"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "TYPE GROUP",
+              "OBJECT TYPE NAME",
+              "STATUS",
+              "OBJECT COUNT",
+              "USAGE",
+              "TYPE GROUPS",
+              "DESCRIPTION"
+            ],
+            "rows": 0,
+            "cards": 6,
+            "empty_copy": "No type groups",
+            "text_len": 3346
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/explorer/landing.png"
+        },
+        {
+          "key": "tab:New exploration",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/hubble/",
+            "clickTab": "New exploration"
+          },
+          "url": "http://localhost:9225/workspace/hubble/",
+          "ia": {
+            "title": "Object Explorer",
+            "headings": [],
+            "tabs": [
+              "New exploration"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "TYPE GROUP",
+              "OBJECT TYPE NAME",
+              "STATUS",
+              "OBJECT COUNT",
+              "USAGE",
+              "TYPE GROUPS",
+              "DESCRIPTION"
+            ],
+            "rows": 0,
+            "cards": 6,
+            "empty_copy": "No type groups",
+            "text_len": 3346
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/explorer/tab_New_exploration.png"
+        }
+      ],
+      "errors": []
+    },
+    "evalsuites": {
+      "slug": "evalsuites",
+      "owner": "Evaluations",
+      "reference_base": "http://localhost:9225/workspace/evals/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/evals/"
+          },
+          "url": "http://localhost:9225/workspace/evals/",
+          "ia": {
+            "title": "AIP Evals",
+            "headings": [
+              "AIP Evals",
+              "What's new in AIP Evals"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "FILES",
+              "CREATOR",
+              "LAST EDITED BY",
+              "LAST VIEWED"
+            ],
+            "rows": 0,
+            "cards": 2,
+            "empty_copy": "",
+            "text_len": 5289
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/evalsuites/landing.png"
+        },
+        {
+          "key": "authoring:/workspace/evals/create-new",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/evals/create-new"
+          },
+          "url": "http://localhost:9225/workspace/evals/create-new",
+          "ia": {
+            "title": "Create evaluation suite",
+            "headings": [
+              "What's new in AIP Evals"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 9,
+            "empty_copy": "",
+            "text_len": 734
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/evalsuites/authoring_workspace_evals_create-new.png"
+        }
+      ],
+      "errors": []
+    },
+    "sources": {
+      "slug": "sources",
+      "owner": "Data",
+      "reference_base": "http://localhost:9225/workspace/data-ingestion-app/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/data-ingestion-app/"
+          },
+          "url": "http://localhost:9225/workspace/data-ingestion-app/splash",
+          "ia": {
+            "title": "Data Connection",
+            "headings": [
+              "Data Connection",
+              "What's new in Data Connection"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "FILES",
+              "CREATOR",
+              "LAST EDITED BY",
+              "LAST VIEWED"
+            ],
+            "rows": 0,
+            "cards": 9,
+            "empty_copy": "",
+            "text_len": 5979
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/sources/landing.png"
+        },
+        {
+          "key": "tab_lane:/workspace/data-ingestion-app/sources",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/data-ingestion-app/sources"
+          },
+          "url": "http://localhost:9225/workspace/data-ingestion-app/sources",
+          "ia": {
+            "title": "All sources | Data Connection",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 2,
+            "empty_copy": "No sources",
+            "text_len": 469
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/sources/tab_lane_workspace_data-ingestion-app_sources.png"
+        },
+        {
+          "key": "tab_lane:/workspace/data-ingestion-app/syncs",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/data-ingestion-app/syncs"
+          },
+          "url": "http://localhost:9225/workspace/data-ingestion-app/syncs",
+          "ia": {
+            "title": "All syncs | Data Connection",
+            "headings": [],
+            "tabs": [],
+            "columns": [
+              "Name",
+              "Dataset",
+              "Source",
+              "Status",
+              "Next run",
+              "Actions"
+            ],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 2,
+            "empty_copy": "No syncs",
+            "text_len": 492
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/sources/tab_lane_workspace_data-ingestion-app_syncs.png"
+        },
+        {
+          "key": "tab_lane:/workspace/data-ingestion-app/agents",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/data-ingestion-app/agents"
+          },
+          "url": "http://localhost:9225/workspace/data-ingestion-app/agents",
+          "ia": {
+            "title": "All agents | Data Connection",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 2,
+            "empty_copy": "No agents found",
+            "text_len": 389
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/sources/tab_lane_workspace_data-ingestion-app_agents.png"
+        },
+        {
+          "key": "tab_lane:/workspace/data-ingestion-app/listeners",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/data-ingestion-app/listeners"
+          },
+          "url": "http://localhost:9225/workspace/data-ingestion-app/listeners",
+          "ia": {
+            "title": "All listeners | Data Connection",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 2,
+            "empty_copy": "No listeners found",
+            "text_len": 340
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/sources/tab_lane_workspace_data-ingestion-app_listeners.png"
+        },
+        {
+          "key": "tab_lane:/workspace/data-ingestion-app/external-stacks",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/data-ingestion-app/external-stacks"
+          },
+          "url": "http://localhost:9225/workspace/data-ingestion-app/external-stacks",
+          "ia": {
+            "title": "External Stacks | Data Connection",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 0,
+            "empty_copy": "",
+            "text_len": 256
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/sources/tab_lane_workspace_data-ingestion-app_external-stacks.png"
+        },
+        {
+          "key": "authoring:/workspace/data-ingestion-app/sources/new",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/data-ingestion-app/sources/new"
+          },
+          "url": "http://localhost:9225/workspace/data-ingestion-app/sources/new",
+          "ia": {
+            "title": "New source | Data Connection",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "EXPERIMENTAL",
+              "ADP",
+              "BETA",
+              "HDFS",
+              "IBM AS400",
+              "IBM DB2 JCC",
+              "MYOB",
+              "RSS",
+              "SAP ERP",
+              "SAP HANA XSA",
+              "SAP SLT",
+              "SQS",
+              "FTP - FTPS",
+              "JDBC",
+              "LDAP"
+            ],
+            "rows": 0,
+            "cards": 219,
+            "empty_copy": "",
+            "text_len": 14564
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/sources/authoring_workspace_data-ingestion-app_sources_new.png"
+        }
+      ],
+      "errors": []
     }
   },
-  "recorded_at": "2026-08-19T23:44:50.748Z"
+  "recorded_at": "2026-08-19T23:49:05.222Z"
 }

@@ -71,7 +71,8 @@
       {
         "id": "DAT-2",
         "title": "sources/new authoring IA adjudication",
-        "status": "queued"
+        "status": "done",
+        "evidence": "portable \u2014 reference declare-form IA (16 facets) on record; port receipted form satisfies the verb; syncs cols=6 re-confirmed"
       },
       {
         "id": "DAT-3",
@@ -86,7 +87,8 @@
       {
         "id": "ONT-1",
         "title": "explorer New-exploration adjudication",
-        "status": "queued"
+        "status": "done",
+        "evidence": "portable/already-bound \u2014 New-exploration maps to the port create capability over saved-object-sets (atlas 8 facets)"
       },
       {
         "id": "ONT-2.recon",
@@ -96,7 +98,8 @@
       {
         "id": "EVA-1",
         "title": "evalsuites create-new adjudication",
-        "status": "queued"
+        "status": "done",
+        "evidence": "absent_confirmed \u2014 create-form lane dead on mirror (no IA); eval-suites plane EXISTS; authoring gap stands citing record"
       },
       {
         "id": "EVA-2.recon",
@@ -385,6 +388,12 @@
       "date": "2026-08-19",
       "did": "admission-evidence re-pin PREPARED + verified green locally but commit DENIED by permission classifier (patch preserved; surfaced to owner); W1 batch 2: GOV-1/IMP-1/DEV-3 done with atlas evidence (changes=exemplar 8 facets/3 live tabs; devconsole donor validated)",
       "next": "W1 batch 3 (ONT-1, EVA-1, DAT-2)"
+    },
+    {
+      "n": 7,
+      "date": "2026-08-19",
+      "did": "W1 batch 3: ONT-1/EVA-1/DAT-2 adjudicated with atlas states (10 seeds \u00b7 27 states in manifest)",
+      "next": "W1 batch 4 (STU-4, DAT-3, MIS-2)"
     }
   ],
   "pr_blockers": [

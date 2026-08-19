@@ -113,6 +113,60 @@
       "outcome": "portable",
       "donor_capture": "devconsole",
       "reason": "D6 donor record: developer's own capture is byte-dead; devconsole (same family console) boots with expressed IA and is the named donor \u2014 terminal donor_ported lands with the DEV-2 build"
+    },
+    {
+      "action": "ONT-1",
+      "seed": "explorer",
+      "owner": "Ontology",
+      "reference_route": "http://localhost:9225/workspace/hubble/ (tab: New exploration)",
+      "atlas_states": [
+        "landing",
+        "tab:New exploration"
+      ],
+      "expressed_ia": {
+        "columns": 0,
+        "facet_groups": 8,
+        "tabs": 1,
+        "rows": 0,
+        "expresses_ia": true
+      },
+      "estate_plane": "/v1/hypervisor/odk/saved-object-sets (+ :id, :id/retire) \u2014 the port already carries `create` (registry capabilities) over this plane",
+      "outcome": "portable",
+      "reason": "the reference authoring entry maps to the port's EXISTING create capability \u2014 already bound; atlas state recorded as the evidence the binding was weighed against; no build"
+    },
+    {
+      "action": "EVA-1",
+      "seed": "evalsuites",
+      "owner": "Evaluations",
+      "reference_route": "http://localhost:9225/workspace/evals/create-new",
+      "atlas_state": "authoring:/workspace/evals/create-new",
+      "expressed_ia": {
+        "columns": 0,
+        "facet_groups": 1,
+        "tabs": 0,
+        "rows": 0,
+        "expresses_ia": false
+      },
+      "estate_plane": "/v1/hypervisor/eval-suites (+ /overview, :id) EXISTS \u2014 the plane is real; the reference FORM grammar is not renderable on the mirror",
+      "outcome": "absent_confirmed",
+      "reason": "the reference create-form lane expresses NO IA on the mirror (dead form) \u2014 no grammar to port backwards from; the port's suite-authoring gap STANDS citing this record; a future authoring cut binds the existing plane with an estate-authored form, not a reference port"
+    },
+    {
+      "action": "DAT-2",
+      "seed": "sources",
+      "owner": "Data",
+      "reference_route": "http://localhost:9225/workspace/data-ingestion-app/sources/new",
+      "atlas_state": "authoring:/workspace/data-ingestion-app/sources/new",
+      "expressed_ia": {
+        "columns": 0,
+        "facet_groups": 16,
+        "tabs": 0,
+        "rows": 0,
+        "expresses_ia": true
+      },
+      "estate_plane": "POST /v1/hypervisor/data-sources (declare, dsr_ receipts) \u2014 the port's governed declare form already ships",
+      "outcome": "portable",
+      "reason": "the reference declare-form IA (16 facet groups) is NOW ON RECORD; the port's existing receipted form satisfies the verb \u2014 layout alignment is a later cheap pass citing this state, not a W1 build. Bonus: this recording independently re-confirms the Syncs adjudication (cols=6 at the syncs lane)"
     }
   ]
 }

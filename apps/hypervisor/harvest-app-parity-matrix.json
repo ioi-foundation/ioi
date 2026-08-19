@@ -262,7 +262,8 @@
       "binding": "faithful port of the reference Data Connection landing over the real DataSource registry \u2014 dark global rail + tabbed app header (Data Connection \u00b7 Sources live \u00b7 Syncs/Agents/Listeners/External-stacks as named gaps \u00b7 store dropdown / New source / Help as named gaps \u00b7 the sync-counter cluster bound to REAL ODK materializing-run statuses) + hero band (title \u00b7 description \u00b7 verbatim illustration under the reference's own white-gradient content overlay) + the Set-up-new-connections card (verbatim option-card strip: vendor onboarding chrome, NOT an extraction affordance) + the View row + the Recents table whose rows are the REAL declared sources (name \u00b7 source_ref \u00b7 kind \u00b7 credential_posture \u00b7 lifecycle \u00b7 created date \u00b7 the wired:false flag; endpoints rendered scheme+host+path ONLY) + the marketplace-examples band + below-the-fold the declared-catalog census with the daemon's own ingestion note VERBATIM",
       "candidate_surface": "/__ioi/data/sources",
       "shell_pixel_certified": true,
-      "shell_pixel_certification_artifact": "pixel-certifications/sources.json"
+      "shell_pixel_certification_artifact": "pixel-certifications/sources.json",
+      "adjudication_ref": "reference-gap-adjudication.v1.json + reference-seed-adjudications.v1.json#sources"
     },
     {
       "owner": "Data",
@@ -382,7 +383,8 @@
       "binding": "faithful port of the reference Object Explorer over real ODK truth \u2014 dark global rail (Ontology context) + exploration tab bar + centered 'Object Explorer search' hero (Filter-by/object-search as named gaps) + Shortcuts (the real top materialized sets) + the object-type CATALOG (name \u00b7 status \u00b7 object count from materialized sets \u00b7 link usage \u00b7 description=ontology) across ALL live DomainOntologies with a WORKING server-side ?q= filter + the object-set CATALOG over real materialized sets; every populated cell is daemon truth",
       "candidate_surface": "/__ioi/ontology/explorer",
       "shell_pixel_certified": true,
-      "shell_pixel_certification_artifact": "pixel-certifications/explorer.json"
+      "shell_pixel_certification_artifact": "pixel-certifications/explorer.json",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#explorer"
     },
     {
       "owner": "Ontology",
@@ -450,7 +452,8 @@
       "binding": "faithful port of the reference AIP Evals landing over the inert daemon eval-suite plane \u2014 dark global rail + light app header (teal evals tile \u00b7 AIP Evals \u00b7 New-evaluation-suite / Help as named gaps) + hero band (title \u00b7 one-line description \u00b7 verbatim illustration under the reference's own white-gradient content overlay) + the View row (Recents active \u00b7 Favorites gap) + the viewport-height-ruled Recents table whose rows are the REAL declared suites (name \u00b7 ref \u00b7 subject scopes \u00b7 declared/complete health \u00b7 status \u00b7 created date; em-dashes where the plane records no principal/view tracking) + the marketplace-examples band (verbatim capture chrome) + below-the-fold full suite-library truth (subject scopes \u00b7 rubric refs \u00b7 evidence requirements \u00b7 consent requirements \u00b7 candidate refs, verbatim daemon records)",
       "candidate_surface": "/__ioi/evaluations/evalsuites",
       "shell_pixel_certified": true,
-      "shell_pixel_certification_artifact": "pixel-certifications/evalsuites.json"
+      "shell_pixel_certification_artifact": "pixel-certifications/evalsuites.json",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#evalsuites"
     },
     {
       "owner": "Evaluations",
