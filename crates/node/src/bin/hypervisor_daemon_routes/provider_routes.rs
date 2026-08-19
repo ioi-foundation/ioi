@@ -21,6 +21,8 @@ use axum::Json;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
+use ioi_services::agentic::runtime::kernel::runtime_hypervisor_approved_operation_admission::RuntimeHypervisorApprovedOperationAdmissionCore;
+
 use super::lifecycle_routes::{
     authorize_capability_lease, open_scm_token, seal_scm_token, CapabilityLeaseRequest,
 };
@@ -6109,6 +6111,24 @@ pub(crate) async fn handle_providers_list(State(st): State<Arc<DaemonState>>) ->
 /// Body: `{ provider_id, op, environment_ref?, plan?, command?, material_ref?, grant_ref? }`.
 /// op ∈ preflight | create | start | workrun | stop | snapshot | restore | inject_outage |
 /// recover | delete | observe. Records an admitted-operation record + a provider receipt.
+/// C4 — models propose, Hypervisor executes. A LIVE provider spend op must
+/// carry a daemon-authored `operation_proposal` (a provider_operation_proposal)
+/// that the admission kernel validates — wallet approval + lease + required
+/// scopes + a daemon-authored proposal source (403 on fixtures / unverified
+/// projections) — before the daemon executes it. This is the not-curl
+/// authority boundary: a live provider op with no admitted proposal is refused,
+/// and the sealed credential never crosses on an unauthored request. Returns
+/// the admission record (execution plan) on success, or (status, code).
+fn admit_live_provider_operation(body: &Value, now: &str) -> Result<Value, (u16, String)> {
+    let proposal = body
+        .get("operation_proposal")
+        .cloned()
+        .unwrap_or(Value::Null);
+    RuntimeHypervisorApprovedOperationAdmissionCore
+        .admit(&proposal, now)
+        .map_err(|e| (e.status, e.code))
+}
+
 pub(crate) async fn handle_provider_op(
     State(st): State<Arc<DaemonState>>,
     Json(body): Json<Value>,
@@ -6558,6 +6578,28 @@ pub(crate) async fn handle_provider_op(
             .get("material_ref")
             .and_then(|v| v.as_str())
             .unwrap_or("");
+        // C4 — models propose, Hypervisor executes: a LIVE akash spend op must
+        // present an admitted, daemon-authored operation proposal (wallet
+        // approval + lease + scopes). No admitted proposal → refuse before the
+        // credential crosses; a human curl with no proposal cannot spend.
+        if matches!(op, "create" | "redeploy") && kind == "akash" && vast_mode(&account) == "live" {
+            if let Err((status, code)) = admit_live_provider_operation(&body, &iso_now()) {
+                let receipt = provider_receipt_ext(
+                    data_dir,
+                    &kind,
+                    &env_ref,
+                    op,
+                    "proposal_not_admitted",
+                    &json!({ "account_ref": account_ref, "admission_code": code }),
+                );
+                return (
+                    StatusCode::from_u16(status).unwrap_or(StatusCode::BAD_REQUEST),
+                    Json(json!({ "ok": false, "op": op, "provider": kind,
+                        "reason": "provider_operation_proposal_not_admitted",
+                        "admission_code": code, "receipt_ref": receipt })),
+                );
+            }
+        }
         let result = match op {
             "preflight" => Ok(provider.preflight(&plan)),
             "create" => provider.create(data_dir, &env_ref, &plan),
@@ -6956,6 +6998,49 @@ pub(crate) async fn handle_provider_operations(State(st): State<Arc<DaemonState>
 #[cfg(test)]
 mod containment_tests {
     use super::*;
+
+    // ---- MEC C4: the models-propose gate on the live provider spend path ----
+    fn admitted_provider_op_body() -> Value {
+        json!({ "operation_proposal": {
+            "operation_family": "provider",
+            "proposal_schema_version": "ioi.hypervisor.provider_operation_proposal.v1",
+            "proposal_source": "daemon-provider-operation-proposal",
+            "proposal_ref": "proposal:provider/1",
+            "project_ref": "project:ioi",
+            "operation_kind": "create",
+            "wallet_approval_ref": "approval://wallet/provider/1",
+            "wallet_lease_ref": "lease:wallet/provider/1",
+            "required_scope_refs": ["scope:provider.create"],
+            "agentgres_operation_refs": ["agentgres://operation/provider/1"],
+            "receipt_refs": ["receipt://provider/1"],
+            "state_root_ref": "agentgres://state-root/provider/1",
+            "candidate_ref": "provider-candidate:akash/1",
+            "direct_provider_ref": "provider-account://pacc_1",
+            "environment_ref": "environment:1",
+            "target_ref": "akash-deployment://1"
+        }})
+    }
+
+    #[test]
+    fn a_live_provider_op_with_an_admitted_proposal_passes() {
+        assert!(admit_live_provider_operation(&admitted_provider_op_body(), "now").is_ok());
+    }
+
+    #[test]
+    fn a_live_provider_op_with_no_proposal_is_refused() {
+        // A curl with no operation_proposal cannot spend. (Mutation drill: make
+        // admit_live_provider_operation always return Ok → this goes RED.)
+        let (status, _code) = admit_live_provider_operation(&json!({}), "now").unwrap_err();
+        assert_eq!(status, 400);
+    }
+
+    #[test]
+    fn a_live_provider_op_without_wallet_approval_is_refused_403() {
+        let mut body = admitted_provider_op_body();
+        body["operation_proposal"]["wallet_approval_ref"] = json!("approval://other/1");
+        let (status, _code) = admit_live_provider_operation(&body, "now").unwrap_err();
+        assert_eq!(status, 403);
+    }
 
     // ---- CARVE-OUT: provider deletion stays callable and reports exactly ----
 
