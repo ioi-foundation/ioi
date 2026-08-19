@@ -735,7 +735,8 @@
       "surface_name": "Provenance",
       "binding": "a Provenance graph/exploration lens over materialized object sets, projections, objects, and the threaded proof-stream odk_materialization edges (cross-plane: ODK \u2194 Provenance)",
       "candidate_surface": "/__ioi/vertex",
-      "shell_pixel_certified": false
+      "shell_pixel_certified": false,
+      "adjudication_ref": "reference-seed-adjudications.v1.json#vertex"
     },
     {
       "owner": "Environments",
@@ -769,7 +770,9 @@
       "note": "Slate app builder; unbound",
       "reference_clean_state": "errored_reference",
       "reference_clean_reason": "the app never mounts \u2014 uncaught page error (\"Workspace context path not found\")",
-      "reference_clean_artifact": "reference-clean-sweep.json"
+      "reference_clean_artifact": "reference-clean-sweep.json",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#slate",
+      "reference_url_override": "http://localhost:9225/workspace/slate/splash"
     },
     {
       "owner": "Domain Apps",
@@ -817,7 +820,9 @@
       "note": "Fusion spreadsheet; unbound",
       "reference_clean_state": "data_failed",
       "reference_clean_reason": "shell boots but the body reports a data failure (\"Not Found\") with captured (non-404) lanes",
-      "reference_clean_artifact": "reference-clean-sweep.json"
+      "reference_clean_artifact": "reference-clean-sweep.json",
+      "remediation_state": "capture_broken_no_donor",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#fusion"
     },
     {
       "owner": "Missions",
@@ -838,7 +843,9 @@
       "surface_name": "Missions",
       "binding": "the Missions run/job queue \u2014 the real operations run queue (recent runs, statuses, run counts) + scheduled missions, table/list grammar over daemon truth",
       "candidate_surface": "/__ioi/missions",
-      "shell_pixel_certified": false
+      "shell_pixel_certified": false,
+      "remediation_state": "absent_confirmed",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#jobs"
     },
     {
       "owner": "Missions",

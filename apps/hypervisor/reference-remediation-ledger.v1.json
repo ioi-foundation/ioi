@@ -135,7 +135,8 @@
       {
         "id": "MIS-1.recon",
         "title": "jobs (Builds) atlas-drive past splash",
-        "status": "queued"
+        "status": "done",
+        "evidence": "REFUTED \u2014 jobs dead at all states; substrate stands; MIS-1.build skipped by evidence"
       },
       {
         "id": "MIS-2",
@@ -164,7 +165,8 @@
       {
         "id": "DOM-2",
         "title": "slate splash boot evidence + fusion donor search",
-        "status": "queued"
+        "status": "done",
+        "evidence": "slate PORTABLE via splash alias (5 facets, origin-align recorded); fusion capture_broken_no_donor"
       },
       {
         "id": "ENV-1",
@@ -180,7 +182,8 @@
       {
         "id": "PRO-2.recon",
         "title": "vertex graph/create adjudication",
-        "status": "queued"
+        "status": "done",
+        "evidence": "vertex landing IA (4 facets) \u2014 W4 re-shell stands; create dead"
       }
     ],
     "W1_exit_gate": {
@@ -271,7 +274,8 @@
       {
         "id": "MIS-1.build",
         "title": "jobs light Builds grammar over missions substrate",
-        "status": "queued"
+        "status": "done",
+        "evidence": "SKIPPED BY EVIDENCE (MIS-1.recon: no Builds grammar expresses \u2014 nothing to build; substrate stands as the surface)"
       },
       {
         "id": "ONT-2.build",
@@ -412,6 +416,12 @@
       "date": "2026-08-19",
       "did": "W1 batch 5: DAT-4/FOU-2/MAR-2 \u2014 3 capture_broken_no_donor terminals with recorded donor searches + instance-kind terminal; LATER 5\u21924",
       "next": "W1 final batch: DOM-2 + recon halves (PRO-1, PRO-2, ONT-2, EVA-2, MIS-1)"
+    },
+    {
+      "n": 10,
+      "date": "2026-08-19",
+      "did": "W1: DOM-2/PRO-2.recon/MIS-1.recon \u2014 slate portable via splash alias, fusion+jobs terminal, vertex re-shell stands; MIS-1.build skipped by evidence; LATER 4\u21921 (/provenance only)",
+      "next": "W1 close: PRO-1.recon (Monocle 6 tabs), ONT-2.recon, EVA-2.recon"
     }
   ],
   "pr_blockers": [

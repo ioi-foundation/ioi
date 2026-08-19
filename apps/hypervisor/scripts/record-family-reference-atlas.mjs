@@ -67,7 +67,7 @@ async function recordSeed(browser, slug) {
   const states = [{ key: "landing", reach: { goto: base } }];
   for (const lane of cen?.tab_lanes || []) states.push({ key: `tab:${lane}`, reach: { goto: base, clickTab: lane } });
   for (const sr of cen?.subroutes || []) {
-    if (sr.kind === "tab_lane" || sr.kind === "authoring") states.push({ key: `${sr.kind}:${sr.path}`, reach: { goto: baseOrigin + sr.path } });
+    if (sr.kind === "tab_lane" || sr.kind === "authoring" || sr.kind === "splash_alias") states.push({ key: `${sr.kind}:${sr.path}`, reach: { goto: baseOrigin + sr.path } });
   }
 
   for (const st of states) {

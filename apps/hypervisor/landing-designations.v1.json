@@ -159,9 +159,9 @@
     },
     {
       "click_target": "missions:jobs",
-      "status": "LATER",
-      "pending_action": "MIS-1.recon",
-      "note": "Builds grammar known from donor title; IA pending atlas"
+      "status": "TERMINAL",
+      "note": "absent_confirmed \u2014 the substrate stands as the surface",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#jobs"
     },
     {
       "click_target": "/developer-console",
@@ -195,15 +195,15 @@
     },
     {
       "click_target": "domain-apps:slate",
-      "status": "LATER",
-      "pending_action": "DOM-2",
-      "note": "splash-alias boot evidence pending"
+      "status": "NOW",
+      "grammar": "Slate landing via splash alias (I-4 instance; origin-aligned)",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#slate"
     },
     {
       "click_target": "domain-apps:fusion",
-      "status": "LATER",
-      "pending_action": "DOM-2",
-      "note": "donor search pending"
+      "status": "TERMINAL",
+      "note": "capture_broken_no_donor",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#fusion"
     },
     {
       "click_target": "/environments",

@@ -298,6 +298,70 @@
       "estate_plane": "the certified listings port renders the estate's real marketplace objects",
       "outcome": "boundary_held",
       "reason": "TERMINAL BY KIND: store instances are vendor example data \u2014 never port targets, never estate truth (the census classifies them `instance`); recorded so the kind is matrix-terminal, not silently skipped"
+    },
+    {
+      "action": "DOM-2",
+      "seed": "slate",
+      "owner": "Domain Apps",
+      "reference_route": "http://localhost:9225/workspace/slate/splash",
+      "atlas_state": "splash_alias:/workspace/slate/splash",
+      "expressed_ia": {
+        "facet_groups": 5,
+        "expresses_ia": true
+      },
+      "estate_plane": "domain-app descriptor plane (read-first)",
+      "outcome": "portable",
+      "reason": "slate BOOTS via its splash alias with expressed IA \u2014 errored_reference was a root-URL artifact; origin-align to the splash lane and port as an I-4 landing instance (W3)"
+    },
+    {
+      "action": "DOM-2",
+      "seed": "fusion",
+      "owner": "Domain Apps",
+      "reference_route": "http://localhost:9225/workspace/fusion/",
+      "atlas_state": "landing",
+      "expressed_ia": {
+        "facet_groups": 1,
+        "expresses_ia": false
+      },
+      "donor_search": "dead at landing; crawl (75 routes) never reached it; no same-grammar sibling boots in the family",
+      "estate_plane": "none identified",
+      "outcome": "capture_broken_no_donor",
+      "reason": "terminal: no IA, no donor"
+    },
+    {
+      "action": "PRO-2.recon",
+      "seed": "vertex",
+      "owner": "Provenance",
+      "reference_route": "http://localhost:9225/workspace/vertex/ (+ graph/create)",
+      "atlas_states": [
+        "landing",
+        "authoring:/workspace/vertex/graph/create"
+      ],
+      "expressed_ia": {
+        "landing_facet_groups": 4,
+        "landing_expresses_ia": true,
+        "create_expresses_ia": false
+      },
+      "estate_plane": "substrate_bound /__ioi/vertex renders real daemon truth",
+      "outcome": "portable",
+      "reason": "vertex landing EXPRESSES IA (4 facet groups) \u2014 the W4 light re-shell over the existing substrate stands; graph/create is dead on the mirror so the authoring gap stands citing this record"
+    },
+    {
+      "action": "MIS-1.recon",
+      "seed": "jobs",
+      "owner": "Missions",
+      "reference_route": "http://localhost:9225/workspace/job-tracker/ (+ /splash)",
+      "atlas_states": [
+        "landing",
+        "splash_alias:/workspace/job-tracker/splash"
+      ],
+      "expressed_ia": {
+        "facet_groups": 1,
+        "expresses_ia": false
+      },
+      "estate_plane": "substrate_bound /__ioi/missions renders real daemon truth (read_only_by_contract)",
+      "outcome": "absent_confirmed",
+      "reason": "REFUTED: no Builds grammar expresses at any recorded state \u2014 the light re-shell has nothing to port backwards from; the substrate STANDS as the surface (MIS-1.build skipped by evidence)"
     }
   ]
 }

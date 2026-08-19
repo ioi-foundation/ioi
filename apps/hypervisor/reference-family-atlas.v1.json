@@ -1267,7 +1267,209 @@
         }
       ],
       "errors": []
+    },
+    "slate": {
+      "slug": "slate",
+      "owner": "Domain Apps",
+      "reference_base": "http://localhost:9225/workspace/slate/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/slate/"
+          },
+          "url": "http://localhost:9225/workspace/slate/",
+          "ia": {
+            "title": "Slate",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 0,
+            "empty_copy": "",
+            "text_len": 172
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/slate/landing.png"
+        },
+        {
+          "key": "splash_alias:/workspace/slate/splash",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/slate/splash"
+          },
+          "url": "http://localhost:9225/workspace/slate/splash",
+          "ia": {
+            "title": "Slate",
+            "headings": [
+              "Slate"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "FILES",
+              "CREATOR",
+              "LAST EDITED BY",
+              "LAST VIEWED"
+            ],
+            "rows": 0,
+            "cards": 0,
+            "empty_copy": "",
+            "text_len": 4482
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/slate/splash_alias_workspace_slate_splash.png"
+        }
+      ],
+      "errors": []
+    },
+    "fusion": {
+      "slug": "fusion",
+      "owner": "Domain Apps",
+      "reference_base": "http://localhost:9225/workspace/fusion/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/fusion/"
+          },
+          "url": "http://localhost:9225/workspace/fusion/workbook/ri.fusion.main.document.9afb5fc5-75e8-4554-817c-1e8ad37478f0/",
+          "ia": {
+            "title": "Palantir",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 0,
+            "empty_copy": "",
+            "text_len": 260
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/fusion/landing.png"
+        }
+      ],
+      "errors": []
+    },
+    "vertex": {
+      "slug": "vertex",
+      "owner": "Provenance",
+      "reference_base": "http://localhost:9225/workspace/vertex/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/vertex/"
+          },
+          "url": "http://localhost:9225/workspace/vertex/",
+          "ia": {
+            "title": "Vertex",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "GRAPH",
+              "CREATOR",
+              "LAST MODIFIED"
+            ],
+            "rows": 0,
+            "cards": 6,
+            "empty_copy": "No recents",
+            "text_len": 1362
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/vertex/landing.png"
+        },
+        {
+          "key": "authoring:/workspace/vertex/graph/create",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/vertex/graph/create"
+          },
+          "url": "http://localhost:9225/workspace/vertex/graph/create",
+          "ia": {
+            "title": "New Graph",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 0,
+            "empty_copy": "get started.",
+            "text_len": 412
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/vertex/authoring_workspace_vertex_graph_create.png"
+        }
+      ],
+      "errors": []
+    },
+    "jobs": {
+      "slug": "jobs",
+      "owner": "Missions",
+      "reference_base": "http://localhost:9225/workspace/job-tracker/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/job-tracker/"
+          },
+          "url": "http://localhost:9225/workspace/job-tracker/builds",
+          "ia": {
+            "title": "Your builds · Builds",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 0,
+            "empty_copy": "No visible builds",
+            "text_len": 549
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/jobs/landing.png"
+        },
+        {
+          "key": "splash_alias:/workspace/job-tracker/splash",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/job-tracker/splash"
+          },
+          "url": "http://localhost:9225/workspace/job-tracker/builds",
+          "ia": {
+            "title": "Your builds · Builds",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 0,
+            "empty_copy": "No visible builds",
+            "text_len": 549
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/jobs/splash_alias_workspace_job-tracker_splash.png"
+        }
+      ],
+      "errors": []
     }
   },
-  "recorded_at": "2026-08-19T23:55:40.379Z"
+  "recorded_at": "2026-08-19T23:59:03.161Z"
 }
