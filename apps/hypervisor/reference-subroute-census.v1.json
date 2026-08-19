@@ -1,0 +1,699 @@
+{
+  "schema": "ioi.hypervisor.reference-subroute-census.v1",
+  "origin": "http://localhost:9225",
+  "recorded_at": "2026-08-19T21:29:08.392Z",
+  "doctrine": "recon only — no ports, no promotions, parity_class untouched. Records the in-app IA the workspace-root seed inventory never enumerated.",
+  "total_seeds": 39,
+  "total_subroutes": 41,
+  "total_tab_lanes": 18,
+  "seeds_with_uncaptured_ia": 25,
+  "by_kind": {
+    "authoring": 17,
+    "tab_lane": 8,
+    "splash_alias": 7,
+    "instance": 9
+  },
+  "download_blocked": [
+    "Studio/workshop",
+    "Ontology/objectview",
+    "Ontology/objecteditor",
+    "Workbench/repositories"
+  ],
+  "seeds": [
+    {
+      "owner": "Studio",
+      "slug": "designer",
+      "capture_base": "/workspace/solution-design/",
+      "reference_clean_state": "data_clean",
+      "parity_class": "daemon_wired",
+      "status": 200,
+      "title": "Solution Designer",
+      "tab_lanes": [],
+      "subroutes": [
+        {
+          "path": "/workspace/solution-design/create",
+          "label": "New Diagram",
+          "kind": "authoring"
+        },
+        {
+          "path": "/workspace/solution-design/onboarding",
+          "label": "Start planning",
+          "kind": "authoring"
+        }
+      ]
+    },
+    {
+      "owner": "Studio",
+      "slug": "machinery",
+      "capture_base": "/workspace/machinery-app/",
+      "reference_clean_state": "data_clean",
+      "parity_class": "daemon_wired",
+      "status": 200,
+      "title": "Machinery",
+      "tab_lanes": [],
+      "subroutes": [
+        {
+          "path": "/workspace/machinery-app/process",
+          "label": "New graph",
+          "kind": "tab_lane"
+        }
+      ]
+    },
+    {
+      "owner": "Studio",
+      "slug": "workshop",
+      "capture_base": "/workspace/workshop/",
+      "reference_clean_state": "errored_reference",
+      "parity_class": "reference_capture",
+      "error": "Error: page.goto: Download is starting\nCall log:\n\u001b[2m  - navigating to \"http://localhost:9225/workspace/workshop/\", waiting until \"domcontentloaded\"\u001b[22m\n",
+      "tab_lanes": [],
+      "subroutes": []
+    },
+    {
+      "owner": "Studio",
+      "slug": "module",
+      "capture_base": "/workspace/module/",
+      "reference_clean_state": "needs_origin_alignment",
+      "parity_class": "reference_capture",
+      "status": 200,
+      "title": "Workshop — Home",
+      "tab_lanes": [],
+      "subroutes": [
+        {
+          "path": "/workspace/module/splash",
+          "label": "WorkshopAdd to favorites",
+          "kind": "splash_alias"
+        },
+        {
+          "path": "/workspace/module/create",
+          "label": "New module",
+          "kind": "authoring"
+        }
+      ]
+    },
+    {
+      "owner": "Automations",
+      "slug": "monitors",
+      "capture_base": "/workspace/object-monitoring/",
+      "reference_clean_state": "data_clean",
+      "parity_class": "daemon_wired",
+      "status": 200,
+      "title": "Automate",
+      "tab_lanes": [
+        "Overview",
+        "Automations"
+      ],
+      "subroutes": [
+        {
+          "path": "/workspace/object-monitoring/automations",
+          "label": "Automations",
+          "kind": "tab_lane"
+        }
+      ]
+    },
+    {
+      "owner": "Automations",
+      "slug": "scheduler",
+      "capture_base": "/workspace/scheduler/",
+      "reference_clean_state": "shell_clean_only",
+      "parity_class": "reference_capture",
+      "status": 200,
+      "title": "Find schedules",
+      "tab_lanes": [],
+      "subroutes": []
+    },
+    {
+      "owner": "Provenance",
+      "slug": "lineage",
+      "capture_base": "/workspace/monocle/",
+      "reference_clean_state": "shell_clean_only",
+      "parity_class": "substrate_bound",
+      "status": 200,
+      "title": "Data Lineage",
+      "tab_lanes": [
+        "Preview",
+        "SQL scratchpad",
+        "History",
+        "Code",
+        "Build timeline",
+        "Data health"
+      ],
+      "subroutes": []
+    },
+    {
+      "owner": "Data",
+      "slug": "ingest",
+      "capture_base": "/workspace/hyperauto/",
+      "reference_clean_state": "shell_clean_only",
+      "parity_class": "reference_capture",
+      "status": 200,
+      "title": "HyperAuto",
+      "tab_lanes": [],
+      "subroutes": [
+        {
+          "path": "/workspace/hyperauto/create",
+          "label": "Create pipeline",
+          "kind": "authoring"
+        }
+      ]
+    },
+    {
+      "owner": "Data",
+      "slug": "sources",
+      "capture_base": "/workspace/data-ingestion-app/",
+      "reference_clean_state": "data_clean",
+      "parity_class": "daemon_wired",
+      "status": 200,
+      "title": "Data Connection",
+      "tab_lanes": [],
+      "subroutes": [
+        {
+          "path": "/workspace/data-ingestion-app/splash",
+          "label": "",
+          "kind": "splash_alias"
+        },
+        {
+          "path": "/workspace/data-ingestion-app/sources",
+          "label": "Sources",
+          "kind": "tab_lane"
+        },
+        {
+          "path": "/workspace/data-ingestion-app/syncs",
+          "label": "Syncs",
+          "kind": "tab_lane"
+        },
+        {
+          "path": "/workspace/data-ingestion-app/agents",
+          "label": "Agents",
+          "kind": "tab_lane"
+        },
+        {
+          "path": "/workspace/data-ingestion-app/listeners",
+          "label": "Listeners",
+          "kind": "tab_lane"
+        },
+        {
+          "path": "/workspace/data-ingestion-app/external-stacks",
+          "label": "External stacks",
+          "kind": "tab_lane"
+        },
+        {
+          "path": "/workspace/data-ingestion-app/sources/new",
+          "label": "New source",
+          "kind": "authoring"
+        }
+      ]
+    },
+    {
+      "owner": "Data",
+      "slug": "pipeline",
+      "capture_base": "/workspace/builder/",
+      "reference_clean_state": "data_clean",
+      "parity_class": "daemon_wired",
+      "status": 200,
+      "title": "Pipeline Builder",
+      "tab_lanes": [],
+      "subroutes": [
+        {
+          "path": "/workspace/builder/create-pipeline",
+          "label": "New pipeline",
+          "kind": "authoring"
+        }
+      ]
+    },
+    {
+      "owner": "Data",
+      "slug": "dataset",
+      "capture_base": "/workspace/dataset/",
+      "reference_clean_state": "data_failed",
+      "parity_class": "reference_capture",
+      "status": 200,
+      "title": "Palantir",
+      "tab_lanes": [],
+      "subroutes": []
+    },
+    {
+      "owner": "Ontology",
+      "slug": "schema",
+      "capture_base": "/workspace/ontology/",
+      "reference_clean_state": "data_clean",
+      "parity_class": "daemon_wired",
+      "status": 200,
+      "title": "Ontology Manager",
+      "tab_lanes": [],
+      "subroutes": []
+    },
+    {
+      "owner": "Ontology",
+      "slug": "explorer",
+      "capture_base": "/workspace/hubble/",
+      "reference_clean_state": "data_clean",
+      "parity_class": "daemon_wired",
+      "status": 200,
+      "title": "Object Explorer",
+      "tab_lanes": [
+        "New exploration"
+      ],
+      "subroutes": []
+    },
+    {
+      "owner": "Ontology",
+      "slug": "objectview",
+      "capture_base": "/workspace/object-view/",
+      "reference_clean_state": "errored_reference",
+      "parity_class": "reference_capture",
+      "error": "Error: page.goto: Download is starting\nCall log:\n\u001b[2m  - navigating to \"http://localhost:9225/workspace/object-view/\", waiting until \"domcontentloaded\"\u001b[22m\n",
+      "tab_lanes": [],
+      "subroutes": []
+    },
+    {
+      "owner": "Ontology",
+      "slug": "objecteditor",
+      "capture_base": "/workspace/object-view-editor/",
+      "reference_clean_state": "errored_reference",
+      "parity_class": "reference_capture",
+      "error": "Error: page.goto: Download is starting\nCall log:\n\u001b[2m  - navigating to \"http://localhost:9225/workspace/object-view-editor/\", waiting until \"domcontentloaded\"\u001b[",
+      "tab_lanes": [],
+      "subroutes": []
+    },
+    {
+      "owner": "Evaluations",
+      "slug": "evalsuites",
+      "capture_base": "/workspace/evals/",
+      "reference_clean_state": "data_clean",
+      "parity_class": "daemon_wired",
+      "status": 200,
+      "title": "AIP Evals",
+      "tab_lanes": [],
+      "subroutes": [
+        {
+          "path": "/workspace/evals/create-new",
+          "label": "New evaluation suite",
+          "kind": "authoring"
+        }
+      ]
+    },
+    {
+      "owner": "Evaluations",
+      "slug": "analysis",
+      "capture_base": "/workspace/insight/",
+      "reference_clean_state": "shell_clean_only",
+      "parity_class": "reference_capture",
+      "status": 200,
+      "title": "Insight",
+      "tab_lanes": [
+        "Workbooks",
+        "Object sets"
+      ],
+      "subroutes": []
+    },
+    {
+      "owner": "Evaluations",
+      "slug": "quiver",
+      "capture_base": "/workspace/quiver/",
+      "reference_clean_state": "shell_clean_only",
+      "parity_class": "reference_capture",
+      "status": 200,
+      "title": "Quiver",
+      "tab_lanes": [],
+      "subroutes": [
+        {
+          "path": "/workspace/quiver/splash",
+          "label": "QuiverAdd to favorites",
+          "kind": "splash_alias"
+        }
+      ]
+    },
+    {
+      "owner": "Foundry",
+      "slug": "models",
+      "capture_base": "/workspace/model-catalog/",
+      "reference_clean_state": "data_clean",
+      "parity_class": "daemon_wired",
+      "status": 200,
+      "title": "Model Catalog",
+      "tab_lanes": [
+        "Palantir-provided models",
+        "Registered models"
+      ],
+      "subroutes": []
+    },
+    {
+      "owner": "Foundry",
+      "slug": "modelstudio",
+      "capture_base": "/workspace/model-studio/",
+      "reference_clean_state": "data_failed",
+      "parity_class": "reference_capture",
+      "status": 200,
+      "title": "Model studio",
+      "tab_lanes": [],
+      "subroutes": []
+    },
+    {
+      "owner": "Foundry",
+      "slug": "inference",
+      "capture_base": "/workspace/foundry-inference-app/",
+      "reference_clean_state": "data_failed",
+      "parity_class": "reference_capture",
+      "status": 200,
+      "title": "Palantir",
+      "tab_lanes": [],
+      "subroutes": []
+    },
+    {
+      "owner": "Marketplace",
+      "slug": "listings",
+      "capture_base": "/workspace/marketplace/",
+      "reference_clean_state": "data_clean",
+      "parity_class": "daemon_wired",
+      "status": 200,
+      "title": "Marketplace",
+      "tab_lanes": [],
+      "subroutes": [
+        {
+          "path": "/workspace/marketplace/store/ri.marketplace.main.remote-store.0428a8e6-0b35-4811-a1d4-422740fce37b",
+          "label": "AIP Now Product Reference Resources StoreRemote ",
+          "kind": "instance"
+        },
+        {
+          "path": "/workspace/marketplace/store/ri.marketplace.main.remote-store.90477b03-0965-45f6-86dd-6e192200345d",
+          "label": "Palantir Learning StoreRemote store15 products",
+          "kind": "instance"
+        },
+        {
+          "path": "/workspace/marketplace/store/ri.marketplace.main.remote-store.fe450673-2d2e-4b50-b03e-956ef02bdabc",
+          "label": "Machinery StoreRemote store13 products",
+          "kind": "instance"
+        },
+        {
+          "path": "/workspace/marketplace/store/ri.marketplace.main.remote-store.3d421db9-5b81-40d2-9b53-59acbb647c58",
+          "label": "Reference ResourcesRemote store8 products",
+          "kind": "instance"
+        },
+        {
+          "path": "/workspace/marketplace/store/ri.marketplace.main.remote-store.52e982a0-4334-4ef2-a03e-b3441621be4e",
+          "label": "Core Ontology StoreRemote store4 products",
+          "kind": "instance"
+        },
+        {
+          "path": "/workspace/marketplace/store/ri.marketplace.main.remote-store.8a6562f9-dcb1-45e5-be78-8c0a6f7ba0f6",
+          "label": "Foundry StoreRemote store4 products",
+          "kind": "instance"
+        },
+        {
+          "path": "/workspace/marketplace/store/ri.marketplace.main.remote-store.8cfa15d2-f5af-4045-a650-aa17328d7126",
+          "label": "Evaluator Templates StoreRemote store3 products",
+          "kind": "instance"
+        },
+        {
+          "path": "/workspace/marketplace/store/ri.marketplace.main.remote-store.7909d3d5-bfad-4e95-863d-506162a3a48e",
+          "label": "Foundry Rules Store V2Remote store2 products",
+          "kind": "instance"
+        }
+      ]
+    },
+    {
+      "owner": "Marketplace",
+      "slug": "registry",
+      "capture_base": "/workspace/artifacts/",
+      "reference_clean_state": "shell_clean_only",
+      "parity_class": "reference_capture",
+      "status": 200,
+      "title": "Artifacts",
+      "tab_lanes": [],
+      "subroutes": []
+    },
+    {
+      "owner": "Developer Console",
+      "slug": "devconsole",
+      "capture_base": "/workspace/developer-console/",
+      "reference_clean_state": "shell_clean_only",
+      "parity_class": "reference_capture",
+      "status": 200,
+      "title": "Developer Console • Home page",
+      "tab_lanes": [
+        "Applications",
+        "Standalone OAuth clientsLegacy"
+      ],
+      "subroutes": [
+        {
+          "path": "/workspace/developer-console/create/guided/basic-information",
+          "label": "New application",
+          "kind": "authoring"
+        }
+      ]
+    },
+    {
+      "owner": "Developer Console",
+      "slug": "widgets",
+      "capture_base": "/workspace/custom-widgets/",
+      "reference_clean_state": "needs_origin_alignment",
+      "parity_class": "reference_capture",
+      "status": 200,
+      "title": "Custom Widgets",
+      "tab_lanes": [],
+      "subroutes": [
+        {
+          "path": "/workspace/custom-widgets/new",
+          "label": "New widget set",
+          "kind": "authoring"
+        }
+      ]
+    },
+    {
+      "owner": "Developer Console",
+      "slug": "developer",
+      "capture_base": "/workspace/developer/",
+      "reference_clean_state": "errored_reference",
+      "parity_class": "reference_capture",
+      "status": 200,
+      "title": "Developer settings app",
+      "tab_lanes": [],
+      "subroutes": []
+    },
+    {
+      "owner": "Workbench",
+      "slug": "workspaces",
+      "capture_base": "/workspace/code-workspaces/",
+      "reference_clean_state": "needs_origin_alignment",
+      "parity_class": "reference_capture",
+      "status": 200,
+      "title": "Home page - Code Workspaces",
+      "tab_lanes": [],
+      "subroutes": [
+        {
+          "path": "/workspace/code-workspaces/splash",
+          "label": "Code WorkspacesAdd to favorites",
+          "kind": "splash_alias"
+        },
+        {
+          "path": "/workspace/code-workspaces/create",
+          "label": "New workspace",
+          "kind": "authoring"
+        },
+        {
+          "path": "/workspace/code-workspaces/ri.foundry-container-service.main.container.b5451b80-3fe8-4d1b-8e12-6949bd688fa8",
+          "label": "[Template] Dash App/test-ab81f6/test4/AIP Chatbo",
+          "kind": "instance"
+        },
+        {
+          "path": "/workspace/code-workspaces/quickCreate",
+          "label": "media_transformer/test-ab81f6/test4/AIP Chatbot ",
+          "kind": "authoring"
+        }
+      ]
+    },
+    {
+      "owner": "Workbench",
+      "slug": "repositories",
+      "capture_base": "/workspace/code-repositories/",
+      "reference_clean_state": "errored_reference",
+      "parity_class": "reference_capture",
+      "error": "Error: page.goto: Download is starting\nCall log:\n\u001b[2m  - navigating to \"http://localhost:9225/workspace/code-repositories/\", waiting until \"domcontentloaded\"\u001b[2",
+      "tab_lanes": [],
+      "subroutes": []
+    },
+    {
+      "owner": "Workbench",
+      "slug": "notepad",
+      "capture_base": "/workspace/notepad/",
+      "reference_clean_state": "needs_origin_alignment",
+      "parity_class": "reference_capture",
+      "status": 200,
+      "title": "Notepad Home",
+      "tab_lanes": [],
+      "subroutes": [
+        {
+          "path": "/workspace/notepad/create",
+          "label": "New document",
+          "kind": "authoring"
+        },
+        {
+          "path": "/workspace/notepad/create-new-from-template",
+          "label": "New from templateCreate a document from a templa",
+          "kind": "authoring"
+        },
+        {
+          "path": "/workspace/notepad/create-template",
+          "label": "Document templateCreate a blueprint that allows ",
+          "kind": "authoring"
+        }
+      ]
+    },
+    {
+      "owner": "Provenance",
+      "slug": "vertex",
+      "capture_base": "/workspace/vertex/",
+      "reference_clean_state": "shell_clean_only",
+      "parity_class": "substrate_bound",
+      "status": 200,
+      "title": "Vertex",
+      "tab_lanes": [],
+      "subroutes": [
+        {
+          "path": "/workspace/vertex/graph/create",
+          "label": "New exploration",
+          "kind": "authoring"
+        }
+      ]
+    },
+    {
+      "owner": "Environments",
+      "slug": "map",
+      "capture_base": "/workspace/map/",
+      "reference_clean_state": "shell_clean_only",
+      "parity_class": "reference_capture",
+      "status": 200,
+      "title": "New map",
+      "tab_lanes": [],
+      "subroutes": []
+    },
+    {
+      "owner": "Domain Apps",
+      "slug": "slate",
+      "capture_base": "/workspace/slate/",
+      "reference_clean_state": "errored_reference",
+      "parity_class": "reference_capture",
+      "status": 200,
+      "title": "Slate",
+      "tab_lanes": [],
+      "subroutes": [
+        {
+          "path": "/workspace/slate/splash",
+          "label": "SlateAdd to favorites",
+          "kind": "splash_alias"
+        }
+      ]
+    },
+    {
+      "owner": "Domain Apps",
+      "slug": "logic",
+      "capture_base": "/workspace/logic-app/",
+      "reference_clean_state": "needs_origin_alignment",
+      "parity_class": "reference_capture",
+      "status": 200,
+      "title": "AIP Logic",
+      "tab_lanes": [],
+      "subroutes": [
+        {
+          "path": "/workspace/logic-app/create-new",
+          "label": "New logic",
+          "kind": "authoring"
+        }
+      ]
+    },
+    {
+      "owner": "Domain Apps",
+      "slug": "contour",
+      "capture_base": "/workspace/contour-app/",
+      "reference_clean_state": "needs_origin_alignment",
+      "parity_class": "reference_capture",
+      "status": 200,
+      "title": "Contour Home",
+      "tab_lanes": [],
+      "subroutes": [
+        {
+          "path": "/workspace/contour-app/splash",
+          "label": "ContourAdd to favorites",
+          "kind": "splash_alias"
+        },
+        {
+          "path": "/workspace/contour-app/overview/create",
+          "label": "New analysis",
+          "kind": "authoring"
+        }
+      ]
+    },
+    {
+      "owner": "Domain Apps",
+      "slug": "fusion",
+      "capture_base": "/workspace/fusion/",
+      "reference_clean_state": "data_failed",
+      "parity_class": "reference_capture",
+      "status": 200,
+      "title": "Palantir",
+      "tab_lanes": [],
+      "subroutes": []
+    },
+    {
+      "owner": "Missions",
+      "slug": "jobs",
+      "capture_base": "/workspace/job-tracker/",
+      "reference_clean_state": "shell_clean_only",
+      "parity_class": "substrate_bound",
+      "status": 200,
+      "title": "Your builds · Builds",
+      "tab_lanes": [],
+      "subroutes": [
+        {
+          "path": "/workspace/job-tracker/splash",
+          "label": "BuildsAdd to favorites",
+          "kind": "splash_alias"
+        }
+      ]
+    },
+    {
+      "owner": "Missions",
+      "slug": "incidents",
+      "capture_base": "/workspace/issues-app/",
+      "reference_clean_state": "data_clean",
+      "parity_class": "daemon_wired",
+      "status": 200,
+      "title": "Issues • Open (0)",
+      "tab_lanes": [],
+      "subroutes": [
+        {
+          "path": "/workspace/issues-app/settings",
+          "label": "",
+          "kind": "tab_lane"
+        }
+      ]
+    },
+    {
+      "owner": "Governance",
+      "slug": "approvals",
+      "capture_base": "/workspace/approvals-app/",
+      "reference_clean_state": "data_clean",
+      "parity_class": "daemon_wired",
+      "status": 200,
+      "title": "Approvals inbox",
+      "tab_lanes": [],
+      "subroutes": []
+    },
+    {
+      "owner": "Improvement",
+      "slug": "changes",
+      "capture_base": "/workspace/upgrade-assistant/",
+      "reference_clean_state": "data_clean",
+      "parity_class": "daemon_wired",
+      "status": 200,
+      "title": "Upgrade Assistant",
+      "tab_lanes": [
+        "Active",
+        "Past due",
+        "Archived"
+      ],
+      "subroutes": []
+    }
+  ]
+}
