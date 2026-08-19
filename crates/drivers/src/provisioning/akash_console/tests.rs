@@ -6,10 +6,10 @@ const KEY: &str = "ak-secret-do-not-log";
 // ----- request construction is exact (method, path, header, body, spend flag) -----
 
 #[test]
-fn verify_key_is_a_read_only_wallet_settings_get() {
+fn verify_key_is_a_read_only_deployments_probe() {
     let r = verify_key(KEY);
     assert_eq!(r.method, ConsoleMethod::Get);
-    assert_eq!(r.path, "/v1/wallet-settings");
+    assert_eq!(r.path, "/v1/deployments?skip=0&limit=1");
     assert!(r.body.is_none());
     assert!(!r.is_spend(), "a credential probe must never be a spend");
     assert_eq!(r.header(), (API_KEY_HEADER, KEY));

@@ -5771,11 +5771,54 @@ pub(crate) async fn handle_provider_account_preflight(
                 let sealed = cred["sealed_token"]
                     .as_str()
                     .or(cred["sealed_secret_access_key"].as_str());
-                let resolvable = sealed.and_then(open_scm_token).is_some();
-                (
-                    resolvable,
-                    json!({ "credential_kind": text(&cred, "kind"), "credential_resolvable": resolvable, "fingerprint": text(&cred, "fingerprint"), "probe": "credential seal round-trip only — no cloud API call in this cut (lifecycle lands with the adapter)", "lifecycle": "credential_preflight_only" }),
-                )
+                let token = sealed.and_then(open_scm_token);
+                let resolvable = token.is_some();
+                if kind == "akash" && vast_mode(&account) == "live" {
+                    // M2a — real read-only verification for the managed Akash
+                    // Console API. The sealed x-api-key must actually
+                    // authenticate: GET /v1/wallet-settings is read-only, moves
+                    // no credits and provisions nothing, so `verified` now means
+                    // "the key works", not merely "the seal unsealed". Gated on
+                    // endpoint.mode==live so offline preflight stays CI-safe.
+                    match token {
+                        None => (
+                            false,
+                            json!({ "reason": "provider_credential_unbound", "probe": "akash Console read-only auth: credential did not unseal" }),
+                        ),
+                        Some(api_key) => {
+                            use ioi_drivers::provisioning::akash_console;
+                            let req = akash_console::verify_key(&api_key);
+                            let (hname, hval) = req.header();
+                            let url =
+                                format!("{}{}", akash_console::AKASH_CONSOLE_BASE_URL, req.path);
+                            let resp = reqwest::Client::new()
+                                .get(&url)
+                                .header(hname, hval)
+                                .timeout(std::time::Duration::from_secs(20))
+                                .send()
+                                .await;
+                            match resp {
+                                Ok(r) if (200..300).contains(&r.status().as_u16()) => (
+                                    true,
+                                    json!({ "credential_kind": text(&cred, "kind"), "fingerprint": text(&cred, "fingerprint"), "probe": "akash managed Console API read-only auth (GET /v1/deployments)", "http_status": r.status().as_u16(), "spend": "none" }),
+                                ),
+                                Ok(r) => (
+                                    false,
+                                    json!({ "reason": "akash_console_auth_rejected", "http_status": r.status().as_u16(), "probe": "akash managed Console API read-only auth (GET /v1/deployments)" }),
+                                ),
+                                Err(e) => (
+                                    false,
+                                    json!({ "reason": format!("akash_console_verify_failed: {e}"), "probe": "akash managed Console API read-only auth (GET /v1/deployments)" }),
+                                ),
+                            }
+                        }
+                    }
+                } else {
+                    (
+                        resolvable,
+                        json!({ "credential_kind": text(&cred, "kind"), "credential_resolvable": resolvable, "fingerprint": text(&cred, "fingerprint"), "probe": "credential seal round-trip only — no cloud API call (set endpoint.mode=live to run the real akash Console auth verify)", "lifecycle": "credential_preflight_only" }),
+                    )
+                }
             }
         }
     };
