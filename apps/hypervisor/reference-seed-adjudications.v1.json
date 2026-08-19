@@ -1,0 +1,41 @@
+{
+  "schema": "ioi.hypervisor.reference-seed-adjudications.v1",
+  "doctrine": "Estate-wide seed adjudications (W1 sweep). Each record re-adjudicates a seed (or a named gap) against the reference surface behind it: the reference route, its EXPRESSED IA (§3.2 — facets, columns, tabs, empty-state copy; an empty body is never itself a blocker), the estate plane (or its absence), and the outcome. Outcomes: portable | absent_confirmed | donor_ported | capture_broken_no_donor. The sources proof pass (Syncs et al.) lives in reference-gap-adjudication.v1.json; this file carries every subsequent W1 record.",
+  "recorded": "2026-08-19",
+  "atlas": "reference-family-atlas.v1.json",
+  "records": [
+    {
+      "action": "AUT-4",
+      "seed": "scheduler",
+      "owner": "Automations",
+      "reference_route": "http://localhost:9225/workspace/scheduler/",
+      "atlas_state": "landing",
+      "expressed_ia": { "columns": 0, "facet_groups": 0, "tabs": 0, "rows": 0, "empty_copy": "", "expresses_ia": false },
+      "estate_plane": "scheduler HEALTH exists at /v1/hypervisor/scheduler/status but is Operations-owned by standing boundary (matrix note); per-spec schedule fields are Automations spec truth and already render there",
+      "outcome": "absent_confirmed",
+      "reason": "the reference schedule-table seed serves but expresses NO IA at any recorded state — nothing to port backwards from; the Operations boundary stands and the Automate family designation (monitors) is unaffected"
+    },
+    {
+      "action": "MAR-1",
+      "seed": "registry",
+      "owner": "Marketplace",
+      "reference_route": "http://localhost:9225/workspace/artifacts/",
+      "atlas_state": "landing",
+      "expressed_ia": { "columns": 0, "facet_groups": 0, "tabs": 0, "rows": 0, "empty_copy": "", "expresses_ia": false },
+      "estate_plane": "the package registry plane exists (/packages substrate, marketplace object-plane) — but the reference Artifacts seed expresses no IA to carry it",
+      "outcome": "absent_confirmed",
+      "reason": "shell renders clean with zero expressed IA; the Marketplace family designation (listings) stands; artifacts/registry UX is not a portable grammar from this capture"
+    },
+    {
+      "action": "ENV-1",
+      "seed": "map",
+      "owner": "Environments",
+      "reference_route": "http://localhost:9225/workspace/map/",
+      "atlas_state": "landing",
+      "expressed_ia": { "columns": 0, "facet_groups": 0, "tabs": 0, "rows": 0, "empty_copy": "", "expresses_ia": false },
+      "estate_plane": "the owned Environments app is the estate's real surface (greenfield, daemon env-ops planes)",
+      "outcome": "absent_confirmed",
+      "reason": "the map seed expresses no IA; /environments click target moves to GRE — the owned Environments app is governed by the GRE-1 chrome ruling, not by a reference port"
+    }
+  ]
+}

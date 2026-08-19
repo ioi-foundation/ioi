@@ -60,7 +60,8 @@
       {
         "id": "AUT-4",
         "title": "scheduler seed adjudication",
-        "status": "queued"
+        "status": "done",
+        "evidence": "absent_confirmed \u2014 atlas landing state expresses_ia=false (0 cols/0 facets/0 tabs/0 rows); recorded in reference-seed-adjudications.v1.json"
       },
       {
         "id": "STU-4",
@@ -115,7 +116,8 @@
       {
         "id": "MAR-1",
         "title": "registry (Artifacts) adjudication",
-        "status": "queued"
+        "status": "done",
+        "evidence": "absent_confirmed \u2014 atlas landing state expresses_ia=false (0 cols/0 facets/0 tabs/0 rows); recorded in reference-seed-adjudications.v1.json"
       },
       {
         "id": "MAR-2",
@@ -155,7 +157,8 @@
       {
         "id": "ENV-1",
         "title": "map adjudication",
-        "status": "queued"
+        "status": "done",
+        "evidence": "absent_confirmed \u2014 atlas landing state expresses_ia=false (0 cols/0 facets/0 tabs/0 rows); recorded in reference-seed-adjudications.v1.json"
       },
       {
         "id": "PRO-1.recon",
@@ -367,6 +370,19 @@
       "date": "2026-08-19",
       "did": "I-6 matrix vocabulary + landing designations machine record + audit checker; W0 COMPLETE",
       "next": "open W0 PR; W1 batch 1 (AUT-4, MAR-1, ENV-1)"
+    },
+    {
+      "n": 5,
+      "date": "2026-08-19",
+      "did": "W1 batch 1: AUT-4/MAR-1/ENV-1 all absent_confirmed (atlas-evidenced); estate adjudication file created; designations LATER 7\u21925, TERMINAL vocabulary added to checker (7/7); PR #354 found blocked by pre-existing master red (admission-evidence baseline)",
+      "next": "W1 batch 2 (GOV-1, IMP-1, DEV-3) + consider side-PR to re-pin admission-evidence baseline"
+    }
+  ],
+  "pr_blockers": [
+    {
+      "pr": 354,
+      "blocker": "UPSTREAM master red: check:admission-evidence \u2014 provider_routes.rs::handle_provider_op baseline stale after provider_selector merge; reproduces on clean master, branch touches zero .rs files",
+      "found": "2026-08-19"
     }
   ]
 }

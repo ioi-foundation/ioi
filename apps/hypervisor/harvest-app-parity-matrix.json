@@ -34,7 +34,8 @@
     "ia_bearing_empty": "REMEDIATION RECLASSIFICATION of shell_clean_only WHERE IA EXISTS: the reference body is empty but its empty state EXPRESSES the IA (facets/columns/empty-copy) \u2014 portable under the matrix's own pixel_rule (live-data body excluded by design); shell_clean_only was never a valid port blocker",
     "adjudication_ref": "SEED FIELD (remediation): pointer into reference-gap-adjudication artifacts \u2014 the reference surface a named gap or port decision was weighed against",
     "donor_capture": "SEED FIELD (remediation): the sibling seed slug whose capture ships this app (D6 combined-seed designations; roles: donor | authoring_flow | detail_view | secondary_grammar)",
-    "landing_designation": "CLICK-TARGET RECORD (remediation): the machine record of plan \u00a74.1 lives in landing-designations.v1.json \u2014 one designated landing grammar per click target, D-rules D1-D6, status NOW|LATER(action)|GRE; audited by check-landing-designations.mjs (the W1 exit gate)"
+    "landing_designation": "CLICK-TARGET RECORD (remediation): the machine record of plan \u00a74.1 lives in landing-designations.v1.json \u2014 one designated landing grammar per click target, D-rules D1-D6, status NOW|LATER(action)|GRE; audited by check-landing-designations.mjs (the W1 exit gate)",
+    "remediation_state": "SEED FIELD (remediation): the program v2 terminal state for this seed (donor_ported | absent_confirmed | capture_broken_no_donor | ia_bearing_empty) \u2014 always paired with adjudication_ref; parity_class stays untouched"
   },
   "seeds": [
     {
@@ -188,7 +189,9 @@
       "note": "schedule table; unbound",
       "reference_clean_state": "shell_clean_only",
       "reference_clean_reason": "shell regions [rail, header, body] render clean but the body carries no real data (rows 0/0 \u00b7 nodes 0 \u00b7 cards 0)",
-      "reference_clean_artifact": "reference-clean-sweep.json"
+      "reference_clean_artifact": "reference-clean-sweep.json",
+      "remediation_state": "absent_confirmed",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#scheduler"
     },
     {
       "owner": "Provenance",
@@ -597,7 +600,9 @@
       "note": "versioned artifact registry; unbound",
       "reference_clean_state": "shell_clean_only",
       "reference_clean_reason": "shell renders a WELCOME/empty landing (cards 4 \u00b7 lines 18, no row/node data) \u2014 clean chrome, no real data to port against (proxy lane shows a failure (\"Invalid resource identifier\"); the origin lane is the readable one)",
-      "reference_clean_artifact": "reference-clean-sweep.json"
+      "reference_clean_artifact": "reference-clean-sweep.json",
+      "remediation_state": "absent_confirmed",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#registry"
     },
     {
       "owner": "Developer Console",
@@ -730,7 +735,9 @@
       "note": "geospatial map canvas; unbound",
       "reference_clean_state": "shell_clean_only",
       "reference_clean_reason": "shell renders a WELCOME/empty landing (cards 4 \u00b7 lines 15, no row/node data) \u2014 clean chrome, no real data to port against (proxy lane renders no data (score 0); the origin lane is the readable one)",
-      "reference_clean_artifact": "reference-clean-sweep.json"
+      "reference_clean_artifact": "reference-clean-sweep.json",
+      "remediation_state": "absent_confirmed",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#map"
     },
     {
       "owner": "Domain Apps",

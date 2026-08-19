@@ -186,7 +186,71 @@
         }
       ],
       "errors": []
+    },
+    "registry": {
+      "slug": "registry",
+      "owner": "Marketplace",
+      "reference_base": "http://localhost:9225/workspace/artifacts/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/artifacts/"
+          },
+          "url": "http://localhost:9225/workspace/artifacts/",
+          "ia": {
+            "title": "Artifacts",
+            "headings": [
+              "Explore artifacts"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 4,
+            "empty_copy": "",
+            "text_len": 735
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/registry/landing.png"
+        }
+      ],
+      "errors": []
+    },
+    "map": {
+      "slug": "map",
+      "owner": "Environments",
+      "reference_base": "http://localhost:9225/workspace/map/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/map/"
+          },
+          "url": "http://localhost:9225/workspace/map/",
+          "ia": {
+            "title": "New map",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 5,
+            "empty_copy": "No layers",
+            "text_len": 800
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/map/landing.png"
+        }
+      ],
+      "errors": []
     }
   },
-  "recorded_at": "2026-08-19T22:59:49.798Z"
+  "recorded_at": "2026-08-19T23:22:46.836Z"
 }

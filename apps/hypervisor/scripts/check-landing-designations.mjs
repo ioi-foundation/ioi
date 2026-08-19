@@ -31,7 +31,9 @@ const seen = new Set();
 let dup = null;
 for (const t of D.targets) { if (seen.has(t.click_target)) dup = t.click_target; seen.add(t.click_target); }
 ok("click targets unique", !dup, dup || "");
-ok("statuses valid", D.targets.every((t) => ["NOW", "LATER", "GRE"].includes(t.status)));
+ok("statuses valid", D.targets.every((t) => ["NOW", "LATER", "GRE", "TERMINAL"].includes(t.status)));
+const badTerm = D.targets.filter((t) => t.status === "TERMINAL" && !t.adjudication_ref);
+ok("every TERMINAL cites its adjudication record", badTerm.length === 0, badTerm.map((t) => t.click_target).join(" · "));
 const badLater = D.targets.filter((t) => t.status === "LATER" && (!t.pending_action || !ledgerIds.has(t.pending_action)));
 ok("every LATER names a real ledger action", badLater.length === 0, badLater.map((t) => t.click_target).join(" · "));
 const badNow = D.targets.filter((t) => t.status === "NOW" && !t.grammar);

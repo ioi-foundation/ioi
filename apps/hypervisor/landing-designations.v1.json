@@ -1,41 +1,256 @@
 {
   "schema": "ioi.hypervisor.landing-designations.v1",
-  "doctrine": "The machine record of remediation-plan §4.1: exactly ONE designated landing grammar per click target (launcher tile, canonical route, owner landing, certified deep route). Choice governed by D-rules: D1 grammar-fit-to-job, D2 evidence rank, D3 richer IA breaks ties, D4 losers never deleted (sibling app/tab or terminal absence), D5 one designation per target, D6 combined-seed designations (seeds are not 1:1 with apps; grafts carry roles donor|authoring_flow|detail_view|secondary_grammar). Status: NOW = designated on evidence in hand; LATER = undecidable until the named action's W1 evidence lands (illegal after W1 exit — the E8 audit); GRE = greenfield, governed by the GRE-1 owner ruling.",
-  "plan": "internal-docs/prompts/hypervisor-application-surface-plans/reference-seed-remediation-plan.md §4.1",
+  "doctrine": "The machine record of remediation-plan \u00a74.1: exactly ONE designated landing grammar per click target (launcher tile, canonical route, owner landing, certified deep route). Choice governed by D-rules: D1 grammar-fit-to-job, D2 evidence rank, D3 richer IA breaks ties, D4 losers never deleted (sibling app/tab or terminal absence), D5 one designation per target, D6 combined-seed designations (seeds are not 1:1 with apps; grafts carry roles donor|authoring_flow|detail_view|secondary_grammar). Status: NOW = designated; TERMINAL = recorded terminal absence (requires adjudication_ref); LATER = undecidable until the named action's W1 evidence lands (illegal after W1 exit \u2014 the E8 audit); GRE = greenfield, governed by the GRE-1 owner ruling.",
+  "plan": "internal-docs/prompts/hypervisor-application-surface-plans/reference-seed-remediation-plan.md \u00a74.1",
   "authored": "2026-08-19",
   "targets": [
-    { "click_target": "/automations", "status": "NOW", "grammar": "Automate (monitors capture): Overview + live Automations tab", "grafts": [{ "seed": "monitors-wizard-strip", "role": "secondary_grammar", "note": "linked walkthrough, never a rebound surface or peer CTA" }], "competitors": [{ "seed": "scheduler", "disposition": "expected terminal absence (AUT-4); scheduler health Operations-owned" }] },
-    { "click_target": "/studio", "status": "NOW", "grammar": "Solution Designer landing (I-4) hosting agent estate + blueprints", "competitors": [{ "seed": "machinery", "disposition": "sibling app tab (D1: single-purpose graph app)" }, { "seed": "workshop+module", "disposition": "ONE combined-seed sibling app (D6): primary grammar module (boots as Workshop Home); roles donor+authoring_flow for the dead workshop capture" }] },
-    { "click_target": "/data", "status": "NOW", "grammar": "family splash (I-4) — no single reference Data home exists; recipes/sources first-class tabs", "competitors": [{ "seed": "ingest", "disposition": "combined-seed candidate (D6 authoring_flow into Pipeline Builder) — role decided by DAT-3" }], "pending_roles": ["DAT-3"] },
-    { "click_target": "/data/sources", "status": "NOW", "grammar": "Data Connection (certified, shipped)" },
-    { "click_target": "/data/recipes", "status": "NOW", "grammar": "Pipeline Builder (certified, shipped)" },
-    { "click_target": "/ontology", "status": "NOW", "grammar": "family splash (I-4); schema + explorer first-class", "competitors": [{ "seed": "objectview+objecteditor", "disposition": "combined-seed candidates (D6 detail_view INSIDE Explorer) pending donor evidence" }], "pending_roles": ["ONT-2.recon"] },
-    { "click_target": "/ontology/schema", "status": "NOW", "grammar": "Ontology Manager (certified, shipped)" },
-    { "click_target": "/ontology/explore", "status": "NOW", "grammar": "Object Explorer (certified, shipped)" },
-    { "click_target": "/governance", "status": "NOW", "grammar": "Approvals faceted inbox family grammar" },
-    { "click_target": "/governance/approvals", "status": "NOW", "grammar": "Approvals faceted inbox (certified, shipped)" },
-    { "click_target": "/provenance", "status": "LATER", "pending_action": "PRO-1.recon", "note": "CONTESTED: Monocle (lineage, 6 tabs) vs Vertex — both stay sibling apps (D4); landing goes to whichever atlas evidence shows fitting the proof-plane job (D1)" },
-    { "click_target": "/evaluations", "status": "NOW", "grammar": "AIP Evals (evalsuites, certified)", "competitors": [{ "seed": "analysis", "disposition": "sibling app or terminal absence — EVA-2" }, { "seed": "quiver", "disposition": "expected terminal absence — EVA-3" }], "pending_roles": ["EVA-2.recon", "EVA-3"] },
-    { "click_target": "/improvement", "status": "NOW", "grammar": "Upgrade Assistant (changes — THE EXEMPLAR: reference tabs already live ?lane= links)" },
-    { "click_target": "/foundry", "status": "NOW", "grammar": "Model Catalog (models, certified)", "competitors": [{ "seed": "modelstudio", "disposition": "grammar unknown until donor search — FOU-2" }, { "seed": "inference", "disposition": "grammar unknown until donor search — FOU-2" }], "pending_roles": ["FOU-2"] },
-    { "click_target": "/packages/marketplace", "status": "NOW", "grammar": "Marketplace (listings, certified)", "competitors": [{ "seed": "registry", "disposition": "expected terminal absence — MAR-1" }], "pending_roles": ["MAR-1"] },
-    { "click_target": "/packages", "status": "GRE" },
-    { "click_target": "missions:incidents", "status": "NOW", "grammar": "Issues (certified, shipped); no canonical route yet" },
-    { "click_target": "missions:jobs", "status": "LATER", "pending_action": "MIS-1.recon", "note": "Builds grammar known from donor title; IA pending atlas" },
-    { "click_target": "/developer-console", "status": "NOW", "grammar": "Developer Console (devconsole: Applications/OAuth tabs + guided create); binding depth gated by DEV-2", "competitors": [{ "seed": "widgets", "disposition": "sibling app, own grammar (origin-align)" }, { "seed": "developer", "disposition": "donor devconsole (DEV-3 record)" }] },
-    { "click_target": "/developer-workspace", "status": "NOW", "grammar": "family splash (I-4); workspaces/notepad/repositories(donor: code) siblings" },
-    { "click_target": "domain-apps:logic", "status": "NOW", "grammar": "AIP Logic landing (origin-align, I-4 instance)" },
-    { "click_target": "domain-apps:contour", "status": "NOW", "grammar": "Contour landing (origin-align, I-4 instance)" },
-    { "click_target": "domain-apps:slate", "status": "LATER", "pending_action": "DOM-2", "note": "splash-alias boot evidence pending" },
-    { "click_target": "domain-apps:fusion", "status": "LATER", "pending_action": "DOM-2", "note": "donor search pending" },
-    { "click_target": "/environments", "status": "LATER", "pending_action": "ENV-1", "note": "map seed expected terminal absence → likely GRE ruling for the owned Environments app" },
-    { "click_target": "/work", "status": "GRE" },
-    { "click_target": "/home", "status": "GRE" },
-    { "click_target": "/systems", "status": "GRE" },
-    { "click_target": "/applications", "status": "GRE" },
-    { "click_target": "/operations", "status": "GRE" },
-    { "click_target": "/settings", "status": "GRE" },
-    { "click_target": "seed:dataset", "status": "LATER", "pending_action": "DAT-4", "note": "terminal-truth record pending donor search" },
-    { "click_target": "seed:scheduler", "status": "LATER", "pending_action": "AUT-4", "note": "terminal-truth record pending adjudication (atlas ia=false already recorded)" }
+    {
+      "click_target": "/automations",
+      "status": "NOW",
+      "grammar": "Automate (monitors capture): Overview + live Automations tab",
+      "grafts": [
+        {
+          "seed": "monitors-wizard-strip",
+          "role": "secondary_grammar",
+          "note": "linked walkthrough, never a rebound surface or peer CTA"
+        }
+      ],
+      "competitors": [
+        {
+          "seed": "scheduler",
+          "disposition": "expected terminal absence (AUT-4); scheduler health Operations-owned"
+        }
+      ]
+    },
+    {
+      "click_target": "/studio",
+      "status": "NOW",
+      "grammar": "Solution Designer landing (I-4) hosting agent estate + blueprints",
+      "competitors": [
+        {
+          "seed": "machinery",
+          "disposition": "sibling app tab (D1: single-purpose graph app)"
+        },
+        {
+          "seed": "workshop+module",
+          "disposition": "ONE combined-seed sibling app (D6): primary grammar module (boots as Workshop Home); roles donor+authoring_flow for the dead workshop capture"
+        }
+      ]
+    },
+    {
+      "click_target": "/data",
+      "status": "NOW",
+      "grammar": "family splash (I-4) \u2014 no single reference Data home exists; recipes/sources first-class tabs",
+      "competitors": [
+        {
+          "seed": "ingest",
+          "disposition": "combined-seed candidate (D6 authoring_flow into Pipeline Builder) \u2014 role decided by DAT-3"
+        }
+      ],
+      "pending_roles": [
+        "DAT-3"
+      ]
+    },
+    {
+      "click_target": "/data/sources",
+      "status": "NOW",
+      "grammar": "Data Connection (certified, shipped)"
+    },
+    {
+      "click_target": "/data/recipes",
+      "status": "NOW",
+      "grammar": "Pipeline Builder (certified, shipped)"
+    },
+    {
+      "click_target": "/ontology",
+      "status": "NOW",
+      "grammar": "family splash (I-4); schema + explorer first-class",
+      "competitors": [
+        {
+          "seed": "objectview+objecteditor",
+          "disposition": "combined-seed candidates (D6 detail_view INSIDE Explorer) pending donor evidence"
+        }
+      ],
+      "pending_roles": [
+        "ONT-2.recon"
+      ]
+    },
+    {
+      "click_target": "/ontology/schema",
+      "status": "NOW",
+      "grammar": "Ontology Manager (certified, shipped)"
+    },
+    {
+      "click_target": "/ontology/explore",
+      "status": "NOW",
+      "grammar": "Object Explorer (certified, shipped)"
+    },
+    {
+      "click_target": "/governance",
+      "status": "NOW",
+      "grammar": "Approvals faceted inbox family grammar"
+    },
+    {
+      "click_target": "/governance/approvals",
+      "status": "NOW",
+      "grammar": "Approvals faceted inbox (certified, shipped)"
+    },
+    {
+      "click_target": "/provenance",
+      "status": "LATER",
+      "pending_action": "PRO-1.recon",
+      "note": "CONTESTED: Monocle (lineage, 6 tabs) vs Vertex \u2014 both stay sibling apps (D4); landing goes to whichever atlas evidence shows fitting the proof-plane job (D1)"
+    },
+    {
+      "click_target": "/evaluations",
+      "status": "NOW",
+      "grammar": "AIP Evals (evalsuites, certified)",
+      "competitors": [
+        {
+          "seed": "analysis",
+          "disposition": "sibling app or terminal absence \u2014 EVA-2"
+        },
+        {
+          "seed": "quiver",
+          "disposition": "expected terminal absence \u2014 EVA-3"
+        }
+      ],
+      "pending_roles": [
+        "EVA-2.recon",
+        "EVA-3"
+      ]
+    },
+    {
+      "click_target": "/improvement",
+      "status": "NOW",
+      "grammar": "Upgrade Assistant (changes \u2014 THE EXEMPLAR: reference tabs already live ?lane= links)"
+    },
+    {
+      "click_target": "/foundry",
+      "status": "NOW",
+      "grammar": "Model Catalog (models, certified)",
+      "competitors": [
+        {
+          "seed": "modelstudio",
+          "disposition": "grammar unknown until donor search \u2014 FOU-2"
+        },
+        {
+          "seed": "inference",
+          "disposition": "grammar unknown until donor search \u2014 FOU-2"
+        }
+      ],
+      "pending_roles": [
+        "FOU-2"
+      ]
+    },
+    {
+      "click_target": "/packages/marketplace",
+      "status": "NOW",
+      "grammar": "Marketplace (listings, certified)",
+      "competitors": [
+        {
+          "seed": "registry",
+          "disposition": "absent_confirmed (reference-seed-adjudications.v1.json#registry)"
+        }
+      ]
+    },
+    {
+      "click_target": "/packages",
+      "status": "GRE"
+    },
+    {
+      "click_target": "missions:incidents",
+      "status": "NOW",
+      "grammar": "Issues (certified, shipped); no canonical route yet"
+    },
+    {
+      "click_target": "missions:jobs",
+      "status": "LATER",
+      "pending_action": "MIS-1.recon",
+      "note": "Builds grammar known from donor title; IA pending atlas"
+    },
+    {
+      "click_target": "/developer-console",
+      "status": "NOW",
+      "grammar": "Developer Console (devconsole: Applications/OAuth tabs + guided create); binding depth gated by DEV-2",
+      "competitors": [
+        {
+          "seed": "widgets",
+          "disposition": "sibling app, own grammar (origin-align)"
+        },
+        {
+          "seed": "developer",
+          "disposition": "donor devconsole (DEV-3 record)"
+        }
+      ]
+    },
+    {
+      "click_target": "/developer-workspace",
+      "status": "NOW",
+      "grammar": "family splash (I-4); workspaces/notepad/repositories(donor: code) siblings"
+    },
+    {
+      "click_target": "domain-apps:logic",
+      "status": "NOW",
+      "grammar": "AIP Logic landing (origin-align, I-4 instance)"
+    },
+    {
+      "click_target": "domain-apps:contour",
+      "status": "NOW",
+      "grammar": "Contour landing (origin-align, I-4 instance)"
+    },
+    {
+      "click_target": "domain-apps:slate",
+      "status": "LATER",
+      "pending_action": "DOM-2",
+      "note": "splash-alias boot evidence pending"
+    },
+    {
+      "click_target": "domain-apps:fusion",
+      "status": "LATER",
+      "pending_action": "DOM-2",
+      "note": "donor search pending"
+    },
+    {
+      "click_target": "/environments",
+      "status": "GRE",
+      "note": "map seed absent_confirmed (reference-seed-adjudications.v1.json#map); the owned Environments app is greenfield \u2014 awaits GRE-1 like its siblings"
+    },
+    {
+      "click_target": "/work",
+      "status": "GRE"
+    },
+    {
+      "click_target": "/home",
+      "status": "GRE"
+    },
+    {
+      "click_target": "/systems",
+      "status": "GRE"
+    },
+    {
+      "click_target": "/applications",
+      "status": "GRE"
+    },
+    {
+      "click_target": "/operations",
+      "status": "GRE"
+    },
+    {
+      "click_target": "/settings",
+      "status": "GRE"
+    },
+    {
+      "click_target": "seed:dataset",
+      "status": "LATER",
+      "pending_action": "DAT-4",
+      "note": "terminal-truth record pending donor search"
+    },
+    {
+      "click_target": "seed:scheduler",
+      "status": "TERMINAL",
+      "note": "absent_confirmed \u2014 no expressed IA at any atlas state; Operations boundary stands",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#scheduler"
+    }
   ]
 }
