@@ -173,8 +173,11 @@ fn parse_deployment_state_reads_either_envelope() {
     );
 }
 
-// ----- C7 Stage A/B: SDL price-ceiling parsing + bid ceiling checks -----
+// ----- C7 Stage A/B: single-group SDL ceiling (exact decimal) + bid ceiling checks -----
 
+use rust_decimal::Decimal;
+
+// The honest C7 shape: one service, one placement, one compute profile, count == 1, uact.
 const PRICED_SDL: &str = r#"
 version: "2.0"
 services:
@@ -199,7 +202,7 @@ profiles:
     dcloud:
       pricing:
         web:
-          denom: uakt
+          denom: uact
           amount: 1000
 deployment:
   web:
@@ -209,73 +212,192 @@ deployment:
 "#;
 
 #[test]
-fn parse_sdl_price_ceilings_reads_every_deployed_service_price() {
-    let ceilings = parse_sdl_price_ceilings(PRICED_SDL).expect("a fully-priced SDL parses");
-    assert_eq!(ceilings.get("web"), Some(&("uakt".to_string(), 1000.0)));
-    let (denom, total) = sdl_ceiling_total(&ceilings).unwrap();
-    assert_eq!(denom, "uakt");
-    assert_eq!(total, 1000.0);
+fn parse_c7_sdl_ceiling_reads_the_single_group_price_exactly() {
+    let (denom, amount) = parse_c7_sdl_ceiling(PRICED_SDL).expect("the single-group SDL parses");
+    assert_eq!(denom, "uact");
+    assert_eq!(amount, Decimal::from(1000));
 }
 
 #[test]
-fn parse_sdl_price_ceilings_refuses_an_unpriced_service() {
-    // A deployed service with no placement pricing → the pre-bid gate must refuse (no unbounded spend).
-    let sdl = PRICED_SDL.replace(
-        "      pricing:\n        web:\n          denom: uakt\n          amount: 1000\n",
-        "",
+fn pricing_is_looked_up_by_compute_profile_not_service_name() {
+    // Service name "app" references compute profile "svc"; the price lives under the PROFILE.
+    // A service-name lookup would miss it and refuse — so a pass proves profile-based lookup.
+    let sdl = r#"
+version: "2.0"
+services:
+  app:
+    image: nginx:alpine
+profiles:
+  compute:
+    svc:
+      resources:
+        cpu: { units: 0.1 }
+        memory: { size: 128Mi }
+        storage: { size: 128Mi }
+  placement:
+    dcloud:
+      pricing:
+        svc:
+          denom: uact
+          amount: 500
+deployment:
+  app:
+    dcloud:
+      profile: svc
+      count: 1
+"#;
+    let (denom, amount) = parse_c7_sdl_ceiling(sdl).expect("profile-keyed pricing resolves");
+    assert_eq!(denom, "uact");
+    assert_eq!(amount, Decimal::from(500));
+}
+
+#[test]
+fn parse_c7_sdl_ceiling_refuses_departures_from_the_single_group_shape() {
+    // Wrong denom (the current allowlist scar): uakt is not the accepted capstone denom.
+    assert!(
+        parse_c7_sdl_ceiling(&PRICED_SDL.replace("denom: uact", "denom: uakt"))
+            .unwrap_err()
+            .contains("denom_not_accepted")
     );
-    let err = parse_sdl_price_ceilings(&sdl).unwrap_err();
-    assert!(err.contains("unpriced"), "got: {err}");
+    // count != 1 → not a single order/group.
+    assert!(
+        parse_c7_sdl_ceiling(&PRICED_SDL.replace("count: 1", "count: 3"))
+            .unwrap_err()
+            .contains("count_not_one")
+    );
+    // Unpriced compute profile → refuse (no unbounded spend).
+    assert!(parse_c7_sdl_ceiling(&PRICED_SDL.replace(
+        "        web:\n          denom: uact\n          amount: 1000\n",
+        ""
+    ))
+    .unwrap_err()
+    .contains("unpriced"));
+    // References a compute profile that is not defined.
+    assert!(
+        parse_c7_sdl_ceiling(&PRICED_SDL.replace("profile: web", "profile: ghost"))
+            .unwrap_err()
+            .contains("profile_absent")
+    );
+    // A second deployed service → multi-group, refused.
+    let two_service = PRICED_SDL.replace(
+        "deployment:\n  web:\n    dcloud:\n      profile: web\n      count: 1\n",
+        "deployment:\n  web:\n    dcloud:\n      profile: web\n      count: 1\n  web2:\n    dcloud:\n      profile: web\n      count: 1\n",
+    );
+    assert!(parse_c7_sdl_ceiling(&two_service)
+        .unwrap_err()
+        .contains("not_single_group"));
+    // A second placement on the one service → multi-group, refused.
+    let two_placement = PRICED_SDL.replace(
+        "  web:\n    dcloud:\n      profile: web\n      count: 1\n",
+        "  web:\n    dcloud:\n      profile: web\n      count: 1\n    dcloud2:\n      profile: web\n      count: 1\n",
+    );
+    assert!(parse_c7_sdl_ceiling(&two_placement)
+        .unwrap_err()
+        .contains("not_single_placement"));
 }
 
 #[test]
-fn parse_sdl_price_ceilings_refuses_a_zero_or_unparseable_bound() {
-    let zero = PRICED_SDL.replace("amount: 1000", "amount: 0");
-    assert!(parse_sdl_price_ceilings(&zero)
-        .unwrap_err()
-        .contains("not_positive"));
-    assert!(parse_sdl_price_ceilings("::: not yaml :::").is_err());
-    // An SDL that deploys nothing is refused.
-    assert!(parse_sdl_price_ceilings("version: \"2.0\"\n").is_err());
+fn parse_c7_sdl_ceiling_refuses_bad_amounts_and_bad_yaml() {
+    // Zero / non-positive.
+    assert!(
+        parse_c7_sdl_ceiling(&PRICED_SDL.replace("amount: 1000", "amount: 0"))
+            .unwrap_err()
+            .contains("not_positive")
+    );
+    // A YAML FLOAT (incl. .inf) is refused — money is never an f64.
+    assert!(
+        parse_c7_sdl_ceiling(&PRICED_SDL.replace("amount: 1000", "amount: 1000.5"))
+            .unwrap_err()
+            .contains("not_exact")
+    );
+    assert!(
+        parse_c7_sdl_ceiling(&PRICED_SDL.replace("amount: 1000", "amount: .inf"))
+            .unwrap_err()
+            .contains("not_exact")
+    );
+    // Overlarge amount.
+    assert!(
+        parse_c7_sdl_ceiling(&PRICED_SDL.replace("amount: 1000", "amount: 2000000000"))
+            .unwrap_err()
+            .contains("overlarge")
+    );
+    // Unparseable / no deployment.
+    assert!(parse_c7_sdl_ceiling("::: not yaml :::").is_err());
+    assert!(parse_c7_sdl_ceiling("version: \"2.0\"\n").is_err());
 }
 
 #[test]
-fn sdl_ceiling_total_refuses_disallowed_or_mixed_denoms() {
-    let mut mixed = std::collections::BTreeMap::new();
-    mixed.insert("a".to_string(), ("uakt".to_string(), 500.0));
-    mixed.insert("b".to_string(), ("uusdc".to_string(), 500.0));
-    assert!(sdl_ceiling_total(&mixed)
-        .unwrap_err()
-        .contains("mixed_denoms"));
-    let mut weird = std::collections::BTreeMap::new();
-    weird.insert("a".to_string(), ("uxyz".to_string(), 500.0));
-    assert!(sdl_ceiling_total(&weird)
-        .unwrap_err()
-        .contains("denom_not_allowed"));
+fn duplicate_keys_resolve_last_wins_consistently_with_what_akash_receives() {
+    // serde_yaml_ng resolves a duplicate mapping key last-wins (it does not error). That is SAFE
+    // for the spend gate: the daemon sends the EXACT same sdl_yaml string to Akash (bound by the
+    // SDL-hash), so the validator's ceiling is exactly what Akash prices against — a duplicate can
+    // only raise the deployer's OWN ceiling, which the deposit cap still bounds. This test pins
+    // that determinism so a future parser swap that changes the resolution is caught.
+    let dup = PRICED_SDL.replace(
+        "          denom: uact\n          amount: 1000\n",
+        "          denom: uact\n          amount: 1000\n          amount: 900\n",
+    );
+    let (denom, amount) = parse_c7_sdl_ceiling(&dup).expect("last-wins resolves to a valid group");
+    assert_eq!(denom, "uact");
+    assert_eq!(
+        amount,
+        Decimal::from(900),
+        "last-wins takes the final amount"
+    );
 }
 
 #[test]
-fn parse_pinned_bid_priced_extracts_price_and_denom() {
+fn parse_c7_sdl_ceiling_bounds_the_yaml() {
+    // Oversized SDL.
+    let huge = format!("{PRICED_SDL}{}", "#".repeat(20 * 1024));
+    assert!(parse_c7_sdl_ceiling(&huge)
+        .unwrap_err()
+        .contains("too_large"));
+    // Anchors/aliases (expansion vector) are refused.
+    let aliased = PRICED_SDL.replace("version: \"2.0\"", "version: &v \"2.0\"");
+    assert!(parse_c7_sdl_ceiling(&aliased)
+        .unwrap_err()
+        .contains("alias_forbidden"));
+}
+
+#[test]
+fn parse_pinned_bid_priced_extracts_exact_price_and_denom() {
     let resp = json!({
         "data": { "data": [
-            { "bid": { "id": { "gseq": 1, "oseq": 2, "provider": "akash1prov" }, "price": { "amount": "750", "denom": "uakt" } } }
+            { "bid": { "id": { "gseq": 1, "oseq": 2, "provider": "akash1prov" }, "price": { "amount": "750", "denom": "uact" } } }
         ]}
     });
-    let (bid, amount, denom) = parse_pinned_bid_priced(&resp, "akash1prov").unwrap();
+    let (bid, amount, denom) = parse_pinned_bid_priced(&resp, "akash1prov")
+        .expect("provider bid present")
+        .expect("bid price readable");
     assert_eq!(bid.provider, "akash1prov");
-    assert_eq!(amount, 750.0);
-    assert_eq!(denom, "uakt");
+    assert_eq!(bid.gseq, 1);
+    assert_eq!(bid.oseq, 2);
+    assert_eq!(amount, Decimal::from(750));
+    assert_eq!(denom, "uact");
+    // A provider that did not bid → None (not an error).
     assert!(parse_pinned_bid_priced(&resp, "absent").is_none());
+    // A malformed bid price → Some(Err) (Stage B refuses + closes).
+    let bad = json!({
+        "data": { "data": [
+            { "bid": { "id": { "gseq": 1, "oseq": 2, "provider": "akash1prov" }, "price": { "amount": 1.5, "denom": "uact" } } }
+        ]}
+    });
+    assert!(parse_pinned_bid_priced(&bad, "akash1prov")
+        .unwrap()
+        .is_err());
 }
 
 #[test]
-fn bid_passes_ceiling_enforces_denom_and_amount() {
-    assert!(bid_passes_ceiling(750.0, "uakt", "uakt", 1000.0).is_ok());
-    assert!(bid_passes_ceiling(1000.0, "uakt", "uakt", 1000.0).is_ok()); // equal is allowed
-    assert!(bid_passes_ceiling(1001.0, "uakt", "uakt", 1000.0)
+fn bid_passes_ceiling_enforces_denom_and_amount_exactly() {
+    let c = Decimal::from(1000);
+    assert!(bid_passes_ceiling(Decimal::from(750), "uact", "uact", c).is_ok());
+    assert!(bid_passes_ceiling(Decimal::from(1000), "uact", "uact", c).is_ok()); // equal allowed
+    assert!(bid_passes_ceiling(Decimal::from(1001), "uact", "uact", c)
         .unwrap_err()
         .contains("over_ceiling"));
-    assert!(bid_passes_ceiling(500.0, "uusdc", "uakt", 1000.0)
+    // A denomination change is a circuit-breaker → refuse (never auto-accept a fallback).
+    assert!(bid_passes_ceiling(Decimal::from(500), "uakt", "uact", c)
         .unwrap_err()
         .contains("denom_mismatch"));
 }

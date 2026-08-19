@@ -21,6 +21,7 @@
 //! source: `x-api-key` and `Authorization` are **mutually exclusive**, so we
 //! send `x-api-key` only.
 
+use rust_decimal::Decimal;
 use serde_json::{json, Value};
 
 /// Base URL for the managed Console API.
@@ -281,146 +282,204 @@ pub fn parse_pinned_bid(resp: &Value, provider: &str) -> Option<AkashBid> {
     None
 }
 
-/// The Akash denominations the spend gate accepts. The SDL declares the denom; a bid must
-/// match it; both must be one of these (an unknown denom is an unpriceable bound).
-pub const ALLOWED_AKASH_DENOMS: &[&str] = &["uakt", "uusdc"];
+/// The single denomination the C7 capstone accepts. Akash's current SDL/bid API prices in
+/// `uact` (micro-AKT/block); a bid in any OTHER denom is a circuit-breaker event — refuse and
+/// close, never auto-accept a fallback denom (that would need fresh authorization).
+pub const AKASH_CAPSTONE_DENOM: &str = "uact";
 
-/// C7 Stage A — parse a caller-supplied Akash SDL into the max-bid price ceiling for EVERY
-/// deployed service. Akash SDL placement prices ARE the maximum acceptable bids, so this is
-/// the pre-bid spend bound. Returns `{service -> (denom, max_amount)}`. Errs (the gate refuses,
-/// so NO deployment is created) if the SDL is unparseable, deploys no service, or any deployed
-/// service lacks a bounded (`amount > 0`) price under its placement.
-pub fn parse_sdl_price_ceilings(
-    sdl_yaml: &str,
-) -> Result<std::collections::BTreeMap<String, (String, f64)>, String> {
+/// Max SDL bytes we will parse. Akash SDLs are a few hundred bytes; this bounds oversized and
+/// expansion-style inputs before the YAML parser runs.
+const MAX_SDL_BYTES: usize = 16 * 1024;
+
+/// An absurd upper bound on a per-block ceiling — well above any real `uact/block` price. A
+/// larger amount is a typo or an attack, not a bound. (rust_decimal cannot represent ±inf, so
+/// non-finite amounts are already impossible here.)
+fn max_ceiling_uact() -> Decimal {
+    Decimal::from(1_000_000_000_i64)
+}
+
+/// Parse an Akash SDL `amount` field into an EXACT positive, finite, bounded Decimal. Accepts an
+/// integer or a canonical decimal STRING — never a YAML float (which would introduce binary
+/// rounding and can carry `.inf`). Errs on anything else.
+fn decimal_amount(v: Option<&Value>, what: &str) -> Result<Decimal, String> {
+    let v = v.ok_or_else(|| format!("akash_{what}_no_amount — no amount field"))?;
+    let dec = if let Some(i) = v.as_i64() {
+        Decimal::from(i)
+    } else if let Some(u) = v.as_u64() {
+        Decimal::from(u)
+    } else if let Some(s) = v.as_str() {
+        Decimal::from_str_exact(s.trim())
+            .map_err(|e| format!("akash_{what}_amount_not_decimal — '{s}': {e}"))?
+    } else {
+        // A YAML float (incl. .inf/.nan) lands here and is refused: money is never an f64.
+        return Err(format!(
+            "akash_{what}_amount_not_exact — amount must be an integer or a decimal string, never a float"
+        ));
+    };
+    if dec <= Decimal::ZERO {
+        return Err(format!(
+            "akash_{what}_amount_not_positive — amount {dec} must be > 0"
+        ));
+    }
+    if dec > max_ceiling_uact() {
+        return Err(format!(
+            "akash_{what}_amount_overlarge — amount {dec} exceeds the max"
+        ));
+    }
+    Ok(dec)
+}
+
+/// C7 Stage A — parse a caller-supplied Akash SDL and return the SINGLE deployment group's price
+/// ceiling as an EXACT decimal `(denom, amount)`. Deliberately restricted to the capstone's
+/// honest shape — exactly one deployed service, one placement, one referenced compute profile,
+/// `count == 1`, priced in `uact` — so there is exactly one order, one bid, one price, one lease.
+/// Multi-group SDLs (Akash creates separate orders/bids/leases per group) are REFUSED here rather
+/// than modelled with a false deployment-wide sum; group-aware support is a later leg. The price
+/// is looked up by the REFERENCED COMPUTE PROFILE, not the service name. Errs (the gate refuses →
+/// NO deployment is created) on any departure from that shape, an oversized/aliased/unparseable
+/// SDL, or a non-positive/overlarge amount.
+pub fn parse_c7_sdl_ceiling(sdl_yaml: &str) -> Result<(String, Decimal), String> {
+    if sdl_yaml.len() > MAX_SDL_BYTES {
+        return Err(format!(
+            "akash_sdl_too_large — SDL is {} bytes (max {MAX_SDL_BYTES})",
+            sdl_yaml.len()
+        ));
+    }
+    // Reject YAML anchors/aliases/merge-keys: the accepted subset never uses them and they are the
+    // vector for expansion bombs. A scan suffices for this restricted subset.
+    if sdl_yaml.contains(" &") || sdl_yaml.contains(" *") || sdl_yaml.contains("<<:") {
+        return Err(
+            "akash_sdl_alias_forbidden — YAML anchors/aliases/merge-keys are not accepted".into(),
+        );
+    }
+    // serde_yaml_ng errs on duplicate mapping keys, so a duplicate lands in `unparseable`.
     let doc: Value =
         serde_yaml_ng::from_str(sdl_yaml).map_err(|e| format!("akash_sdl_unparseable: {e}"))?;
+
+    // deployment: EXACTLY one service.
     let deployment = doc
         .get("deployment")
         .and_then(Value::as_object)
         .ok_or("akash_sdl_no_deployment — the SDL declares no `deployment` block")?;
-    if deployment.is_empty() {
-        return Err("akash_sdl_no_services — the `deployment` block deploys no service".into());
+    if deployment.len() != 1 {
+        return Err(format!(
+            "akash_sdl_not_single_group — C7 accepts exactly one deployed service, found {}",
+            deployment.len()
+        ));
     }
-    let mut ceilings = std::collections::BTreeMap::new();
-    for (service, placements) in deployment {
-        // deployment.<service>.<placement> — the placement whose pricing bounds this service.
-        let placement_name = placements
-            .as_object()
-            .and_then(|m| m.keys().next())
-            .ok_or_else(|| {
-                format!("akash_sdl_service_no_placement — service '{service}' names no placement")
-            })?;
-        let price = doc
-            .get("profiles")
-            .and_then(|p| p.get("placement"))
-            .and_then(|pl| pl.get(placement_name))
-            .and_then(|p| p.get("pricing"))
-            .and_then(|pr| pr.get(service))
-            .ok_or_else(|| {
-                format!("akash_sdl_service_unpriced — service '{service}' has no price ceiling under placement '{placement_name}'; every deployed service MUST bound its max bid")
-            })?;
-        let denom = price
-            .get("denom")
-            .and_then(Value::as_str)
-            .ok_or_else(|| {
-                format!("akash_sdl_price_no_denom — service '{service}' price has no denom")
-            })?
-            .to_string();
-        let amount = price
-            .get("amount")
-            .and_then(|v| {
-                v.as_f64()
-                    .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
-            })
-            .ok_or_else(|| {
-                format!(
-                    "akash_sdl_price_no_amount — service '{service}' price has no numeric amount"
-                )
-            })?;
-        if !(amount > 0.0) {
-            return Err(format!(
-                "akash_sdl_price_not_positive — service '{service}' price amount must be > 0 (an unbounded/zero ceiling is not a bound)"
-            ));
-        }
-        ceilings.insert(service.clone(), (denom, amount));
+    let (service, placements) = deployment.iter().next().unwrap();
+    let placements = placements.as_object().ok_or_else(|| {
+        format!("akash_sdl_service_malformed — service '{service}' has no placement mapping")
+    })?;
+    if placements.len() != 1 {
+        return Err(format!(
+            "akash_sdl_not_single_placement — service '{service}' must name exactly one placement, found {}",
+            placements.len()
+        ));
     }
-    Ok(ceilings)
+    let (placement_name, group) = placements.iter().next().unwrap();
+    // count == 1 → exactly one order/group.
+    let count = group.get("count").and_then(|v| v.as_i64()).ok_or_else(|| {
+        format!("akash_sdl_no_count — placement '{placement_name}' has no integer count")
+    })?;
+    if count != 1 {
+        return Err(format!(
+            "akash_sdl_count_not_one — C7 accepts count == 1, found {count}"
+        ));
+    }
+    // Pricing is keyed by the referenced COMPUTE PROFILE, not the service name.
+    let profile = group
+        .get("profile")
+        .and_then(Value::as_str)
+        .ok_or_else(|| {
+            format!("akash_sdl_no_profile — placement '{placement_name}' names no compute profile")
+        })?;
+    if doc
+        .pointer("/profiles/compute")
+        .and_then(|c| c.get(profile))
+        .is_none()
+    {
+        return Err(format!(
+            "akash_sdl_profile_absent — compute profile '{profile}' is not defined under profiles.compute"
+        ));
+    }
+    let price = doc
+        .get("profiles")
+        .and_then(|p| p.get("placement"))
+        .and_then(|pl| pl.get(placement_name))
+        .and_then(|p| p.get("pricing"))
+        .and_then(|pr| pr.get(profile))
+        .ok_or_else(|| {
+            format!("akash_sdl_service_unpriced — compute profile '{profile}' has no price ceiling under placement '{placement_name}'; the deployed group MUST bound its max bid")
+        })?;
+    let denom = price
+        .get("denom")
+        .and_then(Value::as_str)
+        .ok_or("akash_sdl_price_no_denom — the price has no denom")?
+        .to_string();
+    if denom != AKASH_CAPSTONE_DENOM {
+        return Err(format!(
+            "akash_sdl_denom_not_accepted — C7 prices in '{AKASH_CAPSTONE_DENOM}', SDL declares '{denom}'"
+        ));
+    }
+    let amount = decimal_amount(price.get("amount"), "sdl")?;
+    Ok((denom, amount))
 }
 
-/// The single deployment-wide ceiling from per-service ceilings: all services must price in the
-/// SAME allowed denom, and the bound is their sum (the most a deployer can ever pay). Errs on a
-/// mixed or disallowed denom — an ambiguous bound is not a bound.
-pub fn sdl_ceiling_total(
-    ceilings: &std::collections::BTreeMap<String, (String, f64)>,
-) -> Result<(String, f64), String> {
-    let mut denom: Option<String> = None;
-    let mut total = 0.0;
-    for (service, (d, amount)) in ceilings {
-        if !ALLOWED_AKASH_DENOMS.contains(&d.as_str()) {
-            return Err(format!(
-                "akash_sdl_denom_not_allowed — service '{service}' prices in '{d}', not one of {ALLOWED_AKASH_DENOMS:?}"
-            ));
-        }
-        match &denom {
-            None => denom = Some(d.clone()),
-            Some(first) if first != d => {
-                return Err(format!(
-                    "akash_sdl_mixed_denoms — service '{service}' prices in '{d}' but another prices in '{first}'; a mixed-denom deployment has no single bound"
-                ))
-            }
-            _ => {}
-        }
-        total += amount;
-    }
-    denom
-        .map(|d| (d, total))
-        .ok_or_else(|| "akash_sdl_no_priced_services".to_string())
-}
-
-/// The pinned provider's bid WITH its price + denom — the post-bid quote to check against the
-/// SDL ceiling. `None` if that provider did not bid (Stage B then refuses + closes the deposit).
-pub fn parse_pinned_bid_priced(resp: &Value, provider: &str) -> Option<(AkashBid, f64, String)> {
+/// The pinned provider's bid WITH its EXACT price + denom — the post-bid quote to check against
+/// the SDL ceiling. `None` if that provider did not bid; `Err` if it bid with an unreadable price
+/// (either refuses Stage B → the deposit is closed). For C7's single group there is one bid per
+/// provider; this returns the pinned provider's bid.
+pub fn parse_pinned_bid_priced(
+    resp: &Value,
+    provider: &str,
+) -> Option<Result<(AkashBid, Decimal, String), String>> {
     let bids = resp.pointer("/data/data").and_then(Value::as_array)?;
     for entry in bids {
         let id = entry.pointer("/bid/id")?;
         if id.get("provider").and_then(Value::as_str) == Some(provider) {
+            let (Some(gseq), Some(oseq)) = (
+                id.get("gseq").and_then(Value::as_i64),
+                id.get("oseq").and_then(Value::as_i64),
+            ) else {
+                return Some(Err("akash_bid_malformed_id — bid lacks gseq/oseq".into()));
+            };
             let bid = AkashBid {
-                gseq: id.get("gseq").and_then(Value::as_i64)?,
-                oseq: id.get("oseq").and_then(Value::as_i64)?,
+                gseq,
+                oseq,
                 provider: provider.to_string(),
             };
             let price = entry.pointer("/bid/price");
-            let amount = price.and_then(|p| p.get("amount")).and_then(|v| {
-                v.as_f64()
-                    .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
-            })?;
-            let denom = price
-                .and_then(|p| p.get("denom"))
-                .and_then(Value::as_str)?
-                .to_string();
-            return Some((bid, amount, denom));
+            let amount = match decimal_amount(price.and_then(|p| p.get("amount")), "bid") {
+                Ok(a) => a,
+                Err(e) => return Some(Err(e)),
+            };
+            let Some(denom) = price.and_then(|p| p.get("denom")).and_then(Value::as_str) else {
+                return Some(Err("akash_bid_no_denom — bid price has no denom".into()));
+            };
+            return Some(Ok((bid, amount, denom.to_string())));
         }
     }
     None
 }
 
-/// C7 Stage B — the real bid must price in the SDL's declared denom and at or below its ceiling.
-/// A bid over the ceiling, or in a different denom, is refused (the lease never opens).
+/// C7 Stage B — the real bid must price in the accepted denom and at or below the SDL ceiling.
+/// A bid in a different denom (a circuit-breaker) or over the ceiling is refused (the lease never
+/// opens; Stage B then closes the deposit). Exact Decimal comparison — no f64.
 pub fn bid_passes_ceiling(
-    bid_amount: f64,
+    bid_amount: Decimal,
     bid_denom: &str,
     ceiling_denom: &str,
-    ceiling_total: f64,
+    ceiling: Decimal,
 ) -> Result<(), String> {
     if bid_denom != ceiling_denom {
         return Err(format!(
-            "akash_bid_denom_mismatch — bid prices in '{bid_denom}' but the SDL ceiling is in '{ceiling_denom}'"
+            "akash_bid_denom_mismatch — bid prices in '{bid_denom}' but the ceiling is '{ceiling_denom}' (denomination change → halt, do not auto-accept)"
         ));
     }
-    if bid_amount > ceiling_total {
+    if bid_amount > ceiling {
         return Err(format!(
-            "akash_bid_over_ceiling — bid {bid_amount} {bid_denom} exceeds the SDL max {ceiling_total} {ceiling_denom}"
+            "akash_bid_over_ceiling — bid {bid_amount} {bid_denom} exceeds the SDL max {ceiling} {ceiling_denom}"
         ));
     }
     Ok(())
