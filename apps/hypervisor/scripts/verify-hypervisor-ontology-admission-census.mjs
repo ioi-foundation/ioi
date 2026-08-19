@@ -230,7 +230,7 @@ const RECORDED_TEST_WRITES = {
 const PINNED = {
   modules: 88,
   familyMentions: 300,
-  tokenMentions: 106985,
+  tokenMentions: 107048,
   judgedTokenPositions: 282,
   productionWriterCalls: { family: 72, nonFamilyLiteral: 206, runtimeParameter: 290 },
   productionFsCalls: 228,
@@ -251,7 +251,7 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 3497,
+    "foreign-qualified": 3498,
     "opaque-initialiser": 1556,
     "bare-undeclared": 517,
     "ambiguous-module": 0,
