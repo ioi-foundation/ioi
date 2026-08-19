@@ -137,17 +137,20 @@
       {
         "id": "GOV-1",
         "title": "governance family atlas (verify-only)",
-        "status": "queued"
+        "status": "done",
+        "evidence": "verify-only coverage recorded (atlas landing; certified port evidence stands)"
       },
       {
         "id": "IMP-1",
         "title": "changes exemplar atlas record (verify-only)",
-        "status": "queued"
+        "status": "done",
+        "evidence": "EXEMPLAR recorded: 8 facet groups + 3 tabs, tabs are live ?lane= links (E6 model)"
       },
       {
         "id": "DEV-3",
         "title": "developer donor record (devconsole)",
-        "status": "queued"
+        "status": "done",
+        "evidence": "donor devconsole RECORDED (donor landing+Applications tab express IA); matrix donor_capture set"
       },
       {
         "id": "DOM-2",
@@ -376,12 +379,23 @@
       "date": "2026-08-19",
       "did": "W1 batch 1: AUT-4/MAR-1/ENV-1 all absent_confirmed (atlas-evidenced); estate adjudication file created; designations LATER 7\u21925, TERMINAL vocabulary added to checker (7/7); PR #354 found blocked by pre-existing master red (admission-evidence baseline)",
       "next": "W1 batch 2 (GOV-1, IMP-1, DEV-3) + consider side-PR to re-pin admission-evidence baseline"
+    },
+    {
+      "n": 6,
+      "date": "2026-08-19",
+      "did": "admission-evidence re-pin PREPARED + verified green locally but commit DENIED by permission classifier (patch preserved; surfaced to owner); W1 batch 2: GOV-1/IMP-1/DEV-3 done with atlas evidence (changes=exemplar 8 facets/3 live tabs; devconsole donor validated)",
+      "next": "W1 batch 3 (ONT-1, EVA-1, DAT-2)"
     }
   ],
   "pr_blockers": [
     {
       "pr": 354,
       "blocker": "UPSTREAM master red: check:admission-evidence \u2014 provider_routes.rs::handle_provider_op baseline stale after provider_selector merge; reproduces on clean master, branch touches zero .rs files",
+      "found": "2026-08-19"
+    },
+    {
+      "pr": "(pending)",
+      "blocker": "PERMISSION: auto-mode classifier denied committing the admission-evidence baseline re-pin (a security-gate pin edit) \u2014 patch preserved at scratchpad/admission-evidence-repin.patch + worktree wt-repin; owner decision needed (run it, grant permission, or fix master themselves)",
       "found": "2026-08-19"
     }
   ]

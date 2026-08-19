@@ -250,7 +250,319 @@
         }
       ],
       "errors": []
+    },
+    "approvals": {
+      "slug": "approvals",
+      "owner": "Governance",
+      "reference_base": "http://localhost:9225/workspace/approvals-app/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/approvals-app/"
+          },
+          "url": "http://localhost:9225/workspace/approvals-app/",
+          "ia": {
+            "title": "Approvals inbox",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 0,
+            "empty_copy": "No requests found",
+            "text_len": 515
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/approvals/landing.png"
+        }
+      ],
+      "errors": []
+    },
+    "changes": {
+      "slug": "changes",
+      "owner": "Improvement",
+      "reference_base": "http://localhost:9225/workspace/upgrade-assistant/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/upgrade-assistant/"
+          },
+          "url": "http://localhost:9225/workspace/upgrade-assistant/",
+          "ia": {
+            "title": "Upgrade Assistant",
+            "headings": [
+              "What's new in Upgrade Assistant"
+            ],
+            "tabs": [
+              "Active",
+              "Past due",
+              "Archived"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "UPGRADE PROGRESS",
+              "UPGRADE TYPE",
+              "SORT",
+              "NAME",
+              "TYPE",
+              "DUE DATE",
+              "MY ACTIONS"
+            ],
+            "rows": 0,
+            "cards": 7,
+            "empty_copy": "No pre",
+            "text_len": 1710
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/changes/landing.png"
+        },
+        {
+          "key": "tab:Active",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/upgrade-assistant/",
+            "clickTab": "Active"
+          },
+          "url": "http://localhost:9225/workspace/upgrade-assistant/?sortColumn=DATE&sortDirection=asc",
+          "ia": {
+            "title": "Upgrade Assistant",
+            "headings": [
+              "What's new in Upgrade Assistant"
+            ],
+            "tabs": [
+              "Active",
+              "Past due",
+              "Archived"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "UPGRADE PROGRESS",
+              "UPGRADE TYPE",
+              "SORT",
+              "NAME",
+              "TYPE",
+              "DUE DATE",
+              "MY ACTIONS"
+            ],
+            "rows": 0,
+            "cards": 7,
+            "empty_copy": "No pre",
+            "text_len": 1710
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/changes/tab_Active.png"
+        },
+        {
+          "key": "tab:Past due",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/upgrade-assistant/",
+            "clickTab": "Past due"
+          },
+          "url": "http://localhost:9225/workspace/upgrade-assistant/?tab=past-due-upgrade&sortColumn=DATE&sortDirection=desc",
+          "ia": {
+            "title": "Upgrade Assistant",
+            "headings": [
+              "What's new in Upgrade Assistant"
+            ],
+            "tabs": [
+              "Active",
+              "Past due",
+              "Archived"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "UPGRADE PROGRESS",
+              "UPGRADE TYPE",
+              "SORT",
+              "NAME",
+              "TYPE",
+              "DUE DATE",
+              "MY ACTIONS"
+            ],
+            "rows": 0,
+            "cards": 7,
+            "empty_copy": "No past due upgrades found",
+            "text_len": 1351
+          },
+          "expresses_ia": true,
+          "http_errors": [
+            "404 http://localhost:9225/interventions/api/interventions/ri.interventions.main.inte"
+          ],
+          "screenshot": ".artifacts/family-atlas/changes/tab_Past_due.png"
+        },
+        {
+          "key": "tab:Archived",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/upgrade-assistant/",
+            "clickTab": "Archived"
+          },
+          "url": "http://localhost:9225/workspace/upgrade-assistant/?tab=archived-upgrade&sortColumn=DATE&sortDirection=desc",
+          "ia": {
+            "title": "Upgrade Assistant",
+            "headings": [
+              "What's new in Upgrade Assistant"
+            ],
+            "tabs": [
+              "Active",
+              "Past due",
+              "Archived"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "UPGRADE PROGRESS",
+              "UPGRADE TYPE",
+              "SORT",
+              "NAME",
+              "TYPE",
+              "DUE DATE",
+              "MY ACTIONS"
+            ],
+            "rows": 0,
+            "cards": 7,
+            "empty_copy": "no longer being updated",
+            "text_len": 1345
+          },
+          "expresses_ia": true,
+          "http_errors": [
+            "404 http://localhost:9225/interventions/api/interventions/ri.interventions.main.inte"
+          ],
+          "screenshot": ".artifacts/family-atlas/changes/tab_Archived.png"
+        }
+      ],
+      "errors": []
+    },
+    "devconsole": {
+      "slug": "devconsole",
+      "owner": "Developer Console",
+      "reference_base": "http://localhost:9225/workspace/developer-console/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/developer-console/"
+          },
+          "url": "http://localhost:9225/workspace/developer-console/",
+          "ia": {
+            "title": "Developer Console • Home page",
+            "headings": [
+              "Welcome to Developer Console"
+            ],
+            "tabs": [
+              "Applications",
+              "Standalone OAuth clientsLegacy"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "APPLICATION",
+              "CREATOR",
+              "LAST EDITED BY",
+              "LAST MODIFIED"
+            ],
+            "rows": 0,
+            "cards": 5,
+            "empty_copy": "No applications",
+            "text_len": 757
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/devconsole/landing.png"
+        },
+        {
+          "key": "tab:Applications",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/developer-console/",
+            "clickTab": "Applications"
+          },
+          "url": "http://localhost:9225/workspace/developer-console/",
+          "ia": {
+            "title": "Developer Console • Home page",
+            "headings": [
+              "Welcome to Developer Console"
+            ],
+            "tabs": [
+              "Applications",
+              "Standalone OAuth clientsLegacy"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "APPLICATION",
+              "CREATOR",
+              "LAST EDITED BY",
+              "LAST MODIFIED"
+            ],
+            "rows": 0,
+            "cards": 5,
+            "empty_copy": "No applications",
+            "text_len": 757
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/devconsole/tab_Applications.png"
+        },
+        {
+          "key": "tab:Standalone OAuth clientsLegacy",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/developer-console/",
+            "clickTab": "Standalone OAuth clientsLegacy"
+          },
+          "url": "http://localhost:9225/workspace/developer-console/",
+          "ia": {
+            "title": "Developer Console • Home page",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 0,
+            "empty_copy": "",
+            "text_len": 256
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/devconsole/tab_Standalone_OAuth_clientsLegacy.png"
+        },
+        {
+          "key": "authoring:/workspace/developer-console/create/guided/basic-information",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/developer-console/create/guided/basic-information"
+          },
+          "url": "http://localhost:9225/workspace/developer-console/create/guided/basic-information",
+          "ia": {
+            "title": "Developer Console • Create a new application",
+            "headings": [
+              "Basic information"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 2,
+            "empty_copy": "no projects",
+            "text_len": 981
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/devconsole/authoring_workspace_developer-console_create_guided_basic-information.png"
+        }
+      ],
+      "errors": []
     }
   },
-  "recorded_at": "2026-08-19T23:22:46.836Z"
+  "recorded_at": "2026-08-19T23:44:50.748Z"
 }

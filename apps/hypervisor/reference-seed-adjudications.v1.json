@@ -1,6 +1,6 @@
 {
   "schema": "ioi.hypervisor.reference-seed-adjudications.v1",
-  "doctrine": "Estate-wide seed adjudications (W1 sweep). Each record re-adjudicates a seed (or a named gap) against the reference surface behind it: the reference route, its EXPRESSED IA (§3.2 — facets, columns, tabs, empty-state copy; an empty body is never itself a blocker), the estate plane (or its absence), and the outcome. Outcomes: portable | absent_confirmed | donor_ported | capture_broken_no_donor. The sources proof pass (Syncs et al.) lives in reference-gap-adjudication.v1.json; this file carries every subsequent W1 record.",
+  "doctrine": "Estate-wide seed adjudications (W1 sweep). Each record re-adjudicates a seed (or a named gap) against the reference surface behind it: the reference route, its EXPRESSED IA (\u00a73.2 \u2014 facets, columns, tabs, empty-state copy; an empty body is never itself a blocker), the estate plane (or its absence), and the outcome. Outcomes: portable | absent_confirmed | donor_ported | capture_broken_no_donor. The sources proof pass (Syncs et al.) lives in reference-gap-adjudication.v1.json; this file carries every subsequent W1 record.",
   "recorded": "2026-08-19",
   "atlas": "reference-family-atlas.v1.json",
   "records": [
@@ -10,10 +10,17 @@
       "owner": "Automations",
       "reference_route": "http://localhost:9225/workspace/scheduler/",
       "atlas_state": "landing",
-      "expressed_ia": { "columns": 0, "facet_groups": 0, "tabs": 0, "rows": 0, "empty_copy": "", "expresses_ia": false },
+      "expressed_ia": {
+        "columns": 0,
+        "facet_groups": 0,
+        "tabs": 0,
+        "rows": 0,
+        "empty_copy": "",
+        "expresses_ia": false
+      },
       "estate_plane": "scheduler HEALTH exists at /v1/hypervisor/scheduler/status but is Operations-owned by standing boundary (matrix note); per-spec schedule fields are Automations spec truth and already render there",
       "outcome": "absent_confirmed",
-      "reason": "the reference schedule-table seed serves but expresses NO IA at any recorded state — nothing to port backwards from; the Operations boundary stands and the Automate family designation (monitors) is unaffected"
+      "reason": "the reference schedule-table seed serves but expresses NO IA at any recorded state \u2014 nothing to port backwards from; the Operations boundary stands and the Automate family designation (monitors) is unaffected"
     },
     {
       "action": "MAR-1",
@@ -21,8 +28,15 @@
       "owner": "Marketplace",
       "reference_route": "http://localhost:9225/workspace/artifacts/",
       "atlas_state": "landing",
-      "expressed_ia": { "columns": 0, "facet_groups": 0, "tabs": 0, "rows": 0, "empty_copy": "", "expresses_ia": false },
-      "estate_plane": "the package registry plane exists (/packages substrate, marketplace object-plane) — but the reference Artifacts seed expresses no IA to carry it",
+      "expressed_ia": {
+        "columns": 0,
+        "facet_groups": 0,
+        "tabs": 0,
+        "rows": 0,
+        "empty_copy": "",
+        "expresses_ia": false
+      },
+      "estate_plane": "the package registry plane exists (/packages substrate, marketplace object-plane) \u2014 but the reference Artifacts seed expresses no IA to carry it",
       "outcome": "absent_confirmed",
       "reason": "shell renders clean with zero expressed IA; the Marketplace family designation (listings) stands; artifacts/registry UX is not a portable grammar from this capture"
     },
@@ -32,10 +46,73 @@
       "owner": "Environments",
       "reference_route": "http://localhost:9225/workspace/map/",
       "atlas_state": "landing",
-      "expressed_ia": { "columns": 0, "facet_groups": 0, "tabs": 0, "rows": 0, "empty_copy": "", "expresses_ia": false },
+      "expressed_ia": {
+        "columns": 0,
+        "facet_groups": 0,
+        "tabs": 0,
+        "rows": 0,
+        "empty_copy": "",
+        "expresses_ia": false
+      },
       "estate_plane": "the owned Environments app is the estate's real surface (greenfield, daemon env-ops planes)",
       "outcome": "absent_confirmed",
-      "reason": "the map seed expresses no IA; /environments click target moves to GRE — the owned Environments app is governed by the GRE-1 chrome ruling, not by a reference port"
+      "reason": "the map seed expresses no IA; /environments click target moves to GRE \u2014 the owned Environments app is governed by the GRE-1 chrome ruling, not by a reference port"
+    },
+    {
+      "action": "GOV-1",
+      "seed": "approvals",
+      "owner": "Governance",
+      "reference_route": "http://localhost:9225/workspace/approvals-app/",
+      "atlas_state": "landing",
+      "expressed_ia": {
+        "columns": 0,
+        "facet_groups": 1,
+        "tabs": 0,
+        "rows": 0,
+        "expresses_ia": false
+      },
+      "estate_plane": "certified daemon_wired port (pixel cert + parity verifier are its evidence); zero uncaptured IA in the census",
+      "outcome": "portable",
+      "reason": "VERIFY-ONLY: family complete \u2014 the atlas converts 'no findings' into recorded coverage; the mirror's empty landing adds nothing beyond the certified port; no action"
+    },
+    {
+      "action": "IMP-1",
+      "seed": "changes",
+      "owner": "Improvement",
+      "reference_route": "http://localhost:9225/workspace/upgrade-assistant/",
+      "atlas_states": [
+        "landing",
+        "tab:Active",
+        "tab:Past due",
+        "tab:Archived"
+      ],
+      "expressed_ia": {
+        "columns": 0,
+        "facet_groups": 8,
+        "tabs": 3,
+        "rows": 0,
+        "expresses_ia": true
+      },
+      "estate_plane": "improvement-proposal plane; the port's tabs are LIVE ?lane= links and facet radios are LIVE ?filter= \u2014 already daemon truth",
+      "outcome": "portable",
+      "reason": "THE EXEMPLAR (E6): reference tabs became live lanes, facets became live filters \u2014 recorded as the model every family's tabs converge to; I-4 docs must cite this record; no build"
+    },
+    {
+      "action": "DEV-3",
+      "seed": "developer",
+      "owner": "Developer Console",
+      "reference_route": "/__apps/developer (capture errored: content-type download, cannot boot on any lane)",
+      "atlas_state": "donor: devconsole landing + tab:Applications (expresses_ia=true \u2014 5 facet groups, 2 tabs)",
+      "expressed_ia": {
+        "donor_landing": true,
+        "donor_applications_tab": true,
+        "donor_oauth_tab": false,
+        "donor_create_wizard": false
+      },
+      "estate_plane": "connector estate + BYOA GitHub-App planes (exist); binding depth is the DEV-2 build",
+      "outcome": "portable",
+      "donor_capture": "devconsole",
+      "reason": "D6 donor record: developer's own capture is byte-dead; devconsole (same family console) boots with expressed IA and is the named donor \u2014 terminal donor_ported lands with the DEV-2 build"
     }
   ]
 }

@@ -180,7 +180,7 @@
         },
         {
           "seed": "developer",
-          "disposition": "donor devconsole (DEV-3 record)"
+          "disposition": "donor devconsole RECORDED (reference-seed-adjudications.v1.json#developer); ships with DEV-2"
         }
       ]
     },
