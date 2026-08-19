@@ -3914,7 +3914,7 @@ function renderDesignerPort(lists, selectedId) {
       <span class="dsg-cell name">
         <span class="dsg-rowico" aria-hidden="true"></span>
         <span class="dsg-rowdata">
-          <span class="dsg-rowname">${esc(o.domain || o.id)}${o.id === oid ? `<span class="dsg-selpill">selected</span>` : ""}<span class="dsg-rowstar gap" aria-disabled="true" title="Favorites are not recorded on the ODK object plane (named gap)">${bpIcon("star-empty")}</span></span>
+          <span class="dsg-rowname">${esc(o.domain || o.id)}${o.id === oid ? `<span class="dsg-selpill">selected</span>` : ""}<span class="dsg-rowstar gap" aria-disabled="true" title="Favorites are not recorded on the ODK object plane (named gap)" data-ioi-disabled-reason="Favorites are not recorded on the ODK object plane (named gap)">${bpIcon("star-empty")}</span></span>
           <span class="dsg-rowpath">${esc(o.ref)} · created ${fdate(o.created_at)} · updated ${fdate(o.updated_at)} · ${c.concepts} concept${c.concepts === 1 ? "" : "s"} · ${c.components} component${c.components === 1 ? "" : "s"} · ${c.resources} resource${c.resources === 1 ? "" : "s"}</span>
         </span>
       </span>
@@ -3971,8 +3971,8 @@ function renderDesignerPort(lists, selectedId) {
     <span class="dsg-hchip" aria-hidden="true"></span>
     <h1 class="dsg-htitle">Solution Designer</h1>
     <div class="dsg-hright">
-      <span class="dsg-hbtn success gap" aria-disabled="true" title="Diagram authoring is a reference-only lane — nothing is authored or saved on this surface (named gap)">${bpIcon("plus")}<span>New Diagram</span></span>
-      <span class="dsg-hbtn outlined gap" aria-disabled="true" title="Reference help lane (named gap)"><span>Help</span>${bpIcon("help")}</span>
+      <span class="dsg-hbtn success gap" aria-disabled="true" title="Diagram authoring is a reference-only lane — nothing is authored or saved on this surface (named gap)" data-ioi-disabled-reason="Diagram authoring is a reference-only lane — nothing is authored or saved on this surface (named gap)">${bpIcon("plus")}<span>New Diagram</span></span>
+      <span class="dsg-hbtn outlined gap" aria-disabled="true" title="Reference help lane (named gap)" data-ioi-disabled-reason="Reference help lane (named gap)"><span>Help</span>${bpIcon("help")}</span>
     </div>
   </header>`;
 
@@ -3990,23 +3990,23 @@ function renderDesignerPort(lists, selectedId) {
       <h4 class="dsg-aipt">Have a workflow in mind? Use AIP Architect to help you plan it.</h4>
       <div class="dsg-aipsub">Answer a few questions to get AIP suggestions on how to implement your workflow in Foundry.</div>
     </div>
-    <span class="dsg-planbtn gap" aria-disabled="true" title="AIP Architect planning is a reference-only lane — no planning assistant is bound to this surface (named gap)"><span>Start planning</span>${bpIcon("arrow-right")}</span>
+    <span class="dsg-planbtn gap" aria-disabled="true" title="AIP Architect planning is a reference-only lane — no planning assistant is bound to this surface (named gap)" data-ioi-disabled-reason="AIP Architect planning is a reference-only lane — no planning assistant is bound to this surface (named gap)"><span>Start planning</span>${bpIcon("arrow-right")}</span>
   </div>`;
 
   // The template gallery is the reference's own static template-library strip (vendor chrome, not
   // estate data) — embedded VERBATIM from the capture, like the #48 marketplace hero. The next-arrow
   // is a real (disabled) control overlaid transparently on its verbatim pixels.
   const gallery = `<div class="dsg-gallery">
-    <div class="dsg-galhead"><span class="dsg-galt">Explore our library of reference solution architecture diagrams</span><span class="dsg-browse gap" aria-disabled="true" title="Template browsing is a reference-only lane (named gap)">${bpIcon("manual")}<span>Browse all</span></span></div>
+    <div class="dsg-galhead"><span class="dsg-galt">Explore our library of reference solution architecture diagrams</span><span class="dsg-browse gap" aria-disabled="true" title="Template browsing is a reference-only lane (named gap)" data-ioi-disabled-reason="Template browsing is a reference-only lane (named gap)">${bpIcon("manual")}<span>Browse all</span></span></div>
     <img class="dsg-strip" src="${DSG_GALLERY_STRIP_URI}" width="961" height="202" alt="Reference solution-architecture template previews (verbatim capture chrome)">
-    <span class="dsg-galarrow gap" aria-disabled="true" title="Template pagination is a reference-only lane (named gap)"></span>
+    <span class="dsg-galarrow gap" aria-disabled="true" title="Template pagination is a reference-only lane (named gap)" data-ioi-disabled-reason="Template pagination is a reference-only lane (named gap)"></span>
   </div>`;
 
   const viewRow = `<div class="dsg-viewrow">
     <span class="dsg-viewlbl">View</span>
     <span class="dsg-pill on">Recents</span>
-    <span class="dsg-pill gap" aria-disabled="true" title="Favorites are not recorded on the ODK object plane (named gap)">Favorites</span>
-    <span class="dsg-open gap" aria-disabled="true" title="Diagram open is a reference-only lane — rows below select a composition instead (named gap)">${bpIcon("folder-open")}<span>Open Diagram</span></span>
+    <span class="dsg-pill gap" aria-disabled="true" title="Favorites are not recorded on the ODK object plane (named gap)" data-ioi-disabled-reason="Favorites are not recorded on the ODK object plane (named gap)">Favorites</span>
+    <span class="dsg-open gap" aria-disabled="true" title="Diagram open is a reference-only lane — rows below select a composition instead (named gap)" data-ioi-disabled-reason="Diagram open is a reference-only lane — rows below select a composition instead (named gap)">${bpIcon("folder-open")}<span>Open Diagram</span></span>
   </div>`;
 
   const table = `<div class="dsg-table">
@@ -4174,8 +4174,8 @@ function renderEvalsuitesPort(suitesJson) {
     <span class="evl-hchip" aria-hidden="true"></span>
     <h1 class="evl-htitle">AIP Evals</h1>
     <div class="evl-hright">
-      <span class="evl-hbtn success gap" aria-disabled="true" title="Suite authoring from this surface is a reference-only lane — suites are declared on the Evaluations substrate (named gap)">${bpIcon("plus")}<span>New evaluation suite</span></span>
-      <span class="evl-hbtn outlined gap" aria-disabled="true" title="Reference help lane (named gap)"><span>Help</span>${bpIcon("help")}</span>
+      <span class="evl-hbtn success gap" aria-disabled="true" title="Suite authoring from this surface is a reference-only lane — suites are declared on the Evaluations substrate (named gap)" data-ioi-disabled-reason="Suite authoring from this surface is a reference-only lane — suites are declared on the Evaluations substrate (named gap)">${bpIcon("plus")}<span>New evaluation suite</span></span>
+      <span class="evl-hbtn outlined gap" aria-disabled="true" title="Reference help lane (named gap)" data-ioi-disabled-reason="Reference help lane (named gap)"><span>Help</span>${bpIcon("help")}</span>
     </div>
   </header>`;
 
@@ -4190,7 +4190,7 @@ function renderEvalsuitesPort(suitesJson) {
   const viewRow = `<div class="evl-viewrow">
     <span class="evl-viewlbl">View</span>
     <span class="evl-pill on">Recents</span>
-    <span class="evl-pill gap" aria-disabled="true" title="Favorites are not recorded on the eval-suite plane (named gap)">Favorites</span>
+    <span class="evl-pill gap" aria-disabled="true" title="Favorites are not recorded on the eval-suite plane (named gap)" data-ioi-disabled-reason="Favorites are not recorded on the eval-suite plane (named gap)">Favorites</span>
   </div>`;
 
   const table = `<div class="evl-table">
@@ -4203,8 +4203,8 @@ function renderEvalsuitesPort(suitesJson) {
     <div class="evl-exsub">See how AIP Evals can be used to evaluate any AI system.</div>
     <div class="evl-exstripwrap">
       <img class="evl-exstrip" src="${MCH_EXAMPLES_STRIP_URI}" width="562" height="272" alt="Reference marketplace example cards (verbatim capture chrome)">
-      <span class="evl-excard c1 gap" aria-disabled="true" title="Marketplace example installs are a reference-only lane (named gap)"></span>
-      <span class="evl-excard c2 gap" aria-disabled="true" title="Marketplace example installs are a reference-only lane (named gap)"></span>
+      <span class="evl-excard c1 gap" aria-disabled="true" title="Marketplace example installs are a reference-only lane (named gap)" data-ioi-disabled-reason="Marketplace example installs are a reference-only lane (named gap)"></span>
+      <span class="evl-excard c2 gap" aria-disabled="true" title="Marketplace example installs are a reference-only lane (named gap)" data-ioi-disabled-reason="Marketplace example installs are a reference-only lane (named gap)"></span>
     </div>
   </div>`;
 
@@ -4370,10 +4370,10 @@ function renderChangesPort(proposals, lane, filter) {
     <span class="chg-hchip" aria-hidden="true"></span>
     <h1 class="chg-htitle">Upgrade Assistant</h1>
     <div class="chg-hright">
-      <span class="chg-orgbtn gap" aria-disabled="true" title="Organization scoping is a named gap — the estate is a single deployment; the list below is its full improvement truth">${bpIcon("office")}<span>1 organization</span>${bpIcon("caret-down")}</span>
-      <span class="chg-adminview gap" aria-disabled="true" title="Admin/assignee principal scoping is a named gap — no assignment concept on the improvement plane">Admin view</span>
-      <span class="chg-hbtn outlined gap" aria-disabled="true" title="Reference view toggle (named gap) — the list renders the estate's full improvement truth">Assignee view</span>
-      <span class="chg-hbtn outlined helpbtn gap" aria-disabled="true" title="Reference help lane (named gap)">${bpIcon("help")}<span>Help</span>${bpIcon("caret-down")}</span>
+      <span class="chg-orgbtn gap" aria-disabled="true" title="Organization scoping is a named gap — the estate is a single deployment; the list below is its full improvement truth" data-ioi-disabled-reason="Organization scoping is a named gap — the estate is a single deployment; the list below is its full improvement truth">${bpIcon("office")}<span>1 organization</span>${bpIcon("caret-down")}</span>
+      <span class="chg-adminview gap" aria-disabled="true" title="Admin/assignee principal scoping is a named gap — no assignment concept on the improvement plane" data-ioi-disabled-reason="Admin/assignee principal scoping is a named gap — no assignment concept on the improvement plane">Admin view</span>
+      <span class="chg-hbtn outlined gap" aria-disabled="true" title="Reference view toggle (named gap) — the list renders the estate's full improvement truth" data-ioi-disabled-reason="Reference view toggle (named gap) — the list renders the estate's full improvement truth">Assignee view</span>
+      <span class="chg-hbtn outlined helpbtn gap" aria-disabled="true" title="Reference help lane (named gap)" data-ioi-disabled-reason="Reference help lane (named gap)">${bpIcon("help")}<span>Help</span>${bpIcon("caret-down")}</span>
     </div>
   </header>`;
 
@@ -4387,7 +4387,7 @@ function renderChangesPort(proposals, lane, filter) {
 
   const qs = (f) => `/__ioi/improvement/changes?lane=${lane}${f === "all" ? "&filter=all" : ""}`;
   const sidebar = `<aside class="chg-sidebar">
-    <div class="chg-fhead"><h6>Filters</h6><span class="chg-fcollapse gap" aria-disabled="true" title="Sidebar collapse is a reference-only lane (named gap)">${bpIcon("menu-closed")}</span></div>
+    <div class="chg-fhead"><h6>Filters</h6><span class="chg-fcollapse gap" aria-disabled="true" title="Sidebar collapse is a reference-only lane (named gap)" data-ioi-disabled-reason="Sidebar collapse is a reference-only lane (named gap)">${bpIcon("menu-closed")}</span></div>
     <div class="chg-search gap" title="Name search is a reference-only lane (named gap)">${bpIcon("search")}<input placeholder="Search by upgrade name…" disabled aria-label="Search by upgrade name (reference-only, not wired)"></div>
     <div class="chg-fdiv"></div>
     <h6 class="chg-fsec">Upgrade progress</h6>
@@ -4395,10 +4395,10 @@ function renderChangesPort(proposals, lane, filter) {
     <a class="chg-radio${filter !== "all" ? " sel" : ""}" href="${qs("action")}" title="pending-review proposals — the honest mapping of the reference's requiring-my-action facet (no principal assignment on the plane)"><span class="chg-rdot${filter !== "all" ? " on" : ""}"></span><span class="chg-rlabel">Upgrades requiring my action</span><span class="chg-rcount">${laneSet.filter((p) => p.state === "pending").length}</span></a>
     <div class="chg-fdiv"></div>
     <h6 class="chg-fsec">Upgrade type</h6>
-    ${["Admin action", "Model migration", "Platform change", "Remediation", "Security", "Version update"].map((t) => `<span class="chg-check gap" aria-disabled="true" title="The reference's upgrade-type taxonomy is a named gap — the estate's real proposal kinds are ${esc(Object.entries(kinds).map(([k, n]) => `${k} (${n})`).join(" · "))}"><span class="chg-cbox"></span><span class="chg-rlabel">${t}</span><span class="chg-rcount">0</span></span>`).join("")}
+    ${["Admin action", "Model migration", "Platform change", "Remediation", "Security", "Version update"].map((t) => `<span class="chg-check gap" aria-disabled="true" title="The reference's upgrade-type taxonomy is a named gap — the estate's real proposal kinds are ${esc(Object.entries(kinds).map(([k, n]) => `${k} (${n})`).join(" · "))}" data-ioi-disabled-reason="The reference's upgrade-type taxonomy is a named gap — the estate's real proposal kinds are ${esc(Object.entries(kinds).map(([k, n]) => `${k} (${n})`).join(" · "))}"><span class="chg-cbox"></span><span class="chg-rlabel">${t}</span><span class="chg-rcount">0</span></span>`).join("")}
     <div class="chg-fdiv"></div>
     <h6 class="chg-fsec">Sort</h6>
-    ${["Soonest due date", "Latest due date", "Least remaining actions", "Most remaining actions"].map((t, i) => `<span class="chg-radio gap" aria-disabled="true" title="Due-date sorting is a named gap (no due dates on the plane) — rows order by update recency"><span class="chg-rdot${i === 0 ? " on" : ""}"></span><span class="chg-rlabel">${t}</span></span>`).join("")}
+    ${["Soonest due date", "Latest due date", "Least remaining actions", "Most remaining actions"].map((t, i) => `<span class="chg-radio gap" aria-disabled="true" title="Due-date sorting is a named gap (no due dates on the plane) — rows order by update recency" data-ioi-disabled-reason="Due-date sorting is a named gap (no due dates on the plane) — rows order by update recency"><span class="chg-rdot${i === 0 ? " on" : ""}"></span><span class="chg-rlabel">${t}</span></span>`).join("")}
   </aside>`;
 
   const list = `<section class="chg-list">
@@ -4611,9 +4611,9 @@ function renderMonitorsPort(automations, runsById) {
       <a class="mon-tab" href="/__ioi/automations" title="The full automation plane — the real owner substrate (specs · runs · pause/resume · projects)">Automations</a>
     </nav>
     <div class="mon-hright">
-      <span class="mon-hbtn outlined store gap" aria-disabled="true" title="Recent installations — marketplace install lanes are not bound to this surface (named gap)"><span class="mon-storeico" aria-hidden="true"></span>${bpIcon("caret-down")}</span>
-      <span class="mon-hbtn success gap" aria-disabled="true" title="Automation authoring from this surface is a reference-only lane — automations are created on the Automations substrate (named gap)">${bpIcon("add")}<span>New automation</span></span>
-      <span class="mon-hbtn outlined gap" aria-disabled="true" title="Reference help lane (named gap)">${bpIcon("help")}<span>Help</span></span>
+      <span class="mon-hbtn outlined store gap" aria-disabled="true" title="Recent installations — marketplace install lanes are not bound to this surface (named gap)" data-ioi-disabled-reason="Recent installations — marketplace install lanes are not bound to this surface (named gap)"><span class="mon-storeico" aria-hidden="true"></span>${bpIcon("caret-down")}</span>
+      <span class="mon-hbtn success gap" aria-disabled="true" title="Automation authoring from this surface is a reference-only lane — automations are created on the Automations substrate (named gap)" data-ioi-disabled-reason="Automation authoring from this surface is a reference-only lane — automations are created on the Automations substrate (named gap)">${bpIcon("add")}<span>New automation</span></span>
+      <span class="mon-hbtn outlined gap" aria-disabled="true" title="Reference help lane (named gap)" data-ioi-disabled-reason="Reference help lane (named gap)">${bpIcon("help")}<span>Help</span></span>
     </div>
   </header>`;
 
@@ -4632,23 +4632,23 @@ function renderMonitorsPort(automations, runsById) {
     <div class="mon-wizcopy">
       <h4 class="mon-wizt">Create your first automation</h4>
       <p class="mon-wizsub">Get started by creating a new automation or adding yourself to existing automations.</p>
-      <span class="mon-wizbtn gap" aria-disabled="true" title="Automation authoring from this surface is a reference-only lane — automations are created on the Automations substrate (named gap)">${bpIcon("plus")}<span>New automation</span></span>
+      <span class="mon-wizbtn gap" aria-disabled="true" title="Automation authoring from this surface is a reference-only lane — automations are created on the Automations substrate (named gap)" data-ioi-disabled-reason="Automation authoring from this surface is a reference-only lane — automations are created on the Automations substrate (named gap)">${bpIcon("plus")}<span>New automation</span></span>
     </div>
     <img class="mon-wizstrip" src="${MON_WIZ_STRIP_URI}" width="584" height="222" alt="Reference 3-step wizard illustrations (verbatim capture chrome)">
   </div>
   <div class="mon-cardswrap">
     <img class="mon-cardsstrip" src="${MON_CARDS_STRIP_URI}" width="902" height="319" alt="Reference automation template cards (verbatim capture chrome — vendor templates, not estate data)">
-    <span class="mon-tplcard c1 gap" aria-disabled="true" title="Template docs are a reference-only lane (named gap)"></span>
-    <span class="mon-tplcard c2 gap" aria-disabled="true" title="Template docs are a reference-only lane (named gap)"></span>
-    <span class="mon-tplcard c3 gap" aria-disabled="true" title="Template docs are a reference-only lane (named gap)"></span>
+    <span class="mon-tplcard c1 gap" aria-disabled="true" title="Template docs are a reference-only lane (named gap)" data-ioi-disabled-reason="Template docs are a reference-only lane (named gap)"></span>
+    <span class="mon-tplcard c2 gap" aria-disabled="true" title="Template docs are a reference-only lane (named gap)" data-ioi-disabled-reason="Template docs are a reference-only lane (named gap)"></span>
+    <span class="mon-tplcard c3 gap" aria-disabled="true" title="Template docs are a reference-only lane (named gap)" data-ioi-disabled-reason="Template docs are a reference-only lane (named gap)"></span>
   </div>
   <div class="mon-examples">
     <h5 class="mon-exh">Explore reference examples</h5>
     <div class="mon-exsub">Learn how to build automated use cases using example Automations from Marketplace</div>
     <div class="mon-exstripwrap">
       <img class="mon-exstrip" src="${MCH_EXAMPLES_STRIP_URI}" width="562" height="272" alt="Reference marketplace example cards (verbatim capture chrome)">
-      <span class="mon-excard c1 gap" aria-disabled="true" title="Marketplace example installs are a reference-only lane (named gap)"></span>
-      <span class="mon-excard c2 gap" aria-disabled="true" title="Marketplace example installs are a reference-only lane (named gap)"></span>
+      <span class="mon-excard c1 gap" aria-disabled="true" title="Marketplace example installs are a reference-only lane (named gap)" data-ioi-disabled-reason="Marketplace example installs are a reference-only lane (named gap)"></span>
+      <span class="mon-excard c2 gap" aria-disabled="true" title="Marketplace example installs are a reference-only lane (named gap)" data-ioi-disabled-reason="Marketplace example installs are a reference-only lane (named gap)"></span>
     </div>
   </div>`;
 
@@ -4874,9 +4874,9 @@ function renderMachineryPort(machines, selectedId) {
     <span class="mch-hchip" aria-hidden="true"></span>
     <h1 class="mch-htitle">Machinery</h1>
     <div class="mch-hright">
-      <span class="mch-hbtn store gap" aria-disabled="true" title="Recent installations — marketplace install lanes are not bound to this surface (named gap)"><span class="mch-storeico" aria-hidden="true"></span>${bpIcon("caret-down")}</span>
-      <span class="mch-hbtn success gap" aria-disabled="true" title="Graph authoring is a reference-only lane — no process graph is authored, saved, or executed on this surface (named gap)">${bpIcon("plus")}<span>New graph</span></span>
-      <span class="mch-hbtn outlined gap" aria-disabled="true" title="Reference help lane (named gap)"><span>Help</span>${bpIcon("help")}</span>
+      <span class="mch-hbtn store gap" aria-disabled="true" title="Recent installations — marketplace install lanes are not bound to this surface (named gap)" data-ioi-disabled-reason="Recent installations — marketplace install lanes are not bound to this surface (named gap)"><span class="mch-storeico" aria-hidden="true"></span>${bpIcon("caret-down")}</span>
+      <span class="mch-hbtn success gap" aria-disabled="true" title="Graph authoring is a reference-only lane — no process graph is authored, saved, or executed on this surface (named gap)" data-ioi-disabled-reason="Graph authoring is a reference-only lane — no process graph is authored, saved, or executed on this surface (named gap)">${bpIcon("plus")}<span>New graph</span></span>
+      <span class="mch-hbtn outlined gap" aria-disabled="true" title="Reference help lane (named gap)" data-ioi-disabled-reason="Reference help lane (named gap)"><span>Help</span>${bpIcon("help")}</span>
     </div>
   </header>`;
 
@@ -4891,7 +4891,7 @@ function renderMachineryPort(machines, selectedId) {
   const viewRow = `<div class="mch-viewrow">
     <span class="mch-viewlbl">View</span>
     <span class="mch-pill on">Recents</span>
-    <span class="mch-pill gap" aria-disabled="true" title="Favorites are not recorded on the state-machine plane (named gap)">Favorites</span>
+    <span class="mch-pill gap" aria-disabled="true" title="Favorites are not recorded on the state-machine plane (named gap)" data-ioi-disabled-reason="Favorites are not recorded on the state-machine plane (named gap)">Favorites</span>
   </div>`;
 
   const table = `<div class="mch-table">
@@ -4907,8 +4907,8 @@ function renderMachineryPort(machines, selectedId) {
     <div class="mch-exsub">Learn how to build industrial solutions using example workflows with Marketplace.</div>
     <div class="mch-exstripwrap">
       <img class="mch-exstrip" src="${MCH_EXAMPLES_STRIP_URI}" width="562" height="272" alt="Reference marketplace example-resource cards (verbatim capture chrome — vendor examples, not estate process truth)">
-      <span class="mch-excard c1 gap" aria-disabled="true" title="Marketplace example installs are a reference-only lane (named gap)"></span>
-      <span class="mch-excard c2 gap" aria-disabled="true" title="Marketplace example installs are a reference-only lane (named gap)"></span>
+      <span class="mch-excard c1 gap" aria-disabled="true" title="Marketplace example installs are a reference-only lane (named gap)" data-ioi-disabled-reason="Marketplace example installs are a reference-only lane (named gap)"></span>
+      <span class="mch-excard c2 gap" aria-disabled="true" title="Marketplace example installs are a reference-only lane (named gap)" data-ioi-disabled-reason="Marketplace example installs are a reference-only lane (named gap)"></span>
     </div>
   </div>`;
 
@@ -5195,10 +5195,10 @@ function renderIncidentsPort(ops, goalRuns, lane) {
     const inc = kind === "dates" ? "" : `<span class="in-finc gap" title="include/exclude toggle — a reference-only lane (named gap)">include ${bpIcon("caret-down")}</span>`;
     return `<div class="in-facet ${slot}"><div class="in-frow"><span class="in-flabel">${esc(label)}</span>${inc}</div>${input}</div>`;
   };
-  const prio = (label, color, slot) => `<label class="in-prio ${slot} gap" title="Priority filtering is a reference-only lane — the daemon records no incident priorities (named gap)"><span class="in-cb" role="checkbox" aria-checked="false" aria-disabled="true"></span><span class="in-ppill" style="background:${color}33"><span class="in-pdot" style="color:${color}">${bpIcon("issue-dot")}</span>${label}</span></label>`;
+  const prio = (label, color, slot) => `<label class="in-prio ${slot} gap" title="Priority filtering is a reference-only lane — the daemon records no incident priorities (named gap)" data-ioi-disabled-reason="Priority filtering is a reference-only lane — the daemon records no incident priorities (named gap)"><span class="in-cb" role="checkbox" aria-checked="false" aria-disabled="true"></span><span class="in-ppill" style="background:${color}33"><span class="in-pdot" style="color:${color}">${bpIcon("issue-dot")}</span>${label}</span></label>`;
 
   const rowHtml = (i) => `<div class="in-row">
-    <span class="in-cb fill" role="checkbox" aria-checked="false" aria-disabled="true" title="Bulk incident actions are a reference-only lane (named gap)"></span>
+    <span class="in-cb fill" role="checkbox" aria-checked="false" aria-disabled="true" title="Bulk incident actions are a reference-only lane (named gap)" data-ioi-disabled-reason="Bulk incident actions are a reference-only lane (named gap)"></span>
     <span class="in-rico">${bpIcon(i.closed ? "issue-closed" : "warning-sign")}</span>
     <div class="in-rmain"><a class="in-rtitle" href="${esc(i.proof)}">${esc(i.title)}</a><div class="in-rsub">Created&nbsp;&nbsp;${esc(ago(i.created) || "—")} · <a href="${esc(i.proof)}">proof ↗</a>${i.detail ? ` · ${esc(i.detail)}` : ""}</div></div>
     <div class="in-rright"><span class="in-rpill${i.kind === "Blocker" ? "" : " fail"}"><span class="in-pdot">${bpIcon("issue-dot")}</span>${esc(i.kind)}</span><div class="in-rkind">Kind</div></div>
@@ -5235,7 +5235,7 @@ function renderIncidentsPort(ops, goalRuns, lane) {
 
   const list = `<main class="in-list">
     <div class="in-lhead">
-      <span class="in-cb hd" role="checkbox" aria-checked="false" aria-disabled="true" title="Bulk selection — a reference-only lane (named gap)"></span>
+      <span class="in-cb hd" role="checkbox" aria-checked="false" aria-disabled="true" title="Bulk selection — a reference-only lane (named gap)" data-ioi-disabled-reason="Bulk selection — a reference-only lane (named gap)"></span>
       <span class="in-lcounttxt">${shown.length < rows.length ? `${shown.length} of ${rows.length}` : rows.length} ${lane === "all" ? "" : lane + " "}issue${rows.length === 1 ? "" : "s"}</span>
       <span class="in-lmut">filtered by</span>
       <span class="in-lsel gap" title="Saved filters are a reference-only lane (named gap)">select filter ${bpIcon("caret-down")}</span>
@@ -5371,7 +5371,7 @@ function renderModelCatalogPort(routesJson) {
   const typeRows = tally(routes.flatMap(typesOf));
   const creatorRows = tally(routes.map(creatorOf));
   const maxN = Math.max(1, ...lifecycleRows.map(([, n]) => n), ...typeRows.map(([, n]) => n), ...creatorRows.map(([, n]) => n));
-  const facetRow = ([label, n]) => `<label class="mc-frow gap" title="Facet filtering is a reference-only lane (named gap) — the value is REAL route truth"><span class="mc-cb" role="checkbox" aria-checked="false" aria-disabled="true"></span><span class="mc-flab">${esc(cap(label))}</span><span class="mc-fn">${n}</span><span class="mc-fbar"><span class="mc-fbarfill" style="width:${Math.round(70 * n / maxN)}px"></span></span></label>`;
+  const facetRow = ([label, n]) => `<label class="mc-frow gap" title="Facet filtering is a reference-only lane (named gap) — the value is REAL route truth" data-ioi-disabled-reason="Facet filtering is a reference-only lane (named gap) — the value is REAL route truth"><span class="mc-cb" role="checkbox" aria-checked="false" aria-disabled="true"></span><span class="mc-flab">${esc(cap(label))}</span><span class="mc-fn">${n}</span><span class="mc-fbar"><span class="mc-fbarfill" style="width:${Math.round(70 * n / maxN)}px"></span></span></label>`;
   const facetSection = (slot, label, rows) => `<div class="mc-fsec ${slot}"><div class="mc-fshead"><span class="mc-fslabel">${esc(label)}</span><button class="mc-fclear gap" disabled title="No facet filters are wired — a reference-only lane (named gap)">Clear</button></div><div class="mc-frows">${rows.map(facetRow).join("")}</div></div>`;
 
   const availPill = (r) => { const a = r.availability || {}; return a.state === "available" ? `${a.stale ? "available · stale probe" : "available"}` : (a.state || "unknown"); };
@@ -5499,8 +5499,8 @@ function renderMarketplaceBrowsePort(listingsJson) {
     <h1 class="mk-htitle">Marketplace</h1>
     <div class="mk-hright">
       <div class="mk-search" title="Product search is a reference-only lane — the store table below is the real registry (named gap)">${bpIcon("search")}<input placeholder="Search products..." disabled aria-label="Search products (reference-only, not wired)"></div>
-      <span class="mk-hbtn gap" aria-disabled="true" title="Installations are a reference-only lane — nothing installs from this surface (named gap)"><img src="${MK_GLOBE_URI}" width="16" height="16" alt="">Installations</span>
-      <span class="mk-hbtn ring gap" aria-disabled="true" title="Reference help lane (named gap)">Help ${bpIcon("help")}</span>
+      <span class="mk-hbtn gap" aria-disabled="true" title="Installations are a reference-only lane — nothing installs from this surface (named gap)" data-ioi-disabled-reason="Installations are a reference-only lane — nothing installs from this surface (named gap)"><img src="${MK_GLOBE_URI}" width="16" height="16" alt="">Installations</span>
+      <span class="mk-hbtn ring gap" aria-disabled="true" title="Reference help lane (named gap)" data-ioi-disabled-reason="Reference help lane (named gap)">Help ${bpIcon("help")}</span>
     </div>
   </header>`;
 

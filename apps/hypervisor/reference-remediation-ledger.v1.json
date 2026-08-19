@@ -45,7 +45,9 @@
       {
         "id": "I-5",
         "title": "unified gap contract (aria-disabled + title + data-ioi-disabled-reason, one verifier)",
-        "status": "queued"
+        "status": "done",
+        "evidence": "71 titled aria-disabled emissions migrated to carry data-ioi-disabled-reason (70 mechanical + 1 interpolated hand-edit; decorative chevron + models facet checkboxes excluded \u2014 untitled, not gaps); surface-modules verifier = single enforcement point (zero-unpaired check + floor 71), MUTATION-TESTED (dropped one attr \u2192 both checks red naming the line); repaired a stale pre-existing gate (dead-daemon honest-empty now asserts empty lists + typed degradation record); serve restarted detached (pid 2438710), live emission confirmed on 5 certified ports",
+        "commit": "0e7c70f6f"
       },
       {
         "id": "I-6",
@@ -352,6 +354,12 @@
       "date": "2026-08-19",
       "did": "I-3 family atlas recorder built (record-family-reference-atlas.mjs) + tracked manifest reference-family-atlas.v1.json; proof-run Automations family (5 states)",
       "next": "W0: I-5 unified gap contract"
+    },
+    {
+      "n": 3,
+      "date": "2026-08-19",
+      "did": "I-5 unified gap contract: 71 emissions migrated, verifier floor added + mutation-tested, stale dead-daemon gate repaired, serve restarted; 66/66 green",
+      "next": "W0: I-6 matrix vocabulary upgrade"
     }
   ]
 }

@@ -83,7 +83,12 @@ async function run() {
   ok("registry binds the module (identity, not a copy)", !!hit && hit.impl.render === pipeline.render && hit.impl.load === pipeline.load, hit ? "bound" : "no binding for /__ioi/pipeline");
   const ctx = { url: new URL("http://x/__ioi/pipeline"), daemon: "http://127.0.0.1:1" };
   const model = await pipeline.load(ctx);
-  ok("dead daemon loads to honest empty lists", Object.values(model).every((v) => Array.isArray(v) && v.length === 0), `${Object.keys(model).length} list keys`);
+  // The load contract on a dead daemon: every LIST key honest-empty AND the typed degradation
+  // record present (the `degraded` key is the module's own truth about why the lists are empty —
+  // asserting all-arrays was stale once that key landed; empty lists WITHOUT the record would be
+  // the dishonest shape).
+  const { degraded: deg, ...deadLists } = model;
+  ok("dead daemon loads to honest empty lists + typed degradation record", Object.values(deadLists).every((v) => Array.isArray(v) && v.length === 0) && !!deg && typeof deg === "object", `${Object.keys(deadLists).length} list keys · degraded=${!!deg}`);
   const html = pipeline.render(model, ctx);
   ok("offline render keeps the certified shell landmarks", ["<title>Pipeline Builder</title>", "Pipeline outputs", "pb-shell", "APPLICATIONS"].every((m) => html.includes(m)));
   const selCtx = { url: new URL("http://x/__ioi/pipeline?ontology=does-not-exist"), daemon: "http://127.0.0.1:1" };
@@ -675,6 +680,34 @@ async function run() {
   const pl = proofLink({ href: '/__ioi/run-timeline/r?a=1&b=2', label: "timeline", external: true });
   ok("proofLink escapes href and marks external", pl.includes('href="/__ioi/run-timeline/r?a=1&amp;b=2"') && pl.includes('rel="noopener"') && pl.includes('data-testid="ioi-proof-link"'));
   ok("semanticMask tags the region by id", semanticMask("rows", "<tr></tr>") === '<span data-ioi-sem-mask="rows"><tr></tr></span>');
+
+  // 8. UNIFIED GAP CONTRACT (I-5, Reference-UX Remediation Program v2). One vocabulary estate-wide:
+  // every named gap emitted with aria-disabled="true" + a human title MUST also carry the
+  // machine-readable data-ioi-disabled-reason (the kit's disabledCommand shape). Checked at the
+  // EMISSION POINT (source scan of the serving corpus), not by grepping rendered pages — a gap
+  // authored without the machine reason is invisible to the journey verifiers that key on it.
+  // The scan is line-based because every ad-hoc emission is a single-line template string; the
+  // kit helper (multi-line, already compliant) is asserted separately above via disabledCommand.
+  {
+    const { readdirSync, statSync } = await import("node:fs");
+    const corpus = [join(APP, "scripts", "serve-product-ui.mjs")];
+    const walk = (dir) => { for (const e of readdirSync(dir)) { const f = join(dir, e); if (statSync(f).isDirectory()) walk(f); else if (f.endsWith(".mjs") && !/\.test\.mjs$/.test(f)) corpus.push(f); } };
+    walk(join(APP, "surfaces"));
+    let paired = 0; const unpaired = [];
+    for (const f of corpus) {
+      const lines = readFileSync(f, "utf8").split("\n");
+      lines.forEach((line, i) => {
+        if (!line.includes('aria-disabled="true"') || !line.includes("title=")) return;
+        if (line.includes("data-ioi-disabled-reason")) paired += 1;
+        else unpaired.push(`${f.replace(APP + "/", "")}:${i + 1}`);
+      });
+    }
+    ok("unified gap contract: ZERO titled aria-disabled emissions lack data-ioi-disabled-reason", unpaired.length === 0, unpaired.slice(0, 5).join(" · "));
+    // FLOOR (ratchet, verifier-floors pattern): the migrated corpus carries at least this many
+    // paired named-gap emissions; a refactor that silently drops gap declarations goes red here.
+    const GAP_EMISSION_FLOOR = 71;
+    ok(`unified gap contract: paired emission count >= floor (${GAP_EMISSION_FLOOR})`, paired >= GAP_EMISSION_FLOOR, `paired=${paired}`);
+  }
 }
 
 run().then(() => {

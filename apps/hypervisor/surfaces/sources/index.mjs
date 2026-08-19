@@ -209,10 +209,10 @@ function renderSourcesPort(sources, mruns, srcMappings, dataSourceSel, opts) {
   // record's own disabled mutations with their EXACT missing contracts.
   const selSrc = dataSourceSel ? list.find((s) => s.source_id === dataSourceSel) || null : null;
   const selGaps = `<div class="src-selgaps">
-      <span class="src-selgap" aria-disabled="true" title="PATCH /v1/hypervisor/data-sources/:id does not exist — no update authority on the declared registry (named gap)">Edit source</span>
-      <span class="src-selgap" aria-disabled="true" title="DELETE /v1/hypervisor/data-sources/:id does not exist — no delete/retire authority; declarations are permanent records (named gap)">Delete source</span>
-      <span class="src-selgap" aria-disabled="true" title="No connection-test authority exists — the plane is declaration-only; ingestion.wired:false is the daemon's own boundary (named gap)">Test connection</span>
-      <span class="src-selgap" aria-disabled="true" title="Extraction requires a future wallet/authority crossing bound to admitted substrate — the daemon's own named gap; the governed read path is the ODK ladder">Extract</span>
+      <span class="src-selgap" aria-disabled="true" title="PATCH /v1/hypervisor/data-sources/:id does not exist — no update authority on the declared registry (named gap)" data-ioi-disabled-reason="PATCH /v1/hypervisor/data-sources/:id does not exist — no update authority on the declared registry (named gap)">Edit source</span>
+      <span class="src-selgap" aria-disabled="true" title="DELETE /v1/hypervisor/data-sources/:id does not exist — no delete/retire authority; declarations are permanent records (named gap)" data-ioi-disabled-reason="DELETE /v1/hypervisor/data-sources/:id does not exist — no delete/retire authority; declarations are permanent records (named gap)">Delete source</span>
+      <span class="src-selgap" aria-disabled="true" title="No connection-test authority exists — the plane is declaration-only; ingestion.wired:false is the daemon's own boundary (named gap)" data-ioi-disabled-reason="No connection-test authority exists — the plane is declaration-only; ingestion.wired:false is the daemon's own boundary (named gap)">Test connection</span>
+      <span class="src-selgap" aria-disabled="true" title="Extraction requires a future wallet/authority crossing bound to admitted substrate — the daemon's own named gap; the governed read path is the ODK ladder" data-ioi-disabled-reason="Extraction requires a future wallet/authority crossing bound to admitted substrate — the daemon's own named gap; the governed read path is the ODK ladder">Extract</span>
     </div>`;
   const selPanel = !dataSourceSel ? "" : `<section class="src-truth" id="source-selected">${!(opts && opts.declare) ? banner : ""}${selSrc ? (() => {
     const sm = mapsOf(selSrc.source_id);
@@ -245,16 +245,16 @@ function renderSourcesPort(sources, mruns, srcMappings, dataSourceSel, opts) {
     <span class="src-hdiv" aria-hidden="true"></span>
     <nav class="src-tabs">
       <a class="src-tab" href="/__ioi/data/sources" aria-current="page">Sources</a>
-      <span class="src-tab gap" aria-disabled="true" title="Sync scheduling is not a bound lane — the estate's real source→set executions are ODK materializing runs (named gap)">Syncs</span>
-      <span class="src-tab gap" aria-disabled="true" title="Connection agents are a reference-only lane (named gap)">Agents</span>
-      <span class="src-tab gap" aria-disabled="true" title="Listeners are a reference-only lane (named gap)">Listeners</span>
-      <span class="src-tab gap" aria-disabled="true" title="External stacks are a reference-only lane (named gap)">External stacks</span>
+      <span class="src-tab gap" aria-disabled="true" title="Sync scheduling is not a bound lane — the estate's real source→set executions are ODK materializing runs (named gap)" data-ioi-disabled-reason="Sync scheduling is not a bound lane — the estate's real source→set executions are ODK materializing runs (named gap)">Syncs</span>
+      <span class="src-tab gap" aria-disabled="true" title="Connection agents are a reference-only lane (named gap)" data-ioi-disabled-reason="Connection agents are a reference-only lane (named gap)">Agents</span>
+      <span class="src-tab gap" aria-disabled="true" title="Listeners are a reference-only lane (named gap)" data-ioi-disabled-reason="Listeners are a reference-only lane (named gap)">Listeners</span>
+      <span class="src-tab gap" aria-disabled="true" title="External stacks are a reference-only lane (named gap)" data-ioi-disabled-reason="External stacks are a reference-only lane (named gap)">External stacks</span>
     </nav>
     <div class="src-hright">
-      <span class="src-hbtn store gap" aria-disabled="true" title="Recent installations — marketplace install lanes are not bound to this surface (named gap)"><span class="src-storeico" aria-hidden="true"></span>${bpIcon("caret-down")}</span>
+      <span class="src-hbtn store gap" aria-disabled="true" title="Recent installations — marketplace install lanes are not bound to this surface (named gap)" data-ioi-disabled-reason="Recent installations — marketplace install lanes are not bound to this surface (named gap)"><span class="src-storeico" aria-hidden="true"></span>${bpIcon("caret-down")}</span>
       <a class="src-hbtn success" href="/__ioi/data/sources?declare=1" title="Declare a new data source — a validated, receipted registry record via the daemon's fail-closed POST /v1/hypervisor/data-sources (declaration only; extraction stays a named gap)">${bpIcon("plus")}<span>New source</span></a>
-      <span class="src-hbtn outlined gap" aria-disabled="true" title="Reference help lane (named gap)">${bpIcon("help")}<span>Help</span></span>
-      <span class="src-counters gap" aria-disabled="true" title="REAL sync activity — the estate's ODK materializing runs: in-flight · executed · failed (live daemon truth, not the capture's zeros)">
+      <span class="src-hbtn outlined gap" aria-disabled="true" title="Reference help lane (named gap)" data-ioi-disabled-reason="Reference help lane (named gap)">${bpIcon("help")}<span>Help</span></span>
+      <span class="src-counters gap" aria-disabled="true" title="REAL sync activity — the estate's ODK materializing runs: in-flight · executed · failed (live daemon truth, not the capture's zeros)" data-ioi-disabled-reason="REAL sync activity — the estate's ODK materializing runs: in-flight · executed · failed (live daemon truth, not the capture's zeros)">
         <span class="src-ctag">${bpIcon("refresh", 14)}<span>${cInflight}</span></span>
         <span class="src-ctag">${bpIcon("tick", 14)}<span>${cDone}</span></span>
         <span class="src-ctag">${bpIcon("cross", 14)}<span>${cFailed}</span></span>
@@ -274,14 +274,14 @@ function renderSourcesPort(sources, mruns, srcMappings, dataSourceSel, opts) {
     <h4 class="src-setuph">Set up new connections</h4>
     <img class="src-setupstrip" src="${SRC_SETUP_STRIP_URI}" width="962" height="222" alt="Reference set-up option cards (verbatim capture chrome — vendor onboarding, not an extraction affordance)">
     <a class="src-opt c1" href="/__ioi/data/sources?declare=1" title="Connect to external system — DECLARES a validated, receipted source record (POST /v1/hypervisor/data-sources); the live-connection/extraction half stays a named gap (the wired:false boundary)"></a>
-    <span class="src-opt c2 gap" aria-disabled="true" title="Static upload is a reference-only lane (named gap)"></span>
-    <span class="src-opt c3 gap" aria-disabled="true" title="Data synthesis is a reference-only lane (named gap)"></span>
+    <span class="src-opt c2 gap" aria-disabled="true" title="Static upload is a reference-only lane (named gap)" data-ioi-disabled-reason="Static upload is a reference-only lane (named gap)"></span>
+    <span class="src-opt c3 gap" aria-disabled="true" title="Data synthesis is a reference-only lane (named gap)" data-ioi-disabled-reason="Data synthesis is a reference-only lane (named gap)"></span>
   </div>`;
 
   const viewRow = `<div class="src-viewrow">
     <span class="src-viewlbl">View</span>
     <span class="src-pill on">Recents</span>
-    <span class="src-pill gap" aria-disabled="true" title="Favorites are not recorded on the data-source registry (named gap)">Favorites</span>
+    <span class="src-pill gap" aria-disabled="true" title="Favorites are not recorded on the data-source registry (named gap)" data-ioi-disabled-reason="Favorites are not recorded on the data-source registry (named gap)">Favorites</span>
     <a class="src-viewall" href="#sources-catalog" title="The full declared-catalog census below"><span>View all</span>${bpIcon("arrow-right")}</a>
   </div>`;
 
@@ -295,8 +295,8 @@ function renderSourcesPort(sources, mruns, srcMappings, dataSourceSel, opts) {
     <div class="src-exsub">New to Data Connection? Learn what to do with Data Connection using an example data source.</div>
     <div class="src-exstripwrap">
       <img class="src-exstrip" src="${MCH_EXAMPLES_STRIP_URI}" width="562" height="272" alt="Reference marketplace example cards (verbatim capture chrome)">
-      <span class="src-excard c1 gap" aria-disabled="true" title="Marketplace example installs are a reference-only lane (named gap)"></span>
-      <span class="src-excard c2 gap" aria-disabled="true" title="Marketplace example installs are a reference-only lane (named gap)"></span>
+      <span class="src-excard c1 gap" aria-disabled="true" title="Marketplace example installs are a reference-only lane (named gap)" data-ioi-disabled-reason="Marketplace example installs are a reference-only lane (named gap)"></span>
+      <span class="src-excard c2 gap" aria-disabled="true" title="Marketplace example installs are a reference-only lane (named gap)" data-ioi-disabled-reason="Marketplace example installs are a reference-only lane (named gap)"></span>
     </div>
   </div>`;
 
