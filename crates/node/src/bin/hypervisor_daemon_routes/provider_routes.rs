@@ -7230,7 +7230,7 @@ pub(crate) async fn handle_provider_op(
                 // ── Spend exposure accounting (customer-borne; estimates only, never a bill) ──
                 if matches!(op, "create" | "redeploy")
                     && !vast_gate.is_null()
-                    && !vast_gate["usd_per_hour"].is_null()
+                    && (!vast_gate["usd_per_hour"].is_null() || kind == "akash")
                 {
                     let exp_id = format!("pse_{:x}", nanos());
                     let exposure = json!({
@@ -7241,6 +7241,13 @@ pub(crate) async fn handle_provider_op(
                         "candidate_ref": vast_gate["candidate_ref"], "quote_ref": vast_gate["quote_ref"],
                         "grant_ref": grant_ref, "capability_lease_ref": lease_note.get("lease_id").cloned().unwrap_or(Value::Null),
                         "usd_per_hour": vast_gate["usd_per_hour"], "max_hourly_usd": vast_gate["max_hourly_usd"],
+                        // akash two-stage: the exposure is keyed on the RESERVED deposit (the hard
+                        // bound) + the accepted bid's exact burn rate (uact/block). akash has no
+                        // pre-bid usd/hour, so those stay null and these carry the real numbers.
+                        "deposit_usd": vast_gate.get("deposit_usd").cloned().unwrap_or(Value::Null),
+                        "burn_rate": evidence.get("burn_rate").cloned().unwrap_or(Value::Null),
+                        "ceiling": { "denom": vast_gate.get("ceiling_denom").cloned().unwrap_or(Value::Null),
+                                     "amount": vast_gate.get("ceiling_amount").cloned().unwrap_or(Value::Null) },
                         "execution_mode": vast_gate["execution_mode"],
                         "budget_ref": budget_note.get("budget_ref").cloned().unwrap_or(Value::Null),
                         "provider_native": {
