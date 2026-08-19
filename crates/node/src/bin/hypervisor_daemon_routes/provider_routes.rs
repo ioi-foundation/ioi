@@ -6459,256 +6459,352 @@ pub(crate) async fn handle_provider_op(
             ) && matches!(op, "create" | "redeploy")
                 && !vast_mode(&account).is_empty()
             {
-                let candidate_ref = body
-                    .get("candidate_ref")
-                    .and_then(Value::as_str)
-                    .unwrap_or("");
-                if candidate_ref.is_empty() {
-                    let code = format!("{kind}_candidate_ref_required");
-                    let receipt = provider_receipt_ext(
-                        data_dir,
-                        &kind,
-                        &env_ref,
-                        op,
-                        "quote_gate_refused",
-                        &json!({ "account_ref": account_ref, "error": code }),
-                    );
-                    return (
-                        StatusCode::UNPROCESSABLE_ENTITY,
-                        Json(
-                            json!({ "ok": false, "op": op, "provider": provider_id, "reason": format!("{code} — provisioning is quote-gated; pass the candidate_ref of a fresh, live, priced CloudResourceCandidate"), "receipt_ref": receipt }),
-                        ),
-                    );
-                }
-                let candidate = read_record_dir(data_dir, "cloud-resource-candidates")
-                    .into_iter()
-                    .find(|c| text(c, "candidate_ref") == candidate_ref);
-                let refuse = |code: &str, detail: String| {
-                    let receipt = provider_receipt_ext(
-                        data_dir,
-                        &kind,
-                        &env_ref,
-                        op,
-                        "quote_gate_refused",
-                        &json!({ "account_ref": account_ref, "candidate_ref": candidate_ref, "error": code }),
-                    );
-                    (
-                        StatusCode::CONFLICT,
-                        Json(
-                            json!({ "ok": false, "op": op, "provider": provider_id, "reason": format!("{code} — {detail}"), "receipt_ref": receipt }),
-                        ),
-                    )
-                };
-                let Some(candidate) = candidate else {
-                    return refuse(
-                        &format!("{kind}_candidate_unknown"),
-                        "no such CloudResourceCandidate — refresh candidates and retry".into(),
-                    );
-                };
-                if text(&candidate, "provider_account_ref") != account_ref {
-                    return refuse(
-                        &format!("{kind}_candidate_account_mismatch"),
-                        "the candidate belongs to a different provider account".into(),
-                    );
-                }
-                let now = std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .map(|d| d.as_secs())
-                    .unwrap_or(0);
-                let expired = candidate
-                    .get("expires_epoch")
-                    .and_then(Value::as_u64)
-                    .map(|e| now > e)
-                    .unwrap_or(true);
-                if expired || candidate.get("status").and_then(Value::as_str) == Some("superseded")
-                {
-                    return refuse(&format!("{kind}_quote_expired_requires_requote"), "expired or superseded quotes can never mutate — refresh candidates for a fresh quote".into());
-                }
-                let evidence_mode = text(&candidate, "evidence_mode").to_string();
-                let account_mode = vast_mode(&account);
-                if evidence_mode == "fixture_evidence" {
-                    return refuse(
-                        &format!("{kind}_quote_not_live"),
-                        "fixture quotes are advisory forever and can never provision".into(),
-                    );
-                }
-                let mode_ok = (account_mode == "live" && evidence_mode == "live_evidence")
-                    || (account_mode == "simulator" && evidence_mode == "simulator_evidence");
-                if !mode_ok {
-                    return refuse(&format!("{kind}_quote_mode_mismatch"), format!("account control plane is '{account_mode}' but the quote evidence is '{evidence_mode}' — live provisioning demands live quotes; the simulator demands simulator quotes"));
-                }
-                let k8s_unmetered = kind == "k8s"
-                    && account
-                        .pointer("/endpoint/metered")
-                        .map(Value::is_null)
-                        .unwrap_or(true);
-                let (price_v, max_hourly_v): (Value, Value) = if k8s_unmetered {
-                    // Customer/operator cluster: NO price exists and none is invented — the
-                    // exposure plane opens nothing without a sourced price.
-                    (Value::Null, Value::Null)
-                } else {
-                    let Some(price) = candidate
-                        .pointer("/quote/usd_per_hour")
-                        .and_then(Value::as_f64)
-                    else {
-                        let code = if kind == "k8s" {
-                            "k8s_metered_posture_unpriced".to_string()
-                        } else {
-                            format!("{kind}_quote_unpriced")
-                        };
-                        return refuse(&code, "a candidate without a real sourced price can never provision on a metered posture".into());
+                if kind == "akash" {
+                    // ── STAGE A — akash pre-bid intent gate. Akash prices via POST-create bids,
+                    //    so `create` is NOT pre-bid-quote-gated; it is bounded by the explicit
+                    //    deposit and the SDL's single-group max bid, reserved whole against budget,
+                    //    pinned to the wallet-approved provider. The real post-bid quote gate is
+                    //    Stage B, inside provision, before the lease. The deposit + sdl_hash + pin
+                    //    are bound into the wallet facets (below) and the C2 intent, so the approval
+                    //    authorizes exactly this bounded continuation.
+                    let refuse_a = |code: &str, detail: String| {
+                        let receipt = provider_receipt_ext(
+                            data_dir,
+                            &kind,
+                            &env_ref,
+                            op,
+                            "stage_a_refused",
+                            &json!({ "account_ref": account_ref, "error": code }),
+                        );
+                        (
+                            StatusCode::UNPROCESSABLE_ENTITY,
+                            Json(json!({ "ok": false, "op": op, "provider": provider_id,
+                                "reason": format!("{code} — {detail}"), "receipt_ref": receipt })),
+                        )
                     };
-                    let max_hourly = body
-                        .get("max_hourly_usd")
-                        .and_then(Value::as_f64)
-                        .unwrap_or(price);
-                    if price > max_hourly {
-                        return refuse(
-                            &format!("{kind}_price_above_max"),
-                            format!(
-                                "offer price ${price}/hr exceeds the declared max ${max_hourly}/hr"
-                            ),
+                    // 1) explicit deposit, bounded — no live default. The exact value is bound into
+                    //    the wallet facets, so the approval covers THIS deposit only.
+                    let Some(deposit) = body.pointer("/plan/deposit_usd").and_then(Value::as_f64)
+                    else {
+                        return refuse_a(
+                            "akash_deposit_required",
+                            "provide plan.deposit_usd explicitly — there is no live default".into(),
+                        );
+                    };
+                    if !(deposit > 0.0 && deposit <= AKASH_MAX_DEPLOY_DEPOSIT_USD) {
+                        return refuse_a(
+                            "akash_deposit_out_of_bounds",
+                            format!("deposit ${deposit} must be > 0 and ≤ ${AKASH_MAX_DEPLOY_DEPOSIT_USD}"),
                         );
                     }
-                    // Reservation adequacy: headroom after OPEN exposures must cover this create's
-                    // first-hour reservation at the declared max rate. Checked here (not at budget
-                    // discovery) because the price is only known once the quote is validated.
+                    // 2) single-group SDL, priced in uact — the max-bid ceiling (exact decimal).
+                    let sdl_yaml = body
+                        .pointer("/plan/sdl_yaml")
+                        .and_then(Value::as_str)
+                        .unwrap_or("");
+                    let (ceiling_denom, ceiling_amount) =
+                        match ioi_drivers::provisioning::akash_console::parse_c7_sdl_ceiling(
+                            sdl_yaml,
+                        ) {
+                            Ok(c) => c,
+                            Err(e) => return refuse_a("akash_sdl_rejected", e),
+                        };
+                    let sdl_hash = sha256_bytes(sdl_yaml.as_bytes());
+                    // 3) provider pin REQUIRED — the wallet approves WHERE the money goes; Stage B
+                    //    accepts a bid ONLY from this provider.
+                    let pin = body
+                        .pointer("/plan/provider_address")
+                        .and_then(Value::as_str)
+                        .unwrap_or("");
+                    if pin.is_empty() {
+                        return refuse_a(
+                            "akash_provider_pin_required",
+                            "provide plan.provider_address — the wallet-approved provider Stage B accepts a bid from".into(),
+                        );
+                    }
+                    // 4) auto-top-up must not be requested (Stage B re-verifies against the DSEQ).
+                    if body.pointer("/plan/auto_topup").and_then(Value::as_bool) == Some(true) {
+                        return refuse_a(
+                            "akash_auto_topup_forbidden",
+                            "auto-top-up must be disabled — the deposit is the hard bound".into(),
+                        );
+                    }
+                    // 5) reserve the WHOLE deposit against external_spend headroom.
                     let headroom = budget_note
                         .get("remaining_headroom_after_reservations")
                         .and_then(Value::as_f64)
                         .unwrap_or(0.0);
-                    if headroom - max_hourly < 0.0 {
-                        return refuse(&format!("{kind}_budget_reservation_exceeded"), format!("open exposures already reserve the external_spend headroom (remaining ${headroom:.3} < first-hour reservation ${max_hourly:.3}/hr) — tear an instance down or raise the budget"));
+                    if headroom - deposit < 0.0 {
+                        return refuse_a(
+                            "akash_budget_reservation_exceeded",
+                            format!("remaining headroom ${headroom:.3} < deposit ${deposit:.3}"),
+                        );
                     }
-                    (json!(price), json!(max_hourly))
-                };
-                // k8s: the wallet challenge binds the WORKLOAD SPEC + namespace + PVC/service
-                // posture — a canonical spec is built from the request and its hash rides the
-                // facets (admission is namespace-scoped; nothing generic).
-                let k8s_workload: Value = if kind == "k8s" {
-                    let namespace = body
-                        .get("namespace")
-                        .and_then(Value::as_str)
-                        .or_else(|| {
-                            account
-                                .pointer("/endpoint/namespace")
-                                .and_then(Value::as_str)
-                        })
-                        .unwrap_or("default")
-                        .to_string();
-                    let spec = json!({
-                        "image": body.get("image").cloned().unwrap_or(json!("ubuntu:24.04")),
-                        "resources": body.get("resources").cloned().unwrap_or(json!({ "cpu_milli": 500, "memory_gb": 1, "gpu": 0 })),
-                        "pvc": body.get("pvc").cloned().unwrap_or(Value::Null),
-                        "service": body.get("service").cloned().unwrap_or(Value::Null),
-                        "kubevirt": body.get("kubevirt").cloned().unwrap_or(json!(false)),
+                    vast_gate = json!({
+                        "stage": "deployment_intent",
+                        "provider_address": pin,
+                        "sdl": sdl_yaml,
+                        "sdl_hash": sdl_hash,
+                        "deposit_usd": deposit,
+                        "ceiling_denom": ceiling_denom,
+                        "ceiling_amount": ceiling_amount.to_string(),
+                        "auto_topup": false,
+                        "execution_mode": "live",
+                        "teardown_policy": body.pointer("/plan/teardown_policy").and_then(Value::as_str).unwrap_or("always_teardown_required"),
                     });
-                    let spec_hash = sha256_bytes(spec.to_string().as_bytes());
-                    json!({ "namespace": namespace, "workload_spec": spec, "workload_spec_hash": spec_hash,
-                            "exec_posture": "kubernetes_exec" })
                 } else {
-                    Value::Null
-                };
-                // akash: the wallet challenge binds the DEPLOYMENT SPEC — a canonical SDL is
-                // built from the validated bid candidate; its hash rides the facets.
-                let akash_sdl: Value = if kind == "akash" {
-                    let sdl = akash_build_sdl(&candidate, &body);
-                    let sdl_hash = sha256_bytes(sdl.to_string().as_bytes());
-                    json!({ "sdl": sdl, "sdl_hash": sdl_hash })
-                } else {
-                    Value::Null
-                };
-                // aws|gcp: the wallet challenge binds the ENTERPRISE NETWORK POSTURE — explicit
-                // VPC/subnet(/security-group|firewall) config or the labelled default simulator
-                // posture, with reachability flags (public/external IP + SSH ingress).
-                let aws_network: Value = if matches!(kind.as_str(), "aws" | "gcp" | "azure") {
-                    let configured = body
-                        .get("network")
-                        .cloned()
-                        .or_else(|| account.pointer("/endpoint/network").cloned())
-                        .filter(|n| !n.is_null());
-                    let (explicit_label, default_label) = if kind == "gcp" {
-                        ("explicit_network_config", "default_network_simulator")
-                    } else if kind == "azure" {
-                        ("explicit_vnet_config", "default_vnet_simulator")
-                    } else {
-                        ("explicit_vpc_config", "default_vpc_simulator")
-                    };
-                    match configured {
-                        Some(n) => {
-                            let explicit = n.get("vpc_id").is_some()
-                                || n.get("subnet_id").is_some()
-                                || n.get("security_group_id").is_some()
-                                || n.get("network").is_some()
-                                || n.get("subnetwork").is_some()
-                                || n.get("firewall").is_some()
-                                || n.get("vnet").is_some()
-                                || n.get("subnet").is_some()
-                                || n.get("nsg").is_some();
-                            let mut posture = n.clone();
-                            if let Some(o) = posture.as_object_mut() {
-                                o.entry("public_ip").or_insert(json!(true));
-                                o.entry("ssh_ingress").or_insert(json!(true));
-                                o.insert(
-                                    "posture_label".into(),
-                                    json!(if explicit {
-                                        explicit_label
-                                    } else {
-                                        default_label
-                                    }),
-                                );
-                            }
-                            posture
-                        }
-                        None => {
-                            json!({ "posture_label": default_label, "public_ip": true, "ssh_ingress": true })
-                        }
+                    let candidate_ref = body
+                        .get("candidate_ref")
+                        .and_then(Value::as_str)
+                        .unwrap_or("");
+                    if candidate_ref.is_empty() {
+                        let code = format!("{kind}_candidate_ref_required");
+                        let receipt = provider_receipt_ext(
+                            data_dir,
+                            &kind,
+                            &env_ref,
+                            op,
+                            "quote_gate_refused",
+                            &json!({ "account_ref": account_ref, "error": code }),
+                        );
+                        return (
+                            StatusCode::UNPROCESSABLE_ENTITY,
+                            Json(
+                                json!({ "ok": false, "op": op, "provider": provider_id, "reason": format!("{code} — provisioning is quote-gated; pass the candidate_ref of a fresh, live, priced CloudResourceCandidate"), "receipt_ref": receipt }),
+                            ),
+                        );
                     }
-                } else {
-                    Value::Null
-                };
-                vast_gate = json!({
-                    "candidate_ref": candidate_ref,
-                    "quote_ref": candidate["quote_ref"],
-                    "namespace": k8s_workload.get("namespace").cloned().unwrap_or(Value::Null),
-                    "workload_spec": k8s_workload.get("workload_spec").cloned().unwrap_or(Value::Null),
-                    "workload_spec_hash": k8s_workload.get("workload_spec_hash").cloned().unwrap_or(Value::Null),
-                    "exec_posture": k8s_workload.get("exec_posture").cloned().unwrap_or(Value::Null),
-                    "az": candidate.get("az").cloned().unwrap_or(Value::Null),
-                    "project": candidate.get("project").cloned().unwrap_or(Value::Null),
-                    "zone": candidate.get("zone").cloned().unwrap_or(Value::Null),
-                    "machine_type": candidate.get("machine_type").cloned().unwrap_or(Value::Null),
-                    "subscription_id": candidate.get("subscription_id").cloned().unwrap_or(Value::Null),
-                    "resource_group": body.get("resource_group").cloned()
-                        .or_else(|| candidate.get("resource_group").cloned())
-                        .unwrap_or(Value::Null),
-                    "location": candidate.get("location").cloned().unwrap_or(Value::Null),
-                    "vm_size": candidate.get("vm_size").cloned().unwrap_or(Value::Null),
-                    "network_posture": aws_network,
-                    "deployment_class": candidate.get("deployment_class").cloned().unwrap_or(Value::Null),
-                    "provider_address": candidate.get("provider_address").cloned().unwrap_or(Value::Null),
-                    "bid_ref": candidate.get("bid_ref").cloned().unwrap_or(Value::Null),
-                    "persistent_storage": candidate.pointer("/storage/persistent_storage").cloned().unwrap_or(Value::Null),
-                    "resources": candidate.get("resources").cloned().unwrap_or(Value::Null),
-                    "native_rate": candidate.pointer("/quote/native_rate").cloned().unwrap_or(Value::Null),
-                    "sdl": akash_sdl.get("sdl").cloned().unwrap_or(Value::Null),
-                    "sdl_hash": akash_sdl.get("sdl_hash").cloned().unwrap_or(Value::Null),
-                    "restore_material_ref": body.get("restore_material_ref").cloned().unwrap_or(Value::Null),
-                    "archive_ref": body.get("archive_ref").cloned().unwrap_or(Value::Null),
-                    "offer_id": candidate.pointer("/quote/offer_id").cloned().unwrap_or(Value::Null),
-                    "usd_per_hour": price_v,
-                    "max_hourly_usd": max_hourly_v,
-                    "gpu": candidate.get("gpu").cloned().unwrap_or(Value::Null),
-                    "region": body.get("region").cloned()
-                        .or_else(|| candidate.get("region").cloned())
-                        .or_else(|| candidate.get("regions").and_then(Value::as_array).and_then(|r| r.first().cloned()))
-                        .unwrap_or(Value::Null),
-                    "instance_type": candidate.get("instance_type").cloned().unwrap_or(Value::Null),
-                    "disk_gb": candidate.pointer("/storage/disk_gb").cloned().unwrap_or(Value::Null),
-                    "spend_estimate": candidate.get("spend_estimate").cloned().unwrap_or(Value::Null),
-                    "execution_mode": if account_mode == "live" { "live" } else { "simulated_control_plane" },
-                    "teardown_policy": body.get("teardown_policy").and_then(Value::as_str).unwrap_or("always_teardown_required"),
-                });
+                    let candidate = read_record_dir(data_dir, "cloud-resource-candidates")
+                        .into_iter()
+                        .find(|c| text(c, "candidate_ref") == candidate_ref);
+                    let refuse = |code: &str, detail: String| {
+                        let receipt = provider_receipt_ext(
+                            data_dir,
+                            &kind,
+                            &env_ref,
+                            op,
+                            "quote_gate_refused",
+                            &json!({ "account_ref": account_ref, "candidate_ref": candidate_ref, "error": code }),
+                        );
+                        (
+                            StatusCode::CONFLICT,
+                            Json(
+                                json!({ "ok": false, "op": op, "provider": provider_id, "reason": format!("{code} — {detail}"), "receipt_ref": receipt }),
+                            ),
+                        )
+                    };
+                    let Some(candidate) = candidate else {
+                        return refuse(
+                            &format!("{kind}_candidate_unknown"),
+                            "no such CloudResourceCandidate — refresh candidates and retry".into(),
+                        );
+                    };
+                    if text(&candidate, "provider_account_ref") != account_ref {
+                        return refuse(
+                            &format!("{kind}_candidate_account_mismatch"),
+                            "the candidate belongs to a different provider account".into(),
+                        );
+                    }
+                    let now = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .map(|d| d.as_secs())
+                        .unwrap_or(0);
+                    let expired = candidate
+                        .get("expires_epoch")
+                        .and_then(Value::as_u64)
+                        .map(|e| now > e)
+                        .unwrap_or(true);
+                    if expired
+                        || candidate.get("status").and_then(Value::as_str) == Some("superseded")
+                    {
+                        return refuse(&format!("{kind}_quote_expired_requires_requote"), "expired or superseded quotes can never mutate — refresh candidates for a fresh quote".into());
+                    }
+                    let evidence_mode = text(&candidate, "evidence_mode").to_string();
+                    let account_mode = vast_mode(&account);
+                    if evidence_mode == "fixture_evidence" {
+                        return refuse(
+                            &format!("{kind}_quote_not_live"),
+                            "fixture quotes are advisory forever and can never provision".into(),
+                        );
+                    }
+                    let mode_ok = (account_mode == "live" && evidence_mode == "live_evidence")
+                        || (account_mode == "simulator" && evidence_mode == "simulator_evidence");
+                    if !mode_ok {
+                        return refuse(&format!("{kind}_quote_mode_mismatch"), format!("account control plane is '{account_mode}' but the quote evidence is '{evidence_mode}' — live provisioning demands live quotes; the simulator demands simulator quotes"));
+                    }
+                    let k8s_unmetered = kind == "k8s"
+                        && account
+                            .pointer("/endpoint/metered")
+                            .map(Value::is_null)
+                            .unwrap_or(true);
+                    let (price_v, max_hourly_v): (Value, Value) = if k8s_unmetered {
+                        // Customer/operator cluster: NO price exists and none is invented — the
+                        // exposure plane opens nothing without a sourced price.
+                        (Value::Null, Value::Null)
+                    } else {
+                        let Some(price) = candidate
+                            .pointer("/quote/usd_per_hour")
+                            .and_then(Value::as_f64)
+                        else {
+                            let code = if kind == "k8s" {
+                                "k8s_metered_posture_unpriced".to_string()
+                            } else {
+                                format!("{kind}_quote_unpriced")
+                            };
+                            return refuse(&code, "a candidate without a real sourced price can never provision on a metered posture".into());
+                        };
+                        let max_hourly = body
+                            .get("max_hourly_usd")
+                            .and_then(Value::as_f64)
+                            .unwrap_or(price);
+                        if price > max_hourly {
+                            return refuse(
+                                &format!("{kind}_price_above_max"),
+                                format!(
+                                "offer price ${price}/hr exceeds the declared max ${max_hourly}/hr"
+                            ),
+                            );
+                        }
+                        // Reservation adequacy: headroom after OPEN exposures must cover this create's
+                        // first-hour reservation at the declared max rate. Checked here (not at budget
+                        // discovery) because the price is only known once the quote is validated.
+                        let headroom = budget_note
+                            .get("remaining_headroom_after_reservations")
+                            .and_then(Value::as_f64)
+                            .unwrap_or(0.0);
+                        if headroom - max_hourly < 0.0 {
+                            return refuse(&format!("{kind}_budget_reservation_exceeded"), format!("open exposures already reserve the external_spend headroom (remaining ${headroom:.3} < first-hour reservation ${max_hourly:.3}/hr) — tear an instance down or raise the budget"));
+                        }
+                        (json!(price), json!(max_hourly))
+                    };
+                    // k8s: the wallet challenge binds the WORKLOAD SPEC + namespace + PVC/service
+                    // posture — a canonical spec is built from the request and its hash rides the
+                    // facets (admission is namespace-scoped; nothing generic).
+                    let k8s_workload: Value = if kind == "k8s" {
+                        let namespace = body
+                            .get("namespace")
+                            .and_then(Value::as_str)
+                            .or_else(|| {
+                                account
+                                    .pointer("/endpoint/namespace")
+                                    .and_then(Value::as_str)
+                            })
+                            .unwrap_or("default")
+                            .to_string();
+                        let spec = json!({
+                            "image": body.get("image").cloned().unwrap_or(json!("ubuntu:24.04")),
+                            "resources": body.get("resources").cloned().unwrap_or(json!({ "cpu_milli": 500, "memory_gb": 1, "gpu": 0 })),
+                            "pvc": body.get("pvc").cloned().unwrap_or(Value::Null),
+                            "service": body.get("service").cloned().unwrap_or(Value::Null),
+                            "kubevirt": body.get("kubevirt").cloned().unwrap_or(json!(false)),
+                        });
+                        let spec_hash = sha256_bytes(spec.to_string().as_bytes());
+                        json!({ "namespace": namespace, "workload_spec": spec, "workload_spec_hash": spec_hash,
+                            "exec_posture": "kubernetes_exec" })
+                    } else {
+                        Value::Null
+                    };
+                    // akash: the wallet challenge binds the DEPLOYMENT SPEC — a canonical SDL is
+                    // built from the validated bid candidate; its hash rides the facets.
+                    let akash_sdl: Value = if kind == "akash" {
+                        let sdl = akash_build_sdl(&candidate, &body);
+                        let sdl_hash = sha256_bytes(sdl.to_string().as_bytes());
+                        json!({ "sdl": sdl, "sdl_hash": sdl_hash })
+                    } else {
+                        Value::Null
+                    };
+                    // aws|gcp: the wallet challenge binds the ENTERPRISE NETWORK POSTURE — explicit
+                    // VPC/subnet(/security-group|firewall) config or the labelled default simulator
+                    // posture, with reachability flags (public/external IP + SSH ingress).
+                    let aws_network: Value = if matches!(kind.as_str(), "aws" | "gcp" | "azure") {
+                        let configured = body
+                            .get("network")
+                            .cloned()
+                            .or_else(|| account.pointer("/endpoint/network").cloned())
+                            .filter(|n| !n.is_null());
+                        let (explicit_label, default_label) = if kind == "gcp" {
+                            ("explicit_network_config", "default_network_simulator")
+                        } else if kind == "azure" {
+                            ("explicit_vnet_config", "default_vnet_simulator")
+                        } else {
+                            ("explicit_vpc_config", "default_vpc_simulator")
+                        };
+                        match configured {
+                            Some(n) => {
+                                let explicit = n.get("vpc_id").is_some()
+                                    || n.get("subnet_id").is_some()
+                                    || n.get("security_group_id").is_some()
+                                    || n.get("network").is_some()
+                                    || n.get("subnetwork").is_some()
+                                    || n.get("firewall").is_some()
+                                    || n.get("vnet").is_some()
+                                    || n.get("subnet").is_some()
+                                    || n.get("nsg").is_some();
+                                let mut posture = n.clone();
+                                if let Some(o) = posture.as_object_mut() {
+                                    o.entry("public_ip").or_insert(json!(true));
+                                    o.entry("ssh_ingress").or_insert(json!(true));
+                                    o.insert(
+                                        "posture_label".into(),
+                                        json!(if explicit {
+                                            explicit_label
+                                        } else {
+                                            default_label
+                                        }),
+                                    );
+                                }
+                                posture
+                            }
+                            None => {
+                                json!({ "posture_label": default_label, "public_ip": true, "ssh_ingress": true })
+                            }
+                        }
+                    } else {
+                        Value::Null
+                    };
+                    vast_gate = json!({
+                        "candidate_ref": candidate_ref,
+                        "quote_ref": candidate["quote_ref"],
+                        "namespace": k8s_workload.get("namespace").cloned().unwrap_or(Value::Null),
+                        "workload_spec": k8s_workload.get("workload_spec").cloned().unwrap_or(Value::Null),
+                        "workload_spec_hash": k8s_workload.get("workload_spec_hash").cloned().unwrap_or(Value::Null),
+                        "exec_posture": k8s_workload.get("exec_posture").cloned().unwrap_or(Value::Null),
+                        "az": candidate.get("az").cloned().unwrap_or(Value::Null),
+                        "project": candidate.get("project").cloned().unwrap_or(Value::Null),
+                        "zone": candidate.get("zone").cloned().unwrap_or(Value::Null),
+                        "machine_type": candidate.get("machine_type").cloned().unwrap_or(Value::Null),
+                        "subscription_id": candidate.get("subscription_id").cloned().unwrap_or(Value::Null),
+                        "resource_group": body.get("resource_group").cloned()
+                            .or_else(|| candidate.get("resource_group").cloned())
+                            .unwrap_or(Value::Null),
+                        "location": candidate.get("location").cloned().unwrap_or(Value::Null),
+                        "vm_size": candidate.get("vm_size").cloned().unwrap_or(Value::Null),
+                        "network_posture": aws_network,
+                        "deployment_class": candidate.get("deployment_class").cloned().unwrap_or(Value::Null),
+                        "provider_address": candidate.get("provider_address").cloned().unwrap_or(Value::Null),
+                        "bid_ref": candidate.get("bid_ref").cloned().unwrap_or(Value::Null),
+                        "persistent_storage": candidate.pointer("/storage/persistent_storage").cloned().unwrap_or(Value::Null),
+                        "resources": candidate.get("resources").cloned().unwrap_or(Value::Null),
+                        "native_rate": candidate.pointer("/quote/native_rate").cloned().unwrap_or(Value::Null),
+                        "sdl": akash_sdl.get("sdl").cloned().unwrap_or(Value::Null),
+                        "sdl_hash": akash_sdl.get("sdl_hash").cloned().unwrap_or(Value::Null),
+                        "restore_material_ref": body.get("restore_material_ref").cloned().unwrap_or(Value::Null),
+                        "archive_ref": body.get("archive_ref").cloned().unwrap_or(Value::Null),
+                        "offer_id": candidate.pointer("/quote/offer_id").cloned().unwrap_or(Value::Null),
+                        "usd_per_hour": price_v,
+                        "max_hourly_usd": max_hourly_v,
+                        "gpu": candidate.get("gpu").cloned().unwrap_or(Value::Null),
+                        "region": body.get("region").cloned()
+                            .or_else(|| candidate.get("region").cloned())
+                            .or_else(|| candidate.get("regions").and_then(Value::as_array).and_then(|r| r.first().cloned()))
+                            .unwrap_or(Value::Null),
+                        "instance_type": candidate.get("instance_type").cloned().unwrap_or(Value::Null),
+                        "disk_gb": candidate.pointer("/storage/disk_gb").cloned().unwrap_or(Value::Null),
+                        "spend_estimate": candidate.get("spend_estimate").cloned().unwrap_or(Value::Null),
+                        "execution_mode": if account_mode == "live" { "live" } else { "simulated_control_plane" },
+                        "teardown_policy": body.get("teardown_policy").and_then(Value::as_str).unwrap_or("always_teardown_required"),
+                    });
+                }
             }
             // 2) A REAL wallet grant via the capability-lease gateway — 403 challenge echoes the
             //    exact policy/request hashes to mint against; the lease descriptor carries no secret.
@@ -6750,6 +6846,14 @@ pub(crate) async fn handle_provider_op(
                             "bid_ref",
                             "persistent_storage",
                             "sdl_hash",
+                            // akash Stage A: the exact deposit + single-group ceiling + auto-top-up
+                            // posture are hashed into the wallet challenge, so the approval
+                            // authorizes THIS bounded continuation (Stage B validates the real bid
+                            // under it, never a second grant).
+                            "deposit_usd",
+                            "ceiling_denom",
+                            "ceiling_amount",
+                            "auto_topup",
                             "restore_material_ref",
                             "archive_ref",
                             "teardown_policy",
