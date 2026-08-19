@@ -52,7 +52,8 @@
       {
         "id": "I-6",
         "title": "matrix vocabulary upgrade (adjudication_ref, donor_capture, landing_designation, terminal states)",
-        "status": "queued"
+        "status": "done",
+        "evidence": "matrix legend +7 vocabulary entries (terminal states donor_ported/absent_confirmed/capture_broken_no_donor/ia_bearing_empty + fields adjudication_ref/donor_capture/landing_designation); landing-designations.v1.json authored (33 click targets: NOW=19 LATER=7 GRE=7, transcribing plan \u00a74.1 with D6 grafts); check-landing-designations.mjs 6/6 structural + --exit-gate correctly RED naming all 7 LATER (exit 1)"
       }
     ],
     "W1": [
@@ -360,6 +361,12 @@
       "date": "2026-08-19",
       "did": "I-5 unified gap contract: 71 emissions migrated, verifier floor added + mutation-tested, stale dead-daemon gate repaired, serve restarted; 66/66 green",
       "next": "W0: I-6 matrix vocabulary upgrade"
+    },
+    {
+      "n": 4,
+      "date": "2026-08-19",
+      "did": "I-6 matrix vocabulary + landing designations machine record + audit checker; W0 COMPLETE",
+      "next": "open W0 PR; W1 batch 1 (AUT-4, MAR-1, ENV-1)"
     }
   ]
 }
