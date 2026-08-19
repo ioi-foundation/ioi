@@ -148,6 +148,37 @@ fn provider_op_persist_failed(
     )
 }
 
+/// C2 — the external effect happened (or may have) and the pre-effect INTENT is
+/// committed, but the outcome/completion root did not finalize. This is
+/// `reconciliation_required`: NOT a refusal (the effect is not undone) and NOT
+/// "nothing happened" (the intent root proves the attempt). 202 Accepted — the
+/// outcome is owed, not failed; the live resource is reconcilable through the
+/// committed intent root.
+#[allow(clippy::too_many_arguments)]
+fn provider_op_reconciliation_required(
+    op: &str,
+    provider: &str,
+    env_ref: &str,
+    receipt: &Option<String>,
+    provider_native: Value,
+    journal_ref: &str,
+    intent_state_root: &str,
+    what_happened: &str,
+) -> (StatusCode, Json<Value>) {
+    (
+        StatusCode::ACCEPTED,
+        Json(json!({
+            "ok": false,
+            "code": "reconciliation_required",
+            "op": op, "provider": provider, "environment_ref": env_ref,
+            "receipt_ref": receipt, "provider_native": provider_native,
+            "journal_ref": journal_ref,
+            "intent_state_root": intent_state_root,
+            "message": format!("{what_happened} — the pre-effect INTENT is committed (root {intent_state_root}), so this is reconciliation_required, NOT a refusal and NOT 'nothing happened'. Reconcile the outcome against the committed intent (receipt {rcpt}).", rcpt = receipt.as_deref().unwrap_or("<receipt-not-persisted>")),
+        })),
+    )
+}
+
 fn provider_receipt_ext(
     data_dir: &str,
     provider: &str,
@@ -6130,14 +6161,16 @@ fn admit_live_provider_operation(body: &Value, now: &str) -> Result<Value, (u16,
         .map_err(|e| (e.status, e.code))
 }
 
-/// C5(b) — the canonical body of one provider-operation JOURNAL entry. Custody is
-/// carried as a fingerprint, NEVER the credential; the model proposal, the request
-/// and the provider evidence are carried as tamper-anchoring hashes, not verbatim.
-/// Pure + deterministic (JCS canonical) so the commit replays byte-identically under
-/// one idempotency key.
+/// C2 phase 1 — the INTENT body of a provider-operation journal entry, committed
+/// BEFORE the external effect. It carries only what is known pre-effect: the model
+/// proposal (by hash), the authority (grant + lease), custody (a fingerprint, never
+/// the credential), and the canonical request (by hash). Pure + deterministic (JCS)
+/// so a retry replays byte-identically under one idempotency key. This is the
+/// pre-effect root: if it does not commit, the op is refused and nothing external
+/// has happened.
 #[allow(clippy::too_many_arguments)]
-fn provider_operation_journal_payload(
-    op_id: &str,
+fn provider_operation_intent_payload(
+    journal_ref: &str,
     kind: &str,
     op: &str,
     account_ref: &str,
@@ -6147,31 +6180,120 @@ fn provider_operation_journal_payload(
     lease_note: &Value,
     credential_fingerprint: &str,
     plan: &Value,
-    evidence: &Value,
-    receipt: &Value,
 ) -> Value {
     json!({
         "schema_version": "ioi.hypervisor.provider-operation-journal.v1",
-        "operation_id": op_id,
+        "phase": "intent",
+        "operation_ref": journal_ref,
         "provider": kind,
         "op": op,
         "account_ref": account_ref,
         "environment_ref": env_ref,
-        // the model-authored proposal the daemon executed (C4), by hash — never re-authored here
+        // the model-authored proposal the daemon is about to execute (C4), by hash
         "model_proposal_hash": sha256_bytes(
             &serde_jcs::to_vec(operation_proposal).unwrap_or_default(),
         ),
-        // the authority this crossing carried
+        // the authority this crossing carries
         "grant_ref": grant_ref,
         "capability_lease_ref": lease_note.get("lease_id").cloned().unwrap_or(Value::Null),
         // custody WITHOUT the credential — the fingerprint, never the secret
         "credential_fingerprint": credential_fingerprint,
-        // canonical request + redacted provider evidence, as tamper-anchoring hashes
+        // the canonical request, as a tamper-anchoring hash — never verbatim
         "request_hash": sha256_bytes(&serde_jcs::to_vec(plan).unwrap_or_default()),
+    })
+}
+
+/// C2 phase 2 — the OUTCOME body, committed AFTER the external effect as a SUCCESSOR
+/// of the intent (expected_head = the intent's head). It carries the completion: the
+/// outcome label, the provider evidence (by hash), the receipt, and a back-reference
+/// to the pre-effect intent root it finalizes. A lost outcome commit after the effect
+/// is `reconciliation_required`, never a refusal.
+fn provider_operation_outcome_payload(
+    journal_ref: &str,
+    outcome: &str,
+    evidence: &Value,
+    receipt: &Value,
+    intent_state_root: &str,
+) -> Value {
+    json!({
+        "schema_version": "ioi.hypervisor.provider-operation-journal.v1",
+        "phase": "outcome",
+        "operation_ref": journal_ref,
+        // binds this completion to the exact pre-effect intent it finalizes
+        "intent_state_root": intent_state_root,
+        "outcome": outcome,
+        // redacted provider evidence, as a tamper-anchoring hash — never verbatim
         "evidence_hash": sha256_bytes(&serde_jcs::to_vec(evidence).unwrap_or_default()),
-        "outcome": "ok",
         "receipt_ref": receipt.clone(),
     })
+}
+
+/// C2 — the pre-effect state captured by a committed provider-operation INTENT.
+/// Carries the caller (to author the successor outcome under the same owner scope),
+/// the op's journal stream ref, and the intent root the outcome must chain to.
+struct ProviderJournalIntent {
+    caller: super::mutation_event_foundation::WriteCaller,
+    journal_ref: String,
+    intent_state_root: String,
+}
+
+/// C2 phase 2 — commit the OUTCOME as a successor of the intent (expected_head = the
+/// intent root). A distinct idempotency key (`.outcome`) means it is never mistaken
+/// for a replay of the intent. On success returns the two-entry chain
+/// `[intent_root, outcome_root]`; on a lost commit AFTER the external effect it
+/// returns `reconciliation_required` — never a refusal.
+#[allow(clippy::too_many_arguments)]
+fn commit_provider_operation_outcome(
+    data_dir: &str,
+    intent: &ProviderJournalIntent,
+    op: &str,
+    provider: &str,
+    env_ref: &str,
+    outcome_label: &str,
+    evidence: &Value,
+    receipt: &Option<String>,
+    what_happened_on_reconcile: &str,
+) -> Result<Vec<String>, (StatusCode, Json<Value>)> {
+    let outcome_caller = super::mutation_event_foundation::WriteCaller {
+        identity: intent.caller.identity.clone(),
+        owner_ref: intent.caller.owner_ref.clone(),
+        idempotency_key: format!("{}.outcome", intent.caller.idempotency_key),
+    };
+    let payload = provider_operation_outcome_payload(
+        &intent.journal_ref,
+        outcome_label,
+        evidence,
+        &json!(receipt),
+        &intent.intent_state_root,
+    );
+    match super::mutation_event_foundation::admit_owner_scoped_write(
+        data_dir,
+        &outcome_caller,
+        "hypervisor-provider-operations",
+        "provider_operation",
+        &intent.journal_ref,
+        "provider_operation.outcome",
+        Some(&intent.intent_state_root),
+        &payload,
+    ) {
+        Ok(commit) => Ok(vec![
+            intent.intent_state_root.clone(),
+            commit.projection.head,
+        ]),
+        Err(_) => Err(provider_op_reconciliation_required(
+            op,
+            provider,
+            env_ref,
+            receipt,
+            evidence
+                .get("provider_native")
+                .cloned()
+                .unwrap_or(Value::Null),
+            &intent.journal_ref,
+            &intent.intent_state_root,
+            what_happened_on_reconcile,
+        )),
+    }
 }
 
 pub(crate) async fn handle_provider_op(
@@ -6646,19 +6768,68 @@ pub(crate) async fn handle_provider_op(
                 );
             }
         }
-        // C5(b) — the live provider-operation JOURNAL is an authenticated,
-        // owner-scoped, idempotent mutation (INV-37; the one structural law —
-        // no second spine). Resolve the caller BEFORE the external op so a
-        // missing owner-scoped identity refuses coherently (nothing external has
-        // happened yet); the real state root is COMMITTED after, from the
-        // outcome (a receipt written only after a spend cannot "refuse" it).
-        let journal_caller = if matches!(op, "create" | "redeploy")
+        // C2 phase 1 — the pre-effect INTENT. For a live provider spend, resolve the
+        // authenticated owner-scoped caller and commit the intent + pre-effect root
+        // BEFORE the external op. If either fails, refuse: nothing external has
+        // happened yet, and a receipt written only after a spend cannot "refuse" it.
+        // (INV-37; the journal is the shared substrate engine — no second spine.)
+        let provider_journal_intent = if matches!(op, "create" | "redeploy")
             && kind == "akash"
             && vast_mode(&account) == "live"
         {
-            match super::mutation_event_foundation::require_write_caller(data_dir, &headers, &body)
-            {
-                Ok(caller) => Some(caller),
+            let caller = match super::mutation_event_foundation::require_write_caller(
+                data_dir, &headers, &body,
+            ) {
+                Ok(caller) => caller,
+                Err((status, reply)) => return (status, reply),
+            };
+            let credential_fingerprint = load_account_credential(data_dir, &account_id)
+                .map(|c| text(&c, "fingerprint").to_string())
+                .unwrap_or_default();
+            let journal_ref = format!(
+                "provider-operation://{}",
+                super::mutation_event_foundation::replay_stable_id(
+                    "pop",
+                    &caller.owner_ref,
+                    &caller.idempotency_key,
+                )
+            );
+            let intent_caller = super::mutation_event_foundation::WriteCaller {
+                identity: caller.identity.clone(),
+                owner_ref: caller.owner_ref.clone(),
+                idempotency_key: format!("{}.intent", caller.idempotency_key),
+            };
+            let intent_payload = provider_operation_intent_payload(
+                &journal_ref,
+                &kind,
+                op,
+                &account_ref,
+                &env_ref,
+                &body
+                    .get("operation_proposal")
+                    .cloned()
+                    .unwrap_or(Value::Null),
+                &grant_ref,
+                &lease_note,
+                &credential_fingerprint,
+                &plan,
+            );
+            match super::mutation_event_foundation::admit_owner_scoped_write(
+                data_dir,
+                &intent_caller,
+                "hypervisor-provider-operations",
+                "provider_operation",
+                &journal_ref,
+                "provider_operation.intent",
+                None,
+                &intent_payload,
+            ) {
+                Ok(commit) => Some(ProviderJournalIntent {
+                    caller,
+                    journal_ref,
+                    intent_state_root: commit.projection.head,
+                }),
+                // The pre-effect root did not commit → refuse; nothing external happened.
                 Err((status, reply)) => return (status, reply),
             }
         } else {
@@ -6728,62 +6899,27 @@ pub(crate) async fn handle_provider_op(
                         "the provider op executed against the provider but its admitted-operation record did not commit",
                     );
                 }
-                // C5(b) — commit this executed provider operation into the
-                // append-only, domain-separated provider-operation journal via
-                // the SHARED substrate engine (the one package_registry and
-                // model-invocations already commit through — no second spine).
-                // The projection head is a REAL, recomputable, tamper-evident
-                // state root — not a driver-asserted string — and the namespace
-                // admission_root chains it to every prior op (the prev-root
-                // property). Committed AFTER execution, carrying the outcome.
+                // C2 phase 2 (success) — commit the OUTCOME as a successor of the
+                // committed intent (expected_head = the intent root), completing the
+                // two-phase journal on the SHARED substrate engine (no second spine).
+                // The outcome head is a REAL, recomputable, tamper-evident completion
+                // root chained to its pre-effect intent. A lost commit AFTER the
+                // external effect is reconciliation_required, never a refusal.
                 let mut journal_state_roots: Vec<String> = Vec::new();
-                if let Some(caller) = journal_caller.as_ref() {
-                    let credential_fingerprint = load_account_credential(data_dir, &account_id)
-                        .map(|c| text(&c, "fingerprint").to_string())
-                        .unwrap_or_default();
-                    let journal_ref = format!("provider-operation://{op_id}");
-                    let journal_payload = provider_operation_journal_payload(
-                        &op_id,
-                        &kind,
-                        op,
-                        &account_ref,
-                        &env_ref,
-                        &body
-                            .get("operation_proposal")
-                            .cloned()
-                            .unwrap_or(Value::Null),
-                        &grant_ref,
-                        &lease_note,
-                        &credential_fingerprint,
-                        &plan,
-                        &evidence,
-                        &json!(receipt),
-                    );
-                    match super::mutation_event_foundation::admit_owner_scoped_write(
+                if let Some(intent) = provider_journal_intent.as_ref() {
+                    match commit_provider_operation_outcome(
                         data_dir,
-                        caller,
-                        "hypervisor-provider-operations",
-                        "provider_operation",
-                        &journal_ref,
-                        "provider_operation.executed",
-                        None, // genesis: one journal object per op; the namespace admission_root chains them
-                        &journal_payload,
+                        intent,
+                        op,
+                        &kind,
+                        &env_ref,
+                        "ok",
+                        &evidence,
+                        &receipt,
+                        "the provider op executed against the provider but its completion root did not finalize",
                     ) {
-                        Ok(commit) => journal_state_roots.push(commit.projection.head),
-                        Err(_) => {
-                            // The external op ALREADY executed; a lost journal commit cannot
-                            // "refuse" it. Name the live resource + that reconciliation is owed,
-                            // never "nothing happened" (C2 refines this to reconciliation_required).
-                            return provider_op_persist_failed(
-                                "provider_operation_state_root_commit_failed",
-                                op,
-                                &kind,
-                                &env_ref,
-                                &receipt,
-                                evidence.get("provider_native").cloned().unwrap_or(Value::Null),
-                                "the provider op executed against the provider but its state-root journal commit did not admit — reconcile from the receipt",
-                            );
-                        }
+                        Ok(roots) => journal_state_roots = roots,
+                        Err(reconciliation) => return reconciliation,
                     }
                 }
                 // ── Spend exposure accounting (customer-borne; estimates only, never a bill) ──
@@ -6919,6 +7055,25 @@ pub(crate) async fn handle_provider_op(
                         "execution_mode": vast_gate.get("execution_mode").cloned().unwrap_or(Value::Null),
                     }),
                 );
+                // C2 phase 2 (failure) — close the committed intent with a `failed`
+                // outcome so no intent dangles. A live op that failed may have had a
+                // partial external effect; if even the failure-outcome cannot commit,
+                // that is reconciliation_required (verify against the intent root).
+                if let Some(intent) = provider_journal_intent.as_ref() {
+                    if let Err(reconciliation) = commit_provider_operation_outcome(
+                        data_dir,
+                        intent,
+                        op,
+                        &kind,
+                        &env_ref,
+                        outcome,
+                        &json!({ "error": reason.clone() }),
+                        &receipt,
+                        "the provider op failed and its failure-outcome did not finalize; a partial external effect may exist",
+                    ) {
+                        return reconciliation;
+                    }
+                }
                 (
                     StatusCode::OK,
                     Json(
@@ -7171,10 +7326,21 @@ mod containment_tests {
         assert_eq!(status, 403);
     }
 
-    // ---- MEC C5(b): the provider op commits a REAL, recomputable state root ----
-    fn sample_journal_payload() -> Value {
-        provider_operation_journal_payload(
-            "pop_c5b1",
+    // ---- MEC C2/C5(b): the two-phase provider-operation journal (intent → outcome) ----
+    fn journal_caller_for_test(key: &str) -> super::super::mutation_event_foundation::WriteCaller {
+        super::super::mutation_event_foundation::WriteCaller {
+            identity: super::super::substrate_store::request_identity_for_test(
+                "user://mec-c2",
+                ["org://one".to_string()],
+            ),
+            owner_ref: "org://one".to_string(),
+            idempotency_key: key.to_string(),
+        }
+    }
+
+    fn sample_intent_payload(journal_ref: &str) -> Value {
+        provider_operation_intent_payload(
+            journal_ref,
             "akash",
             "create",
             "provider-account://pacc_1",
@@ -7184,74 +7350,138 @@ mod containment_tests {
             &json!({ "lease_id": "lease://one" }),
             "sha256:deadbeefcafe",
             &json!({ "sdl": "manifest", "deposit": { "amount": "500000" } }),
-            &json!({ "provider_native": { "dseq": "123" } }),
-            &json!("agentgres://provider-receipt/1"),
         )
     }
 
     #[test]
-    fn a_committed_provider_op_yields_a_real_non_empty_state_root() {
-        // The state root is not a driver-asserted string: it is the projection head
-        // of a genuine append-only journal admission through the shared engine.
+    fn the_two_phase_journal_commits_an_intent_then_an_outcome_that_chains_to_it() {
+        // Phase 1 (genesis intent) then phase 2 (successor outcome, expected_head =
+        // the intent root). Both roots are real, recomputable sha256 chain heads;
+        // the outcome commit only admits BECAUSE it chains to the exact intent root.
         let directory = tempfile::tempdir().unwrap();
         let data_dir = directory.path().to_str().unwrap();
         super::super::substrate_store::reset_handle_for_test();
-        let caller = super::super::mutation_event_foundation::WriteCaller {
-            identity: super::super::substrate_store::request_identity_for_test(
-                "user://mec-c5b",
-                ["org://one".to_string()],
-            ),
-            owner_ref: "org://one".to_string(),
-            idempotency_key: "c5b-commit-1".to_string(),
-        };
-        let commit = super::super::mutation_event_foundation::admit_owner_scoped_write(
+        let caller = journal_caller_for_test("c2-op-1");
+        let journal_ref = "provider-operation://pop_c2_1";
+
+        let intent = super::super::mutation_event_foundation::admit_owner_scoped_write(
             data_dir,
-            &caller,
+            &super::super::mutation_event_foundation::WriteCaller {
+                identity: caller.identity.clone(),
+                owner_ref: caller.owner_ref.clone(),
+                idempotency_key: format!("{}.intent", caller.idempotency_key),
+            },
             "hypervisor-provider-operations",
             "provider_operation",
-            "provider-operation://pop_c5b1",
-            "provider_operation.executed",
+            journal_ref,
+            "provider_operation.intent",
             None,
-            &sample_journal_payload(),
+            &sample_intent_payload(journal_ref),
         )
-        .expect("the owner-scoped provider-operation journal commit admits");
-        assert!(
-            commit.projection.head.starts_with("sha256:"),
-            "the state root must be a real sha256 chain head"
-        );
-        assert!(commit.projection.head.len() > "sha256:".len());
-        // The namespace admission_root chains this op to every prior one — the prev-root property.
-        assert!(commit.projection.admission_root.starts_with("sha256:"));
+        .expect("the pre-effect intent admits");
+        assert!(intent.projection.head.starts_with("sha256:"));
+
+        let intent_state = ProviderJournalIntent {
+            caller,
+            journal_ref: journal_ref.to_string(),
+            intent_state_root: intent.projection.head.clone(),
+        };
+        let roots = commit_provider_operation_outcome(
+            data_dir,
+            &intent_state,
+            "create",
+            "akash",
+            "environment:1",
+            "ok",
+            &json!({ "provider_native": { "dseq": "123" } }),
+            &Some("agentgres://provider-receipt/1".to_string()),
+            "unused in this success path",
+        )
+        .expect("the outcome commits as a successor of the intent");
+        // Two-entry chain: [intent_root, outcome_root], distinct, both real.
+        assert_eq!(roots.len(), 2);
+        assert_eq!(roots[0], intent.projection.head);
+        assert!(roots[1].starts_with("sha256:"));
+        assert_ne!(roots[0], roots[1]);
     }
 
     #[test]
-    fn the_journal_payload_anchors_by_hash_and_keeps_custody_a_fingerprint_never_the_secret() {
+    fn a_lost_outcome_after_the_effect_is_reconciliation_required_not_a_refusal() {
+        // If the outcome cannot chain to the intent (here: a wrong/foreign intent
+        // root, standing in for a lost/again-moved head), the op does not "refuse" —
+        // the external effect is not undone. It returns 202 reconciliation_required.
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        super::super::substrate_store::reset_handle_for_test();
+        let caller = journal_caller_for_test("c2-op-2");
+        let journal_ref = "provider-operation://pop_c2_2";
+        super::super::mutation_event_foundation::admit_owner_scoped_write(
+            data_dir,
+            &super::super::mutation_event_foundation::WriteCaller {
+                identity: caller.identity.clone(),
+                owner_ref: caller.owner_ref.clone(),
+                idempotency_key: format!("{}.intent", caller.idempotency_key),
+            },
+            "hypervisor-provider-operations",
+            "provider_operation",
+            journal_ref,
+            "provider_operation.intent",
+            None,
+            &sample_intent_payload(journal_ref),
+        )
+        .expect("the pre-effect intent admits");
+        // A ProviderJournalIntent carrying the WRONG intent root → the successor CAS
+        // cannot match → the outcome commit fails → reconciliation_required.
+        let wrong = ProviderJournalIntent {
+            caller,
+            journal_ref: journal_ref.to_string(),
+            intent_state_root: "sha256:not-the-real-intent-head".to_string(),
+        };
+        let (status, _reply) = commit_provider_operation_outcome(
+            data_dir,
+            &wrong,
+            "create",
+            "akash",
+            "environment:1",
+            "ok",
+            &json!({ "provider_native": { "dseq": "999" } }),
+            &Some("agentgres://provider-receipt/2".to_string()),
+            "the provider op executed but its completion root did not finalize",
+        )
+        .expect_err("a lost/mismatched outcome must not be a plain Ok");
+        assert_eq!(
+            status,
+            StatusCode::ACCEPTED,
+            "reconciliation_required is 202 — the effect happened, the outcome is owed, not refused"
+        );
+    }
+
+    #[test]
+    fn the_intent_payload_anchors_by_hash_and_keeps_custody_a_fingerprint_never_the_secret() {
         // The credential is present only as its fingerprint; the raw secret must NEVER appear.
-        // The request and provider evidence are tamper-anchored by hash, not stored verbatim.
-        // (Mutation drill: store the raw plan/evidence/secret instead of its hash → RED.)
+        // The proposal and request are tamper-anchored by hash, not stored verbatim.
+        // (Mutation drill: store the raw plan/secret instead of its hash → RED.)
         let secret = "AKASH-LIVE-SECRET-DO-NOT-LEAK";
         let fingerprint = sha256_bytes(secret.as_bytes());
         let plan =
             json!({ "sdl": "a-real-deployment-manifest", "deposit": { "amount": "500000" } });
-        let evidence = json!({ "provider_native": { "dseq": "424242" }, "raw": "manifest-echo" });
-        let payload = provider_operation_journal_payload(
-            "pop_c5b2",
+        let payload = provider_operation_intent_payload(
+            "provider-operation://pop_c2_3",
             "akash",
             "create",
             "provider-account://pacc_1",
             "environment:1",
-            &json!({ "proposal_ref": "proposal:provider/2" }),
-            &json!("grant://two"),
-            &json!({ "lease_id": "lease://two" }),
+            &json!({ "proposal_ref": "proposal:provider/3" }),
+            &json!("grant://three"),
+            &json!({ "lease_id": "lease://three" }),
             &fingerprint,
             &plan,
-            &evidence,
-            &json!("agentgres://provider-receipt/2"),
         );
         let serialized = serde_json::to_string(&payload).unwrap();
+        assert_eq!(payload["phase"], "intent");
         assert!(
             !serialized.contains(secret),
-            "the raw credential secret leaked into the journal payload"
+            "the raw credential secret leaked into the intent payload"
         );
         assert!(serialized.contains(&fingerprint));
         assert!(payload["model_proposal_hash"]
@@ -7262,14 +7492,30 @@ mod containment_tests {
             .as_str()
             .unwrap()
             .starts_with("sha256:"));
-        assert!(payload["evidence_hash"]
-            .as_str()
-            .unwrap()
-            .starts_with("sha256:"));
         assert!(
             !serialized.contains("a-real-deployment-manifest"),
             "the raw request was stored verbatim instead of hashed"
         );
+    }
+
+    #[test]
+    fn the_outcome_payload_binds_to_its_intent_and_anchors_evidence_by_hash() {
+        let evidence = json!({ "provider_native": { "dseq": "424242" }, "raw": "manifest-echo" });
+        let payload = provider_operation_outcome_payload(
+            "provider-operation://pop_c2_4",
+            "ok",
+            &evidence,
+            &json!("agentgres://provider-receipt/4"),
+            "sha256:the-intent-root",
+        );
+        let serialized = serde_json::to_string(&payload).unwrap();
+        assert_eq!(payload["phase"], "outcome");
+        // The outcome names the exact pre-effect intent it finalizes.
+        assert_eq!(payload["intent_state_root"], "sha256:the-intent-root");
+        assert!(payload["evidence_hash"]
+            .as_str()
+            .unwrap()
+            .starts_with("sha256:"));
         assert!(
             !serialized.contains("manifest-echo"),
             "the raw provider evidence was stored verbatim instead of hashed"
