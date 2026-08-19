@@ -1039,4 +1039,70 @@ mod tests {
         assert_eq!(error.status, 400);
         assert_eq!(error.code, "hypervisor_approved_operation_retired_alias");
     }
+
+    // --- MEC C1: the provider family (previously admit-untested) ---
+    // A daemon-authored provider operation proposal carrying the wallet
+    // approval + lease + scopes + the provider-family targets. This is the
+    // shape a model proposes for a provider op (e.g. an akash deploy).
+    fn provider_request() -> Value {
+        json!({
+            "operation_family": "provider",
+            "proposal_schema_version": "ioi.hypervisor.provider_operation_proposal.v1",
+            "proposal_source": "daemon-provider-operation-proposal",
+            "proposal_ref": "proposal:provider/1",
+            "project_ref": "project:ioi",
+            "operation_kind": "create",
+            "wallet_approval_ref": "approval://wallet/provider/1",
+            "wallet_lease_ref": "lease:wallet/provider/1",
+            "required_scope_refs": ["scope:provider.create"],
+            "agentgres_operation_refs": ["agentgres://operation/provider/1"],
+            "receipt_refs": ["receipt://provider/1"],
+            "state_root_ref": "agentgres://state-root/provider/1",
+            "candidate_ref": "provider-candidate:akash/1",
+            "direct_provider_ref": "provider-account://pacc_1",
+            "environment_ref": "environment:1",
+            "target_ref": "akash-deployment://1",
+        })
+    }
+
+    #[test]
+    fn admits_provider_operation() {
+        // The provider family admits end-to-end and routes to the provider
+        // lifecycle adapter — the executor the daemon dispatches to.
+        let admission = RuntimeHypervisorApprovedOperationAdmissionCore
+            .admit(&provider_request(), "2026-08-19T00:00:00.000Z")
+            .expect("admitted");
+        assert_eq!(admission["decision"], "admitted");
+        assert_eq!(admission["executor_kind"], "provider_lifecycle_adapter");
+    }
+
+    #[test]
+    fn rejects_provider_operation_without_wallet_approval() {
+        // The wallet approval is the not-curl authority boundary: a provider
+        // proposal without a `approval://wallet/` ref is refused 403, never
+        // executed. (Mutation drill: drop the wallet_approval_ref prefix guard
+        // in admit() → this goes RED.)
+        let mut request = provider_request();
+        request["wallet_approval_ref"] = json!("approval://other/1");
+        let error = RuntimeHypervisorApprovedOperationAdmissionCore
+            .admit(&request, "now")
+            .expect_err("blocked");
+        assert_eq!(error.status, 403);
+        assert_eq!(
+            error.code,
+            "hypervisor_approved_operation_ref_prefix_invalid"
+        );
+    }
+
+    #[test]
+    fn rejects_provider_operation_without_candidate_ref() {
+        // A provider-family-specific required target: no candidate → 400,
+        // never a silently-admitted target-less provider op.
+        let mut request = provider_request();
+        request.as_object_mut().unwrap().remove("candidate_ref");
+        let error = RuntimeHypervisorApprovedOperationAdmissionCore
+            .admit(&request, "now")
+            .expect_err("blocked");
+        assert_eq!(error.status, 400);
+    }
 }
