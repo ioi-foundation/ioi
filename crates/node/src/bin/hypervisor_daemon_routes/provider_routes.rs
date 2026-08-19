@@ -4891,48 +4891,65 @@ impl AkashProvider {
                         "akash_console_create_no_manifest — create response had no data.manifest",
                     )?;
 
-                    // 2. poll bids (up to 10× at 6s). Pinned → select THAT provider's
-                    //    bid (refuse if it never bids); unpinned → the cheapest.
-                    let mut selected = None;
-                    for _ in 0..10 {
-                        let (bc, bl) = send(ac::list_bids(&api_key, &dseq)).await?;
-                        if (200..300).contains(&bc) {
-                            let picked = if pinned_provider.is_empty() {
-                                ac::parse_cheapest_bid(&bl)
-                            } else {
-                                ac::parse_pinned_bid(&bl, &pinned_provider)
-                            };
-                            if let Some(b) = picked {
-                                selected = Some(b);
-                                break;
-                            }
-                        }
-                        tokio::time::sleep(std::time::Duration::from_secs(6)).await;
-                    }
-                    let bid = selected.ok_or_else(|| {
+                    // ── THE DEPOSIT IS NOW FUNDED (the deployment exists). From here, ANY failure
+                    //    before the lease opens MUST close the deployment — Stage B is wrapped so it
+                    //    does. Stage B is the REAL post-bid quote gate: poll bids, accept ONLY the
+                    //    wallet-pinned provider, verify the bid's denom + EXACT amount against the
+                    //    SDL ceiling bound at Stage A, then open the lease. No second grant is
+                    //    consumed: this validates the real bid under the Stage A authority.
+                    let ceiling_denom = text(plan, "ceiling_denom").to_string();
+                    let ceiling_amount =
+                        rust_decimal::Decimal::from_str_exact(text(plan, "ceiling_amount").trim())
+                            .unwrap_or_default();
+                    let stage_b: Result<(ac::AkashBid, String), String> = async {
                         if pinned_provider.is_empty() {
-                            "akash_console_no_bids — no provider bid within the polling window"
-                                .to_string()
-                        } else {
-                            format!("akash_pinned_provider_did_not_bid — the wallet-approved provider '{pinned_provider}' returned no bid within the polling window; the daemon refuses to deploy on a provider that was not approved")
+                            return Err("akash_provider_pin_required — no wallet-approved provider to accept a bid from".into());
                         }
-                    })?;
-                    // Prove selected == pinned (the pin selector guarantees it; assert the invariant
-                    // so a future selector change cannot silently deploy on an unapproved provider).
-                    if !pinned_provider.is_empty() && bid.provider != pinned_provider {
-                        return Err(format!(
-                            "akash_pin_mismatch — selected provider '{}' != wallet-approved '{pinned_provider}'",
-                            bid.provider
-                        ));
+                        // poll for the PINNED provider's priced bid (up to 10× at 6s).
+                        let mut priced: Option<
+                            Result<(ac::AkashBid, rust_decimal::Decimal, String), String>,
+                        > = None;
+                        for _ in 0..10 {
+                            let (bc, bl) = send(ac::list_bids(&api_key, &dseq)).await?;
+                            if (200..300).contains(&bc) {
+                                if let Some(p) = ac::parse_pinned_bid_priced(&bl, &pinned_provider) {
+                                    priced = Some(p);
+                                    break;
+                                }
+                            }
+                            tokio::time::sleep(std::time::Duration::from_secs(6)).await;
+                        }
+                        let (bid, bid_amount, bid_denom) = priced.ok_or_else(|| {
+                            format!("akash_pinned_provider_did_not_bid — '{pinned_provider}' returned no bid in the polling window")
+                        })??;
+                        // Ceiling: the bid must price in the accepted denom AND be ≤ the SDL max.
+                        ac::bid_passes_ceiling(bid_amount, &bid_denom, &ceiling_denom, ceiling_amount)?;
+                        // Open the lease against the accepted, in-ceiling, wallet-pinned bid.
+                        let (lc, ll) =
+                            send(ac::create_lease(&api_key, &manifest, &dseq, &bid)).await?;
+                        if !(200..300).contains(&lc) {
+                            return Err(format!("akash_console_lease_failed: http {lc} {ll}"));
+                        }
+                        Ok((bid, format!("{bid_amount}{bid_denom}")))
                     }
+                    .await;
+                    let (bid, burn_rate) = match stage_b {
+                        Ok(v) => v,
+                        Err(e) => {
+                            // The deposit is funded but the lease did not open — CLOSE the deployment
+                            // so escrow stops. (Piece 4 refines this into a separately-journaled
+                            // close outcome + reconciliation_required if the close is unconfirmed.)
+                            let close_http = send(ac::close_deployment(&api_key, &dseq))
+                                .await
+                                .map(|(c, _)| c)
+                                .unwrap_or(0);
+                            return Err(format!(
+                                "akash_stage_b_refused_deposit_closed: {e} | close_http={close_http} dseq={dseq}"
+                            ));
+                        }
+                    };
 
-                    // 3. create the lease against the selected bid
-                    let (lc, ll) = send(ac::create_lease(&api_key, &manifest, &dseq, &bid)).await?;
-                    if !(200..300).contains(&lc) {
-                        return Err(format!("akash_console_lease_failed: http {lc} {ll}"));
-                    }
-
-                    // 4. status snapshot
+                    // status snapshot
                     let (_sc, sd) = send(ac::get_deployment(&api_key, &dseq)).await?;
                     let dep_state =
                         ac::parse_deployment_state(&sd).unwrap_or_else(|| "unknown".into());
@@ -4940,6 +4957,7 @@ impl AkashProvider {
                     Ok::<Value, String>(json!({
                         "dseq": dseq, "provider": bid.provider, "gseq": bid.gseq,
                         "oseq": bid.oseq, "deployment_state": dep_state, "deposit_usd": deposit,
+                        "burn_rate": burn_rate,
                     }))
                 })
             })?;

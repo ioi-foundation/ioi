@@ -62,6 +62,8 @@ axum = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true }
 serde_jcs = "0.1.0"
+# Exact decimal for the akash Stage B post-bid ceiling comparison (DecCoin, never f64).
+rust_decimal = "1"
 rand = { workspace = true }
 dcrypt = { workspace = true }
 base64 = { workspace = true }
