@@ -4840,6 +4840,11 @@ impl AkashProvider {
                 ));
             }
 
+            // C6 provider-pin: the caller may pin the provider address (the one the
+            // wallet challenge hashed into the approval). If set, the daemon deploys
+            // on THAT provider or refuses — it never falls through to the cheapest.
+            let pinned_provider = text(plan, "provider_address").to_string();
+
             // Run the async create→bid→lease→status flow from this sync body,
             // mirroring the live Vast path.
             let live: Value = tokio::task::block_in_place(|| {
@@ -4886,21 +4891,40 @@ impl AkashProvider {
                         "akash_console_create_no_manifest — create response had no data.manifest",
                     )?;
 
-                    // 2. poll bids (up to 10× at 6s), pick the cheapest
+                    // 2. poll bids (up to 10× at 6s). Pinned → select THAT provider's
+                    //    bid (refuse if it never bids); unpinned → the cheapest.
                     let mut selected = None;
                     for _ in 0..10 {
                         let (bc, bl) = send(ac::list_bids(&api_key, &dseq)).await?;
                         if (200..300).contains(&bc) {
-                            if let Some(b) = ac::parse_cheapest_bid(&bl) {
+                            let picked = if pinned_provider.is_empty() {
+                                ac::parse_cheapest_bid(&bl)
+                            } else {
+                                ac::parse_pinned_bid(&bl, &pinned_provider)
+                            };
+                            if let Some(b) = picked {
                                 selected = Some(b);
                                 break;
                             }
                         }
                         tokio::time::sleep(std::time::Duration::from_secs(6)).await;
                     }
-                    let bid = selected.ok_or(
-                        "akash_console_no_bids — no provider bid within the polling window",
-                    )?;
+                    let bid = selected.ok_or_else(|| {
+                        if pinned_provider.is_empty() {
+                            "akash_console_no_bids — no provider bid within the polling window"
+                                .to_string()
+                        } else {
+                            format!("akash_pinned_provider_did_not_bid — the wallet-approved provider '{pinned_provider}' returned no bid within the polling window; the daemon refuses to deploy on a provider that was not approved")
+                        }
+                    })?;
+                    // Prove selected == pinned (the pin selector guarantees it; assert the invariant
+                    // so a future selector change cannot silently deploy on an unapproved provider).
+                    if !pinned_provider.is_empty() && bid.provider != pinned_provider {
+                        return Err(format!(
+                            "akash_pin_mismatch — selected provider '{}' != wallet-approved '{pinned_provider}'",
+                            bid.provider
+                        ));
+                    }
 
                     // 3. create the lease against the selected bid
                     let (lc, ll) = send(ac::create_lease(&api_key, &manifest, &dseq, &bid)).await?;
@@ -5280,13 +5304,69 @@ impl EnvironmentProvider for AkashProvider {
         let dep = self
             .deployment(data_dir, env_ref)
             .ok_or("akash_deployment_absent")?;
-        Ok(json!({
+        let mut out = json!({
             "deployment_ref": dep["deployment_ref"], "lease_ref": dep["lease_ref"],
             "control_plane_log": dep.get("events").cloned().unwrap_or(json!([])),
-            "service_logs": "unavailable_in_simulator — provider-native service logs land with the live lease; workspace exec outputs are receipted in the Work Ledger",
             "execution_mode": dep["execution_mode"],
             "basis": "daemon-recorded control-plane events — provider evidence, not authority",
-        }))
+        });
+        if self.mode() == "live" {
+            // C6 — real proof retrieval. "Proof of execution" is a FETCHED fact — the
+            // lease's on-chain deployment state, read live from the managed Console API
+            // (GET /v1/deployments/{dseq}, spend:false) — not a daemon assertion. The
+            // managed Console API does NOT expose container service logs (those need the
+            // provider's own endpoint), so that is stated honestly, never faked.
+            let dseq = text(&dep, "dseq").to_string();
+            if dseq.is_empty() {
+                return Err(
+                    "akash_live_logs_no_dseq — the live deployment record carries no dseq to read"
+                        .into(),
+                );
+            }
+            let Some(cred) = load_account_credential(data_dir, self.account_id()) else {
+                return Err(
+                    "akash_live_credentials_absent — proof retrieval needs the bound credential"
+                        .into(),
+                );
+            };
+            let api_key = cred["sealed_token"]
+                .as_str()
+                .and_then(open_scm_token)
+                .ok_or(
+                    "akash_live_credential_unresolvable — the sealed Console key did not decrypt",
+                )?;
+            let detail: Value = tokio::task::block_in_place(|| {
+                tokio::runtime::Handle::current().block_on(async {
+                    use ioi_drivers::provisioning::akash_console as ac;
+                    let req = ac::get_deployment(&api_key, &dseq);
+                    let (hn, hv) = req.header();
+                    let url = format!("{}{}", ac::AKASH_CONSOLE_BASE_URL, req.path);
+                    let resp = reqwest::Client::new()
+                        .get(&url)
+                        .header(hn, hv)
+                        .timeout(std::time::Duration::from_secs(30))
+                        .send()
+                        .await
+                        .map_err(|e| format!("akash_console_http_failed: {e}"))?;
+                    let code = resp.status().as_u16();
+                    let body: Value = resp.json().await.unwrap_or(Value::Null);
+                    if !(200..300).contains(&code) {
+                        return Err(format!("akash_console_get_deployment_failed: http {code}"));
+                    }
+                    Ok::<Value, String>(body)
+                })
+            })?;
+            let state = ioi_drivers::provisioning::akash_console::parse_deployment_state(&detail);
+            out["lease_state_proof"] = json!({
+                "deployment_state": state,
+                "retrieved_live": true,
+                "source": "managed Console API GET /v1/deployments/{dseq} — the lease's on-chain state, fetched not asserted",
+            });
+            out["service_logs"] = json!("not_exposed_by_managed_console_api — container logs require the provider's own endpoint; the retrievable proof is the live lease state above");
+        } else {
+            out["service_logs"] = json!("unavailable_in_simulator — provider-native service logs land with the live lease; workspace exec outputs are receipted in the Work Ledger");
+        }
+        Ok(out)
     }
     fn events(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
         let dep = self

@@ -141,6 +141,26 @@ fn parse_cheapest_bid_selects_the_lowest_price() {
 }
 
 #[test]
+fn parse_pinned_bid_selects_the_pinned_provider_or_refuses() {
+    // C6 provider-pin: the pinned provider's bid is selected EVEN when it is not
+    // the cheapest (so the daemon deploys where the wallet approved, never on the
+    // cheapest fall-through); a pin that did not bid returns None → the caller refuses.
+    let resp = json!({
+        "data": { "data": [
+            { "bid": { "id": { "gseq": 1, "oseq": 1, "provider": "expensive" }, "price": { "amount": "1000", "denom": "uakt" } } },
+            { "bid": { "id": { "gseq": 1, "oseq": 2, "provider": "cheap"     }, "price": { "amount": "250",  "denom": "uakt" } } },
+            { "bid": { "id": { "gseq": 1, "oseq": 3, "provider": "mid"       }, "price": { "amount": "500",  "denom": "uakt" } } }
+        ]}
+    });
+    // Pinning "mid" selects mid — NOT the cheapest "cheap".
+    let pinned = parse_pinned_bid(&resp, "mid").expect("the pinned provider bid is present");
+    assert_eq!(pinned.provider, "mid");
+    assert_eq!(pinned.oseq, 3);
+    // A provider that did not bid is refused (None), never silently downgraded.
+    assert!(parse_pinned_bid(&resp, "akash1neverbid").is_none());
+}
+
+#[test]
 fn parse_deployment_state_reads_either_envelope() {
     assert_eq!(
         parse_deployment_state(&json!({ "data": { "deployment": { "state": "active" } } }))

@@ -261,6 +261,26 @@ pub fn parse_cheapest_bid(resp: &Value) -> Option<AkashBid> {
     best.map(|(_, b)| b)
 }
 
+/// The bid from a SPECIFIC provider address in a `getBids` response, or `None` if
+/// that provider is not among the bidders. C6 provider-pin: when a caller pins a
+/// provider address (the one the wallet challenge hashed), the daemon deploys on
+/// THAT provider or refuses — it never silently falls through to the cheapest.
+/// Selecting by pin proves `selected == pinned` by construction.
+pub fn parse_pinned_bid(resp: &Value, provider: &str) -> Option<AkashBid> {
+    let bids = resp.pointer("/data/data").and_then(Value::as_array)?;
+    for entry in bids {
+        let id = entry.pointer("/bid/id")?;
+        if id.get("provider").and_then(Value::as_str) == Some(provider) {
+            return Some(AkashBid {
+                gseq: id.get("gseq").and_then(Value::as_i64)?,
+                oseq: id.get("oseq").and_then(Value::as_i64)?,
+                provider: provider.to_string(),
+            });
+        }
+    }
+    None
+}
+
 /// The deployment `state` from a `getDeployment` response
 /// (`{"data": {"deployment": {"state": "…"}}}`), e.g. `"active"`/`"closed"`.
 pub fn parse_deployment_state(resp: &Value) -> Option<String> {
