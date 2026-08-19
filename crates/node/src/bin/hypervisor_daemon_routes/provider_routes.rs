@@ -16,6 +16,7 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use axum::extract::{Path as AxumPath, State};
+use axum::http::HeaderMap;
 use axum::http::StatusCode;
 use axum::Json;
 use serde_json::{json, Value};
@@ -6129,8 +6130,53 @@ fn admit_live_provider_operation(body: &Value, now: &str) -> Result<Value, (u16,
         .map_err(|e| (e.status, e.code))
 }
 
+/// C5(b) — the canonical body of one provider-operation JOURNAL entry. Custody is
+/// carried as a fingerprint, NEVER the credential; the model proposal, the request
+/// and the provider evidence are carried as tamper-anchoring hashes, not verbatim.
+/// Pure + deterministic (JCS canonical) so the commit replays byte-identically under
+/// one idempotency key.
+#[allow(clippy::too_many_arguments)]
+fn provider_operation_journal_payload(
+    op_id: &str,
+    kind: &str,
+    op: &str,
+    account_ref: &str,
+    env_ref: &str,
+    operation_proposal: &Value,
+    grant_ref: &Value,
+    lease_note: &Value,
+    credential_fingerprint: &str,
+    plan: &Value,
+    evidence: &Value,
+    receipt: &Value,
+) -> Value {
+    json!({
+        "schema_version": "ioi.hypervisor.provider-operation-journal.v1",
+        "operation_id": op_id,
+        "provider": kind,
+        "op": op,
+        "account_ref": account_ref,
+        "environment_ref": env_ref,
+        // the model-authored proposal the daemon executed (C4), by hash — never re-authored here
+        "model_proposal_hash": sha256_bytes(
+            &serde_jcs::to_vec(operation_proposal).unwrap_or_default(),
+        ),
+        // the authority this crossing carried
+        "grant_ref": grant_ref,
+        "capability_lease_ref": lease_note.get("lease_id").cloned().unwrap_or(Value::Null),
+        // custody WITHOUT the credential — the fingerprint, never the secret
+        "credential_fingerprint": credential_fingerprint,
+        // canonical request + redacted provider evidence, as tamper-anchoring hashes
+        "request_hash": sha256_bytes(&serde_jcs::to_vec(plan).unwrap_or_default()),
+        "evidence_hash": sha256_bytes(&serde_jcs::to_vec(evidence).unwrap_or_default()),
+        "outcome": "ok",
+        "receipt_ref": receipt.clone(),
+    })
+}
+
 pub(crate) async fn handle_provider_op(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     let data_dir = &st.data_dir;
@@ -6600,6 +6646,24 @@ pub(crate) async fn handle_provider_op(
                 );
             }
         }
+        // C5(b) — the live provider-operation JOURNAL is an authenticated,
+        // owner-scoped, idempotent mutation (INV-37; the one structural law —
+        // no second spine). Resolve the caller BEFORE the external op so a
+        // missing owner-scoped identity refuses coherently (nothing external has
+        // happened yet); the real state root is COMMITTED after, from the
+        // outcome (a receipt written only after a spend cannot "refuse" it).
+        let journal_caller = if matches!(op, "create" | "redeploy")
+            && kind == "akash"
+            && vast_mode(&account) == "live"
+        {
+            match super::mutation_event_foundation::require_write_caller(data_dir, &headers, &body)
+            {
+                Ok(caller) => Some(caller),
+                Err((status, reply)) => return (status, reply),
+            }
+        } else {
+            None
+        };
         let result = match op {
             "preflight" => Ok(provider.preflight(&plan)),
             "create" => provider.create(data_dir, &env_ref, &plan),
@@ -6664,6 +6728,64 @@ pub(crate) async fn handle_provider_op(
                         "the provider op executed against the provider but its admitted-operation record did not commit",
                     );
                 }
+                // C5(b) — commit this executed provider operation into the
+                // append-only, domain-separated provider-operation journal via
+                // the SHARED substrate engine (the one package_registry and
+                // model-invocations already commit through — no second spine).
+                // The projection head is a REAL, recomputable, tamper-evident
+                // state root — not a driver-asserted string — and the namespace
+                // admission_root chains it to every prior op (the prev-root
+                // property). Committed AFTER execution, carrying the outcome.
+                let mut journal_state_roots: Vec<String> = Vec::new();
+                if let Some(caller) = journal_caller.as_ref() {
+                    let credential_fingerprint = load_account_credential(data_dir, &account_id)
+                        .map(|c| text(&c, "fingerprint").to_string())
+                        .unwrap_or_default();
+                    let journal_ref = format!("provider-operation://{op_id}");
+                    let journal_payload = provider_operation_journal_payload(
+                        &op_id,
+                        &kind,
+                        op,
+                        &account_ref,
+                        &env_ref,
+                        &body
+                            .get("operation_proposal")
+                            .cloned()
+                            .unwrap_or(Value::Null),
+                        &grant_ref,
+                        &lease_note,
+                        &credential_fingerprint,
+                        &plan,
+                        &evidence,
+                        &json!(receipt),
+                    );
+                    match super::mutation_event_foundation::admit_owner_scoped_write(
+                        data_dir,
+                        caller,
+                        "hypervisor-provider-operations",
+                        "provider_operation",
+                        &journal_ref,
+                        "provider_operation.executed",
+                        None, // genesis: one journal object per op; the namespace admission_root chains them
+                        &journal_payload,
+                    ) {
+                        Ok(commit) => journal_state_roots.push(commit.projection.head),
+                        Err(_) => {
+                            // The external op ALREADY executed; a lost journal commit cannot
+                            // "refuse" it. Name the live resource + that reconciliation is owed,
+                            // never "nothing happened" (C2 refines this to reconciliation_required).
+                            return provider_op_persist_failed(
+                                "provider_operation_state_root_commit_failed",
+                                op,
+                                &kind,
+                                &env_ref,
+                                &receipt,
+                                evidence.get("provider_native").cloned().unwrap_or(Value::Null),
+                                "the provider op executed against the provider but its state-root journal commit did not admit — reconcile from the receipt",
+                            );
+                        }
+                    }
+                }
                 // ── Spend exposure accounting (customer-borne; estimates only, never a bill) ──
                 if matches!(op, "create" | "redeploy")
                     && !vast_gate.is_null()
@@ -6688,7 +6810,9 @@ pub(crate) async fn handle_provider_op(
                         "teardown_state": "live_or_pending",
                         "create_receipt_ref": receipt,
                         "receipt_refs": [receipt],
-                        "state_roots": Vec::<String>::new(),
+                        // C5(b): the real, chain-committed state root(s) from this op's journal
+                        // admission — non-empty for a committed live op, not a driver assertion.
+                        "state_roots": journal_state_roots.clone(),
                         "estimate_note": "quote-backed ESTIMATE authorized by the grant — no actual provider bill exists here; spend is customer-borne on the customer's own account",
                         "opened_at": iso_now(),
                     });
@@ -6720,15 +6844,20 @@ pub(crate) async fn handle_provider_op(
                             .unwrap_or_default();
                         refs.push(json!(receipt));
                         exposure["receipt_refs"] = json!(refs);
-                        if let Some(root) = evidence.get("state_root").and_then(Value::as_str) {
-                            let mut roots = exposure
-                                .get("state_roots")
-                                .and_then(Value::as_array)
-                                .cloned()
-                                .unwrap_or_default();
+                        let mut roots = exposure
+                            .get("state_roots")
+                            .and_then(Value::as_array)
+                            .cloned()
+                            .unwrap_or_default();
+                        // C5(b): the real chain-committed head(s) for this op, when journaled.
+                        for root in &journal_state_roots {
                             roots.push(json!(root));
-                            exposure["state_roots"] = json!(roots);
                         }
+                        // Legacy driver-asserted root, retained for non-journaled simulator ops.
+                        if let Some(root) = evidence.get("state_root").and_then(Value::as_str) {
+                            roots.push(json!(root));
+                        }
+                        exposure["state_roots"] = json!(roots);
                         if op == "delete" {
                             let destroyed = evidence
                                 .pointer("/native_teardown/destroyed")
@@ -7040,6 +7169,111 @@ mod containment_tests {
         body["operation_proposal"]["wallet_approval_ref"] = json!("approval://other/1");
         let (status, _code) = admit_live_provider_operation(&body, "now").unwrap_err();
         assert_eq!(status, 403);
+    }
+
+    // ---- MEC C5(b): the provider op commits a REAL, recomputable state root ----
+    fn sample_journal_payload() -> Value {
+        provider_operation_journal_payload(
+            "pop_c5b1",
+            "akash",
+            "create",
+            "provider-account://pacc_1",
+            "environment:1",
+            &json!({ "proposal_ref": "proposal:provider/1" }),
+            &json!("grant://one"),
+            &json!({ "lease_id": "lease://one" }),
+            "sha256:deadbeefcafe",
+            &json!({ "sdl": "manifest", "deposit": { "amount": "500000" } }),
+            &json!({ "provider_native": { "dseq": "123" } }),
+            &json!("agentgres://provider-receipt/1"),
+        )
+    }
+
+    #[test]
+    fn a_committed_provider_op_yields_a_real_non_empty_state_root() {
+        // The state root is not a driver-asserted string: it is the projection head
+        // of a genuine append-only journal admission through the shared engine.
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        super::super::substrate_store::reset_handle_for_test();
+        let caller = super::super::mutation_event_foundation::WriteCaller {
+            identity: super::super::substrate_store::request_identity_for_test(
+                "user://mec-c5b",
+                ["org://one".to_string()],
+            ),
+            owner_ref: "org://one".to_string(),
+            idempotency_key: "c5b-commit-1".to_string(),
+        };
+        let commit = super::super::mutation_event_foundation::admit_owner_scoped_write(
+            data_dir,
+            &caller,
+            "hypervisor-provider-operations",
+            "provider_operation",
+            "provider-operation://pop_c5b1",
+            "provider_operation.executed",
+            None,
+            &sample_journal_payload(),
+        )
+        .expect("the owner-scoped provider-operation journal commit admits");
+        assert!(
+            commit.projection.head.starts_with("sha256:"),
+            "the state root must be a real sha256 chain head"
+        );
+        assert!(commit.projection.head.len() > "sha256:".len());
+        // The namespace admission_root chains this op to every prior one — the prev-root property.
+        assert!(commit.projection.admission_root.starts_with("sha256:"));
+    }
+
+    #[test]
+    fn the_journal_payload_anchors_by_hash_and_keeps_custody_a_fingerprint_never_the_secret() {
+        // The credential is present only as its fingerprint; the raw secret must NEVER appear.
+        // The request and provider evidence are tamper-anchored by hash, not stored verbatim.
+        // (Mutation drill: store the raw plan/evidence/secret instead of its hash → RED.)
+        let secret = "AKASH-LIVE-SECRET-DO-NOT-LEAK";
+        let fingerprint = sha256_bytes(secret.as_bytes());
+        let plan =
+            json!({ "sdl": "a-real-deployment-manifest", "deposit": { "amount": "500000" } });
+        let evidence = json!({ "provider_native": { "dseq": "424242" }, "raw": "manifest-echo" });
+        let payload = provider_operation_journal_payload(
+            "pop_c5b2",
+            "akash",
+            "create",
+            "provider-account://pacc_1",
+            "environment:1",
+            &json!({ "proposal_ref": "proposal:provider/2" }),
+            &json!("grant://two"),
+            &json!({ "lease_id": "lease://two" }),
+            &fingerprint,
+            &plan,
+            &evidence,
+            &json!("agentgres://provider-receipt/2"),
+        );
+        let serialized = serde_json::to_string(&payload).unwrap();
+        assert!(
+            !serialized.contains(secret),
+            "the raw credential secret leaked into the journal payload"
+        );
+        assert!(serialized.contains(&fingerprint));
+        assert!(payload["model_proposal_hash"]
+            .as_str()
+            .unwrap()
+            .starts_with("sha256:"));
+        assert!(payload["request_hash"]
+            .as_str()
+            .unwrap()
+            .starts_with("sha256:"));
+        assert!(payload["evidence_hash"]
+            .as_str()
+            .unwrap()
+            .starts_with("sha256:"));
+        assert!(
+            !serialized.contains("a-real-deployment-manifest"),
+            "the raw request was stored verbatim instead of hashed"
+        );
+        assert!(
+            !serialized.contains("manifest-echo"),
+            "the raw provider evidence was stored verbatim instead of hashed"
+        );
     }
 
     // ---- CARVE-OUT: provider deletion stays callable and reports exactly ----

@@ -567,8 +567,14 @@ fn refuse(run: &mut Value, data_dir: &str, reason: &str, detail: String) -> (Sta
 }
 
 async fn provider_op(st: &Arc<DaemonState>, body: Value) -> (StatusCode, Value) {
-    let (code, Json(resp)) =
-        super::provider_routes::handle_provider_op(State(st.clone()), Json(body)).await;
+    // C5(b): an internal failover carries no authenticated owner-scoped identity, so a
+    // failover-driven LIVE provider spend is fail-closed here (empty headers → no caller).
+    let (code, Json(resp)) = super::provider_routes::handle_provider_op(
+        State(st.clone()),
+        axum::http::HeaderMap::new(),
+        Json(body),
+    )
+    .await;
     (code, resp)
 }
 
