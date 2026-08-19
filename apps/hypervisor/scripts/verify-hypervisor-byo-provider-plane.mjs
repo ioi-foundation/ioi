@@ -43,7 +43,7 @@ async function preClean() {
   // and the verifier's external_spend budget record (the no-budget check needs its absence).
   const accounts = (await jd("GET", "/v1/hypervisor/provider-accounts")).j.accounts || [];
   for (const a of accounts) {
-    if (/^(BYO node|BYO unverified|AWS) /.test(a.display_name || "")) {
+    if (/^(BYO node|BYO unverified|AWS|AKASH) /.test(a.display_name || "")) {
       await jd("DELETE", `/v1/hypervisor/provider-accounts/${a.account_id}`);
     }
   }
@@ -253,6 +253,42 @@ async function run() {
   ok("provider secrets never leak — absent from every projection, sealed (not plaintext) at rest",
     leaks.length === 0 && !awsCredDisk.includes(SECRET) && awsCredDisk.includes("sealed_secret_access_key"),
     leaks.length ? `leaked: ${leaks.join(",")}` : "");
+
+  // ── 16b. C3 credential isolation — the bearer/api_key provisioning kinds ──
+  // §16 proves it for the AWS SECRET; this proves the SAME boundary for the akash Console
+  // x-api-key (cred_kind "bearer", sealed as sealed_token) — the credential the capstone's
+  // own live deploy will carry. The unsealed key must reach ONLY the outbound provider
+  // request, never a projection, the preflight evidence, or a durable byte; and the sealed
+  // blob itself must never cross the API (no route returns the vault record wholesale).
+  const AKASH_SECRET = `SUPERSECRET-AKASH-APIKEY-${tag}`;
+  const akash = (await jd("POST", "/v1/hypervisor/provider-accounts", { kind: "akash", display_name: `AKASH ${tag}` })).j.account || {};
+  await jd("POST", `/v1/hypervisor/provider-accounts/${akash.account_id}/credential`, { api_key: AKASH_SECRET });
+  const akashPf = await jd("POST", `/v1/hypervisor/provider-accounts/${akash.account_id}/preflight`);
+  const akashSurfaces = {
+    accounts: (await jd("GET", "/v1/hypervisor/provider-accounts")).j,
+    account_get: (await jd("GET", `/v1/hypervisor/provider-accounts/${akash.account_id}`)).j,
+    operations: (await jd("GET", "/v1/hypervisor/provider-operations")).j,
+    receipts: (await jd("GET", "/v1/hypervisor/provider-receipts")).j,
+    materials: (await jd("GET", "/v1/hypervisor/provider-materials")).j,
+    leases: (await jd("GET", "/v1/hypervisor/capability-leases")).j,
+    preflight: akashPf.j,
+  };
+  const akashLeaks = Object.entries(akashSurfaces)
+    .filter(([, j]) => JSON.stringify(j).includes(AKASH_SECRET)).map(([n]) => n);
+  const akashCredDisk = readFileSync(path.join(DATA, "provider-credentials", `pcred_${akash.account_id}.json`), "utf8");
+  ok("C3: akash api_key never leaks — absent from every projection + preflight, sealed_token (not plaintext) at rest",
+    akashLeaks.length === 0 && !akashCredDisk.includes(AKASH_SECRET) && akashCredDisk.includes("sealed_token"),
+    akashLeaks.length ? `leaked: ${akashLeaks.join(",")}` : "");
+  // The sealed (encrypted) blob is vault-only: no projection returns the credential record wholesale.
+  const sealedOnSurface = Object.entries(akashSurfaces)
+    .filter(([, j]) => JSON.stringify(j).includes("sealed_token")).map(([n]) => n);
+  ok("C3: the sealed_token blob never crosses the API — no route returns the vault record wholesale",
+    sealedOnSurface.length === 0,
+    sealedOnSurface.length ? `sealed on: ${sealedOnSurface.join(",")}` : "");
+  // Preflight exposes the fingerprint + probe, never the key: credential isolation, demonstrated.
+  ok("C3: akash preflight evidence exposes fingerprint + probe, never the api_key",
+    /^sha256:/.test(akashPf.j.account?.preflight?.evidence?.fingerprint || "")
+    && !JSON.stringify(akashPf.j).includes(AKASH_SECRET));
 
   // ── 17. No fee/markup objects anywhere on the plane (routing-fee covenant: this cut takes NO fee) ──
   const feeAudit = JSON.stringify(surfaces).toLowerCase();
