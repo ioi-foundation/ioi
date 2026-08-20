@@ -812,6 +812,90 @@
       "outcome": "portable",
       "shipped": "/__ioi/missions/builds (JOB-1; parity_class reference_ported, remediation_state live_ia_recorded; substrate_surface /__ioi/missions carried forward)",
       "reason": "the landing grammar is portable AND the estate has a real build plane to carry it \u2014 but only one of its three projections is complete, so the leg's work was choosing the plane and PROVING the choice on-surface. Sixteen planes probed live and classified into four states; the three counts that justify the plane choice re-derived on every render; the build rows rendered verbatim from the work-ledger run lane with a typed dash wherever the record carries nothing; the reference's Outputs and Actions columns answered as REFUSALS rather than filled with different truth; a STEP never relabelled a job; the 3174-transcript plane linked to the Monocle Build timeline rather than re-rendered; every filter control a typed absence with a reason written for it; and every build VERB left on Automations. The landing designation for the jobs seed moves TERMINAL \u2192 NOW; the /__ioi/missions substrate keeps its class and its content and stays bound on the seed row."
+    },
+    {
+      "action": "SCH-1",
+      "record_id": "scheduler-port",
+      "seed": "scheduler",
+      "owner": "Missions",
+      "date": "2026-08-20",
+      "supersedes": "the mirror-scoped #scheduler record (AUT-4, absent_confirmed \u2014 \"the reference schedule-table seed serves but expresses NO IA at any recorded state \u2014 nothing to port backwards from\"). That verdict was rendered against a MIRROR capture whose recorded expressed_ia was false; the owner-authorized live-tenant sweep OVERTURNED it. The mirror record STANDS AS HISTORY under #live-tenant-sweep and is not rewritten.",
+      "supersession_scope": "The supersession is about the SEED's IA, not about the OPERATIONS BOUNDARY the mirror record drew. AUT-4 ruled that scheduler HEALTH is Operations-owned; that ruling is UNTOUCHED and this port honours it \u2014 the loop's heartbeat is READ here (it is the only record that can state the loop's own admitted-schedule count) and every liveness question is LINKED to /__ioi/operations rather than re-answered. What the port adds is the lane AUT-4 said did not exist: the schedule RECORDS themselves, which no estate surface rendered as schedules. The seed carried NO substrate binding and none is invented for it.",
+      "identity_finding": "The seed name is CORRECT here and the FUS-1 check still had to be run: the live target of /workspace/scheduler/ is /workspace/scheduler/find, a find/list landing titled \"Build Schedules\" \u2014 a build-schedule browser, not a scheduler control panel and not a cron editor. It sits beside the jobs seed's build tracker in the same vendor family, which is why the port lands beside JOB-1's Builds in the Missions family rather than inside Automations.",
+      "evidence": "reference-live-tenant-deep-atlas.v1.json#scheduler (landing, url /workspace/scheduler/find?v=1&s=LAST_UPDATED_DATE&dir=DESCENDING, title \"Build Schedules\", 15 controls, 1 input, 1 facet group APPLICATIONS, 6 dialogs, rows 0, text_len 418) + .artifacts/live-tenant-atlas/deep/scheduler-landing.png",
+      "reference_states": [
+        "landing \u2014 a find/list browser: a header with a Create-schedule verb and a three-counter tray rendered \"000\"; a count band reading \"0 schedules\" beside a \"Results matching\" chip carrying the viewer's own principal, with \"Set search parameters\" on the right; a toolbar of \"Sorted by most recently updated\" / \"Select schedules\u2026\" / a filter glyph / a \"Filter by name or rid\u2026\" input; a single facet group APPLICATIONS in the left rail; and an EMPTY result region carrying its own copy, \"No schedules found. Add search criteria to find more schedules.\"",
+        "THE RESULT SET IS GENUINELY EMPTY ON THE LIVE TENANT (rows: 0, confirmed by both the atlas heuristics and the committed screenshot \u2014 unlike the jobs landing, where the two disagreed). So the EMPTY-STATE IA is the seed: what is ported is the find/list grammar and its controls, not a row layout that was never captured. The estate is NOT empty in the same place, which is the interesting part \u2014 the port renders REAL rows into a grammar whose reference had none.",
+        "of the 15 recorded controls, NINE are the vendor global rail (Skip to content \u00b7 Search\u2026ctrl+J \u00b7 Notifications \u00b7 What's New \u00b7 Recent \u00b7 Applications \u00b7 View all \u00b7 Support \u00b7 Account) and SIX are app controls (Create schedule \u00b7 the \"000\" tray \u00b7 the principal chip \u00b7 Set search parameters \u00b7 Sorted by most recently updated \u00b7 Select schedules\u2026), plus one input and one facet group. Railless per the owner ruling 2026-08-20: the nine are estate chrome owned elsewhere and are not re-minted."
+      ],
+      "cadence_plane_sweep": {
+        "method": "TWO sweeps. (1) A vocabulary sweep of every param-free GET route the daemon publishes, probed over the SAME identity envelope this surface renders with, searching each 2xx body for any cadence vocabulary (\"cron\", schedule_spec, next_run_at, \"timezone\", interval_seconds, \"rrule\", \"cadence\", \"recurrence\", misfire, catch_up). (2) The per-plane census rendered on the surface: probe each candidate, decide \"no read route\" from the DAEMON'S OWN ROUTE INDEX (GET /v1) rather than from a status guess, then classify from the response itself.",
+        "vocabulary_sweep": {
+          "param_free_get_routes": 249,
+          "answered_this_identity": 210,
+          "refused_this_identity": 39,
+          "cadence_bearing_routes": 3,
+          "routes": [
+            "/v1/hypervisor/automations \u2014 \"cron\" schedule_spec next_run_at \"timezone\" misfire catch_up (the source records)",
+            "/v1/hypervisor/operations \u2014 \"cron\" schedule_spec next_run_at \"timezone\" (a pre-filtered projection of the SAME records)",
+            "/v1/hypervisor/scheduler/status \u2014 next_run_at misfire catch_up (the loop's own heartbeat + fixed posture)"
+          ],
+          "scope_limit": "the claim is scoped to what this identity could READ: 39 of the 249 routes refused (401 principal-required \u00d7 33, 422 \u00d7 2, 503 session-registry \u00d7 2, 400 mcp \u00d7 5, 404 wildcard \u00d7 2). A refused route is not a route without a cadence \u2014 it is a route this sweep could not see, and the sweep says so instead of counting it as evidence of absence (REG-1)."
+        },
+        "planes_probed": 15,
+        "live": [
+          "/v1/hypervisor/scheduler/status \u2014 the loop heartbeat (SINGLETON, not a collection)",
+          "/v1/hypervisor/automations \u2014 25 automation records, 1 carrying a schedule_spec (THE plane rendered)",
+          "/v1/hypervisor/operations \u2192 scheduler.automations \u2014 1 (the same record through a shorter projection)",
+          "/v1/hypervisor/cron-preview \u2014 3 occurrences (a COMPUTATION, not a plane)",
+          "/v1/hypervisor/automations/:id/runs \u2014 the per-schedule fire history (linked to Builds, never re-rendered)",
+          "/v1/hypervisor/work-ledger \u2014 7141 entries, 57 of kind=run (already rendered by the Builds port)",
+          "/v1/hypervisor/automation-affinities \u2014 policy bindings: HOW an automation runs, never WHEN",
+          "/v1/hypervisor/failover/plans \u2014 armed CONDITIONS, not a cadence"
+        ],
+        "empty": [
+          "/v1/hypervisor/automations/:id/webhook-events \u2014 the estate's OTHER trigger lane; the plane answered and holds none",
+          "/v1/hypervisor/governance/release-controls \u2014 the plane answered and holds none"
+        ],
+        "refused": [
+          "/v1/hypervisor/backups \u2014 HTTP 401 request_principal_required. Whether the estate holds a backup CADENCE is therefore UNKNOWN from this surface, and unknown is printed as unknown",
+          "/v1/hypervisor/economics/reconciliation \u2014 HTTP 401 request_principal_required"
+        ],
+        "no_read_route": [
+          "/v1/hypervisor/automation-executions \u2014 the index publishes no route at this path at all (only /:id and /:id/cancel); HTTP 404 on GET",
+          "/v1/hypervisor/retention/dispositions \u2014 POST-only, HTTP 405 on GET (a disposition is recorded, never recurring)",
+          "/v1/hypervisor/maintenance/idle-sweep \u2014 POST-only, HTTP 405 on GET: a cadence-SHAPED verb with no cadence record behind it"
+        ],
+        "verdict": "the estate HAS a scheduler \u2014 a real background loop with a persisted heartbeat \u2014 and it has exactly ONE cadence record shape: a schedule_spec field on an automation. So the adjudication was neither 'is there anything' (MAP-1) nor only 'which plane' (REG-1/JOB-1) but WHICH FIELD, because the estate publishes three different numbers for the same census and the field that carries the WORD is not one of them."
+      },
+      "predicate_finding": {
+        "claim": "THE FIELD NAMED FOR THE CONCEPT IS NOT THE FIELD THE RUNTIME ACTS ON.",
+        "measured_at_port_time": {
+          "automations_on_the_plane": 25,
+          "records_predicate_schedule_spec_object": 1,
+          "operations_scheduler_projection": 1,
+          "loop_predicate_heartbeat_scheduled_active": 1,
+          "trigger_field_naming_a_cadence": 0,
+          "schedules_whose_trigger_field_says_otherwise": 1
+        },
+        "evidence": "crates/node/src/bin/hypervisor-daemon.rs scheduler_tick(): the loop's admission test is `enabled == true && schedule_is_active(schedule_spec)` and it NEVER reads `trigger` or `trigger_kind`. The one scheduled automation on the plane (auto_18bdd7c54d1165cd, \"Weekday Standup\", cron `0 9 * * 1-5`, tz UTC) carries trigger {kind: manual} AND trigger_kind: manual AND a live next_run_at the loop stamps.",
+        "ruling": "the schedule census is derived from what the RUNTIME acts on (a schedule_spec object) and cross-checked against the loop's OWN heartbeat count, never from the field that carries the word 'trigger'. A trigger-shaped schedules view \u2014 the obvious build for a surface called Schedules \u2014 would have reported ZERO schedules while the daemon's loop was firing one. Every number on the surface names the PREDICATE that produced it, and the three counts are re-derived on every render so their agreement can never harden into an assumption."
+      },
+      "two_predicates_ruling": "The two schedule counts the estate publishes are produced by DIFFERENT TESTS and are not guaranteed to agree: /v1/hypervisor/operations admits `schedule_spec.is_object()` and never reads `enabled`, while the loop admits `enabled == true && schedule_is_active(spec)`. A paused schedule is therefore IN the Operations projection and OUT of the loop's count. On this render both read 1 by arithmetic, not by definition, so the surface prints the delta and names the paused records that would explain it \u2014 and explicitly does NOT re-implement the loop's spec-activeness test, because re-deriving another component's admission predicate in a read surface is a second answer waiting to disagree with the first.",
+      "counter_window_ruling": "The reference's header tray is three counters over the result set. The estate's nearest three live on the loop heartbeat, and TWO OF THEM ARE PER-TICK: `fired_dispatches` and `misfire_skips` are reset at the top of every tick and describe a single 15-second window, while `scheduled_active` is a state. Printing the per-tick counters as if they were lifetime totals would convert a 15-second window into a history \u2014 the same defect class as printing a refusal as a zero \u2014 so each chip states its own window in its title, and the surface says plainly that the estate keeps NO lifetime dispatch counter and that the fires themselves live on the work ledger.",
+      "unmarked_dispatch_ruling": "The daemon states its own dispatch path in the heartbeat posture, quoted verbatim on the surface: the loop fires through the MANUAL-RUN path (POST /v1/hypervisor/automations/:id/runs), producing the same run history, state_root and transcript as a manual run. Consequently NO estate record marks a run as scheduler-dispatched \u2014 the work-ledger run entries for the 09:00 cron slots carry trigger_kind: manual like every other run. The surface therefore answers WHEN a schedule will fire and REFUSES to answer WHICH PAST RUNS WERE FIRES: a time-correlation between a run timestamp and a cron slot would be this surface inventing an edge no record holds. This is FUS-1's rule (do not put different truth under a reference header) applied to a join rather than a column.",
+      "complete_projection_ruling": "JOB-1's rule applied: find the COMPLETE projection before rendering a row. The same schedule records are published twice \u2014 in full on /v1/hypervisor/automations and pre-filtered on /v1/hypervisor/operations under scheduler.automations. The Operations lane is a STRICT SUBSET: it drops 24 fields including catch_up_policy, misfire_policy and executor_identity, and adds none. The table therefore reads the automations plane, and the field-by-field comparison that proves it is RECOMPUTED ON EVERY RENDER from the two planes themselves rather than pasted, so the plane choice cannot rot into a stale justification.",
+      "link_not_duplicate_ruling": "Three planes another surface already renders are LINKED, never re-rendered: the work-ledger run lane and the per-automation run history belong to the Builds port (/__ioi/missions/builds, JOB-1) and are linked from every row and from the census; the automations plane as a LIST belongs to the Automate surface (/__ioi/automations/monitors, AUT-1) and this surface renders the SCHEDULES projection of it \u2014 cadence, next occurrence, posture \u2014 not a second automations list; scheduler LOOP HEALTH belongs to Operations by the standing AUT-4 boundary and is linked there. One plane, one renderer.",
+      "shape_finding": "A fourth distinction the four prior legs did not need: a plane's SHAPE. /v1/hypervisor/scheduler/status answers with a status SINGLETON \u2014 an object, not a collection of one \u2014 and /v1/hypervisor/cron-preview is not a plane at all but a PURE COMPUTATION over a cron expression and a clock, storing nothing. The generic 'find the first array in the body' classifier would have called the singleton unreadable and the computation a data plane. Both are stamped with their shape (data-ioi-plane-shape) and every occurrence the computation returns is labelled COMPUTED on the row it appears in, because a derived value presented as a recorded one is still a fabrication.",
+      "estate_plane": {
+        "schedule_lane": "LIVE \u2014 the automation records carrying a schedule_spec, rendered with the estate's OWN column names (Schedule \u00b7 Cadence \u00b7 Next run \u00b7 Last run \u00b7 Posture \u00b7 Further occurrences \u00b7 Owner), ordered by NEXT OCCURRENCE soonest-first and said on-surface to be so. Every field is read off the record; a field the record does not carry is a typed dash. Cap 100, NAMED whenever it truncates. Every instant renders in UTC and is LABELLED UTC with the raw stamp beneath it \u2014 the estate stores UTC instants and a server-local render would print a time it never recorded.",
+        "cadence_projection": "LIVE but COMPUTED, and labelled so: the record's own next_run_at is RECORDED by the loop; every occurrence beyond it comes from /v1/hypervisor/cron-preview, a pure function that stores nothing.",
+        "task_tray": "COUNTED, with each counter's WINDOW stated \u2014 see counter_window_ruling. These zeros PRINT because the heartbeat answered; they are measurements, not placeholders.",
+        "controls": "ABSENT \u2014 all six app controls, the one input and the one facet group are typed absences under the unified contract, each reason written for ITS control and all distinct. The load-bearing ones: Create-schedule is a refusal BY DESIGN (the estate mints no schedule object, so the verb is create/patch an automation, which refuses with the daemon's own typed automation_project_ref_required unless a project is declared); the sort control would order schedules by updated_at, which belongs to the AUTOMATION and not to its schedule; the principal chip would assert a filter that was never applied to an unfiltered census; and APPLICATIONS is MISSING rather than EMPTY \u2014 the reference's own lane is empty and waiting for data, while the estate holds no per-principal favourites plane that could ever fill it (MAP-1's distinction)."
+      },
+      "outcome": "ported",
+      "shipped": "/__ioi/missions/schedules \u2014 RAILLESS (owner ruling 2026-08-20), read-only, gated by scripts/verify-hypervisor-app-parity-domain-landings.mjs (the scheduler block) and by the stage-5 responsive sweep at 1024\u00d7768 and 390\u00d7844.",
+      "reason": "live_ia_recorded \u2192 ported. The live tenant's Build Schedules landing is a real find/list grammar whose result set is genuinely empty; the estate's schedule records are real and were rendered by no surface. The port serves the reference's grammar over the estate's ONLY cadence records and states, on-surface and under gate, the three things that make those records hard to read honestly: the field named `trigger` is not the field the loop acts on, two published schedule counts come from two different predicates, and two of the three tray counters cover a single 15-second tick rather than a history."
     }
   ]
 }

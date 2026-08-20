@@ -18,8 +18,8 @@
   "total_seeds": 39,
   "by_parity_class": {
     "daemon_wired": 13,
-    "reference_capture": 10,
-    "reference_ported": 16
+    "reference_capture": 9,
+    "reference_ported": 17
   },
   "legend": {
     "reference_capture": "the /__apps/<slug> reference baseline serves; no IOI port exists",
@@ -200,16 +200,32 @@
       "capture_base": "/workspace/scheduler/",
       "grammar": "table_list",
       "tier": "aux",
-      "parity_class": "reference_capture",
+      "parity_class": "reference_ported",
       "capture_state": "shell_only",
       "reference_capture": "/__apps/scheduler",
       "reference_workspace": "/workspace/scheduler/",
-      "note": "schedule table; unbound",
+      "note": "SCH-1: live_ia_recorded → ported, superseding the mirror-scoped absent_confirmed (#scheduler) which stands as history. The finding is that the field NAMED for the concept is not the field the runtime acts on: trigger / trigger_kind reads 'manual' on the very automation the scheduler loop fires on a cron, so a trigger-shaped view would have reported zero schedules while the loop was firing one. The daemon also states its own dispatch path — the loop fires through the manual-run route — so no plane marks a past run as scheduler-dispatched, and this surface answers when a schedule WILL fire while refusing to answer which past runs WERE fires. The seed carried NO substrate binding and none is invented for it: the Operations boundary the mirror-scoped record drew still stands — scheduler LOOP HEALTH is Operations-owned and is LINKED, while this port renders the schedule RECORDS, a lane no surface held",
       "reference_clean_state": "shell_clean_only",
       "reference_clean_reason": "shell regions [rail, header, body] render clean but the body carries no real data (rows 0/0 · nodes 0 · cards 0)",
       "reference_clean_artifact": "reference-clean-sweep.json",
       "remediation_state": "live_ia_recorded",
-      "adjudication_ref": "reference-seed-adjudications.v1.json#scheduler + reference-live-tenant-atlas.v1.json#scheduler"
+      "adjudication_ref": "reference-seed-adjudications.v1.json#scheduler + reference-seed-adjudications.v1.json#scheduler-port + reference-live-tenant-atlas.v1.json#scheduler + reference-live-tenant-deep-atlas.v1.json#scheduler",
+      "port_surface": "/__ioi/missions/schedules",
+      "surface_name": "Missions",
+      "live_reference_evidence": "reference-live-tenant-deep-atlas.v1.json#scheduler (landing, url /workspace/scheduler/find, title \"Build Schedules\", 15 controls, 1 input, 1 facet group APPLICATIONS, 0 rows) + .artifacts/live-tenant-atlas/deep/scheduler-landing.png",
+      "reference_landmarks": [
+        "Build Schedules",
+        "Create schedule",
+        "Set search parameters",
+        "Sorted by most recently updated",
+        "Select schedules…",
+        "Filter by name or rid…",
+        "APPLICATIONS",
+        "Results matching"
+      ],
+      "binding": "the live-tenant BUILD-SCHEDULES find/list grammar (header + a three-counter tray + Create-schedule · an N-schedules count band with its Results-matching principal chip and Set-search-parameters · a sort / select / filter toolbar with the name-or-rid input · the APPLICATIONS facet lane · the list band) over the estate's ONLY cadence records, rendered as a READ-ONLY projection: the automation records carrying a schedule_spec, read from /v1/hypervisor/automations because that is the COMPLETE projection — the pre-filtered /v1/hypervisor/operations scheduler lane drops catch_up_policy, misfire_policy and executor_identity, and the field-by-field comparison that proves it is recomputed on every render. Fifteen schedule- and cadence-adjacent planes are probed on every render and classified live into FOUR states (LIVE / EMPTY / REFUSED / NO READ ROUTE, the last decided from the daemon's own route index) across THREE shapes (a collection, a status SINGLETON that is not a collection of one, and a pure COMPUTATION that is not a plane at all). Every schedule count names the PREDICATE that produced it and the WINDOW it covers: the records predicate (carries a schedule_spec), the loop predicate (the heartbeat's own scheduled_active), and the tray's dispatch/misfire counters which are a SINGLE TICK and are never printed as lifetime totals. The reference's Create-schedule verb is a typed absence by design — the estate mints no schedule object, so the verbs are create/patch on Automations — and the fires are linked to the Builds port rather than re-listed",
+      "candidate_surface": "/__ioi/missions/schedules",
+      "shell_pixel_certified": false
     },
     {
       "owner": "Provenance",

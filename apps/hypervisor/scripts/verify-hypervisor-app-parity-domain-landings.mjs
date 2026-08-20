@@ -354,6 +354,133 @@ for (const [slug, route, title, absentPhrase, ownerLink] of [
   ok("jobs: READ-ONLY projection — no verb is re-minted; the Actions absence NAMES the owner surface and the page links there and to the untouched substrate", !t.includes("<form") && !/action="\/__ioi\/(missions|automations)/.test(t) && /owned by Automations/.test(t) && t.includes("/__ioi/automations") && t.includes("/__ioi/missions") && /sibling lane, not a replacement/.test(t), String(!t.includes("<form")));
   ok("jobs: evidence cited (adjudication #jobs-port + the LIVE atlas) and brand-clean — no vendor brand and no borrowed tenant identity", /reference-seed-adjudications\.v1\.json#jobs-port/.test(t) && /reference-live-tenant-atlas\.v1\.json#jobs/.test(t) && !/\bPalantir\b/i.test(t) && !/palantirfoundry/i.test(t) && !/Josman/i.test(t) && !/job-tracker/i.test(t));
 }
+// SCH-1: scheduler — the BUILD SCHEDULES port, and the leg whose finding is that THE FIELD NAMED
+// FOR THE CONCEPT IS NOT THE FIELD THE RUNTIME ACTS ON. The load-bearing assertions: (a) the four
+// counts that carry the finding (the records predicate, the Operations projection, the loop's own
+// heartbeat, and what the `trigger` field claims) are re-derived independently here and must match
+// the page exactly; (b) every plane's state AND its SHAPE are classified from its own live
+// response — a REFUSAL may never be a zero, a plane the daemon publishes no GET for may never be
+// EMPTY, and a status SINGLETON may never be counted as a collection of one; (c) the schedule rows
+// are exactly the records the RECORDS predicate admits and every rendered value is a record field;
+// (d) the per-tick counters must STATE their window and may never be printed as totals; (e) a
+// COMPUTED occurrence must be labelled computed; (f) the surface must refuse to name which past
+// runs were scheduled fires; and (g) the run planes another surface renders must be LINKED.
+{
+  const D = process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765";
+  const sIndex = await fetch(`${D}/v1`).then((r) => r.json()).catch(() => ({}));
+  const sRoutes = (Array.isArray(sIndex.families) ? sIndex.families : []).flatMap((f) => (Array.isArray(f.paths) ? f.paths : []));
+  const sMethods = (p) => { const r = sRoutes.find((x) => String(x.path || "") === p && !x.retired); return Array.isArray(r?.methods) ? r.methods : []; };
+  const sAutos = await fetch(`${D}/v1/hypervisor/automations`).then((r) => r.json()).then((j) => j.automations || []).catch(() => []);
+  const sSpecOf = (a) => (a && a.schedule_spec && typeof a.schedule_spec === "object" ? a.schedule_spec : null);
+  const sWithSpec = sAutos.filter((a) => sSpecOf(a));                    // the RECORDS predicate
+  const sSorted = [...sWithSpec].sort((a, b) => String(a.next_run_at || "￿").localeCompare(String(b.next_run_at || "￿")));
+  const sPrimaryId = String(sSorted[0]?.automation_id || sAutos[0]?.automation_id || "");
+  const sPrimaryCron = String(sSpecOf(sSorted[0])?.cron || "");
+  const sPrimaryTz = String(sSpecOf(sSorted[0])?.timezone || "UTC");
+  const sIdPath = (tail) => `/v1/hypervisor/automations/${sPrimaryId || "no-automation-on-the-plane"}${tail}`;
+  // The census, re-declared here with the SAME contract and this verifier's OWN code: template
+  // path (what the daemon's index publishes) + the concrete URL probed + the expected shape.
+  const SCH_PLANES = [
+    ["/v1/hypervisor/scheduler/status", "/v1/hypervisor/scheduler/status", "singleton", null],
+    ["/v1/hypervisor/automations", "/v1/hypervisor/automations", "collection", (b) => b?.automations],
+    ["/v1/hypervisor/operations", "/v1/hypervisor/operations", "collection", (b) => b?.scheduler?.automations],
+    ["/v1/hypervisor/cron-preview", sPrimaryCron ? `/v1/hypervisor/cron-preview?cron=${encodeURIComponent(sPrimaryCron)}&tz=${encodeURIComponent(sPrimaryTz)}&n=3` : "/v1/hypervisor/cron-preview", "computation", (b) => b?.runs],
+    ["/v1/hypervisor/automations/:id/runs", sIdPath("/runs"), "collection", (b) => b?.runs],
+    ["/v1/hypervisor/automations/:id/webhook-events", sIdPath("/webhook-events"), "collection", (b) => b?.events],
+    ["/v1/hypervisor/automation-executions", "/v1/hypervisor/automation-executions", "collection", null],
+    ["/v1/hypervisor/work-ledger", "/v1/hypervisor/work-ledger", "collection", null],
+    ["/v1/hypervisor/automation-affinities", "/v1/hypervisor/automation-affinities", "collection", (b) => b?.affinities],
+    ["/v1/hypervisor/failover/plans", "/v1/hypervisor/failover/plans", "collection", (b) => b?.plans],
+    ["/v1/hypervisor/governance/release-controls", "/v1/hypervisor/governance/release-controls", "collection", (b) => b?.release_controls],
+    ["/v1/hypervisor/retention/dispositions", "/v1/hypervisor/retention/dispositions", "collection", null],
+    ["/v1/hypervisor/maintenance/idle-sweep", "/v1/hypervisor/maintenance/idle-sweep", "collection", null],
+    ["/v1/hypervisor/backups", "/v1/hypervisor/backups", "collection", (b) => b?.backups],
+    ["/v1/hypervisor/economics/reconciliation", "/v1/hypervisor/economics/reconciliation", "collection", null],
+  ];
+  const sProbe = async ([path, probeUrl, shape, pick]) => {
+    let r, text;
+    try { r = await fetch(`${D}${probeUrl}`); text = await r.text(); } catch { return { path, shape, state: "unreadable", code: "http_0", n: 0, body: null }; }
+    let body = null; try { body = JSON.parse(text); } catch { body = null; }
+    if (!sMethods(path).includes("GET") || r.status === 405) return { path, shape, state: "no_read_route", code: "", n: 0, body };
+    if (!r.ok) {
+      const b = body || {};
+      return { path, shape, state: "refused", code: String((b.error && (b.error.code || b.error)) || b.reason || b.code || `http_${r.status}`), n: 0, body };
+    }
+    if (body && typeof body === "object" && body.ok === false) {
+      const b = body.error;
+      return { path, shape, state: "refused", code: String((b && (b.code || b)) || body.code || "plane_declined"), n: 0, body };
+    }
+    if (shape === "singleton") {
+      const keys = body && typeof body === "object" && !Array.isArray(body) ? Object.keys(body) : [];
+      return { path, shape, state: keys.length ? "live" : "empty", code: "", n: keys.length, body };
+    }
+    const arr = pick ? pick(body) : (Array.isArray(body) ? body : Object.values(body || {}).find((v) => Array.isArray(v)));
+    if (!Array.isArray(arr)) return { path, shape, state: "unreadable", code: `http_${r.status}`, n: 0, body };
+    return { path, shape, state: arr.length ? "live" : "empty", code: "", n: arr.length, body };
+  };
+  const sDerived = await Promise.all(SCH_PLANES.map(sProbe));
+  const sBy = Object.fromEntries(sDerived.map((d2) => [d2.path, d2]));
+  const sHeart = sBy["/v1/hypervisor/scheduler/status"].body?.heartbeat || {};
+  const sOpsRows = sBy["/v1/hypervisor/operations"].n;
+  const sLoopActive = Number(sHeart.scheduled_active);
+  const CADENCE_WORDS = new Set(["cron", "schedule", "scheduled", "interval", "timer", "recurring"]);
+  const sTriggerNamed = sAutos.filter((a) => CADENCE_WORDS.has(String(a.trigger_kind || a.trigger?.kind || "").toLowerCase()));
+  const sSpecButNot = sWithSpec.filter((a) => !CADENCE_WORDS.has(String(a.trigger_kind || a.trigger?.kind || "").toLowerCase()));
+  const p = await page(`${SERVE}/__ioi/missions/schedules`);
+  const t = p.text;
+  const planeRow = (path) => {
+    const i = t.indexOf(`data-ioi-plane="${path}"`);
+    if (i < 0) return "";
+    const start = t.lastIndexOf('<div class="sch-prow"', i);
+    const end = t.indexOf("</div>", i);
+    return start < 0 || end < 0 ? "" : t.slice(start, end + 6);
+  };
+  const gapReasons = [...t.matchAll(/<span class="[^"]*sch-gap[^"]*"[^>]*data-ioi-disabled-reason="([^"]*)"/g)].map((m) => m[1]);
+  ok("scheduler: matrix reference_ported at /__ioi/missions/schedules with the live-tenant DEEP-atlas evidence carried", bySlug.scheduler?.parity_class === "reference_ported" && bySlug.scheduler?.candidate_surface === "/__ioi/missions/schedules" && bySlug.scheduler?.port_surface === "/__ioi/missions/schedules" && bySlug.scheduler?.surface_name === "Missions" && bySlug.scheduler?.remediation_state === "live_ia_recorded" && /#scheduler-port/.test(bySlug.scheduler?.adjudication_ref || "") && /reference-live-tenant-deep-atlas\.v1\.json#scheduler/.test(bySlug.scheduler?.adjudication_ref || ""), bySlug.scheduler?.parity_class);
+  ok("scheduler: renders 200 with the LIVE-tenant BUILD SCHEDULES grammar, RAILLESS (owner ruling 2026-08-20)", p.status === 200 && !t.includes("og-grail") && ["Build Schedules", "Create schedule", "Set search parameters", "Sorted by most recently updated", "Select schedules", "Filter by name or rid", "APPLICATIONS", "Results matching", "Cadence", "Next run", "Last run", "Posture"].every((k) => t.includes(k)), String(p.status));
+  // THE LOAD-BEARING GATE. The finding is a disagreement between four numbers, so all four are
+  // re-derived here from the planes on THIS run and must match the page exactly. A pasted quad
+  // fails, and so does a correct-today quad the day a schedule is added, paused or re-triggered.
+  ok("scheduler: the PREDICATE FINDING is RE-DERIVED — the records predicate, the Operations projection, the loop's heartbeat and what the `trigger` field claims all match the planes on this run", new RegExp(`applies — finds <b>${sWithSpec.length}</b>`).test(t) && new RegExp(`That projection itself returns <b>${sOpsRows}</b>`).test(t) && new RegExp(`reports <b>${Number.isFinite(sLoopActive) ? sLoopActive : "—"}</b> in its heartbeat`).test(t) && new RegExp(`names a cadence on <b>${sTriggerNamed.length}</b> of the ${sAutos.length} automations`).test(t) && new RegExp(`<b>${sSpecButNot.length}</b> of the ${sWithSpec.length} schedule`).test(t), `records=${sWithSpec.length} ops=${sOpsRows} loop=${sLoopActive} triggerNamed=${sTriggerNamed.length} contradicting=${sSpecButNot.length}`);
+  // The finding is only a finding if the two predicates are NAMED as two. A surface that printed
+  // one number without saying which test produced it would be the defect this leg exists to state.
+  ok("scheduler: every schedule count NAMES the predicate that produced it, and the loop's test is described as one the surface does NOT re-implement", /records<\/b> predicate/.test(t) && /loop<\/b> predicate/.test(t) && /never reads <code>enabled<\/code>/.test(t) && /does <b>not<\/b> re-implement/.test(t) && /trigger-shaped/.test(t), "predicates named");
+  ok("scheduler: every plane's state AND shape are CLASSIFIED LIVE — the stamped pair equals what the daemon answers to this identity right now", sDerived.length === 15 && sDerived.every((d2) => new RegExp(`data-ioi-plane="${d2.path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}" data-ioi-plane-state="${d2.state}" data-ioi-plane-shape="${d2.shape}"`).test(t)), sDerived.map((d2) => `${d2.path.split("/").pop()}=${d2.state}/${d2.shape}`).join(" "));
+  ok("scheduler: a REFUSAL is rendered as a REFUSAL — the daemon's typed code verbatim, and NEVER as a count", sDerived.filter((d2) => d2.state === "refused").length > 0 && sDerived.filter((d2) => d2.state === "refused").every((d2) => { const row = planeRow(d2.path); return row.includes(d2.code) && /REFUSAL, never a zero/.test(row) && !/\d+\s+records?/.test(row); }) && /a refusal is not a zero/i.test(t), `${sDerived.filter((d2) => d2.state === "refused").length} refused`);
+  ok("scheduler: EMPTY, MISSING and NO-READ-ROUTE are held apart — a plane the daemon publishes no GET for is never rendered EMPTY", sDerived.filter((d2) => d2.state === "empty").every((d2) => /EMPTY plane, not a missing one/.test(planeRow(d2.path))) && sDerived.filter((d2) => d2.state === "no_read_route").every((d2) => /publishes no GET here/.test(planeRow(d2.path)) && /not the same as reading nothing/.test(planeRow(d2.path))) && /REFUSED is not EMPTY, EMPTY is not MISSING/.test(t), `empty=${sDerived.filter((d2) => d2.state === "empty").length} noroute=${sDerived.filter((d2) => d2.state === "no_read_route").length}`);
+  // The SHAPE distinction this leg needed: a status object is not a one-row collection, and a pure
+  // computation is not a data plane. Both must say so on their own row rather than be counted.
+  ok("scheduler: a status SINGLETON is never counted as a collection of one, and a COMPUTATION is never rendered as a stored plane", /single status OBJECT/.test(planeRow("/v1/hypervisor/scheduler/status")) && /never counted as one row/.test(planeRow("/v1/hypervisor/scheduler/status")) && !/\d+ records? — counted from the plane/.test(planeRow("/v1/hypervisor/scheduler/status")) && /COMPUTED on this render, stored nowhere/.test(planeRow("/v1/hypervisor/cron-preview")) && /not a plane at all/.test(t), `singleton=${sBy["/v1/hypervisor/scheduler/status"].state} computation=${sBy["/v1/hypervisor/cron-preview"].state}`);
+  ok("scheduler: schedule rows == exactly the records the RECORDS predicate admits, ordered by next occurrence, cap NAMED only when it truncates", (t.match(/class="sch-row"/g) || []).length === Math.min(100, sWithSpec.length) && sSorted.slice(0, 100).every((a) => t.includes(`data-ioi-schedule="${a.automation_id}"`)) && (sWithSpec.length > 100 ? new RegExp(`soonest <b>100</b> of <b>${sWithSpec.length}</b>`).test(t) : new RegExp(`All <b>${sWithSpec.length}</b> render here`).test(t)) && /ordered by <b>next occurrence, soonest first<\/b>/.test(t), `rows=${(t.match(/class="sch-row"/g) || []).length} plane=${sWithSpec.length}`);
+  // No schedule field may be invented. The cadence, the next fire and the enabled flag on every
+  // row are the record's OWN values, and the UTC instant is printed verbatim beside its label —
+  // a schedule rendered in the serving host's timezone is a time the estate never recorded.
+  // The formatted instant is re-derived HERE in UTC and must appear verbatim: a schedule formatted
+  // in the serving host's local zone prints a time the estate never recorded, and the raw stamp
+  // beside it would then silently disagree with the label above it.
+  const sUtc = (iso) => { const d3 = new Date(iso || 0); return isNaN(d3) ? "" : `${d3.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "UTC" })} UTC`; };
+  ok("scheduler: every cadence / next-run / enabled value is the record's OWN field, and every instant renders in UTC (re-derived here) beside its raw stamp", sSorted.slice(0, 100).every((a) => t.includes(`data-ioi-cadence="${sSpecOf(a).cron || ""}"`) && t.includes(`data-ioi-next-run="${a.next_run_at || ""}"`) && t.includes(`data-ioi-schedule-enabled="${a.enabled === true ? "yes" : "no"}"`) && (!a.next_run_at || (t.includes(`next_run_at (${a.next_run_at})`) && t.includes(sUtc(a.next_run_at)))) && (!a.last_run_at || (t.includes(`last_run_at (${a.last_run_at})`) && t.includes(sUtc(a.last_run_at))))), `schedules=${sWithSpec.length} utc=${sSorted[0] ? sUtc(sSorted[0].next_run_at) : "—"}`);
+  // The WINDOW gate. Two of the three tray counters are reset every tick; printing them as totals
+  // would convert a 15-second window into a history — the same class as printing a refusal as 0.
+  ok("scheduler: the tray counters are live and each STATES its own window — the per-tick pair says LAST TICK ONLY and the surface denies keeping a lifetime total", new RegExp(`data-ioi-tray="scheduled_active"[^>]*>⟳ <b>${Number.isFinite(sLoopActive) ? sLoopActive : "—"}</b>`).test(t) && new RegExp(`data-ioi-tray="fired_dispatches"[^>]*>✓ <b>${Number(sHeart.fired_dispatches) || 0}</b>`).test(t) && new RegExp(`data-ioi-tray="misfire_skips"[^>]*>✕ <b>${Number(sHeart.misfire_skips) || 0}</b>`).test(t) && (t.match(/LAST TICK ONLY/g) || []).length === 2 && /NOT a lifetime total/.test(t) && /keeps no lifetime dispatch counter/.test(t), `active=${sLoopActive} fired=${sHeart.fired_dispatches} misfire=${sHeart.misfire_skips}`);
+  // A derived value presented as a recorded one is still a fabrication: cron-preview stores
+  // nothing, so every occurrence it returns must be labelled, and the loop's own stamp must not be.
+  ok("scheduler: a COMPUTED occurrence is labelled COMPUTED and the loop's own next_run_at is labelled RECORDED — the two are never mixed", (sBy["/v1/hypervisor/cron-preview"].state !== "live" || /<b>COMPUTED<\/b> by \/v1\/hypervisor\/cron-preview — not stored anywhere/.test(t)) && /RECORDED by the loop: field next_run_at/.test(t), sBy["/v1/hypervisor/cron-preview"].state);
+  // The refusal that makes this port honest: the daemon dispatches through the manual-run path, so
+  // NO record marks a run as a scheduled fire. The surface must say so and must not join anyway.
+  ok("scheduler: the UNMARKED-DISPATCH refusal is stated — the daemon's own dispatch_path is quoted and the surface refuses to name which past runs were fires", /fires through the manual-run path/.test(t) && /indistinguishable from a manual one/.test(t) && /refuses to answer/.test(t) && /inventing an edge no record holds/.test(t), "dispatch path quoted");
+  // JOB-1's rule: find the COMPLETE projection, and recompute the comparison rather than paste it.
+  ok("scheduler: the COMPLETE projection is chosen by a field-by-field comparison recomputed on this render, and the dropped fields are named", /Operations projection drops <b>\d+<\/b> field/.test(t) && ["catch_up_policy", "misfire_policy", "executor_identity"].every((f) => new RegExp(`<code>${f}</code>`).test(t)) && /recomputed on every render/.test(t), "complete projection named");
+  // One plane, one renderer.
+  ok("scheduler: the run planes another surface renders are LINKED, not duplicated — no run/execution row is minted here", t.includes("/__ioi/missions/builds") && t.includes("/__ioi/automations/monitors") && t.includes("/__ioi/operations") && /one plane gets one renderer/.test(t) && !/class="bld-row"/.test(t) && (t.match(/class="sch-row"/g) || []).length === sWithSpec.length, `schedules=${sWithSpec.length}`);
+  // MAP-1's distinction, made load-bearing: the reference's lane is EMPTY, this one is MISSING.
+  ok("scheduler: the APPLICATIONS lane is MISSING rather than the reference's own EMPTY, and says which is which", /MISSING, not empty/.test(t) && /Your favorited apps will appear here/.test(t) && /no per-principal favourites or pinned-application plane/.test(t) && /EMPTY is not MISSING<\/b>/.test(t), "applications lane");
+  ok("scheduler: every gap carries the UNIFIED contract (aria === data-ioi count) and covers the reference's whole control set", (t.match(/aria-disabled="true"/g) || []).length >= 8 && (t.match(/aria-disabled="true"/g) || []).length === (t.match(/data-ioi-disabled-reason=/g) || []).length, `${(t.match(/aria-disabled="true"/g) || []).length} gaps`);
+  ok("scheduler: no chrome reason is BOILERPLATE — every control's reason is written for that control (all distinct)", gapReasons.length >= 8 && new Set(gapReasons).size === gapReasons.length, `${gapReasons.length} chrome gaps, ${new Set(gapReasons).size} distinct`);
+  ok("scheduler: every reference control is answered in the mapping table, and the unbindable ones are marked unbound rather than filled", ["Create schedule", "Set search parameters", "Filter by name or rid…", "Sorted by most recently updated", "Select schedules…", "Results matching (principal chip)", "APPLICATIONS (facet group)"].every((c) => t.includes(`data-ioi-control="${c}" data-ioi-control-bound="no"`)) && !/data-ioi-control-bound="yes"/.test(t), "7 controls answered");
+  ok("scheduler: READ-ONLY projection — no verb is re-minted; the Create absence NAMES the owner surface and the daemon's own typed refusal code", !t.includes("<form") && !/action="\/__ioi\/(missions|automations)/.test(t) && /automation_project_ref_required/.test(t) && /never re-mints another surface's authority-crossing verb/.test(t) && t.includes("/__ioi/automations"), String(!t.includes("<form")));
+  ok("scheduler: evidence cited (adjudication #scheduler-port + the LIVE deep atlas) and brand-clean — no vendor brand and no borrowed tenant identity", /reference-seed-adjudications\.v1\.json#scheduler-port/.test(t) && /reference-live-tenant-deep-atlas\.v1\.json#scheduler/.test(t) && !/\bPalantir\b/i.test(t) && !/palantirfoundry/i.test(t) && !/Josman/i.test(t) && !/workspace\/scheduler/i.test(t));
+}
 const fails = results.filter((r) => !r.pass);
 for (const r of results) console.log(`  ${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? `  (${r.detail})` : ""}`);
 console.log(`\n${results.length - fails.length}/${results.length} passed`);

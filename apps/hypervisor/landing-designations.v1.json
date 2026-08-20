@@ -18,7 +18,7 @@
       "competitors": [
         {
           "seed": "scheduler",
-          "disposition": "expected terminal absence (AUT-4); scheduler health Operations-owned"
+          "disposition": "CORRECTED (SCH-1, 2026-08-20): this note carried the scheduler seed's mirror-scoped absent_confirmed (reference-seed-adjudications.v1.json#scheduler, AUT-4). The owner-authorized live-tenant sweep OVERTURNED it (a real Build Schedules find/list landing: 15 controls, 1 input, 1 facet group, 0 rows) and the scheduler seed now has its OWN designation (seed:scheduler \u2192 NOW, /__ioi/missions/schedules, reference-seed-adjudications.v1.json#scheduler-port). AUT-4's ruling that scheduler HEALTH is Operations-owned still stands and the port honours it. The NOW status of THIS target is unchanged and is about Automate itself, not about scheduler."
         }
       ]
     },
@@ -279,9 +279,14 @@
     },
     {
       "click_target": "seed:scheduler",
-      "status": "TERMINAL",
-      "note": "absent_confirmed \u2014 no expressed IA at any atlas state; Operations boundary stands",
-      "adjudication_ref": "reference-seed-adjudications.v1.json#scheduler"
+      "status": "NOW",
+      "grammar": "Build Schedules (the LIVE-tenant find/list grammar the scheduler click target actually boots at /workspace/scheduler/find): header + a three-counter tray whose two per-tick counters STATE their 15-second window + a Create-schedule typed absence \u00b7 an N-schedules count band counted live from the records predicate, beside a Results-matching principal chip refused because the census is UNFILTERED \u00b7 a sort / select / filter toolbar with the name-or-rid input, every one a typed absence with a reason written for it \u00b7 the APPLICATIONS facet lane rendered as MISSING rather than the reference's own EMPTY \u00b7 and the schedule table, served as a READ-ONLY PROJECTION over the estate's ONLY cadence records: automation records carrying a schedule_spec, read from /v1/hypervisor/automations because it is the COMPLETE projection (the pre-filtered Operations scheduler lane drops 24 fields including catch_up_policy, misfire_policy and executor_identity, recomputed field-by-field on every render). THE FINDING: the field NAMED for the concept is not the field the runtime acts on \u2014 the scheduler loop admits on `enabled && schedule_is_active(schedule_spec)` and never reads `trigger`, so the one automation it fires on a cron carries trigger_kind: manual, and a trigger-shaped view would have reported 0 schedules while the loop fired 1. Two published schedule counts come from two DIFFERENT predicates (Operations never reads `enabled`; the loop does) and their agreement is printed as a delta rather than assumed. The daemon's own posture says the loop dispatches through the MANUAL-RUN path, so no record marks a past run as scheduler-dispatched \u2014 the surface answers when a schedule WILL fire and refuses to say which past runs WERE fires. Fifteen schedule/cadence planes are classified live into FOUR states across THREE shapes (a collection, a status SINGLETON that is not a collection of one, a pure COMPUTATION that is not a plane at all). Read-only: the schedule verbs stay on Automations, the fires stay on Builds, loop health stays on Operations.",
+      "route": "/__ioi/missions/schedules",
+      "supersedes_terminal": "absent_confirmed (mirror-scoped, reference-seed-adjudications.v1.json#scheduler \u2014 AUT-4: \"expresses NO IA at any recorded state\") \u2014 OVERTURNED by the owner-authorized live-tenant sweep, which recorded a real find/list landing (title \"Build Schedules\", 15 controls, 1 input, 1 facet group APPLICATIONS, rows 0 \u2014 the reference's own result set is genuinely empty, so the EMPTY-STATE IA is the seed). The mirror record stands as history and is not rewritten.",
+      "boundary_unchanged": "AUT-4's OPERATIONS BOUNDARY is untouched: scheduler LOOP HEALTH stays Operations-owned. The port READS the loop heartbeat (the only record carrying the loop's own admitted-schedule count) and LINKS every liveness question to /__ioi/operations; what it adds is the schedule RECORDS lane, which no estate surface rendered. The /automations designation's competitor note for this seed carried the overturned absent_confirmed and is corrected there.",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#scheduler-port",
+      "superseded_note": "absent_confirmed \u2014 no expressed IA at any atlas state; Operations boundary stands (reference-seed-adjudications.v1.json#scheduler) \u2014 kept as history; overturned by the live-tenant sweep and re-adjudicated in #scheduler-port",
+      "evidence": "reference-live-tenant-deep-atlas.v1.json#scheduler + .artifacts/live-tenant-atlas/deep/scheduler-landing.png"
     }
   ],
   "cross_family_edges": [

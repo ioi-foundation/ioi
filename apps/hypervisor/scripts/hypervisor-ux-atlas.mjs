@@ -193,7 +193,8 @@ if (STAGE === "stage5") {
   const KEY = ["/automations", "/studio", "/data", "/ontology", "/developer-workspace",
     "/__ioi/data/sources?lane=syncs", "/__ioi/lineage?tab=history", "/__ioi/vertex",
     "/__ioi/domain-apps/fusion", "/__ioi/environments/map", "/__ioi/marketplace/artifacts",
-    "/__ioi/developer-console", "/__ioi/evaluations/insight", "/__ioi/studio/workshop"];
+    "/__ioi/developer-console", "/__ioi/evaluations/insight", "/__ioi/studio/workshop",
+    "/__ioi/missions/schedules"];
   for (const vp of [{ w: 1024, h: 768, tag: "tablet" }, { w: 390, h: 844, tag: "phone" }]) {
     const pg5 = await browser.newPage({ viewport: { width: vp.w, height: vp.h } });
     for (const r of KEY) {

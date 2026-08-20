@@ -10515,6 +10515,378 @@ async function handleEstateRequest(req, res, body) {
       </div></body></html>`);
       return;
     }
+    // ---- Missions · Build Schedules — SCH-1 (remediation v2): the live-tenant SCHEDULER port.
+    // The seed's live target is a find/list landing titled "Build Schedules" whose result set is
+    // genuinely EMPTY on the tenant. The estate is NOT empty: it runs a real automation scheduler
+    // loop. THE FINDING this surface exists to state is that the field NAMED for the concept is
+    // not the field the runtime acts on — `trigger` / `trigger_kind` reads "manual" on the very
+    // automation the loop fires on a cron — and that two of the three schedule counts the estate
+    // publishes are produced by DIFFERENT PREDICATES over DIFFERENT WINDOWS. Every count here is
+    // re-derived on the render and each one names the predicate that produced it.
+    if (pathname === "/__ioi/missions/schedules" && req.method === "GET") {
+      const esc = CX_ESC;
+      const sstr = (v) => (typeof v === "string" && v.trim() !== "" ? v : "");
+      const schProbe = async (p) => {
+        try {
+          const r = await daemonFetch(p);
+          const text = await r.text();
+          let body = null;
+          try { body = JSON.parse(text); } catch { body = null; }
+          return { path: p, status: r.status, ok: r.ok, body };
+        } catch { return { path: p, status: 0, ok: false, body: null }; }
+      };
+      // PHASE 1 — the daemon's own route index (the only thing that can say "no read route") and
+      // the schedule-bearing plane, because the concrete ids and the cron expression the rest of
+      // the census is probed WITH are read off it rather than pinned here.
+      const [schAutoPre, schIndexJson] = await Promise.all([
+        schProbe("/v1/hypervisor/automations"),
+        daemonFetch("/v1").then((r) => r.json()).catch(() => ({})),
+      ]);
+      const schAutos = Array.isArray(schAutoPre.body?.automations) ? schAutoPre.body.automations : [];
+      const schSpecOf = (a) => (a && a.schedule_spec && typeof a.schedule_spec === "object" ? a.schedule_spec : null);
+      // THE RECORDS PREDICATE — "carries a schedule_spec object". This is the predicate
+      // /v1/hypervisor/operations uses for its own scheduler projection; it is NOT the loop's.
+      const schWithSpec = schAutos.filter((a) => schSpecOf(a));
+      const schRows = [...schWithSpec].sort((a, b) => String(sstr(a.next_run_at) || "￿").localeCompare(String(sstr(b.next_run_at) || "￿")));
+      const schPrimary = schRows[0] || schAutos[0] || null;
+      const schPrimaryId = sstr(schPrimary?.automation_id);
+      const schPrimaryCron = sstr(schSpecOf(schRows[0])?.cron);
+      const schPrimaryTz = sstr(schSpecOf(schRows[0])?.timezone) || "UTC";
+      // PHASE 2 — the census. `path` is the ROUTE TEMPLATE the daemon's index publishes (the only
+      // thing an index lookup can match); `probe` is the concrete URL this identity actually read,
+      // and every templated row says which id it was probed with. `shape` keeps a status OBJECT
+      // from being counted as a one-row collection, and a pure COMPUTATION from being read as a
+      // stored plane — a singleton is not a collection of one.
+      const schIdPath = (tail) => `/v1/hypervisor/automations/${schPrimaryId || "no-automation-on-the-plane"}${tail}`;
+      const SCH_PLANES = [
+        { key: "scheduler_status", path: "/v1/hypervisor/scheduler/status", probe: "/v1/hypervisor/scheduler/status", shape: "singleton",
+          label: "Scheduler heartbeat — the LOOP", role: "the only record that proves the automation_scheduler loop actually ran: booted_at, tick_seq, the loop's own admitted-schedule count and its per-tick dispatch counters. A status OBJECT, never a collection",
+          owner: "/__ioi/operations", ownerLabel: "Operations" },
+        { key: "automations", path: "/v1/hypervisor/automations", probe: "/v1/hypervisor/automations", shape: "collection", pick: (b) => b?.automations,
+          label: "Automations — the schedule-bearing plane", role: "THE plane this table reads: a schedule is a `schedule_spec` FIELD on an automation record, and this is the only projection carrying every field the schedule has (catch_up_policy, misfire_policy, executor_identity, steps, created_at)",
+          owner: "/__ioi/automations/monitors", ownerLabel: "Automate" },
+        { key: "ops_scheduler", path: "/v1/hypervisor/operations", probe: "/v1/hypervisor/operations", shape: "collection", pick: (b) => b?.scheduler?.automations,
+          label: "Operations › scheduler projection", role: "a PRE-FILTERED schedules projection over the same records, admitted by a DIFFERENT predicate (schedule_spec is an object — it never reads `enabled`) and carrying a strict SUBSET of the fields",
+          owner: "/__ioi/operations", ownerLabel: "Operations" },
+        { key: "cron_preview", path: "/v1/hypervisor/cron-preview", probe: schPrimaryCron ? `/v1/hypervisor/cron-preview?cron=${encodeURIComponent(schPrimaryCron)}&tz=${encodeURIComponent(schPrimaryTz)}&n=3` : "/v1/hypervisor/cron-preview", shape: "computation", pick: (b) => b?.runs,
+          label: "Cron preview — a COMPUTATION", role: "not a plane at all: a pure function of a cron expression and a clock. It stores nothing, so every occurrence it returns is COMPUTED and is labelled so on this page",
+          owner: "/__ioi/automations/monitors", ownerLabel: "Automate" },
+        { key: "auto_runs", path: "/v1/hypervisor/automations/:id/runs", probe: schIdPath("/runs"), shape: "collection", pick: (b) => b?.runs,
+          label: "Per-automation run history", role: "where a fire LANDS — already rendered by the Builds port over the work-ledger run lane, so it is linked here and never re-rendered as a second run list",
+          owner: "/__ioi/missions/builds", ownerLabel: "Builds" },
+        { key: "webhook_events", path: "/v1/hypervisor/automations/:id/webhook-events", probe: schIdPath("/webhook-events"), shape: "collection", pick: (b) => b?.events,
+          label: "Webhook events — the OTHER trigger lane", role: "the estate's second way to start an automation. A webhook is an EVENT trigger, not a cadence, so nothing here belongs in a schedules table",
+          owner: "/__ioi/automations", ownerLabel: "Automations" },
+        { key: "automation_executions", path: "/v1/hypervisor/automation-executions", probe: "/v1/hypervisor/automation-executions", shape: "collection",
+          label: "Automation executions (list)", role: "the execution family a fire becomes — the daemon publishes it per id and per cancel and NO list route at all",
+          owner: "/__ioi/automations", ownerLabel: "Automations" },
+        { key: "work_ledger", path: "/v1/hypervisor/work-ledger", probe: "/v1/hypervisor/work-ledger", shape: "collection",
+          label: "Work ledger — the run lane", role: "the proof stream every fire lands in. It carries trigger_kind on each run and that field reads `manual` for a scheduled dispatch too — the finding stated below",
+          owner: "/__ioi/missions/builds", ownerLabel: "Builds" },
+        { key: "affinities", path: "/v1/hypervisor/automation-affinities", probe: "/v1/hypervisor/automation-affinities", shape: "collection", pick: (b) => b?.affinities,
+          label: "Automation affinities", role: "goal-pattern → policy bindings for automations. An affinity decides HOW an automation runs, never WHEN — adjacent to the schedule and not one",
+          owner: "/__ioi/automations", ownerLabel: "Automations" },
+        { key: "failover_plans", path: "/v1/hypervisor/failover/plans", probe: "/v1/hypervisor/failover/plans", shape: "collection", pick: (b) => b?.plans,
+          label: "Failover plans (armed)", role: "the estate's other standing-intent plane: armed CONDITIONS (provider outage, capacity eviction) rather than a cadence. Condition-triggered work is not scheduled work",
+          owner: "/__ioi/operations", ownerLabel: "Operations" },
+        { key: "release_controls", path: "/v1/hypervisor/governance/release-controls", probe: "/v1/hypervisor/governance/release-controls", shape: "collection", pick: (b) => b?.release_controls,
+          label: "Governance release controls", role: "the plane a time-windowed release gate would live on if the estate had one",
+          owner: "/__ioi/governance", ownerLabel: "Governance" },
+        { key: "retention", path: "/v1/hypervisor/retention/dispositions", probe: "/v1/hypervisor/retention/dispositions", shape: "collection",
+          label: "Retention dispositions", role: "the classic scheduled-job noun in the reference's world. Here it is a POST-only lane: the estate records a disposition, never a recurring one",
+          owner: "/__ioi/governance", ownerLabel: "Governance" },
+        { key: "idle_sweep", path: "/v1/hypervisor/maintenance/idle-sweep", probe: "/v1/hypervisor/maintenance/idle-sweep", shape: "collection",
+          label: "Maintenance idle-sweep", role: "a cadence-SHAPED verb with no cadence record: something must call it, and the estate stores no schedule that does",
+          owner: "/__ioi/operations", ownerLabel: "Operations" },
+        { key: "backups", path: "/v1/hypervisor/backups", probe: "/v1/hypervisor/backups", shape: "collection", pick: (b) => b?.backups,
+          label: "Backups", role: "the second classic scheduled-job noun. Whether the estate holds a backup cadence is UNKNOWN from this surface — the plane refuses this identity",
+          owner: "/__ioi/operations", ownerLabel: "Operations" },
+        { key: "economics_reconciliation", path: "/v1/hypervisor/economics/reconciliation", probe: "/v1/hypervisor/economics/reconciliation", shape: "collection",
+          label: "Economics reconciliation", role: "a periodic-by-nature lane. It refuses this read, so this surface says nothing about its cadence rather than printing a zero",
+          owner: "/__ioi/operations", ownerLabel: "Operations" },
+      ];
+      const schProbes = await Promise.all(SCH_PLANES.map((pl) => schProbe(pl.probe)));
+      const schRoutes = (Array.isArray(schIndexJson.families) ? schIndexJson.families : []).flatMap((f) => (Array.isArray(f.paths) ? f.paths : []));
+      const schRouteFor = (p) => schRoutes.find((r) => String(r.path || "") === p && !r.retired) || null;
+      const schMethodsFor = (p) => { const r = schRouteFor(p); return Array.isArray(r?.methods) ? r.methods : []; };
+      // FIVE states, decided in this order and never from a constant: no-read-route from the
+      // daemon's OWN index before any body is read; a transport refusal before any collection is
+      // looked for; a typed in-body decline (ok:false on a 200) as the refusal it is; then shape.
+      const schClassify = (pl, pr) => {
+        const methods = schMethodsFor(pl.path);
+        if (!methods.includes("GET") || pr.status === 405) return { state: "no_read_route", code: "", methods, rows: [] };
+        if (!pr.ok) {
+          const b = pr.body || {};
+          const code = (b.error && (b.error.code || b.error)) || b.reason || b.code || `http_${pr.status}`;
+          return { state: "refused", code: String(code), methods, rows: [] };
+        }
+        const body = pr.body;
+        if (body && typeof body === "object" && body.ok === false) {
+          const b = body.error;
+          return { state: "refused", code: String((b && (b.code || b)) || body.code || "plane_declined"), methods, rows: [] };
+        }
+        if (pl.shape === "singleton") {
+          const keys = body && typeof body === "object" && !Array.isArray(body) ? Object.keys(body) : [];
+          return { state: keys.length ? "live" : "empty", code: "", methods, rows: [], keys };
+        }
+        const arr = pl.pick ? pl.pick(body) : (Array.isArray(body) ? body : Object.values(body || {}).find((v) => Array.isArray(v)));
+        if (!Array.isArray(arr)) return { state: "unreadable", code: `http_${pr.status}`, methods, rows: [] };
+        return { state: arr.length ? "live" : "empty", code: "", methods, rows: arr };
+      };
+      const schRead = SCH_PLANES.map((pl, i) => ({ ...pl, ...schClassify(pl, schProbes[i]), status: schProbes[i].status, body: schProbes[i].body }));
+      const schBy = Object.fromEntries(schRead.map((r) => [r.key, r]));
+      const schCount = (s) => schRead.filter((r) => r.state === s).length;
+      // ONE gap contract for every named absence (aria + title + data-ioi reason, all three on the
+      // same element). sgap marks a CHROME control the reference offers and the estate cannot
+      // honour; sdash marks a FIELD the record itself does not carry. Every reason is written for
+      // ITS control — a reused reason is a decorative assertion and the gate fails on one.
+      const sgap = (cls, label, reason) => `<span class="${cls} sch-gap" aria-disabled="true" title="${esc(reason)}" data-ioi-disabled-reason="${esc(reason)}">${esc(label)}</span>`;
+      const sdash = (reason) => `<span class="sch-dash" aria-disabled="true" title="${esc(reason)}" data-ioi-disabled-reason="${esc(reason)}">—</span>`;
+      // ---- THE THREE COUNTS, each labelled with the PREDICATE that produced it and the WINDOW it
+      // covers. They agree today by arithmetic, not by definition, and the deltas are computed.
+      const schHb = (schBy.scheduler_status.state === "live" && schBy.scheduler_status.body) || {};
+      const schHeart = (schHb.heartbeat && typeof schHb.heartbeat === "object") ? schHb.heartbeat : {};
+      const schPosture = (schHb.posture && typeof schHb.posture === "object") ? schHb.posture : {};
+      const schNum = (v) => (Number.isFinite(Number(v)) ? Number(v) : null);
+      const schLoopActive = schNum(schHeart.scheduled_active);           // LOOP predicate: enabled && an active spec type
+      const schOpsRows = schBy.ops_scheduler.state === "live" ? schBy.ops_scheduler.rows : [];
+      const schRecordsCount = schWithSpec.length;                        // RECORDS predicate: carries a schedule_spec object
+      const schDisabled = schWithSpec.filter((a) => a.enabled !== true);
+      // The reference-vocabulary count: what the field literally NAMED `trigger` says. It is the
+      // number this surface would print if it trusted the name instead of the runtime.
+      const SCH_CADENCE_WORDS = new Set(["cron", "schedule", "scheduled", "interval", "timer", "recurring"]);
+      const schTriggerNamed = schAutos.filter((a) => SCH_CADENCE_WORDS.has(String(sstr(a.trigger_kind) || sstr(a.trigger?.kind) || "").toLowerCase()));
+      const schSpecButManualTrigger = schWithSpec.filter((a) => !SCH_CADENCE_WORDS.has(String(sstr(a.trigger_kind) || sstr(a.trigger?.kind) || "").toLowerCase()));
+      const schSeen = schNum(schHeart.automations_seen);
+      // FIELD COMPLETENESS, derived by comparing the SAME record through both projections rather
+      // than pasting a field list: which keys the Operations projection drops, and which (if any)
+      // it adds. JOB-1's rule — find the COMPLETE projection before rendering a row.
+      const schOpsById = Object.fromEntries(schOpsRows.map((r) => [String(r.automation_id || ""), r]));
+      const schCompare = schWithSpec.map((a) => {
+        const o = schOpsById[String(a.automation_id || "")] || null;
+        return { id: String(a.automation_id || ""), dropped: o ? Object.keys(a).filter((k) => !(k in o)) : Object.keys(a), added: o ? Object.keys(o).filter((k) => !(k in a)) : [] };
+      });
+      const schDroppedFields = [...new Set(schCompare.flatMap((c) => c.dropped))].sort();
+      const schAddedFields = [...new Set(schCompare.flatMap((c) => c.added))].sort();
+      const schUnreachedByOps = schWithSpec.filter((a) => !schOpsById[String(a.automation_id || "")]);
+      // ---- The CADENCE projection. cron-preview stores nothing, so its occurrences are COMPUTED
+      // and labelled; the record's own next_run_at is RECORDED by the loop and labelled separately.
+      const SCH_PREVIEW_CAP = 12;
+      const schPreviewFor = await Promise.all(schRows.slice(0, SCH_PREVIEW_CAP).map(async (a) => {
+        const cron = sstr(schSpecOf(a)?.cron);
+        if (!cron) return { id: String(a.automation_id || ""), runs: [], reason: "not a cron spec" };
+        const tz = sstr(schSpecOf(a)?.timezone) || "UTC";
+        const pr = await schProbe(`/v1/hypervisor/cron-preview?cron=${encodeURIComponent(cron)}&tz=${encodeURIComponent(tz)}&n=3`);
+        const runs = Array.isArray(pr.body?.runs) ? pr.body.runs : [];
+        return { id: String(a.automation_id || ""), runs, reason: pr.body?.ok === false ? String(pr.body.error || "declined") : "" };
+      }));
+      const schPreviewBy = Object.fromEntries(schPreviewFor.map((p) => [p.id, p]));
+      // Rendered in UTC and LABELLED UTC. Every schedule instant the estate stores is a UTC
+      // instant; formatting one in the serving host's local zone would print a time the estate
+      // never recorded, and a schedule read an hour wrong is worse than a schedule read as a raw
+      // stamp. The raw value is printed beneath every formatted one regardless.
+      const sfdt = (iso) => { const d2 = new Date(iso || 0); return isNaN(d2) ? "" : `${d2.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "UTC" })} UTC`; };
+      const SCH_ROW_CAP = 100;
+      const schShown = schRows.slice(0, SCH_ROW_CAP);
+      const schRowHtml = schShown.map((a) => {
+        const spec = schSpecOf(a) || {};
+        const id = String(a.automation_id || "");
+        const cron = sstr(spec.cron);
+        const tz = sstr(spec.timezone);
+        const next = sstr(a.next_run_at);
+        const last = sstr(a.last_run_at);
+        const pv = schPreviewBy[id];
+        const enabled = a.enabled === true;
+        return `<div class="sch-row" data-ioi-schedule="${esc(id)}" data-ioi-schedule-enabled="${enabled ? "yes" : "no"}">`
+          + `<span><b>${esc(sstr(a.name) || id || "schedule")}</b><code class="sch-ref">${esc(id)}</code>`
+          + `<code class="sch-ref">project ${esc(sstr(a.project_id) || sstr(a.project_ref) || "—")}</code></span>`
+          + `<span data-ioi-cadence="${esc(cron)}">${cron ? `<code class="sch-cron">${esc(cron)}</code><code class="sch-ref">field: schedule_spec.cron · type ${esc(sstr(spec.type) || "—")} · tz ${esc(tz || "—")}</code>`
+            : sdash("This record carries a schedule_spec that is not a cron spec, so no cron expression can be shown for it — the estate also accepts interval specs, and this surface prints the field the record actually has rather than translating one shape into the other (typed absence)")}</span>`
+          + `<span data-ioi-next-run="${esc(next)}">${next ? `${esc(sfdt(next) || next)}<code class="sch-ref">RECORDED by the loop: field next_run_at (${esc(next)})</code>`
+            : sdash("This record carries no next_run_at. The scheduler loop stamps that field the first time it sees a schedule and never fires on that first sight, so an absent next_run_at means the loop has not yet admitted this schedule — it is not a fire that was missed and it is not a zero (typed absence)")}</span>`
+          + `<span>${last ? `${esc(sfdt(last) || last)}<code class="sch-ref">field: last_run_at (${esc(last)})</code>` : sdash("This record carries no last_run_at, so the estate holds no evidence this schedule has ever fired. That is an absence of a stamp, not a record of never having run (typed absence)")}</span>`
+          + `<span data-ioi-schedule-posture="${esc(`${sstr(a.catch_up_policy) || "—"}/${sstr(a.misfire_policy) || "—"}`)}">`
+          + `<code class="sch-ref">enabled: <b>${enabled ? "true" : String(a.enabled)}</b> · max_concurrency ${esc(String(a.max_concurrency ?? "—"))}</code>`
+          + `<code class="sch-ref">catch_up ${esc(sstr(a.catch_up_policy) || "—")} · misfire ${esc(sstr(a.misfire_policy) || "—")} · on failure ${esc(sstr(a.failure_policy) || "—")}</code></span>`
+          + `<span>${pv && pv.runs.length ? `${pv.runs.map((r) => `<code class="sch-ref sch-computed">${esc(r)}</code>`).join("")}<code class="sch-ref"><b>COMPUTED</b> by /v1/hypervisor/cron-preview — not stored anywhere</code>`
+            : sdash("No further occurrences are shown for this schedule: cron-preview is a pure computation over a cron expression, and this record carries no cron expression for it to compute from. Nothing is inferred from the interval shape here (typed absence)")}</span>`
+          + `<span><a class="sch-ref" href="/__ioi/automations/monitors">Automate →</a><a class="sch-ref" href="/__ioi/missions/builds">its runs →</a></span></div>`;
+      }).join("");
+      // ---- The reference's OWN controls, answered one by one. The live target is a find/list
+      // landing whose result set is EMPTY; every control it offers is answered here with the
+      // estate lane that binds it or the typed refusal that does not.
+      const schControls = [
+        { ref: "Create schedule", bound: false,
+          copy: `Refused by DESIGN, not by gap. The estate mints no schedule OBJECT: a schedule is a <code>schedule_spec</code> field on an automation record, so "create a schedule" is "create or patch an automation" — <code>POST /v1/hypervisor/automations</code> (which refuses with the daemon's own typed <code>automation_project_ref_required</code> unless a project is declared, because the project is the automation's durable container) or <code>PATCH /v1/hypervisor/automations/:id</code>. Both are owned by <a href="/__ioi/automations">Automations</a> and a read-only projection never re-mints another surface's authority-crossing verb.`,
+          gap: ["Create schedule", "The reference's Create-schedule button opens a schedule authoring flow. The estate has no schedule object to create: a schedule is a schedule_spec FIELD on an automation, so the real verbs are POST /v1/hypervisor/automations (refused with the typed code automation_project_ref_required unless a project_ref is declared — the project is the automation's durable container) and PATCH /v1/hypervisor/automations/:id, both owned by Automations. Minting a create form here would be a second mutation spine over someone else's plane (typed absence by DESIGN)"] },
+        { ref: "Set search parameters", bound: false,
+          copy: `The reference's search-parameter panel builds a server-side query. The daemon's automations route accepts NO query parameters at all — this surface reads the whole plane and counts it — so a parameter panel here could only ever filter a set that is already fully rendered, while looking like it had asked the plane a question.`,
+          gap: ["Set search parameters", "The reference opens a panel that composes a server-side schedule query. The daemon's automations route accepts no query parameters of any kind, so every control in such a panel would be a client-side filter wearing a plane query's clothes — and the whole census is already rendered below, so there is nothing for it to fetch (typed absence)"] },
+        { ref: "Filter by name or rid…", bound: false,
+          copy: `Two absences in one control. There is no server-side name filter (the plane takes no parameters), and there is no <b>rid</b>: the vendor's resource identifier is a tenant-wide addressing scheme the estate does not mint — an estate schedule is addressed by its automation's <code>automation_id</code>, which is printed in full on every row.`,
+          gap: ["Filter by name or rid…", "The reference filters the result set by name or by RID. The estate mints no RID — a schedule is addressed by the automation_id printed on its row — and the automations plane accepts no name parameter, so this input would filter a fully-rendered census client-side while implying the plane had been asked (typed absence)"] },
+        { ref: "Sorted by most recently updated", bound: false,
+          copy: `The rows below are ordered by <b>next occurrence, soonest first</b>, and that is stated rather than disguised as the reference's order. Sorting by "most recently updated" would read <code>updated_at</code> — which is the AUTOMATION's update stamp, not the schedule's: editing a step or a name moves it, changing the cadence need not. Ordering schedules by an edit to something else is a worse answer than saying so.`,
+          gap: ["Sorted by most recently updated", "The reference sorts the result set by its most-recently-updated stamp. The estate's nearest field, updated_at, belongs to the AUTOMATION and not to its schedule — a step edit moves it and a cadence change need not — so this order would rank schedules by an edit to a different thing. The rows are ordered by next occurrence instead and the page says so (typed absence)"] },
+        { ref: "Select schedules…", bound: false,
+          copy: `Bulk selection exists to feed bulk verbs (pause these, delete those). This surface is a READ-ONLY projection and holds no verb at all, so a selection tray would collect rows for nothing.`,
+          gap: ["Select schedules…", "The reference's selection tray exists to feed bulk verbs — pause, resume, delete across many schedules at once. This is a read-only projection that re-mints no verb, so a tray here would gather rows for an action that does not exist on this surface; the per-automation verbs live on Automations (typed absence)"] },
+        { ref: "Results matching (principal chip)", bound: false,
+          copy: `The reference's chip asserts the result set was FILTERED to one principal. The census below is <b>unfiltered</b> — it is every schedule-bearing record the plane holds — so rendering a principal chip beside it would misstate the query that produced the rows. The estate does record an <code>executor_identity</code> per automation, and it is on the row's own record, not in a chip that claims a filter nobody applied.`,
+          gap: ["Results matching", "The reference's chip states that the result set was narrowed to a principal. This census is unfiltered — every schedule-bearing record on the plane renders below — so a principal chip here would describe a query that was never run. The estate's executor_identity is a per-automation field, not a filter that was applied (typed absence)"] },
+        { ref: "APPLICATIONS (facet group)", bound: false,
+          copy: `The reference's APPLICATIONS group is a per-user favourited-apps lane, and on the live tenant it is EMPTY with its own copy ("Your favorited apps will appear here"). Here it is <b>MISSING, not empty</b>: the estate holds no per-principal favourites plane at all, so there is nothing that could ever fill it. That distinction is the whole point — an empty lane says "nothing yet", a missing plane says "never".`,
+          gap: ["APPLICATIONS", "The reference's APPLICATIONS facet group lists a principal's favourited applications and is EMPTY on the live tenant with its own placeholder copy. The estate holds no per-principal favourites or pinned-application plane of any kind, so this lane is MISSING here rather than empty — a distinction this port refuses to blur, because an empty lane promises content that a missing plane can never deliver (typed absence)"] },
+      ];
+      const schControlRows = schControls.map((c) => `<div class="sch-crow" data-ioi-control="${esc(c.ref)}" data-ioi-control-bound="${c.bound ? "yes" : "no"}">`
+        + `<span><b>${esc(c.ref)}</b></span>`
+        + `<span>${c.bound ? `<code class="sch-ref">${esc(c.field)}</code>` : `<span class="sch-nolane">no estate lane</span>`}</span>`
+        + `<span class="sch-ccopy">${c.copy}</span></div>`).join("");
+      // ---- The plane census: one row per plane, classified live and stamped.
+      const schStateLabel = { live: "LIVE", empty: "EMPTY", refused: "REFUSED", no_read_route: "NO READ ROUTE", unreadable: "UNREADABLE" };
+      const schStateCopy = (r) => {
+        if (r.state === "live" && r.shape === "singleton") return `the plane answered with a single status OBJECT (${r.keys.length} field${r.keys.length === 1 ? "" : "s"}) — read as an object, never counted as one row`;
+        if (r.state === "live" && r.shape === "computation") return `the computation answered with ${r.rows.length} occurrence${r.rows.length === 1 ? "" : "s"} — COMPUTED on this render, stored nowhere`;
+        if (r.state === "live") return `${r.rows.length} record${r.rows.length === 1 ? "" : "s"} — counted from the plane on this render`;
+        if (r.state === "empty") return `the plane answered and holds none — an EMPTY plane, not a missing one`;
+        if (r.state === "refused") return `the plane refused this read: <code>${esc(r.code)}</code> — a REFUSAL, never a zero`;
+        if (r.state === "no_read_route") return `the daemon's route index publishes no GET here (${r.methods.length ? `methods: ${esc(r.methods.join(", "))}` : `no route at all — HTTP ${esc(String(r.status))}`}) — nothing to read, which is not the same as reading nothing`;
+        return `the plane did not answer readably (<code>${esc(r.code)}</code>) — stated, never guessed`;
+      };
+      const schPlaneRows = schRead.map((r) => `<div class="sch-prow" data-ioi-plane="${esc(r.path)}" data-ioi-plane-state="${esc(r.state)}" data-ioi-plane-shape="${esc(r.shape)}">`
+        + `<span><b>${esc(r.label)}</b><span class="sch-role">${esc(r.role)}</span>${r.path === r.probe ? "" : `<code class="sch-ref">probed as ${esc(r.probe.split("?")[0])}</code>`}</span>`
+        + `<span><code class="sch-ref">${esc(r.path)}</code><code class="sch-ref">shape: ${esc(r.shape)}</code></span>`
+        + `<span class="sch-state sch-state-${esc(r.state)}">${esc(schStateLabel[r.state] || r.state)}</span>`
+        + `<span class="sch-scopy">${schStateCopy(r)}</span>`
+        + `<span><a href="${esc(r.owner)}">${esc(r.ownerLabel)} →</a></span></div>`).join("");
+      const schDispatchPath = sstr(schPosture.dispatch_path);
+      const schFoot = `SCH-1 (remediation v2): the BUILD SCHEDULES port. The mirror-scoped verdict was absent_confirmed (#scheduler — "no expressed IA at any atlas state; the Operations boundary stands"); the owner-authorized live sweep OVERTURNED it and recorded a real find/list landing (title "Build Schedules" · a Create-schedule header verb · Set-search-parameters · a sort control · a selection tray · a "Filter by name or rid…" input · an APPLICATIONS facet group · <b>0 rows</b> — the live tenant's own result set is genuinely empty, so the EMPTY-STATE IA is the seed). That supersession is recorded in reference-seed-adjudications.v1.json#scheduler-port and the mirror record stands as history. <b>${schRead.length}</b> schedule-bearing and cadence-adjacent planes were probed live on this render and answered in four states — <b>${schCount("live")} LIVE</b> · <b>${schCount("empty")} EMPTY</b> · <b>${schCount("refused")} REFUSED</b> · <b>${schCount("no_read_route")} NO READ ROUTE</b>. READ-ONLY: the schedule verbs (create or patch the automation that carries the schedule_spec, pause it, run it now) belong to <a href="/__ioi/automations">Automations</a> and are not re-minted here; the fires themselves are already rendered by <a href="/__ioi/missions/builds">Builds</a> and are linked, never re-listed. Evidence: reference-seed-adjudications.v1.json#scheduler-port · reference-live-tenant-deep-atlas.v1.json#scheduler (landing) · .artifacts/live-tenant-atlas/deep/scheduler-landing.png. Owner: <a href="/__ioi/missions">Missions</a> · loop health: <a href="/__ioi/operations">Operations</a> · the plane: <a href="/__ioi/automations/monitors">Automate</a>.`;
+      sendOwnedSurfaceHtml(res, "scheduler", `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Build Schedules</title><style>
+        :root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#fff;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif}a{color:#215db0;text-decoration:none}
+        .sch-shell{display:flex;flex-direction:column;min-height:100vh}
+        .sch-header{flex:0 0 50px;display:flex;align-items:center;gap:14px;background:#fff;box-shadow:0 1px 0 #d1d1d1,0 3px 4px rgba(0,0,0,.04);z-index:6}
+        .sch-hchip{width:50px;height:50px;flex:0 0 50px;background:rgba(29,147,122,.12) center/24px no-repeat}
+        .sch-title{font-size:16px;font-weight:600;color:#404854;margin:0}
+        .sch-hright{display:flex;align-items:center;gap:8px;margin-left:auto;padding-right:16px;flex-wrap:wrap}
+        .sch-chip{display:inline-flex;align-items:center;height:30px;padding:0 10px;border-radius:4px;border:1px solid #d1d1d1;font-size:13px;color:#404854}
+        .sch-link{display:inline-flex;align-items:center;height:30px;padding:0 12px;border-radius:4px;background:#2d72d2;color:#fff;font-size:13px}
+        .sch-tray{display:inline-flex;align-items:center;gap:2px;border:1px solid #e5e8eb;border-radius:4px;padding:2px;flex-wrap:wrap}
+        .sch-tchip{display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 9px;border-radius:3px;font-size:12px;color:#5f6b7c}
+        .sch-gap{opacity:.62;cursor:not-allowed}
+        .sch-dash{color:#a8b2be;cursor:not-allowed}
+        .sch-sub{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:12px 22px;border-bottom:1px solid #e5e8eb}
+        .sch-count{font-size:15px;font-weight:600;color:#1c2127}
+        .sch-subr{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+        .sch-tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 22px 0}
+        .sch-input{display:inline-flex;align-items:center;height:32px;border:1px solid #d1d1d1;border-radius:4px;padding:0 10px;font-size:13px;color:#8a94a2;min-width:0}
+        .sch-body{flex:1;min-width:0;padding:10px 22px 40px;overflow-x:auto;max-width:1340px;width:100%}
+        .sch-h{font-size:16px;font-weight:600;margin:26px 0 4px}
+        .sch-note{font-size:12px;color:#5f6b7c;margin:0 0 12px;line-height:1.65}
+        .sch-thead,.sch-row{display:grid;grid-template-columns:1.7fr 1.3fr 1.2fr 1.1fr 1.4fr 1.5fr .8fr;gap:8px;padding:9px 8px;min-width:900px}
+        .sch-phead,.sch-prow{display:grid;grid-template-columns:2.4fr 1.5fr .9fr 2.1fr .8fr;gap:8px;padding:9px 8px;min-width:700px}
+        .sch-chead,.sch-crow{display:grid;grid-template-columns:1fr 1fr 3.2fr;gap:8px;padding:9px 8px;min-width:620px}
+        .sch-thead,.sch-phead,.sch-chead{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#5f6b7c;border-bottom:1px solid #e5e8eb}
+        .sch-row,.sch-prow,.sch-crow{align-items:center;border-bottom:1px solid #f0f2f5;font-size:13px;color:#1c2127}
+        .sch-row:hover,.sch-prow:hover,.sch-crow:hover{background:#f6f7f9}
+        .sch-ref{display:block;font-size:11px;color:#5f6b7c;word-break:break-all;margin-top:2px}
+        .sch-computed{color:#946638}
+        .sch-nolane{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.03em;color:#946638;border:1px solid #f0dca6;background:#fff8e6;border-radius:3px;padding:2px 7px}
+        .sch-cron{display:inline-block;font-size:12px;font-weight:600;background:#f1f3f6;border:1px solid #e5e8eb;border-radius:3px;padding:1px 6px}
+        .sch-role{display:block;font-size:11px;color:#5f6b7c;line-height:1.5;margin-top:2px}
+        .sch-scopy,.sch-ccopy{font-size:12px;color:#5f6b7c;line-height:1.55}
+        .sch-state{font-size:11px;font-weight:600;letter-spacing:.03em;border-radius:3px;padding:2px 7px;text-align:center;border:1px solid}
+        .sch-state-live{color:#1c6e42;border-color:#9bc4ab;background:#eef8f2}
+        .sch-state-empty{color:#5f6b7c;border-color:#d1d1d1;background:#f6f7f9}
+        .sch-state-refused{color:#946638;border-color:#f0dca6;background:#fff8e6}
+        .sch-state-no_read_route{color:#7961db;border-color:#cfc4f5;background:#f3f0fd}
+        .sch-state-unreadable{color:#a82a2a;border-color:#eab8b8;background:#fdf0f0}
+        .sch-call{border:1px solid #cfd9e6;background:#f4f8fd;border-radius:4px;padding:18px 20px;color:#5f6b7c;font-size:13px;line-height:1.7;margin:0 0 16px}
+        .sch-call h3{font-size:15px;color:#1c2127;margin:0 0 8px}
+        .sch-call p{margin:0 0 8px}
+        .sch-absent{border:1px solid #f0dca6;background:#fff8e6;border-radius:4px;padding:16px 18px;color:#5f6b7c;font-size:13px;line-height:1.65;margin:0 0 16px}
+        .sch-empty{padding:22px 10px;color:#5f6b7c;font-size:14px;line-height:1.6}
+        .sch-foot{font-size:12px;color:#7b8494;line-height:1.65;margin:0;padding:18px 22px 40px}
+        @media(max-width:700px){
+          .sch-thead,.sch-phead,.sch-chead{display:none}
+          .sch-row,.sch-prow,.sch-crow{grid-template-columns:1fr;min-width:0;gap:2px;padding:10px 8px}
+          .sch-row *,.sch-prow *,.sch-crow *,.sch-note,.sch-call *,.sch-absent *,.sch-foot{overflow-wrap:anywhere;min-width:0}
+          .sch-body{overflow-x:hidden;padding:10px 14px 34px}
+          .sch-body *{min-width:0;overflow-wrap:anywhere}
+          .sch-header{flex:0 0 auto;flex-wrap:wrap;padding:8px 0 10px;gap:8px}
+          .sch-hright{margin-left:0;padding:0 12px;width:100%}
+          .sch-sub,.sch-tools{padding-left:14px;padding-right:14px}
+          .sch-subr{margin-left:0}
+          .sch-input{width:100%}
+          .sch-call,.sch-absent{padding:14px}
+        }
+      </style></head><body><div class="sch-shell">
+        <header class="sch-header">
+          <span class="sch-hchip" aria-hidden="true" style="background-image:url('${ISSUES_APP_ICON_URI}')"></span>
+          <h1 class="sch-title">Build Schedules</h1>
+          <div class="sch-hright">
+            <span class="sch-tray">
+              <span class="sch-tchip" data-ioi-tray="scheduled_active" title="the SCHEDULER LOOP's own count of the schedules it admitted on its last tick — its predicate is enabled === true AND an active spec type, and it never reads the trigger field. A state, and the closest thing the estate keeps to a total">⟳ <b>${schLoopActive === null ? "—" : schLoopActive}</b></span>
+              <span class="sch-tchip" data-ioi-tray="fired_dispatches" title="dispatches the loop fired on its LAST TICK ONLY — a ${esc(String(schPosture.tick_interval_secs ?? schHeart.tick_interval_secs ?? "?"))}-second window, NOT a lifetime total. The estate keeps no lifetime dispatch counter; the fires themselves live on the work ledger and are rendered by Builds">✓ <b>${schNum(schHeart.fired_dispatches) === null ? "—" : schNum(schHeart.fired_dispatches)}</b></span>
+              <span class="sch-tchip" data-ioi-tray="misfire_skips" title="occurrences the loop skipped on its LAST TICK ONLY because the automation was already at its concurrency cap — the same single-tick window as the dispatch counter beside it, and not a running total of missed fires">✕ <b>${schNum(schHeart.misfire_skips) === null ? "—" : schNum(schHeart.misfire_skips)}</b></span>
+            </span>
+            ${sgap("sch-chip", "＋ Create schedule ↗", schControls[0].gap[1])}
+            <a class="sch-link" href="/__ioi/automations">Automations →</a>
+          </div>
+        </header>
+        <div class="sch-sub">
+          <span class="sch-count" data-ioi-schedule-count="${schRecordsCount}">${schRecordsCount} schedule${schRecordsCount === 1 ? "" : "s"}</span>
+          <span class="sch-ref" style="margin:0">counted on this render from the records predicate: an automation record carrying a <code>schedule_spec</code> object</span>
+          ${sgap("sch-chip", "Results matching…", schControls[5].gap[1])}
+          <span class="sch-subr">${sgap("sch-chip", "⊕ Set search parameters", schControls[1].gap[1])}</span>
+        </div>
+        <div class="sch-tools">
+          ${sgap("sch-chip", "⇅ Sorted by most recently updated", schControls[3].gap[1])}
+          ${sgap("sch-chip", "▤ Select schedules…", schControls[4].gap[1])}
+          ${sgap("sch-chip", "▼", "The reference's filter glyph opens the same server-side query panel as Set-search-parameters, in one click instead of two. It is a second entrance to a panel the estate cannot build, and a shortcut to nothing is still nothing (typed absence)")}
+          <span class="sch-input">${sgap("sch-chip", "🔍 Filter by name or rid…", schControls[2].gap[1])}</span>
+        </div>
+        <div class="sch-body">
+          <h2 class="sch-h">Schedules</h2>
+          <p class="sch-note">Rows are the plane or there are no rows. Every schedule below is a REAL automation record carrying a <code>schedule_spec</code>, rendered with the estate's OWN column names and ordered by <b>next occurrence, soonest first</b> — not by the reference's update order, for the reason given in the control table below. ${schRows.length > SCH_ROW_CAP ? `The soonest <b>${SCH_ROW_CAP}</b> of <b>${schRows.length}</b> render here (cap NAMED, never silent).` : `All <b>${schRows.length}</b> render here.`}</p>
+          <div class="sch-thead"><span>Schedule</span><span>Cadence</span><span>Next run</span><span>Last run</span><span>Posture</span><span>Further occurrences</span><span>Owner</span></div>
+          ${schRowHtml || `<div class="sch-empty">No automation record on the plane carries a <code>schedule_spec</code>, so the estate holds no schedule to render. The plane ANSWERED and held none — this is an empty result, not a refused read and not a missing plane, and no row is fabricated to fill the table.</div>`}
+          <h2 class="sch-h">The field named for the schedule is not the field the runtime acts on</h2>
+          <div class="sch-call">
+            <h3>Three counts of one census, and the one that carries the word "trigger" agrees with none of them</h3>
+            <p>Counted from the planes themselves on this render, never pasted. The <b>records</b> predicate — an automation carrying a <code>schedule_spec</code> object, which is exactly the test <code>/v1/hypervisor/operations</code> applies — finds <b>${schRecordsCount}</b>. That projection itself returns <b>${schOpsRows.length}</b>. The <b>loop</b> predicate — the scheduler's own admission test, <code>enabled === true</code> AND an active spec type — reports <b>${schLoopActive === null ? "—" : schLoopActive}</b> in its heartbeat. And the field literally named <code>trigger</code> / <code>trigger_kind</code> names a cadence on <b>${schTriggerNamed.length}</b> of the ${schAutos.length} automations on the plane.</p>
+            <p><b>${schSpecButManualTrigger.length}</b> of the ${schRecordsCount} schedule${schRecordsCount === 1 ? "" : "s"} above carr${schSpecButManualTrigger.length === 1 ? "ies" : "y"} a cadence in <code>schedule_spec</code> while ${schSpecButManualTrigger.length === 1 ? "its" : "their"} <code>trigger</code> field still reads something else. A "trigger-shaped" schedules view built on the field that carries the word would therefore have reported <b>${schTriggerNamed.length}</b> schedules while the daemon's own loop was firing <b>${schLoopActive === null ? "—" : schLoopActive}</b>. This surface counts what the runtime acts on and says which predicate produced every number it prints.</p>
+            <p>The two predicates are not the same test and are not guaranteed to agree: the records predicate never reads <code>enabled</code>, so a paused schedule still appears in the Operations projection while the loop excludes it. Not enabled on this render: <b>${schDisabled.length}</b> of <b>${schRecordsCount}</b> schedule-bearing record${schRecordsCount === 1 ? "" : "s"}${schLoopActive === null ? "" : `; the records-minus-loop delta is <b>${schRecordsCount - schLoopActive}</b>`}. Any residual beyond the paused ones is the loop's own spec-activeness test, which this surface does <b>not</b> re-implement — re-deriving another component's admission predicate here would be a second answer waiting to disagree with the first.</p>
+            <p>The loop saw <b>${schSeen === null ? "—" : schSeen}</b> automations on its last tick; the plane holds <b>${schAutos.length}</b> on this read.</p>
+          </div>
+          <h2 class="sch-h">A scheduled fire is not marked as one</h2>
+          <div class="sch-call">
+            <h3>The estate records no field that distinguishes a fire from a manual start</h3>
+            <p>The scheduler states its own dispatch path: <i>${schDispatchPath ? esc(schDispatchPath) : "the heartbeat did not publish a dispatch_path on this render, so none is quoted"}</i>${schDispatchPath ? " — quoted verbatim from <code>/v1/hypervisor/scheduler/status</code>" : ""}. Because the loop fires through the same route a person uses, the execution it produces is indistinguishable from a manual one in the record: the run's <code>trigger_kind</code> reads the automation's, and no plane stamps "this run was dispatched by the scheduler".</p>
+            <p>So this surface answers <b>when a schedule will fire</b> and refuses to answer <b>which past runs were fires</b> — the estate did not record it, and a time-correlation between a run's timestamp and a cron slot would be this surface inventing an edge no record holds. The runs themselves are already rendered over the work-ledger run lane by <a href="/__ioi/missions/builds">Builds</a>; one plane gets one renderer, so they are linked here and not re-listed.</p>
+          </div>
+          <h2 class="sch-h">The complete projection, and what the shorter one drops</h2>
+          <div class="sch-call">
+            <h3>Two projections of the same schedule, and only one carries every field</h3>
+            <p>The same records are published twice: in full on <code>/v1/hypervisor/automations</code>, and pre-filtered on <code>/v1/hypervisor/operations</code> under <code>scheduler.automations</code>. Compared field-by-field on this render for the ${schRecordsCount} schedule-bearing record${schRecordsCount === 1 ? "" : "s"}, the Operations projection drops <b>${schDroppedFields.length}</b> field${schDroppedFields.length === 1 ? "" : "s"}${schDroppedFields.length ? ` — ${schDroppedFields.map((f) => `<code>${esc(f)}</code>`).join(" · ")}` : ""}, and adds <b>${schAddedFields.length}</b>${schAddedFields.length ? ` — ${schAddedFields.map((f) => `<code>${esc(f)}</code>`).join(" · ")}` : " (it is a strict subset)"}. ${schUnreachedByOps.length ? `<b>${schUnreachedByOps.length}</b> schedule-bearing record${schUnreachedByOps.length === 1 ? " is" : "s are"} not reachable through it at all.` : "Every schedule-bearing record is reachable through both."}</p>
+            <p>That is why the table above reads the automations plane: the shorter projection carries no <code>catch_up_policy</code>, no <code>misfire_policy</code> and no <code>executor_identity</code>, and the Posture column would have had to be a row of dashes over fields that exist. The comparison is recomputed on every render from the two planes themselves, so the choice cannot rot into a stale justification.</p>
+          </div>
+          <h2 class="sch-h">The APPLICATIONS lane — MISSING, not empty</h2>
+          <div class="sch-absent">
+            The reference's only facet group on this landing is <b>APPLICATIONS</b>, and on the live tenant it renders EMPTY with its own copy: <i>"Your favorited apps will appear here."</i> An empty lane promises content. This port renders it as a <b>typed absence instead</b>, because the estate holds no per-principal favourites or pinned-application plane of any kind — nothing exists that could ever fill it. ${sgap("sch-chip", "APPLICATIONS", schControls[6].gap[1])} <b>EMPTY is not MISSING</b>: the reference's lane is waiting for data, and this one is waiting for a plane.
+          </div>
+          <h2 class="sch-h">The reference's controls, answered one by one</h2>
+          <p class="sch-note">A ported landing that keeps a reference control and wires it to something else is not a port, it is a mislabel. Each control the live capture recorded is answered below with the estate lane that binds it — or with the typed refusal that does not, in a reason written for that control.</p>
+          <div class="sch-chead"><span>Reference control</span><span>Estate lane</span><span>What binds it, or why nothing does</span></div>
+          ${schControlRows}
+          <h2 class="sch-h">Schedule &amp; cadence planes — read live, classified into four states</h2>
+          <p class="sch-note">Every row is a REAL daemon plane and its state was classified from that plane's own response on this render, then stamped on the row (<code>data-ioi-plane-state</code>) so it can never be pasted and never rot. <b>LIVE</b> = the plane answered and holds records. <b>EMPTY</b> = it answered and holds none. <b>REFUSED</b> = the plane refused this read with a typed code — <b>a refusal is not a zero</b>. <b>NO READ ROUTE</b> = the daemon's own route index publishes no GET for it; there is nothing to read, which is not the same as reading nothing. <b>REFUSED is not EMPTY, EMPTY is not MISSING</b>, and a plane with no read route is none of the three. The <code>shape</code> column carries a fourth distinction this leg needed: a status <b>singleton</b> is not a collection of one, and a <b>computation</b> is not a plane at all.</p>
+          <div class="sch-phead"><span>Plane</span><span>Route · shape</span><span>State</span><span>What that state means here</span><span>Owner</span></div>
+          ${schPlaneRows}
+          <p class="sch-foot">${schFoot}</p>
+        </div>
+      </div></body></html>`);
+      return;
+    }
     // ---- Studio · Workshop — STU-1/STU-2 (remediation v2): the D6 COMBINED-SEED port. The
     // workshop capture is byte-dead; module's capture BOOTS AS "Workshop — Home" (atlas splash
     // state, 5 facet groups) and is the recorded donor (roles donor+authoring_flow). The I-4
