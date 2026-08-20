@@ -38,7 +38,10 @@
     "check:owned-product-ui": "node scripts/verify-owned-product-ui.mjs",
     "check:shell-parity": "node scripts/verify-hypervisor-shell-parity.mjs",
     "test:product-shell-auth": "node --test scripts/product-shell-auth.test.mjs",
-    "check:source-neutral": "node scripts/check-source-neutral.mjs"
+    "check:source-neutral": "node scripts/check-source-neutral.mjs",
+    "check:landing-designations": "node scripts/check-landing-designations.mjs --exit-gate",
+    "check:app-runtime-safety": "node scripts/verify-hypervisor-app-runtime-safety.mjs",
+    "check:native-shell": "node scripts/verify-hypervisor-native-shell-integration.mjs"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.3",

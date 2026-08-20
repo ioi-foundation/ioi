@@ -778,6 +778,12 @@
       "rung": "Post-ARCH-1 repairs: family-landing owned markers + jobs refusal-gate posture re-aim",
       "did": "(1) ARCH-1's handed-back finding closed: /studio (a registry canonical mount) rendered zero data-ioi-surface-route markers \u2014 the family splash landing never carried the owned-surface marker the product-surfaces smoke demands. renderSplashLanding gained a surfaceRoute/surfaceOwner opt-in and all four family landings (/studio /data /ontology /developer-workspace) now stamp their marker. (2) The session-registry repair (873 legacy records re-slotted; the estate-wide session_registry_unavailable 503 is dead) emptied the jobs port's refused-plane population \u2014 its refusal-rendering assertion required length>0 and failed at the healthy posture. Re-aimed: with refusals present the original verbatim-code/never-a-count bar applies; with an honestly empty population the teeth move to the SOURCE (the handler must carry the sessions-refusal branch verbatim \u2014 deleting the branch fails even when nothing refuses). Mutation-tested precisely: the doctrine string exists at TWO serve sites, so the first mutation passed via the sibling \u2014 re-mutated the jobs-specific branch string \u2192 exactly that FAIL; restored \u2192 OK.",
       "checks": "domain-landings 189/189 OK; surface-modules OK; stage5 0 issues; /studio + 3 family landings stamp markers; jobs gate mutation-verified"
+    },
+    {
+      "n": 60,
+      "rung": "IMPL-1 hand-backs: defect closures + verifier gating decision",
+      "did": "IMPL-1 (the clean-slate master-guide rebuild) found: (a) the ledger's found_defects read as an open list while all four were closed \u2014 each now carries status/closed/closure naming the closing commit; (b) three load-bearing verifiers had no npm script and no CI membership (landing-designations --exit-gate, app-runtime-safety, native-shell-integration). Decision: all three gain npm scripts (invocable + floors-visible); the FAST designations exit-gate joins the CI journey lane; app-runtime-safety and native-shell-integration stay DELIBERATE LOCAL GATES \u2014 both spawn multiple serve/daemon processes and drive a browser for 5-8 minutes, and both are run at every leg close by program discipline; their pass counts in ledger/commit prose always name the local run. This entry is that decision's record; revisit when a nightly lane exists.",
+      "checks": "check:landing-designations 8/8 via npm; ledger closures committed"
     }
   ],
   "pr_blockers": [
