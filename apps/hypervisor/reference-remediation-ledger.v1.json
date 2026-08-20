@@ -280,7 +280,8 @@
       {
         "id": "EVA-2.build",
         "title": "analysis port (if plane binds)",
-        "status": "queued"
+        "status": "done",
+        "evidence": "Insight SHIPPED at /__ioi/evaluations/insight: Object-sets LIVE (4 materialized sets with run/lease proof refs; saved-sets control-plane refusal rendered VERBATIM as typed degradation \u2014 request_principal_required, never masked); Workbooks typed absence. analysis \u2192 reference_ported. Verifier 37/37."
       },
       {
         "id": "DEV-2",
@@ -524,6 +525,12 @@
       "date": "2026-08-19",
       "did": "W4 DEV-2 SHIPPED (33/33); reference_ported=9, capture=16",
       "next": "W4: EVA-2.build (Insight) then WOR-2 (repositories)"
+    },
+    {
+      "n": 25,
+      "date": "2026-08-19",
+      "did": "W4 EVA-2.build SHIPPED (37/37); reference_ported=10",
+      "next": "W4 final: WOR-2 (repositories via donor code)"
     }
   ],
   "pr_blockers": [

@@ -18,8 +18,8 @@
   "total_seeds": 39,
   "by_parity_class": {
     "daemon_wired": 13,
-    "reference_capture": 16,
-    "reference_ported": 9,
+    "reference_capture": 15,
+    "reference_ported": 10,
     "substrate_bound": 1
   },
   "legend": {
@@ -501,16 +501,27 @@
       "capture_base": "/workspace/insight/",
       "grammar": "editor_canvas",
       "tier": "high_value",
-      "parity_class": "reference_capture",
+      "parity_class": "reference_ported",
       "capture_state": "shell_only",
       "reference_capture": "/__apps/analysis",
       "reference_workspace": "/workspace/insight/",
-      "note": "object-set-first analysis canvas; unbound",
+      "note": "EVA-2.build: both reference tabs adjudicated — one bound, one absent-named (#analysis)",
       "reference_clean_state": "shell_clean_only",
       "reference_clean_reason": "shell renders a WELCOME/empty landing (cards 4 · lines 19, no row/node data) — clean chrome, no real data to port against (proxy lane renders no data (score 0); the origin lane is the readable one)",
       "reference_clean_artifact": "reference-clean-sweep.json",
       "remediation_state": "ia_bearing_empty",
-      "adjudication_ref": "reference-seed-adjudications.v1.json#analysis"
+      "adjudication_ref": "reference-seed-adjudications.v1.json#analysis",
+      "port_surface": "/__ioi/evaluations/insight",
+      "surface_name": "Evaluations",
+      "reference_url_override": "http://localhost:9225/workspace/insight/",
+      "reference_landmarks": [
+        "Insight",
+        "Workbooks",
+        "Object sets"
+      ],
+      "binding": "Object-sets lane LIVE over the real ODK planes (materialized sets open-read with run/lease proof refs; saved sets render the plane's principal-required refusal VERBATIM as typed degradation); Workbooks typed-absent (no workbook plane)",
+      "candidate_surface": "/__ioi/evaluations/insight",
+      "shell_pixel_certified": false
     },
     {
       "owner": "Evaluations",

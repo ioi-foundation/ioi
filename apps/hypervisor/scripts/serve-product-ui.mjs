@@ -9131,6 +9131,59 @@ async function handleEstateRequest(req, res, body) {
       sendOwnedSurfaceHtml(res, "changes", renderChangesPort((pj.proposals || []).sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || ""))), lane, filter));
       return;
     }
+    // ---- Evaluations · Insight — EVA-2.build (remediation v2): the analysis app's landing.
+    // Object-sets lane = LIVE (materialized sets open-read; saved sets are a PRINCIPAL-REQUIRED
+    // control plane — its refusal renders VERBATIM as typed degradation, never masked).
+    // Workbooks = typed absence (no workbook plane).
+    if (pathname === "/__ioi/evaluations/insight" && req.method === "GET") {
+      const [ms, ss] = await Promise.all([
+        daemonFetch(`/v1/hypervisor/odk/materialized-object-sets`).then((r) => r.json()).catch(() => ({})),
+        daemonFetch(`/v1/hypervisor/odk/saved-object-sets`).then((r) => r.json()).catch(() => ({})),
+      ]);
+      const esc = CX_ESC;
+      const msets = ms.materialized_object_sets || [];
+      const saved = ss.saved_object_sets || null;
+      const savedBand = Array.isArray(saved)
+        ? (saved.length ? saved.map((s2) => `<div class="ins-row"><span><b>${esc(s2.name || s2.id)}</b></span><span>${esc(s2.object_type_id || "—")}</span><span>—</span><span>—</span></div>`).join("") : `<div class="ins-note">No saved object sets — real plane, honest empty.</div>`)
+        : `<div class="ins-degraded" title="the daemon's own fail-closed answer, verbatim">saved-object-sets: <code>${esc(ss.code || "unavailable")}</code> — ${esc(ss.message || "the control plane did not answer")} (typed degradation — the plane requires an authenticated principal; nothing is masked)</div>`;
+      const rows = msets.map((m) => `<a class="ins-row" href="/__ioi/ontology/explorer" title="a REAL materialized object set — explore it on Object Explorer"><span><b>${esc(m.object_type_id || m.id)}</b><code class="ins-ref">${esc(m.id)}</code></span><span>${m.count ?? (m.objects || []).length} object${(m.count ?? (m.objects || []).length) === 1 ? "" : "s"}</span><span><code class="ins-ref">${esc(m.materializing_run_ref || "—")}</code></span><span><code class="ins-ref">${esc(m.capability_lease_plan_ref || "—")}</code></span></a>`).join("");
+      const gap = (label, reason) => `<span class="ins-gap" aria-disabled="true" title="${esc(reason)}" data-ioi-disabled-reason="${esc(reason)}">${esc(label)}</span>`;
+      const grail = ioiGlobalRailHtml({ label: "Insight", href: "/__ioi/evaluations/insight", iconUri: EVL_APP_TILE_URI, railVariant: "rv-pipe rv-dsg", viewAll: true, star: false, badges: true, aipGradient: true, acctMuted: true });
+      sendOwnedSurfaceHtml(res, "insight", `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Insight</title><style>
+        :root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#fff;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif}a{color:#215db0;text-decoration:none}
+        .ins-shell{display:flex;height:100vh;overflow:hidden}${IOI_GRAIL_CSS}
+        .ins-main{flex:1;min-width:0;display:flex;flex-direction:column}
+        .ins-header{flex:0 0 50px;display:flex;align-items:center;gap:18px;padding:0 20px;background:#fff;box-shadow:0 1px 0 #d1d1d1,0 3px 4px rgba(0,0,0,.04)}
+        .ins-title{font-size:16px;font-weight:600;color:#404854;margin:0}
+        .ins-tab{font-size:14px;line-height:50px;color:#215db0;font-weight:600;position:relative}
+        .ins-tab::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:#215db0}
+        .ins-gap{font-size:14px;color:#a8b2be;cursor:not-allowed}
+        .ins-body{flex:1;overflow-y:auto;padding:18px 26px 40px}
+        .ins-h{font-size:18px;font-weight:600;margin:0 0 4px}.ins-note{font-size:12px;color:#5f6b7c;margin:0 0 12px}
+        .ins-thead{display:grid;grid-template-columns:2fr 1fr 1.6fr 1.6fr;gap:8px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#5f6b7c;padding:6px 8px;border-bottom:1px solid #e5e8eb}
+        .ins-row{display:grid;grid-template-columns:2fr 1fr 1.6fr 1.6fr;gap:8px;align-items:center;padding:8px;border-bottom:1px solid #f0f2f5;font-size:13px;color:#1c2127}
+        .ins-row:hover{background:#f6f7f9}
+        .ins-ref{display:block;font-size:11px;color:#5f6b7c;word-break:break-all}
+        .ins-degraded{padding:12px;background:#fff8e6;border:1px solid #f0dca6;border-radius:4px;font-size:13px;color:#5f6b7c;margin:10px 0}
+        .ins-foot{font-size:12px;color:#7b8494;line-height:1.6;margin-top:18px}
+        h3{font-size:14px;margin:18px 0 6px}
+      </style></head><body><div class="ins-shell">${grail}<div class="ins-main">
+        <header class="ins-header"><h1 class="ins-title">Insight</h1>
+          ${gap("Workbooks", "No workbook plane exists on the estate — the reference Workbooks lane has nothing to bind (typed absence; adjudication #analysis)")}
+          <span class="ins-tab" aria-current="page">Object sets</span>
+        </header>
+        <div class="ins-body">
+          <h2 class="ins-h">Object sets</h2>
+          <p class="ins-note">${msets.length} REAL materialized object set${msets.length === 1 ? "" : "s"} — each with its materializing-run and lease-plan refs (the proof trail).</p>
+          <div class="ins-thead"><span>Object type</span><span>Objects</span><span>Materializing run</span><span>Lease plan</span></div>
+          ${rows || `<div class="ins-note">No materialized sets — real plane, honest empty.</div>`}
+          <h3>Saved object sets</h3>
+          ${savedBand}
+          <p class="ins-foot">EVA-2.build (remediation v2): the Insight landing — Object-sets LIVE over the real ODK planes; Workbooks a typed absence. Evidence: reference-seed-adjudications.v1.json#analysis · reference-family-atlas.v1.json (Workbooks/Object-sets tab states). Family: <a href="/__ioi/evaluations">Evaluations</a> · certified sibling <a href="/__ioi/evaluations/evalsuites">AIP Evals</a>.</p>
+        </div>
+      </div></div></body></html>`);
+      return;
+    }
     // ---- Developer Console — DEV-2 (remediation v2): the family's designed landing (this route
     // previously fell through to the SPA bundle). Applications lane = LIVE over the REAL connector
     // estate (declared connectors + SCM connectors — registrations with auth posture + declared

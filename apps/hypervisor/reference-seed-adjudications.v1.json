@@ -541,6 +541,15 @@
       "estate_plane": "/v1/hypervisor/connectors (10 declared, use-only leases) + /v1/hypervisor/scm-connectors (4, BYOA/token leases)",
       "outcome": "portable",
       "reason": "SHIPPED at /__ioi/developer-console: Applications-as-registrations LIVE (14 real rows); OAuth-clients typed-absent naming the real lanes (capability leases/BYOA, Connections-owned); guided-create dead on the mirror, verbs stay owner-surfaced"
+    },
+    {
+      "action": "EVA-2.build",
+      "seed": "analysis",
+      "owner": "Evaluations",
+      "reference_route": "http://localhost:9225/workspace/insight/ (tabs Workbooks | Object sets)",
+      "estate_plane": "materialized-object-sets (4, open read) + saved-object-sets (principal-required control plane \u2014 refusal rendered verbatim); NO workbook plane",
+      "outcome": "portable",
+      "reason": "SHIPPED at /__ioi/evaluations/insight: Object-sets LIVE with proof refs; saved-sets typed degradation honest; Workbooks typed absence"
     }
   ]
 }
