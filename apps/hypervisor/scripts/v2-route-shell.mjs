@@ -414,29 +414,29 @@ export function retiredUiRouteRefusal(requested, replacement) {
 }
 
 const PAGE_CSS = `
-  :root{color-scheme:dark}
-  body{margin:0;background:#0c0d10;color:#e6e7ea;font:14px/1.55 -apple-system,Segoe UI,Roboto,sans-serif}
+  :root{color-scheme:light}
+  body{margin:0;background:#fff;color:#1c2127;font:14px/1.55 -apple-system,Segoe UI,Roboto,sans-serif}
   .wrap{max-width:820px;margin:0 auto;padding:48px 24px 80px}
-  a{color:#8ab4ff}
-  .brand{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#6f7280;margin-bottom:8px}
+  a{color:#215db0}
+  .brand{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#5f6b7c;margin-bottom:8px}
   h1{font-size:26px;margin:0 0 6px;letter-spacing:-.02em}
-  .sub{color:#9a9da6;margin:0 0 22px;max-width:680px}
-  h2{font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:#878a93;margin:26px 0 10px;font-weight:600}
-  .grid{display:grid;grid-template-columns:170px 1fr;gap:8px 16px;padding:16px;border:1px solid #24262d;border-radius:12px;background:#15171c;margin:0 0 18px}
-  .grid dt{color:#878a93;font-size:12.5px}
-  .grid dd{margin:0;min-width:0;color:#e6e7ea;overflow-wrap:anywhere}
-  .card{display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid #24262d;border-radius:12px;background:#15171c;margin-bottom:8px;text-decoration:none;color:inherit}
-  a.card:hover{border-color:#3a82f6;background:#191b21}
+  .sub{color:#5f6b7c;margin:0 0 22px;max-width:680px}
+  h2{font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:#5f6b7c;margin:26px 0 10px;font-weight:600}
+  .grid{display:grid;grid-template-columns:170px 1fr;gap:8px 16px;padding:16px;border:1px solid #e5e8eb;border-radius:12px;background:#fafbfc;margin:0 0 18px}
+  .grid dt{color:#5f6b7c;font-size:12.5px}
+  .grid dd{margin:0;min-width:0;color:#1c2127;overflow-wrap:anywhere}
+  .card{display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid #e5e8eb;border-radius:12px;background:#fff;margin-bottom:8px;text-decoration:none;color:inherit}
+  a.card:hover{border-color:#215db0;background:#f6f8fa}
   .card .main{flex:1;min-width:0}
-  .card .name{font-weight:600;color:#fff}
-  .card .meta{color:#878a93;font-size:12.5px;margin-top:3px}
+  .card .name{font-weight:600;color:#1c2127}
+  .card .meta{color:#5f6b7c;font-size:12.5px;margin-top:3px}
   .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;border:1px solid;white-space:nowrap;margin-left:8px;vertical-align:2px}
-  .muted{color:#9a9da6;border-color:#2a2c33}
-  .warn{color:#d6a13a;border-color:#5c4a23;background:#28220f}
-  .empty{color:#6f7280;padding:18px;border:1px dashed #24262d;border-radius:12px}
-  code{font-size:11.5px;color:#aab;background:#0e0f13;padding:1px 5px;border-radius:4px}
-  pre{background:#0e0f13;border:1px solid #24262d;border-radius:8px;padding:12px;overflow:auto;font:11.5px/1.5 ui-monospace,monospace;color:#cdd1d8;white-space:pre-wrap;word-break:break-all}
-  .foot{color:#6f7280;font-size:12.5px;margin-top:28px;border-top:1px solid #1b1d23;padding-top:14px}
+  .muted{color:#5f6b7c;border-color:#d1d5da}
+  .warn{color:#946638;border-color:#f0dca6;background:#fff8e6}
+  .empty{color:#5f6b7c;padding:18px;border:1px dashed #d1d5da;border-radius:12px}
+  code{font-size:11.5px;color:#3b4450;background:#f2f4f6;padding:1px 5px;border-radius:4px}
+  pre{background:#f6f8fa;border:1px solid #e5e8eb;border-radius:8px;padding:12px;overflow:auto;font:11.5px/1.5 ui-monospace,monospace;color:#3b4450;white-space:pre-wrap;word-break:break-all}
+  .foot{color:#5f6b7c;font-size:12.5px;margin-top:28px;border-top:1px solid #e5e8eb;padding-top:14px}
   @media(max-width:700px){
     .wrap{padding:28px 16px 56px}
     .grid{grid-template-columns:minmax(0,1fr);gap:3px;padding:14px}

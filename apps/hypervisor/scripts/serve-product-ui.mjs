@@ -1629,7 +1629,7 @@ function renderWorkLedger(entries, scopedProject, selCtx) {
     const msg = scopedProject
       ? "No admitted work yet for this project. Run one of its automations to create ledger evidence."
       : "No admitted work yet. Run an automation to create ledger evidence.";
-    return automationsShell("Provenance", head + renderProvenanceLineage(entries) + `<div class="empty">${msg}</div>`);
+    return automationsShell("Provenance", head + renderProvenanceLineage(entries) + `<div class="empty">${msg}</div>`, { theme: "light" });
   }
   const projects = [...new Set(entries.map((e) => e.project_id).filter(Boolean))];
   const chip = (f, v, label) => `<button class="chip" data-facet="${f}" data-val="${v}" onclick="wlChip(this)">${label}</button>`;
@@ -1744,7 +1744,7 @@ function renderWorkLedger(entries, scopedProject, selCtx) {
     }
   </script>`;
   const wlSelScript = wlSelIdx >= 0 ? `<script>wlOpen(${wlSelIdx})</script>` : "";
-  return automationsShell("Provenance", head + wlSelNote + renderProvenanceLineage(entries) + filters + proofExp + `<div class="wlwrap"><div>${table}</div>${drawer}</div>` + dataTag + script + wlSelScript);
+  return automationsShell("Provenance", head + wlSelNote + renderProvenanceLineage(entries) + filters + proofExp + `<div class="wlwrap"><div>${table}</div>${drawer}</div>` + dataTag + script + wlSelScript, { theme: "light" });
 }
 
 // ---- Operations — the first real Operations estate card: execution health over the automation
@@ -12633,7 +12633,7 @@ async function handleEstateRequest(req, res, body) {
         const status = unavailable.status >= 400 ? unavailable.status : 503;
         const code = daemonProjectionCode(unavailable, "work_ledger_projection_unavailable");
         res.writeHead(status, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-        res.end(automationsShell("Work Ledger unavailable", `<div id="work-ledger-unavailable" class="empty" data-error-code="${CX_ESC(code)}">Work Ledger unavailable: HTTP ${CX_ESC(String(status))} · <code>${CX_ESC(code)}</code>. No run, receipt, state-root, artifact, or authority truth is shown.</div>`));
+        res.end(automationsShell("Work Ledger unavailable", `<div id="work-ledger-unavailable" class="empty" data-error-code="${CX_ESC(code)}">Work Ledger unavailable: HTTP ${CX_ESC(String(status))} · <code>${CX_ESC(code)}</code>. No run, receipt, state-root, artifact, or authority truth is shown.</div>`, { theme: "light" }));
         return;
       }
       if (postureRead.body?.deployment_auth_posture !== "local_development") {
