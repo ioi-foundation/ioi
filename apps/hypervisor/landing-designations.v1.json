@@ -65,11 +65,8 @@
       "competitors": [
         {
           "seed": "objectview+objecteditor",
-          "disposition": "combined-seed candidates (D6 detail_view INSIDE Explorer) pending donor evidence"
+          "disposition": "capture_broken_no_donor \u2014 hubble carries no drillable detail on the mirror (reference-seed-adjudications.v1.json#objectview); ONT-2.build skipped"
         }
-      ],
-      "pending_roles": [
-        "ONT-2.recon"
       ]
     },
     {
@@ -94,9 +91,9 @@
     },
     {
       "click_target": "/provenance",
-      "status": "LATER",
-      "pending_action": "PRO-1.recon",
-      "note": "CONTESTED: Monocle (lineage, 6 tabs) vs Vertex \u2014 both stay sibling apps (D4); landing goes to whichever atlas evidence shows fitting the proof-plane job (D1)"
+      "status": "NOW",
+      "grammar": "Monocle (lineage) \u2014 the proof-plane app: 6-tab IA (Preview/SQL/History/Code/Build timeline/Data health); Vertex = sibling app (own 4-facet landing)",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#lineage"
     },
     {
       "click_target": "/evaluations",

@@ -1469,7 +1469,335 @@
         }
       ],
       "errors": []
+    },
+    "lineage": {
+      "slug": "lineage",
+      "owner": "Provenance",
+      "reference_base": "http://localhost:9225/workspace/monocle/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/monocle/"
+          },
+          "url": "http://localhost:9225/workspace/monocle/graph?coloring=monocle.color.resource-type",
+          "ia": {
+            "title": "Data Lineage",
+            "headings": [],
+            "tabs": [
+              "Preview",
+              "SQL scratchpad",
+              "History",
+              "Code",
+              "Build timeline",
+              "Data health"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 4,
+            "empty_copy": "No resources on graph",
+            "text_len": 664
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/lineage/landing.png"
+        },
+        {
+          "key": "tab:Preview",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/monocle/",
+            "clickTab": "Preview"
+          },
+          "url": "http://localhost:9225/workspace/monocle/graph?coloring=monocle.color.resource-type",
+          "ia": {
+            "title": "Data Lineage",
+            "headings": [],
+            "tabs": [
+              "Preview",
+              "SQL scratchpad",
+              "History",
+              "Code",
+              "Build timeline",
+              "Data health"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 4,
+            "empty_copy": "No resources on graph",
+            "text_len": 664
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/lineage/tab_Preview.png"
+        },
+        {
+          "key": "tab:SQL scratchpad",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/monocle/",
+            "clickTab": "SQL scratchpad"
+          },
+          "url": "http://localhost:9225/workspace/monocle/graph?coloring=monocle.color.resource-type",
+          "ia": {
+            "title": "Data Lineage",
+            "headings": [],
+            "tabs": [
+              "Preview",
+              "SQL scratchpad",
+              "History",
+              "Code",
+              "Build timeline",
+              "Data health"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 4,
+            "empty_copy": "No resources on graph",
+            "text_len": 664
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/lineage/tab_SQL_scratchpad.png"
+        },
+        {
+          "key": "tab:History",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/monocle/",
+            "clickTab": "History"
+          },
+          "url": "http://localhost:9225/workspace/monocle/graph?coloring=monocle.color.resource-type",
+          "ia": {
+            "title": "Data Lineage",
+            "headings": [],
+            "tabs": [
+              "Preview",
+              "SQL scratchpad",
+              "History",
+              "Code",
+              "Build timeline",
+              "Data health"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 4,
+            "empty_copy": "No resources on graph",
+            "text_len": 664
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/lineage/tab_History.png"
+        },
+        {
+          "key": "tab:Code",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/monocle/",
+            "clickTab": "Code"
+          },
+          "url": "http://localhost:9225/workspace/monocle/graph?coloring=monocle.color.resource-type",
+          "ia": {
+            "title": "Data Lineage",
+            "headings": [],
+            "tabs": [
+              "Preview",
+              "SQL scratchpad",
+              "History",
+              "Code",
+              "Build timeline",
+              "Data health"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 4,
+            "empty_copy": "No resources on graph",
+            "text_len": 664
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/lineage/tab_Code.png"
+        },
+        {
+          "key": "tab:Build timeline",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/monocle/",
+            "clickTab": "Build timeline"
+          },
+          "url": "http://localhost:9225/workspace/monocle/graph?coloring=monocle.color.resource-type",
+          "ia": {
+            "title": "Data Lineage",
+            "headings": [],
+            "tabs": [
+              "Preview",
+              "SQL scratchpad",
+              "History",
+              "Code",
+              "Build timeline",
+              "Data health"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 4,
+            "empty_copy": "No resources on graph",
+            "text_len": 664
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/lineage/tab_Build_timeline.png"
+        },
+        {
+          "key": "tab:Data health",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/monocle/",
+            "clickTab": "Data health"
+          },
+          "url": "http://localhost:9225/workspace/monocle/graph?coloring=monocle.color.resource-type",
+          "ia": {
+            "title": "Data Lineage",
+            "headings": [],
+            "tabs": [
+              "Preview",
+              "SQL scratchpad",
+              "History",
+              "Code",
+              "Build timeline",
+              "Data health"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 7,
+            "empty_copy": "No resources on graph",
+            "text_len": 947
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/lineage/tab_Data_health.png"
+        }
+      ],
+      "errors": []
+    },
+    "analysis": {
+      "slug": "analysis",
+      "owner": "Evaluations",
+      "reference_base": "http://localhost:9225/workspace/insight/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/insight/"
+          },
+          "url": "http://localhost:9225/workspace/insight/",
+          "ia": {
+            "title": "Insight",
+            "headings": [
+              "Insight"
+            ],
+            "tabs": [
+              "Workbooks",
+              "Object sets"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "NAME",
+              "CREATOR",
+              "PATHS"
+            ],
+            "rows": 0,
+            "cards": 4,
+            "empty_copy": "No workbooks found",
+            "text_len": 2391
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/analysis/landing.png"
+        },
+        {
+          "key": "tab:Workbooks",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/insight/",
+            "clickTab": "Workbooks"
+          },
+          "url": "http://localhost:9225/workspace/insight/",
+          "ia": {
+            "title": "Insight",
+            "headings": [
+              "Insight"
+            ],
+            "tabs": [
+              "Workbooks",
+              "Object sets"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "NAME",
+              "CREATOR",
+              "PATHS"
+            ],
+            "rows": 0,
+            "cards": 4,
+            "empty_copy": "No workbooks found",
+            "text_len": 2391
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/analysis/tab_Workbooks.png"
+        },
+        {
+          "key": "tab:Object sets",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/insight/",
+            "clickTab": "Object sets"
+          },
+          "url": "http://localhost:9225/workspace/insight/",
+          "ia": {
+            "title": "Insight",
+            "headings": [
+              "Insight"
+            ],
+            "tabs": [
+              "Workbooks",
+              "Object sets"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "NAME",
+              "CREATOR",
+              "OBJECT SET SUMMARY",
+              "PRIMARY WORKBOOK"
+            ],
+            "rows": 0,
+            "cards": 4,
+            "empty_copy": "No object sets found",
+            "text_len": 2423
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/analysis/tab_Object_sets.png"
+        }
+      ],
+      "errors": []
     }
   },
-  "recorded_at": "2026-08-19T23:59:03.161Z"
+  "recorded_at": "2026-08-20T00:03:14.598Z"
 }

@@ -96,7 +96,8 @@
       {
         "id": "ONT-2.recon",
         "title": "hubble atlas-drive for object-detail donor (D6 detail_view)",
-        "status": "queued"
+        "status": "done",
+        "evidence": "no drillable detail in hubble on mirror \u2014 capture_broken_no_donor for objectview+objecteditor; build skipped"
       },
       {
         "id": "EVA-1",
@@ -107,7 +108,8 @@
       {
         "id": "EVA-2.recon",
         "title": "analysis (Insight) Workbooks/Object-sets atlas-drive",
-        "status": "queued"
+        "status": "done",
+        "evidence": "both Insight tabs express IA \u2014 portable; ia_bearing_empty reclass"
       },
       {
         "id": "EVA-3",
@@ -177,7 +179,8 @@
       {
         "id": "PRO-1.recon",
         "title": "lineage (Monocle) 6-tab atlas-drive",
-        "status": "queued"
+        "status": "done",
+        "evidence": "Monocle 6-tab IA at every state \u2014 portable; /provenance CONTEST RESOLVED to Monocle (D1), vertex sibling"
       },
       {
         "id": "PRO-2.recon",
@@ -188,7 +191,7 @@
     ],
     "W1_exit_gate": {
       "rule": "zero undesignated click targets \u2014 every \u00a74.1 LATER row flips to designation or terminal absence (E8)",
-      "status": "pending"
+      "status": "CLOSED \u2014 check-landing-designations --exit-gate green"
     },
     "W2": [
       {
@@ -280,7 +283,8 @@
       {
         "id": "ONT-2.build",
         "title": "object detail lanes inside explorer (donor: hubble)",
-        "status": "queued"
+        "status": "done",
+        "evidence": "SKIPPED BY EVIDENCE (ONT-2.recon: no donor detail grammar reachable)"
       },
       {
         "id": "WOR-2",
@@ -422,6 +426,12 @@
       "date": "2026-08-19",
       "did": "W1: DOM-2/PRO-2.recon/MIS-1.recon \u2014 slate portable via splash alias, fusion+jobs terminal, vertex re-shell stands; MIS-1.build skipped by evidence; LATER 4\u21921 (/provenance only)",
       "next": "W1 close: PRO-1.recon (Monocle 6 tabs), ONT-2.recon, EVA-2.recon"
+    },
+    {
+      "n": 11,
+      "date": "2026-08-19",
+      "did": "W1 CLOSED: PRO-1.recon (Monocle wins /provenance), EVA-2.recon portable, ONT-2.recon terminal (build skipped); ia_bearing_empty reclass applied to lineage/analysis/vertex/slate",
+      "next": "W2: AUT-1 (Automations tab inside certified Automate shell)"
     }
   ],
   "pr_blockers": [

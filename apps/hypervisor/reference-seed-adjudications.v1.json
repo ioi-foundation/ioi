@@ -362,6 +362,62 @@
       "estate_plane": "substrate_bound /__ioi/missions renders real daemon truth (read_only_by_contract)",
       "outcome": "absent_confirmed",
       "reason": "REFUTED: no Builds grammar expresses at any recorded state \u2014 the light re-shell has nothing to port backwards from; the substrate STANDS as the surface (MIS-1.build skipped by evidence)"
+    },
+    {
+      "action": "PRO-1.recon",
+      "seed": "lineage",
+      "owner": "Provenance",
+      "reference_route": "http://localhost:9225/workspace/monocle/",
+      "atlas_states": [
+        "landing",
+        "tab:Preview",
+        "tab:SQL scratchpad",
+        "tab:History",
+        "tab:Code",
+        "tab:Build timeline",
+        "tab:Data health"
+      ],
+      "expressed_ia": {
+        "tabs": 6,
+        "expresses_ia": true
+      },
+      "estate_plane": "substrate_bound /__ioi/lineage (work-ledger lineage edges); run receipts/history planes exist for History/Build-timeline lanes",
+      "outcome": "portable",
+      "reason": "Monocle expresses its FULL 6-tab IA at every recorded state \u2014 the W4 light re-shell over the existing substrate stands. D1 CONTEST RESOLVED: /provenance lands on Monocle (the proof-plane app: lineage + history + build timeline); Vertex stays a sibling app (its own 4-facet landing recorded separately)"
+    },
+    {
+      "action": "EVA-2.recon",
+      "seed": "analysis",
+      "owner": "Evaluations",
+      "reference_route": "http://localhost:9225/workspace/insight/",
+      "atlas_states": [
+        "landing",
+        "tab:Workbooks",
+        "tab:Object sets"
+      ],
+      "expressed_ia": {
+        "tabs": 2,
+        "facet_groups_max": 5,
+        "expresses_ia": true
+      },
+      "estate_plane": "odk saved/materialized object-set planes exist (Object-sets lane); no workbook plane \u2014 the Workbooks lane binds honestly-empty or stands as a typed absence at build time",
+      "outcome": "portable",
+      "reason": "both tabs express IA \u2014 the W4 port stands; ia_bearing_empty reclassification applies (shell_clean_only was the landing-only verdict)"
+    },
+    {
+      "action": "ONT-2.recon",
+      "seed": "objectview",
+      "owner": "Ontology",
+      "reference_route": "donor drive: http://localhost:9225/workspace/hubble/ \u2192 object detail",
+      "atlas_state": "detail-drive (recorded screenshot explorer/detail-drive.png)",
+      "expressed_ia": {
+        "drillable_objects": 0,
+        "expresses_ia": false
+      },
+      "donor_search": "hubble landing carries 6 cards but ZERO drillable object rows/links on the mirror \u2014 the detail grammar never renders; objectview/objecteditor own captures are byte-dead (307/octet-stream)",
+      "estate_plane": "explorer port renders object truth via its own lanes already",
+      "outcome": "capture_broken_no_donor",
+      "reason": "terminal for BOTH objectview and objecteditor: no donor detail grammar reachable; ONT-2.build skipped by evidence"
     }
   ]
 }

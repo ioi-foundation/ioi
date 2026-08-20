@@ -213,7 +213,9 @@
       "substrate_surface": "/__ioi/lineage",
       "binding": "ODK materialization provenance (MaterializedObjectSet \u2192 run \u2192 session \u2192 lease \u2192 projection \u2192 mapping \u2192 datasource, resolved to live ladder refs; per-object source hashes + mapped_from; pre-output + registration receipts; Provenance proof-stream edges where available)",
       "candidate_surface": "/__ioi/lineage",
-      "shell_pixel_certified": false
+      "shell_pixel_certified": false,
+      "remediation_state": "ia_bearing_empty",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#lineage"
     },
     {
       "owner": "Data",
@@ -406,7 +408,9 @@
       "note": "object view; unbound",
       "reference_clean_state": "errored_reference",
       "reference_clean_reason": "navigation failed on every lane (navigation triggered a content-type download \u2014 the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane) \u00b7 navigation triggered a content-type download \u2014 the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane))",
-      "reference_clean_artifact": "reference-clean-sweep.json"
+      "reference_clean_artifact": "reference-clean-sweep.json",
+      "remediation_state": "capture_broken_no_donor",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#objectview"
     },
     {
       "owner": "Ontology",
@@ -422,7 +426,9 @@
       "note": "object-view editor; unbound",
       "reference_clean_state": "errored_reference",
       "reference_clean_reason": "navigation failed on every lane (navigation triggered a content-type download \u2014 the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane) \u00b7 navigation triggered a content-type download \u2014 the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane))",
-      "reference_clean_artifact": "reference-clean-sweep.json"
+      "reference_clean_artifact": "reference-clean-sweep.json",
+      "remediation_state": "capture_broken_no_donor",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#objectview"
     },
     {
       "owner": "Evaluations",
@@ -475,7 +481,9 @@
       "note": "object-set-first analysis canvas; unbound",
       "reference_clean_state": "shell_clean_only",
       "reference_clean_reason": "shell renders a WELCOME/empty landing (cards 4 \u00b7 lines 19, no row/node data) \u2014 clean chrome, no real data to port against (proxy lane renders no data (score 0); the origin lane is the readable one)",
-      "reference_clean_artifact": "reference-clean-sweep.json"
+      "reference_clean_artifact": "reference-clean-sweep.json",
+      "remediation_state": "ia_bearing_empty",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#analysis"
     },
     {
       "owner": "Evaluations",
@@ -736,7 +744,8 @@
       "binding": "a Provenance graph/exploration lens over materialized object sets, projections, objects, and the threaded proof-stream odk_materialization edges (cross-plane: ODK \u2194 Provenance)",
       "candidate_surface": "/__ioi/vertex",
       "shell_pixel_certified": false,
-      "adjudication_ref": "reference-seed-adjudications.v1.json#vertex"
+      "adjudication_ref": "reference-seed-adjudications.v1.json#vertex",
+      "remediation_state": "ia_bearing_empty"
     },
     {
       "owner": "Environments",
@@ -772,7 +781,8 @@
       "reference_clean_reason": "the app never mounts \u2014 uncaught page error (\"Workspace context path not found\")",
       "reference_clean_artifact": "reference-clean-sweep.json",
       "adjudication_ref": "reference-seed-adjudications.v1.json#slate",
-      "reference_url_override": "http://localhost:9225/workspace/slate/splash"
+      "reference_url_override": "http://localhost:9225/workspace/slate/splash",
+      "remediation_state": "ia_bearing_empty"
     },
     {
       "owner": "Domain Apps",
