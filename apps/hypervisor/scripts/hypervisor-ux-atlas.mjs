@@ -35,6 +35,12 @@ const SURFACES = [
 ];
 
 const STAGE = process.argv[2] || "stage1";
+if (!["stage1", "stage2", "stage3"].includes(STAGE)) {
+  // Arg guard (ORG-1 hand-off: an unrecognized argv ran neither branch and overwrote the issues
+  // artifact with a hollow 0-issue record). Unknown stage = refuse, never a fake-clean sweep.
+  console.error(`unknown stage '${STAGE}' — usage: hypervisor-ux-atlas.mjs [stage1|stage2|stage3]`);
+  process.exit(2);
+}
 const { chromium } = await import("playwright");
 const browser = await chromium.launch();
 const pg = await browser.newPage({ viewport: { width: 1600, height: 950 } });

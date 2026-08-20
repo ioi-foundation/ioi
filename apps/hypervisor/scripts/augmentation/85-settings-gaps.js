@@ -5,6 +5,11 @@
   // gap in product language so the degraded state is explicit, not a bare failure. Zero
   // placeholder data; self-removes off-route. --------------------------------------------------
   const SETTINGS_GAP_BANNERS = {
+    "members": {
+      code: "org_roster_admin_gated",
+      title: "The member roster is org-admin gated",
+      text: "The daemon's principals plane exists but requires an authenticated org-admin session — this unauthenticated local session is refused, so the roster renders empty (the organization's real member count is disclosed separately; nothing here is fabricated and the empty list is a refusal, not a zero).",
+    },
     "manage-organization": {
       code: "org_display_identity_absent",
       title: "Organization identity is a daemon projection",

@@ -661,6 +661,12 @@
       "date": "2026-08-20",
       "did": "ORG-1 SHIPPED (adapter-only cut, scripts/ioi-api-adapter.mjs). The three OrganizationService RPCs the SPA fires on EVERY app open no longer 503. Daemon probe first (GET /v1/hypervisor \u2014 753-route index, byte-verified): NO /terms/ route and NO organization-policy-defaults family exist (the only /polic/ routes are auth/policy, branch-policy, connectors/:id/policy, placement/venue-policy, odk/policy-bound-data-views, ioi-agent launch-policies) \u2014 both are TYPED ABSENCES, now served as the service's well-formed EMPTY message with every field OMITTED (proto defaults only): GetOrganizationPolicies \u2192 {\"policies\":{}}, GetTermsOfService \u2192 {\"termsOfService\":{}}. Behaviour-neutral by construction: the bundle's only load-bearing policy read is the env-start gate's policies?.maximumEnvironmentLifetime?.seconds (absent \u2192 0 = no cap, the same non-gating outcome the 503 gave, minus the throw that ALSO aborted the start mutation), and the ToS acceptance gate reads !enabled || !currentVersion \u2192 no gate. ListMembers: the principals plane DOES exist (GET /v1/hypervisor/principals) but the daemon adjudicates it org-admin-only (handle_principal_list \u2192 require_authenticated_org_admin \u2192 401 'an authenticated session or API token is required even on loopback' for the unauthenticated local session). The adapter does NOT escalate the caller's authority and does NOT invent rows: authorized \u2192 the REAL roster projection (unchanged); refused/unreachable \u2192 well-formed EMPTY members, commented as a typed absence naming the probed route and the exact daemon refusal. So that empty does not read as a false zero, the membership CARDINALITY the daemon discloses unauthenticated (GET /v1/hypervisor/organization \u2192 organization.members.principals_total = 41, 200 ok) is carried through when and only when an UNFILTERED count was requested; a filtered count has no undisclosed-roster truth behind it and is omitted rather than approximated. EVIDENCE: atlas stage2 = 24 apps opened, SWEEP 0 issues (the baseline at HEAD was 3\u00d7 container-console 503 + 1\u00d7 container-empty /projects); targeted network probe over /projects /workspaces /settings /settings/members = 15 OrganizationService responses, ALL 200, non-2xx 0.",
       "next": "RESIDUAL (not ORG-1, not adapter-owned): /v1/hypervisor/sessions 503s at the DAEMON itself \u2014 'session_registry_unavailable: Hypervisor Session session:ai-agent_mqwrwdge1 occupies non-authoritative slot session_ai-agent_mqwrwdge1.json instead of session_f60509af\u2026.json; The complete Session registry cannot be proven; no partial list is projected.' A real fail-closed registry-integrity refusal over a mis-slotted record file, passed through honestly by serve \u2014 it is the ONLY remaining console error on app open and needs a daemon-side record re-slot, not a UI change."
+    },
+    {
+      "n": 41,
+      "date": "2026-08-20",
+      "did": "ORG-1 VERIFIED (255921458: three org RPCs = typed absences/refusal-shaped truth; env-start no longer throws; container sweep 0 issues) + its hand-offs executed: atlas arg guard (unknown stage now refuses instead of writing a fake-clean sweep), /settings/members org_roster_admin_gated banner (refusal \u2260 zero), session-registry mis-slot diagnosed to the digest convention (owner one-liner). Issues artifact regenerated (stage1: 32 sanctioned capture-links; stage3: 0).",
+      "next": "stage 4 (forms/honest-empty depth) + next live-backlog delegation (map or modelstudio)"
     }
   ],
   "pr_blockers": [
@@ -703,6 +709,11 @@
       "found": "2026-08-20",
       "what": "verify-hypervisor-native-shell-integration pins PRE-TRANSFER modal hrefs (data-href === registry route per surface) \u2014 post-transfer the launcher opens DESIGNATED targets, so the harness times out on the old rows. Needs a designation-aware re-aim (expected href/frame-route/landmark per re-pointed family).",
       "queued_repair_leg": "fold into the runtime-safety repair leg: re-aim #65 harness to landing-designations truth"
+    },
+    {
+      "found": "2026-08-20",
+      "what": "daemon session registry fail-closed refusal (correct behavior, real UX noise): legacy record session_ai-agent_mqwrwdge1.json occupies a pre-convention slot; the authoritative slot is session_<sha256(session_ref)>.json (digest CONFIRMED matching). GET /v1/hypervisor/sessions 503s estate-wide until re-slotted.",
+      "fix": "one-line rename (classifier-gated for Claude; owner command provided in-conversation); backup at scratchpad/session_ai-agent_mqwrwdge1.json.bak"
     }
   ]
 }
