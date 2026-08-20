@@ -19,8 +19,8 @@
   "by_parity_class": {
     "daemon_wired": 13,
     "reference_capture": 17,
-    "reference_ported": 7,
-    "substrate_bound": 2
+    "reference_ported": 8,
+    "substrate_bound": 1
   },
   "legend": {
     "reference_capture": "the /__apps/<slug> reference baseline serves; no IOI port exists",
@@ -798,19 +798,24 @@
       "capture_base": "/workspace/vertex/",
       "grammar": "graph",
       "tier": "high_value",
-      "parity_class": "substrate_bound",
+      "parity_class": "reference_ported",
       "capture_state": "blocked_missing_capture",
       "reference_capture": "/__apps/vertex",
       "reference_workspace": "/workspace/vertex/",
-      "note": "Vertex graph grammar (nodes · relations · neighborhood) over real cross-plane materialized truth; no fake nodes for unmaterialized ontologies; freeform graph canvas / arbitrary path-finding / cross-tenant object search / saved explorations = named gaps",
+      "note": "PRO-2.build: re-shell complete; sibling of Monocle under the Provenance family (D4 — the /provenance landing is Monocle by D1)",
       "reference_clean_state": "shell_clean_only",
       "reference_clean_reason": "shell renders a WELCOME/empty landing (cards 6 · lines 21, no row/node data) — clean chrome, no real data to port against (proxy lane shows a failure (\"An error occurred\"); the origin lane is the readable one)",
       "reference_clean_artifact": "reference-clean-sweep.json",
       "remediation_state": "ia_bearing_empty",
       "adjudication_ref": "reference-seed-adjudications.v1.json#vertex",
-      "substrate_surface": "/__ioi/vertex",
+      "port_surface": "/__ioi/vertex",
       "surface_name": "Provenance",
-      "binding": "a Provenance graph/exploration lens over materialized object sets, projections, objects, and the threaded proof-stream odk_materialization edges (cross-plane: ODK ↔ Provenance)",
+      "reference_url_override": "http://localhost:9225/workspace/vertex/",
+      "reference_landmarks": [
+        "Vertex",
+        "New exploration"
+      ],
+      "binding": "the light Vertex shell over the SAME substrate truth (graph body re-chromed in place); New exploration = typed absence (the reference create lane is dead on the mirror; adjudication #vertex)",
       "candidate_surface": "/__ioi/vertex",
       "shell_pixel_certified": false
     },

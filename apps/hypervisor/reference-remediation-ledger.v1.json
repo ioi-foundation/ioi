@@ -274,7 +274,8 @@
       {
         "id": "PRO-2.build",
         "title": "vertex light shell",
-        "status": "queued"
+        "status": "done",
+        "evidence": "the light Vertex shell in place at /__ioi/vertex (wrap-param re-chrome, same graph body); New-exploration typed absence in both vocabularies citing #vertex; sibling-linked to Monocle; regression-checked (lineage intact, missions substrate untouched). vertex \u2192 reference_ported; substrate_bound \u2192 1."
       },
       {
         "id": "EVA-2.build",
@@ -510,6 +511,12 @@
       "date": "2026-08-19",
       "did": "W4 PRO-1.build COMPLETE \u2014 the Monocle 6-tab re-shell in place at /__ioi/lineage",
       "next": "W4: PRO-2.build (vertex) or DEV-2 (devconsole)"
+    },
+    {
+      "n": 23,
+      "date": "2026-08-19",
+      "did": "W4 PRO-2.build COMPLETE \u2014 Vertex light re-shell in place; substrate_bound down to 1 (missions only)",
+      "next": "W4: DEV-2 (devconsole) then EVA-2.build, WOR-2"
     }
   ],
   "pr_blockers": [

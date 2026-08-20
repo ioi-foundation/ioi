@@ -3775,7 +3775,39 @@ const VERTEX_NODE_KINDS = [
   ["set", "📦", "Object set"], ["projection", "🔭", "Projection"], ["run", "⚙", "Materializing run"],
   ["object", "▪", "Object"], ["proof", "🧾", "Proof-stream edge"],
 ];
-function renderVertex(lists, selectedId, vSel) {
+// PRO-2.build — the light Vertex shell (remediation v2): the SAME graph body re-chromed in place;
+// New exploration = typed absence (the reference create lane is dead on the mirror — adjudication
+// reference-seed-adjudications.v1.json#vertex).
+function vertexLightPage(bodyHtml) {
+  const esc = CX_ESC;
+  const grail = ioiGlobalRailHtml({ label: "Vertex", href: "/__ioi/vertex", iconUri: DSG_APP_TILE_URI, railVariant: "rv-pipe rv-dsg", viewAll: true, star: false, badges: true, aipGradient: true, acctMuted: true });
+  const newGap = `<span class="vtx-hbtn gap" aria-disabled="true" title="${esc("New exploration — the reference create lane is dead on the mirror and no exploration-authoring lane is bound here (adjudication #vertex); typed absence")}" data-ioi-disabled-reason="${esc("New exploration — the reference create lane is dead on the mirror and no exploration-authoring lane is bound here (adjudication #vertex); typed absence")}">+ New exploration</span>`;
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Vertex</title><style>
+    :root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#fff;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif}a{color:#215db0;text-decoration:none}
+    .vtx-shell{display:flex;height:100vh;overflow:hidden}${IOI_GRAIL_CSS}
+    .vtx-main{flex:1;min-width:0;display:flex;flex-direction:column}
+    .vtx-header{flex:0 0 50px;display:flex;align-items:center;gap:14px;padding:0 20px;background:#fff;box-shadow:0 1px 0 #d1d1d1,0 3px 4px rgba(0,0,0,.04)}
+    .vtx-title{font-size:16px;font-weight:600;color:#404854;margin:0;flex:1}
+    .vtx-hbtn{display:inline-flex;align-items:center;height:30px;padding:0 10px;border:1px solid rgba(95,107,124,.25);border-radius:4px;font-size:14px}
+    .vtx-hbtn.gap{color:#a8b2be;cursor:not-allowed}
+    .vtx-body{flex:1;overflow-y:auto;padding:18px 26px 40px}
+    .sub{color:#5f6b7c;font-size:13px}
+    .empty{padding:14px;background:#f6f7f9;border:1px solid #e5e8eb;border-radius:4px;color:#5f6b7c}
+    .chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.chiplabel{font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:#5f6b7c;font-weight:600}
+    .pill{display:inline-flex;padding:1px 8px;border-radius:10px;font-size:12px;background:#eef1f5;color:#1c2127}
+    .pill.ok{background:rgba(35,133,81,.12);color:#1c6e42}.pill.muted{background:rgba(95,107,124,.12);color:#5f6b7c}
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .act{display:inline-flex;align-items:center;height:26px;padding:0 10px;border:1px solid rgba(95,107,124,.3);border-radius:4px;color:#1c2127}.act.ghost{background:transparent}
+    code{background:#f0f2f5;padding:0 4px;border-radius:3px;font-size:12px}
+    h1{font-size:20px;margin:0 0 6px}h2{font-size:16px;margin:14px 0 6px}
+    .vtx-foot{font-size:12px;color:#7b8494;line-height:1.6;margin-top:18px}
+  </style></head><body><div class="vtx-shell">${grail}<div class="vtx-main">
+    <header class="vtx-header"><h1 class="vtx-title">Vertex</h1>${newGap}</header>
+    <div class="vtx-body">${bodyHtml}<p class="vtx-foot">PRO-2.build (remediation v2): the light Vertex shell over the SAME substrate truth — the graph body re-chromed in place; New exploration is a typed absence (adjudication reference-seed-adjudications.v1.json#vertex; atlas: 4 facet groups at the landing). Family: <a href="/__ioi/work-ledger">Provenance</a> · sibling <a href="/__ioi/lineage">Data Lineage (Monocle)</a>.</p></div>
+  </div></div></body></html>`;
+}
+
+function renderVertex(lists, selectedId, vSel, wrap = automationsShell) {
   const ontologies = Array.isArray(lists.ontologies) ? lists.ontologies : [];
   const allSets = Array.isArray(lists.materialized_sets) ? lists.materialized_sets : [];
   const has = new Set(allSets.map((s) => s.ontology_ref));
@@ -3806,12 +3838,12 @@ function renderVertex(lists, selectedId, vSel) {
   const head = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap"><div><h1 style="margin:0">Vertex</h1><p class="sub" style="margin:4px 0 0">Explore the materialized object graph — object sets, projections, objects, and the cross-plane Provenance proof-stream edges as a navigable node/relation graph, over IOI daemon truth. Reference grammar: <a href="/__apps/vertex">Vertex ↗</a> (secondary capture).</p></div><div class="row" style="gap:8px"><a class="act ghost" href="/__ioi/lineage?ontology=${encodeURIComponent(oid)}">Lineage path</a><a class="act ghost" href="/__ioi/pipeline?ontology=${encodeURIComponent(oid)}">Pipeline</a></div></div>`;
 
   if (vSetMissing) {
-    return automationsShell("Vertex", head + switcher + `<div class="empty">No materialized set matches <code>${CX_ESC(vs.objectSet)}</code> — nothing substituted (fail-closed). Pick a set from the <a href="/__ioi/ontology/explorer">Object Explorer</a>.</div>`);
+    return wrap("Vertex", head + switcher + `<div class="empty">No materialized set matches <code>${CX_ESC(vs.objectSet)}</code> — nothing substituted (fail-closed). Pick a set from the <a href="/__ioi/ontology/explorer">Object Explorer</a>.</div>`);
   }
   // HONEST EMPTY — no materialized objects ⇒ no graph. Never fabricate nodes.
   if (!sets.length) {
     const note = omBoundaryNote(`This ontology has materialized <b>no objects</b>, so there is <b>no graph to explore</b> — Vertex renders the real materialized object graph (sets · projections · objects · proof-stream edges), which appears only once a pipeline is built. Build one from the <a href="/__ioi/pipeline?ontology=${encodeURIComponent(oid)}">Pipeline Builder</a>. The <a href="/__apps/vertex">Vertex reference capture ↗</a> is the familiar baseline, never a rebound surface.`);
-    return automationsShell("Vertex", head + switcher + `<div class="chips" style="margin:10px 0 12px"><span class="pill muted">empty graph</span> <span class="sub" style="margin:0">${selected ? `No materialized objects for <b>${CX_ESC(selected.domain || selected.id)}</b>.` : "Select or create an ontology."}</span></div>` + note);
+    return wrap("Vertex", head + switcher + `<div class="chips" style="margin:10px 0 12px"><span class="pill muted">empty graph</span> <span class="sub" style="margin:0">${selected ? `No materialized objects for <b>${CX_ESC(selected.domain || selected.id)}</b>.` : "Select or create an ontology."}</span></div>` + note);
   }
 
   // The primary (selected) set — chosen BEFORE the node inventory so the set chips can mark it.
@@ -3855,7 +3887,7 @@ function renderVertex(lists, selectedId, vSel) {
   const gaps = omBoundaryNote(`This is <b>real cross-plane graph truth</b> in the Vertex grammar. Unsupported Vertex lanes — freeform graph canvas, arbitrary path-finding, cross-tenant object search, saved explorations — are <b>reference-only</b>, not bound. The <a href="/__apps/vertex">Vertex reference capture ↗</a> is the familiar baseline, never a rebound surface.`);
 
   const banner = `<div class="chips" style="margin:10px 0 12px"><span class="pill ok">graph</span> <span class="sub" style="margin:0">${counts.set} object set${counts.set === 1 ? "" : "s"} · ${objectCount} object${objectCount === 1 ? "" : "s"} · ${counts.proof} cross-plane proof edge${counts.proof === 1 ? "" : "s"} for <b>${CX_ESC(selected.domain || selected.id)}</b></span></div>`;
-  return automationsShell("Vertex", head + switcher + banner + catalog + inv + neighborhood + crossPlane + gaps);
+  return wrap("Vertex", head + switcher + banner + catalog + inv + neighborhood + crossPlane + gaps);
 }
 
 // ============================ STUDIO · DESIGNER (solution-design landing over real composition, #49)
@@ -10451,6 +10483,7 @@ async function handleEstateRequest(req, res, body) {
         J("/v1/hypervisor/work-ledger"),
       ]);
       const selectedOntology = new URL(req.url, "http://x").searchParams.get("ontology") || "";
+      const vertexWrap = (_title, inner) => vertexLightPage(inner);
       res.writeHead(200, HTMLH);
       res.end(renderVertex({
         ontologies: o.ontologies || [],
@@ -10458,7 +10491,7 @@ async function handleEstateRequest(req, res, body) {
         ontology_projections: op.ontology_projections || [],
         materializing_runs: mr.materializing_runs || [],
         provenance_stream: Array.isArray(wl) ? wl : (wl.entries || wl.work_ledger || []),
-      }, selectedOntology, { objectSet: new URL(req.url, "http://x").searchParams.get("objectSet") || "", objectId: new URL(req.url, "http://x").searchParams.get("objectId") || "" }));
+      }, selectedOntology, { objectSet: new URL(req.url, "http://x").searchParams.get("objectSet") || "", objectId: new URL(req.url, "http://x").searchParams.get("objectId") || "" }, vertexWrap));
       return;
     }
     if (pathname === "/__ioi/lineage" && req.method === "GET") {
