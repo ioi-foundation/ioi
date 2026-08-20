@@ -216,7 +216,8 @@
       {
         "id": "DAT-1",
         "title": "Syncs lane (read-only over materializing-runs) per recorded adjudication",
-        "status": "queued"
+        "status": "done",
+        "evidence": "the Syncs lane LIVE at /__ioi/data/sources?lane=syncs: 7/7 real materializing-runs, reference cols Name\u00b7Dataset\u00b7Source\u00b7Status\u00b7Next-run\u00b7Actions (Next-run typed absence \u2014 no scheduling field; Actions named authority-crossing gap in both vocabularies; Source joins the declared registry), read-only, cites adjudication + atlas. Verifier 41/41 (9 new DAT-1 checks + census re-aim); floor 69\u219268 (Syncs tab gap\u2192live)."
       }
     ],
     "W3": [
@@ -447,6 +448,12 @@
       "date": "2026-08-19",
       "did": "W2 AUT-2 BUILT: verbs rehomed under Automate grammar via back=automate on the seed lanes; 48/48",
       "next": "W2 AUT-3 = GRE-2 HOLD (canonical /automations transfer needs owner go); DAT-1 Syncs lane next executable"
+    },
+    {
+      "n": 14,
+      "date": "2026-08-19",
+      "did": "W2 DAT-1 BUILT (Syncs lane 41/41); W2 executable set COMPLETE (AUT-3 held for GRE-2); opening W1+W2 PR",
+      "next": "W3: I-4 splash-landing template"
     }
   ],
   "pr_blockers": [

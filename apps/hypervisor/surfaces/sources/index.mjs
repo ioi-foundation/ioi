@@ -57,6 +57,7 @@ export function render(model, ctx) {
   return renderSourcesPort(model.sources, model.runs, model.mappings, sp.get("dataSource") || "", {
     embed: ctx.embed,
     declare: sp.get("declare") === "1",
+    lane: sp.get("lane") || "",
     kind: sp.get("kind") || "",
     overview: model.overview,
     banner: {
@@ -233,7 +234,7 @@ function renderSourcesPort(sources, mruns, srcMappings, dataSourceSel, opts) {
       <div class="src-truthcol"><h3>By credential posture</h3><div class="src-chips">${chips(byPosture)}</div><p class="src-gapnote">Credential postures are declared postures — credential VALUES never appear on this surface, in the registry records, or in receipts.</p></div>
       <div class="src-truthcol"><h3>Sync activity (real)</h3><p class="src-gapnote">The header counters are the estate's REAL source→set executions (ODK materializing runs): ${cInflight} in-flight · ${cDone} executed · ${cFailed} failed. Endpoints render scheme+host+path only (userinfo/query/fragment stripped).</p></div>
     </div>
-    <p class="src-foot"><b>New source</b> and <b>Connect to external system</b> are the surface's governed receipted declaration (POST /v1/hypervisor/data-sources → dsr_ receipt); everything past declaration stays a <b>named gap disabled in place</b>, never hidden — live-connection setup/extraction (the wired:false boundary), source edit/delete (no PATCH/DELETE route exists), connection tests, static upload, data synthesis, the store menu, Syncs/Agents/Listeners/External-stacks tabs, marketplace example installs (the set-up cards and example cards are the reference's own onboarding chrome, embedded verbatim, not extraction affordances). Owner family: <a href="/__ioi/pipeline">Data ladder (Pipeline Builder)</a> · <a href="/__ioi/odk">ODK builder</a>. Reference: the origin-aligned <a href="http://localhost:9225/workspace/data-ingestion-app/" rel="noopener">Data Connection capture</a> — the <a href="/__apps/sources">/__apps/sources proxy lane ↗</a> is documented insufficient (renders no data; #44 sweep evidence).</p>
+    <p class="src-foot"><b>New source</b> and <b>Connect to external system</b> are the surface's governed receipted declaration (POST /v1/hypervisor/data-sources → dsr_ receipt); everything past declaration stays a <b>named gap disabled in place</b>, never hidden — live-connection setup/extraction (the wired:false boundary), source edit/delete (no PATCH/DELETE route exists), connection tests, static upload, data synthesis, the store menu, Agents/Listeners/External-stacks tabs (absent_confirmed — the reference lanes express no IA; reference-gap-adjudication.v1.json), marketplace example installs (the set-up cards and example cards are the reference's own onboarding chrome, embedded verbatim, not extraction affordances). Owner family: <a href="/__ioi/pipeline">Data ladder (Pipeline Builder)</a> · <a href="/__ioi/odk">ODK builder</a>. Reference: the origin-aligned <a href="http://localhost:9225/workspace/data-ingestion-app/" rel="noopener">Data Connection capture</a> — the <a href="/__apps/sources">/__apps/sources proxy lane ↗</a> is documented insufficient (renders no data; #44 sweep evidence).</p>
   </section>`;
 
   // Embedded (native container contract #65): the native rail owns platform nav — emit no global rail.
@@ -244,8 +245,8 @@ function renderSourcesPort(sources, mruns, srcMappings, dataSourceSel, opts) {
     <h1 class="src-htitle">Data Connection</h1>
     <span class="src-hdiv" aria-hidden="true"></span>
     <nav class="src-tabs">
-      <a class="src-tab" href="/__ioi/data/sources" aria-current="page">Sources</a>
-      <span class="src-tab gap" aria-disabled="true" title="Sync scheduling is not a bound lane — the estate's real source→set executions are ODK materializing runs (named gap)" data-ioi-disabled-reason="Sync scheduling is not a bound lane — the estate's real source→set executions are ODK materializing runs (named gap)">Syncs</span>
+      <a class="src-tab" href="/__ioi/data/sources"${opts.lane === "syncs" ? "" : ` aria-current="page"`}>Sources</a>
+      <a class="src-tab" href="/__ioi/data/sources?lane=syncs"${opts.lane === "syncs" ? ` aria-current="page"` : ""} title="Syncs — the estate's REAL source→set executions (ODK materializing runs), live over /v1/hypervisor/odk/materializing-runs (DAT-1; adjudication: reference-gap-adjudication.v1.json#Syncs)">Syncs</a>
       <span class="src-tab gap" aria-disabled="true" title="Connection agents are a reference-only lane (named gap)" data-ioi-disabled-reason="Connection agents are a reference-only lane (named gap)">Agents</span>
       <span class="src-tab gap" aria-disabled="true" title="Listeners are a reference-only lane (named gap)" data-ioi-disabled-reason="Listeners are a reference-only lane (named gap)">Listeners</span>
       <span class="src-tab gap" aria-disabled="true" title="External stacks are a reference-only lane (named gap)" data-ioi-disabled-reason="External stacks are a reference-only lane (named gap)">External stacks</span>
@@ -329,6 +330,16 @@ function renderSourcesPort(sources, mruns, srcMappings, dataSourceSel, opts) {
     .src-ctag{display:inline-flex;align-items:center;gap:2px;height:20px;padding:2px 6px;border-radius:2px;background:rgba(143,153,168,.15);color:#5f6b7c;font-size:12px;line-height:16px}
     .src-ctag svg{color:#5f6b7c}
     .src-body{flex:1 1 auto;min-width:0;overflow-y:auto;background:#f6f7f9}
+    .src-syncs{padding:18px 24px 40px}
+    .src-synchead{display:grid;grid-template-columns:2fr 1fr 1.4fr 110px 100px 80px;gap:8px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#5f6b7c;padding:8px 10px 6px;border-bottom:1px solid #e5e8eb}
+    .src-syncrow{display:grid;grid-template-columns:2fr 1fr 1.4fr 110px 100px 80px;gap:8px;align-items:center;padding:8px 10px;border-bottom:1px solid #ecEEF2;font-size:14px;background:#fff}
+    .src-scell{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .src-scell.name{display:flex;flex-direction:column;white-space:normal}
+    .src-syncref{font-size:11px;color:#5f6b7c;word-break:break-all}
+    .src-scell.dash{color:#a8b2be;text-align:left}
+    .src-pill{display:inline-flex;padding:1px 8px;border-radius:10px;font-size:12px;font-weight:600}
+    .src-pill.ok{background:rgba(35,133,81,.12);color:#1c6e42}.src-pill.mut{background:rgba(95,107,124,.12);color:#5f6b7c}
+    .src-actgap{color:#a8b2be;cursor:not-allowed;font-weight:700}
     .src-content{max-width:1090px;margin:0 auto;padding:0 45px}
     .src-hero{position:relative;background:#fff;height:143px;box-shadow:0 1px 0 0 rgba(17,20,24,.15)}
     .src-heroct{position:relative;max-width:1040px;height:100%;margin:0 auto;padding:0 20px;background:linear-gradient(90deg,#fff 575px,rgba(255,255,255,0) 100%)}
@@ -430,6 +441,29 @@ function renderSourcesPort(sources, mruns, srcMappings, dataSourceSel, opts) {
   // at the top of the content column (bare certified render carries none of the three).
   const looseBanner = banner && !(opts && opts.declare) && !dataSourceSel ? `<div class="src-truth" style="margin-top:20px;padding-bottom:0">${banner}</div>` : "";
 
+  // ---- DAT-1: the Syncs lane — the reference's own /syncs route (All syncs | Data Connection,
+  // columns Name·Dataset·Source·Status·Next run·Actions; atlas cols=6) LIVE over the estate's real
+  // source→set executions: /v1/hypervisor/odk/materializing-runs. Column bindings per the recorded
+  // adjudication (reference-gap-adjudication.v1.json#Syncs): Name=run.name · Dataset=object_type_id
+  // · Source=data_source_id joined to the registry this port already renders · Status=run.status ·
+  // Next run=TYPED ABSENCE (no scheduling field on the record — honest em-dash, never computed) ·
+  // Actions=NAMED GAP (/:id/execute and /:id/cancel exist but are authority crossings; read-only).
+  const srcNameById = Object.fromEntries((sources || []).map((s) => [s.source_id, s.name || s.source_id]));
+  const syncRows = (mruns || []).map((r) => `<div class="src-syncrow">
+      <span class="src-scell name"><b>${esc(r.name || r.id)}</b><code class="src-syncref">${esc(r.ref || r.id)}</code></span>
+      <span class="src-scell">${esc(r.object_type_id || "—")}</span>
+      <span class="src-scell">${r.data_source_id ? `<a href="/__ioi/data/sources?dataSource=${encodeURIComponent(r.data_source_id)}" title="the declared data source this run reads (the registry this port renders)">${esc(srcNameById[r.data_source_id] || r.data_source_id)}</a>` : "—"}</span>
+      <span class="src-scell"><span class="src-pill ${r.status === "done" || r.status === "succeeded" ? "ok" : "mut"}">${esc(r.status || "unknown")}</span></span>
+      <span class="src-scell dash" title="No scheduling field exists on the materializing-run record — an honest em-dash, never a computed guess (typed absence)">—</span>
+      <span class="src-scell"><span class="src-actgap" aria-disabled="true" title="Run execute/cancel are authority crossings (/:id/execute · /:id/cancel with lease acquisition) — this lane is a read-only projection (named gap)" data-ioi-disabled-reason="Run execute/cancel are authority crossings (/:id/execute · /:id/cancel with lease acquisition) — this lane is a read-only projection (named gap)">…</span></span>
+    </div>`).join("");
+  const syncsLane = `<main class="src-content src-syncs">
+    <h2 class="src-trutht">All syncs <span class="src-truthsub">${(mruns || []).length} materializing run${(mruns || []).length === 1 ? "" : "s"} — the estate's real source→set executions</span></h2>
+    <div class="src-synchead"><span>Name</span><span>Dataset</span><span>Source</span><span>Status</span><span>Next run</span><span>Actions</span></div>
+    <div class="src-syncrows">${syncRows || `<div class="src-empty">No syncs — this lane renders the real ODK materializing-run plane and never fabricates rows.</div>`}</div>
+    <p class="src-foot">DAT-1 (remediation v2): the reference's <b>Syncs</b> lane live over <code>/v1/hypervisor/odk/materializing-runs</code> — read-only projection; execute/cancel stay authority crossings on the ODK plane (named gap in place). Evidence: reference-gap-adjudication.v1.json#Syncs · reference-family-atlas.v1.json (syncs tab_lane, cols=6).</p>
+  </main>`;
+
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Data Connection</title><style>${css}</style></head>
-    <body><div class="src-shell">${globalRail}<div class="src-main">${header}<div class="src-body">${hero}<main class="src-content">${looseBanner}${declarePane}${setup}${viewRow}${table}${examples}${truth}</main></div></div></div></body></html>`;
+    <body><div class="src-shell">${globalRail}<div class="src-main">${header}<div class="src-body">${opts.lane === "syncs" ? syncsLane : `${hero}<main class="src-content">${looseBanner}${declarePane}${setup}${viewRow}${table}${examples}${truth}</main>`}</div></div></div></body></html>`;
 }

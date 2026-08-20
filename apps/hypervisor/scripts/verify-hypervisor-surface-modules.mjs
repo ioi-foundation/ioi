@@ -707,7 +707,8 @@ async function run() {
     // paired named-gap emissions; a refactor that silently drops gap declarations goes red here.
     // Floor lowered 71→69 by AUT-2 (2026-08-19): the two monitors New-automation emissions became
     // LIVE in-shell create links — a gap became a function, the direction the ratchet exists to allow.
-    const GAP_EMISSION_FLOOR = 69;
+    // 69→68 by DAT-1 (2026-08-19): the sources Syncs tab emission became the LIVE lane link.
+    const GAP_EMISSION_FLOOR = 68;
     ok(`unified gap contract: paired emission count >= floor (${GAP_EMISSION_FLOOR})`, paired >= GAP_EMISSION_FLOOR, `paired=${paired}`);
   }
 }

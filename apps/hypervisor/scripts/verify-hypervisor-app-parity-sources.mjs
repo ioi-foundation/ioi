@@ -130,7 +130,10 @@ async function run() {
   ok("the BARE certified render carries NO form; no connect/test/sync/extract affordance", !/<form/.test(t) && !/action="[^"]*\/(connect|test|sync|extract|materialize)"/.test(t));
   ok("the boundary is declared in place: no extraction / no connection test / no live connector read / no materialization on this surface", /no extraction, no connection test, no live connector read, no materialization/.test(t));
   ok("New source + Connect to external system are ENABLED into the governed declare pane (the atlas's governed_receipted_action pair)", /<a class="src-hbtn success" href="[^"]*declare=1[^"]*"/.test(t) && /<a class="src-opt c1" href="[^"]*declare=1[^"]*"/.test(t) && /receipted registry record|receipted source record/.test(t));
-  ok("everything PAST declaration stays DISABLED IN PLACE with named reasons (tabs ×4 · store · Help · upload · synthesis · example installs ×2 · favorites)", (t.match(/aria-disabled="true"/g) || []).length >= 10 && /Sync scheduling is not a bound lane/.test(t) && /Static upload is a reference-only lane/.test(t) && /Data synthesis is a reference-only lane/.test(t) && /Marketplace example installs are a reference-only lane/.test(t), `${(t.match(/aria-disabled="true"/g) || []).length} disabled controls`);
+  // RE-AIMED by DAT-1: the Syncs tab became the LIVE lane (adjudicated portable); the disabled
+  // census is now tabs ×3 (Agents/Listeners/External-stacks — absent_confirmed) + store · Help ·
+  // upload · synthesis · example installs ×2 · favorites.
+  ok("everything PAST declaration stays DISABLED IN PLACE with named reasons (tabs ×3 · store · Help · upload · synthesis · example installs ×2 · favorites); Syncs is LIVE", (t.match(/aria-disabled="true"/g) || []).length >= 10 && t.includes(`href="/__ioi/data/sources?lane=syncs"`) && !/Sync scheduling is not a bound lane/.test(t), `${(t.match(/aria-disabled="true"/g) || []).length} disabled controls`);
   ok("the verbatim strips are declared capture chrome and NOT extraction affordances", /verbatim capture chrome/.test(t) && /not an extraction affordance/i.test(t));
   // The declare pane itself: daemon-derived vocabulary, no secret field, permanence confirmed.
   const dp = await page(`${SERVE_D}/__ioi/data/sources?declare=1`);
@@ -141,6 +144,21 @@ async function run() {
   ok("owner discoverability: the ODK builder links the catalog first-class, and the port links the Data ladder + builder back", odk.status === 200 && odk.text.includes("/__ioi/data/sources") && t.includes('href="/__ioi/pipeline"') && t.includes('href="/__ioi/odk"'));
   ok("the origin-aligned reference + the insufficient proxy lane are BOTH linked and explained on the surface", t.includes("http://localhost:9225/workspace/data-ingestion-app/") && t.includes("/__apps/sources") && /renders no data/.test(t));
   ok("IOI surface brand-clean (no Palantir)", !/\bPalantir\b/.test(t));
+
+  // DAT-1 (remediation v2) — the Syncs lane: the reference /syncs route (All syncs, cols=6) LIVE
+  // over /v1/hypervisor/odk/materializing-runs. Adjudication: reference-gap-adjudication.v1.json#Syncs.
+  const mrs = (await jd("GET", "/v1/hypervisor/odk/materializing-runs")).j.materializing_runs || [];
+  const syn = await page(`${SERVE}/__ioi/data/sources?lane=syncs`);
+  const st2 = syn.text;
+  ok("DAT-1: the Syncs lane renders 200 inside the Data Connection shell", syn.status === 200 && st2.includes("src-header") && st2.includes("All syncs"), String(syn.status));
+  ok("DAT-1: reference columns render (Name·Dataset·Source·Status·Next run·Actions)", [">Name</span>", ">Dataset</span>", ">Source</span>", ">Status</span>", ">Next run</span>", ">Actions</span>"].every((c) => st2.includes(c)));
+  ok("DAT-1: row count equals the REAL materializing-run plane (no fabrication)", (st2.match(/class="src-syncrow"/g) || []).length === mrs.length, `rows=${(st2.match(/class="src-syncrow"/g) || []).length} plane=${mrs.length}`);
+  ok("DAT-1: a sampled REAL run renders (name + status verbatim)", mrs.length === 0 || (st2.includes(mrs[0].name || mrs[0].id) && st2.includes(mrs[0].status || "unknown")));
+  ok("DAT-1: Next run is a TYPED ABSENCE (no scheduling field — honest em-dash, never computed)", /No scheduling field exists on the materializing-run record/.test(st2));
+  ok("DAT-1: Actions is a named authority-crossing gap in BOTH vocabularies", /aria-disabled="true"[^>]*data-ioi-disabled-reason="Run execute\/cancel/.test(st2.replace(/\n/g, " ")) || (st2.includes('data-ioi-disabled-reason="Run execute/cancel') && st2.includes("authority crossings")));
+  ok("DAT-1: the lane is READ-ONLY (no forms)", !st2.includes("<form"));
+  ok("DAT-1: the Syncs tab is the LIVE lane link and Sources tab returns (both in-shell)", t.includes(`href="/__ioi/data/sources?lane=syncs"`) && st2.includes(`href="/__ioi/data/sources"`));
+  ok("DAT-1: the lane cites its adjudication + atlas evidence", /reference-gap-adjudication\.v1\.json#Syncs/.test(st2) && /reference-family-atlas\.v1\.json/.test(st2));
 
   // Isolation teardown (only when the empty-registry fixture lane spawned a plane): both
   // processes stop and the temp data dir is removed — the shared daemon was never written.
