@@ -141,7 +141,23 @@
       "competitors": [
         {
           "seed": "registry",
-          "disposition": "absent_confirmed (reference-seed-adjudications.v1.json#registry)"
+          "disposition": "CORRECTED (REG-1, 2026-08-20): this entry carried the registry seed's mirror-scoped absent_confirmed (reference-seed-adjudications.v1.json#registry, MAR-1). The owner-authorized live-tenant sweep OVERTURNED it (a real artifact-registry landing: 14 controls, 1 search input, 0 rows) and the registry seed now has its OWN designation (marketplace:artifacts \u2192 NOW, /__ioi/marketplace/artifacts, reference-seed-adjudications.v1.json#registry-port). The NOW status of THIS target is unchanged and is about Packages / Marketplace itself, not about registry.",
+          "superseded_disposition": "absent_confirmed (reference-seed-adjudications.v1.json#registry) \u2014 kept as history; overturned by the live-tenant sweep and re-adjudicated in #registry-port"
+        }
+      ]
+    },
+    {
+      "click_target": "marketplace:artifacts",
+      "status": "NOW",
+      "grammar": "Artifact-registry landing (the LIVE-tenant grammar the registry click target actually boots): header + three-counter task tray + Help + Create-artifact-repository \u00b7 centred \"Explore artifacts\" hero with its ecosystem scope and search bar \u00b7 four-card \"Learn about artifacts\" band with its documentation link \u2014 served as a READ-ONLY PROJECTION over the estate's real registry LADDER. Ten daemon planes are probed on every render and classified live into FOUR states: LIVE (records rendered verbatim, each row naming WHICH plane it came from with id / ref / schema_version and a typed dash for every field the record does not carry), EMPTY (the plane answered and holds none \u2014 the reference's own state), REFUSED (identity-first planes whose typed code renders verbatim and NEVER as a zero) and NO READ ROUTE (POST-only planes that cannot be read at all). The package family's eight-route closure and the ZERO artifact-search-route census are re-counted from the daemon's index on every render. Every app control the reference offers is a typed absence with a reason written for it; every registry VERB stays on its owner surface and is linked, never duplicated.",
+      "route": "/__ioi/marketplace/artifacts",
+      "supersedes_terminal": "absent_confirmed (mirror-scoped, recorded as a competitor disposition on the /packages/marketplace target because the registry seed had no target of its own) \u2014 overturned by the owner-authorized live-tenant sweep; the mirror record stands as history",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#registry-port",
+      "evidence": "reference-live-tenant-deep-atlas.v1.json#registry + reference-live-tenant-atlas.v1.json#registry",
+      "competitors": [
+        {
+          "seed": "registry",
+          "disposition": "the registry seed IS this target; the Packages / Marketplace click target (/packages/marketplace) stays NOW and is a different target that OWNS the verbs this projection only links to (D5: one designation per target)"
         }
       ]
     },

@@ -684,6 +684,61 @@
       "outcome": "portable",
       "shipped": "/__ioi/environments/map (MAP-1; parity_class reference_ported, remediation_state live_ia_recorded)",
       "reason": "the LANDING grammar is portable and live-evidenced; the CANVAS is not, and refusing to draw it is the finding, not a shortfall. Every control the reference hangs on the canvas renders as a typed absence under the unified contract (aria-disabled + title + data-ioi-disabled-reason) with a reason written for that control \u2014 no boilerplate reason is reused. The single live lane is real, verbatim, capped, and explicitly labelled NOT-a-map, and it carries its records' expired / not-live-supply state so location strings are never read as running infrastructure. Landing designation for the map seed moves TERMINAL-by-inheritance (the /environments GRE note carried absent_confirmed) to its own NOW target; the owned Environments app itself stays GRE."
+    },
+    {
+      "action": "REG-1",
+      "record_id": "registry-port",
+      "seed": "registry",
+      "owner": "Marketplace",
+      "date": "2026-08-20",
+      "supersedes": "the mirror-scoped #registry record (MAR-1, absent_confirmed \u2014 \"the reference Artifacts seed expresses no IA to carry it\") \u2014 that verdict was rendered against a capture recorded blocked_missing_capture, and it stands only as history under #live-tenant-sweep",
+      "evidence": "reference-live-tenant-deep-atlas.v1.json#registry (landing) + reference-live-tenant-atlas.v1.json#registry (landing, 14 controls, 1 input, 0 rows) + .artifacts/live-tenant-atlas/registry-landing.png + .artifacts/live-tenant-atlas/deep/registry-landing.png",
+      "reference_states": [
+        "landing \u2014 a real artifact-registry entry point: title \"Artifacts\", headings \"Explore artifacts\" and \"Learn about artifacts\", 14 controls (Skip to content \u00b7 Search\u2026 \u00b7 Notifications \u00b7 What's New \u00b7 Recent \u00b7 Applications \u00b7 View all \u00b7 Support \u00b7 Account \u2014 nine vendor global-rail items \u2014 plus Create artifact repository \u00b7 Help \u00b7 a three-counter task tray rendered \"000\" \u00b7 an ecosystem scope selector \u00b7 Go to documentation), ONE search input (\"Search artifacts\u2026\"), ZERO repository rows, ZERO tabs, ZERO columns, and a four-card documentation band (Core concepts \u00b7 Publish an artifact \u00b7 Search an artifact \u00b7 Recall an artifact) under a \"Go to documentation\" link. The reference's own facet_groups entry is the rail's APPLICATIONS group, not an app facet.",
+        "landing (ecosystem scope, NOT ported) \u2014 the capture's scope selector had a third-party PACKAGE-ECOSYSTEM value selected (recorded here, deliberately not printed on-surface). The estate binds no package ecosystem at all, and naming one would imply a binding that does not exist \u2014 the same rule the map leg applied to the vendor basemap."
+      ],
+      "registry_plane_sweep": {
+        "method": "probe every candidate registry plane over the SAME identity envelope this surface renders with, keep the raw HTTP status, and classify from the response itself (405 before any body is read; a non-2xx typed refusal before any collection is looked for; live-or-empty only for a 200 that actually carried a collection). Route arithmetic re-derived from the daemon's own index (GET /v1).",
+        "planes_probed": 10,
+        "live": [
+          "/v1/hypervisor/marketplace/admission-reviews \u2014 1 record (madm_18be70639ae87349, decision admitted, status draft, candidate_ref marketplace-publish://mpub_18be706388059f3e, schema ioi.hypervisor.marketplace-admission-review.v1)"
+        ],
+        "empty": [
+          "/v1/hypervisor/marketplace/publish-candidates",
+          "/v1/hypervisor/marketplace/listings",
+          "/v1/hypervisor/marketplace/instance-offers",
+          "/v1/hypervisor/governance/release-controls"
+        ],
+        "refused": [
+          "/v1/hypervisor/packages \u2014 HTTP 401 request_principal_required (identity-first)",
+          "/v1/hypervisor/scm-publication-effects \u2014 HTTP 401 request_principal_required (identity-first)"
+        ],
+        "no_read_route": [
+          "/v1/hypervisor/scm-publication-proposals \u2014 POST-only (HTTP 405 on GET)",
+          "/v1/hypervisor/worker-package-install-admissions \u2014 POST-only (HTTP 405 on GET)",
+          "/v1/hypervisor/artifact-availability-incidents \u2014 POST-only (HTTP 405 on GET)"
+        ],
+        "package_family_routes": 8,
+        "marketplace_routes": 10,
+        "search_or_query_routes_published": 4,
+        "routes_indexing_packages_releases_or_listings": 0,
+        "verdict": "the estate HAS registry planes \u2014 several \u2014 so the adjudication was never \"is there anything\" but \"which plane backs WHICH lane, and what does each answer to THIS surface's identity\". Four distinct non-fabricable states came back, and blurring any two of them is the defect this port refuses."
+      },
+      "four_state_ruling": "REFUSED is not EMPTY, EMPTY is not MISSING, and a plane with NO READ ROUTE is none of the three. A refusal is a closed door, not a measurement: rendering /v1/hypervisor/packages as \"0 packages\" would convert an identity-first refusal into a count the estate never took \u2014 the same defect class as reading a declared data source as extracted data (FUS-1) or drawing a plausible map (MAP-1). Every plane's state is therefore CLASSIFIED FROM ITS OWN LIVE RESPONSE ON EVERY RENDER and stamped on its row as data-ioi-plane-state, so a state can never be pasted and can never rot; a gate re-derives all ten states independently and fails on any drift.",
+      "authority_ruling": "READ-ONLY PROJECTION. The estate's registry verbs are REAL and they are OWNED ELSEWHERE: candidate admission, release creation, release recall and uninstall belong to the closed Packages family (/__ioi/packages/registry, canonical /packages); draft \u2192 publish-candidate \u2192 review \u2192 publish belongs to Marketplace (/__ioi/marketplace/listings + the marketplace substrate lane). This landing re-mints NONE of them \u2014 the reference's \"Create artifact repository\" renders as a typed absence whose reason states that the verb EXISTS and names where, and the surface links there. A ported read landing never mints a second owner for a verb that already has one.",
+      "estate_plane": {
+        "package_registry": "REFUSED at port time \u2014 /v1/hypervisor/packages is identity-first and answered this projection's identity with request_principal_required. Rendered as a refusal carrying the daemon's own code verbatim and NO count of any kind. The lane states on-surface that this differs from the reference's own EMPTY registry (0 repositories over a plane that answered).",
+        "registry_records": "LIVE \u2014 the readable record planes are rendered as the reference's repository list: every row NAMES which plane it came from and carries the record's id, ref and schema_version verbatim, with a typed dash for every field the record does not carry (no name, no kind, no bound ref). The estate versions a release by content DIGEST; there is no version string on these records and none is invented. Cap 50, NAMED only when it truncates.",
+        "registry_taxonomy": "LIVE \u2014 the daemon's own listing_kinds enum (5) with listings_by_kind counts, read from /v1/hypervisor/marketplace/overview. These are estate OBJECT kinds, not package ecosystems, and they scope nothing: the reference's ecosystem selector is a typed absence because there is no artifact search to scope.",
+        "publishable_substrate": "LIVE but deliberately NOT rendered as artifact rows \u2014 the daemon's own substrate census (agents \u00b7 domain apps \u00b7 foundry specs and run-plans \u00b7 ODK recipes and manifests) read verbatim with its own key names. Material that COULD be published is not a published artifact; counting candidate material as inventory is the same error class as reading a refusal as a zero.",
+        "artifact_search": "ABSENT \u2014 counted from the daemon's route index on every render: 4 search/query routes published, 0 of them indexing packages, releases or listings. The search input and the \"Search an artifact\" card are typed absences rather than a box that would return an empty result looking like an answer.",
+        "artifact_task_tray": "ABSENT \u2014 the reference's three counters (in flight \u00b7 succeeded \u00b7 failed) print 0; the estate has no artifact-task plane with a read route, and its nearest plane (artifact-availability-incidents) is POST-only. Printing 0 would claim an empty queue where there is no queue, and would convert an unreadable plane into a clean bill of health. Each of the three counters carries its OWN reason.",
+        "help_and_documentation": "ABSENT \u2014 the estate serves no documentation plane and has no binding to the vendor's docs; the Help control and the \"Go to documentation\" link name their absence instead of sending an operator somewhere the estate does not own.",
+        "vendor_global_rail": "NOT PORTED \u2014 railless per the owner ruling 2026-08-20; nine of the reference's 14 controls are the vendor global rail (Skip to content \u00b7 Search \u00b7 Notifications \u00b7 What's New \u00b7 Recent \u00b7 Applications \u00b7 View all \u00b7 Support \u00b7 Account), estate chrome owned elsewhere and never re-minted on a ported landing."
+      },
+      "outcome": "portable",
+      "shipped": "/__ioi/marketplace/artifacts (REG-1; parity_class reference_ported, remediation_state live_ia_recorded)",
+      "reason": "the landing grammar is portable AND the estate has real planes to carry it \u2014 so the finding is DISCRIMINATION, not absence. Ten planes probed live and classified into four states the surface refuses to blur; the one live plane's records rendered verbatim with the plane named on every row; the package family's eight-route closure and the zero artifact-search census re-counted from the daemon's index on every render; every app control the reference offers rendered as a typed absence with a reason written for it (all distinct); and every registry VERB left on its owner surface and linked rather than duplicated. The landing designation for the registry seed moves TERMINAL-by-competitor (the /packages/marketplace target carried absent_confirmed for it) to its own NOW target; the /packages/marketplace designation itself is unchanged."
     }
   ]
 }

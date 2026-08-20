@@ -92,6 +92,12 @@ export const SURFACES = [
   // canvas region is a TYPED ABSENCE (missing, not empty) and the one live lane is deliberately
   // NOT a map: the placement plane's region/location/zone/az strings, rendered verbatim.
   { slug: "map", owner: "Environments", title: "Map", icon: DSG_APP_TILE_URI, route: "/__ioi/environments/map", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  // REG-1 (remediation v2): the live-tenant-sourced Artifacts port — a READ-ONLY projection
+  // of the estate's registry LADDER (packages · marketplace publish ladder · release controls
+  // · SCM publication), classified live into four states (LIVE / EMPTY / REFUSED / NO READ
+  // ROUTE). The verbs stay on the Packages + Marketplace owner surfaces and are linked, never
+  // duplicated here.
+  { slug: "registry", owner: "Marketplace", title: "Artifacts", icon: MARKETPLACE_APP_ICON_URI, route: "/__ioi/marketplace/artifacts", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "widgets", owner: "Developer Console", title: "Custom Widgets", icon: DSG_APP_TILE_URI, route: "/__ioi/developer-console/widgets", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "workspaces", owner: "Workbench", title: "Code Workspaces", icon: DSG_APP_TILE_URI, route: "/__ioi/developer-workspace/workspaces", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "notepad", owner: "Workbench", title: "Notepad", icon: DSG_APP_TILE_URI, route: "/__ioi/developer-workspace/notepad", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },

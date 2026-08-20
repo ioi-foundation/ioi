@@ -149,6 +149,94 @@ for (const [slug, route, title, absentPhrase, ownerLink] of [
   ok("map: no chrome reason is BOILERPLATE — every control's reason is written for that control (all distinct)", gapReasons.length >= 20 && new Set(gapReasons).size === gapReasons.length, `${gapReasons.length} chrome gaps, ${new Set(gapReasons).size} distinct`);
   ok("map: READ-ONLY + evidence cited (adjudication #map-port + the LIVE deep atlas) + owner link", !t.includes("<form") && /reference-seed-adjudications\.v1\.json#map-port/.test(t) && /reference-live-tenant-deep-atlas\.v1\.json#map/.test(t) && t.includes("/__ioi/environments"));
 }
+// REG-1: registry — the ARTIFACT-REGISTRY port, and the leg where the honest move is a FOUR-WAY
+// read-state census. The mirror capture was blocked_missing_capture (absent_confirmed, MAR-1
+// "expresses no IA"); the live sweep overturned it (title "Artifacts" · "Explore artifacts" +
+// "Learn about artifacts" · 14 controls · 1 search input · 0 repository rows). Unlike map, the
+// estate HAS registry planes — so the done-bar here is DISCRIMINATION, not absence: every plane's
+// state must be classified from its own live response and match what the daemon answers right now,
+// a REFUSAL may never be rendered as a zero, an EMPTY plane may never be rendered as a missing one,
+// a POST-only plane may never be rendered as either, rows must equal the readable planes exactly,
+// and the estate's registry VERBS must stay on their owner surfaces (this is a projection).
+{
+  const D = process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765";
+  const PLANES = [
+    "/v1/hypervisor/packages",
+    "/v1/hypervisor/marketplace/publish-candidates",
+    "/v1/hypervisor/marketplace/admission-reviews",
+    "/v1/hypervisor/marketplace/listings",
+    "/v1/hypervisor/marketplace/instance-offers",
+    "/v1/hypervisor/governance/release-controls",
+    "/v1/hypervisor/scm-publication-effects",
+    "/v1/hypervisor/scm-publication-proposals",
+    "/v1/hypervisor/worker-package-install-admissions",
+    "/v1/hypervisor/artifact-availability-incidents",
+  ];
+  // The verifier re-derives the classification INDEPENDENTLY (same contract, its own code): a
+  // 405 is write-only before any body is read, a non-2xx is a typed refusal before any collection
+  // is looked for, and only a 200 that actually carried a collection may be called live-or-empty.
+  const probe = async (p) => {
+    try {
+      const r = await fetch(`${D}${p}`);
+      const text = await r.text();
+      let body = null; try { body = JSON.parse(text); } catch { body = null; }
+      if (r.status === 405) return { path: p, state: "write_only", code: "", n: 0 };
+      if (!r.ok) {
+        const b = body || {};
+        return { path: p, state: "refused", code: String((b.error && b.error.code) || b.reason || b.code || `http_${r.status}`), n: 0 };
+      }
+      const arr = Object.values(body || {}).find((v) => Array.isArray(v));
+      if (!Array.isArray(arr)) return { path: p, state: "unreadable", code: `http_${r.status}`, n: 0 };
+      return { path: p, state: arr.length ? "live" : "empty", code: "", n: arr.length, rows: arr };
+    } catch { return { path: p, state: "unreadable", code: "http_0", n: 0 }; }
+  };
+  const derived = await Promise.all(PLANES.map(probe));
+  const ov = await fetch(`${D}/v1/hypervisor/marketplace/overview`).then((r) => r.json()).catch(() => ({}));
+  const kinds = Array.isArray(ov.listing_kinds) ? ov.listing_kinds : [];
+  const substrate = (ov.substrate && typeof ov.substrate === "object") ? ov.substrate : {};
+  const index = await fetch(`${D}/v1`).then((r) => r.json()).catch(() => ({}));
+  const routes = (Array.isArray(index.families) ? index.families : []).flatMap((f) => (Array.isArray(f.paths) ? f.paths : []));
+  const pkgRoutes = routes.filter((r) => String(r.path || "").startsWith("/v1/hypervisor/packages")).length;
+  const mktRoutes = routes.filter((r) => String(r.path || "").startsWith("/v1/hypervisor/marketplace")).length;
+  const searchRoutes = routes.filter((r) => /(search|\/query|index)/i.test(String(r.path || "")));
+  const artifactSearchRoutes = searchRoutes.filter((r) => /(package|artifact|release|listing|registry|marketplace)/i.test(String(r.path || ""))).length;
+  const p = await page(`${SERVE}/__ioi/marketplace/artifacts`);
+  const t = p.text;
+  const planeRow = (path) => {
+    const i = t.indexOf(`data-ioi-plane="${path}"`);
+    if (i < 0) return "";
+    const start = t.lastIndexOf('<div class="rgy-prow"', i);
+    const end = t.indexOf("</div>", i);
+    return start < 0 || end < 0 ? "" : t.slice(start, end + 6);
+  };
+  const gapReasons = [...t.matchAll(/<span class="[^"]*rgy-gap[^"]*"[^>]*data-ioi-disabled-reason="([^"]*)"/g)].map((m) => m[1]);
+  const liveRows = derived.filter((d) => d.state === "live").flatMap((d) => d.rows.map((rec) => ({ d, rec })));
+  ok("registry: matrix reference_ported at /__ioi/marketplace/artifacts with the live-atlas evidence carried", bySlug.registry?.parity_class === "reference_ported" && bySlug.registry?.candidate_surface === "/__ioi/marketplace/artifacts" && bySlug.registry?.remediation_state === "live_ia_recorded" && /#registry-port/.test(bySlug.registry?.adjudication_ref || "") && /reference-live-tenant-deep-atlas/.test(bySlug.registry?.live_reference_evidence || ""), bySlug.registry?.parity_class);
+  ok("registry: renders 200 with the LIVE-tenant artifact-registry landing grammar, RAILLESS (owner ruling 2026-08-20)", p.status === 200 && !t.includes("og-grail") && ["Artifacts", "Explore artifacts", "Create artifact repository", "Help", "Search artifacts…", "Learn about artifacts", "Go to documentation", "Core concepts", "Publish an artifact", "Search an artifact", "Recall an artifact"].every((k) => t.includes(k)), String(p.status));
+  // The load-bearing gate: every plane's rendered state is re-derived from the daemon on THIS run
+  // and must match exactly. A pasted state, a stale state, or a state copied from a sibling plane
+  // all fail here rather than aging quietly into a lie.
+  ok("registry: every plane's state is CLASSIFIED LIVE — the stamped state equals what the daemon answers to this identity right now", derived.length === 10 && derived.every((d) => new RegExp(`data-ioi-plane="${d.path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}" data-ioi-plane-state="${d.state}"`).test(t)), derived.map((d) => `${d.path.split("/").pop()}=${d.state}`).join(" "));
+  // The finding this leg exists to hold: a refusal is a closed door, not a measurement. Every
+  // refused plane must carry the daemon's own typed code verbatim AND must print no record count.
+  ok("registry: a REFUSAL is rendered as a REFUSAL — the daemon's typed code verbatim, and NEVER as a count", derived.filter((d) => d.state === "refused").length > 0 && derived.filter((d) => d.state === "refused").every((d) => { const row = planeRow(d.path); return row.includes(d.code) && /REFUSAL, never a zero/.test(row) && !/\d+\s+records?/.test(row); }) && /A refusal is not a zero/.test(t), `${derived.filter((d) => d.state === "refused").length} refused`);
+  ok("registry: EMPTY, MISSING and NO-READ-ROUTE are held apart — each state's row says which one it is, in its own words", derived.filter((d) => d.state === "empty").every((d) => /EMPTY plane, not a missing one/.test(planeRow(d.path))) && derived.filter((d) => d.state === "write_only").every((d) => /POST-only/.test(planeRow(d.path)) && /not the same as reading nothing/.test(planeRow(d.path))) && /REFUSED is not EMPTY, EMPTY is not MISSING/.test(t), `empty=${derived.filter((d) => d.state === "empty").length} write_only=${derived.filter((d) => d.state === "write_only").length}`);
+  ok("registry: a LIVE plane states its own record count, taken from the plane and not from a constant", derived.filter((d) => d.state === "live").every((d) => new RegExp(`${d.n} record${d.n === 1 ? "" : "s"} — rendered below verbatim`).test(planeRow(d.path))), derived.filter((d) => d.state === "live").map((d) => `${d.path.split("/").pop()}:${d.n}`).join(" "));
+  // Two route-arithmetic claims carry real weight on this surface (the family is CLOSED; nothing
+  // indexes artifacts), so both are counted from the daemon's index on render — and the search
+  // census must still be ZERO, which forces a re-adjudication the day an artifact index lands.
+  ok("registry: the CLOSED package-family route count and the ZERO artifact-search census are COUNTED from the daemon's index on render", artifactSearchRoutes === 0 && new RegExp(`<b>${pkgRoutes}</b> routes under`).test(t) && new RegExp(`<b>${mktRoutes}</b> marketplace routes`).test(t) && new RegExp(`<b>${searchRoutes.length}</b> search/query routes are published and <b>0</b>`).test(t), `pkg=${pkgRoutes} mkt=${mktRoutes} search=${searchRoutes.length} artifactSearch=${artifactSearchRoutes}`);
+  ok("registry: record rows == the READABLE planes exactly (never more than the planes hold), cap NAMED", (t.match(/class="rgy-row"/g) || []).length === Math.min(50, liveRows.length) && new RegExp(`${liveRows.length} REAL record${liveRows.length === 1 ? "" : "s"} across ${derived.filter((d) => d.state === "live").length} live plane`).test(t), `rows=${(t.match(/class="rgy-row"/g) || []).length} plane=${liveRows.length}`);
+  ok("registry: a sampled REAL record renders verbatim — its id, its ref and its schema_version, under the plane it came from", liveRows.length === 0 || liveRows.every(({ d, rec }) => { const id = rec.id || rec.listing_id || rec.candidate_id || ""; const ref = rec.ref || rec.candidate_ref || rec.subject_ref || ""; return (!id || t.includes(id)) && (!ref || t.includes(ref)) && (!rec.schema_version || t.includes(rec.schema_version)) && t.includes(d.path); }), `${liveRows.length} records`);
+  ok("registry: the taxonomy + substrate censuses are the daemon's OWN keys read live, and publishable material is never rendered as an artifact row", kinds.length > 0 && kinds.every((k) => t.includes(`data-ioi-registry-kind="${k}"`)) && Object.keys(substrate).every((k) => t.includes(`data-ioi-substrate-key="${k}"`) && new RegExp(`data-ioi-substrate-key="${k}"[^>]*><code>${k}</code><b>${substrate[k]}</b>`).test(t)) && /NOT published artifacts/.test(t) && !/class="rgy-row"[^>]*>[^<]*<span><b>agents<\/b>/.test(t), `kinds=${kinds.length} substrate=${Object.keys(substrate).length}`);
+  ok("registry: every gap carries the UNIFIED contract (aria === data-ioi count) and there are real absences", (t.match(/aria-disabled="true"/g) || []).length >= 9 && (t.match(/aria-disabled="true"/g) || []).length === (t.match(/data-ioi-disabled-reason=/g) || []).length, `${(t.match(/aria-disabled="true"/g) || []).length} gaps`);
+  ok("registry: no chrome reason is BOILERPLATE — every control's reason is written for that control (all distinct)", gapReasons.length >= 9 && new Set(gapReasons).size === gapReasons.length, `${gapReasons.length} chrome gaps, ${new Set(gapReasons).size} distinct`);
+  // This port sits next to a surface that DOES own these verbs. Duplicating them would mint a
+  // second registry owner, so the gate is: no form, no write path, and the verb's absence reason
+  // must name the owner surface the verb actually lives on.
+  ok("registry: READ-ONLY projection — no verb is re-minted; the Create-repository absence NAMES the owner surface and the page links there", !t.includes("<form") && !/action="\/__ioi\/(packages|marketplace)/.test(t) && /Repository creation is a REAL estate verb and it is NOT missing/.test(t) && t.includes("/__ioi/packages/registry") && t.includes("/__ioi/marketplace/listings"), String(!t.includes("<form")));
+  ok("registry: evidence cited (adjudication #registry-port + the LIVE deep atlas) and brand-clean — no vendor brand and no borrowed package-ecosystem name", /reference-seed-adjudications\.v1\.json#registry-port/.test(t) && /reference-live-tenant-deep-atlas\.v1\.json#registry/.test(t) && !/\bPalantir\b/i.test(t) && !/palantirfoundry/i.test(t) && !/\bconda\b/i.test(t) && !/\b(npm|maven|pypi|docker hub)\b/i.test(t));
+}
 const fails = results.filter((r) => !r.pass);
 for (const r of results) console.log(`  ${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? `  (${r.detail})` : ""}`);
 console.log(`\n${results.length - fails.length}/${results.length} passed`);

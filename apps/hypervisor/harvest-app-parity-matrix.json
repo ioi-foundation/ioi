@@ -18,8 +18,8 @@
   "total_seeds": 39,
   "by_parity_class": {
     "daemon_wired": 13,
-    "reference_capture": 11,
-    "reference_ported": 14,
+    "reference_capture": 10,
+    "reference_ported": 15,
     "substrate_bound": 1
   },
   "legend": {
@@ -668,16 +668,35 @@
       "capture_base": "/workspace/artifacts/",
       "grammar": "table_list",
       "tier": "high_value",
-      "parity_class": "reference_capture",
+      "parity_class": "reference_ported",
       "capture_state": "blocked_missing_capture",
       "reference_capture": "/__apps/registry",
       "reference_workspace": "/workspace/artifacts/",
-      "note": "versioned artifact registry; unbound",
+      "note": "REG-1: live_ia_recorded → ported. The estate HAS registry planes, so the finding is not absence but DISCRIMINATION: a refusal is not a zero, an empty plane is not a missing one, and a plane with no read route is neither — every plane's state is classified from its own live response and stamped on its row",
       "reference_clean_state": "shell_clean_only",
       "reference_clean_reason": "shell renders a WELCOME/empty landing (cards 4 · lines 18, no row/node data) — clean chrome, no real data to port against (proxy lane shows a failure (\"Invalid resource identifier\"); the origin lane is the readable one)",
       "reference_clean_artifact": "reference-clean-sweep.json",
       "remediation_state": "live_ia_recorded",
-      "adjudication_ref": "reference-seed-adjudications.v1.json#registry + reference-live-tenant-atlas.v1.json#registry"
+      "adjudication_ref": "reference-seed-adjudications.v1.json#registry + reference-seed-adjudications.v1.json#registry-port + reference-live-tenant-atlas.v1.json#registry + reference-live-tenant-deep-atlas.v1.json#registry",
+      "port_surface": "/__ioi/marketplace/artifacts",
+      "surface_name": "Marketplace",
+      "live_reference_evidence": "reference-live-tenant-deep-atlas.v1.json#registry (landing) + reference-live-tenant-atlas.v1.json#registry",
+      "reference_landmarks": [
+        "Artifacts",
+        "Explore artifacts",
+        "Create artifact repository",
+        "Help",
+        "Search artifacts…",
+        "Learn about artifacts",
+        "Go to documentation",
+        "Core concepts",
+        "Publish an artifact",
+        "Search an artifact",
+        "Recall an artifact"
+      ],
+      "binding": "the live-tenant ARTIFACT-REGISTRY landing grammar (header + task tray + Help + Create-artifact-repository · centred Explore hero with its ecosystem scope + search bar · four-card Learn band with its documentation link) over the estate's REAL registry LADDER, rendered as a READ-ONLY projection: ten daemon planes probed on every render and classified live into FOUR states — LIVE (records rendered verbatim, each row naming WHICH plane it came from, with id / ref / schema_version and a typed dash for every field the record does not carry), EMPTY (the plane answered and holds none — the reference's own state), REFUSED (identity-first planes that refuse this read, the daemon's typed code rendered verbatim and NEVER as a zero) and NO READ ROUTE (POST-only planes that cannot be read at all). The package family's eight-route closure and the zero artifact-search routes are re-counted from the daemon's route index on every render. Every app control the reference offers is a typed absence with a reason written for it; the estate's registry verbs stay on the Packages + Marketplace owner surfaces and are linked, never duplicated",
+      "candidate_surface": "/__ioi/marketplace/artifacts",
+      "shell_pixel_certified": false
     },
     {
       "owner": "Developer Console",
