@@ -19,8 +19,8 @@
   "by_parity_class": {
     "daemon_wired": 13,
     "reference_capture": 17,
-    "reference_ported": 6,
-    "substrate_bound": 3
+    "reference_ported": 7,
+    "substrate_bound": 2
   },
   "legend": {
     "reference_capture": "the /__apps/<slug> reference baseline serves; no IOI port exists",
@@ -219,18 +219,28 @@
       "capture_base": "/workspace/monocle/",
       "grammar": "graph",
       "tier": "high_value",
-      "parity_class": "substrate_bound",
+      "parity_class": "reference_ported",
       "capture_state": "boots_graph",
       "reference_capture": "/__apps/lineage",
       "reference_workspace": "/workspace/monocle/",
-      "note": "Monocle lineage grammar over real provenance; upstream ladder refs resolved to live records; no fake nodes for unmaterialized ontologies; freeform resource-search / graph-expansion / cross-tenant catalog = named gaps",
+      "note": "PRO-1.build: the census's richest miss closed — 6-tab Monocle IA live over the existing substrate; /provenance landing designation = Monocle (D1)",
       "reference_clean_state": "shell_clean_only",
       "reference_clean_reason": "shell renders a WELCOME/empty landing (cards 3 · lines 20, no row/node data) — clean chrome, no real data to port against",
       "reference_clean_artifact": "reference-clean-sweep.json",
       "remediation_state": "ia_bearing_empty",
-      "adjudication_ref": "reference-seed-adjudications.v1.json#lineage",
-      "substrate_surface": "/__ioi/lineage",
-      "binding": "ODK materialization provenance (MaterializedObjectSet → run → session → lease → projection → mapping → datasource, resolved to live ladder refs; per-object source hashes + mapped_from; pre-output + registration receipts; Provenance proof-stream edges where available)",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#lineage + reference-seed-adjudications.v1.json#lineage-tabs",
+      "port_surface": "/__ioi/lineage",
+      "surface_name": "Provenance",
+      "reference_url_override": "http://localhost:9225/workspace/monocle/",
+      "reference_landmarks": [
+        "Preview",
+        "SQL scratchpad",
+        "History",
+        "Code",
+        "Build timeline",
+        "Data health"
+      ],
+      "binding": "the light Monocle shell over the SAME substrate truth: Preview = the lineage graph body re-chromed in place; History = the proof stream (work-ledger) newest-30 cap named; Build timeline = real run transcripts with state_root proof anchors; SQL/Code/Data-health typed absences (per-tab adjudication #lineage-tabs)",
       "candidate_surface": "/__ioi/lineage",
       "shell_pixel_certified": false
     },

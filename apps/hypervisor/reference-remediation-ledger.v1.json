@@ -268,8 +268,8 @@
       {
         "id": "PRO-1.build",
         "title": "Monocle light shell over lineage substrate (portable tab set)",
-        "status": "in_progress",
-        "evidence": "INCREMENT 1 SHIPPED: light Monocle lanes History (work-ledger, 7140 entries) + Build timeline (transcripts, 3173 runs) live at /__ioi/lineage?tab= with caps named; SQL/Code/Data-health typed absences (both vocabularies); per-tab adjudication #lineage-tabs. NAMED RESIDUAL: Preview lane light re-chrome (next iteration)."
+        "status": "done",
+        "evidence": "COMPLETE: Preview re-chromed in place (the SAME lineage graph body hosted in the light Monocle shell via a wrap-param refactor \u2014 automationsShell replaced for this surface only); History (7140-entry proof stream) + Build timeline (3173 transcripts, state_root anchors) live lanes; SQL/Code/Data-health typed per-tab (#lineage-tabs). lineage \u2192 reference_ported. Smoke green; surface-modules green."
       },
       {
         "id": "PRO-2.build",
@@ -504,6 +504,12 @@
       "date": "2026-08-19",
       "did": "W4 PRO-1.build increment 1: Monocle History+Timeline lanes live; per-tab adjudication recorded; Preview re-chrome = named residual",
       "next": "PRO-1.build completion (Preview light re-chrome) OR parallel W4 items"
+    },
+    {
+      "n": 22,
+      "date": "2026-08-19",
+      "did": "W4 PRO-1.build COMPLETE \u2014 the Monocle 6-tab re-shell in place at /__ioi/lineage",
+      "next": "W4: PRO-2.build (vertex) or DEV-2 (devconsole)"
     }
   ],
   "pr_blockers": [
