@@ -2012,7 +2012,234 @@
         }
       ],
       "errors": []
+    },
+    "workspaces": {
+      "slug": "workspaces",
+      "owner": "Workbench",
+      "reference_base": "http://localhost:9225/workspace/code-workspaces/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/code-workspaces/"
+          },
+          "url": "http://localhost:9225/workspace/code-workspaces/splash",
+          "ia": {
+            "title": "Home page - Code Workspaces",
+            "headings": [
+              "Code Workspaces"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "WORKSPACES",
+              "CREATOR",
+              "LAST EDITED BY",
+              "LAST EDITED"
+            ],
+            "rows": 0,
+            "cards": 5,
+            "empty_copy": "no running workspaces",
+            "text_len": 1735
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/workspaces/landing.png"
+        },
+        {
+          "key": "splash_alias:/workspace/code-workspaces/splash",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/code-workspaces/splash"
+          },
+          "url": "http://localhost:9225/workspace/code-workspaces/splash",
+          "ia": {
+            "title": "Home page - Code Workspaces",
+            "headings": [
+              "Code Workspaces"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "WORKSPACES",
+              "CREATOR",
+              "LAST EDITED BY",
+              "LAST EDITED"
+            ],
+            "rows": 0,
+            "cards": 5,
+            "empty_copy": "no running workspaces",
+            "text_len": 1735
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/workspaces/splash_alias_workspace_code-workspaces_splash.png"
+        },
+        {
+          "key": "authoring:/workspace/code-workspaces/create",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/code-workspaces/create"
+          },
+          "url": "http://localhost:9225/workspace/code-templates/create?origin=code-workspaces&platform=VS+Code&platform=Jupyter&platform=R+Studio",
+          "ia": {
+            "title": "Code Templates",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 6,
+            "empty_copy": "",
+            "text_len": 335
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/workspaces/authoring_workspace_code-workspaces_create.png"
+        },
+        {
+          "key": "authoring:/workspace/code-workspaces/quickCreate",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/code-workspaces/quickCreate"
+          },
+          "url": "http://localhost:9225/workspace/code-templates/create?origin=code-workspaces&platform=VS+Code&platform=Jupyter&platform=R+Studio",
+          "ia": {
+            "title": "Code Templates",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 6,
+            "empty_copy": "",
+            "text_len": 335
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/workspaces/authoring_workspace_code-workspaces_quickCreate.png"
+        }
+      ],
+      "errors": []
+    },
+    "notepad": {
+      "slug": "notepad",
+      "owner": "Workbench",
+      "reference_base": "http://localhost:9225/workspace/notepad/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/notepad/"
+          },
+          "url": "http://localhost:9225/workspace/notepad/",
+          "ia": {
+            "title": "Notepad Home",
+            "headings": [
+              "Notepad"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "RESOURCE",
+              "TYPE",
+              "AUTHOR",
+              "LAST MODIFIED"
+            ],
+            "rows": 0,
+            "cards": 14,
+            "empty_copy": "Get started using example Notepad documents and templates from Marketplace",
+            "text_len": 1602
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/notepad/landing.png"
+        },
+        {
+          "key": "authoring:/workspace/notepad/create",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/notepad/create"
+          },
+          "url": "http://localhost:9225/workspace/notepad/create",
+          "ia": {
+            "title": "Palantir",
+            "headings": [
+              "Save"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 0,
+            "empty_copy": "",
+            "text_len": 268
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/notepad/authoring_workspace_notepad_create.png"
+        },
+        {
+          "key": "authoring:/workspace/notepad/create-new-from-template",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/notepad/create-new-from-template"
+          },
+          "url": "http://localhost:9225/workspace/notepad/create-new-from-template",
+          "ia": {
+            "title": "Palantir",
+            "headings": [
+              "Choose template"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "RESOURCE",
+              "AUTHOR",
+              "LAST MODIFIED"
+            ],
+            "rows": 0,
+            "cards": 0,
+            "empty_copy": "No recently opened Notepad templates found",
+            "text_len": 418
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/notepad/authoring_workspace_notepad_create-new-from-template.png"
+        },
+        {
+          "key": "authoring:/workspace/notepad/create-template",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/notepad/create-template"
+          },
+          "url": "http://localhost:9225/workspace/notepad/create-template",
+          "ia": {
+            "title": "Palantir",
+            "headings": [
+              "Save"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 0,
+            "empty_copy": "",
+            "text_len": 268
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/notepad/authoring_workspace_notepad_create-template.png"
+        }
+      ],
+      "errors": []
     }
   },
-  "recorded_at": "2026-08-20T00:49:33.435Z"
+  "recorded_at": "2026-08-20T00:53:57.025Z"
 }

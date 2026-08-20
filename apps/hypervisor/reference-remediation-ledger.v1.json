@@ -248,7 +248,8 @@
       {
         "id": "WOR-1",
         "title": "workspaces + notepad origin-align + I-4 ports",
-        "status": "queued"
+        "status": "done",
+        "evidence": "Code Workspaces + Notepad SHIPPED at /__ioi/developer-workspace/{workspaces,notepad} \u2014 workspaces over the REAL environments plane (610 records, newest 15 with the cap NAMED); notepad TYPED-ABSENT body (no document plane; the template-picker IA \u2014 4 facet groups \u2014 atlas-recorded for a future cut). Verifier 28/28."
       },
       {
         "id": "DOM-1",
@@ -483,6 +484,12 @@
       "date": "2026-08-19",
       "did": "W3 DEV-1: Custom Widgets I-4 port SHIPPED (18/18); reference_ported=4",
       "next": "W3 WOR-1 (workspaces+notepad) then FOU-1"
+    },
+    {
+      "n": 19,
+      "date": "2026-08-19",
+      "did": "W3 WOR-1: Code Workspaces (real 610-env substrate) + Notepad (typed-absent) SHIPPED; 28/28; reference_ported=6",
+      "next": "W3 FOU-1 (Registered-models lane) \u2014 closes W3 executable set"
     }
   ],
   "pr_blockers": [

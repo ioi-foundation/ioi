@@ -9033,6 +9033,45 @@ async function handleEstateRequest(req, res, body) {
       sendOwnedSurfaceHtml(res, "changes", renderChangesPort((pj.proposals || []).sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || ""))), lane, filter));
       return;
     }
+    // ---- Workbench · Code Workspaces + Notepad — WOR-1 (remediation v2): origin-aligned I-4
+    // landings. Workspaces renders the estate's REAL workspace substrate (the environments plane,
+    // newest 15 of the full census with the cap NAMED); Notepad is a TYPED-ABSENT body (no
+    // document plane — the reference's template-picker IA is recorded in the atlas for the day
+    // one lands).
+    if (pathname === "/__ioi/developer-workspace/workspaces" && req.method === "GET") {
+      const envs = await daemonFetch(`/v1/hypervisor/environments`).then((r) => r.json()).then((j) => j.environments || []).catch(() => []);
+      const newest = [...envs].sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || ""))).slice(0, 15);
+      const fdt = (iso) => { const d2 = new Date(iso || 0); return isNaN(d2) ? "—" : d2.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); };
+      const rowsHtml = newest.map((e) => `<a class="spl-row" href="/__ioi/environments" title="a REAL environment record — the estate's workspace substrate (owner: Environments)"><span><b>${CX_ESC((e.spec || {}).name || e.id)}</b></span><span>${CX_ESC((e.spec || {}).class_id || (e.spec || {}).environment_class_id || "—")}</span><span>${CX_ESC(e.status || "—")}</span><span>${fdt(e.created_at)}</span></a>`).join("");
+      sendOwnedSurfaceHtml(res, "workspaces", renderSplashLanding({
+        slug: "developer-workspace/workspaces", routeOverride: pathname, title: "Code Workspaces",
+        appTileUri: DSG_APP_TILE_URI, chipTintRgba: "rgba(45,114,210,.08)",
+        newLabel: "New workspace",
+        newGapReason: "Workspace creation is the governed environment ladder (New Environment on the owner surface) — not re-minted here; the reference create lanes are dead on the mirror (atlas); named gap",
+        heroTitle: "Code Workspaces",
+        heroDesc: `The estate's REAL workspace substrate — ${envs.length} environment record${envs.length === 1 ? "" : "s"}; the newest 15 render below (cap named, never silent).`,
+        columns: ["Workspace", "Class", "Status", "Created"],
+        rowsHtml,
+        emptyCopy: "No environments — this table renders the real environments plane and never fabricates rows.",
+        footHtml: `WOR-1 (remediation v2): the origin-aligned Code-Workspaces landing (atlas: 5 facet groups) over the REAL environments plane — newest 15 of ${envs.length} (cap NAMED; the full census lives on the <a href="/__ioi/environments">Environments owner surface</a>). Evidence: reference-seed-adjudications.v1.json#workspaces · reference-family-atlas.v1.json.`,
+      }));
+      return;
+    }
+    if (pathname === "/__ioi/developer-workspace/notepad" && req.method === "GET") {
+      sendOwnedSurfaceHtml(res, "notepad", renderSplashLanding({
+        slug: "developer-workspace/notepad", routeOverride: pathname, title: "Notepad",
+        appTileUri: DSG_APP_TILE_URI, chipTintRgba: "rgba(45,114,210,.08)",
+        newLabel: "New document",
+        newGapReason: "No document plane exists on the estate — the reference's template-picker IA (4 facet groups) is RECORDED in the atlas for the day one lands; typed absence, never simulated",
+        heroTitle: "Notepad",
+        heroDesc: "The reference Notepad landing grammar, preserved over a NAMED ABSENCE: the estate holds no document plane today.",
+        columns: ["Files", "Creator", "Last edited by", "Last viewed"],
+        rowsHtml: "",
+        emptyCopy: "No documents — NOT an empty plane but a missing one: the estate records no document objects (typed absence). This table never fabricates rows.",
+        footHtml: `WOR-1 (remediation v2): the origin-aligned Notepad landing (atlas: 5 facet groups; create-from-template expresses 4 facet groups, recorded) as an I-4 instance over a TYPED-ABSENT body. Evidence: reference-seed-adjudications.v1.json#notepad · reference-family-atlas.v1.json. Family: <a href="/__ioi/developer-workspace">Workbench</a>.`,
+      }));
+      return;
+    }
     // ---- Developer Console · Custom Widgets — DEV-1 (remediation v2): origin-aligned I-4
     // landing (atlas: 5 facet groups) over a TYPED-ABSENT body — no widget plane exists.
     if (pathname === "/__ioi/developer-console/widgets" && req.method === "GET") {

@@ -472,6 +472,33 @@
       "estate_plane": "NONE \u2014 no widget plane exists",
       "outcome": "portable",
       "reason": "landing grammar portable (I-4 instance SHIPPED at /__ioi/developer-console/widgets); BODY typed-absent; create lane dead on the mirror"
+    },
+    {
+      "action": "WOR-1",
+      "seed": "workspaces",
+      "owner": "Workbench",
+      "reference_route": "http://localhost:9225/workspace/code-workspaces/splash (+ create, quickCreate)",
+      "atlas_states": [
+        "splash (5 facet groups, ia=true)",
+        "authoring lanes (ia=false)"
+      ],
+      "estate_plane": "/v1/hypervisor/environments \u2014 610 real records (the workspace substrate)",
+      "outcome": "portable",
+      "reason": "SHIPPED at /__ioi/developer-workspace/workspaces over the real environments plane (newest 15, cap named); creation stays the governed environment ladder"
+    },
+    {
+      "action": "WOR-1",
+      "seed": "notepad",
+      "owner": "Workbench",
+      "reference_route": "http://localhost:9225/workspace/notepad/ (+ 3 create lanes)",
+      "atlas_states": [
+        "landing (5 facets, ia=true)",
+        "create-new-from-template (4 facets, ia=true \u2014 RECORDED for a future cut)",
+        "create/create-template (ia=false)"
+      ],
+      "estate_plane": "NONE \u2014 no document plane",
+      "outcome": "portable",
+      "reason": "landing SHIPPED at /__ioi/developer-workspace/notepad over a TYPED-ABSENT body; the template-picker IA is on record for the day a document plane lands"
     }
   ]
 }
