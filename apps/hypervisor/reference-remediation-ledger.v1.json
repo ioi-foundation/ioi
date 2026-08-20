@@ -452,7 +452,7 @@
     {
       "n": 14,
       "date": "2026-08-19",
-      "did": "W2 DAT-1 BUILT (Syncs lane 41/41); W2 executable set COMPLETE (AUT-3 held for GRE-2); opening W1+W2 PR",
+      "did": "W2 DAT-1 BUILT (Syncs lane 41/41); W2 executable set COMPLETE (AUT-3 held for GRE-2); opening W1+W2 PR \u2014 PR #354 re-scoped to W0-W2 (one PR per head branch)",
       "next": "W3: I-4 splash-landing template"
     }
   ],
