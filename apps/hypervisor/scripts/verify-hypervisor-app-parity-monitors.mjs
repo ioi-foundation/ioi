@@ -52,7 +52,11 @@ async function run() {
   const row = bySlug.monitors;
   ok("matrix: monitors is daemon_wired at /__ioi/automations/monitors (Automations) with Automate-IA landmarks", row && row.parity_class === "daemon_wired" && row.candidate_surface === "/__ioi/automations/monitors" && row.surface_name === "Automations" && Array.isArray(row.reference_landmarks) && row.reference_landmarks.length >= 8, row ? `class=${row.parity_class}` : "row missing");
   ok("matrix: the reference is ORIGIN-ALIGNED (reference_url_override → localhost:9225/workspace/object-monitoring/)", row && row.reference_url_override === "http://localhost:9225/workspace/object-monitoring/");
-  ok("the estate census accepts monitors among the certified daemon_wired surfaces (>= 10 since #51); reference_capture stays the honest majority", (matrix.by_parity_class?.daemon_wired || 0) >= 10 && (matrix.by_parity_class?.reference_capture || 0) >= 20, JSON.stringify(matrix.by_parity_class));
+  // RE-AIMED (remediation v2, 2026-08-20): the frozen reference_capture floor went stale as seeds
+  // legitimately moved to adjudicated reference_ported ports. The anti-overclaim intent stands:
+  // daemon_wired grows only via the hardened gate; every ported row carries candidate_surface +
+  // adjudication_ref (the clean-sweep promotion ratchet validates each drift).
+  ok("the estate census accepts monitors among daemon_wired (>= 10 since #51); every ported row carries adjudication evidence; no over-claiming", (matrix.by_parity_class?.daemon_wired || 0) >= 10 && !(matrix.seeds || []).some((s) => s.parity_class === "covered") && (matrix.seeds || []).filter((s) => s.parity_class === "reference_ported").every((s) => s.candidate_surface && s.adjudication_ref), JSON.stringify(matrix.by_parity_class));
 
   // 0b. Shell-pixel certification is REAL, committed, non-pinned, SHELL-scoped.
   let cert = null;

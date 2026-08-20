@@ -3778,19 +3778,44 @@ const VERTEX_NODE_KINDS = [
 // PRO-2.build — the light Vertex shell (remediation v2): the SAME graph body re-chromed in place;
 // New exploration = typed absence (the reference create lane is dead on the mirror — adjudication
 // reference-seed-adjudications.v1.json#vertex).
-function vertexLightPage(bodyHtml) {
+function vertexLightPage(bodyHtml, opts = {}) {
   const esc = CX_ESC;
-  const grail = ioiGlobalRailHtml({ label: "Vertex", href: "/__ioi/vertex", iconUri: DSG_APP_TILE_URI, railVariant: "rv-pipe rv-dsg", viewAll: true, star: false, badges: true, aipGradient: true, acctMuted: true });
-  const newGap = `<span class="vtx-hbtn gap" aria-disabled="true" title="${esc("New exploration — the reference create lane is dead on the mirror and no exploration-authoring lane is bound here (adjudication #vertex); typed absence")}" data-ioi-disabled-reason="${esc("New exploration — the reference create lane is dead on the mirror and no exploration-authoring lane is bound here (adjudication #vertex); typed absence")}">+ New exploration</span>`;
+  // OWNER RULING (2026-08-20): no fabricated reference rail — railless; the platform container
+  // provides the one rail. CORRECTED GAP REASON: the reference create CANVAS BOOTS on the mirror
+  // (owner-evidenced screenshots 2026-08-20); the earlier "dead on the mirror" verdict was the
+  // atlas ia-heuristic's CANVAS BLIND SPOT (it counts facets/columns and cannot see canvas
+  // grammars) — recorded in reference-seed-adjudications.v1.json#vertex-canvas-correction.
+  // Authoring remains a later authority-crossing cut; the absence is authority-ruled, not
+  // capture-ruled.
+  const newGapReason = "New exploration — the reference canvas BOOTS (owner-evidenced; the earlier dead-on-mirror verdict was the ia-heuristic's canvas blind spot, corrected on record); graph authoring is a later authority-crossing cut (boundary_held)";
+  const newGap = `<span class="vtx-hbtn gap" aria-disabled="true" title="${esc(newGapReason)}" data-ioi-disabled-reason="${esc(newGapReason)}">+ New exploration</span>`;
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Vertex</title><style>
     :root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#fff;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif}a{color:#215db0;text-decoration:none}
-    .vtx-shell{display:flex;height:100vh;overflow:hidden}${IOI_GRAIL_CSS}
-    .vtx-main{flex:1;min-width:0;display:flex;flex-direction:column}
+    .vtx-main{display:flex;flex-direction:column;height:100vh}
     .vtx-header{flex:0 0 50px;display:flex;align-items:center;gap:14px;padding:0 20px;background:#fff;box-shadow:0 1px 0 #d1d1d1,0 3px 4px rgba(0,0,0,.04)}
     .vtx-title{font-size:16px;font-weight:600;color:#404854;margin:0;flex:1}
     .vtx-hbtn{display:inline-flex;align-items:center;height:30px;padding:0 10px;border:1px solid rgba(95,107,124,.25);border-radius:4px;font-size:14px}
     .vtx-hbtn.gap{color:#a8b2be;cursor:not-allowed}
-    .vtx-body{flex:1;overflow-y:auto;padding:18px 26px 40px}
+    .vtx-body{flex:1;overflow-y:auto;padding:26px 40px 40px}
+    .vtx-hero h1{font-size:24px;font-weight:600;margin:0}
+    .vtx-hero p{color:#5f6b7c;margin:4px 0 16px}
+    .vtx-search{display:flex;align-items:center;gap:10px;margin:0 0 20px}
+    .vtx-search input{flex:1;max-width:760px;font:14px/1.4 inherit;padding:9px 12px;border:1px solid rgba(95,107,124,.35);border-radius:3px;background:#f6f7f9;color:#a8b2be;cursor:not-allowed}
+    .vtx-cards{display:flex;gap:24px;margin:0 0 26px;flex-wrap:wrap}
+    .vtx-card{flex:1;min-width:240px;max-width:320px;border:1px solid #e5e8eb;border-radius:4px;padding:16px;position:relative}
+    .vtx-card h4{margin:10px 0 8px;font-size:16px}
+    .vtx-card p{font-size:13px;color:#5f6b7c;margin:0 0 8px}
+    .vtx-avail{position:absolute;top:14px;right:14px;font-size:12px;color:#5f6b7c}
+    .vtx-viewrow{display:flex;gap:8px;align-items:center;margin:0 0 10px}
+    .vtx-view{font-size:13px;padding:4px 12px;border-radius:12px;color:#1c2127;background:#eef1f5}
+    .vtx-view.on{background:#d3e2f7;color:#215db0;font-weight:600}
+    .vtx-view.gap{color:#a8b2be;cursor:not-allowed}
+    .vtx-thead{display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#5f6b7c;padding:8px 10px;border-bottom:1px solid #e5e8eb;max-width:980px}
+    .vtx-row{display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;align-items:center;padding:9px 10px;border-bottom:1px solid #f0f2f5;font-size:14px;color:#1c2127;max-width:980px}
+    .vtx-row:hover{background:#f6f7f9}
+    .vtx-ref{display:block;font-size:11px;color:#5f6b7c;word-break:break-all}
+    .vtx-empty{padding:34px 10px;color:#5f6b7c;text-align:center;max-width:980px}
+    .vtx-foot{font-size:12px;color:#7b8494;line-height:1.6;margin-top:20px;max-width:980px}
     .sub{color:#5f6b7c;font-size:13px}
     .empty{padding:14px;background:#f6f7f9;border:1px solid #e5e8eb;border-radius:4px;color:#5f6b7c}
     .chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.chiplabel{font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:#5f6b7c;font-weight:600}
@@ -3799,12 +3824,11 @@ function vertexLightPage(bodyHtml) {
     .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
     .act{display:inline-flex;align-items:center;height:26px;padding:0 10px;border:1px solid rgba(95,107,124,.3);border-radius:4px;color:#1c2127}.act.ghost{background:transparent}
     code{background:#f0f2f5;padding:0 4px;border-radius:3px;font-size:12px}
-    h1{font-size:20px;margin:0 0 6px}h2{font-size:16px;margin:14px 0 6px}
-    .vtx-foot{font-size:12px;color:#7b8494;line-height:1.6;margin-top:18px}
-  </style></head><body><div class="vtx-shell">${grail}<div class="vtx-main">
-    <header class="vtx-header"><h1 class="vtx-title">Vertex</h1>${newGap}</header>
-    <div class="vtx-body">${bodyHtml}<p class="vtx-foot">PRO-2.build (remediation v2): the light Vertex shell over the SAME substrate truth — the graph body re-chromed in place; New exploration is a typed absence (adjudication reference-seed-adjudications.v1.json#vertex; atlas: 4 facet groups at the landing). Family: <a href="/__ioi/work-ledger">Provenance</a> · sibling <a href="/__ioi/lineage">Data Lineage (Monocle)</a>.</p></div>
-  </div></div></body></html>`;
+    h2{font-size:16px;margin:14px 0 6px}
+  </style></head><body><div class="vtx-main">
+    <header class="vtx-header"><h1 class="vtx-title">Vertex</h1>${opts.backLink ? `<a class="vtx-hbtn" href="/__ioi/vertex">← All graphs</a>` : ""}${newGap}</header>
+    <div class="vtx-body">${bodyHtml}</div>
+  </div></body></html>`;
 }
 
 function renderVertex(lists, selectedId, vSel, wrap = automationsShell) {
@@ -5195,10 +5219,10 @@ function monocleLineagePage(active, bodyHtml, bodyCss = "") {
     mtab("Build timeline", "/__ioi/lineage?tab=timeline", "timeline", null),
     mtab("Data health", "", "", "No per-node data-health plane exists — execution health is Operations-owned (typed absence; adjudication #lineage-tabs)"),
   ].join("");
-  const grail = ioiGlobalRailHtml({ label: "Data Lineage", href: "/__ioi/lineage", iconUri: DSG_APP_TILE_URI, railVariant: "rv-pipe rv-dsg", viewAll: true, star: false, badges: true, aipGradient: true, acctMuted: true });
+  const grail = ""; // owner ruling 2026-08-20: no fabricated reference rail on non-certified shells
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Data Lineage</title><style>
     :root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#fff;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif}a{color:#215db0;text-decoration:none}
-    .mnc-shell{display:flex;height:100vh;overflow:hidden}${IOI_GRAIL_CSS}
+    .mnc-shell{display:flex;height:100vh;overflow:hidden}
     .mnc-main{flex:1;min-width:0;display:flex;flex-direction:column}
     .mnc-header{flex:0 0 50px;display:flex;align-items:center;gap:18px;padding:0 20px;background:#fff;box-shadow:0 1px 0 #d1d1d1,0 3px 4px rgba(0,0,0,.04)}
     .mnc-title{font-size:16px;font-weight:600;color:#404854;margin:0}
@@ -9189,10 +9213,10 @@ async function handleEstateRequest(req, res, body) {
         : `<div class="ins-degraded" title="the daemon's own fail-closed answer, verbatim">saved-object-sets: <code>${esc(ss.code || "unavailable")}</code> — ${esc(ss.message || "the control plane did not answer")} (typed degradation — the plane requires an authenticated principal; nothing is masked)</div>`;
       const rows = msets.map((m) => `<a class="ins-row" href="/__ioi/ontology/explorer" title="a REAL materialized object set — explore it on Object Explorer"><span><b>${esc(m.object_type_id || m.id)}</b><code class="ins-ref">${esc(m.id)}</code></span><span>${m.count ?? (m.objects || []).length} object${(m.count ?? (m.objects || []).length) === 1 ? "" : "s"}</span><span><code class="ins-ref">${esc(m.materializing_run_ref || "—")}</code></span><span><code class="ins-ref">${esc(m.capability_lease_plan_ref || "—")}</code></span></a>`).join("");
       const gap = (label, reason) => `<span class="ins-gap" aria-disabled="true" title="${esc(reason)}" data-ioi-disabled-reason="${esc(reason)}">${esc(label)}</span>`;
-      const grail = ioiGlobalRailHtml({ label: "Insight", href: "/__ioi/evaluations/insight", iconUri: EVL_APP_TILE_URI, railVariant: "rv-pipe rv-dsg", viewAll: true, star: false, badges: true, aipGradient: true, acctMuted: true });
+      const grail = ""; // owner ruling 2026-08-20: railless
       sendOwnedSurfaceHtml(res, "insight", `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Insight</title><style>
         :root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#fff;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif}a{color:#215db0;text-decoration:none}
-        .ins-shell{display:flex;height:100vh;overflow:hidden}${IOI_GRAIL_CSS}
+        .ins-shell{display:flex;height:100vh;overflow:hidden}
         .ins-main{flex:1;min-width:0;display:flex;flex-direction:column}
         .ins-header{flex:0 0 50px;display:flex;align-items:center;gap:18px;padding:0 20px;background:#fff;box-shadow:0 1px 0 #d1d1d1,0 3px 4px rgba(0,0,0,.04)}
         .ins-title{font-size:16px;font-weight:600;color:#404854;margin:0}
@@ -9243,10 +9267,10 @@ async function handleEstateRequest(req, res, body) {
         ...scm.map((c) => `<a class="dcx-row" href="/__ioi/connections" title="a REAL SCM connector (BYOA/token lease) — publish/revoke live on its owner surface"><span><b>${esc(c.name || c.connector_id || c.id)}</b><code class="dcx-ref">${esc(c.connector_id || c.id || "")}</code></span><span>${esc(c.host || c.service || "scm")}</span><span>${esc(c.auth_posture || "—")}</span><span>—</span><span>${fdt(c.created_at)}</span></a>`),
       ].join("");
       const gap = (label, reason) => `<span class="dcx-gap" aria-disabled="true" title="${esc(reason)}" data-ioi-disabled-reason="${esc(reason)}">${esc(label)}</span>`;
-      const grail = ioiGlobalRailHtml({ label: "Developer Console", href: "/__ioi/developer-console", iconUri: DSG_APP_TILE_URI, railVariant: "rv-pipe rv-dsg", viewAll: true, star: false, badges: true, aipGradient: true, acctMuted: true });
+      const grail = ""; // owner ruling 2026-08-20: railless
       sendOwnedSurfaceHtml(res, "devconsole", `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Developer Console</title><style>
         :root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#fff;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif}a{color:#215db0;text-decoration:none}
-        .dcx-shell{display:flex;height:100vh;overflow:hidden}${IOI_GRAIL_CSS}
+        .dcx-shell{display:flex;height:100vh;overflow:hidden}
         .dcx-main{flex:1;min-width:0;display:flex;flex-direction:column}
         .dcx-header{flex:0 0 50px;display:flex;align-items:center;gap:18px;padding:0 20px;background:#fff;box-shadow:0 1px 0 #d1d1d1,0 3px 4px rgba(0,0,0,.04)}
         .dcx-title{font-size:16px;font-weight:600;color:#404854;margin:0}
@@ -10630,7 +10654,38 @@ async function handleEstateRequest(req, res, body) {
         J("/v1/hypervisor/work-ledger"),
       ]);
       const selectedOntology = new URL(req.url, "http://x").searchParams.get("ontology") || "";
-      const vertexWrap = (_title, inner) => vertexLightPage(inner);
+      // PRO-2 REBUILD (owner correction 2026-08-20): the LANDING is the SEED grammar — Welcome to
+      // Vertex · search · Graphs/Templates/Search-Arounds cards · Recents table (real graph rows).
+      // The substrate cross-plane graph is the DETAIL view behind a row (?ontology=), light + railless.
+      if (!selectedOntology) {
+        const esc2 = CX_ESC;
+        const onts = o.ontologies || [];
+        const sets = ms.materialized_object_sets || [];
+        const runsAll = mr.materializing_runs || [];
+        const withLineage = onts.filter((x) => sets.some((s2) => s2.ontology_ref === x.ref));
+        const lastModOf = (x) => {
+          const stamps = [...sets.filter((s2) => s2.ontology_ref === x.ref).map((s2) => s2.updated_at || s2.created_at || ""), ...runsAll.filter((r2) => r2.ontology_ref === x.ref).map((r2) => r2.updated_at || r2.created_at || "")].sort();
+          const iso = stamps[stamps.length - 1] || "";
+          const d2 = new Date(iso || 0); return isNaN(d2) || !iso ? "—" : d2.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+        };
+        const rows = withLineage.map((x) => `<a class="vtx-row" href="/__ioi/vertex?ontology=${encodeURIComponent(x.id)}" title="open this graph — the cross-plane substrate truth (object sets · projections · runs · proof edges)"><span><b>${esc2(x.domain || x.id)}</b><code class="vtx-ref">${esc2(x.ref || x.id)}</code></span><span title="no principal tracking on this plane (typed absence)">—</span><span>${lastModOf(x)}</span></a>`).join("");
+        const gapV = (label, reason) => `<span class="vtx-view gap" aria-disabled="true" title="${esc2(reason)}" data-ioi-disabled-reason="${esc2(reason)}">${esc2(label)}</span>`;
+        const welcome = `<div class="vtx-hero"><h1>Welcome to Vertex</h1><p>Explore your organization's digital twin</p></div>
+          <div class="vtx-search"><input disabled aria-disabled="true" placeholder="Search for Graphs, Graph Templates, and Search Arounds…" title="No search plane exists over explorations (typed absence)" data-ioi-disabled-reason="No search plane exists over explorations (typed absence)"></div>
+          <div class="vtx-cards">
+            <div class="vtx-card"><span class="vtx-avail">${withLineage.length} available</span><h4>Graphs</h4><p>A graph is a collection of nodes and edges with associated styling. It helps you visualize practically any aspect of your digital twin and evaluate what-if analyses visually.</p><span class="sub">the REAL rows below — one graph per ontology with materialized lineage</span></div>
+            <div class="vtx-card"><span class="vtx-avail">None available</span><h4>Templates</h4><p>A graph template constructs a graph given inputs to its parameters.</p><span class="sub" title="No template plane exists (typed absence)">no template plane — typed absence</span></div>
+            <div class="vtx-card"><span class="vtx-avail">None available</span><h4>Search Arounds</h4><p>A Search Around is a series of steps that searches around input objects of a specified type.</p><span class="sub" title="No search-around plane exists (typed absence)">no search-around plane — typed absence</span></div>
+          </div>
+          <div class="vtx-viewrow"><span class="sub">View</span>${gapV("Favorites", "No favorites plane exists (typed absence)")}${gapV("Promoted", "No promotion plane exists (typed absence)")}<span class="vtx-view on" aria-current="page">Recents</span>${gapV("Your graphs", "No principal-scoped graph ownership exists on this plane (typed absence)")}</div>
+          <div class="vtx-thead"><span>Graph</span><span>Creator</span><span>Last modified</span></div>
+          ${rows || `<div class="vtx-empty">No recents — this table renders REAL graphs (ontologies with materialized lineage) and never fabricates rows.</div>`}
+          <p class="vtx-foot">PRO-2 (rebuilt to the SEED grammar, owner correction 2026-08-20): the Vertex welcome landing — cards + Recents over REAL substrate truth (each row opens the cross-plane graph: object sets · projections · materializing runs · Provenance proof edges). Typed absences carry both vocabularies. Evidence: reference-seed-adjudications.v1.json#vertex (+ #vertex-canvas-correction) · reference-family-atlas.v1.json. Family: <a href="/__ioi/work-ledger">Provenance</a> · sibling <a href="/__ioi/lineage">Data Lineage (Monocle)</a>.</p>`;
+        res.writeHead(200, HTMLH);
+        res.end(vertexLightPage(welcome));
+        return;
+      }
+      const vertexWrap = (_title, inner) => vertexLightPage(inner, { backLink: true });
       res.writeHead(200, HTMLH);
       res.end(renderVertex({
         ontologies: o.ontologies || [],

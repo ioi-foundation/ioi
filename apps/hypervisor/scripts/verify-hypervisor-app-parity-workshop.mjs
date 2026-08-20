@@ -30,7 +30,7 @@ ok("matrix: workshop is donor_ported via module with its adjudication cited", by
 // 2. The port page — I-4 grammar + truth.
 const p = await page(`${SERVE}/__ioi/studio/workshop`);
 const t = p.text;
-ok("port renders 200 with the I-4 grammar (rail + Workshop header + hero + view row)", p.status === 200 && t.includes("og-grail") && t.includes("Workshop") && t.includes("Recents") && t.includes("Favorites"), String(p.status));
+ok("port renders 200 with the I-4 grammar, RAILLESS (owner ruling 2026-08-20)", p.status === 200 && !t.includes("og-grail") && t.includes("Workshop") && t.includes("Recents") && t.includes("Favorites"), String(p.status));
 ok("row count equals the REAL planes (domain-apps + surface-descriptors; honest empty when zero)", (t.match(/class="spl-row"/g) || []).length === da.length + sd.length && (da.length + sd.length > 0 || /never fabricates rows/.test(t)), `rows=${(t.match(/class="spl-row"/g) || []).length} plane=${da.length + sd.length}`);
 ok("every gap control carries the UNIFIED contract (aria-disabled count === data-ioi count)", (t.match(/aria-disabled="true"/g) || []).length >= 4 && (t.match(/aria-disabled="true"/g) || []).length === (t.match(/data-ioi-disabled-reason=/g) || []).length, `${(t.match(/aria-disabled="true"/g) || []).length} gaps`);
 ok("New module is a NAMED gap (authoring = ODK authority cut), never silent", /Application\/module authoring is an authority-crossing cut/.test(t));

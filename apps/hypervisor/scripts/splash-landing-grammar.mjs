@@ -26,7 +26,7 @@
 //   footHtml                                    — truthful footer (evidence citations)
 //   embed                                       — native_single_rail contract: no global rail
 // Returns the full HTML document string.
-import { ioiGlobalRailHtml, IOI_GRAIL_CSS } from "../surfaces/chrome.mjs";
+// chrome import removed: no fabricated rail on non-certified shells (owner ruling 2026-08-20)
 import { escHtml } from "../surfaces/kit.mjs";
 
 const esc = escHtml;
@@ -34,7 +34,10 @@ const gap = (cls, label, reason, inner = "") => `<span class="${cls} gap" aria-d
 
 export function renderSplashLanding(cfg) {
   const route = `/__ioi/${cfg.slug}`;
-  const globalRail = cfg.embed ? "" : ioiGlobalRailHtml({ label: cfg.title, href: cfg.routeOverride || route, iconUri: cfg.appTileUri, railVariant: "rv-pipe rv-dsg", viewAll: true, star: false, badges: true, aipGradient: true, acctMuted: true });
+  // OWNER RULING (2026-08-20): the fabricated reference global rail belongs ONLY on
+  // pixel-certified ports (where it is evidence). Non-certified shells render RAILLESS — the
+  // platform container provides the one rail (native_single_rail extended to standalone).
+  const globalRail = "";
   const newEntry = cfg.newHref
     ? `<a class="spl-hbtn success" href="${esc(cfg.newHref)}" title="${esc(cfg.newTitle || `${cfg.newLabel} — a live estate lane`)}"><span class="spl-plus">+</span><span>${esc(cfg.newLabel)}</span></a>`
     : gap("spl-hbtn success", cfg.newLabel, cfg.newGapReason, `<span class="spl-plus">+</span>`);
@@ -63,7 +66,7 @@ export function renderSplashLanding(cfg) {
     body{margin:0;background:#fff;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif}
     a{color:#215db0;text-decoration:none}
     .spl-shell{display:flex;height:100vh;width:100vw;overflow:hidden}
-    ${cfg.embed ? "" : IOI_GRAIL_CSS}
+
     .spl-main{flex:1;min-width:0;display:flex;flex-direction:column;height:100vh}
     .spl-header{flex:0 0 50px;display:flex;align-items:center;background:#fff;box-shadow:0 1px 0 #d1d1d1,0 3px 4px rgba(0,0,0,.04);z-index:6}
     .spl-hchip{width:50px;height:50px;flex:0 0 50px;background-position:center;background-size:24px;background-repeat:no-repeat;background-color:rgba(45,114,210,.08)}

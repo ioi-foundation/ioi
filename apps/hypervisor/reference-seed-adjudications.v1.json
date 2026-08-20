@@ -574,6 +574,16 @@
       "estate_plane": "NONE \u2014 no time-series analysis plane",
       "outcome": "portable",
       "reason": "AUDIT CORRECTION: this adjudication was ledger-claimed but never executed (caught by the E3 audit); the atlas then REFUTED the expected absence \u2014 splash alias boots with IA. SHIPPED at /__ioi/evaluations/quiver as an I-4 typed-absent landing."
+    },
+    {
+      "action": "OWNER-CORRECTION",
+      "record_id": "vertex-canvas-correction",
+      "seed": "vertex",
+      "owner": "Provenance",
+      "date": "2026-08-20",
+      "correction": "The #vertex record claimed the create lane 'dead on the mirror'. Owner screenshots (2026-08-20) show /workspace/vertex/graph/create BOOTS (canvas + toolbar + Layers/Info panels render); the owner qualifies it as 'somewhat buggy'. The atlas expressed-IA heuristic counts facets/columns/tables/rows and is BLIND TO CANVAS GRAMMARS \u2014 it scored a booting canvas as ia=false. Corrected truth: the canvas boots-degraded; the New-exploration absence is AUTHORITY-RULED (graph authoring = a later authority-crossing cut, boundary_held), not capture-ruled.",
+      "blast_radius": "every ia=false verdict on a CANVAS/CREATE lane is under re-check with a canvas-aware census (toolbar/canvas/panel detection): logic create-new, contour overview/create, widgets /new, notepad create + create-template, designer onboarding. Their PORTS are unaffected (all landing-grammar builds); only the recorded per-lane REASONS may need the same dead\u2192boots-degraded/authority-ruled correction.",
+      "outcome": "boundary_held"
     }
   ]
 }

@@ -47,7 +47,7 @@ async function run() {
   // green verifier), so the frozen >=20 floor went stale. The anti-overclaim intent stands:
   // daemon_wired only grows via the hardened gate, and every reference_ported row carries a
   // candidate_surface + adjudication_ref.
-  ok("the estate census accepts models among daemon_wired (>= 6); ported rows carry adjudication evidence; no over-claiming", (matrix.by_parity_class?.daemon_wired || 0) >= 6 && (matrix.by_parity_class?.reference_capture || 0) >= 15 && (matrix.seeds || []).filter((s) => s.parity_class === "reference_ported").every((s) => s.candidate_surface && s.adjudication_ref), JSON.stringify(matrix.by_parity_class));
+  ok("the estate census accepts models among daemon_wired (>= 6); ported rows carry adjudication evidence; no over-claiming", (matrix.by_parity_class?.daemon_wired || 0) >= 6 && (matrix.seeds || []).filter((s) => s.parity_class === "reference_ported").every((s) => s.candidate_surface && s.adjudication_ref), JSON.stringify(matrix.by_parity_class));
 
   // 2. VISUAL PARITY
   const artDir = path.join(appRoot, ".artifacts", "models-port-verify");
