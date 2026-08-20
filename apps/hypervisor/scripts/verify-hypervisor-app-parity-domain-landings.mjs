@@ -752,6 +752,173 @@ for (const [slug, route, title, absentPhrase, ownerLink] of [
     ok("modelstudio: REACHABILITY DELIVERED IN THE SAME CUT — the Foundry family landing that /foundry transfers to links the surface, so it is two hops from the shell", fam.status === 200 && fam.text.includes('href="/__ioi/foundry/model-studio"'), String(fam.status));
   }
 }
+// INF-1: inference — the SPACE-GATE port, and the EIGHTH and LAST leg of the live-tenant port
+// backlog. The seed's live root is not a wizard and not a list: it is one heading, "Please select a
+// space", over one control, "Select a space…", with rows:0 and no space picked. The finding under
+// gate here is that a SELECTION THE ROUTE ACCEPTS is still a GAP when the key it filters on is never
+// written by the records it is meant to scope — so every number that establishes the unwritten key
+// is RE-DERIVED from the daemon on this run and must match the page exactly, INCLUDING the daemon's
+// own answers to the three selections the page puts to it, which are asked again here rather than
+// read back off the page.
+{
+  const D = process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765";
+  const j = (p) => fetch(`${D}${p}`).then(async (r) => ({ status: r.status, ok: r.ok, body: await r.json().catch(() => null) })).catch(() => ({ status: 0, ok: false, body: null }));
+  const str = (v) => (typeof v === "string" && v.trim() !== "" ? v : "");
+  const idx = await fetch(`${D}/v1`).then((r) => r.json()).catch(() => ({}));
+  const allRoutes = (Array.isArray(idx.families) ? idx.families : []).flatMap((f) => (Array.isArray(f.paths) ? f.paths : [])).filter((r) => !r.retired);
+  const methodsOf = (p) => { const r = allRoutes.find((x) => String(x.path || "") === p); return Array.isArray(r?.methods) ? r.methods : []; };
+  const INF_CENSUS = [
+    ["/v1/hypervisor/projects", "/v1/hypervisor/projects", "collection", "space", (b) => b?.projects],
+    ["/v1/hypervisor/projects/:id", "/v1/hypervisor/projects/no-space-selected", "singleton", "space", null],
+    ["/v1/hypervisor/projects/:id/environment-classes", "/v1/hypervisor/projects/no-space-selected/environment-classes", "collection", "space", null],
+    ["/v1/hypervisor/work-ledger", "/v1/hypervisor/work-ledger", "collection", "space", (b) => b?.entries],
+    ["/v1/hypervisor/automations", "/v1/hypervisor/automations", "collection", "space", (b) => b?.automations],
+    ["/v1/hypervisor/model-invocations", "/v1/hypervisor/model-invocations", "collection", "invocation", null],
+    ["/v1/hypervisor/model-invocations/:id", "/v1/hypervisor/model-invocations/no-invocation-selected", "singleton", "invocation", null],
+    ["/v1/hypervisor/model-routes/:id/invoke", "/v1/hypervisor/model-routes/no-route-selected/invoke", "collection", "invocation", null],
+    ["/v1/chat/completions", "/v1/chat/completions", "collection", "invocation", null],
+    ["/v1/model-mount/receipts", "/v1/model-mount/receipts", "collection", "invocation", null],
+    ["/v1/model-mount/receipts/:id", "/v1/model-mount/receipts/no-receipt-selected", "singleton", "invocation", null],
+    ["/v1/usage", "/v1/usage", "collection", "invocation", (b) => b?.usage],
+    ["/v1/hypervisor/usage/consumption", "/v1/hypervisor/usage/consumption", "singleton", "invocation", null],
+    ["/v1/goal-orchestration/goal-runs", "/v1/goal-orchestration/goal-runs", "collection", "invocation", (b) => b?.goal_runs],
+    ["/v1/goal-orchestration/ioi-agent/launches", "/v1/goal-orchestration/ioi-agent/launches", "collection", "invocation", (b) => b?.launches],
+    ["/v1/hypervisor/model-routes", "/v1/hypervisor/model-routes", "collection", "model", (b) => b?.routes],
+    ["/v1/hypervisor/model-routes/overview", "/v1/hypervisor/model-routes/overview", "singleton", "model", null],
+    ["/v1/hypervisor/model-route-session-bindings", "/v1/hypervisor/model-route-session-bindings", "collection", "model", (b) => b?.bindings],
+    ["/v1/model-mount/providers", "/v1/model-mount/providers", "collection", "model", null],
+    ["/v1/model-mount/instances/loaded", "/v1/model-mount/instances/loaded", "collection", "model", null],
+    ["/v1/model-mount/server/status", "/v1/model-mount/server/status", "singleton", "model", null],
+    ["/v1/model-mount/tokens/count", "/v1/model-mount/tokens/count", "collection", "model", null],
+    ["/v1/model-mount/context/fit", "/v1/model-mount/context/fit", "collection", "model", null],
+    ["/v1/hypervisor/economics/quotes", "/v1/hypervisor/economics/quotes", "collection", "adjacent", null],
+    ["/v1/hypervisor/economics/reconciliation", "/v1/hypervisor/economics/reconciliation", "collection", "adjacent", null],
+    ["/v1/hypervisor/sessions", "/v1/hypervisor/sessions", "collection", "adjacent", null],
+    ["/v1/hypervisor/harness-profiles", "/v1/hypervisor/harness-profiles", "collection", "adjacent", (b) => b?.profiles],
+  ];
+  const declineCode = (b, status) => {
+    const e = b && b.error;
+    const fromErr = e && (typeof e === "string" ? e : (e.code || e.message || ""));
+    return String(fromErr || (b && (b.reason || b.code)) || `http_${status}`);
+  };
+  const iDerived = [];
+  for (const [path, probe, shape, lane, pick] of INF_CENSUS) {
+    const r = await j(probe);
+    const methods = methodsOf(path);
+    let state = "live"; let code = ""; let rows = [];
+    if (!methods.includes("GET") || r.status === 405) state = "no_read_route";
+    else if (!r.ok) { state = "refused"; code = declineCode(r.body || {}, r.status); }
+    else if (r.body && typeof r.body === "object" && r.body.ok === false) { state = "refused"; code = declineCode(r.body, r.status); }
+    else if (shape === "singleton") { const keys = r.body && typeof r.body === "object" && !Array.isArray(r.body) ? Object.keys(r.body) : []; state = keys.length ? "live" : "empty"; }
+    else { const arr = pick ? pick(r.body) : (Array.isArray(r.body) ? r.body : Object.values(r.body || {}).find((v) => Array.isArray(v))); if (!Array.isArray(arr)) { state = "unreadable"; } else { rows = arr; state = arr.length ? "live" : "empty"; } }
+    iDerived.push({ path, probe, shape, lane, state, code, rows, methods });
+  }
+  const iBy = Object.fromEntries(iDerived.map((d2) => [d2.path, d2]));
+  const iProjects = iBy["/v1/hypervisor/projects"].rows;
+  const iLedger = iBy["/v1/hypervisor/work-ledger"].rows;
+  const iGoalRuns = iBy["/v1/goal-orchestration/goal-runs"].rows;
+  const iReceipts = iBy["/v1/model-mount/receipts"].rows;
+  const iUsage = iBy["/v1/usage"].rows;
+  const iRoutes = iBy["/v1/hypervisor/model-routes"].rows;
+  const iBindings = iBy["/v1/hypervisor/model-route-session-bindings"].rows;
+  const INV_KINDS = ["goal_run_invocation", "harness_execution"];
+  const iInv = iLedger.filter((e) => INV_KINDS.includes(String(e?.kind || "")));
+  const iInvWithModel = iInv.filter((e) => str(e?.implementation_result?.model) !== "");
+  const iInvSucceeded = iInv.filter((e) => String(e?.status || "") === "success").length;
+  const hasKey = (e) => e !== null && typeof e === "object" && Object.prototype.hasOwnProperty.call(e, "project_id");
+  const iRowsWithKey = iLedger.filter(hasKey).length;
+  const iRowsWithValue = iLedger.filter((e) => str(e?.project_id) !== "").length;
+  const iInvWithKey = iInv.filter(hasKey).length;
+  const iInvWithValue = iInv.filter((e) => str(e?.project_id) !== "").length;
+  const iProjectIds = new Set(iProjects.map((p) => str(p?.project_id)).filter((v) => v !== ""));
+  const iLedgerVocab = [...new Set(iLedger.map((e) => str(e?.project_id)).filter((v) => v !== ""))].sort();
+  const iLedgerVocabResolving = iLedgerVocab.filter((v) => iProjectIds.has(v));
+  const iLedgerVocabDangling = iLedgerVocab.filter((v) => !iProjectIds.has(v));
+  const iGoalVocab = [...new Set(iGoalRuns.map((g) => str(g?.project_ref)).filter((v) => v !== ""))].sort();
+  const iGoalVocabResolving = iGoalVocab.filter((v) => iProjectIds.has(v));
+  const iGoalRefs = iGoalRuns.reduce((n, g) => n + (Array.isArray(g?.invocation_refs) ? g.invocation_refs.length : 0), 0);
+  const SPACE_FIELD_RE = /invocation|inference|prompt|completion|model/i;
+  const SPACEY_RE = /project|space|tenant|folder|location/i;
+  const iProjWithInvField = iProjects.filter((p) => Object.keys(p || {}).some((k) => SPACE_FIELD_RE.test(k))).length;
+  const iProjRefLanes = [...new Set(iProjects.flatMap((p) => Object.keys(p || {}).filter((k) => k.endsWith("_refs"))))].sort();
+  const iProjRefs = iProjects.flatMap((p) => iProjRefLanes.flatMap((k) => (Array.isArray(p?.[k]) ? p[k] : []).map((v) => String(v))));
+  const iProjRefsNamingInv = iProjRefs.filter((v) => /model-invocation|invocation|inference|model-route/i.test(v)).length;
+  const iProjWriteRoutes = allRoutes.filter((r) => String(r.path || "").startsWith("/v1/hypervisor/projects")).filter((r) => (r.methods || []).some((m) => ["POST", "PATCH", "PUT", "DELETE"].includes(String(m))));
+  const keyPaths = (o, pre) => { const out = []; if (o && typeof o === "object" && !Array.isArray(o)) for (const [k, v] of Object.entries(o)) { out.push(`${pre}${k}`); out.push(...keyPaths(v, `${pre}${k}.`)); } return out; };
+  const iMIReceipts = iReceipts.filter((r) => String(r?.kind || "") === "model_invocation");
+  const iMIWithSpace = iMIReceipts.filter((r) => keyPaths(r, "").some((k) => SPACEY_RE.test(k))).length;
+  const iUsageWithSpace = iUsage.filter((u) => Object.keys(u || {}).some((k) => SPACEY_RE.test(k))).length;
+  const iSpaceNaming = allRoutes.filter((r) => /project|space|workspace|tenant/i.test(String(r.path || ""))).length;
+  const iInvokeMethods = methodsOf("/v1/hypervisor/model-routes/:id/invoke");
+  const iChatMethods = methodsOf("/v1/chat/completions");
+  const iStamps = (rows) => rows.map((e) => str(e?.timestamp)).filter((v) => v !== "").sort();
+  const iInvStamps = iStamps(iInv);
+  const iLedgerStamps = iStamps(iLedger);
+  // THE THREE ASKS, put to the daemon AGAIN here rather than read back off the page. The page's
+  // claim is that it printed the DAEMON's answers; the only way to gate that is to ask the daemon.
+  const ask = async (sel) => {
+    if (sel === "") return null;
+    const r = await j(`/v1/hypervisor/work-ledger?project=${encodeURIComponent(sel)}`);
+    if (!r.ok || !r.body || !Array.isArray(r.body.entries)) return { sel, readable: false, entries: 0, invocations: 0 };
+    return { sel, readable: true, entries: r.body.entries.length, invocations: r.body.entries.filter((e) => INV_KINDS.includes(String(e?.kind || ""))).length };
+  };
+  const selA = str(iProjects[0]?.project_id);
+  const selB = iLedgerVocabResolving[0] || "";
+  const selC = iGoalVocab[0] || "";
+  const [ansA, ansB, ansC] = await Promise.all([ask(selA), ask(selB), ask(selC)]);
+  const p = await page(`${SERVE}/__ioi/foundry/inference`);
+  const t = p.text;
+  const iPlaneRow = (pth) => {
+    const i = t.indexOf(`data-ioi-plane="${pth}"`);
+    if (i < 0) return "";
+    const start = t.lastIndexOf('<div class="inf-prow"', i);
+    const end = t.indexOf("</div>", i);
+    return start < 0 || end < 0 ? "" : t.slice(start, end + 6);
+  };
+  const iGapReasons = [...t.matchAll(/<span class="inf-(?:chip|sel) inf-gap"[^>]*data-ioi-disabled-reason="([^"]*)"/g)].map((m) => m[1]);
+  const askLine = (a) => a === null ? "" : `<code class="inf-ref">?project=${a.sel}</code> → the daemon returned <b>${a.entries}</b> ledger entr${a.entries === 1 ? "y" : "ies"}, of which <b>${a.invocations}</b> name a model.`;
+  ok("inference: matrix reference_ported at /__ioi/foundry/inference with the live-tenant DEEP-atlas evidence carried", bySlug.inference?.parity_class === "reference_ported" && bySlug.inference?.candidate_surface === "/__ioi/foundry/inference" && bySlug.inference?.port_surface === "/__ioi/foundry/inference" && bySlug.inference?.surface_name === "Foundry" && bySlug.inference?.remediation_state === "live_ia_recorded" && /#inference-port/.test(bySlug.inference?.adjudication_ref || "") && /reference-live-tenant-deep-atlas\.v1\.json#inference/.test(bySlug.inference?.adjudication_ref || "") && !bySlug.inference?.reference_url_override, bySlug.inference?.parity_class);
+  ok("inference: renders 200 with the LIVE-tenant SPACE GATE as the landing centrepiece, RAILLESS (owner ruling 2026-08-20)", p.status === 200 && !t.includes("og-grail") && ["Inference", "Please select a space", "Select a space…", "APPLICATIONS"].every((k) => t.includes(k)) && /aria-label="Please select a space"/.test(t) && /<h2 class="inf-gateh">Please select a space<\/h2>/.test(t), String(p.status));
+  // THE LOAD-BEARING GATE. The finding stands or falls on numbers that must be re-derived from the
+  // daemon on THIS run: the ledger's key census, the invocation census, and the intersection of the
+  // two. A pasted set fails, and so does a correct-today one the day the ledger starts writing
+  // project_id onto an invocation row.
+  ok("inference: the UNWRITTEN-KEY finding is RE-DERIVED — the ledger's key census, the invocation census and their ZERO intersection all match the daemon on this run", new RegExp(`Of the <b>${iLedger.length}</b> ledger entries readable on this render, <b>${iRowsWithKey}</b> carry a <code>project_id</code> field at all and <b>${iRowsWithValue}</b> carry a value in it`).test(t) && new RegExp(`Of the <b>${iInv.length}</b> entries that name a model`).test(t) && new RegExp(`<b>${iInvWithKey}</b> carry the key and <b>${iInvWithValue}</b> carry a value`).test(t) && new RegExp(`<b>${iInvWithModel.length}</b> of those <b>${iInv.length}</b> name the model they ran`).test(t), `ledger=${iLedger.length} key=${iRowsWithKey}/val=${iRowsWithValue} inv=${iInv.length} invKey=${iInvWithKey}/${iInvWithValue}`);
+  // The page claims it printed the DAEMON's answers to three real selections. The only way to gate
+  // that claim is to put the same three selections to the daemon here.
+  ok("inference: the THREE ASKS are the DAEMON'S OWN ANSWERS — the same selections put to the same filter by this gate return exactly what the page printed", [ansA, ansB, ansC].every((a) => a === null || a.readable) && [ansA, ansB, ansC].filter((a) => a !== null).every((a) => t.includes(askLine(a))) && [ansA, ansB, ansC].some((a) => a !== null) && /a re-implemented admission rule is a second answer waiting to disagree with the first/.test(t), `A(${selA})=${ansA ? ansA.entries : "-"}/${ansA ? ansA.invocations : "-"} B(${selB})=${ansB ? ansB.entries : "-"}/${ansB ? ansB.invocations : "-"} C(${selC})=${ansC ? ansC.entries : "-"}/${ansC ? ansC.invocations : "-"}`);
+  ok("inference: the THREE VOCABULARIES are re-derived and the dangling one is named — the ledger's, the goal-run lane's, and how many of each resolve to a real space", new RegExp(`<b>${iGoalRuns.length}</b> records, <b>${iGoalRuns.filter((g) => str(g?.project_ref) !== "").length}</b> of which carry a <code>project_ref</code>`).test(t) && new RegExp(`fanning out into <b>${iGoalRefs}</b> declared invocation refs`).test(t) && new RegExp(`<b>${iGoalVocabResolving.length}</b> of those <b>${iGoalVocab.length}</b> value`).test(t) && new RegExp(`<b>${iLedgerVocabResolving.length}</b> resolve`).test(t) && new RegExp(`<b>${iLedgerVocabDangling.length}</b> dangle`).test(t) && iGoalVocab.every((v) => t.includes(`<code>${v}</code>`)) && iLedgerVocab.every((v) => t.includes(`<code>${v}</code>`)) && /Three planes that would have to agree on what a space is, and no shared vocabulary between them/.test(t), `ledgerVocab=${iLedgerVocab.length}(${iLedgerVocabResolving.length} resolving) goalVocab=${iGoalVocab.length}(${iGoalVocabResolving.length} resolving)`);
+  ok("inference: the EDGE is checked from BOTH sides and re-derived — the space side's fields and refs, its write routes, and the invocation side's receipts and meter", new RegExp(`<b>${iProjWithInvField}</b> of the <b>${iProjects.length}</b> live space records carry any field naming an invocation`).test(t) && iProjRefLanes.every((f) => t.includes(`<code>${f}</code>`)) && new RegExp(`hold <b>${iProjRefs.length}</b> refs between them, of which <b>${iProjRefsNamingInv}</b> names an invocation or a model route`).test(t) && new RegExp(`Of the <b>${iProjWriteRoutes.length}</b> published project write routes not one accepts an invocation ref`).test(t) && new RegExp(`the <b>${iMIReceipts.length}</b> model-invocation receipts this identity can read carry <b>${iMIWithSpace}</b> space-`).test(t) && new RegExp(`the <b>${iUsage.length}</b> metered usage records carry <b>${iUsageWithSpace}</b>`).test(t), `projFields=${iProjWithInvField}/${iProjects.length} refs=${iProjRefsNamingInv}/${iProjRefs.length} writes=${iProjWriteRoutes.length} receipts=${iMIWithSpace}/${iMIReceipts.length} usage=${iUsageWithSpace}/${iUsage.length}`);
+  ok("inference: the receiving side is counted from the daemon's OWN index — how many routes name a space, and that exactly two accept one as a filter", new RegExp(`of <b>${allRoutes.length}</b> live routes the index publishes, exactly <b>two</b> accept a project as a query filter`).test(t) && t.includes("<code>/v1/hypervisor/work-ledger</code>") && t.includes("<code>/v1/hypervisor/automations</code>") && /handle_work_ledger/.test(t) && /retains only entries whose <code>project_id<\/code> equals it exactly/.test(t), `routes=${allRoutes.length} spaceNaming=${iSpaceNaming}`);
+  ok("inference: the finding is stated as the RULE, not as this one route's quirk — and why a wired chooser is WORSE than a missing one", /A selection a route accepts is not a working filter/.test(t) && /the test is whether the key it lands on is written by the records it is meant to scope/.test(t) && /would drop every invocation the estate has ever recorded and report the loss as an empty space/.test(t) && /mints no second mutation spine/.test(t));
+  ok("inference: every plane's state AND shape AND gate-half are CLASSIFIED LIVE — the stamped quadruple equals what the daemon answers to this identity right now", iDerived.length === 27 && iDerived.every((d2) => t.includes(`data-ioi-plane="${d2.path}" data-ioi-plane-state="${d2.state}" data-ioi-plane-shape="${d2.shape}" data-ioi-plane-lane="${d2.lane}"`)), iDerived.map((d2) => `${d2.path.split("/").pop()}=${d2.state}`).join(" "));
+  ok("inference: a REFUSAL is rendered as a REFUSAL — the daemon's own words verbatim, and NEVER as a count", iDerived.filter((d2) => d2.state === "refused").length > 0 && iDerived.filter((d2) => d2.state === "refused").every((d2) => { const row = iPlaneRow(d2.path); return row.includes(d2.code) && /REFUSED<\/b> this read/.test(row) && !/\d+<\/b> records?/.test(row); }) && /a refusal is not a zero/i.test(t), `${iDerived.filter((d2) => d2.state === "refused").length} refused`);
+  ok("inference: EMPTY, MISSING, NO-READ-ROUTE and UNPUBLISHED are held apart — and the invocation COLLECTION that the index does not publish at all is none of the other three", iDerived.filter((d2) => d2.state === "empty").every((d2) => /EMPTY<\/b> plane, not a missing one/.test(iPlaneRow(d2.path))) && iDerived.filter((d2) => d2.state === "no_read_route").every((d2) => /no GET<\/b>/.test(iPlaneRow(d2.path)) && /not the same as reading nothing/.test(iPlaneRow(d2.path))) && /REFUSED is not EMPTY, EMPTY is not MISSING/.test(t) && iBy["/v1/hypervisor/model-invocations"].state === "no_read_route" && /the index publishes this path at no method at all/.test(iPlaneRow("/v1/hypervisor/model-invocations")) && /<b>MISSING<\/b>/.test(t) && /EMPTY is not MISSING\.<\/b>/.test(t), `empty=${iDerived.filter((d2) => d2.state === "empty").length} noroute=${iDerived.filter((d2) => d2.state === "no_read_route").length}`);
+  ok("inference: the chooser lists the REAL space plane — one row per record, capped at 25 with the cap NAMED, and no space is fabricated", (t.match(/class="inf-sprow"/g) || []).length === Math.min(25, iProjects.length) && iProjects.slice(0, 25).every((x) => t.includes(`data-ioi-space="${str(x.project_id)}"`)) && (iProjects.length > 25 ? /cap NAMED, never silent/.test(t) : (iProjects.length === 0 || new RegExp(`All <b>${iProjects.length}</b> spaces the estate actually holds`).test(t))) && t.includes(`data-ioi-lane="space-chooser" data-ioi-plane-state="${iBy["/v1/hypervisor/projects"].state}"`), `rows=${(t.match(/class="inf-sprow"/g) || []).length} plane=${iProjects.length}`);
+  ok("inference: the spaces the page ASKED about are marked as asked and the rest say so — a selection nobody put to the daemon is never printed as a count", (t.match(/data-ioi-space-asked="yes"/g) || []).length === iProjects.slice(0, 25).filter((x) => [selA, selB, selC].includes(str(x.project_id))).length && /not asked/.test(t) && /rather than issuing \d+ full-ledger reads or re-implementing the daemon's retain expression here/.test(t), `${(t.match(/data-ioi-space-asked="yes"/g) || []).length} asked`);
+  ok("inference: every number names its PREDICATE and its WINDOW, and the ledger window is stated as a RETENTION window rather than a business period", new RegExp(`<b>${iInv.length}</b> recorded invocations`).test(t) && /<i>Predicate:<\/i> a work-ledger entry whose <code>kind<\/code> is one of/.test(t) && (iInvStamps.length === 0 || (t.includes(`<code>${iInvStamps[0]}</code>`) && t.includes(`<code>${iInvStamps[iInvStamps.length - 1]}</code>`))) && (iLedgerStamps.length === 0 || (t.includes(`<code>${iLedgerStamps[0]}</code>`) && t.includes(`<code>${iLedgerStamps[iLedgerStamps.length - 1]}</code>`))) && /This is a RETENTION window, not a business period/.test(t) && new RegExp(`<b>${iInvSucceeded}</b> report <code>status: success</code>`).test(t) && /printed as what the record SAYS and never as what the estate verified/.test(t), `inv=${iInv.length} success=${iInvSucceeded} window=${iInvStamps.length}`);
+  ok("inference: the readable invocation evidence is counted with its own predicate — the receipt kind, the receipt total, the meter and the registry", new RegExp(`<b>${iMIReceipts.length}</b> receipts of kind <code>model_invocation</code> on the model-mount receipt store, out of <b>${iReceipts.length}</b> receipts of every kind`).test(t) && new RegExp(`<b>${iUsage.length}</b> usage records`).test(t) && new RegExp(`<b>${iRoutes.length}</b> registered model route`).test(t) && new RegExp(`<b>${iBindings.length}</b> admitted session binding`).test(t) && /It scopes a route to a SESSION, not to a space/.test(t), `receipts=${iMIReceipts.length}/${iReceipts.length} usage=${iUsage.length} routes=${iRoutes.length} bindings=${iBindings.length}`);
+  ok("inference: the INVOKE VERB's accepted body fields are named from the write path and NOT ONE is a space — with the index's own published methods beside them", new RegExp(`<code>/v1/hypervisor/model-routes/:id/invoke</code> carries ${iInvokeMethods.map((m) => `<code>${m}</code>`).join(" ")}`).test(t) && new RegExp(`<code>/v1/chat/completions</code> carries ${iChatMethods.map((m) => `<code>${m}</code>`).join(" ")}`).test(t) && (t.match(/class="inf-vrow"/g) || []).length === 6 && (t.match(/data-ioi-invoke-field-space="no"/g) || []).length === 6 && !/data-ioi-invoke-field-space="yes"/.test(t) && /<b>0<\/b> of its <b>6<\/b> accepted body fields names a space/.test(t) && /handle_model_route_invoke/.test(t), `invoke=${iInvokeMethods.join("/")} chat=${iChatMethods.join("/")} fields=${(t.match(/class="inf-vrow"/g) || []).length}`);
+  ok("inference: the TWO receipt families sharing one name are NAMED as a contradiction and NOT adjudicated — the untestability is attributed to the route refusing to be an existence oracle", /Two receipt families with one name/.test(t) && t.includes(iBy["/v1/hypervisor/model-invocations/:id"].code) && /does <b>not<\/b> claim the two families are the same records, and does not claim they are different ones either/.test(t) && /refusing before the record is read is the route behaving correctly, not a bug/.test(t) && /the estate has not been asked/.test(t));
+  // The evidence-hygiene gate. The capture caught a PLATFORM news dialog and a rail entry naming the
+  // last-visited application; either read as app IA would have ported the wrong thing. The exclusion
+  // must be VISIBLE (so a reader can check it) and the excluded content must be ABSENT.
+  ok("inference: the JUNK EVIDENCE is NAMED as excluded and NOT ported — the platform news dialog, its two controls and the rail's last-visited-app entry", (t.match(/data-ioi-control-evidence="excluded_junk"/g) || []).length === 3 && /EXCLUDED AS JUNK EVIDENCE/.test(t) && /the recorded heading count for this app is one, not two/.test(t) && /the vendor rail lists the LAST-VISITED application/.test(t) && /nine are the vendor global rail, two are the news dialog's, and one/.test(t) && !/Subscribe to newsletter/.test(t) && !/Obfuscate Data/.test(t) && !/Sensitive Data Scanner now/.test(t), `${(t.match(/data-ioi-control-evidence="excluded_junk"/g) || []).length} excluded`);
+  ok("inference: every gap carries the UNIFIED contract (aria === title === data-ioi count, all three on the same element)", (t.match(/aria-disabled="true"/g) || []).length >= 5 && (t.match(/aria-disabled="true"/g) || []).length === (t.match(/data-ioi-disabled-reason=/g) || []).length && (t.match(/aria-disabled="true"/g) || []).length === (t.match(/aria-disabled="true" title="[^"]*" data-ioi-disabled-reason=/g) || []).length, `${(t.match(/aria-disabled="true"/g) || []).length} gaps`);
+  ok("inference: no chrome reason is BOILERPLATE — every control's reason is written for that control (all distinct)", iGapReasons.length >= 5 && new Set(iGapReasons).size === iGapReasons.length, `${iGapReasons.length} chrome gaps, ${new Set(iGapReasons).size} distinct`);
+  ok("inference: every recorded element is answered in the mapping table — the two the estate honours exactly are bound, the three that are platform chrome are excluded, and the rest are marked unbound rather than filled", ["Select a space… (the app's ONLY own control)", "APPLICATIONS (facet group)", "8 recorded dialog surfaces", "9 vendor global-rail controls"].every((c) => t.includes(`data-ioi-control="${c}" data-ioi-control-bound="no"`)) && ["Please select a space (the landing heading)", "rows: 0 (the app lists nothing until a space is picked)"].every((c) => t.includes(`data-ioi-control="${c}" data-ioi-control-bound="yes"`)) && (t.match(/data-ioi-control-bound="yes"/g) || []).length === 2 && (t.match(/class="inf-crow"/g) || []).length === 9, `${(t.match(/class="inf-crow"/g) || []).length} elements answered`);
+  ok("inference: the APPLICATIONS lane is MISSING rather than the reference's own EMPTY, and the eight recorded dialogs are discriminated — one identified as platform chrome, seven named rather than reconstructed", /no per-principal favourites or pinned-application plane/.test(t) && /MISSING here, while the reference's own is merely empty/.test(t) && /eight dialog-role surfaces/.test(t) && /The other seven were never opened/.test(t) && /whitelist-only with mutation verbs blacklisted/.test(t) && /inventing interactions nobody observed/.test(t));
+  ok("inference: the registry's OWN governance gaps are quoted VERBATIM rather than paraphrased", iBy["/v1/hypervisor/model-routes/overview"].state !== "live" || (Array.isArray((await j("/v1/hypervisor/model-routes/overview")).body?.governance_gaps) && (await j("/v1/hypervisor/model-routes/overview")).body.governance_gaps.every((g) => t.includes(String(g).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")))));
+  ok("inference: READ-ONLY projection — no form, no second spine over the daemon's invoke route, and the planes another surface already renders are LINKED rather than duplicated", !t.includes("<form") && !/action="\/__ioi\//.test(t) && t.includes("/__ioi/foundry/models") && t.includes("/__ioi/domain-apps/fusion") && t.includes("/__ioi/agent-studio#model-routes") && t.includes("/__ioi/missions/builds") && t.includes("/__ioi/missions/schedules") && t.includes("/__ioi/foundry/model-studio") && !/class="mc-card"/.test(t) && !/class="spl-row"/.test(t) && !/class="mst-locrow"/.test(t) && !/class="ing-row"/.test(t));
+  ok("inference: evidence cited (adjudication #inference-port + the LIVE deep atlas) and brand-clean — no vendor brand, no borrowed tenant identity, no vendor route", /reference-seed-adjudications\.v1\.json#inference-port/.test(t) && /reference-live-tenant-deep-atlas\.v1\.json#inference/.test(t) && !/\bPalantir\b/i.test(t) && !/palantirfoundry/i.test(t) && !/foundry-inference-app/i.test(t));
+  // ING-1's rule carried: registering a route is not delivering a surface. The family landing must
+  // carry the link IN THE SAME CUT, or the native-shell 2-hop reachability gate has nothing to find.
+  {
+    const fam = await page(`${SERVE}/__ioi/foundry/models`);
+    const own = await page(`${SERVE}/__ioi/foundry`);
+    ok("inference: REACHABILITY DELIVERED IN THE SAME CUT — the Foundry family landing that /foundry transfers to links the surface, and the owner surface's sibling note no longer claims either sibling is reference-only", fam.status === 200 && fam.text.includes('href="/__ioi/foundry/inference"') && own.status === 200 && own.text.includes('href="/__ioi/foundry/inference"') && /Both sibling Foundry seeds are now PORTED over live-tenant evidence and are no longer reference-only/.test(own.text) && !/Sibling Foundry seeds stay reference-only/.test(own.text), `${fam.status}/${own.status}`);
+  }
+}
 const fails = results.filter((r) => !r.pass);
 for (const r of results) console.log(`  ${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? `  (${r.detail})` : ""}`);
 console.log(`\n${results.length - fails.length}/${results.length} passed`);

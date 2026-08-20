@@ -18,8 +18,8 @@
   "total_seeds": 39,
   "by_parity_class": {
     "daemon_wired": 13,
-    "reference_capture": 7,
-    "reference_ported": 19
+    "reference_capture": 6,
+    "reference_ported": 20
   },
   "legend": {
     "reference_capture": "the /__apps/<slug> reference baseline serves; no IOI port exists",
@@ -659,16 +659,28 @@
       "capture_base": "/workspace/foundry-inference-app/",
       "grammar": "wizard",
       "tier": "aux",
-      "parity_class": "reference_capture",
+      "parity_class": "reference_ported",
       "capture_state": "boots_wizard",
       "reference_capture": "/__apps/inference",
       "reference_workspace": "/workspace/foundry-inference-app/",
-      "note": "inference app; unbound",
+      "note": "INF-1: live_ia_recorded → ported, superseding the mirror-scoped capture_broken_no_donor (#inference) which stands as history. The finding is that A SELECTION THE ROUTE ACCEPTS IS STILL A GAP WHEN THE KEY IT FILTERS ON IS NEVER WRITTEN BY THE RECORDS IT IS MEANT TO SCOPE. The estate DOES receive a space selection — exactly two published reads accept a project filter, and the work ledger both accepts and APPLIES it — so every surface-level test for 'can this chooser be wired' says yes and wiring it would have manufactured empty answers. Of the ledger rows that name a model, none carries the project_id the filter retains on; the estate's own inference orchestration lane pins its project_ref to a value that resolves to no space record; and the edge is absent from the space side too (no space record carries an invocation field and no space ref names one). Three planes that would have to agree on what a space is, and no shared vocabulary between them — so the chooser is a typed absence and no second mutation spine is minted over the daemon's invoke route",
       "reference_clean_state": "data_failed",
       "reference_clean_reason": "shell boots but the body reports a data failure (\"Failed to load current space\") with captured (non-404) lanes",
       "reference_clean_artifact": "reference-clean-sweep.json",
       "remediation_state": "live_ia_recorded",
-      "adjudication_ref": "reference-seed-adjudications.v1.json#inference + reference-live-tenant-atlas.v1.json#inference"
+      "adjudication_ref": "reference-seed-adjudications.v1.json#inference + reference-seed-adjudications.v1.json#inference-port + reference-live-tenant-atlas.v1.json#inference + reference-live-tenant-deep-atlas.v1.json#inference",
+      "port_surface": "/__ioi/foundry/inference",
+      "surface_name": "Foundry",
+      "live_reference_evidence": "reference-live-tenant-deep-atlas.v1.json#inference (landing, url /workspace/foundry-inference-app/, heading \"Please select a space\", 12 recorded controls of which ONE is the app's own, 0 inputs, 0 tabs, 0 columns, 1 facet group APPLICATIONS, 8 dialogs, 0 rows) + .artifacts/live-tenant-atlas/deep/inference-landing.png",
+      "reference_landmarks": [
+        "Inference",
+        "Please select a space",
+        "Select a space…",
+        "APPLICATIONS"
+      ],
+      "binding": "the live-tenant SPACE-GATE landing grammar, which is neither a wizard nor a list: the app admits you by SELECTING A SPACE, the recorded tenant had none picked, and rows are 0 — so the gate IS the landing. The gate renders as the centrepiece (a header carrying the app name and a live space/invocation/plane count · the heading \"Please select a space\" verbatim · the \"Select a space…\" control as a typed absence · the estate's REAL space records beneath it, one row per live project record with id, custody posture and created stamp, cap 25 NAMED) over the estate's REAL planes. Twenty-seven space-, invocation-, model- and adjacent planes are probed on every render and classified live into FOUR states (LIVE / EMPTY / REFUSED / NO READ ROUTE, the last decided from the daemon's own route index), each stamped with the HALF of the gate it answers for. The invocation truth band prints the PREDICATE and the WINDOW beside every number: recorded invocations (a work-ledger entry whose kind is goal_run_invocation or harness_execution), the subset naming a model, the model_invocation receipts on the model-mount store, the metered usage records, and the registered routes and session bindings that are the estate's OWN scoping noun. The capture's PLATFORM NEWS DIALOG, its two controls and the rail's last-visited-application entry are named as EXCLUDED JUNK EVIDENCE rather than ported. Read-only: the invoke verb stays where the daemon owns it, the model routes stay on Model Catalog and Agent Studio, the spaces stay on Fusion, and the ledger's run lane stays on Builds and Schedules — all linked, none re-rendered",
+      "candidate_surface": "/__ioi/foundry/inference",
+      "shell_pixel_certified": false
     },
     {
       "owner": "Marketplace",

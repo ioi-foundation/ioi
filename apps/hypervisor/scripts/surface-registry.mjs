@@ -129,6 +129,17 @@ export const SURFACES = [
   // published and real, carries no location field at all, and demands a model-route/provider
   // binding the dialog never asks for, so Save is a typed absence and no second spine is minted.
   { slug: "modelstudio", owner: "Foundry", title: "Model Studio", icon: MODELS_APP_ICON_URI, route: "/__ioi/foundry/model-studio", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  // INF-1 (remediation v2): the live-tenant-sourced Inference port, and the LAST leg of the
+  // live-tenant port backlog. The seed's live ROOT is a SPACE GATE — heading "Please select a
+  // space" over ONE app control, "Select a space…", rows 0, no space picked — and the capture's
+  // second heading (a platform news dialog) plus the rail's last-visited-app entry are named as
+  // EXCLUDED JUNK EVIDENCE rather than ported. The gate renders over the estate's REAL space plane
+  // (projects) with twenty-seven space/invocation/model/adjacent planes classified live into four
+  // states. THE FINDING: a SELECTION THE ROUTE ACCEPTS is still a GAP when the key it filters on is
+  // never written by the records it is meant to scope — the work ledger accepts ?project= and
+  // applies it, and 0 of the ledger rows that name a model carry the key it retains on, so a wired
+  // chooser would drop every recorded invocation and print the loss as an empty space.
+  { slug: "inference", owner: "Foundry", title: "Inference", icon: MODELS_APP_ICON_URI, route: "/__ioi/foundry/inference", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "widgets", owner: "Developer Console", title: "Custom Widgets", icon: DSG_APP_TILE_URI, route: "/__ioi/developer-console/widgets", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "workspaces", owner: "Workbench", title: "Code Workspaces", icon: DSG_APP_TILE_URI, route: "/__ioi/developer-workspace/workspaces", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "notepad", owner: "Workbench", title: "Notepad", icon: DSG_APP_TILE_URI, route: "/__ioi/developer-workspace/notepad", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },

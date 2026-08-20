@@ -3144,7 +3144,7 @@ function renderFoundryLanding(overview, specs, runPlans, modelRoutes, routeBindi
       <div class="row" style="margin-top:8px"><a class="act ghost" href="/__ioi/agent-studio#model-routes">Manage in Studio →</a></div>
     </div>`;
   };
-  const catalogGaps = omBoundaryNote(`This is the <b>real model registry</b> — every route's availability (probe evidence + staleness), weight custody, credential posture, and admission trail is daemon truth; route administration (enable/disable/probe/select-default) lives in <a href="/__ioi/agent-studio#model-routes">Agent Studio</a>. Unsupported reference lanes — <b>fine-tuning</b>, prompt playground, live inference evals, deployment automation, training runs, and model cards where not backed by route truth — are <b>named gaps</b> (no authority contract yet), not hidden. Sibling Foundry seeds stay reference-only: the <a href="/__apps/modelstudio">Model Studio</a> canvas and the <a href="/__apps/inference">inference</a> wizard. The <a href="/__apps/models">model registry reference capture ↗</a> is the familiar baseline, never a rebound surface.`);
+  const catalogGaps = omBoundaryNote(`This is the <b>real model registry</b> — every route's availability (probe evidence + staleness), weight custody, credential posture, and admission trail is daemon truth; route administration (enable/disable/probe/select-default) lives in <a href="/__ioi/agent-studio#model-routes">Agent Studio</a>. Unsupported reference lanes — <b>fine-tuning</b>, prompt playground, live inference evals, deployment automation, training runs, and model cards where not backed by route truth — are <b>named gaps</b> (no authority contract yet), not hidden. Both sibling Foundry seeds are now PORTED over live-tenant evidence and are no longer reference-only — the creation-entry <a href="/__ioi/foundry/model-studio">Model Studio</a> (MS-1) and the space-gate <a href="/__ioi/foundry/inference">Inference</a> (INF-1) — and neither is the grammar the mirror-era note called it: the first is a creation dialog rather than a canvas, the second a space gate rather than a wizard. Their mirror captures stay linked as the familiar baselines (<a href="/__apps/modelstudio">Model Studio capture</a> · <a href="/__apps/inference">inference capture</a>), never as rebound surfaces. The <a href="/__apps/models">model registry reference capture ↗</a> is the familiar baseline, never a rebound surface.`);
   const catalogSec = `<div id="foundry-model-catalog"><h2>Model Catalog <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— the registered routes with honest availability, custody, and usage; administration lives in Studio · <a href="/__ioi/foundry/models">Model Catalog (reference-faithful) →</a></span></h2>
     ${(modelRoutes || []).length ? (modelRoutes || []).map(routeCard).join("") : `<div class="empty">No model routes registered yet — add one in Studio to populate the catalog.</div>`}${catalogGaps}</div>`;
   const specCard = (s) => `<a class="card" href="/__ioi/foundry/specs/${enc(s.id || "")}"><div class="main"><div class="name">${CX_ESC(s.name || s.id || "spec")} <span class="pill muted">${CX_ESC(s.kind || "")}</span> <span class="pill warn">${CX_ESC(s.status || "draft")}</span></div><div class="meta"><code>${CX_ESC(s.id || "")}</code> · updated ${CX_ESC(s.updated_at || "")}</div></div><span class="act ghost">Open →</span></a>`;
@@ -5649,7 +5649,7 @@ function renderModelCatalogPort(routesJson, view = "provided") {
   const catalog = `<section class="mc-list">
     <h3 class="mc-addhead">Additional models</h3>
     <div class="mc-cards">${routes.length ? routes.map(card).join("") : `<div class="mc-empty"><b>No model routes yet</b> — register a route in <a href="/__ioi/agent-studio#model-routes">Agent Studio</a>. This catalog reads the real daemon model-route registry; nothing is fabricated.</div>`}</div>
-    <div class="mc-foot">Every card is a real daemon model route (${routes.length}) — identity, availability + probe evidence, weight custody, credential posture, lifecycle/admission. Administration (enable · probe · select default): <a href="/__ioi/agent-studio#model-routes">Agent Studio →</a> · the creation-entry grammar over the estate's draft-spec + location planes: <a href="/__ioi/foundry/model-studio">Model Studio →</a> · owner surface: <a href="/__ioi/foundry">Foundry →</a> · reference: <a href="/__apps/models" target="_blank" rel="noopener">Model Catalog capture ↗</a></div>
+    <div class="mc-foot">Every card is a real daemon model route (${routes.length}) — identity, availability + probe evidence, weight custody, credential posture, lifecycle/admission. Administration (enable · probe · select default): <a href="/__ioi/agent-studio#model-routes">Agent Studio →</a> · the creation-entry grammar over the estate's draft-spec + location planes: <a href="/__ioi/foundry/model-studio">Model Studio →</a> · the space-gate grammar over the estate's space + invocation planes: <a href="/__ioi/foundry/inference">Inference →</a> · owner surface: <a href="/__ioi/foundry">Foundry →</a> · reference: <a href="/__apps/models" target="_blank" rel="noopener">Model Catalog capture ↗</a></div>
   </section>`;
 
   const css = `:root{color-scheme:light}*{box-sizing:border-box}
@@ -11729,6 +11729,504 @@ async function handleEstateRequest(req, res, body) {
             ${mstPlaneRows}
           </div>
           <p class="mst-foot">${mstFoot}</p>
+        </div>
+      </div></body></html>`);
+      return;
+    }
+    // ---- Foundry · Inference — INF-1 (remediation v2): the LIVE-TENANT SPACE-GATE port, and the
+    // EIGHTH and LAST leg of the live-tenant port backlog. The mirror-scoped verdict was
+    // capture_broken_no_donor (#inference, FOU-2 — "terminal: no donor; the inference gap stands
+    // citing this record"); the owner-authorized live sweep OVERTURNED the expressed_ia half of it
+    // and recorded a real landing whose ROOT IS A SPACE GATE: heading "Please select a space" over
+    // ONE app control, "Select a space…", with rows 0 and no space picked.
+    //
+    // JUNK EVIDENCE, EXCLUDED BY NAME. The capture caught a PLATFORM NEWS DIALOG ("What's new in
+    // Sensitive Data Scanner") floating over the app, and the rail's APPLICATIONS lane naming the
+    // LAST-VISITED application rather than this one. Neither is this app's IA. Counting either as
+    // app grammar is the recorded control-count scar that killed two other seeds' candidacies, so
+    // both are named as excluded evidence in the control table and NEITHER is ported.
+    //
+    // THE FINDING this leg returns: A SELECTION THE ROUTE ACCEPTS IS STILL A GAP WHEN THE KEY IT
+    // FILTERS ON IS NEVER WRITTEN BY THE RECORDS IT IS MEANT TO SCOPE.
+    if (pathname === "/__ioi/foundry/inference" && req.method === "GET") {
+      const esc = CX_ESC;
+      const istr = (v) => (typeof v === "string" && v.trim() !== "" ? v : "");
+      const infProbe = async (p) => {
+        try {
+          const r = await daemonFetch(p);
+          const text = await r.text();
+          let body = null;
+          try { body = JSON.parse(text); } catch { body = null; }
+          return { path: p, status: r.status, ok: r.ok, body };
+        } catch { return { path: p, status: 0, ok: false, body: null }; }
+      };
+      // PHASE 1 — the daemon's OWN route index. It is the only thing that can say "no read route",
+      // and the space-receiving / verb counts below are derived from it on this render, so a route
+      // that appears or disappears changes the finding's numbers instead of rotting beside them.
+      const infIndexJson = await daemonFetch("/v1").then((r) => r.json()).catch(() => ({}));
+      const infRoutes = (Array.isArray(infIndexJson.families) ? infIndexJson.families : []).flatMap((f) => (Array.isArray(f.paths) ? f.paths : []));
+      const infLiveRoutes = infRoutes.filter((r) => !r.retired);
+      const infRouteFor = (p) => infLiveRoutes.find((r) => String(r.path || "") === p) || null;
+      const infMethodsFor = (p) => { const r = infRouteFor(p); return Array.isArray(r?.methods) ? r.methods : []; };
+      // PHASE 2 — the census. `path` is the ROUTE TEMPLATE the index publishes (the only thing an
+      // index lookup can match); `probe` is the concrete URL this identity actually read. `lane`
+      // names which half of the gate the plane answers for: the SPACE the chooser would select, the
+      // INVOCATION that selection would scope, the MODEL that executes one, or adjacent.
+      const INF_PLANES = [
+        { key: "projects", path: "/v1/hypervisor/projects", probe: "/v1/hypervisor/projects", shape: "collection", pick: (b) => b?.projects, lane: "space",
+          label: "Projects — the estate's SPACE plane", role: "the nearest thing the estate has to the reference's space: a durable custody container with its own project_id, custody posture and ref lanes. It is the plane the chooser above lists record by record, it is rendered in full by the Fusion port, and it is READ here for the chooser and never re-listed as a browser",
+          owner: "/__ioi/domain-apps/fusion", ownerLabel: "Fusion" },
+        { key: "project_record", path: "/v1/hypervisor/projects/:id", probe: "/v1/hypervisor/projects/no-space-selected", shape: "singleton", lane: "space",
+          label: "Project record", role: "one space read back by id. Probed WITHOUT a resolvable id on purpose, so the row reports what an unresolved space actually answers rather than a happy path",
+          owner: "/__ioi/domain-apps/fusion", ownerLabel: "Fusion" },
+        { key: "project_env_classes", path: "/v1/hypervisor/projects/:id/environment-classes", probe: "/v1/hypervisor/projects/no-space-selected/environment-classes", shape: "collection", lane: "space",
+          label: "Project environment classes — the ONE project PATCH", role: "the only field of a space the estate publishes a patch for. It is not a child list and it could not adopt an invocation: this is the whole of what a project record will accept after it is created",
+          owner: "/__ioi/environments", ownerLabel: "Environments" },
+        { key: "work_ledger", path: "/v1/hypervisor/work-ledger", probe: "/v1/hypervisor/work-ledger", shape: "collection", pick: (b) => b?.entries, lane: "space",
+          label: "Work ledger — the ONE read route that RECEIVES a space selection AND reaches an invocation record", role: "the estate's unified proof stream. It is the whole case of this page: it accepts ?project=…, it applies the selection, and the rows that carry a model do not carry the key it filters on. Its run lane is rendered by the Builds and Schedules ports and is LINKED, never re-listed",
+          owner: "/__ioi/missions/builds", ownerLabel: "Builds" },
+        { key: "automations", path: "/v1/hypervisor/automations", probe: "/v1/hypervisor/automations", shape: "collection", pick: (b) => b?.automations, lane: "space",
+          label: "Automations — the OTHER route that receives a project selection", role: "the only other published read in the whole daemon index whose handler takes a project filter (?project_ref= / ?project_id=). It is named here so the claim 'exactly two routes receive a space' can be checked rather than believed — and it is not an inference route",
+          owner: "/__ioi/missions/schedules", ownerLabel: "Schedules" },
+        { key: "invocations_collection", path: "/v1/hypervisor/model-invocations", probe: "/v1/hypervisor/model-invocations", shape: "collection", lane: "invocation",
+          label: "Model invocations — the COLLECTION that does not exist", role: "the daemon's index publishes a readback BY ID for this family and no collection route at all. There is no way to enumerate invocations, which is why a space-scoped list of them could not be assembled even if the key existed — and why this row is a NO READ ROUTE rather than an empty one",
+          owner: "/__ioi/foundry/models", ownerLabel: "Model Catalog" },
+        { key: "invocation_record", path: "/v1/hypervisor/model-invocations/:id", probe: "/v1/hypervisor/model-invocations/no-invocation-selected", shape: "singleton", lane: "invocation",
+          label: "Model invocation record — the TYPED ModelInvocationReceipt readback", role: "the estate's own invocation receipt, read back by id. It resolves identity BEFORE it reads the record — an anonymous caller is owed 401 rather than a 404 that would answer 'does this id exist?' for free — so this identity is refused here and the refusal is recorded as a refusal",
+          owner: "/__ioi/foundry/models", ownerLabel: "Model Catalog" },
+        { key: "invoke_verb", path: "/v1/hypervisor/model-routes/:id/invoke", probe: "/v1/hypervisor/model-routes/no-route-selected/invoke", shape: "collection", lane: "invocation",
+          label: "THE INVOKE VERB — the estate's governed model call", role: "POST-only: the daemon executes a real provider call through the registry and receipts it. It is the authority crossing this page refuses to re-mint, and its accepted body fields are the second half of the finding",
+          owner: "/__ioi/agent-studio#model-routes", ownerLabel: "Agent Studio" },
+        { key: "chat_completions", path: "/v1/chat/completions", probe: "/v1/chat/completions", shape: "collection", lane: "invocation",
+          label: "Chat completions — the OTHER inference verb", role: "POST-only as well. The mirror-era record named this route as the estate's whole inference story; it is named here so that claim can be read against the governed invoke route beside it rather than instead of it",
+          owner: "/__ioi/agent-studio#model-routes", ownerLabel: "Agent Studio" },
+        { key: "mount_receipts", path: "/v1/model-mount/receipts", probe: "/v1/model-mount/receipts", shape: "collection", lane: "invocation",
+          label: "Model-mount receipts — the invocation evidence that IS readable", role: "a durable receipt store that answers this identity, holds records of kind model_invocation, and publishes a collection route. It is a DIFFERENT record family from the typed readback above and this surface does not claim they are the same records — the id vocabularies differ and the readback route refuses this identity, so the join is untestable here and is stated as untestable",
+          owner: "/__ioi/provenance", ownerLabel: "Provenance" },
+        { key: "mount_receipt_record", path: "/v1/model-mount/receipts/:id", probe: "/v1/model-mount/receipts/no-receipt-selected", shape: "singleton", lane: "invocation",
+          label: "Model-mount receipt record", role: "one receipt read back by id, probed unresolved for the same reason as the space record: so the row reports the store's own typed decline rather than a fabricated not-found story",
+          owner: "/__ioi/provenance", ownerLabel: "Provenance" },
+        { key: "runtime_usage", path: "/v1/usage", probe: "/v1/usage", shape: "collection", pick: (b) => b?.usage, lane: "invocation",
+          label: "Runtime usage telemetry — the METERED lane", role: "per-run token and cost telemetry. It is grouped by RUN and carries thread, turn, agent and route coordinates — and no space coordinate of any kind, which is the same absence the ledger's invocation rows have, arrived at down a different lane",
+          owner: "/__ioi/operations", ownerLabel: "Operations" },
+        { key: "consumption", path: "/v1/hypervisor/usage/consumption", probe: "/v1/hypervisor/usage/consumption", shape: "singleton", lane: "invocation",
+          label: "Consumption series — the roll-up over the same meter", role: "a time-series status object, never a collection of one. Read for the lane's completeness; no invocation row on this page is minted from it",
+          owner: "/__ioi/operations", ownerLabel: "Operations" },
+        { key: "goal_runs", path: "/v1/goal-orchestration/goal-runs", probe: "/v1/goal-orchestration/goal-runs", shape: "collection", pick: (b) => b?.goal_runs, lane: "invocation",
+          label: "Goal runs — the estate's REAL inference orchestration lane, and the plane that DOES carry a space key", role: "the records that fan out into the harness invocations the ledger counts. Every one carries a project_ref, which is the closest the estate comes to a space-scoped inference record — and the value it carries is the load-bearing half of this page's finding",
+          owner: "/__ioi/missions", ownerLabel: "Missions" },
+        { key: "agent_launches", path: "/v1/goal-orchestration/ioi-agent/launches", probe: "/v1/goal-orchestration/ioi-agent/launches", shape: "collection", pick: (b) => b?.launches, lane: "invocation",
+          label: "Agent launches — the delivered-intent lane beneath the goal runs", role: "one record per launched agent, carrying the delivered intent and its projection refs. Read here for the lane census and to check the space key from a third side; the launches themselves belong to the Missions surface",
+          owner: "/__ioi/missions", ownerLabel: "Missions" },
+        { key: "model_routes", path: "/v1/hypervisor/model-routes", probe: "/v1/hypervisor/model-routes", shape: "collection", pick: (b) => b?.routes, lane: "model",
+          label: "Model routes — WHAT an inference would run on", role: "the registry the invoke verb resolves its target from. Rendered in full by the Model Catalog and READ here for the count and the executable predicate, never re-listed as cards",
+          owner: "/__ioi/foundry/models", ownerLabel: "Model Catalog" },
+        { key: "model_routes_overview", path: "/v1/hypervisor/model-routes/overview", probe: "/v1/hypervisor/model-routes/overview", shape: "singleton", lane: "model",
+          label: "Model-route overview", role: "the availability and lifecycle roll-up over the same registry, and the publisher of the governance gaps quoted verbatim below rather than paraphrased",
+          owner: "/__ioi/foundry/models", ownerLabel: "Model Catalog" },
+        { key: "session_bindings", path: "/v1/hypervisor/model-route-session-bindings", probe: "/v1/hypervisor/model-route-session-bindings", shape: "collection", pick: (b) => b?.bindings, lane: "model",
+          label: "Model-route session bindings — the estate's OWN scoping noun", role: "the estate does scope a model route to something, and the something is a SESSION, not a space. This is the lane that answers what this estate means by 'scoped inference', and it is why the chooser above is a gap rather than an unbuilt feature",
+          owner: "/__ioi/agent-studio#model-routes", ownerLabel: "Agent Studio" },
+        { key: "providers", path: "/v1/model-mount/providers", probe: "/v1/model-mount/providers", shape: "collection", lane: "model",
+          label: "Model-mount providers", role: "the substrate inventory beneath the routes. Read for the model half of the census and linked to its owner; no provider row is minted here",
+          owner: "/__ioi/agent-studio", ownerLabel: "Agent Studio" },
+        { key: "instances_loaded", path: "/v1/model-mount/instances/loaded", probe: "/v1/model-mount/instances/loaded", shape: "collection", lane: "model",
+          label: "Loaded model instances — what is resident RIGHT NOW", role: "the only plane on this page whose emptiness is about the present tense rather than about history. It answered and holds none: an EMPTY plane, and specifically not a claim that nothing has ever been loaded",
+          owner: "/__ioi/agent-studio", ownerLabel: "Agent Studio" },
+        { key: "server_status", path: "/v1/model-mount/server/status", probe: "/v1/model-mount/server/status", shape: "singleton", lane: "model",
+          label: "Model server status", role: "the serving control plane's own status object. Read for the model half; the surface prints its backend census rather than inventing a health verdict of its own",
+          owner: "/__ioi/operations", ownerLabel: "Operations" },
+        { key: "tokens_count", path: "/v1/model-mount/tokens/count", probe: "/v1/model-mount/tokens/count", shape: "collection", lane: "model",
+          label: "Token count — a COMPUTATION, not a plane", role: "POST-only: the estate computes a count over a payload you send and stores nothing you can read back. A lane with no read route is not an empty lane, and a computation is not a plane at all",
+          owner: "/__ioi/agent-studio", ownerLabel: "Agent Studio" },
+        { key: "context_fit", path: "/v1/model-mount/context/fit", probe: "/v1/model-mount/context/fit", shape: "collection", lane: "model",
+          label: "Context fit — the other COMPUTATION", role: "POST-only as well. Named because a prompt console would land on it, and because it is the second of the two lanes on this census that are computations rather than records",
+          owner: "/__ioi/agent-studio", ownerLabel: "Agent Studio" },
+        { key: "quotes", path: "/v1/hypervisor/economics/quotes", probe: "/v1/hypervisor/economics/quotes", shape: "collection", lane: "adjacent",
+          label: "Economics quotes — the ref the invoke verb's billing block must name", role: "POST-only. If an invocation declares an economics block it must bind exactly one quote_ref, and the estate publishes no way to LIST the quotes a caller could bind. That is a second disjointness beside this page's own, and it is recorded rather than acted on",
+          owner: "/__ioi/operations", ownerLabel: "Operations" },
+        { key: "reconciliation", path: "/v1/hypervisor/economics/reconciliation", probe: "/v1/hypervisor/economics/reconciliation", shape: "collection", lane: "adjacent",
+          label: "Economics reconciliation", role: "the charge-versus-receipt lane an invoice view would read. It refuses this identity, so this surface says NOTHING about whether any invocation was billed — unknown prints as unknown, never as zero",
+          owner: "/__ioi/operations", ownerLabel: "Operations" },
+        { key: "sessions", path: "/v1/hypervisor/sessions", probe: "/v1/hypervisor/sessions", shape: "collection", lane: "adjacent",
+          label: "Hypervisor sessions — the noun the estate DOES scope a route to", role: "the container the session-binding lane binds a model route into. Its refusal on this render is a THIRD kind of no — not unauthorized and not absent, but the registry declaring itself unavailable in its own words, which is recorded verbatim rather than folded into the 401s",
+          owner: "/__ioi/environments", ownerLabel: "Environments" },
+        { key: "harness_profiles", path: "/v1/hypervisor/harness-profiles", probe: "/v1/hypervisor/harness-profiles", shape: "collection", pick: (b) => b?.profiles, lane: "adjacent",
+          label: "Harness profiles — WHO ran the invocations the ledger counts", role: "the adapter registry every counted invocation names in its profile_ref. Read so the invocation census can say which lane produced it, and linked to its own registry surface rather than re-rendered",
+          owner: "/__ioi/agent-studio", ownerLabel: "Agent Studio" },
+      ];
+      const infProbes = await Promise.all(INF_PLANES.map((pl) => infProbe(pl.probe)));
+      // FIVE states, decided in this order and never from a constant: no-read-route from the
+      // daemon's OWN index before any body is read; a transport refusal before any collection is
+      // looked for; a typed in-body decline (ok:false on a 200) as the refusal it is — carrying the
+      // daemon's own words when it publishes them instead of a generic stand-in; then shape.
+      const infDeclineCode = (b, status) => {
+        const e = b && b.error;
+        const fromErr = e && (typeof e === "string" ? e : (e.code || e.message || ""));
+        return String(fromErr || (b && (b.reason || b.code)) || `http_${status}`);
+      };
+      const infClassify = (pl, pr) => {
+        const methods = infMethodsFor(pl.path);
+        if (!methods.includes("GET") || pr.status === 405) return { state: "no_read_route", code: "", methods, rows: [] };
+        if (!pr.ok) return { state: "refused", code: infDeclineCode(pr.body || {}, pr.status), methods, rows: [] };
+        const body = pr.body;
+        if (body && typeof body === "object" && body.ok === false) return { state: "refused", code: infDeclineCode(body, pr.status), methods, rows: [] };
+        if (pl.shape === "singleton") {
+          const keys = body && typeof body === "object" && !Array.isArray(body) ? Object.keys(body) : [];
+          return { state: keys.length ? "live" : "empty", code: "", methods, rows: [], keys };
+        }
+        const arr = pl.pick ? pl.pick(body) : (Array.isArray(body) ? body : Object.values(body || {}).find((v) => Array.isArray(v)));
+        if (!Array.isArray(arr)) return { state: "unreadable", code: `http_${pr.status}`, methods, rows: [] };
+        return { state: arr.length ? "live" : "empty", code: "", methods, rows: arr };
+      };
+      const infRead = INF_PLANES.map((pl, i) => ({ ...pl, ...infClassify(pl, infProbes[i]), status: infProbes[i].status, body: infProbes[i].body }));
+      const infBy = Object.fromEntries(infRead.map((r) => [r.key, r]));
+      const infCount = (s) => infRead.filter((r) => r.state === s).length;
+      const infRowsOf = (k) => (infBy[k].state === "live" ? infBy[k].rows : []);
+      // ---- THE TWO HALVES OF THE GATE. The reference collects exactly ONE thing — a SPACE — and
+      // every number below about whether that selection can scope an inference is derived on THIS
+      // render from the planes and from the daemon's own route index.
+      const infProjects = infRowsOf("projects");
+      const infLedger = infRowsOf("work_ledger");
+      const infGoalRuns = infRowsOf("goal_runs");
+      const infLaunches = infRowsOf("agent_launches");
+      const infMountReceipts = infRowsOf("mount_receipts");
+      const infUsage = infRowsOf("runtime_usage");
+      const infModelRoutes = infRowsOf("model_routes");
+      const infBindings = infRowsOf("session_bindings");
+      const infAutomations = infRowsOf("automations");
+      const infProfiles = infRowsOf("harness_profiles");
+      // THE INVOCATION PREDICATE, named where it is used: a ledger entry counts as an invocation of
+      // a model when its KIND is one of the two the ledger publishes for harness/goal-run model
+      // calls. The predicate is a property of the records; it is not a re-derivation of any daemon
+      // filter, and the page says which it is beside every number.
+      const INF_INVOCATION_KINDS = ["goal_run_invocation", "harness_execution"];
+      const infInvRows = infLedger.filter((e) => INF_INVOCATION_KINDS.includes(String(e?.kind || "")));
+      const infModelOf = (e) => istr(e?.implementation_result?.model);
+      const infEndpointOf = (e) => istr(e?.implementation_result?.model_endpoint);
+      const infInvWithModel = infInvRows.filter((e) => infModelOf(e) !== "");
+      const infInvModels = [...new Set(infInvWithModel.map(infModelOf))].sort();
+      const infInvEndpoints = [...new Set(infInvRows.map(infEndpointOf).filter((v) => v !== ""))].sort();
+      const infInvSucceeded = infInvRows.filter((e) => String(e?.status || "") === "success").length;
+      const infStamps = (rows) => rows.map((e) => istr(e?.timestamp)).filter((v) => v !== "").sort();
+      const infWindowOf = (rows) => { const s = infStamps(rows); return s.length ? { from: s[0], to: s[s.length - 1], n: s.length } : { from: "", to: "", n: 0 }; };
+      const infLedgerWindow = infWindowOf(infLedger);
+      const infInvWindow = infWindowOf(infInvRows);
+      // THE KEY CENSUS — a property of the RECORDS, not of any filter. How many ledger entries carry
+      // the field the daemon's space filter compares against, at all; how many carry a value; and
+      // how many of the invocation-kind rows do. The last number is the finding.
+      const infHasProjectKey = (e) => e !== null && typeof e === "object" && Object.prototype.hasOwnProperty.call(e, "project_id");
+      const infProjectValue = (e) => istr(e?.project_id);
+      const infRowsWithKey = infLedger.filter(infHasProjectKey);
+      const infRowsWithValue = infLedger.filter((e) => infProjectValue(e) !== "");
+      const infInvRowsWithKey = infInvRows.filter(infHasProjectKey);
+      const infInvRowsWithValue = infInvRows.filter((e) => infProjectValue(e) !== "");
+      const infProjectIds = new Set(infProjects.map((p) => istr(p?.project_id)).filter((v) => v !== ""));
+      const infLedgerVocab = [...new Set(infLedger.map(infProjectValue).filter((v) => v !== ""))].sort();
+      const infLedgerVocabResolving = infLedgerVocab.filter((v) => infProjectIds.has(v));
+      const infLedgerVocabDangling = infLedgerVocab.filter((v) => !infProjectIds.has(v));
+      // THE THIRD VOCABULARY — the space key the estate's own inference orchestration lane writes.
+      const infGoalRefOf = (g) => istr(g?.project_ref);
+      const infGoalVocab = [...new Set(infGoalRuns.map(infGoalRefOf).filter((v) => v !== ""))].sort();
+      const infGoalVocabResolving = infGoalVocab.filter((v) => infProjectIds.has(v));
+      const infGoalRunsWithRef = infGoalRuns.filter((g) => infGoalRefOf(g) !== "").length;
+      const infGoalInvocationRefs = infGoalRuns.reduce((n, g) => n + (Array.isArray(g?.invocation_refs) ? g.invocation_refs.length : 0), 0);
+      const infLaunchesWithSpace = infLaunches.filter((l) => Object.keys(l || {}).some((k) => /project|space|tenant/i.test(k))).length;
+      // THE EDGE, FROM THE SPACE SIDE — checked against the records' OWN keys and their OWN refs,
+      // not from a schema doc, and re-derived every render.
+      const INF_SPACE_FIELD_RE = /invocation|inference|prompt|completion|model/i;
+      const infProjWithInvField = infProjects.filter((p) => Object.keys(p || {}).some((k) => INF_SPACE_FIELD_RE.test(k)));
+      const infProjRefLanes = [...new Set(infProjects.flatMap((p) => Object.keys(p || {}).filter((k) => k.endsWith("_refs"))))].sort();
+      const infProjRefs = infProjects.flatMap((p) => infProjRefLanes.flatMap((k) => (Array.isArray(p?.[k]) ? p[k] : []).map((v) => String(v))));
+      const infProjRefsNamingInvocation = infProjRefs.filter((v) => /model-invocation|invocation|inference|model-route/i.test(v));
+      // THE EDGE, FROM THE INVOCATION SIDE — over the receipt records this identity can actually
+      // read, by their own key paths rather than by a claim about their schema.
+      const infReceiptKeyPaths = (o, pre) => {
+        const out = [];
+        if (o && typeof o === "object" && !Array.isArray(o)) for (const [k, v] of Object.entries(o)) { out.push(`${pre}${k}`); out.push(...infReceiptKeyPaths(v, `${pre}${k}.`)); }
+        return out;
+      };
+      const infModelInvReceipts = infMountReceipts.filter((r) => String(r?.kind || "") === "model_invocation");
+      const INF_SPACEY_RE = /project|space|tenant|folder|location/i;
+      const infReceiptsWithSpaceField = infModelInvReceipts.filter((r) => infReceiptKeyPaths(r, "").some((k) => INF_SPACEY_RE.test(k)));
+      const infReceiptTokens = infModelInvReceipts.reduce((n, r) => n + (Number(r?.details?.tokenCount?.total_tokens) || 0), 0);
+      const infReceiptModels = [...new Set(infModelInvReceipts.map((r) => istr(r?.details?.selectedModel)).filter((v) => v !== ""))].sort();
+      const infReceiptStamps = infModelInvReceipts.map((r) => istr(r?.createdAt)).filter((v) => v !== "").sort();
+      const infUsageWithSpaceField = infUsage.filter((u) => Object.keys(u || {}).some((k) => INF_SPACEY_RE.test(k))).length;
+      // THE ROUTE SIDE — counted from the daemon's own index on this render, never pinned.
+      const INF_INVOKE_ROUTE = "/v1/hypervisor/model-routes/:id/invoke";
+      const INF_CHAT_ROUTE = "/v1/chat/completions";
+      const INF_LEDGER_ROUTE = "/v1/hypervisor/work-ledger";
+      const INF_AUTOMATIONS_ROUTE = "/v1/hypervisor/automations";
+      const infInvokeMethods = infMethodsFor(INF_INVOKE_ROUTE);
+      const infChatMethods = infMethodsFor(INF_CHAT_ROUTE);
+      const infInvokePublished = infInvokeMethods.includes("POST");
+      const infSpaceNamingRoutes = infLiveRoutes.filter((r) => /project|space|workspace|tenant/i.test(String(r.path || "")));
+      const infProjectRoutes = infLiveRoutes.filter((r) => String(r.path || "").startsWith("/v1/hypervisor/projects"));
+      const infProjectWriteRoutes = infProjectRoutes.filter((r) => (r.methods || []).some((m) => ["POST", "PATCH", "PUT", "DELETE"].includes(String(m))));
+      // The body fields the invoke verb ACCEPTS, read from the WRITE PATH itself
+      // (handle_model_route_invoke in crates/node/src/bin/hypervisor_daemon_routes/provider_transport.rs)
+      // rather than from the route list. Not one of them is a space.
+      const INF_INVOKE_BODY_FIELDS = ["prompt", "stream", "fallback_route_refs", "retry", "economics.quote_ref", "economics.commercial_posture"];
+      const infInvokeSpaceFields = INF_INVOKE_BODY_FIELDS.filter((f) => INF_SPACEY_RE.test(f));
+      // PHASE 3 — THE DAEMON'S OWN ANSWER TO A SELECTION. The filter belongs to the daemon, so the
+      // page ASKS IT rather than re-implementing its retain expression here (a re-implemented
+      // admission rule is a second answer waiting to disagree with the first). THREE selections are
+      // put to it, every one a principled pick: the FIRST space the plane offers, the first space
+      // value the LEDGER'S OWN rows carry that resolves to a real space, and the space key the
+      // estate's OWN inference lane writes.
+      const infSelA = istr(infProjects[0]?.project_id);
+      const infSelB = infLedgerVocabResolving[0] || "";
+      const infSelC = infGoalVocab[0] || "";
+      const infAskLedger = async (sel) => {
+        if (sel === "") return null;
+        const pr = await infProbe(`${INF_LEDGER_ROUTE}?project=${encodeURIComponent(sel)}`);
+        if (!pr.ok || !pr.body || !Array.isArray(pr.body.entries)) return { selection: sel, readable: false, entries: 0, invocations: 0, status: pr.status };
+        const rows = pr.body.entries;
+        return { selection: sel, readable: true, status: pr.status, entries: rows.length, invocations: rows.filter((e) => INF_INVOCATION_KINDS.includes(String(e?.kind || ""))).length };
+      };
+      const [infAnsA, infAnsB, infAnsC] = await Promise.all([infAskLedger(infSelA), infAskLedger(infSelB), infAskLedger(infSelC)]);
+      const infAskedSelections = [infSelA, infSelB, infSelC].filter((v) => v !== "");
+      const infAskedOf = (pid) => (pid !== "" && infAskedSelections.includes(pid) ? "yes" : "no");
+      const infAnswerFor = (pid) => (pid === infSelA ? infAnsA : (pid === infSelB ? infAnsB : (pid === infSelC ? infAnsC : null)));
+      // ONE gap contract for every named absence (aria + title + data-ioi reason, all three on the
+      // SAME element). Every reason is written for ITS control — a reused reason is decorative.
+      const igap = (cls, label, reason) => `<span class="${cls} inf-gap" aria-disabled="true" title="${esc(reason)}" data-ioi-disabled-reason="${esc(reason)}">${esc(label)}</span>`;
+      const infFdt = (iso) => { const d2 = new Date(iso || 0); return isNaN(d2) ? "—" : d2.toISOString().slice(0, 19).replace("T", " "); };
+      const INF_SPACE_CAP = 25;
+      const infSpaceShown = infProjects.slice(0, INF_SPACE_CAP);
+      const infSpaceRowsHtml = infSpaceShown.map((p) => `<div class="inf-sprow" data-ioi-space="${esc(istr(p.project_id))}" data-ioi-space-asked="${infAskedOf(istr(p.project_id))}">`
+        + `<span class="inf-spico" aria-hidden="true">▸</span>`
+        + `<span class="inf-spname"><b>${esc(istr(p.name) || istr(p.project_id) || "space")}</b><code class="inf-ref">${esc(istr(p.project_id))}</code></span>`
+        + `<span class="inf-spmeta"><code class="inf-ref">custody ${esc(istr(p.custody_posture) || "—")}</code><code class="inf-ref">created ${esc(infFdt(p.created_at))}</code></span>`
+        + `<span class="inf-spreach">${infAskedOf(istr(p.project_id)) === "yes"
+          ? ((infAnswerFor(istr(p.project_id)) || {}).readable
+            ? `<b>asked</b> — the daemon's own answer to <code class="inf-ref">?project=${esc(istr(p.project_id))}</code>: <b>${infAnswerFor(istr(p.project_id)).entries}</b> ledger entr${infAnswerFor(istr(p.project_id)).entries === 1 ? "y" : "ies"}, of which <b>${infAnswerFor(istr(p.project_id)).invocations}</b> name a model`
+            : `<b>asked</b> — the ledger did not answer this selection readably on this render, so no count is printed for it`)
+          : `not asked — this page puts ${infAskedSelections.length} principled selection${infAskedSelections.length === 1 ? "" : "s"} to the daemon and NAMES each, rather than issuing ${infProjects.length} full-ledger reads or re-implementing the daemon's retain expression here`}</span></div>`).join("");
+      // The reference's controls, answered one by one. A ported landing that keeps a reference
+      // control and wires it to something else is not a port, it is a mislabel — and a ported
+      // landing that keeps the PLATFORM's chrome as if it were the app's is not a port either.
+      const infControls = [
+        { ref: "Select a space… (the app's ONLY own control)", bound: false, field: "", junk: false,
+          gap: `The estate DOES receive a space selection: ${INF_LEDGER_ROUTE} accepts ?project=… and applies it, and so does ${INF_AUTOMATIONS_ROUTE}. Wiring this chooser on that basis would produce a working-looking filter that manufactures empty answers, because the key it retains on — project_id — is carried by ${infInvRowsWithKey.length} of the ${infInvRows.length} ledger rows that name a model. The daemon's own answers to the two selections this page put to it are printed beside the chooser; neither returned an invocation. Selecting a space here would scope nothing and would report that nothing as a zero`,
+          copy: "The selection is receivable, the filter is real, and the answer would still be manufactured. That is why the ACT of choosing is gap-marked while the space records below it are rendered in full: it is the KEY that is missing, not the spaces." },
+        { ref: "Please select a space (the landing heading)", bound: true, field: "rendered verbatim over the estate's real space plane", junk: false,
+          gap: "",
+          copy: "The one piece of this app's grammar the estate can honour exactly. The reference's landing IS this sentence over an unpicked chooser, and it is reproduced verbatim above the estate's own space records rather than being reworded into a summary of them." },
+        { ref: "rows: 0 (the app lists nothing until a space is picked)", bound: true, field: "no invocation row is rendered here", junk: false,
+          gap: "",
+          copy: "Honoured, with the DIFFERENCE named. The reference shows no rows because no space is picked; this port shows no invocation rows because no selection could scope one. Same empty list, two different reasons — and printing the estate's reason is the whole point of the band beneath." },
+        { ref: "APPLICATIONS (facet group)", bound: false, field: "", junk: false,
+          gap: "The reference's left rail carries a single APPLICATIONS group listing the tenant's pinned apps. The estate holds no per-principal favourites or pinned-application plane, so the lane could never fill — it is MISSING here, while the reference's own is merely empty and waiting",
+          copy: "MISSING, not empty. The reference's lane awaits data; the estate has no plane that could ever supply it." },
+        { ref: "8 recorded dialog surfaces", bound: false, field: "", junk: false,
+          gap: "The live capture recorded eight dialog-role surfaces in this document. ONE of them is the platform news dialog, which is named as excluded evidence in the row below rather than ported. The other seven were never opened: the sweep was whitelist-only with mutation verbs blacklisted, so their existence is evidence and their contents are not, and reconstructing them from a DOM count would be inventing interactions nobody observed",
+          copy: "Seven named rather than guessed, one identified as platform chrome. The distinction matters: a DOM dialog count is evidence that surfaces EXIST, never evidence of what they contain." },
+        { ref: "\"What's new in Sensitive Data Scanner\" (recorded heading #2)", bound: false, field: "", junk: true,
+          gap: "EXCLUDED AS JUNK EVIDENCE. This heading belongs to the PLATFORM's release-notes dialog, which the capture caught floating over the app; it is not this app's IA and it is about a different product entirely. It is recorded here so a reader can see it was considered and rejected rather than silently dropped — the recorded heading count for this app is one, not two",
+          copy: "Named, not ported. Treating platform chrome as app grammar is a recorded scar in this program: an atlas control-count that counted vendor chrome as IA is what killed two other seeds' candidacies, and the same misread in the opposite direction would have invented a news feed here." },
+        { ref: "Go to all platform updates · Close (2 recorded controls)", bound: false, field: "", junk: true,
+          gap: "EXCLUDED AS JUNK EVIDENCE. Both controls belong to the platform news dialog above, not to the inference app. Porting them would have given this surface two affordances the app does not have, and would have made the app's own control count read as three when it is one",
+          copy: "The app has ONE control of its own. Of the twelve controls the capture recorded, nine are the vendor global rail, two are the news dialog's, and one — the space chooser — is the app's." },
+        { ref: "Sensitive Data Scanner (the rail's APPLICATIONS entry)", bound: false, field: "", junk: true,
+          gap: "EXCLUDED AS JUNK EVIDENCE. The rail's application lane names the LAST-VISITED application, not the one being viewed; the recorded URL is the authority on identity and it names the inference app. Reading the rail as the app's identity would have ported the wrong application under this seed's name",
+          copy: "The identity check that had to happen twice. The seed name and the URL agree here — but the rail disagrees with both, and the rail is the one thing on the screenshot a reader's eye lands on first." },
+        { ref: "9 vendor global-rail controls", bound: false, field: "", junk: false,
+          gap: "Skip to content, Search, Notifications, What's New, Recent, Applications, View all, Support and Account are the vendor's global chrome. Every one of them is owned elsewhere in this estate — search, notifications and account are estate surfaces of their own — so re-minting them inside an app body would be a second spine beside the native shell",
+          copy: "Railless per the owner ruling of 2026-08-20. The nine are estate chrome with owners; this surface renders its body and lets the shell own the rail." },
+      ];
+      const infControlRows = infControls.map((c) => `<div class="inf-crow" data-ioi-control="${esc(c.ref)}" data-ioi-control-bound="${c.bound ? "yes" : "no"}" data-ioi-control-evidence="${c.junk ? "excluded_junk" : "app_ia"}">`
+        + `<span><b>${esc(c.ref)}</b></span>`
+        + `<span>${c.bound ? `<code class="inf-ref">${esc(c.field)}</code>` : (c.junk ? `<span class="inf-junk">excluded — platform chrome</span>` : `<span class="inf-nolane">no estate lane</span>`)}</span>`
+        + `<span class="inf-ccopy">${c.copy}</span></div>`).join("");
+      const infChooserGap = infControls[0].gap;
+      const infStateLabel = { live: "LIVE", empty: "EMPTY", refused: "REFUSED", no_read_route: "NO READ ROUTE", unreadable: "UNREADABLE" };
+      const infLaneLabel = { space: "the SPACE half", invocation: "the INVOCATION half", model: "the MODEL that executes one", adjacent: "adjacent" };
+      const infStateCopy = (r) => {
+        if (r.state === "live") return `The plane answered this identity and holds <b>${r.shape === "singleton" ? (r.keys || []).length : r.rows.length}</b> ${r.shape === "singleton" ? `field${((r.keys || []).length) === 1 ? "" : "s"} on a status object` : `record${r.rows.length === 1 ? "" : "s"}`}.`;
+        if (r.state === "empty") return `The plane answered and holds none — an <b>EMPTY</b> plane, not a missing one, and not a refused read.`;
+        if (r.state === "refused") return `The plane <b>REFUSED</b> this read in the daemon's own words: <code>${esc(r.code)}</code>. No count is printed for it here, because a refusal is not a zero.`;
+        if (r.state === "no_read_route") return `The daemon's route index publishes <b>no GET</b> for this path (methods: ${(r.methods || []).map((m) => `<code>${esc(String(m))}</code>`).join(" ") || "none — the index publishes this path at no method at all"}). There is nothing to read, which is not the same as reading nothing.`;
+        return `The plane answered <code>${esc(r.code)}</code> in a shape this surface cannot read as a collection, and it is reported as unreadable rather than counted.`;
+      };
+      const infPlaneRows = infRead.map((r) => `<div class="inf-prow" data-ioi-plane="${esc(r.path)}" data-ioi-plane-state="${esc(r.state)}" data-ioi-plane-shape="${esc(r.shape)}" data-ioi-plane-lane="${esc(r.lane)}">`
+        + `<span><b>${esc(r.label)}</b><span class="inf-role">${esc(r.role)}</span></span>`
+        + `<span><code class="inf-ref">${esc(r.path)}</code><code class="inf-ref">shape: ${esc(r.shape)} · ${esc(infLaneLabel[r.lane] || r.lane)}</code>${r.path === r.probe ? "" : `<code class="inf-ref">probed as ${esc(r.probe)}</code>`}</span>`
+        + `<span class="inf-state inf-state-${esc(r.state)}">${esc(infStateLabel[r.state] || r.state)}</span>`
+        + `<span class="inf-scopy">${infStateCopy(r)}</span>`
+        + `<span><a class="inf-ref" href="${esc(r.owner)}">${esc(r.ownerLabel)} →</a></span></div>`).join("");
+      const infGovGaps = (infBy.model_routes_overview.state === "live" && Array.isArray(infBy.model_routes_overview.body?.governance_gaps)) ? infBy.model_routes_overview.body.governance_gaps.map((g) => String(g)) : [];
+      const infBackendStates = (infBy.server_status.state === "live" && infBy.server_status.body?.backendStates && typeof infBy.server_status.body.backendStates === "object") ? infBy.server_status.body.backendStates : {};
+      const infAnswerLine = (a, what) => a === null
+        ? `<b>not asked</b> — ${what}`
+        : (a.readable
+          ? `<code class="inf-ref">?project=${esc(a.selection)}</code> → the daemon returned <b>${a.entries}</b> ledger entr${a.entries === 1 ? "y" : "ies"}, of which <b>${a.invocations}</b> name a model.`
+          : `<code class="inf-ref">?project=${esc(a.selection)}</code> → the ledger did not answer readably on this render (HTTP ${esc(String(a.status))}), so nothing is counted from it.`);
+      const infJunkControls = infControls.filter((c) => c.junk).length;
+      const infFoot = `INF-1 (remediation v2): the INFERENCE port, and the EIGHTH and LAST leg of the live-tenant port backlog — which this cut CLOSES. The mirror-scoped verdict was capture_broken_no_donor (#inference, FOU-2 — "terminal: no donor; the inference gap stands citing this record"); the owner-authorized live sweep OVERTURNED the expressed-IA half of it and recorded a real landing whose ROOT IS A SPACE GATE: heading <b>Please select a space</b>, one app control <b>Select a space…</b>, one APPLICATIONS facet group, eight dialog surfaces, <b>0 rows</b> and no space picked — the app admits you by SELECTING A SPACE, so the gate IS the landing grammar. That supersession is recorded in reference-seed-adjudications.v1.json#inference-port and the mirror record stands as history. <b>${infJunkControls}</b> recorded elements are named as EXCLUDED JUNK EVIDENCE rather than ported: the platform news dialog that the capture caught floating over the app, its two controls, and the rail entry naming the last-visited application. <b>${infRead.length}</b> space-, invocation-, model- and adjacent planes were probed live on this render and answered in four states — <b>${infCount("live")} LIVE</b> · <b>${infCount("empty")} EMPTY</b> · <b>${infCount("refused")} REFUSED</b> · <b>${infCount("no_read_route")} NO READ ROUTE</b>. READ-ONLY: the invoke verb stays where the daemon owns it and is <b>not</b> re-minted here; the model routes are rendered by <a href="/__ioi/foundry/models">Model Catalog</a> and administered in <a href="/__ioi/agent-studio#model-routes">Agent Studio</a>; the spaces themselves are rendered by <a href="/__ioi/domain-apps/fusion">Fusion</a>; the ledger's run lane belongs to <a href="/__ioi/missions/builds">Builds</a> and <a href="/__ioi/missions/schedules">Schedules</a>; the creation-entry sibling is <a href="/__ioi/foundry/model-studio">Model Studio</a> — all linked, none re-rendered. Evidence: reference-seed-adjudications.v1.json#inference-port · reference-live-tenant-deep-atlas.v1.json#inference · .artifacts/live-tenant-atlas/deep/inference-landing.png. Owner: <a href="/__ioi/foundry/models">Foundry family</a>.`;
+      sendOwnedSurfaceHtml(res, "inference", `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Inference</title><style>
+        :root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#f5f8fa;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif;overflow-wrap:break-word}a{color:#215db0;text-decoration:none}
+        .inf-shell{display:flex;flex-direction:column;min-height:100vh}
+        .inf-header{flex:0 0 50px;display:flex;align-items:center;gap:14px;background:#fff;box-shadow:0 1px 0 #d1d1d1,0 3px 4px rgba(0,0,0,.04);z-index:6}
+        .inf-hchip{width:50px;height:50px;flex:0 0 50px;background:rgba(124,110,228,.12) center/24px no-repeat}
+        .inf-title{font-size:16px;font-weight:600;color:#404854;margin:0}
+        .inf-hright{display:flex;align-items:center;gap:8px;margin-left:auto;padding-right:16px;flex-wrap:wrap}
+        .inf-chip{display:inline-flex;align-items:center;height:30px;padding:0 10px;border-radius:4px;border:1px solid #d1d1d1;font-size:13px;color:#404854;background:#fff}
+        .inf-link{display:inline-flex;align-items:center;height:30px;padding:0 12px;border-radius:4px;background:#2d72d2;color:#fff;font-size:13px}
+        .inf-gap{opacity:.62;cursor:not-allowed}
+        .inf-field{flex:1;min-width:0;width:100%;max-width:1180px;margin:0 auto;padding:26px 22px 44px}
+        .inf-stage{background:#e9edf2;border:1px solid #dde3ea;border-radius:6px;padding:44px 16px;display:flex;justify-content:center;margin:0 0 22px}
+        .inf-gate{width:100%;max-width:560px;background:#fff;border-radius:6px;box-shadow:0 8px 24px rgba(17,20,24,.2),0 0 0 1px rgba(17,20,24,.08);padding:26px 22px 18px;text-align:center}
+        .inf-gateh{font-size:19px;font-weight:600;color:#1c2127;margin:0 0 4px}
+        .inf-gatesub{font-size:12px;color:#5f6b7c;line-height:1.6;margin:0 0 16px}
+        .inf-sel{display:flex;align-items:center;gap:8px;min-height:34px;padding:0 10px;border-radius:3px;border:1px solid #d1d1d1;background:#f6f7f9;font-size:13px;color:#404854;text-align:left;min-width:0}
+        .inf-selico{flex:0 0 auto;color:#7961db}
+        .inf-selname{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .inf-caret{flex:0 0 auto;color:#8a94a2;font-size:10px}
+        .inf-spaces{margin:12px 0 4px;border:1px solid #e5e8eb;border-radius:4px;max-height:300px;overflow-y:auto;text-align:left}
+        .inf-sprow{display:flex;align-items:flex-start;gap:8px;padding:8px 9px;border-bottom:1px solid #f0f2f5;font-size:12px;min-width:0;flex-wrap:wrap}
+        .inf-sprow:last-child{border-bottom:0}
+        .inf-spico{flex:0 0 auto;color:#8a94a2}
+        .inf-spname{flex:1 1 200px;min-width:0}
+        .inf-spmeta{flex:0 0 auto;text-align:right;min-width:0}
+        .inf-spreach{flex:1 1 100%;font-size:11px;color:#5f6b7c;line-height:1.55;padding-left:16px}
+        .inf-spempty{padding:16px 12px;font-size:12px;color:#5f6b7c;line-height:1.6}
+        .inf-hint{font-size:11px;color:#5f6b7c;line-height:1.55;margin:10px 0 2px;text-align:left}
+        .inf-h{font-size:16px;font-weight:600;margin:26px 0 4px}
+        .inf-note{font-size:12px;color:#5f6b7c;margin:0 0 12px;line-height:1.65}
+        .inf-phead,.inf-prow{display:grid;grid-template-columns:2.4fr 1.6fr .9fr 2.1fr .8fr;gap:8px;padding:9px 8px;min-width:860px}
+        .inf-chead,.inf-crow{display:grid;grid-template-columns:1.4fr 1fr 3.1fr;gap:8px;padding:9px 8px;min-width:660px}
+        .inf-vhead,.inf-vrow{display:grid;grid-template-columns:1.5fr 1fr 2.6fr;gap:8px;padding:9px 8px;min-width:620px}
+        .inf-phead,.inf-chead,.inf-vhead{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#5f6b7c;border-bottom:1px solid #e5e8eb}
+        .inf-prow,.inf-crow,.inf-vrow{align-items:start;border-bottom:1px solid #f0f2f5;font-size:13px;color:#1c2127}
+        .inf-prow:hover,.inf-crow:hover,.inf-vrow:hover{background:#f6f7f9}
+        .inf-scroll{overflow-x:auto;background:#fff;border:1px solid #e5e8eb;border-radius:4px;padding:2px 10px 6px;margin:0 0 8px}
+        .inf-ref{display:block;font-size:11px;color:#5f6b7c;overflow-wrap:break-word;margin-top:2px}
+        .inf-role{display:block;font-size:11px;color:#5f6b7c;line-height:1.5;margin-top:2px}
+        .inf-scopy,.inf-ccopy,.inf-vcopy{font-size:12px;color:#5f6b7c;line-height:1.55}
+        .inf-nolane{font-size:11px;color:#946638}
+        .inf-junk{font-size:11px;color:#a82a2a}
+        .inf-state{font-size:11px;font-weight:600;letter-spacing:.03em;border-radius:3px;padding:2px 7px;text-align:center;border:1px solid}
+        .inf-state-live{color:#1c6e42;border-color:#9bc4ab;background:#eef8f2}
+        .inf-state-empty{color:#5f6b7c;border-color:#d1d1d1;background:#f6f7f9}
+        .inf-state-refused{color:#946638;border-color:#f0dca6;background:#fff8e6}
+        .inf-state-no_read_route{color:#7961db;border-color:#cfc4f5;background:#f3f0fd}
+        .inf-state-unreadable{color:#a82a2a;border-color:#eab8b8;background:#fdf0f0}
+        .inf-call{border:1px solid #cfd9e6;background:#f4f8fd;border-radius:4px;padding:18px 20px;color:#5f6b7c;font-size:13px;line-height:1.7;margin:0 0 16px}
+        .inf-call h3{font-size:15px;color:#1c2127;margin:0 0 8px}
+        .inf-call p{margin:0 0 8px}
+        .inf-quote{display:block;border-left:3px solid #cfd9e6;padding:6px 0 6px 12px;margin:8px 0;color:#404854;font-style:italic;overflow-wrap:break-word}
+        .inf-absent{border:1px solid #f0dca6;background:#fff8e6;border-radius:4px;padding:16px 18px;color:#5f6b7c;font-size:13px;line-height:1.65;margin:0 0 16px}
+        .inf-ask{border:1px solid #cfc4f5;background:#f3f0fd;border-radius:4px;padding:14px 16px;color:#404854;font-size:12.5px;line-height:1.7;margin:0 0 16px}
+        .inf-foot{font-size:12px;color:#7b8494;line-height:1.65;margin:0;padding:6px 2px 10px}
+        @media(max-width:700px){
+          .inf-phead,.inf-chead,.inf-vhead{display:none}
+          .inf-prow,.inf-crow,.inf-vrow{grid-template-columns:1fr;min-width:0;gap:2px;padding:10px 8px}
+          .inf-scroll{overflow-x:hidden;padding:2px 10px 6px}
+          .inf-field{padding:14px 12px 34px}
+          .inf-field *{min-width:0;overflow-wrap:anywhere}
+          .inf-header{flex:0 0 auto;flex-wrap:wrap;padding:8px 0 10px;gap:8px}
+          .inf-hright{margin-left:0;padding:0 12px;width:100%}
+          .inf-stage{padding:14px 8px;border-radius:4px}
+          .inf-gate{max-width:100%;padding:16px 12px 12px}
+          .inf-sel{flex-wrap:wrap;padding:6px 8px}
+          .inf-selname{white-space:normal;overflow:visible;text-overflow:clip}
+          .inf-sprow{flex-direction:column;gap:2px}
+          .inf-spmeta{text-align:left}
+          .inf-spreach{padding-left:0}
+          .inf-call,.inf-absent,.inf-ask{padding:14px}
+        }
+      </style></head><body><div class="inf-shell">
+        <header class="inf-header">
+          <span class="inf-hchip" aria-hidden="true" style="background-image:url('${MODELS_APP_ICON_URI}')"></span>
+          <h1 class="inf-title">Inference</h1>
+          <div class="inf-hright">
+            <span class="inf-chip" title="Read live on this render: the space plane, the invocation lanes, and every plane probed for this census. The reference app carries no header of its own — the gate floats on an empty field — so nothing is minted here beyond the estate's own counts">${infProjects.length} space${infProjects.length === 1 ? "" : "s"} · ${infInvRows.length} recorded invocation${infInvRows.length === 1 ? "" : "s"} · ${infRead.length} planes read</span>
+            <a class="inf-link" href="/__ioi/foundry/models">Model Catalog →</a>
+          </div>
+        </header>
+        <div class="inf-field">
+          <div class="inf-stage">
+            <section class="inf-gate" aria-label="Please select a space">
+              <h2 class="inf-gateh">Please select a space</h2>
+              <p class="inf-gatesub">The reference app admits you by selecting a space, and the recorded tenant had none picked — <b>0 rows</b>, no list, nothing behind the gate. The estate's own spaces are real and are listed below; what is missing is the edge between a space and an inference.</p>
+              <div data-ioi-lane="space-chooser" data-ioi-plane-state="${esc(infBy.projects.state)}">
+                ${igap("inf-sel", "Select a space…", infChooserGap)}
+              </div>
+              <div class="inf-spaces" data-ioi-plane-state="${esc(infBy.projects.state)}">
+                ${infProjects.length ? infSpaceRowsHtml : `<div class="inf-spempty">${infBy.projects.state === "refused"
+                  ? `The space plane <b>REFUSED</b> this read in the daemon's own words (<code>${esc(infBy.projects.code)}</code>), so this surface states nothing about how many spaces exist — it could not read the plane, and a refusal is not a zero.`
+                  : `The space plane answered and holds none. There is no space to offer — an <b>EMPTY</b> plane, not a missing one, and no space is fabricated to fill the chooser.`}</div>`}
+              </div>
+              ${infProjects.length > INF_SPACE_CAP
+                ? `<p class="inf-hint">The first <b>${INF_SPACE_CAP}</b> of <b>${infProjects.length}</b> real spaces render here (cap NAMED, never silent).</p>`
+                : (infProjects.length ? `<p class="inf-hint">All <b>${infProjects.length}</b> spaces the estate actually holds render here — every one a live project record, none fabricated.</p>` : "")}
+            </section>
+          </div>
+          <h2 class="inf-h">The selection is receivable. The filter is real. The answer is still manufactured.</h2>
+          <div class="inf-call">
+            <h3>A selection a route accepts is still a gap when the key it filters on is never written by the records it is meant to scope</h3>
+            <p>Counted from the daemon's own route index and from the planes themselves on this render, never pasted. The estate <b>does</b> receive a space selection: of <b>${infLiveRoutes.length}</b> live routes the index publishes, exactly <b>two</b> accept a project as a query filter — <code>${esc(INF_LEDGER_ROUTE)}</code> and <code>${esc(INF_AUTOMATIONS_ROUTE)}</code> — and the first of them is the only one that reaches a record naming a model. Its filter is real: read from the write path itself (<code>handle_work_ledger</code> in <code>crates/node/src/bin/hypervisor_daemon_routes/orchestration_routes.rs</code>), the selection retains only entries whose <code>project_id</code> equals it exactly. So the easy conclusion is available — the parameter exists, it is applied, wire the chooser — and it is wrong.</p>
+            <p>It is wrong because of what the records carry. Of the <b>${infLedger.length}</b> ledger entries readable on this render, <b>${infRowsWithKey.length}</b> carry a <code>project_id</code> field at all and <b>${infRowsWithValue.length}</b> carry a value in it. Of the <b>${infInvRows.length}</b> entries that name a model — the ones a space-scoped inference view exists to show — <b>${infInvRowsWithKey.length}</b> carry the key and <b>${infInvRowsWithValue.length}</b> carry a value. A chooser wired on that filter would drop every invocation the estate has ever recorded and report the loss as an empty space.</p>
+            <div class="inf-ask">
+              <b>The daemon's own answers, on this render.</b> The filter belongs to the daemon, so this page ASKS IT rather than re-implementing its retain expression here — a re-implemented admission rule is a second answer waiting to disagree with the first. ${infAskedSelections.length} selections were put to it, every one a principled pick rather than a cherry-picked one: the first space the plane offers, the first space value the LEDGER'S OWN rows carry that resolves to a real space, and the space key the estate's own inference lane writes.<br>
+              · <b>the first space the plane offers</b> — ${infAnswerLine(infAnsA, "the space plane offered none on this render, so there was no first space to ask about")}<br>
+              · <b>the first space the ledger's own rows actually name</b> — ${infAnswerLine(infAnsB, "no value the ledger's rows carry resolves to a space the space plane holds, so there was no resolving selection to ask about")} This is the sharp one: a real space, present in the ledger's own vocabulary, and not one of the entries it returns names a model.<br>
+              · <b>the space key the inference lane itself writes</b> — ${infAnswerLine(infAnsC, "the goal-run plane published no project_ref on this render, so there was no key to ask about")}
+            </div>
+            <p>And the edge is checked from the other side too, re-derived every render. From the SPACE side: <b>${infProjWithInvField.length}</b> of the <b>${infProjects.length}</b> live space records carry any field naming an invocation, an inference or a model — and the ref lanes they DO carry (${infProjRefLanes.length ? infProjRefLanes.map((f) => `<code>${esc(f)}</code>`).join(" · ") : "none on this render"}) hold <b>${infProjRefs.length}</b> refs between them, of which <b>${infProjRefsNamingInvocation.length}</b> names an invocation or a model route. Of the <b>${infProjectWriteRoutes.length}</b> published project write routes not one accepts an invocation ref; the only patch a space takes after creation is its environment-class list. From the INVOCATION side: the <b>${infModelInvReceipts.length}</b> model-invocation receipts this identity can read carry <b>${infReceiptsWithSpaceField.length}</b> space-, project- or tenant-named field between them, and the <b>${infUsage.length}</b> metered usage records carry <b>${infUsageWithSpaceField}</b>. The relation is MISSING in both directions, not unpopulated.</p>
+            <p>The one plane that DOES carry a space key makes the point twice over. The goal-run lane — the estate's real inference orchestration plane — holds <b>${infGoalRuns.length}</b> records, <b>${infGoalRunsWithRef}</b> of which carry a <code>project_ref</code>, fanning out into <b>${infGoalInvocationRefs}</b> declared invocation refs. Its whole space vocabulary is ${infGoalVocab.length ? infGoalVocab.map((v) => `<code>${esc(v)}</code>`).join(" · ") : "empty on this render"}, and <b>${infGoalVocabResolving.length}</b> of those <b>${infGoalVocab.length}</b> value${infGoalVocab.length === 1 ? "" : "s"} resolves to a space the space plane actually holds. Meanwhile the ledger's own vocabulary is ${infLedgerVocab.length ? infLedgerVocab.map((v) => `<code>${esc(v)}</code>`).join(" · ") : "empty on this render"}, of which <b>${infLedgerVocabResolving.length}</b> resolve${infLedgerVocabResolving.length === 1 ? "s" : ""} and <b>${infLedgerVocabDangling.length}</b> dangle${infLedgerVocabDangling.length === 1 ? "s" : ""}. <b>Three planes that would have to agree on what a space is, and no shared vocabulary between them.</b></p>
+            <p>So the chooser is a TYPED ABSENCE whose reason names the receiving route by path and its predicate by its exact expression, and this surface mints no second mutation spine over the daemon's own lanes. The space records themselves are REAL read truth — one row per live project record with its id, custody posture and created stamp — because it is the EDGE that is missing, not the spaces. <b>A selection a route accepts is not a working filter</b>: the test is whether the key it lands on is written by the records it is meant to scope, and it has to be asked of the records, not of the route list.</p>
+          </div>
+          <h2 class="inf-h">What this estate has actually inferred — every number with its predicate and its window</h2>
+          <div class="inf-call">
+            <h3>The gate is empty; the estate behind it is not</h3>
+            <p><b>${infInvRows.length}</b> recorded invocations. <i>Predicate:</i> a work-ledger entry whose <code>kind</code> is one of ${INF_INVOCATION_KINDS.map((k) => `<code>${esc(k)}</code>`).join(" or ")} — the two kinds the ledger publishes for harness and goal-run model calls. <i>Window:</i> ${infInvWindow.n ? `<code>${esc(infInvWindow.from)}</code> → <code>${esc(infInvWindow.to)}</code>` : "no timestamped invocation row on this render"}, inside a ledger whose own window is ${infLedgerWindow.n ? `<code>${esc(infLedgerWindow.from)}</code> → <code>${esc(infLedgerWindow.to)}</code>` : "empty on this render"} across <b>${infLedger.length}</b> entries. This is a RETENTION window, not a business period: it is whatever the ledger still holds, and no claim is made here about what fell out of it.</p>
+            <p><b>${infInvWithModel.length}</b> of those <b>${infInvRows.length}</b> name the model they ran. <i>Predicate:</i> a non-empty <code>implementation_result.model</code> on the entry itself. The models named are ${infInvModels.length ? infInvModels.map((m) => `<code>${esc(m)}</code>`).join(" · ") : "none on this render"}, reached at ${infInvEndpoints.length ? infInvEndpoints.map((e) => `<code>${esc(e)}</code>`).join(" · ") : "no recorded endpoint"}. <b>${infInvSucceeded}</b> report <code>status: success</code> — <i>predicate:</i> the entry's own status field, which is a self-report about that record and is not joined to anything here, so it is printed as what the record SAYS and never as what the estate verified.</p>
+            <p><b>${infModelInvReceipts.length}</b> receipts of kind <code>model_invocation</code> on the model-mount receipt store, out of <b>${infMountReceipts.length}</b> receipts of every kind. <i>Predicate:</i> <code>receipt.kind === "model_invocation"</code>. <i>Window:</i> ${infReceiptStamps.length ? `<code>${esc(infReceiptStamps[0])}</code> → <code>${esc(infReceiptStamps[infReceiptStamps.length - 1])}</code>` : "no timestamped receipt on this render"}. They carry <b>${infReceiptTokens}</b> total tokens between them (<i>predicate:</i> summed <code>details.tokenCount.total_tokens</code>, absent fields contributing nothing rather than zero) over ${infReceiptModels.length ? infReceiptModels.map((m) => `<code>${esc(m)}</code>`).join(" · ") : "no named model"}. Beside them the metered runtime lane holds <b>${infUsage.length}</b> usage records, scoped by run, thread and turn.</p>
+            <p><b>${infModelRoutes.length}</b> registered model route${infModelRoutes.length === 1 ? "" : "s"} and <b>${infBindings.length}</b> admitted session binding${infBindings.length === 1 ? "" : "s"} — which is the estate's OWN answer to what scoped inference means here. It scopes a route to a SESSION, not to a space, and that is why the gate above is a gap rather than an unbuilt feature: the noun the reference selects by is not the noun this estate binds by. The registry states its own limits, quoted rather than paraphrased:</p>
+            ${infGovGaps.length ? infGovGaps.map((g) => `<span class="inf-quote">${esc(g)}</span>`).join("") : `<span class="inf-quote">the model-route overview published no governance gaps on this render, so none is quoted</span>`}
+            <p>${Object.keys(infBackendStates).length ? `The serving control plane reports ${Object.keys(infBackendStates).sort().map((k) => `<b>${esc(k)}</b> ${esc(String(infBackendStates[k]))}`).join(" · ")} backends, and <b>${infBy.instances_loaded.state === "empty" ? "0" : String((infBy.instances_loaded.rows || []).length)}</b> model instance${(infBy.instances_loaded.rows || []).length === 1 ? "" : "s"} resident right now — an EMPTY present tense, never a claim that nothing has ever been loaded.` : "The serving control plane published no backend census on this render, so none is printed."} The harness registry that produced the counted invocations holds <b>${infProfiles.length}</b> profile${infProfiles.length === 1 ? "" : "s"}, and it is <a href="/__ioi/agent-studio">Agent Studio</a>'s to render, not this page's.</p>
+          </div>
+          <h2 class="inf-h">Two receipt families with one name — the contradiction is NAMED, not adjudicated</h2>
+          <div class="inf-absent">
+            The estate publishes a TYPED invocation receipt at <code>${esc("/v1/hypervisor/model-invocations/:id")}</code> — identity-first, refused to this identity in the daemon's own words (<code>${esc(infBy.invocation_record.code || "no code published")}</code>) — and the index publishes <b>no collection route for that family at all</b>, so an invocation can only be read by an id you already have. Beside it, a DIFFERENT store answers this identity and holds <b>${infModelInvReceipts.length}</b> records whose kind is also <code>model_invocation</code>. Their id vocabularies differ, and the typed readback cannot be asked whether a given id exists — refusing before the record is read is the route behaving correctly, not a bug, and it is exactly what makes the join untestable from here. So this surface does <b>not</b> claim the two families are the same records, and does not claim they are different ones either. ${igap("inf-chip", "join the two invocation-receipt families", "The typed readback route resolves identity BEFORE it reads the record, so an anonymous probe cannot learn whether an id exists — which is the route refusing to act as an existence oracle. That refusal is correct and it makes this join untestable at this posture: asserting the families are the same, or that they are different, would both be the surface answering a question the estate never answered")} Two planes, one name, and the honest report is that the estate has not been asked.
+          </div>
+          <h2 class="inf-h">Running an inference — the verb, and why it stays with the daemon</h2>
+          <p class="inf-note">The estate ${infInvokePublished ? "DOES" : "does not"} publish a governed model call: <code>${esc(INF_INVOKE_ROUTE)}</code> carries ${infInvokeMethods.length ? infInvokeMethods.map((m) => `<code>${esc(String(m))}</code>`).join(" ") : "no methods on the index"}, and <code>${esc(INF_CHAT_ROUTE)}</code> carries ${infChatMethods.length ? infChatMethods.map((m) => `<code>${esc(String(m))}</code>`).join(" ") : "no methods on the index"}. Executing one is an authority crossing — it contacts a configured destination, resolves a sealed credential where a route has one, and charges a ledger — so it is a typed absence here and is <b>not</b> re-minted as a form. What the verb accepts is read from the write path itself (<code>handle_model_route_invoke</code> in <code>crates/node/src/bin/hypervisor_daemon_routes/provider_transport.rs</code>), and it is the second half of this page's finding: <b>${infInvokeSpaceFields.length}</b> of its <b>${INF_INVOKE_BODY_FIELDS.length}</b> accepted body fields names a space.</p>
+          <div class="inf-scroll">
+            <div class="inf-vhead"><span>What the invoke verb accepts</span><span>Is it a space?</span><span>What it is</span></div>
+            <div class="inf-vrow" data-ioi-invoke-field="prompt" data-ioi-invoke-field-space="no"><span><b>prompt</b></span><span><span class="inf-nolane">no</span></span><span class="inf-vcopy">Required and non-empty. The record stores only its <code>sha256</code> hash, never its text — which is also why no prompt from those ${infInvRows.length} invocations could be rendered on this page even if a space could scope them.</span></div>
+            <div class="inf-vrow" data-ioi-invoke-field="stream" data-ioi-invoke-field-space="no"><span><b>stream</b></span><span><span class="inf-nolane">no</span></span><span class="inf-vcopy">Transport shape. Recorded on the receipt's evidence block as <code>streaming</code> so a reader can tell a streamed call from a buffered one.</span></div>
+            <div class="inf-vrow" data-ioi-invoke-field="fallback_route_refs" data-ioi-invoke-field-space="no"><span><b>fallback_route_refs</b></span><span><span class="inf-nolane">no</span></span><span class="inf-vcopy">DECLARED by the caller, never chosen by the daemon — inferring alternates would mint a placement policy beside the ones the estate already owns. Each hop is its own authority crossing.</span></div>
+            <div class="inf-vrow" data-ioi-invoke-field="retry" data-ioi-invoke-field-space="no"><span><b>retry</b></span><span><span class="inf-nolane">no</span></span><span class="inf-vcopy">Attempts per route and the router deadline. The receipt records the attempt lineage and the route that ACTUALLY answered, not the one addressed.</span></div>
+            <div class="inf-vrow" data-ioi-invoke-field="economics.quote_ref" data-ioi-invoke-field-space="no"><span><b>economics.quote_ref</b></span><span><span class="inf-nolane">no</span></span><span class="inf-vcopy">If a billing block is declared it must bind exactly one quote — and the estate publishes no route that LISTS quotes, so a caller cannot discover one to bind. A second disjointness, recorded here rather than acted on.</span></div>
+            <div class="inf-vrow" data-ioi-invoke-field="economics.commercial_posture" data-ioi-invoke-field-space="no"><span><b>economics.commercial_posture</b></span><span><span class="inf-nolane">no</span></span><span class="inf-vcopy">Required alongside the quote. The charged QUANTITY is refused from the caller outright — it is the token mix the daemon read off the provider response, never a number a client may set.</span></div>
+          </div>
+          <div class="inf-absent">
+            ${igap("inf-chip", "Run an inference in this space", `Executing a model call is an authority crossing the daemon owns at ${INF_INVOKE_ROUTE} — identity first, then the registry's own executable predicate, then the provider, then a typed ModelInvocationReceipt admitted through the shared write path. Re-minting it here would be a second mutation spine over that route. And it could not be space-scoped in any case: not one of the ${INF_INVOKE_BODY_FIELDS.length} body fields the verb accepts names a project, a space or a tenant, and the record it writes carries no such field either, so a space chosen above would be dropped on submit`)}
+            ${igap("inf-chip", "Show this space's inference history", `There is no such object in this estate. The invocation family publishes no collection route at all, the ${infInvRows.length} ledger rows that name a model carry no space key, and the ${infModelInvReceipts.length} readable invocation receipts carry no space field — so a per-space history is a MISSING relation, not an unpopulated one, and no count could ever fill it`)}
+            <b>EMPTY is not MISSING.</b> The reference tenant's gate is EMPTY — a real chooser awaiting a pick. The estate's space plane is LIVE and holds <b>${infProjects.length}</b> records. What is <b>MISSING</b> is the relation between them: a space that could contain an inference. Those are three different states about one screen and this page renders all three rather than letting any of them stand in for another.
+          </div>
+          <h2 class="inf-h">What the capture recorded, and what of it is this app</h2>
+          <div class="inf-absent">
+            The recorded landing carries TWO headings, and only one of them belongs to this app. The second — the platform's own release-notes dialog — was floating over the app when the sweep fired, and it is about a different product entirely. ${igap("inf-chip", "the platform news dialog", infControls[5].gap)} Of the twelve recorded controls, <b>nine</b> are the vendor global rail, <b>two</b> belong to that dialog, and <b>one</b> — the space chooser — is the app's own. ${igap("inf-chip", "Go to all platform updates · Close", infControls[6].gap)} And the vendor rail lists the LAST-VISITED application in its own lane, not the one being viewed. ${igap("inf-chip", "the rail's application entry", infControls[7].gap)}
+            <p style="margin:10px 0 0">This is not pedantry about a screenshot: counting platform chrome as app IA is a recorded scar in this program, and the same misread in the opposite direction has already ended two seeds' candidacies. The app's own expressed IA is a heading, a chooser, one facet group and zero rows. ${igap("inf-chip", "APPLICATIONS", infControls[3].gap)} ${igap("inf-chip", "7 unopened dialog surfaces", infControls[4].gap)}</p>
+          </div>
+          <h2 class="inf-h">The reference's controls, answered one by one</h2>
+          <p class="inf-note">A ported landing that keeps a reference control and wires it to something else is not a port, it is a mislabel — and one that keeps the PLATFORM's chrome as if it were the app's is not a port either. Each element the live capture recorded is answered below with the estate lane that binds it, the typed refusal that does not, or the reason it is excluded as junk evidence (<code>data-ioi-control-evidence</code>).</p>
+          <div class="inf-scroll">
+            <div class="inf-chead"><span>Recorded element</span><span>Estate lane</span><span>What binds it, why nothing does, or why it is excluded</span></div>
+            ${infControlRows}
+          </div>
+          <h2 class="inf-h">Space, invocation, model — every plane read live and classified into four states</h2>
+          <p class="inf-note">Every row is a REAL daemon plane and its state was classified from that plane's own response on this render, then stamped on the row (<code>data-ioi-plane-state</code>) so it can never be pasted and never rot. <b>LIVE</b> = the plane answered and holds records. <b>EMPTY</b> = it answered and holds none. <b>REFUSED</b> = the plane refused this read in its own words — <b>a refusal is not a zero</b>. <b>NO READ ROUTE</b> = the daemon's own route index publishes no GET for it; there is nothing to read, which is not the same as reading nothing. <b>REFUSED is not EMPTY, EMPTY is not MISSING</b>, and a plane with no read route is none of the three. Each row also carries the HALF of the gate it answers for — the space, the invocation that a selection would scope, or the model that executes one — so an adjacent lane is never read as one of the three.</p>
+          <div class="inf-scroll">
+            <div class="inf-phead"><span>Plane</span><span>Route · shape · half</span><span>State</span><span>What that state means here</span><span>Owner</span></div>
+            ${infPlaneRows}
+          </div>
+          <p class="inf-foot">${infFoot}</p>
         </div>
       </div></body></html>`);
       return;
