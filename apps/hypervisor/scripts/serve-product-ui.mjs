@@ -10124,6 +10124,393 @@ async function handleEstateRequest(req, res, body) {
       </div></body></html>`);
       return;
     }
+    // ---- Missions · Builds — JOB-1 (remediation v2): the BUILDS port, and the leg where the
+    // finding is that NO SINGLE PLANE LISTS EVERY BUILD. The mirror-scoped verdict for the `jobs`
+    // seed was absent_confirmed (#jobs, MIS-1.recon — "no Builds grammar expresses at any recorded
+    // state; the substrate STANDS as the surface", MIS-1.build skipped by evidence). The
+    // owner-authorized live-tenant sweep OVERTURNED it: the click target boots a real build
+    // tracker — title "Your builds · Builds", a left Search-by/Filter-by panel (resource + object
+    // type search, intermediate-resource and my-builds toggles, a three-way branch radio, a
+    // started-by principal chip, a job-type filter and two date ranges), an All/Running/Finished
+    // segmented control, and a six-column build table (Outputs · Started by · Start time ·
+    // Duration · Status · Actions) over REAL build rows. That supersession is recorded in
+    // #jobs-port; the mirror record stands as history, and /__ioi/missions — the substrate, still
+    // read_only_by_contract — is untouched: this is a sibling lane, not a replacement.
+    //
+    // ADJUDICATED BEFORE BUILDING (#jobs-port). Like registry and unlike map, the estate HAS run
+    // planes — many — so the question was which plane can honestly carry a BUILD ROW. Sixteen were
+    // probed over this surface's own identity and classified into REG-1's four states, and the
+    // answer was sharper than "pick the biggest":
+    //
+    //   · /v1/hypervisor/agent-run-transcripts holds 3174 run transcripts and a state_root on
+    //     every one of them — and NOT ONE of the 3174 records carries a principal. Of the 3174,
+    //     only the automation-run kind is a build at all; the rest are hypervisor OPERATION
+    //     transcripts (harness-profile ops, model-route ops). The Monocle Build-timeline lane at
+    //     /__ioi/lineage?tab=timeline already renders this plane, so it is LINKED here, never
+    //     duplicated — one plane, one renderer.
+    //   · /v1/hypervisor/automations/:id/runs carries executor_identity — but it is reachable only
+    //     per automation (the daemon publishes NO list route for automation-executions), so an
+    //     execution whose automation was deleted can never be read through it at all.
+    //   · /v1/hypervisor/work-ledger's `run` lane is the EXACT UNION of the two, and it is the only
+    //     plane that carries BOTH the acting authority AND the state root on the same record.
+    //
+    // So the builds table renders the work-ledger run lane, and the three counts that prove why
+    // (ledger total · transcript-reachable · fan-out-unreachable) are RE-DERIVED ON EVERY RENDER
+    // from the three planes themselves — a pasted "57 / 50 / 7" would rot the first time a build
+    // lands or an automation is deleted.
+    //
+    // COLUMN MAPPING IS A REFUSAL, not a stretch (the FUS-1 precedent). The reference's "Outputs"
+    // column lists the DATASETS a build produced; an estate build record carries no output-resource
+    // field of any kind. Its step_results carry per-step evidence whose shape changes with the step
+    // kind, and the estate's nearest artifact list (artifactNames) lives on a DIFFERENT plane with
+    // a DIFFERENT noun. So this table uses the estate's own column names and states the refusal
+    // rather than putting different truth under a reference header — and it never relabels a STEP
+    // as a "job", because `job` is a live estate noun on /v1/jobs and it is not this one.
+    if (pathname === "/__ioi/missions/builds" && req.method === "GET") {
+      const esc = CX_ESC;
+      const bstr = (v) => (typeof v === "string" && v.trim() !== "" ? v : "");
+      // Probe every candidate run/build plane EXACTLY as this surface's identity sees it, keeping
+      // the raw status so a 404 (the daemon publishes no such route), a 405 (POST-only), a 503
+      // (the plane refused) and a 200 carrying an empty collection can never be confused.
+      const bldProbe = async (p) => {
+        try {
+          const r = await daemonFetch(p);
+          const text = await r.text();
+          let body = null;
+          try { body = JSON.parse(text); } catch { body = null; }
+          return { path: p, status: r.status, ok: r.ok, body };
+        } catch { return { path: p, status: 0, ok: false, body: null }; }
+      };
+      // The estate's run/build planes, in the order the question actually runs: what records a
+      // BUILD, what records the same build somewhere else, what records a different execution
+      // noun entirely, and what records nothing readable at all.
+      const BLD_PLANES = [
+        { key: "work_ledger", path: "/v1/hypervisor/work-ledger", label: "Work ledger — the run lane",
+          role: "THE build plane rendered below: the proof stream's `run` entries, the exact UNION of the two projections beneath it and the only plane carrying the acting authority AND the state root on one record",
+          owner: "/__ioi/work-ledger", ownerLabel: "Provenance" },
+        { key: "transcripts", path: "/v1/hypervisor/agent-run-transcripts", label: "Agent-run transcripts",
+          role: "durable run transcripts with a state_root on every record and a principal on NONE — already rendered by the Monocle Build timeline, so linked here and not duplicated",
+          owner: "/__ioi/lineage?tab=timeline", ownerLabel: "Build timeline" },
+        { key: "automation_executions", path: "/v1/hypervisor/automation-executions", label: "Automation executions (list)",
+          role: "the execution family the builds below belong to — the daemon publishes it per id and per cancel, and no list route at all",
+          owner: "/__ioi/automations", ownerLabel: "Automations" },
+        { key: "runtime_jobs", path: "/v1/jobs", label: "Runtime jobs",
+          role: "the estate's OWN `job` noun — runtime job records projected out of run records, with a jobType, a checklist and an artifactNames list. A different plane and a different noun from the builds below",
+          owner: "/__ioi/agent-studio", ownerLabel: "Agent Studio" },
+        { key: "runtime_runs", path: "/v1/runs", label: "Runtime runs",
+          role: "the persisted agent run records the runtime jobs and tasks are projected out of",
+          owner: "/__ioi/agent-studio", ownerLabel: "Agent Studio" },
+        { key: "runtime_tasks", path: "/v1/tasks", label: "Runtime tasks",
+          role: "the runtime TASK projection of the same run records — a third noun over the same substrate",
+          owner: "/__ioi/agent-studio", ownerLabel: "Agent Studio" },
+        { key: "goal_runs", path: "/v1/goal-orchestration/goal-runs", label: "GoalRuns",
+          role: "the orchestration plane's own long-lived run object (grounding loop, blockers, handoffs) — governed work, not an automation build",
+          owner: "/__ioi/missions", ownerLabel: "Missions" },
+        { key: "agent_launches", path: "/v1/goal-orchestration/ioi-agent/launches", label: "Agent launches",
+          role: "recorded agent launches with their strategy, policy and outcome — a launch is an admission decision, not a build",
+          owner: "/__ioi/agent-studio", ownerLabel: "Agent Studio" },
+        { key: "attempts", path: "/v1/goal-orchestration/attempts", label: "Orchestration attempts",
+          role: "the federated attempt envelope — the plane answers and holds none",
+          owner: "/__ioi/missions", ownerLabel: "Missions" },
+        { key: "foundry_run_plans", path: "/v1/hypervisor/foundry/run-plans", label: "Foundry run plans",
+          role: "draft run plans over the model substrate — planned work, and the plane holds none",
+          owner: "/__ioi/foundry", ownerLabel: "Foundry" },
+        { key: "transformation_runs", path: "/v1/hypervisor/odk/transformation-runs", label: "ODK transformation runs",
+          role: "the closest thing the estate has to a data BUILD — a transformation run that would materialize an output intent",
+          owner: "/__ioi/lineage", ownerLabel: "Data lineage" },
+        { key: "materializing_runs", path: "/v1/hypervisor/odk/materializing-runs", label: "ODK materializing runs",
+          role: "the run that materializes an object set from a data source under a capability lease",
+          owner: "/__ioi/lineage", ownerLabel: "Data lineage" },
+        { key: "failover_runs", path: "/v1/hypervisor/failover/runs", label: "Failover runs",
+          role: "provider failover executions with their own state_root — infrastructure work, not tenant builds",
+          owner: "/__ioi/operations", ownerLabel: "Operations" },
+        { key: "workruns", path: "/v1/hypervisor/workruns", label: "Work runs",
+          role: "the ONLY estate plane that records a BRANCH and a base commit — and it records no status transition, no start time and no duration, so it is not an execution plane",
+          owner: "/__ioi/sessions", ownerLabel: "Sessions" },
+        { key: "sessions", path: "/v1/hypervisor/sessions", label: "Hypervisor sessions",
+          role: "the session registry a build would resolve its execution context through",
+          owner: "/__ioi/sessions", ownerLabel: "Sessions" },
+        { key: "session_execution_bindings", path: "/v1/hypervisor/session-execution-bindings", label: "Session execution bindings",
+          role: "the binding that attaches an execution to a session — published write-only",
+          owner: "/__ioi/sessions", ownerLabel: "Sessions" },
+      ];
+      const [bldProbes, bldAutosJson, bldIndexJson] = await Promise.all([
+        Promise.all(BLD_PLANES.map((pl) => bldProbe(pl.path))),
+        daemonFetch(`/v1/hypervisor/automations`).then((r) => r.json()).catch(() => ({})),
+        daemonFetch(`/v1`).then((r) => r.json()).catch(() => ({})),
+      ]);
+      // The daemon's OWN route index decides "no read route" — a 404 body cannot tell a missing
+      // route apart from a missing record, and only the index knows which methods are published.
+      const bldRoutes = (Array.isArray(bldIndexJson.families) ? bldIndexJson.families : []).flatMap((f) => (Array.isArray(f.paths) ? f.paths : []));
+      const bldRouteFor = (p) => bldRoutes.find((r) => String(r.path || "") === p && !r.retired) || null;
+      const bldMethodsFor = (p) => { const r = bldRouteFor(p); return Array.isArray(r?.methods) ? r.methods : []; };
+      // FOUR states, classified from the live response (and the live index) and never from a
+      // constant. The order of the tests IS the contract: a plane the daemon publishes no GET for
+      // is decided by the index before any body is read, a refusal is decided before any collection
+      // is looked for, and only a 200 that actually carried a collection may be called live-or-empty.
+      const bldClassify = (pr) => {
+        const methods = bldMethodsFor(pr.path);
+        if (!methods.includes("GET") || pr.status === 405) return { state: "no_read_route", code: "", methods, rows: [] };
+        if (!pr.ok) {
+          const b = pr.body || {};
+          const code = (b.error && b.error.code) || b.reason || b.code || `http_${pr.status}`;
+          return { state: "refused", code: String(code), methods, message: String((b.error && b.error.message) || (b.error && b.error.detail) || b.message || ""), rows: [] };
+        }
+        const arr = Array.isArray(pr.body) ? pr.body : Object.values(pr.body || {}).find((v) => Array.isArray(v));
+        if (!Array.isArray(arr)) return { state: "unreadable", code: `http_${pr.status}`, methods, rows: [] };
+        return { state: arr.length ? "live" : "empty", code: "", methods, rows: arr };
+      };
+      const bldRead = BLD_PLANES.map((pl, i) => ({ ...pl, ...bldClassify(bldProbes[i]), status: bldProbes[i].status }));
+      const bldBy = Object.fromEntries(bldRead.map((r) => [r.key, r]));
+      const bldCount = (s) => bldRead.filter((r) => r.state === s).length;
+      // ONE gap contract for every named absence (aria + title + data-ioi reason). bld-gap marks a
+      // CHROME control the reference offers and the estate cannot honour; bld-dash marks a FIELD
+      // the record itself does not carry. Every chrome reason is written for ITS control — a reused
+      // boilerplate reason is a decorative assertion, and the verifier fails on one.
+      const bgap = (cls, label, reason) => `<span class="${cls} bld-gap" aria-disabled="true" title="${esc(reason)}" data-ioi-disabled-reason="${esc(reason)}">${esc(label)}</span>`;
+      const bdash = (reason) => `<span class="bld-dash" aria-disabled="true" title="${esc(reason)}" data-ioi-disabled-reason="${esc(reason)}">—</span>`;
+      // ---- THE BUILD LANE: the work-ledger's `run` entries. Every field below is read off the
+      // record; nothing is supplied by this surface.
+      const bldAll = (bldBy.work_ledger.state === "live" ? bldBy.work_ledger.rows : []).filter((e) => e && e.kind === "run");
+      const bldTranscripts = (bldBy.transcripts.state === "live" ? bldBy.transcripts.rows : []);
+      const bldAutoRunIds = new Set(bldTranscripts.filter((r) => r && r.kind === "automation-run").map((r) => String(r.run_id || "")));
+      const bldLiveAutos = new Set((Array.isArray(bldAutosJson.automations) ? bldAutosJson.automations : []).map((a) => String(a.automation_id || "")));
+      // The three counts this surface's whole argument rests on, RE-DERIVED here on every render:
+      // how many builds the ledger holds, how many of them the transcript projection can reach, and
+      // how many of them the per-automation fan-out can NEVER reach because their automation is
+      // gone. A pasted triple would rot the first time a build lands or an automation is deleted.
+      const bldInTranscripts = bldAll.filter((e) => bldAutoRunIds.has(String(e.id || "")));
+      const bldNotInTranscripts = bldAll.filter((e) => !bldAutoRunIds.has(String(e.id || "")));
+      const bldFanoutUnreachable = bldAll.filter((e) => !bldLiveAutos.has(String(e.automation_id || "")));
+      const bldNoStateRoot = bldAll.filter((e) => !bstr(e.state_root));
+      // The header tray and the segmented control are COUNTS, not filters — and unlike the registry
+      // leg's tray these zeros are MEASUREMENTS, because this plane answered. Terminal-vs-open is
+      // read off the records' own status values, never assumed.
+      const BLD_TERMINAL = new Set(["done", "complete", "completed", "success", "succeeded", "failed", "error", "cancelled", "canceled", "stopped"]);
+      const bldOpen = bldAll.filter((e) => !BLD_TERMINAL.has(String(e.status || "")));
+      const bldFinished = bldAll.filter((e) => BLD_TERMINAL.has(String(e.status || "")));
+      const bldStepTotals = bldAll.reduce((acc, e) => {
+        for (const [k, v] of Object.entries(e.counts || {})) acc[k] = (acc[k] || 0) + (Number(v) || 0);
+        return acc;
+      }, {});
+      const bldFailedSteps = bldStepTotals.failed || 0;
+      const bldStatusVocab = [...new Set(bldAll.map((e) => String(e.status || "")))].filter(Boolean).sort();
+      // The step-count vocabulary comes off the records themselves, so "N of M steps" can never
+      // outrun what the plane recorded — and it is STEPS, never "jobs": `job` is a live estate noun
+      // on a different plane (/v1/jobs) and relabelling one as the other would invent a hierarchy.
+      const bldStepsOf = (e) => Object.values(e.counts || {}).reduce((n, v) => n + (Number(v) || 0), 0);
+      const bfdt = (iso) => { const d2 = new Date(iso || 0); return isNaN(d2) ? "—" : d2.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); };
+      const bldDur = (a, b) => {
+        const t0 = Date.parse(a || ""); const t1 = Date.parse(b || "");
+        if (!Number.isFinite(t0) || !Number.isFinite(t1) || t1 < t0) return "";
+        const ms = t1 - t0;
+        if (ms < 1000) return `${ms}ms`;
+        const s = Math.floor(ms / 1000);
+        return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`;
+      };
+      // Cap NAMED, never silent. It sits above the plane's current size deliberately: the 7 builds
+      // the transcript plane never recorded are the OLDEST on the ledger, and a 50-row window would
+      // hide every empty state_root behind a cap — the finding this surface exists to state would
+      // vanish into a truncation, and the gate that checks it would pass vacuously.
+      const BLD_ROW_CAP = 200;
+      const bldSorted = [...bldAll].sort((a, b) => String(b.timestamp || "").localeCompare(String(a.timestamp || "")));
+      const bldShown = bldSorted.slice(0, BLD_ROW_CAP);
+      const bldRows = bldShown.map((e) => {
+        const auth = e.authority && typeof e.authority === "object" ? e.authority : null;
+        const authRef = bstr(auth?.ref);
+        const authKind = bstr(auth?.kind);
+        const steps = bldStepsOf(e);
+        const doneSteps = Number((e.counts || {}).done || 0);
+        const dur = bldDur(e.timestamp, e.finished_at);
+        const root = bstr(e.state_root);
+        const tl = bstr(e.timeline_ref);
+        return `<div class="bld-row" data-ioi-build="${esc(String(e.id || ""))}">`
+          + `<span><b>${esc(bstr(e.automation_name) || bstr(e.automation_id) || "run")}</b><code class="bld-ref">${esc(String(e.id || ""))}</code>`
+          + `<code class="bld-ref">project ${esc(bstr(e.project_id) || "—")} · env ${esc(bstr(e.environment_id) || "—")}</code></span>`
+          + `<span data-ioi-build-authority="${esc(authRef)}">${authRef ? `${esc(authRef)}<code class="bld-ref">authority.kind: ${esc(authKind || "—")}</code>` : bdash("This ledger run entry carries no authority object — the record itself names no acting principal, and this surface never supplies one (typed absence, not an unread field)")}</span>`
+          + `<span>${esc(bfdt(e.timestamp))}<code class="bld-ref">field: timestamp</code></span>`
+          + `<span>${dur ? `${esc(dur)}<code class="bld-ref">COMPUTED: finished_at − timestamp</code>` : bdash("This record does not carry both a timestamp and a finished_at, so no duration can be computed from it — the plane records no duration field of its own and none is invented here (typed absence)")}</span>`
+          + `<span><span class="bld-st bld-st-${esc(String(e.status || "unknown"))}">${esc(String(e.status || "—"))}</span>`
+          + `<code class="bld-ref">${doneSteps} of ${steps} step${steps === 1 ? "" : "s"} done <b>(steps, not jobs)</b></code></span>`
+          + `<span>${root ? `<code class="bld-ref" title="the run's recomputable state root — the proof anchor">${esc(root)}</code>` : bdash("This ledger run entry carries an EMPTY state_root: the transcript plane never recorded this execution, and the state root lives on the transcript. The proof anchor is genuinely absent here — it is not withheld and it is not zero (typed absence)")}`
+          + `${tl ? `<a class="bld-ref" href="${esc(tl)}" target="_blank" rel="noopener">run timeline ↗</a>` : ""}</span></div>`;
+      }).join("");
+      // ---- The COLUMN MAPPING: the reference's six columns, each answered with the estate field
+      // that binds it or the typed refusal that does not. This is stated rather than smoothed over,
+      // because putting different truth under a reference header is the defect FUS-1 named.
+      const bldColumns = [
+        { ref: "Outputs", bound: false, gap: ["Outputs", "The reference's Outputs column lists the DATASETS a build produced; an estate build record carries no output-resource field of any kind. Its step_results carry per-step evidence whose shape changes with the step kind — a command's stdout excerpt, an agent turn's conversation file, a proposal's changed files — which is evidence of how a step ran, not a list of what the build produced. Rendering that under an \"Outputs\" header would put different truth under a reference header (typed absence)"],
+          copy: `No estate field binds this column. The nearest artifact list the estate keeps is <code>artifactNames</code> on the RUNTIME JOB plane (<code>/v1/jobs</code>, ${bldBy.runtime_jobs.state === "live" ? `${bldBy.runtime_jobs.rows.length} record${bldBy.runtime_jobs.rows.length === 1 ? "" : "s"}` : bldBy.runtime_jobs.state.toUpperCase()}) — a different plane holding a different noun, and no estate record joins a runtime job to a build. Inventing that edge here would be a fabricated column.` },
+        { ref: "Started by", bound: true, field: "authority.ref + authority.kind",
+          copy: `Bound — but only on THIS plane. Of the <b>${bldTranscripts.length}</b> agent-run transcripts read on this render, <b>0</b> carry a principal of any kind; the per-automation execution projection carries <code>executor_identity</code> but cannot be reached for every build. The work-ledger run entry is the one record that carries the acting authority, so it is the one this column reads.` },
+        { ref: "Start time", bound: true, field: "timestamp", copy: `Bound directly. Every row names the field its value came from, so a start time is never a rendered guess at when something "really" began.` },
+        { ref: "Duration", bound: false, field: "COMPUTED: finished_at − timestamp",
+          copy: `The plane records NO duration field. Every duration on this page is computed from the record's own <code>timestamp</code> and <code>finished_at</code> and is labelled as computed on the row — a derived number presented as a recorded one is still a fabrication.` },
+        { ref: "Status", bound: true, field: "status + counts",
+          copy: `Bound, with the step roll-up beside it. The reference reads "N of M jobs succeeded"; on the estate the sub-unit of a build is a STEP (<code>counts.done / failed / pending / running / stopped</code>) and <code>job</code> is a live noun on a different plane. Steps are never relabelled jobs here. Status vocabulary actually present on this render: ${bldStatusVocab.length ? bldStatusVocab.map((s) => `<code>${esc(s)}</code>`).join(" · ") : "<i>none — the plane holds no records</i>"}.` },
+        { ref: "Actions", bound: false, gap: ["Actions", "The reference's per-row Actions menu runs build verbs. The estate's are REAL and they are owned elsewhere: cancelling an execution is POST /v1/hypervisor/automation-executions/:id/cancel and starting one is POST /v1/hypervisor/automations/:id/runs, both owned by Automations. A ported read landing never re-mints another surface's authority-crossing verb, so this column carries the record's PROOF instead and the surface links to the owner (typed absence by DESIGN, not by gap)"],
+          copy: `Replaced by proof, not by nothing. Each row carries its own <code>state_root</code> and its own <code>timeline_ref</code>, so the row's terminal claim can be re-derived rather than trusted. The verbs stay on <a href="/__ioi/automations">Automations</a>.` },
+      ].map((c) => `<div class="bld-crow" data-ioi-column="${esc(c.ref)}" data-ioi-column-bound="${c.bound ? "yes" : "no"}">`
+        + `<span><b>${esc(c.ref)}</b></span>`
+        + `<span>${c.bound ? `<code class="bld-ref">${esc(c.field)}</code>` : (c.gap ? bgap("bld-chip", "no estate field", c.gap[1]) : "")}</span>`
+        + `<span class="bld-ccopy">${c.copy}</span></div>`).join("");
+      // ---- The plane census: one row per plane, state classified live and stamped.
+      const bldStateLabel = { live: "LIVE", empty: "EMPTY", refused: "REFUSED", no_read_route: "NO READ ROUTE", unreadable: "UNREADABLE" };
+      const bldStateCopy = (r) => {
+        if (r.state === "live") return `${r.rows.length} record${r.rows.length === 1 ? "" : "s"} — counted from the plane on this render`;
+        if (r.state === "empty") return `the plane answered and holds none — an EMPTY plane, not a missing one`;
+        if (r.state === "refused") return `the plane refused this read: <code>${esc(r.code)}</code> — a REFUSAL, never a zero`;
+        if (r.state === "no_read_route") return `the daemon's route index publishes no GET here (${r.methods.length ? `methods: ${esc(r.methods.join(", "))}` : `no route at all — HTTP ${esc(String(r.status))}`}) — nothing to read, which is not the same as reading nothing`;
+        return `the plane did not answer readably (<code>${esc(r.code)}</code>) — stated, never guessed`;
+      };
+      const bldPlaneRows = bldRead.map((r) => `<div class="bld-prow" data-ioi-plane="${esc(r.path)}" data-ioi-plane-state="${esc(r.state)}">`
+        + `<span><b>${esc(r.label)}</b><span class="bld-role">${esc(r.role)}</span></span>`
+        + `<span><code class="bld-ref">${esc(r.path)}</code></span>`
+        + `<span class="bld-state bld-state-${esc(r.state)}">${esc(bldStateLabel[r.state] || r.state)}</span>`
+        + `<span class="bld-scopy">${bldStateCopy(r)}</span>`
+        + `<span><a href="${esc(r.owner)}">${esc(r.ownerLabel)} →</a></span></div>`).join("");
+      const bldFoot = `JOB-1 (remediation v2): the BUILDS port — the leg whose finding is that <b>no single plane lists every build</b>. The mirror-scoped verdict was absent_confirmed (#jobs, MIS-1.recon — "no Builds grammar expresses at any recorded state; the substrate STANDS as the surface"); the owner-authorized live sweep OVERTURNED it and recorded a real build tracker (title "Your builds · Builds" · <b>14 controls</b> · a left Search-by/Filter-by panel · an All/Running/Finished segmented control · a six-column build table over REAL rows). Of those 14, <b>9 are the vendor global rail</b> (railless here) and the <b>5 app controls</b> port as counted census chips or typed absences. That supersession is recorded in reference-seed-adjudications.v1.json#jobs-port and the mirror record stands as history; <a href="/__ioi/missions">the Missions substrate</a> is untouched — this is a sibling lane, not a replacement. <b>${bldRead.length}</b> run/build planes were probed live on this render and answered in four states — <b>${bldCount("live")} LIVE</b> · <b>${bldCount("empty")} EMPTY</b> · <b>${bldCount("refused")} REFUSED</b> · <b>${bldCount("no_read_route")} NO READ ROUTE</b>. READ-ONLY: the build verbs (start an execution · cancel one) belong to <a href="/__ioi/automations">Automations</a> and are not re-minted here. Evidence: reference-seed-adjudications.v1.json#jobs-port · reference-live-tenant-atlas.v1.json#jobs (landing) · .artifacts/live-tenant-atlas/jobs-landing.png. Owner: <a href="/__ioi/missions">Missions</a> · truth: <a href="/__ioi/work-ledger">the work ledger</a> · <a href="/__ioi/lineage?tab=timeline">Build timeline</a> · <a href="/__ioi/operations">Operations</a>.`;
+      sendOwnedSurfaceHtml(res, "jobs", `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Builds</title><style>
+        :root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#fff;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif}a{color:#215db0;text-decoration:none}
+        .bld-shell{display:flex;flex-direction:column;min-height:100vh}
+        .bld-header{flex:0 0 50px;display:flex;align-items:center;gap:14px;background:#fff;box-shadow:0 1px 0 #d1d1d1,0 3px 4px rgba(0,0,0,.04);z-index:6}
+        .bld-hchip{width:50px;height:50px;flex:0 0 50px;background:rgba(45,114,210,.1) center/24px no-repeat}
+        .bld-title{font-size:16px;font-weight:600;color:#404854;margin:0}
+        .bld-hright{display:flex;align-items:center;gap:8px;margin-left:auto;padding-right:16px}
+        .bld-chip{display:inline-flex;align-items:center;height:30px;padding:0 10px;border-radius:4px;border:1px solid #d1d1d1;font-size:13px;color:#404854}
+        .bld-tray{display:inline-flex;align-items:center;gap:2px;border:1px solid #e5e8eb;border-radius:4px;padding:2px}
+        .bld-tchip{display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 9px;border-radius:3px;font-size:12px;color:#5f6b7c}
+        .bld-gap{opacity:.62;cursor:not-allowed}
+        .bld-dash{color:#a8b2be;cursor:not-allowed}
+        .bld-main{display:flex;flex:1;min-height:0}
+        .bld-side{flex:0 0 300px;border-right:1px solid #e5e8eb;padding:16px 18px 30px;background:#fff;overflow:auto}
+        .bld-sh{display:flex;align-items:center;gap:7px;font-size:15px;font-weight:600;color:#1c2127;margin:6px 0 12px}
+        .bld-slab{font-size:12px;font-weight:600;color:#5f6b7c;margin:14px 0 5px}
+        .bld-sinput{display:flex;align-items:center;height:32px;border:1px solid #d1d1d1;border-radius:4px;padding:0 10px;font-size:13px;color:#8a94a2;width:100%}
+        .bld-srow{display:flex;gap:8px}
+        .bld-toggle{display:flex;align-items:center;gap:9px;font-size:13px;color:#404854;margin:8px 0}
+        .bld-tglyph{width:28px;height:16px;border-radius:999px;background:#c5cbd3;flex:0 0 28px}
+        .bld-radio{display:flex;align-items:center;gap:9px;font-size:13px;color:#404854;margin:7px 0}
+        .bld-rglyph{width:14px;height:14px;border-radius:999px;border:1px solid #c5cbd3;flex:0 0 14px}
+        .bld-body{flex:1;min-width:0;padding:16px 22px 40px;overflow:auto}
+        .bld-btop{display:flex;align-items:center;gap:12px;margin:0 0 14px}
+        .bld-h1{font-size:17px;font-weight:600;margin:0}
+        .bld-seg{display:inline-flex;margin-left:auto;border:1px solid #d1d1d1;border-radius:4px;overflow:hidden}
+        .bld-segb{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 12px;font-size:13px;color:#404854;border-right:1px solid #d1d1d1}
+        .bld-segb:last-child{border-right:0}
+        .bld-segb.on{background:#2d72d2;color:#fff}
+        .bld-segn{font-weight:600}
+        .bld-h{font-size:16px;font-weight:600;margin:26px 0 4px}
+        .bld-note{font-size:12px;color:#5f6b7c;margin:0 0 12px;line-height:1.65}
+        .bld-thead,.bld-row{display:grid;grid-template-columns:2.3fr 1.1fr 1.1fr .9fr 1.2fr 1.6fr;gap:8px;padding:9px 8px}
+        .bld-phead,.bld-prow{display:grid;grid-template-columns:2.4fr 1.7fr .9fr 2.1fr .8fr;gap:8px;padding:9px 8px}
+        .bld-chead,.bld-crow{display:grid;grid-template-columns:.8fr 1.1fr 3.2fr;gap:8px;padding:9px 8px}
+        .bld-thead,.bld-phead,.bld-chead{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#5f6b7c;border-bottom:1px solid #e5e8eb}
+        .bld-row,.bld-prow,.bld-crow{align-items:center;border-bottom:1px solid #f0f2f5;font-size:13px;color:#1c2127}
+        .bld-row:hover,.bld-prow:hover,.bld-crow:hover{background:#f6f7f9}
+        .bld-ref{display:block;font-size:11px;color:#5f6b7c;word-break:break-all;margin-top:2px}
+        .bld-role{display:block;font-size:11px;color:#5f6b7c;line-height:1.5;margin-top:2px}
+        .bld-scopy,.bld-ccopy{font-size:12px;color:#5f6b7c;line-height:1.55}
+        .bld-st{display:inline-block;font-size:11px;font-weight:600;border-radius:3px;padding:2px 7px;border:1px solid #9bc4ab;color:#1c6e42;background:#eef8f2}
+        .bld-state{font-size:11px;font-weight:600;letter-spacing:.03em;border-radius:3px;padding:2px 7px;text-align:center;border:1px solid}
+        .bld-state-live{color:#1c6e42;border-color:#9bc4ab;background:#eef8f2}
+        .bld-state-empty{color:#5f6b7c;border-color:#d1d1d1;background:#f6f7f9}
+        .bld-state-refused{color:#946638;border-color:#f0dca6;background:#fff8e6}
+        .bld-state-no_read_route{color:#7961db;border-color:#cfc4f5;background:#f3f0fd}
+        .bld-state-unreadable{color:#a82a2a;border-color:#eab8b8;background:#fdf0f0}
+        .bld-call{border:1px solid #cfd9e6;background:#f4f8fd;border-radius:4px;padding:18px 20px;color:#5f6b7c;font-size:13px;line-height:1.7;margin:0 0 16px}
+        .bld-call h3{font-size:15px;color:#1c2127;margin:0 0 8px}
+        .bld-call p{margin:0 0 8px}
+        .bld-empty{padding:22px 10px;color:#5f6b7c;font-size:14px;line-height:1.6}
+        .bld-foot{font-size:12px;color:#7b8494;line-height:1.65;margin:0;padding:18px 22px 40px}
+      </style></head><body><div class="bld-shell">
+        <header class="bld-header">
+          <span class="bld-hchip" aria-hidden="true" style="background-image:url('${ISSUES_APP_ICON_URI}')"></span>
+          <h1 class="bld-title">Builds</h1>
+          <div class="bld-hright">
+            <span class="bld-tray">
+              <span class="bld-tchip" data-ioi-tray="open" title="counted live from the work-ledger run lane on this render: ledger run entries whose own status value is not a terminal one. This is a MEASUREMENT — the plane answered — not a placeholder zero">⟳ <b>${bldOpen.length}</b></span>
+              <span class="bld-tchip" data-ioi-tray="finished" title="counted live from the work-ledger run lane on this render: ledger run entries carrying a terminal status value">✓ <b>${bldFinished.length}</b></span>
+              <span class="bld-tchip" data-ioi-tray="failed_steps" title="counted live by summing counts.failed across every ledger run entry on this render — this counts STEPS, the estate's sub-unit of a build, and it is not a count of failed builds">✕ <b>${bldFailedSteps}</b></span>
+            </span>
+            ${bgap("bld-chip", "⚙ Settings", "The reference's header gear opens per-user build-tracker preferences (default filters, retention, notification routing). The estate stores no per-principal preference plane for run projections at all, so this control would write nothing and read nothing (typed absence)")}
+            ${bgap("bld-chip", "◐ Theme", "The reference's header control toggles a tenant-level dark theme. This port renders the estate's own light surface chrome and holds no theme preference on any plane; a toggle that only changed this one page would imply a tenant setting that does not exist (typed absence)")}
+          </div>
+        </header>
+        <div class="bld-main">
+          <aside class="bld-side">
+            <div class="bld-sh">🔍 Search by…</div>
+            <div class="bld-slab">Resource</div>
+            <div class="bld-srow">
+              <span class="bld-sinput">${bgap("bld-chip", "Search for resource names or RIDs…", "The reference resolves a resource name or RID against a build INDEX keyed by the resources a build touched. No estate plane indexes builds by resource: a ledger run entry names its automation, its project and its environment, and nothing else, so a resource search here could only ever return an empty result that read like an answer (typed absence)")}</span>
+              ${bgap("bld-chip", "All", "The reference's scope selector narrows a resource search between all resources and a chosen subset. There is no resource search on this surface to scope, and a scope selector over an absent index would be pure decoration (typed absence)")}
+            </div>
+            <div class="bld-toggle"><span class="bld-tglyph" aria-hidden="true"></span>${bgap("bld-chip", "Include intermediate job resources", "The reference distinguishes a build's OUTPUT resources from the intermediate ones its jobs produced along the way. An estate build record carries no resource graph of either kind — step_results record how each step ran, not what it produced — so there is no intermediate tier to include or exclude (typed absence)")}</div>
+            <div class="bld-slab">Object type</div>
+            <span class="bld-sinput">${bgap("bld-chip", "Search for object types…", "The reference filters builds by the ontology object types they wrote. Object types are real on the estate — they live on the ODK ontology plane — but no build record references one, so joining the two here would invent an edge the estate does not record (typed absence)")}</span>
+            <div class="bld-sh" style="margin-top:22px">▼ Filter by…</div>
+            <div class="bld-slab">My builds</div>
+            <div class="bld-toggle"><span class="bld-tglyph" aria-hidden="true"></span>${bgap("bld-chip", "Show only my builds", `The reference partitions builds by viewer. On this render every one of the ${bldAll.length} ledger run entries that carries an authority carries the SAME one, so this toggle would partition nothing — and it would silently hide the ${bldNotInTranscripts.length} entr${bldNotInTranscripts.length === 1 ? "y" : "ies"} whose principal cannot be resolved at all. A filter that hides records it cannot classify is worse than no filter (typed absence)`)}</div>
+            <div class="bld-slab">Branch</div>
+            <div class="bld-radio"><span class="bld-rglyph" aria-hidden="true"></span>${bgap("bld-chip", "All branches", `The estate DOES record a branch — on the workruns plane (<code>/v1/hypervisor/workruns</code>, ${bldBy.workruns.state === "live" ? `${bldBy.workruns.rows.length} record${bldBy.workruns.rows.length === 1 ? "" : "s"}` : bldBy.workruns.state.toUpperCase()}), which records no status, no start time and no duration and is therefore not an execution plane. No build record carries a branch or a base commit, so there are no branches here to select across (typed absence)`)}</div>
+            <div class="bld-radio"><span class="bld-rglyph" aria-hidden="true"></span>${bgap("bld-chip", "Only master branch", "The reference treats master as the privileged build branch. The estate names no default or privileged branch anywhere in its build records — the only branch strings it holds sit on workrun records that never execute — so \"master\" here would be a convention this surface invented rather than one the estate keeps (typed absence)")}</div>
+            <div class="bld-radio"><span class="bld-rglyph" aria-hidden="true"></span>${bgap("bld-chip", "All branches excluding master", "This option is the complement of a privileged-branch convention the estate does not hold. A complement of an undefined set is undefined, and rendering it as an active choice would imply the estate had already split its builds that way (typed absence)")}</div>
+            <div class="bld-slab">Started by</div>
+            <span class="bld-sinput">${bgap("bld-chip", `${bldAll.length ? [...new Set(bldAll.map((e) => bstr((e.authority || {}).ref)).filter(Boolean))].join(", ") || "—" : "—"}`, `The reference offers a principal chooser. Across every ledger run entry on this render the plane records exactly ${[...new Set(bldAll.map((e) => bstr((e.authority || {}).ref)).filter(Boolean))].length} distinct acting authorit${[...new Set(bldAll.map((e) => bstr((e.authority || {}).ref)).filter(Boolean))].length === 1 ? "y" : "ies"}, so a chooser would be a control over a domain of one — decoration, not a filter. The value shown is read from the records and is not a placeholder (typed absence)`)}</span>
+            <div class="bld-slab">Job type</div>
+            <span class="bld-sinput">${bgap("bld-chip", "Filter job type…", `The estate DOES have a jobType field — on the runtime JOB plane (<code>/v1/jobs</code>), a different plane holding a different noun from the builds in this table. Ledger run entries carry a trigger_kind, not a job type, and offering a job-type filter over records that have none would let the reference's vocabulary stand in for the estate's (typed absence)`)}</span>
+            <div class="bld-slab">Start date</div>
+            <div class="bld-srow">
+              <span class="bld-sinput">${bgap("bld-chip", "Start date", "The reference's lower start bound is a server-side range query. The daemon's work-ledger route accepts no date parameter, so this bound could only be applied by reading the whole plane into this surface and filtering it here — a client-side filter wearing a plane query's clothes (typed absence)")}</span>
+              <span class="bld-sinput">${bgap("bld-chip", "End date", "The reference's upper start bound is evaluated in the tenant's local timezone. Every timestamp on a ledger run entry is a UTC instant and the estate records no tenant timezone anywhere, so this surface would have to choose one — and a boundary that silently depends on an invented timezone drops records without saying so (typed absence)")}</span>
+            </div>
+            <div class="bld-slab">Finish date</div>
+            <div class="bld-srow">
+              <span class="bld-sinput">${bgap("bld-chip", "Finish start", `The reference's lower finish bound assumes every build has a finish. ${bldOpen.length} of ${bldAll.length} ledger run entries on this render carry a non-terminal status, and a finish-date bound would quietly exclude every unfinished build rather than saying it had (typed absence)`)}</span>
+              <span class="bld-sinput">${bgap("bld-chip", "Finish end", "The reference's upper finish bound reads finished_at. That field is present on the ledger run lane but absent from the per-automation execution projection of the SAME builds, so a bound applied here would mean something different depending on which projection a future reader used — a filter whose meaning changes with the route is not one truth (typed absence)")}</span>
+            </div>
+            <div style="margin-top:20px">${bgap("bld-chip", "Clear all filters", "There is nothing to clear: every filter above is a typed absence, and this surface is a read-only projection with no filter state of any kind. A working Clear control over inert controls would imply the others had done something (typed absence)")}</div>
+          </aside>
+          <div class="bld-body">
+            <div class="bld-btop">
+              <h2 class="bld-h1">Your builds</h2>
+              <div class="bld-seg">
+                <span class="bld-segb on" data-ioi-seg="all" title="a live census of the work-ledger run lane on this render, not a filter — this surface is read-only">All <b class="bld-segn">${bldAll.length}</b></span>
+                <span class="bld-segb" data-ioi-seg="running" title="ledger run entries whose own status value is not terminal, counted on this render — a measurement of the plane, not a filter">Running <b class="bld-segn">${bldOpen.length}</b></span>
+                <span class="bld-segb" data-ioi-seg="finished" title="ledger run entries carrying a terminal status value, counted on this render — a measurement of the plane, not a filter">Finished <b class="bld-segn">${bldFinished.length}</b></span>
+                ${bgap("bld-segb", "▾", "The reference's overflow opens further status lanes to filter by. These three are COUNTS of the plane, not filters — this is a read-only projection — and an overflow offering more of something that does not filter would be decoration on decoration (typed absence)")}
+              </div>
+            </div>
+            <p class="bld-note">Rows are the plane or there are no rows. Every build below is a REAL <code>run</code> entry on the estate's work ledger, rendered with the estate's OWN column names — the reference's six columns are answered one by one further down, including the two nothing binds. ${bldAll.length > BLD_ROW_CAP ? `The newest <b>${BLD_ROW_CAP}</b> of <b>${bldAll.length}</b> render here (cap NAMED, never silent).` : `All <b>${bldAll.length}</b> render here.`}</p>
+            <div class="bld-thead"><span>Build</span><span>Started by</span><span>Start time</span><span>Duration</span><span>Status</span><span>Proof</span></div>
+            ${bldRows || `<div class="bld-empty">No build records on the work-ledger run lane — this table renders the real plane and never fabricates rows.</div>`}
+            <h2 class="bld-h">No single plane lists every build</h2>
+            <div class="bld-call">
+              <h3>Three planes project the same builds, and two of them are incomplete</h3>
+              <p>Counted from the three planes themselves on this render, never pasted: the work ledger's <code>run</code> lane holds <b>${bldAll.length}</b> build${bldAll.length === 1 ? "" : "s"}. The agent-run transcript plane can reach <b>${bldInTranscripts.length}</b> of them — the other <b>${bldNotInTranscripts.length}</b> were never transcribed, and those same <b>${bldNoStateRoot.length}</b> are exactly the entries whose <code>state_root</code> is empty, because the state root lives on the transcript. The per-automation execution projection carries <code>executor_identity</code> but is reachable only through <code>/v1/hypervisor/automations/:id/runs</code>, and <b>${bldFanoutUnreachable.length}</b> of these builds belong to automations that no longer exist, so no fan-out can ever reach them.</p>
+              <p>That is why this table reads the ledger: it is the exact union, and the only plane carrying BOTH the acting authority and the proof anchor on one record. It is also why the ${bldTranscripts.length} transcripts are LINKED rather than re-rendered — the <a href="/__ioi/lineage?tab=timeline">Monocle Build timeline</a> already renders that plane, and a second renderer over the same records is a second answer waiting to disagree.</p>
+            </div>
+            <h2 class="bld-h">The reference's six columns, answered one by one</h2>
+            <p class="bld-note">A ported table that keeps a reference header and fills it with a different field is not a port, it is a mislabel. Each of the reference's columns is answered below with the estate field that binds it — or with the typed refusal that does not.</p>
+            <div class="bld-chead"><span>Reference column</span><span>Estate field</span><span>What binds it, or why nothing does</span></div>
+            ${bldColumns}
+            <h2 class="bld-h">Run &amp; build planes — read live, classified into four states</h2>
+            <p class="bld-note">Every row is a REAL daemon plane and its state was classified from that plane's own response on this render, then stamped on the row (<code>data-ioi-plane-state</code>) so it can never be pasted and never rot. <b>LIVE</b> = the plane answered and holds records. <b>EMPTY</b> = it answered and holds none. <b>REFUSED</b> = the plane refused this read with a typed code — <b>a refusal is not a zero</b>. <b>NO READ ROUTE</b> = the daemon's own route index publishes no GET for it; there is nothing to read, which is not the same as reading nothing. <b>REFUSED is not EMPTY, EMPTY is not MISSING</b>, and a plane with no read route is none of the three.</p>
+            <div class="bld-phead"><span>Plane</span><span>Route</span><span>State</span><span>What that state means here</span><span>Owner</span></div>
+            ${bldPlaneRows}
+            <h3 class="bld-h">The session registry — ${esc(bldStateLabel[bldBy.sessions.state] || bldBy.sessions.state)}</h3>
+            <div class="bld-call">
+              ${bldBy.sessions.state === "refused"
+                ? `<p><code>/v1/hypervisor/sessions</code> REFUSED this read with the daemon's own typed code <code>${esc(bldBy.sessions.code)}</code>. So this surface prints no session count and binds no build to a session — because it could not read one. <b>A refusal is not a zero</b>: rendering "0 sessions" here would convert a closed door into a measurement the estate never took, and the builds above would silently look session-less rather than unresolved.</p>`
+                : `<p><code>/v1/hypervisor/sessions</code> answered this read (state ${esc(bldStateLabel[bldBy.sessions.state] || bldBy.sessions.state)}). No build row is bound to a session regardless: a ledger run entry records its environment, not its session, and this surface never joins two planes the estate does not join itself.</p>`}
+              <p>Either way the VERBS stay where they are owned. Starting an execution and cancelling one are the Automations family's own authority-crossing writes; this landing links to them and re-mints none of them. <a href="/__ioi/automations">Open Automations →</a> · <a href="/__ioi/missions">Missions substrate →</a></p>
+            </div>
+            <p class="bld-foot">${bldFoot}</p>
+          </div>
+        </div>
+      </div></body></html>`);
+      return;
+    }
     // ---- Studio · Workshop — STU-1/STU-2 (remediation v2): the D6 COMBINED-SEED port. The
     // workshop capture is byte-dead; module's capture BOOTS AS "Workshop — Home" (atlas splash
     // state, 5 facet groups) and is the recorded donor (roles donor+authoring_flow). The I-4

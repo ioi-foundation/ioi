@@ -172,9 +172,14 @@
     },
     {
       "click_target": "missions:jobs",
-      "status": "TERMINAL",
-      "note": "absent_confirmed \u2014 the substrate stands as the surface",
-      "adjudication_ref": "reference-seed-adjudications.v1.json#jobs"
+      "status": "NOW",
+      "grammar": "Builds (the LIVE-tenant grammar the job-tracker click target actually boots): header + a three-counter tray COUNTED from the plane + settings/theme absences \u00b7 a left Search-by / Filter-by panel (resource + object-type search, intermediate-resource and my-builds toggles, a three-way Branch radio, a Started-by principal chip, a Job-type filter, Start-date and Finish-date ranges, Clear all filters) \u2014 every one a typed absence with a reason written for it \u00b7 an All/Running/Finished segmented control rendered as a LIVE CENSUS of the plane and said on-surface to be a count, not a filter \u00b7 and the build table, served as a READ-ONLY PROJECTION over the estate's REAL build plane. THE FINDING: no single plane lists every build. The agent-run-transcript plane carries a state_root on every record and a principal on NONE; the per-automation execution projection carries executor_identity but can never reach an execution whose automation was deleted (the daemon publishes no automation-executions list route); the work ledger's `run` lane is the EXACT UNION of both and the only plane carrying the acting authority AND the proof anchor on one record \u2014 so it is what the table reads, and the three counts that justify that choice are re-derived on every render. Sixteen run/build planes are classified live into FOUR states (LIVE / EMPTY / REFUSED / NO READ ROUTE, the last decided from the daemon's own route index rather than a status guess). The reference's Outputs and Actions columns bind NO estate field and are answered as REFUSALS in a six-row column-mapping table rather than filled with different truth; Duration is labelled COMPUTED on every row; a build's sub-unit is a STEP and is never relabelled a job, because `job` is a live estate noun on /v1/jobs. The 3174-record transcript plane is LINKED to the Monocle Build timeline, never re-rendered. Read-only: the build verbs stay on Automations.",
+      "route": "/__ioi/missions/builds",
+      "supersedes_terminal": "absent_confirmed (mirror-scoped, reference-seed-adjudications.v1.json#jobs \u2014 MIS-1.recon: \"no Builds grammar expresses at any recorded state; the substrate STANDS as the surface\") \u2014 OVERTURNED by the owner-authorized live-tenant sweep; the mirror record stands as history and is not rewritten",
+      "substrate_unchanged": "/__ioi/missions keeps its class (read_only_by_contract) and its content untouched \u2014 the Builds port is a SIBLING lane in the same owner family, and the jobs seed row CARRIES substrate_surface: /__ioi/missions forward so the promotion to reference_ported never unbinds the substrate",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#jobs-port",
+      "superseded_note": "absent_confirmed \u2014 the substrate stands as the surface (reference-seed-adjudications.v1.json#jobs) \u2014 kept as history; overturned by the live-tenant sweep and re-adjudicated in #jobs-port",
+      "evidence": "reference-live-tenant-atlas.v1.json#jobs + .artifacts/live-tenant-atlas/jobs-landing.png"
     },
     {
       "click_target": "/developer-console",

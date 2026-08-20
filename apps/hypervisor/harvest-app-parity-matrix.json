@@ -19,8 +19,7 @@
   "by_parity_class": {
     "daemon_wired": 13,
     "reference_capture": 10,
-    "reference_ported": 15,
-    "substrate_bound": 1
+    "reference_ported": 16
   },
   "legend": {
     "reference_capture": "the /__apps/<slug> reference baseline serves; no IOI port exists",
@@ -1045,20 +1044,37 @@
       "capture_base": "/workspace/job-tracker/",
       "grammar": "table_list",
       "tier": "high_value",
-      "parity_class": "substrate_bound",
+      "parity_class": "reference_ported",
       "capture_state": "boots_editor_canvas",
       "reference_capture": "/__apps/jobs",
       "reference_workspace": "/workspace/job-tracker/",
-      "note": "run-queue lane of the Missions owner surface; honest empty when no runs; freeform job-definition editing / board views / arbitrary filtering = named gaps; substrate/infra scheduler health stays in Operations",
+      "note": "JOB-1: live_ia_recorded → ported, superseding the mirror-scoped absent_confirmed (#jobs) which stands as history. The finding is that no single plane lists every build: the transcript plane records a state_root and no principal, the per-automation projection records a principal and cannot reach executions whose automation was deleted, and the work-ledger run lane is the exact union of both. Substrate binding carried forward — /__ioi/missions stays bound and read_only_by_contract",
       "reference_clean_state": "shell_clean_only",
       "reference_clean_reason": "shell regions [rail, header, body] render clean but the body carries no real data (rows 0/0 · nodes 0 · cards 0)",
       "reference_clean_artifact": "reference-clean-sweep.json",
       "remediation_state": "live_ia_recorded",
-      "adjudication_ref": "reference-seed-adjudications.v1.json#jobs + reference-live-tenant-atlas.v1.json#jobs",
-      "substrate_surface": "/__ioi/missions",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#jobs + reference-seed-adjudications.v1.json#jobs-port + reference-live-tenant-atlas.v1.json#jobs",
+      "port_surface": "/__ioi/missions/builds",
       "surface_name": "Missions",
-      "binding": "the Missions run/job queue — the real operations run queue (recent runs, statuses, run counts) + scheduled missions, table/list grammar over daemon truth",
-      "candidate_surface": "/__ioi/missions",
+      "substrate_surface": "/__ioi/missions",
+      "live_reference_evidence": "reference-live-tenant-atlas.v1.json#jobs (landing, title \"Your builds · Builds\", 14 controls) + .artifacts/live-tenant-atlas/jobs-landing.png",
+      "reference_landmarks": [
+        "Builds",
+        "Your builds",
+        "Started by",
+        "Start time",
+        "Duration",
+        "Status",
+        "Running",
+        "Finished",
+        "Clear all filters",
+        "Show only my builds",
+        "All branches",
+        "Only master branch",
+        "Job type"
+      ],
+      "binding": "the live-tenant BUILDS grammar (header + counted task tray · left Search-by/Filter-by panel · All/Running/Finished segmented census · the build table) over the estate's REAL build plane, rendered as a READ-ONLY projection: the work ledger's `run` lane — the EXACT UNION of the agent-run-transcript projection and the per-automation execution projection, and the only plane carrying BOTH the acting authority AND the state root on one record. Sixteen run/build planes are probed on every render and classified live into FOUR states (LIVE / EMPTY / REFUSED / NO READ ROUTE, the last decided from the daemon's own route index rather than a status guess). The three counts that justify the plane choice (ledger total · transcript-reachable · fan-out-unreachable) are re-derived on every render. The reference's Outputs and Actions columns bind NO estate field and are stated as refusals rather than filled with different truth; a build's sub-unit is a STEP and is never relabelled a job, because `job` is a live estate noun on /v1/jobs. The 3174-record transcript plane is LINKED to the Monocle Build timeline, never re-rendered. The substrate lane at /__ioi/missions is untouched",
+      "candidate_surface": "/__ioi/missions/builds",
       "shell_pixel_certified": false
     },
     {

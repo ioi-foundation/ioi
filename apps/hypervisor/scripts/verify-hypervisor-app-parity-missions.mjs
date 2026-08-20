@@ -122,7 +122,14 @@ async function run() {
   ok("parity matrix is current (regenerated == committed)", check.status === 0, (check.stderr || "").trim().slice(0, 80));
   const matrix = JSON.parse(spawnSync("node", ["-e", `import(${JSON.stringify(path.join(here, "..", "harvest-app-parity-matrix.json"))}, { with: { type: "json" } }).then(m => console.log(JSON.stringify(m.default)))`], { encoding: "utf8" }).stdout || "{}");
   const bySlug = Object.fromEntries((matrix.seeds || []).map((s) => [s.slug, s]));
-  ok("matrix binds jobs as substrate_bound → /__ioi/missions (Missions)", bySlug.jobs?.parity_class === "substrate_bound" && bySlug.jobs?.substrate_surface === "/__ioi/missions" && bySlug.jobs?.surface_name === "Missions");
+  // JOB-1 PROMOTED jobs to reference_ported (the Builds port at /__ioi/missions/builds) — the same
+  // shape #45 hit when incidents was promoted: the frozen-class PIN breaks, the substrate binding
+  // must not. So the pin becomes a set and the assertion gets STRONGER, not weaker: the substrate
+  // surface is still asserted bound (the port CARRIES substrate_surface forward, so /__ioi/missions
+  // is never unbound by the promotion), and a ported jobs row must additionally name the sibling
+  // port surface. A promotion that silently dropped /__ioi/missions now fails here.
+  ok("matrix binds jobs (substrate_bound|reference_ported) with the intact /__ioi/missions substrate (Missions)", ["substrate_bound", "reference_ported"].includes(bySlug.jobs?.parity_class) && bySlug.jobs?.substrate_surface === "/__ioi/missions" && bySlug.jobs?.surface_name === "Missions");
+  ok("a PORTED jobs row names its sibling Builds surface and never re-points the substrate at it", bySlug.jobs?.parity_class !== "reference_ported" || (bySlug.jobs?.port_surface === "/__ioi/missions/builds" && bySlug.jobs?.candidate_surface === "/__ioi/missions/builds" && bySlug.jobs?.substrate_surface === "/__ioi/missions" && /#jobs-port/.test(bySlug.jobs?.adjudication_ref || "")), bySlug.jobs?.port_surface || "(none)");
   // #45 PROMOTED incidents to daemon_wired (certified port at /__ioi/missions/incidents) — the
   // substrate surface stays bound; the class pin became a set (the frozen-class pin broke on promotion).
   ok("matrix binds incidents (substrate_bound|daemon_wired) with the intact /__ioi/missions substrate (Missions)", ["substrate_bound", "daemon_wired"].includes(bySlug.incidents?.parity_class) && bySlug.incidents?.substrate_surface === "/__ioi/missions" && bySlug.incidents?.surface_name === "Missions");

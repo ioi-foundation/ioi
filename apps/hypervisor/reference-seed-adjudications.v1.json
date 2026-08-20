@@ -739,6 +739,79 @@
       "outcome": "portable",
       "shipped": "/__ioi/marketplace/artifacts (REG-1; parity_class reference_ported, remediation_state live_ia_recorded)",
       "reason": "the landing grammar is portable AND the estate has real planes to carry it \u2014 so the finding is DISCRIMINATION, not absence. Ten planes probed live and classified into four states the surface refuses to blur; the one live plane's records rendered verbatim with the plane named on every row; the package family's eight-route closure and the zero artifact-search census re-counted from the daemon's index on every render; every app control the reference offers rendered as a typed absence with a reason written for it (all distinct); and every registry VERB left on its owner surface and linked rather than duplicated. The landing designation for the registry seed moves TERMINAL-by-competitor (the /packages/marketplace target carried absent_confirmed for it) to its own NOW target; the /packages/marketplace designation itself is unchanged."
+    },
+    {
+      "action": "JOB-1",
+      "record_id": "jobs-port",
+      "seed": "jobs",
+      "owner": "Missions",
+      "date": "2026-08-20",
+      "supersedes": "the mirror-scoped #jobs record (MIS-1.recon, absent_confirmed \u2014 \"REFUTED: no Builds grammar expresses at any recorded state \u2014 the light re-shell has nothing to port backwards from; the substrate STANDS as the surface (MIS-1.build skipped by evidence)\"). That verdict was rendered against MIRROR captures whose recorded expressed_ia was false; the owner-authorized live-tenant sweep OVERTURNED it. The mirror record STANDS AS HISTORY under #live-tenant-sweep and is not rewritten.",
+      "supersession_scope": "The supersession is about the SEED, not about the substrate. /__ioi/missions keeps its own class (read_only_by_contract) and its own content untouched: the Builds port is a SIBLING lane in the same owner family, and the seed row CARRIES substrate_surface: /__ioi/missions forward so the promotion never unbinds it. MIS-1.recon's ruling that 'the substrate stands as the surface' was right about the substrate and wrong only about the reference having no grammar to port.",
+      "evidence": "reference-live-tenant-atlas.v1.json#jobs (landing, url /workspace/job-tracker/builds, title \"Your builds \u00b7 Builds\", 14 controls, 1 facet group APPLICATIONS) + .artifacts/live-tenant-atlas/jobs-landing.png + .artifacts/live-tenant-atlas/deep/jobs-landing.png",
+      "reference_states": [
+        "landing \u2014 a real BUILD TRACKER: title \"Your builds \u00b7 Builds\"; a left panel with \"Search by\u2026\" (a resource name/RID input with an All scope selector, an \"Include intermediate job resources\" toggle, an object-type input) and \"Filter by\u2026\" (a \"Show only my builds\" toggle, a three-way Branch radio \u2014 All branches / Only master branch / All branches excluding master \u2014 a Started-by principal chip, a Job-type filter, a Start-date range and a Finish-date range, and Clear all filters); a header with a settings gear, a three-counter tray and a theme control; an All/Running/Finished segmented control with an overflow caret; and a six-column build table (Outputs \u00b7 Started by \u00b7 Start time \u00b7 Duration \u00b7 Status \u00b7 Actions) over REAL build rows, each row's Status carrying a terminal word, an \"N of M jobs succeeded\" roll-up and a relative age.",
+        "atlas-vs-screenshot correction (recorded, and the SCREENSHOT is the binding evidence for the table): the atlas's DOM heuristics recorded rows: 0 and columns: [] for this landing, but the committed screenshots show TWO build rows under SIX column headers. The vendor renders the grid as non-table markup, so the heuristic under-counted. The port is built from the screenshot grammar and the discrepancy is recorded here rather than silently resolved in either direction.",
+        "the 14 recorded toolbar controls are NINE vendor global-rail items (Skip to content \u00b7 Search\u2026ctrl+J \u00b7 Notifications \u00b7 What's New \u00b7 Recent \u00b7 Applications \u00b7 View all \u00b7 Support \u00b7 Account) plus FIVE app controls (the three-counter tray rendered \"000\" \u00b7 Clear all filters \u00b7 All \u00b7 Running \u00b7 Finished). Railless per the owner ruling 2026-08-20: the nine are estate chrome owned elsewhere and are not re-minted."
+      ],
+      "build_plane_sweep": {
+        "method": "probe every candidate run/build plane over the SAME identity envelope this surface renders with; keep the raw HTTP status; decide 'no read route' from the DAEMON'S OWN ROUTE INDEX (GET /v1) rather than from a status guess, because a 404 body cannot tell a missing route apart from a missing record; then classify from the response itself (a typed refusal before any collection is looked for; live-or-empty only for a 200 that actually carried a collection).",
+        "planes_probed": 16,
+        "live": [
+          "/v1/hypervisor/work-ledger \u2014 7141 entries, of which 57 carry kind=run (THE build lane rendered)",
+          "/v1/hypervisor/agent-run-transcripts \u2014 3174 run transcripts (kinds: harness-profile-op 2783 \u00b7 model-route-op 301 \u00b7 automation-run 50 \u00b7 unkinded 40)",
+          "/v1/jobs \u2014 10 runtime job records (jobType agent_run, status completed)",
+          "/v1/runs \u2014 10 persisted run records",
+          "/v1/tasks \u2014 10 runtime task records",
+          "/v1/goal-orchestration/goal-runs \u2014 190 (complete 120 \u00b7 blocked 49 \u00b7 draft 16 \u00b7 active 5)",
+          "/v1/goal-orchestration/ioi-agent/launches \u2014 289 (executed 247 \u00b7 prepared 42)",
+          "/v1/hypervisor/odk/transformation-runs \u2014 6 (all dry_run_ready)",
+          "/v1/hypervisor/odk/materializing-runs \u2014 7 (executed 4 \u00b7 lease_obtained 2 \u00b7 planned 1)",
+          "/v1/hypervisor/failover/runs \u2014 40 (refused 30 \u00b7 restored 5 \u00b7 awaiting_authority 5)",
+          "/v1/hypervisor/workruns \u2014 4 (all open; the ONLY estate plane recording a branch + base_commit)"
+        ],
+        "empty": [
+          "/v1/goal-orchestration/attempts \u2014 the plane answered and holds none",
+          "/v1/hypervisor/foundry/run-plans \u2014 the plane answered and holds none"
+        ],
+        "refused": [
+          "/v1/hypervisor/sessions \u2014 HTTP 503 session_registry_unavailable (a recorded legacy-slot refusal, pre-existing and not this leg's)"
+        ],
+        "no_read_route": [
+          "/v1/hypervisor/automation-executions \u2014 the daemon's route index publishes NO route at this path at all (only /:id and /:id/cancel); HTTP 404 on GET",
+          "/v1/hypervisor/session-execution-bindings \u2014 POST-only, HTTP 405 on GET"
+        ],
+        "verdict": "the estate HAS run planes \u2014 many \u2014 so, as with the registry leg, the adjudication was never 'is there anything' but 'which plane can honestly carry a BUILD ROW'. The four states came back again and a fifth finding came with them."
+      },
+      "union_finding": {
+        "claim": "NO SINGLE PLANE LISTS EVERY BUILD, and the two obvious ones each record a field the other lacks.",
+        "measured_at_port_time": {
+          "work_ledger_run_entries": 57,
+          "agent_run_transcripts_of_kind_automation_run": 50,
+          "per_automation_execution_fanout_total": 50,
+          "on_all_three": 43,
+          "ledger_and_transcripts_only": 7,
+          "ledger_and_fanout_only": 7,
+          "ledger_equals_union_of_the_two": true
+        },
+        "why_each_projection_is_incomplete": "The per-automation projection (/v1/hypervisor/automations/:id/runs) can only be reached automation by automation and the daemon publishes NO list route for automation-executions, so the 7 executions whose automation has since been deleted (auto_18bda3bafd8f31ff, auto_18bda68ea6706c5e, auto_18bda74bfd502ede, auto_18bda81093c48c0c) are unreachable through it forever. The transcript projection never recorded 7 other executions (all from 2026-06-25, belonging to automations that still exist) \u2014 and those same 7 are exactly the ledger entries whose state_root is EMPTY, because the state root lives on the transcript.",
+        "disjoint_fields": "The transcript projection carries state_root on 3174 of 3174 records and a principal on ZERO of them. The per-automation projection carries executor_identity on 50 of 50 and state_root on none. The work-ledger run entry carries BOTH (authority + state_root) on one record, plus automation_name, project_id, environment_id, counts, timestamp, finished_at, trigger_kind, step_results and timeline_ref.",
+        "ruling": "the builds table reads the work-ledger run lane, and the three counts that justify that choice (ledger total \u00b7 transcript-reachable \u00b7 fan-out-unreachable) are RE-DERIVED ON EVERY RENDER from the three planes themselves. A pasted '57 / 50 / 7' would rot the first time a build lands or an automation is deleted, and a gate fails on any drift."
+      },
+      "link_not_duplicate_ruling": "The 3174-record transcript plane is ALREADY rendered by the Monocle Build-timeline lane at /__ioi/lineage?tab=timeline (op/kind \u00b7 status \u00b7 started_at \u00b7 state_root, newest 30, cap named). This surface LINKS it and does not re-render it: a second renderer over the same records is a second answer waiting to disagree, and one plane gets one renderer. The surface also names WHY the transcript plane is not the builds table \u2014 it records no principal on any record, and 3124 of its 3174 records are hypervisor OPERATION transcripts (harness-profile ops, model-route ops), not builds at all.",
+      "column_mapping_ruling": "FUS-1's column refusal applies and is made explicit on-surface as a six-row mapping table. OUTPUTS binds NOTHING: an estate build record carries no output-resource field of any kind; its step_results carry per-step evidence whose shape changes with the step kind (a command's stdout excerpt, an agent turn's conversation file, a proposal's changed files), which is evidence of how a step ran and not a list of what the build produced. The estate's nearest artifact list is artifactNames on the RUNTIME JOB plane (/v1/jobs) \u2014 a different plane holding a different noun, and no estate record joins a runtime job to a build; inventing that edge would be a fabricated column. ACTIONS binds nothing either, by DESIGN: the verbs are real (POST /v1/hypervisor/automations/:id/runs to start, POST /v1/hypervisor/automation-executions/:id/cancel to cancel) and owned by Automations, so the column carries the record's PROOF (state_root + timeline_ref) instead and the surface links to the owner. STARTED BY, START TIME and STATUS bind directly (authority \u00b7 timestamp \u00b7 status + counts). DURATION is COMPUTED from timestamp and finished_at and is labelled as computed on every row, because a derived number presented as a recorded one is still a fabrication.",
+      "steps_are_not_jobs_ruling": "The reference's status roll-up reads 'N of M jobs succeeded'. On the estate the sub-unit of a build is a STEP (counts.done / failed / pending / running / stopped over step_results), and `job` is a LIVE estate noun on a different plane (/v1/jobs, runtime job records with a jobType, a checklist and an artifactNames list). Relabelling a step as a job would invent a hierarchy the estate does not have, so every roll-up on this surface says 'steps, not jobs' in its own words and a gate fails if the word 'jobs' is used for a step count.",
+      "estate_plane": {
+        "build_lane": "LIVE \u2014 the work ledger's `run` entries, rendered with the estate's OWN column names (Build \u00b7 Started by \u00b7 Start time \u00b7 Duration \u00b7 Status \u00b7 Proof). Every field is read off the record; a field the record does not carry is a typed dash, never a blank and never an invented value. Cap 50, NAMED whenever it truncates.",
+        "proof_anchor": "LIVE but PARTIAL, and said so: the state_root is present on the ledger entries the transcript plane recorded and EMPTY on the others. Those rows carry a typed dash whose reason says the proof anchor is genuinely absent \u2014 not withheld, and not zero.",
+        "task_tray_and_segmented_control": "COUNTED, not refused \u2014 and this is the deliberate contrast with REG-1. The registry leg refused to print 0 because its plane REFUSED the read; here the plane ANSWERED, so 0 running and 0 failed steps are MEASUREMENTS and they print, each chip naming exactly what was counted. The All/Running/Finished control renders as a live census of the plane and says on-surface that it is a count and not a filter, because this is a read-only projection.",
+        "filters": "ABSENT \u2014 the whole left Search-by/Filter-by panel is typed absences, each reason written for ITS control and all distinct. The load-bearing ones: no estate plane indexes builds by resource or by object type; a 'my builds' toggle would partition a domain of one AND would silently hide the entries whose principal cannot be resolved; the BRANCH radio has no build-record field behind it at all \u2014 the estate records a branch only on the workruns plane, which records no status, no start time and no duration and is therefore not an execution plane; the job-type filter would let the reference's vocabulary stand in for the estate's, because jobType lives on /v1/jobs and ledger runs carry a trigger_kind instead; and the date ranges have no server-side range parameter, no recorded tenant timezone, and would quietly exclude every unfinished build.",
+        "sessions": "REFUSED at port time \u2014 /v1/hypervisor/sessions answered HTTP 503 session_registry_unavailable (a pre-existing recorded legacy-slot refusal). No session count is printed and no build is bound to a session: rendering '0 sessions' would convert a closed door into a measurement, and the builds would silently look session-less rather than unresolved.",
+        "vendor_global_rail": "NOT PORTED \u2014 railless per the owner ruling 2026-08-20; nine of the reference's 14 controls are the vendor global rail and are never re-minted on a ported landing."
+      },
+      "outcome": "portable",
+      "shipped": "/__ioi/missions/builds (JOB-1; parity_class reference_ported, remediation_state live_ia_recorded; substrate_surface /__ioi/missions carried forward)",
+      "reason": "the landing grammar is portable AND the estate has a real build plane to carry it \u2014 but only one of its three projections is complete, so the leg's work was choosing the plane and PROVING the choice on-surface. Sixteen planes probed live and classified into four states; the three counts that justify the plane choice re-derived on every render; the build rows rendered verbatim from the work-ledger run lane with a typed dash wherever the record carries nothing; the reference's Outputs and Actions columns answered as REFUSALS rather than filled with different truth; a STEP never relabelled a job; the 3174-transcript plane linked to the Monocle Build timeline rather than re-rendered; every filter control a typed absence with a reason written for it; and every build VERB left on Automations. The landing designation for the jobs seed moves TERMINAL \u2192 NOW; the /__ioi/missions substrate keeps its class and its content and stays bound on the seed row."
     }
   ]
 }

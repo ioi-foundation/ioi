@@ -237,6 +237,123 @@ for (const [slug, route, title, absentPhrase, ownerLink] of [
   ok("registry: READ-ONLY projection — no verb is re-minted; the Create-repository absence NAMES the owner surface and the page links there", !t.includes("<form") && !/action="\/__ioi\/(packages|marketplace)/.test(t) && /Repository creation is a REAL estate verb and it is NOT missing/.test(t) && t.includes("/__ioi/packages/registry") && t.includes("/__ioi/marketplace/listings"), String(!t.includes("<form")));
   ok("registry: evidence cited (adjudication #registry-port + the LIVE deep atlas) and brand-clean — no vendor brand and no borrowed package-ecosystem name", /reference-seed-adjudications\.v1\.json#registry-port/.test(t) && /reference-live-tenant-deep-atlas\.v1\.json#registry/.test(t) && !/\bPalantir\b/i.test(t) && !/palantirfoundry/i.test(t) && !/\bconda\b/i.test(t) && !/\b(npm|maven|pypi|docker hub)\b/i.test(t));
 }
+// JOB-1: jobs — the BUILDS port, and the leg whose finding is that NO SINGLE PLANE lists every
+// build. The mirror-scoped verdict was absent_confirmed (#jobs, MIS-1.recon: "no Builds grammar
+// expresses at any recorded state; the substrate STANDS as the surface"); the live sweep overturned
+// it (title "Your builds · Builds" · 14 controls · a six-column build table over REAL rows). The
+// done-bar here is (a) the PLANE CHOICE must be proven, not asserted — the three reach counts are
+// re-derived independently by this verifier on this run and must match the page exactly; (b) every
+// plane's state must be classified from its own live response, a REFUSAL may never be a zero, and a
+// plane the daemon publishes no GET for may never be rendered as EMPTY; (c) no build field may be
+// invented — every Started-by is the record's own authority and a typed dash appears on exactly the
+// records whose state_root is empty; (d) the reference's unbindable columns must be REFUSED, not
+// filled; (e) a STEP may never be relabelled a "job", because `job` is a live estate noun on
+// another plane; and (f) the transcript plane must be LINKED, not re-rendered.
+{
+  const D = process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765";
+  const BLD_PLANES = [
+    "/v1/hypervisor/work-ledger",
+    "/v1/hypervisor/agent-run-transcripts",
+    "/v1/hypervisor/automation-executions",
+    "/v1/jobs",
+    "/v1/runs",
+    "/v1/tasks",
+    "/v1/goal-orchestration/goal-runs",
+    "/v1/goal-orchestration/ioi-agent/launches",
+    "/v1/goal-orchestration/attempts",
+    "/v1/hypervisor/foundry/run-plans",
+    "/v1/hypervisor/odk/transformation-runs",
+    "/v1/hypervisor/odk/materializing-runs",
+    "/v1/hypervisor/failover/runs",
+    "/v1/hypervisor/workruns",
+    "/v1/hypervisor/sessions",
+    "/v1/hypervisor/session-execution-bindings",
+  ];
+  const bIndex = await fetch(`${D}/v1`).then((r) => r.json()).catch(() => ({}));
+  const bRoutes = (Array.isArray(bIndex.families) ? bIndex.families : []).flatMap((f) => (Array.isArray(f.paths) ? f.paths : []));
+  const bMethods = (p) => { const r = bRoutes.find((x) => String(x.path || "") === p && !x.retired); return Array.isArray(r?.methods) ? r.methods : []; };
+  // The verifier re-derives the classification INDEPENDENTLY (same contract, its own code): a plane
+  // the daemon's own index publishes no GET for is write-only/absent before any body is read, a
+  // non-2xx is a typed refusal before any collection is looked for, and only a 200 that actually
+  // carried a collection may be called live-or-empty.
+  const bProbe = async (p) => {
+    try {
+      const r = await fetch(`${D}${p}`);
+      const text = await r.text();
+      let body = null; try { body = JSON.parse(text); } catch { body = null; }
+      const methods = bMethods(p);
+      if (!methods.includes("GET") || r.status === 405) return { path: p, state: "no_read_route", code: "", n: 0, rows: [] };
+      if (!r.ok) {
+        const b = body || {};
+        return { path: p, state: "refused", code: String((b.error && b.error.code) || b.reason || b.code || `http_${r.status}`), n: 0, rows: [] };
+      }
+      const arr = Array.isArray(body) ? body : Object.values(body || {}).find((v) => Array.isArray(v));
+      if (!Array.isArray(arr)) return { path: p, state: "unreadable", code: `http_${r.status}`, n: 0, rows: [] };
+      return { path: p, state: arr.length ? "live" : "empty", code: "", n: arr.length, rows: arr };
+    } catch { return { path: p, state: "unreadable", code: "http_0", n: 0, rows: [] }; }
+  };
+  const bDerived = await Promise.all(BLD_PLANES.map(bProbe));
+  const bBy = Object.fromEntries(bDerived.map((d) => [d.path, d]));
+  const bAutos = await fetch(`${D}/v1/hypervisor/automations`).then((r) => r.json()).then((j) => j.automations || []).catch(() => []);
+  const bLiveAutos = new Set(bAutos.map((a) => String(a.automation_id || "")));
+  const bLedger = (bBy["/v1/hypervisor/work-ledger"].rows || []).filter((e) => e && e.kind === "run");
+  const bTranscripts = bBy["/v1/hypervisor/agent-run-transcripts"].rows || [];
+  const bAutoRunIds = new Set(bTranscripts.filter((r) => r && r.kind === "automation-run").map((r) => String(r.run_id || "")));
+  const bInTr = bLedger.filter((e) => bAutoRunIds.has(String(e.id || "")));
+  const bNotInTr = bLedger.filter((e) => !bAutoRunIds.has(String(e.id || "")));
+  const bUnreachable = bLedger.filter((e) => !bLiveAutos.has(String(e.automation_id || "")));
+  const bNoRoot = bLedger.filter((e) => !(typeof e.state_root === "string" && e.state_root.trim() !== ""));
+  const bTerminal = new Set(["done", "complete", "completed", "success", "succeeded", "failed", "error", "cancelled", "canceled", "stopped"]);
+  const bOpen = bLedger.filter((e) => !bTerminal.has(String(e.status || "")));
+  const bFin = bLedger.filter((e) => bTerminal.has(String(e.status || "")));
+  const bFailedSteps = bLedger.reduce((n, e) => n + (Number((e.counts || {}).failed) || 0), 0);
+  const bSorted = [...bLedger].sort((a, b) => String(b.timestamp || "").localeCompare(String(a.timestamp || "")));
+  const bShown = bSorted.slice(0, 200);
+  const p = await page(`${SERVE}/__ioi/missions/builds`);
+  const t = p.text;
+  const planeRow = (path) => {
+    const i = t.indexOf(`data-ioi-plane="${path}"`);
+    if (i < 0) return "";
+    const start = t.lastIndexOf('<div class="bld-prow"', i);
+    const end = t.indexOf("</div>", i);
+    return start < 0 || end < 0 ? "" : t.slice(start, end + 6);
+  };
+  const gapReasons = [...t.matchAll(/<span class="[^"]*bld-gap[^"]*"[^>]*data-ioi-disabled-reason="([^"]*)"/g)].map((m) => m[1]);
+  ok("jobs: matrix reference_ported at /__ioi/missions/builds — and the /__ioi/missions SUBSTRATE is still bound on the row (the port is a sibling lane, never a replacement)", bySlug.jobs?.parity_class === "reference_ported" && bySlug.jobs?.candidate_surface === "/__ioi/missions/builds" && bySlug.jobs?.port_surface === "/__ioi/missions/builds" && bySlug.jobs?.substrate_surface === "/__ioi/missions" && bySlug.jobs?.surface_name === "Missions" && bySlug.jobs?.remediation_state === "live_ia_recorded" && /#jobs-port/.test(bySlug.jobs?.adjudication_ref || "") && /reference-live-tenant-atlas/.test(bySlug.jobs?.live_reference_evidence || ""), bySlug.jobs?.parity_class);
+  ok("jobs: renders 200 with the LIVE-tenant BUILDS grammar, RAILLESS (owner ruling 2026-08-20)", p.status === 200 && !t.includes("og-grail") && ["Builds", "Your builds", "Search by", "Filter by", "Show only my builds", "All branches", "Only master branch", "All branches excluding master", "Job type", "Clear all filters", "Started by", "Start time", "Duration", "Status"].every((k) => t.includes(k)), String(p.status));
+  // The load-bearing gate. This surface's whole argument is that the ledger run lane is the UNION
+  // and the other two projections are each incomplete — so all four counts are re-derived here from
+  // the three planes on THIS run and must match the page exactly. A pasted triple fails, and so does
+  // a correct-today triple the day a build lands or an automation is deleted.
+  ok("jobs: the UNION FINDING is RE-DERIVED — ledger total, transcript-reachable, un-transcribed, fan-out-unreachable and empty-state_root all match the planes on this run", new RegExp(`run</code> lane holds <b>${bLedger.length}</b> build`).test(t) && new RegExp(`can reach <b>${bInTr.length}</b> of them`).test(t) && new RegExp(`the other <b>${bNotInTr.length}</b> were never transcribed`).test(t) && new RegExp(`those same <b>${bNoRoot.length}</b> are exactly the entries`).test(t) && new RegExp(`<b>${bUnreachable.length}</b> of these builds belong to automations that no longer exist`).test(t), `ledger=${bLedger.length} inTr=${bInTr.length} notInTr=${bNotInTr.length} noRoot=${bNoRoot.length} unreachable=${bUnreachable.length}`);
+  ok("jobs: every plane's state is CLASSIFIED LIVE — the stamped state equals what the daemon answers to this identity right now", bDerived.length === 16 && bDerived.every((d) => new RegExp(`data-ioi-plane="${d.path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}" data-ioi-plane-state="${d.state}"`).test(t)), bDerived.map((d) => `${d.path.split("/").pop()}=${d.state}`).join(" "));
+  ok("jobs: a REFUSAL is rendered as a REFUSAL — the daemon's typed code verbatim, and NEVER as a count", bDerived.filter((d) => d.state === "refused").length > 0 && bDerived.filter((d) => d.state === "refused").every((d) => { const row = planeRow(d.path); return row.includes(d.code) && /REFUSAL, never a zero/.test(row) && !/\d+\s+records?/.test(row); }) && /A refusal is not a zero/.test(t), `${bDerived.filter((d) => d.state === "refused").length} refused`);
+  ok("jobs: EMPTY, MISSING and NO-READ-ROUTE are held apart — a plane the daemon publishes no GET for is never rendered EMPTY", bDerived.filter((d) => d.state === "empty").every((d) => /EMPTY plane, not a missing one/.test(planeRow(d.path))) && bDerived.filter((d) => d.state === "no_read_route").every((d) => /publishes no GET here/.test(planeRow(d.path)) && /not the same as reading nothing/.test(planeRow(d.path))) && /REFUSED is not EMPTY, EMPTY is not MISSING/.test(t), `empty=${bDerived.filter((d) => d.state === "empty").length} noroute=${bDerived.filter((d) => d.state === "no_read_route").length}`);
+  ok("jobs: a LIVE plane states its own record count, taken from the plane and not from a constant", bDerived.filter((d) => d.state === "live").every((d) => new RegExp(`${d.n} record${d.n === 1 ? "" : "s"} — counted from the plane on this render`).test(planeRow(d.path))), bDerived.filter((d) => d.state === "live").map((d) => `${d.path.split("/").pop()}:${d.n}`).join(" "));
+  ok("jobs: build rows == the ledger run lane exactly, newest-first, cap NAMED only when it truncates", (t.match(/class="bld-row"/g) || []).length === Math.min(200, bLedger.length) && (bLedger.length > 200 ? new RegExp(`newest <b>200</b> of <b>${bLedger.length}</b>`).test(t) : new RegExp(`All <b>${bLedger.length}</b> render here`).test(t)) && bShown.every((e) => t.includes(`data-ioi-build="${e.id}"`)), `rows=${(t.match(/class="bld-row"/g) || []).length} plane=${bLedger.length}`);
+  // No build field may be invented. Started-by is the record's OWN authority on every row, and the
+  // proof column is a typed dash on EXACTLY the records whose state_root is empty — not fewer
+  // (a fabricated root) and not more (a withheld one).
+  ok("jobs: every Started-by is the record's OWN authority, and the proof dash lands on EXACTLY the records with an empty state_root", bShown.every((e) => t.includes(`data-ioi-build-authority="${(e.authority || {}).ref || ""}"`)) && bShown.filter((e) => e.state_root).every((e) => t.includes(e.state_root)) && bNoRoot.length > 0 && (t.match(/data-ioi-disabled-reason="This ledger run entry carries an EMPTY state_root/g) || []).length === bShown.filter((e) => !(typeof e.state_root === "string" && e.state_root.trim() !== "")).length, `authorities=${new Set(bShown.map((e) => (e.authority || {}).ref)).size} noRootShown=${bShown.filter((e) => !e.state_root).length}`);
+  // The FUS-1 column refusal, made load-bearing: the two columns nothing binds must be marked
+  // unbound AND must not appear as rendered table headers over estate values.
+  ok("jobs: the reference's UNBINDABLE columns are REFUSED, not filled — Outputs and Actions are marked unbound and neither is a rendered build-table header", /data-ioi-column="Outputs" data-ioi-column-bound="no"/.test(t) && /data-ioi-column="Actions" data-ioi-column-bound="no"/.test(t) && ["Started by", "Start time", "Status"].every((c) => new RegExp(`data-ioi-column="${c}" data-ioi-column-bound="yes"`).test(t)) && !/<div class="bld-thead">[^]*?<span>Outputs<\/span>/.test(t) && !/<div class="bld-thead">[^]*?<span>Actions<\/span>/.test(t), "Outputs/Actions unbound");
+  ok("jobs: DURATION is labelled COMPUTED on every row that has one — the plane records no duration field and none is claimed", bLedger.every((e) => !("duration" in e) && !("duration_ms" in e)) && (t.match(/COMPUTED: finished_at − timestamp/g) || []).length === bShown.filter((e) => Date.parse(e.finished_at || "") >= Date.parse(e.timestamp || "")).length && /is labelled as computed on the row/.test(t), `computed=${(t.match(/COMPUTED: finished_at − timestamp/g) || []).length}`);
+  // `job` is a LIVE estate noun on /v1/jobs. Relabelling a build's steps as jobs would invent a
+  // hierarchy the estate does not have, so every roll-up must say steps and the surface must name
+  // the runtime job plane as the separate thing it is.
+  ok("jobs: a STEP is never relabelled a JOB — every roll-up says steps, the runtime job plane is named as a DIFFERENT plane, and no 'N of M jobs' roll-up appears", (t.match(/step[s]? done <b>\(steps, not jobs\)<\/b>/g) || []).length === bShown.length && !/of \d+ jobs (succeeded|done)/i.test(t) && /RUNTIME JOB plane/.test(t) && t.includes("/v1/jobs"), `rollups=${(t.match(/\(steps, not jobs\)/g) || []).length}`);
+  // One plane, one renderer. The Monocle Build timeline already renders the transcripts; this
+  // surface must link it and must NOT re-render transcript records here.
+  ok("jobs: the transcript plane is LINKED, not duplicated — the Monocle Build timeline is linked and no transcript run_id is rendered as a build row", t.includes("/__ioi/lineage?tab=timeline") && new RegExp(`the ${bTranscripts.length} transcripts are LINKED rather than re-rendered`).test(t) && !bTranscripts.filter((r) => r.kind !== "automation-run").slice(0, 40).some((r) => t.includes(`data-ioi-build="${r.run_id}"`)), `transcripts=${bTranscripts.length}`);
+  // Unlike the registry leg these zeros PRINT, because the plane answered — so they must be real
+  // measurements of the plane, re-counted here, never placeholders.
+  ok("jobs: the tray + segmented control are live CENSUSES of the plane, counted here independently — and said on-surface to be counts, not filters", new RegExp(`data-ioi-tray="open"[^>]*>⟳ <b>${bOpen.length}</b>`).test(t) && new RegExp(`data-ioi-tray="finished"[^>]*>✓ <b>${bFin.length}</b>`).test(t) && new RegExp(`data-ioi-tray="failed_steps"[^>]*>✕ <b>${bFailedSteps}</b>`).test(t) && new RegExp(`data-ioi-seg="all"[^>]*>All <b class="bld-segn">${bLedger.length}</b>`).test(t) && new RegExp(`data-ioi-seg="running"[^>]*>Running <b class="bld-segn">${bOpen.length}</b>`).test(t) && /a count and not a filter|a live census of the plane|not a filter/.test(t), `open=${bOpen.length} fin=${bFin.length} failedSteps=${bFailedSteps}`);
+  ok("jobs: every gap carries the UNIFIED contract (aria === data-ioi count) and there are real absences", (t.match(/aria-disabled="true"/g) || []).length >= 18 && (t.match(/aria-disabled="true"/g) || []).length === (t.match(/data-ioi-disabled-reason=/g) || []).length, `${(t.match(/aria-disabled="true"/g) || []).length} gaps`);
+  ok("jobs: no chrome reason is BOILERPLATE — every control's reason is written for that control (all distinct)", gapReasons.length >= 18 && new Set(gapReasons).size === gapReasons.length, `${gapReasons.length} chrome gaps, ${new Set(gapReasons).size} distinct`);
+  ok("jobs: READ-ONLY projection — no verb is re-minted; the Actions absence NAMES the owner surface and the page links there and to the untouched substrate", !t.includes("<form") && !/action="\/__ioi\/(missions|automations)/.test(t) && /owned by Automations/.test(t) && t.includes("/__ioi/automations") && t.includes("/__ioi/missions") && /sibling lane, not a replacement/.test(t), String(!t.includes("<form")));
+  ok("jobs: evidence cited (adjudication #jobs-port + the LIVE atlas) and brand-clean — no vendor brand and no borrowed tenant identity", /reference-seed-adjudications\.v1\.json#jobs-port/.test(t) && /reference-live-tenant-atlas\.v1\.json#jobs/.test(t) && !/\bPalantir\b/i.test(t) && !/palantirfoundry/i.test(t) && !/Josman/i.test(t) && !/job-tracker/i.test(t));
+}
 const fails = results.filter((r) => !r.pass);
 for (const r of results) console.log(`  ${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? `  (${r.detail})` : ""}`);
 console.log(`\n${results.length - fails.length}/${results.length} passed`);
