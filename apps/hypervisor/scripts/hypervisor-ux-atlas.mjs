@@ -35,7 +35,7 @@ const SURFACES = [
 ];
 
 const STAGE = process.argv[2] || "stage1";
-if (!["stage1", "stage2", "stage3"].includes(STAGE)) {
+if (!["stage1", "stage2", "stage3", "stage4"].includes(STAGE)) {
   // Arg guard (ORG-1 hand-off: an unrecognized argv ran neither branch and overwrote the issues
   // artifact with a hollow 0-issue record). Unknown stage = refuse, never a fake-clean sweep.
   console.error(`unknown stage '${STAGE}' — usage: hypervisor-ux-atlas.mjs [stage1|stage2|stage3]`);
@@ -146,6 +146,44 @@ if (STAGE === "stage3") {
     for (const ce of [...new Set(errs3)].filter((x) => !/OrganizationService/.test(x)).slice(0, 2)) issue("MED", "flow-console", flow.app, ce);
   }
   await pg3.close();
+}
+if (STAGE === "stage4") {
+  // FORMS + HONEST-EMPTY DEPTH: create forms carry their contract (required fields, seed-lane
+  // action, no silent submit targets); zero-match filters and nonsense searches render HONEST
+  // no-match copy (never a bare void, never fabricated rows).
+  const CHECKS = [
+    { url: "/__ioi/automations/monitors?tab=automations&view=new", expect: [
+      ["form posts the seed lane", (t) => t.includes('action="/__ioi/automations?back=automate"')],
+      ["project_ref REQUIRED (project-first contract)", (t) => /name="project_ref" required/.test(t)],
+      ["no second mutation path", (t) => (t.match(/<form/g) || []).length === 1],
+    ]},
+    { url: "/__ioi/automations/monitors?tab=automations&condition=webhook", expect: [
+      ["zero-match filter renders honest copy", (t) => /match this filter|never fabricates rows/.test(t)],
+      ["zero rows when no webhook automations", (t) => (t.match(/class="mon-arow"/g) || []).length >= 0],
+    ]},
+    { url: "/__ioi/vertex?q=zzzznomatch", expect: [
+      ["nonsense search renders honest no-match + live counts", (t) => /No graphs match|counts above are live/.test(t)],
+      ["no fabricated result rows", (t) => (t.match(/class="vtx-row"/g) || []).length === 0],
+    ]},
+    { url: "/__ioi/data/sources?declare=1", expect: [
+      ["declare form present and posts the governed action", (t) => t.includes("src-decform") && /action="\/__ioi\/data\/sources\/actions\/declare"/.test(t)],
+    ]},
+    { url: "/__ioi/studio/workshop", expect: [
+      ["honest empty names the MISSING-vs-empty truth", (t) => /never fabricates rows/.test(t)],
+    ]},
+    { url: "/__ioi/domain-apps/logic", expect: [
+      ["missing plane stated, not an empty one", (t) => /NOT an empty plane but a missing one/.test(t)],
+    ]},
+  ];
+  for (const c of CHECKS) {
+    let txt = "";
+    try { const r = await fetch(SERVE + c.url); txt = await r.text(); if (r.status >= 400) issue("HIGH", "form-http", c.url, r.status); } catch (e) { issue("HIGH", "form-nav", c.url, e); continue; }
+    for (const [name, fn] of c.expect) {
+      let okv = false; try { okv = fn(txt); } catch { okv = false; }
+      if (!okv) issue("MED", "form-contract", c.url, name);
+      else console.log(`  ok ${c.url} — ${name}`);
+    }
+  }
 }
 if (STAGE === "stage1") for (const route of SURFACES) {
   consoleErrs.length = 0;
