@@ -9620,6 +9620,197 @@ async function handleEstateRequest(req, res, body) {
       </div></div></body></html>`);
       return;
     }
+    // ---- Environments · Map — MAP-1 (remediation v2): the CANVAS-GRAMMAR port, and the leg where
+    // the honest answer is a REFUSAL to draw. The mirror capture was blocked_missing_capture, so
+    // the mirror-scoped verdict was absent_confirmed (#map, ENV-1). The owner-authorized live sweep
+    // OVERTURNED it: the map click target boots a real geospatial workbench — title "New map",
+    // heading "No layers", 20 controls (Save as… · Layers · Legend · Histogram · Add to map ·
+    // Timeline · Select ×2 · Search Around ×2 · Selection) and TWO canvas surfaces rendering a live
+    // basemap.
+    //
+    // ADJUDICATION (#map-port): a map CANVAS cannot be honestly faked. At port time the daemon
+    // published 753 routes and NOT ONE was geospatial — no coordinates, no geometry, no tiles, no
+    // geocoder, no layer store (sweep: 247 param-free GET routes fetched and walked for geo-bearing
+    // fields). The ROUTE census is re-counted from the daemon's own index on every render below, so
+    // the number can never age into a lie; the FIELD sweep stays an attributed adjudication finding.
+    // So the LANDING GRAMMAR ports and the canvas region is a TYPED ABSENCE that says which kind
+    // of absence it is: the reference's canvas draws a REAL basemap under an EMPTY layer list; the
+    // estate's canvas is MISSING. Nothing map-shaped is drawn here — no canvas element, no svg
+    // geometry, no tile source, no borrowed vendor basemap.
+    //
+    // The one lane that IS live is deliberately NOT a map: the estate's placement plane records
+    // provider PLACEMENT GEOGRAPHY as coarse strings (region · location · zone · az) on cloud
+    // resource candidates. Those rows render verbatim beneath the absence — with the daemon's own
+    // status / coverage_state / risk-label wording on every row, because every one of them is an
+    // EXPIRED candidate carrying simulator-or-fixture evidence the daemon itself marks "not live
+    // supply". A region string is not a coordinate and this list is not a layer; the surface says
+    // both.
+    if (pathname === "/__ioi/environments/map" && req.method === "GET") {
+      const [mapVenuesJson, mapOpsJson, mapIndexJson] = await Promise.all([
+        daemonFetch(`/v1/hypervisor/placement/venues`).then((r) => r.json()).catch(() => ({})),
+        daemonFetch(`/v1/hypervisor/provider-operations`).then((r) => r.json()).catch(() => ({})),
+        daemonFetch(`/v1`).then((r) => r.json()).catch(() => ({})),
+      ]);
+      // The geo-plane claim is COUNTED FROM THE DAEMON'S OWN ROUTE INDEX on every render, never
+      // hardcoded: a pasted "753 routes, none geospatial" would rot silently the day a geospatial
+      // route lands, and this surface's whole argument rests on that number. The FIELD sweep (every
+      // param-free GET fetched and walked for geo-bearing keys) is a recorded adjudication finding
+      // and is attributed as one; the ROUTE census re-derives here.
+      const mapRoutes = (Array.isArray(mapIndexJson.families) ? mapIndexJson.families : []).flatMap((f) => (Array.isArray(f.paths) ? f.paths : []));
+      const MAPP_GEO_ROUTE_RE = /(geo|geospatial|coordinate|latitude|longitude|geometry|basemap|\btile|map-layer|geocod|cartograph)/i;
+      const mapGeoRoutes = mapRoutes.filter((r) => MAPP_GEO_ROUTE_RE.test(String(r.path || "")));
+      const mapReadRoutes = mapRoutes.filter((r) => (Array.isArray(r.methods) ? r.methods : []).includes("GET") && !String(r.path || "").includes(":") && !String(r.path || "").includes("*") && !r.retired);
+      const esc = CX_ESC;
+      const mfdt = (iso) => { const d2 = new Date(iso || 0); return isNaN(d2) ? "—" : d2.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); };
+      // ONE gap contract for every named absence (aria + title + data-ioi reason). mapp-gap marks a
+      // CHROME control the reference offers and the estate cannot honour; mapp-dash marks a field
+      // the record itself does not carry. Every chrome reason is written for ITS control — a reused
+      // boilerplate reason is a decorative assertion, and the verifier fails on one.
+      const mgap = (cls, label, reason) => `<span class="${cls} mapp-gap" aria-disabled="true" title="${esc(reason)}" data-ioi-disabled-reason="${esc(reason)}">${esc(label)}</span>`;
+      const mdash = (reason) => `<span class="mapp-dash" aria-disabled="true" title="${esc(reason)}" data-ioi-disabled-reason="${esc(reason)}">—</span>`;
+      // ---- the ONE live lane: placement geography on the estate's REAL candidate plane.
+      const MAPP_GEO_KEYS = ["region", "location", "zone", "az"];
+      const mapVenues = Array.isArray(mapVenuesJson.venues) ? mapVenuesJson.venues : [];
+      const mapCands = mapVenues.flatMap((v) => (Array.isArray(v.candidates) ? v.candidates : []));
+      const mapStr = (v) => (typeof v === "string" && v.trim() !== "" ? v : "");
+      const mapGeoCands = mapCands.filter((c) => MAPP_GEO_KEYS.some((k) => mapStr(c[k])));
+      const MAPP_GEO_CAP = 200;
+      const mapGeoSorted = [...mapGeoCands].sort((a, b) => String(b.observed_at || "").localeCompare(String(a.observed_at || "")));
+      const mapGeoShown = mapGeoSorted.slice(0, MAPP_GEO_CAP);
+      const mapGeoRows = mapGeoShown.map((c) => {
+        const primaryKey = mapStr(c.region) ? "region" : "location";
+        const primary = mapStr(c[primaryKey]);
+        const subKey = mapStr(c.zone) ? "zone" : (mapStr(c.az) ? "az" : "");
+        const risk = (Array.isArray(c.risk_labels) ? c.risk_labels : []).find((l) => /_evidence_not_live_supply$/.test(String(l))) || "";
+        return `<a class="mapp-row" href="/__ioi/environments" title="a REAL cloud-resource-candidate record — the estate's placement plane (owner surface: Environments)">`
+          + `<span><b>${esc(c.display_name || c.candidate_id || "candidate")}</b><code class="mapp-ref">${esc(c.candidate_id || "")}</code></span>`
+          + `<span>${esc(c.provider_kind || "—")}</span>`
+          + `<span><b>${esc(primary)}</b><code class="mapp-ref">field: ${esc(primaryKey)}</code></span>`
+          + `<span>${subKey ? `${esc(mapStr(c[subKey]))}<code class="mapp-ref">field: ${esc(subKey)}</code>` : mdash("This candidate record carries no zone or az field — the plane records none for this provider kind (typed absence, not an unread field)")}</span>`
+          + `<span>${esc(String(c.status || "—"))} · ${esc(String(c.coverage_state || "—"))}</span>`
+          + `<span>${risk ? esc(risk) : mdash("This record's risk_labels carry no *_evidence_not_live_supply marker — the field is read from the record itself and never supplied by this surface (typed absence)")}</span>`
+          + `<span>${esc(mfdt(c.observed_at))}</span></a>`;
+      }).join("");
+      // The SECOND geography-bearing plane is NAMED here, not rendered — one lane per surface, and
+      // the count is read live so the claim can never rot into a stale number.
+      const mapOps = Array.isArray(mapOpsJson.operations) ? mapOpsJson.operations : [];
+      const mapOpsGeo = mapOps.filter((o) => MAPP_GEO_KEYS.some((k) => mapStr((o.evidence || {})[k])));
+      const mapOpsGeoSim = mapOpsGeo.filter((o) => JSON.stringify(o.evidence || {}).includes("simulated_control_plane"));
+      // The recorded state of the rendered lane, counted from the records themselves so the claim
+      // cannot rot into a stale number: an EXPIRED candidate carrying not-live-supply evidence is
+      // not a place where anything runs, and this surface says so in the daemon's own vocabulary.
+      const mapGeoExpired = mapGeoCands.filter((c) => String(c.status || "") === "expired").length;
+      const mapGeoNotLive = mapGeoCands.filter((c) => (Array.isArray(c.risk_labels) ? c.risk_labels : []).some((l) => /_evidence_not_live_supply$/.test(String(l)))).length;
+      // ---- the reference's own control inventory, every one of it a typed absence with ITS reason
+      const mapPanelTabs = [
+        ["Search", "No geographic search index exists on the estate — nothing here can geocode a place name or search by map extent (typed absence)"],
+        ["Layers", ""],
+        ["Basemap", "The basemap picker chooses between registered tile styles; the estate has ZERO tile sources registered, so the picker would list a plane that does not exist (typed absence)"],
+        ["Legend", "A legend describes a rendered layer's symbology — with no layer plane and no renderer there is nothing to describe (typed absence)"],
+        ["Histogram", "The reference histogram bins a layer's numeric attribute across the current map extent; the estate has neither layers nor an extent (typed absence)"],
+      ];
+      const mapPanelTabsHtml = mapPanelTabs.map(([label, reason]) => (reason
+        ? mgap("mapp-ptab", label, reason)
+        : `<span class="mapp-ptab on" aria-current="true">${esc(label)}</span>`)).join("");
+      const mapDrawTools = [
+        ["Polygon", "A polygon draw tool writes a ring of coordinates into a geometry plane the estate does not have (typed absence)"],
+        ["Path", "A freehand path writes a coordinate string into a geometry plane the estate does not have (typed absence)"],
+        ["Rectangle", "A rectangle extent is two corner coordinates the estate has nowhere to store and no features to intersect (typed absence)"],
+        ["Circle", "A radius selection needs a centre coordinate and a distance metric — the estate stores no coordinates and computes no distances (typed absence)"],
+        ["More draw tools", "The remaining draw tools are the same absence in other shapes: every one of them writes geometry, and there is no geometry plane (typed absence)"],
+        ["Point", "A point marker is a single coordinate pair, and the estate records no coordinates anywhere in its daemon routes (typed absence)"],
+      ].map(([label, reason]) => mgap("mapp-tool", label, reason)).join("");
+      const mapZoomHtml = [
+        ["Zoom to fit", "Zoom-to-fit frames the extent of the loaded layers — there are no layers and no extent to frame (typed absence)"],
+        ["Zoom in", "Zoom is a camera over a tiled basemap the estate does not serve (typed absence)"],
+        ["Zoom out", "Zoom-out is that same missing camera in the other direction: the estate serves no tiles at any zoom level (typed absence)"],
+      ].map(([label, reason]) => mgap("mapp-zoom", label, reason)).join("");
+      const mapCanvasReason = "No map canvas — NOT an empty map but a MISSING PLANE: the estate has no geospatial plane at all, so there is nothing to pan, zoom, or draw on (typed absence)";
+      const mapFoot = `MAP-1 (remediation v2): the CANVAS-grammar port — the leg where honesty is a REFUSAL to draw. The mirror capture was blocked_missing_capture (mirror-scoped verdict: absent_confirmed); the owner-authorized live sweep OVERTURNED it and recorded a real geospatial workbench (title "New map" · heading "No layers" · 20 controls · TWO canvas surfaces over a live basemap). TYPED ABSENT here: the canvas itself and every control the reference hangs on it — the estate publishes ${mapRoutes.length} daemon routes and ${mapGeoRoutes.length} are geospatial, re-counted from the daemon\u0027s route index on every render (no coordinates, no geometry, no tiles, no geocoder, no layer store; the field sweep of ${mapReadRoutes.length} param-free GET routes is recorded in the adjudication). A drawn map would have been a fabricated reference, so none is drawn. LIVE here, and deliberately NOT a map: <b>${mapGeoCands.length} of ${mapCands.length}</b> REAL cloud-resource-candidate records carry placement geography (region · location · zone · az) — rendered verbatim with the daemon's own status, coverage_state and risk wording. Also recorded and NAMED but not rendered (one location lane per surface): the provider-operations plane carries the same fields on <b>${mapOpsGeo.length} of ${mapOps.length}</b> operations \u2014 ${mapOpsGeoSim.length} of those ${mapOpsGeo.length} carry the daemon\u0027s own "simulated_control_plane" marker in their evidence. Evidence: reference-seed-adjudications.v1.json#map-port · reference-live-tenant-deep-atlas.v1.json#map (landing) · reference-live-tenant-atlas.v1.json#map. Owner: <a href="/__ioi/environments">Environments</a> · truth: <a href="/__ioi/environments">placement venues + candidates</a> · <a href="/__ioi/operations">provider operations</a>.`;
+      sendOwnedSurfaceHtml(res, "map", `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Map</title><style>
+        :root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#fff;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif}a{color:#215db0;text-decoration:none}
+        .mapp-shell{display:flex;flex-direction:column;min-height:100vh}
+        .mapp-header{flex:0 0 50px;display:flex;align-items:center;gap:14px;background:#fff;box-shadow:0 1px 0 #d1d1d1,0 3px 4px rgba(0,0,0,.04);z-index:6}
+        .mapp-hchip{width:50px;height:50px;flex:0 0 50px;background:rgba(45,114,210,.08) center/24px no-repeat}
+        .mapp-title{font-size:16px;font-weight:600;color:#404854;margin:0}
+        .mapp-hright{display:flex;align-items:center;gap:8px;margin-left:auto;padding-right:16px}
+        .mapp-save{display:inline-flex;align-items:center;height:30px;padding:0 12px;border-radius:4px;background:#2d72d2;color:#fff;font-size:14px}
+        .mapp-chip{display:inline-flex;align-items:center;height:30px;padding:0 10px;border-radius:4px;border:1px solid #d1d1d1;font-size:13px;color:#404854}
+        .mapp-gap{opacity:.62;cursor:not-allowed}
+        .mapp-dash{color:#a8b2be;cursor:not-allowed}
+        .mapp-work{display:flex;gap:0;align-items:stretch;padding:14px 18px 0;gap:14px}
+        .mapp-panel{flex:0 0 340px;border:1px solid #e5e8eb;border-radius:4px;align-self:flex-start}
+        .mapp-ptabs{display:flex;align-items:center;gap:4px;padding:6px;border-bottom:1px solid #e5e8eb}
+        .mapp-ptab{font-size:12px;line-height:24px;padding:0 8px;border-radius:3px;color:#404854}
+        .mapp-ptab.on{background:#e8eef7;color:#215db0;font-weight:600}
+        .mapp-add{display:block;margin:10px;text-align:center;line-height:30px;border:1px solid #d1d1d1;border-radius:4px;font-size:13px;color:#404854}
+        .mapp-pbody{padding:0 10px 10px}
+        .mapp-pfoot{display:flex;align-items:center;gap:8px;padding:8px 10px;border-top:1px solid #e5e8eb;font-size:13px}
+        .mapp-canvascol{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
+        .mapp-toolbar{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+        .mapp-tgroup{display:flex;align-items:center;gap:6px;border:1px solid #e5e8eb;border-radius:4px;padding:5px 8px;background:#fff}
+        .mapp-tool,.mapp-select,.mapp-zoom{font-size:12px;color:#404854}
+        .mapp-canvasrow{display:flex;gap:8px;align-items:stretch}
+        .mapp-absent{flex:1;min-width:0;border:1px solid #f0dca6;background:#fff8e6;border-radius:4px;padding:26px 24px;color:#5f6b7c;font-size:14px;line-height:1.65}
+        .mapp-absent h2{font-size:17px;color:#1c2127;margin:0 0 10px}
+        .mapp-absent p{margin:0 0 10px}
+        .mapp-tray{flex:0 0 34px;border:1px solid #e5e8eb;border-radius:4px;display:flex;align-items:flex-start;justify-content:center;padding:10px 0;font-size:12px}
+        .mapp-tray span{writing-mode:vertical-rl}
+        .mapp-underbar{display:flex;align-items:center;gap:8px;padding-bottom:4px}
+        .mapp-geo{padding:18px 18px 40px}
+        .mapp-h{font-size:18px;font-weight:600;margin:18px 0 4px}
+        .mapp-note{font-size:12px;color:#5f6b7c;margin:0 0 12px;line-height:1.65}
+        .mapp-thead,.mapp-row{display:grid;grid-template-columns:2.1fr .8fr 1.2fr 1.1fr 1.5fr 1.7fr .9fr;gap:8px;padding:8px}
+        .mapp-thead{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#5f6b7c;border-bottom:1px solid #e5e8eb}
+        .mapp-row{align-items:center;border-bottom:1px solid #f0f2f5;font-size:13px;color:#1c2127}
+        .mapp-row:hover{background:#f6f7f9}
+        .mapp-ref{display:block;font-size:11px;color:#5f6b7c;word-break:break-all}
+        .mapp-empty{padding:22px 10px;color:#5f6b7c;font-size:14px;line-height:1.6}
+        .mapp-foot{font-size:12px;color:#7b8494;line-height:1.65;margin:18px 0 0}
+      </style></head><body><div class="mapp-shell">
+        <header class="mapp-header">
+          <span class="mapp-hchip" aria-hidden="true" style="background-image:url('${DSG_APP_TILE_URI}')"></span>
+          <h1 class="mapp-title">Map</h1>
+          <div class="mapp-hright">
+            ${mgap("mapp-chip", "Basemap style ▾", "No basemap plane — the estate binds no tile service and ships no map tiles; the reference's style chip switches third-party raster styles this estate has no binding to, and borrowing one would fabricate the reference (typed absence)")}
+            ${mgap("mapp-save", "Save as…", "Saving a map document needs a map-document plane the estate does not have — and a ported READ landing never re-mints an authority-crossing write verb (typed absence)")}
+            ${mgap("mapp-chip", "Map settings", "No per-surface map-settings plane exists — projection, units and label preferences would be written nowhere (typed absence)")}
+          </div>
+        </header>
+        <div class="mapp-work">
+          <aside class="mapp-panel">
+            <div class="mapp-ptabs">${mapPanelTabsHtml}${mgap("mapp-ptab", "«", "Panel collapse is a per-principal surface preference the estate does not store; a ported read landing keeps one honest layout instead of a control that forgets (typed absence)")}</div>
+            ${mgap("mapp-add", "⊕ Add to map ▾", "Adding data to a map needs BOTH a geometry-bearing dataset and a layer plane to hold the result — the estate has neither, so there is nothing that could be added to nothing (typed absence)")}
+            <div class="mapp-pbody"><div class="mapp-empty">No layers — and NOT an empty layer list: there is no layer plane to be empty. The live reference's own panel reads "No layers · Add data to your map to get started" over a LIVE canvas; that is an EMPTY list. This one is MISSING. This lane never fabricates a layer.</div></div>
+            <div class="mapp-pfoot">${mgap("mapp-chip", "Basemap", "The reference names its active third-party tile style in this slot; the estate has no tile binding to name, so the slot stays a named absence rather than borrowing a vendor's basemap (typed absence)")}</div>
+          </aside>
+          <div class="mapp-canvascol">
+            <div class="mapp-toolbar">
+              <div class="mapp-tgroup">${mgap("mapp-select", "Select", "Selecting on a map means selecting FEATURES inside a drawn extent — no features, no extent, no geometry plane (typed absence)")}${mgap("mapp-select", "Search Around", "Search Around walks the ontology outward from the features selected on the canvas; with no canvas and no feature plane there is no starting set to walk from (typed absence)")}</div>
+              <div class="mapp-tgroup">${mapDrawTools}</div>
+            </div>
+            <div class="mapp-canvasrow">
+              <section class="mapp-absent" aria-disabled="true" title="${esc(mapCanvasReason)}" data-ioi-disabled-reason="${esc(mapCanvasReason)}">
+                <h2>No map canvas — NOT an empty map but a MISSING PLANE</h2>
+                <p>The reference renders TWO canvas surfaces here over a live basemap, and its "No layers" panel is an EMPTY layer list drawn on top of a map that exists. The estate's canvas is <b>ABSENT</b>: counted from the daemon\u0027s own route index on this render, it publishes <b>${mapRoutes.length}</b> routes and <b>${mapGeoRoutes.length}</b> of them are geospatial — no coordinate store, no geometry type, no basemap tiles, no geocoder, no layer plane. The recorded field sweep behind that (adjudication #map-port) fetched all ${mapReadRoutes.length} param-free GET routes and walked every response for geo-bearing keys; it returned no coordinate, geometry, or tile-bearing field anywhere in the estate.</p>
+                <p>So this port draws nothing map-shaped: no canvas element, no rendered geometry, no borrowed vendor basemap. A map rendered here would be a fabricated reference, and the distinction this surface refuses to blur is exactly the one a drawn map would erase — <b>missing is not empty</b>.</p>
+                <p>What a real map canvas would need first, named rather than implied: a geometry-bearing record type, a coordinate reference system, a tile or vector basemap source, and a layer plane that binds them. None of the four exists today; each is an authority-and-plane cut, not a UI cut.</p>
+              </section>
+              <div class="mapp-tray">${mgap("mapp-chip", "Selection", "The selection tray lists the features currently selected on the canvas — there is no canvas and no feature plane behind it to select from (typed absence)")}</div>
+            </div>
+            <div class="mapp-underbar">${mapZoomHtml}${mgap("mapp-chip", "Timeline", "The timeline animates features by a temporal attribute; the estate has no temporal geometry to animate (typed absence)")}</div>
+          </div>
+        </div>
+        <div class="mapp-geo">
+          <h2 class="mapp-h">Placement geography — the estate's only location-bearing records</h2>
+          <p class="mapp-note">This is <b>NOT a map layer</b> and these are <b>not coordinates</b>. ${mapGeoCands.length} of ${mapCands.length} REAL cloud-resource-candidate records on the estate's placement plane carry a placement-geography field (region · location · zone · az) — coarse provider placement labels that cannot be plotted without a geocoding plane the estate does not have; the other ${mapCands.length - mapGeoCands.length} carry none${mapGeoCands.length > MAPP_GEO_CAP ? `, and the newest ${MAPP_GEO_CAP} of the ${mapGeoCands.length} render below (cap NAMED, never silent)` : ""}. Every row names WHICH field its value came from, so a value is never shown under a header it does not belong to, and every row carries the daemon's own recorded state verbatim — read them: an <b>expired</b> candidate whose evidence the daemon marks <b>not live supply</b> is not a place where anything is running. Read the recorded state before reading the geography: <b>${mapGeoExpired} of ${mapGeoCands.length}</b> of these records are status <b>expired</b> and <b>${mapGeoNotLive}</b> carry a <code>*_evidence_not_live_supply</code> risk label \u2014 the daemon\u0027s own vocabulary, not this surface\u0027s gloss. Rows open the owner surface.</p>
+          <div class="mapp-thead"><span>Candidate</span><span>Provider</span><span>Placement geography</span><span>Zone / AZ</span><span>Recorded state</span><span>Evidence class</span><span>Observed</span></div>
+          ${mapGeoRows || `<div class="mapp-empty">No location-bearing records — this table renders the real placement-candidate plane and never fabricates rows.</div>`}
+          <p class="mapp-foot">${mapFoot}</p>
+        </div>
+      </div></body></html>`);
+      return;
+    }
     // ---- Studio · Workshop — STU-1/STU-2 (remediation v2): the D6 COMBINED-SEED port. The
     // workshop capture is byte-dead; module's capture BOOTS AS "Workshop — Home" (atlas splash
     // state, 5 facet groups) and is the recorded donor (roles donor+authoring_flow). The I-4

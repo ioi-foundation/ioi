@@ -208,7 +208,23 @@
     {
       "click_target": "/environments",
       "status": "GRE",
-      "note": "map seed absent_confirmed (reference-seed-adjudications.v1.json#map); the owned Environments app is greenfield \u2014 awaits GRE-1 like its siblings"
+      "note": "the owned Environments app is greenfield \u2014 awaits GRE-1 like its siblings. CORRECTION (MAP-1, 2026-08-20): this note carried the map seed's mirror-scoped absent_confirmed verdict (reference-seed-adjudications.v1.json#map); the owner-authorized live-tenant sweep OVERTURNED it (20 controls \u00b7 2 canvas surfaces) and the map seed now has its OWN designation (environments:map \u2192 NOW, /__ioi/environments/map, reference-seed-adjudications.v1.json#map-port). The GRE status here is unchanged and is about the owned Environments app itself, not about map.",
+      "superseded_note": "map seed absent_confirmed (reference-seed-adjudications.v1.json#map) \u2014 kept as history; overturned by the live-tenant sweep and re-adjudicated in #map-port"
+    },
+    {
+      "click_target": "environments:map",
+      "status": "NOW",
+      "grammar": "Map workbench landing (the LIVE-tenant grammar the map click target actually boots): header + Save-as \u00b7 left layer panel (tab strip Search/Layers/Basemap/Legend/Histogram, Add-to-map, active-basemap footer) \u00b7 select + search-around and six draw tools \u00b7 vertical Selection tray \u00b7 zoom + Timeline under-bar \u2014 over a canvas region that is a TYPED ABSENCE. A map CANVAS cannot be honestly faked and the estate has NO geospatial plane (0 geospatial routes of 753; 247 param-free GET routes swept), so nothing map-shaped is drawn and the absence names MISSING vs the reference's own EMPTY layer list. One LIVE lane, explicitly NOT a map: the placement plane's cloud-resource candidates that carry placement geography (region \u00b7 location \u00b7 zone \u00b7 az), rendered verbatim with each record's expired / not-live-supply state.",
+      "route": "/__ioi/environments/map",
+      "supersedes_terminal": "absent_confirmed (mirror-scoped, recorded on the /environments target's note because the map seed had no target of its own) \u2014 overturned by the owner-authorized live-tenant sweep; the mirror record stands as history",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#map-port",
+      "evidence": "reference-live-tenant-deep-atlas.v1.json#map + reference-live-tenant-atlas.v1.json#map",
+      "competitors": [
+        {
+          "seed": "map",
+          "disposition": "the map seed IS this target; the owned Environments app (/environments) stays GRE and is a different click target (D5: one designation per target)"
+        }
+      ]
     },
     {
       "click_target": "/work",

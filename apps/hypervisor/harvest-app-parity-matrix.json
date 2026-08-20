@@ -18,8 +18,8 @@
   "total_seeds": 39,
   "by_parity_class": {
     "daemon_wired": 13,
-    "reference_capture": 12,
-    "reference_ported": 13,
+    "reference_capture": 11,
+    "reference_ported": 14,
     "substrate_bound": 1
   },
   "legend": {
@@ -878,16 +878,35 @@
       "capture_base": "/workspace/map/",
       "grammar": "editor_canvas",
       "tier": "aux",
-      "parity_class": "reference_capture",
+      "parity_class": "reference_ported",
       "capture_state": "blocked_missing_capture",
       "reference_capture": "/__apps/map",
       "reference_workspace": "/workspace/map/",
-      "note": "geospatial map canvas; unbound",
+      "note": "MAP-1: live_ia_recorded → ported. A map CANVAS cannot be honestly faked, so the canvas is a named absence that distinguishes MISSING from the reference's own EMPTY layer list — and the estate's only location-bearing records render beneath it as an explicitly NON-map list",
       "reference_clean_state": "shell_clean_only",
       "reference_clean_reason": "shell renders a WELCOME/empty landing (cards 4 · lines 15, no row/node data) — clean chrome, no real data to port against (proxy lane renders no data (score 0); the origin lane is the readable one)",
       "reference_clean_artifact": "reference-clean-sweep.json",
       "remediation_state": "live_ia_recorded",
-      "adjudication_ref": "reference-seed-adjudications.v1.json#map + reference-live-tenant-atlas.v1.json#map"
+      "adjudication_ref": "reference-seed-adjudications.v1.json#map + reference-seed-adjudications.v1.json#map-port + reference-live-tenant-atlas.v1.json#map + reference-live-tenant-deep-atlas.v1.json#map",
+      "port_surface": "/__ioi/environments/map",
+      "surface_name": "Environments",
+      "live_reference_evidence": "reference-live-tenant-deep-atlas.v1.json#map (landing) + reference-live-tenant-atlas.v1.json#map",
+      "reference_landmarks": [
+        "Map",
+        "Add to map",
+        "No layers",
+        "Layers",
+        "Legend",
+        "Histogram",
+        "Timeline",
+        "Select",
+        "Search Around",
+        "Selection",
+        "Save as…"
+      ],
+      "binding": "the live-tenant MAP workbench grammar (header + Save-as · left layer panel with its tab strip, Add-to-map and basemap footer · select/search-around + six draw tools · selection tray · zoom + timeline under-bar) over a canvas region that is a TYPED ABSENCE: the estate has NO geospatial plane (no coordinates, geometry, tiles, geocoder or layer store in 753 daemon routes; sweep of 247 param-free GET routes recorded in #map-port), so nothing map-shaped is drawn — no canvas element, no rendered geometry, no borrowed vendor basemap. The one LIVE lane is deliberately NOT a map: the REAL placement plane's cloud-resource candidates that carry placement geography (region · location · zone · az), each row naming WHICH field its value came from and carrying the daemon's own status / coverage_state / not-live-supply risk wording verbatim",
+      "candidate_surface": "/__ioi/environments/map",
+      "shell_pixel_certified": false
     },
     {
       "owner": "Domain Apps",

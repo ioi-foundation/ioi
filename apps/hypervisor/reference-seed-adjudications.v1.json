@@ -649,6 +649,41 @@
       "outcome": "portable",
       "shipped": "/__ioi/domain-apps/fusion (FUS-1; parity_class reference_ported, remediation_state live_ia_recorded)",
       "reason": "landing grammar portable AND live-evidenced: 2 of the 4 reference tabs bind REAL estate planes (All files \u2192 the projects plane; Data Catalog \u203a Files \u2192 the ODK materialized-object-set + declared-data-source planes, both caps NAMED); the other 2 tabs, the Collections sub-tab, all six facet groups and all three quick filters are TYPED ABSENCES under the unified gap contract (aria-disabled + title + data-ioi-disabled-reason). No plane is claimed that does not exist, no row is fabricated, no authority-crossing verb is re-minted on a read landing. Landing designation domain-apps:fusion moves TERMINAL \u2192 NOW."
+    },
+    {
+      "action": "MAP-1",
+      "record_id": "map-port",
+      "seed": "map",
+      "owner": "Environments",
+      "date": "2026-08-20",
+      "supersedes": "the mirror-scoped #map record (ENV-1, absent_confirmed) \u2014 that verdict was rendered against a capture recorded blocked_missing_capture (a dead capture, not a dead app) and stands only as history under #live-tenant-sweep",
+      "evidence": "reference-live-tenant-deep-atlas.v1.json#map (landing) + reference-live-tenant-atlas.v1.json#map (landing, 20 controls, 2 canvas surfaces) + .artifacts/live-tenant-atlas/map-landing.png + .artifacts/live-tenant-atlas/deep/map-landing.png",
+      "reference_states": [
+        "landing \u2014 a live geospatial workbench: title \"New map\" (chrome reads \"Unsaved Map\"), heading \"No layers\" with the copy \"Add data to your map to get started\", 20 controls (Save as\u2026 \u00b7 Layers \u00b7 Legend \u00b7 Histogram \u00b7 Add to map \u00b7 Timeline \u00b7 Select \u00d72 \u00b7 Search Around \u00d72 \u00b7 Selection + the vendor global-rail items), TWO canvas surfaces rendering a live third-party basemap under an EMPTY layer list, a left layer panel with an icon tab strip and an active-basemap footer row, a draw-tool group (polygon \u00b7 path \u00b7 rectangle \u00b7 circle \u00b7 more \u00b7 point), a vertical Selection tray, zoom/zoom-to-fit controls and a Timeline chip, plus a third-party tile attribution line",
+        "landing (overlay, NOT ported) \u2014 a marketplace promotion dialog (\"Explore reference examples\" \u2014 two example Map modules from the vendor Marketplace). Recorded because it is in the capture; not ported because the estate has no example map modules to promote and rendering vendor promo cards would fabricate both the modules and the marketplace offer"
+      ],
+      "geo_plane_sweep": {
+        "method": "read the daemon's own route index (GET /v1) and then FETCH every param-free GET route under it, walking each response for geo-bearing keys (region \u00b7 location \u00b7 zone \u00b7 az \u00b7 geo \u00b7 geolocation \u00b7 geometry \u00b7 latitude \u00b7 longitude \u00b7 coordinates \u00b7 country \u00b7 city \u00b7 address \u00b7 locality \u00b7 place \u00b7 datacenter \u00b7 site \u00b7 timezone)",
+        "routes_published": 753,
+        "param_free_get_routes_fetched": 247,
+        "geospatial_routes_found": 0,
+        "coordinate_geometry_or_tile_fields_found": 0,
+        "verdict": "the estate has NO geospatial plane: no coordinate store, no geometry type, no basemap/tile source, no geocoder, and no layer plane. Nothing in the estate can be plotted, and nothing renders a map."
+      },
+      "canvas_ruling": "A map CANVAS CANNOT BE HONESTLY FAKED. The canvas region is therefore a TYPED ABSENCE that names WHICH absence it is: the reference's canvas draws a real basemap and its \"No layers\" is an EMPTY layer list on top of a map that exists; the estate's canvas is MISSING. The port renders no canvas element, no svg geometry, no tile source and no borrowed vendor basemap \u2014 a drawn map would be a fabricated reference, and it would erase exactly the missing-vs-empty distinction this program exists to hold. The four things a real canvas would need are NAMED on-surface rather than implied: a geometry-bearing record type, a coordinate reference system, a tile or vector basemap source, and a layer plane binding them \u2014 each an authority-and-plane cut, never a UI cut.",
+      "estate_plane": {
+        "canvas": "ABSENT \u2014 no geospatial plane (see geo_plane_sweep). Typed absence, missing not empty.",
+        "layers": "ABSENT \u2014 no layer plane. The port distinguishes this from the reference's own EMPTY layer list verbatim.",
+        "basemap_and_tiles": "ABSENT \u2014 the estate binds no tile service and ships no map tiles. The reference's active third-party basemap style is recorded here and deliberately NOT printed on-surface: naming a vendor basemap the estate has no binding to would imply one.",
+        "draw_tools_search_around_selection_timeline_zoom": "ABSENT \u2014 every one of these controls writes or reads geometry (a ring, a path, an extent, a radius, a point, a selected feature set, a temporal geometry animation, a camera over tiles). None has a plane behind it; each renders under the unified gap contract with a reason written for THAT control.",
+        "save_as": "ABSENT as a plane AND refused as a verb \u2014 no map-document plane exists, and a ported READ landing never re-mints an authority-crossing write.",
+        "placement_geography": "LIVE \u2014 the one lane that binds, and it is deliberately NOT a map. /v1/hypervisor/placement/venues carries the estate's REAL cloud-resource candidates; 132 of 546 at port time carry a placement-geography field (region \u00b7 location \u00b7 zone \u00b7 az). Rendered verbatim, each row naming WHICH field its value came from so a value never sits under a header it does not belong to. THE STATE MATTERS MORE THAN THE GEOGRAPHY and renders with it: all 132 are status `expired` and all 132 carry a `*_evidence_not_live_supply` risk label (simulator_evidence_not_live_supply / fixture_evidence_not_live_supply) \u2014 the daemon's own words. A coarse provider region label is not a coordinate and cannot be plotted without a geocoding plane the estate does not have; the surface states that too.",
+        "second_geography_lane": "NAMED, NOT RENDERED \u2014 /v1/hypervisor/provider-operations records the same fields on its evidence: 117 of 1459 operations at port time, and all 117 carry the daemon's own `simulated_control_plane` marker in that evidence. One location lane per surface; the second is named on-surface with live counts rather than silently dropped.",
+        "vendor_global_rail": "NOT PORTED \u2014 railless per the owner ruling 2026-08-20; the reference's rail items (Search \u00b7 Notifications \u00b7 What's New \u00b7 Recent \u00b7 Applications \u00b7 Support \u00b7 Account) are estate chrome owned elsewhere and are never re-minted on a ported landing."
+      },
+      "outcome": "portable",
+      "shipped": "/__ioi/environments/map (MAP-1; parity_class reference_ported, remediation_state live_ia_recorded)",
+      "reason": "the LANDING grammar is portable and live-evidenced; the CANVAS is not, and refusing to draw it is the finding, not a shortfall. Every control the reference hangs on the canvas renders as a typed absence under the unified contract (aria-disabled + title + data-ioi-disabled-reason) with a reason written for that control \u2014 no boilerplate reason is reused. The single live lane is real, verbatim, capped, and explicitly labelled NOT-a-map, and it carries its records' expired / not-live-supply state so location strings are never read as running infrastructure. Landing designation for the map seed moves TERMINAL-by-inheritance (the /environments GRE note carried absent_confirmed) to its own NOW target; the owned Environments app itself stays GRE."
     }
   ]
 }
