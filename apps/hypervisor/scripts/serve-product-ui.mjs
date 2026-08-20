@@ -9033,6 +9033,35 @@ async function handleEstateRequest(req, res, body) {
       sendOwnedSurfaceHtml(res, "changes", renderChangesPort((pj.proposals || []).sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || ""))), lane, filter));
       return;
     }
+    // ---- Domain Apps · Logic + Contour — DOM-1 (remediation v2): origin-aligned I-4 landings
+    // (both landings express 5 facet groups — atlas evidence). BODIES ARE TYPED ABSENCES: no
+    // no-code-function plane (logic) and no analysis-workbook plane (contour) exist on the estate
+    // — the landing grammar is preserved with the absence named, never a fabricated table.
+    if ((pathname === "/__ioi/domain-apps/logic" || pathname === "/__ioi/domain-apps/contour") && req.method === "GET") {
+      const isLogic = pathname.endsWith("/logic");
+      sendOwnedSurfaceHtml(res, isLogic ? "logic" : "contour", renderSplashLanding({
+        slug: isLogic ? "domain-apps/logic" : "domain-apps/contour",
+        routeOverride: pathname, title: isLogic ? "Logic" : "Contour",
+        appTileUri: DSG_APP_TILE_URI, chipTintRgba: "rgba(45,114,210,.08)",
+        newLabel: isLogic ? "New logic" : "New analysis",
+        newGapReason: isLogic
+          ? "No no-code-function plane exists on the estate — the reference create lane is dead on the mirror too (atlas authoring state, no IA); typed absence, never simulated"
+          : "No analysis-workbook plane exists on the estate — object-set analysis binding is the Evaluations family build (EVA-2); the reference create lane is dead on the mirror (atlas); typed absence",
+        heroTitle: isLogic ? "Build no-code Ontology functions" : "Contour",
+        heroDesc: isLogic
+          ? "The reference Logic landing grammar, preserved over a NAMED ABSENCE: the estate holds no no-code-function plane today."
+          : "The reference Contour analysis landing grammar, preserved over a NAMED ABSENCE: analysis-workbook binding lands with the Evaluations family build (EVA-2).",
+        columns: ["Files", "Creator", "Last edited by", "Last viewed"],
+        rowsHtml: "",
+        emptyCopy: isLogic
+          ? "No logic functions — NOT an empty plane but a missing one: the estate records no no-code-function objects (typed absence). This table never fabricates rows."
+          : "No analyses — NOT an empty plane but a missing one: analysis workbooks have no estate plane yet (EVA-2 owns object-set binding). This table never fabricates rows.",
+        footHtml: isLogic
+          ? `DOM-1 (remediation v2): the origin-aligned Logic landing (atlas: 5 facet groups) as an I-4 instance over a TYPED-ABSENT body — no plane is claimed, none is faked. Evidence: reference-seed-adjudications.v1.json#logic · reference-family-atlas.v1.json. Owner: <a href="/__ioi/domain-apps">Domain Apps</a>.`
+          : `DOM-1 (remediation v2): the origin-aligned Contour landing (atlas: 5 facet groups) as an I-4 instance over a TYPED-ABSENT body — analysis binding is EVA-2's build. Evidence: reference-seed-adjudications.v1.json#contour · reference-family-atlas.v1.json. Owner: <a href="/__ioi/domain-apps">Domain Apps</a>.`,
+      }));
+      return;
+    }
     // ---- Studio · Workshop — STU-1/STU-2 (remediation v2): the D6 COMBINED-SEED port. The
     // workshop capture is byte-dead; module's capture BOOTS AS "Workshop — Home" (atlas splash
     // state, 5 facet groups) and is the recorded donor (roles donor+authoring_flow). The I-4

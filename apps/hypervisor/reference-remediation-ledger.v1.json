@@ -252,7 +252,8 @@
       {
         "id": "DOM-1",
         "title": "logic + contour origin-align + I-4 ports",
-        "status": "queued"
+        "status": "done",
+        "evidence": "Logic + Contour SHIPPED at /__ioi/domain-apps/{logic,contour} \u2014 origin-aligned I-4 landings (atlas: 5 facet groups each) over TYPED-ABSENT bodies (no no-code-function / analysis-workbook planes \u2014 named in both vocabularies, zero fabricated rows; contour points at EVA-2). logic/contour \u2192 reference_ported; shared verifier 12/12; workshop 10/10 + surface-modules 70/70 still green"
       },
       {
         "id": "FOU-1",
@@ -469,6 +470,12 @@
       "date": "2026-08-19",
       "did": "W3 STU-1+STU-2: the Workshop combined-seed port SHIPPED (I-4 first instantiation; 10/10 + 70/70); matrix gains reference_ported class row",
       "next": "W3 DEV-1 (widgets) + DOM-1 (logic/contour) I-4 ports"
+    },
+    {
+      "n": 17,
+      "date": "2026-08-19",
+      "did": "W3 DOM-1: Logic + Contour I-4 ports SHIPPED over typed-absent bodies (12/12); matrix reference_ported=3",
+      "next": "W3 DEV-1 (widgets) + WOR-1 (workspaces/notepad)"
     }
   ],
   "pr_blockers": [

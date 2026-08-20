@@ -433,6 +433,32 @@
       "outcome": "donor_ported",
       "donor_capture": "module",
       "reason": "D6 combined-seed SHIPPED: workshop+module are ONE app; the module capture is the donor (roles donor+authoring_flow); the Workshop app serves at /__ioi/studio/workshop via the I-4 grammar, read-first over empty-but-real planes; module-authoring stays an ODK authority cut (named gap)"
+    },
+    {
+      "action": "DOM-1",
+      "seed": "logic",
+      "owner": "Domain Apps",
+      "reference_route": "http://localhost:9225/workspace/logic-app/ (+ create-new)",
+      "atlas_states": [
+        "landing (5 facet groups, ia=true)",
+        "authoring:create-new (ia=false)"
+      ],
+      "estate_plane": "NONE \u2014 no no-code-function plane exists",
+      "outcome": "portable",
+      "reason": "landing grammar portable (I-4 instance SHIPPED at /__ioi/domain-apps/logic); BODY is a typed absence \u2014 no plane claimed, none faked; the create lane is dead on the mirror too"
+    },
+    {
+      "action": "DOM-1",
+      "seed": "contour",
+      "owner": "Domain Apps",
+      "reference_route": "http://localhost:9225/workspace/contour-app/splash (+ overview/create)",
+      "atlas_states": [
+        "landing + splash (5 facet groups, ia=true)",
+        "authoring:overview/create (ia=false)"
+      ],
+      "estate_plane": "analysis-workbook: NONE today; object-set analysis binding is the EVA-2 build",
+      "outcome": "portable",
+      "reason": "landing grammar portable (I-4 instance SHIPPED at /__ioi/domain-apps/contour); BODY typed-absent pointing at EVA-2"
     }
   ]
 }

@@ -80,6 +80,9 @@ export const SURFACES = [
   // STU-1/STU-2 (remediation v2): the D6 combined-seed Workshop port (donor: module) — I-4 splash
   // grammar over the real domain-app + ODK surface-descriptor planes; atlas-backed, read-first.
   { slug: "workshop", owner: "Studio", title: "Workshop", icon: DSG_APP_TILE_URI, route: "/__ioi/studio/workshop", verifier: "scripts/verify-hypervisor-app-parity-workshop.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  // DOM-1 (remediation v2): origin-aligned I-4 landings over typed-absent bodies.
+  { slug: "logic", owner: "Domain Apps", title: "Logic", icon: DSG_APP_TILE_URI, route: "/__ioi/domain-apps/logic", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  { slug: "contour", owner: "Domain Apps", title: "Contour", icon: DSG_APP_TILE_URI, route: "/__ioi/domain-apps/contour", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "machinery", owner: "Studio", title: "Machinery", icon: MCH_APP_TILE_URI, route: "/__ioi/studio/machinery", verifier: "scripts/verify-hypervisor-app-parity-studio-machinery.mjs", certification: "pixel-certifications/machinery.json", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   // W2.3 (next-legs II Leg 2): the Packages surface packet — ONE module, two mounts, over the
   // CLOSED /v1/hypervisor/packages daemon family. A FRESH legacy action lane

@@ -83,6 +83,10 @@ const REFERENCE_PORTED = {
   // "Workshop — Home" (atlas splash state) and is the recorded donor for the byte-dead workshop
   // capture; the I-4 splash grammar renders it over the real domain-app + ODK surface-descriptor
   // planes (read-first, honest-empty). Pixel certification pending (I-4 port, atlas-backed).
+  // DOM-1 (remediation v2): origin-aligned I-4 landings over TYPED-ABSENT bodies (no
+  // no-code-function / analysis-workbook planes exist — named, never simulated).
+  logic: { port_surface: "/__ioi/domain-apps/logic", surface_name: "Domain Apps", reference_url_override: "http://localhost:9225/workspace/logic-app/", reference_landmarks: ["Logic", "New logic", "Recents", "Favorites"], binding: "I-4 splash landing (atlas: 5 facet groups) over a TYPED-ABSENT body — the estate holds no no-code-function plane; New-logic + body are named absences under the unified contract", note: "DOM-1: origin-aligned landing ported; create lane dead on the mirror (atlas authoring state)" },
+  contour: { port_surface: "/__ioi/domain-apps/contour", surface_name: "Domain Apps", reference_url_override: "http://localhost:9225/workspace/contour-app/splash", reference_landmarks: ["Contour", "New analysis", "Recents", "Favorites"], binding: "I-4 splash landing (atlas: 5 facet groups) over a TYPED-ABSENT body — analysis-workbook binding is the EVA-2 build; named absences under the unified contract", note: "DOM-1: origin-aligned landing ported; create lane dead on the mirror (atlas authoring state)" },
   module: { port_surface: "/__ioi/studio/workshop", surface_name: "Studio", reference_url_override: "http://localhost:9225/workspace/module/splash", reference_landmarks: ["Workshop", "New module", "Recents", "Favorites"], binding: "the Workshop app (D6 combined-seed): I-4 splash landing — header chip · store/New-module/Help gaps under the unified contract · hero · Recents/Favorites view row · recents table over the REAL domain-app + ODK surface-descriptor planes (honest-empty today); authoring stays an ODK-plane authority cut (named gap)", note: "STU-1 (remediation v2): origin-aligned to the module splash lane (boots as Workshop Home, 5 facet groups — reference-family-atlas.v1.json); serves the WORKSHOP app per the D6 designation (workshop+module = ONE app; roles donor+authoring_flow); read-first over empty-but-real planes" },
 };
 // TRUE reference UX parity — a FAITHFUL port of the reference UX (same theme + IA + layout) wired to
@@ -203,6 +207,8 @@ const REMEDIATION = {
   slate: { remediation_state: "ia_bearing_empty", adjudication_ref: `${ADJ}#slate`, reference_url_override: "http://localhost:9225/workspace/slate/splash" },
   developer: { donor_capture: "devconsole", adjudication_ref: `${ADJ}#developer` },
   workshop: { remediation_state: "donor_ported", donor_capture: "module", adjudication_ref: `${ADJ}#workshop` },
+  logic: { adjudication_ref: `${ADJ}#logic` },
+  contour: { adjudication_ref: `${ADJ}#contour` },
   module: { adjudication_ref: `${ADJ}#workshop` },
   sources: { adjudication_ref: `reference-gap-adjudication.v1.json + ${ADJ}#sources` },
   explorer: { adjudication_ref: `${ADJ}#explorer` },
