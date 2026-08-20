@@ -5434,7 +5434,7 @@ function renderIncidentsPort(ops, goalRuns, lane) {
     const inc = kind === "dates" ? "" : `<span class="in-finc gap" title="include/exclude toggle — a reference-only lane (named gap)">include ${bpIcon("caret-down")}</span>`;
     return `<div class="in-facet ${slot}"><div class="in-frow"><span class="in-flabel">${esc(label)}</span>${inc}</div>${input}</div>`;
   };
-  const prio = (label, color, slot) => `<label class="in-prio ${slot} gap" title="Priority filtering is a reference-only lane — the daemon records no incident priorities (named gap)" data-ioi-disabled-reason="Priority filtering is a reference-only lane — the daemon records no incident priorities (named gap)"><span class="in-cb" role="checkbox" aria-checked="false" aria-disabled="true"></span><span class="in-ppill" style="background:${color}33"><span class="in-pdot" style="color:${color}">${bpIcon("issue-dot")}</span>${label}</span></label>`;
+  const prio = (label, color, slot) => `<label class="in-prio ${slot} gap" title="Priority filtering is a reference-only lane — the daemon records no incident priorities (named gap)" data-ioi-disabled-reason="Priority filtering is a reference-only lane — the daemon records no incident priorities (named gap)"><span class="in-cb" role="checkbox" aria-checked="false" aria-disabled="true" title="Priority filtering is a reference-only lane — the daemon records no incident priorities (named gap)" data-ioi-disabled-reason="Priority filtering is a reference-only lane — the daemon records no incident priorities (named gap)"></span><span class="in-ppill" style="background:${color}33"><span class="in-pdot" style="color:${color}">${bpIcon("issue-dot")}</span>${label}</span></label>`;
 
   const rowHtml = (i) => `<div class="in-row">
     <span class="in-cb fill" role="checkbox" aria-checked="false" aria-disabled="true" title="Bulk incident actions are a reference-only lane (named gap)" data-ioi-disabled-reason="Bulk incident actions are a reference-only lane (named gap)"></span>
@@ -5610,7 +5610,7 @@ function renderModelCatalogPort(routesJson, view = "provided") {
   const typeRows = tally(routes.flatMap(typesOf));
   const creatorRows = tally(routes.map(creatorOf));
   const maxN = Math.max(1, ...lifecycleRows.map(([, n]) => n), ...typeRows.map(([, n]) => n), ...creatorRows.map(([, n]) => n));
-  const facetRow = ([label, n]) => `<label class="mc-frow gap" title="Facet filtering is a reference-only lane (named gap) — the value is REAL route truth" data-ioi-disabled-reason="Facet filtering is a reference-only lane (named gap) — the value is REAL route truth"><span class="mc-cb" role="checkbox" aria-checked="false" aria-disabled="true"></span><span class="mc-flab">${esc(cap(label))}</span><span class="mc-fn">${n}</span><span class="mc-fbar"><span class="mc-fbarfill" style="width:${Math.round(70 * n / maxN)}px"></span></span></label>`;
+  const facetRow = ([label, n]) => `<label class="mc-frow gap" title="Facet filtering is a reference-only lane (named gap) — the value is REAL route truth" data-ioi-disabled-reason="Facet filtering is a reference-only lane (named gap) — the value is REAL route truth"><span class="mc-cb" role="checkbox" aria-checked="false" aria-disabled="true" title="Facet filtering is a reference-only lane (named gap) — the value is REAL route truth" data-ioi-disabled-reason="Facet filtering is a reference-only lane (named gap) — the value is REAL route truth"></span><span class="mc-flab">${esc(cap(label))}</span><span class="mc-fn">${n}</span><span class="mc-fbar"><span class="mc-fbarfill" style="width:${Math.round(70 * n / maxN)}px"></span></span></label>`;
   const facetSection = (slot, label, rows) => `<div class="mc-fsec ${slot}"><div class="mc-fshead"><span class="mc-fslabel">${esc(label)}</span><button class="mc-fclear gap" disabled title="No facet filters are wired — a reference-only lane (named gap)">Clear</button></div><div class="mc-frows">${rows.map(facetRow).join("")}</div></div>`;
 
   const availPill = (r) => { const a = r.availability || {}; return a.state === "available" ? `${a.stale ? "available · stale probe" : "available"}` : (a.state || "unknown"); };
@@ -9768,7 +9768,7 @@ async function handleEstateRequest(req, res, body) {
         .mapp-ref{display:block;font-size:11px;color:#5f6b7c;word-break:break-all}
         .mapp-empty{padding:22px 10px;color:#5f6b7c;font-size:14px;line-height:1.6}
         .mapp-foot{font-size:12px;color:#7b8494;line-height:1.65;margin:18px 0 0}
-        @media(max-width:700px){.mapp-thead{display:none}.mapp-row{grid-template-columns:1fr;min-width:0;gap:2px;padding:10px 8px}.mapp-row *,.mapp-note{overflow-wrap:anywhere}.mapp-geo{overflow-x:hidden}.mapp-geo *,.mapp-abs *{min-width:0;overflow-wrap:anywhere}.mapp-tgroup{flex-wrap:wrap;min-width:0;max-width:100%}.mapp-tool,.mapp-chip{max-width:100%;overflow-wrap:anywhere}.mapp-work{flex-direction:column}.mapp-panel{flex:none;width:100%}.mapp-canvasrow{flex-wrap:wrap}.mapp-underbar{flex-wrap:wrap}}
+        @media(max-width:700px){.mapp-thead{display:none}.mapp-row{grid-template-columns:1fr;min-width:0;gap:2px;padding:10px 8px}.mapp-row *,.mapp-note{overflow-wrap:break-word}.mapp-geo{overflow-x:hidden}.mapp-geo *,.mapp-abs *{min-width:0;overflow-wrap:anywhere}.mapp-tgroup{flex-wrap:wrap;min-width:0;max-width:100%}.mapp-tool,.mapp-chip{max-width:100%;overflow-wrap:anywhere}.mapp-work{flex-direction:column}.mapp-panel{flex:none;width:100%}.mapp-canvasrow{flex-wrap:wrap}.mapp-underbar{flex-wrap:wrap}}
       </style></head><body><div class="mapp-shell">
         <header class="mapp-header">
           <span class="mapp-hchip" aria-hidden="true" style="background-image:url('${DSG_APP_TILE_URI}')"></span>
@@ -10073,7 +10073,7 @@ async function handleEstateRequest(req, res, body) {
         .rgy-cardl{font-size:12.5px}
         .rgy-foot{font-size:12px;color:#7b8494;line-height:1.65;margin:0 auto;padding:18px 24px 40px;max-width:1240px}
         @media(max-width:900px){.rgy-cards{grid-template-columns:1fr}
-        @media(max-width:700px){.rgy-thead,.rgy-phead{display:none}.rgy-row,.rgy-prow{grid-template-columns:1fr;min-width:0;gap:2px;padding:10px 8px}.rgy-row *,.rgy-prow *,.rgy-note,.rgy-sub{overflow-wrap:anywhere}.rgy-body{overflow-x:hidden}.rgy-cards{grid-template-columns:1fr}.rgy-card{min-width:0}.rgy-card *{overflow-wrap:anywhere}}}
+        @media(max-width:700px){.rgy-thead,.rgy-phead{display:none}.rgy-row,.rgy-prow{grid-template-columns:1fr;min-width:0;gap:2px;padding:10px 8px}.rgy-row *,.rgy-prow *,.rgy-note,.rgy-sub{overflow-wrap:break-word}.rgy-body{overflow-x:hidden}.rgy-cards{grid-template-columns:1fr}.rgy-card{min-width:0}.rgy-card *{overflow-wrap:anywhere}}}
       </style></head><body><div class="rgy-shell">
         <header class="rgy-header">
           <span class="rgy-hchip" aria-hidden="true" style="background-image:url('${MARKETPLACE_APP_ICON_URI}')"></span>
@@ -10426,7 +10426,7 @@ async function handleEstateRequest(req, res, body) {
         .bld-call p{margin:0 0 8px}
         .bld-empty{padding:22px 10px;color:#5f6b7c;font-size:14px;line-height:1.6}
         .bld-foot{font-size:12px;color:#7b8494;line-height:1.65;margin:0;padding:18px 22px 40px}
-        @media(max-width:700px){.bld-thead,.bld-phead,.bld-chead{display:none}.bld-row,.bld-prow,.bld-crow{grid-template-columns:1fr;min-width:0;gap:2px;padding:10px 8px}.bld-row *,.bld-prow *,.bld-crow *,.bld-note{overflow-wrap:anywhere}.bld-body{overflow-x:hidden}.bld-body *{min-width:0;overflow-wrap:anywhere}}
+        @media(max-width:700px){.bld-thead,.bld-phead,.bld-chead{display:none}.bld-row,.bld-prow,.bld-crow{grid-template-columns:1fr;min-width:0;gap:2px;padding:10px 8px}.bld-row *,.bld-prow *,.bld-crow *,.bld-note{overflow-wrap:break-word}.bld-body{overflow-x:hidden}.bld-body *{min-width:0;overflow-wrap:anywhere}}
       </style></head><body><div class="bld-shell">
         <header class="bld-header">
           <span class="bld-hchip" aria-hidden="true" style="background-image:url('${ISSUES_APP_ICON_URI}')"></span>
