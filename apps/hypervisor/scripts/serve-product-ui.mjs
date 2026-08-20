@@ -9033,6 +9033,23 @@ async function handleEstateRequest(req, res, body) {
       sendOwnedSurfaceHtml(res, "changes", renderChangesPort((pj.proposals || []).sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || ""))), lane, filter));
       return;
     }
+    // ---- Developer Console · Custom Widgets — DEV-1 (remediation v2): origin-aligned I-4
+    // landing (atlas: 5 facet groups) over a TYPED-ABSENT body — no widget plane exists.
+    if (pathname === "/__ioi/developer-console/widgets" && req.method === "GET") {
+      sendOwnedSurfaceHtml(res, "widgets", renderSplashLanding({
+        slug: "developer-console/widgets", routeOverride: pathname, title: "Custom Widgets",
+        appTileUri: DSG_APP_TILE_URI, chipTintRgba: "rgba(45,114,210,.08)",
+        newLabel: "New widget set",
+        newGapReason: "No widget plane exists on the estate — the reference create lane is dead on the mirror too (atlas authoring state, no IA); typed absence, never simulated",
+        heroTitle: "Custom Widgets",
+        heroDesc: "The reference Custom-Widgets landing grammar, preserved over a NAMED ABSENCE: the estate holds no widget plane today.",
+        columns: ["Files", "Creator", "Last edited by", "Last viewed"],
+        rowsHtml: "",
+        emptyCopy: "No widget sets — NOT an empty plane but a missing one: the estate records no widget objects (typed absence). This table never fabricates rows.",
+        footHtml: `DEV-1 (remediation v2): the origin-aligned Custom-Widgets landing (atlas: 5 facet groups) as an I-4 instance over a TYPED-ABSENT body. Evidence: reference-seed-adjudications.v1.json#widgets · reference-family-atlas.v1.json. Family: <a href="/__ioi/developer-console">Developer Console</a>.`,
+      }));
+      return;
+    }
     // ---- Domain Apps · Logic + Contour — DOM-1 (remediation v2): origin-aligned I-4 landings
     // (both landings express 5 facet groups — atlas evidence). BODIES ARE TYPED ABSENCES: no
     // no-code-function plane (logic) and no analysis-workbook plane (contour) exist on the estate

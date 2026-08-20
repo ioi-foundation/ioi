@@ -1797,7 +1797,222 @@
         }
       ],
       "errors": []
+    },
+    "logic": {
+      "slug": "logic",
+      "owner": "Domain Apps",
+      "reference_base": "http://localhost:9225/workspace/logic-app/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/logic-app/"
+          },
+          "url": "http://localhost:9225/workspace/logic-app/",
+          "ia": {
+            "title": "AIP Logic",
+            "headings": [
+              "Build no-code Ontology functions"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "LOGIC FILE",
+              "CREATOR",
+              "LAST EDITED BY",
+              "LAST VIEWED"
+            ],
+            "rows": 0,
+            "cards": 2,
+            "empty_copy": "",
+            "text_len": 4980
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/logic/landing.png"
+        },
+        {
+          "key": "authoring:/workspace/logic-app/create-new",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/logic-app/create-new"
+          },
+          "url": "http://localhost:9225/workspace/logic-app/create-new",
+          "ia": {
+            "title": "AIP Logic",
+            "headings": [
+              "Choose Logic file location"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 0,
+            "empty_copy": "",
+            "text_len": 292
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/logic/authoring_workspace_logic-app_create-new.png"
+        }
+      ],
+      "errors": []
+    },
+    "contour": {
+      "slug": "contour",
+      "owner": "Domain Apps",
+      "reference_base": "http://localhost:9225/workspace/contour-app/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/contour-app/"
+          },
+          "url": "http://localhost:9225/workspace/contour-app/",
+          "ia": {
+            "title": "Contour Home",
+            "headings": [
+              "Contour"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "FILES",
+              "CREATOR",
+              "LAST EDITED BY",
+              "LAST VIEWED"
+            ],
+            "rows": 0,
+            "cards": 2,
+            "empty_copy": "",
+            "text_len": 4960
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/contour/landing.png"
+        },
+        {
+          "key": "splash_alias:/workspace/contour-app/splash",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/contour-app/splash"
+          },
+          "url": "http://localhost:9225/workspace/contour-app/splash",
+          "ia": {
+            "title": "Contour Home",
+            "headings": [
+              "Contour"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "FILES",
+              "CREATOR",
+              "LAST EDITED BY",
+              "LAST VIEWED"
+            ],
+            "rows": 0,
+            "cards": 2,
+            "empty_copy": "",
+            "text_len": 4960
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/contour/splash_alias_workspace_contour-app_splash.png"
+        },
+        {
+          "key": "authoring:/workspace/contour-app/overview/create",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/contour-app/overview/create"
+          },
+          "url": "http://localhost:9225/workspace/contour-app/overview/create",
+          "ia": {
+            "title": "Contour Home",
+            "headings": [
+              "Save"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 0,
+            "empty_copy": "",
+            "text_len": 290
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/contour/authoring_workspace_contour-app_overview_create.png"
+        }
+      ],
+      "errors": []
+    },
+    "widgets": {
+      "slug": "widgets",
+      "owner": "Developer Console",
+      "reference_base": "http://localhost:9225/workspace/custom-widgets/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/custom-widgets/"
+          },
+          "url": "http://localhost:9225/workspace/custom-widgets/",
+          "ia": {
+            "title": "Custom Widgets",
+            "headings": [
+              "Custom Widgets"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "FILES",
+              "CREATOR",
+              "LAST EDITED BY",
+              "LAST VIEWED"
+            ],
+            "rows": 0,
+            "cards": 0,
+            "empty_copy": "",
+            "text_len": 4484
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/widgets/landing.png"
+        },
+        {
+          "key": "authoring:/workspace/custom-widgets/new",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/custom-widgets/new"
+          },
+          "url": "http://localhost:9225/workspace/custom-widgets/new",
+          "ia": {
+            "title": "Custom Widgets",
+            "headings": [
+              "Create New Widget Set"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 4,
+            "empty_copy": "no projects",
+            "text_len": 629
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/widgets/authoring_workspace_custom-widgets_new.png"
+        }
+      ],
+      "errors": []
     }
   },
-  "recorded_at": "2026-08-20T00:03:14.598Z"
+  "recorded_at": "2026-08-20T00:49:33.435Z"
 }

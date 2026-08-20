@@ -459,6 +459,19 @@
       "estate_plane": "analysis-workbook: NONE today; object-set analysis binding is the EVA-2 build",
       "outcome": "portable",
       "reason": "landing grammar portable (I-4 instance SHIPPED at /__ioi/domain-apps/contour); BODY typed-absent pointing at EVA-2"
+    },
+    {
+      "action": "DEV-1",
+      "seed": "widgets",
+      "owner": "Developer Console",
+      "reference_route": "http://localhost:9225/workspace/custom-widgets/ (+ /new)",
+      "atlas_states": [
+        "landing (5 facet groups, ia=true)",
+        "authoring:/new (ia=false)"
+      ],
+      "estate_plane": "NONE \u2014 no widget plane exists",
+      "outcome": "portable",
+      "reason": "landing grammar portable (I-4 instance SHIPPED at /__ioi/developer-console/widgets); BODY typed-absent; create lane dead on the mirror"
     }
   ]
 }

@@ -18,8 +18,8 @@
   "total_seeds": 39,
   "by_parity_class": {
     "daemon_wired": 13,
-    "reference_capture": 20,
-    "reference_ported": 3,
+    "reference_capture": 19,
+    "reference_ported": 4,
     "substrate_bound": 3
   },
   "legend": {
@@ -666,14 +666,27 @@
       "capture_base": "/workspace/custom-widgets/",
       "grammar": "editor_canvas",
       "tier": "high_value",
-      "parity_class": "reference_capture",
+      "parity_class": "reference_ported",
       "capture_state": "blocked_missing_capture",
       "reference_capture": "/__apps/widgets",
       "reference_workspace": "/workspace/custom-widgets/",
-      "note": "widget-set authoring (self-bootstrapped)",
+      "note": "DEV-1: origin-aligned landing ported; create lane dead on the mirror (atlas authoring state)",
       "reference_clean_state": "needs_origin_alignment",
       "reference_clean_reason": "proxy lane renders no data (score 0), but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 12/0 · nodes 0 · cards 0 · lines 47) — align the reference URL like pipeline #38/#39",
-      "reference_clean_artifact": "reference-clean-sweep.json"
+      "reference_clean_artifact": "reference-clean-sweep.json",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#widgets",
+      "port_surface": "/__ioi/developer-console/widgets",
+      "surface_name": "Developer Console",
+      "reference_url_override": "http://localhost:9225/workspace/custom-widgets/",
+      "reference_landmarks": [
+        "Custom Widgets",
+        "New widget set",
+        "Recents",
+        "Favorites"
+      ],
+      "binding": "I-4 splash landing (atlas: 5 facet groups) over a TYPED-ABSENT body — no widget plane exists; New-widget-set + body are named absences under the unified contract",
+      "candidate_surface": "/__ioi/developer-console/widgets",
+      "shell_pixel_certified": false
     },
     {
       "owner": "Developer Console",

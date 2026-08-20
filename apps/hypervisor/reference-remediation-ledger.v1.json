@@ -242,7 +242,8 @@
       {
         "id": "DEV-1",
         "title": "widgets origin-align + port",
-        "status": "queued"
+        "status": "done",
+        "evidence": "Custom Widgets SHIPPED at /__ioi/developer-console/widgets \u2014 origin-aligned I-4 landing (atlas: 5 facets) over a TYPED-ABSENT body (no widget plane; adjudicated first per plan). widgets \u2192 reference_ported; I-4 landings verifier 18/18"
       },
       {
         "id": "WOR-1",
@@ -476,6 +477,12 @@
       "date": "2026-08-19",
       "did": "W3 DOM-1: Logic + Contour I-4 ports SHIPPED over typed-absent bodies (12/12); matrix reference_ported=3",
       "next": "W3 DEV-1 (widgets) + WOR-1 (workspaces/notepad)"
+    },
+    {
+      "n": 18,
+      "date": "2026-08-19",
+      "did": "W3 DEV-1: Custom Widgets I-4 port SHIPPED (18/18); reference_ported=4",
+      "next": "W3 WOR-1 (workspaces+notepad) then FOU-1"
     }
   ],
   "pr_blockers": [
