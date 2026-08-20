@@ -5494,7 +5494,7 @@ function renderIncidentsPort(ops, goalRuns, lane) {
 // Compare models, name search, facet filtering, model detail pages, fine-tuning / playground /
 // inference / deployment — are named gaps disabled in place. Route ADMINISTRATION (enable /
 // probe / select-default) lives in Agent Studio (linked); this surface is read-only truth.
-function renderModelCatalogPort(routesJson) {
+function renderModelCatalogPort(routesJson, view = "provided") {
   const esc = CX_ESC;
   const routes = (routesJson && routesJson.routes) || [];
   const cap = (s2) => String(s2 || "").replace(/\b\w/g, (c) => c.toUpperCase());
@@ -5532,8 +5532,9 @@ function renderModelCatalogPort(routesJson) {
   const header = `<header class="mc-header">
     <span class="mc-hchip"></span>
     <h1 class="mc-htitle">Model Catalog</h1>
-    <span class="mc-tab on" title="The IOI-provided lane IS the live route registry below">IOI-provided models</span>
-    <span class="mc-tab gap" title="Registered (externally imported) models are a reference-only lane — no import plane (named gap)">Registered models</span>
+    ${view === "registered"
+      ? `<a class="mc-tab" href="/__ioi/foundry/models" title="The provided lane — the live route registry with availability/custody">IOI-provided models</a><span class="mc-tab on" title="The registry BY ORIGIN — which routes were registered, and from where (FOU-1)">Registered models</span>`
+      : `<span class="mc-tab on" title="The IOI-provided lane IS the live route registry below">IOI-provided models</span><a class="mc-tab" href="/__ioi/foundry/models?tab=registered" title="Registered models — the same registry BY ORIGIN, live (FOU-1); external model-asset import stays a named gap on the lane">Registered models</a>`}
   </header>`;
 
   const hero = `<section class="mc-hero">
@@ -5616,8 +5617,34 @@ function renderModelCatalogPort(routesJson) {
       .mc-list{width:100%;max-width:none}.mc-card,.mc-empty{width:100%}.mc-foot{max-width:none;overflow-wrap:anywhere}
     }`;
 
-  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Model Catalog</title><style>${css}</style></head>
-    <body><div class="mc-shell">${globalRail}<div class="mc-main">${header}<div class="mc-body">${hero}<main class="mc-work">${filters}${catalog}</main></div></div></div></body></html>`;
+  // ---- FOU-1: the Registered-models lane — the SAME registry rendered BY ORIGIN (which routes
+  // were registered, and from where; origin verbatim). External model-ASSET import stays a named
+  // gap ON the lane (route registration ≠ asset import).
+  const regRows = routes.map((r) => `<div class="mc-regrow">
+      <span><b>${esc(r.display_name || r.route_id)}</b><code class="mc-regref">${esc(r.route_ref || r.route_id)}</code></span>
+      <span>${esc(((r.model || {}).id) || ((r.model || {}).name) || "—")}</span>
+      <span title="the registry's own origin field, verbatim">${esc(r.origin || "—")}</span>
+      <span>${esc((r.availability || {}).state || "unknown")}</span>
+      <span>${r.default_route ? "default" : "—"}</span>
+    </div>`).join("");
+  const registeredLane = `<main class="mc-reglane">
+    <h2 class="mc-h1">Registered models</h2>
+    <p class="mc-regsub">The model-route registry BY ORIGIN — every row is a REGISTERED route (the registry's own origin field, verbatim). ${routes.length} route${routes.length === 1 ? "" : "s"}.</p>
+    <span class="mc-import gap" aria-disabled="true" title="External model-ASSET import is a reference-only lane — no import plane exists (route registration via POST /v1/hypervisor/model-routes is a different verb, owned by Agent Studio); typed absence" data-ioi-disabled-reason="External model-ASSET import is a reference-only lane — no import plane exists (route registration via POST /v1/hypervisor/model-routes is a different verb, owned by Agent Studio); typed absence">Import model</span>
+    <div class="mc-reghead"><span>Route</span><span>Model</span><span>Origin</span><span>Availability</span><span>Default</span></div>
+    <div class="mc-regrows">${regRows || `<div class="mc-empty">No registered routes — this lane renders the real registry and never fabricates rows.</div>`}</div>
+    <p class="mc-foot">FOU-1 (remediation v2): the reference's Registered-models tab as a LIVE lane over the SAME route registry, keyed on the registry's own origin field. Route administration stays in <a href="/__ioi/agent-studio">Agent Studio</a>. Evidence: reference-seed-adjudications.v1.json#models-registered · reference-family-atlas.v1.json (models tabs state).</p>
+  </main>`;
+
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Model Catalog</title><style>${css}
+    .mc-reglane{flex:1;overflow-y:auto;padding:20px 28px 40px}
+    .mc-regsub{font-size:13px;color:#5f6b7c;margin:4px 0 10px}
+    .mc-import{display:inline-flex;height:28px;align-items:center;padding:0 10px;border:1px solid rgba(95,107,124,.25);border-radius:4px;font-size:13px;color:#a8b2be;cursor:not-allowed;margin:0 0 14px}
+    .mc-reghead{display:grid;grid-template-columns:2fr 1.2fr 1fr 1fr 90px;gap:8px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#5f6b7c;padding:6px 10px;border-bottom:1px solid #e5e8eb}
+    .mc-regrow{display:grid;grid-template-columns:2fr 1.2fr 1fr 1fr 90px;gap:8px;align-items:center;padding:8px 10px;border-bottom:1px solid #f0f2f5;font-size:14px}
+    .mc-regref{display:block;font-size:11px;color:#5f6b7c}
+    .mc-empty{padding:20px 10px;color:#5f6b7c}</style></head>
+    <body><div class="mc-shell">${globalRail}<div class="mc-main">${header}${view === "registered" ? registeredLane : `<div class="mc-body">${hero}<main class="mc-work">${filters}${catalog}</main></div>`}</div></div></body></html>`;
 }
 
 // ============================ MARKETPLACE BROWSE (#48 — the listings seed as a faithful
@@ -9537,7 +9564,9 @@ async function handleEstateRequest(req, res, body) {
     }
     if (pathname === "/__ioi/foundry/models" && req.method === "GET") {
       const routesJson = await daemonFetch(`/v1/hypervisor/model-routes`).then((x) => x.json()).catch(() => ({}));
-      sendOwnedSurfaceHtml(res, "models", renderModelCatalogPort(routesJson));
+      // FOU-1 (remediation v2): ?tab=registered = the registry-by-origin lane (live).
+      const mcView = new URL(req.url, "http://x").searchParams.get("tab") === "registered" ? "registered" : "provided";
+      sendOwnedSurfaceHtml(res, "models", renderModelCatalogPort(routesJson, mcView));
       return;
     }
     if (pathname === "/__ioi/missions/incidents" && req.method === "GET") {

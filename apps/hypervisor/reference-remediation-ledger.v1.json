@@ -260,7 +260,8 @@
       {
         "id": "FOU-1",
         "title": "Registered-models lane (post-adjudication)",
-        "status": "queued"
+        "status": "done",
+        "evidence": "Registered-models LIVE lane at /__ioi/foundry/models?tab=registered \u2014 the SAME registry keyed on the origin field (verbatim); asset-import stays a named gap in both vocabularies (import \u2260 route registration; the old gap tab was a single-vocabulary I-5 straggler, resolved by going live). models-port verifier 29/29 (census floor re-aimed with the six adjudicated departures named); foundry-substrate 17/17."
       }
     ],
     "W4": [
@@ -490,6 +491,12 @@
       "date": "2026-08-19",
       "did": "W3 WOR-1: Code Workspaces (real 610-env substrate) + Notepad (typed-absent) SHIPPED; 28/28; reference_ported=6",
       "next": "W3 FOU-1 (Registered-models lane) \u2014 closes W3 executable set"
+    },
+    {
+      "n": 20,
+      "date": "2026-08-19",
+      "did": "W3 FOU-1: Registered-models live lane (29/29 + 17/17); W3 EXECUTABLE SET COMPLETE",
+      "next": "W4: PRO-1.build (Monocle light re-shell \u2014 the census's richest miss)"
     }
   ],
   "pr_blockers": [
