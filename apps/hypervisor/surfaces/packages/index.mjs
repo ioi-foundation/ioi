@@ -55,7 +55,7 @@
 //     change that; the missing extension_application registration is named by the daemon's own
 //     disabled_reason_codes, rendered verbatim. A launcher-feed entry is INVENTORY presence,
 //     never launchability.
-import { escHtml } from "../kit.mjs";
+import { escHtml, GRE1_LIGHT, GRE1_LIGHT_FONT_FACES } from "../kit.mjs";
 
 const esc = escHtml;
 const enc = encodeURIComponent;
@@ -293,7 +293,7 @@ function catalogView(model, base) {
       ? `<table><thead><tr><th>Package</th><th>Owner</th><th>Status</th><th>Registration</th><th>Candidate hash</th></tr></thead><tbody>${rows.map((p) => {
         const r = p.record || {};
         return `<tr>
-          <td><a href="${base}?pkg=${enc(r.package_id || "")}"><b>${esc(r.package_id || "—")}</b></a><div style="color:#878a93;font-size:11.5px"><code>${esc(r.package_ref || "")}</code></div></td>
+          <td><a href="${base}?pkg=${enc(r.package_id || "")}"><b>${esc(r.package_id || "—")}</b></a><div style="color:#5f6b7c;font-size:11.5px"><code>${esc(r.package_ref || "")}</code></div></td>
           <td>${code(r.owner_ref)}</td>
           <td>${pill("muted", r.status || "—")}</td>
           <td>${pill("warn", `registration ${r.registration_state || "absent"}`)}</td>
@@ -409,7 +409,7 @@ function releaseView(model, base, pkg, rel) {
         const ir = entry.record || {};
         const iid = String(ir.installation_ref || "").split("/").at(-1) || "";
         return `<tr>
-          <td><a href="${base}?pkg=${enc(pkg)}&rel=${enc(rel)}&inst=${enc(iid)}"><b>${esc(iid)}</b></a><div style="color:#878a93;font-size:11.5px"><code>${esc(ir.installation_ref || "")}</code></div></td>
+          <td><a href="${base}?pkg=${enc(pkg)}&rel=${enc(rel)}&inst=${enc(iid)}"><b>${esc(iid)}</b></a><div style="color:#5f6b7c;font-size:11.5px"><code>${esc(ir.installation_ref || "")}</code></div></td>
           <td>${bindingTruth(entry)}</td>
           <td>${pill("muted", ir.visibility || "—")}</td>
           <td>${esc(String(ir.revision ?? "—"))}</td>
@@ -527,7 +527,7 @@ function marketplaceView(model, registryBase) {
     ? degraded(model.results.listings)
     : (listings.length
       ? `<table><thead><tr><th>Listing</th><th>Kind</th><th>Status</th><th>Public state</th><th>Updated</th></tr></thead><tbody>${listings.map((l) => `<tr>
-          <td><b>${esc(l.name || l.id || "—")}</b><div style="color:#878a93;font-size:11.5px"><code>${esc(l.ref || l.id || "")}</code></div></td>
+          <td><b>${esc(l.name || l.id || "—")}</b><div style="color:#5f6b7c;font-size:11.5px"><code>${esc(l.ref || l.id || "")}</code></div></td>
           <td>${pill("muted", l.listing_kind || "—")}</td>
           <td>${pill(l.status === "published" ? "ok" : "muted", l.status || "—")}</td>
           <td>${pill(l.public_state === "published" ? "ok" : "muted", l.public_state || "draft")}</td>
@@ -573,39 +573,43 @@ export function render(model, ctx) {
     else if (pkg) bodyHtml = head + candidateView(model, registryBase, pkg);
     else bodyHtml = head + catalogView(model, registryBase);
   }
-  const css = `:root{color-scheme:dark}
-  body{margin:0;background:#0c0d10;color:#e6e7ea;font:14px/1.55 -apple-system,Segoe UI,Roboto,sans-serif}
+  // GRE-1a (owner ruling "GRE-1 ADOPT"): this packet renders the shared light-body contract from
+  // surfaces/kit.mjs — the same tokens the platform shell's light theme uses. Every layout
+  // property below is exactly what the dark packet declared; only colour and typography moved.
+  const G = GRE1_LIGHT;
+  const css = `:root{color-scheme:light}${GRE1_LIGHT_FONT_FACES}
+  body{margin:0;background:${G.bg};color:${G.text};font:14px/1.55 ${G.font}}
   .wrap{max-width:1180px;margin:0 auto;padding:32px 24px 80px}
-  a{color:#8ab4ff}
+  a{color:${G.link}}
   h1{font-size:26px;margin:0 0 6px;letter-spacing:-.02em}
-  .sub{color:#9a9da6;margin:0 0 22px;max-width:820px}
-  h2{font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:#878a93;margin:26px 0 10px;font-weight:600}
-  .act{padding:8px 14px;border-radius:8px;border:0;background:#fff;color:#111;font:inherit;font-weight:600;text-decoration:none;cursor:pointer}
-  .act.ghost{background:transparent;color:#cbd0da;border:1px solid #2a2c33}
+  .sub{color:${G.muted};margin:0 0 22px;max-width:820px}
+  h2{font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:${G.muted};margin:26px 0 10px;font-weight:600}
+  .act{padding:8px 14px;border-radius:8px;border:0;background:${G.accent};color:#fff;font:inherit;font-weight:600;text-decoration:none;cursor:pointer}
+  .act.ghost{background:transparent;color:${G.link};border:1px solid ${G.border2}}
   .act[disabled]{opacity:.45;cursor:not-allowed}
   .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;border:1px solid;white-space:nowrap;margin-left:4px}
-  .ok{color:#46c277;border-color:#235c3b;background:#11281b}
-  .warn{color:#d6a13a;border-color:#5c4a23;background:#28220f}
-  .muted{color:#9a9da6;border-color:#2a2c33}
-  .empty{color:#6f7280;padding:18px;border:1px dashed #24262d;border-radius:12px}
-  .gapcard{padding:14px 16px;border:1px dashed #5c4a23;border-radius:12px;background:#15130c;margin:0 0 18px}
-  .grid{display:grid;grid-template-columns:200px 1fr;gap:8px 16px;padding:16px;border:1px solid #24262d;border-radius:12px;background:#15171c;margin:0 0 18px}
-  .grid dt{color:#878a93;font-size:12.5px}
-  .grid dd{margin:0;color:#e6e7ea;word-break:break-all}
-  code{font-size:11.5px;color:#aab;background:#0e0f13;padding:1px 5px;border-radius:4px}
+  .ok{color:${G.okText};border-color:${G.okBorder};background:${G.okBg}}
+  .warn{color:${G.warnText};border-color:${G.warnBorder};background:${G.warnBg}}
+  .muted{color:${G.muted};border-color:${G.border2};background:${G.surface}}
+  .empty{color:${G.muted};padding:18px;border:1px dashed ${G.border2};border-radius:12px;background:${G.surface}}
+  .gapcard{padding:14px 16px;border:1px dashed ${G.warnBorder};border-radius:12px;background:${G.warnBg};margin:0 0 18px}
+  .grid{display:grid;grid-template-columns:200px 1fr;gap:8px 16px;padding:16px;border:1px solid ${G.border};border-radius:12px;background:${G.surface};margin:0 0 18px}
+  .grid dt{color:${G.muted};font-size:12.5px}
+  .grid dd{margin:0;color:${G.text};word-break:break-all}
+  code{font-size:11.5px;color:${G.text2};background:${G.codeBg};padding:1px 5px;border-radius:4px}
   table{width:100%;border-collapse:collapse;font-size:13px;margin:0 0 14px}
-  th{text-align:left;color:#878a93;font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;padding:6px 10px;border-bottom:1px solid #24262d}
-  td{padding:8px 10px;border-bottom:1px solid #1b1d23;vertical-align:top}
-  .tabs{display:flex;gap:4px;border-bottom:1px solid #24262d;margin:0 0 18px;flex-wrap:wrap}
-  .tab{border-bottom:2px solid transparent;color:#9a9da6;font-weight:600;padding:9px 14px;text-decoration:none}
-  .tab.active{color:#fff;border-bottom-color:#3a82f6}
-  .aform{display:flex;flex-direction:column;gap:10px;max-width:640px;padding:14px 16px;border:1px solid #24262d;border-radius:12px;background:#15171c;margin:0 0 16px}
-  .fl{display:flex;flex-direction:column;gap:4px;color:#878a93;font-size:12px}
-  .fl input,.fl textarea,.fl select{padding:8px;border-radius:8px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit}
+  th{text-align:left;color:${G.muted};font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;padding:6px 10px;border-bottom:1px solid ${G.border}}
+  td{padding:8px 10px;border-bottom:1px solid ${G.rowline};vertical-align:top}
+  .tabs{display:flex;gap:4px;border-bottom:1px solid ${G.border};margin:0 0 18px;flex-wrap:wrap}
+  .tab{border-bottom:2px solid transparent;color:${G.muted};font-weight:600;padding:9px 14px;text-decoration:none}
+  .tab.active{color:${G.text};border-bottom-color:${G.accent}}
+  .aform{display:flex;flex-direction:column;gap:10px;max-width:640px;padding:14px 16px;border:1px solid ${G.border};border-radius:12px;background:${G.surface};margin:0 0 16px}
+  .fl{display:flex;flex-direction:column;gap:4px;color:${G.muted};font-size:12px}
+  .fl input,.fl textarea,.fl select{padding:8px;border-radius:8px;border:1px solid ${G.border2};background:${G.bg};color:${G.text};font:inherit}
   .banner{margin:0 0 14px;padding:9px 12px;border-radius:8px;font-size:12.5px;line-height:1.5;outline:none}
   .banner code{word-break:break-all}
-  .ok-banner{border:1px solid #235c3b;background:#11281b;color:#46c277}
-  .no-banner{border:1px solid #5c4a23;background:#28220f;color:#d6a13a}
+  .ok-banner{border:1px solid ${G.okBorder};background:${G.okBg};color:${G.okText}}
+  .no-banner{border:1px solid ${G.warnBorder};background:${G.warnBg};color:${G.warnText}}
   @media(max-width:760px){.grid{grid-template-columns:130px 1fr}table{display:block;overflow-x:auto;max-width:100%}}`;
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)} · Hypervisor</title><style>${css}</style></head>
 <body><div class="wrap">${nav}${banner(sp)}${bodyHtml}</div></body></html>`;
