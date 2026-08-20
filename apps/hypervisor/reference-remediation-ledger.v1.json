@@ -631,6 +631,12 @@
       "date": "2026-08-20",
       "did": "OWNER RULING APPLIED \u2014 CONTAINER-FIRST: the session rail persists on every click path. Modal rows open in the embedded container (top-nav reserved for /ai, the un-nestable SPA shell); the 80-automations forced full-load now opens the container; embed continuity through the 302s verified (rail aside stripped, count 0). applications 27/27 \u00b7 automations 45/45. Direct URL visits remain the standalone railless lane by design. native-shell-integration harness needs a designation-aware re-aim (recorded, queued).",
       "next": "owner recheck: click any app \u2014 session rail should persist with the designated railless surface inside"
+    },
+    {
+      "n": 38,
+      "date": "2026-08-20",
+      "did": "TWO-RAILS CLASS KILLED: (a) the embed contract extended to the designated CANONICAL paths (intercept arms on them; the rewriter carries embed=1 through in-frame canonical hops); (b) Sec-Fetch-Dest hardening \u2014 ANY iframe delivery strips the ported rail server-side, immune to stale bundles/embed-less hops/old iframe srcs. Verified: iframe-header delivery of monitors//automations//studio = 0 rail asides; standalone monitors keeps its certified evidence rail (1). monitors 48/48 \u00b7 automations 45/45 \u00b7 applications 27/27.",
+      "next": "owner: HARD-REFRESH the /projects tab (the SPA bundle in the open tab predates the fixes), then re-click"
     }
   ],
   "pr_blockers": [

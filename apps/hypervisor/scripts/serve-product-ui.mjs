@@ -7641,6 +7641,11 @@ function surfaceErrorBoundary(req, res, err) {
 // onclick, and GET form that lands on another embeddable route, so selection/filter/refresh and
 // cross-application semantic links stay embedded. App-local rails, headers, sidebars, tools,
 // inspectors and trays are never touched.
+// GRE-2 (owner ruling 2026-08-20): the designated CANONICAL paths participate in the embed
+// contract — the intercept arms on them and the rewriter carries embed=1 through them, so the
+// session rail is never lost to an in-frame canonical hop (the second-rail leak the owner caught).
+const CANONICAL_EMBED_PATHS = new Set(["/automations", "/evaluations", "/foundry", "/provenance", "/improvement", "/governance", "/packages/marketplace", "/studio", "/data", "/ontology", "/developer-workspace"]);
+
 function embedSurfaceHtml(html) {
   const routes = embeddableRoutes();
   const addEmbed = (path, qs, hash) => {
@@ -7654,6 +7659,10 @@ function embedSurfaceHtml(html) {
   html = html.replace(/location\.href='(\/__ioi\/[^'?#]*)(\?[^'#]*)?(#[^']*)?'/g, (m, path, qs, hash) => {
     const u = addEmbed(path, qs, hash);
     return u ? `location.href='${u}'` : m;
+  });
+  html = html.replace(/href="(\/(?:automations|evaluations|foundry|provenance|improvement|governance|studio|data|ontology|developer-workspace)(?:\/marketplace)?)(\?[^"#]*)?(#[^"]*)?"/g, (m, path, qs, hash) => {
+    if (!CANONICAL_EMBED_PATHS.has(path) || /(\?|&)embed=1/.test(qs || "")) return m;
+    return `href="${path}${qs ? `${qs}&embed=1` : "?embed=1"}${hash || ""}"`;
   });
   const embeddablePath = (path) => routes.has(path) || [...routes].some((r) => path.startsWith(r + "/"));
   html = html.replace(/(<form\b[^>]*\baction="(\/__ioi\/[^"?#]*)"[^>]*>)/g, (m, tag, path) => (embeddablePath(path) ? `${tag}<input type="hidden" name="embed" value="1">` : m));
@@ -7901,9 +7910,13 @@ async function handleEstateRequest(req, res, body) {
     // has its final whole-document HTML rewritten (structural global-rail removal + embed
     // threading, embedSurfaceHtml); only chunks that are a complete text/html document are
     // touched — JSON, assets, streams, and partial writes pass through byte-untouched.
-    if (req.method === "GET" && pathname.startsWith("/__ioi/")) {
+    if (req.method === "GET" && (pathname.startsWith("/__ioi/") || CANONICAL_EMBED_PATHS.has(pathname))) {
       let embedReq = false;
       try { embedReq = new URL(req.url || "", "http://x").searchParams.get("embed") === "1"; } catch { /* malformed URL → standalone render */ }
+      // GRE-2 hardening (owner catch 2026-08-20, "two session rails"): browsers stamp iframe
+      // loads with Sec-Fetch-Dest — strip the ported rail on ANY iframe delivery, so no client
+      // path (stale bundle, embed-less hop, old iframe src) can ever nest a second rail.
+      if (!embedReq && req.headers["sec-fetch-dest"] === "iframe") embedReq = true;
       if (embedReq) {
         const endRaw = res.end.bind(res);
         res.end = (chunk, ...rest) => endRaw(typeof chunk === "string" && /^<!doctype html>/i.test(chunk) ? embedSurfaceHtml(chunk) : chunk, ...rest);
