@@ -367,7 +367,7 @@
           "E6": "GREEN \u2014 the exemplar pattern (tabs\u2192live lanes) realized on AUT-1, DAT-1, FOU-1, EVA-2, PRO-1",
           "E7": "HELD \u2014 one-surface rule awaits the GRE-2 transfers + the E7-retirement cutover (owner)",
           "E8": "GREEN \u2014 designation exit-gate 8/8, zero LATER (NOW=21 \u00b7 TERMINAL=4 \u00b7 GRE=8)",
-          "E9": "PENDING \u2014 DOC-1 next"
+          "E9": "GREEN \u2014 DOC-1 executed (supersession annotations + index notice + ratchet re-aim; 25/25)"
         }
       },
       {
@@ -379,7 +379,8 @@
       {
         "id": "DOC-1",
         "title": "documentation reconciliation (conflation-era corpus)",
-        "status": "queued"
+        "status": "done",
+        "evidence": "conflation-era corpus reconciled: seed-inventory header carries the unit-error supersession; starting-points + clean-sweep artifacts annotated (_supersession \u2014 recorded history never rewritten); matrix doctrine gains the remediation addendum (via generator); sweep instrument + verifier headers annotated; briefs tree gets the index-level supersession notice (artifacts win over briefs); the sweep verifier promotion ratchet RE-AIMED to recognize the adjudicated reference_ported sanction class (25/25). E9 audit: zero tracked docs assert the retired doctrine as current truth."
       },
       {
         "id": "census-rerun",
@@ -557,6 +558,12 @@
       "date": "2026-08-19",
       "did": "W6: E1-E9 audit RECORDED (green except E1/E7 held + E9 pending); AUDIT CAUGHT + CORRECTED an over-claim (EVA-3 never executed \u2192 quiver shipped, absence refuted by atlas); atlas coverage completed for schema/models/listings; census 13 wired \u00b7 12 ported \u00b7 13 capture \u00b7 1 substrate",
       "next": "W6 DOC-1 (documentation reconciliation)"
+    },
+    {
+      "n": 28,
+      "date": "2026-08-19",
+      "did": "W6 DOC-1 COMPLETE (E9 GREEN); clean-sweep ratchet re-aimed to the adjudicated-port sanction class (25/25). ALL EXECUTABLE ACTIONS DONE \u2014 remaining work is owner-gated",
+      "next": "final program report + loop pacing to held-only mode"
     }
   ],
   "pr_blockers": [

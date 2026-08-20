@@ -1,4 +1,9 @@
 #!/usr/bin/env node
+// REMEDIATION-v2 SUPERSESSION (2026-08-19, DOC-1): this sweep's verdicts are LANDING-ONLY and
+// were never valid port blockers (the matrix pixel_rule excludes the live-data body by design;
+// plan §3.2 — the valid test is whether the empty state EXPRESSES the IA). Per-seed current truth
+// lives in the matrix remediation fields + reference-seed-adjudications.v1.json; this instrument
+// and its artifact are kept as recorded history.
 // ---------------------------------------------------------------------------
 // PR #44 — ESTATE REFERENCE DATA-CLEAN SWEEP (infrastructure only; no ports,
 // no promotions, no parity_class changes, no shell-pixel certification changes).
