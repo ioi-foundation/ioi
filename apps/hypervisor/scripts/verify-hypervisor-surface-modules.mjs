@@ -711,6 +711,29 @@ async function run() {
     const GAP_EMISSION_FLOOR = 68;
     ok(`unified gap contract: paired emission count >= floor (${GAP_EMISSION_FLOOR})`, paired >= GAP_EMISSION_FLOOR, `paired=${paired}`);
   }
+
+  // 9. I-4 SPLASH-LANDING GRAMMAR (remediation v2, W3) — the one parameterized landing template
+  // the census-proven splash instances (module/logic/contour/slate + the ported landings) share.
+  // Contract: landmarks render; every gap control carries the unified contract; embed honors
+  // native_single_rail (no global rail); rows are caller-owned truth (never invented here).
+  {
+    const { renderSplashLanding } = await import("./splash-landing-grammar.mjs");
+    const fix = renderSplashLanding({
+      slug: "x-fixture", title: "Fixture App", appTileUri: "data:,", newLabel: "New thing",
+      newGapReason: "no authoring plane exists (typed absence)",
+      heroTitle: "Fixture hero", heroDesc: "Fixture description.",
+      columns: ["Files", "Creator", "Last viewed"],
+      rowsHtml: "", emptyCopy: "No records — renders real truth, never fabricates rows.",
+      footHtml: "evidence: fixture",
+    });
+    ok("I-4: landmarks render (title · store · New · Help · Recents · Favorites · columns · honest empty)", ["Fixture App", "New thing", "Help", "Recents", "Favorites", "Files", "never fabricates rows"].every((m) => fix.includes(m)));
+    ok("I-4: every gap control carries the UNIFIED contract (aria-disabled + title + data-ioi-disabled-reason)", (fix.match(/aria-disabled="true"/g) || []).length >= 4 && (fix.match(/aria-disabled="true"/g) || []).length === (fix.match(/data-ioi-disabled-reason=/g) || []).length);
+    const emb = renderSplashLanding({ slug: "x", title: "E", appTileUri: "data:,", newLabel: "N", newGapReason: "r", heroTitle: "h", heroDesc: "d", columns: ["a"], rowsHtml: "", emptyCopy: "e", embed: true });
+    ok("I-4: embed honors native_single_rail (no ported global rail)", !emb.includes("og-grail"));
+    const live = renderSplashLanding({ slug: "x", title: "L", appTileUri: "data:,", newLabel: "New", newHref: "/__ioi/x?new=1", heroTitle: "h", heroDesc: "d", columns: ["a"], rowsHtml: "", emptyCopy: "e" });
+    ok("I-4: a live New entry is an anchor, not a gap", live.includes(`href="/__ioi/x?new=1"`) && !live.includes(`data-ioi-disabled-reason="no authoring`));
+  }
+
 }
 
 run().then(() => {

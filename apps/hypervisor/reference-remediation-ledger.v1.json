@@ -224,7 +224,8 @@
       {
         "id": "I-4",
         "title": "splash-landing shared grammar template",
-        "status": "queued"
+        "status": "done",
+        "evidence": "splash-landing-grammar.mjs: the ONE parameterized landing template (header chip/store/New/Help \u00b7 hero \u00b7 Recents/Favorites view row \u00b7 truth-owned recents table \u00b7 truthful footer) over the shared chrome; unified gap contract built-in (gap() emits all three attrs); embed honors native_single_rail; exemplar (changes/IMP-1) cited in header docs. Enforcement: 4 I-4 contract checks in surface-modules (70/70) incl. aria-disabled count === data-ioi count on the rendered fixture."
       },
       {
         "id": "STU-1",
@@ -454,6 +455,12 @@
       "date": "2026-08-19",
       "did": "W2 DAT-1 BUILT (Syncs lane 41/41); W2 executable set COMPLETE (AUT-3 held for GRE-2); opening W1+W2 PR \u2014 PR #354 re-scoped to W0-W2 (one PR per head branch)",
       "next": "W3: I-4 splash-landing template"
+    },
+    {
+      "n": 15,
+      "date": "2026-08-19",
+      "did": "W3 I-4 splash-landing grammar BUILT + contract-checked (70/70)",
+      "next": "W3 STU-1 (module origin-align + Workshop Home port via I-4)"
     }
   ],
   "pr_blockers": [
