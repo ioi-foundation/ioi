@@ -197,7 +197,8 @@
       {
         "id": "AUT-1",
         "title": "Automations tab (live faceted list) inside certified Automate shell",
-        "status": "queued"
+        "status": "done",
+        "evidence": "the Automations tab is LIVE inside the certified Automate shell: 7 reference facet groups (STATUS/CONDITION live plane counts; EFFECTS/NOTIFICATIONS/CREATOR/EXPIRATION typed absences in both vocabularies), Name\u00b7Condition\u00b7Status\u00b7Creator rows = 25/25 real records linking owner-substrate detail, server-side live filters, read-only. Verifier 41/41 (13 new AUT-1 checks). Matrix vocabulary MOVED INTO the generator (build-app-parity-matrix \u2014 hand-edits were the DOC-1 defect class, caught by the matrix staleness gate); feed check re-aimed to plane-wide-newest semantics."
       },
       {
         "id": "AUT-2",
@@ -432,6 +433,12 @@
       "date": "2026-08-19",
       "did": "W1 CLOSED: PRO-1.recon (Monocle wins /provenance), EVA-2.recon portable, ONT-2.recon terminal (build skipped); ia_bearing_empty reclass applied to lineage/analysis/vertex/slate",
       "next": "W2: AUT-1 (Automations tab inside certified Automate shell)"
+    },
+    {
+      "n": 12,
+      "date": "2026-08-19",
+      "did": "W2 AUT-1 BUILT + verifier 41/41; matrix remediation vocabulary moved into generator (staleness gate caught the hand-edit defect); feed check re-aimed",
+      "next": "W2 AUT-2 (rehome cockpit verbs under Automate grammar)"
     }
   ],
   "pr_blockers": [

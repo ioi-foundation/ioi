@@ -4554,7 +4554,7 @@ function renderChangesPort(proposals, lane, filter) {
 // started_at · execution/environment refs as proof). NO new scheduler/execution semantics — this
 // is a PROJECTION over the existing automation plane; authoring stays on /__ioi/automations.
 // Owner: Automations (/__ioi/automations, linked first-class both ways).
-function renderMonitorsPort(automations, runsById) {
+function renderMonitorsPort(automations, runsById, view = "overview", flt = {}) {
   const esc = CX_ESC;
   const list = Array.isArray(automations) ? automations : [];
   const fdate = (iso) => { const d = new Date(iso || 0); return isNaN(d) ? "—" : d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); };
@@ -4607,8 +4607,9 @@ function renderMonitorsPort(automations, runsById) {
     <span class="mon-hchip" aria-hidden="true"></span>
     <h1 class="mon-htitle">Automate</h1>
     <nav class="mon-tabs">
-      <span class="mon-tab on" aria-current="page">Overview</span>
-      <a class="mon-tab" href="/__ioi/automations" title="The full automation plane — the real owner substrate (specs · runs · pause/resume · projects)">Automations</a>
+      ${view === "automations"
+        ? `<a class="mon-tab" href="/__ioi/automations/monitors" title="The Automate overview">Overview</a><span class="mon-tab on" aria-current="page">Automations</span>`
+        : `<span class="mon-tab on" aria-current="page">Overview</span><a class="mon-tab" href="/__ioi/automations/monitors?tab=automations" title="All automations — the reference's own in-app list lane, live over the real plane (AUT-1)">Automations</a>`}
     </nav>
     <div class="mon-hright">
       <span class="mon-hbtn outlined store gap" aria-disabled="true" title="Recent installations — marketplace install lanes are not bound to this surface (named gap)" data-ioi-disabled-reason="Recent installations — marketplace install lanes are not bound to this surface (named gap)"><span class="mon-storeico" aria-hidden="true"></span>${bpIcon("caret-down")}</span>
@@ -4668,6 +4669,72 @@ function renderMonitorsPort(automations, runsById) {
   const triggered = `<h2 class="mon-gsh mon-rth">Recently triggered</h2>
   <div class="mon-feed">${feed || `<div class="mon-empty">No executions recorded yet — this feed renders real automation executions (status · time · execution/environment refs) and never fabricates events.</div>`}</div>
   <p class="mon-foot">This overview is a <b>read-only projection over the real automation plane</b> — ${list.length} automation${list.length === 1 ? "" : "s"} (${active.length} active · ${paused.length} paused) and their real executions; no scheduler or execution semantics were added by this surface. Authoring, pause/resume, and run history live on the <a href="/__ioi/automations">Automations substrate</a> (the owner surface, linked first-class). Unsupported reference lanes — New automation here, the Recent-installations store menu, template docs, marketplace example installs — are disabled in place, never hidden. The wizard illustrations, template cards, and example cards are the reference's own static content (verbatim capture chrome, never estate data). Reference: the origin-aligned <a href="http://localhost:9225/workspace/object-monitoring/" rel="noopener">Automate capture</a> — the <a href="/__apps/monitors">/__apps/monitors proxy lane ↗</a> is documented insufficient (a favorites-load failure + CORS-blocked session lanes; #44 sweep evidence).</p>`;
+
+  // ---- AUT-1: the Automations tab — the reference's in-app /automations faceted list, LIVE over
+  // the real plane. Facet mapping (atlas: monitors tab_lane state, 8 facet groups): STATUS→enabled
+  // (Active/Paused live; Error/Muted/Expired typed absences — no such states on the record);
+  // CONDITION→trigger kinds (real); EFFECTS→reference taxonomy typed-absent (the estate's effect
+  // concept is the steps census, shown per row); RECEIVING NOTIFICATIONS→typed absence;
+  // OWNER→executor_identity.ref (the plane's one identity lane); CREATOR/EXPIRATION→typed absences.
+  // Read-only: rows LINK to the owner-substrate detail; no mutation path is added here.
+  const trigOf = (a) => (a.trigger || {}).kind || "manual";
+  const creatorOf = (a) => (a.executor_identity || {}).ref || "";
+  let arows = list;
+  if (flt.status === "active") arows = arows.filter((a) => a.enabled !== false);
+  if (flt.status === "paused") arows = arows.filter((a) => a.enabled === false);
+  if (flt.condition) arows = arows.filter((a) => trigOf(a) === flt.condition);
+  const trigCounts = {}; for (const a of list) trigCounts[trigOf(a)] = (trigCounts[trigOf(a)] || 0) + 1;
+  const crCounts = {}; for (const a of list) { const c = creatorOf(a); if (c) crCounts[c] = (crCounts[c] || 0) + 1; }
+  const fbase = "/__ioi/automations/monitors?tab=automations";
+  const liveFacet = (label, n, href, on) => `<a class="mon-frow${on ? " on" : ""}" href="${esc(href)}" title="live count over the real plane">${esc(label)}<span class="mon-fn">${n}</span></a>`;
+  const gapFacet = (label, why) => `<span class="mon-frow gap" aria-disabled="true" title="${esc(why)}" data-ioi-disabled-reason="${esc(why)}">${esc(label)}<span class="mon-fn">0</span></span>`;
+  const filters = `<aside class="mon-flt"><h3 class="mon-flth">Filters</h3>
+    <div class="mon-fgroup"><span class="mon-fgh">STATUS</span>
+      ${liveFacet("Active", active.length, flt.status === "active" ? fbase : fbase + "&status=active", flt.status === "active")}
+      ${gapFacet("Error", "No error state exists on the automation record — enabled is the plane's only status field (typed absence)")}
+      ${gapFacet("Muted", "No muted state exists on the automation record (typed absence)")}
+      ${liveFacet("Paused", paused.length, flt.status === "paused" ? fbase : fbase + "&status=paused", flt.status === "paused")}
+      ${gapFacet("Expired", "No expiration concept exists on the automation record (typed absence)")}
+    </div>
+    <div class="mon-fgroup"><span class="mon-fgh">CONDITION</span>
+      ${Object.keys(trigCounts).sort().map((k) => liveFacet(k, trigCounts[k], flt.condition === k ? fbase : fbase + "&condition=" + encodeURIComponent(k), flt.condition === k)).join("") || `<span class="mon-fempty">no trigger kinds recorded</span>`}
+    </div>
+    <div class="mon-fgroup"><span class="mon-fgh">EFFECTS</span>
+      ${["Actions", "Logic", "Notification", "Function"].map((k) => gapFacet(k, "The reference effect taxonomy is a named gap — the estate's real effect dimension is the per-automation steps census, shown on each row (typed absence)")).join("")}
+    </div>
+    <div class="mon-fgroup"><span class="mon-fgh">RECEIVING NOTIFICATIONS</span>
+      ${gapFacet("Yes", "No notification-subscription lane exists on the automation plane (typed absence)")}
+      ${gapFacet("No", "No notification-subscription lane exists on the automation plane (typed absence)")}
+    </div>
+    <div class="mon-fgroup"><span class="mon-fgh">OWNER</span>
+      ${Object.keys(crCounts).sort().slice(0, 6).map((k) => `<span class="mon-frow ro" title="the automation's declared executor_identity.ref — the plane's one identity lane">${esc(k)}<span class="mon-fn">${crCounts[k]}</span></span>`).join("") || `<span class="mon-fempty">no executor identities recorded</span>`}
+    </div>
+    <div class="mon-fgroup"><span class="mon-fgh">CREATOR</span>
+      <span class="mon-frow gap" aria-disabled="true" title="The plane records ONE identity (executor_identity) — a separate creator principal is not recorded (typed absence; OWNER above is the real lane)" data-ioi-disabled-reason="The plane records ONE identity (executor_identity) — a separate creator principal is not recorded (typed absence; OWNER above is the real lane)">Creator principal<span class="mon-fn">—</span></span>
+    </div>
+    <div class="mon-fgroup"><span class="mon-fgh">EXPIRATION DATE</span>
+      ${gapFacet("Has expiration", "No expiration concept exists on the automation record (typed absence)")}
+    </div></aside>`;
+  const apill = (a) => a.enabled === false ? `<span class="mon-pill paused">Paused</span>` : `<span class="mon-pill active">Active</span>`;
+  const acond = (a) => { const k = trigOf(a); const s = a.schedule_spec || (a.trigger || {}).schedule || null; return k === "time" && s ? `${k} · ${typeof s === "string" ? s : JSON.stringify(s)}` : k; };
+  const arowsHtml = arows.length ? arows.map((a) => {
+    const steps = Array.isArray(a.steps) ? a.steps.length : 0;
+    return `<a class="mon-arow" href="/__ioi/automations?automation=${encodeURIComponent(a.automation_id)}" title="Open this automation's detail on the owner substrate (read-only projection here)">
+      <span class="mon-acell name"><span class="mon-rowico" aria-hidden="true"></span><span class="mon-rowdata"><span class="mon-rowname">${esc(a.name || a.automation_id)}</span><span class="mon-rowpath">${esc(a.automation_id)} · project ${esc(a.project_id || "—")} · ${steps} step${steps === 1 ? "" : "s"}</span></span></span>
+      <span class="mon-acell">${esc(acond(a))}</span>
+      <span class="mon-acell">${apill(a)}</span>
+      <span class="mon-acell">${creatorOf(a) ? `<span title="declared executor_identity.ref (real daemon truth)">${esc(creatorOf(a))}</span>` : gapDash("No executor identity is recorded on this automation (named gap)")}</span>
+    </a>`;
+  }).join("") : `<div class="mon-empty">No automations${flt.status || flt.condition ? " match this filter — the facet counts are live plane truth" : ""} — this list renders the real automation plane and never fabricates rows.</div>`;
+  const automationsLane = `<div class="mon-abody">
+    ${filters}
+    <div class="mon-alist">
+      <div class="mon-athead"><span class="mon-ath name">Name</span><span class="mon-ath">Condition</span><span class="mon-ath">Status</span><span class="mon-ath">Creator</span></div>
+      <div class="mon-arows">${arowsHtml}</div>
+      <p class="mon-foot">The <b>Automations</b> lane — the reference's own in-app list route rebuilt LIVE inside the certified shell (AUT-1): ${arows.length} of ${list.length} automation${list.length === 1 ? "" : "s"} shown${flt.status || flt.condition ? " (filtered)" : ""}, read-only. Rows open the <a href="/__ioi/automations">Automations substrate</a> detail; authoring/pause/resume/run history stay there. Facets the plane cannot express are disabled in place with the reason named. Evidence: reference-family-atlas.v1.json (monitors tab_lane, 8 facet groups) · reference-subroute-census.v1.json.</p>
+    </div>
+  </div>`;
+
 
   const css = `:root{color-scheme:light}*{box-sizing:border-box}
     body{margin:0;background:#fff;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif}
@@ -4758,6 +4825,24 @@ function renderMonitorsPort(automations, runsById) {
     .mon-evtstat{display:block;font-size:12px;color:#1c2127;margin-top:1px}
     .mon-evtref{font-size:11px;color:#5f6b7c;margin-left:12px;max-width:340px;word-break:break-all}
     .mon-foot{font-size:12px;line-height:1.6;color:#7b8494;margin:24px 0 40px}
+    .mon-abody{flex:1;display:flex;min-height:0;overflow:hidden}
+    .mon-flt{flex:0 0 260px;overflow-y:auto;border-right:1px solid #e5e8eb;padding:16px 16px 24px;background:#fff}
+    .mon-flth{font-size:16px;font-weight:600;margin:0 0 10px;color:#1c2127}
+    .mon-fgroup{margin:0 0 16px;display:flex;flex-direction:column}
+    .mon-fgh{font-size:11px;letter-spacing:.04em;font-weight:600;color:#5f6b7c;margin:0 0 4px}
+    .mon-frow{display:flex;align-items:center;justify-content:space-between;font-size:14px;color:#1c2127;padding:3px 6px;border-radius:3px}
+    a.mon-frow:hover{background:#f6f7f9}a.mon-frow.on{background:#e7f2ff;color:#215db0;font-weight:600}
+    .mon-frow.gap{color:#a8b2be;cursor:not-allowed}.mon-frow.ro{cursor:default}
+    .mon-fn{color:#5f6b7c;font-size:12px}.mon-frow.on .mon-fn{color:#215db0}
+    .mon-fempty{font-size:12px;color:#a8b2be;padding:3px 6px}
+    .mon-alist{flex:1;min-width:0;overflow-y:auto;padding:16px 24px 32px}
+    .mon-athead{display:grid;grid-template-columns:minmax(280px,2fr) 1fr 120px 1.2fr;gap:8px;font-size:11px;letter-spacing:.04em;font-weight:600;color:#5f6b7c;text-transform:uppercase;padding:0 10px 6px;border-bottom:1px solid #e5e8eb}
+    .mon-arow{display:grid;grid-template-columns:minmax(280px,2fr) 1fr 120px 1.2fr;gap:8px;align-items:center;padding:8px 10px;border-bottom:1px solid #f0f2f5;color:#1c2127}
+    .mon-arow:hover{background:#f6f7f9}
+    .mon-acell{font-size:14px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .mon-acell.name{display:flex;align-items:center;gap:10px;white-space:normal}
+    .mon-pill{display:inline-flex;padding:1px 8px;border-radius:10px;font-size:12px;font-weight:600}
+    .mon-pill.active{background:rgba(35,133,81,.12);color:#1c6e42}.mon-pill.paused{background:rgba(95,107,124,.12);color:#5f6b7c}
     @media(max-width:700px){
       .mon-main{height:100svh}.mon-hchip{width:42px;flex-basis:42px}.mon-htitle{margin-left:9px;font-size:15px}
       .mon-tabs{margin-left:auto}.mon-tab{font-size:13px;margin-right:12px}.mon-hright{display:none}
@@ -4771,7 +4856,7 @@ function renderMonitorsPort(automations, runsById) {
     }`;
 
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Automate</title><style>${css}</style></head>
-    <body><div class="mon-shell">${globalRail}<div class="mon-main">${header}<div class="mon-body">${hero}<main class="mon-content">${gettingStarted}${stats}${recents}${triggered}</main></div></div></div></body></html>`;
+    <body><div class="mon-shell">${globalRail}<div class="mon-main">${header}${view === "automations" ? automationsLane : `<div class="mon-body">${hero}<main class="mon-content">${gettingStarted}${stats}${recents}${triggered}</main></div>`}</div></div></body></html>`;
 }
 
 // ============================ STUDIO · MACHINERY (process/state-machine DEFINITIONS — landing port, #50)
@@ -8896,7 +8981,12 @@ async function handleEstateRequest(req, res, body) {
       const autos = aRes.automations || [];
       const runsEntries = await Promise.all(autos.map((a) =>
         daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(a.automation_id)}/runs`).then((r) => r.json()).then((j) => [a.automation_id, j.runs || []]).catch(() => [a.automation_id, []])));
-      sendOwnedSurfaceHtml(res, "monitors", renderMonitorsPort(autos, Object.fromEntries(runsEntries)));
+      // AUT-1 (remediation v2): ?tab=automations = the LIVE faceted list lane — the reference's own
+      // in-app /automations route (atlas: tab_lane state, 8 facet groups) rebuilt inside the
+      // certified shell over the same plane. Read-only; ?status/?condition are server-side filters.
+      const monQp = new URL(req.url, "http://x").searchParams;
+      const monView = monQp.get("tab") === "automations" ? "automations" : "overview";
+      sendOwnedSurfaceHtml(res, "monitors", renderMonitorsPort(autos, Object.fromEntries(runsEntries), monView, { status: monQp.get("status") || "", condition: monQp.get("condition") || "" }));
       return;
     }
     if (pathname.startsWith("/__ioi/automations/")) {

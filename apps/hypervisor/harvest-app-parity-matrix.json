@@ -1,10 +1,10 @@
 {
   "schema_version": "ioi.hypervisor.app-parity-matrix.v2",
   "phase": "Reference UX Port",
-  "doctrine": "Reference UX port first (port the source-neutralized reference shell/layout) \u2192 daemon truth inside that UX (wire panels, tables, graph nodes, toolbars, drawers, empty + disabled states) \u2192 IOI-native redesign later. The dark IOI surfaces built #3\u2013#30 are substrate, not parity.",
-  "pixel_rule": "`shell_pixel_certified` (per port-state row) is a STRONGER evidence layer on TOP of daemon_wired: PIXEL-IDENTICAL SHELL, SEMANTICALLY-TRUTHFUL BODY. Because the captured references carry Palantir EXAMPLE data while the IOI ports render LIVE daemon truth, full-body pixel parity is NOT the target (it would reward faking IOI data). The shell-pixel harness (harness-reference-pixel-parity.mjs) certifies the surface at the required viewports (1440x900 + 1920x1080, + 390x844 only if the reference supports mobile): the #34/#39 visual gates AND the certified SHELL (rail/header/app-rail/toolbar/panel chrome) diff \u2264 the shell budget AND shell region bbox\u0394 \u2264 8px AND the certified shell covers a real fraction of the image \u2014 with the live-data BODY EXCLUDED by design and its truth verified SEMANTICALLY by the per-surface verifier (body_semantic_truth: same container placement + grammar + live count cross-checks + real-substrate existence + named gaps). Over-masking the shell fails closed. shell_pixel_certified never replaces daemon_wired, the visual gate, or daemon truth; a true row carries a committed shell_pixel_certification_artifact.",
-  "parity_rule": "Only `daemon_wired` counts as TRUE reference UX parity: a FAITHFUL port of the reference UX (same theme + IA + layout) wired to daemon truth that passes the HARDENED Playwright harness \u2014 `visual_parity` = region geometry + theme (light/dark) match + reproduction of the reference's IA landmarks. Region-name overlap alone is NOT parity (#34 review). `substrate_bound` = a dark IOI surface (custom automationsShell) over daemon truth \u2014 valuable substrate, NOT parity. `reference_ported` = a shell ported + wired but not certified under the hardened gate (errored reference OR a native redesign that does not reproduce the reference theme + IA). A surface must not claim parity without side-by-side screenshots + the hardened harness pass.",
-  "reset_note": "PR #31 presentation-layer rebase: the former `daemon_bound` class is retired; its 10 surfaces are reclassified `substrate_bound`, with all daemon planes / fail-closed contracts / truth verifiers preserved. #34 review HARDENED the parity gate (theme + IA landmarks, not just region names): #34 Ontology Manager is the first FAITHFUL light two-rail port to certify `daemon_wired`; #33 approvals was reclassified `reference_ported` (a wired but native-dark shell), then #36 RE-PORTED it as a FAITHFUL light faceted inbox and PROMOTED it back to `daemon_wired` \u2014 the second faithful port. #35 Object Explorer is `reference_ported` (blank/failed local Hubble reference). #32 pipeline was `reference_ported`; #38 RE-BASELINED its blocker (data complete, CORS/origin-blocked \u2014 origin alignment, NOT the fresh-session re-harvest #37 wrongly prescribed); #39 then PROMOTED it to `daemon_wired` \u2014 the THIRD faithful port \u2014 by RE-PORTING /__ioi/pipeline to a faithful LIGHT Pipeline Builder (the earlier dark shell was correctly refused by #34's theme gate) AND aligning the harness reference to the origin-matched data-clean canvas (reference_url_override localhost:9225 \u2026/sandbox/\u2026, modal dismissed); the hardened harness certifies visual_parity (light/light + landmarks 10/10 + regions 1.0).",
+  "doctrine": "Reference UX port first (port the source-neutralized reference shell/layout) → daemon truth inside that UX (wire panels, tables, graph nodes, toolbars, drawers, empty + disabled states) → IOI-native redesign later. The dark IOI surfaces built #3–#30 are substrate, not parity.",
+  "pixel_rule": "`shell_pixel_certified` (per port-state row) is a STRONGER evidence layer on TOP of daemon_wired: PIXEL-IDENTICAL SHELL, SEMANTICALLY-TRUTHFUL BODY. Because the captured references carry Palantir EXAMPLE data while the IOI ports render LIVE daemon truth, full-body pixel parity is NOT the target (it would reward faking IOI data). The shell-pixel harness (harness-reference-pixel-parity.mjs) certifies the surface at the required viewports (1440x900 + 1920x1080, + 390x844 only if the reference supports mobile): the #34/#39 visual gates AND the certified SHELL (rail/header/app-rail/toolbar/panel chrome) diff ≤ the shell budget AND shell region bboxΔ ≤ 8px AND the certified shell covers a real fraction of the image — with the live-data BODY EXCLUDED by design and its truth verified SEMANTICALLY by the per-surface verifier (body_semantic_truth: same container placement + grammar + live count cross-checks + real-substrate existence + named gaps). Over-masking the shell fails closed. shell_pixel_certified never replaces daemon_wired, the visual gate, or daemon truth; a true row carries a committed shell_pixel_certification_artifact.",
+  "parity_rule": "Only `daemon_wired` counts as TRUE reference UX parity: a FAITHFUL port of the reference UX (same theme + IA + layout) wired to daemon truth that passes the HARDENED Playwright harness — `visual_parity` = region geometry + theme (light/dark) match + reproduction of the reference's IA landmarks. Region-name overlap alone is NOT parity (#34 review). `substrate_bound` = a dark IOI surface (custom automationsShell) over daemon truth — valuable substrate, NOT parity. `reference_ported` = a shell ported + wired but not certified under the hardened gate (errored reference OR a native redesign that does not reproduce the reference theme + IA). A surface must not claim parity without side-by-side screenshots + the hardened harness pass.",
+  "reset_note": "PR #31 presentation-layer rebase: the former `daemon_bound` class is retired; its 10 surfaces are reclassified `substrate_bound`, with all daemon planes / fail-closed contracts / truth verifiers preserved. #34 review HARDENED the parity gate (theme + IA landmarks, not just region names): #34 Ontology Manager is the first FAITHFUL light two-rail port to certify `daemon_wired`; #33 approvals was reclassified `reference_ported` (a wired but native-dark shell), then #36 RE-PORTED it as a FAITHFUL light faceted inbox and PROMOTED it back to `daemon_wired` — the second faithful port. #35 Object Explorer is `reference_ported` (blank/failed local Hubble reference). #32 pipeline was `reference_ported`; #38 RE-BASELINED its blocker (data complete, CORS/origin-blocked — origin alignment, NOT the fresh-session re-harvest #37 wrongly prescribed); #39 then PROMOTED it to `daemon_wired` — the THIRD faithful port — by RE-PORTING /__ioi/pipeline to a faithful LIGHT Pipeline Builder (the earlier dark shell was correctly refused by #34's theme gate) AND aligning the harness reference to the origin-matched data-clean canvas (reference_url_override localhost:9225 …/sandbox/…, modal dismissed); the hardened harness certifies visual_parity (light/light + landmarks 10/10 + regions 1.0).",
   "estate_backstop": {
     "executable_seeds": 39,
     "note": "The 39 executable seeds are the migration queue; the 45-app local-composition crosswalk is the estate backstop so coverage does not shrink.",
@@ -23,19 +23,19 @@
   },
   "legend": {
     "reference_capture": "the /__apps/<slug> reference baseline serves; no IOI port exists",
-    "substrate_bound": "a dark IOI surface (custom shell) renders REAL daemon truth \u2014 valuable substrate, NOT reference UX parity",
+    "substrate_bound": "a dark IOI surface (custom shell) renders REAL daemon truth — valuable substrate, NOT reference UX parity",
     "reference_port_pending": "selected for porting; reference screenshots + selectors captured (not yet ported)",
     "reference_ported": "source-neutral reference shell/layout ported, still static or minimally wired",
-    "daemon_wired": "ported reference UX wired to daemon truth AND passing visual/structural parity \u2014 the ONLY true-parity state",
-    "capture_state": "what the LOCAL CAPTURE does when booted (boots_*/shell_only/blocked_missing_capture) \u2014 NOT a parity claim",
-    "donor_ported": "REMEDIATION TERMINAL STATE (program v2): the seed's own capture is unusable but the app SHIPPED via a named sibling capture \u2014 the matrix row records donor_capture and the D6 role(s); evidence: reference-gap-adjudication + family atlas state",
-    "absent_confirmed": "REMEDIATION TERMINAL STATE: the reference route serves but expresses NO IA (no facets, no columns, no tabs \u2014 the \u00a73.2 test) \u2014 the named gap STANDS, now citing the adjudication record instead of an untested assumption",
-    "capture_broken_no_donor": "REMEDIATION TERMINAL STATE: capture byte-broken AND the donor search (recorded) found no booting sibling \u2014 terminal truth, never a dark-native fallback",
-    "ia_bearing_empty": "REMEDIATION RECLASSIFICATION of shell_clean_only WHERE IA EXISTS: the reference body is empty but its empty state EXPRESSES the IA (facets/columns/empty-copy) \u2014 portable under the matrix's own pixel_rule (live-data body excluded by design); shell_clean_only was never a valid port blocker",
-    "adjudication_ref": "SEED FIELD (remediation): pointer into reference-gap-adjudication artifacts \u2014 the reference surface a named gap or port decision was weighed against",
-    "donor_capture": "SEED FIELD (remediation): the sibling seed slug whose capture ships this app (D6 combined-seed designations; roles: donor | authoring_flow | detail_view | secondary_grammar)",
-    "landing_designation": "CLICK-TARGET RECORD (remediation): the machine record of plan \u00a74.1 lives in landing-designations.v1.json \u2014 one designated landing grammar per click target, D-rules D1-D6, status NOW|LATER(action)|GRE; audited by check-landing-designations.mjs (the W1 exit gate)",
-    "remediation_state": "SEED FIELD (remediation): the program v2 terminal state for this seed (donor_ported | absent_confirmed | capture_broken_no_donor | ia_bearing_empty) \u2014 always paired with adjudication_ref; parity_class stays untouched"
+    "daemon_wired": "ported reference UX wired to daemon truth AND passing visual/structural parity — the ONLY true-parity state",
+    "capture_state": "what the LOCAL CAPTURE does when booted (boots_*/shell_only/blocked_missing_capture) — NOT a parity claim",
+    "donor_ported": "REMEDIATION TERMINAL STATE (program v2): the seed's own capture is unusable but the app SHIPPED via a named sibling capture — the row records donor_capture and the D6 role(s)",
+    "absent_confirmed": "REMEDIATION TERMINAL STATE: the reference route serves but expresses NO IA (no facets, no columns, no tabs — the §3.2 test) — the named gap STANDS, citing the adjudication record instead of an untested assumption",
+    "capture_broken_no_donor": "REMEDIATION TERMINAL STATE: capture byte-broken AND the recorded donor search found no booting sibling — terminal truth, never a dark-native fallback",
+    "ia_bearing_empty": "REMEDIATION RECLASSIFICATION of shell_clean_only-class verdicts WHERE IA EXISTS: the reference body is empty but its empty state EXPRESSES the IA — portable under the matrix's own pixel_rule",
+    "remediation_state": "SEED FIELD (remediation): the program v2 terminal state — always paired with adjudication_ref; parity_class stays untouched",
+    "adjudication_ref": "SEED FIELD (remediation): pointer into the committed adjudication artifacts — the reference surface a decision was weighed against",
+    "donor_capture": "SEED FIELD (remediation): the sibling seed slug whose capture ships this app (D6; roles donor | authoring_flow | detail_view | secondary_grammar)",
+    "landing_designation": "CLICK-TARGET RECORD: the machine record of plan §4.1 lives in landing-designations.v1.json, audited by check-landing-designations.mjs"
   },
   "seeds": [
     {
@@ -49,10 +49,11 @@
       "capture_state": "boots_graph",
       "reference_capture": "/__apps/designer",
       "reference_workspace": "/workspace/solution-design/",
-      "note": "TRUE parity (#49) under the HARDENED gate: light Solution-Designer landing reference-faithful shell at /__ioi/studio/designer against the ORIGIN-ALIGNED data-clean reference (reference_url_override localhost:9225/workspace/solution-design/ \u2014 the #44 needs_origin_alignment finding; the /__apps/designer proxy lane stays documented-insufficient: cross-origin :9225 chunk fetches manufacture CORS noise + a favorites-load failure); the FIRST origin-alignment-queue port after the #48 clean-pool close \u2014 the old dark substrate canvas is REBUILT in place as the faithful light landing shell over the SAME composition truth (concepts/components/resources preserved below the fold with real refs); the hero illustration + template-gallery strip are verbatim capture chrome (the reference's own static template library, never estate data); rows are REAL domain ontologies with honest em-dashes where the ODK plane records no principal/view tracking; in-canvas authoring / New-Open Diagram / save-open / drag-to-reference / AIP Architect planning / favorites / template Browse-all / machinery process-graph execution / workshop+module builders = named gaps disabled in place",
+      "note": "TRUE parity (#49) under the HARDENED gate: light Solution-Designer landing reference-faithful shell at /__ioi/studio/designer against the ORIGIN-ALIGNED data-clean reference (reference_url_override localhost:9225/workspace/solution-design/ — the #44 needs_origin_alignment finding; the /__apps/designer proxy lane stays documented-insufficient: cross-origin :9225 chunk fetches manufacture CORS noise + a favorites-load failure); the FIRST origin-alignment-queue port after the #48 clean-pool close — the old dark substrate canvas is REBUILT in place as the faithful light landing shell over the SAME composition truth (concepts/components/resources preserved below the fold with real refs); the hero illustration + template-gallery strip are verbatim capture chrome (the reference's own static template library, never estate data); rows are REAL domain ontologies with honest em-dashes where the ODK plane records no principal/view tracking; in-canvas authoring / New-Open Diagram / save-open / drag-to-reference / AIP Architect planning / favorites / template Browse-all / machinery process-graph execution / workshop+module builders = named gaps disabled in place",
       "reference_clean_state": "data_clean",
-      "reference_clean_reason": "shell regions [rail, header, body] + data evidence (rows 12/0 \u00b7 nodes 0 \u00b7 cards 64 \u00b7 lists 0 \u00b7 lines 690)",
+      "reference_clean_reason": "shell regions [rail, header, body] + data evidence (rows 12/0 · nodes 0 · cards 64 · lists 0 · lines 690)",
       "reference_clean_artifact": "reference-clean-sweep.json",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#designer",
       "substrate_surface": "/__ioi/studio/designer",
       "surface_name": "Studio",
       "reference_url_override": "http://localhost:9225/workspace/solution-design/",
@@ -68,11 +69,10 @@
         "Open Diagram",
         "LAST VIEWED"
       ],
-      "binding": "faithful port of the reference Solution Designer landing over real ODK composition truth \u2014 dark global rail + light app header (app chip \u00b7 Solution Designer \u00b7 New Diagram/Help as named gaps) + hero band (title \u00b7 description \u00b7 verbatim reference illustration) + the AIP-architect banner card (Start planning as a named gap) + the template-gallery card (the reference's own static template-library strip, verbatim capture chrome) + the View row (Recents active \u00b7 Favorites gap \u00b7 Open Diagram gap) + the Recents table whose rows are the REAL domain ontologies (the estate's solution designs: ref + created/updated dates + concept/component/resource census; honest em-dashes where the ODK plane records no principal/view tracking) + below-the-fold full composition truth (COM concepts \u00b7 mapping/policy-view/projection components \u00b7 materialized-set/domain-app resources, real refs)",
+      "binding": "faithful port of the reference Solution Designer landing over real ODK composition truth — dark global rail + light app header (app chip · Solution Designer · New Diagram/Help as named gaps) + hero band (title · description · verbatim reference illustration) + the AIP-architect banner card (Start planning as a named gap) + the template-gallery card (the reference's own static template-library strip, verbatim capture chrome) + the View row (Recents active · Favorites gap · Open Diagram gap) + the Recents table whose rows are the REAL domain ontologies (the estate's solution designs: ref + created/updated dates + concept/component/resource census; honest em-dashes where the ODK plane records no principal/view tracking) + below-the-fold full composition truth (COM concepts · mapping/policy-view/projection components · materialized-set/domain-app resources, real refs)",
       "candidate_surface": "/__ioi/studio/designer",
       "shell_pixel_certified": true,
-      "shell_pixel_certification_artifact": "pixel-certifications/designer.json",
-      "adjudication_ref": "reference-seed-adjudications.v1.json#designer"
+      "shell_pixel_certification_artifact": "pixel-certifications/designer.json"
     },
     {
       "owner": "Studio",
@@ -85,10 +85,11 @@
       "capture_state": "boots_graph",
       "reference_capture": "/__apps/machinery",
       "reference_workspace": "/workspace/machinery-app/",
-      "note": "TRUE parity (#50) under the HARDENED gate: light Machinery landing reference-faithful shell at /__ioi/studio/machinery against the ORIGIN-ALIGNED data-clean reference (reference_url_override localhost:9225/workspace/machinery-app/ \u2014 the #44 needs_origin_alignment finding; the /__apps/machinery proxy lane stays documented-insufficient: its Marketplace-examples fetch fails on the proxy origin); the SECOND origin-alignment-queue port \u2014 the old dark definition view is REBUILT in place as the faithful light landing shell over the SAME inert #30 state-machine plane (states/transitions/guards/inputs/outputs/owners/history/health preserved below the fold with real records + the daemon's own authority_note verbatim); the hero illustration + marketplace-examples strip are verbatim capture chrome (the reference's own example content, never estate data and never an execution claim); DEFINITION-ONLY IS THE HARD BOUNDARY \u2014 no run/step/execute, no current_state, no scheduling, no Automations/Missions/ODK binding, no fake process-graph execution; graph authoring (New graph) / Recent-installations store menu / favorites / marketplace example installs / simulation / versioning = named gaps disabled in place (a later authority-crossing cut)",
+      "note": "TRUE parity (#50) under the HARDENED gate: light Machinery landing reference-faithful shell at /__ioi/studio/machinery against the ORIGIN-ALIGNED data-clean reference (reference_url_override localhost:9225/workspace/machinery-app/ — the #44 needs_origin_alignment finding; the /__apps/machinery proxy lane stays documented-insufficient: its Marketplace-examples fetch fails on the proxy origin); the SECOND origin-alignment-queue port — the old dark definition view is REBUILT in place as the faithful light landing shell over the SAME inert #30 state-machine plane (states/transitions/guards/inputs/outputs/owners/history/health preserved below the fold with real records + the daemon's own authority_note verbatim); the hero illustration + marketplace-examples strip are verbatim capture chrome (the reference's own example content, never estate data and never an execution claim); DEFINITION-ONLY IS THE HARD BOUNDARY — no run/step/execute, no current_state, no scheduling, no Automations/Missions/ODK binding, no fake process-graph execution; graph authoring (New graph) / Recent-installations store menu / favorites / marketplace example installs / simulation / versioning = named gaps disabled in place (a later authority-crossing cut)",
       "reference_clean_state": "data_clean",
-      "reference_clean_reason": "shell regions [rail, header, body] + data evidence (rows 12/0 \u00b7 nodes 0 \u00b7 cards 3 \u00b7 lists 0 \u00b7 lines 49)",
+      "reference_clean_reason": "shell regions [rail, header, body] + data evidence (rows 12/0 · nodes 0 · cards 3 · lists 0 · lines 49)",
       "reference_clean_artifact": "reference-clean-sweep.json",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#machinery",
       "substrate_surface": "/__ioi/studio/machinery",
       "surface_name": "Studio",
       "reference_url_override": "http://localhost:9225/workspace/machinery-app/",
@@ -104,11 +105,10 @@
         "LAST VIEWED",
         "Explore reference examples"
       ],
-      "binding": "faithful port of the reference Machinery landing over the inert daemon state-machine plane \u2014 dark global rail + light app header (machinery tile \u00b7 Recent-installations store dropdown \u00b7 New graph \u00b7 Help as named gaps) + hero band (title \u00b7 description \u00b7 verbatim reference illustration under the reference's own white-gradient content overlay) + the View row (Recents active \u00b7 Favorites gap) + the viewport-height-ruled Recents table whose rows are the REAL state-machine DEFINITIONS (name \u00b7 ref \u00b7 created/updated dates \u00b7 declared states/transitions/guards census \u00b7 health/status; declared owner_refs rendered honestly, em-dashes where the plane records no principal/view tracking) + the Explore-reference-examples band (the reference's own marketplace example cards, verbatim capture chrome) + below-the-fold full DEFINITION truth (states initial/normal/final \u00b7 transitions from\u2192to/event/guard \u00b7 guards \u00b7 declared inputs/outputs \u00b7 owners \u00b7 history \u00b7 the daemon's own authority_note)",
+      "binding": "faithful port of the reference Machinery landing over the inert daemon state-machine plane — dark global rail + light app header (machinery tile · Recent-installations store dropdown · New graph · Help as named gaps) + hero band (title · description · verbatim reference illustration under the reference's own white-gradient content overlay) + the View row (Recents active · Favorites gap) + the viewport-height-ruled Recents table whose rows are the REAL state-machine DEFINITIONS (name · ref · created/updated dates · declared states/transitions/guards census · health/status; declared owner_refs rendered honestly, em-dashes where the plane records no principal/view tracking) + the Explore-reference-examples band (the reference's own marketplace example cards, verbatim capture chrome) + below-the-fold full DEFINITION truth (states initial/normal/final · transitions from→to/event/guard · guards · declared inputs/outputs · owners · history · the daemon's own authority_note)",
       "candidate_surface": "/__ioi/studio/machinery",
       "shell_pixel_certified": true,
-      "shell_pixel_certification_artifact": "pixel-certifications/machinery.json",
-      "adjudication_ref": "reference-seed-adjudications.v1.json#machinery"
+      "shell_pixel_certification_artifact": "pixel-certifications/machinery.json"
     },
     {
       "owner": "Studio",
@@ -123,7 +123,7 @@
       "reference_workspace": "/workspace/workshop/",
       "note": "application/module builder; unbound",
       "reference_clean_state": "errored_reference",
-      "reference_clean_reason": "navigation failed on every lane (navigation triggered a content-type download \u2014 the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane) \u00b7 navigation triggered a content-type download \u2014 the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane))",
+      "reference_clean_reason": "navigation failed on every lane (navigation triggered a content-type download — the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane) · navigation triggered a content-type download — the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane))",
       "reference_clean_artifact": "reference-clean-sweep.json"
     },
     {
@@ -139,7 +139,7 @@
       "reference_workspace": "/workspace/module/",
       "note": "compute-module builder; unbound",
       "reference_clean_state": "needs_origin_alignment",
-      "reference_clean_reason": "proxy lane shows a failure (\"Page not found\"), but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 12/0 \u00b7 nodes 0 \u00b7 cards 9 \u00b7 lines 54) \u2014 align the reference URL like pipeline #38/#39",
+      "reference_clean_reason": "proxy lane shows a failure (\"Page not found\"), but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 12/0 · nodes 0 · cards 9 · lines 54) — align the reference URL like pipeline #38/#39",
       "reference_clean_artifact": "reference-clean-sweep.json"
     },
     {
@@ -153,9 +153,9 @@
       "capture_state": "boots_graph",
       "reference_capture": "/__apps/monitors",
       "reference_workspace": "/workspace/object-monitoring/",
-      "note": "TRUE parity (#51) under the HARDENED gate: light Automate-overview reference-faithful shell at /__ioi/automations/monitors against the ORIGIN-ALIGNED data-clean reference (reference_url_override localhost:9225/workspace/object-monitoring/ \u2014 the #44 needs_origin_alignment finding; the /__apps/monitors proxy lane stays documented-insufficient: a favorites-load failure + CORS-blocked session lanes); the THIRD origin-alignment-queue port and the FIRST Automations-family certified surface \u2014 a NEW dedicated port route (monitors had no prior IOI surface), built as a read-only projection over the EXISTING automation plane (authoring/pause/resume/run history stay on /__ioi/automations, linked first-class both ways); the wizard/template/example strips are verbatim capture chrome (vendor content, never estate data); NO new scheduler or execution semantics; New-automation here / store menu / template docs / marketplace example installs / notification subscriptions = named gaps disabled in place",
+      "note": "TRUE parity (#51) under the HARDENED gate: light Automate-overview reference-faithful shell at /__ioi/automations/monitors against the ORIGIN-ALIGNED data-clean reference (reference_url_override localhost:9225/workspace/object-monitoring/ — the #44 needs_origin_alignment finding; the /__apps/monitors proxy lane stays documented-insufficient: a favorites-load failure + CORS-blocked session lanes); the THIRD origin-alignment-queue port and the FIRST Automations-family certified surface — a NEW dedicated port route (monitors had no prior IOI surface), built as a read-only projection over the EXISTING automation plane (authoring/pause/resume/run history stay on /__ioi/automations, linked first-class both ways); the wizard/template/example strips are verbatim capture chrome (vendor content, never estate data); NO new scheduler or execution semantics; New-automation here / store menu / template docs / marketplace example installs / notification subscriptions = named gaps disabled in place. AUT-1 (remediation v2): the Automations tab is the in-shell LIVE faceted list over the same plane (evidence: reference-family-atlas.v1.json monitors tab_lane state, 8 facet groups); authoring stays on the substrate",
       "reference_clean_state": "data_clean",
-      "reference_clean_reason": "shell regions [rail, header, body] + data evidence (rows 18/0 \u00b7 nodes 0 \u00b7 cards 17 \u00b7 lists 0 \u00b7 lines 87)",
+      "reference_clean_reason": "shell regions [rail, header, body] + data evidence (rows 18/0 · nodes 0 · cards 17 · lists 0 · lines 87)",
       "reference_clean_artifact": "reference-clean-sweep.json",
       "port_surface": "/__ioi/automations/monitors",
       "surface_name": "Automations",
@@ -172,7 +172,7 @@
         "Get started by creating a new automation",
         "Explore reference examples"
       ],
-      "binding": "faithful port of the reference Automate overview over the real automation plane \u2014 dark global rail + tabbed app header (Automate \u00b7 Overview active \u00b7 Automations \u2192 the real owner substrate \u00b7 store dropdown / New automation / Help as named gaps) + hero band under the reference's own white-gradient content overlay + Getting-started band (View-all \u2192 the substrate) with the wizard card (verbatim 3-step illustration strip) + the template-card gallery + marketplace-examples band (verbatim capture strips, vendor chrome) + below-the-fold REAL truth: Active-automations stat band (live counts: user-executed \u00b7 notifications = honest named-gap 0 \u00b7 paused via enabled=false), the Recently-viewed table (one row per real automation: id \u00b7 project \u00b7 trigger \u00b7 steps census \u00b7 created date; CREATOR = the real executor_identity.ref) and the Recently-triggered feed (real executions: status \u00b7 time \u00b7 execution/environment refs as proof)",
+      "binding": "faithful port of the reference Automate overview over the real automation plane — dark global rail + tabbed app header (Automate · Overview active · Automations = the IN-SHELL LIVE faceted list lane (AUT-1: the reference's own in-app /automations route — STATUS/CONDITION/EFFECTS/NOTIFICATIONS/OWNER/CREATOR/EXPIRATION facets with live plane counts + typed absences in both gap vocabularies; Name·Condition·Status·Creator rows linking the owner-substrate detail; read-only) · store dropdown / New automation / Help as named gaps) + hero band under the reference's own white-gradient content overlay + Getting-started band (View-all → the substrate) with the wizard card (verbatim 3-step illustration strip) + the template-card gallery + marketplace-examples band (verbatim capture strips, vendor chrome) + below-the-fold REAL truth: Active-automations stat band (live counts: user-executed · notifications = honest named-gap 0 · paused via enabled=false), the Recently-viewed table (one row per real automation: id · project · trigger · steps census · created date; CREATOR = the real executor_identity.ref) and the Recently-triggered feed (real executions: status · time · execution/environment refs as proof)",
       "candidate_surface": "/__ioi/automations/monitors",
       "shell_pixel_certified": true,
       "shell_pixel_certification_artifact": "pixel-certifications/monitors.json"
@@ -190,7 +190,7 @@
       "reference_workspace": "/workspace/scheduler/",
       "note": "schedule table; unbound",
       "reference_clean_state": "shell_clean_only",
-      "reference_clean_reason": "shell regions [rail, header, body] render clean but the body carries no real data (rows 0/0 \u00b7 nodes 0 \u00b7 cards 0)",
+      "reference_clean_reason": "shell regions [rail, header, body] render clean but the body carries no real data (rows 0/0 · nodes 0 · cards 0)",
       "reference_clean_artifact": "reference-clean-sweep.json",
       "remediation_state": "absent_confirmed",
       "adjudication_ref": "reference-seed-adjudications.v1.json#scheduler"
@@ -208,14 +208,14 @@
       "reference_workspace": "/workspace/monocle/",
       "note": "Monocle lineage grammar over real provenance; upstream ladder refs resolved to live records; no fake nodes for unmaterialized ontologies; freeform resource-search / graph-expansion / cross-tenant catalog = named gaps",
       "reference_clean_state": "shell_clean_only",
-      "reference_clean_reason": "shell renders a WELCOME/empty landing (cards 3 \u00b7 lines 20, no row/node data) \u2014 clean chrome, no real data to port against",
+      "reference_clean_reason": "shell renders a WELCOME/empty landing (cards 3 · lines 20, no row/node data) — clean chrome, no real data to port against",
       "reference_clean_artifact": "reference-clean-sweep.json",
-      "substrate_surface": "/__ioi/lineage",
-      "binding": "ODK materialization provenance (MaterializedObjectSet \u2192 run \u2192 session \u2192 lease \u2192 projection \u2192 mapping \u2192 datasource, resolved to live ladder refs; per-object source hashes + mapped_from; pre-output + registration receipts; Provenance proof-stream edges where available)",
-      "candidate_surface": "/__ioi/lineage",
-      "shell_pixel_certified": false,
       "remediation_state": "ia_bearing_empty",
-      "adjudication_ref": "reference-seed-adjudications.v1.json#lineage"
+      "adjudication_ref": "reference-seed-adjudications.v1.json#lineage",
+      "substrate_surface": "/__ioi/lineage",
+      "binding": "ODK materialization provenance (MaterializedObjectSet → run → session → lease → projection → mapping → datasource, resolved to live ladder refs; per-object source hashes + mapped_from; pre-output + registration receipts; Provenance proof-stream edges where available)",
+      "candidate_surface": "/__ioi/lineage",
+      "shell_pixel_certified": false
     },
     {
       "owner": "Data",
@@ -230,10 +230,10 @@
       "reference_workspace": "/workspace/hyperauto/",
       "note": "source-first pipeline wizard; unbound",
       "reference_clean_state": "shell_clean_only",
-      "reference_clean_reason": "shell regions [rail, header, body] render clean but the body carries no real data (rows 0/0 \u00b7 nodes 0 \u00b7 cards 2)",
+      "reference_clean_reason": "shell regions [rail, header, body] render clean but the body carries no real data (rows 0/0 · nodes 0 · cards 2)",
       "reference_clean_artifact": "reference-clean-sweep.json",
-      "adjudication_ref": "reference-seed-adjudications.v1.json#ingest",
-      "remediation_state": "absent_confirmed"
+      "remediation_state": "absent_confirmed",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#ingest"
     },
     {
       "owner": "Data",
@@ -246,10 +246,11 @@
       "capture_state": "shell_only",
       "reference_capture": "/__apps/sources",
       "reference_workspace": "/workspace/data-ingestion-app/",
-      "note": "TRUE parity (#52) under the HARDENED gate: light Data-Connection landing reference-faithful shell at /__ioi/data/sources against the ORIGIN-ALIGNED data-clean reference (reference_url_override localhost:9225/workspace/data-ingestion-app/ \u2014 the #44 needs_origin_alignment finding; the What's-new modal dismissed by a reference-only pre-capture hook; the /__apps/sources proxy lane stays documented-insufficient: renders no data); the FOURTH origin-alignment-queue port and the FIRST Data-family LANDING surface (pipeline is the Data ladder) \u2014 a NEW dedicated port route over the EXISTING DataSource registry; THE AUTHORITY BOUNDARY IS THE HARD LINE: declared sources only, no extraction, no connection test, no live connector read, no materialization semantics on this surface (the governed path stays the ODK ladder); credential VALUES never render (postures only; endpoints stripped of userinfo/query/fragment); New-source here / live-connection setup / upload / synthesis / Syncs-Agents-Listeners-External-stacks / store menu / example installs = named gaps disabled in place",
+      "note": "TRUE parity (#52) under the HARDENED gate: light Data-Connection landing reference-faithful shell at /__ioi/data/sources against the ORIGIN-ALIGNED data-clean reference (reference_url_override localhost:9225/workspace/data-ingestion-app/ — the #44 needs_origin_alignment finding; the What's-new modal dismissed by a reference-only pre-capture hook; the /__apps/sources proxy lane stays documented-insufficient: renders no data); the FOURTH origin-alignment-queue port and the FIRST Data-family LANDING surface (pipeline is the Data ladder) — a NEW dedicated port route over the EXISTING DataSource registry; THE AUTHORITY BOUNDARY IS THE HARD LINE: declared sources only, no extraction, no connection test, no live connector read, no materialization semantics on this surface (the governed path stays the ODK ladder); credential VALUES never render (postures only; endpoints stripped of userinfo/query/fragment); New-source here / live-connection setup / upload / synthesis / Syncs-Agents-Listeners-External-stacks / store menu / example installs = named gaps disabled in place",
       "reference_clean_state": "data_clean",
-      "reference_clean_reason": "shell regions [rail, header, body] + data evidence (rows 12/0 \u00b7 nodes 0 \u00b7 cards 9 \u00b7 lists 0 \u00b7 lines 60)",
+      "reference_clean_reason": "shell regions [rail, header, body] + data evidence (rows 12/0 · nodes 0 · cards 9 · lists 0 · lines 60)",
       "reference_clean_artifact": "reference-clean-sweep.json",
+      "adjudication_ref": "reference-gap-adjudication.v1.json + reference-seed-adjudications.v1.json#sources",
       "port_surface": "/__ioi/data/sources",
       "surface_name": "Data",
       "reference_url_override": "http://localhost:9225/workspace/data-ingestion-app/",
@@ -265,11 +266,10 @@
         "Set up new connections",
         "Explore reference examples"
       ],
-      "binding": "faithful port of the reference Data Connection landing over the real DataSource registry \u2014 dark global rail + tabbed app header (Data Connection \u00b7 Sources live \u00b7 Syncs/Agents/Listeners/External-stacks as named gaps \u00b7 store dropdown / New source / Help as named gaps \u00b7 the sync-counter cluster bound to REAL ODK materializing-run statuses) + hero band (title \u00b7 description \u00b7 verbatim illustration under the reference's own white-gradient content overlay) + the Set-up-new-connections card (verbatim option-card strip: vendor onboarding chrome, NOT an extraction affordance) + the View row + the Recents table whose rows are the REAL declared sources (name \u00b7 source_ref \u00b7 kind \u00b7 credential_posture \u00b7 lifecycle \u00b7 created date \u00b7 the wired:false flag; endpoints rendered scheme+host+path ONLY) + the marketplace-examples band + below-the-fold the declared-catalog census with the daemon's own ingestion note VERBATIM",
+      "binding": "faithful port of the reference Data Connection landing over the real DataSource registry — dark global rail + tabbed app header (Data Connection · Sources live · Syncs/Agents/Listeners/External-stacks as named gaps · store dropdown / New source / Help as named gaps · the sync-counter cluster bound to REAL ODK materializing-run statuses) + hero band (title · description · verbatim illustration under the reference's own white-gradient content overlay) + the Set-up-new-connections card (verbatim option-card strip: vendor onboarding chrome, NOT an extraction affordance) + the View row + the Recents table whose rows are the REAL declared sources (name · source_ref · kind · credential_posture · lifecycle · created date · the wired:false flag; endpoints rendered scheme+host+path ONLY) + the marketplace-examples band + below-the-fold the declared-catalog census with the daemon's own ingestion note VERBATIM",
       "candidate_surface": "/__ioi/data/sources",
       "shell_pixel_certified": true,
-      "shell_pixel_certification_artifact": "pixel-certifications/sources.json",
-      "adjudication_ref": "reference-gap-adjudication.v1.json + reference-seed-adjudications.v1.json#sources"
+      "shell_pixel_certification_artifact": "pixel-certifications/sources.json"
     },
     {
       "owner": "Data",
@@ -282,9 +282,9 @@
       "capture_state": "blocked_missing_capture",
       "reference_capture": "/__apps/pipeline",
       "reference_workspace": "/workspace/builder/",
-      "note": "TRUE parity (#39) under the HARDENED gate: /__ioi/pipeline REBUILT as a faithful LIGHT Pipeline Builder (dark global rail + light header w/ build state + light tool cluster [Tools/Select/Remove/Layout/Text \u00b7 Add data \u00b7 Reusables \u00b7 Transform/AIP/Edit] + light central graph canvas with the ODK-ladder node cards + a Legend panel + a right 'Pipeline outputs' panel w/ Output settings/Edit output settings + a bottom Selection preview / Suggestions / Pipeline warnings tray), NOT the earlier dark native shell (which #34's theme gate correctly refused); passes the hardened Playwright harness (theme light/light + landmarks 10/10 + regions 1.0) against the ORIGIN-ALIGNED data-clean reference canvas (reference_url_override localhost:9225 \u2026/sandbox/\u2026, the What's-new modal dismissed via a reference-only preCapture hook), whose data completeness is the precondition proven by verify-pipeline-reference-data-clean.mjs (reference_data_complete=true, #38); Build+Preview wired to the real ODK ladder; Schedule/Deploy + freeform canvas authoring (drag-connect / transform code editor / scheduling / deploy) = named gaps disabled in place; no new daemon semantics",
+      "note": "TRUE parity (#39) under the HARDENED gate: /__ioi/pipeline REBUILT as a faithful LIGHT Pipeline Builder (dark global rail + light header w/ build state + light tool cluster [Tools/Select/Remove/Layout/Text · Add data · Reusables · Transform/AIP/Edit] + light central graph canvas with the ODK-ladder node cards + a Legend panel + a right 'Pipeline outputs' panel w/ Output settings/Edit output settings + a bottom Selection preview / Suggestions / Pipeline warnings tray), NOT the earlier dark native shell (which #34's theme gate correctly refused); passes the hardened Playwright harness (theme light/light + landmarks 10/10 + regions 1.0) against the ORIGIN-ALIGNED data-clean reference canvas (reference_url_override localhost:9225 …/sandbox/…, the What's-new modal dismissed via a reference-only preCapture hook), whose data completeness is the precondition proven by verify-pipeline-reference-data-clean.mjs (reference_data_complete=true, #38); Build+Preview wired to the real ODK ladder; Schedule/Deploy + freeform canvas authoring (drag-connect / transform code editor / scheduling / deploy) = named gaps disabled in place; no new daemon semantics",
       "reference_clean_state": "data_clean",
-      "reference_clean_reason": "shell regions [rail, header, toolbar, body] + data evidence (rows 0/4 \u00b7 nodes 18 \u00b7 cards 1 \u00b7 lists 0 \u00b7 lines 30)",
+      "reference_clean_reason": "shell regions [rail, header, toolbar, body] + data evidence (rows 0/4 · nodes 18 · cards 1 · lists 0 · lines 30)",
       "reference_clean_artifact": "reference-clean-sweep.json",
       "port_surface": "/__ioi/pipeline",
       "surface_name": "Data",
@@ -301,7 +301,7 @@
         "Edit output settings",
         "Tools"
       ],
-      "binding": "faithful LIGHT port of the reference Pipeline Builder over the real ODK authority ladder (DataSource \u2192 Object mapping \u2192 Policy gate \u2192 Transform plan \u2192 Read projection \u2192 Lease+session \u2192 MaterializedObjectSet) as the graph node cards; a Legend panel (Input Data / Data Cleaning / Calculations / Output Dataset) + a right 'Pipeline outputs' panel (read projection + column mapping + Output settings) + a 'Selection preview' tray, all from daemon truth (live/declared/missing per stage, preview rows + output schema from the real projection + materialized set)",
+      "binding": "faithful LIGHT port of the reference Pipeline Builder over the real ODK authority ladder (DataSource → Object mapping → Policy gate → Transform plan → Read projection → Lease+session → MaterializedObjectSet) as the graph node cards; a Legend panel (Input Data / Data Cleaning / Calculations / Output Dataset) + a right 'Pipeline outputs' panel (read projection + column mapping + Output settings) + a 'Selection preview' tray, all from daemon truth (live/declared/missing per stage, preview rows + output schema from the real projection + materialized set)",
       "candidate_surface": "/__ioi/pipeline",
       "shell_pixel_certified": true,
       "shell_pixel_certification_artifact": "pixel-certifications/pipeline.json"
@@ -335,9 +335,9 @@
       "capture_state": "boots_table_list",
       "reference_capture": "/__apps/schema",
       "reference_workspace": "/workspace/ontology/",
-      "note": "TRUE parity (#34) under the HARDENED gate: light two-rail reference-faithful shell (matches the reference theme + IA landmarks + card-first body), NOT a native redesign; passes the hardened Playwright harness (theme + landmarks + geometry) against the VALID /__apps/schema reference; READ-ONLY over daemon truth \u2014 authoring/create-edit + object materialization stay in the /__ioi/odk substrate (linked first-class); in-canvas schema editing / Proposals / Shared properties / Groups / Interfaces / Cleanup / action+function execution = named gaps in place; Object Explorer is the sibling #35 cut",
+      "note": "TRUE parity (#34) under the HARDENED gate: light two-rail reference-faithful shell (matches the reference theme + IA landmarks + card-first body), NOT a native redesign; passes the hardened Playwright harness (theme + landmarks + geometry) against the VALID /__apps/schema reference; READ-ONLY over daemon truth — authoring/create-edit + object materialization stay in the /__ioi/odk substrate (linked first-class); in-canvas schema editing / Proposals / Shared properties / Groups / Interfaces / Cleanup / action+function execution = named gaps in place; Object Explorer is the sibling #35 cut",
       "reference_clean_state": "data_clean",
-      "reference_clean_reason": "shell regions [rail, header, body] + data evidence (rows 0/6 \u00b7 nodes 0 \u00b7 cards 7 \u00b7 lists 0 \u00b7 lines 31)",
+      "reference_clean_reason": "shell regions [rail, header, body] + data evidence (rows 0/6 · nodes 0 · cards 7 · lists 0 · lines 31)",
       "reference_clean_artifact": "reference-clean-sweep.json",
       "port_surface": "/__ioi/ontology/manager",
       "surface_name": "Ontology",
@@ -353,7 +353,7 @@
         "Functions",
         "Health"
       ],
-      "binding": "faithful port of the reference Ontology Manager over the real ODK CanonicalObjectModel \u2014 dark global rail + light app rail (Discover/Proposals/History \u00b7 Resources object/property/link/action/value types + functions \u00b7 Health/Cleanup/Configuration) + light header (ontology switcher \u00b7 search \u00b7 New) + light card-first body (object-type cards with per-type object + dependent counts), then typed schema detail + configuration; every cell is daemon truth",
+      "binding": "faithful port of the reference Ontology Manager over the real ODK CanonicalObjectModel — dark global rail + light app rail (Discover/Proposals/History · Resources object/property/link/action/value types + functions · Health/Cleanup/Configuration) + light header (ontology switcher · search · New) + light card-first body (object-type cards with per-type object + dependent counts), then typed schema detail + configuration; every cell is daemon truth",
       "candidate_surface": "/__ioi/ontology/manager",
       "shell_pixel_certified": true,
       "shell_pixel_certification_artifact": "pixel-certifications/schema.json"
@@ -369,10 +369,11 @@
       "capture_state": "boots_graph",
       "reference_capture": "/__apps/explorer",
       "reference_workspace": "/workspace/hubble/",
-      "note": "TRUE parity (#46) under the HARDENED gate: light Object-Explorer reference-faithful shell against the ORIGIN-ALIGNED data-clean Hubble reference (reference_url_override localhost:9225/workspace/hubble/ \u2014 the #44 sweep finding; #35's 'blank reference' blocker was an origin mismatch, CORRECTED, not a missing backend); REAL daemon rows only (never the capture's 55 example types); completes the Ontology pair with #34 schema \u2014 first-class linked with /__ioi/ontology/manager both ways + from /__ioi/odk; object-instance search / Filter-by facets / Recents / Favorites / Relevancy sort / type-group+application lanes / exploration tabs / ontology selector / per-user set lanes = named gaps disabled in place",
+      "note": "TRUE parity (#46) under the HARDENED gate: light Object-Explorer reference-faithful shell against the ORIGIN-ALIGNED data-clean Hubble reference (reference_url_override localhost:9225/workspace/hubble/ — the #44 sweep finding; #35's 'blank reference' blocker was an origin mismatch, CORRECTED, not a missing backend); REAL daemon rows only (never the capture's 55 example types); completes the Ontology pair with #34 schema — first-class linked with /__ioi/ontology/manager both ways + from /__ioi/odk; object-instance search / Filter-by facets / Recents / Favorites / Relevancy sort / type-group+application lanes / exploration tabs / ontology selector / per-user set lanes = named gaps disabled in place",
       "reference_clean_state": "data_clean",
-      "reference_clean_reason": "shell regions [rail, header, body] + data evidence (rows 23/6 \u00b7 nodes 0 \u00b7 cards 5 \u00b7 lists 0 \u00b7 lines 55)",
+      "reference_clean_reason": "shell regions [rail, header, body] + data evidence (rows 23/6 · nodes 0 · cards 5 · lists 0 · lines 55)",
       "reference_clean_artifact": "reference-clean-sweep.json",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#explorer",
       "port_surface": "/__ioi/ontology/explorer",
       "surface_name": "Ontology",
       "reference_url_override": "http://localhost:9225/workspace/hubble/",
@@ -388,11 +389,10 @@
         "Object set catalog",
         "New exploration"
       ],
-      "binding": "faithful port of the reference Object Explorer over real ODK truth \u2014 dark global rail (Ontology context) + exploration tab bar + centered 'Object Explorer search' hero (Filter-by/object-search as named gaps) + Shortcuts (the real top materialized sets) + the object-type CATALOG (name \u00b7 status \u00b7 object count from materialized sets \u00b7 link usage \u00b7 description=ontology) across ALL live DomainOntologies with a WORKING server-side ?q= filter + the object-set CATALOG over real materialized sets; every populated cell is daemon truth",
+      "binding": "faithful port of the reference Object Explorer over real ODK truth — dark global rail (Ontology context) + exploration tab bar + centered 'Object Explorer search' hero (Filter-by/object-search as named gaps) + Shortcuts (the real top materialized sets) + the object-type CATALOG (name · status · object count from materialized sets · link usage · description=ontology) across ALL live DomainOntologies with a WORKING server-side ?q= filter + the object-set CATALOG over real materialized sets; every populated cell is daemon truth",
       "candidate_surface": "/__ioi/ontology/explorer",
       "shell_pixel_certified": true,
-      "shell_pixel_certification_artifact": "pixel-certifications/explorer.json",
-      "adjudication_ref": "reference-seed-adjudications.v1.json#explorer"
+      "shell_pixel_certification_artifact": "pixel-certifications/explorer.json"
     },
     {
       "owner": "Ontology",
@@ -407,7 +407,7 @@
       "reference_workspace": "/workspace/object-view/",
       "note": "object view; unbound",
       "reference_clean_state": "errored_reference",
-      "reference_clean_reason": "navigation failed on every lane (navigation triggered a content-type download \u2014 the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane) \u00b7 navigation triggered a content-type download \u2014 the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane))",
+      "reference_clean_reason": "navigation failed on every lane (navigation triggered a content-type download — the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane) · navigation triggered a content-type download — the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane))",
       "reference_clean_artifact": "reference-clean-sweep.json",
       "remediation_state": "capture_broken_no_donor",
       "adjudication_ref": "reference-seed-adjudications.v1.json#objectview"
@@ -425,7 +425,7 @@
       "reference_workspace": "/workspace/object-view-editor/",
       "note": "object-view editor; unbound",
       "reference_clean_state": "errored_reference",
-      "reference_clean_reason": "navigation failed on every lane (navigation triggered a content-type download \u2014 the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane) \u00b7 navigation triggered a content-type download \u2014 the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane))",
+      "reference_clean_reason": "navigation failed on every lane (navigation triggered a content-type download — the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane) · navigation triggered a content-type download — the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane))",
       "reference_clean_artifact": "reference-clean-sweep.json",
       "remediation_state": "capture_broken_no_donor",
       "adjudication_ref": "reference-seed-adjudications.v1.json#objectview"
@@ -441,10 +441,11 @@
       "capture_state": "boots_editor_canvas",
       "reference_capture": "/__apps/evalsuites",
       "reference_workspace": "/workspace/evals/",
-      "note": "TRUE parity (#54) under the HARDENED gate: light AIP-Evals landing reference-faithful shell at /__ioi/evaluations/evalsuites against the ORIGIN-ALIGNED data-clean reference (reference_url_override localhost:9225/workspace/evals/ \u2014 the #44 needs_origin_alignment finding; the What's-new modal dismissed by a reference-only pre-capture hook; the /__apps/evalsuites proxy lane stays documented-insufficient: renders no data); the SIXTH origin-alignment-queue port and the FIRST Evaluations-family certified surface \u2014 a NEW dedicated port route over the SAME inert eval-suite plane; a DECLARATION LIBRARY \u2014 THE ASSESSMENT BOUNDARY IS THE HARD LINE: health = declared-completeness NEVER a score; no EvalRun execution, no scoring, no verdicts, no judge runs, no scorecards, no auto-mining, no promotion; candidate refs stay LOCAL allowlisted schemes (the plane rejects external URLs fail-closed); suite authoring here / favorites / example installs = named gaps disabled in place; the /__ioi/evaluations owner surface + /__ioi/feedback sublane stay intact, linked first-class both ways",
+      "note": "TRUE parity (#54) under the HARDENED gate: light AIP-Evals landing reference-faithful shell at /__ioi/evaluations/evalsuites against the ORIGIN-ALIGNED data-clean reference (reference_url_override localhost:9225/workspace/evals/ — the #44 needs_origin_alignment finding; the What's-new modal dismissed by a reference-only pre-capture hook; the /__apps/evalsuites proxy lane stays documented-insufficient: renders no data); the SIXTH origin-alignment-queue port and the FIRST Evaluations-family certified surface — a NEW dedicated port route over the SAME inert eval-suite plane; a DECLARATION LIBRARY — THE ASSESSMENT BOUNDARY IS THE HARD LINE: health = declared-completeness NEVER a score; no EvalRun execution, no scoring, no verdicts, no judge runs, no scorecards, no auto-mining, no promotion; candidate refs stay LOCAL allowlisted schemes (the plane rejects external URLs fail-closed); suite authoring here / favorites / example installs = named gaps disabled in place; the /__ioi/evaluations owner surface + /__ioi/feedback sublane stay intact, linked first-class both ways",
       "reference_clean_state": "data_clean",
-      "reference_clean_reason": "shell regions [rail, header, body] + data evidence (rows 12/0 \u00b7 nodes 0 \u00b7 cards 2 \u00b7 lists 0 \u00b7 lines 50)",
+      "reference_clean_reason": "shell regions [rail, header, body] + data evidence (rows 12/0 · nodes 0 · cards 2 · lists 0 · lines 50)",
       "reference_clean_artifact": "reference-clean-sweep.json",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#evalsuites",
       "substrate_surface": "/__ioi/evaluations",
       "port_surface": "/__ioi/evaluations/evalsuites",
       "surface_name": "Evaluations",
@@ -461,11 +462,10 @@
         "LAST VIEWED",
         "Explore reference examples"
       ],
-      "binding": "faithful port of the reference AIP Evals landing over the inert daemon eval-suite plane \u2014 dark global rail + light app header (teal evals tile \u00b7 AIP Evals \u00b7 New-evaluation-suite / Help as named gaps) + hero band (title \u00b7 one-line description \u00b7 verbatim illustration under the reference's own white-gradient content overlay) + the View row (Recents active \u00b7 Favorites gap) + the viewport-height-ruled Recents table whose rows are the REAL declared suites (name \u00b7 ref \u00b7 subject scopes \u00b7 declared/complete health \u00b7 status \u00b7 created date; em-dashes where the plane records no principal/view tracking) + the marketplace-examples band (verbatim capture chrome) + below-the-fold full suite-library truth (subject scopes \u00b7 rubric refs \u00b7 evidence requirements \u00b7 consent requirements \u00b7 candidate refs, verbatim daemon records)",
+      "binding": "faithful port of the reference AIP Evals landing over the inert daemon eval-suite plane — dark global rail + light app header (teal evals tile · AIP Evals · New-evaluation-suite / Help as named gaps) + hero band (title · one-line description · verbatim illustration under the reference's own white-gradient content overlay) + the View row (Recents active · Favorites gap) + the viewport-height-ruled Recents table whose rows are the REAL declared suites (name · ref · subject scopes · declared/complete health · status · created date; em-dashes where the plane records no principal/view tracking) + the marketplace-examples band (verbatim capture chrome) + below-the-fold full suite-library truth (subject scopes · rubric refs · evidence requirements · consent requirements · candidate refs, verbatim daemon records)",
       "candidate_surface": "/__ioi/evaluations/evalsuites",
       "shell_pixel_certified": true,
-      "shell_pixel_certification_artifact": "pixel-certifications/evalsuites.json",
-      "adjudication_ref": "reference-seed-adjudications.v1.json#evalsuites"
+      "shell_pixel_certification_artifact": "pixel-certifications/evalsuites.json"
     },
     {
       "owner": "Evaluations",
@@ -480,7 +480,7 @@
       "reference_workspace": "/workspace/insight/",
       "note": "object-set-first analysis canvas; unbound",
       "reference_clean_state": "shell_clean_only",
-      "reference_clean_reason": "shell renders a WELCOME/empty landing (cards 4 \u00b7 lines 19, no row/node data) \u2014 clean chrome, no real data to port against (proxy lane renders no data (score 0); the origin lane is the readable one)",
+      "reference_clean_reason": "shell renders a WELCOME/empty landing (cards 4 · lines 19, no row/node data) — clean chrome, no real data to port against (proxy lane renders no data (score 0); the origin lane is the readable one)",
       "reference_clean_artifact": "reference-clean-sweep.json",
       "remediation_state": "ia_bearing_empty",
       "adjudication_ref": "reference-seed-adjudications.v1.json#analysis"
@@ -498,7 +498,7 @@
       "reference_workspace": "/workspace/quiver/",
       "note": "time-series analysis canvas; unbound",
       "reference_clean_state": "shell_clean_only",
-      "reference_clean_reason": "shell renders a WELCOME/empty landing (cards 5 \u00b7 lines 23, no row/node data) \u2014 clean chrome, no real data to port against (proxy lane renders no data (score 0); the origin lane is the readable one)",
+      "reference_clean_reason": "shell renders a WELCOME/empty landing (cards 5 · lines 23, no row/node data) — clean chrome, no real data to port against (proxy lane renders no data (score 0); the origin lane is the readable one)",
       "reference_clean_artifact": "reference-clean-sweep.json"
     },
     {
@@ -512,9 +512,9 @@
       "capture_state": "boots_table_list",
       "reference_capture": "/__apps/models",
       "reference_workspace": "/workspace/model-catalog/",
-      "note": "TRUE parity (#47) under the HARDENED gate: light Model-Catalog reference-faithful shell at /__ioi/foundry/models over the REAL daemon model-route registry \u2014 the FIRST Foundry-family certified surface; the /__apps/models reference's catalog lanes are REBOUND to the same registry (the #44 sweep classified it data_clean on those lanes); /__ioi/foundry substrate intact and linking first-class; Registered-models tab / Compare / name search / facet filtering / model detail / fine-tuning / playground / inference / deployment = named gaps disabled in place; route administration stays in Agent Studio",
+      "note": "TRUE parity (#47) under the HARDENED gate: light Model-Catalog reference-faithful shell at /__ioi/foundry/models over the REAL daemon model-route registry — the FIRST Foundry-family certified surface; the /__apps/models reference's catalog lanes are REBOUND to the same registry (the #44 sweep classified it data_clean on those lanes); /__ioi/foundry substrate intact and linking first-class; Registered-models tab / Compare / name search / facet filtering / model detail / fine-tuning / playground / inference / deployment = named gaps disabled in place; route administration stays in Agent Studio",
       "reference_clean_state": "data_clean",
-      "reference_clean_reason": "shell regions [rail, header, body] + data evidence (rows 0/0 \u00b7 nodes 0 \u00b7 cards 4 \u00b7 lists 0 \u00b7 lines 18)",
+      "reference_clean_reason": "shell regions [rail, header, body] + data evidence (rows 0/0 · nodes 0 · cards 4 · lists 0 · lines 18)",
       "reference_clean_artifact": "reference-clean-sweep.json",
       "substrate_surface": "/__ioi/foundry",
       "port_surface": "/__ioi/foundry/models",
@@ -531,7 +531,7 @@
         "MODEL CREATOR",
         "Additional"
       ],
-      "binding": "faithful port of the reference Model Catalog over the real daemon model-route registry \u2014 dark global rail + light header (app chip \u00b7 Model Catalog \u00b7 IOI-provided/Registered tabs) + hero (title \u00b7 Browse subtitle \u00b7 Compare-models gap) + a pinned Filters card (name search + Lifecycle Status/Type/Model creator facets whose ROWS are live route truth) + the Additional-models card list (one card per real route: identity + default marker \u00b7 availability state + probe evidence + staleness \u00b7 weight custody \u00b7 credential posture \u00b7 lifecycle/admission); route administration stays in Agent Studio (linked)",
+      "binding": "faithful port of the reference Model Catalog over the real daemon model-route registry — dark global rail + light header (app chip · Model Catalog · IOI-provided/Registered tabs) + hero (title · Browse subtitle · Compare-models gap) + a pinned Filters card (name search + Lifecycle Status/Type/Model creator facets whose ROWS are live route truth) + the Additional-models card list (one card per real route: identity + default marker · availability state + probe evidence + staleness · weight custody · credential posture · lifecycle/admission); route administration stays in Agent Studio (linked)",
       "candidate_surface": "/__ioi/foundry/models",
       "shell_pixel_certified": true,
       "shell_pixel_certification_artifact": "pixel-certifications/models.json"
@@ -583,10 +583,11 @@
       "capture_state": "boots_graph",
       "reference_capture": "/__apps/listings",
       "reference_workspace": "/workspace/marketplace/",
-      "note": "TRUE parity (#48) under the HARDENED gate: light Marketplace-browse reference-faithful shell at /__ioi/marketplace/listings over the real listing plane \u2014 the LAST data_clean candidate from the #44 ranking, completing the clean-reference pool (the wave pivots to origin-alignment seeds next); the reference's Stores lane is REBOUND to the same substrate; /__ioi/marketplace substrate intact and linking first-class; product search / store search / Installations / Help / install wizard / store sharing / sorting = named gaps disabled in place; NO publish/install/hire/settle/runtime semantics \u2014 products enter only through draft \u2192 admitted review \u2192 open release on the substrate",
+      "note": "TRUE parity (#48) under the HARDENED gate: light Marketplace-browse reference-faithful shell at /__ioi/marketplace/listings over the real listing plane — the LAST data_clean candidate from the #44 ranking, completing the clean-reference pool (the wave pivots to origin-alignment seeds next); the reference's Stores lane is REBOUND to the same substrate; /__ioi/marketplace substrate intact and linking first-class; product search / store search / Installations / Help / install wizard / store sharing / sorting = named gaps disabled in place; NO publish/install/hire/settle/runtime semantics — products enter only through draft → admitted review → open release on the substrate",
       "reference_clean_state": "data_clean",
-      "reference_clean_reason": "shell regions [rail, header, body] + data evidence (rows 1/0 \u00b7 nodes 0 \u00b7 cards 3 \u00b7 lists 0 \u00b7 lines 20)",
+      "reference_clean_reason": "shell regions [rail, header, body] + data evidence (rows 1/0 · nodes 0 · cards 3 · lists 0 · lines 20)",
       "reference_clean_artifact": "reference-clean-sweep.json",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#listings",
       "substrate_surface": "/__ioi/marketplace",
       "port_surface": "/__ioi/marketplace/listings",
       "surface_name": "Marketplace",
@@ -602,11 +603,10 @@
         "Install and explore",
         "Installations"
       ],
-      "binding": "faithful port of the reference Marketplace browse over the real daemon marketplace substrate \u2014 dark global rail + light header (app chip \u00b7 Marketplace \u00b7 product search \u00b7 Installations \u00b7 Help as named gaps) + hero (title \u00b7 Discover subtitle \u00b7 reference illustration) + the Stores table whose single row IS the estate's governed listing plane with its live product count + the install-first-product wizard band as reference chrome (installing is a named gap \u2014 products enter through draft \u2192 admitted review \u2192 open release on the substrate)",
+      "binding": "faithful port of the reference Marketplace browse over the real daemon marketplace substrate — dark global rail + light header (app chip · Marketplace · product search · Installations · Help as named gaps) + hero (title · Discover subtitle · reference illustration) + the Stores table whose single row IS the estate's governed listing plane with its live product count + the install-first-product wizard band as reference chrome (installing is a named gap — products enter through draft → admitted review → open release on the substrate)",
       "candidate_surface": "/__ioi/marketplace/listings",
       "shell_pixel_certified": true,
-      "shell_pixel_certification_artifact": "pixel-certifications/listings.json",
-      "adjudication_ref": "reference-seed-adjudications.v1.json#listings"
+      "shell_pixel_certification_artifact": "pixel-certifications/listings.json"
     },
     {
       "owner": "Marketplace",
@@ -621,7 +621,7 @@
       "reference_workspace": "/workspace/artifacts/",
       "note": "versioned artifact registry; unbound",
       "reference_clean_state": "shell_clean_only",
-      "reference_clean_reason": "shell renders a WELCOME/empty landing (cards 4 \u00b7 lines 18, no row/node data) \u2014 clean chrome, no real data to port against (proxy lane shows a failure (\"Invalid resource identifier\"); the origin lane is the readable one)",
+      "reference_clean_reason": "shell renders a WELCOME/empty landing (cards 4 · lines 18, no row/node data) — clean chrome, no real data to port against (proxy lane shows a failure (\"Invalid resource identifier\"); the origin lane is the readable one)",
       "reference_clean_artifact": "reference-clean-sweep.json",
       "remediation_state": "absent_confirmed",
       "adjudication_ref": "reference-seed-adjudications.v1.json#registry"
@@ -639,7 +639,7 @@
       "reference_workspace": "/workspace/developer-console/",
       "note": "OAuth app registration + SDK on-ramps (self-bootstrapped)",
       "reference_clean_state": "shell_clean_only",
-      "reference_clean_reason": "shell renders a WELCOME/empty landing (cards 5 \u00b7 lines 23, no row/node data) \u2014 clean chrome, no real data to port against (proxy lane renders no data (score 0); the origin lane is the readable one)",
+      "reference_clean_reason": "shell renders a WELCOME/empty landing (cards 5 · lines 23, no row/node data) — clean chrome, no real data to port against (proxy lane renders no data (score 0); the origin lane is the readable one)",
       "reference_clean_artifact": "reference-clean-sweep.json"
     },
     {
@@ -655,7 +655,7 @@
       "reference_workspace": "/workspace/custom-widgets/",
       "note": "widget-set authoring (self-bootstrapped)",
       "reference_clean_state": "needs_origin_alignment",
-      "reference_clean_reason": "proxy lane renders no data (score 0), but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 12/0 \u00b7 nodes 0 \u00b7 cards 0 \u00b7 lines 47) \u2014 align the reference URL like pipeline #38/#39",
+      "reference_clean_reason": "proxy lane renders no data (score 0), but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 12/0 · nodes 0 · cards 0 · lines 47) — align the reference URL like pipeline #38/#39",
       "reference_clean_artifact": "reference-clean-sweep.json"
     },
     {
@@ -689,7 +689,7 @@
       "reference_workspace": "/workspace/code-workspaces/",
       "note": "code workspace IDE; unbound",
       "reference_clean_state": "needs_origin_alignment",
-      "reference_clean_reason": "proxy lane renders no data (score 1), but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 3/4 \u00b7 nodes 0 \u00b7 cards 5 \u00b7 lines 26) \u2014 align the reference URL like pipeline #38/#39",
+      "reference_clean_reason": "proxy lane renders no data (score 1), but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 3/4 · nodes 0 · cards 5 · lines 26) — align the reference URL like pipeline #38/#39",
       "reference_clean_artifact": "reference-clean-sweep.json"
     },
     {
@@ -705,7 +705,7 @@
       "reference_workspace": "/workspace/code-repositories/",
       "note": "code repositories; unbound",
       "reference_clean_state": "errored_reference",
-      "reference_clean_reason": "navigation failed on every lane (navigation triggered a content-type download \u2014 the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane) \u00b7 navigation triggered a content-type download \u2014 the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane))",
+      "reference_clean_reason": "navigation failed on every lane (navigation triggered a content-type download — the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane) · navigation triggered a content-type download — the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane))",
       "reference_clean_artifact": "reference-clean-sweep.json"
     },
     {
@@ -721,7 +721,7 @@
       "reference_workspace": "/workspace/notepad/",
       "note": "notepad document; unbound",
       "reference_clean_state": "needs_origin_alignment",
-      "reference_clean_reason": "proxy lane shows a failure (\"An error occurred\"), but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 2/0 \u00b7 nodes 0 \u00b7 cards 11 \u00b7 lines 28) \u2014 align the reference URL like pipeline #38/#39",
+      "reference_clean_reason": "proxy lane shows a failure (\"An error occurred\"), but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 2/0 · nodes 0 · cards 11 · lines 28) — align the reference URL like pipeline #38/#39",
       "reference_clean_artifact": "reference-clean-sweep.json"
     },
     {
@@ -735,17 +735,17 @@
       "capture_state": "blocked_missing_capture",
       "reference_capture": "/__apps/vertex",
       "reference_workspace": "/workspace/vertex/",
-      "note": "Vertex graph grammar (nodes \u00b7 relations \u00b7 neighborhood) over real cross-plane materialized truth; no fake nodes for unmaterialized ontologies; freeform graph canvas / arbitrary path-finding / cross-tenant object search / saved explorations = named gaps",
+      "note": "Vertex graph grammar (nodes · relations · neighborhood) over real cross-plane materialized truth; no fake nodes for unmaterialized ontologies; freeform graph canvas / arbitrary path-finding / cross-tenant object search / saved explorations = named gaps",
       "reference_clean_state": "shell_clean_only",
-      "reference_clean_reason": "shell renders a WELCOME/empty landing (cards 6 \u00b7 lines 21, no row/node data) \u2014 clean chrome, no real data to port against (proxy lane shows a failure (\"An error occurred\"); the origin lane is the readable one)",
+      "reference_clean_reason": "shell renders a WELCOME/empty landing (cards 6 · lines 21, no row/node data) — clean chrome, no real data to port against (proxy lane shows a failure (\"An error occurred\"); the origin lane is the readable one)",
       "reference_clean_artifact": "reference-clean-sweep.json",
+      "remediation_state": "ia_bearing_empty",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#vertex",
       "substrate_surface": "/__ioi/vertex",
       "surface_name": "Provenance",
-      "binding": "a Provenance graph/exploration lens over materialized object sets, projections, objects, and the threaded proof-stream odk_materialization edges (cross-plane: ODK \u2194 Provenance)",
+      "binding": "a Provenance graph/exploration lens over materialized object sets, projections, objects, and the threaded proof-stream odk_materialization edges (cross-plane: ODK ↔ Provenance)",
       "candidate_surface": "/__ioi/vertex",
-      "shell_pixel_certified": false,
-      "adjudication_ref": "reference-seed-adjudications.v1.json#vertex",
-      "remediation_state": "ia_bearing_empty"
+      "shell_pixel_certified": false
     },
     {
       "owner": "Environments",
@@ -760,7 +760,7 @@
       "reference_workspace": "/workspace/map/",
       "note": "geospatial map canvas; unbound",
       "reference_clean_state": "shell_clean_only",
-      "reference_clean_reason": "shell renders a WELCOME/empty landing (cards 4 \u00b7 lines 15, no row/node data) \u2014 clean chrome, no real data to port against (proxy lane renders no data (score 0); the origin lane is the readable one)",
+      "reference_clean_reason": "shell renders a WELCOME/empty landing (cards 4 · lines 15, no row/node data) — clean chrome, no real data to port against (proxy lane renders no data (score 0); the origin lane is the readable one)",
       "reference_clean_artifact": "reference-clean-sweep.json",
       "remediation_state": "absent_confirmed",
       "adjudication_ref": "reference-seed-adjudications.v1.json#map"
@@ -778,11 +778,11 @@
       "reference_workspace": "/workspace/slate/",
       "note": "Slate app builder; unbound",
       "reference_clean_state": "errored_reference",
-      "reference_clean_reason": "the app never mounts \u2014 uncaught page error (\"Workspace context path not found\")",
+      "reference_clean_reason": "the app never mounts — uncaught page error (\"Workspace context path not found\")",
       "reference_clean_artifact": "reference-clean-sweep.json",
+      "remediation_state": "ia_bearing_empty",
       "adjudication_ref": "reference-seed-adjudications.v1.json#slate",
-      "reference_url_override": "http://localhost:9225/workspace/slate/splash",
-      "remediation_state": "ia_bearing_empty"
+      "reference_url_override": "http://localhost:9225/workspace/slate/splash"
     },
     {
       "owner": "Domain Apps",
@@ -797,7 +797,7 @@
       "reference_workspace": "/workspace/logic-app/",
       "note": "Logic builder; unbound",
       "reference_clean_state": "needs_origin_alignment",
-      "reference_clean_reason": "proxy lane renders no data (score 0), but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 12/4 \u00b7 nodes 0 \u00b7 cards 2 \u00b7 lines 51) \u2014 align the reference URL like pipeline #38/#39",
+      "reference_clean_reason": "proxy lane renders no data (score 0), but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 12/4 · nodes 0 · cards 2 · lines 51) — align the reference URL like pipeline #38/#39",
       "reference_clean_artifact": "reference-clean-sweep.json"
     },
     {
@@ -813,7 +813,7 @@
       "reference_workspace": "/workspace/contour-app/",
       "note": "Contour analysis; unbound",
       "reference_clean_state": "needs_origin_alignment",
-      "reference_clean_reason": "proxy lane shows a failure (\"404: Page Not Found\"), but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 12/0 \u00b7 nodes 0 \u00b7 cards 2 \u00b7 lines 50) \u2014 align the reference URL like pipeline #38/#39",
+      "reference_clean_reason": "proxy lane shows a failure (\"404: Page Not Found\"), but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 12/0 · nodes 0 · cards 2 · lines 50) — align the reference URL like pipeline #38/#39",
       "reference_clean_artifact": "reference-clean-sweep.json"
     },
     {
@@ -847,15 +847,15 @@
       "reference_workspace": "/workspace/job-tracker/",
       "note": "run-queue lane of the Missions owner surface; honest empty when no runs; freeform job-definition editing / board views / arbitrary filtering = named gaps; substrate/infra scheduler health stays in Operations",
       "reference_clean_state": "shell_clean_only",
-      "reference_clean_reason": "shell regions [rail, header, body] render clean but the body carries no real data (rows 0/0 \u00b7 nodes 0 \u00b7 cards 0)",
+      "reference_clean_reason": "shell regions [rail, header, body] render clean but the body carries no real data (rows 0/0 · nodes 0 · cards 0)",
       "reference_clean_artifact": "reference-clean-sweep.json",
+      "remediation_state": "absent_confirmed",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#jobs",
       "substrate_surface": "/__ioi/missions",
       "surface_name": "Missions",
-      "binding": "the Missions run/job queue \u2014 the real operations run queue (recent runs, statuses, run counts) + scheduled missions, table/list grammar over daemon truth",
+      "binding": "the Missions run/job queue — the real operations run queue (recent runs, statuses, run counts) + scheduled missions, table/list grammar over daemon truth",
       "candidate_surface": "/__ioi/missions",
-      "shell_pixel_certified": false,
-      "remediation_state": "absent_confirmed",
-      "adjudication_ref": "reference-seed-adjudications.v1.json#jobs"
+      "shell_pixel_certified": false
     },
     {
       "owner": "Missions",
@@ -870,8 +870,9 @@
       "reference_workspace": "/workspace/issues-app/",
       "note": "TRUE parity (#45) under the HARDENED gate: light status-lane issues-inbox reference-faithful shell at /__ioi/missions/incidents, over REAL daemon incidents (never the capture's example rows); honest empty lanes; creating/assigning incidents, priorities, SLA, comments, saved filters, facet filtering, bulk selection = named gaps disabled in place; the /__ioi/missions substrate overview stays intact and links the inbox first-class; substrate/infra incidents (storage repair, provider failover) stay in Operations",
       "reference_clean_state": "data_clean",
-      "reference_clean_reason": "shell regions [rail, header, body] + data evidence (rows 5/0 \u00b7 nodes 0 \u00b7 cards 0 \u00b7 lists 0 \u00b7 lines 26) \u2014 clicked the 'Closed' status lane (the default Open lane is honestly empty; the capture carries 5 real closed incidents)",
+      "reference_clean_reason": "shell regions [rail, header, body] + data evidence (rows 5/0 · nodes 0 · cards 0 · lists 0 · lines 26) — clicked the 'Closed' status lane (the default Open lane is honestly empty; the capture carries 5 real closed incidents)",
       "reference_clean_artifact": "reference-clean-sweep.json",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#incidents",
       "substrate_surface": "/__ioi/missions",
       "port_surface": "/__ioi/missions/incidents",
       "ioi_url_override": "/__ioi/missions/incidents?lane=closed",
@@ -888,11 +889,10 @@
         "Labels",
         "Support types"
       ],
-      "binding": "faithful port of the reference Issues inbox over the real Missions incident truth \u2014 dark global rail + light header (app chip \u00b7 Issues \u00b7 search \u00b7 New \u00b7 settings) + a light status/filter sidebar (Open/Closed/All lanes with live counts \u00b7 Priority/Assignees/Reporters/Mentions/Labels/Support-types/date facets as faithful named-gap filters) + the incident list (real GoalRun blockers + run failures: reason code \u00b7 subject id \u00b7 created age \u00b7 kind pill \u00b7 proof link into the run timeline); open = blockers on non-terminal runs + failed runs, closed = blockers recorded on terminal runs \u2014 every row is daemon truth",
+      "binding": "faithful port of the reference Issues inbox over the real Missions incident truth — dark global rail + light header (app chip · Issues · search · New · settings) + a light status/filter sidebar (Open/Closed/All lanes with live counts · Priority/Assignees/Reporters/Mentions/Labels/Support-types/date facets as faithful named-gap filters) + the incident list (real GoalRun blockers + run failures: reason code · subject id · created age · kind pill · proof link into the run timeline); open = blockers on non-terminal runs + failed runs, closed = blockers recorded on terminal runs — every row is daemon truth",
       "candidate_surface": "/__ioi/missions/incidents",
       "shell_pixel_certified": true,
-      "shell_pixel_certification_artifact": "pixel-certifications/incidents.json",
-      "adjudication_ref": "reference-seed-adjudications.v1.json#incidents"
+      "shell_pixel_certification_artifact": "pixel-certifications/incidents.json"
     },
     {
       "owner": "Governance",
@@ -907,8 +907,9 @@
       "reference_workspace": "/workspace/approvals-app/",
       "note": "TRUE parity (#36) under the HARDENED gate: light faceted-inbox reference-faithful shell (matches the reference theme + IA landmarks + faceted layout), NOT the earlier dark native shell; passes the hardened Playwright harness against the VALID data-clean /__apps/approvals reference; decisions are the existing daemon transitions (no new governance semantics); reviewer-assignment / delegation / comments / SLA / audit-export + the unwired facets = named gaps disabled in place; substrate table stays at /__ioi/governance?tab=approvals",
       "reference_clean_state": "data_clean",
-      "reference_clean_reason": "shell regions [rail, header, body] + data evidence (rows 0/9 \u00b7 nodes 0 \u00b7 cards 0 \u00b7 lists 0 \u00b7 lines 45)",
+      "reference_clean_reason": "shell regions [rail, header, body] + data evidence (rows 0/9 · nodes 0 · cards 0 · lists 0 · lines 45)",
       "reference_clean_artifact": "reference-clean-sweep.json",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#approvals",
       "port_surface": "/__ioi/governance/approvals",
       "surface_name": "Governance",
       "reference_landmarks": [
@@ -921,11 +922,10 @@
         "Request type",
         "Status"
       ],
-      "binding": "faithful port of the reference Approvals inbox over the real daemon ApprovalRequest queue \u2014 dark global rail + a light faceted sidebar (Quick filters: Your inbox / Created by you / All requests with live counts \u00b7 Additional filters: Status wired to ?status=, Request type / Created by / Assigned to you / Project / Users-or-groups / Groups as faithful named-gap facets) + a light request list (kind \u00b7 subject \u00b7 id \u00b7 created \u00b7 status pill) + an on-select right detail with approve/reject/revoke; every populated cell is daemon truth",
+      "binding": "faithful port of the reference Approvals inbox over the real daemon ApprovalRequest queue — dark global rail + a light faceted sidebar (Quick filters: Your inbox / Created by you / All requests with live counts · Additional filters: Status wired to ?status=, Request type / Created by / Assigned to you / Project / Users-or-groups / Groups as faithful named-gap facets) + a light request list (kind · subject · id · created · status pill) + an on-select right detail with approve/reject/revoke; every populated cell is daemon truth",
       "candidate_surface": "/__ioi/governance/approvals",
       "shell_pixel_certified": true,
-      "shell_pixel_certification_artifact": "pixel-certifications/approvals.json",
-      "adjudication_ref": "reference-seed-adjudications.v1.json#approvals"
+      "shell_pixel_certification_artifact": "pixel-certifications/approvals.json"
     },
     {
       "owner": "Improvement",
@@ -938,10 +938,11 @@
       "capture_state": "boots_editor_canvas",
       "reference_capture": "/__apps/changes",
       "reference_workspace": "/workspace/upgrade-assistant/",
-      "note": "TRUE parity (#53) under the HARDENED gate: light Upgrade-Assistant inbox reference-faithful shell at /__ioi/improvement/changes against the ORIGIN-ALIGNED data-clean reference (reference_url_override localhost:9225/workspace/upgrade-assistant/ \u2014 the #44 needs_origin_alignment finding; the What's-new modal dismissed by a reference-only pre-capture hook; the /__apps/changes proxy lane stays documented-insufficient: renders thin data); the FIFTH origin-alignment-queue port and the FIRST Improvement-family certified surface \u2014 a NEW dedicated port route over the EXISTING improvement-proposal plane; a READ-ONLY improvement projection \u2014 NO mutation/apply/deploy/release execution semantics; proposing/simulating/approving/applying/release-gate control stay on /__ioi/agent-studio#improvement-proposals (linked first-class both ways); organization scoping / principal assignment / due dates / name search / upgrade-type taxonomy / due-date sorting = named gaps disabled in place",
+      "note": "TRUE parity (#53) under the HARDENED gate: light Upgrade-Assistant inbox reference-faithful shell at /__ioi/improvement/changes against the ORIGIN-ALIGNED data-clean reference (reference_url_override localhost:9225/workspace/upgrade-assistant/ — the #44 needs_origin_alignment finding; the What's-new modal dismissed by a reference-only pre-capture hook; the /__apps/changes proxy lane stays documented-insufficient: renders thin data); the FIFTH origin-alignment-queue port and the FIRST Improvement-family certified surface — a NEW dedicated port route over the EXISTING improvement-proposal plane; a READ-ONLY improvement projection — NO mutation/apply/deploy/release execution semantics; proposing/simulating/approving/applying/release-gate control stay on /__ioi/agent-studio#improvement-proposals (linked first-class both ways); organization scoping / principal assignment / due dates / name search / upgrade-type taxonomy / due-date sorting = named gaps disabled in place",
       "reference_clean_state": "data_clean",
-      "reference_clean_reason": "shell regions [rail, header, body] + data evidence (rows 4/4 \u00b7 nodes 0 \u00b7 cards 6 \u00b7 lists 0 \u00b7 lines 32)",
+      "reference_clean_reason": "shell regions [rail, header, body] + data evidence (rows 4/4 · nodes 0 · cards 6 · lists 0 · lines 32)",
       "reference_clean_artifact": "reference-clean-sweep.json",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#changes",
       "port_surface": "/__ioi/improvement/changes",
       "surface_name": "Improvement",
       "reference_url_override": "http://localhost:9225/workspace/upgrade-assistant/",
@@ -957,11 +958,10 @@
         "UPGRADE TYPE",
         "SORT"
       ],
-      "binding": "faithful port of the reference Upgrade Assistant inbox over the real improvement-proposal plane \u2014 dark global rail + app header (upgrade tile \u00b7 1-organization group / Admin view / Assignee view / Help as named gaps) + the slate info banner + Active/Past-due/Archived tab lanes (LIVE ?lane= links: active = non-rejected \u00b7 archived = rejected \u00b7 past-due honestly empty, no due-date concept) + the Filters sidebar (UPGRADE PROGRESS radios WIRED to ?filter= \u2014 requiring-my-action = pending review; the reference's UPGRADE-TYPE taxonomy + due-date SORT as named-gap facets; counts are live data, masked) + the grouped list (Pre-published = pending/approved not-yet-applied \u00b7 Published = applied) whose rows are REAL proposals (signal \u00b7 proposal_ref \u00b7 target_ref \u00b7 kind pill \u00b7 state + gate posture \u00b7 approval/release/simulation refs as the proof trail)",
+      "binding": "faithful port of the reference Upgrade Assistant inbox over the real improvement-proposal plane — dark global rail + app header (upgrade tile · 1-organization group / Admin view / Assignee view / Help as named gaps) + the slate info banner + Active/Past-due/Archived tab lanes (LIVE ?lane= links: active = non-rejected · archived = rejected · past-due honestly empty, no due-date concept) + the Filters sidebar (UPGRADE PROGRESS radios WIRED to ?filter= — requiring-my-action = pending review; the reference's UPGRADE-TYPE taxonomy + due-date SORT as named-gap facets; counts are live data, masked) + the grouped list (Pre-published = pending/approved not-yet-applied · Published = applied) whose rows are REAL proposals (signal · proposal_ref · target_ref · kind pill · state + gate posture · approval/release/simulation refs as the proof trail)",
       "candidate_surface": "/__ioi/improvement/changes",
       "shell_pixel_certified": true,
-      "shell_pixel_certification_artifact": "pixel-certifications/changes.json",
-      "adjudication_ref": "reference-seed-adjudications.v1.json#changes"
+      "shell_pixel_certification_artifact": "pixel-certifications/changes.json"
     }
   ],
   "_doc": "Generated by build-app-parity-matrix.mjs. Do not hand-edit; change the inventory / the SUBSTRATE_BOUND + REFERENCE_PORT_PENDING/REFERENCE_PORTED/DAEMON_WIRED overlays and regenerate. Run with --check to fail on staleness."

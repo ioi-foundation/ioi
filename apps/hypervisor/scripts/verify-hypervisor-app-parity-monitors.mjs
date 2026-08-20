@@ -94,19 +94,15 @@ async function run() {
   const newest = [...autos].sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")))[0];
   ok("a REAL automation renders as a row: id + project + trigger + steps census; CREATOR = the real executor_identity.ref", t.includes(newest.automation_id) && t.includes(newest.project_id || "") && ((newest.executor_identity || {}).ref ? t.includes(newest.executor_identity.ref) : true), newest.automation_id);
   ok("rendered rows equal the daemon plane after the same cap (newest 12)", (t.match(/class="mon-row"/g) || []).length === Math.min(12, autos.length), `${(t.match(/class="mon-row"/g) || []).length} rows vs ${Math.min(12, autos.length)}`);
-  // A real execution renders with status + proof refs.
-  const runsOf = await jd(`/v1/hypervisor/automations/${encodeURIComponent(newest.automation_id)}/runs`);
-  const anyRun = (runsOf.runs || [])[0];
-  let feedChecked = false, feedDetail = "no runs on the newest automation — feed checked for honest render only";
-  if (anyRun) { feedChecked = t.includes(anyRun.execution_id); feedDetail = anyRun.execution_id; }
-  else {
-    // find ANY automation with a run for the proof cross-check
-    for (const a of autos.slice(0, 15)) {
-      const rr = await jd(`/v1/hypervisor/automations/${encodeURIComponent(a.automation_id)}/runs`);
-      if ((rr.runs || [])[0]) { feedChecked = t.includes(rr.runs[0].execution_id); feedDetail = rr.runs[0].execution_id; break; }
-    }
-  }
-  ok("a REAL execution renders in the Recently-triggered feed with its execution ref (the proof trail) — or the feed is honestly empty", feedChecked || /No executions recorded yet/.test(t), feedDetail);
+  // A real execution renders with status + proof refs. RE-AIMED (remediation v2): the old check
+  // sampled the newest AUTOMATION's first run — not the feed's semantics (top-10 by started_at
+  // across the WHOLE plane) — and began failing as the plane grew. Assert exactly what the
+  // surface renders: the plane-wide newest execution.
+  const runsAll = await Promise.all(autos.map((a) => jd(`/v1/hypervisor/automations/${encodeURIComponent(a.automation_id)}/runs`).then((j) => j.runs || []).catch(() => [])));
+  const newestRun = runsAll.flat().sort((x, y) => String(y.started_at || "").localeCompare(String(x.started_at || "")))[0];
+  let feedChecked = false, feedDetail = "no executions exist on the plane — feed checked for honest-empty render";
+  if (newestRun) { feedChecked = t.includes(newestRun.execution_id); feedDetail = newestRun.execution_id; }
+  ok("the PLANE-WIDE NEWEST execution renders in the Recently-triggered feed with its execution ref (the proof trail) — or the feed is honestly empty", feedChecked || /No executions recorded yet/.test(t), feedDetail);
   ok("execution statuses render honestly (completed vs status verbatim; never invented)", /Execution completed|Execution status:|No executions recorded yet/.test(t));
   ok("the em-dash gap columns name their gaps (no edit principal · no view tracking on the automation plane)", /No edit principal is recorded on the automation plane \(named gap\)/.test(t) && /View tracking is not recorded on the automation plane \(named gap\)/.test(t));
   ok("the Recently-viewed ordering is HONESTLY declared creation-recency (no view tracking)", /Ordered by creation recency[^"]*named gap/.test(t));
@@ -120,7 +116,26 @@ async function run() {
   // 5. Owner discoverability + brand.
   const owner = await page(`${SERVE}/__ioi/automations`);
   ok("owner discoverability: /__ioi/automations links the overview port first-class, and the port links back (tab + View-all + copy)", owner.status === 200 && owner.text.includes("/__ioi/automations/monitors") && t.includes('href="/__ioi/automations"'));
-  ok("the Automations tab + View-all land on the REAL owner substrate (live links, not gaps)", /<a class="mon-tab" href="\/__ioi\/automations"/.test(t) && /class="mon-viewall" href="\/__ioi\/automations"/.test(t));
+  ok("the Automations tab is the IN-SHELL live lane (AUT-1) and View-all lands on the owner substrate", /<a class="mon-tab" href="\/__ioi\/automations\/monitors\?tab=automations"/.test(t) && /class="mon-viewall" href="\/__ioi\/automations"/.test(t));
+
+  // 6. AUT-1 — the Automations tab: the reference's own in-app /automations faceted list
+  // (atlas: reference-family-atlas.v1.json monitors tab_lane state, 8 facet groups) rebuilt LIVE
+  // inside the certified shell. Semantic truth checked against the plane fetched above.
+  const tabPage = await page(`${SERVE}/__ioi/automations/monitors?tab=automations`);
+  const tt = tabPage.text;
+  ok("AUT-1: tab renders 200 with the certified shell (rail + Automate header)", tabPage.status === 200 && tt.includes("og-grail") && tt.includes("Automate"), String(tabPage.status));
+  ok("AUT-1: all 7 reference facet groups render", ["STATUS", "CONDITION", "EFFECTS", "RECEIVING NOTIFICATIONS", "OWNER", "CREATOR", "EXPIRATION DATE"].every((g) => tt.includes(g)));
+  ok("AUT-1: reference columns render (Name · Condition · Status · Creator)", [">Name</span>", ">Condition</span>", ">Status</span>", ">Creator</span>"].every((c) => tt.includes(c)));
+  const liveActive = autos.filter((a) => a.enabled !== false).length;
+  const livePaused = autos.length - liveActive;
+  ok("AUT-1: row count equals the REAL plane count (no fabrication, no cap)", (tt.match(/class="mon-arow"/g) || []).length === autos.length, `rows=${(tt.match(/class="mon-arow"/g) || []).length} plane=${autos.length}`);
+  ok("AUT-1: STATUS facet counts are LIVE plane truth (Active/Paused)", tt.includes(`Active<span class="mon-fn">${liveActive}</span>`) && tt.includes(`Paused<span class="mon-fn">${livePaused}</span>`));
+  ok("AUT-1: a sampled REAL automation id renders as a row linking the owner-substrate detail", autos.length > 0 && tt.includes(autos[0].automation_id) && tt.includes(`href="/__ioi/automations?automation=`));
+  ok("AUT-1: unsupported facets are typed absences in BOTH vocabularies (aria-disabled+title AND data-ioi-disabled-reason)", (tt.match(/aria-disabled="true"[^>]*data-ioi-disabled-reason/g) || []).length >= 8);
+  ok("AUT-1: the lane is READ-ONLY (no form posts anywhere on the tab)", !tt.includes("<form"));
+  const pausedPage = await page(`${SERVE}/__ioi/automations/monitors?tab=automations&status=paused`);
+  ok("AUT-1: the paused filter is a LIVE server-side lane whose row count equals plane truth", pausedPage.status === 200 && (pausedPage.text.match(/class="mon-arow"/g) || []).length === livePaused);
+  ok("AUT-1: the tab links back to the Overview in-shell", tt.includes('href="/__ioi/automations/monitors"'));
   ok("the origin-aligned reference + the insufficient proxy lane are BOTH linked and explained on the surface", t.includes("http://localhost:9225/workspace/object-monitoring/") && t.includes("/__apps/monitors") && /favorites-load failure/.test(t));
   ok("IOI surface brand-clean (no Palantir)", !/\bPalantir\b/.test(t));
 }

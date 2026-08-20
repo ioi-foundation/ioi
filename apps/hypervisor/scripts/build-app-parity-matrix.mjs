@@ -139,7 +139,7 @@ sources: { port_surface: "/__ioi/data/sources", surface_name: "Data", reference_
   // overview data-bearing on the capture-origin lane while the proxy lane fails with the
   // favorites-load error; reference_url_override stamps the honest lane. A PROJECTION port: the
   // overview renders the EXISTING automation plane (no new scheduler/execution semantics).
-monitors: { port_surface: "/__ioi/automations/monitors", surface_name: "Automations", reference_url_override: "http://localhost:9225/workspace/object-monitoring/", reference_landmarks: ["Automate", "Overview", "Automations", "New automation", "Create and manage automations", "Getting started", "View all automations", "Create your first automation", "Get started by creating a new automation", "Explore reference examples"], binding: "faithful port of the reference Automate overview over the real automation plane — dark global rail + tabbed app header (Automate · Overview active · Automations → the real owner substrate · store dropdown / New automation / Help as named gaps) + hero band under the reference's own white-gradient content overlay + Getting-started band (View-all → the substrate) with the wizard card (verbatim 3-step illustration strip) + the template-card gallery + marketplace-examples band (verbatim capture strips, vendor chrome) + below-the-fold REAL truth: Active-automations stat band (live counts: user-executed · notifications = honest named-gap 0 · paused via enabled=false), the Recently-viewed table (one row per real automation: id · project · trigger · steps census · created date; CREATOR = the real executor_identity.ref) and the Recently-triggered feed (real executions: status · time · execution/environment refs as proof)", note: "TRUE parity (#51) under the HARDENED gate: light Automate-overview reference-faithful shell at /__ioi/automations/monitors against the ORIGIN-ALIGNED data-clean reference (reference_url_override localhost:9225/workspace/object-monitoring/ — the #44 needs_origin_alignment finding; the /__apps/monitors proxy lane stays documented-insufficient: a favorites-load failure + CORS-blocked session lanes); the THIRD origin-alignment-queue port and the FIRST Automations-family certified surface — a NEW dedicated port route (monitors had no prior IOI surface), built as a read-only projection over the EXISTING automation plane (authoring/pause/resume/run history stay on /__ioi/automations, linked first-class both ways); the wizard/template/example strips are verbatim capture chrome (vendor content, never estate data); NO new scheduler or execution semantics; New-automation here / store menu / template docs / marketplace example installs / notification subscriptions = named gaps disabled in place" },
+monitors: { port_surface: "/__ioi/automations/monitors", surface_name: "Automations", reference_url_override: "http://localhost:9225/workspace/object-monitoring/", reference_landmarks: ["Automate", "Overview", "Automations", "New automation", "Create and manage automations", "Getting started", "View all automations", "Create your first automation", "Get started by creating a new automation", "Explore reference examples"], binding: "faithful port of the reference Automate overview over the real automation plane — dark global rail + tabbed app header (Automate · Overview active · Automations = the IN-SHELL LIVE faceted list lane (AUT-1: the reference's own in-app /automations route — STATUS/CONDITION/EFFECTS/NOTIFICATIONS/OWNER/CREATOR/EXPIRATION facets with live plane counts + typed absences in both gap vocabularies; Name·Condition·Status·Creator rows linking the owner-substrate detail; read-only) · store dropdown / New automation / Help as named gaps) + hero band under the reference's own white-gradient content overlay + Getting-started band (View-all → the substrate) with the wizard card (verbatim 3-step illustration strip) + the template-card gallery + marketplace-examples band (verbatim capture strips, vendor chrome) + below-the-fold REAL truth: Active-automations stat band (live counts: user-executed · notifications = honest named-gap 0 · paused via enabled=false), the Recently-viewed table (one row per real automation: id · project · trigger · steps census · created date; CREATOR = the real executor_identity.ref) and the Recently-triggered feed (real executions: status · time · execution/environment refs as proof)", note: "TRUE parity (#51) under the HARDENED gate: light Automate-overview reference-faithful shell at /__ioi/automations/monitors against the ORIGIN-ALIGNED data-clean reference (reference_url_override localhost:9225/workspace/object-monitoring/ — the #44 needs_origin_alignment finding; the /__apps/monitors proxy lane stays documented-insufficient: a favorites-load failure + CORS-blocked session lanes); the THIRD origin-alignment-queue port and the FIRST Automations-family certified surface — a NEW dedicated port route (monitors had no prior IOI surface), built as a read-only projection over the EXISTING automation plane (authoring/pause/resume/run history stay on /__ioi/automations, linked first-class both ways); the wizard/template/example strips are verbatim capture chrome (vendor content, never estate data); NO new scheduler or execution semantics; New-automation here / store menu / template docs / marketplace example installs / notification subscriptions = named gaps disabled in place. AUT-1 (remediation v2): the Automations tab is the in-shell LIVE faceted list over the same plane (evidence: reference-family-atlas.v1.json monitors tab_lane state, 8 facet groups); authoring stays on the substrate" },
   // #50 — Machinery (machinery): the NINTH faithful port — the SECOND from the origin-alignment
   // queue. The #44 sweep proved the reference data-bearing on the capture-origin lane while the
   // proxy lane fails its Marketplace-examples fetch; reference_url_override stamps the honest lane
@@ -175,6 +175,39 @@ function parityClass(slug) {
   if (SUBSTRATE_BOUND[slug]) return "substrate_bound";
   return "reference_capture";
 }
+// ─── Remediation Program v2 overlay (W1 sweep, 2026-08-19) ─────────────────────────────────────
+// Per-seed terminal state + the adjudication record it stands on. Data-driven like every overlay:
+// a small explicit map, each entry citing its committed evidence (reference-seed-adjudications /
+// reference-gap-adjudication + the family atlas). See the matrix legend for the state vocabulary.
+const ADJ = "reference-seed-adjudications.v1.json";
+const REMEDIATION = {
+  scheduler: { remediation_state: "absent_confirmed", adjudication_ref: `${ADJ}#scheduler` },
+  registry: { remediation_state: "absent_confirmed", adjudication_ref: `${ADJ}#registry` },
+  map: { remediation_state: "absent_confirmed", adjudication_ref: `${ADJ}#map` },
+  ingest: { remediation_state: "absent_confirmed", adjudication_ref: `${ADJ}#ingest` },
+  jobs: { remediation_state: "absent_confirmed", adjudication_ref: `${ADJ}#jobs` },
+  dataset: { remediation_state: "capture_broken_no_donor", adjudication_ref: `${ADJ}#dataset` },
+  modelstudio: { remediation_state: "capture_broken_no_donor", adjudication_ref: `${ADJ}#modelstudio` },
+  inference: { remediation_state: "capture_broken_no_donor", adjudication_ref: `${ADJ}#inference` },
+  fusion: { remediation_state: "capture_broken_no_donor", adjudication_ref: `${ADJ}#fusion` },
+  objectview: { remediation_state: "capture_broken_no_donor", adjudication_ref: `${ADJ}#objectview` },
+  objecteditor: { remediation_state: "capture_broken_no_donor", adjudication_ref: `${ADJ}#objectview` },
+  lineage: { remediation_state: "ia_bearing_empty", adjudication_ref: `${ADJ}#lineage` },
+  analysis: { remediation_state: "ia_bearing_empty", adjudication_ref: `${ADJ}#analysis` },
+  vertex: { remediation_state: "ia_bearing_empty", adjudication_ref: `${ADJ}#vertex` },
+  slate: { remediation_state: "ia_bearing_empty", adjudication_ref: `${ADJ}#slate`, reference_url_override: "http://localhost:9225/workspace/slate/splash" },
+  developer: { donor_capture: "devconsole", adjudication_ref: `${ADJ}#developer` },
+  sources: { adjudication_ref: `reference-gap-adjudication.v1.json + ${ADJ}#sources` },
+  explorer: { adjudication_ref: `${ADJ}#explorer` },
+  evalsuites: { adjudication_ref: `${ADJ}#evalsuites` },
+  designer: { adjudication_ref: `${ADJ}#designer` },
+  machinery: { adjudication_ref: `${ADJ}#machinery` },
+  incidents: { adjudication_ref: `${ADJ}#incidents` },
+  approvals: { adjudication_ref: `${ADJ}#approvals` },
+  changes: { adjudication_ref: `${ADJ}#changes` },
+  listings: { adjudication_ref: `${ADJ}#listings` },
+};
+
 const OVERLAY_FOR = (slug) => DAEMON_WIRED[slug] || REFERENCE_PORTED[slug] || REFERENCE_PORT_PENDING[slug] || SUBSTRATE_BOUND[slug] || null;
 
 // SHELL PIXEL CERTIFICATION (PR #40 wave; re-scoped per the PR #41 finding) — a STRONGER evidence layer
@@ -367,6 +400,8 @@ const rows = SEED_INVENTORY.map((e) => {
     row.reference_clean_reason = clean.reason;
     row.reference_clean_artifact = "reference-clean-sweep.json";
   }
+  const remediation = REMEDIATION[e.slug];
+  if (remediation) Object.assign(row, remediation);
   const overlay = OVERLAY_FOR(e.slug);
   if (overlay) {
     Object.assign(row, overlay);
@@ -467,6 +502,14 @@ const matrix = {
     reference_ported: "source-neutral reference shell/layout ported, still static or minimally wired",
     daemon_wired: "ported reference UX wired to daemon truth AND passing visual/structural parity — the ONLY true-parity state",
     capture_state: "what the LOCAL CAPTURE does when booted (boots_*/shell_only/blocked_missing_capture) — NOT a parity claim",
+    donor_ported: "REMEDIATION TERMINAL STATE (program v2): the seed's own capture is unusable but the app SHIPPED via a named sibling capture — the row records donor_capture and the D6 role(s)",
+    absent_confirmed: "REMEDIATION TERMINAL STATE: the reference route serves but expresses NO IA (no facets, no columns, no tabs — the §3.2 test) — the named gap STANDS, citing the adjudication record instead of an untested assumption",
+    capture_broken_no_donor: "REMEDIATION TERMINAL STATE: capture byte-broken AND the recorded donor search found no booting sibling — terminal truth, never a dark-native fallback",
+    ia_bearing_empty: "REMEDIATION RECLASSIFICATION of shell_clean_only-class verdicts WHERE IA EXISTS: the reference body is empty but its empty state EXPRESSES the IA — portable under the matrix's own pixel_rule",
+    remediation_state: "SEED FIELD (remediation): the program v2 terminal state — always paired with adjudication_ref; parity_class stays untouched",
+    adjudication_ref: "SEED FIELD (remediation): pointer into the committed adjudication artifacts — the reference surface a decision was weighed against",
+    donor_capture: "SEED FIELD (remediation): the sibling seed slug whose capture ships this app (D6; roles donor | authoring_flow | detail_view | secondary_grammar)",
+    landing_designation: "CLICK-TARGET RECORD: the machine record of plan §4.1 lives in landing-designations.v1.json, audited by check-landing-designations.mjs",
   },
   seeds: rows,
   _doc: "Generated by build-app-parity-matrix.mjs. Do not hand-edit; change the inventory / the SUBSTRATE_BOUND + REFERENCE_PORT_PENDING/REFERENCE_PORTED/DAEMON_WIRED overlays and regenerate. Run with --check to fail on staleness.",
