@@ -619,6 +619,12 @@
       "date": "2026-08-20",
       "did": "AUTHORIZATION SPENT: STU-3 landing + /improvement /governance /packages/marketplace transfers (E1 complete); ONE-SURFACE AUDIT GREEN (E7, residual named); GRE-1 ADOPT ruling recorded (implementation backlog); deep atlas COMPLETE (30 driven states, 3 chunks); all journeys green (33/33 \u00b7 50/50 \u00b7 27/27 \u00b7 45/45)",
       "next": "remaining backlogs: live_ia_recorded ports (10) \u00b7 canvas-grammar cuts \u00b7 greenfield re-skins \u00b7 legacy code-removal leg \u00b7 admission-evidence re-pin (owner hands)"
+    },
+    {
+      "n": 36,
+      "date": "2026-08-20",
+      "did": "OWNER CATCH \u2192 ROOT CAUSE FIXED: the launcher (surface-compiler open_today map + app-catalog contractComplete route) still opened LEGACY mounts \u2014 clicking Studio opened the old agent-studio readout and leaked the vendor capture into nav. Both re-pointed to the DESIGNATED click targets (10 families). Verifiers: applications 27/27, studio 33/33, automations 45/45, depth 145/146 (the 1 fail = the pre-existing isolated-spawn posture 503, recorded in found_defects with a queued repair leg; runtime-safety confirmed a non-CI pre-existing red).",
+      "next": "owner re-check: click Studio/any app tile \u2014 should land on the designated shell"
     }
   ],
   "pr_blockers": [
@@ -648,5 +654,12 @@
       "jobs"
     ],
     "note": "live-tenant atlas overturned 10 mirror-scoped terminal verdicts \u2014 a NEW port backlog beyond the completed program scope; each needs a live-atlas-sourced designation + port leg. objectview/developer stay terminal (doubly evidenced)."
-  }
+  },
+  "found_defects": [
+    {
+      "found": "2026-08-20",
+      "what": "verify-hypervisor-app-runtime-safety is a PRE-EXISTING red (not in CI/scripts/floors): its registry-additions check fails on rows predating the program (work/home/operations/missions/...) and its isolated-serve spawns 503 on a dead-daemon posture gate ('unrebound internal surface... unavailable outside local development') \u2014 reproduced identically with correct env; /__ioi/applications is 200 on the live serve. The program's 10 new registry rows ADD to the already-failing lists (unclassified in the depth atlas).",
+      "queued_repair_leg": "runtime-safety repair: (a) posture-gate reading for dead-daemon loopback (fail-open-for-loopback vs fail-closed ruling), (b) contract evidence + depth-atlas naming for the 10 remediation rows, (c) decide CI membership"
+    }
+  ]
 }
