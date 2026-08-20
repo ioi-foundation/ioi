@@ -6,7 +6,7 @@ streaming, run lifecycle, OutcomeRoom/GoalRun execution APIs, structured errors,
 and client-vs-runtime ownership.
 Supersedes: older daemon/SDK/CLI endpoint lists when endpoint shape conflicts.
 Superseded by: none.
-Last alignment pass: 2026-07-31.
+Last alignment pass: 2026-08-20.
 Doctrine status: reference
 Implementation status: partial (many route families live; the registered information-flow/declassification contracts are schema/projection substrate. The current M4 v2 OutcomeRoom slice has a read-only discussion projection plus exact WorkResult artifact-to-byte custody and label resolution, but its room-owned transition/receipt/root spine is nonconforming migration input under ADR 0030. The v3 typed room-binding and ordinary Agentgres/System admission successor is target-only, as are generalized artifact/discussion resolution and production-wide propagation/enforcement. The shared work-lifecycle integrity/replay kernel, local append store, projection repair, cancellation planner, archive/snapshot writer, and status route are target-only; generalized GoalRunProfile resolution, local-agent pairing, native Embodied Runtime APIs, non-tool MCP normalization, production browser-context propagation, and remaining browser/computer-use IFC are also target-only; source of truth is the daemon route registry)
 Implementation refs:
@@ -128,19 +128,39 @@ Hypervisor App, Hypervisor Web, and CLI/headless clients render Core
 projections from daemon/public runtime APIs. These endpoints are read models for
 clients; they do not move runtime truth into the client.
 
+> **Superseded 2026-08-20 — `GET /v1/hypervisor/home-cockpit` was never
+> built. Implementation status: n/a.** No daemon route by this name has ever
+> existed: `home_cockpit`/`home-cockpit` appears nowhere under `crates/`, and a
+> live daemon answers `404` at this path. The only artifact that ever carried
+> the `ioi.hypervisor.home_cockpit_projection.v1` shape is the client-side dev
+> replay fixture (`scripts/hypervisor-app-dev-replay-server.mjs`), which is
+> fixture material and never admitted runtime truth. The serve-lane cockpit
+> this projection presupposed — the `home` registry row mounted at
+> `/__ioi/home-cockpit` — was retired by the E7-1 cockpit retirement on
+> 2026-08-20
+> (`apps/hypervisor/reference-seed-adjudications.v1.json#e7-cockpit-retirement`),
+> so the projection has no consumer either. Home's live readout composes
+> ordinary daemon reads inside the serve lane (`renderHome` in
+> `apps/hypervisor/scripts/serve-product-ui.mjs`, served at `/__ioi/home`); it
+> never called this endpoint. The block below is retained as the record of a
+> proposed contract no cut ever admitted. The reference-wall notice above does
+> **not** apply to it: this is not a committed surface, and nothing may cite it
+> as one.
+
 ```http
 GET /v1/hypervisor/home-cockpit
 ```
 
-`GET /v1/hypervisor/home-cockpit` dispatches through the daemon runtime
-lifecycle projection boundary with:
+`GET /v1/hypervisor/home-cockpit` was specified to dispatch through the daemon
+runtime lifecycle projection boundary with:
 
 ```text
 operation_kind = runtime.lifecycle_projection.hypervisor_home_cockpit
 projection_kind = hypervisor_home_cockpit
 ```
 
-The response is an `ioi.hypervisor.home_cockpit_projection.v1` projection:
+The specified response was an `ioi.hypervisor.home_cockpit_projection.v1`
+projection:
 
 ```json
 {

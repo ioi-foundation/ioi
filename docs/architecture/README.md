@@ -4,7 +4,7 @@ Status: canonical navigation and source-of-authority index.
 Canonical owner: this file for architecture navigation; see [`source-of-truth-map.md`](./_meta/source-of-truth-map.md) for subject ownership.
 Supersedes: ad hoc architecture navigation in plans/specs when links or ownership disagree.
 Superseded by: none.
-Last alignment pass: 2026-07-20.
+Last alignment pass: 2026-08-20.
 Doctrine status: canonical
 Implementation status: mixed (navigation index over built, partial, planned, and speculative subjects)
 Last implementation audit: 2026-07-19
@@ -22,8 +22,11 @@ Start with [`START_HERE.md`](./START_HERE.md). Then use:
   cross-owner target-state digest;
 - [`source-of-truth-map.md`](./_meta/source-of-truth-map.md) before changing a
   subject;
-- [`implementation-matrix.md`](./_meta/implementation-matrix.md) before making
-  a built/partial/planned claim;
+- [`canon-to-code-delta.md`](./_meta/canon-to-code-delta.md) and the
+  [`work-items/`](./_meta/work-items/) records before making a
+  built/partial/planned claim — the two live implementation indexes, each
+  carrying its own derivation basis (`implementation-matrix.md` is an archived
+  stub that disclaims this ownership);
 - [`shipped-products.v1.json`](./_meta/shipped-products.v1.json) for the
   machine-checked executable product-lane, release-posture, state-boundary,
   fixture-disposition, and required-verification register;
@@ -633,15 +636,20 @@ access to an IOI-hosted room. Same-owner multiplicity never satisfies it.
 ## Implementation Discipline
 
 The target architecture is not a claim that every target object is built.
-Consult [`implementation-matrix.md`](./_meta/implementation-matrix.md) for the
-current durable form and code anchors. In particular, the existing narrow
-software GoalRun is partial implementation; OutcomeRoom federation,
-collaborative AIIP, full route-right enforcement, invoice-grade Work Credits,
-the complete semantic action plane, and cross-domain assurance remain target
-work unless the matrix is updated with current proof. The target Hypervisor
-shell taxonomy, shared product-surface compiler, and registration axes likewise
-remain target architecture where the matrix still records hard-coded catalogs,
-routes, or parity-derived UI classifications.
+Consult [`canon-to-code-delta.md`](./_meta/canon-to-code-delta.md) and the
+[`work-items/`](./_meta/work-items/) records for the current durable form and
+code anchors; they are the two live implementation indexes, and
+`implementation-matrix.md` is an archived stub that names them as the owners.
+In particular, the existing narrow software GoalRun is partial implementation;
+OutcomeRoom federation, collaborative AIIP, full route-right enforcement,
+invoice-grade Work Credits, the complete semantic action plane, and
+cross-domain assurance remain target work unless those indexes are updated with
+current proof. The target Hypervisor shell taxonomy, shared product-surface
+compiler, and registration axes likewise remain target architecture where the
+delta still records hard-coded catalogs, routes, or parity-derived UI
+classifications. Parity-derived UI classification is never an acceptance test
+in the first place — Non-Negotiable 36 makes captures and parity matrices
+evidence only.
 
 When implementing:
 
