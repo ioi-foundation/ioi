@@ -527,6 +527,20 @@
       },
       "outcome": "portable",
       "reason": "the portable tab set (History + Build timeline) SHIPPED as light Monocle lanes at /__ioi/lineage?tab=; three absences typed in both vocabularies on the tab row; Preview re-chrome is the recorded residual"
+    },
+    {
+      "action": "DEV-2",
+      "seed": "devconsole",
+      "owner": "Developer Console",
+      "reference_route": "http://localhost:9225/workspace/developer-console/ (+ create/guided/basic-information)",
+      "atlas_states": [
+        "landing + tab:Applications (5 facet groups, ia=true)",
+        "tab:OAuth-clients (ia=false)",
+        "authoring wizard (ia=false)"
+      ],
+      "estate_plane": "/v1/hypervisor/connectors (10 declared, use-only leases) + /v1/hypervisor/scm-connectors (4, BYOA/token leases)",
+      "outcome": "portable",
+      "reason": "SHIPPED at /__ioi/developer-console: Applications-as-registrations LIVE (14 real rows); OAuth-clients typed-absent naming the real lanes (capability leases/BYOA, Connections-owned); guided-create dead on the mirror, verbs stay owner-surfaced"
     }
   ]
 }

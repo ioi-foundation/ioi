@@ -285,7 +285,8 @@
       {
         "id": "DEV-2",
         "title": "devconsole landing + Applications lane over connector estate",
-        "status": "queued"
+        "status": "done",
+        "evidence": "the Developer-Console landing SHIPPED at /__ioi/developer-console (previously SPA fallthrough): Applications lane LIVE over the REAL connector estate \u2014 14 registrations (10 declared connectors + 4 SCM) with auth posture + declared-tools census verbatim, verbs staying on Connections/owner surfaces; OAuth-clients + guided-create typed absences naming the real lanes. devconsole \u2192 reference_ported. Verifier 33/33."
       },
       {
         "id": "MIS-1.build",
@@ -517,6 +518,12 @@
       "date": "2026-08-19",
       "did": "W4 PRO-2.build COMPLETE \u2014 Vertex light re-shell in place; substrate_bound down to 1 (missions only)",
       "next": "W4: DEV-2 (devconsole) then EVA-2.build, WOR-2"
+    },
+    {
+      "n": 24,
+      "date": "2026-08-19",
+      "did": "W4 DEV-2 SHIPPED (33/33); reference_ported=9, capture=16",
+      "next": "W4: EVA-2.build (Insight) then WOR-2 (repositories)"
     }
   ],
   "pr_blockers": [

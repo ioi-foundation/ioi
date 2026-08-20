@@ -18,8 +18,8 @@
   "total_seeds": 39,
   "by_parity_class": {
     "daemon_wired": 13,
-    "reference_capture": 17,
-    "reference_ported": 8,
+    "reference_capture": 16,
+    "reference_ported": 9,
     "substrate_bound": 1
   },
   "legend": {
@@ -661,14 +661,27 @@
       "capture_base": "/workspace/developer-console/",
       "grammar": "wizard",
       "tier": "high_value",
-      "parity_class": "reference_capture",
+      "parity_class": "reference_ported",
       "capture_state": "blocked_missing_capture",
       "reference_capture": "/__apps/devconsole",
       "reference_workspace": "/workspace/developer-console/",
-      "note": "OAuth app registration + SDK on-ramps (self-bootstrapped)",
+      "note": "DEV-2: Applications-as-registrations is the adjudicated mapping (#devconsole); the route previously fell through to the SPA bundle — this is the family's designed landing",
       "reference_clean_state": "shell_clean_only",
       "reference_clean_reason": "shell renders a WELCOME/empty landing (cards 5 · lines 23, no row/node data) — clean chrome, no real data to port against (proxy lane renders no data (score 0); the origin lane is the readable one)",
-      "reference_clean_artifact": "reference-clean-sweep.json"
+      "reference_clean_artifact": "reference-clean-sweep.json",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#devconsole",
+      "port_surface": "/__ioi/developer-console",
+      "surface_name": "Developer Console",
+      "reference_url_override": "http://localhost:9225/workspace/developer-console/",
+      "reference_landmarks": [
+        "Developer Console",
+        "Applications",
+        "Standalone OAuth clients",
+        "New application"
+      ],
+      "binding": "the console landing with the Applications lane LIVE over the real connector estate (declared connectors + SCM connectors: name · service · auth posture · declared tools · created; verbs stay on Connections/owner surfaces); OAuth-clients + guided-create typed absences naming the real lanes",
+      "candidate_surface": "/__ioi/developer-console",
+      "shell_pixel_certified": false
     },
     {
       "owner": "Developer Console",

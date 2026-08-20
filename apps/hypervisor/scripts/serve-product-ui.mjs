@@ -9131,6 +9131,59 @@ async function handleEstateRequest(req, res, body) {
       sendOwnedSurfaceHtml(res, "changes", renderChangesPort((pj.proposals || []).sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || ""))), lane, filter));
       return;
     }
+    // ---- Developer Console — DEV-2 (remediation v2): the family's designed landing (this route
+    // previously fell through to the SPA bundle). Applications lane = LIVE over the REAL connector
+    // estate (declared connectors + SCM connectors — registrations with auth posture + declared
+    // tools); Standalone OAuth clients = typed absence naming the real lane (capability leases /
+    // BYOA, Connections-owned); the guided-create wizard is dead on the mirror (atlas) and
+    // registration verbs stay on their owner surfaces.
+    if (pathname === "/__ioi/developer-console" && req.method === "GET") {
+      const [conns, scm] = await Promise.all([
+        daemonFetch(`/v1/hypervisor/connectors`).then((r) => r.json()).then((j) => j.connectors || []).catch(() => []),
+        daemonFetch(`/v1/hypervisor/scm-connectors`).then((r) => r.json()).then((j) => j.scm_connectors || j.connectors || []).catch(() => []),
+      ]);
+      const esc = CX_ESC;
+      const fdt = (iso) => { const d2 = new Date(iso || 0); return isNaN(d2) ? "—" : d2.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); };
+      const rows = [
+        ...conns.map((c) => `<a class="dcx-row" href="/__ioi/connections" title="a REAL declared connector (use-only lease; declared tools only) — bindings live on Connections"><span><b>${esc(c.name || c.connector_id)}</b><code class="dcx-ref">${esc(c.connector_id)}</code></span><span>${esc(c.service || c.kind || "—")}</span><span>${esc(c.auth_posture || (c.requires_credential ? "credential" : "—"))}</span><span>${Array.isArray(c.allowed_tools) ? c.allowed_tools.length + " tool" + (c.allowed_tools.length === 1 ? "" : "s") : "—"}</span><span>${fdt(c.created_at)}</span></a>`),
+        ...scm.map((c) => `<a class="dcx-row" href="/__ioi/connections" title="a REAL SCM connector (BYOA/token lease) — publish/revoke live on its owner surface"><span><b>${esc(c.name || c.connector_id || c.id)}</b><code class="dcx-ref">${esc(c.connector_id || c.id || "")}</code></span><span>${esc(c.host || c.service || "scm")}</span><span>${esc(c.auth_posture || "—")}</span><span>—</span><span>${fdt(c.created_at)}</span></a>`),
+      ].join("");
+      const gap = (label, reason) => `<span class="dcx-gap" aria-disabled="true" title="${esc(reason)}" data-ioi-disabled-reason="${esc(reason)}">${esc(label)}</span>`;
+      const grail = ioiGlobalRailHtml({ label: "Developer Console", href: "/__ioi/developer-console", iconUri: DSG_APP_TILE_URI, railVariant: "rv-pipe rv-dsg", viewAll: true, star: false, badges: true, aipGradient: true, acctMuted: true });
+      sendOwnedSurfaceHtml(res, "devconsole", `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Developer Console</title><style>
+        :root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#fff;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif}a{color:#215db0;text-decoration:none}
+        .dcx-shell{display:flex;height:100vh;overflow:hidden}${IOI_GRAIL_CSS}
+        .dcx-main{flex:1;min-width:0;display:flex;flex-direction:column}
+        .dcx-header{flex:0 0 50px;display:flex;align-items:center;gap:18px;padding:0 20px;background:#fff;box-shadow:0 1px 0 #d1d1d1,0 3px 4px rgba(0,0,0,.04)}
+        .dcx-title{font-size:16px;font-weight:600;color:#404854;margin:0}
+        .dcx-tab{font-size:14px;line-height:50px;color:#215db0;font-weight:600;position:relative}
+        .dcx-tab::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:#215db0}
+        .dcx-gap{font-size:14px;color:#a8b2be;cursor:not-allowed}
+        .dcx-hright{margin-left:auto;display:flex;gap:8px;align-items:center}
+        .dcx-body{flex:1;overflow-y:auto;padding:18px 26px 40px}
+        .dcx-h{font-size:18px;font-weight:600;margin:0 0 4px}
+        .dcx-note{font-size:12px;color:#5f6b7c;margin:0 0 12px}
+        .dcx-thead{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:8px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#5f6b7c;padding:6px 8px;border-bottom:1px solid #e5e8eb}
+        .dcx-row{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:8px;align-items:center;padding:8px;border-bottom:1px solid #f0f2f5;font-size:13px;color:#1c2127}
+        .dcx-row:hover{background:#f6f7f9}
+        .dcx-ref{display:block;font-size:11px;color:#5f6b7c;word-break:break-all}
+        .dcx-foot{font-size:12px;color:#7b8494;line-height:1.6;margin-top:18px}
+      </style></head><body><div class="dcx-shell">${grail}<div class="dcx-main">
+        <header class="dcx-header"><h1 class="dcx-title">Developer Console</h1>
+          <span class="dcx-tab" aria-current="page">Applications</span>
+          ${gap("Standalone OAuth clients", "No standalone OAuth-client plane exists — the estate's real credential lanes are capability leases + BYOA app connectors, owned by Connections (typed absence; adjudication #devconsole)")}
+          <div class="dcx-hright">${gap("+ New application", "The reference guided-create wizard is dead on the mirror (atlas authoring state, no IA) and application registration verbs stay on their owner surfaces (Connections / SCM publish); typed absence")}</div>
+        </header>
+        <div class="dcx-body">
+          <h2 class="dcx-h">Applications</h2>
+          <p class="dcx-note">${conns.length + scm.length} REAL registrations — ${conns.length} declared connector${conns.length === 1 ? "" : "s"} (use-only leases, declared tools only) + ${scm.length} SCM connector${scm.length === 1 ? "" : "s"}; bindings and verbs live on <a href="/__ioi/connections">Connections</a>.</p>
+          <div class="dcx-thead"><span>Application</span><span>Service</span><span>Auth posture</span><span>Tools</span><span>Created</span></div>
+          ${rows || `<div class="dcx-note">No registrations — this lane renders the real connector estate and never fabricates rows.</div>`}
+          <p class="dcx-foot">DEV-2 (remediation v2): the Developer-Console landing over the REAL connector estate (Applications-as-registrations, the adjudicated mapping); OAuth-clients + guided-create are typed absences naming the real lanes. Evidence: reference-seed-adjudications.v1.json#devconsole · reference-family-atlas.v1.json (devconsole landing + Applications tab, ia=true). Siblings: <a href="/__ioi/developer-console/widgets">Custom Widgets</a>.</p>
+        </div>
+      </div></div></body></html>`);
+      return;
+    }
     // ---- Workbench · Code Workspaces + Notepad — WOR-1 (remediation v2): origin-aligned I-4
     // landings. Workspaces renders the estate's REAL workspace substrate (the environments plane,
     // newest 15 of the full census with the cap NAMED); Notepad is a TYPED-ABSENT body (no
