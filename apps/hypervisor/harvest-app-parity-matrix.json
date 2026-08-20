@@ -18,8 +18,8 @@
   "total_seeds": 39,
   "by_parity_class": {
     "daemon_wired": 13,
-    "reference_capture": 8,
-    "reference_ported": 18
+    "reference_capture": 7,
+    "reference_ported": 19
   },
   "legend": {
     "reference_capture": "the /__apps/<slug> reference baseline serves; no IOI port exists",
@@ -624,16 +624,33 @@
       "capture_base": "/workspace/model-studio/",
       "grammar": "editor_canvas",
       "tier": "high_value",
-      "parity_class": "reference_capture",
+      "parity_class": "reference_ported",
       "capture_state": "shell_only",
       "reference_capture": "/__apps/modelstudio",
       "reference_workspace": "/workspace/model-studio/",
-      "note": "model studio; unbound",
+      "note": "MS-1: live_ia_recorded → ported, superseding the mirror-scoped capture_broken_no_donor (#modelstudio) which stands as history. The finding is that a VERB WHOSE ROUTE EXISTS IS STILL A GAP WHEN THE FORM'S FIELDS AND THE ROUTE'S REQUIRED FIELDS DO NOT INTERSECT. The estate DOES publish POST /v1/hypervisor/foundry/specs — a real durable draft-spec create — so the easy conclusion ('the route exists, wire Save') is available and wrong. The record it writes carries no location field of any kind, no project record carries a spec field and no published project write route would accept one, so the containment edge the dialog exists to author is absent in BOTH directions; and the route's own admission test refuses any spec resolving neither a model route nor a provider, a binding the dialog offers no control for. The two field sets intersect in exactly one field, the name. Wiring Save would mean silently supplying an argument nobody chose and silently discarding the one thing the dialog is named for, so Save is a typed absence and no second mutation spine is minted over the daemon's create route",
       "reference_clean_state": "data_failed",
       "reference_clean_reason": "shell boots but the body reports a data failure (\"Page not found\") with captured (non-404) lanes",
       "reference_clean_artifact": "reference-clean-sweep.json",
       "remediation_state": "live_ia_recorded",
-      "adjudication_ref": "reference-seed-adjudications.v1.json#modelstudio + reference-live-tenant-atlas.v1.json#modelstudio"
+      "adjudication_ref": "reference-seed-adjudications.v1.json#modelstudio + reference-seed-adjudications.v1.json#modelstudio-port + reference-live-tenant-atlas.v1.json#modelstudio + reference-live-tenant-deep-atlas.v1.json#modelstudio",
+      "port_surface": "/__ioi/foundry/model-studio",
+      "surface_name": "Foundry",
+      "live_reference_evidence": "reference-live-tenant-deep-atlas.v1.json#modelstudio (landing + create-attempt, url /workspace/model-studio/, title \"Model studio\", heading \"Choose file location\", 13 controls, 1 input, 1 facet group APPLICATIONS, 7 dialogs, 0 rows) + .artifacts/live-tenant-atlas/deep/modelstudio-landing.png + .artifacts/live-tenant-atlas/deep/modelstudio-create-attempt.png",
+      "reference_landmarks": [
+        "Model Studio",
+        "Choose file location",
+        "File name",
+        "New Model Studio (",
+        "Location",
+        "Browse",
+        "Cancel",
+        "Save",
+        "APPLICATIONS"
+      ],
+      "binding": "the live-tenant MODEL-STUDIO landing grammar, which is a CREATION-ENTRY DIALOG rather than a canvas or a list: the app admits you by creating a Model Studio file in a chosen location, and the tenant holds none, so the dialog IS the landing and there is no browse root to port. The dialog renders as the centrepiece (a header carrying the app name and its Save-to-a-location typed absence · \"Choose file location\" with its close control · a pre-filled File name field · a Location folder selector · Browse · Cancel · Save) over the estate's REAL planes: the LOCATION selector reads the projects plane record by record (id, custody posture, created stamp, cap 25 NAMED), and the FILE half reads the Foundry draft-spec and run-plan planes. Twenty-two file-, location-, binding- and authoring-adjacent planes are probed on every render and classified live into FOUR states (LIVE / EMPTY / REFUSED / NO READ ROUTE, the last decided from the daemon's own route index), each stamped with the HALF of the dialog it answers for so an adjacent authoring lane is never read as the file, the location or the binding. The pre-filled name is DERIVED at render exactly as the reference derives it at dialog-open (the two recorded reference states are byte-identical except that stamp) and is marked as stored nowhere; the validity badge keeps its predicate NAMED as well-formedness and explicitly refuses the availability reading, because no plane indexes names inside a location. EMPTY and MISSING are rendered side by side about the same dialog: the spec plane is an EMPTY plane waiting for a record, while the file-in-a-location RELATION is MISSING and could never fill. Read-only: the draft-spec create verb stays where the daemon owns it, the model routes and providers a spec must bind stay on Model Catalog and Agent Studio, and the locations stay on Fusion — all linked, none re-rendered",
+      "candidate_surface": "/__ioi/foundry/model-studio",
+      "shell_pixel_certified": false
     },
     {
       "owner": "Foundry",

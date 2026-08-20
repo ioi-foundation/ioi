@@ -637,6 +637,121 @@ for (const [slug, route, title, absentPhrase, ownerLink] of [
   ok("ingest: READ-ONLY projection — no verb is re-minted and the Create absence NAMES the crossings it refuses to mint", !t.includes("<form") && !/action="\/__ioi\/(data|pipeline|odk)/.test(t) && /second mutation spine over another surface's authority/.test(t) && /re-mints none of them/.test(t), String(!t.includes("<form")));
   ok("ingest: evidence cited (adjudication #ingest-port + the LIVE deep atlas) and brand-clean — no vendor brand and no borrowed tenant identity", /reference-seed-adjudications\.v1\.json#ingest-port/.test(t) && /reference-live-tenant-deep-atlas\.v1\.json#ingest/.test(t) && !/\bPalantir\b/i.test(t) && !/palantirfoundry/i.test(t) && !/workspace\//i.test(t));
 }
+// MS-1: modelstudio — the CREATION-ENTRY DIALOG port. The seed's live root is not an editor canvas
+// and not a list: it is "Choose file location" (a pre-filled File name, a Location folder dropdown,
+// Browse/Cancel/Save) over rows:0. The finding under gate here is that a VERB WHOSE ROUTE EXISTS is
+// still a GAP when the form's fields and the route's required fields do not intersect — so every
+// number that establishes the disjointness is RE-DERIVED from the daemon on this run and must match
+// the page exactly, and the derived-per-render file name is proven by fetching the page twice.
+{
+  const D = process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765";
+  const j = (p) => fetch(`${D}${p}`).then(async (r) => ({ status: r.status, ok: r.ok, body: await r.json().catch(() => null) })).catch(() => ({ status: 0, ok: false, body: null }));
+  const str = (v) => (typeof v === "string" && v.trim() !== "" ? v : "");
+  const idx = await fetch(`${D}/v1`).then((r) => r.json()).catch(() => ({}));
+  const allRoutes = (Array.isArray(idx.families) ? idx.families : []).flatMap((f) => (Array.isArray(f.paths) ? f.paths : [])).filter((r) => !r.retired);
+  const methodsOf = (p) => { const r = allRoutes.find((x) => String(x.path || "") === p); return Array.isArray(r?.methods) ? r.methods : []; };
+  const MST_CENSUS = [
+    ["/v1/hypervisor/projects", "/v1/hypervisor/projects", "collection", "location", (b) => b?.projects],
+    ["/v1/hypervisor/projects/:id", "/v1/hypervisor/projects/no-project-selected", "singleton", "location", null],
+    ["/v1/hypervisor/projects/:id/environment-classes", "/v1/hypervisor/projects/no-project-selected/environment-classes", "collection", "location", null],
+    ["/v1/hypervisor/foundry/specs", "/v1/hypervisor/foundry/specs", "collection", "file", (b) => b?.specs],
+    ["/v1/hypervisor/foundry/specs/:id", "/v1/hypervisor/foundry/specs/no-spec-selected", "singleton", "file", null],
+    ["/v1/hypervisor/foundry/run-plans", "/v1/hypervisor/foundry/run-plans", "collection", "file", (b) => b?.run_plans],
+    ["/v1/hypervisor/foundry/run-plans/:id", "/v1/hypervisor/foundry/run-plans/no-plan-selected", "singleton", "file", null],
+    ["/v1/hypervisor/foundry/overview", "/v1/hypervisor/foundry/overview", "singleton", "file", null],
+    ["/v1/hypervisor/model-routes", "/v1/hypervisor/model-routes", "collection", "binding", (b) => b?.routes],
+    ["/v1/hypervisor/model-routes/overview", "/v1/hypervisor/model-routes/overview", "singleton", "binding", null],
+    ["/v1/model-mount/providers", "/v1/model-mount/providers", "collection", "binding", null],
+    ["/v1/model-mount/backends", "/v1/model-mount/backends", "collection", "binding", null],
+    ["/v1/model-mount/endpoints", "/v1/model-mount/endpoints", "collection", "binding", null],
+    ["/v1/hypervisor/studio/blueprints", "/v1/hypervisor/studio/blueprints", "collection", "adjacent", (b) => b?.blueprints],
+    ["/v1/hypervisor/foundry/recipes", "/v1/hypervisor/foundry/recipes", "collection", "adjacent", (b) => b?.recipes],
+    ["/v1/hypervisor/foundry/programs", "/v1/hypervisor/foundry/programs", "collection", "adjacent", (b) => b?.programs],
+    ["/v1/hypervisor/foundry/qualification-proposals", "/v1/hypervisor/foundry/qualification-proposals", "collection", "adjacent", (b) => b?.qualification_proposals],
+    ["/v1/hypervisor/foundry/checkpoints", "/v1/hypervisor/foundry/checkpoints", "collection", "adjacent", (b) => b?.checkpoints],
+    ["/v1/hypervisor/foundry/dataset-snapshots", "/v1/hypervisor/foundry/dataset-snapshots", "collection", "adjacent", (b) => b?.dataset_snapshots],
+    ["/v1/hypervisor/foundry/artifact-intents", "/v1/hypervisor/foundry/artifact-intents", "collection", "adjacent", (b) => b?.artifact_intents],
+    ["/v1/hypervisor/foundry/programs/:id/qualify", "/v1/hypervisor/foundry/programs/no-program-selected/qualify", "collection", "adjacent", null],
+    ["/v1/hypervisor/foundry/recipes/:id/runs", "/v1/hypervisor/foundry/recipes/no-recipe-selected/runs", "collection", "adjacent", null],
+  ];
+  const mDerived = [];
+  for (const [path, probe, shape, half, pick] of MST_CENSUS) {
+    const r = await j(probe);
+    const methods = methodsOf(path);
+    let state = "live"; let code = ""; let rows = [];
+    if (!methods.includes("GET") || r.status === 405) state = "no_read_route";
+    else if (!r.ok) { const b = r.body || {}; state = "refused"; code = String((b.error && (b.error.code || b.error)) || b.reason || b.code || `http_${r.status}`); }
+    else if (r.body && typeof r.body === "object" && r.body.ok === false) { const b = r.body.error; state = "refused"; code = String((b && (b.code || b)) || r.body.code || r.body.reason || "plane_declined"); }
+    else if (shape === "singleton") { const keys = r.body && typeof r.body === "object" && !Array.isArray(r.body) ? Object.keys(r.body) : []; state = keys.length ? "live" : "empty"; }
+    else { const arr = pick ? pick(r.body) : (Array.isArray(r.body) ? r.body : Object.values(r.body || {}).find((v) => Array.isArray(v))); if (!Array.isArray(arr)) { state = "unreadable"; } else { rows = arr; state = arr.length ? "live" : "empty"; } }
+    mDerived.push({ path, probe, shape, half, state, code, rows, methods });
+  }
+  const mBy = Object.fromEntries(mDerived.map((d2) => [d2.path, d2]));
+  const mProjects = mBy["/v1/hypervisor/projects"].rows;
+  const mSpecs = mBy["/v1/hypervisor/foundry/specs"].rows;
+  const mPlans = mBy["/v1/hypervisor/foundry/run-plans"].rows;
+  const mRoutes = mBy["/v1/hypervisor/model-routes"].rows;
+  const mProviders = mBy["/v1/model-mount/providers"].rows;
+  const mBackends = mBy["/v1/model-mount/backends"].rows;
+  const mEndpoints = mBy["/v1/model-mount/endpoints"].rows;
+  const specFieldRe = /spec|foundry|model.?studio/i;
+  const mProjWithSpecField = mProjects.filter((p) => Object.keys(p || {}).some((k) => specFieldRe.test(k)));
+  const mProjRefFields = [...new Set(mProjects.flatMap((p) => Object.keys(p || {}).filter((k) => k.endsWith("_refs"))))].sort();
+  const mProjWriteRoutes = allRoutes.filter((r) => String(r.path || "").startsWith("/v1/hypervisor/projects")).filter((r) => (r.methods || []).some((m) => ["POST", "PATCH", "PUT", "DELETE"].includes(String(m))));
+  const mFoundryRoutes = allRoutes.filter((r) => String(r.path || "").startsWith("/v1/hypervisor/foundry/"));
+  const mLocNaming = mFoundryRoutes.filter((r) => /(folder|location|project|parent|path|place|move)/i.test(String(r.path || "")));
+  const mCreateMethods = methodsOf("/v1/hypervisor/foundry/specs");
+  const p = await page(`${SERVE}/__ioi/foundry/model-studio`);
+  const t = p.text;
+  const planeRow = (pth) => {
+    const i = t.indexOf(`data-ioi-plane="${pth}"`);
+    if (i < 0) return "";
+    const start = t.lastIndexOf('<div class="mst-prow"', i);
+    const end = t.indexOf("</div>", i);
+    return start < 0 || end < 0 ? "" : t.slice(start, end + 6);
+  };
+  const gapReasons = [...t.matchAll(/<span class="mst-(?:chip|browse|save|locsel) mst-gap"[^>]*data-ioi-disabled-reason="([^"]*)"/g)].map((m) => m[1]);
+  ok("modelstudio: matrix reference_ported at /__ioi/foundry/model-studio with the live-tenant DEEP-atlas evidence carried", bySlug.modelstudio?.parity_class === "reference_ported" && bySlug.modelstudio?.candidate_surface === "/__ioi/foundry/model-studio" && bySlug.modelstudio?.port_surface === "/__ioi/foundry/model-studio" && bySlug.modelstudio?.surface_name === "Foundry" && bySlug.modelstudio?.remediation_state === "live_ia_recorded" && /#modelstudio-port/.test(bySlug.modelstudio?.adjudication_ref || "") && /reference-live-tenant-deep-atlas\.v1\.json#modelstudio/.test(bySlug.modelstudio?.adjudication_ref || "") && !bySlug.modelstudio?.reference_url_override, bySlug.modelstudio?.parity_class);
+  ok("modelstudio: renders 200 with the LIVE-tenant CREATION-ENTRY DIALOG as the landing centrepiece, RAILLESS (owner ruling 2026-08-20)", p.status === 200 && !t.includes("og-grail") && ["Model Studio", "Choose file location", "File name", "Location", "Browse", "Cancel", "Save", "New Model Studio ("].every((k) => t.includes(k)) && /role="dialog" aria-label="Choose file location"/.test(t), String(p.status));
+  // THE LOAD-BEARING GATE. The finding is that a published route is not a wired verb, and it stands
+  // or falls on numbers that must be re-derived from the daemon on THIS run: the create verb's own
+  // published methods, the containment edge checked from BOTH sides, and the binding the route
+  // demands. A pasted set fails, and so does a correct-today one the day a project grows a spec
+  // field, a project write route appears, or a Foundry route starts naming a location.
+  ok("modelstudio: the DISJOINTNESS finding is RE-DERIVED — the create route's published methods, the containment edge from both sides, and the binding the route demands all match the daemon on this run", new RegExp(`<code>/v1/hypervisor/foundry/specs</code> carries ${mCreateMethods.map((m) => `<code>${m}</code>`).join(" ")}`).test(t) && new RegExp(`<b>${mProjWithSpecField.length}</b> of the <b>${mProjects.length}</b> live project records carry any field naming a spec or a foundry object`).test(t) && mProjRefFields.every((f) => t.includes(`<code>${f}</code>`)) && new RegExp(`of the <b>${mProjWriteRoutes.length}</b> published project write route`).test(t) && new RegExp(`<b>${mLocNaming.length}</b> of <b>${mFoundryRoutes.length}</b> routes name a location concept at all`).test(t) && t.includes(`holds <b>${mRoutes.length}</b> model route${mRoutes.length === 1 ? "" : "s"} and <b>${mProviders.length}</b> provider`), `create=${mCreateMethods.join("/")} projSpecField=${mProjWithSpecField.length}/${mProjects.length} projWrites=${mProjWriteRoutes.length} locNaming=${mLocNaming.length}/${mFoundryRoutes.length} routes=${mRoutes.length} providers=${mProviders.length}`);
+  ok("modelstudio: the finding is stated as the RULE, not as this one route's quirk — a published route is not a wired verb, and the intersection of the two field sets is named", /A published route is not a wired verb/.test(t) && /intersect in exactly <b>one<\/b> field, the name/.test(t) && /silently choose a binding nobody asked for and silently discard the location/.test(t) && /mints no second mutation spine/.test(t));
+  ok("modelstudio: every plane's state AND shape AND dialog-half are CLASSIFIED LIVE — the stamped quadruple equals what the daemon answers to this identity right now", mDerived.length === 22 && mDerived.every((d2) => t.includes(`data-ioi-plane="${d2.path}" data-ioi-plane-state="${d2.state}" data-ioi-plane-shape="${d2.shape}" data-ioi-plane-half="${d2.half}"`)), mDerived.map((d2) => `${d2.path.split("/").pop()}=${d2.state}`).join(" "));
+  ok("modelstudio: a REFUSAL is rendered as a REFUSAL — the daemon's typed code verbatim, and NEVER as a count", mDerived.filter((d2) => d2.state === "refused").length > 0 && mDerived.filter((d2) => d2.state === "refused").every((d2) => { const row = planeRow(d2.path); return row.includes(d2.code) && /REFUSED<\/b> this read/.test(row) && !/\d+<\/b> records?/.test(row); }) && /a refusal is not a zero/i.test(t), `${mDerived.filter((d2) => d2.state === "refused").length} refused`);
+  ok("modelstudio: EMPTY, MISSING and NO-READ-ROUTE are held apart — a plane the daemon publishes no GET for is never rendered EMPTY", mDerived.filter((d2) => d2.state === "empty").every((d2) => /EMPTY<\/b> plane, not a missing one/.test(planeRow(d2.path))) && mDerived.filter((d2) => d2.state === "no_read_route").every((d2) => /no GET<\/b>/.test(planeRow(d2.path)) && /not the same as reading nothing/.test(planeRow(d2.path))) && /REFUSED is not EMPTY, EMPTY is not MISSING/.test(t), `empty=${mDerived.filter((d2) => d2.state === "empty").length} noroute=${mDerived.filter((d2) => d2.state === "no_read_route").length}`);
+  // MAP-1's distinction, made about a RELATION rather than a canvas, and both halves on one page.
+  ok("modelstudio: the EMPTY plane and the MISSING relation are rendered side by side and never conflated — the spec plane's count is real, the file-in-a-location relation is a typed absence", new RegExp(`the estate's spec plane holds <b>${mSpecs.length}</b> draft`).test(t) && new RegExp(`the run-plan plane holds <b>${mPlans.length}</b>`).test(t) && /EMPTY<\/b> plane waiting for a record/.test(t) && /<b>MISSING<\/b>: no plane exists that could ever hold it/.test(t) && t.includes('data-ioi-disabled-reason="There is no such object in this estate.') && /EMPTY is not MISSING<\/b>/.test(t), `specs=${mSpecs.length} plans=${mPlans.length}`);
+  ok("modelstudio: the Location selector reads the REAL projects plane — one row per record, capped at 25 with the cap NAMED, and no folder is fabricated", (t.match(/class="mst-locrow"/g) || []).length === Math.min(25, mProjects.length) && mProjects.slice(0, 25).every((x) => t.includes(`data-ioi-location="${str(x.project_id)}"`)) && (mProjects.length > 25 ? /cap NAMED, never silent/.test(t) : (mProjects.length === 0 || new RegExp(`All <b>${mProjects.length}</b> locations the estate actually holds`).test(t))) && t.includes(`data-ioi-lane="location" data-ioi-plane-state="${mBy["/v1/hypervisor/projects"].state}"`), `rows=${(t.match(/class="mst-locrow"/g) || []).length} plane=${mProjects.length}`);
+  // The reference's two recorded states are byte-identical EXCEPT the pre-filled stamp, which is how
+  // we know the default name is derived when the dialog OPENS. A pasted or cached name would pass a
+  // shape check and fail this one: two renders a second apart must not agree.
+  {
+    const nameOf = (txt) => (txt.match(/New Model Studio \(([^)]*)\)/) || [])[1] || "";
+    const first = nameOf(t);
+    await new Promise((r) => setTimeout(r, 1300));
+    const again = await page(`${SERVE}/__ioi/foundry/model-studio`);
+    const second = nameOf(again.text);
+    ok("modelstudio: the pre-filled file name is DERIVED PER RENDER, exactly as the reference derives it at dialog-open — two renders a second apart carry different stamps, and the page says it is stored nowhere", /^\w{3}, \w{3} \d{1,2}, \d{4}, \d{1,2}:\d{2}:\d{2} [AP]M$/.test(first) && first !== "" && second !== "" && first !== second && /Derived on <b>this render<\/b>/.test(t) && /It is not stored, it names no record/.test(t), `${first} vs ${second}`);
+  }
+  ok("modelstudio: the validity badge NAMES its predicate and explicitly refuses the availability claim it looks like", /well-formedness<\/b> verdict, never an availability one/.test(t) && /This is NOT an availability check/.test(t) && /no plane indexes names inside a location/.test(t) && /well-formed/.test(t));
+  ok("modelstudio: every gap carries the UNIFIED contract (aria === title === data-ioi count, all three on the same element)", (t.match(/aria-disabled="true"/g) || []).length >= 5 && (t.match(/aria-disabled="true"/g) || []).length === (t.match(/data-ioi-disabled-reason=/g) || []).length && (t.match(/aria-disabled="true"/g) || []).length === (t.match(/aria-disabled="true" title="[^"]*" data-ioi-disabled-reason=/g) || []).length, `${(t.match(/aria-disabled="true"/g) || []).length} gaps`);
+  ok("modelstudio: no chrome reason is BOILERPLATE — every control's reason is written for that control (all distinct)", gapReasons.length >= 4 && new Set(gapReasons).size === gapReasons.length, `${gapReasons.length} chrome gaps, ${new Set(gapReasons).size} distinct`);
+  ok("modelstudio: every reference control is answered in the mapping table, and the ones the estate honours exactly are bound while the rest are marked unbound rather than filled", ["Save (dialog primary)", "Location (folder dropdown)", "Browse (location picker)", "File name (pre-filled input)", "APPLICATIONS (facet group)", "7 recorded dialog surfaces"].every((c) => t.includes(`data-ioi-control="${c}" data-ioi-control-bound="no"`)) && ["Validity check (name field badge)", "Cancel (dialog secondary)", "Dialog close"].every((c) => t.includes(`data-ioi-control="${c}" data-ioi-control-bound="yes"`)) && (t.match(/data-ioi-control-bound="yes"/g) || []).length === 3 && (t.match(/class="mst-crow"/g) || []).length === 9, `${(t.match(/class="mst-crow"/g) || []).length} controls answered`);
+  ok("modelstudio: the APPLICATIONS lane is MISSING rather than the reference's own EMPTY, and the seven recorded dialogs are discriminated — one ported, six named rather than reconstructed", /no per-principal favourites or pinned-application plane/.test(t) && /MISSING here, while the reference's own is merely empty/.test(t) && /seven dialog-role surfaces/.test(t) && /ONE of them is the landing itself/.test(t) && /whitelist-only with mutation verbs blacklisted/.test(t) && /inventing interactions nobody observed/.test(t), "applications + dialogs");
+  ok("modelstudio: READ-ONLY projection — no form, no second spine over the daemon's create route, and the planes another surface already renders are LINKED rather than duplicated", !t.includes("<form") && !/action="\/__ioi\//.test(t) && t.includes("/__ioi/foundry/models") && t.includes("/__ioi/domain-apps/fusion") && t.includes("/__ioi/agent-studio#model-routes") && !/class="mc-card"/.test(t) && !/class="spl-row"/.test(t) && !/class="ing-row"/.test(t) && new RegExp(`<b>${mBackends.length}</b> backend`).test(t) && new RegExp(`<b>${mEndpoints.length}</b> endpoint`).test(t), `backends=${mBackends.length} endpoints=${mEndpoints.length}`);
+  ok("modelstudio: the draft plane's own inertness note is quoted VERBATIM rather than paraphrased, beside its real substrate census", mBy["/v1/hypervisor/foundry/overview"].state !== "live" || (str((await j("/v1/hypervisor/foundry/overview")).body?.status_note) !== "" && t.includes(str((await j("/v1/hypervisor/foundry/overview")).body.status_note)) && /saving a file here would author a <b>draft<\/b> and nothing else/.test(t)));
+  ok("modelstudio: evidence cited (adjudication #modelstudio-port + the LIVE deep atlas) and brand-clean — no vendor brand and no borrowed tenant identity", /reference-seed-adjudications\.v1\.json#modelstudio-port/.test(t) && /reference-live-tenant-deep-atlas\.v1\.json#modelstudio/.test(t) && !/\bPalantir\b/i.test(t) && !/palantirfoundry/i.test(t) && !/workspace\/model-studio/i.test(t));
+  // ING-1's rule carried: registering a route is not delivering a surface. The family landing must
+  // carry the link IN THE SAME CUT, or the native-shell 2-hop reachability gate has nothing to find.
+  {
+    const fam = await page(`${SERVE}/__ioi/foundry/models`);
+    ok("modelstudio: REACHABILITY DELIVERED IN THE SAME CUT — the Foundry family landing that /foundry transfers to links the surface, so it is two hops from the shell", fam.status === 200 && fam.text.includes('href="/__ioi/foundry/model-studio"'), String(fam.status));
+  }
+}
 const fails = results.filter((r) => !r.pass);
 for (const r of results) console.log(`  ${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? `  (${r.detail})` : ""}`);
 console.log(`\n${results.length - fails.length}/${results.length} passed`);

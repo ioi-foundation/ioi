@@ -5649,7 +5649,7 @@ function renderModelCatalogPort(routesJson, view = "provided") {
   const catalog = `<section class="mc-list">
     <h3 class="mc-addhead">Additional models</h3>
     <div class="mc-cards">${routes.length ? routes.map(card).join("") : `<div class="mc-empty"><b>No model routes yet</b> — register a route in <a href="/__ioi/agent-studio#model-routes">Agent Studio</a>. This catalog reads the real daemon model-route registry; nothing is fabricated.</div>`}</div>
-    <div class="mc-foot">Every card is a real daemon model route (${routes.length}) — identity, availability + probe evidence, weight custody, credential posture, lifecycle/admission. Administration (enable · probe · select default): <a href="/__ioi/agent-studio#model-routes">Agent Studio →</a> · owner surface: <a href="/__ioi/foundry">Foundry →</a> · reference: <a href="/__apps/models" target="_blank" rel="noopener">Model Catalog capture ↗</a></div>
+    <div class="mc-foot">Every card is a real daemon model route (${routes.length}) — identity, availability + probe evidence, weight custody, credential posture, lifecycle/admission. Administration (enable · probe · select default): <a href="/__ioi/agent-studio#model-routes">Agent Studio →</a> · the creation-entry grammar over the estate's draft-spec + location planes: <a href="/__ioi/foundry/model-studio">Model Studio →</a> · owner surface: <a href="/__ioi/foundry">Foundry →</a> · reference: <a href="/__apps/models" target="_blank" rel="noopener">Model Catalog capture ↗</a></div>
   </section>`;
 
   const css = `:root{color-scheme:light}*{box-sizing:border-box}
@@ -11328,6 +11328,407 @@ async function handleEstateRequest(req, res, body) {
             <p>And every verb stays where it is owned. The ${ingChainVerbs.length} crossings that build a pipeline belong to <a href="/__ioi/pipeline">Pipeline Builder</a> and the <a href="/__ioi/connections">Connections</a> capability-lease gate; declaring a source belongs to <a href="/__ioi/data/sources">Data Connection</a>. This surface re-mints none of them.</p>
           </div>
           <p class="ing-foot">${ingFoot}</p>
+        </div>
+      </div></body></html>`);
+      return;
+    }
+    // ---- Foundry · Model Studio — MS-1 (remediation v2): the live-tenant MODEL-STUDIO port.
+    // The seed's live root is NOT an editor canvas (the mirror-era grammar guess) and NOT a list:
+    // it is a CREATION-ENTRY DIALOG — "Choose file location", a pre-filled File name, a Location
+    // folder dropdown, Browse / Cancel / Save — modal over an empty field, with rows:0 everywhere.
+    // The app admits you by CREATING a Model Studio file in a chosen location; there is no browse
+    // root to port. THE FINDING this surface exists to state: a VERB WHOSE ROUTE EXISTS IS STILL A
+    // GAP WHEN THE FORM'S FIELDS AND THE ROUTE'S REQUIRED FIELDS DO NOT INTERSECT. The estate does
+    // publish POST /v1/hypervisor/foundry/specs — a real durable draft-spec create — but it has no
+    // location/project field at all, and it REQUIRES a resolving model-route or provider binding
+    // that this dialog never asks for. Wiring Save "because the POST exists" would mean silently
+    // supplying the argument the person was never asked for and silently discarding the one thing
+    // the dialog is named for. So Save is a typed gap, and no second mutation spine is minted.
+    if (pathname === "/__ioi/foundry/model-studio" && req.method === "GET") {
+      const esc = CX_ESC;
+      const mstr = (v) => (typeof v === "string" && v.trim() !== "" ? v : "");
+      const mstProbe = async (p) => {
+        try {
+          const r = await daemonFetch(p);
+          const text = await r.text();
+          let body = null;
+          try { body = JSON.parse(text); } catch { body = null; }
+          return { path: p, status: r.status, ok: r.ok, body };
+        } catch { return { path: p, status: 0, ok: false, body: null }; }
+      };
+      // PHASE 1 — the daemon's OWN route index. It is the only thing that can say "no read route",
+      // and it is also where the containment-edge counts below are derived from, so a route that
+      // appears or disappears changes the finding's numbers instead of rotting beside them.
+      const mstIndexJson = await daemonFetch("/v1").then((r) => r.json()).catch(() => ({}));
+      const mstRoutes = (Array.isArray(mstIndexJson.families) ? mstIndexJson.families : []).flatMap((f) => (Array.isArray(f.paths) ? f.paths : []));
+      const mstLiveRoutes = mstRoutes.filter((r) => !r.retired);
+      const mstRouteFor = (p) => mstLiveRoutes.find((r) => String(r.path || "") === p) || null;
+      const mstMethodsFor = (p) => { const r = mstRouteFor(p); return Array.isArray(r?.methods) ? r.methods : []; };
+      // PHASE 2 — the census. `path` is the ROUTE TEMPLATE the index publishes (the only thing an
+      // index lookup can match); `probe` is the concrete URL this identity actually read. `half`
+      // names which part of the dialog the plane answers for: the FILE, the LOCATION, the BINDING
+      // the create route demands, or an adjacent authoring lane that is none of the three.
+      const MST_PLANES = [
+        { key: "projects", path: "/v1/hypervisor/projects", probe: "/v1/hypervisor/projects", shape: "collection", pick: (b) => b?.projects, half: "location",
+          label: "Projects — the estate's LOCATION plane", role: "the nearest thing the estate has to the reference's folder: a durable custody container with a project_id, a custody posture and its own artifact/automation ref lists. It is the plane the Location selector above reads, and it is rendered in full by the Fusion port, so it is READ here for the selector and never re-listed as a file browser",
+          owner: "/__ioi/domain-apps/fusion", ownerLabel: "Fusion" },
+        { key: "project_record", path: "/v1/hypervisor/projects/:id", probe: "/v1/hypervisor/projects/no-project-selected", shape: "singleton", half: "location",
+          label: "Project record", role: "one location read back by id. Probed WITHOUT a resolvable id on purpose, so the row reports what an unresolved location actually answers rather than a happy path",
+          owner: "/__ioi/domain-apps/fusion", ownerLabel: "Fusion" },
+        { key: "project_env_classes", path: "/v1/hypervisor/projects/:id/environment-classes", probe: "/v1/hypervisor/projects/no-project-selected/environment-classes", shape: "collection", half: "location",
+          label: "Project environment classes — the ONE project PATCH", role: "the only field of a project the estate publishes a patch for. It is not a child list and it could not adopt a Model Studio file: this is the whole of what a project record will accept after it is created",
+          owner: "/__ioi/environments", ownerLabel: "Environments" },
+        { key: "specs", path: "/v1/hypervisor/foundry/specs", probe: "/v1/hypervisor/foundry/specs", shape: "collection", pick: (b) => b?.specs, half: "file",
+          label: "Foundry specs — THE FILE this estate would author", role: "the estate's nearest analogue to a Model Studio file: a durable FoundrySpec draft naming a kind, a set of real substrate bindings, free-form inputs and a policy ref. This is the plane the dialog's Save would have to write, and the plane the file count below is taken from",
+          owner: "/__ioi/foundry/models", ownerLabel: "Model Catalog" },
+        { key: "spec_record", path: "/v1/hypervisor/foundry/specs/:id", probe: "/v1/hypervisor/foundry/specs/no-spec-selected", shape: "singleton", half: "file",
+          label: "Foundry spec record", role: "one draft read back by id — the route that would serve a saved Model Studio file. Probed without a resolvable id, so the row reports the estate's own typed decline instead of a fabricated not-found story",
+          owner: "/__ioi/foundry/models", ownerLabel: "Model Catalog" },
+        { key: "run_plans", path: "/v1/hypervisor/foundry/run-plans", probe: "/v1/hypervisor/foundry/run-plans", shape: "collection", pick: (b) => b?.run_plans, half: "file",
+          label: "Foundry run plans — what a file would DO", role: "the draft execution plan a spec is pinned into. Inert by contract: the plane's own status note says specs and run-plans are drafts with no training, eval, promotion or registry mutation behind them",
+          owner: "/__ioi/foundry/models", ownerLabel: "Model Catalog" },
+        { key: "run_plan_record", path: "/v1/hypervisor/foundry/run-plans/:id", probe: "/v1/hypervisor/foundry/run-plans/no-plan-selected", shape: "singleton", half: "file",
+          label: "Foundry run-plan record", role: "one plan read back by id, probed unresolved for the same reason. Its DELETE verb is published beside its GET, which is the whole lifecycle a draft plane offers",
+          owner: "/__ioi/foundry/models", ownerLabel: "Model Catalog" },
+        { key: "foundry_overview", path: "/v1/hypervisor/foundry/overview", probe: "/v1/hypervisor/foundry/overview", shape: "singleton", half: "file",
+          label: "Foundry overview — the plane's OWN roll-up", role: "the daemon's census object over the draft planes and the real substrate beneath them. A status object, never a collection of one, and the source of the inertness note quoted verbatim below",
+          owner: "/__ioi/foundry/models", ownerLabel: "Model Catalog" },
+        { key: "model_routes", path: "/v1/hypervisor/model-routes", probe: "/v1/hypervisor/model-routes", shape: "collection", pick: (b) => b?.routes, half: "binding",
+          label: "Model routes — the binding the create route DEMANDS", role: "the substrate a FoundrySpec must resolve at least one of before it may exist. The reference dialog offers no control that names it, which is exactly the disjointness this page is about. Already rendered in full by the Model Catalog, so it is READ here for the count and linked, never re-listed",
+          owner: "/__ioi/foundry/models", ownerLabel: "Model Catalog" },
+        { key: "model_routes_overview", path: "/v1/hypervisor/model-routes/overview", probe: "/v1/hypervisor/model-routes/overview", shape: "singleton", half: "binding",
+          label: "Model-route overview", role: "the availability and lifecycle roll-up over the same registry. Read for the binding half only; no route row is minted from it here",
+          owner: "/__ioi/foundry/models", ownerLabel: "Model Catalog" },
+        { key: "providers", path: "/v1/model-mount/providers", probe: "/v1/model-mount/providers", shape: "collection", half: "binding",
+          label: "Model-mount providers — the OTHER accepted binding", role: "the second ref family the create route will accept in place of a route. A spec may bind either, and must bind one of them",
+          owner: "/__ioi/agent-studio", ownerLabel: "Agent Studio" },
+        { key: "backends", path: "/v1/model-mount/backends", probe: "/v1/model-mount/backends", shape: "collection", half: "binding",
+          label: "Model-mount backends", role: "an OPTIONAL spec binding — accepted and validated if declared, but never sufficient on its own. The distinction matters: a form that offered only this would still be refused",
+          owner: "/__ioi/agent-studio", ownerLabel: "Agent Studio" },
+        { key: "endpoints", path: "/v1/model-mount/endpoints", probe: "/v1/model-mount/endpoints", shape: "collection", half: "binding",
+          label: "Model-mount endpoints", role: "the other optional spec binding, validated the same way. Listed so the binding half of the census is complete rather than represented by its two required members alone",
+          owner: "/__ioi/agent-studio", ownerLabel: "Agent Studio" },
+        { key: "blueprints", path: "/v1/hypervisor/studio/blueprints", probe: "/v1/hypervisor/studio/blueprints", shape: "collection", pick: (b) => b?.blueprints, half: "adjacent",
+          label: "Studio blueprints — the estate's OTHER authoring draft", role: "the one other plane in the estate shaped like author-a-thing-as-a-draft-and-promote-it-later. It is Studio-owned, and it is named here so the route reasoning below can be checked rather than believed",
+          owner: "/__ioi/studio/workbench", ownerLabel: "Studio" },
+        { key: "recipes", path: "/v1/hypervisor/foundry/recipes", probe: "/v1/hypervisor/foundry/recipes", shape: "collection", pick: (b) => b?.recipes, half: "adjacent",
+          label: "Foundry recipes — the reusable authoring TEMPLATE", role: "the closest lane to start-from-a-template, which is how a studio usually opens. It refuses this identity, so this page says nothing about whether templates exist here — unknown is printed as unknown",
+          owner: "/__ioi/foundry/models", ownerLabel: "Model Catalog" },
+        { key: "programs", path: "/v1/hypervisor/foundry/programs", probe: "/v1/hypervisor/foundry/programs", shape: "collection", pick: (b) => b?.programs, half: "adjacent",
+          label: "Foundry programs — the qualified lane", role: "where a draft would go once it stopped being a draft. It refuses this identity, so no promotion claim on this page is taken from it",
+          owner: "/__ioi/foundry/models", ownerLabel: "Model Catalog" },
+        { key: "qualification_proposals", path: "/v1/hypervisor/foundry/qualification-proposals", probe: "/v1/hypervisor/foundry/qualification-proposals", shape: "collection", pick: (b) => b?.qualification_proposals, half: "adjacent",
+          label: "Qualification proposals", role: "the offered-for-promotion lane beside programs. It refuses this identity as well, and the surface records the refusal rather than inferring an empty shelf from it",
+          owner: "/__ioi/governance/approvals", ownerLabel: "Approvals" },
+        { key: "checkpoints", path: "/v1/hypervisor/foundry/checkpoints", probe: "/v1/hypervisor/foundry/checkpoints", shape: "collection", pick: (b) => b?.checkpoints, half: "adjacent",
+          label: "Foundry checkpoints", role: "the weights-at-rest lane a tuning studio would produce into. It refuses this identity, so whether any checkpoint exists is UNKNOWN from this surface rather than zero",
+          owner: "/__ioi/foundry/models", ownerLabel: "Model Catalog" },
+        { key: "dataset_snapshots", path: "/v1/hypervisor/foundry/dataset-snapshots", probe: "/v1/hypervisor/foundry/dataset-snapshots", shape: "collection", pick: (b) => b?.dataset_snapshots, half: "adjacent",
+          label: "Foundry dataset snapshots", role: "the training-input lane a model file would name. It refuses this identity; no input count on this page is ever taken from it",
+          owner: "/__ioi/data/sources", ownerLabel: "Data Connection" },
+        { key: "artifact_intents", path: "/v1/hypervisor/foundry/artifact-intents", probe: "/v1/hypervisor/foundry/artifact-intents", shape: "collection", pick: (b) => b?.artifact_intents, half: "adjacent",
+          label: "Foundry artifact intents", role: "the declared-intent-to-produce lane. It refuses this identity too, which is why the refusal column below is the largest one on this census — and why that is stated rather than smoothed over",
+          owner: "/__ioi/marketplace/artifacts", ownerLabel: "Artifacts" },
+        { key: "program_qualify", path: "/v1/hypervisor/foundry/programs/:id/qualify", probe: "/v1/hypervisor/foundry/programs/no-program-selected/qualify", shape: "collection", half: "adjacent",
+          label: "Program qualification verb", role: "POST-only: the estate performs a qualification, it never stores one you can read back at this route, so there is nothing here to read at all",
+          owner: "/__ioi/governance/approvals", ownerLabel: "Approvals" },
+        { key: "recipe_runs", path: "/v1/hypervisor/foundry/recipes/:id/runs", probe: "/v1/hypervisor/foundry/recipes/no-recipe-selected/runs", shape: "collection", half: "adjacent",
+          label: "Recipe run verb", role: "POST-only as well. Named here because a studio's Run affordance would land on it, and a lane with no read route is not an empty lane",
+          owner: "/__ioi/missions/builds", ownerLabel: "Builds" },
+      ];
+      const mstProbes = await Promise.all(MST_PLANES.map((pl) => mstProbe(pl.probe)));
+      // FIVE states, decided in this order and never from a constant: no-read-route from the
+      // daemon's OWN index before any body is read; a transport refusal before any collection is
+      // looked for; a typed in-body decline (ok:false on a 200) as the refusal it is — carrying the
+      // daemon's own `reason` word when it publishes one instead of a generic stand-in; then shape.
+      const mstClassify = (pl, pr) => {
+        const methods = mstMethodsFor(pl.path);
+        if (!methods.includes("GET") || pr.status === 405) return { state: "no_read_route", code: "", methods, rows: [] };
+        if (!pr.ok) {
+          const b = pr.body || {};
+          const code = (b.error && (b.error.code || b.error)) || b.reason || b.code || `http_${pr.status}`;
+          return { state: "refused", code: String(code), methods, rows: [] };
+        }
+        const body = pr.body;
+        if (body && typeof body === "object" && body.ok === false) {
+          const b = body.error;
+          return { state: "refused", code: String((b && (b.code || b)) || body.code || body.reason || "plane_declined"), methods, rows: [] };
+        }
+        if (pl.shape === "singleton") {
+          const keys = body && typeof body === "object" && !Array.isArray(body) ? Object.keys(body) : [];
+          return { state: keys.length ? "live" : "empty", code: "", methods, rows: [], keys };
+        }
+        const arr = pl.pick ? pl.pick(body) : (Array.isArray(body) ? body : Object.values(body || {}).find((v) => Array.isArray(v)));
+        if (!Array.isArray(arr)) return { state: "unreadable", code: `http_${pr.status}`, methods, rows: [] };
+        return { state: arr.length ? "live" : "empty", code: "", methods, rows: arr };
+      };
+      const mstRead = MST_PLANES.map((pl, i) => ({ ...pl, ...mstClassify(pl, mstProbes[i]), status: mstProbes[i].status, body: mstProbes[i].body }));
+      const mstBy = Object.fromEntries(mstRead.map((r) => [r.key, r]));
+      const mstCount = (s) => mstRead.filter((r) => r.state === s).length;
+      const mstRowsOf = (k) => (mstBy[k].state === "live" ? mstBy[k].rows : []);
+      // ONE gap contract for every named absence (aria + title + data-ioi reason, all three on the
+      // SAME element). Every reason is written for ITS control — a reused reason is decorative.
+      const mgap = (cls, label, reason) => `<span class="${cls} mst-gap" aria-disabled="true" title="${esc(reason)}" data-ioi-disabled-reason="${esc(reason)}">${esc(label)}</span>`;
+      // ---- THE DIALOG'S TWO FIELDS. The reference collects exactly two things — a NAME and a
+      // LOCATION — and every number below about whether the estate can receive them is derived on
+      // THIS render from the planes and from the daemon's own route index.
+      const mstProjects = mstRowsOf("projects");
+      const mstSpecs = mstRowsOf("specs");
+      const mstPlans = mstRowsOf("run_plans");
+      const mstModelRoutes = mstRowsOf("model_routes");
+      const mstProviders = mstRowsOf("providers");
+      const mstBackends = mstRowsOf("backends");
+      const mstEndpoints = mstRowsOf("endpoints");
+      // EDGE COUNT 1 — from the LOCATION side: how many real project records carry any field that
+      // could name a Model Studio file. Computed over the records' OWN keys, not from a schema doc.
+      const mstSpecFieldRe = /spec|foundry|model.?studio/i;
+      const mstProjWithSpecField = mstProjects.filter((p) => Object.keys(p || {}).some((k) => mstSpecFieldRe.test(k)));
+      const mstProjRefFields = [...new Set(mstProjects.flatMap((p) => Object.keys(p || {}).filter((k) => k.endsWith("_refs"))))].sort();
+      // EDGE COUNT 2 — from the ROUTE side: how many published project write routes could accept a
+      // file ref after creation, and how many Foundry routes name a location concept at all.
+      const mstProjectRoutes = mstLiveRoutes.filter((r) => String(r.path || "").startsWith("/v1/hypervisor/projects"));
+      const mstProjectWriteRoutes = mstProjectRoutes.filter((r) => (r.methods || []).some((m) => ["POST", "PATCH", "PUT", "DELETE"].includes(String(m))));
+      const mstFoundryRoutes = mstLiveRoutes.filter((r) => String(r.path || "").startsWith("/v1/hypervisor/foundry/"));
+      const mstLocationNamingRoutes = mstFoundryRoutes.filter((r) => /(folder|location|project|parent|path|place|move)/i.test(String(r.path || "")));
+      // The create verb itself, confirmed against the index on every render rather than pinned.
+      const MST_CREATE_ROUTE = "/v1/hypervisor/foundry/specs";
+      const mstCreateMethods = mstMethodsFor(MST_CREATE_ROUTE);
+      const mstCreatePublished = mstCreateMethods.includes("POST");
+      // The default file name. The two recorded reference states are byte-identical EXCEPT this
+      // stamp, which is how we know the vendor derives it when the dialog OPENS rather than storing
+      // it. So it is derived HERE, at render, and the surface says so rather than letting a value
+      // that looks like a record stand beside planes that hold none.
+      const mstRenderedAt = new Date();
+      const mstStamp = mstRenderedAt.toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true });
+      const mstDefaultName = `New Model Studio (${mstStamp})`;
+      // The validity affordance, with its PREDICATE named. It is a WELL-FORMEDNESS verdict over the
+      // derived string — never an availability one, because no plane in this estate indexes names
+      // within a location and none could answer "is this name free here".
+      const mstNameWellFormed = mstDefaultName.trim().length > 0 && mstDefaultName.length <= 200 && !/[\u0000-\u001f]/.test(mstDefaultName);
+      const mstFdt = (iso) => { const d2 = new Date(iso || 0); return isNaN(d2) ? "—" : d2.toISOString().slice(0, 19).replace("T", " "); };
+      const MST_LOC_CAP = 25;
+      const mstLocShown = mstProjects.slice(0, MST_LOC_CAP);
+      const mstSelected = mstProjects[0] || null;
+      const mstLocRowsHtml = mstLocShown.map((p) => `<div class="mst-locrow" data-ioi-location="${esc(mstr(p.project_id))}">`
+        + `<span class="mst-locico" aria-hidden="true">▸</span>`
+        + `<span class="mst-locname"><b>${esc(mstr(p.name) || mstr(p.project_id) || "project")}</b><code class="mst-ref">${esc(mstr(p.project_id))}</code></span>`
+        + `<span class="mst-locmeta"><code class="mst-ref">custody ${esc(mstr(p.custody_posture) || "—")}</code><code class="mst-ref">created ${esc(mstFdt(p.created_at))}</code></span></div>`).join("");
+      // The reference's controls, answered one by one. A ported landing that keeps a reference
+      // control and wires it to something else is not a port, it is a mislabel.
+      const mstControls = [
+        { ref: "Save (dialog primary)", bound: false, field: "",
+          gap: `The estate DOES publish a create verb for the file this dialog would author — POST ${MST_CREATE_ROUTE} — and it is still not this dialog's Save. The record it writes carries no location field of any kind, so the Location chosen above would be discarded; and it refuses any spec that resolves no model route and no provider, a binding this dialog offers no control for. Saving here would mean supplying an argument nobody chose and dropping the one thing the dialog is named for`,
+          copy: "The route exists and the verb is still a gap. The dialog collects a name and a location; the route accepts a name, has nowhere to put a location, and demands a substrate binding the dialog never asks for. The intersection of the two field sets is one field." },
+        { ref: "Location (folder dropdown)", bound: false, field: "/v1/hypervisor/projects",
+          gap: "The LIST is real — every location offered above is a live project record with its own id and custody posture — but CHOOSING one records nothing. No Foundry route accepts a project ref, no project record carries a spec field, and the only patch a project publishes is its environment-class list. The containment edge is absent in both directions, so the selector reads a plane it cannot write to",
+          copy: "Real records, no edge. The reference's folder maps cleanly onto the estate's projects, and that is exactly why the absence is worth stating: the nouns line up and the relation between them does not exist." },
+        { ref: "Browse (location picker)", bound: false, field: "",
+          gap: "Browse opens a folder TREE. The estate's locations are a flat collection: a project record names no parent and no children, and the route index publishes no project-hierarchy read of any kind, so there is no level to browse into. This is a missing structure, not an unbuilt picker",
+          copy: "Nothing to browse INTO. The projects plane is flat by construction — the reference's tree has no shape here to descend." },
+        { ref: "File name (pre-filled input)", bound: false, field: "",
+          gap: "The value is DERIVED on this render, exactly as the reference derives it when the dialog opens — the two recorded reference states differ only in this stamp. It is not stored anywhere, it names no record, and there is no lane to commit it to, so the field is presented read-only rather than as an input that pretends to be going somewhere",
+          copy: "A derived string is not a record. It is rendered because the reference's landing grammar is a pre-filled field, and it is marked read-only because nothing here would receive it." },
+        { ref: "Validity check (name field badge)", bound: true, field: "well-formedness of the derived string",
+          gap: "",
+          copy: "Kept, with its predicate NAMED. The badge is a well-formedness verdict over the string itself — non-empty, within length, no control characters. It is NOT an availability verdict: no plane in this estate indexes names inside a location, so whether this name is already taken here is a question nothing could answer, and the badge is never allowed to imply it." },
+        { ref: "Cancel (dialog secondary)", bound: true, field: "/__ioi/foundry/models",
+          gap: "",
+          copy: "One of the two reference controls this estate honours exactly. Cancel leaves the creation entry without creating anything, which on a served surface is a link back to the Foundry family landing — the same act, with nothing invented behind it." },
+        { ref: "Dialog close", bound: true, field: "/__ioi/foundry/models",
+          gap: "",
+          copy: "The same act as Cancel in the reference, and it is bound the same way here rather than being dropped or quietly given a different meaning." },
+        { ref: "APPLICATIONS (facet group)", bound: false, field: "",
+          gap: "The reference's left rail carries a single APPLICATIONS group listing the tenant's pinned apps. The estate holds no per-principal favourites or pinned-application plane, so the lane could never fill — it is MISSING here, while the reference's own is merely empty and waiting",
+          copy: "MISSING, not empty. The reference's lane awaits data; the estate has no plane that could ever supply it." },
+        { ref: "7 recorded dialog surfaces", bound: false, field: "",
+          gap: "The live capture recorded seven dialog-role surfaces in this app's document. ONE of them is the landing itself — its heading and its five controls were recorded and screenshotted, and that one is ported above. The other six were never opened: the capture was whitelist-only with mutation verbs blacklisted, so their existence is evidence and their contents are not",
+          copy: "Six named rather than guessed, one ported rather than named. The distinction matters: the dialog this page renders is evidenced down to its controls, and reconstructing the other six from a DOM count would be inventing interactions nobody observed." },
+      ];
+      const mstControlRows = mstControls.map((c) => `<div class="mst-crow" data-ioi-control="${esc(c.ref)}" data-ioi-control-bound="${c.bound ? "yes" : "no"}">`
+        + `<span><b>${esc(c.ref)}</b></span>`
+        + `<span>${c.bound ? `<code class="mst-ref">${esc(c.field)}</code>` : `<span class="mst-nolane">no estate lane</span>`}</span>`
+        + `<span class="mst-ccopy">${c.copy}</span></div>`).join("");
+      const mstSaveGap = mstControls[0].gap;
+      const mstStateLabel = { live: "LIVE", empty: "EMPTY", refused: "REFUSED", no_read_route: "NO READ ROUTE", unreadable: "UNREADABLE" };
+      const mstHalfLabel = { location: "the LOCATION half", file: "the FILE half", binding: "the BINDING the route demands", adjacent: "adjacent" };
+      const mstStateCopy = (r) => {
+        if (r.state === "live") return `The plane answered this identity and holds <b>${r.shape === "singleton" ? (r.keys || []).length : r.rows.length}</b> ${r.shape === "singleton" ? `field${((r.keys || []).length) === 1 ? "" : "s"} on a status object` : `record${r.rows.length === 1 ? "" : "s"}`}.`;
+        if (r.state === "empty") return `The plane answered and holds none — an <b>EMPTY</b> plane, not a missing one, and not a refused read.`;
+        if (r.state === "refused") return `The plane <b>REFUSED</b> this read with the daemon's own typed code <code>${esc(r.code)}</code>. No count is printed for it here, because a refusal is not a zero.`;
+        if (r.state === "no_read_route") return `The daemon's route index publishes <b>no GET</b> for this path (methods: ${(r.methods || []).map((m) => `<code>${esc(String(m))}</code>`).join(" ") || "none"}). There is nothing to read, which is not the same as reading nothing.`;
+        return `The plane answered <code>${esc(r.code)}</code> in a shape this surface cannot read as a collection, and it is reported as unreadable rather than counted.`;
+      };
+      const mstPlaneRows = mstRead.map((r) => `<div class="mst-prow" data-ioi-plane="${esc(r.path)}" data-ioi-plane-state="${esc(r.state)}" data-ioi-plane-shape="${esc(r.shape)}" data-ioi-plane-half="${esc(r.half)}">`
+        + `<span><b>${esc(r.label)}</b><span class="mst-role">${esc(r.role)}</span></span>`
+        + `<span><code class="mst-ref">${esc(r.path)}</code><code class="mst-ref">shape: ${esc(r.shape)} · ${esc(mstHalfLabel[r.half] || r.half)}</code>${r.path === r.probe ? "" : `<code class="mst-ref">probed as ${esc(r.probe)}</code>`}</span>`
+        + `<span class="mst-state mst-state-${esc(r.state)}">${esc(mstStateLabel[r.state] || r.state)}</span>`
+        + `<span class="mst-scopy">${mstStateCopy(r)}</span>`
+        + `<span><a class="mst-ref" href="${esc(r.owner)}">${esc(r.ownerLabel)} →</a></span></div>`).join("");
+      const mstInertNote = mstBy.foundry_overview.state === "live" ? mstr(mstBy.foundry_overview.body?.status_note) : "";
+      const mstSubstrate = (mstBy.foundry_overview.state === "live" && mstBy.foundry_overview.body?.substrate && typeof mstBy.foundry_overview.body.substrate === "object") ? mstBy.foundry_overview.body.substrate : {};
+      const mstInputControls = mstControls.filter((c) => /input|dropdown/i.test(c.ref)).length;
+      const mstFoot = `MS-1 (remediation v2): the MODEL STUDIO port. The mirror-scoped verdict was capture_broken_no_donor (#modelstudio — "no donor, no plane"); the owner-authorized live sweep OVERTURNED it and recorded a real landing whose ROOT IS A CREATION-ENTRY DIALOG: title <b>Model studio</b>, heading <b>Choose file location</b>, one pre-filled name input, a Location folder dropdown, <b>Browse · Cancel · Save</b>, one APPLICATIONS facet group, seven dialog surfaces and <b>0 rows</b> — the tenant holds no Model Studio files, so there is no list root to port and the DIALOG is the landing grammar. That supersession is recorded in reference-seed-adjudications.v1.json#modelstudio-port and the mirror record stands as history. <b>${mstRead.length}</b> file-, location-, binding- and authoring-adjacent planes were probed live on this render and answered in four states — <b>${mstCount("live")} LIVE</b> · <b>${mstCount("empty")} EMPTY</b> · <b>${mstCount("refused")} REFUSED</b> · <b>${mstCount("no_read_route")} NO READ ROUTE</b>. READ-ONLY: the draft-spec create verb stays where the daemon owns it and is <b>not</b> re-minted here; the model routes and providers a spec must bind are rendered by <a href="/__ioi/foundry/models">Model Catalog</a> and administered in <a href="/__ioi/agent-studio#model-routes">Agent Studio</a>; the locations themselves are rendered by <a href="/__ioi/domain-apps/fusion">Fusion</a> — all linked, none re-rendered. Evidence: reference-seed-adjudications.v1.json#modelstudio-port · reference-live-tenant-deep-atlas.v1.json#modelstudio (landing + create-attempt) · .artifacts/live-tenant-atlas/deep/modelstudio-landing.png. Owner: <a href="/__ioi/foundry/models">Foundry family</a>.`;
+      sendOwnedSurfaceHtml(res, "modelstudio", `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Model Studio</title><style>
+        :root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#f5f8fa;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif;overflow-wrap:break-word}a{color:#215db0;text-decoration:none}
+        .mst-shell{display:flex;flex-direction:column;min-height:100vh}
+        .mst-header{flex:0 0 50px;display:flex;align-items:center;gap:14px;background:#fff;box-shadow:0 1px 0 #d1d1d1,0 3px 4px rgba(0,0,0,.04);z-index:6}
+        .mst-hchip{width:50px;height:50px;flex:0 0 50px;background:rgba(124,110,228,.12) center/24px no-repeat}
+        .mst-title{font-size:16px;font-weight:600;color:#404854;margin:0}
+        .mst-hright{display:flex;align-items:center;gap:8px;margin-left:auto;padding-right:16px;flex-wrap:wrap}
+        .mst-chip{display:inline-flex;align-items:center;height:30px;padding:0 10px;border-radius:4px;border:1px solid #d1d1d1;font-size:13px;color:#404854;background:#fff}
+        .mst-link{display:inline-flex;align-items:center;height:30px;padding:0 12px;border-radius:4px;background:#2d72d2;color:#fff;font-size:13px}
+        .mst-gap{opacity:.62;cursor:not-allowed}
+        .mst-field{flex:1;min-width:0;width:100%;max-width:1180px;margin:0 auto;padding:26px 22px 44px}
+        .mst-stage{background:#e9edf2;border:1px solid #dde3ea;border-radius:6px;padding:44px 16px;display:flex;justify-content:center;margin:0 0 22px}
+        .mst-dlg{width:100%;max-width:500px;background:#fff;border-radius:6px;box-shadow:0 8px 24px rgba(17,20,24,.2),0 0 0 1px rgba(17,20,24,.08)}
+        .mst-dlghead{display:flex;align-items:center;gap:10px;padding:13px 15px;border-bottom:1px solid #e5e8eb}
+        .mst-dlgtitle{font-size:16px;font-weight:600;color:#1c2127}
+        .mst-dlgx{margin-left:auto;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:4px;color:#5f6b7c;font-size:15px}
+        .mst-dlgbody{padding:14px 15px 6px}
+        .mst-lab{display:block;font-size:13px;font-weight:600;color:#1c2127;margin:0 0 5px}
+        .mst-namerow{display:flex;align-items:center;gap:8px;min-height:34px;padding:0 8px;border-radius:3px;border:2px solid #2d72d2;background:#fff;min-width:0}
+        .mst-nameico{flex:0 0 18px;height:18px;border-radius:3px;background:rgba(124,110,228,.18) center/12px no-repeat}
+        .mst-nameval{flex:1;min-width:0;border:0;background:transparent;font:inherit;font-size:13px;color:#1c2127;outline:none;padding:0;text-overflow:ellipsis}
+        .mst-okbadge{flex:0 0 auto;display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:#1c6e42}
+        .mst-hint{font-size:11px;color:#5f6b7c;line-height:1.55;margin:5px 0 14px}
+        .mst-locpick{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+        .mst-locsel{flex:1;min-width:0;display:flex;align-items:center;gap:7px;min-height:32px;padding:0 9px;border-radius:3px;border:1px solid #d1d1d1;background:#f6f7f9;font-size:13px;color:#404854}
+        .mst-folder{flex:0 0 auto;color:#c9a227}
+        .mst-selname{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .mst-caret{flex:0 0 auto;color:#8a94a2;font-size:10px}
+        .mst-browse{display:inline-flex;align-items:center;gap:5px;height:32px;padding:0 10px;border-radius:3px;border:1px solid #d1d1d1;background:#f6f7f9;font-size:13px;color:#404854}
+        .mst-locs{margin:9px 0 4px;border:1px solid #e5e8eb;border-radius:4px;max-height:230px;overflow-y:auto}
+        .mst-locrow{display:flex;align-items:flex-start;gap:8px;padding:7px 9px;border-bottom:1px solid #f0f2f5;font-size:12px;min-width:0}
+        .mst-locrow:last-child{border-bottom:0}
+        .mst-locico{flex:0 0 auto;color:#8a94a2}
+        .mst-locname{flex:1;min-width:0}
+        .mst-locmeta{flex:0 0 auto;text-align:right;min-width:0}
+        .mst-locempty{padding:16px 12px;font-size:12px;color:#5f6b7c;line-height:1.6}
+        .mst-dlgfoot{display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:12px 15px;border-top:1px solid #e5e8eb;flex-wrap:wrap}
+        .mst-cancel{display:inline-flex;align-items:center;height:30px;padding:0 12px;border-radius:4px;border:1px solid #d1d1d1;background:#f6f7f9;font-size:13px;color:#404854}
+        .mst-save{display:inline-flex;align-items:center;height:30px;padding:0 14px;border-radius:4px;border:1px solid #9bc4ab;background:#e8f3ec;font-size:13px;font-weight:600;color:#1c6e42}
+        .mst-h{font-size:16px;font-weight:600;margin:26px 0 4px}
+        .mst-note{font-size:12px;color:#5f6b7c;margin:0 0 12px;line-height:1.65}
+        .mst-phead,.mst-prow{display:grid;grid-template-columns:2.4fr 1.6fr .9fr 2.1fr .8fr;gap:8px;padding:9px 8px;min-width:820px}
+        .mst-chead,.mst-crow{display:grid;grid-template-columns:1.3fr 1fr 3.2fr;gap:8px;padding:9px 8px;min-width:640px}
+        .mst-phead,.mst-chead{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#5f6b7c;border-bottom:1px solid #e5e8eb}
+        .mst-prow,.mst-crow{align-items:start;border-bottom:1px solid #f0f2f5;font-size:13px;color:#1c2127}
+        .mst-prow:hover,.mst-crow:hover{background:#f6f7f9}
+        .mst-scroll{overflow-x:auto;background:#fff;border:1px solid #e5e8eb;border-radius:4px;padding:2px 10px 6px;margin:0 0 8px}
+        .mst-ref{display:block;font-size:11px;color:#5f6b7c;overflow-wrap:break-word;margin-top:2px}
+        .mst-role{display:block;font-size:11px;color:#5f6b7c;line-height:1.5;margin-top:2px}
+        .mst-scopy,.mst-ccopy{font-size:12px;color:#5f6b7c;line-height:1.55}
+        .mst-nolane{font-size:11px;color:#946638}
+        .mst-state{font-size:11px;font-weight:600;letter-spacing:.03em;border-radius:3px;padding:2px 7px;text-align:center;border:1px solid}
+        .mst-state-live{color:#1c6e42;border-color:#9bc4ab;background:#eef8f2}
+        .mst-state-empty{color:#5f6b7c;border-color:#d1d1d1;background:#f6f7f9}
+        .mst-state-refused{color:#946638;border-color:#f0dca6;background:#fff8e6}
+        .mst-state-no_read_route{color:#7961db;border-color:#cfc4f5;background:#f3f0fd}
+        .mst-state-unreadable{color:#a82a2a;border-color:#eab8b8;background:#fdf0f0}
+        .mst-call{border:1px solid #cfd9e6;background:#f4f8fd;border-radius:4px;padding:18px 20px;color:#5f6b7c;font-size:13px;line-height:1.7;margin:0 0 16px}
+        .mst-call h3{font-size:15px;color:#1c2127;margin:0 0 8px}
+        .mst-call p{margin:0 0 8px}
+        .mst-quote{display:block;border-left:3px solid #cfd9e6;padding:6px 0 6px 12px;margin:8px 0;color:#404854;font-style:italic;overflow-wrap:break-word}
+        .mst-absent{border:1px solid #f0dca6;background:#fff8e6;border-radius:4px;padding:16px 18px;color:#5f6b7c;font-size:13px;line-height:1.65;margin:0 0 16px}
+        .mst-foot{font-size:12px;color:#7b8494;line-height:1.65;margin:0;padding:6px 2px 10px}
+        @media(max-width:700px){
+          .mst-phead,.mst-chead{display:none}
+          .mst-prow,.mst-crow{grid-template-columns:1fr;min-width:0;gap:2px;padding:10px 8px}
+          .mst-scroll{overflow-x:hidden;padding:2px 10px 6px}
+          .mst-field{padding:14px 12px 34px}
+          .mst-field *{min-width:0;overflow-wrap:anywhere}
+          .mst-header{flex:0 0 auto;flex-wrap:wrap;padding:8px 0 10px;gap:8px}
+          .mst-hright{margin-left:0;padding:0 12px;width:100%}
+          .mst-stage{padding:14px 8px;border-radius:4px}
+          .mst-dlg{max-width:100%}
+          .mst-namerow{padding:6px 8px;flex-wrap:wrap}
+          .mst-nameval{white-space:normal}
+          .mst-locpick{flex-direction:column;align-items:stretch}
+          .mst-locsel,.mst-browse{width:100%}
+          .mst-selname{white-space:normal;overflow:visible;text-overflow:clip}
+          .mst-locrow{flex-direction:column;gap:2px}
+          .mst-locmeta{text-align:left}
+          .mst-dlgfoot{justify-content:stretch}
+          .mst-cancel,.mst-save{flex:1;justify-content:center}
+          .mst-call,.mst-absent{padding:14px}
+        }
+      </style></head><body><div class="mst-shell">
+        <header class="mst-header">
+          <span class="mst-hchip" aria-hidden="true" style="background-image:url('${MODELS_APP_ICON_URI}')"></span>
+          <h1 class="mst-title">Model Studio</h1>
+          <div class="mst-hright">
+            <span class="mst-chip" title="Read live on this render: the file plane, the location plane, and the planes probed for this census. The reference app carries no header of its own — the dialog floats on an empty field — so nothing is minted here beyond the estate's own counts">${mstSpecs.length} file${mstSpecs.length === 1 ? "" : "s"} · ${mstProjects.length} location${mstProjects.length === 1 ? "" : "s"} · ${mstRead.length} planes read</span>
+            <a class="mst-link" href="/__ioi/foundry/models">Model Catalog →</a>
+          </div>
+        </header>
+        <div class="mst-field">
+          <div class="mst-stage">
+            <section class="mst-dlg" role="dialog" aria-label="Choose file location">
+              <div class="mst-dlghead"><span class="mst-dlgtitle">Choose file location</span><a class="mst-dlgx" href="/__ioi/foundry/models" title="Leave the creation entry without creating anything — the same act the reference's close control performs">✕</a></div>
+              <div class="mst-dlgbody">
+                <span class="mst-lab">File name</span>
+                <div class="mst-namerow" data-ioi-lane="file-name" data-ioi-plane-state="${esc(mstBy.specs.state)}">
+                  <span class="mst-nameico" aria-hidden="true" style="background-image:url('${MODELS_APP_ICON_URI}')"></span>
+                  <input class="mst-nameval" value="${esc(mstDefaultName)}" readonly aria-readonly="true" aria-disabled="true" title="${esc(mstControls[3].gap)}" data-ioi-disabled-reason="${esc(mstControls[3].gap)}" aria-label="File name — derived on this render, read-only">
+                  <span class="mst-okbadge" title="Well-formed: non-empty, within length, no control characters. This is NOT an availability check — no plane indexes names inside a location, so nothing here could answer whether this name is already taken">${mstNameWellFormed ? "well-formed" : "malformed"}</span>
+                </div>
+                <p class="mst-hint">Derived on <b>this render</b> at ${esc(mstStamp)} — exactly as the reference derives it when the dialog opens (the two recorded reference states are identical except this stamp). It is not stored, it names no record, and the badge beside it is a <b>well-formedness</b> verdict, never an availability one.</p>
+                <span class="mst-lab">Location</span>
+                <div class="mst-locpick" data-ioi-lane="location" data-ioi-plane-state="${esc(mstBy.projects.state)}">
+                  <span class="mst-locsel mst-gap" aria-disabled="true" title="${esc(mstControls[1].gap)}" data-ioi-disabled-reason="${esc(mstControls[1].gap)}"><span class="mst-folder" aria-hidden="true">▤</span><span class="mst-selname">${mstSelected ? esc(`${mstr(mstSelected.name) || mstr(mstSelected.project_id)} (${mstFdt(mstSelected.created_at)})`) : esc(mstBy.projects.state === "refused" ? `the projects plane refused this read — ${mstBy.projects.code}` : "no location on the plane")}</span><span class="mst-caret" aria-hidden="true">▼</span></span>
+                  ${mgap("mst-browse", "Browse", mstControls[2].gap)}
+                </div>
+                <div class="mst-locs" data-ioi-plane-state="${esc(mstBy.projects.state)}">
+                  ${mstProjects.length ? mstLocRowsHtml : `<div class="mst-locempty">${mstBy.projects.state === "refused"
+                    ? `The projects plane <b>REFUSED</b> this read with the daemon's typed code <code>${esc(mstBy.projects.code)}</code>, so this surface states nothing about how many locations exist — it could not read the plane, and a refusal is not a zero.`
+                    : `The projects plane answered and holds none. There is no location to offer — an <b>EMPTY</b> plane, not a missing one, and no folder is fabricated to fill the selector.`}</div>`}
+                </div>
+                ${mstProjects.length > MST_LOC_CAP
+                  ? `<p class="mst-hint">The first <b>${MST_LOC_CAP}</b> of <b>${mstProjects.length}</b> real locations render here (cap NAMED, never silent).</p>`
+                  : (mstProjects.length ? `<p class="mst-hint">All <b>${mstProjects.length}</b> locations the estate actually holds render here — every one a live project record, none fabricated.</p>` : "")}
+              </div>
+              <div class="mst-dlgfoot" data-ioi-lane="save" data-ioi-plane-state="${esc(mstBy.specs.state)}" data-ioi-verb-state="${mstCreatePublished ? "published_but_disjoint" : "unpublished"}">
+                <a class="mst-cancel" href="/__ioi/foundry/models">Cancel</a>
+                ${mgap("mst-save", "Save", mstSaveGap)}
+              </div>
+            </section>
+          </div>
+          <h2 class="mst-h">The route exists. The verb is still a gap.</h2>
+          <div class="mst-call">
+            <h3>The dialog collects two fields; the create route accepts one of them and demands one it never asks for</h3>
+            <p>Counted from the daemon's own route index and from the planes themselves on this render, never pasted. The estate <b>${mstCreatePublished ? "does" : "does not"}</b> publish a create verb for the file this dialog would author: <code>${esc(MST_CREATE_ROUTE)}</code> carries ${mstCreateMethods.length ? mstCreateMethods.map((m) => `<code>${esc(String(m))}</code>`).join(" ") : "no methods on the index"}. So the easy conclusion is available, and it is wrong.</p>
+            <p>The reference dialog collects exactly <b>two</b> things: a <b>name</b> and a <b>location</b>. The record that route writes carries a name; it carries <b>no location field of any kind</b>, and the estate publishes nothing that would let a location adopt the file afterwards. Both directions are checked here rather than asserted: <b>${mstProjWithSpecField.length}</b> of the <b>${mstProjects.length}</b> live project records carry any field naming a spec or a foundry object (their ref lists are ${mstProjRefFields.length ? mstProjRefFields.map((f) => `<code>${esc(f)}</code>`).join(" · ") : "none on this render"}), and of the <b>${mstProjectWriteRoutes.length}</b> published project write route${mstProjectWriteRoutes.length === 1 ? "" : "s"} not one accepts a file ref — the only patch a project takes is its environment-class list. Across the whole Foundry family, <b>${mstLocationNamingRoutes.length}</b> of <b>${mstFoundryRoutes.length}</b> routes name a location concept at all.</p>
+            <p>And the route requires something the dialog has no control for. Its admission test, read from the write path itself (<code>handle_foundry_spec_create</code> then <code>validate_bindings</code>, typed refusal <code>foundry_binding_required</code>), refuses any spec that resolves neither a model route nor a provider. The estate holds <b>${mstModelRoutes.length}</b> model route${mstModelRoutes.length === 1 ? "" : "s"} and <b>${mstProviders.length}</b> provider${mstProviders.length === 1 ? "" : "s"} that could satisfy it — and <b>0</b> of the dialog's <b>${mstInputControls}</b> recorded input controls names either one.</p>
+            <p>So the two field sets intersect in exactly <b>one</b> field, the name. A Save wired here would have to silently choose a binding nobody asked for and silently discard the location the dialog is <i>named after</i> — and the receipt would then record a decision the person never made. That is why the verb above is a typed absence rather than a working button, and why this surface mints no second mutation spine over the daemon's own create route. <b>A published route is not a wired verb</b>: the test is whether the form the reference draws and the contract the route enforces are about the same act.</p>
+          </div>
+          <h2 class="mst-h">EMPTY and MISSING, on one page, about the same dialog</h2>
+          <div class="mst-absent">
+            The reference's tenant holds <b>no Model Studio files</b> (rows 0 at both recorded states), and the estate's spec plane holds <b>${mstSpecs.length}</b> draft${mstSpecs.length === 1 ? "" : "s"} — ${mstBy.specs.state === "empty" ? "it answered and holds none" : `its state on this render is ${esc(mstStateLabel[mstBy.specs.state] || mstBy.specs.state)}`}. Those are the same KIND of nothing: an <b>EMPTY</b> plane waiting for a record. The file-in-a-location relation is a different kind — <b>MISSING</b>: no plane exists that could ever hold it, in either direction, so it is not waiting for anything. This surface renders both, side by side, rather than letting the empty one stand in for the missing one. ${mgap("mst-chip", "a Model Studio file inside a location", "There is no such object in this estate. A foundry spec has no location field, a project has no spec field, and no published route joins them — so this is a missing relation, not an unpopulated one, and no count could ever fill it")} <b>EMPTY is not MISSING</b>.
+          </div>
+          <div class="mst-call">
+            <h3>What a Model Studio file would be here, in the plane's own words</h3>
+            <p>The estate's analogue is a <b>FoundrySpec</b>: a durable draft naming a kind, at least one resolving substrate binding, free-form inputs and a policy ref — with a <b>FoundryRunPlan</b> beside it for what the file would do. On this render the spec plane holds <b>${mstSpecs.length}</b> and the run-plan plane holds <b>${mstPlans.length}</b>. The plane states its own inertness, and it is quoted rather than paraphrased:</p>
+            <span class="mst-quote">${esc(mstInertNote || "the foundry overview published no status note on this render, so none is quoted")}</span>
+            <p>Read that way, saving a file here would author a <b>draft</b> and nothing else — no training, no evaluation, no promotion, no registry mutation. The real substrate those drafts sit above is not empty: ${Object.keys(mstSubstrate).length ? Object.keys(mstSubstrate).sort().map((k) => `<b>${esc(k.replace(/_/g, " "))}</b> ${esc(String(mstSubstrate[k]))}`).join(" · ") : "the overview published no substrate census on this render"}. ${mstBackends.length + mstEndpoints.length ? `Beside the ${mstModelRoutes.length} route${mstModelRoutes.length === 1 ? "" : "s"} and ${mstProviders.length} provider${mstProviders.length === 1 ? "" : "s"} the create route will accept, <b>${mstBackends.length}</b> backend${mstBackends.length === 1 ? "" : "s"} and <b>${mstEndpoints.length}</b> endpoint${mstEndpoints.length === 1 ? "" : "s"} are declarable as optional bindings — accepted if named, never sufficient alone.` : ""} A studio over that substrate is a real thing to build; it is not a thing to imply from a dialog.</p>
+          </div>
+          <h2 class="mst-h">The APPLICATIONS lane — MISSING, not empty; and seven dialogs, one of them ported</h2>
+          <div class="mst-absent">
+            The reference's only facet group on this landing is <b>APPLICATIONS</b>, and on the live tenant it renders as the rail's pinned-app lane. An empty lane promises content. This port renders it as a <b>typed absence instead</b>, because the estate holds no per-principal favourites or pinned-application plane of any kind — nothing exists that could ever fill it. ${mgap("mst-chip", "APPLICATIONS", mstControls[7].gap)}
+            <p style="margin:10px 0 0">The capture also recorded <b>seven dialog-role surfaces</b> in this app's document, and they are not all the same kind of evidence. <b>ONE of them is the landing itself</b> — its heading and its five controls were recorded and screenshotted, and that one is ported above rather than named. The other six were never opened: the sweep was whitelist-only with mutation verbs blacklisted, so their existence is evidence and their contents are not, and reconstructing them from a DOM count would be inventing interactions nobody observed. ${mgap("mst-chip", "6 unopened dialog surfaces", mstControls[8].gap)}</p>
+          </div>
+          <h2 class="mst-h">The reference's controls, answered one by one</h2>
+          <p class="mst-note">A ported landing that keeps a reference control and wires it to something else is not a port, it is a mislabel. Each control the live capture recorded is answered below with the estate lane that binds it — or with the typed refusal that does not, in a reason written for that control.</p>
+          <div class="mst-scroll">
+            <div class="mst-chead"><span>Reference control</span><span>Estate lane</span><span>What binds it, or why nothing does</span></div>
+            ${mstControlRows}
+          </div>
+          <h2 class="mst-h">File, location, binding — every plane read live and classified into four states</h2>
+          <p class="mst-note">Every row is a REAL daemon plane and its state was classified from that plane's own response on this render, then stamped on the row (<code>data-ioi-plane-state</code>) so it can never be pasted and never rot. <b>LIVE</b> = the plane answered and holds records. <b>EMPTY</b> = it answered and holds none. <b>REFUSED</b> = the plane refused this read with a typed code — <b>a refusal is not a zero</b>. <b>NO READ ROUTE</b> = the daemon's own route index publishes no GET for it; there is nothing to read, which is not the same as reading nothing. <b>REFUSED is not EMPTY, EMPTY is not MISSING</b>, and a plane with no read route is none of the three. Each row also carries the HALF of the dialog it answers for — the file, the location, or the binding the create route demands — so an adjacent authoring lane is never read as one of the three.</p>
+          <div class="mst-scroll">
+            <div class="mst-phead"><span>Plane</span><span>Route · shape · half</span><span>State</span><span>What that state means here</span><span>Owner</span></div>
+            ${mstPlaneRows}
+          </div>
+          <p class="mst-foot">${mstFoot}</p>
         </div>
       </div></body></html>`);
       return;

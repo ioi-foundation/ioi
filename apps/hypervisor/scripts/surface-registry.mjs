@@ -119,6 +119,16 @@ export const SURFACES = [
   // on Pipeline Builder and the Connections lease gate; the source plane and its Syncs lane stay on
   // Data Connection and the extracted objects stay on the Object Explorer — all linked, none re-rendered.
   { slug: "ingest", owner: "Data", title: "HyperAuto", icon: SRC_APP_TILE_URI, route: "/__ioi/data/ingest", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  // MS-1 (remediation v2): the live-tenant-sourced Model Studio port — the seed whose live ROOT is
+  // a CREATION-ENTRY DIALOG ("Choose file location": a pre-filled File name, a Location folder
+  // dropdown, Browse/Cancel/Save) over rows:0, not an editor canvas and not a list. The dialog IS
+  // the landing grammar, rendered over the estate's REAL location plane (projects) and its REAL
+  // file plane (foundry draft specs), with twenty-two file/location/binding/adjacent planes
+  // classified live into four states. THE FINDING: a verb whose route exists is still a GAP when
+  // the form's fields and the route's required fields do not intersect — POST foundry/specs is
+  // published and real, carries no location field at all, and demands a model-route/provider
+  // binding the dialog never asks for, so Save is a typed absence and no second spine is minted.
+  { slug: "modelstudio", owner: "Foundry", title: "Model Studio", icon: MODELS_APP_ICON_URI, route: "/__ioi/foundry/model-studio", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "widgets", owner: "Developer Console", title: "Custom Widgets", icon: DSG_APP_TILE_URI, route: "/__ioi/developer-console/widgets", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "workspaces", owner: "Workbench", title: "Code Workspaces", icon: DSG_APP_TILE_URI, route: "/__ioi/developer-workspace/workspaces", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "notepad", owner: "Workbench", title: "Notepad", icon: DSG_APP_TILE_URI, route: "/__ioi/developer-workspace/notepad", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },

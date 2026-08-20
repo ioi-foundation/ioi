@@ -9,8 +9,12 @@
 // names the unsupported lanes. Route administration (enable/disable/probe/select-default) has ONE
 // owner — Agent Studio — and the catalog links there rather than duplicating mutation.
 //
-// SCOPE (tight, by direction): only `models` binds. `modelstudio` (editor_canvas) and `inference`
-// (wizard) stay reference_capture — they have no clean daemon truth to bind.
+// SCOPE (tight, by direction): only `models` binds in THIS cut. `inference` (wizard) stays
+// reference_capture — it has no clean daemon truth to bind. `modelstudio` was in that list until
+// MS-1 (2026-08-20): the live-tenant sweep overturned its capture_broken_no_donor verdict and it
+// SHIPPED at /__ioi/foundry/model-studio with its own adjudication (#modelstudio-port) and its own
+// gate (the domain-landings modelstudio block). The scope guard below is RE-AIMED, not deleted: it
+// still fails if either seed's parity_class is claimed without the evidence that earns it.
 //
 // Guard: read-only-projection cross-check. Read the live model-route registry + Foundry substrate,
 // then assert the rendered Model Catalog reflects them EXACTLY — one card per route, each carrying the
@@ -45,7 +49,7 @@ async function run() {
   // #47 PROMOTED models to daemon_wired (certified port at /__ioi/foundry/models) — the substrate
   // surface stays bound; the class pin became a set (the frozen-class pin broke on promotion).
   ok("matrix binds models (substrate_bound|daemon_wired) with the intact /__ioi/foundry substrate (Foundry)", ["substrate_bound", "daemon_wired"].includes(bySlug.models?.parity_class) && bySlug.models?.substrate_surface === "/__ioi/foundry" && bySlug.models?.surface_name === "Foundry");
-  ok("matrix keeps modelstudio + inference reference_capture (NOT over-claimed in this cut)", bySlug.modelstudio?.parity_class === "reference_capture" && bySlug.inference?.parity_class === "reference_capture");
+  ok("matrix: inference stays reference_capture (NOT over-claimed) and modelstudio is reference_ported ONLY with its MS-1 evidence carried", bySlug.inference?.parity_class === "reference_capture" && bySlug.modelstudio?.parity_class === "reference_ported" && bySlug.modelstudio?.candidate_surface === "/__ioi/foundry/model-studio" && /#modelstudio-port/.test(bySlug.modelstudio?.adjudication_ref || ""), `${bySlug.inference?.parity_class} / ${bySlug.modelstudio?.parity_class}`);
   ok("no 'covered' anywhere; prior reclassified surfaces still bound (substrate_bound|daemon_wired) (pipeline/lineage/vertex/jobs/incidents/evalsuites/designer/approvals)", !(matrix.seeds || []).some((s) => s.parity_class === "covered") && ["pipeline", "lineage", "vertex", "jobs", "incidents", "evalsuites", "designer", "approvals"].every((k) => ["substrate_bound", "daemon_wired", "reference_ported", "reference_port_pending"].includes(bySlug[k]?.parity_class)));
 
   // 1. Reference baseline.
