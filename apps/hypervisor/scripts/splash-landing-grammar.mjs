@@ -93,5 +93,5 @@ export function renderSplashLanding(cfg) {
     .spl-empty{padding:22px 10px;color:#5f6b7c;font-size:14px}
     .spl-foot{font-size:12px;line-height:1.6;color:#7b8494;margin:20px 32px 40px}`;
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(cfg.title)}</title><style>${css}</style></head>
-    <body><div class="spl-shell">${globalRail}<div class="spl-main">${header}<div class="spl-body">${hero}${viewRow}${table}<p class="spl-foot">${cfg.footHtml || ""}</p></div></div></div></body></html>`;
+    <body${cfg.surfaceRoute ? ` data-ioi-surface-route="${cfg.surfaceRoute}" data-ioi-surface-owner="${cfg.surfaceOwner || ""}"` : ""}><div class="spl-shell">${globalRail}<div class="spl-main">${header}<div class="spl-body">${hero}${viewRow}${table}<p class="spl-foot">${cfg.footHtml || ""}</p></div></div></div></body></html>`;
 }

@@ -7905,6 +7905,7 @@ async function handleEstateRequest(req, res, body) {
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache", "x-ioi-surface-route": pathname, "x-ioi-surface-owner": fl.title });
       res.end(renderSplashLanding({
         slug: pathname.slice(1), routeOverride: pathname, title: fl.title,
+        surfaceRoute: pathname, surfaceOwner: fl.title,
         appTileUri: DSG_APP_TILE_URI, chipTintRgba: "rgba(45,114,210,.08)",
         newLabel: fl.newLabel, newHref: fl.newHref, newTitle: fl.newTitle, newGapReason: fl.newGapReason,
         heroTitle: fl.title, heroDesc: fl.hero,
