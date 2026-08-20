@@ -112,6 +112,13 @@ export const SURFACES = [
   // (a schedule is a FIELD on an automation, so "create a schedule" is create/patch an automation)
   // and the fires themselves stay on Builds — both linked, neither re-rendered here.
   { slug: "scheduler", owner: "Missions", title: "Build Schedules", icon: missionsModule.MISSIONS_APP_ICON_URI, route: "/__ioi/missions/schedules", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  // ING-1 (remediation v2): the live-tenant-sourced HyperAuto port — a READ-ONLY projection of the
+  // estate's ingestion CHAIN, joined end to end from the keys the records themselves carry
+  // (connector_mapping_id · data_source_id · materializing_run_id · ontology_projection_id). Twenty-one
+  // ingestion-chain and adjacent planes are classified live into four states. The chain VERBS stay
+  // on Pipeline Builder and the Connections lease gate; the source plane and its Syncs lane stay on
+  // Data Connection and the extracted objects stay on the Object Explorer — all linked, none re-rendered.
+  { slug: "ingest", owner: "Data", title: "HyperAuto", icon: SRC_APP_TILE_URI, route: "/__ioi/data/ingest", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "widgets", owner: "Developer Console", title: "Custom Widgets", icon: DSG_APP_TILE_URI, route: "/__ioi/developer-console/widgets", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "workspaces", owner: "Workbench", title: "Code Workspaces", icon: DSG_APP_TILE_URI, route: "/__ioi/developer-workspace/workspaces", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "notepad", owner: "Workbench", title: "Notepad", icon: DSG_APP_TILE_URI, route: "/__ioi/developer-workspace/notepad", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },

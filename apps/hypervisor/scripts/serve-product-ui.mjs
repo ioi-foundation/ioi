@@ -7886,7 +7886,7 @@ async function handleEstateRequest(req, res, body) {
     // link to the family's shipped surfaces. These SERVE at the canonical route (shadowing the
     // dark v2 shell pages, which retire in the staged cutover).
     const FAMILY_LANDINGS = {
-      "/data": { title: "Data", hero: "Supply the world-model — the Data family's shipped surfaces over real daemon truth.", newLabel: "New source", newHref: "/__ioi/data/sources?declare=1", newTitle: "Declare a data source — the governed receipted lane on Data Connection", rows: [["Data Connection", "sources · syncs (live materializing-runs lane) · governed declare", "/__ioi/data/sources"], ["Pipeline Builder", "the certified pipeline canvas (atlas-verified interaction)", "/__ioi/pipeline"]] },
+      "/data": { title: "Data", hero: "Supply the world-model — the Data family's shipped surfaces over real daemon truth.", newLabel: "New source", newHref: "/__ioi/data/sources?declare=1", newTitle: "Declare a data source — the governed receipted lane on Data Connection", rows: [["Data Connection", "sources · syncs (live materializing-runs lane) · governed declare", "/__ioi/data/sources"], ["Pipeline Builder", "the certified pipeline canvas (atlas-verified interaction)", "/__ioi/pipeline"], ["HyperAuto", "the ingestion CHAIN joined end to end — each stage's own claim beside what the chain actually did", "/__ioi/data/ingest"]] },
       "/ontology": { title: "Ontology", hero: "The semantic world-model — the Ontology family's certified surfaces.", newLabel: "New object type", newHref: "/__ioi/ontology/manager", newTitle: "Author types on the certified Ontology Manager", rows: [["Ontology Manager", "types · functions · health · history (certified)", "/__ioi/ontology/manager"], ["Object Explorer", "objects · saved sets · exploration (certified)", "/__ioi/ontology/explorer"], ["ODK plane", "the composition substrate (ontologies · recipes · descriptors)", "/__ioi/odk"]] },
       "/studio": { title: "Studio", hero: "Compose systems & agents — the Studio family in the Designer grammar; the agent estate and composition truth live one row away.", newLabel: "New Diagram", newGapReason: "In-canvas authoring is the adjudicated later authority-crossing cut (reference-seed-adjudications.v1.json#designer, portable-backlogged); browse the certified canvas meanwhile", rows: [["Solution Designer", "the certified light canvas over real ODK composition truth", "/__ioi/studio/designer"], ["Machinery", "certified state-machine definitions (definition-only boundary)", "/__ioi/studio/machinery"], ["Workshop", "the D6 combined-seed app over domain-apps + surface descriptors", "/__ioi/studio/workshop"], ["Agent Studio", "the agent estate — agents · model routes · launch policies (owner surface)", "/__ioi/agent-studio"], ["Blueprints & system-design map", "content-addressed composition drafts + the design map (legacy workbench views)", "/__ioi/studio/workbench?view=blueprints"]] },
       "/developer-workspace": { title: "Workbench", hero: "The developer workbench — workspaces, documents, and repository bindings over real planes.", newLabel: "New workspace", newGapReason: "Workspace creation is the governed environment ladder (owner surface); named gap", rows: [["Code Workspaces", "the real environments plane (newest 15, cap named)", "/__ioi/developer-workspace/workspaces"], ["Notepad", "landing over a typed-absent document plane", "/__ioi/developer-workspace/notepad"], ["Code Repositories", "the real SCM connector bindings (donor-ported)", "/__ioi/developer-workspace/repositories"]] },
@@ -10883,6 +10883,451 @@ async function handleEstateRequest(req, res, body) {
           <div class="sch-phead"><span>Plane</span><span>Route · shape</span><span>State</span><span>What that state means here</span><span>Owner</span></div>
           ${schPlaneRows}
           <p class="sch-foot">${schFoot}</p>
+        </div>
+      </div></body></html>`);
+      return;
+    }
+    // ---- Data · HyperAuto (ingest) — ING-1 (remediation v2): the live-tenant INGEST port.
+    // The seed's live target is /workspace/hyperauto/pipeline, titled "HyperAuto": a single
+    // centred card ("HyperAuto Pipelines" + a Create-pipeline verb) over an EMPTY list, whose
+    // own empty copy sends the reader to the Data Connection application to create a pipeline
+    // "on one of your supported sources". So the vendor itself puts pipeline creation behind the
+    // SOURCE plane — which is why this port lands in the Data family beside /__ioi/data/sources.
+    // THE FINDING this surface exists to state: a self-report is scoped to the RECORD that
+    // carries it, never to the estate. Every stage of the estate's ingestion chain publishes a
+    // `status`/`wired`/`missing_contracts`/`data_moved` field about ITSELF, and those fields
+    // disagree with what the chain demonstrably did — a source whose rows were fetched under a
+    // receipted HTTP 200 still reads ingestion.wired:false, a mapping reads "ready" while its own
+    // note says it extracts nothing, and a connector session reads data_moved:false about the very
+    // crossing its object set names it as the provenance of. Join before you believe.
+    if (pathname === "/__ioi/data/ingest" && req.method === "GET") {
+      const esc = CX_ESC;
+      const istr = (v) => (typeof v === "string" && v.trim() !== "" ? v : "");
+      const ingProbe = async (p) => {
+        try {
+          const r = await daemonFetch(p);
+          const text = await r.text();
+          let body = null;
+          try { body = JSON.parse(text); } catch { body = null; }
+          return { path: p, status: r.status, ok: r.ok, body };
+        } catch { return { path: p, status: 0, ok: false, body: null }; }
+      };
+      // PHASE 1 — the daemon's own route index (the ONLY thing that can say "no read route"), plus
+      // the mapping plane, because the concrete ids the templated probes are made WITH are read
+      // off it rather than pinned here.
+      const [ingIndexJson, ingMapPre] = await Promise.all([
+        daemonFetch("/v1").then((r) => r.json()).catch(() => ({})),
+        ingProbe("/v1/hypervisor/odk/connector-mappings"),
+      ]);
+      const ingRoutes = (Array.isArray(ingIndexJson.families) ? ingIndexJson.families : []).flatMap((f) => (Array.isArray(f.paths) ? f.paths : []));
+      const ingRouteFor = (p) => ingRoutes.find((r) => String(r.path || "") === p && !r.retired) || null;
+      const ingMethodsFor = (p) => { const r = ingRouteFor(p); return Array.isArray(r?.methods) ? r.methods : []; };
+      const ingMapsPre = Array.isArray(ingMapPre.body?.connector_mappings) ? ingMapPre.body.connector_mappings : [];
+      const ingPrimaryMap = istr(ingMapsPre[0]?.id);
+      const ingMapPath = (tail) => `/v1/hypervisor/odk/connector-mappings/${ingPrimaryMap || "no-mapping-on-the-plane"}${tail}`;
+      // PHASE 2 — the census. `path` is the ROUTE TEMPLATE the daemon's index publishes (the only
+      // thing an index lookup can match); `probe` is the concrete URL this identity actually read.
+      // `stage` names where the plane sits on the source -> objects chain, or marks it adjacent.
+      const ING_PLANES = [
+        { key: "data_sources", path: "/v1/hypervisor/data-sources", probe: "/v1/hypervisor/data-sources", shape: "collection", pick: (b) => b?.data_sources, stage: "0 · source",
+          label: "Data sources — the SUPPORTED-SOURCE plane", role: "what the reference's own empty copy points at: a HyperAuto pipeline is created ON a source. Already rendered in full by the Data Connection port, so it is READ here for the join and never re-listed as a source table",
+          owner: "/__ioi/data/sources", ownerLabel: "Data Connection" },
+        { key: "sources_overview", path: "/v1/hypervisor/data-sources/overview", probe: "/v1/hypervisor/data-sources/overview", shape: "singleton", stage: "0 · source",
+          label: "Data-source overview — a census OBJECT", role: "the daemon's own roll-up of the source plane (kinds, credential postures, governance gaps). A status object, never a collection of one",
+          owner: "/__ioi/data/sources", ownerLabel: "Data Connection" },
+        { key: "mappings", path: "/v1/hypervisor/odk/connector-mappings", probe: "/v1/hypervisor/odk/connector-mappings", shape: "collection", pick: (b) => b?.connector_mappings, stage: "1 · declare",
+          label: "Connector mappings — THE pipeline record", role: "the estate's nearest thing to a HyperAuto pipeline: a source-field to object-property binding keyed on one data_source_id. This is the plane the card above enumerates",
+          owner: "/__ioi/pipeline", ownerLabel: "Pipeline Builder" },
+        { key: "mappings_overview", path: "/v1/hypervisor/odk/connector-mappings/overview", probe: "/v1/hypervisor/odk/connector-mappings/overview", shape: "singleton", stage: "1 · declare",
+          label: "Connector-mapping overview — the health BUCKETS", role: "publishes the ready/incomplete split this surface refuses to print as a pipeline count, and the plane-scoped governance_gaps quoted in the finding below",
+          owner: "/__ioi/pipeline", ownerLabel: "Pipeline Builder" },
+        { key: "mapping_health", path: "/v1/hypervisor/odk/connector-mappings/:id/health", probe: ingMapPath("/health"), shape: "singleton", stage: "1 · declare",
+          label: "Per-mapping health", role: "the same self-report served per record. It answers about the MAPPING ALONE — which is exactly why its missing_contracts list names contracts that already exist beside it",
+          owner: "/__ioi/pipeline", ownerLabel: "Pipeline Builder" },
+        { key: "policy_views", path: "/v1/hypervisor/odk/policy-bound-data-views", probe: "/v1/hypervisor/odk/policy-bound-data-views", shape: "collection", pick: (b) => b?.policy_bound_data_views, stage: "2 · authorize",
+          label: "Policy-bound data views — the authorization stage", role: "the declarative gate a transformation must satisfy before anything may run. Declaring one authorizes nothing and the record says so itself",
+          owner: "/__ioi/governance", ownerLabel: "Governance" },
+        { key: "transformation_runs", path: "/v1/hypervisor/odk/transformation-runs", probe: "/v1/hypervisor/odk/transformation-runs", shape: "collection", pick: (b) => b?.transformation_runs, stage: "3 · transform",
+          label: "Transformation runs — the plan stage", role: "the plan/dry-run stage. Every record on this plane carries execution.data_moved:false — the transform lane in this estate has never moved a byte, and the rows that DID come from a source came through the materializing lane instead",
+          owner: "/__ioi/pipeline", ownerLabel: "Pipeline Builder" },
+        { key: "projections", path: "/v1/hypervisor/odk/ontology-projections", probe: "/v1/hypervisor/odk/ontology-projections", shape: "collection", pick: (b) => b?.ontology_projections, stage: "4 · shape",
+          label: "Ontology projections — the output SHAPE", role: "what the extracted rows become: visible properties, key field, title field. Also the ONLY mapping-keyed join to a materialized object set, which is why the chain column can attribute an output to a pipeline at all",
+          owner: "/__ioi/ontology/manager", ownerLabel: "Ontology Manager" },
+        { key: "lease_plans", path: "/v1/hypervisor/odk/capability-lease-plans", probe: "/v1/hypervisor/odk/capability-lease-plans", shape: "collection", pick: (b) => b?.capability_lease_plans, stage: "5 · authority",
+          label: "Capability-lease plans — the authority stage", role: "the wallet-gated crossing a materializing run must hold before it may contact a source. A plan is an intent to cross, never the crossing",
+          owner: "/__ioi/connections", ownerLabel: "Connections" },
+        { key: "materializing_runs", path: "/v1/hypervisor/odk/materializing-runs", probe: "/v1/hypervisor/odk/materializing-runs", shape: "collection", pick: (b) => b?.materializing_runs, stage: "6 · execute",
+          label: "Materializing runs — THE EXECUTION", role: "the only plane in the chain whose records ever report execution.source_contacted:true. Its runs are already rendered as the Syncs lane of the Data Connection port, so they are READ here for the join and linked, never re-listed",
+          owner: "/__ioi/data/sources", ownerLabel: "Data Connection · Syncs" },
+        { key: "sessions", path: "/v1/hypervisor/odk/connector-sessions", probe: "/v1/hypervisor/odk/connector-sessions", shape: "collection", pick: (b) => b?.connector_sessions, stage: "6 · execute",
+          label: "Connector sessions — the credential crossing", role: "the sealed session a run holds while it reads. Every record here reports data_moved:false about a crossing the object set names it as the provenance of — the contradiction stated in the finding below",
+          owner: "/__ioi/connections", ownerLabel: "Connections" },
+        { key: "object_sets", path: "/v1/hypervisor/odk/materialized-object-sets", probe: "/v1/hypervisor/odk/materialized-object-sets", shape: "collection", pick: (b) => b?.materialized_object_sets, stage: "7 · output",
+          label: "Materialized object sets — the OUTPUT", role: "the only records in the estate that carry a verbatim source_contact receipt (endpoint, HTTP status, elapsed). The objects themselves belong to the Object Explorer and are linked, never re-rendered here",
+          owner: "/__ioi/ontology/explorer", ownerLabel: "Object Explorer" },
+        { key: "run_history", path: "/v1/hypervisor/odk/materializing-runs/:id/history", probe: "/v1/hypervisor/odk/materializing-runs/no-run-selected/history", shape: "collection", pick: (b) => b?.history, stage: "6 · execute",
+          label: "Per-run history", role: "the receipted step trail of one execution (admitted, lease obtained, executed, lease released). Probed here WITHOUT a concrete id on purpose, so the row reports what an unresolved id actually answers rather than a happy path",
+          owner: "/__ioi/provenance", ownerLabel: "Provenance" },
+        { key: "data_recipes", path: "/v1/hypervisor/odk/data-recipes", probe: "/v1/hypervisor/odk/data-recipes", shape: "collection", pick: (b) => b?.data_recipes, stage: "auto?",
+          label: "Data recipes — the nearest PIPELINE TEMPLATE", role: "the closest lane the estate has to a reusable pipeline definition — the thing an automatic builder would emit. The plane answers and holds none, which is an empty template shelf, not a missing one",
+          owner: "/__ioi/odk", ownerLabel: "ODK plane" },
+        { key: "manifests", path: "/v1/hypervisor/odk/manifests", probe: "/v1/hypervisor/odk/manifests", shape: "collection", pick: (b) => b?.manifests, stage: "auto?",
+          label: "ODK manifests — the packaged composition", role: "where a whole composed pipeline would be packaged and re-applied elsewhere. Answered and empty on this render",
+          owner: "/__ioi/odk", ownerLabel: "ODK plane" },
+        { key: "ontology_proposals", path: "/v1/hypervisor/odk/ontology-proposals", probe: "/v1/hypervisor/odk/ontology-proposals", shape: "collection", pick: (b) => b?.proposals, stage: "auto?",
+          label: "Ontology proposals — the nearest AUTOMATIC lane", role: "the only plane in the estate shaped like “infer a model and offer it for apply”, which is what HyperAuto's whole premise needs. It REFUSES this identity, so this surface says nothing about whether the estate can propose a model — unknown is printed as unknown, never as absent",
+          owner: "/__ioi/ontology/manager", ownerLabel: "Ontology Manager" },
+        { key: "connectors", path: "/v1/hypervisor/connectors", probe: "/v1/hypervisor/connectors", shape: "collection", pick: (b) => b?.connectors, stage: "adjacent",
+          label: "Connectors — the OTHER source vocabulary", role: "the generic connector estate. A materialized object set's provenance names a connector_id from THIS plane while its pipeline is keyed on a data_source_id from another — two source vocabularies the estate does not join for you",
+          owner: "/__ioi/connections", ownerLabel: "Connections" },
+        { key: "saved_sets", path: "/v1/hypervisor/odk/saved-object-sets", probe: "/v1/hypervisor/odk/saved-object-sets", shape: "collection", pick: (b) => b?.saved_object_sets, stage: "7 · output",
+          label: "Saved object sets", role: "the curated lane downstream of an output. It refuses this identity, so no output count on this page is ever taken from it",
+          owner: "/__ioi/ontology/explorer", ownerLabel: "Object Explorer" },
+        { key: "dataset_snapshots", path: "/v1/hypervisor/foundry/dataset-snapshots", probe: "/v1/hypervisor/foundry/dataset-snapshots", shape: "collection", pick: (b) => b?.dataset_snapshots, stage: "adjacent",
+          label: "Foundry dataset snapshots", role: "the estate's other “ingested data at rest” noun. It refuses this read, so whether any ingested dataset lives there is UNKNOWN from this surface rather than zero",
+          owner: "/__ioi/foundry", ownerLabel: "Model Catalog" },
+        { key: "dry_run", path: "/v1/hypervisor/odk/transformation-runs/:id/dry-run", probe: "/v1/hypervisor/odk/transformation-runs/no-run-selected/dry-run", shape: "collection", stage: "3 · transform",
+          label: "Transformation dry-run", role: "the validate-before-you-run verb. POST-only: the estate performs a dry run, it never stores one you can read back, so there is nothing here to read at all",
+          owner: "/__ioi/pipeline", ownerLabel: "Pipeline Builder" },
+        { key: "backup_imports", path: "/v1/hypervisor/backup-imports", probe: "/v1/hypervisor/backup-imports", shape: "collection", stage: "adjacent",
+          label: "Backup imports — the OTHER way data arrives", role: "bulk arrival that bypasses the connector chain entirely. POST-only, so the estate holds no readable record of what has arrived this way",
+          owner: "/__ioi/operations", ownerLabel: "Operations" },
+      ];
+      const ingProbes = await Promise.all(ING_PLANES.map((pl) => ingProbe(pl.probe)));
+      // FIVE states, decided in this order and never from a constant: no-read-route from the
+      // daemon's OWN index before any body is read; a transport refusal before any collection is
+      // looked for; a typed in-body decline (ok:false on a 200) as the refusal it is; then shape.
+      const ingClassify = (pl, pr) => {
+        const methods = ingMethodsFor(pl.path);
+        if (!methods.includes("GET") || pr.status === 405) return { state: "no_read_route", code: "", methods, rows: [] };
+        if (!pr.ok) {
+          const b = pr.body || {};
+          const code = (b.error && (b.error.code || b.error)) || b.reason || b.code || `http_${pr.status}`;
+          return { state: "refused", code: String(code), methods, rows: [] };
+        }
+        const body = pr.body;
+        if (body && typeof body === "object" && body.ok === false) {
+          const b = body.error;
+          return { state: "refused", code: String((b && (b.code || b)) || body.code || "plane_declined"), methods, rows: [] };
+        }
+        if (pl.shape === "singleton") {
+          const keys = body && typeof body === "object" && !Array.isArray(body) ? Object.keys(body) : [];
+          return { state: keys.length ? "live" : "empty", code: "", methods, rows: [], keys };
+        }
+        const arr = pl.pick ? pl.pick(body) : (Array.isArray(body) ? body : Object.values(body || {}).find((v) => Array.isArray(v)));
+        if (!Array.isArray(arr)) return { state: "unreadable", code: `http_${pr.status}`, methods, rows: [] };
+        return { state: arr.length ? "live" : "empty", code: "", methods, rows: arr };
+      };
+      const ingRead = ING_PLANES.map((pl, i) => ({ ...pl, ...ingClassify(pl, ingProbes[i]), status: ingProbes[i].status, body: ingProbes[i].body }));
+      const ingBy = Object.fromEntries(ingRead.map((r) => [r.key, r]));
+      const ingCount = (s) => ingRead.filter((r) => r.state === s).length;
+      const ingRowsOf = (k) => (ingBy[k].state === "live" ? ingBy[k].rows : []);
+      // ONE gap contract for every named absence (aria + title + data-ioi reason, all three on the
+      // SAME element). Every reason is written for ITS control — a reused reason is decorative.
+      const igap = (cls, label, reason) => `<span class="${cls} ing-gap" aria-disabled="true" title="${esc(reason)}" data-ioi-disabled-reason="${esc(reason)}">${esc(label)}</span>`;
+      const idash = (reason) => `<span class="ing-dash" aria-disabled="true" title="${esc(reason)}" data-ioi-disabled-reason="${esc(reason)}">—</span>`;
+      // ---- THE JOIN. Every number below is derived from the planes on THIS render. The chain is
+      // keyed mapping -> (policy view | transform | projection | lease plan) by connector_mapping_id,
+      // and mapping -> run by data_source_id, because those are the keys the RECORDS carry. The
+      // output is reached mapping -> projection -> object set via ontology_projection_id, which is
+      // the only mapping-keyed path to an output the estate publishes.
+      const ingSources = ingRowsOf("data_sources");
+      const ingSrcById = Object.fromEntries(ingSources.map((s) => [istr(s.source_id), s]));
+      const ingMaps = ingRowsOf("mappings");
+      const ingViews = ingRowsOf("policy_views");
+      const ingTrans = ingRowsOf("transformation_runs");
+      const ingProjs = ingRowsOf("projections");
+      const ingPlans = ingRowsOf("lease_plans");
+      const ingRuns = ingRowsOf("materializing_runs");
+      const ingSess = ingRowsOf("sessions");
+      const ingSets = ingRowsOf("object_sets");
+      const ingNum = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+      const ingChainOf = (m) => {
+        const mid = istr(m.id);
+        const dsid = istr(m.data_source_id);
+        const views = ingViews.filter((x) => istr(x.connector_mapping_id) === mid);
+        const trans = ingTrans.filter((x) => istr(x.connector_mapping_id) === mid);
+        const projs = ingProjs.filter((x) => istr(x.connector_mapping_id) === mid);
+        const plans = ingPlans.filter((x) => istr(x.connector_mapping_id) === mid);
+        const runs = dsid ? ingRuns.filter((x) => istr(x.data_source_id) === dsid) : [];
+        const runIds = new Set(runs.map((x) => istr(x.id)));
+        const sess = ingSess.filter((x) => runIds.has(istr(x.materializing_run_id)));
+        const projIds = new Set(projs.map((x) => istr(x.id)));
+        const sets = ingSets.filter((x) => projIds.has(istr(x.ontology_projection_id)));
+        const contacted = runs.filter((x) => x?.execution?.source_contacted === true);
+        return { mid, dsid, source: ingSrcById[dsid] || null, views, trans, projs, plans, runs, sess, sets, contacted,
+          rows: sets.reduce((n, x) => n + ingNum(x.rows_fetched ?? x.count), 0),
+          moved: contacted.length > 0 || sets.length > 0 };
+      };
+      const ingChains = ingMaps.map(ingChainOf);
+      // COUNT 1 — the DECLARED predicate: a connector-mapping record exists. This is what a
+      // "do you have a pipeline?" question answers with if it reads the mapping plane alone.
+      const ingDeclared = ingChains.length;
+      // COUNT 2 — the MOVED predicate: some record in this chain reports source_contacted:true or
+      // registers a materialized object set. A different test over the same six pipelines.
+      const ingMoved = ingChains.filter((c) => c.moved);
+      // COUNT 3 — the ROW predicate: rows actually landed, summed from the OUTPUT records, never
+      // from any stage's own self-report.
+      const ingRowsLanded = ingChains.reduce((n, c) => n + c.rows, 0);
+      // COUNT 4 — the SOURCE predicate: how many declared sources carry a pipeline at all.
+      const ingMappedSrcIds = new Set(ingChains.map((c) => c.dsid).filter(Boolean));
+      const ingUnresolvedSrc = ingChains.filter((c) => c.dsid && !ingSrcById[c.dsid]);
+      // FINDING A — the source's OWN wired flag, against what the runs did to it.
+      const ingWiredTrue = ingSources.filter((s) => s?.ingestion?.wired === true);
+      const ingContactedSrcIds = new Set(ingRuns.filter((r) => r?.execution?.source_contacted === true).map((r) => istr(r.data_source_id)).filter(Boolean));
+      const ingContactedButUnwired = [...ingContactedSrcIds].filter((id) => ingSrcById[id] && ingSrcById[id].ingestion?.wired !== true);
+      // FINDING B — "ready" against the same record's own inertness note.
+      const ingReadyButInert = ingMaps.filter((m) => istr(m?.health?.status) === "ready" && ingNum(m?.health?.object_instances) === 0);
+      // FINDING C — missing_contracts naming contracts that exist beside the record.
+      const ingContractPresent = { PolicyBoundDataView: (c) => c.views.length > 0, TransformationRun: (c) => c.trans.length > 0, OntologyProjection: (c) => c.projs.length > 0 };
+      const ingFalseMissing = ingChains.map((c) => {
+        const m = ingMaps.find((x) => istr(x.id) === c.mid) || {};
+        const named = Array.isArray(m?.health?.missing_contracts) ? m.health.missing_contracts.map(String) : [];
+        return { c, named, present: named.filter((n) => ingContractPresent[n] && ingContractPresent[n](c)) };
+      });
+      const ingFalseMissingChains = ingFalseMissing.filter((x) => x.present.length > 0);
+      const ingFalseMissingTotal = ingFalseMissing.reduce((n, x) => n + x.present.length, 0);
+      // FINDING D — the session and its run, disagreeing about one crossing.
+      const ingRunById = Object.fromEntries(ingRuns.map((r) => [istr(r.id), r]));
+      const ingSessDisagree = ingSess.filter((s) => {
+        const r = ingRunById[istr(s.materializing_run_id)];
+        return r && r.execution?.source_contacted === true && s.execution?.data_moved !== true;
+      });
+      // THE "AUTO" QUESTION, counted from the daemon's own index on this render: how many separate
+      // POST crossings a caller must make to get from a declared source to a materialized object
+      // set. Each entry is checked against the index, so a route that disappears stops being counted.
+      const ING_CHAIN_VERBS = [
+        ["declare the mapping", "/v1/hypervisor/odk/connector-mappings"],
+        ["authorize a policy-bound view", "/v1/hypervisor/odk/policy-bound-data-views"],
+        ["plan the transformation", "/v1/hypervisor/odk/transformation-runs"],
+        ["dry-run the transformation", "/v1/hypervisor/odk/transformation-runs/:id/dry-run"],
+        ["declare the output projection", "/v1/hypervisor/odk/ontology-projections"],
+        ["plan the capability lease", "/v1/hypervisor/odk/capability-lease-plans"],
+        ["admit the materializing run", "/v1/hypervisor/odk/materializing-runs"],
+        ["acquire the lease", "/v1/hypervisor/odk/materializing-runs/:id/acquire-lease"],
+        ["request the connector session", "/v1/hypervisor/odk/connector-sessions"],
+        ["open the session", "/v1/hypervisor/odk/connector-sessions/:id/open"],
+        ["execute the run", "/v1/hypervisor/odk/materializing-runs/:id/execute"],
+        ["release the session", "/v1/hypervisor/odk/connector-sessions/:id/release"],
+        ["release the lease", "/v1/hypervisor/odk/materializing-runs/:id/release-lease"],
+      ];
+      const ingChainVerbs = ING_CHAIN_VERBS.filter(([, p]) => ingMethodsFor(p).includes("POST"));
+      // The absence itself: no published route accepts a data_source_id and returns a built chain.
+      const ingOdkRoutes = ingRoutes.filter((r) => !r.retired && String(r.path || "").startsWith("/v1/hypervisor/odk/"));
+      const ingAutoRoutes = ingOdkRoutes.filter((r) => /(auto|infer|scaffold|generate|wizard|bootstrap|from-source)/i.test(String(r.path || "")));
+      const ING_ROW_CAP = 60;
+      const ingShown = ingChains.slice(0, ING_ROW_CAP);
+      const ingStageChip = (label, present, word, reason) => (present
+        ? `<span class="ing-stage ing-stage-on" title="${esc(word)}">${esc(label)}<b>${esc(word)}</b></span>`
+        : `<span class="ing-stage ing-stage-off" aria-disabled="true" title="${esc(reason)}" data-ioi-disabled-reason="${esc(reason)}">${esc(label)}<b>—</b></span>`);
+      const ingRowHtml = ingShown.map((c) => {
+        const m = ingMaps.find((x) => istr(x.id) === c.mid) || {};
+        const src = c.source;
+        const declared = istr(m?.health?.status) || istr(m.status) || "—";
+        const contact = c.sets.map((s) => s.source_contact).find((s) => s && typeof s === "object") || null;
+        return `<div class="ing-row" data-ioi-pipeline="${esc(c.mid)}" data-ioi-pipeline-declared="${esc(declared)}" data-ioi-pipeline-moved="${c.moved ? "yes" : "no"}" data-ioi-pipeline-rows="${c.rows}">`
+          + `<span><b>${esc(istr(m.name) || c.mid)}</b><code class="ing-ref">${esc(c.mid)}</code>`
+          + `<code class="ing-ref">object type ${esc(istr(m.object_type_id) || "—")} · ${esc(String(Array.isArray(m.field_mappings) ? m.field_mappings.length : 0))} field mapping${(Array.isArray(m.field_mappings) ? m.field_mappings.length : 0) === 1 ? "" : "s"}</code></span>`
+          + `<span>${src ? `<b>${esc(istr(src.name) || c.dsid)}</b><code class="ing-ref">${esc(c.dsid)} · kind ${esc(istr(src.kind) || "—")}</code><code class="ing-ref">source's own field <b>ingestion.wired</b>: ${src.ingestion?.wired === true ? "true" : "<b>false</b>"} · lifecycle ${esc(istr(src.lifecycle?.status) || "—")}</code>`
+            : `<b class="ing-warn">source not on the plane</b><code class="ing-ref">${esc(c.dsid || "no data_source_id on the record")}</code><code class="ing-ref">this pipeline names a source the source plane does not return to this identity — a dangling key, printed as one</code>`}</span>`
+          + `<span><span class="ing-declared">${esc(declared)}</span><code class="ing-ref">field: health.status · record status ${esc(istr(m.status) || "—")}</code>`
+          + `<code class="ing-ref">the same record: object_instances ${esc(String(ingNum(m?.health?.object_instances)))} · ingestion.wired ${m?.ingestion?.wired === true ? "true" : "false"}</code></span>`
+          + `<span>${c.moved
+            ? `<span class="ing-moved ing-moved-yes">rows landed</span><code class="ing-ref"><b>${c.rows}</b> row${c.rows === 1 ? "" : "s"} · field: materialized set rows_fetched</code>`
+              + (contact ? `<code class="ing-ref">receipt: HTTP ${esc(String(contact.http_status ?? "—"))} from ${esc(istr(contact.endpoint) || "—")} in ${esc(String(contact.elapsed_ms ?? "—"))}ms</code>` : `<code class="ing-ref">a run reports source_contacted:true but registered no object set on this render</code>`)
+            : `<span class="ing-moved ing-moved-no">no source contact</span><code class="ing-ref">no record in this chain reports execution.source_contacted:true and no object set is registered — counted from the OUTPUT records, never from a stage's own status</code>`}</span>`
+          + `<span class="ing-stages">${ingStageChip("declare", true, istr(m.status) || "declared", "")}`
+          + ingStageChip("authorize", c.views.length > 0, istr(c.views[0]?.status) || "declared", "No policy-bound data view names this mapping, so nothing authorizes it to read (typed absence — the record is not there, this is not a value of zero)")
+          + ingStageChip("transform", c.trans.length > 0, istr(c.trans[0]?.status) || "planned", "No transformation run names this mapping, so no transform plan exists for it (typed absence)")
+          + ingStageChip("shape", c.projs.length > 0, istr(c.projs[0]?.status) || "declared", "No ontology projection names this mapping, so the extracted rows have no declared output shape — and no mapping-keyed path to an output exists (typed absence)")
+          + ingStageChip("authority", c.plans.length > 0, istr(c.plans[0]?.status) || "planned", "No capability-lease plan names this mapping, so no crossing was ever planned for it (typed absence)")
+          + ingStageChip("execute", c.runs.length > 0, istr(c.runs[0]?.status) || "planned", "No materializing run names this pipeline's data_source_id, so the chain was never taken past the declaration (typed absence)")
+          + ingStageChip("session", c.sess.length > 0, istr(c.sess[0]?.status) || "requested", "No connector session names a materializing run of this pipeline. The estate ran the chain without recording a session for it, or the session's run reference does not resolve — either way this surface does not invent the link (typed absence)")
+          + ingStageChip("output", c.sets.length > 0, `${c.sets.length} set${c.sets.length === 1 ? "" : "s"}`, "No materialized object set names an ontology projection of this mapping, so this pipeline produced no readable output. Object-set-to-pipeline is the ONLY mapping-keyed output join the estate publishes, and it finds nothing here (typed absence)")
+          + `</span>`
+          + `<span><a class="ing-ref" href="/__ioi/data/sources">its source →</a><a class="ing-ref" href="/__ioi/pipeline">the builder →</a>${c.sets.length ? `<a class="ing-ref" href="/__ioi/ontology/explorer">its objects →</a>` : ""}</span></div>`;
+      }).join("");
+      const ingStateLabel = { live: "LIVE", empty: "EMPTY", refused: "REFUSED", no_read_route: "NO READ ROUTE", unreadable: "UNREADABLE" };
+      const ingStateCopy = (r) => {
+        if (r.state === "refused") return `This plane <b>REFUSED</b> this read with the daemon's own typed code <code>${esc(r.code)}</code>. That is a closed door, and this page prints it as one — <b>a refusal is never rendered as 0 records</b>, because the estate took no measurement here for this identity to report.`;
+        if (r.state === "no_read_route") return `The daemon's own route index publishes <b>no GET</b> here${r.methods.length ? ` (only ${esc(r.methods.join(", "))})` : ""}. There is nothing to read, which is <b>not the same as reading nothing</b> — so no count appears on this row.`;
+        if (r.state === "empty") return `The plane answered and holds <b>none</b>. This is an <b>EMPTY plane, not a missing one</b>: the route exists, it read cleanly, and the estate simply has no record of this kind — the reference's own state on its landing.`;
+        if (r.state === "unreadable") return `The plane answered <code>${esc(r.code)}</code> in a shape this surface could not read as a collection. It is reported as unreadable rather than guessed at.`;
+        if (r.shape === "singleton") return `A single status <b>OBJECT</b> answered with ${r.keys ? r.keys.length : 0} field${(r.keys ? r.keys.length : 0) === 1 ? "" : "s"} — <b>never counted as one row</b>. A census object is not a collection.`;
+        return `<b>${r.rows.length}</b> record${r.rows.length === 1 ? "" : "s"} — counted from the plane on this render.`;
+      };
+      const ingPlaneRows = ingRead.map((r) => `<div class="ing-prow" data-ioi-plane="${esc(r.path)}" data-ioi-plane-state="${esc(r.state)}" data-ioi-plane-shape="${esc(r.shape)}" data-ioi-plane-stage="${esc(r.stage)}">`
+        + `<span><b>${esc(r.label)}</b><span class="ing-role">${esc(r.role)}</span>${r.path === r.probe ? "" : `<code class="ing-ref">probed as ${esc(r.probe.split("?")[0])}</code>`}</span>`
+        + `<span><code class="ing-ref">${esc(r.path)}</code><code class="ing-ref">stage: ${esc(r.stage)} · shape: ${esc(r.shape)}</code></span>`
+        + `<span class="ing-state ing-state-${esc(r.state)}">${esc(ingStateLabel[r.state] || r.state)}</span>`
+        + `<span class="ing-scopy">${ingStateCopy(r)}</span>`
+        + `<span><a class="ing-ref" href="${esc(r.owner)}">${esc(r.ownerLabel)} →</a></span></div>`).join("");
+      // The reference's control set. One app control, one facet group, four dialogs, one in-body
+      // link — each answered, and each reason written for ITS control.
+      const ingControls = [
+        { ref: "Create pipeline (header verb)", bound: false, field: "",
+          gap: "The estate mints no pipeline OBJECT to create. Building one is thirteen separate authority-crossing POSTs in order — mapping, policy view, transformation, dry-run, projection, lease plan, materializing run, lease, session, open, execute, release, release — each owned by the Pipeline Builder and the Connections lease gate. Re-minting that ladder here would be a second mutation spine over another surface's authority",
+          copy: "Answered as a REFUSAL, not hidden. The verb the reference offers is one click; the estate's equivalent is a thirteen-crossing ladder that already has an owner surface, so this page links it and mints none of it." },
+        { ref: "Create pipeline (card verb)", bound: false, field: "",
+          gap: "The same crossing offered a second time in the card header. A second entrance to a ladder this surface does not own is still not this surface's verb — and the reference's own empty copy sends the reader to the source application for it, which is exactly where this page sends them",
+          copy: "The reference offers the verb twice — header and card. Both are answered the same way, and neither is quietly dropped." },
+        { ref: "Go to Data Connection Application (empty-state link)", bound: true, field: "/__ioi/data/sources",
+          gap: "",
+          copy: "The ONE reference control this estate can honour exactly. The vendor's own empty copy routes pipeline creation to the source application; the estate has that application as a certified port, so the link is real and lands on the plane that actually holds the sources." },
+        { ref: "APPLICATIONS (facet group)", bound: false, field: "",
+          gap: "The reference's left rail carries a single APPLICATIONS group listing the tenant's pinned apps. The estate holds no per-principal favourites or pinned-application plane, so the lane could never fill — it is MISSING here, while the reference's own is merely empty and waiting",
+          copy: "MISSING, not empty. The reference's lane awaits data; the estate has no plane that could ever supply it." },
+        { ref: "4 recorded dialogs", bound: false, field: "",
+          gap: "The live capture recorded four dialog surfaces behind this landing. The capture is whitelist-only — mutation verbs were blacklisted — so their CONTENTS were never recorded, and a dialog reconstructed from its existence alone would be this port inventing an interaction nobody observed",
+          copy: "Named rather than guessed. Their existence is evidence; their contents are not, and this port does not manufacture the difference." },
+      ];
+      const ingControlRows = ingControls.map((c) => `<div class="ing-crow" data-ioi-control="${esc(c.ref)}" data-ioi-control-bound="${c.bound ? "yes" : "no"}">`
+        + `<span><b>${esc(c.ref)}</b></span>`
+        + `<span>${c.bound ? `<code class="ing-ref">${esc(c.field)}</code>` : `<span class="ing-nolane">no estate lane</span>`}</span>`
+        + `<span class="ing-ccopy">${c.copy}</span></div>`).join("");
+      const ingVerbGap = ingControls[0].gap;
+      const ingFoot = `ING-1 (remediation v2): the HYPERAUTO port. The mirror-scoped verdict was absent_confirmed (#ingest — "HyperAuto expresses no IA at any recorded state"); the owner-authorized live sweep OVERTURNED it and recorded a real landing titled <b>HyperAuto</b>: one centred card, "HyperAuto Pipelines" with a <b>Create pipeline</b> verb, an APPLICATIONS facet group, four dialogs and <b>0 rows</b> — the live tenant's own pipeline list is genuinely empty, so the EMPTY-STATE IA is the seed, and its own copy sends the reader to the source application to create one. That supersession is recorded in reference-seed-adjudications.v1.json#ingest-port and the mirror record stands as history. <b>${ingRead.length}</b> ingestion-chain and ingestion-adjacent planes were probed live on this render and answered in four states — <b>${ingCount("live")} LIVE</b> · <b>${ingCount("empty")} EMPTY</b> · <b>${ingCount("refused")} REFUSED</b> · <b>${ingCount("no_read_route")} NO READ ROUTE</b>. READ-ONLY: all ${ingChainVerbs.length} chain crossings stay on <a href="/__ioi/pipeline">Pipeline Builder</a> and the <a href="/__ioi/connections">Connections</a> lease gate; the source plane is rendered by <a href="/__ioi/data/sources">Data Connection</a> and the runs by its Syncs lane, both linked and neither re-listed; the extracted objects belong to the <a href="/__ioi/ontology/explorer">Object Explorer</a>. Evidence: reference-seed-adjudications.v1.json#ingest-port · reference-live-tenant-deep-atlas.v1.json#ingest (landing) · .artifacts/live-tenant-atlas/deep/ingest-landing.png. Owner: <a href="/data">Data family</a>.`;
+      sendOwnedSurfaceHtml(res, "ingest", `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>HyperAuto</title><style>
+        :root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#f5f8fa;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif}a{color:#215db0;text-decoration:none}
+        .ing-shell{display:flex;flex-direction:column;min-height:100vh}
+        .ing-header{flex:0 0 50px;display:flex;align-items:center;gap:14px;background:#fff;box-shadow:0 1px 0 #d1d1d1,0 3px 4px rgba(0,0,0,.04);z-index:6}
+        .ing-hchip{width:50px;height:50px;flex:0 0 50px;background:rgba(45,114,210,.10) center/24px no-repeat}
+        .ing-title{font-size:16px;font-weight:600;color:#404854;margin:0}
+        .ing-hright{display:flex;align-items:center;gap:8px;margin-left:auto;padding-right:16px;flex-wrap:wrap}
+        .ing-chip{display:inline-flex;align-items:center;height:30px;padding:0 10px;border-radius:4px;border:1px solid #d1d1d1;font-size:13px;color:#404854;background:#fff}
+        .ing-link{display:inline-flex;align-items:center;height:30px;padding:0 12px;border-radius:4px;background:#2d72d2;color:#fff;font-size:13px}
+        .ing-gap{opacity:.62;cursor:not-allowed}
+        .ing-dash{color:#a8b2be;cursor:not-allowed}
+        .ing-field{flex:1;min-width:0;width:100%;max-width:1180px;margin:0 auto;padding:26px 22px 44px}
+        .ing-card{background:#fff;border:1px solid #e5e8eb;border-radius:4px;box-shadow:0 1px 1px rgba(17,20,24,.06);margin:0 0 20px;overflow:hidden}
+        .ing-chead{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 18px;border-bottom:1px solid #e5e8eb}
+        .ing-cname{font-size:15px;font-weight:600;color:#1c2127}
+        .ing-cverb{margin-left:auto}
+        .ing-cbody{padding:12px 18px 18px;overflow-x:auto}
+        .ing-vempty{padding:38px 20px 42px;text-align:center;color:#5f6b7c;font-size:13px;line-height:1.7}
+        .ing-vbadge{display:inline-flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:50%;background:#e5e8eb;color:#8a94a2;font-size:24px;font-weight:600;margin:0 0 16px}
+        .ing-h{font-size:16px;font-weight:600;margin:0 0 4px}
+        .ing-note{font-size:12px;color:#5f6b7c;margin:0 0 12px;line-height:1.65}
+        .ing-thead,.ing-row{display:grid;grid-template-columns:1.5fr 1.7fr 1.2fr 1.5fr 2.1fr .8fr;gap:8px;padding:9px 8px;min-width:1020px}
+        .ing-phead,.ing-prow{display:grid;grid-template-columns:2.4fr 1.5fr .9fr 2.1fr .8fr;gap:8px;padding:9px 8px;min-width:760px}
+        .ing-chead2,.ing-crow{display:grid;grid-template-columns:1.3fr 1fr 3.2fr;gap:8px;padding:9px 8px;min-width:640px}
+        .ing-thead,.ing-phead,.ing-chead2{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#5f6b7c;border-bottom:1px solid #e5e8eb}
+        .ing-row,.ing-prow,.ing-crow{align-items:start;border-bottom:1px solid #f0f2f5;font-size:13px;color:#1c2127}
+        .ing-row:hover,.ing-prow:hover,.ing-crow:hover{background:#f6f7f9}
+        .ing-ref{display:block;font-size:11px;color:#5f6b7c;overflow-wrap:break-word;margin-top:2px}
+        .ing-role{display:block;font-size:11px;color:#5f6b7c;line-height:1.5;margin-top:2px}
+        .ing-scopy,.ing-ccopy{font-size:12px;color:#5f6b7c;line-height:1.55}
+        .ing-warn{color:#946638}
+        .ing-declared{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.03em;color:#946638;border:1px solid #f0dca6;background:#fff8e6;border-radius:3px;padding:2px 7px}
+        .ing-moved{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.03em;border-radius:3px;padding:2px 7px;border:1px solid}
+        .ing-moved-yes{color:#1c6e42;border-color:#9bc4ab;background:#eef8f2}
+        .ing-moved-no{color:#5f6b7c;border-color:#d1d1d1;background:#f6f7f9}
+        .ing-stages{display:flex;flex-wrap:wrap;gap:4px}
+        .ing-stage{display:inline-flex;flex-direction:column;font-size:10px;letter-spacing:.02em;border-radius:3px;padding:2px 6px;border:1px solid;line-height:1.35;min-width:0}
+        .ing-stage b{font-size:11px;font-weight:600;overflow-wrap:break-word}
+        .ing-stage-on{color:#1c6e42;border-color:#c3e0ce;background:#f4fbf7}
+        .ing-stage-off{color:#8a94a2;border-color:#e5e8eb;background:#f6f7f9;cursor:not-allowed}
+        .ing-state{font-size:11px;font-weight:600;letter-spacing:.03em;border-radius:3px;padding:2px 7px;text-align:center;border:1px solid}
+        .ing-state-live{color:#1c6e42;border-color:#9bc4ab;background:#eef8f2}
+        .ing-state-empty{color:#5f6b7c;border-color:#d1d1d1;background:#f6f7f9}
+        .ing-state-refused{color:#946638;border-color:#f0dca6;background:#fff8e6}
+        .ing-state-no_read_route{color:#7961db;border-color:#cfc4f5;background:#f3f0fd}
+        .ing-state-unreadable{color:#a82a2a;border-color:#eab8b8;background:#fdf0f0}
+        .ing-call{border:1px solid #cfd9e6;background:#f4f8fd;border-radius:4px;padding:18px 20px;color:#5f6b7c;font-size:13px;line-height:1.7;margin:0 0 16px}
+        .ing-call h3{font-size:15px;color:#1c2127;margin:0 0 8px}
+        .ing-call p{margin:0 0 8px}
+        .ing-quote{display:block;border-left:3px solid #cfd9e6;padding:6px 0 6px 12px;margin:8px 0;color:#404854;font-style:italic;overflow-wrap:break-word}
+        .ing-absent{border:1px solid #f0dca6;background:#fff8e6;border-radius:4px;padding:16px 18px;color:#5f6b7c;font-size:13px;line-height:1.65;margin:0 0 16px}
+        .ing-foot{font-size:12px;color:#7b8494;line-height:1.65;margin:0;padding:6px 2px 10px}
+        @media(max-width:700px){
+          .ing-thead,.ing-phead,.ing-chead2{display:none}
+          .ing-row,.ing-prow,.ing-crow{grid-template-columns:1fr;min-width:0;gap:2px;padding:10px 8px}
+          .ing-row *,.ing-prow *,.ing-crow *,.ing-note,.ing-call *,.ing-absent *,.ing-foot,.ing-vempty *{overflow-wrap:anywhere;min-width:0}
+          .ing-field{padding:14px 12px 34px}
+          .ing-field *{min-width:0;overflow-wrap:anywhere}
+          .ing-cbody{overflow-x:hidden;padding:10px 12px 14px}
+          .ing-header{flex:0 0 auto;flex-wrap:wrap;padding:8px 0 10px;gap:8px}
+          .ing-hright{margin-left:0;padding:0 12px;width:100%}
+          .ing-chead{padding:12px}
+          .ing-cverb{margin-left:0}
+          .ing-call,.ing-absent{padding:14px}
+          .ing-stages{gap:3px}
+        }
+      </style></head><body><div class="ing-shell">
+        <header class="ing-header">
+          <span class="ing-hchip" aria-hidden="true" style="background-image:url('${PIPELINE_APP_ICON_URI}')"></span>
+          <h1 class="ing-title">HyperAuto</h1>
+          <div class="ing-hright">
+            ${igap("ing-chip", "＋ Create pipeline", ingVerbGap)}
+            <a class="ing-link" href="/__ioi/data/sources">Data Connection →</a>
+          </div>
+        </header>
+        <div class="ing-field">
+          <div class="ing-card">
+            <div class="ing-chead"><span class="ing-cname">HyperAuto Pipelines</span><span class="ing-cverb">${igap("ing-chip", "＋ Create pipeline", ingControls[1].gap)}</span></div>
+            <div class="ing-cbody">
+              ${ingChains.length ? `<p class="ing-note">Every row is a REAL ingestion chain on this estate, counted on this render by the <b>declared</b> predicate: a <code>connector-mapping</code> record exists. ${ingChains.length > ING_ROW_CAP ? `The first <b>${ING_ROW_CAP}</b> of <b>${ingChains.length}</b> render here (cap NAMED, never silent).` : `All <b>${ingChains.length}</b> render here.`} The <b>Declared state</b> column is the record's OWN <code>health.status</code> field; the <b>Did data move?</b> column is derived from the OUTPUT records instead — and the two columns disagree, which is the finding this page exists to state.</p>
+              <div class="ing-thead"><span>Pipeline</span><span>Source</span><span>Declared state</span><span>Did data move?</span><span>Chain — each stage's own status</span><span>Owner</span></div>
+              ${ingRowHtml}`
+                : `<div class="ing-vempty" data-ioi-plane-state="${esc(ingBy.mappings.state)}"><div class="ing-vbadge" aria-hidden="true">!</div>
+                  <p>${ingBy.mappings.state === "refused"
+                    ? `The connector-mapping plane <b>REFUSED</b> this read with the daemon's typed code <code>${esc(ingBy.mappings.code)}</code>. This page therefore states nothing about how many pipelines exist — it could not read the plane, and a refusal is not a zero.`
+                    : `There are no existing ingestion pipelines. The plane answered and holds none — an <b>EMPTY</b> plane, not a missing one. Create a pipeline on one of your declared sources via the Data Connection application.`}</p>
+                  <p><a href="/__ioi/data/sources">Go to Data Connection Application</a></p></div>`}
+            </div>
+          </div>
+          <h2 class="ing-h">A self-report is about the record that carries it, never about the estate</h2>
+          <div class="ing-call">
+            <h3>The source says it is not wired. The receipt says it answered HTTP 200.</h3>
+            <p>Counted from the planes on this render, never pasted. The source plane holds <b>${ingSources.length}</b> declared source${ingSources.length === 1 ? "" : "s"}, and <b>${ingWiredTrue.length}</b> of them carry <code>ingestion.wired: true</code>. Yet <b>${ingContactedSrcIds.size}</b> source${ingContactedSrcIds.size === 1 ? " has" : "s have"} a materializing run reporting <code>execution.source_contacted: true</code>, and <b>${ingRowsLanded}</b> row${ingRowsLanded === 1 ? "" : "s"} landed in <b>${ingSets.length}</b> materialized object set${ingSets.length === 1 ? "" : "s"} carrying a verbatim contact receipt — an endpoint, an HTTP status and an elapsed time.</p>
+            <p><b>${ingContactedButUnwired.length}</b> source${ingContactedButUnwired.length === 1 ? "" : "s"} the estate demonstrably fetched rows from still read <code>ingestion.wired: false</code> on ${ingContactedButUnwired.length === 1 ? "its" : "their"} own record. That field is written once, at declaration time, and no run ever revises it: it states what the SOURCE RECORD alone implies about ingestion, not what the estate has since done to the source. A pipelines view keyed on the field literally named for wiring would have reported <b>${ingWiredTrue.length}</b> wired sources while <b>${ingContactedSrcIds.size}</b> had been read under a receipted crossing.</p>
+            <p>So no count on this page is taken from a stage's own status field. The <b>declared</b> predicate (a mapping record exists) finds <b>${ingDeclared}</b>; the <b>moved</b> predicate (some record in the chain reports <code>source_contacted: true</code>, or an object set is registered under the chain's own projection) finds <b>${ingMoved.length}</b>; the <b>row</b> predicate, summed from the output records themselves, finds <b>${ingRowsLanded}</b>. Three questions, three answers, and the page says which is which beside every number.</p>
+          </div>
+          <div class="ing-call">
+            <h3>"ready" is a verdict on the declaration, not on the run</h3>
+            <p><b>${ingReadyButInert.length}</b> of the ${ingDeclared} mapping${ingDeclared === 1 ? "" : "s"} report <code>health.status: ready</code> while the very same object reports <code>object_instances: 0</code> and <code>ingestion.wired: false</code>. The daemon is not lying — it is answering a narrower question than the word suggests, and it says so in its own note on the same record:</p>
+            <span class="ing-quote">${esc(istr(ingMaps[0]?.health?.note) || "the mapping plane published no health note on this render, so none is quoted")}</span>
+            <p>Read that way, <code>ready</code> means <i>this declaration is well-formed</i>. It does not mean a pipeline runs, and it is not a synonym for the reference's question, which is whether a HyperAuto pipeline exists at all. This page therefore renders the field verbatim under a header that says <b>Declared state</b> — never under one that says Status — and puts the derived <b>Did data move?</b> column beside it so the two can be read against each other.</p>
+            <p>The plane's own roll-up propagates the same scope. <code>/v1/hypervisor/odk/connector-mappings/overview</code> publishes a health split of ${(() => { const h = ingBy.mappings_overview.state === "live" ? (ingBy.mappings_overview.body?.health || {}) : {}; const ks = Object.keys(h); return ks.length ? ks.map((k) => `<b>${esc(k)}: ${esc(String(h[k]))}</b>`).join(" · ") : "no health buckets on this render"; })()} and states, as a whole-plane claim: ${(() => { const g = ingBy.mappings_overview.state === "live" && Array.isArray(ingBy.mappings_overview.body?.governance_gaps) ? ingBy.mappings_overview.body.governance_gaps : []; return g.length ? `<span class="ing-quote">${esc(String(g[0]))}</span>` : "no governance gap was published on this render"; })()} That sentence is true <b>of a mapping</b> and false <b>of this estate</b>, which holds ${ingRowsLanded} extracted row${ingRowsLanded === 1 ? "" : "s"} that arrived through the materializing lane beside it. A whole-plane claim written from one record's point of view is the same defect as a status field read as a system state.</p>
+          </div>
+          <div class="ing-call">
+            <h3>The list named <code>missing_contracts</code> names contracts that are not missing</h3>
+            <p>Every mapping publishes a <code>missing_contracts</code> array. Joined against the planes on this render, <b>${ingFalseMissingChains.length}</b> of the ${ingDeclared} mapping${ingDeclared === 1 ? "" : "s"} name at least one contract that <b>already exists</b> for that mapping — <b>${ingFalseMissingTotal}</b> such name${ingFalseMissingTotal === 1 ? "" : "s"} in total${ingFalseMissingChains.length ? `, and the names in question are ${[...new Set(ingFalseMissingChains.flatMap((x) => x.present))].map((n) => `<code>${esc(n)}</code>`).join(" · ")}` : ""}. The field is not wrong so much as scoped: it lists what the mapping record <b>alone</b> does not imply, and it is computed without reading the downstream planes at all.</p>
+            <p>This is why the Chain column exists. Each stage chip is resolved by JOINING the planes on the keys the RECORDS carry — <code>connector_mapping_id</code> for the policy view, the transformation, the projection and the lease plan; <code>data_source_id</code> for the materializing run; <code>materializing_run_id</code> for the session; and <code>ontology_projection_id</code> for the output, which is the only mapping-keyed path to an object set the estate publishes. A stage chip is present because a record was found, and absent as a typed absence with its own reason — never because a self-report said so.</p>
+            <p>Note what the run join costs: a materializing run is keyed on the <b>source</b>, not on the pipeline. Two mappings over one source would be indistinguishable in the run plane, and this page would say so rather than attribute a run to one of them. On this render ${ingMappedSrcIds.size === ingDeclared ? `each of the ${ingDeclared} pipeline${ingDeclared === 1 ? "" : "s"} names a distinct source, so the join is unambiguous` : `<b>${ingDeclared - ingMappedSrcIds.size}</b> pipeline${ingDeclared - ingMappedSrcIds.size === 1 ? "" : "s"} share a source with another, and their run attribution is AMBIGUOUS — stated here rather than resolved by a guess`}.${ingUnresolvedSrc.length ? ` <b>${ingUnresolvedSrc.length}</b> pipeline${ingUnresolvedSrc.length === 1 ? " names a" : "s name"} <code>data_source_id</code> the source plane does not return to this identity; ${ingUnresolvedSrc.length === 1 ? "it is" : "they are"} rendered as a dangling key, not as a missing source.` : ""}</p>
+          </div>
+          <div class="ing-call">
+            <h3>Two planes, one crossing, opposite answers</h3>
+            <p><b>${ingSessDisagree.length}</b> connector session${ingSessDisagree.length === 1 ? "" : "s"} on this render report <code>execution.data_moved: false</code> and <code>rows_extracted: 0</code> while the materializing run ${ingSessDisagree.length === 1 ? "it belongs" : "they belong"} to reports <code>source_contacted: true</code> — and the object set that holds the extracted rows names <b>that same session</b> in its <code>connector_session_ref</code> as the provenance the rows came through. The estate published both records and joins neither.</p>
+            <p>This page does not adjudicate between them. It counts what LANDED — from the output records, which are the only ones carrying a verbatim contact receipt — and it names the disagreement here rather than quietly preferring the record that agrees with its own column header. Picking a winner would be this surface deciding a question the estate never answered; hiding it would be worse.</p>
+          </div>
+          <h2 class="ing-h">The "auto" in HyperAuto — a typed absence, counted from the route index</h2>
+          <div class="ing-absent">
+            <p>HyperAuto's premise is that connecting a source BUILDS the pipeline. The estate publishes <b>${ingOdkRoutes.length}</b> ODK-family routes and <b>${ingAutoRoutes.length}</b> of them accept a source and return a built chain. Getting from a declared source to a materialized object set is <b>${ingChainVerbs.length}</b> separate authority-crossing POSTs, in order, every one of them confirmed against the daemon's own route index on this render: ${ingChainVerbs.map(([label, p]) => `<b>${esc(label)}</b> <code>${esc(p)}</code>`).join(" → ")}.</p>
+            <p>So the automatic builder is <b>MISSING, not empty</b> — and the distinction is the point. The reference's list is empty and waiting for a pipeline; the estate's builder does not exist as a lane at all, and the ${ingDeclared} pipeline${ingDeclared === 1 ? "" : "s"} above ${ingDeclared === 1 ? "was" : "were"} each declared one crossing at a time. The nearest thing to an automatic lane, <code>/v1/hypervisor/odk/ontology-proposals</code> — the only plane shaped like "infer a model and offer it for apply" — <b>${ingBy.ontology_proposals.state === "refused" ? `REFUSED this identity with <code>${esc(ingBy.ontology_proposals.code)}</code>, so this surface says NOTHING about whether the estate can propose a model from a source: unknown is printed as unknown, never as absent` : `answered this read (state ${esc(ingStateLabel[ingBy.ontology_proposals.state] || ingBy.ontology_proposals.state)}), and even so it proposes an ONTOLOGY, never a pipeline`}</b>. The reusable-definition shelf beside it — <code>data recipes</code> and <code>ODK manifests</code> — is ${ingBy.data_recipes.state === "empty" && ingBy.manifests.state === "empty" ? "EMPTY on both planes: they answered cleanly and hold none, which is an empty shelf and not a missing one" : `${esc(ingStateLabel[ingBy.data_recipes.state] || ingBy.data_recipes.state)} / ${esc(ingStateLabel[ingBy.manifests.state] || ingBy.manifests.state)} on this render`}.</p>
+          </div>
+          <h2 class="ing-h">The APPLICATIONS lane &mdash; MISSING, not empty</h2>
+          <div class="ing-absent">
+            The reference's only facet group on this landing is <b>APPLICATIONS</b>, and on the live tenant it holds the pinned HyperAuto app itself. This port renders it as a <b>typed absence instead</b>, because the estate holds no per-principal favourites or pinned-application plane of any kind &mdash; nothing exists that could ever fill it. ${igap("ing-chip", "APPLICATIONS", ingControls[3].gap)} <b>EMPTY is not MISSING</b>: the reference's lane is waiting for data, and this one is waiting for a plane.
+          </div>
+          <h2 class="ing-h">The four recorded dialogs &mdash; named, not reconstructed</h2>
+          <div class="ing-absent">
+            The live capture recorded <b>4</b> dialog surfaces behind this landing and recorded <b>nothing about what is inside them</b>: the sweep was whitelist-only and mutation verbs were blacklisted, so no dialog was ever opened. Their EXISTENCE is evidence; their CONTENTS are not, and a dialog rebuilt from a count would be this port inventing an interaction nobody observed. ${igap("ing-chip", "4 dialogs (contents unrecorded)", ingControls[4].gap)} The same rule that keeps a refusal from being printed as a zero keeps an unopened dialog from being printed as a form.
+          </div>
+          <h2 class="ing-h">Every reference control, answered</h2>
+          <p class="ing-note">The live capture recorded one app control offered twice, one in-body link, one facet group and four dialogs behind this landing. Each is answered below and, where the estate cannot honour it, disabled in place under the unified gap contract with a reason written for THAT control.</p>
+          <div class="ing-chead2"><span>Reference control</span><span>Estate lane</span><span>How it is answered here</span></div>
+          ${ingControlRows}
+          <h2 class="ing-h">Ingestion planes — read live, classified into four states</h2>
+          <p class="ing-note">Every row is a REAL daemon plane and its state was classified from that plane's own response on this render, then stamped on the row (<code>data-ioi-plane-state</code>) so it can never be pasted and never rot. <b>LIVE</b> = the plane answered and holds records. <b>EMPTY</b> = it answered and holds none. <b>REFUSED</b> = the plane refused this read with a typed code — <b>a refusal is not a zero</b>. <b>NO READ ROUTE</b> = the daemon's own route index publishes no GET for it; there is nothing to read, which is not the same as reading nothing. <b>REFUSED is not EMPTY, EMPTY is not MISSING</b>, and a plane with no read route is none of the three. The <code>stage</code> field places each plane on the source → objects chain, so an adjacent plane is never read as a stage of it.</p>
+          <div class="ing-phead"><span>Plane</span><span>Route · stage · shape</span><span>State</span><span>What that state means here</span><span>Owner</span></div>
+          ${ingPlaneRows}
+          <div class="ing-call">
+            <h3>One plane, one renderer</h3>
+            <p>Three planes this page reads are already rendered elsewhere and are LINKED rather than re-listed. The <b>source</b> plane (<b>${ingSources.length}</b> record${ingSources.length === 1 ? "" : "s"}) belongs to <a href="/__ioi/data/sources">Data Connection</a> — read here only for the join, never re-rendered as a second source table. The <b>materializing runs</b> (<b>${ingRuns.length}</b>) are already the Syncs lane of that same surface. The extracted <b>objects</b> (<b>${ingSets.reduce((n, s) => n + ingNum(s.count), 0)}</b> across ${ingSets.length} set${ingSets.length === 1 ? "" : "s"}) belong to the <a href="/__ioi/ontology/explorer">Object Explorer</a>. What this page adds is the lane none of them held: the CHAIN, joined end to end, with each stage's own claim printed beside what the chain actually did.</p>
+            <p>And every verb stays where it is owned. The ${ingChainVerbs.length} crossings that build a pipeline belong to <a href="/__ioi/pipeline">Pipeline Builder</a> and the <a href="/__ioi/connections">Connections</a> capability-lease gate; declaring a source belongs to <a href="/__ioi/data/sources">Data Connection</a>. This surface re-mints none of them.</p>
+          </div>
+          <p class="ing-foot">${ingFoot}</p>
         </div>
       </div></body></html>`);
       return;

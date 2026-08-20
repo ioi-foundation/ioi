@@ -481,6 +481,162 @@ for (const [slug, route, title, absentPhrase, ownerLink] of [
   ok("scheduler: READ-ONLY projection — no verb is re-minted; the Create absence NAMES the owner surface and the daemon's own typed refusal code", !t.includes("<form") && !/action="\/__ioi\/(missions|automations)/.test(t) && /automation_project_ref_required/.test(t) && /never re-mints another surface's authority-crossing verb/.test(t) && t.includes("/__ioi/automations"), String(!t.includes("<form")));
   ok("scheduler: evidence cited (adjudication #scheduler-port + the LIVE deep atlas) and brand-clean — no vendor brand and no borrowed tenant identity", /reference-seed-adjudications\.v1\.json#scheduler-port/.test(t) && /reference-live-tenant-deep-atlas\.v1\.json#scheduler/.test(t) && !/\bPalantir\b/i.test(t) && !/palantirfoundry/i.test(t) && !/Josman/i.test(t) && !/workspace\/scheduler/i.test(t));
 }
+// ING-1: ingest — the HYPERAUTO port, and the leg where the estate has the WHOLE chain and the
+// question is WHICH RECORD DO YOU BELIEVE. The live target (/workspace/hyperauto/pipeline, title
+// "HyperAuto") is a single centred card over an EMPTY pipeline list whose own copy routes creation
+// to the Data Connection application — so the seed is the empty-state grammar, and the port lands
+// in the Data family beside sources. Every stage of the estate's ingestion chain publishes a
+// status/wired/missing_contracts/data_moved field ABOUT ITSELF, and five of those fields disagree
+// with what the chain demonstrably did. The done-bar: the chain is JOINED on the keys the records
+// carry, every number NAMES its predicate, the one contradiction the estate never resolved is
+// NAMED rather than adjudicated, and the absent automatic BUILDER is counted from the route index.
+{
+  const D = process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765";
+  const j = (p) => fetch(`${D}${p}`).then((r) => r.json()).catch(() => ({}));
+  const str = (v) => (typeof v === "string" && v.trim() !== "" ? v : "");
+  const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+  const idx = await j("/v1");
+  const iRoutes = (Array.isArray(idx.families) ? idx.families : []).flatMap((f) => (Array.isArray(f.paths) ? f.paths : []));
+  const iMethods = (p) => { const r = iRoutes.find((x) => String(x.path || "") === p && !x.retired); return Array.isArray(r?.methods) ? r.methods : []; };
+  // The census, re-declared here with the SAME contract and this verifier's OWN code.
+  const iMapsPre = (await j("/v1/hypervisor/odk/connector-mappings")).connector_mappings || [];
+  const iPrimary = str(iMapsPre[0]?.id) || "no-mapping-on-the-plane";
+  const ING_PLANES = [
+    ["/v1/hypervisor/data-sources", "/v1/hypervisor/data-sources", "collection", (b) => b?.data_sources],
+    ["/v1/hypervisor/data-sources/overview", "/v1/hypervisor/data-sources/overview", "singleton", null],
+    ["/v1/hypervisor/odk/connector-mappings", "/v1/hypervisor/odk/connector-mappings", "collection", (b) => b?.connector_mappings],
+    ["/v1/hypervisor/odk/connector-mappings/overview", "/v1/hypervisor/odk/connector-mappings/overview", "singleton", null],
+    ["/v1/hypervisor/odk/connector-mappings/:id/health", `/v1/hypervisor/odk/connector-mappings/${iPrimary}/health`, "singleton", null],
+    ["/v1/hypervisor/odk/policy-bound-data-views", "/v1/hypervisor/odk/policy-bound-data-views", "collection", (b) => b?.policy_bound_data_views],
+    ["/v1/hypervisor/odk/transformation-runs", "/v1/hypervisor/odk/transformation-runs", "collection", (b) => b?.transformation_runs],
+    ["/v1/hypervisor/odk/ontology-projections", "/v1/hypervisor/odk/ontology-projections", "collection", (b) => b?.ontology_projections],
+    ["/v1/hypervisor/odk/capability-lease-plans", "/v1/hypervisor/odk/capability-lease-plans", "collection", (b) => b?.capability_lease_plans],
+    ["/v1/hypervisor/odk/materializing-runs", "/v1/hypervisor/odk/materializing-runs", "collection", (b) => b?.materializing_runs],
+    ["/v1/hypervisor/odk/connector-sessions", "/v1/hypervisor/odk/connector-sessions", "collection", (b) => b?.connector_sessions],
+    ["/v1/hypervisor/odk/materialized-object-sets", "/v1/hypervisor/odk/materialized-object-sets", "collection", (b) => b?.materialized_object_sets],
+    ["/v1/hypervisor/odk/materializing-runs/:id/history", "/v1/hypervisor/odk/materializing-runs/no-run-selected/history", "collection", (b) => b?.history],
+    ["/v1/hypervisor/odk/data-recipes", "/v1/hypervisor/odk/data-recipes", "collection", (b) => b?.data_recipes],
+    ["/v1/hypervisor/odk/manifests", "/v1/hypervisor/odk/manifests", "collection", (b) => b?.manifests],
+    ["/v1/hypervisor/odk/ontology-proposals", "/v1/hypervisor/odk/ontology-proposals", "collection", (b) => b?.proposals],
+    ["/v1/hypervisor/connectors", "/v1/hypervisor/connectors", "collection", (b) => b?.connectors],
+    ["/v1/hypervisor/odk/saved-object-sets", "/v1/hypervisor/odk/saved-object-sets", "collection", (b) => b?.saved_object_sets],
+    ["/v1/hypervisor/foundry/dataset-snapshots", "/v1/hypervisor/foundry/dataset-snapshots", "collection", (b) => b?.dataset_snapshots],
+    ["/v1/hypervisor/odk/transformation-runs/:id/dry-run", "/v1/hypervisor/odk/transformation-runs/no-run-selected/dry-run", "collection", null],
+    ["/v1/hypervisor/backup-imports", "/v1/hypervisor/backup-imports", "collection", null],
+  ];
+  const iProbe = async ([pth, probeUrl, shape, pick]) => {
+    let r, text;
+    try { r = await fetch(`${D}${probeUrl}`); text = await r.text(); } catch { return { path: pth, shape, state: "unreadable", code: "http_0", rows: [], body: null }; }
+    let body = null; try { body = JSON.parse(text); } catch { body = null; }
+    if (!iMethods(pth).includes("GET") || r.status === 405) return { path: pth, shape, state: "no_read_route", code: "", rows: [], body };
+    if (!r.ok) { const b = body || {}; return { path: pth, shape, state: "refused", code: String((b.error && (b.error.code || b.error)) || b.reason || b.code || `http_${r.status}`), rows: [], body }; }
+    if (body && typeof body === "object" && body.ok === false) { const b = body.error; return { path: pth, shape, state: "refused", code: String((b && (b.code || b)) || body.code || "plane_declined"), rows: [], body }; }
+    if (shape === "singleton") { const keys = body && typeof body === "object" && !Array.isArray(body) ? Object.keys(body) : []; return { path: pth, shape, state: keys.length ? "live" : "empty", code: "", rows: [], body }; }
+    const arr = pick ? pick(body) : (Array.isArray(body) ? body : Object.values(body || {}).find((v) => Array.isArray(v)));
+    if (!Array.isArray(arr)) return { path: pth, shape, state: "unreadable", code: `http_${r.status}`, rows: [], body };
+    return { path: pth, shape, state: arr.length ? "live" : "empty", code: "", rows: arr, body };
+  };
+  const iDerived = await Promise.all(ING_PLANES.map(iProbe));
+  const iBy = Object.fromEntries(iDerived.map((d2) => [d2.path, d2]));
+  const rowsOf = (p) => (iBy[p].state === "live" ? iBy[p].rows : []);
+  const iSrcs = rowsOf("/v1/hypervisor/data-sources");
+  const iSrcById = Object.fromEntries(iSrcs.map((s) => [str(s.source_id), s]));
+  const iMaps = rowsOf("/v1/hypervisor/odk/connector-mappings");
+  const iViews = rowsOf("/v1/hypervisor/odk/policy-bound-data-views");
+  const iTrans = rowsOf("/v1/hypervisor/odk/transformation-runs");
+  const iProjs = rowsOf("/v1/hypervisor/odk/ontology-projections");
+  const iPlans = rowsOf("/v1/hypervisor/odk/capability-lease-plans");
+  const iRuns = rowsOf("/v1/hypervisor/odk/materializing-runs");
+  const iSess = rowsOf("/v1/hypervisor/odk/connector-sessions");
+  const iSets = rowsOf("/v1/hypervisor/odk/materialized-object-sets");
+  // THE JOIN, recomputed independently — on the keys the RECORDS carry, never on a self-report.
+  const iChain = (m) => {
+    const mid = str(m.id); const dsid = str(m.data_source_id);
+    const views = iViews.filter((x) => str(x.connector_mapping_id) === mid);
+    const trans = iTrans.filter((x) => str(x.connector_mapping_id) === mid);
+    const projs = iProjs.filter((x) => str(x.connector_mapping_id) === mid);
+    const plans = iPlans.filter((x) => str(x.connector_mapping_id) === mid);
+    const runs = dsid ? iRuns.filter((x) => str(x.data_source_id) === dsid) : [];
+    const runIds = new Set(runs.map((x) => str(x.id)));
+    const sess = iSess.filter((x) => runIds.has(str(x.materializing_run_id)));
+    const projIds = new Set(projs.map((x) => str(x.id)));
+    const sets = iSets.filter((x) => projIds.has(str(x.ontology_projection_id)));
+    const contacted = runs.filter((x) => x?.execution?.source_contacted === true);
+    return { mid, dsid, m, views, trans, projs, plans, runs, sess, sets, contacted,
+      rows: sets.reduce((n, x) => n + num(x.rows_fetched ?? x.count), 0), moved: contacted.length > 0 || sets.length > 0 };
+  };
+  const iChains = iMaps.map(iChain);
+  const iDeclared = iChains.length;
+  const iMovedChains = iChains.filter((c) => c.moved);
+  const iRowsLanded = iChains.reduce((n, c) => n + c.rows, 0);
+  const iWiredTrue = iSrcs.filter((s) => s?.ingestion?.wired === true);
+  const iContactedSrc = new Set(iRuns.filter((r) => r?.execution?.source_contacted === true).map((r) => str(r.data_source_id)).filter(Boolean));
+  const iContactedUnwired = [...iContactedSrc].filter((id) => iSrcById[id] && iSrcById[id].ingestion?.wired !== true);
+  const iReadyInert = iMaps.filter((m) => str(m?.health?.status) === "ready" && num(m?.health?.object_instances) === 0);
+  const PRESENT = { PolicyBoundDataView: (c) => c.views.length > 0, TransformationRun: (c) => c.trans.length > 0, OntologyProjection: (c) => c.projs.length > 0 };
+  const iFalse = iChains.map((c) => (Array.isArray(c.m?.health?.missing_contracts) ? c.m.health.missing_contracts.map(String) : []).filter((n) => PRESENT[n] && PRESENT[n](c)));
+  const iFalseChains = iFalse.filter((x) => x.length > 0).length;
+  const iFalseTotal = iFalse.reduce((n, x) => n + x.length, 0);
+  const iRunById = Object.fromEntries(iRuns.map((r) => [str(r.id), r]));
+  const iDisagree = iSess.filter((s) => { const r = iRunById[str(s.materializing_run_id)]; return r && r.execution?.source_contacted === true && s.execution?.data_moved !== true; });
+  const CHAIN_VERBS = [
+    "/v1/hypervisor/odk/connector-mappings", "/v1/hypervisor/odk/policy-bound-data-views", "/v1/hypervisor/odk/transformation-runs",
+    "/v1/hypervisor/odk/transformation-runs/:id/dry-run", "/v1/hypervisor/odk/ontology-projections", "/v1/hypervisor/odk/capability-lease-plans",
+    "/v1/hypervisor/odk/materializing-runs", "/v1/hypervisor/odk/materializing-runs/:id/acquire-lease", "/v1/hypervisor/odk/connector-sessions",
+    "/v1/hypervisor/odk/connector-sessions/:id/open", "/v1/hypervisor/odk/materializing-runs/:id/execute",
+    "/v1/hypervisor/odk/connector-sessions/:id/release", "/v1/hypervisor/odk/materializing-runs/:id/release-lease",
+  ].filter((p) => iMethods(p).includes("POST"));
+  const iOdk = iRoutes.filter((r) => !r.retired && String(r.path || "").startsWith("/v1/hypervisor/odk/"));
+  const iAuto = iOdk.filter((r) => /(auto|infer|scaffold|generate|wizard|bootstrap|from-source)/i.test(String(r.path || "")));
+  const p = await page(`${SERVE}/__ioi/data/ingest`);
+  const t = p.text;
+  const planeRow = (pth) => {
+    const i = t.indexOf(`data-ioi-plane="${pth}"`);
+    if (i < 0) return "";
+    const start = t.lastIndexOf('<div class="ing-prow"', i);
+    const end = t.indexOf("</div>", i);
+    return start < 0 || end < 0 ? "" : t.slice(start, end + 6);
+  };
+  const pipeRow = (mid) => {
+    const i = t.indexOf(`data-ioi-pipeline="${mid}"`);
+    if (i < 0) return "";
+    const start = t.lastIndexOf('<div class="ing-row"', i);
+    const next = t.indexOf('<div class="ing-row"', i + 1);
+    const stop = next < 0 ? t.indexOf('<h2 class="ing-h">', i) : next;
+    return start < 0 ? "" : t.slice(start, stop < 0 ? t.length : stop);
+  };
+  const gapReasons = [...t.matchAll(/<span class="ing-chip ing-gap"[^>]*data-ioi-disabled-reason="([^"]*)"/g)].map((m) => m[1]);
+  ok("ingest: matrix reference_ported at /__ioi/data/ingest with the live-tenant DEEP-atlas evidence carried", bySlug.ingest?.parity_class === "reference_ported" && bySlug.ingest?.candidate_surface === "/__ioi/data/ingest" && bySlug.ingest?.port_surface === "/__ioi/data/ingest" && bySlug.ingest?.surface_name === "Data" && bySlug.ingest?.remediation_state === "live_ia_recorded" && /#ingest-port/.test(bySlug.ingest?.adjudication_ref || "") && /reference-live-tenant-deep-atlas\.v1\.json#ingest/.test(bySlug.ingest?.adjudication_ref || ""), bySlug.ingest?.parity_class);
+  ok("ingest: renders 200 with the LIVE-tenant HYPERAUTO card grammar, RAILLESS (owner ruling 2026-08-20)", p.status === 200 && !t.includes("og-grail") && ["HyperAuto", "HyperAuto Pipelines", "Create pipeline", "Go to Data Connection Application", "APPLICATIONS"].every((k) => t.includes(k)), String(p.status));
+  // THE LOAD-BEARING GATE. The finding is a disagreement between what the records SAY and what the
+  // chain DID, so every number is re-derived here from the planes on THIS run and must match the
+  // page exactly. A pasted quintet fails, and so does a correct-today one the day a source is
+  // declared, a pipeline is built or a run finally revises the flag it was supposed to revise.
+  ok("ingest: the SELF-REPORT FINDING is RE-DERIVED — the source count, the wired flag, the contacted sources, the landed rows and the receipted sets all match the planes on this run", new RegExp(`holds <b>${iSrcs.length}</b> declared source`).test(t) && new RegExp(`<b>${iWiredTrue.length}</b> of them carry <code>ingestion.wired: true</code>`).test(t) && new RegExp(`Yet <b>${iContactedSrc.size}</b> source`).test(t) && new RegExp(`<b>${iRowsLanded}</b> row(s)? landed in <b>${iSets.length}</b> materialized object set`).test(t) && new RegExp(`<b>${iContactedUnwired.length}</b> source[^<]*still read <code>ingestion.wired: false</code>`).test(t), `sources=${iSrcs.length} wired=${iWiredTrue.length} contacted=${iContactedSrc.size} rows=${iRowsLanded} sets=${iSets.length} contactedUnwired=${iContactedUnwired.length}`);
+  // SCH-1's rule carried: a number is not a measurement until you know the predicate behind it.
+  ok("ingest: every pipeline count NAMES the predicate that produced it, and the three predicates give three different answers over the same six chains", new RegExp(`<b>declared</b> predicate \\(a mapping record exists\\) finds <b>${iDeclared}</b>`).test(t) && new RegExp(`the <b>moved</b> predicate[\\s\\S]{0,260}?finds <b>${iMovedChains.length}</b>`).test(t) && new RegExp(`<b>row</b> predicate, summed from the output records themselves, finds <b>${iRowsLanded}</b>`).test(t) && /no count on this page is taken from a stage's own status field/.test(t), `declared=${iDeclared} moved=${iMovedChains.length} rows=${iRowsLanded}`);
+  ok("ingest: every plane's state AND shape AND chain STAGE are CLASSIFIED LIVE — the stamped triple equals what the daemon answers to this identity right now", iDerived.length === 21 && iDerived.every((d2) => new RegExp(`data-ioi-plane="${d2.path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}" data-ioi-plane-state="${d2.state}" data-ioi-plane-shape="${d2.shape}" data-ioi-plane-stage="`).test(t)), iDerived.map((d2) => `${d2.path.split("/").pop()}=${d2.state}`).join(" "));
+  ok("ingest: a REFUSAL is rendered as a REFUSAL — the daemon's typed code verbatim, and NEVER as a count", iDerived.filter((d2) => d2.state === "refused").length > 0 && iDerived.filter((d2) => d2.state === "refused").every((d2) => { const row = planeRow(d2.path); return row.includes(d2.code) && /REFUSED<\/b> this read/.test(row) && !/\d+<\/b> records?/.test(row); }) && /a refusal is not a zero/i.test(t), `${iDerived.filter((d2) => d2.state === "refused").length} refused`);
+  ok("ingest: EMPTY, MISSING and NO-READ-ROUTE are held apart — a plane the daemon publishes no GET for is never rendered EMPTY", iDerived.filter((d2) => d2.state === "empty").every((d2) => /EMPTY plane, not a missing one/.test(planeRow(d2.path))) && iDerived.filter((d2) => d2.state === "no_read_route").every((d2) => /no GET<\/b>/.test(planeRow(d2.path)) && /not the same as reading nothing/.test(planeRow(d2.path))) && /REFUSED is not EMPTY, EMPTY is not MISSING/.test(t), `empty=${iDerived.filter((d2) => d2.state === "empty").length} noroute=${iDerived.filter((d2) => d2.state === "no_read_route").length}`);
+  ok("ingest: pipeline rows == exactly the mapping plane, and each row's declared/moved/rows stamps are the RE-DERIVED join, not the record's self-report", (t.match(/class="ing-row"/g) || []).length === Math.min(60, iDeclared) && iChains.slice(0, 60).every((c) => t.includes(`data-ioi-pipeline="${c.mid}" data-ioi-pipeline-declared="${str(c.m?.health?.status) || str(c.m.status) || "—"}" data-ioi-pipeline-moved="${c.moved ? "yes" : "no"}" data-ioi-pipeline-rows="${c.rows}"`)) && (iDeclared > 60 ? /cap NAMED, never silent/.test(t) : new RegExp(`All <b>${iDeclared}</b> render here`).test(t)), `rows=${(t.match(/class="ing-row"/g) || []).length} plane=${iDeclared}`);
+  // The chain chips are the whole method: present because a RECORD was found, absent as a typed
+  // absence. A chip that lit up from a status field rather than a join would pass a weaker gate.
+  ok("ingest: every chain stage chip is PRESENT iff the join found a record, and every absent stage is a typed absence with its own reason", iChains.slice(0, 60).every((c) => { const row = pipeRow(c.mid); if (!row) return false; const on = (row.match(/class="ing-stage ing-stage-on"/g) || []).length; const off = (row.match(/class="ing-stage ing-stage-off"/g) || []).length; const expectOn = 1 + [c.views, c.trans, c.projs, c.plans, c.runs, c.sess, c.sets].filter((x) => x.length > 0).length; return on === expectOn && on + off === 8 && (off === 0 || (row.match(/ing-stage-off" aria-disabled="true" title="[^"]*" data-ioi-disabled-reason=/g) || []).length === off); }), iChains.map((c) => `${c.mid.slice(-6)}:${1 + [c.views, c.trans, c.projs, c.plans, c.runs, c.sess, c.sets].filter((x) => x.length > 0).length}/8`).join(" "));
+  ok("ingest: the READY-BUT-INERT count is re-derived and the daemon's OWN health note is quoted verbatim beside it", new RegExp(`<b>${iReadyInert.length}</b> of the ${iDeclared} mapping${iDeclared === 1 ? "" : "s"} report <code>health.status: ready</code>`).test(t) && (iMaps.length === 0 || (str(iMaps[0]?.health?.note) !== "" && t.includes(str(iMaps[0].health.note)))) && /is a verdict on the declaration, not on the run/.test(t) && /Declared state<\/b> — never under one that says Status/.test(t), `readyInert=${iReadyInert.length}/${iDeclared}`);
+  ok("ingest: the MISSING_CONTRACTS finding is re-derived by joining the downstream planes, and names the contracts that are not missing", new RegExp(`<b>${iFalseChains}</b> of the ${iDeclared} mapping${iDeclared === 1 ? "" : "s"} name at least one contract`).test(t) && new RegExp(`<b>${iFalseTotal}</b> such name`).test(t) && /computed without reading the downstream planes/.test(t), `chains=${iFalseChains} names=${iFalseTotal}`);
+  ok("ingest: the SESSION/RUN contradiction is re-derived, NAMED, and explicitly NOT adjudicated", new RegExp(`<b>${iDisagree.length}</b> connector session`).test(t) && /does not adjudicate between them/.test(t) && /connector_session_ref/.test(t) && /deciding a question the estate never answered/.test(t), `disagreeing=${iDisagree.length}`);
+  // MAP-1's distinction moved onto a VERB: the builder is missing, not empty, and it is counted.
+  ok("ingest: the automatic BUILDER is a typed absence COUNTED from the daemon's route index on render — zero building routes, thirteen crossings, each confirmed", new RegExp(`publishes <b>${iOdk.length}</b> ODK-family routes and <b>${iAuto.length}</b> of them accept a source and return a built chain`).test(t) && new RegExp(`is <b>${CHAIN_VERBS.length}</b> separate authority-crossing POSTs`).test(t) && CHAIN_VERBS.every((v) => t.includes(v)) && /MISSING, not empty/.test(t), `odk=${iOdk.length} auto=${iAuto.length} verbs=${CHAIN_VERBS.length}`);
+  ok("ingest: the nearest AUTOMATIC lane refuses this identity and the surface prints UNKNOWN as unknown, never as absent", iBy["/v1/hypervisor/odk/ontology-proposals"].state !== "refused" || (t.includes(iBy["/v1/hypervisor/odk/ontology-proposals"].code) && /says NOTHING about whether the estate can propose a model/.test(t) && /unknown is printed as unknown, never as absent/.test(t)), iBy["/v1/hypervisor/odk/ontology-proposals"].state);
+  // JOB-1's rule: one plane, one renderer. The source plane and the runs already have surfaces.
+  ok("ingest: the planes another surface already renders are LINKED, not duplicated — no source row, no sync row and no object row is minted here", t.includes("/__ioi/data/sources") && t.includes("/__ioi/pipeline") && t.includes("/__ioi/ontology/explorer") && /One plane, one renderer/.test(t) && !/class="src-row"/.test(t) && !/class="sch-row"/.test(t) && new RegExp(`<b>${iSrcs.length}</b> record`).test(t) && (t.match(/class="ing-row"/g) || []).length === iDeclared, `sources=${iSrcs.length} pipelines=${iDeclared}`);
+  ok("ingest: the APPLICATIONS lane is MISSING rather than the reference's own EMPTY, and the 4 recorded dialogs are NAMED rather than reconstructed", /MISSING, not empty/.test(t) && /no per-principal favourites or pinned-application plane/.test(t) && /EMPTY is not MISSING<\/b>/.test(t) && /recorded <b>4<\/b> dialog surfaces/.test(t) && /whitelist-only/.test(t) && /inventing an interaction nobody observed/.test(t), "applications + dialogs");
+  ok("ingest: every gap carries the UNIFIED contract (aria === title === data-ioi count, all on the same element)", (t.match(/aria-disabled="true"/g) || []).length >= 6 && (t.match(/aria-disabled="true"/g) || []).length === (t.match(/data-ioi-disabled-reason=/g) || []).length && (t.match(/aria-disabled="true"/g) || []).length === (t.match(/aria-disabled="true" title="[^"]*" data-ioi-disabled-reason=/g) || []).length, `${(t.match(/aria-disabled="true"/g) || []).length} gaps`);
+  ok("ingest: no chrome reason is BOILERPLATE — every control's reason is written for that control (all distinct)", gapReasons.length >= 4 && new Set(gapReasons).size === gapReasons.length, `${gapReasons.length} chrome gaps, ${new Set(gapReasons).size} distinct`);
+  ok("ingest: every reference control is answered in the mapping table, and the ONE the estate honours exactly is bound while the rest are marked unbound rather than filled", ["Create pipeline (header verb)", "Create pipeline (card verb)", "APPLICATIONS (facet group)", "4 recorded dialogs"].every((c) => t.includes(`data-ioi-control="${c}" data-ioi-control-bound="no"`)) && t.includes(`data-ioi-control="Go to Data Connection Application (empty-state link)" data-ioi-control-bound="yes"`) && (t.match(/data-ioi-control-bound="yes"/g) || []).length === 1, "5 controls answered");
+  ok("ingest: READ-ONLY projection — no verb is re-minted and the Create absence NAMES the crossings it refuses to mint", !t.includes("<form") && !/action="\/__ioi\/(data|pipeline|odk)/.test(t) && /second mutation spine over another surface's authority/.test(t) && /re-mints none of them/.test(t), String(!t.includes("<form")));
+  ok("ingest: evidence cited (adjudication #ingest-port + the LIVE deep atlas) and brand-clean — no vendor brand and no borrowed tenant identity", /reference-seed-adjudications\.v1\.json#ingest-port/.test(t) && /reference-live-tenant-deep-atlas\.v1\.json#ingest/.test(t) && !/\bPalantir\b/i.test(t) && !/palantirfoundry/i.test(t) && !/workspace\//i.test(t));
+}
 const fails = results.filter((r) => !r.pass);
 for (const r of results) console.log(`  ${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? `  (${r.detail})` : ""}`);
 console.log(`\n${results.length - fails.length}/${results.length} passed`);
