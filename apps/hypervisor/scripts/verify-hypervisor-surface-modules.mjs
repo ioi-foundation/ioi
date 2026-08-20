@@ -705,7 +705,9 @@ async function run() {
     ok("unified gap contract: ZERO titled aria-disabled emissions lack data-ioi-disabled-reason", unpaired.length === 0, unpaired.slice(0, 5).join(" · "));
     // FLOOR (ratchet, verifier-floors pattern): the migrated corpus carries at least this many
     // paired named-gap emissions; a refactor that silently drops gap declarations goes red here.
-    const GAP_EMISSION_FLOOR = 71;
+    // Floor lowered 71→69 by AUT-2 (2026-08-19): the two monitors New-automation emissions became
+    // LIVE in-shell create links — a gap became a function, the direction the ratchet exists to allow.
+    const GAP_EMISSION_FLOOR = 69;
     ok(`unified gap contract: paired emission count >= floor (${GAP_EMISSION_FLOOR})`, paired >= GAP_EMISSION_FLOOR, `paired=${paired}`);
   }
 }

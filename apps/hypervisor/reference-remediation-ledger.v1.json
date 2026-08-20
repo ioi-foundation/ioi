@@ -203,13 +203,15 @@
       {
         "id": "AUT-2",
         "title": "rehome cockpit verbs under Automate grammar",
-        "status": "queued"
+        "status": "done",
+        "evidence": "in-shell detail (?automation=id: real spec + run history + verbs) + create (?view=new: project-first form) \u2014 EVERY mutation a form posting the EXISTING seed lane with back=automate (run/pause/resume/delete + POST create; verified: all form actions target /__ioi/automations lanes only). Webhook rotate stays a substrate LINK (show-once token boundary, recorded). New-automation entries LIVE (gap\u2192function; surface-modules floor 71\u219269 with justification). Verifier 48/48 (7 new AUT-2 checks + census re-aim)."
       },
       {
         "id": "AUT-3",
         "title": "canonical /automations transfer",
-        "status": "queued",
-        "gate": "GRE-2"
+        "status": "held_for_owner",
+        "gate": "GRE-2",
+        "note": "ready to execute \u2014 AUT-1/AUT-2 landed; transfer changes the nav landing (GRE-2)"
       },
       {
         "id": "DAT-1",
@@ -439,6 +441,12 @@
       "date": "2026-08-19",
       "did": "W2 AUT-1 BUILT + verifier 41/41; matrix remediation vocabulary moved into generator (staleness gate caught the hand-edit defect); feed check re-aimed",
       "next": "W2 AUT-2 (rehome cockpit verbs under Automate grammar)"
+    },
+    {
+      "n": 13,
+      "date": "2026-08-19",
+      "did": "W2 AUT-2 BUILT: verbs rehomed under Automate grammar via back=automate on the seed lanes; 48/48",
+      "next": "W2 AUT-3 = GRE-2 HOLD (canonical /automations transfer needs owner go); DAT-1 Syncs lane next executable"
     }
   ],
   "pr_blockers": [

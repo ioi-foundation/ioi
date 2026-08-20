@@ -110,7 +110,9 @@ async function run() {
   // 4. NO NEW SEMANTICS — read-only projection; owner keeps authority lanes.
   ok("the surface is READ-ONLY (no form posts anywhere; no run/step/execute affordance)", !/<form/.test(t) && !/action="[^"]*\/(run|step|execute)"/.test(t));
   ok("the projection declares itself + no scheduler/execution semantics were added", /read-only projection over the real automation plane/.test(t) && /no scheduler or execution semantics were added/.test(t));
-  ok("unsupported controls are DISABLED IN PLACE with named-gap titles (store dropdown · New automation ×2 · Help · template docs ×3 · example installs ×2)", (t.match(/aria-disabled="true"/g) || []).length >= 8 && /Automation authoring from this surface is a reference-only lane/.test(t) && /Template docs are a reference-only lane/.test(t) && /Marketplace example installs are a reference-only lane/.test(t), `${(t.match(/aria-disabled="true"/g) || []).length} disabled controls`);
+  // RE-AIMED by AUT-2: New automation ×2 became LIVE in-shell create links (a gap became a
+  // function); the remaining census is store dropdown · Help · template docs ×3 · example installs ×2.
+  ok("unsupported controls are DISABLED IN PLACE with named-gap titles (store dropdown · Help · template docs ×3 · example installs ×2); New automation is LIVE", (t.match(/aria-disabled="true"/g) || []).length >= 7 && !/Automation authoring from this surface is a reference-only lane/.test(t) && t.includes("?tab=automations&view=new") && /Template docs are a reference-only lane/.test(t) && /Marketplace example installs are a reference-only lane/.test(t), `${(t.match(/aria-disabled="true"/g) || []).length} disabled controls`);
   ok("the verbatim strips are declared capture chrome (vendor content, never estate data)", /verbatim capture chrome/.test(t) && /never estate data/.test(t));
 
   // 5. Owner discoverability + brand.
@@ -130,7 +132,20 @@ async function run() {
   const livePaused = autos.length - liveActive;
   ok("AUT-1: row count equals the REAL plane count (no fabrication, no cap)", (tt.match(/class="mon-arow"/g) || []).length === autos.length, `rows=${(tt.match(/class="mon-arow"/g) || []).length} plane=${autos.length}`);
   ok("AUT-1: STATUS facet counts are LIVE plane truth (Active/Paused)", tt.includes(`Active<span class="mon-fn">${liveActive}</span>`) && tt.includes(`Paused<span class="mon-fn">${livePaused}</span>`));
-  ok("AUT-1: a sampled REAL automation id renders as a row linking the owner-substrate detail", autos.length > 0 && tt.includes(autos[0].automation_id) && tt.includes(`href="/__ioi/automations?automation=`));
+  ok("AUT-1: a sampled REAL automation id renders as a row linking the IN-SHELL detail (AUT-2)", autos.length > 0 && tt.includes(autos[0].automation_id) && tt.includes(`?tab=automations&automation=`));
+
+  // 7. AUT-2 — verbs rehomed under the Automate grammar: in-shell detail + create, every mutation
+  // a form posting the EXISTING seed lane (back=automate) — same lanes re-chromed, no second spine.
+  const det = await page(`${SERVE}/__ioi/automations/monitors?tab=automations&automation=${encodeURIComponent(autos[0].automation_id)}`);
+  const dt = det.text;
+  ok("AUT-2: detail renders the REAL spec (name + id + project + trigger)", det.status === 200 && dt.includes(autos[0].automation_id) && dt.includes(autos[0].project_id || ""), autos[0].automation_id);
+  ok("AUT-2: run/pause-or-resume/delete are forms posting the SEED lanes with back=automate", [`/run?back=automate`, `/delete?back=automate`].every((v) => dt.includes(v)) && (dt.includes(`/pause?back=automate`) || dt.includes(`/resume?back=automate`)));
+  ok("AUT-2: NO new mutation route — every form action targets /__ioi/automations seed lanes only", [...dt.matchAll(/action="([^"]+)"/g)].every((m) => m[1].startsWith("/__ioi/automations")));
+  ok("AUT-2: webhook rotate stays a LINK to the substrate (show-once token boundary, recorded)", dt.includes(`href="/__ioi/automations/${encodeURIComponent(autos[0].automation_id)}"`) && /SHOW-ONCE token/.test(dt));
+  ok("AUT-2: detail run history renders real executions or an honest empty", dt.includes("Run history") && (dt.includes("mon-runrow") || /No executions recorded for this automation/.test(dt)));
+  const neu = await page(`${SERVE}/__ioi/automations/monitors?tab=automations&view=new`);
+  ok("AUT-2: the create form posts the SEED create lane (project-first: project_ref required)", neu.status === 200 && neu.text.includes(`action="/__ioi/automations?back=automate"`) && neu.text.includes(`name="project_ref" required`));
+  ok("AUT-2: New-automation entries are LIVE in-shell links (no longer gaps)", t.includes(`?tab=automations&view=new`) && !/New automation<\/span><\/span>/.test(t));
   ok("AUT-1: unsupported facets are typed absences in BOTH vocabularies (aria-disabled+title AND data-ioi-disabled-reason)", (tt.match(/aria-disabled="true"[^>]*data-ioi-disabled-reason/g) || []).length >= 8);
   ok("AUT-1: the lane is READ-ONLY (no form posts anywhere on the tab)", !tt.includes("<form"));
   const pausedPage = await page(`${SERVE}/__ioi/automations/monitors?tab=automations&status=paused`);

@@ -4613,7 +4613,7 @@ function renderMonitorsPort(automations, runsById, view = "overview", flt = {}) 
     </nav>
     <div class="mon-hright">
       <span class="mon-hbtn outlined store gap" aria-disabled="true" title="Recent installations — marketplace install lanes are not bound to this surface (named gap)" data-ioi-disabled-reason="Recent installations — marketplace install lanes are not bound to this surface (named gap)"><span class="mon-storeico" aria-hidden="true"></span>${bpIcon("caret-down")}</span>
-      <span class="mon-hbtn success gap" aria-disabled="true" title="Automation authoring from this surface is a reference-only lane — automations are created on the Automations substrate (named gap)" data-ioi-disabled-reason="Automation authoring from this surface is a reference-only lane — automations are created on the Automations substrate (named gap)">${bpIcon("add")}<span>New automation</span></span>
+      <a class="mon-hbtn success" href="/__ioi/automations/monitors?tab=automations&view=new" title="New automation — the in-shell create form posting the seed create lane (AUT-2; same lane, re-chromed)">${bpIcon("add")}<span>New automation</span></a>
       <span class="mon-hbtn outlined gap" aria-disabled="true" title="Reference help lane (named gap)" data-ioi-disabled-reason="Reference help lane (named gap)">${bpIcon("help")}<span>Help</span></span>
     </div>
   </header>`;
@@ -4633,7 +4633,7 @@ function renderMonitorsPort(automations, runsById, view = "overview", flt = {}) 
     <div class="mon-wizcopy">
       <h4 class="mon-wizt">Create your first automation</h4>
       <p class="mon-wizsub">Get started by creating a new automation or adding yourself to existing automations.</p>
-      <span class="mon-wizbtn gap" aria-disabled="true" title="Automation authoring from this surface is a reference-only lane — automations are created on the Automations substrate (named gap)" data-ioi-disabled-reason="Automation authoring from this surface is a reference-only lane — automations are created on the Automations substrate (named gap)">${bpIcon("plus")}<span>New automation</span></span>
+      <a class="mon-wizbtn" href="/__ioi/automations/monitors?tab=automations&view=new" title="New automation — the in-shell create form posting the seed create lane (AUT-2)">${bpIcon("plus")}<span>New automation</span></a>
     </div>
     <img class="mon-wizstrip" src="${MON_WIZ_STRIP_URI}" width="584" height="222" alt="Reference 3-step wizard illustrations (verbatim capture chrome)">
   </div>
@@ -4719,20 +4719,66 @@ function renderMonitorsPort(automations, runsById, view = "overview", flt = {}) 
   const acond = (a) => { const k = trigOf(a); const s = a.schedule_spec || (a.trigger || {}).schedule || null; return k === "time" && s ? `${k} · ${typeof s === "string" ? s : JSON.stringify(s)}` : k; };
   const arowsHtml = arows.length ? arows.map((a) => {
     const steps = Array.isArray(a.steps) ? a.steps.length : 0;
-    return `<a class="mon-arow" href="/__ioi/automations?automation=${encodeURIComponent(a.automation_id)}" title="Open this automation's detail on the owner substrate (read-only projection here)">
+    return `<a class="mon-arow" href="/__ioi/automations/monitors?tab=automations&automation=${encodeURIComponent(a.automation_id)}" title="Open this automation in the Automate detail lane (verbs post the seed lanes)">
       <span class="mon-acell name"><span class="mon-rowico" aria-hidden="true"></span><span class="mon-rowdata"><span class="mon-rowname">${esc(a.name || a.automation_id)}</span><span class="mon-rowpath">${esc(a.automation_id)} · project ${esc(a.project_id || "—")} · ${steps} step${steps === 1 ? "" : "s"}</span></span></span>
       <span class="mon-acell">${esc(acond(a))}</span>
       <span class="mon-acell">${apill(a)}</span>
       <span class="mon-acell">${creatorOf(a) ? `<span title="declared executor_identity.ref (real daemon truth)">${esc(creatorOf(a))}</span>` : gapDash("No executor identity is recorded on this automation (named gap)")}</span>
     </a>`;
   }).join("") : `<div class="mon-empty">No automations${flt.status || flt.condition ? " match this filter — the facet counts are live plane truth" : ""} — this list renders the real automation plane and never fabricates rows.</div>`;
+  // ---- AUT-2: the in-shell DETAIL + CREATE views. Every verb is a form posting the EXISTING
+  // seed lane (/__ioi/automations/:id/run|pause|resume|delete, POST /__ioi/automations) with
+  // back=automate so the flow stays in-shell — the SAME lanes re-chromed, never a second spine.
+  // Webhook ROTATE stays a LINK to the substrate detail: its show-once token page must render
+  // there or the token is destroyed by redirect (recorded boundary, not a gap).
+  const selAuto = flt.automation ? list.find((a) => a.automation_id === flt.automation) : null;
+  const detailView = selAuto ? (() => {
+    const a = selAuto;
+    const runs = runsById[a.automation_id] || [];
+    const steps = Array.isArray(a.steps) ? a.steps : [];
+    const verb = (action, label, cls, titleTxt) => `<form class="mon-verb" method="post" action="/__ioi/automations/${encodeURIComponent(a.automation_id)}/${action}?back=automate"><button class="mon-hbtn ${cls}" type="submit" title="${esc(titleTxt)}">${esc(label)}</button></form>`;
+    const runRows = runs.slice(0, 20).map((r) => `<div class="mon-runrow"><span class="mon-pill ${r.status === "done" ? "active" : "paused"}">${esc(r.status || "unknown")}</span><span class="mon-runwhen">${esc(r.started_at || "—")}</span><code class="mon-runref">${esc(r.execution_id || "")}${r.environment_id ? ` · ${esc(r.environment_id)}` : ""}</code></div>`).join("");
+    return `<div class="mon-alist"><a class="mon-back" href="/__ioi/automations/monitors?tab=automations">← All automations</a>
+      <div class="mon-dhead"><h2 class="mon-dname">${esc(a.name || a.automation_id)}</h2>${apill(a)}</div>
+      <div class="mon-dfacts"><code>${esc(a.automation_id)}</code> · project ${esc(a.project_id || "—")} · trigger ${esc(acond(a))} · ${steps.length} step${steps.length === 1 ? "" : "s"} · executor ${esc(creatorOf(a) || "—")} · created ${esc(a.created_at || "—")}</div>
+      ${a.description ? `<p class="mon-ddesc">${esc(a.description)}</p>` : ""}
+      <div class="mon-verbs">
+        ${verb("run", "Run now", "success", "POST the seed run lane — a real execution on the daemon plane")}
+        ${a.enabled === false ? verb("resume", "Resume", "outlined", "PATCH enabled=true via the seed lane") : verb("pause", "Pause", "outlined", "PATCH enabled=false via the seed lane")}
+        ${verb("delete", "Delete", "outlined", "DELETE via the seed lane — the record is removed from the plane")}
+        <a class="mon-hbtn outlined" href="/__ioi/automations/${encodeURIComponent(a.automation_id)}" title="Webhook trigger/rotate + full spec editing stay on the substrate detail — the rotate flow renders a SHOW-ONCE token that a redirect would destroy (recorded boundary)">Webhooks &amp; full spec →</a>
+      </div>
+      <h3 class="mon-dh">Run history <span class="mon-statcount">${runs.length}</span></h3>
+      <div class="mon-runs">${runRows || `<div class="mon-empty">No executions recorded for this automation — the history renders real runs and never fabricates rows.</div>`}</div>
+      <p class="mon-foot">AUT-2: every verb above posts the automation plane through the EXISTING seed lanes (run/pause/resume/delete with back=automate) — the same wired mutation paths, re-chromed in the Automate grammar; no second spine. Spec mutations on this family still cross UNRECEIPTED (the named W2 defect; the lease-client wave owns the fix).</p>
+    </div>`;
+  })() : null;
+  const createView = flt.view === "new" ? (() => {
+    const projects = Array.isArray(flt.projects) ? flt.projects : [];
+    const opts = projects.map((pr) => `<option value="${esc(pr.project_id)}">${esc(pr.name || pr.project_id)}</option>`).join("");
+    return `<div class="mon-alist"><a class="mon-back" href="/__ioi/automations/monitors?tab=automations">← All automations</a>
+      <h2 class="mon-dname">New automation</h2>
+      <form class="mon-newform" method="post" action="/__ioi/automations?back=automate">
+        <label class="mon-fl">Project<select name="project_ref" required>${opts || `<option value="">— no projects on the plane —</option>`}</select></label>
+        <label class="mon-fl">Name<input name="name" required placeholder="automation name"></label>
+        <label class="mon-fl">Description<input name="description" placeholder="optional"></label>
+        <label class="mon-fl">Step kind<select name="step_kind"><option value="agent">agent</option><option value="command">command</option></select></label>
+        <label class="mon-fl">Step body<textarea name="step_body" rows="3" placeholder="agent prompt or command"></textarea></label>
+        <label class="mon-fl">Schedule<select name="schedule_type"><option value="manual">manual</option><option value="interval">interval</option><option value="cron">cron</option></select></label>
+        <label class="mon-fl">Interval<input name="interval_n" type="number" min="0" placeholder="0"> <select name="interval_unit"><option>minutes</option><option>hours</option><option>seconds</option></select></label>
+        <label class="mon-fl">Cron<input name="cron" placeholder="*/5 * * * *"> <input name="cron_tz" value="UTC" size="6"></label>
+        <button class="mon-hbtn success" type="submit" title="POST the seed create lane (project-first contract: project_ref REQUIRED)">Create automation</button>
+      </form>
+      <p class="mon-foot">AUT-2: this form posts the EXISTING seed create lane (POST /__ioi/automations, project-first: project_ref required by the daemon contract) with back=automate — same lane, re-chromed. Creation lands you on the new automation\u2019s in-shell detail.</p>
+    </div>`;
+  })() : null;
   const automationsLane = `<div class="mon-abody">
-    ${filters}
+    ${detailView || createView ? (detailView || createView) : `${filters}
     <div class="mon-alist">
       <div class="mon-athead"><span class="mon-ath name">Name</span><span class="mon-ath">Condition</span><span class="mon-ath">Status</span><span class="mon-ath">Creator</span></div>
       <div class="mon-arows">${arowsHtml}</div>
       <p class="mon-foot">The <b>Automations</b> lane — the reference's own in-app list route rebuilt LIVE inside the certified shell (AUT-1): ${arows.length} of ${list.length} automation${list.length === 1 ? "" : "s"} shown${flt.status || flt.condition ? " (filtered)" : ""}, read-only. Rows open the <a href="/__ioi/automations">Automations substrate</a> detail; authoring/pause/resume/run history stay there. Facets the plane cannot express are disabled in place with the reason named. Evidence: reference-family-atlas.v1.json (monitors tab_lane, 8 facet groups) · reference-subroute-census.v1.json.</p>
-    </div>
+    </div>`}
   </div>`;
 
 
@@ -4843,6 +4889,18 @@ function renderMonitorsPort(automations, runsById, view = "overview", flt = {}) 
     .mon-acell.name{display:flex;align-items:center;gap:10px;white-space:normal}
     .mon-pill{display:inline-flex;padding:1px 8px;border-radius:10px;font-size:12px;font-weight:600}
     .mon-pill.active{background:rgba(35,133,81,.12);color:#1c6e42}.mon-pill.paused{background:rgba(95,107,124,.12);color:#5f6b7c}
+    .mon-back{display:inline-block;font-size:13px;margin:0 0 12px}
+    .mon-dhead{display:flex;align-items:center;gap:12px}.mon-dname{font-size:20px;font-weight:600;margin:0}
+    .mon-dfacts{font-size:13px;color:#5f6b7c;margin:6px 0 2px}.mon-ddesc{font-size:14px;color:#1c2127;margin:8px 0 0}
+    .mon-verbs{display:flex;align-items:center;gap:10px;margin:16px 0 8px}.mon-verb{display:inline-flex;margin:0}
+    .mon-verbs .mon-hbtn{margin-top:0;cursor:pointer}
+    .mon-dh{font-size:16px;font-weight:600;margin:22px 0 8px}
+    .mon-runrow{display:flex;align-items:center;gap:12px;padding:6px 0;border-bottom:1px solid #f0f2f5;font-size:13px}
+    .mon-runwhen{color:#5f6b7c}.mon-runref{font-size:11px;color:#5f6b7c;word-break:break-all}
+    .mon-newform{display:flex;flex-direction:column;gap:10px;max-width:560px;margin-top:12px}
+    .mon-fl{display:flex;flex-direction:column;gap:4px;font-size:13px;color:#404854;font-weight:600}
+    .mon-fl input,.mon-fl select,.mon-fl textarea{font:14px/1.4 inherit;padding:6px 8px;border:1px solid rgba(95,107,124,.35);border-radius:3px;color:#1c2127;font-weight:400}
+    .mon-newform .mon-hbtn{align-self:flex-start;margin-top:6px;cursor:pointer}
     @media(max-width:700px){
       .mon-main{height:100svh}.mon-hchip{width:42px;flex-basis:42px}.mon-htitle{margin-left:9px;font-size:15px}
       .mon-tabs{margin-left:auto}.mon-tab{font-size:13px;margin-right:12px}.mon-hright{display:none}
@@ -8953,7 +9011,7 @@ async function handleEstateRequest(req, res, body) {
         res.end(automationsShell("New automation", `<div class="empty">Create failed: ${CX_ESC((j.error && j.error.message) || ("HTTP " + r.status))}</div><p><a href="/__ioi/automations/new${payload.project_ref ? "?project=" + encodeURIComponent(payload.project_ref) : ""}">← back</a></p>`));
         return;
       }
-      res.writeHead(302, { Location: `/__ioi/automations/${encodeURIComponent(newId)}`, "Cache-Control": "no-cache" });
+      res.writeHead(302, { Location: new URL(req.url, "http://x").searchParams.get("back") === "automate" ? `/__ioi/automations/monitors?tab=automations&automation=${encodeURIComponent(newId)}` : `/__ioi/automations/${encodeURIComponent(newId)}`, "Cache-Control": "no-cache" });
       res.end();
       return;
     }
@@ -8986,7 +9044,11 @@ async function handleEstateRequest(req, res, body) {
       // certified shell over the same plane. Read-only; ?status/?condition are server-side filters.
       const monQp = new URL(req.url, "http://x").searchParams;
       const monView = monQp.get("tab") === "automations" ? "automations" : "overview";
-      sendOwnedSurfaceHtml(res, "monitors", renderMonitorsPort(autos, Object.fromEntries(runsEntries), monView, { status: monQp.get("status") || "", condition: monQp.get("condition") || "" }));
+      // AUT-2: in-shell detail (?automation=<id>) + create (?view=new) — verbs post the SEED lanes.
+      const monProjects = monView === "automations" && monQp.get("view") === "new"
+        ? await daemonFetch(`/v1/hypervisor/projects`).then((r) => r.json()).then((j) => j.projects || []).catch(() => [])
+        : [];
+      sendOwnedSurfaceHtml(res, "monitors", renderMonitorsPort(autos, Object.fromEntries(runsEntries), monView, { status: monQp.get("status") || "", condition: monQp.get("condition") || "", automation: monQp.get("automation") || "", view: monQp.get("view") || "", projects: monProjects }));
       return;
     }
     if (pathname.startsWith("/__ioi/automations/")) {
@@ -8994,8 +9056,12 @@ async function handleEstateRequest(req, res, body) {
       const [rawId, action] = rest.split("/");
       const id = decodeURIComponent(rawId);
       // Remediation fired from the Operations console (?back=ops) returns the operator there.
-      const backTo = new URL(req.url, "http://x").searchParams.get("back") === "ops"
-        ? "/__ioi/operations" : `/__ioi/automations/${encodeURIComponent(id)}`;
+      const backQ = new URL(req.url, "http://x").searchParams.get("back");
+      // AUT-2: back=automate returns the caller to the IN-SHELL Automate detail — the SAME seed
+      // lane re-chromed, never a second mutation path.
+      const backTo = backQ === "ops" ? "/__ioi/operations"
+        : backQ === "automate" ? `/__ioi/automations/monitors?tab=automations&automation=${encodeURIComponent(id)}`
+        : `/__ioi/automations/${encodeURIComponent(id)}`;
       if (action === "run" && req.method === "POST") {
         // Manual run: the daemon executor creates an env, runs the steps, and records a transcript.
         const r = await daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(id)}/runs`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }).catch(() => null);
@@ -9060,7 +9126,7 @@ async function handleEstateRequest(req, res, body) {
           automationsRefusalPage(res, r.status, await r.json().catch(() => ({})), `/__ioi/automations/${encodeURIComponent(id)}`);
           return;
         }
-        res.writeHead(302, { Location: `/__ioi/automations${pid ? "?project=" + encodeURIComponent(pid) : ""}`, "Cache-Control": "no-cache" });
+        res.writeHead(302, { Location: backQ === "automate" ? "/__ioi/automations/monitors?tab=automations" : `/__ioi/automations${pid ? "?project=" + encodeURIComponent(pid) : ""}`, "Cache-Control": "no-cache" });
         res.end();
         return;
       }
