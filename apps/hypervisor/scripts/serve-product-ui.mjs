@@ -10424,6 +10424,65 @@ async function handleEstateRequest(req, res, body) {
     }
     if (pathname === "/__ioi/lineage" && req.method === "GET") {
       const J = (p) => daemonFetch(`${p}`).then((r) => r.json()).catch(() => ({}));
+      // PRO-1.build increment 1 (remediation v2): the light Monocle lanes — History (the proof
+      // stream: work-ledger) + Build timeline (agent-run transcripts), both LIVE with the cap
+      // NAMED; SQL scratchpad / Code / Data health = typed absences per the per-tab adjudication.
+      // The Preview lane (the lineage graph) keeps the substrate render this increment; its light
+      // re-chrome is the named residual completing PRO-1.build.
+      const linTab = new URL(req.url, "http://x").searchParams.get("tab") || "";
+      if (linTab === "history" || linTab === "timeline") {
+        const fdt2 = (iso) => { const d2 = new Date(iso || 0); return isNaN(d2) ? "—" : d2.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); };
+        let laneTitle, laneRows, planeN, laneNote;
+        if (linTab === "history") {
+          const wl = await J("/v1/hypervisor/work-ledger");
+          const entries = Array.isArray(wl) ? wl : (wl.entries || wl.work_ledger || []);
+          planeN = entries.length;
+          laneTitle = "History — the proof stream";
+          laneRows = entries.slice(-30).reverse().map((e) => `<div class="mnc-row"><span><b>${CX_ESC(e.kind || e.op || "entry")}</b><code class="mnc-ref">${CX_ESC(e.id || "")}</code></span><span>${CX_ESC(e.provider || "—")}</span><span>${CX_ESC(e.environment_ref || "—")}</span><span>${CX_ESC(e.exposure_ref || e.grant_ref || "—")}</span></div>`).join("");
+          laneNote = `newest 30 of ${planeN} proof-stream entries (cap NAMED; the full stream lives on <a href="/__ioi/work-ledger">the Provenance owner surface</a>)`;
+        } else {
+          const tr = await J("/v1/hypervisor/agent-run-transcripts");
+          const runs2 = tr.runs || [];
+          planeN = runs2.length;
+          laneTitle = "Build timeline — real run transcripts";
+          laneRows = [...runs2].sort((a, b) => String(b.started_at || "").localeCompare(String(a.started_at || ""))).slice(0, 30).map((r) => `<div class="mnc-row"><span><b>${CX_ESC(r.op || r.kind || "run")}</b><code class="mnc-ref">${CX_ESC(r.run_id || "")}</code></span><span>${CX_ESC(r.status || "—")}</span><span>${fdt2(r.started_at)}</span><span><code class="mnc-ref" title="the run's recomputable state root — the proof anchor">${CX_ESC((r.state_root || "").slice(0, 18))}${r.state_root ? "…" : "—"}</code></span></div>`).join("");
+          laneNote = `newest 30 of ${planeN} run transcripts (cap NAMED)`;
+        }
+        const mtab = (label, href, on, gapReason) => gapReason
+          ? `<span class="mnc-tab gap" aria-disabled="true" title="${CX_ESC(gapReason)}" data-ioi-disabled-reason="${CX_ESC(gapReason)}">${CX_ESC(label)}</span>`
+          : (on ? `<span class="mnc-tab on" aria-current="page">${CX_ESC(label)}</span>` : `<a class="mnc-tab" href="${href}">${CX_ESC(label)}</a>`);
+        const tabs = [
+          mtab("Preview", "/__ioi/lineage", false, null),
+          mtab("SQL scratchpad", "", false, "No SQL plane exists on the estate — the reference scratchpad has nothing to execute against (typed absence; adjudication #lineage-tabs)"),
+          mtab("History", "/__ioi/lineage?tab=history", linTab === "history", null),
+          mtab("Code", "", false, "No code plane exists for lineage nodes (typed absence; adjudication #lineage-tabs)"),
+          mtab("Build timeline", "/__ioi/lineage?tab=timeline", linTab === "timeline", null),
+          mtab("Data health", "", false, "No per-node data-health plane exists — execution health is Operations-owned (typed absence; adjudication #lineage-tabs)"),
+        ].join("");
+        const grail = ioiGlobalRailHtml({ label: "Data Lineage", href: "/__ioi/lineage", iconUri: DSG_APP_TILE_URI, railVariant: "rv-pipe rv-dsg", viewAll: true, star: false, badges: true, aipGradient: true, acctMuted: true });
+        res.writeHead(200, HTMLH);
+        res.end(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Data Lineage</title><style>
+          :root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#fff;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif}a{color:#215db0;text-decoration:none}
+          .mnc-shell{display:flex;height:100vh;overflow:hidden}${IOI_GRAIL_CSS}
+          .mnc-main{flex:1;min-width:0;display:flex;flex-direction:column}
+          .mnc-header{flex:0 0 50px;display:flex;align-items:center;gap:18px;padding:0 20px;background:#fff;box-shadow:0 1px 0 #d1d1d1,0 3px 4px rgba(0,0,0,.04)}
+          .mnc-title{font-size:16px;font-weight:600;color:#404854;margin:0}
+          .mnc-tab{font-size:14px;line-height:50px;color:#1c2127;position:relative}
+          .mnc-tab.on{color:#215db0;font-weight:600}.mnc-tab.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:#215db0}
+          .mnc-tab.gap{color:#a8b2be;cursor:not-allowed}
+          .mnc-body{flex:1;overflow-y:auto;padding:18px 26px 40px}
+          .mnc-h{font-size:18px;font-weight:600;margin:0 0 4px}
+          .mnc-note{font-size:12px;color:#5f6b7c;margin:0 0 12px}
+          .mnc-row{display:grid;grid-template-columns:2fr 1fr 1.4fr 1.4fr;gap:8px;align-items:center;padding:7px 8px;border-bottom:1px solid #f0f2f5;font-size:13px}
+          .mnc-ref{display:block;font-size:11px;color:#5f6b7c;word-break:break-all}
+          .mnc-foot{font-size:12px;color:#7b8494;line-height:1.6;margin-top:18px}
+        </style></head><body><div class="mnc-shell">${grail}<div class="mnc-main">
+          <header class="mnc-header"><h1 class="mnc-title">Data Lineage</h1>${tabs}</header>
+          <div class="mnc-body"><h2 class="mnc-h">${laneTitle}</h2><p class="mnc-note">${laneNote}</p>${laneRows || `<div class="mnc-note">No entries — this lane renders the real plane and never fabricates rows.</div>`}
+          <p class="mnc-foot">PRO-1.build (remediation v2): the light Monocle lanes over the REAL proof planes — per-tab adjudication reference-seed-adjudications.v1.json#lineage-tabs; atlas: reference-family-atlas.v1.json (6 tab states). The <a href="/__ioi/lineage">Preview lane</a> (the lineage graph) keeps the substrate render while its light re-chrome completes this port (named residual, never silent).</p></div>
+        </div></div></body></html>`);
+        return;
+      }
       const [o, mr, ms, wl, cm, pv, op, lp, dsr] = await Promise.all([
         J("/v1/hypervisor/odk/domain-ontologies"),
         J("/v1/hypervisor/odk/materializing-runs"),

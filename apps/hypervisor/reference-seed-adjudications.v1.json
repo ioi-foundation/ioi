@@ -510,6 +510,23 @@
       "estate_plane": "the model-route registry (routes carry the origin field; registration verb = POST /v1/hypervisor/model-routes, Agent-Studio-owned)",
       "outcome": "portable",
       "reason": "SHIPPED as a live lane over the SAME registry keyed on origin (verbatim); external model-ASSET import remains a named gap ON the lane (import \u2260 route registration)"
+    },
+    {
+      "action": "PRO-1.build",
+      "seed": "lineage",
+      "owner": "Provenance",
+      "record_id": "lineage-tabs",
+      "reference_route": "http://localhost:9225/workspace/monocle/ (6 tabs)",
+      "per_tab_adjudication": {
+        "Preview": "the lineage graph \u2014 the substrate render itself; light re-chrome = the named residual completing PRO-1.build",
+        "History": "PORTABLE \u2014 SHIPPED live over /v1/hypervisor/work-ledger (7140-entry proof stream; newest 30, cap named)",
+        "Build timeline": "PORTABLE \u2014 SHIPPED live over /v1/hypervisor/agent-run-transcripts (3173 runs; newest 30, cap named; state_root as the proof anchor)",
+        "SQL scratchpad": "absent_confirmed \u2014 no SQL plane exists",
+        "Code": "absent_confirmed \u2014 no code plane for lineage nodes",
+        "Data health": "absent_confirmed \u2014 execution health is Operations-owned (boundary)"
+      },
+      "outcome": "portable",
+      "reason": "the portable tab set (History + Build timeline) SHIPPED as light Monocle lanes at /__ioi/lineage?tab=; three absences typed in both vocabularies on the tab row; Preview re-chrome is the recorded residual"
     }
   ]
 }

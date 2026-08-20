@@ -268,7 +268,8 @@
       {
         "id": "PRO-1.build",
         "title": "Monocle light shell over lineage substrate (portable tab set)",
-        "status": "queued"
+        "status": "in_progress",
+        "evidence": "INCREMENT 1 SHIPPED: light Monocle lanes History (work-ledger, 7140 entries) + Build timeline (transcripts, 3173 runs) live at /__ioi/lineage?tab= with caps named; SQL/Code/Data-health typed absences (both vocabularies); per-tab adjudication #lineage-tabs. NAMED RESIDUAL: Preview lane light re-chrome (next iteration)."
       },
       {
         "id": "PRO-2.build",
@@ -497,6 +498,12 @@
       "date": "2026-08-19",
       "did": "W3 FOU-1: Registered-models live lane (29/29 + 17/17); W3 EXECUTABLE SET COMPLETE",
       "next": "W4: PRO-1.build (Monocle light re-shell \u2014 the census's richest miss)"
+    },
+    {
+      "n": 21,
+      "date": "2026-08-19",
+      "did": "W4 PRO-1.build increment 1: Monocle History+Timeline lanes live; per-tab adjudication recorded; Preview re-chrome = named residual",
+      "next": "PRO-1.build completion (Preview light re-chrome) OR parallel W4 items"
     }
   ],
   "pr_blockers": [
