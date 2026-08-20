@@ -195,7 +195,7 @@ if (STAGE === "stage5") {
     "/__ioi/domain-apps/fusion", "/__ioi/environments/map", "/__ioi/marketplace/artifacts",
     "/__ioi/developer-console", "/__ioi/evaluations/insight", "/__ioi/studio/workshop",
     "/__ioi/missions/schedules", "/__ioi/data/ingest", "/__ioi/foundry/model-studio",
-    "/__ioi/foundry/inference"];
+    "/__ioi/foundry/inference", "/__ioi/operations", "/__ioi/environments"];
   for (const vp of [{ w: 1024, h: 768, tag: "tablet" }, { w: 390, h: 844, tag: "phone" }]) {
     const pg5 = await browser.newPage({ viewport: { width: vp.w, height: vp.h } });
     for (const r of KEY) {

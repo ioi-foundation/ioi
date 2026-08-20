@@ -809,7 +809,7 @@ function automationsShell(title, inner, opts = {}) {
   .chip{background:#15171c;border:1px solid #2a2c33;color:#cbd0da;border-radius:999px;padding:4px 11px;font:inherit;font-size:12px;cursor:pointer}
   .chip:hover{border-color:#3a82f6}
   .chip.on{background:#15315c;border-color:#3a82f6;color:#fff}
-  .wlwrap{display:grid;grid-template-columns:1fr 340px;gap:18px;align-items:start}
+  .wlwrap{display:grid;grid-template-columns:1fr 340px;gap:18px;align-items:start}@media(max-width:700px){.wlwrap{grid-template-columns:1fr}.wlwrap>*{min-width:0;max-width:100%}.wldrawer{position:static;max-width:100%;min-width:0}}
   .wlrow{cursor:pointer}
   .wlrow:hover td{background:#15171c}
   .wlrow.selrow td{background:#191b21}
@@ -829,7 +829,8 @@ function automationsShell(title, inner, opts = {}) {
   .field input,.field select,.field textarea{width:100%;box-sizing:border-box;padding:10px;border-radius:9px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit}
   .field textarea{min-height:84px;resize:vertical}
   .two{display:grid;grid-template-columns:1fr 1fr;gap:0 16px}
-  form.inline{display:inline}${opts.theme === "light" ? GRE1_LIGHT_BODY_CSS : ""}
+  form.inline{display:inline}
+  @media(max-width:700px){table{display:block;overflow-x:auto;max-width:100%}.pill{white-space:normal;overflow-wrap:anywhere;max-width:100%}.row{flex-wrap:wrap}.sub,code{overflow-wrap:anywhere}}${opts.theme === "light" ? GRE1_LIGHT_BODY_CSS : ""}
 </style></head><body><div class="wrap"><div class="brand">IOI Hypervisor</div>${inner}</div></body></html>`;
 }
 function automationProjectName(a, projectsById) {
@@ -2249,7 +2250,7 @@ function renderEnvironments(summary, classes, providerAccounts, venuesRes, polic
   }).join("");
   const pager = envPager("/__ioi/environments", summary);
   const table = `<h2>Active environments</h2><p class="sub" style="margin:-4px 0 12px">Select an environment to inspect its live lifecycle detail — component phases, readiness observations, ports/services/tasks, isolation and connectivity posture — read from the daemon record. <a href="/__ioi/environments/map">Placement map →</a></p>${pager}<div class="envwrap"><div><table><thead><tr><th>Environment</th><th>Phase</th><th>Readiness</th><th>Project</th><th>Class · substrate</th><th>Ports·Svc·Tasks</th><th>Open</th></tr></thead><tbody>${rows}</tbody></table>${pager}</div><div class="envdrawer" id="env-drawer"><div class="sub" style="margin:0">Select an environment to inspect its lifecycle detail.</div></div></div>`;
-  const styles = `<style>.envwrap{display:grid;grid-template-columns:1fr 380px;gap:16px;align-items:start}.envdrawer{position:sticky;top:12px;border:1px solid #e5e8eb;border-radius:12px;background:#fff;padding:14px 16px;max-height:82vh;overflow:auto;font-size:12.5px}.envrow{cursor:pointer}.envrow.selrow{background:#e8eef7}.envrow:hover{background:#f6f7f9}.envd-k{color:#5f6b7c;font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin:12px 0 4px;font-weight:600}.envd-comp{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #f0f2f5}.envd-obs{border-left:2px solid #d1d1d1;padding:2px 0 8px 10px;margin-left:3px}@media(max-width:1100px){.envwrap{grid-template-columns:1fr}.envdrawer{position:static}}</style>`;
+  const styles = `<style>.envwrap{display:grid;grid-template-columns:1fr 380px;gap:16px;align-items:start}.envdrawer{position:sticky;top:12px;border:1px solid #e5e8eb;border-radius:12px;background:#fff;padding:14px 16px;max-height:82vh;overflow:auto;font-size:12.5px}.envrow{cursor:pointer}.envrow.selrow{background:#e8eef7}.envrow:hover{background:#f6f7f9}.envd-k{color:#5f6b7c;font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin:12px 0 4px;font-weight:600}.envd-comp{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #f0f2f5}.envd-obs{border-left:2px solid #d1d1d1;padding:2px 0 8px 10px;margin-left:3px}@media(max-width:1100px){.envwrap{grid-template-columns:1fr}.envdrawer{position:static}}@media(max-width:700px){.envwrap{min-width:0}.envwrap *{min-width:0}.envwrap .row,.row{flex-wrap:wrap}.envdrawer{max-width:100%;overflow-x:auto}}</style>`;
   const script = `<script>
     function envEsc(s){return String(s==null?'':s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});}
     function envPhaseCls(p){return p==='ready'||p==='running'?'ok':p==='failed'||p==='blocked'?'warn':'muted';}
@@ -6646,7 +6647,7 @@ function renderMarketplaceListingForm(existing, opts) {
       <div class="row"><button class="act" type="submit">${isEdit ? "Save draft" : "Create draft listing"}</button> <a class="act ghost" href="/__ioi/marketplace">Cancel</a></div>
     </form>
     <script>(function(){var k=document.getElementById('mp-kind'),s=document.getElementById('mp-subject');if(!k||!s)return;function f(){var kk=k.value;Array.prototype.forEach.call(s.options,function(o){if(!o.value){return;}o.hidden=(o.getAttribute('data-kind')!==kk);});var cur=s.options[s.selectedIndex];if(!cur||cur.hidden){for(var i=0;i<s.options.length;i++){if(s.options[i].value&&!s.options[i].hidden){s.selectedIndex=i;return;}}}}k.addEventListener('change',f);f();})();</script>`;
-  return automationsShell(`${isEdit ? "Edit" : "Draft"} listing`, inner);
+  return automationsShell(`${isEdit ? "Edit" : "Draft"} listing`, inner, { theme: "light" });
 }
 // ---- admission-review callers (P-MKT-CALL-1) ---------------------------------------------------
 //
@@ -6806,7 +6807,7 @@ function renderMarketplaceListingDetail(listing, candidates, reviewsByCandidate,
     ? `<div class="chips" style="margin:0 0 16px"><span class="chiplabel">Admission readiness</span>${govChips(gov)}<span class="sub" style="margin:0">live governance posture — snapshotted onto each publish candidate at candidacy</span></div>`
     : "";
   const inner = `<p><a href="/__ioi/marketplace">← Marketplace</a></p><h1>${st.icon} ${CX_ESC(l.name || lid)}</h1><p class="sub">Marketplace listing · draft. ${CX_ESC(l.description || "")}</p>${listingActions}${meta}${readiness}${admission}${offersSection}${handoffs}`;
-  return automationsShell(l.name || "Marketplace listing", inner);
+  return automationsShell(l.name || "Marketplace listing", inner, { theme: "light" });
 }
 
 // Minimal dark page chrome for the BYOA GitHub App connect flow (custody-first framing).
@@ -9380,7 +9381,7 @@ async function handleEstateRequest(req, res, body) {
       const envs = await daemonFetch(`/v1/hypervisor/environments`).then((r) => r.json()).then((j) => j.environments || []).catch(() => []);
       const newest = [...envs].sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || ""))).slice(0, 15);
       const fdt = (iso) => { const d2 = new Date(iso || 0); return isNaN(d2) ? "—" : d2.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); };
-      const rowsHtml = newest.map((e) => `<a class="spl-row" href="/__ioi/environments" title="a REAL environment record — the estate's workspace substrate (owner: Environments)"><span><b>${CX_ESC((e.spec || {}).name || e.id)}</b></span><span>${CX_ESC((e.spec || {}).class_id || (e.spec || {}).environment_class_id || "—")}</span><span>${CX_ESC(e.status || "—")}</span><span>${fdt(e.created_at)}</span></a>`).join("");
+      const rowsHtml = newest.map((e) => `<a class="spl-row" href="/__ioi/environments" title="a REAL environment record — the estate's workspace substrate (owner: Environments)"><span><b>${CX_ESC((e.spec || {}).name || e.id)}</b></span><span>${CX_ESC((e.spec || {}).class_id || (e.spec || {}).environment_class_id || "—")}</span><span>${CX_ESC(typeof e.status === "object" && e.status ? (e.status.phase || e.status.state || JSON.stringify(e.status).slice(0, 40)) : (e.status || "—"))}</span><span>${fdt(e.created_at)}</span></a>`).join("");
       sendOwnedSurfaceHtml(res, "workspaces", renderSplashLanding({
         slug: "developer-workspace/workspaces", routeOverride: pathname, title: "Code Workspaces",
         appTileUri: DSG_APP_TILE_URI, chipTintRgba: "rgba(45,114,210,.08)",
