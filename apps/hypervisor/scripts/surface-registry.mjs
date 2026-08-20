@@ -77,6 +77,9 @@ export const SURFACES = [
   // shared owner-scoped admission contract. Its evidence is the studio journey verifier (an
   // end-to-end live journey), not a pixel certification.
   { slug: "studio-home", owner: "Studio", title: "Studio", icon: DSG_APP_TILE_URI, route: "/__ioi/studio/workbench", canonical_route: "/studio", verifier: "scripts/verify-hypervisor-studio-journey.mjs", certification: "n/a", capabilities: ["browse", "select", "inspect", "create", "update", "transition"], operational_state: "act", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  // STU-1/STU-2 (remediation v2): the D6 combined-seed Workshop port (donor: module) — I-4 splash
+  // grammar over the real domain-app + ODK surface-descriptor planes; atlas-backed, read-first.
+  { slug: "workshop", owner: "Studio", title: "Workshop", icon: DSG_APP_TILE_URI, route: "/__ioi/studio/workshop", verifier: "scripts/verify-hypervisor-app-parity-workshop.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "machinery", owner: "Studio", title: "Machinery", icon: MCH_APP_TILE_URI, route: "/__ioi/studio/machinery", verifier: "scripts/verify-hypervisor-app-parity-studio-machinery.mjs", certification: "pixel-certifications/machinery.json", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   // W2.3 (next-legs II Leg 2): the Packages surface packet — ONE module, two mounts, over the
   // CLOSED /v1/hypervisor/packages daemon family. A FRESH legacy action lane

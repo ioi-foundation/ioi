@@ -79,6 +79,11 @@ const REFERENCE_PORT_PENDING = {};
 const REFERENCE_PORTED = {
   // (explorer #46, monitors #51, sources #52, changes #53 each passed through this stage on their
   // way to certification + daemon_wired promotion. The stage exists for ports-in-flight.)
+  // STU-1/STU-2 (remediation v2): the D6 COMBINED-SEED Workshop port — module's capture boots as
+  // "Workshop — Home" (atlas splash state) and is the recorded donor for the byte-dead workshop
+  // capture; the I-4 splash grammar renders it over the real domain-app + ODK surface-descriptor
+  // planes (read-first, honest-empty). Pixel certification pending (I-4 port, atlas-backed).
+  module: { port_surface: "/__ioi/studio/workshop", surface_name: "Studio", reference_url_override: "http://localhost:9225/workspace/module/splash", reference_landmarks: ["Workshop", "New module", "Recents", "Favorites"], binding: "the Workshop app (D6 combined-seed): I-4 splash landing — header chip · store/New-module/Help gaps under the unified contract · hero · Recents/Favorites view row · recents table over the REAL domain-app + ODK surface-descriptor planes (honest-empty today); authoring stays an ODK-plane authority cut (named gap)", note: "STU-1 (remediation v2): origin-aligned to the module splash lane (boots as Workshop Home, 5 facet groups — reference-family-atlas.v1.json); serves the WORKSHOP app per the D6 designation (workshop+module = ONE app; roles donor+authoring_flow); read-first over empty-but-real planes" },
 };
 // TRUE reference UX parity — a FAITHFUL port of the reference UX (same theme + IA + layout) wired to
 // daemon truth, that PASSES the HARDENED Playwright harness (visual_parity: region geometry + theme
@@ -197,6 +202,8 @@ const REMEDIATION = {
   vertex: { remediation_state: "ia_bearing_empty", adjudication_ref: `${ADJ}#vertex` },
   slate: { remediation_state: "ia_bearing_empty", adjudication_ref: `${ADJ}#slate`, reference_url_override: "http://localhost:9225/workspace/slate/splash" },
   developer: { donor_capture: "devconsole", adjudication_ref: `${ADJ}#developer` },
+  workshop: { remediation_state: "donor_ported", donor_capture: "module", adjudication_ref: `${ADJ}#workshop` },
+  module: { adjudication_ref: `${ADJ}#workshop` },
   sources: { adjudication_ref: `reference-gap-adjudication.v1.json + ${ADJ}#sources` },
   explorer: { adjudication_ref: `${ADJ}#explorer` },
   evalsuites: { adjudication_ref: `${ADJ}#evalsuites` },

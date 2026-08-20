@@ -230,12 +230,14 @@
       {
         "id": "STU-1",
         "title": "module origin-align + I-4 port (Workshop Home)",
-        "status": "queued"
+        "status": "done",
+        "evidence": "the Workshop app SHIPPED at /__ioi/studio/workshop \u2014 first I-4 instantiation, origin-aligned to the module splash lane (donor), read-first over the real (honestly empty) domain-app + ODK surface-descriptor planes; module\u2192reference_ported; new verifier 10/10"
       },
       {
         "id": "STU-2",
         "title": "workshop D6 combined-seed record (donor: module)",
-        "status": "queued"
+        "status": "done",
+        "evidence": "D6 combined-seed record: workshop donor_ported via module (adjudication #workshop; matrix donor_capture + remediation_state via generator); one app ships, not two"
       },
       {
         "id": "DEV-1",
@@ -461,6 +463,12 @@
       "date": "2026-08-19",
       "did": "W3 I-4 splash-landing grammar BUILT + contract-checked (70/70)",
       "next": "W3 STU-1 (module origin-align + Workshop Home port via I-4)"
+    },
+    {
+      "n": 16,
+      "date": "2026-08-19",
+      "did": "W3 STU-1+STU-2: the Workshop combined-seed port SHIPPED (I-4 first instantiation; 10/10 + 70/70); matrix gains reference_ported class row",
+      "next": "W3 DEV-1 (widgets) + DOM-1 (logic/contour) I-4 ports"
     }
   ],
   "pr_blockers": [

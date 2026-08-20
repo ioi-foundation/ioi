@@ -418,6 +418,21 @@
       "estate_plane": "explorer port renders object truth via its own lanes already",
       "outcome": "capture_broken_no_donor",
       "reason": "terminal for BOTH objectview and objecteditor: no donor detail grammar reachable; ONT-2.build skipped by evidence"
+    },
+    {
+      "action": "STU-1/STU-2",
+      "seed": "workshop",
+      "owner": "Studio",
+      "reference_route": "/__apps/workshop (byte-dead: 307/octet-stream) \u2192 donor http://localhost:9225/workspace/module/splash (boots as 'Workshop \u2014 Home')",
+      "atlas_state": "module splash_alias state (5 facet groups, expresses_ia=true)",
+      "expressed_ia": {
+        "donor_facet_groups": 5,
+        "expresses_ia": true
+      },
+      "estate_plane": "/v1/hypervisor/domain-apps + /v1/hypervisor/odk/surface-descriptors (both real, both honestly empty today)",
+      "outcome": "donor_ported",
+      "donor_capture": "module",
+      "reason": "D6 combined-seed SHIPPED: workshop+module are ONE app; the module capture is the donor (roles donor+authoring_flow); the Workshop app serves at /__ioi/studio/workshop via the I-4 grammar, read-first over empty-but-real planes; module-authoring stays an ODK authority cut (named gap)"
     }
   ]
 }

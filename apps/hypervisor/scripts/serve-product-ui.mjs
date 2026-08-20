@@ -41,6 +41,7 @@ import { canonicalTimelineRef, escHtml } from "../surfaces/kit.mjs";
 import { readJsonWithDeadline } from "../surfaces/plane-read.mjs";
 import { managerLink, managerResourceLink, objectSetLink, sourcesLink, pipelineNodeLink, lineageLink as semLineageLink, vertexLink as semVertexLink, provenanceReceiptLink, provenanceSetLink, semanticBreadcrumb } from "../surfaces/ontology-context.mjs";
 import { ioiGlobalRailHtml, IOI_GRAIL_CSS } from "../surfaces/chrome.mjs";
+import { renderSplashLanding } from "./splash-landing-grammar.mjs";
 import { mintTestGrant, awaitingWalletAuthority } from "./lib/wallet-authority.mjs";
 import { handleSystemGenesisSurfaces } from "./system-genesis-surfaces.mjs";
 import { resolveV2Route, retiredUiRouteFor, renderV2RouteShellPage, renderRetiredUiRoutePage, retiredUiRouteRefusal } from "./v2-route-shell.mjs";
@@ -9030,6 +9031,36 @@ async function handleEstateRequest(req, res, body) {
       const lane = ["active", "pastdue", "archived"].includes(qp.get("lane")) ? qp.get("lane") : "active";
       const filter = qp.get("filter") === "all" ? "all" : "action";
       sendOwnedSurfaceHtml(res, "changes", renderChangesPort((pj.proposals || []).sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || ""))), lane, filter));
+      return;
+    }
+    // ---- Studio · Workshop — STU-1/STU-2 (remediation v2): the D6 COMBINED-SEED port. The
+    // workshop capture is byte-dead; module's capture BOOTS AS "Workshop — Home" (atlas splash
+    // state, 5 facet groups) and is the recorded donor (roles donor+authoring_flow). The I-4
+    // splash grammar renders it over the estate's REAL application-composition planes —
+    // domain-apps + ODK surface descriptors — read-first, honest-empty, never fabricated.
+    if (pathname === "/__ioi/studio/workshop" && req.method === "GET") {
+      const [da, sd] = await Promise.all([
+        daemonFetch(`/v1/hypervisor/domain-apps`).then((r) => r.json()).then((j) => j.domain_apps || []).catch(() => []),
+        daemonFetch(`/v1/hypervisor/odk/surface-descriptors`).then((r) => r.json()).then((j) => j.surface_descriptors || []).catch(() => []),
+      ]);
+      const fdt = (iso) => { const d2 = new Date(iso || 0); return isNaN(d2) ? "—" : d2.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); };
+      const rowsHtml = [
+        ...da.map((x) => `<a class="spl-row" href="/__ioi/domain-apps" title="a REAL DomainApp record (governed mount/serve ladder on its owner surface)"><span><b>${CX_ESC(x.name || x.id || x.app_id || "domain app")}</b></span><span>${CX_ESC((x.owner_ref || x.created_by || "—"))}</span><span class="spl-dash" title="No edit-principal tracking is recorded on this plane (typed absence)">—</span><span>${fdt(x.created_at)}</span></a>`),
+        ...sd.map((x) => `<a class="spl-row" href="/__ioi/odk" title="a REAL ODK surface descriptor (authored on the ODK plane)"><span><b>${CX_ESC(x.name || x.id || "descriptor")}</b></span><span>${CX_ESC(x.owner_ref || "—")}</span><span class="spl-dash" title="No edit-principal tracking is recorded on this plane (typed absence)">—</span><span>${fdt(x.created_at)}</span></a>`),
+      ].join("");
+      sendOwnedSurfaceHtml(res, "workshop", renderSplashLanding({
+        slug: "studio/workshop", routeOverride: "/__ioi/studio/workshop", title: "Workshop",
+        appTileUri: DSG_APP_TILE_URI, chipTintRgba: "rgba(45,114,210,.08)",
+        newLabel: "New module",
+        newGapReason: "Application/module authoring is an authority-crossing cut not yet bound on this surface — modules are composed on the ODK plane (named gap; the donor reference's New-module entry is recorded in reference-family-atlas.v1.json)",
+        heroTitle: "Workshop",
+        heroDesc: "Build and manage application modules — this landing renders the estate's REAL composition truth: DomainApp records and ODK surface descriptors, read-first.",
+        favoritesGapReason: "No favorites plane exists on the estate (typed absence)",
+        columns: ["Files", "Creator", "Last edited by", "Last viewed"],
+        rowsHtml,
+        emptyCopy: "No modules or domain apps yet — this table renders the real domain-app + ODK surface-descriptor planes and never fabricates rows. Compose one on the ODK plane.",
+        footHtml: `STU-1/STU-2 (remediation v2): the <b>Workshop</b> app shipped as a D6 COMBINED-SEED port — the workshop capture is byte-dead; the module capture boots as <b>Workshop — Home</b> and is the recorded donor (roles donor+authoring_flow; reference-seed-adjudications.v1.json#workshop · reference-family-atlas.v1.json module splash state). Truth: <a href="/__ioi/domain-apps">domain apps</a> · <a href="/__ioi/odk">ODK plane</a> · owner <a href="/__ioi/agent-studio">Agent Studio</a>. Reference: the origin-aligned <a href="http://localhost:9225/workspace/module/splash" rel="noopener">Workshop Home capture</a> — the /__apps/workshop lane is byte-dead (307/octet-stream; census evidence).`,
+      }));
       return;
     }
     // ---- Automations · Monitors — the Automate-overview port (#51). A read-only PROJECTION over

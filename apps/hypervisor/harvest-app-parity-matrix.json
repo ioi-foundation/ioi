@@ -18,7 +18,8 @@
   "total_seeds": 39,
   "by_parity_class": {
     "daemon_wired": 13,
-    "reference_capture": 23,
+    "reference_capture": 22,
+    "reference_ported": 1,
     "substrate_bound": 3
   },
   "legend": {
@@ -124,7 +125,10 @@
       "note": "application/module builder; unbound",
       "reference_clean_state": "errored_reference",
       "reference_clean_reason": "navigation failed on every lane (navigation triggered a content-type download — the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane) · navigation triggered a content-type download — the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane))",
-      "reference_clean_artifact": "reference-clean-sweep.json"
+      "reference_clean_artifact": "reference-clean-sweep.json",
+      "remediation_state": "donor_ported",
+      "donor_capture": "module",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#workshop"
     },
     {
       "owner": "Studio",
@@ -133,14 +137,27 @@
       "capture_base": "/workspace/module/",
       "grammar": "editor_canvas",
       "tier": "aux",
-      "parity_class": "reference_capture",
+      "parity_class": "reference_ported",
       "capture_state": "shell_only",
       "reference_capture": "/__apps/module",
       "reference_workspace": "/workspace/module/",
-      "note": "compute-module builder; unbound",
+      "note": "STU-1 (remediation v2): origin-aligned to the module splash lane (boots as Workshop Home, 5 facet groups — reference-family-atlas.v1.json); serves the WORKSHOP app per the D6 designation (workshop+module = ONE app; roles donor+authoring_flow); read-first over empty-but-real planes",
       "reference_clean_state": "needs_origin_alignment",
       "reference_clean_reason": "proxy lane shows a failure (\"Page not found\"), but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 12/0 · nodes 0 · cards 9 · lines 54) — align the reference URL like pipeline #38/#39",
-      "reference_clean_artifact": "reference-clean-sweep.json"
+      "reference_clean_artifact": "reference-clean-sweep.json",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#workshop",
+      "port_surface": "/__ioi/studio/workshop",
+      "surface_name": "Studio",
+      "reference_url_override": "http://localhost:9225/workspace/module/splash",
+      "reference_landmarks": [
+        "Workshop",
+        "New module",
+        "Recents",
+        "Favorites"
+      ],
+      "binding": "the Workshop app (D6 combined-seed): I-4 splash landing — header chip · store/New-module/Help gaps under the unified contract · hero · Recents/Favorites view row · recents table over the REAL domain-app + ODK surface-descriptor planes (honest-empty today); authoring stays an ODK-plane authority cut (named gap)",
+      "candidate_surface": "/__ioi/studio/workshop",
+      "shell_pixel_certified": false
     },
     {
       "owner": "Automations",
