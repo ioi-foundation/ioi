@@ -243,5 +243,16 @@
       "note": "absent_confirmed \u2014 no expressed IA at any atlas state; Operations boundary stands",
       "adjudication_ref": "reference-seed-adjudications.v1.json#scheduler"
     }
+  ],
+  "cross_family_edges": [
+    {
+      "edge": "vertex \u2192 workshop (resource_embed)",
+      "recorded": "2026-08-20",
+      "evidence": "vendor docs: Workshop's 'Vertex Graph widget' displays an existing graph/template/diagram created in Vertex; live tenant: Vertex's example installations open as Workshop modules (ri.workshop.main.module\u2026) \u2014 owner screenshots 2026-08-20",
+      "relationship": "PRODUCER/CONSUMER, not one app (contrast D6 workshop+module = one app): Vertex authors graph resources; Workshop composes applications that embed them",
+      "estate_analogue": "the ODK composition plane already declares compositions over materialized-set/domain-app RESOURCES (real refs) \u2014 the estate's Vertex renders exactly those materialized sets as its graph; the edge exists in schema, both planes honestly empty today",
+      "backlog": "wire reciprocal links read-first when either plane carries records: Workshop rows show referenced materialized-set resources linking the Vertex detail graph; Vertex detail shows 'used in compositions' linking back \u2014 honest-empty until then",
+      "corroboration": "vendor nav marks 'Object Monitors [Sunset]' \u2014 independently validates the Automate family designation (monitors overview = the landing, monitor wizard = secondary grammar)"
+    }
   ]
 }
