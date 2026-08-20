@@ -10671,16 +10671,41 @@ async function handleEstateRequest(req, res, body) {
         const rows = withLineage.map((x) => `<a class="vtx-row" href="/__ioi/vertex?ontology=${encodeURIComponent(x.id)}" title="open this graph — the cross-plane substrate truth (object sets · projections · runs · proof edges)"><span><b>${esc2(x.domain || x.id)}</b><code class="vtx-ref">${esc2(x.ref || x.id)}</code></span><span title="no principal tracking on this plane (typed absence)">—</span><span>${lastModOf(x)}</span></a>`).join("");
         const gapV = (label, reason) => `<span class="vtx-view gap" aria-disabled="true" title="${esc2(reason)}" data-ioi-disabled-reason="${esc2(reason)}">${esc2(label)}</span>`;
         const welcome = `<div class="vtx-hero"><h1>Welcome to Vertex</h1><p>Explore your organization's digital twin</p></div>
-          <div class="vtx-search"><input disabled aria-disabled="true" placeholder="Search for Graphs, Graph Templates, and Search Arounds…" title="No search plane exists over explorations (typed absence)" data-ioi-disabled-reason="No search plane exists over explorations (typed absence)"></div>
+          <form class="vtx-search" method="get" action="/__ioi/vertex"><input name="q" placeholder="Search for Graphs, Graph Templates, and Search Arounds…" title="LIVE search over the real graph rows (the reference search-page grammar; live-tenant evidence #vertex-live-tenant)"></form>
           <div class="vtx-cards">
             <div class="vtx-card"><span class="vtx-avail">${withLineage.length} available</span><h4>Graphs</h4><p>A graph is a collection of nodes and edges with associated styling. It helps you visualize practically any aspect of your digital twin and evaluate what-if analyses visually.</p><span class="sub">the REAL rows below — one graph per ontology with materialized lineage</span></div>
-            <div class="vtx-card"><span class="vtx-avail">None available</span><h4>Templates</h4><p>A graph template constructs a graph given inputs to its parameters.</p><span class="sub" title="No template plane exists (typed absence)">no template plane — typed absence</span></div>
+            <div class="vtx-card"><span class="vtx-avail">None available</span><h4>Templates</h4><p>A graph template constructs a graph given inputs to its parameters.</p><span class="sub" title="No template plane exists on the estate (typed absence). The reference IA is RECORDED from the live tenant: a parameterized graph generator over typed object parameters (#vertex-live-tenant) — on file for a future cut">no template plane — typed absence (reference IA recorded)</span></div>
             <div class="vtx-card"><span class="vtx-avail">None available</span><h4>Search Arounds</h4><p>A Search Around is a series of steps that searches around input objects of a specified type.</p><span class="sub" title="No search-around plane exists (typed absence)">no search-around plane — typed absence</span></div>
           </div>
           <div class="vtx-viewrow"><span class="sub">View</span>${gapV("Favorites", "No favorites plane exists (typed absence)")}${gapV("Promoted", "No promotion plane exists (typed absence)")}<span class="vtx-view on" aria-current="page">Recents</span>${gapV("Your graphs", "No principal-scoped graph ownership exists on this plane (typed absence)")}</div>
           <div class="vtx-thead"><span>Graph</span><span>Creator</span><span>Last modified</span></div>
           ${rows || `<div class="vtx-empty">No recents — this table renders REAL graphs (ontologies with materialized lineage) and never fabricates rows.</div>`}
           <p class="vtx-foot">PRO-2 (rebuilt to the SEED grammar, owner correction 2026-08-20): the Vertex welcome landing — cards + Recents over REAL substrate truth (each row opens the cross-plane graph: object sets · projections · materializing runs · Provenance proof edges). Typed absences carry both vocabularies. Evidence: reference-seed-adjudications.v1.json#vertex (+ #vertex-canvas-correction) · reference-family-atlas.v1.json. Family: <a href="/__ioi/work-ledger">Provenance</a> · sibling <a href="/__ioi/lineage">Data Lineage (Monocle)</a>.</p>`;
+        const vq = (new URL(req.url, "http://x").searchParams.get("q") || "").trim();
+        if (vq) {
+          // LIVE SEARCH PAGE (owner live-tenant evidence #vertex-live-tenant): the reference's
+          // search grammar — tabs with LIVE counts over real rows; Object Type Search over the
+          // REAL object types on the materialized plane; typed absences carry both vocabularies.
+          const ql = vq.toLowerCase();
+          const hits = withLineage.filter((x) => (x.domain || "").toLowerCase().includes(ql) || (x.id || "").toLowerCase().includes(ql) || (x.ref || "").toLowerCase().includes(ql));
+          const otypes = [...new Set(sets.map((s2) => s2.object_type_id).filter(Boolean))];
+          const otHits = otypes.filter((k) => k.toLowerCase().includes(ql));
+          const gapT = (label, reason) => `<span class="vtx-view gap" aria-disabled="true" title="${esc2(reason)}" data-ioi-disabled-reason="${esc2(reason)}">${esc2(label)}</span>`;
+          const rowsQ = hits.map((x) => `<a class="vtx-row" href="/__ioi/vertex?ontology=${encodeURIComponent(x.id)}"><span><b>${esc2(x.domain || x.id)}</b><code class="vtx-ref">${esc2(x.ref || x.id)}</code></span><span title="no principal tracking (typed absence)">—</span><span>${lastModOf(x)}</span></a>`).join("");
+          const body = `<div class="vtx-hero"><a href="/__ioi/vertex">← Homepage</a></div>
+            <form class="vtx-search" method="get" action="/__ioi/vertex"><input name="q" value="${esc2(vq)}" placeholder="Search for Vertex resources…"></form>
+            <div class="vtx-viewrow"><span class="vtx-view on">Graphs <b>${hits.length}</b></span>${gapT("Templates 0", "No template plane exists on the estate — the reference template-generator IA is recorded (#vertex-live-tenant); typed absence")}${gapT("Search Arounds 0", "No search-around plane exists (typed absence)")}</div>
+            <h2>Object Type Search</h2>
+            <p class="sub">the REAL object types on the materialized plane${otHits.length !== otypes.length ? ` — ${otHits.length} of ${otypes.length} match` : ""}:</p>
+            <div class="chips">${(otHits.length ? otHits : otypes).map((k) => `<a class="pill" href="/__ioi/ontology/explorer" title="explore this object type on Object Explorer">${esc2(k)}</a>`).join("") || `<span class="sub">no object types materialized yet</span>`}</div>
+            <h2 style="margin-top:20px">Graphs</h2>
+            <div class="vtx-thead"><span>Graph</span><span>Creator</span><span>Last modified</span></div>
+            ${rowsQ || `<div class="vtx-empty">No graphs match <code>${esc2(vq)}</code> — the counts above are live plane truth; nothing fabricated.</div>`}
+            <p class="vtx-foot">The reference SEARCH-PAGE grammar (live-tenant evidence, #vertex-live-tenant) over REAL rows: live tab counts · real object types (linking Object Explorer) · results are the same real graphs as the landing. Templates/Search-Arounds stay typed absences.</p>`;
+          res.writeHead(200, HTMLH);
+          res.end(vertexLightPage(body, { backLink: false }));
+          return;
+        }
         res.writeHead(200, HTMLH);
         res.end(vertexLightPage(welcome));
         return;

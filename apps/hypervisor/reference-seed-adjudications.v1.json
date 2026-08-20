@@ -584,6 +584,21 @@
       "correction": "The #vertex record claimed the create lane 'dead on the mirror'. Owner screenshots (2026-08-20) show /workspace/vertex/graph/create BOOTS (canvas + toolbar + Layers/Info panels render); the owner qualifies it as 'somewhat buggy'. The atlas expressed-IA heuristic counts facets/columns/tables/rows and is BLIND TO CANVAS GRAMMARS \u2014 it scored a booting canvas as ia=false. Corrected truth: the canvas boots-degraded; the New-exploration absence is AUTHORITY-RULED (graph authoring = a later authority-crossing cut, boundary_held), not capture-ruled.",
       "blast_radius": "every ia=false verdict on a CANVAS/CREATE lane is under re-check with a canvas-aware census (toolbar/canvas/panel detection): logic create-new, contour overview/create, widgets /new, notepad create + create-template, designer onboarding. Their PORTS are unaffected (all landing-grammar builds); only the recorded per-lane REASONS may need the same dead\u2192boots-degraded/authority-ruled correction.",
       "outcome": "boundary_held"
+    },
+    {
+      "action": "LIVE-TENANT-EVIDENCE",
+      "record_id": "vertex-live-tenant",
+      "seed": "vertex",
+      "owner": "Provenance",
+      "date": "2026-08-20",
+      "source": "owner screenshots of a LIVE Foundry tenant (test.usw-23) \u2014 a richer reference source than the static mirror; headed tabs not CDP-attachable (recorded from screenshots)",
+      "recorded_grammars": {
+        "graph_template": "a PARAMETERIZED GRAPH GENERATOR: 'This template will generate a Graph based on the parameter below' \u2014 typed object parameter (Alert) with a searchable dropdown of REAL objects \u2192 generates the graph. Estate: no template plane (absence stands), but the reference IA is now on record for a future cut",
+        "graph_canvas": "toolbar: Add objects \u00b7 Search Around \u00b7 Select \u00b7 Layout \u00b7 Group \u00b7 Create \u00b7 Remove \u00b7 Undo \u00b7 Redo; left panel tabs: Layers \u00b7 Selection \u00b7 Search \u00b7 Histogram \u00b7 Info (Layers = per-template node/edge layers with counts + colored-by-object-type); right rail: Model config \u00b7 Simulation \u00b7 Search Around; Timeline; Parameters; Save as / Share; breadcrumb + Template tag + version selector (default \u00b7 Latest Data); nodes colored by object type; labeled typed edges",
+        "search_page": "a full PAGE (not just an input): \u2190 Homepage \u00b7 search input \u00b7 tabs with LIVE COUNTS (Graphs n \u00b7 Templates n \u00b7 Search Arounds n) \u00b7 'Object Type Search' band (prominent-visibility note: object types configured in Ontology Manager appear here) \u00b7 result cards ('By <author> \u00b7 Edited <ago>') \u00b7 Load more"
+      },
+      "outcome": "portable",
+      "reason": "the search-page grammar is buildable TODAY over real estate rows (built this pass); the template-generator + canvas grammars are recorded for future cuts (canvas remains the authority-ruled boundary)"
     }
   ]
 }
