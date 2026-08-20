@@ -122,7 +122,7 @@ export const SURFACES = [
   // every other family verb is read-first or disabled with a named reason, and Interfaces is
   // the OQ-9 disabled named gap. Evidence: the systems journey verifier.
   { slug: "systems", owner: "Systems", title: "Systems", icon: EXPLORER_APP_ICON_URI, route: "/__ioi/systems-workspace", canonical_route: "/systems", verifier: "scripts/verify-hypervisor-systems-journey.mjs", certification: "n/a", capabilities: ["browse", "inspect", "create", "transition"], operational_state: "act", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
-  { slug: "monitors", owner: "Automations", title: "Automate", icon: MON_APP_TILE_URI, route: "/__ioi/automations/monitors", verifier: "scripts/verify-hypervisor-app-parity-monitors.mjs", certification: "pixel-certifications/monitors.json", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  { slug: "monitors", owner: "Automations", title: "Automate", icon: MON_APP_TILE_URI, route: "/__ioi/automations/monitors", canonical_route: "/automations", verifier: "scripts/verify-hypervisor-app-parity-monitors.mjs", certification: "pixel-certifications/monitors.json", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   // W2.1 next-legs II Leg 4: the Automations surface packet — canonical /automations plus a
   // FRESH legacy lane /__ioi/automations-cockpit (deliberately NOT nested under
   // /__ioi/automations/, whose flat :id dispatch would shadow it; every seed lane there keeps
@@ -132,7 +132,8 @@ export const SURFACES = [
   // returns NO admission receipts yet (the brief's named W2 defect) — so the module declares no
   // receipted actions and its operational_state stays "inspect" honestly. Evidence: the
   // automations journey verifier.
-  { slug: "automations", owner: "Automations", title: "Automations", icon: MON_APP_TILE_URI, route: "/__ioi/automations-cockpit", canonical_route: "/automations", verifier: "scripts/verify-hypervisor-automations-journey.mjs", certification: "n/a", capabilities: ["browse", "filter", "select", "inspect"], operational_state: "inspect", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  // GRE-2 AUT-3 (2026-08-20): canonical /automations moved to the monitors (Automate) row; the cockpit module keeps its legacy lane until the staged retirement.
+  { slug: "automations", owner: "Automations", title: "Automations", icon: MON_APP_TILE_URI, route: "/__ioi/automations-cockpit", verifier: "scripts/verify-hypervisor-automations-journey.mjs", certification: "n/a", capabilities: ["browse", "filter", "select", "inspect"], operational_state: "inspect", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   // W2.1 next-legs IV Leg 3: the Work PARTIAL PRE-W3 COCKPIT SLICE — NOT Work completion (W3.1
   // owns the admission→harness→run→events/receipts→stop/archive/recovery/replay chain; SURF-work
   // and W3.1 remain open). ONE module, three mounts, on FRESH non-colliding legacy lanes

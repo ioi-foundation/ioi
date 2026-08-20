@@ -7837,6 +7837,30 @@ async function handleEstateRequest(req, res, body) {
       const _canon = pathname.replace(/^\/api\/[a-z][a-z0-9.]*\.v\d+\./, "/api/ioi.v1.");
       if (_canon !== pathname) { req.url = _canon + (req.url || "").slice(pathname.length); pathname = _canon; }
     }
+    // ---- GRE-2 CANONICAL TRANSFERS (owner authorization recorded 2026-08-20: "i authorize you.
+    // go to your discretion."). The redirect-class transfers: canonical nav routes land on their
+    // DESIGNATED reference-grammar surfaces (landing-designations.v1.json; E1/E7). The legacy
+    // lanes keep serving at their own routes until the staged retirement.
+    //   AUT-3  /automations  → the Automate shell (certified port + live lanes)
+    //   EVA-4  /evaluations  → AIP Evals (certified port)
+    //   FOU-3  /foundry      → Model Catalog (certified port + registered lane)
+    //   PRO-3  /provenance   → Monocle (the D1-designated proof-plane landing)
+    const GRE2_TRANSFERS = { "/automations": "/__ioi/automations/monitors", "/evaluations": "/__ioi/evaluations/evalsuites", "/foundry": "/__ioi/foundry/models", "/provenance": "/__ioi/lineage" };
+    if (GRE2_TRANSFERS[pathname] && req.method === "GET") {
+      // Query continuity: old canonical deep links keep working. For /automations the cockpit's
+      // ?automation= / ?view=new grammar translates into the Automate shell's in-shell lanes.
+      const sp0 = new URL(req.url, "http://x").searchParams;
+      let loc = GRE2_TRANSFERS[pathname];
+      if (pathname === "/automations" && (sp0.get("automation") || sp0.get("view") === "new")) {
+        sp0.set("tab", "automations");
+        loc += `?${sp0.toString()}`;
+      } else if ([...sp0.keys()].length) {
+        loc += `?${sp0.toString()}`;
+      }
+      res.writeHead(302, { Location: loc, "Cache-Control": "no-cache", "x-ioi-gre2-transfer": pathname });
+      res.end();
+      return;
+    }
     // Exposure normalization: if reached via a non-local Host without a forwarded header, mark it
     // forwarded so the loopback daemon (behind serve) can apply context-aware auth enforcement.
     if (!req.headers["x-forwarded-host"]) {

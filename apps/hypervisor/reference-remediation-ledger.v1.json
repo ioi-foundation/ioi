@@ -19,7 +19,8 @@
     "landing-divergence": "any landing-tab divergence from reference behavior \u2014 record divergence, default reference"
   },
   "owner_gos_recorded": [
-    "2026-08-20: owner corrections \u2014 (1) fabricated reference rails are certified-port evidence ONLY: all non-certified remediation shells re-shipped RAILLESS; (2) vertex REBUILT to the seed welcome grammar (cards + Recents over real graph rows; substrate cross-plane graph = the detail view); (3) the atlas ia-heuristic has a CANVAS BLIND SPOT \u2014 vertex create 'dead' verdict corrected to boots-degraded/authority-ruled (owner-evidenced, 'somewhat buggy'); other canvas-lane verdicts flagged for canvas-aware re-check (#vertex-canvas-correction)"
+    "2026-08-20: owner corrections \u2014 (1) fabricated reference rails are certified-port evidence ONLY: all non-certified remediation shells re-shipped RAILLESS; (2) vertex REBUILT to the seed welcome grammar (cards + Recents over real graph rows; substrate cross-plane graph = the detail view); (3) the atlas ia-heuristic has a CANVAS BLIND SPOT \u2014 vertex create 'dead' verdict corrected to boots-degraded/authority-ruled (owner-evidenced, 'somewhat buggy'); other canvas-lane verdicts flagged for canvas-aware re-check (#vertex-canvas-correction)",
+    "2026-08-20: \"i authorize you. go to your discretion.\" \u2014 recorded as the owner go releasing the held gates, sequenced at Claude discretion (GRE-2 transfers, E7 staged retirement, GRE-1 ruling, admission-evidence re-pin retry)"
   ],
   "waves": {
     "W0": [
@@ -212,9 +213,10 @@
       {
         "id": "AUT-3",
         "title": "canonical /automations transfer",
-        "status": "held_for_owner",
+        "status": "done",
         "gate": "GRE-2",
-        "note": "ready to execute \u2014 AUT-1/AUT-2 landed; transfer changes the nav landing (GRE-2)"
+        "note": "ready to execute \u2014 AUT-1/AUT-2 landed; transfer changes the nav landing (GRE-2)",
+        "evidence": "EXECUTED under the recorded owner go: canonical /automations \u2192 302 to the Automate shell with QUERY CONTINUITY (?automation=/?view=new translate into the in-shell lanes); registry canonical moved to the monitors row; legacy cockpit lanes intact; automations-journey re-aimed and 45/45"
       },
       {
         "id": "DAT-1",
@@ -333,14 +335,16 @@
       {
         "id": "EVA-4",
         "title": "/evaluations landing",
-        "status": "held_for_owner",
-        "gate": "GRE-2"
+        "status": "done",
+        "gate": "GRE-2",
+        "evidence": "EXECUTED (redirect-class transfer under the recorded owner go): canonical route 302 \u2192 the designated certified/shipped landing; legacy lanes intact"
       },
       {
         "id": "FOU-3",
         "title": "/foundry landing",
-        "status": "held_for_owner",
-        "gate": "GRE-2"
+        "status": "done",
+        "gate": "GRE-2",
+        "evidence": "EXECUTED (redirect-class transfer under the recorded owner go): canonical route 302 \u2192 the designated certified/shipped landing; legacy lanes intact"
       },
       {
         "id": "WOR-3",
@@ -351,8 +355,9 @@
       {
         "id": "PRO-3",
         "title": "/provenance landing (post PRO-1/2 designation)",
-        "status": "held_for_owner",
-        "gate": "GRE-2"
+        "status": "done",
+        "gate": "GRE-2",
+        "evidence": "EXECUTED (redirect-class transfer under the recorded owner go): canonical route 302 \u2192 the designated certified/shipped landing; legacy lanes intact"
       }
     ],
     "W6": [
@@ -590,6 +595,12 @@
       "date": "2026-08-20",
       "did": "LIVE-TENANT ATLAS: 47 read-only states over owner-authorized CDP (canvas-aware census). 10 mirror-scoped terminal verdicts OVERTURNED \u2192 live_ia_recorded (new portable backlog); objectview/developer doubly-evidenced terminal; vertex canvas/template/search grammars now first-hand",
       "next": "owner: prioritize the live backlog and/or release the held transfers"
+    },
+    {
+      "n": 33,
+      "date": "2026-08-20",
+      "did": "GRE-2 REDIRECT-CLASS TRANSFERS EXECUTED (AUT-3, EVA-4, FOU-3, PRO-3): nav now lands on Automate / AIP Evals / Model Catalog / Monocle with query continuity; journey 45/45, monitors 48/48, modules 70/70. Chunk A deep atlas done (8 canvas/dialog states); chunk B running",
+      "next": "re-pin retry; chunk B/C; build-class landings STU-3/DAT-5/ONT-3/WOR-3; staged retirement; GRE-1 ruling"
     }
   ],
   "pr_blockers": [
