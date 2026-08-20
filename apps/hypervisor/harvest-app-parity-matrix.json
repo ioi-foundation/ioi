@@ -18,8 +18,8 @@
   "total_seeds": 39,
   "by_parity_class": {
     "daemon_wired": 13,
-    "reference_capture": 15,
-    "reference_ported": 10,
+    "reference_capture": 14,
+    "reference_ported": 11,
     "substrate_bound": 1
   },
   "legend": {
@@ -777,14 +777,28 @@
       "capture_base": "/workspace/code-repositories/",
       "grammar": "table_list",
       "tier": "aux",
-      "parity_class": "reference_capture",
+      "parity_class": "reference_ported",
       "capture_state": "blocked_missing_capture",
       "reference_capture": "/__apps/repositories",
       "reference_workspace": "/workspace/code-repositories/",
-      "note": "code repositories; unbound",
+      "note": "WOR-2: the repositories capture is byte-dead; donor recorded (#repositories)",
       "reference_clean_state": "errored_reference",
       "reference_clean_reason": "navigation failed on every lane (navigation triggered a content-type download — the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane) · navigation triggered a content-type download — the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane))",
-      "reference_clean_artifact": "reference-clean-sweep.json"
+      "reference_clean_artifact": "reference-clean-sweep.json",
+      "donor_capture": "code (non-seed capture /workspace/code/)",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#repositories",
+      "port_surface": "/__ioi/developer-workspace/repositories",
+      "surface_name": "Workbench",
+      "reference_url_override": "http://localhost:9225/workspace/code/",
+      "reference_landmarks": [
+        "Code Repositories",
+        "New repository",
+        "Recents",
+        "Favorites"
+      ],
+      "binding": "I-4 landing (donor grammar: the booting /workspace/code/ capture) over the REAL SCM connector plane (name · kind · auth posture · created); repo creation typed-absent (SCM publish is the governed verb, owner-surfaced)",
+      "candidate_surface": "/__ioi/developer-workspace/repositories",
+      "shell_pixel_certified": false
     },
     {
       "owner": "Workbench",

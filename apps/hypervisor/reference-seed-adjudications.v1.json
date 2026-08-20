@@ -550,6 +550,17 @@
       "estate_plane": "materialized-object-sets (4, open read) + saved-object-sets (principal-required control plane \u2014 refusal rendered verbatim); NO workbook plane",
       "outcome": "portable",
       "reason": "SHIPPED at /__ioi/evaluations/insight: Object-sets LIVE with proof refs; saved-sets typed degradation honest; Workbooks typed absence"
+    },
+    {
+      "action": "WOR-2",
+      "seed": "repositories",
+      "owner": "Workbench",
+      "reference_route": "/__apps/repositories (byte-dead) \u2192 donor http://localhost:9225/workspace/code/ (boots: title 'Code repositories'; crawl: search + New repository)",
+      "atlas_state": "donor shot .artifacts/family-atlas/repositories-donor-code.png + crawl route-index evidence",
+      "estate_plane": "/v1/hypervisor/scm-connectors (4 real BYOA/token-lease bindings)",
+      "outcome": "donor_ported",
+      "donor_capture": "code (non-seed capture)",
+      "reason": "SHIPPED at /__ioi/developer-workspace/repositories over the real SCM plane; repo creation typed-absent (publish is the governed verb, owner-surfaced)"
     }
   ]
 }

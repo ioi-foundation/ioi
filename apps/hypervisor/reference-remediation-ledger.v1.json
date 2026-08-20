@@ -304,7 +304,8 @@
       {
         "id": "WOR-2",
         "title": "repositories port (donor: code) over SCM connector plane",
-        "status": "queued"
+        "status": "done",
+        "evidence": "Code Repositories SHIPPED at /__ioi/developer-workspace/repositories \u2014 D6 donor port (the byte-dead repositories capture ships via the booting /workspace/code/ donor, recorded with shot + crawl evidence) over the REAL SCM plane (4 bindings, auth posture verbatim); repo creation typed-absent naming the governed publish verb. Verifier 40/40. W4 EXECUTABLE SET COMPLETE."
       }
     ],
     "W5": [
@@ -531,6 +532,12 @@
       "date": "2026-08-19",
       "did": "W4 EVA-2.build SHIPPED (37/37); reference_ported=10",
       "next": "W4 final: WOR-2 (repositories via donor code)"
+    },
+    {
+      "n": 26,
+      "date": "2026-08-19",
+      "did": "W4 WOR-2 SHIPPED (40/40) \u2014 W4 COMPLETE. Census: 13 wired \u00b7 11 ported \u00b7 14 capture \u00b7 1 substrate. W5 = all GRE-2 held transfers; proceeding to W6 executable items (E-audit, DOC-1, census re-run) with W5 held",
+      "next": "W6: census re-run + E1-E9 audit + DOC-1"
     }
   ],
   "pr_blockers": [

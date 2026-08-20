@@ -9131,6 +9131,28 @@ async function handleEstateRequest(req, res, body) {
       sendOwnedSurfaceHtml(res, "changes", renderChangesPort((pj.proposals || []).sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || ""))), lane, filter));
       return;
     }
+    // ---- Workbench · Code Repositories — WOR-2 (remediation v2): D6 DONOR port. The
+    // repositories capture is byte-dead; the sibling /workspace/code/ capture BOOTS ("Code
+    // repositories" — crawl + recorded shot) and donates the grammar. Rows = the REAL SCM
+    // connector plane; repo creation is not an estate verb (typed absence naming SCM publish).
+    if (pathname === "/__ioi/developer-workspace/repositories" && req.method === "GET") {
+      const scm = await daemonFetch(`/v1/hypervisor/scm-connectors`).then((r) => r.json()).then((j) => j.scm_connectors || j.connectors || []).catch(() => []);
+      const fdt = (iso) => { const d2 = new Date(iso || 0); return isNaN(d2) ? "—" : d2.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); };
+      const rowsHtml = scm.map((c) => `<a class="spl-row" href="/__ioi/connections" title="a REAL SCM connector (BYOA/token lease) — publish/revoke live on the owner surface"><span><b>${CX_ESC(c.name || c.connector_id || c.id)}</b><code style="display:block;font-size:11px;color:#5f6b7c">${CX_ESC(c.connector_id || c.id || "")}</code></span><span>${CX_ESC(c.kind || c.host || "git")}</span><span>${CX_ESC(c.auth_posture || "—")}</span><span>${fdt(c.created_at)}</span></a>`).join("");
+      sendOwnedSurfaceHtml(res, "repositories", renderSplashLanding({
+        slug: "developer-workspace/repositories", routeOverride: pathname, title: "Code Repositories",
+        appTileUri: DSG_APP_TILE_URI, chipTintRgba: "rgba(45,114,210,.08)",
+        newLabel: "New repository",
+        newGapReason: "Repository creation is not an estate verb — SCM connectors bind existing repositories via the governed publish loop (owner surface); typed absence",
+        heroTitle: "Code Repositories",
+        heroDesc: `The estate's REAL SCM bindings — ${scm.length} connector${scm.length === 1 ? "" : "s"} (BYOA/token leases); publish/revoke live on their owner surfaces.`,
+        columns: ["Repository binding", "Kind", "Auth posture", "Created"],
+        rowsHtml,
+        emptyCopy: "No SCM connectors — this table renders the real plane and never fabricates rows.",
+        footHtml: `WOR-2 (remediation v2): D6 DONOR port — the repositories capture is byte-dead; the sibling /workspace/code/ capture BOOTS ("Code repositories") and donates the grammar (donor recorded: reference-seed-adjudications.v1.json#repositories; shot .artifacts/family-atlas/repositories-donor-code.png). Rows are the REAL SCM connector plane; verbs stay on <a href="/__ioi/connections">Connections</a>. Family: <a href="/__ioi/developer-workspace">Workbench</a>.`,
+      }));
+      return;
+    }
     // ---- Evaluations · Insight — EVA-2.build (remediation v2): the analysis app's landing.
     // Object-sets lane = LIVE (materialized sets open-read; saved sets are a PRINCIPAL-REQUIRED
     // control plane — its refusal renders VERBATIM as typed degradation, never masked).
