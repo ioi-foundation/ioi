@@ -494,6 +494,27 @@ Sixteen journey/cockpit verifiers now gate CI (adding `check:launch-chain` and
 projects(saga), studio, packages, automations, applications, systems, work,
 home, operations.
 
+> **Superseded 2026-08-20 by the E7-1 cockpit retirement — this entry stands as
+> the record of what the 2026-08-11 cuts proved on that date.** The eight legacy
+> daemon-projection cockpit rows those cuts landed (applications · systems ·
+> automations · work · work-sessions · work-new-session · home · operations)
+> were retired under the Reference-UX Remediation Program's E7 ruling: one
+> designated surface per click. Their registry rows, their six surface modules
+> and four of their five dedicated verifiers
+> (`check:applications-journey`, `check:systems-journey`, `check:home-cockpit`,
+> `check:operations-cockpit`) are removed; `check:work-cockpit` was re-aimed and
+> renamed `check:session-authority`, keeping the session plane's owned-verb
+> inventory, its identity gate, its INV-37 receipts and the `/sessions` typed
+> 410 — the coverage that had no other home — while
+> `check:automations-journey` kept every daemon-truth assertion and lost only
+> the ones that read the retired module's pages. The canonical mounts that
+> sentence names for those eight now render the honest v2 route-shell page and
+> stay GRE pending the GRE-1 ruling; every rehome-source seed
+> (`/__ioi/applications`, `/__ioi/systems`, `/__ioi/automations`,
+> `/__ioi/missions`, `/__ioi/sessions`, `/__ioi/home`, `/__ioi/operations`)
+> keeps serving. Record:
+> `apps/hypervisor/reference-seed-adjudications.v1.json#e7-cockpit-retirement`.
+
 ### Rulings filed 2026-08-11 (next-legs V run; owner-ruled, owner-reversible)
 
 | Delta | Evidence | Disposition |

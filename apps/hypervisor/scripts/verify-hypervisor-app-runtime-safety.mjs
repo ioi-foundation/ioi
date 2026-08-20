@@ -196,10 +196,11 @@ async function run() {
   //     clean-sweep gate enforces.
   //  c) DESIGNATED NATIVE rows — owner surfaces whose completeness is pinned by their own
   //     committed journey verifier (named here; the file must exist and pin the row's route).
-  // The eight LEGACY cockpit rows are excluded BY NAME pending the E7 code-removal leg — the
-  // same shrinking list the native-shell verifier carries; when the leg lands and the rows leave
-  // the registry, every entry here goes inert and the list must be deleted with them.
-  const E7_RETIREMENT_PENDING = new Set(["applications", "systems", "automations", "work", "work-sessions", "work-new-session", "home", "operations"]);
+  // E7 CODE REMOVAL LANDED (2026-08-20): the eight legacy cockpit rows this gate used to admit BY
+  // NAME left the registry with their modules and their dedicated verifiers, so the named list
+  // went inert and was DELETED with them — as its own contract required. EVERY registry addition
+  // beyond the certified seeds must now resolve committed evidence through one of the three real
+  // classes below; nothing is admitted by being named.
   const DESIGNATED_NATIVE = {
     "studio-home": "verify-hypervisor-studio-journey.mjs",
     "packages": "verify-hypervisor-packages-journey.mjs",
@@ -208,7 +209,6 @@ async function run() {
   const sanctionedAdjudication = /reference-(seed-adjudications|gap-adjudication)/;
   const matrixByRoute = new Map((matrix.seeds || []).filter((s) => s.candidate_surface).map((s) => [s.candidate_surface.split("?")[0], s]));
   const additionAdmitted = (s) => {
-    if (E7_RETIREMENT_PENDING.has(s.slug)) return true;
     if (s.operational_state === "read_only_by_contract") return contractCatalogAdmission(s, atlas).admitted;
     const m = matrixByRoute.get(s.route);
     if (m && m.parity_class === "reference_ported") {
@@ -221,7 +221,7 @@ async function run() {
     }
     return false;
   };
-  ok("registry additions beyond certified seeds resolve committed evidence for their class (contract chain | sanctioned reference_ported adjudication | designated-native journey verifier; E7 residue named)",
+  ok("registry additions beyond certified seeds resolve committed evidence for their class (contract chain | sanctioned reference_ported adjudication | designated-native journey verifier — NO legacy exclusion: the E7 named list was deleted with the rows it carried)",
     contractReadOnly.every((s) => additionAdmitted(s)),
     contractReadOnly.filter((s) => !additionAdmitted(s)).map((s) => s.slug).join(",") || "all admitted");
   const unproven = {

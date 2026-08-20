@@ -72,22 +72,9 @@
       "id": "automations-journey",
       "npm_script": "check:automations-journey",
       "source": "apps/hypervisor/scripts/verify-hypervisor-automations-journey.mjs",
-      "runtime_assertions": 44,
-      "assertion_names_sha256": "fb78f23ba208d65415e8bc9b6d77f1c60c6ad50e1f6eba8fe64692e9f113e739"
-    },
-    {
-      "id": "applications-journey",
-      "npm_script": "check:applications-journey",
-      "source": "apps/hypervisor/scripts/verify-hypervisor-applications-journey.mjs",
-      "runtime_assertions": 27,
-      "assertion_names_sha256": "1da2fa68d2c681ba5b15afb757f1711fa88b247989e5891b636fa0b7c8e413c2"
-    },
-    {
-      "id": "systems-journey",
-      "npm_script": "check:systems-journey",
-      "source": "apps/hypervisor/scripts/verify-hypervisor-systems-journey.mjs",
-      "runtime_assertions": 35,
-      "assertion_names_sha256": "16954c84a664a43004eaa392163653fb3188fdae6551e48b96af05f9c34c183f"
+      "runtime_assertions": 34,
+      "assertion_names_sha256": "1adce8285b63d51495d777e82aea2ada3e4000c2549adc655c4aeda6bed427ba",
+      "note": "E7 cockpit retirement (2026-08-20): 45 -> 34. ELEVEN assertions read the RETIRED Automations cockpit module's rendered pages (landing grammar, monitors/machinery/scheduler boundaries, named absences, legacy-lane marker, new-automation view, list, detail, paused detail, run pane, webhook band) and were deleted with the module. Every daemon-truth half of those journeys is untouched, every crossing still posts to the LIVE T2 cockpit's own action lanes, the restart re-render was RE-AIMED at that live lane, and two assertions were ADDED (the retired lane serves no surface; the live cockpit renders no scheduler-health data). PRE-EXISTING PIN DRIFT recorded rather than hidden: this row read 44 while the branch's own measured run was 45 (ledger iteration 51), so the pin was already one below truth before this cut; 34 is measured, not derived from 44."
     },
     {
       "id": "launch-chain",
@@ -97,25 +84,12 @@
       "assertion_names_sha256": "9146d786e4518fec65774ac48588432145b5a8ce0449a0abf93e4d83405cc154"
     },
     {
-      "id": "work-cockpit",
-      "npm_script": "check:work-cockpit",
-      "source": "apps/hypervisor/scripts/verify-hypervisor-work-cockpit.mjs",
-      "runtime_assertions": 51,
-      "assertion_names_sha256": "222d22af25b4cc88f64119b8dfc1553981903288ee0e9bcc4dbc76b1473d87a5"
-    },
-    {
-      "id": "home-cockpit",
-      "npm_script": "check:home-cockpit",
-      "source": "apps/hypervisor/scripts/verify-hypervisor-home-cockpit.mjs",
-      "runtime_assertions": 40,
-      "assertion_names_sha256": "5b1f0e361b62e1bef1607e62ee2f807b2c342f76deb750f70c9bf1f7818e7af1"
-    },
-    {
-      "id": "operations-cockpit",
-      "npm_script": "check:operations-cockpit",
-      "source": "apps/hypervisor/scripts/verify-hypervisor-operations-cockpit.mjs",
-      "runtime_assertions": 36,
-      "assertion_names_sha256": "4f173b20c7ecdf64ba150f20ee6e7d4806b8c490b1f0f4d3b4dd031049111b85"
+      "id": "session-authority",
+      "npm_script": "check:session-authority",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-session-authority.mjs",
+      "runtime_assertions": 24,
+      "assertion_names_sha256": "5c1a667527e308ae9d1053457838e1d1b47b1d09578871a5c8bbf05242482c92",
+      "note": "E7 cockpit retirement (2026-08-20): this row was `work-cockpit` (51). The Work cockpit slice it verified was removed with its registry rows and module, so every assertion that drove a rendered /work \u00b7 /work/sessions \u00b7 /work/new-session page went with the surface. The 24 that remain have LIVE subjects and are the estate's only coverage of them \u2014 the session family's owned-verb inventory, its identity GATE (rule-E 401s, forged internal-dispatch, exposure-marked create), the INV-37 provision + teardown receipts, the served /sessions typed 410, the protected seeds, and a positive check that the eight retired lanes now serve no surface. The surface journey they used to ride is proven end to end by check:launch-chain (53)."
     },
     {
       "id": "projects-saga",
@@ -171,8 +145,9 @@
       "id": "operational-depth",
       "npm_script": "check:operational-depth",
       "source": "apps/hypervisor/scripts/verify-hypervisor-operational-depth.mjs",
-      "runtime_assertions": 136,
-      "assertion_names_sha256": "954c4f5589e82757ee9d7ca28b5b37542034f18c64e145609b7946b16346e5bd"
+      "runtime_assertions": 147,
+      "assertion_names_sha256": "6e093c66d1a2dc19443e95eddfe4efbc1cd3cf1547a7282b39a94fa467bbbdae",
+      "note": "E7 cockpit retirement (2026-08-20): 154 -> 147. The per-registry-surface state-invariant loop emits one assertion per row, and eight rows left the registry (seven of them in that loop; `applications` was read_only_by_contract and emitted none there). The eight matching entries were also removed from REFERENCELESS_SURFACES, because this file's own stale-name assertion rejects a list that can name a surface the registry lacks. PRE-EXISTING PIN DRIFT recorded rather than hidden: this row read 136 while the branch's measured run was 154 \u2014 the remediation program added registry rows without raising the pin; 147 is measured. This verifier also carries ONE PRE-EXISTING FAILURE unrelated to this cut (18 remediation rows unclassified in the atlas, recorded in the ledger's found_defects)."
     },
     {
       "id": "ported-seed",

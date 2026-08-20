@@ -31,12 +31,6 @@ import * as sourcesModule from "../surfaces/sources/index.mjs";
 import * as missionsModule from "../surfaces/missions/index.mjs";
 import * as studioModule from "../surfaces/studio/index.mjs";
 import * as packagesModule from "../surfaces/packages/index.mjs";
-import * as automationsModule from "../surfaces/automations/index.mjs";
-import * as applicationsModule from "../surfaces/applications/index.mjs";
-import * as systemsModule from "../surfaces/systems/index.mjs";
-import * as workModule from "../surfaces/work/index.mjs";
-import * as homeModule from "../surfaces/home/index.mjs";
-import * as operationsModule from "../surfaces/operations/index.mjs";
 
 // Capability model (operational wave): `capabilities` is the AUTHORITY-derived set of acts the
 // surface genuinely supports today (never inferred from pixel certification or daemon_wired);
@@ -158,82 +152,22 @@ export const SURFACES = [
   // module-served with truthful ownership markers). Evidence: the packages journey verifier.
   { slug: "packages", owner: "Packages", title: "Packages", icon: MARKETPLACE_APP_ICON_URI, route: "/__ioi/packages/registry", canonical_route: "/packages", verifier: "scripts/verify-hypervisor-packages-journey.mjs", certification: "n/a", capabilities: ["browse", "select", "inspect", "create", "transition"], operational_state: "act", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "packages-marketplace", owner: "Packages", title: "Packages / Marketplace", icon: MARKETPLACE_APP_ICON_URI, route: "/__ioi/packages/marketplace", canonical_route: "/packages/marketplace", verifier: "scripts/verify-hypervisor-packages-journey.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
-  // W2.1 next-legs III Leg 3: the Applications greenfield launcher — canonical /applications
-  // plus a FRESH legacy lane /__ioi/applications-launcher (the /__ioi/applications T2 readout
-  // keeps serving untouched until the W4 cutover). GREENFIELD, typed non-parity
-  // (seed-ux-provenance.v1.json: no provenance-qualified seed exists; the owner-authorized
-  // greenfield lane is the only open path — this row claims no seed preservation and no
-  // parity). The module is READ-ONLY BY CONTRACT: launch is navigation over the compiled
-  // product-surface projection joined live with the package registry; it declares zero
-  // actions because every admission-class verb belongs to its owner surface. Evidence: the
-  // applications journey verifier.
-  { slug: "applications", owner: "Applications", title: "Applications", icon: EXPLORER_APP_ICON_URI, route: "/__ioi/applications-launcher", canonical_route: "/applications", verifier: "scripts/verify-hypervisor-applications-journey.mjs", certification: "n/a", capabilities: ["browse", "inspect"], operational_state: "read_only_by_contract", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
-  // W2.1 next-legs III Leg 4: the Systems greenfield workspace — canonical /systems plus a
-  // FRESH legacy lane /__ioi/systems-workspace (the M1.6/M1.7 /__ioi/systems* genesis cockpit
-  // keeps serving untouched until the W4 cutover). GREENFIELD, typed non-parity
-  // (seed-ux-provenance.v1.json: no provenance-qualified seed exists; the owner-authorized
-  // greenfield lane is the only open path — this row claims no seed preservation and no
-  // parity). Inventory + detail render the daemon's autonomous-system read projection VERBATIM
-  // (honest_empty and the fail-closed source-incomplete stop included); exactly TWO authority
-  // verbs (genesis compose, sequence-zero) cross through the shared CapabilityLease client;
-  // every other family verb is read-first or disabled with a named reason, and Interfaces is
-  // the OQ-9 disabled named gap. Evidence: the systems journey verifier.
-  { slug: "systems", owner: "Systems", title: "Systems", icon: EXPLORER_APP_ICON_URI, route: "/__ioi/systems-workspace", canonical_route: "/systems", verifier: "scripts/verify-hypervisor-systems-journey.mjs", certification: "n/a", capabilities: ["browse", "inspect", "create", "transition"], operational_state: "act", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  // E7 COCKPIT RETIREMENT (2026-08-20, owner go recorded in reference-remediation-ledger.v1.json):
+  // the eight legacy daemon-projection cockpit rows that used to sit here — applications ·
+  // systems · automations · work · work-sessions · work-new-session · home · operations, on the
+  // /__ioi/*-cockpit / -launcher / -workspace / -sessions lanes — are GONE, with their modules
+  // (surfaces/{applications,systems,automations,work,home,operations}/index.mjs) and their
+  // dedicated verifiers. The E7 end-state ruling is that clicking an application shows ONLY the
+  // designated modified seed; the retirement was realized at the navigation layer first (nothing
+  // in the served shell linked them and the native-shell reachability gate proved it), and this
+  // is the code removal that made the two named E7 exclusion lists inert and deletable. The LIVE
+  // siblings those modules were rehomed FROM keep serving untouched: /__ioi/applications ·
+  // /__ioi/systems · /__ioi/automations · /__ioi/missions · /__ioi/missions/incidents ·
+  // /__ioi/sessions · /__ioi/home · /__ioi/operations · /__ioi/work-ledger. The canonical nav
+  // routes (/applications · /systems · /work · /work/sessions · /work/new-session · /home ·
+  // /operations) fall back to the honest v2 route-shell page, which names what serves them today
+  // — they stay GRE in landing-designations.v1.json pending the GRE-1 owner ruling.
   { slug: "monitors", owner: "Automations", title: "Automate", icon: MON_APP_TILE_URI, route: "/__ioi/automations/monitors", canonical_route: "/automations", verifier: "scripts/verify-hypervisor-app-parity-monitors.mjs", certification: "pixel-certifications/monitors.json", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
-  // W2.1 next-legs II Leg 4: the Automations surface packet — canonical /automations plus a
-  // FRESH legacy lane /__ioi/automations-cockpit (deliberately NOT nested under
-  // /__ioi/automations/, whose flat :id dispatch would shadow it; every seed lane there keeps
-  // serving untouched until the W4 cutover). The module rehomes the T2 cockpit grammar
-  // READ-FIRST over the shared read client; the daemon-owned verbs (create/patch/delete/run/
-  // webhook-rotate) stay wired through the seed cockpit's own action lanes because the family
-  // returns NO admission receipts yet (the brief's named W2 defect) — so the module declares no
-  // receipted actions and its operational_state stays "inspect" honestly. Evidence: the
-  // automations journey verifier.
-  // GRE-2 AUT-3 (2026-08-20): canonical /automations moved to the monitors (Automate) row; the cockpit module keeps its legacy lane until the staged retirement.
-  { slug: "automations", owner: "Automations", title: "Automations", icon: MON_APP_TILE_URI, route: "/__ioi/automations-cockpit", verifier: "scripts/verify-hypervisor-automations-journey.mjs", certification: "n/a", capabilities: ["browse", "filter", "select", "inspect"], operational_state: "inspect", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
-  // W2.1 next-legs IV Leg 3: the Work PARTIAL PRE-W3 COCKPIT SLICE — NOT Work completion (W3.1
-  // owns the admission→harness→run→events/receipts→stop/archive/recovery/replay chain; SURF-work
-  // and W3.1 remain open). ONE module, three mounts, on FRESH non-colliding legacy lanes
-  // (/__ioi/work-cockpit, /__ioi/work-sessions, /__ioi/work-new-session — deliberately NOT
-  // /__ioi/sessions, whose T2 readout keeps serving untouched, and NOT nested under
-  // /__ioi/work-ledger's branch). The landing rehomes the jobs/incidents cockpit grammar
-  // READ-FIRST (rows link to the protected seeds /__ioi/missions + /__ioi/missions/incidents,
-  // which keep serving untouched — seed-preservation invariant; the registry owner rename for
-  // those seed rows is deferred to the full Work packet per the seed-ux-provenance
-  // owner_mapping_note). Sessions renders lifecycle facts + the ADMITTED harness binding as
-  // session truth; New Session owns the create mutation (202 + provision receipt) with NO subject
-  // input — subject_attachments is EXACTLY [] AT CREATE (no masquerade at create). The C-1 subject
-  // attachment now MATERIALIZES at LAUNCH via the W3.1 producer (POST harness-session-launches),
-  // not at create; the launch-chain + work-cockpit verifiers both prove the [] → daemon-resolved
-  // flip. Evidence: check:work-cockpit, check:launch-chain.
-  { slug: "work", owner: "Work", title: "Work", icon: EXPLORER_APP_ICON_URI, route: "/__ioi/work-cockpit", canonical_route: "/work", verifier: "scripts/verify-hypervisor-work-cockpit.mjs", certification: "n/a", capabilities: ["browse", "inspect"], operational_state: "inspect", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
-  { slug: "work-sessions", owner: "Work", title: "Work / Sessions", icon: EXPLORER_APP_ICON_URI, route: "/__ioi/work-sessions", canonical_route: "/work/sessions", verifier: "scripts/verify-hypervisor-work-cockpit.mjs", certification: "n/a", capabilities: ["browse", "filter", "select", "inspect", "transition"], operational_state: "act", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
-  { slug: "work-new-session", owner: "Work", title: "Work / New Session", icon: EXPLORER_APP_ICON_URI, route: "/__ioi/work-new-session", canonical_route: "/work/new-session", verifier: "scripts/verify-hypervisor-work-cockpit.mjs", certification: "n/a", capabilities: ["browse", "create"], operational_state: "act", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
-  // W2.1 next-legs IV Leg 4: the Home PARTIAL PRE-W3 COCKPIT SLICE — canonical /home plus a
-  // FRESH legacy lane /__ioi/home-cockpit. NOT Home completion: SURF-home and W3.1 remain open;
-  // the home-cockpit projection route (GET /v1/hypervisor/home-cockpit) is a typed W3 absence,
-  // so the slice composes the same per-family reads the live /ai explorer composes — which
-  // keeps serving untouched as a CURRENT LIVE ENTRY, never a substitute seed. Greenfield
-  // canon-first on the typed non-parity lane (seed-ux-provenance.v1.json home record): no seed
-  // preservation, no parity claims. Read-only by contract: Home launches, owns no object and
-  // declares zero actions (New Session is Work's affordance advertised by navigation);
-  // parked/failed-run rows render real counts with LIVE Operations deep-links (the
-  // operations-mount named gap was re-ruled the day /operations landed). Evidence:
-  // check:home-cockpit.
-  { slug: "home", owner: "Home", title: "Home", icon: EXPLORER_APP_ICON_URI, route: "/__ioi/home-cockpit", canonical_route: "/home", verifier: "scripts/verify-hypervisor-home-cockpit.mjs", certification: "n/a", capabilities: ["browse", "inspect"], operational_state: "inspect", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
-  // W2.1 next-legs V Leg 4: the Operations PARTIAL PRE-W3 COCKPIT SLICE — canonical /operations
-  // plus a FRESH legacy lane /__ioi/operations-cockpit. NOT Operations completion:
-  // SURF-operations remains open — its full acceptance (injected-fault detection, typed
-  // incident open, remediation/failover execution, restart/rollback/support export) is
-  // W3.2/W3.3-owned, and its seed gate carries the typed-blocked scheduler residual (a block
-  // record never opens work). Read-first by contract: eleven per-family daemon reads that
-  // exist TODAY (scheduler health, execution health, failover runs/plans, environment
-  // incidents/recovery, providers, spend reconciliation, storage backends/incidents,
-  // substrate status); every W3.2/W3.3-owned verb is a typed disabled-named-gap naming its
-  // owning unit; the W3 rollup projections (infrastructure-jobs, RPO/RTO, capacity overview)
-  // are typed route-missing absences, never simulated. The T2 readout /__ioi/operations is
-  // the rehome source and keeps serving untouched. Evidence: check:operations-cockpit.
-  { slug: "operations", owner: "Operations", title: "Operations", icon: EXPLORER_APP_ICON_URI, route: "/__ioi/operations-cockpit", canonical_route: "/operations", verifier: "scripts/verify-hypervisor-operations-cockpit.mjs", certification: "n/a", capabilities: ["browse", "inspect"], operational_state: "inspect", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "changes", owner: "Improvement", title: "Upgrade Assistant", icon: CHG_APP_TILE_URI, route: "/__ioi/improvement/changes", verifier: "scripts/verify-hypervisor-app-parity-changes.mjs", certification: "pixel-certifications/changes.json", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "evalsuites", owner: "Evaluations", title: "AIP Evals", icon: EVL_APP_TILE_URI, route: "/__ioi/evaluations/evalsuites", verifier: "scripts/verify-hypervisor-app-parity-evalsuites.mjs", certification: "pixel-certifications/evalsuites.json", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
 ];
@@ -353,19 +287,7 @@ bindSurface("studio-home", studioModule);
 // marketplace mounts render the read-first mode); ownership markers stay per-row truthful.
 bindSurface("packages", packagesModule);
 bindSurface("packages-marketplace", packagesModule);
-bindSurface("automations", automationsModule);
-bindSurface("applications", applicationsModule);
-bindSurface("systems", systemsModule);
-// Work: ALL THREE rows bind the one module — the module branches on the served pathname
-// (landing / sessions / new-session); ownership markers stay per-row truthful. Only the
-// new-session row is "act": it declares the single receipted create action.
-bindSurface("work", workModule);
-bindSurface("work-sessions", workModule);
-bindSurface("work-new-session", workModule);
-// Home: one row, one module — the partial pre-W3 cockpit slice (read-only, zero actions).
-bindSurface("home", homeModule);
-// Operations: one row, one module — the partial pre-W3 cockpit slice (read-first, zero actions).
-bindSurface("operations", operationsModule);
+// E7 (2026-08-20): the eight legacy cockpit bindings were removed with their rows and modules.
 
 // Test-only fault surface (NEVER without the runtime-test flag): gives the action-runtime
 // verifier a module whose action THROWS (route isolation proof) and one that claims success

@@ -1231,6 +1231,102 @@
       "shipped": "/__ioi/foundry/inference (Foundry family, railless on bare and Sec-Fetch-Dest: iframe delivery), registered in surface-registry.mjs, gated by the domain-landings verifier's inference block, designated at seed:inference NOW, and generated into the parity matrix by the REMEDIATION overlay (never hand-edited).",
       "reason": "The live-tenant sweep recorded a real SPACE-GATE landing behind a platform news dialog, and the estate holds every noun the gate implies \u2014 spaces, invocations, a governed verb, and a route that accepts a space selection. The port serves the gate grammar over those planes and states, on-surface and under gate, the thing that makes it hard to port honestly: the selection is receivable, the filter is real, and the answer would still be manufactured, because the key it lands on is never written by the records it is meant to scope.",
       "backlog_closure": "INF-1 is the EIGHTH and LAST leg of the live-tenant port backlog. With this cut portable_candidates is empty: 8 seeds ported (fusion \u00b7 map \u00b7 registry \u00b7 jobs \u00b7 scheduler \u00b7 ingest \u00b7 modelstudio \u00b7 inference), 2 withdrawn on read evidence (dataset \u00b7 objecteditor \u2014 vendor-404 roots, resource-scoped viewers with no landing grammar), and objectview/developer terminal on double evidence. The backlog is CLOSED."
+    },
+    {
+      "action": "E7-1",
+      "record_id": "e7-cockpit-retirement",
+      "seed": "n/a \u2014 this record adjudicates a RETIREMENT, not a seed port",
+      "owner": "Reference-UX Remediation Program v2 (E7)",
+      "date": "2026-08-20",
+      "ruling": "E7 end-state (owner): clicking an application shows ONLY the designated modified seed \u2014 the old daemon-projection cockpits are retired. The retirement was REALIZED at the navigation layer first (iteration 51: nothing in the served shell links the eight legacy lanes, and the re-aimed native-shell reachability contract proved it), and the two gates that had to keep passing meanwhile each carried a SHRINKING NAMED LIST of those eight rows, written with the explicit contract that the list must be DELETED when the code-removal leg lands. This leg is that code removal. Both lists are gone; neither gate now admits or excuses any row by name.",
+      "authorization": "hold gate E7-retirement (\"cutover retirement of any legacy lane \u2014 owner go\") released by the owner go recorded in reference-remediation-ledger.v1.json#owner_gos_recorded: 2026-08-20 \"i authorize you. go to your discretion.\" \u2014 sequenced at Claude discretion.",
+      "scope_rule": "ONLY the eight named rows and their EXCLUSIVE backing. Where a file mixed retired and live subjects the cut was surgical and the live side was proven still serving. Where a module directory backed nothing but retired rows it was deleted whole. The augmentation token `[data-hypervisor-applications-launcher]` in scripts/augmentation/60-shell-wiring.js is the LIVE launcher TRIGGER ATTRIBUTE, not a reference to the retired route, and was not touched.",
+      "per_row_disposition": [
+        {
+          "slug": "applications",
+          "retired_route": "/__ioi/applications-launcher",
+          "canonical_route": "/applications",
+          "module_removed": "surfaces/applications/index.mjs (272 lines) \u2014 imported by surface-registry.mjs and nothing else",
+          "verifier": "verify-hypervisor-applications-journey.mjs RETIRED (floor 27). Its ENTIRE subject was the retired launcher: the only route it drove was /__ioi/applications-launcher.",
+          "live_survivors": "/__ioi/applications \u2014 the T2 readout over the same compiled product-surface projection (W0.2) \u2014 and the native shell's own launcher modal, which is fed by that projection. Canonical /applications now renders the honest v2 route-shell page naming them."
+        },
+        {
+          "slug": "systems",
+          "retired_route": "/__ioi/systems-workspace",
+          "canonical_route": "/systems",
+          "module_removed": "surfaces/systems/index.mjs (637 lines)",
+          "verifier": "verify-hypervisor-systems-journey.mjs RETIRED (floor 35). Subject: the retired workspace's own mounts. Its ONE live-surface claim \u2014 that /__ioi/systems keeps serving (302 to its packages census) \u2014 is independently covered by verify-hypervisor-system-genesis-product-journey.mjs, whose BASE is that route.",
+          "live_survivors": "/__ioi/systems (302 -> /__ioi/systems/packages), the M1.6/M1.7 genesis cockpit."
+        },
+        {
+          "slug": "automations",
+          "retired_route": "/__ioi/automations-cockpit",
+          "canonical_route": "none \u2014 GRE-2 AUT-3 had already moved canonical /automations to the monitors (Automate) row",
+          "module_removed": "surfaces/automations/index.mjs (475 lines)",
+          "verifier": "verify-hypervisor-automations-journey.mjs RE-AIMED, 45 -> 34. This file MIXES subjects and was cut surgically: the eleven assertions that read the retired module's rendered pages were deleted; every daemon-truth assertion, every crossing (all of which already post to the LIVE T2 cockpit's own action lanes) and the GRE-2 transfer assertions were kept; the restart re-render was RE-AIMED at the live lane; and two assertions were ADDED \u2014 that the retired lane now serves no surface, and that the live cockpit renders no scheduler-health data.",
+          "live_survivors": "/automations 302 -> /__ioi/automations/monitors (the designated Automate landing, certified port) and /__ioi/automations (the T2 cockpit, which owns the family's real create/patch/delete/run/webhook-rotate action lanes)."
+        },
+        {
+          "slug": "work",
+          "retired_route": "/__ioi/work-cockpit",
+          "canonical_route": "/work",
+          "module_removed": "surfaces/work/index.mjs (563 lines) \u2014 ONE module, three rows",
+          "verifier": "verify-hypervisor-work-cockpit.mjs RE-AIMED and RENAMED to verify-hypervisor-session-authority.mjs (check:work-cockpit -> check:session-authority), 51 -> 24. This was the one retired-cockpit verifier carrying live coverage that exists NOWHERE ELSE in the estate, so it was not deleted: the session family's owned-verb inventory, its identity GATE (rule-E 401s on create/execute/ports-revoke/teardown, the FORGED x-ioi-internal-dispatch token forwarding inert, the exposure-marked create failing closed), the durable INV-37 provision and teardown receipts, and the served typed 410 for the retired /sessions root were all sole-source here. The surface journey those assertions used to ride on is proven end to end by check:launch-chain.",
+          "live_survivors": "/__ioi/missions, /__ioi/missions/incidents (protected seeds), /__ioi/sessions (the T2 sessions readout), /__ioi/work-ledger, /__ioi/run-timeline."
+        },
+        {
+          "slug": "work-sessions",
+          "retired_route": "/__ioi/work-sessions",
+          "canonical_route": "/work/sessions",
+          "module_removed": "same module as `work`",
+          "verifier": "same as `work`",
+          "live_survivors": "/work/sessions REMAINS the canonical replacement that the retired bare /sessions root 410s onto \u2014 the typed refusal record names it, and check:session-authority still asserts that record byte for byte, plus the HTML arm's link and the retired subtree carrying its deep-link tail. The route itself now renders the honest v2 shell page."
+        },
+        {
+          "slug": "work-new-session",
+          "retired_route": "/__ioi/work-new-session",
+          "canonical_route": "/work/new-session",
+          "module_removed": "same module as `work`",
+          "verifier": "same as `work`",
+          "live_survivors": "the admitted-create AUTHORITY is daemon truth and outlives the surface: POST /v1/hypervisor/sessions (202 + provision receipt, owner daemon-resolved, subject_attachments EXACTLY [] at create) is asserted by check:session-authority and by check:launch-chain. /ai#new-session is the live composer."
+        },
+        {
+          "slug": "home",
+          "retired_route": "/__ioi/home-cockpit",
+          "canonical_route": "/home",
+          "module_removed": "surfaces/home/index.mjs (324 lines)",
+          "verifier": "verify-hypervisor-home-cockpit.mjs RETIRED (floor 40). Subject: the retired Home slice. Both routes it drove (/__ioi/home-cockpit and /__ioi/work-new-session) are retired routes; its cross-surface deep-link assertions were assertions about what HOME rendered, followed from Home's own hrefs.",
+          "live_survivors": "/ai (the explorer Home \u2014 the CURRENT LIVE ENTRY the slice was always explicit about never replacing) and /__ioi/home (the estate launcher readout). The v2 /home row needed no re-aim: it never claimed the module served it."
+        },
+        {
+          "slug": "operations",
+          "retired_route": "/__ioi/operations-cockpit",
+          "canonical_route": "/operations",
+          "module_removed": "surfaces/operations/index.mjs (411 lines)",
+          "verifier": "verify-hypervisor-operations-cockpit.mjs RETIRED (floor 36). Subject: the retired slice. Of its 36 assertions exactly ONE had a live subject \u2014 that the protected T2 seed /__ioi/operations keeps serving \u2014 and that route is independently driven by verify-hypervisor-native-shell-integration (as an embedded thread route, both directions, asserting #ops-jobs renders) and by eight provider/custody/failover verifiers (filecoin-cas, k8s-kubevirt, byo-provider-plane, runpod, azure, auto-failover-trigger, feedback and others).",
+          "live_survivors": "/__ioi/operations."
+        }
+      ],
+      "what_survived_in_shared_files": [
+        "scripts/surface-registry.mjs \u2014 43 rows -> 35. Every other row, the fail-fast capability/state invariants, the test-only fault row behind IOI_APP_RUNTIME_TEST_ROUTE, boundSurface / boundActionRoute / canonicalSurfaceRoute / embeddableRoutes and the ACTING_STATES tier gate are untouched. Six module imports and eleven bindSurface calls were removed with the rows; a dated retirement note replaces the deleted comment blocks so the removal is legible in the file that did it.",
+        "scripts/v2-route-shell.mjs \u2014 all 25 canonical rows SURVIVE. Seven rows had a build_state that claimed 'the bound surface module serves this canonical route' (false the moment the module left) and serving_today entries pointing at dead legacy lanes; both were re-aimed to the live lanes. The /home row needed no change. The route table, the deep-link resolver and the /sessions retirement table are untouched (its 14 unit tests still pass).",
+        "scripts/verify-hypervisor-native-shell-integration.mjs \u2014 E7_RETIREMENT_PENDING (8 routes) DELETED. The reachability contract now binds EVERY registry row with no exclusion of any kind, which is what the list's own comment said must happen.",
+        "scripts/verify-hypervisor-app-runtime-safety.mjs \u2014 E7_RETIREMENT_PENDING (8 slugs), its short-circuit in additionAdmitted, and the 'E7 residue named' clause in the assertion label DELETED. 30/30 with every registry addition admitted through one of the three real evidence classes and nothing admitted by being named.",
+        "scripts/verify-hypervisor-operational-depth.mjs \u2014 8 of the 11 REFERENCELESS_SURFACES entries removed (packages, packages-marketplace, studio-home survive). This was FORCED by the file's own assertion that the list carries no stale entry: 'a list that can name a surface the registry lacks is a list that absorbs coverage.'",
+        "surfaces/ shared helpers \u2014 kit.mjs, read-client.mjs, authority-client.mjs, chrome.mjs, ontology-context.mjs and plane-read.mjs all survive; each still has live importers.",
+        "scripts/augmentation/60-shell-wiring.js \u2014 UNTOUCHED by ruling. Its only textual hit is the attribute selector [data-hypervisor-applications-launcher], which is the LIVE native launcher's trigger attribute and names no retired route."
+      ],
+      "mutation_test": "The two re-aimed gates were mutation-tested against the exact defect they now exist to catch: one retired row (slug `work`, route /__ioi/work-cockpit, browse-tier, no bound module) was re-added to SURFACES and the serve restarted. (1) verify-hypervisor-app-runtime-safety's registry-additions gate FAILED naming exactly `work` \u2014 no admission class resolves it and there is no longer a named list to excuse it (28/30). (2) verify-hypervisor-native-shell-integration's reachability contract FAILED naming exactly /__ioi/work-cockpit as unreachable from the native shell, and it was the ONLY reachability failure in the run (118/119). The mutation was then removed by RE-APPLYING the deletion edit, never by git checkout, the serve was restarted, and both gates returned to green: app-runtime-safety 30/30, native-shell 117/117 ALL PASS with no excluded row.",
+      "named_residuals": [
+        "surfaces/event-client.mjs (445 lines) + event-client.test.mjs are imported only by that test. This is PRE-EXISTING orphaning, NOT residue of this leg: none of the six retired modules imported it (each used only kit.mjs, read-client.mjs and \u2014 for systems \u2014 authority-client.mjs). It is left in place because deleting shared surface infrastructure is a different call than retiring eight cockpit rows.",
+        "docs/architecture/_meta/canon-to-code-delta.md carries dated 2026-08-11 cut records that cite the retired verifiers by name and pass count. Those entries record what those cuts proved ON THAT DATE and are HISTORY; they are not rewritten. A dated 2026-08-20 entry naming this retirement is appended instead, so the doc's present-tense summary is corrected forward rather than falsified backward.",
+        "check:verifier-floors carries PRE-EXISTING pin drift on rows this leg did not create: automations-journey was pinned 44 against a branch-measured 45 (ledger iteration 51), and operational-depth was pinned 136 against a branch-measured 154 \u2014 the remediation program added assertions without raising the pins. The three rows this leg touched (session-authority 24, automations-journey 34, operational-depth 147) are pinned from MEASURED census runs, and the drift is recorded in each row's note rather than absorbed silently. Locally the gate also reports census staleness for five verifiers this leg did not touch (their census artifacts predate other legs' source edits); CI runs every verifier fresh, so that arm is a local-evidence artifact, not a manifest defect.",
+        "verify-hypervisor-operational-depth still carries ONE failing assertion \u2014 18 remediation registry rows are unclassified in the frozen atlas \u2014 which predates this leg (recorded in the ledger's found_defects) and is untouched by it. This leg took that file 154 -> 147 assertions and left the failure exactly where it was.",
+        "The eight retired routes now fall through to the vendored SPA catch-all (HTTP 200, its own client-rendered not-found) rather than a server 404. That is the estate's standing behaviour for any unowned /__ioi path; what this leg asserts positively \u2014 in check:session-authority and check:automations-journey \u2014 is the load-bearing claim: none of them carries a registry ownership marker any more, so none of them is a surface."
+      ],
+      "outcome": "retired",
+      "shipped": "8 registry rows, 6 surface modules (2,682 lines) and 4 dedicated verifiers removed; 1 verifier re-aimed + renamed; 3 verifiers re-aimed in place; 2 named E7 exclusion lists deleted; 7 v2 route-shell rows re-aimed; package.json, ci.yml and verifier-floors.v1.json reconciled in the same cut.",
+      "verifier_family_effect": "Assertion accounting, stated rather than absorbed. RETIRED WITH THEIR SURFACES: applications-journey 27, systems-journey 35, home-cockpit 40, operations-cockpit 36 (138 assertions, all with retired subjects; their floor rows are deleted, their npm scripts are deleted and their CI invocations are deleted in the same cut, which is what check:verifier-floors' closed-world and reverse-edge rules require). RE-AIMED: work-cockpit 51 -> session-authority 24 (renamed; the 27 dropped were surface renders, the 24 kept are sole-source live coverage); automations-journey 45 -> 34; operational-depth 154 -> 147. NOT FLOORED, so recorded here: native-shell-integration 129 -> 117 \u2014 the 12 are the per-row probes of the eight rows that left the registry; that verifier has no npm script, no CI job and no floor row, and this leg did not give it one."
     }
   ]
 }

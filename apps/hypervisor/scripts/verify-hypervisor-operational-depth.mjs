@@ -132,17 +132,13 @@ async function run() {
   // surface with real seed provenance whose registry row was created after the atlas froze at
   // `19d732ff2`). Neither is "IOI-native with no reference counterpart", which is what the list used
   // to say about surfaces that demonstrably have one.
+  // E7 COCKPIT RETIREMENT (2026-08-20): eight entries left this list with their registry rows —
+  // home · systems · applications · automations · operations · work · work-sessions ·
+  // work-new-session. They are removed rather than kept, because the assertion below rejects a
+  // stale name: a list that can name a surface the registry lacks is a list that absorbs coverage.
   const REFERENCELESS_SURFACES = {
-    home: { provenance_id: "home", class: "greenfield" },
-    systems: { provenance_id: "systems", class: "greenfield" },
-    applications: { provenance_id: "applications", class: "greenfield" },
     packages: { provenance_id: "packages", class: "post-atlas" },
     "packages-marketplace": { provenance_id: "packages", class: "post-atlas" },
-    automations: { provenance_id: "automations", class: "post-atlas" },
-    operations: { provenance_id: "operations", class: "post-atlas" },
-    work: { provenance_id: "work", class: "post-atlas" },
-    "work-sessions": { provenance_id: "work", class: "post-atlas" },
-    "work-new-session": { provenance_id: "work", class: "post-atlas" },
     "studio-home": { provenance_id: "studio", class: "post-atlas" },
   };
   const provenance = JSON.parse(readFileSync(join(APP, "seed-ux-provenance.v1.json"), "utf8"));

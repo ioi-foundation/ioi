@@ -191,17 +191,13 @@ async function run() {
         }
         frontier = next;
       }
-      // E7 retirement residue (found_defects, ledger): eight LEGACY cockpit rows remain registered
-      // but were retired from the visible shell (zero references in the served augmentation). They
-      // are excluded BY NAME pending the queued legacy code-removal leg — when that leg lands and
-      // the rows leave the registry, this list must shrink to empty (a row named here that leaves
-      // the registry keeps the gate honest; a NEW unreachable surface still fails).
-      const E7_RETIREMENT_PENDING = new Set([
-        "/__ioi/applications-launcher", "/__ioi/systems-workspace", "/__ioi/automations-cockpit",
-        "/__ioi/work-cockpit", "/__ioi/work-sessions", "/__ioi/work-new-session",
-        "/__ioi/home-cockpit", "/__ioi/operations-cockpit",
-      ]);
-      const unreachable = SURFACES.filter((s) => !reached.has(s.route) && !E7_RETIREMENT_PENDING.has(s.route)).map((s) => s.route);
+      // E7 CODE REMOVAL LANDED (2026-08-20): the eight legacy cockpit rows this gate used to
+      // exclude BY NAME left the registry with their modules and their dedicated verifiers, so the
+      // named list went inert and was DELETED with them — as its own contract required. The
+      // reachability contract below now binds EVERY registry row with no exclusion of any kind: a
+      // surface that cannot be reached from the native shell within two link hops fails here, and
+      // the only way to satisfy it is to link the surface or to remove it.
+      const unreachable = SURFACES.filter((s) => !reached.has(s.route)).map((s) => s.route);
       ok("every registry surface is reachable from the native shell within two link hops (launcher row, shell-wired target, GRE-2 transfer, or landing/document link)", unreachable.length === 0, unreachable.length ? `unreachable: ${unreachable.join(" ")}` : `${SURFACES.length} surfaces via ${launchUniverse.length} shell targets`);
       ok("the launcher never offers the /__ioi/odk substrate as a catalog row (it stays linked from within owner surfaces)", !rowTargets.includes("/__ioi/odk"));
       // The row harvest left the modal open; close it so the click-drive loop can reopen it per surface.

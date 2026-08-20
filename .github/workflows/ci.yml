@@ -256,12 +256,8 @@ jobs:
           npm run check:studio-journey --workspace=@ioi/hypervisor-app
           npm run check:packages-journey --workspace=@ioi/hypervisor-app
           npm run check:automations-journey --workspace=@ioi/hypervisor-app
-          npm run check:applications-journey --workspace=@ioi/hypervisor-app
-          npm run check:systems-journey --workspace=@ioi/hypervisor-app
           npm run check:launch-chain --workspace=@ioi/hypervisor-app
-          npm run check:work-cockpit --workspace=@ioi/hypervisor-app
-          npm run check:home-cockpit --workspace=@ioi/hypervisor-app
-          npm run check:operations-cockpit --workspace=@ioi/hypervisor-app
+          npm run check:session-authority --workspace=@ioi/hypervisor-app
           npm run check:projects-saga --workspace=@ioi/hypervisor-app
           npm run check:provider-transport --workspace=@ioi/hypervisor-app
           npm run check:model-route-authority --workspace=@ioi/hypervisor-app

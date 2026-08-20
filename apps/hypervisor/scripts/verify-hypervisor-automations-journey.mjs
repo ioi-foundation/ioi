@@ -75,7 +75,7 @@ let SERVE = "";
 let SESSION = "";
 
 const SEED_LANE = "/__ioi/automations"; // the T2 cockpit's own wired action lanes (seed truth)
-const FRESH_LANE = "/__ioi/automations-cockpit"; // the module's fresh legacy mount
+const FRESH_LANE = "/__ioi/automations-cockpit"; // E7-RETIRED lane — probed only to prove it serves no surface
 
 async function startDaemon() {
   daemon = spawn(daemonBinary, [], {
@@ -191,9 +191,9 @@ async function run() {
 
   // -- canonical mount: rehomed grammar, honest-empty, boundaries held --------
   // GRE-2 AUT-3 (owner go 2026-08-20): canonical /automations is a TRANSFER — nav lands on the
-  // designated Automate shell (E1/E7). The module's rehomed grammar keeps serving on its legacy
-  // mount (asserted below via FRESH_LANE); the redirect is asserted both raw (302 + transfer
-  // header) and followed (the Automate shell renders).
+  // designated Automate shell (E1/E7); the redirect is asserted both raw (302 + transfer header)
+  // and followed (the Automate shell renders). E7 (2026-08-20): the cockpit module that used to
+  // serve the rehomed grammar on FRESH_LANE was retired — that lane is now asserted EMPTY below.
   const rawT = await fetch(`${SERVE}/automations`, { redirect: "manual" }).then((r) => ({ status: r.status, loc: r.headers.get("location"), tag: r.headers.get("x-ioi-gre2-transfer") })).catch(() => ({ status: 0 }));
   ok("canonical /automations is the GRE-2 transfer: 302 → the designated Automate landing, transfer-tagged",
     rawT.status === 302 && rawT.loc === "/__ioi/automations/monitors" && rawT.tag === "/automations",
@@ -202,40 +202,32 @@ async function run() {
   ok("followed, the canonical click lands on the Automate shell (the modified seed — E7)",
     landingFollowed.status === 200 && landingFollowed.text.includes("Automate") && landingFollowed.text.includes("mon-tabs"),
     String(landingFollowed.status));
-  const landing = await pageText(FRESH_LANE);
-  ok("the rehomed grammar renders with its owner-surface contract intact (heading anchor + durable-orchestration framing + daemon-truth claim) and HONEST-EMPTY (no fixture rows)",
-    landing.text.includes('id="automations-owner"') && landing.text.includes("Durable orchestration")
-      && landing.text.includes("daemon truth") && landing.text.includes("No daemon automations yet"),
-    "");
-  ok("the Monitors reference stays a LINK to the protected seed route (and the wizard capture stays a linked reference, never rows)",
-    landing.text.includes('href="/__ioi/automations/monitors"') && landing.text.includes('href="/__apps/monitors"'),
-    "");
-  ok("machinery stays OUT entirely (OQ-2 unruled — no registry transfer, no state-machines read, no machinery link)",
-    !landing.text.includes("machinery") && !landing.text.includes("Machinery")
-      && !landing.text.includes("state-machines") && !landing.text.includes("state_machines"),
-    "");
-  ok("scheduler-health rows are ABSENT (Operations-owned boundary NAMED as a link, never rendered as data)",
-    rendersNoSchedulerHealth(landing.text) && landing.text.includes("Operations-owned") && landing.text.includes('href="/__ioi/operations"'),
-    "");
-  ok("the named absences render disabled-with-reason (Versions + monitor wizard) — typed, machine-readable, never simulated",
-    landing.text.includes("data-ioi-disabled-reason") && landing.text.includes("no daemon route exists")
-      && landing.text.includes(">Versions<") && landing.text.includes("Monitor wizard"),
-    "");
-  const freshLane = await pageText(FRESH_LANE);
-  ok("the fresh legacy lane serves the same module with its own truthful marker",
-    freshLane.status === 200 && freshLane.headers.get("x-ioi-surface-route") === FRESH_LANE
-      && freshLane.headers.get("x-ioi-surface-owner") === "Automations" && freshLane.text.includes('id="automations-owner"'),
-    `status ${freshLane.status} route ${freshLane.headers.get("x-ioi-surface-route")}`);
+  // E7 COCKPIT RETIREMENT (2026-08-20): the bound Automations cockpit module and its
+  // /__ioi/automations-cockpit lane were removed with their registry row, so the five assertions
+  // that read THAT MODULE'S rendered page are gone with it. Every assertion that survives here has
+  // a LIVE subject: the designated Automate landing (above), the T2 cockpit at /__ioi/automations
+  // which owns the family's real action lanes (below, and every crossing in this file already
+  // posts to it), and the daemon automations family itself.
   const seedReadout = await pageText(SEED_LANE);
   const seedMonitors = await pageText("/__ioi/automations/monitors");
-  ok("the seed lanes keep serving untouched (seed preservation: T2 cockpit + protected monitors)",
+  ok("the LIVE Automations lanes serve: the T2 cockpit (the family's own action-lane owner) and the protected monitors seed",
     seedReadout.status === 200 && seedReadout.text.includes("Automations") && seedMonitors.status === 200,
     `statuses ${seedReadout.status}/${seedMonitors.status}`);
-  const newForm = await pageText(`${FRESH_LANE}?view=new`);
-  ok("the New-automation view renders project-first (project_ref REQUIRED) and posts through the seed cockpit's own create lane — no second mutation path",
-    newForm.status === 200 && newForm.text.includes("New automation") && newForm.text.includes("project_ref")
-      && newForm.text.includes(`action="${SEED_LANE}"`),
+  // The Operations boundary, asserted of the LIVE surface as the live surface actually holds it:
+  // the T2 cockpit renders NO scheduler-health data at all. (The retired module additionally named
+  // the boundary with a link to /__ioi/operations; the seed never carried that affordance, so the
+  // link half is NOT asserted here — asserting it would be inventing a claim about a live surface
+  // rather than checking one. Operations owns scheduler health and check:operational-depth-era
+  // coverage of that surface lives with Operations, not here.)
+  ok("the LIVE T2 cockpit renders NO scheduler-health data — the Operations-owned boundary holds by absence, never by a duplicated read",
+    rendersNoSchedulerHealth(seedReadout.text),
     "");
+  ok("the retired /__ioi/automations-cockpit lane serves NO surface — it carries no registry ownership marker, so it is not a registered surface any more",
+    await (async () => {
+      const gone = await pageText(FRESH_LANE);
+      return !gone.headers.get("x-ioi-surface-owner") && !gone.headers.get("x-ioi-surface-route");
+    })(),
+    FRESH_LANE);
 
   // -- a real project (the automation's REQUIRED durable container) -----------
   const created = await fetch(`${SERVE}/api/ioi.v1.ProjectService/CreateProject`, {
@@ -332,25 +324,10 @@ async function run() {
       && runsAfterAnonServe.length === 0,
     `status ${anonServeRun.status} · ${runsAfterAnonServe.length} runs`);
 
-  const listPage = await pageText(`${FRESH_LANE}?project=${encodeURIComponent(projectId)}`);
-  // The trigger pill keeps the SEED grammar's own precedence (the `trigger` object — which the
-  // create handler defaults to {kind:"manual"} beside trigger_kind:"time" — wins over
-  // trigger_kind), rehomed verbatim; the stored trigger_kind truth is asserted on the round-trip
-  // row above and rendered on the detail grid.
-  ok("the canonical list renders the admitted spec (project filter lane + enabled pill + the spec id, seed card grammar verbatim)",
-    listPage.status === 200 && listPage.text.includes("journey-nightly") && listPage.text.includes(">enabled<")
-      && listPage.text.includes(automationId),
-    "");
-  let detail = await pageText(`${FRESH_LANE}?automation=${encodeURIComponent(automationId)}`);
-  ok("the canonical detail renders the spec grid + the daemon-owned verbs (Run now / Pause via the seed lanes) + the declared step",
-    detail.status === 200 && detail.text.includes("every 5m") && detail.text.includes("Run now")
-      && detail.text.includes("Pause schedule") && detail.text.includes("echo journey-effect")
-      && detail.text.includes(`action="${SEED_LANE}/${encodeURIComponent(automationId)}/run"`),
-    "");
-  ok("the detail's typed absences render disabled-with-reason (Versions + Session/GoalRun lineage) and scheduler-health rows stay absent",
-    detail.text.includes(">Versions<") && detail.text.includes("Serving Session / GoalRun lineage")
-      && detail.text.includes("no daemon fields exist") && rendersNoSchedulerHealth(detail.text),
-    "");
+  // E7 (2026-08-20): the three render assertions that read the RETIRED cockpit module's list and
+  // detail pages went with the module. The crossings below are unchanged — every one of them
+  // already posted to the LIVE seed cockpit's own action lanes (SEED_LANE), and every one is
+  // proven by a DAEMON readback, which is the load-bearing half.
 
   // -- daemon typed absences probed directly ----------------------------------
   const versions = await jd(`/v1/hypervisor/automations/${encodeURIComponent(automationId)}/versions`);
@@ -364,10 +341,6 @@ async function run() {
   ok("pause crosses (302) and reads back: enabled false + next_run_at reset (the scheduler skips disabled specs)",
     paused.status === 302 && spec.automation?.enabled === false && spec.automation?.next_run_at === null,
     `enabled ${spec.automation?.enabled}`);
-  detail = await pageText(`${FRESH_LANE}?automation=${encodeURIComponent(automationId)}`);
-  ok("the canonical detail renders the paused truth (disabled pill + Resume verb)",
-    detail.status === 200 && detail.text.includes(">disabled<") && detail.text.includes("Resume schedule"),
-    "");
   const resumed = await seedPost(`/${encodeURIComponent(automationId)}/resume`, {});
   spec = await specGet(automationId);
   ok("resume crosses (302) and reads back enabled true", resumed.status === 302 && spec.automation?.enabled === true, "");
@@ -397,11 +370,6 @@ async function run() {
   ok("the unified proof stream carries the run with its transcript state_root (readback proof — the family's real evidence lane)",
     !!ledgerHit && JSON.stringify(ledgerHit).includes("state_root"),
     "");
-  detail = await pageText(`${FRESH_LANE}?automation=${encodeURIComponent(automationId)}`);
-  ok("the canonical run pane renders the execution with its terminal state and proof link",
-    detail.status === 200 && detail.text.includes(exec.execution_id || "@") && detail.text.includes("last run · done")
-      && detail.text.includes(`/__ioi/run-timeline/${encodeURIComponent(exec.execution_id || "")}`),
-    "");
 
   // -- webhook: rotate (hash-at-rest) + rejected trigger is a RECEIPTED event -
   const rotated = await jd(`/v1/hypervisor/automations/${encodeURIComponent(automationId)}/webhook-rotate`, { method: "POST" });
@@ -422,11 +390,6 @@ async function run() {
     badTrigger.status === 401 && badTrigger.body?.reason === "invalid_token"
       && !!rejectedEvent && !!rejectedEvent.receipt_id && events.body?.rejected_count === 1,
     JSON.stringify({ status: badTrigger.status, receipt: rejectedEvent?.receipt_id }));
-  detail = await pageText(`${FRESH_LANE}?automation=${encodeURIComponent(automationId)}`);
-  ok("the canonical webhook band renders the endpoint truth + the receipted rejected event (its receipt id verbatim)",
-    detail.status === 200 && detail.text.includes("X-IOI-Trigger-Token") && detail.text.includes(">rejected<")
-      && detail.text.includes(rejectedEvent?.receipt_id || "@"),
-    "");
 
   // -- delete journey (throwaway spec — the canonical page stays honest after)
   const throwaway = await jd("/v1/hypervisor/automations", {
@@ -436,11 +399,9 @@ async function run() {
   const throwawayId = throwaway.body?.automation?.automation_id || "";
   const deleted = await seedPost(`/${encodeURIComponent(throwawayId)}/delete`, {});
   const deletedGet = await specGet(throwawayId);
-  const deletedPage = await pageText(`${FRESH_LANE}?automation=${encodeURIComponent(throwawayId)}`);
-  ok("delete crosses through the seed lane and the record is GONE — daemon readback ok:false, canonical page renders the honest not-found (nothing inferred)",
-    throwaway.status === 201 && deleted.status === 302 && deletedGet.ok === false
-      && deletedPage.status === 200 && deletedPage.text.includes("Automation not found"),
-    "");
+  ok("delete crosses through the seed lane and the record is GONE — daemon readback ok:false (nothing inferred)",
+    throwaway.status === 201 && deleted.status === 302 && deletedGet.ok === false,
+    `create ${throwaway.status} · delete ${deleted.status} · readback ok=${deletedGet.ok}`);
 
   // -- restart: the spec + its history survive and the mount re-renders -------
   daemon.kill("SIGTERM");
@@ -454,14 +415,17 @@ async function run() {
       && !!spec.automation?.webhook_token_hash
       && runsAfter.some((r) => r.execution_id === exec.execution_id),
     "");
+  // Re-aimed at the LIVE surface (E7): the retired module's mount is gone, so the render half of
+  // restart survival is asserted where the family actually serves today — the T2 cockpit's own
+  // detail lane, which is where every crossing above redirects back to.
   let reload = { status: 0, text: "" };
   for (let attempt = 0; attempt < 3; attempt++) {
     await new Promise((r) => setTimeout(r, 1500));
-    reload = await pageText(`${FRESH_LANE}?automation=${encodeURIComponent(automationId)}`);
+    reload = await pageText(`${SEED_LANE}/${encodeURIComponent(automationId)}`);
     if (reload.status === 200 && reload.text.includes("journey-nightly")) break;
   }
-  ok("the canonical mount re-renders the surviving spec after restart",
-    reload.status === 200 && reload.text.includes("journey-nightly") && reload.text.includes("every 5m"),
+  ok("the LIVE Automations cockpit re-renders the surviving spec after restart",
+    reload.status === 200 && reload.text.includes("journey-nightly"),
     `status ${reload.status}`);
 
   // -- 3-posture matrix -------------------------------------------------------
