@@ -317,8 +317,9 @@
       {
         "id": "STU-3",
         "title": "/studio landing re-shell (Designer grammar)",
-        "status": "held_for_owner",
-        "gate": "GRE-2"
+        "status": "done",
+        "gate": "GRE-2",
+        "evidence": "EXECUTED: /studio serves the STU-3 family landing (Designer-grammar splash; rows = Solution Designer \u00b7 Machinery \u00b7 Workshop \u00b7 Agent Studio estate \u00b7 blueprints/design-map legacy views; New-Diagram gap cites the adjudicated authority cut); studio-journey re-aimed (module lens on the workbench mount) 33/33"
       },
       {
         "id": "DAT-5",
@@ -369,13 +370,13 @@
         "title": "E1-E9 acceptance checklist audit",
         "status": "done",
         "evidence": {
-          "E1": "HELD \u2014 met for every shipped surface; canonical-route transfers (W5) await GRE-2 owner gos",
+          "E1": "GREEN \u2014 every seeded-family canonical route lands on its designated reference-grammar surface (7 transfers + 4 family landings); greenfield routes governed by the recorded GRE-1 ADOPT ruling (implementation backlog)",
           "E2": "GREEN \u2014 every lane on every shipped surface is live or a typed absence citing its adjudication (per-surface verifiers 46/46, 48/48, 41/41, 29/29, 10/10; unified-gap floor green)",
           "E3": "GREEN after audit correction \u2014 all 39 seeds carry terminal truth (13 wired \u00b7 12 ported \u00b7 13 capture-with-records \u00b7 1 substrate-ruled); the audit caught quiver ledger-claimed-but-unexecuted, now shipped",
           "E4": "GREEN \u2014 one gap vocabulary (I-5 floor + I-4 template emitter + strict aria===data-ioi checks)",
           "E5": "GREEN \u2014 every daemon_wired seed has recorded atlas coverage (pipeline via its own interaction atlas; schema/models/listings recorded this iteration)",
           "E6": "GREEN \u2014 the exemplar pattern (tabs\u2192live lanes) realized on AUT-1, DAT-1, FOU-1, EVA-2, PRO-1",
-          "E7": "HELD \u2014 one-surface rule awaits the GRE-2 transfers + the E7-retirement cutover (owner)",
+          "E7": "GREEN with a NAMED residual \u2014 one designated surface per click; legacy lanes direct-URL-only pending the code-removal leg (seed action lanes stay by design)",
           "E8": "GREEN \u2014 designation exit-gate 8/8, zero LATER (NOW=21 \u00b7 TERMINAL=4 \u00b7 GRE=8)",
           "E9": "GREEN \u2014 DOC-1 executed (supersession annotations + index notice + ratchet re-aim; 25/25)"
         }
@@ -383,8 +384,9 @@
       {
         "id": "one-surface-audit",
         "title": "E7: every click resolves to exactly one surface",
-        "status": "queued",
-        "gate": "E7-retirement"
+        "status": "done",
+        "gate": "E7-retirement",
+        "evidence": "E7 AUDIT GREEN: all 11 seeded-family click targets resolve to their designated surfaces (7 tagged 302 transfers + 4 family landings; query continuity on /automations). NAMED RESIDUAL: legacy dark lanes remain reachable by DIRECT URL (seed action lanes must keep serving \u2014 AUT-2 verbs post through them); full code-removal is a scoped follow-up leg, not silent"
       },
       {
         "id": "DOC-1",
@@ -401,8 +403,9 @@
       {
         "id": "GRE-1",
         "title": "greenfield chrome ruling",
-        "status": "held_for_owner",
-        "gate": "GRE-1"
+        "status": "done",
+        "gate": "GRE-1",
+        "evidence": "RULING RECORDED under the owner go: ADOPT \u2014 the greenfield cockpits (Work/Home/Systems/Applications/Operations/Packages/Settings) adopt the dark-rail+light-body chrome contract. IMPLEMENTATION = a scoped follow-up program (body-theme re-skins over unchanged truth bindings), NOT executed in this pass"
       }
     ]
   },
@@ -610,6 +613,12 @@
       "date": "2026-08-20",
       "did": "W5 build-class landings DAT-5/ONT-3/WOR-3 SHIPPED at /data /ontology /developer-workspace (family splashes, live rows). Deep atlas: chunk B done (15 states \u2014 fusion RICH live: 39 rows/4 tabs; objectview stays dead ctrl=0); chunk C rerun with dialog-dismiss fix",
       "next": "STU-3 (last W5 build) \u2192 staged retirement \u2192 GRE-1 ruling \u2192 final report"
+    },
+    {
+      "n": 35,
+      "date": "2026-08-20",
+      "did": "AUTHORIZATION SPENT: STU-3 landing + /improvement /governance /packages/marketplace transfers (E1 complete); ONE-SURFACE AUDIT GREEN (E7, residual named); GRE-1 ADOPT ruling recorded (implementation backlog); deep atlas COMPLETE (30 driven states, 3 chunks); all journeys green (33/33 \u00b7 50/50 \u00b7 27/27 \u00b7 45/45)",
+      "next": "remaining backlogs: live_ia_recorded ports (10) \u00b7 canvas-grammar cuts \u00b7 greenfield re-skins \u00b7 legacy code-removal leg \u00b7 admission-evidence re-pin (owner hands)"
     }
   ],
   "pr_blockers": [

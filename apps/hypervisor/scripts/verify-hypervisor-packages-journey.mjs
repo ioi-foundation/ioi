@@ -219,11 +219,15 @@ async function run() {
   ok("an ANONYMOUS /packages render shows the family's typed identity refusal, never fabricated rows (identity-first reads)",
     anonLanding.text.includes("request_principal_required") && anonLanding.text.includes("Packages"),
     "");
-  const mkt = await pageText("/packages/marketplace", { authenticated: false });
-  ok("canonical /packages/marketplace renders the read-first Marketplace MODE under the Packages owner",
-    mkt.status === 200 && mkt.headers.get("x-ioi-surface-route") === "/packages/marketplace" && mkt.headers.get("x-ioi-surface-owner") === "Packages"
-      && mkt.text.includes("Packages / Marketplace") && mkt.text.includes("never becomes a second package owner"),
-    `status ${mkt.status} route ${mkt.headers.get("x-ioi-surface-route")}`);
+  // GRE-2 (owner go 2026-08-20): canonical /packages/marketplace is a TRANSFER to the certified
+  // Marketplace port; the Packages-owned marketplace MODE keeps serving on its legacy mount.
+  const mktRaw = await fetch(`${SERVE}/packages/marketplace`, { redirect: "manual" }).then((r) => ({ status: r.status, loc: r.headers.get("location") })).catch(() => ({ status: 0 }));
+  ok("canonical /packages/marketplace is the GRE-2 transfer: 302 → the certified Marketplace port",
+    mktRaw.status === 302 && mktRaw.loc === "/__ioi/marketplace/listings", `status ${mktRaw.status} loc ${mktRaw.loc}`);
+  const mkt = await pageText("/__ioi/packages/marketplace", { authenticated: false });
+  ok("the Packages marketplace MODE keeps serving on its legacy mount (read-first, single-owner doctrine intact)",
+    mkt.status === 200 && mkt.text.includes("Packages / Marketplace") && mkt.text.includes("never becomes a second package owner"),
+    `status ${mkt.status}`);
   ok("the marketplace mode is HONEST-EMPTY over the empty substrate (no fixture listings) with the ladder named to its owner lane",
     mkt.text.includes("No marketplace listings") && mkt.text.includes('data-ioi-disabled-reason='),
     "");

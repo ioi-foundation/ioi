@@ -2074,6 +2074,267 @@
         "text_len": 3260
       },
       "screenshot": ".artifacts/live-tenant-atlas/deep/hubble-object-detail.png"
+    },
+    {
+      "slug": "workshop",
+      "key": "landing",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/workshop/",
+        "title": "Palantir",
+        "headings": [
+          "Page not found"
+        ],
+        "tabs": [],
+        "columns": [],
+        "facet_groups": [],
+        "rows": 0,
+        "controls": [],
+        "inputs": [],
+        "dialogs": 0,
+        "canvas_surfaces": 1,
+        "text_len": 83
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/workshop-landing.png"
+    },
+    {
+      "slug": "machinery",
+      "key": "process",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/machinery-app/process",
+        "title": "Machinery",
+        "headings": [
+          "Select a node"
+        ],
+        "tabs": [],
+        "columns": [],
+        "facet_groups": [
+          "APPLICATIONS",
+          "NAVIGATION TREE"
+        ],
+        "rows": 0,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "View all",
+          "Support",
+          "LJAccount",
+          "Workshop modules",
+          "Save",
+          "Add process",
+          "Preview",
+          "Show more",
+          "Go to all platform updates"
+        ],
+        "inputs": [],
+        "dialogs": 7,
+        "canvas_surfaces": 1,
+        "text_len": 1874
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/machinery-process.png"
+    },
+    {
+      "slug": "notepad",
+      "key": "create-from-template",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/notepad/create-new-from-template",
+        "title": "Palantir",
+        "headings": [
+          "Choose template",
+          "No recently opened Notepad templates found"
+        ],
+        "tabs": [],
+        "columns": [],
+        "facet_groups": [
+          "APPLICATIONS",
+          "RESOURCE",
+          "AUTHOR",
+          "LAST MODIFIED"
+        ],
+        "rows": 1,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "View all",
+          "Support",
+          "LJAccount",
+          "Recents",
+          "Recents",
+          "Created by me",
+          "Created by me",
+          "Favorites",
+          "Favorites",
+          "All",
+          "All"
+        ],
+        "inputs": [
+          "Search templates…"
+        ],
+        "dialogs": 6,
+        "canvas_surfaces": 0,
+        "text_len": 418
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/notepad-create-from-template.png"
+    },
+    {
+      "slug": "devconsole",
+      "key": "wizard-step1",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/developer-console/create/guided/basic-information",
+        "title": "Developer Console • Create a new application",
+        "headings": [
+          "Basic information"
+        ],
+        "tabs": [],
+        "columns": [],
+        "facet_groups": [
+          "APPLICATIONS"
+        ],
+        "rows": 0,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "View all",
+          "Support",
+          "LJAccount",
+          "Exit",
+          "Customize icon",
+          "click here to select a file",
+          "Browse",
+          "Select an organization",
+          "Continue",
+          "Got it!"
+        ],
+        "inputs": [
+          "Enter a name…",
+          "Enter a description…"
+        ],
+        "dialogs": 8,
+        "canvas_surfaces": 0,
+        "text_len": 957
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/devconsole-wizard-step1.png"
+    },
+    {
+      "slug": "contour",
+      "key": "create",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/contour-app/overview/create",
+        "title": "Contour Home",
+        "headings": [
+          "Creating new analysis",
+          "Save"
+        ],
+        "tabs": [],
+        "columns": [],
+        "facet_groups": [
+          "APPLICATIONS"
+        ],
+        "rows": 0,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "View all",
+          "Support",
+          "LJAccount",
+          "Browse",
+          "Cancel",
+          "Save"
+        ],
+        "inputs": [
+          "Enter a name…"
+        ],
+        "dialogs": 7,
+        "canvas_surfaces": 0,
+        "text_len": 290
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/contour-create.png"
+    },
+    {
+      "slug": "modelstudio",
+      "key": "create-attempt",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/model-studio/",
+        "title": "Model studio",
+        "headings": [
+          "Choose file location"
+        ],
+        "tabs": [],
+        "columns": [],
+        "facet_groups": [
+          "APPLICATIONS"
+        ],
+        "rows": 0,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "View all",
+          "Support",
+          "LJAccount",
+          "Browse",
+          "Cancel",
+          "Save"
+        ],
+        "inputs": [
+          "Enter a name…"
+        ],
+        "dialogs": 7,
+        "canvas_surfaces": 0,
+        "text_len": 289
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/modelstudio-create-attempt.png"
+    },
+    {
+      "slug": "dataset",
+      "key": "preview-attempt",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/dataset/",
+        "title": "Palantir",
+        "headings": [
+          "Page not found"
+        ],
+        "tabs": [],
+        "columns": [],
+        "facet_groups": [
+          "APPLICATIONS"
+        ],
+        "rows": 0,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "View all",
+          "Support",
+          "LJAccount"
+        ],
+        "inputs": [],
+        "dialogs": 4,
+        "canvas_surfaces": 0,
+        "text_len": 218
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/dataset-preview-attempt.png"
     }
   ],
   "skipped": [
@@ -2085,5 +2346,5 @@
     "NOT FOUND sel: hubble object row",
     "BLACKLISTED: Shared with you"
   ],
-  "recorded_at": "2026-08-20T10:38:47.240Z"
+  "recorded_at": "2026-08-20T10:43:32.047Z"
 }
