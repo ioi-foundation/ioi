@@ -198,9 +198,12 @@
     },
     {
       "click_target": "domain-apps:fusion",
-      "status": "TERMINAL",
-      "note": "capture_broken_no_donor",
-      "adjudication_ref": "reference-seed-adjudications.v1.json#fusion"
+      "status": "NOW",
+      "grammar": "Projects-and-files browser (the LIVE-tenant grammar the fusion click target actually resolves to \u2014 NOT a spreadsheet): 4-tab header (All files LIVE \u00b7 Shared with you absent \u00b7 Data Catalog LIVE \u00b7 Trash absent) + quick-filter band + 6-group facet rail + Data-Catalog sub-tabs (Collections absent \u00b7 Files LIVE)",
+      "route": "/__ioi/domain-apps/fusion",
+      "supersedes_terminal": "capture_broken_no_donor (mirror-scoped) \u2014 overturned by the owner-authorized live-tenant sweep; the mirror record stands as history",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#fusion-port",
+      "evidence": "reference-live-tenant-deep-atlas.v1.json#fusion + reference-live-tenant-atlas.v1.json#fusion"
     },
     {
       "click_target": "/environments",
@@ -254,5 +257,6 @@
       "backlog": "wire reciprocal links read-first when either plane carries records: Workshop rows show referenced materialized-set resources linking the Vertex detail graph; Vertex detail shows 'used in compositions' linking back \u2014 honest-empty until then",
       "corroboration": "vendor nav marks 'Object Monitors [Sunset]' \u2014 independently validates the Automate family designation (monitors overview = the landing, monitor wizard = secondary grammar)"
     }
-  ]
+  ],
+  "updated": "2026-08-20"
 }

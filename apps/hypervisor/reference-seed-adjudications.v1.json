@@ -1,7 +1,7 @@
 {
   "schema": "ioi.hypervisor.reference-seed-adjudications.v1",
   "doctrine": "Estate-wide seed adjudications (W1 sweep). Each record re-adjudicates a seed (or a named gap) against the reference surface behind it: the reference route, its EXPRESSED IA (\u00a73.2 \u2014 facets, columns, tabs, empty-state copy; an empty body is never itself a blocker), the estate plane (or its absence), and the outcome. Outcomes: portable | absent_confirmed | boundary_held (the reference lane EXPRESSES IA but a standing authority boundary rules the port out \u2014 the gap stands citing the ruling AND the IA evidence, never pretending absence) | donor_ported | capture_broken_no_donor. The sources proof pass (Syncs et al.) lives in reference-gap-adjudication.v1.json; this file carries every subsequent W1 record.",
-  "recorded": "2026-08-19",
+  "recorded": "2026-08-20",
   "atlas": "reference-family-atlas.v1.json",
   "records": [
     {
@@ -623,6 +623,32 @@
       ],
       "outcome": "portable",
       "reason": "10 mirror-scoped terminal verdicts (absent_confirmed / capture_broken_no_donor) were rendered against a DEAD MIRROR, not a dead APP \u2014 the live tenant expresses IA on all 10 (e.g. fusion ctrl=24, map canvas=2, registry ctrl=14). Reclassified live_ia_recorded (matrix) = the NEW PORTABLE BACKLOG; porting sources from the live atlas. The mirror-scoped records stand as history with this supersession on top."
+    },
+    {
+      "action": "FUS-1",
+      "record_id": "fusion-port",
+      "seed": "fusion",
+      "owner": "Domain Apps",
+      "date": "2026-08-20",
+      "supersedes": "the mirror-scoped #fusion record (capture_broken_no_donor) \u2014 that verdict was rendered against a DEAD MIRROR, not a dead app, and stands only as history under #live-tenant-sweep",
+      "evidence": "reference-live-tenant-deep-atlas.v1.json#fusion (3 states: landing \u00b7 tab-all-files \u00b7 tab-data-catalog) + reference-live-tenant-atlas.v1.json#fusion (landing, 24 controls) + .artifacts/live-tenant-atlas/deep/fusion-*.png",
+      "reference_states": [
+        "landing / tab-all-files \u2014 the tenant's projects-and-files home: 4 tabs (All files \u00b7 Shared with you \u00b7 Data Catalog \u00b7 Trash), 39 rows, 6 facet groups (Types \u00b7 Status \u00b7 Portfolios \u00b7 Projects \u00b7 Organizations \u00b7 Tags), 5 search inputs, a 3-card Quick-filters band (Portfolios \u00b7 Projects \u00b7 Promoted items, each carrying Apply), columns FILE NAME \u00b7 VIEWS \u00b7 YOUR ROLE \u00b7 TAGS \u00b7 PORTFOLIO \u00b7 LAST MODIFIED",
+        "tab-data-catalog \u2014 a distinct route and title (Data Catalog) adding 2 sub-tabs (Collections \u00b7 Files) over an EMPTY catalog: heading 'No collections yet', rows 0"
+      ],
+      "identity_correction": "THE SEED NAME IS REFUTED BY ITS OWN LIVE EVIDENCE. 'fusion' is the vendor's spreadsheet app and the mirror-era matrix note said exactly that ('Fusion spreadsheet; unbound'). The LIVE capture of the fusion click target resolves to the tenant's projects-and-files HOME \u2014 a faceted file browser, not a sheet grid. Porting a spreadsheet here would have been a fabricated reference; the port serves the grammar the click target actually expresses and names the correction on-surface.",
+      "estate_plane": {
+        "all_files": "LIVE \u2014 /v1/hypervisor/projects: the estate's REAL file/custody records (name \u00b7 project_id \u00b7 custody_posture \u00b7 repository binding \u00b7 artifact refs \u00b7 last modified). 11 records at port time; newest-40 cap NAMED. Owner surface: /projects.",
+        "data_catalog_files": "LIVE \u2014 the estate's REAL data-asset planes read together, each row naming WHICH plane it is: /v1/hypervisor/odk/materialized-object-sets (4 at port time \u2014 materialized data with object counts and sealed provenance; owner /__ioi/odk) + /v1/hypervisor/data-sources (544 at port time \u2014 DECLARATIONS, not data; the daemon's own 'declaration only \u2014 extraction unwired' state renders verbatim; owner /__ioi/data/sources). Newest-20 source cap NAMED.",
+        "data_catalog_collections": "ABSENT \u2014 no curation/collection plane exists on the estate. The distinction this port refuses to blur: the live reference's Collections lane is EMPTY ('No collections yet'); the estate's is MISSING.",
+        "shared_with_you": "ABSENT \u2014 no sharing-scope plane. Project records are custody-scoped (local_private); cross-principal grants are capability leases owned by Connections, which is not a file-share list.",
+        "trash": "ABSENT \u2014 no soft-delete/trash/retention plane. Deletion is a governed verb on the owner surface with no recoverable bin behind it.",
+        "facets_and_quick_filters": "ABSENT \u2014 no facet-index, portfolio, tag, promotion-status or organization-scoping plane is bound to this surface. 'Projects' is a typed absence of a FILTER, not of the data: the All-files body already IS every project record.",
+        "columns": "The reference's VIEWS / YOUR ROLE / TAGS / PORTFOLIO columns have NO estate fields behind them. The port renders columns that name what the plane actually records (File \u00b7 Custody \u00b7 Repository \u00b7 Artifacts \u00b7 Last modified) rather than putting different truth under a reference header \u2014 the recurring 'an assertion satisfied by a different element than it names' defect. The reference column set stays recorded here and in the live atlas."
+      },
+      "outcome": "portable",
+      "shipped": "/__ioi/domain-apps/fusion (FUS-1; parity_class reference_ported, remediation_state live_ia_recorded)",
+      "reason": "landing grammar portable AND live-evidenced: 2 of the 4 reference tabs bind REAL estate planes (All files \u2192 the projects plane; Data Catalog \u203a Files \u2192 the ODK materialized-object-set + declared-data-source planes, both caps NAMED); the other 2 tabs, the Collections sub-tab, all six facet groups and all three quick filters are TYPED ABSENCES under the unified gap contract (aria-disabled + title + data-ioi-disabled-reason). No plane is claimed that does not exist, no row is fabricated, no authority-crossing verb is re-minted on a read landing. Landing designation domain-apps:fusion moves TERMINAL \u2192 NOW."
     }
   ]
 }

@@ -9449,6 +9449,177 @@ async function handleEstateRequest(req, res, body) {
       }));
       return;
     }
+    // ---- Domain Apps · Fusion — FUS-1 (remediation v2): the FIRST live-tenant-sourced port.
+    // The mirror capture was byte-dead, so the mirror-scoped verdict was capture_broken_no_donor.
+    // The owner-authorized live-tenant sweep OVERTURNED it — and recorded something the seed NAME
+    // hides: the fusion click target does NOT resolve to a spreadsheet app. It lands on the
+    // tenant's PROJECTS-&-FILES home — a faceted file browser: 4 tabs (All files · Shared with you
+    // · Data Catalog · Trash), 39 rows, 6 facet groups, 5 search inputs; the Data Catalog tab opens
+    // two sub-tabs (Collections · Files) over an EMPTY catalog ("No collections yet"). THAT grammar
+    // is what this route ports, and the surface says so rather than shipping a spreadsheet.
+    //
+    // TRUTH BINDING (adjudication #fusion-port): All files = the REAL projects plane (the estate's
+    // file/custody records, newest first, cap NAMED). Data Catalog › Files = the REAL data-asset
+    // planes — ODK materialized object sets (materialized data with object counts) + declared data
+    // sources (the daemon's own declaration-only/unwired flag rendered verbatim), cap NAMED.
+    // Collections · Shared with you · Trash · every facet + quick filter = TYPED ABSENCES under the
+    // unified gap contract: the estate has no curation, sharing-scope, soft-delete or facet-index
+    // plane. Nothing is fabricated and no verb is re-minted here — this is a read landing.
+    if (pathname === "/__ioi/domain-apps/fusion" && req.method === "GET") {
+      const fq = new URL(req.url, "http://x").searchParams;
+      const fusTab = fq.get("tab") === "data-catalog" ? "data-catalog" : "all-files";
+      const fusSub = fq.get("sub") === "files" ? "files" : "collections";
+      const wantCatalog = fusTab === "data-catalog" && fusSub === "files";
+      const [fusProjects, fusMsets, fusSources] = await Promise.all([
+        daemonFetch(`/v1/hypervisor/projects`).then((r) => r.json()).then((j) => j.projects || []).catch(() => []),
+        wantCatalog ? daemonFetch(`/v1/hypervisor/odk/materialized-object-sets`).then((r) => r.json()).then((j) => j.materialized_object_sets || []).catch(() => []) : Promise.resolve([]),
+        wantCatalog ? daemonFetch(`/v1/hypervisor/data-sources`).then((r) => r.json()).then((j) => j.data_sources || []).catch(() => []) : Promise.resolve([]),
+      ]);
+      const esc = CX_ESC;
+      const fdt = (iso) => { const d2 = new Date(iso || 0); return isNaN(d2) ? "—" : d2.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); };
+      // ONE gap contract for every named absence on this surface (aria + title + data-ioi reason).
+      const fgap = (cls, label, reason) => `<span class="${cls} fus-gap" aria-disabled="true" title="${esc(reason)}" data-ioi-disabled-reason="${esc(reason)}">${esc(label)}</span>`;
+      const fdash = (reason) => `<span class="fus-dash" aria-disabled="true" title="${esc(reason)}" data-ioi-disabled-reason="${esc(reason)}">—</span>`;
+      const hostPath = (u) => { try { const x = new URL(String(u)); return `${x.host}${x.pathname}`; } catch { return ""; } };
+      // ---- All files: the REAL projects plane, newest first, cap NAMED (never a silent truncation)
+      const FUS_PROJECT_CAP = 40;
+      const projSorted = [...fusProjects].sort((a, b) => String(b.updated_at || b.created_at || "").localeCompare(String(a.updated_at || a.created_at || "")));
+      const projShown = projSorted.slice(0, FUS_PROJECT_CAP);
+      const projRows = projShown.map((p) => {
+        const repo = hostPath(p.repository_url);
+        return `<a class="fus-row" href="/projects" title="a REAL project record — the estate's file/custody plane (owner surface: Projects)">`
+          + `<span><b>${esc(p.name || p.project_id || "project")}</b><code class="fus-ref">${esc(p.project_id || "")}</code></span>`
+          + `<span>${esc(p.custody_posture || "—")}</span>`
+          + `<span>${repo ? esc(repo) : fdash("This project record carries no repository binding — the plane records none (typed absence, not an unread field)")}</span>`
+          + `<span>${Array.isArray(p.artifact_refs) ? `${p.artifact_refs.length} artifact${p.artifact_refs.length === 1 ? "" : "s"}` : fdash("The plane records no artifact refs on this record (typed absence)")}</span>`
+          + `<span>${esc(fdt(p.updated_at || p.created_at))}</span></a>`;
+      }).join("");
+      // ---- Data Catalog › Files: the REAL data-asset planes, each row naming which plane it is
+      const FUS_SOURCE_CAP = 20;
+      const srcSorted = [...fusSources].sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
+      const srcShown = srcSorted.slice(0, FUS_SOURCE_CAP);
+      const catalogRows = wantCatalog ? [
+        ...fusMsets.map((m) => `<a class="fus-row" href="/__ioi/odk" title="a REAL ODK materialized object set — materialized data with its sealed provenance (owner surface: ODK)">`
+          + `<span><b>${esc(m.object_type_id || m.id || "object set")}</b><code class="fus-ref">${esc(m.id || "")}</code></span>`
+          + `<span>materialized object set</span>`
+          + `<span>${esc(String(m.count ?? (Array.isArray(m.objects) ? m.objects.length : "—")))}</span>`
+          + `<span>materialized · ${esc(String(m.rows_fetched ?? "—"))} row${String(m.rows_fetched) === "1" ? "" : "s"} fetched</span>`
+          + `<span>${esc(fdt(m.registered_at))}</span></a>`),
+        ...srcShown.map((s) => `<a class="fus-row" href="/__ioi/data/sources" title="a REAL declared data source — a DECLARATION, not extracted data (owner surface: Data Connection)">`
+          + `<span><b>${esc(s.name || s.source_id || "data source")}</b><code class="fus-ref">${esc(s.source_ref || s.source_id || "")}</code></span>`
+          + `<span>declared data source · ${esc(s.kind || "—")}</span>`
+          + `<span>${fdash("A declared source carries no object count — nothing is extracted until the governed authority crossing (the daemon's own ingestion note); typed absence")}</span>`
+          + `<span>${esc(((s.ingestion || {}).wired === true) ? "wired" : "declaration only — extraction unwired")}</span>`
+          + `<span>${esc(fdt(s.created_at))}</span></a>`),
+      ].join("") : "";
+      const catalogCount = fusMsets.length + srcShown.length;
+      // ---- the reference facet rail: SIX groups, every one a typed absence naming WHY
+      const fusFacets = [
+        ["Types", "No file-type index exists on the estate — the projects plane records ONE record kind (project), so a Types facet would classify nothing (typed absence)"],
+        ["Status", "No promotion/curation status plane exists on the estate — the reference's Promoted-items status has no estate analogue (typed absence)"],
+        ["Portfolios", "No portfolio plane exists on the estate — project records carry no portfolio grouping (typed absence)"],
+        ["Projects", "The All-files body IS the estate's project plane — a Projects facet would narrow nothing; this is a typed absence of a FILTER, not of the data"],
+        ["Organizations", "No organization-scoping plane is bound to this surface — principals and orgs are IdP-owned (Connections / Settings), never re-minted on a read landing (typed absence)"],
+        ["Tags", "No tag plane exists on the estate — project records carry no tags (typed absence)"],
+      ].map(([label, reason]) => `<div class="fus-fgroup">${fgap("fus-flabel", label, reason)}<span class="fus-fchev" aria-hidden="true">▾</span></div>`).join("");
+      const fusQuick = [
+        ["Portfolios", "Portfolios are groupings of projects in the reference IA.", "No portfolio plane exists on the estate — there is nothing to apply (typed absence)"],
+        ["Projects", "Projects are the estate's own file/custody containers.", "The All-files body already IS every project record — applying a Projects quick filter would narrow nothing (typed absence of a filter, not of the data)"],
+        ["Promoted items", "A curated set of promoted files in the reference IA.", "No promotion/curation plane exists on the estate — nothing is promoted, so nothing can be filtered to (typed absence)"],
+      ].map(([label, copy, reason]) => `<div class="fus-qfcard"><div class="fus-qfhead"><b>${esc(label)}</b>${fgap("fus-apply", "Apply", reason)}</div><p class="fus-qfcopy">${esc(copy)}</p></div>`).join("");
+      const tabLink = (label, href, on) => `<a class="fus-tab${on ? " on" : ""}"${on ? ' aria-current="page"' : ""} href="${href}">${esc(label)}</a>`;
+      const fusFoot = `FUS-1 (remediation v2): the FIRST live-tenant-sourced port — and an identity correction. The mirror capture was byte-dead (mirror-scoped verdict: capture_broken_no_donor); the owner-authorized live sweep OVERTURNED it and showed the fusion click target resolves to a <b>projects-&amp;-files browser</b>, not a spreadsheet (4 tabs · 39 rows · 6 facet groups · 5 search inputs; the Data Catalog tab opens Collections + Files over an EMPTY catalog). LIVE here: <b>All files</b> = the REAL projects plane (${fusProjects.length} record${fusProjects.length === 1 ? "" : "s"}${fusProjects.length > FUS_PROJECT_CAP ? `, newest ${FUS_PROJECT_CAP} shown — cap NAMED` : ""}) · <b>Data Catalog › Files</b> = the REAL data-asset planes (ODK materialized object sets + declared data sources, cap NAMED, the daemon's own declaration-only flag verbatim). TYPED ABSENCES: Collections · Shared with you · Trash · all six facet groups · all three quick filters. Evidence: reference-seed-adjudications.v1.json#fusion-port · reference-live-tenant-deep-atlas.v1.json (fusion landing · tab-all-files · tab-data-catalog) · reference-live-tenant-atlas.v1.json. Owner: <a href="/__ioi/domain-apps">Domain Apps</a> · truth: <a href="/projects">Projects</a> · <a href="/__ioi/odk">ODK plane</a> · <a href="/__ioi/data/sources">Data Connection</a>.`;
+      const allFilesBody = `
+        <div class="fus-crumb"><span class="fus-crumbnow">All files</span><span class="fus-sep">›</span>${fgap("fus-spaces", "All spaces ▾", "No space/tenant-partition plane exists on the estate — every project record sits in the single local custody scope, so there is nothing to switch between (typed absence)")}</div>
+        <section class="fus-qf"><div class="fus-qftop"><span class="fus-qftitle">Quick filters</span>${fgap("fus-hide", "Hide", "The reference's quick-filter Hide toggle needs a per-principal surface-preference plane; the estate has none (typed absence)")}</div><div class="fus-qfgrid">${fusQuick}</div></section>
+        ${fgap("fus-search", "Search all portfolios, projects, folders and files…", "No search index is bound to this surface — estate search is owner-surfaced and is never re-minted on a ported read landing (typed absence)")}
+        <div class="fus-cols">
+          <aside class="fus-facets"><div class="fus-ftop"><span class="fus-ftitle">Filters</span><span class="fus-fcount">0</span></div>${fusFacets}</aside>
+          <div class="fus-tablewrap">
+            <h2 class="fus-h">All files</h2>
+            <p class="fus-note">${fusProjects.length} REAL project record${fusProjects.length === 1 ? "" : "s"} from the estate's file/custody plane${fusProjects.length > FUS_PROJECT_CAP ? ` — newest ${FUS_PROJECT_CAP} render below (cap NAMED, never silent)` : ""}; every row opens its owner surface. Columns render what the plane actually records — the reference's VIEWS / YOUR ROLE / TAGS / PORTFOLIO columns have no estate fields behind them (recorded in the atlas, named in the adjudication).</p>
+            <div class="fus-thead"><span>File</span><span>Custody</span><span>Repository</span><span>Artifacts</span><span>Last modified</span></div>
+            ${projRows || `<div class="fus-empty">No projects — this table renders the real projects plane and never fabricates rows.</div>`}
+          </div>
+        </div>`;
+      const collectionsBody = `<div class="fus-empty fus-absent">No collections — NOT an empty plane but a missing one: the estate records no catalog-collection objects at all (typed absence). Note the difference this port refuses to blur — the live reference's own Collections lane is EMPTY ("No collections yet"); this one is ABSENT. This lane never fabricates rows.</div>`;
+      const filesBody = `
+        <p class="fus-note">${catalogCount} REAL data-asset record${catalogCount === 1 ? "" : "s"}: ${fusMsets.length} ODK materialized object set${fusMsets.length === 1 ? "" : "s"} (materialized data with object counts + sealed provenance) + the newest ${srcShown.length} of ${fusSources.length} declared data source${fusSources.length === 1 ? "" : "s"} (cap NAMED). A declared source is a DECLARATION, not data: the daemon's own "declaration only — extraction unwired" state renders verbatim, and every row opens its owner surface.</p>
+        <div class="fus-thead"><span>Data asset</span><span>Plane</span><span>Objects</span><span>Extraction</span><span>Registered</span></div>
+        ${catalogRows || `<div class="fus-empty">No data assets — these tables render the real ODK + data-source planes and never fabricate rows.</div>`}`;
+      const catalogBody = `
+        <h2 class="fus-h">Data Catalog</h2>
+        <div class="fus-subtabs">
+          <a class="fus-subtab${fusSub === "collections" ? " on" : ""}" href="/__ioi/domain-apps/fusion?tab=data-catalog&amp;sub=collections">Collections</a>
+          <a class="fus-subtab${fusSub === "files" ? " on" : ""}" href="/__ioi/domain-apps/fusion?tab=data-catalog&amp;sub=files">Files</a>
+        </div>
+        ${fusSub === "files" ? filesBody : collectionsBody}`;
+      sendOwnedSurfaceHtml(res, "fusion", `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fusion</title><style>
+        :root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#fff;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif}a{color:#215db0;text-decoration:none}
+        .fus-shell{display:flex;height:100vh;overflow:hidden}
+        .fus-main{flex:1;min-width:0;display:flex;flex-direction:column}
+        .fus-header{flex:0 0 50px;display:flex;align-items:center;gap:14px;background:#fff;box-shadow:0 1px 0 #d1d1d1,0 3px 4px rgba(0,0,0,.04);z-index:6}
+        .fus-hchip{width:50px;height:50px;flex:0 0 50px;background:rgba(45,114,210,.08) center/24px no-repeat}
+        .fus-title{font-size:16px;font-weight:600;color:#404854;margin:0}
+        .fus-tabs{display:flex;gap:6px;margin:0 auto}
+        .fus-tab{font-size:14px;line-height:30px;padding:0 12px;border-radius:4px;color:#404854}
+        .fus-tab.on{background:#e8eef7;color:#215db0;font-weight:600}
+        .fus-hright{display:flex;align-items:center;gap:8px;padding-right:16px}
+        .fus-new{display:inline-flex;align-items:center;height:30px;padding:0 12px;border-radius:4px;background:#238551;color:#fff;font-size:14px}
+        .fus-gap{opacity:.62;cursor:not-allowed}
+        .fus-dash{color:#a8b2be;cursor:not-allowed}
+        .fus-body{flex:1;overflow-y:auto;padding:16px 26px 40px}
+        .fus-crumb{display:flex;align-items:center;gap:8px;font-size:14px;color:#404854;margin:0 0 14px}
+        .fus-crumbnow{font-weight:600}.fus-sep{color:#a8b2be}
+        .fus-qf{border:1px solid #e5e8eb;border-radius:4px;padding:12px;margin:0 0 14px}
+        .fus-qftop{display:flex;align-items:center;justify-content:space-between;margin:0 0 10px}
+        .fus-qftitle{font-size:13px;font-weight:600;color:#404854}
+        .fus-qfgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+        .fus-qfcard{border:1px solid #e5e8eb;border-radius:4px;padding:10px}
+        .fus-qfhead{display:flex;align-items:center;justify-content:space-between;font-size:13px}
+        .fus-qfcopy{font-size:12px;color:#5f6b7c;margin:6px 0 0}
+        .fus-search{display:block;border:1px solid #d1d1d1;border-radius:4px;padding:8px 10px;color:#5f6b7c;font-size:13px;margin:0 0 14px}
+        .fus-cols{display:flex;gap:18px;align-items:flex-start}
+        .fus-facets{flex:0 0 230px;border:1px solid #e5e8eb;border-radius:4px;padding:10px}
+        .fus-ftop{display:flex;align-items:center;gap:8px;margin:0 0 8px}
+        .fus-ftitle{font-size:13px;font-weight:600;color:#404854}
+        .fus-fcount{font-size:11px;background:#e5e8eb;border-radius:10px;padding:1px 7px;color:#5f6b7c}
+        .fus-fgroup{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-top:1px solid #f0f2f5;font-size:13px}
+        .fus-fchev{color:#a8b2be}
+        .fus-tablewrap{flex:1;min-width:0}
+        .fus-h{font-size:18px;font-weight:600;margin:0 0 4px}
+        .fus-note{font-size:12px;color:#5f6b7c;margin:0 0 12px;line-height:1.6}
+        .fus-thead,.fus-row{display:grid;grid-template-columns:2.2fr 1fr 1.6fr 1fr 1.1fr;gap:8px;padding:8px}
+        .fus-thead{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#5f6b7c;border-bottom:1px solid #e5e8eb}
+        .fus-row{align-items:center;border-bottom:1px solid #f0f2f5;font-size:13px;color:#1c2127}
+        .fus-row:hover{background:#f6f7f9}
+        .fus-ref{display:block;font-size:11px;color:#5f6b7c;word-break:break-all}
+        .fus-empty{padding:22px 10px;color:#5f6b7c;font-size:14px;line-height:1.6}
+        .fus-absent{border:1px solid #f0dca6;background:#fff8e6;border-radius:4px}
+        .fus-subtabs{display:flex;gap:18px;border-bottom:1px solid #e5e8eb;margin:8px 0 14px}
+        .fus-subtab{font-size:14px;padding-bottom:8px;color:#5f6b7c;position:relative}
+        .fus-subtab.on{color:#215db0;font-weight:600}
+        .fus-subtab.on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:3px;background:#215db0}
+        .fus-foot{font-size:12px;color:#7b8494;line-height:1.6;margin-top:18px}
+      </style></head><body><div class="fus-shell"><div class="fus-main">
+        <header class="fus-header">
+          <span class="fus-hchip" aria-hidden="true" style="background-image:url('${DSG_APP_TILE_URI}')"></span>
+          <h1 class="fus-title">Fusion</h1>
+          <nav class="fus-tabs">
+            ${tabLink("All files", "/__ioi/domain-apps/fusion", fusTab === "all-files")}
+            ${fgap("fus-tab", "Shared with you", "No sharing-scope plane exists on the estate — every project record is custody-scoped (local_private) and cross-principal grants are capability leases owned by Connections, never a file-share list (typed absence)")}
+            ${tabLink("Data Catalog", "/__ioi/domain-apps/fusion?tab=data-catalog", fusTab === "data-catalog")}
+            ${fgap("fus-tab", "Trash", "No soft-delete/trash plane exists on the estate — deletion is a governed verb on the owner surface with no recoverable bin behind it (typed absence)")}
+          </nav>
+          <div class="fus-hright">${fgap("fus-new", "+ New", "Project creation is the governed estate ladder on its owner surface (Projects / Work · New session) — a ported read landing never re-mints an authority-crossing verb (typed absence)")}</div>
+        </header>
+        <div class="fus-body">
+          ${fusTab === "data-catalog" ? catalogBody : allFilesBody}
+          <p class="fus-foot">${fusFoot}</p>
+        </div>
+      </div></div></body></html>`);
+      return;
+    }
     // ---- Studio · Workshop — STU-1/STU-2 (remediation v2): the D6 COMBINED-SEED port. The
     // workshop capture is byte-dead; module's capture BOOTS AS "Workshop — Home" (atlas splash
     // state, 5 facet groups) and is the recorded donor (roles donor+authoring_flow). The I-4

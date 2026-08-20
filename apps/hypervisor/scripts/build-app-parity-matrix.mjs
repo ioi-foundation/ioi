@@ -106,6 +106,14 @@ const REFERENCE_PORTED = {
   // EVA-3 (remediation v2): the E-audit caught the unexecuted adjudication; the atlas refuted the
   // expected absence (splash alias: 5 facet groups) — ported as an I-4 typed-absent landing.
   quiver: { port_surface: "/__ioi/evaluations/quiver", surface_name: "Evaluations", reference_url_override: "http://localhost:9225/workspace/quiver/splash", reference_landmarks: ["Quiver", "New analysis", "Recents", "Favorites"], binding: "I-4 splash landing (atlas: 5 facet groups via the splash alias) over a TYPED-ABSENT body — no time-series analysis plane; absences named under the unified contract", note: "EVA-3: expected absent_confirmed REFUTED by the atlas — the splash alias boots with IA; ported like slate" },
+  // FUS-1 (remediation v2): the FIRST live-tenant-sourced port — and an IDENTITY CORRECTION. The
+  // mirror capture was byte-dead (capture_broken_no_donor); the owner-authorized live sweep
+  // overturned that verdict AND showed the fusion click target resolves to a PROJECTS-&-FILES
+  // browser, not a spreadsheet. Ported from the live deep atlas (4 tabs · 39 rows · 6 facet
+  // groups; Data Catalog opens Collections + Files over an EMPTY catalog). No
+  // reference_url_override: the MIRROR lane stays data_failed (named blocker) and the live
+  // tenant is not a harness-openable origin — the evidence is the committed live atlas.
+  fusion: { port_surface: "/__ioi/domain-apps/fusion", surface_name: "Domain Apps", live_reference_evidence: "reference-live-tenant-deep-atlas.v1.json#fusion (landing · tab-all-files · tab-data-catalog) + reference-live-tenant-atlas.v1.json#fusion", reference_landmarks: ["Fusion", "All files", "Shared with you", "Data Catalog", "Trash", "Quick filters", "Collections", "Files"], binding: "the live-tenant PROJECTS-&-FILES browser grammar (4 tabs · quick-filter band · 6-group facet rail · Data-Catalog sub-tabs) over REAL estate planes: All files = the projects plane (cap NAMED); Data Catalog \u203a Files = the ODK materialized-object-set + declared-data-source planes (cap NAMED, the daemon's own declaration-only/unwired flag verbatim); Collections + Shared-with-you + Trash + all six facet groups + all three quick filters are TYPED ABSENCES under the unified contract (no curation, sharing-scope, soft-delete or facet-index plane exists)", note: "FUS-1: live_ia_recorded \u2192 ported. The seed NAME (fusion = spreadsheet) is refuted by its own live evidence \u2014 the click target lands on the file browser; the port serves that grammar and says so rather than shipping a spreadsheet nothing binds" },
   module: { port_surface: "/__ioi/studio/workshop", surface_name: "Studio", reference_url_override: "http://localhost:9225/workspace/module/splash", reference_landmarks: ["Workshop", "New module", "Recents", "Favorites"], binding: "the Workshop app (D6 combined-seed): I-4 splash landing — header chip · store/New-module/Help gaps under the unified contract · hero · Recents/Favorites view row · recents table over the REAL domain-app + ODK surface-descriptor planes (honest-empty today); authoring stays an ODK-plane authority cut (named gap)", note: "STU-1 (remediation v2): origin-aligned to the module splash lane (boots as Workshop Home, 5 facet groups — reference-family-atlas.v1.json); serves the WORKSHOP app per the D6 designation (workshop+module = ONE app; roles donor+authoring_flow); read-first over empty-but-real planes" },
 };
 // TRUE reference UX parity — a FAITHFUL port of the reference UX (same theme + IA + layout) wired to
@@ -217,7 +225,7 @@ const REMEDIATION = {
   dataset: { remediation_state: "live_ia_recorded", adjudication_ref: `${ADJ}#dataset` + " + reference-live-tenant-atlas.v1.json#dataset" },
   modelstudio: { remediation_state: "live_ia_recorded", adjudication_ref: `${ADJ}#modelstudio` + " + reference-live-tenant-atlas.v1.json#modelstudio" },
   inference: { remediation_state: "live_ia_recorded", adjudication_ref: `${ADJ}#inference` + " + reference-live-tenant-atlas.v1.json#inference" },
-  fusion: { remediation_state: "live_ia_recorded", adjudication_ref: `${ADJ}#fusion` + " + reference-live-tenant-atlas.v1.json#fusion" },
+  fusion: { remediation_state: "live_ia_recorded", adjudication_ref: `${ADJ}#fusion + ${ADJ}#fusion-port` + " + reference-live-tenant-atlas.v1.json#fusion + reference-live-tenant-deep-atlas.v1.json#fusion" },
   objectview: { remediation_state: "capture_broken_no_donor", adjudication_ref: `${ADJ}#objectview` },
   objecteditor: { remediation_state: "live_ia_recorded", adjudication_ref: `${ADJ}#objectview` + " + reference-live-tenant-atlas.v1.json#objecteditor" },
   lineage: { remediation_state: "ia_bearing_empty", adjudication_ref: `${ADJ}#lineage + ${ADJ}#lineage-tabs` },

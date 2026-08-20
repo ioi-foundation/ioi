@@ -649,6 +649,12 @@
       "date": "2026-08-20",
       "did": "UX sweep STAGE 2 (container flows): 24 apps opened in the SPA container \u2014 ALL frames railless (two-rails class confirmed dead in practice), all render content. Two finds: (1) FIXED \u2014 the Projects modal row embedded the SPA shell into itself (blank frame) \u2192 top-nav like /ai; (2) DELEGATED (ORG-1, background Opus session on ioi-api-adapter.mjs) \u2014 the SPA's OrganizationService RPCs (GetOrganizationPolicies/GetTermsOfService/ListMembers) 503 on every app open (pre-existing unbound family; console noise + SPA error labels). FUS-1 (fusion port) still building in a parallel session.",
       "next": "stage 3 (in-frame interaction depth) after the two agents land"
+    },
+    {
+      "n": 41,
+      "date": "2026-08-20",
+      "did": "FUS-1 SHIPPED \u2014 the first live_ia_recorded port. /__ioi/domain-apps/fusion serves the LIVE-tenant grammar (4-tab file browser: All files - Shared with you - Data Catalog - Trash; quick-filter band; 6-group facet rail; Data-Catalog sub-tabs Collections/Files), RAILLESS. IDENTITY CORRECTION recorded: the fusion click target is NOT a spreadsheet \u2014 it resolves to the tenant's projects-and-files home, so a sheet grid would have been a fabricated reference. LIVE lanes: All files = the REAL projects plane (11 records, newest-40 cap named); Data Catalog > Files = the REAL data-asset planes (4 ODK materialized object sets + newest 20 of 544 declared data sources, cap named, the daemon's own 'declaration only \u2014 extraction unwired' state verbatim). TYPED ABSENCES (unified contract, 15 gaps): Collections (missing plane, explicitly distinguished from the reference's EMPTY one), Shared with you, Trash, all six facet groups, all three quick filters, search, New, spaces switcher. Landed in one commit: serve handler + matrix overlay (regenerated: reference_ported 12->13) + adjudication #fusion-port + registry row + verifier block + designation TERMINAL->NOW. domain-landings 43/43 - surface-modules green.",
+      "next": "live_tenant_backlog: 9 candidates left (scheduler, ingest, dataset, objecteditor, modelstudio, inference, registry, map, jobs) \u2014 read each one's LIVE state before assuming the seed name names the app"
     }
   ],
   "pr_blockers": [
@@ -674,10 +680,12 @@
       "inference",
       "registry",
       "map",
-      "fusion",
       "jobs"
     ],
-    "note": "live-tenant atlas overturned 10 mirror-scoped terminal verdicts \u2014 a NEW port backlog beyond the completed program scope; each needs a live-atlas-sourced designation + port leg. objectview/developer stay terminal (doubly evidenced)."
+    "note": "live-tenant atlas overturned 10 mirror-scoped terminal verdicts \u2014 a NEW port backlog beyond the completed program scope; each needs a live-atlas-sourced designation + port leg. objectview/developer stay terminal (doubly evidenced). FUS-1 SHIPPED fusion (the first of this backlog) and returned a finding the backlog must carry: a live capture can overturn a terminal verdict AND correct the seed's IDENTITY \u2014 'fusion' is the vendor spreadsheet by name, but the click target resolves to the projects-and-files browser, so the port serves the grammar the target actually expresses. Read each remaining candidate's LIVE state before assuming its seed name names its app.",
+    "ported": [
+      "fusion \u2014 FUS-1 (2026-08-20): /__ioi/domain-apps/fusion; adjudication reference-seed-adjudications.v1.json#fusion-port; designation domain-apps:fusion TERMINAL -> NOW"
+    ]
   },
   "found_defects": [
     {

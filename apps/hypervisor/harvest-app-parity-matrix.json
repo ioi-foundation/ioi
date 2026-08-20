@@ -18,8 +18,8 @@
   "total_seeds": 39,
   "by_parity_class": {
     "daemon_wired": 13,
-    "reference_capture": 13,
-    "reference_ported": 12,
+    "reference_capture": 12,
+    "reference_ported": 13,
     "substrate_bound": 1
   },
   "legend": {
@@ -973,16 +973,32 @@
       "capture_base": "/workspace/fusion/",
       "grammar": "editor_canvas",
       "tier": "aux",
-      "parity_class": "reference_capture",
+      "parity_class": "reference_ported",
       "capture_state": "shell_only",
       "reference_capture": "/__apps/fusion",
       "reference_workspace": "/workspace/fusion/",
-      "note": "Fusion spreadsheet; unbound",
+      "note": "FUS-1: live_ia_recorded → ported. The seed NAME (fusion = spreadsheet) is refuted by its own live evidence — the click target lands on the file browser; the port serves that grammar and says so rather than shipping a spreadsheet nothing binds",
       "reference_clean_state": "data_failed",
       "reference_clean_reason": "shell boots but the body reports a data failure (\"Not Found\") with captured (non-404) lanes",
       "reference_clean_artifact": "reference-clean-sweep.json",
       "remediation_state": "live_ia_recorded",
-      "adjudication_ref": "reference-seed-adjudications.v1.json#fusion + reference-live-tenant-atlas.v1.json#fusion"
+      "adjudication_ref": "reference-seed-adjudications.v1.json#fusion + reference-seed-adjudications.v1.json#fusion-port + reference-live-tenant-atlas.v1.json#fusion + reference-live-tenant-deep-atlas.v1.json#fusion",
+      "port_surface": "/__ioi/domain-apps/fusion",
+      "surface_name": "Domain Apps",
+      "live_reference_evidence": "reference-live-tenant-deep-atlas.v1.json#fusion (landing · tab-all-files · tab-data-catalog) + reference-live-tenant-atlas.v1.json#fusion",
+      "reference_landmarks": [
+        "Fusion",
+        "All files",
+        "Shared with you",
+        "Data Catalog",
+        "Trash",
+        "Quick filters",
+        "Collections",
+        "Files"
+      ],
+      "binding": "the live-tenant PROJECTS-&-FILES browser grammar (4 tabs · quick-filter band · 6-group facet rail · Data-Catalog sub-tabs) over REAL estate planes: All files = the projects plane (cap NAMED); Data Catalog › Files = the ODK materialized-object-set + declared-data-source planes (cap NAMED, the daemon's own declaration-only/unwired flag verbatim); Collections + Shared-with-you + Trash + all six facet groups + all three quick filters are TYPED ABSENCES under the unified contract (no curation, sharing-scope, soft-delete or facet-index plane exists)",
+      "candidate_surface": "/__ioi/domain-apps/fusion",
+      "shell_pixel_certified": false
     },
     {
       "owner": "Missions",
