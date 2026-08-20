@@ -323,14 +323,16 @@
       {
         "id": "DAT-5",
         "title": "/data landing (family splash)",
-        "status": "held_for_owner",
-        "gate": "GRE-2"
+        "status": "done",
+        "gate": "GRE-2",
+        "evidence": "EXECUTED (build-class landing under the recorded owner go): the family splash SERVES at the canonical route (railless I-4; every row a LIVE shipped surface; live New lane where the family owns one); the dark v2 shell page retires in the staged cutover"
       },
       {
         "id": "ONT-3",
         "title": "/ontology landing",
-        "status": "held_for_owner",
-        "gate": "GRE-2"
+        "status": "done",
+        "gate": "GRE-2",
+        "evidence": "EXECUTED (build-class landing under the recorded owner go): the family splash SERVES at the canonical route (railless I-4; every row a LIVE shipped surface; live New lane where the family owns one); the dark v2 shell page retires in the staged cutover"
       },
       {
         "id": "EVA-4",
@@ -349,8 +351,9 @@
       {
         "id": "WOR-3",
         "title": "/developer-workspace landing",
-        "status": "held_for_owner",
-        "gate": "GRE-2"
+        "status": "done",
+        "gate": "GRE-2",
+        "evidence": "EXECUTED (build-class landing under the recorded owner go): the family splash SERVES at the canonical route (railless I-4; every row a LIVE shipped surface; live New lane where the family owns one); the dark v2 shell page retires in the staged cutover"
       },
       {
         "id": "PRO-3",
@@ -601,6 +604,12 @@
       "date": "2026-08-20",
       "did": "GRE-2 REDIRECT-CLASS TRANSFERS EXECUTED (AUT-3, EVA-4, FOU-3, PRO-3): nav now lands on Automate / AIP Evals / Model Catalog / Monocle with query continuity; journey 45/45, monitors 48/48, modules 70/70. Chunk A deep atlas done (8 canvas/dialog states); chunk B running",
       "next": "re-pin retry; chunk B/C; build-class landings STU-3/DAT-5/ONT-3/WOR-3; staged retirement; GRE-1 ruling"
+    },
+    {
+      "n": 34,
+      "date": "2026-08-20",
+      "did": "W5 build-class landings DAT-5/ONT-3/WOR-3 SHIPPED at /data /ontology /developer-workspace (family splashes, live rows). Deep atlas: chunk B done (15 states \u2014 fusion RICH live: 39 rows/4 tabs; objectview stays dead ctrl=0); chunk C rerun with dialog-dismiss fix",
+      "next": "STU-3 (last W5 build) \u2192 staged retirement \u2192 GRE-1 ruling \u2192 final report"
     }
   ],
   "pr_blockers": [

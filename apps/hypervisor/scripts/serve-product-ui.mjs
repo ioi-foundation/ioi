@@ -7845,6 +7845,30 @@ async function handleEstateRequest(req, res, body) {
     //   EVA-4  /evaluations  → AIP Evals (certified port)
     //   FOU-3  /foundry      → Model Catalog (certified port + registered lane)
     //   PRO-3  /provenance   → Monocle (the D1-designated proof-plane landing)
+    // ---- GRE-2 BUILD-CLASS LANDINGS (owner go 2026-08-20): DAT-5 /data · ONT-3 /ontology ·
+    // WOR-3 /developer-workspace — the family splash landings (I-4, railless), each row a LIVE
+    // link to the family's shipped surfaces. These SERVE at the canonical route (shadowing the
+    // dark v2 shell pages, which retire in the staged cutover).
+    const FAMILY_LANDINGS = {
+      "/data": { title: "Data", hero: "Supply the world-model — the Data family's shipped surfaces over real daemon truth.", newLabel: "New source", newHref: "/__ioi/data/sources?declare=1", newTitle: "Declare a data source — the governed receipted lane on Data Connection", rows: [["Data Connection", "sources · syncs (live materializing-runs lane) · governed declare", "/__ioi/data/sources"], ["Pipeline Builder", "the certified pipeline canvas (atlas-verified interaction)", "/__ioi/pipeline"]] },
+      "/ontology": { title: "Ontology", hero: "The semantic world-model — the Ontology family's certified surfaces.", newLabel: "New object type", newHref: "/__ioi/ontology/manager", newTitle: "Author types on the certified Ontology Manager", rows: [["Ontology Manager", "types · functions · health · history (certified)", "/__ioi/ontology/manager"], ["Object Explorer", "objects · saved sets · exploration (certified)", "/__ioi/ontology/explorer"], ["ODK plane", "the composition substrate (ontologies · recipes · descriptors)", "/__ioi/odk"]] },
+      "/developer-workspace": { title: "Workbench", hero: "The developer workbench — workspaces, documents, and repository bindings over real planes.", newLabel: "New workspace", newGapReason: "Workspace creation is the governed environment ladder (owner surface); named gap", rows: [["Code Workspaces", "the real environments plane (newest 15, cap named)", "/__ioi/developer-workspace/workspaces"], ["Notepad", "landing over a typed-absent document plane", "/__ioi/developer-workspace/notepad"], ["Code Repositories", "the real SCM connector bindings (donor-ported)", "/__ioi/developer-workspace/repositories"]] },
+    };
+    if (FAMILY_LANDINGS[pathname] && req.method === "GET") {
+      const fl = FAMILY_LANDINGS[pathname];
+      const rowsHtml = fl.rows.map(([name, what, href]) => `<a class="spl-row" href="${href}"><span><b>${CX_ESC(name)}</b></span><span>${CX_ESC(what)}</span><span><code style="font-size:11px;color:#5f6b7c">${CX_ESC(href)}</code></span></a>`).join("");
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache", "x-ioi-surface-route": pathname, "x-ioi-surface-owner": fl.title });
+      res.end(renderSplashLanding({
+        slug: pathname.slice(1), routeOverride: pathname, title: fl.title,
+        appTileUri: DSG_APP_TILE_URI, chipTintRgba: "rgba(45,114,210,.08)",
+        newLabel: fl.newLabel, newHref: fl.newHref, newTitle: fl.newTitle, newGapReason: fl.newGapReason,
+        heroTitle: fl.title, heroDesc: fl.hero,
+        columns: ["Surface", "Truth", "Route"], rowsHtml,
+        emptyCopy: "no surfaces — impossible by construction",
+        footHtml: `GRE-2 build-class landing (owner go 2026-08-20): the ${CX_ESC(fl.title)} family splash — every row is a LIVE shipped surface; the dark v2 shell page retires in the staged cutover. Designation: landing-designations.v1.json.`,
+      }));
+      return;
+    }
     const GRE2_TRANSFERS = { "/automations": "/__ioi/automations/monitors", "/evaluations": "/__ioi/evaluations/evalsuites", "/foundry": "/__ioi/foundry/models", "/provenance": "/__ioi/lineage" };
     if (GRE2_TRANSFERS[pathname] && req.method === "GET") {
       // Query continuity: old canonical deep links keep working. For /automations the cockpit's

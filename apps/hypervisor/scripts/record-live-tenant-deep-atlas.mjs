@@ -43,6 +43,7 @@ const { chromium } = await import("playwright");
 const browser = await chromium.connectOverCDP("http://127.0.0.1:9222");
 const ctx = browser.contexts()[0];
 const pg = await ctx.newPage();
+pg.on("dialog", (d) => d.dismiss().catch(() => {})); // beforeunload/confirm on leaving create pages — dismiss = no mutation
 const rec = [];
 const skipped = [];
 
