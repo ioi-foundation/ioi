@@ -817,23 +817,35 @@
     {
       "found": "2026-08-20",
       "what": "verify-hypervisor-app-runtime-safety is a PRE-EXISTING red (not in CI/scripts/floors): its registry-additions check fails on rows predating the program (work/home/operations/missions/...) and its isolated-serve spawns 503 on a dead-daemon posture gate ('unrebound internal surface... unavailable outside local development') \u2014 reproduced identically with correct env; /__ioi/applications is 200 on the live serve. The program's 10 new registry rows ADD to the already-failing lists (unclassified in the depth atlas).",
-      "queued_repair_leg": "runtime-safety repair: (a) posture-gate reading for dead-daemon loopback (fail-open-for-loopback vs fail-closed ruling), (b) contract evidence + depth-atlas naming for the 10 remediation rows, (c) decide CI membership"
+      "queued_repair_leg": "runtime-safety repair: (a) posture-gate reading for dead-daemon loopback (fail-open-for-loopback vs fail-closed ruling), (b) contract evidence + depth-atlas naming for the 10 remediation rows, (c) decide CI membership",
+      "status": "closed",
+      "closed": "2026-08-20",
+      "closure": "runtime-safety repaired 15/29\u219230/30 (commit b86d74d0d): three-class admission re-aim + posture-fence-aware harnesses; E7 residue list later deleted by E7-1 (49ca95fc0)."
     },
     {
       "found": "2026-08-20",
       "what": "verify-hypervisor-native-shell-integration pins PRE-TRANSFER modal hrefs (data-href === registry route per surface) \u2014 post-transfer the launcher opens DESIGNATED targets, so the harness times out on the old rows. Needs a designation-aware re-aim (expected href/frame-route/landmark per re-pointed family).",
-      "queued_repair_leg": "fold into the runtime-safety repair leg: re-aim #65 harness to landing-designations truth"
+      "queued_repair_leg": "fold into the runtime-safety repair leg: re-aim #65 harness to landing-designations truth",
+      "status": "closed",
+      "closed": "2026-08-20",
+      "closure": "native-shell re-aimed designation-aware (commit 88c56e760): reachability-\u22642-hops contract replaced the pre-transfer href pins; 117/117 at E7 close."
     },
     {
       "found": "2026-08-20",
       "what": "daemon session registry fail-closed refusal (correct behavior, real UX noise): legacy record session_ai-agent_mqwrwdge1.json occupies a pre-convention slot; the authoritative slot is session_<sha256(session_ref)>.json (digest CONFIRMED matching). GET /v1/hypervisor/sessions 503s estate-wide until re-slotted.",
-      "fix": "one-line rename (classifier-gated for Claude; owner command provided in-conversation); backup at scratchpad/session_ai-agent_mqwrwdge1.json.bak"
+      "fix": "one-line rename (classifier-gated for Claude; owner command provided in-conversation); backup at scratchpad/session_ai-agent_mqwrwdge1.json.bak",
+      "status": "closed",
+      "closed": "2026-08-20",
+      "closure": "879 legacy records re-slotted to authoritative sha256 slots (7 by hand + 873 via computed one-shot, owner-authorized); daemon + serve /v1/hypervisor/sessions 200. Root cause was JS-daemon-era naming, not a live writer."
     },
     {
       "found": "2026-08-20",
       "found_by": "ING-1 (while confirming the new /__ioi/data/ingest row against the re-aimed native-shell contract)",
       "what": "ELEVEN registry surfaces are UNREACHABLE from the native shell within two link hops \u2014 the contract verify-hypervisor-native-shell-integration.mjs now asserts. Measured on a full run at 2026-08-20 (128/129 passed, EXIT=1), the named routes are: /__ioi/domain-apps/logic \u00b7 /__ioi/domain-apps/contour \u00b7 /__ioi/domain-apps/fusion \u00b7 /__ioi/environments/map \u00b7 /__ioi/marketplace/artifacts \u00b7 /__ioi/missions/builds \u00b7 /__ioi/missions/schedules \u00b7 /__ioi/evaluations/insight \u00b7 /__ioi/evaluations/quiver \u00b7 /__ioi/packages/registry \u00b7 /__ioi/packages/marketplace. FIVE of these are the shipped live-tenant port legs themselves (FUS-1 fusion, MAP-1 map, REG-1 artifacts, JOB-1 builds, SCH-1 schedules): each registered a surface and a route but never added the row to its owner family's landing, so the port ships behind a URL nobody can click to. A surface that passes its own parity gate and cannot be reached from the shell is ported but not DELIVERED \u2014 the same class as a certified port whose reference lane was never origin-aligned. NOT caused by ING-1: this leg ADDED one surface (/__ioi/data/ingest) and it is reachable (Applications \u2192 /data \u2192 the ingest row), and it is absent from the unreachable list; the gate's other 128 assertions pass, including this surface's railless bare and embedded deliveries.",
-      "fix": "NOT taken here \u2014 deliberately out of ING-1's scope. Each of the eleven needs a row on ITS OWN owner family's landing (domain-apps \u00b7 environments \u00b7 marketplace/packages \u00b7 missions \u00b7 evaluations), and that is an IA decision belonging to the owning leg, with its own verifier coverage; rewriting six other families' landings from this leg would be an unrequested cross-family edit that could break those legs' gates. Queued as a named follow-up. The one-row-on-the-family-landing pattern ING-1 used for /data is the template. NOTE for the remaining live-tenant legs (dataset \u00b7 objecteditor \u00b7 modelstudio \u00b7 inference): LINK YOUR SURFACE FROM ITS FAMILY LANDING IN THE SAME CUT \u2014 registering a route is not delivering a surface, and this gate is where that gap surfaces."
+      "fix": "NOT taken here \u2014 deliberately out of ING-1's scope. Each of the eleven needs a row on ITS OWN owner family's landing (domain-apps \u00b7 environments \u00b7 marketplace/packages \u00b7 missions \u00b7 evaluations), and that is an IA decision belonging to the owning leg, with its own verifier coverage; rewriting six other families' landings from this leg would be an unrequested cross-family edit that could break those legs' gates. Queued as a named follow-up. The one-row-on-the-family-landing pattern ING-1 used for /data is the template. NOTE for the remaining live-tenant legs (dataset \u00b7 objecteditor \u00b7 modelstudio \u00b7 inference): LINK YOUR SURFACE FROM ITS FAMILY LANDING IN THE SAME CUT \u2014 registering a route is not delivering a surface, and this gate is where that gap surfaces.",
+      "status": "closed",
+      "closed": "2026-08-20",
+      "closure": "all 11 delivered onto family landings/documents in the reachability-links cut (commit 88c56e760); native-shell reachability green since."
     }
   ]
 }
