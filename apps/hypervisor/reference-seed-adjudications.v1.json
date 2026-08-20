@@ -561,6 +561,19 @@
       "outcome": "donor_ported",
       "donor_capture": "code (non-seed capture)",
       "reason": "SHIPPED at /__ioi/developer-workspace/repositories over the real SCM plane; repo creation typed-absent (publish is the governed verb, owner-surfaced)"
+    },
+    {
+      "action": "EVA-3",
+      "seed": "quiver",
+      "owner": "Evaluations",
+      "reference_route": "http://localhost:9225/workspace/quiver/splash",
+      "atlas_states": [
+        "landing (ia=false)",
+        "splash_alias (5 facet groups, ia=true)"
+      ],
+      "estate_plane": "NONE \u2014 no time-series analysis plane",
+      "outcome": "portable",
+      "reason": "AUDIT CORRECTION: this adjudication was ledger-claimed but never executed (caught by the E3 audit); the atlas then REFUTED the expected absence \u2014 splash alias boots with IA. SHIPPED at /__ioi/evaluations/quiver as an I-4 typed-absent landing."
     }
   ]
 }

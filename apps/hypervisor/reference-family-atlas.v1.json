@@ -2239,7 +2239,234 @@
         }
       ],
       "errors": []
+    },
+    "quiver": {
+      "slug": "quiver",
+      "owner": "Evaluations",
+      "reference_base": "http://localhost:9225/workspace/quiver/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/quiver/"
+          },
+          "url": "http://localhost:9225/workspace/quiver/views/create",
+          "ia": {
+            "title": "Quiver",
+            "headings": [
+              "Create new analysis"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 5,
+            "empty_copy": "Get started on analyzing your object and time series data",
+            "text_len": 816
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/quiver/landing.png"
+        },
+        {
+          "key": "splash_alias:/workspace/quiver/splash",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/quiver/splash"
+          },
+          "url": "http://localhost:9225/workspace/quiver/splash",
+          "ia": {
+            "title": "Quiver",
+            "headings": [
+              "Quiver"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "FILES",
+              "CREATOR",
+              "LAST EDITED BY",
+              "LAST VIEWED"
+            ],
+            "rows": 0,
+            "cards": 2,
+            "empty_copy": "",
+            "text_len": 4955
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/quiver/splash_alias_workspace_quiver_splash.png"
+        }
+      ],
+      "errors": []
+    },
+    "schema": {
+      "slug": "schema",
+      "owner": "Ontology",
+      "reference_base": "http://localhost:9225/workspace/ontology/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/ontology/"
+          },
+          "url": "http://localhost:9225/workspace/ontology/home/discover",
+          "ia": {
+            "title": "Ontology Manager",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 7,
+            "empty_copy": "No description",
+            "text_len": 862
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/schema/landing.png"
+        }
+      ],
+      "errors": []
+    },
+    "models": {
+      "slug": "models",
+      "owner": "Foundry",
+      "reference_base": "http://localhost:9225/workspace/model-catalog/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/model-catalog/"
+          },
+          "url": "http://localhost:9225/workspace/model-catalog/home?tabId=palantirProvided",
+          "ia": {
+            "title": "Model Catalog",
+            "headings": [],
+            "tabs": [
+              "Palantir-provided models",
+              "Registered models"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "LIFECYCLE STATUS",
+              "TYPE",
+              "MODEL CREATOR",
+              "NVIDIA",
+              "GPT-5"
+            ],
+            "rows": 0,
+            "cards": 70,
+            "empty_copy": "",
+            "text_len": 15903
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/models/landing.png"
+        },
+        {
+          "key": "tab:Palantir-provided models",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/model-catalog/",
+            "clickTab": "Palantir-provided models"
+          },
+          "url": "http://localhost:9225/workspace/model-catalog/home?tabId=palantirProvided",
+          "ia": {
+            "title": "Model Catalog",
+            "headings": [],
+            "tabs": [
+              "Palantir-provided models",
+              "Registered models"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "LIFECYCLE STATUS",
+              "TYPE",
+              "MODEL CREATOR",
+              "NVIDIA",
+              "GPT-5"
+            ],
+            "rows": 0,
+            "cards": 70,
+            "empty_copy": "",
+            "text_len": 15903
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/models/tab_Palantir-provided_models.png"
+        },
+        {
+          "key": "tab:Registered models",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/model-catalog/",
+            "clickTab": "Registered models"
+          },
+          "url": "http://localhost:9225/workspace/model-catalog/home?tabId=registeredModel",
+          "ia": {
+            "title": "Model Catalog",
+            "headings": [],
+            "tabs": [
+              "Palantir-provided models",
+              "Registered models"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 1,
+            "empty_copy": "No model registered yet",
+            "text_len": 414
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/models/tab_Registered_models.png"
+        }
+      ],
+      "errors": []
+    },
+    "listings": {
+      "slug": "listings",
+      "owner": "Marketplace",
+      "reference_base": "http://localhost:9225/workspace/marketplace/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/marketplace/"
+          },
+          "url": "http://localhost:9225/workspace/marketplace/home",
+          "ia": {
+            "title": "Marketplace",
+            "headings": [
+              "Marketplace",
+              "Upload and install a product",
+              "Stores",
+              "What's new in Marketplace"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 3,
+            "empty_copy": "get started with new Foundry workflows.",
+            "text_len": 3552
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/listings/landing.png"
+        }
+      ],
+      "errors": []
     }
   },
-  "recorded_at": "2026-08-20T00:53:57.025Z"
+  "recorded_at": "2026-08-20T01:35:35.824Z"
 }

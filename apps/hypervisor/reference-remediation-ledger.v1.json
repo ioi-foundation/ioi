@@ -114,7 +114,8 @@
       {
         "id": "EVA-3",
         "title": "quiver adjudication",
-        "status": "queued"
+        "status": "queued",
+        "evidence": "AUDIT CORRECTION (iteration 27): this action was ledger-claimed done in the W1 close but NEVER EXECUTED \u2014 caught by the E3 audit. Executed now: atlas REFUTED the expected absence (splash alias 5 facet groups); SHIPPED as an I-4 typed-absent landing at /__ioi/evaluations/quiver (46/46)."
       },
       {
         "id": "FOU-2",
@@ -312,43 +313,43 @@
       {
         "id": "STU-3",
         "title": "/studio landing re-shell (Designer grammar)",
-        "status": "queued",
+        "status": "held_for_owner",
         "gate": "GRE-2"
       },
       {
         "id": "DAT-5",
         "title": "/data landing (family splash)",
-        "status": "queued",
+        "status": "held_for_owner",
         "gate": "GRE-2"
       },
       {
         "id": "ONT-3",
         "title": "/ontology landing",
-        "status": "queued",
+        "status": "held_for_owner",
         "gate": "GRE-2"
       },
       {
         "id": "EVA-4",
         "title": "/evaluations landing",
-        "status": "queued",
+        "status": "held_for_owner",
         "gate": "GRE-2"
       },
       {
         "id": "FOU-3",
         "title": "/foundry landing",
-        "status": "queued",
+        "status": "held_for_owner",
         "gate": "GRE-2"
       },
       {
         "id": "WOR-3",
         "title": "/developer-workspace landing",
-        "status": "queued",
+        "status": "held_for_owner",
         "gate": "GRE-2"
       },
       {
         "id": "PRO-3",
         "title": "/provenance landing (post PRO-1/2 designation)",
-        "status": "queued",
+        "status": "held_for_owner",
         "gate": "GRE-2"
       }
     ],
@@ -356,7 +357,18 @@
       {
         "id": "E-audit",
         "title": "E1-E9 acceptance checklist audit",
-        "status": "queued"
+        "status": "done",
+        "evidence": {
+          "E1": "HELD \u2014 met for every shipped surface; canonical-route transfers (W5) await GRE-2 owner gos",
+          "E2": "GREEN \u2014 every lane on every shipped surface is live or a typed absence citing its adjudication (per-surface verifiers 46/46, 48/48, 41/41, 29/29, 10/10; unified-gap floor green)",
+          "E3": "GREEN after audit correction \u2014 all 39 seeds carry terminal truth (13 wired \u00b7 12 ported \u00b7 13 capture-with-records \u00b7 1 substrate-ruled); the audit caught quiver ledger-claimed-but-unexecuted, now shipped",
+          "E4": "GREEN \u2014 one gap vocabulary (I-5 floor + I-4 template emitter + strict aria===data-ioi checks)",
+          "E5": "GREEN \u2014 every daemon_wired seed has recorded atlas coverage (pipeline via its own interaction atlas; schema/models/listings recorded this iteration)",
+          "E6": "GREEN \u2014 the exemplar pattern (tabs\u2192live lanes) realized on AUT-1, DAT-1, FOU-1, EVA-2, PRO-1",
+          "E7": "HELD \u2014 one-surface rule awaits the GRE-2 transfers + the E7-retirement cutover (owner)",
+          "E8": "GREEN \u2014 designation exit-gate 8/8, zero LATER (NOW=21 \u00b7 TERMINAL=4 \u00b7 GRE=8)",
+          "E9": "PENDING \u2014 DOC-1 next"
+        }
       },
       {
         "id": "one-surface-audit",
@@ -372,7 +384,8 @@
       {
         "id": "census-rerun",
         "title": "final census re-run",
-        "status": "queued"
+        "status": "done",
+        "evidence": "family atlas now 32 seeds \u00b7 78 states; designation exit-gate 8/8 (zero LATER)"
       },
       {
         "id": "GRE-1",
@@ -538,6 +551,12 @@
       "date": "2026-08-19",
       "did": "W4 WOR-2 SHIPPED (40/40) \u2014 W4 COMPLETE. Census: 13 wired \u00b7 11 ported \u00b7 14 capture \u00b7 1 substrate. W5 = all GRE-2 held transfers; proceeding to W6 executable items (E-audit, DOC-1, census re-run) with W5 held",
       "next": "W6: census re-run + E1-E9 audit + DOC-1"
+    },
+    {
+      "n": 27,
+      "date": "2026-08-19",
+      "did": "W6: E1-E9 audit RECORDED (green except E1/E7 held + E9 pending); AUDIT CAUGHT + CORRECTED an over-claim (EVA-3 never executed \u2192 quiver shipped, absence refuted by atlas); atlas coverage completed for schema/models/listings; census 13 wired \u00b7 12 ported \u00b7 13 capture \u00b7 1 substrate",
+      "next": "W6 DOC-1 (documentation reconciliation)"
     }
   ],
   "pr_blockers": [

@@ -9153,6 +9153,25 @@ async function handleEstateRequest(req, res, body) {
       }));
       return;
     }
+    // ---- Evaluations · Quiver — EVA-3 completion (remediation v2): the E-audit caught that this
+    // adjudication was never executed; the atlas then REFUTED the expected absence — the splash
+    // alias expresses IA (5 facet groups). I-4 landing over a TYPED-ABSENT body (no time-series
+    // analysis plane).
+    if (pathname === "/__ioi/evaluations/quiver" && req.method === "GET") {
+      sendOwnedSurfaceHtml(res, "quiver", renderSplashLanding({
+        slug: "evaluations/quiver", routeOverride: pathname, title: "Quiver",
+        appTileUri: EVL_APP_TILE_URI, chipTintRgba: "rgba(45,114,210,.08)",
+        newLabel: "New analysis",
+        newGapReason: "No time-series analysis plane exists on the estate — the reference create lane never rendered on the mirror; typed absence, never simulated",
+        heroTitle: "Quiver",
+        heroDesc: "The reference Quiver landing grammar (via its splash alias), preserved over a NAMED ABSENCE: the estate holds no time-series analysis plane today.",
+        columns: ["Files", "Creator", "Last edited by", "Last viewed"],
+        rowsHtml: "",
+        emptyCopy: "No analyses — NOT an empty plane but a missing one: the estate records no time-series analysis objects (typed absence). This table never fabricates rows.",
+        footHtml: `EVA-3 (remediation v2): the splash-alias landing (atlas: 5 facet groups — the expected absence was REFUTED by evidence and this port is the correction) as an I-4 instance over a TYPED-ABSENT body. Evidence: reference-seed-adjudications.v1.json#quiver · reference-family-atlas.v1.json. Family: <a href="/__ioi/evaluations">Evaluations</a> · siblings <a href="/__ioi/evaluations/evalsuites">AIP Evals</a> · <a href="/__ioi/evaluations/insight">Insight</a>.`,
+      }));
+      return;
+    }
     // ---- Evaluations · Insight — EVA-2.build (remediation v2): the analysis app's landing.
     // Object-sets lane = LIVE (materialized sets open-read; saved sets are a PRINCIPAL-REQUIRED
     // control plane — its refusal renders VERBATIM as typed degradation, never masked).

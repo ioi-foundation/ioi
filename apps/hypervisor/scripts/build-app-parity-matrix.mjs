@@ -103,6 +103,9 @@ const REFERENCE_PORTED = {
   analysis: { port_surface: "/__ioi/evaluations/insight", surface_name: "Evaluations", reference_url_override: "http://localhost:9225/workspace/insight/", reference_landmarks: ["Insight", "Workbooks", "Object sets"], binding: "Object-sets lane LIVE over the real ODK planes (materialized sets open-read with run/lease proof refs; saved sets render the plane's principal-required refusal VERBATIM as typed degradation); Workbooks typed-absent (no workbook plane)", note: "EVA-2.build: both reference tabs adjudicated — one bound, one absent-named (#analysis)" },
   // WOR-2 (remediation v2): D6 DONOR port — donor: the /workspace/code/ capture (non-seed).
   repositories: { port_surface: "/__ioi/developer-workspace/repositories", surface_name: "Workbench", reference_url_override: "http://localhost:9225/workspace/code/", reference_landmarks: ["Code Repositories", "New repository", "Recents", "Favorites"], binding: "I-4 landing (donor grammar: the booting /workspace/code/ capture) over the REAL SCM connector plane (name · kind · auth posture · created); repo creation typed-absent (SCM publish is the governed verb, owner-surfaced)", note: "WOR-2: the repositories capture is byte-dead; donor recorded (#repositories)" },
+  // EVA-3 (remediation v2): the E-audit caught the unexecuted adjudication; the atlas refuted the
+  // expected absence (splash alias: 5 facet groups) — ported as an I-4 typed-absent landing.
+  quiver: { port_surface: "/__ioi/evaluations/quiver", surface_name: "Evaluations", reference_url_override: "http://localhost:9225/workspace/quiver/splash", reference_landmarks: ["Quiver", "New analysis", "Recents", "Favorites"], binding: "I-4 splash landing (atlas: 5 facet groups via the splash alias) over a TYPED-ABSENT body — no time-series analysis plane; absences named under the unified contract", note: "EVA-3: expected absent_confirmed REFUTED by the atlas — the splash alias boots with IA; ported like slate" },
   module: { port_surface: "/__ioi/studio/workshop", surface_name: "Studio", reference_url_override: "http://localhost:9225/workspace/module/splash", reference_landmarks: ["Workshop", "New module", "Recents", "Favorites"], binding: "the Workshop app (D6 combined-seed): I-4 splash landing — header chip · store/New-module/Help gaps under the unified contract · hero · Recents/Favorites view row · recents table over the REAL domain-app + ODK surface-descriptor planes (honest-empty today); authoring stays an ODK-plane authority cut (named gap)", note: "STU-1 (remediation v2): origin-aligned to the module splash lane (boots as Workshop Home, 5 facet groups — reference-family-atlas.v1.json); serves the WORKSHOP app per the D6 designation (workshop+module = ONE app; roles donor+authoring_flow); read-first over empty-but-real planes" },
 };
 // TRUE reference UX parity — a FAITHFUL port of the reference UX (same theme + IA + layout) wired to
@@ -227,6 +230,7 @@ const REMEDIATION = {
   logic: { adjudication_ref: `${ADJ}#logic` },
   widgets: { adjudication_ref: `${ADJ}#widgets` },
   workspaces: { adjudication_ref: `${ADJ}#workspaces` },
+  quiver: { remediation_state: "ia_bearing_empty", adjudication_ref: `${ADJ}#quiver` },
   devconsole: { adjudication_ref: `${ADJ}#devconsole` },
   models: { adjudication_ref: `${ADJ}#models-registered` },
   notepad: { adjudication_ref: `${ADJ}#notepad` },

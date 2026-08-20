@@ -18,8 +18,8 @@
   "total_seeds": 39,
   "by_parity_class": {
     "daemon_wired": 13,
-    "reference_capture": 14,
-    "reference_ported": 11,
+    "reference_capture": 13,
+    "reference_ported": 12,
     "substrate_bound": 1
   },
   "legend": {
@@ -530,14 +530,28 @@
       "capture_base": "/workspace/quiver/",
       "grammar": "editor_canvas",
       "tier": "high_value",
-      "parity_class": "reference_capture",
+      "parity_class": "reference_ported",
       "capture_state": "shell_only",
       "reference_capture": "/__apps/quiver",
       "reference_workspace": "/workspace/quiver/",
-      "note": "time-series analysis canvas; unbound",
+      "note": "EVA-3: expected absent_confirmed REFUTED by the atlas — the splash alias boots with IA; ported like slate",
       "reference_clean_state": "shell_clean_only",
       "reference_clean_reason": "shell renders a WELCOME/empty landing (cards 5 · lines 23, no row/node data) — clean chrome, no real data to port against (proxy lane renders no data (score 0); the origin lane is the readable one)",
-      "reference_clean_artifact": "reference-clean-sweep.json"
+      "reference_clean_artifact": "reference-clean-sweep.json",
+      "remediation_state": "ia_bearing_empty",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#quiver",
+      "port_surface": "/__ioi/evaluations/quiver",
+      "surface_name": "Evaluations",
+      "reference_url_override": "http://localhost:9225/workspace/quiver/splash",
+      "reference_landmarks": [
+        "Quiver",
+        "New analysis",
+        "Recents",
+        "Favorites"
+      ],
+      "binding": "I-4 splash landing (atlas: 5 facet groups via the splash alias) over a TYPED-ABSENT body — no time-series analysis plane; absences named under the unified contract",
+      "candidate_surface": "/__ioi/evaluations/quiver",
+      "shell_pixel_certified": false
     },
     {
       "owner": "Foundry",
