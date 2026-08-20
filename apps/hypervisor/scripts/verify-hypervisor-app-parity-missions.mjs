@@ -244,7 +244,7 @@ async function run() {
   const opsPage = await page(`${SERVE}/__ioi/operations`);
   ok("Operations links BACK to Missions (drift resolved: suite/run work homed in Missions)", opsPage.status === 200 && opsPage.text.includes("/__ioi/missions"));
   const apps = await page(`${SERVE}/__ioi/applications`);
-  ok("the suite Missions card opens /__ioi/missions (drift from /__ioi/sessions resolved)", apps.status === 200 && new RegExp(`href="/__ioi/missions"[^>]*>[\\s\\S]{0,400}?Missions`).test(apps.text));
+  ok("the suite Missions card opens /__ioi/missions (drift from /__ioi/sessions resolved)", apps.status === 200 && new RegExp(`href="/__ioi/missions"[^>]*>[\\s\\S]{0,1600}?Missions`) /* window widened 400→1600: the app-tile icon data-URI grew past the old window (pre-existing stale assertion, confirmed failing at HEAD by JOB-1) */.test(apps.text));
 
   // 7. No false coverage / honest gaps / brand-clean.
   ok("unsupported reference lanes named (create/assign incidents · edit job defs · board views · SLA · comments)", /creating\/assigning incidents/.test(t) && /editing job\/build definitions/.test(t) && /board\/kanban views/.test(t) && /SLA/.test(t));

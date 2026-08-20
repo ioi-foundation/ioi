@@ -121,7 +121,11 @@ ok("control 'pipeline' evidences the ORIGIN-ALIGNMENT pattern (classified on its
   // — this gate now recognizes the same contract instead of failing every non-pixel promotion.
   const unsanctioned = parityDrift.filter((m) => {
     if (m.parity_class === "reference_ported") {
-      return !(m.candidate_surface && m.reference_url_override && /reference-(seed-adjudications|gap-adjudication)/.test(m.adjudication_ref || ""));
+      // Origin/donor lane, TWO recognized mechanisms: a mirror lane URL (reference_url_override,
+      // the pre-live-tenant ports) OR a recorded live-tenant atlas ref (reference-live-tenant-*.json#slug
+      // in adjudication_ref) — the live tenant IS the origin, rank above the mirror on the D2 axis.
+      const originLane = m.reference_url_override || /reference-live-tenant(-deep)?-atlas\.v1\.json#/.test(m.adjudication_ref || "");
+      return !(m.candidate_surface && originLane && /reference-(seed-adjudications|gap-adjudication)/.test(m.adjudication_ref || ""));
     }
     if (m.parity_class !== "daemon_wired") return true;                         // certified-port promotions
     if (m.reference_clean_state !== "data_clean" || m.shell_pixel_certified !== true) return true;

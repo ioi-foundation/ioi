@@ -35,7 +35,7 @@ const SURFACES = [
 ];
 
 const STAGE = process.argv[2] || "stage1";
-if (!["stage1", "stage2", "stage3", "stage4"].includes(STAGE)) {
+if (!["stage1", "stage2", "stage3", "stage4", "stage5"].includes(STAGE)) {
   // Arg guard (ORG-1 hand-off: an unrecognized argv ran neither branch and overwrote the issues
   // artifact with a hollow 0-issue record). Unknown stage = refuse, never a fake-clean sweep.
   console.error(`unknown stage '${STAGE}' — usage: hypervisor-ux-atlas.mjs [stage1|stage2|stage3]`);
@@ -183,6 +183,32 @@ if (STAGE === "stage4") {
       if (!okv) issue("MED", "form-contract", c.url, name);
       else console.log(`  ok ${c.url} — ${name}`);
     }
+  }
+}
+if (STAGE === "stage5") {
+  // RESPONSIVE/VIEWPORT: key surfaces at tablet (1024x768) and phone (390x844) — assert no
+  // horizontal page overflow (wide content must scroll in its own container), content renders,
+  // and the header controls stay reachable. Certified ports pin their own mobile posture
+  // (mobile_not_supported recorded in pixel certs) — those are audited at tablet only.
+  const KEY = ["/automations", "/studio", "/data", "/ontology", "/developer-workspace",
+    "/__ioi/data/sources?lane=syncs", "/__ioi/lineage?tab=history", "/__ioi/vertex",
+    "/__ioi/domain-apps/fusion", "/__ioi/environments/map", "/__ioi/marketplace/artifacts",
+    "/__ioi/developer-console", "/__ioi/evaluations/insight", "/__ioi/studio/workshop"];
+  for (const vp of [{ w: 1024, h: 768, tag: "tablet" }, { w: 390, h: 844, tag: "phone" }]) {
+    const pg5 = await browser.newPage({ viewport: { width: vp.w, height: vp.h } });
+    for (const r of KEY) {
+      try { await pg5.goto(SERVE + r, { waitUntil: "domcontentloaded", timeout: 20000 }); } catch (e) { issue("HIGH", "vp-nav", `${r}@${vp.tag}`, e); continue; }
+      await pg5.waitForTimeout(900);
+      const m = await pg5.evaluate(() => ({
+        overflowX: document.documentElement.scrollWidth - window.innerWidth,
+        len: document.body.innerText.trim().length,
+        clipped: [...document.querySelectorAll("h1,h2")].some((h) => { const b = h.getBoundingClientRect(); return b.width > 0 && (b.right > window.innerWidth + 4 || b.left < -4); }),
+      }));
+      if (m.overflowX > 24) issue("MED", "vp-overflow", `${r}@${vp.tag}`, `page scrolls horizontally by ${m.overflowX}px (wide content must scroll in its own container)`);
+      if (m.len < 40) issue("HIGH", "vp-blank", `${r}@${vp.tag}`, `${m.len} chars`);
+      if (m.clipped) issue("LOW", "vp-clipped-heading", `${r}@${vp.tag}`, "an h1/h2 extends past the viewport");
+    }
+    await pg5.close();
   }
 }
 if (STAGE === "stage1") for (const route of SURFACES) {

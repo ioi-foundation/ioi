@@ -9760,13 +9760,15 @@ async function handleEstateRequest(req, res, body) {
         .mapp-geo{padding:18px 18px 40px}
         .mapp-h{font-size:18px;font-weight:600;margin:18px 0 4px}
         .mapp-note{font-size:12px;color:#5f6b7c;margin:0 0 12px;line-height:1.65}
-        .mapp-thead,.mapp-row{display:grid;grid-template-columns:2.1fr .8fr 1.2fr 1.1fr 1.5fr 1.7fr .9fr;gap:8px;padding:8px}
+        .mapp-geo{overflow-x:auto}
+        .mapp-thead,.mapp-row{display:grid;grid-template-columns:2.1fr .8fr 1.2fr 1.1fr 1.5fr 1.7fr .9fr;gap:8px;padding:8px;min-width:760px}
         .mapp-thead{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#5f6b7c;border-bottom:1px solid #e5e8eb}
         .mapp-row{align-items:center;border-bottom:1px solid #f0f2f5;font-size:13px;color:#1c2127}
         .mapp-row:hover{background:#f6f7f9}
         .mapp-ref{display:block;font-size:11px;color:#5f6b7c;word-break:break-all}
         .mapp-empty{padding:22px 10px;color:#5f6b7c;font-size:14px;line-height:1.6}
         .mapp-foot{font-size:12px;color:#7b8494;line-height:1.65;margin:18px 0 0}
+        @media(max-width:700px){.mapp-thead{display:none}.mapp-row{grid-template-columns:1fr;min-width:0;gap:2px;padding:10px 8px}.mapp-row *,.mapp-note{overflow-wrap:anywhere}.mapp-geo{overflow-x:hidden}.mapp-geo *,.mapp-abs *{min-width:0;overflow-wrap:anywhere}.mapp-tgroup{flex-wrap:wrap;min-width:0;max-width:100%}.mapp-tool,.mapp-chip{max-width:100%;overflow-wrap:anywhere}.mapp-work{flex-direction:column}.mapp-panel{flex:none;width:100%}.mapp-canvasrow{flex-wrap:wrap}.mapp-underbar{flex-wrap:wrap}}
       </style></head><body><div class="mapp-shell">
         <header class="mapp-header">
           <span class="mapp-hchip" aria-hidden="true" style="background-image:url('${DSG_APP_TILE_URI}')"></span>
@@ -10037,11 +10039,11 @@ async function handleEstateRequest(req, res, body) {
         .rgy-kinds{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:16px auto 0;max-width:880px}
         .rgy-kind{display:inline-flex;align-items:center;gap:6px;border:1px solid #e5e8eb;border-radius:999px;padding:3px 11px;font-size:12px;color:#404854}
         .rgy-kindn{background:#e8eef7;color:#215db0;border-radius:999px;padding:0 7px;font-size:11px;font-weight:600}
-        .rgy-body{padding:0 24px 44px;max-width:1240px;margin:0 auto;width:100%}
+        .rgy-body{padding:0 24px 44px;max-width:1240px;margin:0 auto;width:100%;overflow-x:auto}
         .rgy-h{font-size:18px;font-weight:600;margin:26px 0 4px}
         .rgy-note{font-size:12px;color:#5f6b7c;margin:0 0 12px;line-height:1.65}
-        .rgy-phead,.rgy-prow{display:grid;grid-template-columns:2.4fr 1.6fr .9fr 2.2fr .9fr;gap:8px;padding:9px 8px}
-        .rgy-thead,.rgy-row{display:grid;grid-template-columns:1.7fr 1.7fr .9fr .8fr 1.5fr 1.6fr .8fr;gap:8px;padding:8px}
+        .rgy-phead,.rgy-prow{display:grid;grid-template-columns:2.4fr 1.6fr .9fr 2.2fr .9fr;gap:8px;padding:9px 8px;min-width:680px}
+        .rgy-thead,.rgy-row{display:grid;grid-template-columns:1.7fr 1.7fr .9fr .8fr 1.5fr 1.6fr .8fr;gap:8px;padding:8px;min-width:760px}
         .rgy-phead,.rgy-thead{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#5f6b7c;border-bottom:1px solid #e5e8eb}
         .rgy-prow,.rgy-row{align-items:center;border-bottom:1px solid #f0f2f5;font-size:13px;color:#1c2127}
         .rgy-prow:hover,.rgy-row:hover{background:#f6f7f9}
@@ -10070,7 +10072,8 @@ async function handleEstateRequest(req, res, body) {
         .rgy-cardb{font-size:12.5px;color:#5f6b7c;line-height:1.65;margin:6px 0 10px}
         .rgy-cardl{font-size:12.5px}
         .rgy-foot{font-size:12px;color:#7b8494;line-height:1.65;margin:0 auto;padding:18px 24px 40px;max-width:1240px}
-        @media(max-width:900px){.rgy-cards{grid-template-columns:1fr}}
+        @media(max-width:900px){.rgy-cards{grid-template-columns:1fr}
+        @media(max-width:700px){.rgy-thead,.rgy-phead{display:none}.rgy-row,.rgy-prow{grid-template-columns:1fr;min-width:0;gap:2px;padding:10px 8px}.rgy-row *,.rgy-prow *,.rgy-note,.rgy-sub{overflow-wrap:anywhere}.rgy-body{overflow-x:hidden}.rgy-cards{grid-template-columns:1fr}.rgy-card{min-width:0}.rgy-card *{overflow-wrap:anywhere}}}
       </style></head><body><div class="rgy-shell">
         <header class="rgy-header">
           <span class="rgy-hchip" aria-hidden="true" style="background-image:url('${MARKETPLACE_APP_ICON_URI}')"></span>
@@ -10392,7 +10395,7 @@ async function handleEstateRequest(req, res, body) {
         .bld-tglyph{width:28px;height:16px;border-radius:999px;background:#c5cbd3;flex:0 0 28px}
         .bld-radio{display:flex;align-items:center;gap:9px;font-size:13px;color:#404854;margin:7px 0}
         .bld-rglyph{width:14px;height:14px;border-radius:999px;border:1px solid #c5cbd3;flex:0 0 14px}
-        .bld-body{flex:1;min-width:0;padding:16px 22px 40px;overflow:auto}
+        .bld-body{flex:1;min-width:0;padding:16px 22px 40px;overflow:auto;overflow-x:auto}
         .bld-btop{display:flex;align-items:center;gap:12px;margin:0 0 14px}
         .bld-h1{font-size:17px;font-weight:600;margin:0}
         .bld-seg{display:inline-flex;margin-left:auto;border:1px solid #d1d1d1;border-radius:4px;overflow:hidden}
@@ -10402,9 +10405,9 @@ async function handleEstateRequest(req, res, body) {
         .bld-segn{font-weight:600}
         .bld-h{font-size:16px;font-weight:600;margin:26px 0 4px}
         .bld-note{font-size:12px;color:#5f6b7c;margin:0 0 12px;line-height:1.65}
-        .bld-thead,.bld-row{display:grid;grid-template-columns:2.3fr 1.1fr 1.1fr .9fr 1.2fr 1.6fr;gap:8px;padding:9px 8px}
-        .bld-phead,.bld-prow{display:grid;grid-template-columns:2.4fr 1.7fr .9fr 2.1fr .8fr;gap:8px;padding:9px 8px}
-        .bld-chead,.bld-crow{display:grid;grid-template-columns:.8fr 1.1fr 3.2fr;gap:8px;padding:9px 8px}
+        .bld-thead,.bld-row{display:grid;grid-template-columns:2.3fr 1.1fr 1.1fr .9fr 1.2fr 1.6fr;gap:8px;padding:9px 8px;min-width:760px}
+        .bld-phead,.bld-prow{display:grid;grid-template-columns:2.4fr 1.7fr .9fr 2.1fr .8fr;gap:8px;padding:9px 8px;min-width:680px}
+        .bld-chead,.bld-crow{display:grid;grid-template-columns:.8fr 1.1fr 3.2fr;gap:8px;padding:9px 8px;min-width:560px}
         .bld-thead,.bld-phead,.bld-chead{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#5f6b7c;border-bottom:1px solid #e5e8eb}
         .bld-row,.bld-prow,.bld-crow{align-items:center;border-bottom:1px solid #f0f2f5;font-size:13px;color:#1c2127}
         .bld-row:hover,.bld-prow:hover,.bld-crow:hover{background:#f6f7f9}
@@ -10423,6 +10426,7 @@ async function handleEstateRequest(req, res, body) {
         .bld-call p{margin:0 0 8px}
         .bld-empty{padding:22px 10px;color:#5f6b7c;font-size:14px;line-height:1.6}
         .bld-foot{font-size:12px;color:#7b8494;line-height:1.65;margin:0;padding:18px 22px 40px}
+        @media(max-width:700px){.bld-thead,.bld-phead,.bld-chead{display:none}.bld-row,.bld-prow,.bld-crow{grid-template-columns:1fr;min-width:0;gap:2px;padding:10px 8px}.bld-row *,.bld-prow *,.bld-crow *,.bld-note{overflow-wrap:anywhere}.bld-body{overflow-x:hidden}.bld-body *{min-width:0;overflow-wrap:anywhere}}
       </style></head><body><div class="bld-shell">
         <header class="bld-header">
           <span class="bld-hchip" aria-hidden="true" style="background-image:url('${ISSUES_APP_ICON_URI}')"></span>
