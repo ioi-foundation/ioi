@@ -147,7 +147,11 @@ const PINNED = {
   // 74 includes this gate's OWN two absence-worded labels. It walks every verifier in the estate and
   // is one of them; excluding itself would be the first exemption, and exemptions are how a closed
   // world stops being one.
-  verifierAbsenceLabels: 75,
+  // 75 -> 77 (2026-08-20): #350's C3 credential-isolation leg added two absence-worded assertions
+  // to verify-hypervisor-byo-provider-plane.mjs ("akash api_key never leaks — absent from every
+  // projection + preflight" and "the sealed_token blob never crosses the API") — both verified
+  // honest (neither resolves a probe URL; the resolving population stays 15).
+  verifierAbsenceLabels: 77,
   verifierAbsenceLabelsResolvingAUrl: 15,
 };
 
