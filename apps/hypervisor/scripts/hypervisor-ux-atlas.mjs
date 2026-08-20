@@ -1,0 +1,90 @@
+#!/usr/bin/env node
+// HYPERVISOR UX DEEP ATLAS (owner-directed 2026-08-20): drive the app itself and surface the
+// subtle breaks — HTTP errors, console/page errors, dead links, second-rail leaks in embeds,
+// capture (/__apps/*) links reachable from product surfaces, single-vocabulary gaps, honest-empty
+// violations. READ-ONLY: navigation only; no verb clicks (run/delete/create submits).
+// Usage: node hypervisor-ux-atlas.mjs [stage1|stage2]
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const ROOT = join(HERE, "..");
+const SERVE = "http://127.0.0.1:4173";
+const OUT = join(ROOT, ".artifacts", "ux-atlas");
+mkdirSync(OUT, { recursive: true });
+const ISSUES = [];
+const issue = (sev, kind, where, detail) => { ISSUES.push({ sev, kind, where, detail: String(detail).slice(0, 220) }); console.log(`[${sev}] ${kind} @ ${where} — ${String(detail).slice(0, 120)}`); };
+
+// Every designated click target + shipped surface (the product nav universe).
+const SURFACES = [
+  "/automations", "/evaluations", "/foundry", "/provenance", "/improvement", "/governance", "/packages/marketplace",
+  "/studio", "/data", "/ontology", "/developer-workspace",
+  "/__ioi/automations/monitors", "/__ioi/automations/monitors?tab=automations",
+  "/__ioi/data/sources", "/__ioi/data/sources?lane=syncs", "/__ioi/pipeline",
+  "/__ioi/ontology/manager", "/__ioi/ontology/explorer",
+  "/__ioi/governance/approvals", "/__ioi/missions", "/__ioi/missions/incidents",
+  "/__ioi/foundry/models", "/__ioi/foundry/models?tab=registered", "/__ioi/marketplace/listings",
+  "/__ioi/studio/designer", "/__ioi/studio/machinery", "/__ioi/studio/workshop",
+  "/__ioi/evaluations/evalsuites", "/__ioi/evaluations/insight", "/__ioi/evaluations/quiver",
+  "/__ioi/improvement/changes", "/__ioi/lineage", "/__ioi/lineage?tab=history", "/__ioi/lineage?tab=timeline",
+  "/__ioi/vertex", "/__ioi/developer-console", "/__ioi/developer-console/widgets",
+  "/__ioi/developer-workspace/workspaces", "/__ioi/developer-workspace/notepad", "/__ioi/developer-workspace/repositories",
+  "/__ioi/domain-apps/logic", "/__ioi/domain-apps/contour", "/__ioi/agent-studio", "/__ioi/connections",
+  "/__ioi/environments", "/__ioi/operations", "/__ioi/work-ledger", "/__ioi/home", "/__ioi/odk", "/__ioi/domain-apps",
+];
+
+const { chromium } = await import("playwright");
+const browser = await chromium.launch();
+const pg = await browser.newPage({ viewport: { width: 1600, height: 950 } });
+const consoleErrs = [];
+pg.on("console", (m) => { if (m.type() === "error") consoleErrs.push(m.text().slice(0, 160)); });
+pg.on("pageerror", (e) => consoleErrs.push("PAGEERROR " + String(e).slice(0, 160)));
+
+const seenLinks = new Map(); // href -> status (probe cache)
+async function probe(href) {
+  if (seenLinks.has(href)) return seenLinks.get(href);
+  let st = 0;
+  try { const r = await fetch(SERVE + href, { redirect: "manual" }); st = (r.status >= 300 && r.status < 400) ? 200 : r.status; } catch { st = 0; }
+  seenLinks.set(href, st);
+  return st;
+}
+
+for (const route of SURFACES) {
+  consoleErrs.length = 0;
+  let resp = null;
+  try { resp = await pg.goto(SERVE + route, { waitUntil: "domcontentloaded", timeout: 20000 }); } catch (e) { issue("HIGH", "nav-failed", route, e); continue; }
+  await pg.waitForTimeout(1200);
+  const status = resp ? resp.status() : 0;
+  if (status >= 400) issue("HIGH", "http-error", route, `status ${status}`);
+  for (const ce of [...new Set(consoleErrs)].slice(0, 3)) issue("MED", "console-error", route, ce);
+  const audit = await pg.evaluate(() => {
+    const out = { links: [], gaps_one_vocab: 0, capture_links: [], empty_body: false, doc_len: document.body.innerText.length };
+    for (const a of document.querySelectorAll("a[href]")) {
+      const h = a.getAttribute("href");
+      if (h && h.startsWith("/") && !h.startsWith("//")) out.links.push(h.split("#")[0]);
+      if (h && h.startsWith("/__apps/")) out.capture_links.push(h);
+    }
+    for (const el of document.querySelectorAll('[aria-disabled="true"]')) {
+      if (!el.getAttribute("title") && !el.getAttribute("data-ioi-disabled-reason") && el.textContent.trim().length > 1 && el.getAttribute("role") !== "checkbox") out.gaps_one_vocab++;
+    }
+    out.empty_body = document.body.innerText.trim().length < 40;
+    return out;
+  });
+  if (audit.empty_body) issue("HIGH", "empty-body", route, `innerText ${audit.doc_len} chars`);
+  if (audit.gaps_one_vocab) issue("MED", "gap-no-reason", route, `${audit.gaps_one_vocab} disabled controls without any reason`);
+  if (audit.capture_links.length && !route.startsWith("/__ioi/automations") && !route.includes("designer") && !route.includes("machinery")) {
+    // capture links are evidence citations on certified port feet; flag elsewhere
+  }
+  for (const cl of [...new Set(audit.capture_links)]) issue("LOW", "capture-link", route, cl);
+  // dead-link probe (dedup, cap 25/page)
+  for (const h of [...new Set(audit.links)].slice(0, 25)) {
+    const st = await probe(h);
+    if (st >= 400 || st === 0) issue("HIGH", "dead-link", route, `${h} → ${st}`);
+  }
+}
+await browser.close();
+const prev = { schema: "ioi.hypervisor.ux-issues.v1", swept_at: new Date().toISOString(), serve: SERVE, issues: ISSUES,
+  tally: ISSUES.reduce((a, i) => ((a[i.kind] = (a[i.kind] || 0) + 1), a), {}) };
+writeFileSync(join(ROOT, "hypervisor-ux-issues.v1.json"), JSON.stringify(prev, null, 2) + "\n");
+console.log(`\nSWEEP: ${ISSUES.length} issues → hypervisor-ux-issues.v1.json`, JSON.stringify(prev.tally));

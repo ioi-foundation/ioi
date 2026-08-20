@@ -1,0 +1,202 @@
+{
+  "schema": "ioi.hypervisor.ux-issues.v1",
+  "swept_at": "2026-08-20T11:59:36.625Z",
+  "serve": "http://127.0.0.1:4173",
+  "issues": [
+    {
+      "sev": "LOW",
+      "kind": "capture-link",
+      "where": "/automations",
+      "detail": "/__apps/monitors"
+    },
+    {
+      "sev": "LOW",
+      "kind": "capture-link",
+      "where": "/evaluations",
+      "detail": "/__apps/evalsuites"
+    },
+    {
+      "sev": "LOW",
+      "kind": "capture-link",
+      "where": "/foundry",
+      "detail": "/__apps/models"
+    },
+    {
+      "sev": "LOW",
+      "kind": "capture-link",
+      "where": "/provenance",
+      "detail": "/__apps/lineage"
+    },
+    {
+      "sev": "LOW",
+      "kind": "capture-link",
+      "where": "/improvement",
+      "detail": "/__apps/changes"
+    },
+    {
+      "sev": "LOW",
+      "kind": "capture-link",
+      "where": "/packages/marketplace",
+      "detail": "/__apps/listings"
+    },
+    {
+      "sev": "LOW",
+      "kind": "capture-link",
+      "where": "/__ioi/automations/monitors",
+      "detail": "/__apps/monitors"
+    },
+    {
+      "sev": "LOW",
+      "kind": "capture-link",
+      "where": "/__ioi/data/sources",
+      "detail": "/__apps/sources"
+    },
+    {
+      "sev": "LOW",
+      "kind": "capture-link",
+      "where": "/__ioi/pipeline",
+      "detail": "/__apps/pipeline"
+    },
+    {
+      "sev": "LOW",
+      "kind": "capture-link",
+      "where": "/__ioi/ontology/manager",
+      "detail": "/__apps/schema"
+    },
+    {
+      "sev": "LOW",
+      "kind": "capture-link",
+      "where": "/__ioi/ontology/explorer",
+      "detail": "/__apps/explorer"
+    },
+    {
+      "sev": "LOW",
+      "kind": "capture-link",
+      "where": "/__ioi/missions",
+      "detail": "/__apps/jobs"
+    },
+    {
+      "sev": "LOW",
+      "kind": "capture-link",
+      "where": "/__ioi/missions",
+      "detail": "/__apps/incidents"
+    },
+    {
+      "sev": "LOW",
+      "kind": "capture-link",
+      "where": "/__ioi/foundry/models",
+      "detail": "/__apps/models"
+    },
+    {
+      "sev": "LOW",
+      "kind": "capture-link",
+      "where": "/__ioi/marketplace/listings",
+      "detail": "/__apps/listings"
+    },
+    {
+      "sev": "LOW",
+      "kind": "capture-link",
+      "where": "/__ioi/studio/designer",
+      "detail": "/__apps/machinery"
+    },
+    {
+      "sev": "LOW",
+      "kind": "capture-link",
+      "where": "/__ioi/studio/designer",
+      "detail": "/__apps/workshop"
+    },
+    {
+      "sev": "LOW",
+      "kind": "capture-link",
+      "where": "/__ioi/studio/designer",
+      "detail": "/__apps/designer"
+    },
+    {
+      "sev": "LOW",
+      "kind": "capture-link",
+      "where": "/__ioi/studio/machinery",
+      "detail": "/__apps/workshop"
+    },
+    {
+      "sev": "LOW",
+      "kind": "capture-link",
+      "where": "/__ioi/studio/machinery",
+      "detail": "/__apps/module"
+    },
+    {
+      "sev": "LOW",
+      "kind": "capture-link",
+      "where": "/__ioi/studio/machinery",
+      "detail": "/__apps/machinery"
+    },
+    {
+      "sev": "LOW",
+      "kind": "capture-link",
+      "where": "/__ioi/evaluations/evalsuites",
+      "detail": "/__apps/evalsuites"
+    },
+    {
+      "sev": "LOW",
+      "kind": "capture-link",
+      "where": "/__ioi/improvement/changes",
+      "detail": "/__apps/changes"
+    },
+    {
+      "sev": "LOW",
+      "kind": "capture-link",
+      "where": "/__ioi/lineage",
+      "detail": "/__apps/lineage"
+    },
+    {
+      "sev": "LOW",
+      "kind": "capture-link",
+      "where": "/__ioi/agent-studio",
+      "detail": "/__apps/designer"
+    },
+    {
+      "sev": "LOW",
+      "kind": "capture-link",
+      "where": "/__ioi/agent-studio",
+      "detail": "/__apps/machinery"
+    },
+    {
+      "sev": "LOW",
+      "kind": "capture-link",
+      "where": "/__ioi/agent-studio",
+      "detail": "/__apps/changes"
+    },
+    {
+      "sev": "LOW",
+      "kind": "capture-link",
+      "where": "/__ioi/work-ledger",
+      "detail": "/__apps/lineage"
+    },
+    {
+      "sev": "LOW",
+      "kind": "capture-link",
+      "where": "/__ioi/odk",
+      "detail": "/__apps/schema"
+    },
+    {
+      "sev": "LOW",
+      "kind": "capture-link",
+      "where": "/__ioi/odk",
+      "detail": "/__apps/explorer"
+    },
+    {
+      "sev": "LOW",
+      "kind": "capture-link",
+      "where": "/__ioi/odk",
+      "detail": "/__apps/sources"
+    },
+    {
+      "sev": "LOW",
+      "kind": "capture-link",
+      "where": "/__ioi/odk",
+      "detail": "/__apps/ingest"
+    }
+  ],
+  "tally": {
+    "capture-link": 32
+  }
+}
