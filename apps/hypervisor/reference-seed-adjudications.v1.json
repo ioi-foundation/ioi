@@ -985,6 +985,32 @@
       "outcome": "ported",
       "shipped": "/__ioi/data/ingest \u2014 RAILLESS (owner ruling 2026-08-20), read-only, gated by scripts/verify-hypervisor-app-parity-domain-landings.mjs (the ingest block) and by the stage-5 responsive sweep at 1024x768 and 390x844.",
       "reason": "live_ia_recorded -> ported. The live tenant's HyperAuto landing is a real card grammar whose pipeline list is genuinely empty and whose own copy routes creation to the source application; the estate's ingestion chains are real and were rendered end to end by no surface. The port serves the reference's grammar over those chains and states, on-surface and under gate, the thing that makes them hard to read honestly: every stage publishes a status field about ITSELF, and five of those fields disagree with what the chain demonstrably did \u2014 so the surface joins on the keys the records carry, names the predicate behind every number, and prints the one contradiction it cannot resolve instead of picking a side."
+    },
+    {
+      "action": "DEEP-ATLAS-2",
+      "date": "2026-08-20",
+      "evidence": [
+        "reference-live-tenant-deep-atlas.v1.json"
+      ],
+      "record_id": "dataset-resource-scoped",
+      "seed": "dataset",
+      "owner": "Data",
+      "verdict": "resource_scoped_no_root_landing",
+      "reasoning": "The live tenant's OWN root for /workspace/dataset/ renders the vendor's 'Page not found' page (deep-atlas screenshot dataset-landing.png: full chrome, body = 404 glyph + 'Page not found'). The dataset app is a RESOURCE-SCOPED viewer \u2014 it exists only inside a dataset RID context, and the tenant holds no dataset resource to drive into (Files/Recent empty; 'Your favorited apps will appear here'). There is NO landing grammar to port: a ported 'Dataset landing' would fabricate an IA the origin never rendered at any recorded state \u2014 the same defect class as drawing a plausible map over a missing plane (MAP-1). The dataset GRAMMAR (schema/preview/history over one resource) remains a candidate for the estate's existing resource detail lanes (sources detail, ingest chain outputs) if a dataset-shaped record ever earns a detail surface; that is a detail-lane cut for the owning surface, not a landing port. Portable-candidate classification WITHDRAWN.",
+      "supersedes": "the live_tenant_backlog portable_candidates listing for 'dataset' (recorded from atlas control counts before the screenshots were read \u2014 the counts counted the vendor chrome, not the app)."
+    },
+    {
+      "action": "DEEP-ATLAS-2",
+      "date": "2026-08-20",
+      "evidence": [
+        "reference-live-tenant-deep-atlas.v1.json"
+      ],
+      "record_id": "objecteditor-resource-scoped",
+      "seed": "objecteditor",
+      "owner": "Ontology",
+      "verdict": "resource_scoped_no_root_landing",
+      "reasoning": "The live tenant's OWN root for /workspace/object-view-editor/ renders the vendor's 'Page not found' page (deep-atlas screenshot objecteditor-landing.png: title 'Object view editor', body = 'Page not found'). The object-view editor is scoped to an object type/view context reached from Ontology Manager; the tenant exposes no root landing and no object view to open. No landing grammar exists to port; the editor GRAMMAR remains a candidate inside the Ontology Manager object-type detail (owner surface) if that lane ever earns an editing cut. Portable-candidate classification WITHDRAWN.",
+      "supersedes": "the live_tenant_backlog portable_candidates listing for 'objecteditor' (same control-count misread as dataset)."
     }
   ]
 }

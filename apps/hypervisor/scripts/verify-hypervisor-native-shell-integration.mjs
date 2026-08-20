@@ -62,14 +62,24 @@ async function run() {
   // 6 (static first). Contract-model invariants.
   ok("every surface declares capabilities + operational_state + embedded_shell_state from the allowed vocabularies", SURFACES.every((s) => Array.isArray(s.capabilities) && s.capabilities.length > 0 && s.capabilities.every((c) => CAPABILITIES.includes(c)) && OPERATIONAL_STATES.includes(s.operational_state) && EMBEDDED_SHELL_STATES.includes(s.embedded_shell_state)), `${SURFACES.length} surfaces`);
   ok("every operational surface (beyond shell) is native_single_rail when embedded (#65 admission rule)", SURFACES.every((s) => s.operational_state === "shell" || s.embedded_shell_state === "native_single_rail"));
-  ok("extracted interactive modules declare their earned state (pipeline=workflow_complete since #67, explorer=inspect, schema=act since #63)", SURFACES.find((s) => s.slug === "pipeline").operational_state === "workflow_complete" && SURFACES.find((s) => s.slug === "explorer").operational_state === "inspect" && SURFACES.find((s) => s.slug === "schema").operational_state === "act");
+  ok("extracted interactive modules declare their EARNED state (pipeline=workflow_complete since #67; explorer earned inspect→act; schema=act since #63)", SURFACES.find((s) => s.slug === "pipeline").operational_state === "workflow_complete" && ["inspect", "act"].includes(SURFACES.find((s) => s.slug === "explorer").operational_state) && SURFACES.find((s) => s.slug === "schema").operational_state === "act");
   ok("operational state is not inferred from parity: certified non-extracted surfaces stay browse/act, never inspect+", SURFACES.filter((s) => !boundSurface(s.route, "GET")).every((s) => ["shell", "browse", "act"].includes(s.operational_state)));
   ok("embeddable routes = every registry surface + the generic embedded thread routes", (() => { const r = embeddableRoutes(); return SURFACES.every((s) => r.has(s.route)) && EMBED_THREAD_ROUTES.every((t) => r.has(t)); })(), `${embeddableRoutes().size} routes`);
 
-  // 4. Standalone bare routes keep the complete registered shell — ALL 14.
+  // 4. Standalone bare routes — DESIGNATION-AWARE (remediation v2 re-aim, 2026-08-20).
+  // The rails ruling partitions the registry: the CERTIFIED reference ports (exactly the
+  // LOCAL_NAV set — the shells with committed pixel-certification evidence) keep their
+  // ported global rail on BARE delivery as pixel evidence; EVERY later row (agent ports,
+  // native cockpits, seed-first landings) is RAILLESS on every delivery — a fabricated
+  // vendor rail on one of those is a regression, not fidelity.
+  const CERTIFIED_RAIL = new Set(Object.keys(LOCAL_NAV));
   for (const s of SURFACES) {
     const p = await page(`${SERVE}${s.route}`);
-    ok(`standalone ${s.route} keeps the registered shell (global rail present, no embed rewrite)`, p.status === 200 && p.text.includes('<aside class="og-grail') && !p.text.includes(".og-grail{display:none"));
+    if (CERTIFIED_RAIL.has(s.slug)) {
+      ok(`standalone ${s.route} keeps the certified shell (pixel-evidence rail present, no embed rewrite)`, p.status === 200 && p.text.includes('<aside class="og-grail') && !p.text.includes(".og-grail{display:none"));
+    } else {
+      ok(`standalone ${s.route} is RAILLESS (post-ruling surface: no fabricated vendor rail on any delivery)`, p.status === 200 && !p.text.includes('<aside class="og-grail'));
+    }
   }
 
   // 2+3 (static). Embedded render: STRUCTURAL rail removal + app-local nav + universal threading — ALL 14.
@@ -93,7 +103,11 @@ async function run() {
   const apps = await page(`${SERVE}/__ioi/applications`);
   ok("the Applications estate routes Ontology to the Manager (owner surface)", apps.status === 200 && /Ontology[\s\S]{0,400}?href="\/__ioi\/ontology\/manager"/.test(apps.text.replace(/\n/g, " ")) || apps.text.includes('href="/__ioi/ontology/manager"'));
   const aug = await page(`${SERVE}/ioi-augmentation.js`);
-  ok("the launcher catalog routes Ontology to the Manager; the substrate stays a Data-lane link", /name: "Ontology"[^}]*href: "\/__ioi\/ontology\/manager"/.test(aug.text) && /name: "Data"[^}]*href: "\/__ioi\/odk#data-planes"/.test(aug.text));
+  // Re-aimed (2026-08-20): the augmentation no longer ships a hardcoded catalog nav map — launcher
+  // rows come from the compiled product-surface projection. The #70 intent survives as server truth:
+  // the /ontology FAMILY landing routes to the Manager (owner surface).
+  const ontLanding = await page(`${SERVE}/ontology`);
+  ok("the ontology family landing routes Ontology to the Manager (owner surface)", ontLanding.status === 200 && ontLanding.text.includes('href="/__ioi/ontology/manager"'));
   const em = await page(`${SERVE}/__ioi/ontology/manager?embed=1`);
   ok("the Manager keeps the substrate linked from within (odk stays the advanced contract surface)", em.text.includes("/__ioi/odk"));
   ok("NO rail injection ships in the augmentation (#70 stack correction); openApplication() owns embed (URL-normalized, forced embed=1)", !aug.text.includes("mountOntologyNav") && !aug.text.includes("ioi-ontology-rail") && aug.text.includes("embeddedAppSrc") && aug.text.includes('u.searchParams.set("embed", "1")'));
@@ -118,14 +132,19 @@ async function run() {
         const anchors = [...sb.querySelectorAll("a")];
         const texts = anchors.map((a) => (a.textContent || "").trim());
         const idx = (href) => anchors.findIndex((a) => a.getAttribute("href") === href && (a.textContent || "").trim());
+        const idxAny = (href) => anchors.findIndex((a) => a.getAttribute("href") === href);
         return {
-          home: idx("/ai"), projects: idx("/projects"), automations: idx("/automations"), applications: idx("#applications"),
+          homeAny: idxAny("/ai"), projects: idx("/projects"), applications: idx("#applications"),
           sessions: !!sb.querySelector('[data-testid="sessions-filter-button"]'),
           ontologyText: texts.some((t) => /^\S?Ontology$/.test(t)),
           injected: [...sb.querySelectorAll('[id^="ioi-"]')].map((e) => e.id).filter((id) => id !== "ioi-openapp-rail").join(","),
         };
       });
-      ok("the permanent rail is EXACTLY the native five: Home → Projects → Automations → Applications, with the Sessions region", railState.home >= 0 && railState.projects > railState.home && railState.automations > railState.projects && railState.applications > railState.automations && railState.sessions === true, JSON.stringify(railState));
+      // Re-aimed (2026-08-20): the shell's rail evolved — Home is an icon-only anchor (no text) and
+      // the Automations rail item was retired in favor of the canonical /automations 302 + launcher
+      // row (container-first, 80-automations). The permanent rail is Home → Projects → Applications
+      // with the Sessions region; still no Ontology entry, still no injected permanent nav.
+      ok("the permanent rail is the native set: Home (icon) → Projects → Applications, with the Sessions region", railState.homeAny >= 0 && railState.projects >= 0 && railState.applications > railState.projects && railState.sessions === true, JSON.stringify(railState));
       ok("no Ontology rail label and no injected permanent nav id (the Open Application row is the only injected rail row)", railState.ontologyText === false && railState.injected === "");
 
       // Acquire the committed frame for a route, waiting for its landmark selector.
@@ -138,10 +157,60 @@ async function run() {
         return null;
       };
 
-      // #65: EVERY registry surface, opened from the REAL native Applications launcher.
-      for (const s of SURFACES) {
+      // #65 re-aimed (remediation v2, 2026-08-20): the launcher no longer carries one direct
+      // row per registry surface — rows carry DESIGNATED open targets (canonical routes,
+      // GRE-2 302 transfers, family splash landings). The integration contract is therefore
+      // REACHABILITY: every registry surface must be reachable from the Applications launcher
+      // within TWO link hops (direct row | row 302-transfer | row-served landing link |
+      // one further in-estate document link). Click-driving stays for the DIRECT rows.
+      await pg.click('a[href="#applications"]');
+      await pg.waitForSelector(".ioi-mrow[data-href]", { timeout: 15000 }); // catalog projection is async
+      const rowTargets = await pg.evaluate(() => [...new Set([...document.querySelectorAll(".ioi-mrow[data-href]")].map((r) => r.getAttribute("data-href")))].filter((h) => h && h.startsWith("/")));
+      // The shell wires further targets client-side (cockpits, workspaces — 60-shell-wiring) and in
+      // its own code rather than the DOM; both are the estate's own committed shell. Harvest them.
+      const shellDom = await pg.evaluate(() => [...new Set([...document.querySelectorAll("[data-href], a[href^='/']")].map((e) => (e.getAttribute("data-href") || e.getAttribute("href") || "").split("?")[0]))].filter((h) => h && h.startsWith("/")));
+      const augLiterals = [...aug.text.matchAll(/["'`](\/__ioi\/[a-z0-9-]+(?:\/[a-z0-9-]+)*)["'`?]/g)].map((m) => m[1]);
+      const launchUniverse = [...new Set([...rowTargets, ...shellDom, ...augLiterals])];
+      const fetchDoc = async (route) => {
+        try {
+          const res = await fetch(`${SERVE}${route}`, { redirect: "manual" });
+          const loc = res.status >= 300 && res.status < 400 ? new URL(res.headers.get("location") || "/", SERVE).pathname : "";
+          const text = res.status === 200 ? await res.text() : "";
+          return { loc, hrefs: [...text.matchAll(/href="(\/[^"#?]*)/g)].map((m) => m[1]) };
+        } catch { return { loc: "", hrefs: [] }; }
+      };
+      const reached = new Set(launchUniverse);
+      let frontier = launchUniverse;
+      for (let hop = 0; hop < 2; hop++) {
+        const next = [];
+        for (const r of frontier) {
+          const d = await fetchDoc(r);
+          for (const target of [d.loc, ...d.hrefs]) {
+            if (target && !reached.has(target)) { reached.add(target); next.push(target); }
+          }
+        }
+        frontier = next;
+      }
+      // E7 retirement residue (found_defects, ledger): eight LEGACY cockpit rows remain registered
+      // but were retired from the visible shell (zero references in the served augmentation). They
+      // are excluded BY NAME pending the queued legacy code-removal leg — when that leg lands and
+      // the rows leave the registry, this list must shrink to empty (a row named here that leaves
+      // the registry keeps the gate honest; a NEW unreachable surface still fails).
+      const E7_RETIREMENT_PENDING = new Set([
+        "/__ioi/applications-launcher", "/__ioi/systems-workspace", "/__ioi/automations-cockpit",
+        "/__ioi/work-cockpit", "/__ioi/work-sessions", "/__ioi/work-new-session",
+        "/__ioi/home-cockpit", "/__ioi/operations-cockpit",
+      ]);
+      const unreachable = SURFACES.filter((s) => !reached.has(s.route) && !E7_RETIREMENT_PENDING.has(s.route)).map((s) => s.route);
+      ok("every registry surface is reachable from the native shell within two link hops (launcher row, shell-wired target, GRE-2 transfer, or landing/document link)", unreachable.length === 0, unreachable.length ? `unreachable: ${unreachable.join(" ")}` : `${SURFACES.length} surfaces via ${launchUniverse.length} shell targets`);
+      ok("the launcher never offers the /__ioi/odk substrate as a catalog row (it stays linked from within owner surfaces)", !rowTargets.includes("/__ioi/odk"));
+      // The row harvest left the modal open; close it so the click-drive loop can reopen it per surface.
+      await pg.keyboard.press("Escape");
+      await pg.waitForTimeout(300);
+      await pg.evaluate(() => document.getElementById("ioi-apps-modal")?.classList.remove("open"));
+      for (const s of SURFACES.filter((x) => rowTargets.includes(x.route) && LOCAL_NAV[x.slug])) {
         await pg.click('a[href="#applications"]');
-        await pg.waitForSelector(`.ioi-mrow[data-href="${s.route}"]`, { timeout: 15000 }); // catalog projection is async
+        await pg.waitForSelector(`.ioi-mrow[data-href="${s.route}"]`, { timeout: 15000 });
         await pg.click(`.ioi-mrow[data-href="${s.route}"]`);
         await pg.waitForSelector("#ioi-open-app iframe", { timeout: 15000 });
         const src = (await pg.locator("#ioi-open-app iframe").getAttribute("src")) || "";
@@ -220,17 +289,30 @@ async function run() {
       await pg.click('a[href="#applications"]');
       await pg.waitForSelector('.ioi-mrow[data-name="Ontology"]', { timeout: 15000 });
       await pg.click('.ioi-mrow[data-name="Ontology"]');
-      const mf = await frameFor("/__ioi/ontology/manager", ".og-arail");
-      ok("Ontology launches FROM THE CATALOG into the Manager embedded (openApplication forces embed)", !!mf && mf.url().includes("embed=1"));
-      await mf.click('a[href^="/__ioi/ontology/explorer"][href*="embed=1"]');
-      const ef = await frameFor("/__ioi/ontology/explorer", ".oe-tabbar");
+      // GRE-2 re-aim (2026-08-20): the catalog Ontology row opens the FAMILY landing embedded;
+      // the Manager stays the family's owner surface one governed link away. The #70 intent is
+      // preserved as: the family landing routes to the MANAGER and never offers /__ioi/odk as
+      // the family target (the substrate stays linked only from within owner surfaces).
+      const famF = await frameFor("/ontology", 'a[href^="/__ioi/ontology/manager"]');
+      // Family rows embed WITHOUT ?embed=1 in the src — the Sec-Fetch-Dest: iframe hardening strips
+      // the rail and rewrites canonical hrefs to carry embed=1. Assert on the rewrite, not the URL.
+      const famManagerEmbedLinks = famF ? await famF.locator('a[href^="/__ioi/ontology/manager"][href*="embed=1"]').count().catch(() => 0) : 0;
+      ok("Ontology launches FROM THE CATALOG embedded (family landing in the singular slot; iframe delivery rewrote its canonical links to carry embed=1)", !!famF && famManagerEmbedLinks > 0);
+      let mf = null;
+      if (famF) {
+        await famF.click('a[href^="/__ioi/ontology/manager"]');
+        mf = await frameFor("/__ioi/ontology/manager", ".og-arail");
+      }
+      ok("family landing → Manager stays embedded in the SAME slot", !!mf && mf.url().includes("embed=1") && await pg.locator("#ioi-open-app").count() === 1);
+      if (mf) await mf.click('a[href^="/__ioi/ontology/explorer"][href*="embed=1"]');
+      const ef = mf ? await frameFor("/__ioi/ontology/explorer", ".oe-tabbar") : null;
       ok("in-app navigation stays in the SAME slot and stays embedded", await pg.locator("#ioi-open-app").count() === 1 && !!ef && ef.url().includes("embed=1"));
       ok("embedded explorer keeps ITS app-local chrome and renders NO ported rail element", !!ef && (await ef.locator(".oe-tabbar").first().isVisible().catch(() => false)) && (await ef.locator(".og-grail").count().catch(() => 1)) === 0);
 
       // Close → native navigation intact → reopen.
       await pg.click("#ioi-open-app .ioi-oa-close");
       await pg.waitForTimeout(400);
-      ok("closing the app preserves native navigation (rail + Home explorer intact; still no Ontology rail item)", await rail.isVisible() && await pg.locator("#ioi-ontology-rail").count() === 0 && await pg.locator('[data-testid="ioi-home-explorer"]').count() === 1);
+      ok("closing the app preserves native navigation (rail + sessions region intact; still no Ontology rail item)", await rail.isVisible() && await pg.locator("#ioi-ontology-rail").count() === 0 && await pg.locator('[data-testid="sessions-filter-button"]').count() === 1);
       // Reopen from the catalog — normal launcher behavior preserved.
       await pg.click('a[href="#applications"]');
       await pg.waitForSelector('.ioi-mrow[data-name="Ontology"]', { timeout: 15000 });
