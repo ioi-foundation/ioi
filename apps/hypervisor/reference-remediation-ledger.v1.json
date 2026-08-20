@@ -625,6 +625,12 @@
       "date": "2026-08-20",
       "did": "OWNER CATCH \u2192 ROOT CAUSE FIXED: the launcher (surface-compiler open_today map + app-catalog contractComplete route) still opened LEGACY mounts \u2014 clicking Studio opened the old agent-studio readout and leaked the vendor capture into nav. Both re-pointed to the DESIGNATED click targets (10 families). Verifiers: applications 27/27, studio 33/33, automations 45/45, depth 145/146 (the 1 fail = the pre-existing isolated-spawn posture 503, recorded in found_defects with a queued repair leg; runtime-safety confirmed a non-CI pre-existing red).",
       "next": "owner re-check: click Studio/any app tile \u2014 should land on the designated shell"
+    },
+    {
+      "n": 37,
+      "date": "2026-08-20",
+      "did": "OWNER RULING APPLIED \u2014 CONTAINER-FIRST: the session rail persists on every click path. Modal rows open in the embedded container (top-nav reserved for /ai, the un-nestable SPA shell); the 80-automations forced full-load now opens the container; embed continuity through the 302s verified (rail aside stripped, count 0). applications 27/27 \u00b7 automations 45/45. Direct URL visits remain the standalone railless lane by design. native-shell-integration harness needs a designation-aware re-aim (recorded, queued).",
+      "next": "owner recheck: click any app \u2014 session rail should persist with the designated railless surface inside"
     }
   ],
   "pr_blockers": [
@@ -660,6 +666,11 @@
       "found": "2026-08-20",
       "what": "verify-hypervisor-app-runtime-safety is a PRE-EXISTING red (not in CI/scripts/floors): its registry-additions check fails on rows predating the program (work/home/operations/missions/...) and its isolated-serve spawns 503 on a dead-daemon posture gate ('unrebound internal surface... unavailable outside local development') \u2014 reproduced identically with correct env; /__ioi/applications is 200 on the live serve. The program's 10 new registry rows ADD to the already-failing lists (unclassified in the depth atlas).",
       "queued_repair_leg": "runtime-safety repair: (a) posture-gate reading for dead-daemon loopback (fail-open-for-loopback vs fail-closed ruling), (b) contract evidence + depth-atlas naming for the 10 remediation rows, (c) decide CI membership"
+    },
+    {
+      "found": "2026-08-20",
+      "what": "verify-hypervisor-native-shell-integration pins PRE-TRANSFER modal hrefs (data-href === registry route per surface) \u2014 post-transfer the launcher opens DESIGNATED targets, so the harness times out on the old rows. Needs a designation-aware re-aim (expected href/frame-route/landmark per re-pointed family).",
+      "queued_repair_leg": "fold into the runtime-safety repair leg: re-aim #65 harness to landing-designations truth"
     }
   ]
 }
