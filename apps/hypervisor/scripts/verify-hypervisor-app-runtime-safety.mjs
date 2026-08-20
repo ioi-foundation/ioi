@@ -67,12 +67,44 @@ function eslintRun(files) {
   return { code: r.status, out: `${r.stdout || ""}${r.stderr || ""}` };
 }
 
+// Minimal daemon stub that satisfies ONLY the deployment-posture probe (the serve's internal-
+// surface fence reads /v1/hypervisor/auth/policy and fail-closes otherwise) while every other
+// plane stays dead — so route-isolation is observable through the fence without weakening it.
+async function startPostureStubDaemon() {
+  const sockets = new Set();
+  const server = createServer((req, res) => {
+    const pathname = new URL(req.url || "/", "http://x").pathname;
+    if (pathname === "/v1/hypervisor/auth/policy") {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ deployment_auth_posture: "local_development" }));
+      return;
+    }
+    res.writeHead(503, { "content-type": "application/json" });
+    res.end(JSON.stringify({ error: { code: "daemon_unavailable" } }));
+  });
+  server.on("connection", (socket) => { sockets.add(socket); socket.on("close", () => sockets.delete(socket)); });
+  await new Promise((resolveListen) => server.listen(0, "127.0.0.1", resolveListen));
+  return {
+    base: `http://127.0.0.1:${server.address().port}`,
+    async close() { for (const socket of sockets) socket.destroy(); await new Promise((resolveClose) => server.close(resolveClose)); },
+  };
+}
+
 async function startHostileOperationsDaemon() {
   const maliciousTimeline = '"><img src=x onerror="document.body.dataset.pwned=1">';
   const sockets = new Set();
   const server = createServer((req, res) => {
     const pathname = new URL(req.url || "/", "http://x").pathname;
+    // The internal-surface fence reads auth/policy BEFORE any surface lane runs — a stalled
+    // posture probe can no longer reach the Operations lanes (it refuses at the fence). Answer
+    // it fast and valid; hostility lives on the surface's own lanes: providers = HEADER-stall,
+    // storage-backends = BODY-stall (partial JSON, never finished).
     if (pathname === "/v1/hypervisor/auth/policy") {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ deployment_auth_posture: "local_development" }));
+      return;
+    }
+    if (pathname === "/v1/hypervisor/storage-backends") {
       res.writeHead(200, { "content-type": "application/json" });
       res.write('{"partial":');
       return;
@@ -87,7 +119,6 @@ async function startHostileOperationsDaemon() {
         estimated_open_exposure_rate: {},
         teardown_finalized: {},
       },
-      "/v1/hypervisor/storage-backends": { backends: {} },
       "/v1/hypervisor/storage-incidents": { incidents: [], repair_receipts: [] },
       "/v1/hypervisor/akash-deployments": { deployments: [], leases: [], redeploy_plans: [] },
       "/v1/hypervisor/failover/runs": { runs: [] },
@@ -156,9 +187,43 @@ async function run() {
   ok("registry covers every certified seed", certified.every((s) => regBySlug.has(s.slug)), `${SURFACES.length} registry vs ${certified.length} certified`);
   const certifiedSlugs = new Set(certified.map((s) => s.slug));
   const contractReadOnly = SURFACES.filter((s) => !certifiedSlugs.has(s.slug));
-  ok("registry additions beyond certified seeds resolve committed contract evidence and a bound read-only module",
-    contractReadOnly.every((s) => contractCatalogAdmission(s, atlas).admitted),
-    contractReadOnly.map((s) => s.slug).join(",") || "none");
+  // Re-aimed (remediation v2, 2026-08-20): the registry grew two legitimate admission classes
+  // beyond the original read_only_by_contract additions.
+  //  a) read_only_by_contract rows — the original contract-evidence chain (unchanged).
+  //  b) ADJUDICATED reference_ported rows — matrix row joined by route (candidate_surface) with
+  //     parity_class reference_ported + a sanctioned adjudication ref + an origin/donor lane
+  //     (reference_url_override or a live-tenant atlas ref) — the same sanction contract the
+  //     clean-sweep gate enforces.
+  //  c) DESIGNATED NATIVE rows — owner surfaces whose completeness is pinned by their own
+  //     committed journey verifier (named here; the file must exist and pin the row's route).
+  // The eight LEGACY cockpit rows are excluded BY NAME pending the E7 code-removal leg — the
+  // same shrinking list the native-shell verifier carries; when the leg lands and the rows leave
+  // the registry, every entry here goes inert and the list must be deleted with them.
+  const E7_RETIREMENT_PENDING = new Set(["applications", "systems", "automations", "work", "work-sessions", "work-new-session", "home", "operations"]);
+  const DESIGNATED_NATIVE = {
+    "studio-home": "verify-hypervisor-studio-journey.mjs",
+    "packages": "verify-hypervisor-packages-journey.mjs",
+    "packages-marketplace": "verify-hypervisor-packages-journey.mjs",
+  };
+  const sanctionedAdjudication = /reference-(seed-adjudications|gap-adjudication)/;
+  const matrixByRoute = new Map((matrix.seeds || []).filter((s) => s.candidate_surface).map((s) => [s.candidate_surface.split("?")[0], s]));
+  const additionAdmitted = (s) => {
+    if (E7_RETIREMENT_PENDING.has(s.slug)) return true;
+    if (s.operational_state === "read_only_by_contract") return contractCatalogAdmission(s, atlas).admitted;
+    const m = matrixByRoute.get(s.route);
+    if (m && m.parity_class === "reference_ported") {
+      const originLane = m.reference_url_override || /reference-live-tenant(-deep)?-atlas\.v1\.json#/.test(m.adjudication_ref || "");
+      return !!(sanctionedAdjudication.test(m.adjudication_ref || "") && originLane);
+    }
+    const verifier = DESIGNATED_NATIVE[s.slug];
+    if (verifier) {
+      try { return readFileSync(join(HERE, verifier), "utf8").includes(s.route); } catch { return false; }
+    }
+    return false;
+  };
+  ok("registry additions beyond certified seeds resolve committed evidence for their class (contract chain | sanctioned reference_ported adjudication | designated-native journey verifier; E7 residue named)",
+    contractReadOnly.every((s) => additionAdmitted(s)),
+    contractReadOnly.filter((s) => !additionAdmitted(s)).map((s) => s.slug).join(",") || "all admitted");
   const unproven = {
     ...contractReadOnly[0],
     slug: "__unproven_read_only",
@@ -200,9 +265,33 @@ async function run() {
   const boomLive = await sGet("/__ioi/__test/boom");
   ok("fault route does NOT exist without the flag", boomLive.status !== 500, `status ${boomLive.status} (must not be a mounted throwing route)`);
 
-  // 3. Route isolation on an ISOLATED serve (dead daemon; fault route mounted via the flag).
+  // 3a. THE POSTURE BOUNDARY ITSELF (re-aim 2026-08-20): with a TRULY dead daemon the internal-
+  // surface fence must fail CLOSED — a 503 refusal, never a rendered surface. This pin replaces
+  // what used to be an accidental red (the old harness expected 200s through a dead daemon and
+  // the fence, added later, correctly refused).
+  const deadChild = spawn(process.execPath, [join(HERE, "serve-product-ui.mjs")], {
+    env: { ...process.env, PORT: String(FAULT_PORT + 7), PRODUCT_UI_PORT: String(FAULT_UI_PORT + 7), IOI_HYPERVISOR_DAEMON_URL: "http://127.0.0.1:1" },
+    stdio: "ignore",
+  });
+  try {
+    const deadBase = `http://127.0.0.1:${FAULT_PORT + 7}`;
+    let deadUp = null;
+    for (let i = 0; i < 30 && !deadUp; i++) {
+      await new Promise((r) => setTimeout(r, 500));
+      deadUp = await sGet("/__ioi/applications", deadBase).catch(() => null);
+    }
+    ok("dead-daemon posture: internal surfaces fail CLOSED (503 refusal names the unrebound boundary, no surface renders)",
+      !!deadUp && deadUp.status === 503 && deadUp.text.includes("unavailable outside local development"),
+      deadUp ? `status ${deadUp.status}` : "never came up");
+  } finally {
+    deadChild.kill("SIGTERM");
+  }
+
+  // 3b. Route isolation on an ISOLATED serve: posture answered by a stub (local_development),
+  // every PLANE dead — isolation is observable through the fence without weakening it.
+  const postureStub = await startPostureStubDaemon();
   const child = spawn(process.execPath, [join(HERE, "serve-product-ui.mjs")], {
-    env: { ...process.env, PORT: String(FAULT_PORT), PRODUCT_UI_PORT: String(FAULT_UI_PORT), IOI_HYPERVISOR_DAEMON_URL: "http://127.0.0.1:1", IOI_APP_RUNTIME_TEST_ROUTE: "1" },
+    env: { ...process.env, PORT: String(FAULT_PORT), PRODUCT_UI_PORT: String(FAULT_UI_PORT), IOI_HYPERVISOR_DAEMON_URL: postureStub.base, IOI_APP_RUNTIME_TEST_ROUTE: "1" },
     stdio: "ignore",
   });
   try {
@@ -227,6 +316,7 @@ async function run() {
     ok("estate process survived every fault", child.exitCode === null, child.exitCode === null ? "alive" : `exited ${child.exitCode}`);
   } finally {
     child.kill("SIGTERM");
+    await postureStub.close();
   }
 
   // 4. Operations owner boundary: hostile timeline data cannot become markup, and a daemon lane
@@ -271,7 +361,8 @@ async function run() {
         && operations.text.includes("unknown, not zero")
         && operations.text.includes("Authentication-policy projection unavailable")
         && operations.text.includes("Provider-account projection unavailable")
-        && operations.text.includes("Storage-backend inventory unavailable"));
+        && operations.text.includes("Storage-backend inventory unavailable"),
+      operations ? (operations.text.match(/data-operations-unavailable="[^"]*"/) || ["marker missing"])[0] : "no response");
     ok("Operations never turns unavailable provider or malformed storage planes into empty-state claims",
       !!operations
         && !operations.text.includes("No BYO provider accounts yet")
