@@ -1,0 +1,2033 @@
+{
+  "schema": "ioi.hypervisor.reference-live-tenant-atlas.v1",
+  "origin": "https://test.usw-23.palantirfoundry.com",
+  "doctrine": "READ-ONLY states recorded from the LIVE authenticated tenant over CDP (owner session, owner-authorized 2026-08-20). Canvas-aware expressed-IA (toolbar/canvas/panel detection — the #vertex-canvas-correction fix). Live verdicts SUPERSEDE mirror-scoped dead-lane verdicts per seed; screenshots under .artifacts/live-tenant-atlas/.",
+  "recorded_at": "2026-08-20T09:37:45.035Z",
+  "seeds": {
+    "designer": [
+      {
+        "key": "landing",
+        "path": "/workspace/solution-design/",
+        "ia": {
+          "url": "https://test.usw-23.palantirfoundry.com/workspace/solution-design/splash",
+          "title": "Solution Designer",
+          "headings": [
+            "Solution Designer",
+            "Many ways to ingest data in Foundry",
+            "Generate Pipeline via No-code Tools",
+            "Generate Pipeline via Pro-code Tools"
+          ],
+          "tabs": [],
+          "columns": [],
+          "facet_groups": [
+            "APPLICATIONS",
+            "OBJECT",
+            "ACTIONS",
+            "FOUNDRY RULES",
+            "DATA CONNECTION SOURCE",
+            "WORKSHOP",
+            "DATASET",
+            "NOTIFICATIONS",
+            "EXTERNAL SYSTEM",
+            "WEBHOOK",
+            "USER",
+            "MODEL",
+            "MODELING OBJECTIVE",
+            "CODE REPOSITORY"
+          ],
+          "rows": 0,
+          "toolbar_controls": [
+            "Skip to content",
+            "Search…ctrl + J",
+            "Notifications",
+            "Gift IconWhat's New",
+            "Recent",
+            "Applications",
+            "View all",
+            "Support",
+            "LJAccount",
+            "New Diagram",
+            "Help",
+            "Start planning",
+            "Browse all",
+            "Preview",
+            "Preview",
+            "Preview",
+            "Preview",
+            "Preview",
+            "Preview",
+            "Preview",
+            "Preview",
+            "Preview",
+            "Preview",
+            "Preview"
+          ],
+          "canvas_surfaces": 0,
+          "text_len": 30769,
+          "login_wall": false
+        },
+        "expresses_ia": true,
+        "screenshot": ".artifacts/live-tenant-atlas/designer-landing.png"
+      },
+      {
+        "key": "create",
+        "path": "/workspace/solution-design/create",
+        "ia": {
+          "url": "https://test.usw-23.palantirfoundry.com/workspace/solution-design/scratch",
+          "title": "Solution Designer",
+          "headings": [
+            "Welcome to Solution Designer"
+          ],
+          "tabs": [],
+          "columns": [],
+          "facet_groups": [
+            "APPLICATIONS",
+            "CONCEPT",
+            "COMPONENT",
+            "RESOURCE",
+            "BETA",
+            "AIP CRITIC"
+          ],
+          "rows": 0,
+          "toolbar_controls": [
+            "Skip to content",
+            "Search…ctrl + J",
+            "Notifications",
+            "Gift IconWhat's New",
+            "Recent",
+            "Applications",
+            "View all",
+            "Walkthroughs",
+            "Support",
+            "LJAccount",
+            "Guide",
+            "Overview",
+            "Files",
+            "Start",
+            "Save",
+            "Actions",
+            "Open diagram",
+            "AIP logo icon",
+            "Concept",
+            "Component",
+            "Resource",
+            "BETAAIP Critic"
+          ],
+          "canvas_surfaces": 0,
+          "text_len": 1667,
+          "login_wall": false
+        },
+        "expresses_ia": true,
+        "screenshot": ".artifacts/live-tenant-atlas/designer-create.png"
+      }
+    ],
+    "machinery": [
+      {
+        "key": "landing",
+        "path": "/workspace/machinery-app/",
+        "ia": {
+          "url": "https://test.usw-23.palantirfoundry.com/workspace/machinery-app/",
+          "title": "Machinery",
+          "headings": [
+            "Machinery"
+          ],
+          "tabs": [],
+          "columns": [],
+          "facet_groups": [
+            "APPLICATIONS",
+            "FILES",
+            "CREATOR",
+            "LAST EDITED BY",
+            "LAST VIEWED"
+          ],
+          "rows": 0,
+          "toolbar_controls": [
+            "Skip to content",
+            "Search…ctrl + J",
+            "Notifications",
+            "Gift IconWhat's New",
+            "Recent",
+            "Applications",
+            "View all",
+            "Support",
+            "LJAccount",
+            "New graph",
+            "Help",
+            "Recents",
+            "Recents",
+            "Favorites",
+            "Favorites"
+          ],
+          "canvas_surfaces": 0,
+          "text_len": 637,
+          "login_wall": false
+        },
+        "expresses_ia": true,
+        "screenshot": ".artifacts/live-tenant-atlas/machinery-landing.png"
+      }
+    ],
+    "workshop": [
+      {
+        "key": "landing",
+        "path": "/workspace/workshop/",
+        "ia": {
+          "url": "https://test.usw-23.palantirfoundry.com/workspace/workshop/",
+          "title": "Palantir",
+          "headings": [
+            "Page not found"
+          ],
+          "tabs": [],
+          "columns": [],
+          "facet_groups": [],
+          "rows": 0,
+          "toolbar_controls": [],
+          "canvas_surfaces": 1,
+          "text_len": 83,
+          "login_wall": false
+        },
+        "expresses_ia": true,
+        "screenshot": ".artifacts/live-tenant-atlas/workshop-landing.png"
+      }
+    ],
+    "module": [
+      {
+        "key": "landing",
+        "path": "/workspace/module/",
+        "ia": {
+          "url": "https://test.usw-23.palantirfoundry.com/workspace/module/splash",
+          "title": "Workshop — Home",
+          "headings": [
+            "Workshop"
+          ],
+          "tabs": [],
+          "columns": [],
+          "facet_groups": [
+            "APPLICATIONS",
+            "MODULE",
+            "CREATOR",
+            "LAST EDITED BY",
+            "LAST VIEWED"
+          ],
+          "rows": 0,
+          "toolbar_controls": [
+            "Skip to content",
+            "Search…ctrl + J",
+            "Notifications",
+            "Gift IconWhat's New",
+            "Recent",
+            "Applications",
+            "View all",
+            "Support",
+            "LJAccount",
+            "New module",
+            "Help",
+            "Recents",
+            "Recents",
+            "Favorites",
+            "Favorites",
+            "Edit",
+            "Edit",
+            "Explore more"
+          ],
+          "canvas_surfaces": 0,
+          "text_len": 2669,
+          "login_wall": false
+        },
+        "expresses_ia": true,
+        "screenshot": ".artifacts/live-tenant-atlas/module-landing.png"
+      }
+    ],
+    "monitors": [
+      {
+        "key": "landing",
+        "path": "/workspace/object-monitoring/",
+        "ia": {
+          "url": "https://test.usw-23.palantirfoundry.com/workspace/object-monitoring/",
+          "title": "Automate",
+          "headings": [
+            "Create and manage automations",
+            "Active automations",
+            "Recently viewed",
+            "Recently triggered",
+            "Example use cases"
+          ],
+          "tabs": [
+            "Overview",
+            "Automations"
+          ],
+          "columns": [],
+          "facet_groups": [
+            "APPLICATIONS",
+            "FILES",
+            "CREATOR",
+            "LAST EDITED BY",
+            "LAST VIEWED"
+          ],
+          "rows": 0,
+          "toolbar_controls": [
+            "Skip to content",
+            "Search…ctrl + J",
+            "Notifications",
+            "Gift IconWhat's New",
+            "Recent",
+            "Applications",
+            "View all",
+            "Support",
+            "LJAccount",
+            "Main",
+            "New automation",
+            "Help",
+            "View all",
+            "Open docs",
+            "Open docs",
+            "Open docs"
+          ],
+          "canvas_surfaces": 0,
+          "text_len": 1874,
+          "login_wall": false
+        },
+        "expresses_ia": true,
+        "screenshot": ".artifacts/live-tenant-atlas/monitors-landing.png"
+      }
+    ],
+    "scheduler": [
+      {
+        "key": "landing",
+        "path": "/workspace/scheduler/",
+        "ia": {
+          "url": "https://test.usw-23.palantirfoundry.com/workspace/scheduler/find?v=1&uid=fe77707c-1590-4b15-9dca-9f92e943d79d&s=LAST_UPDATED_DATE&dir=DESCENDING",
+          "title": "Build Schedules",
+          "headings": [],
+          "tabs": [],
+          "columns": [],
+          "facet_groups": [
+            "APPLICATIONS"
+          ],
+          "rows": 0,
+          "toolbar_controls": [
+            "Skip to content",
+            "Search…ctrl + J",
+            "Notifications",
+            "Gift IconWhat's New",
+            "Recent",
+            "Applications",
+            "View all",
+            "Support",
+            "LJAccount",
+            "Create schedule",
+            "000",
+            "Levi Josman",
+            "Set search parameters",
+            "Select schedules…"
+          ],
+          "canvas_surfaces": 0,
+          "text_len": 418,
+          "login_wall": false
+        },
+        "expresses_ia": true,
+        "screenshot": ".artifacts/live-tenant-atlas/scheduler-landing.png"
+      }
+    ],
+    "lineage": [
+      {
+        "key": "landing",
+        "path": "/workspace/monocle/",
+        "ia": {
+          "url": "https://test.usw-23.palantirfoundry.com/workspace/monocle/graph?coloring=monocle.color.resource-type",
+          "title": "Data Lineage",
+          "headings": [],
+          "tabs": [
+            "Preview",
+            "SQL scratchpad",
+            "History",
+            "Code",
+            "Build timeline",
+            "Data health"
+          ],
+          "columns": [],
+          "facet_groups": [
+            "APPLICATIONS"
+          ],
+          "rows": 0,
+          "toolbar_controls": [
+            "Skip to content",
+            "Search…ctrl + J",
+            "Notifications",
+            "Gift IconWhat's New",
+            "Recent",
+            "Applications",
+            "View all",
+            "Support",
+            "LJAccount",
+            "Workflow Lineage",
+            "Main",
+            "000",
+            "Save as",
+            "Read documentation",
+            "0 nodes selected"
+          ],
+          "canvas_surfaces": 2,
+          "text_len": 668,
+          "login_wall": false
+        },
+        "expresses_ia": true,
+        "screenshot": ".artifacts/live-tenant-atlas/lineage-landing.png"
+      }
+    ],
+    "ingest": [
+      {
+        "key": "landing",
+        "path": "/workspace/hyperauto/",
+        "ia": {
+          "url": "https://test.usw-23.palantirfoundry.com/workspace/hyperauto/pipeline",
+          "title": "HyperAuto",
+          "headings": [],
+          "tabs": [],
+          "columns": [],
+          "facet_groups": [
+            "APPLICATIONS"
+          ],
+          "rows": 0,
+          "toolbar_controls": [
+            "Skip to content",
+            "Search…ctrl + J",
+            "Notifications",
+            "Gift IconWhat's New",
+            "Recent",
+            "Applications",
+            "View all",
+            "Support",
+            "LJAccount",
+            "Create pipeline"
+          ],
+          "canvas_surfaces": 0,
+          "text_len": 399,
+          "login_wall": false
+        },
+        "expresses_ia": true,
+        "screenshot": ".artifacts/live-tenant-atlas/ingest-landing.png"
+      }
+    ],
+    "sources": [
+      {
+        "key": "landing",
+        "path": "/workspace/data-ingestion-app/",
+        "ia": {
+          "url": "https://test.usw-23.palantirfoundry.com/workspace/data-ingestion-app/splash",
+          "title": "Data Connection",
+          "headings": [
+            "Data Connection",
+            "What's new in Data Connection"
+          ],
+          "tabs": [],
+          "columns": [],
+          "facet_groups": [
+            "APPLICATIONS",
+            "FILES",
+            "CREATOR",
+            "LAST EDITED BY",
+            "LAST VIEWED"
+          ],
+          "rows": 0,
+          "toolbar_controls": [
+            "Skip to content",
+            "Search…ctrl + J",
+            "Notifications",
+            "Gift IconWhat's New",
+            "Recent",
+            "Applications",
+            "View all",
+            "Support",
+            "LJAccount",
+            "New source",
+            "000",
+            "Recents",
+            "Recents",
+            "Favorites",
+            "Favorites",
+            "Go to all platform updates",
+            "Close"
+          ],
+          "canvas_surfaces": 0,
+          "text_len": 2341,
+          "login_wall": false
+        },
+        "expresses_ia": true,
+        "screenshot": ".artifacts/live-tenant-atlas/sources-landing.png"
+      }
+    ],
+    "pipeline": [
+      {
+        "key": "landing",
+        "path": "/workspace/builder/",
+        "ia": {
+          "url": "https://test.usw-23.palantirfoundry.com/workspace/builder/",
+          "title": "Pipeline Builder",
+          "headings": [],
+          "tabs": [],
+          "columns": [],
+          "facet_groups": [
+            "APPLICATIONS",
+            "PIPELINE",
+            "OUTPUTS",
+            "TYPE",
+            "LAST DEPLOYED"
+          ],
+          "rows": 0,
+          "toolbar_controls": [
+            "Skip to content",
+            "Search…ctrl + J",
+            "Notifications",
+            "Gift IconWhat's New",
+            "Recent",
+            "Applications",
+            "View all",
+            "Support",
+            "LJAccount",
+            "All",
+            "Project",
+            "Created by…",
+            "New pipeline",
+            "Explore more"
+          ],
+          "canvas_surfaces": 0,
+          "text_len": 2598,
+          "login_wall": false
+        },
+        "expresses_ia": true,
+        "screenshot": ".artifacts/live-tenant-atlas/pipeline-landing.png"
+      }
+    ],
+    "dataset": [
+      {
+        "key": "landing",
+        "path": "/workspace/dataset/",
+        "ia": {
+          "url": "https://test.usw-23.palantirfoundry.com/workspace/dataset/",
+          "title": "Palantir",
+          "headings": [],
+          "tabs": [],
+          "columns": [],
+          "facet_groups": [
+            "APPLICATIONS"
+          ],
+          "rows": 0,
+          "toolbar_controls": [
+            "Skip to content",
+            "Search…ctrl + J",
+            "Notifications",
+            "Gift IconWhat's New",
+            "Recent",
+            "Applications",
+            "View all",
+            "Support",
+            "LJAccount"
+          ],
+          "canvas_surfaces": 0,
+          "text_len": 218,
+          "login_wall": false
+        },
+        "expresses_ia": true,
+        "screenshot": ".artifacts/live-tenant-atlas/dataset-landing.png"
+      }
+    ],
+    "schema": [
+      {
+        "key": "landing",
+        "path": "/workspace/ontology/",
+        "ia": {
+          "url": "https://test.usw-23.palantirfoundry.com/workspace/ontology/home/discover",
+          "title": "Ontology Manager",
+          "headings": [],
+          "tabs": [],
+          "columns": [],
+          "facet_groups": [
+            "APPLICATIONS"
+          ],
+          "rows": 0,
+          "toolbar_controls": [
+            "Skip to content",
+            "Search…ctrl + J",
+            "Notifications",
+            "Gift IconWhat's New",
+            "Recent",
+            "Applications",
+            "View all",
+            "Support",
+            "LJAccount",
+            "Main",
+            "New",
+            "Configure"
+          ],
+          "canvas_surfaces": 0,
+          "text_len": 1059,
+          "login_wall": false
+        },
+        "expresses_ia": true,
+        "screenshot": ".artifacts/live-tenant-atlas/schema-landing.png"
+      }
+    ],
+    "explorer": [
+      {
+        "key": "landing",
+        "path": "/workspace/hubble/",
+        "ia": {
+          "url": "https://test.usw-23.palantirfoundry.com/workspace/hubble/",
+          "title": "Object Explorer",
+          "headings": [],
+          "tabs": [
+            "New exploration"
+          ],
+          "columns": [],
+          "facet_groups": [
+            "APPLICATIONS",
+            "TYPE GROUP",
+            "OBJECT TYPE NAME",
+            "STATUS",
+            "OBJECT COUNT",
+            "USAGE",
+            "TYPE GROUPS",
+            "DESCRIPTION"
+          ],
+          "rows": 0,
+          "toolbar_controls": [
+            "Skip to content",
+            "Search…ctrl + J",
+            "Notifications",
+            "Gift IconWhat's New",
+            "Recent",
+            "Applications",
+            "View all",
+            "Support",
+            "LJAccount",
+            "All Ontologies",
+            "Recents",
+            "Favorites",
+            "Your object sets",
+            "Relevancy",
+            "All",
+            "Type group",
+            "Application",
+            "All",
+            "All",
+            "Created by me",
+            "Created by me",
+            "Shared with me",
+            "Shared with me",
+            "Favorites"
+          ],
+          "canvas_surfaces": 0,
+          "text_len": 3280,
+          "login_wall": false
+        },
+        "expresses_ia": true,
+        "screenshot": ".artifacts/live-tenant-atlas/explorer-landing.png"
+      },
+      {
+        "key": "hubble-landing",
+        "path": "/workspace/hubble/",
+        "ia": {
+          "url": "https://test.usw-23.palantirfoundry.com/workspace/hubble/",
+          "title": "Object Explorer",
+          "headings": [],
+          "tabs": [
+            "New exploration"
+          ],
+          "columns": [],
+          "facet_groups": [
+            "APPLICATIONS",
+            "TYPE GROUP",
+            "OBJECT TYPE NAME",
+            "STATUS",
+            "OBJECT COUNT",
+            "USAGE",
+            "TYPE GROUPS",
+            "DESCRIPTION"
+          ],
+          "rows": 0,
+          "toolbar_controls": [
+            "Skip to content",
+            "Search…ctrl + J",
+            "Notifications",
+            "Gift IconWhat's New",
+            "Recent",
+            "Applications",
+            "View all",
+            "Walkthroughs",
+            "Support",
+            "LJAccount",
+            "Guide",
+            "Overview",
+            "Files",
+            "Start",
+            "All Ontologies",
+            "Recents",
+            "Favorites",
+            "Your object sets",
+            "Relevancy",
+            "All",
+            "Type group",
+            "Application",
+            "All",
+            "All"
+          ],
+          "canvas_surfaces": 0,
+          "text_len": 4244,
+          "login_wall": false
+        },
+        "expresses_ia": true,
+        "screenshot": ".artifacts/live-tenant-atlas/explorer-hubble-landing.png"
+      }
+    ],
+    "objectview": [
+      {
+        "key": "landing",
+        "path": "/workspace/object-view/",
+        "ia": {
+          "url": "https://test.usw-23.palantirfoundry.com/workspace/object-view/",
+          "title": "Object View",
+          "headings": [],
+          "tabs": [],
+          "columns": [],
+          "facet_groups": [],
+          "rows": 0,
+          "toolbar_controls": [],
+          "canvas_surfaces": 0,
+          "text_len": 12,
+          "login_wall": false
+        },
+        "expresses_ia": false,
+        "screenshot": ".artifacts/live-tenant-atlas/objectview-landing.png"
+      }
+    ],
+    "objecteditor": [
+      {
+        "key": "landing",
+        "path": "/workspace/object-view-editor/",
+        "ia": {
+          "url": "https://test.usw-23.palantirfoundry.com/workspace/object-view-editor/",
+          "title": "Object view editor",
+          "headings": [],
+          "tabs": [],
+          "columns": [],
+          "facet_groups": [
+            "APPLICATIONS"
+          ],
+          "rows": 0,
+          "toolbar_controls": [
+            "Skip to content",
+            "Search…ctrl + J",
+            "Notifications",
+            "Gift IconWhat's New",
+            "Recent",
+            "Applications",
+            "View all",
+            "Support",
+            "LJAccount"
+          ],
+          "canvas_surfaces": 0,
+          "text_len": 218,
+          "login_wall": false
+        },
+        "expresses_ia": true,
+        "screenshot": ".artifacts/live-tenant-atlas/objecteditor-landing.png"
+      }
+    ],
+    "evalsuites": [
+      {
+        "key": "landing",
+        "path": "/workspace/evals/",
+        "ia": {
+          "url": "https://test.usw-23.palantirfoundry.com/workspace/evals/",
+          "title": "AIP Evals",
+          "headings": [
+            "AIP Evals",
+            "What's new in AIP Evals"
+          ],
+          "tabs": [],
+          "columns": [],
+          "facet_groups": [
+            "APPLICATIONS",
+            "FILES",
+            "CREATOR",
+            "LAST EDITED BY",
+            "LAST VIEWED"
+          ],
+          "rows": 0,
+          "toolbar_controls": [
+            "Skip to content",
+            "Search…ctrl + J",
+            "Notifications",
+            "Gift IconWhat's New",
+            "Recent",
+            "Applications",
+            "View all",
+            "Support",
+            "LJAccount",
+            "New evaluation suite",
+            "Help",
+            "Recents",
+            "Recents",
+            "Favorites",
+            "Favorites",
+            "Go to all platform updates",
+            "Close"
+          ],
+          "canvas_surfaces": 0,
+          "text_len": 2305,
+          "login_wall": false
+        },
+        "expresses_ia": true,
+        "screenshot": ".artifacts/live-tenant-atlas/evalsuites-landing.png"
+      },
+      {
+        "key": "create",
+        "path": "/workspace/evals/create-new",
+        "ia": {
+          "url": "https://test.usw-23.palantirfoundry.com/workspace/evals/create-new",
+          "title": "Create evaluation suite",
+          "headings": [
+            "What's new in AIP Evals"
+          ],
+          "tabs": [],
+          "columns": [],
+          "facet_groups": [
+            "APPLICATIONS"
+          ],
+          "rows": 0,
+          "toolbar_controls": [
+            "Skip to content",
+            "Search…ctrl + J",
+            "Notifications",
+            "Gift IconWhat's New",
+            "Recent",
+            "Applications",
+            "View all",
+            "Walkthroughs",
+            "Support",
+            "LJAccount",
+            "Guide",
+            "Overview",
+            "Files",
+            "Start",
+            "Select Logic…",
+            "Cancel",
+            "Create",
+            "Go to all platform updates",
+            "Close"
+          ],
+          "canvas_surfaces": 0,
+          "text_len": 2692,
+          "login_wall": false
+        },
+        "expresses_ia": true,
+        "screenshot": ".artifacts/live-tenant-atlas/evalsuites-create.png"
+      }
+    ],
+    "analysis": [
+      {
+        "key": "landing",
+        "path": "/workspace/insight/",
+        "ia": {
+          "url": "https://test.usw-23.palantirfoundry.com/workspace/insight/",
+          "title": "Insight",
+          "headings": [
+            "Insight"
+          ],
+          "tabs": [
+            "Workbooks",
+            "Object sets"
+          ],
+          "columns": [],
+          "facet_groups": [
+            "APPLICATIONS",
+            "NAME",
+            "CREATOR",
+            "PATHS"
+          ],
+          "rows": 0,
+          "toolbar_controls": [
+            "Skip to content",
+            "Search…ctrl + J",
+            "Notifications",
+            "Gift IconWhat's New",
+            "Recent",
+            "Applications",
+            "View all",
+            "Support",
+            "LJAccount",
+            "Main",
+            "All namespaces",
+            "Start analysis",
+            "Gift IconWhat's New",
+            "Help",
+            "Recents",
+            "Favorites",
+            "All",
+            "Object types",
+            "Interfaces",
+            "All",
+            "Choose data",
+            "Show more",
+            "Show more",
+            "Show more"
+          ],
+          "canvas_surfaces": 0,
+          "text_len": 5147,
+          "login_wall": false
+        },
+        "expresses_ia": true,
+        "screenshot": ".artifacts/live-tenant-atlas/analysis-landing.png"
+      }
+    ],
+    "quiver": [
+      {
+        "key": "landing",
+        "path": "/workspace/quiver/",
+        "ia": {
+          "url": "https://test.usw-23.palantirfoundry.com/workspace/quiver/views/create",
+          "title": "Quiver",
+          "headings": [
+            "Create new analysis"
+          ],
+          "tabs": [],
+          "columns": [],
+          "facet_groups": [
+            "APPLICATIONS"
+          ],
+          "rows": 0,
+          "toolbar_controls": [
+            "Skip to content",
+            "Search…ctrl + J",
+            "Notifications",
+            "Gift IconWhat's New",
+            "Recent",
+            "Applications",
+            "View all",
+            "Support",
+            "LJAccount",
+            "Applications",
+            "Browse",
+            "Compare types",
+            "Back",
+            "Create analysis"
+          ],
+          "canvas_surfaces": 0,
+          "text_len": 758,
+          "login_wall": false
+        },
+        "expresses_ia": true,
+        "screenshot": ".artifacts/live-tenant-atlas/quiver-landing.png"
+      }
+    ],
+    "models": [
+      {
+        "key": "landing",
+        "path": "/workspace/model-catalog/",
+        "ia": {
+          "url": "https://test.usw-23.palantirfoundry.com/workspace/model-catalog/home?tabId=palantirProvided",
+          "title": "Model Catalog",
+          "headings": [],
+          "tabs": [
+            "Palantir-provided models",
+            "Registered models"
+          ],
+          "columns": [],
+          "facet_groups": [
+            "APPLICATIONS",
+            "LIFECYCLE STATUS",
+            "TYPE",
+            "MODEL CREATOR",
+            "NVIDIA",
+            "GPT-5"
+          ],
+          "rows": 0,
+          "toolbar_controls": [
+            "Skip to content",
+            "Search…ctrl + J",
+            "Notifications",
+            "Gift IconWhat's New",
+            "Recent",
+            "Applications",
+            "View all",
+            "Support",
+            "LJAccount",
+            "Compare models",
+            "Clear",
+            "Clear",
+            "Clear"
+          ],
+          "canvas_surfaces": 0,
+          "text_len": 17184,
+          "login_wall": false
+        },
+        "expresses_ia": true,
+        "screenshot": ".artifacts/live-tenant-atlas/models-landing.png"
+      }
+    ],
+    "modelstudio": [
+      {
+        "key": "landing",
+        "path": "/workspace/model-studio/",
+        "ia": {
+          "url": "https://test.usw-23.palantirfoundry.com/workspace/model-studio/",
+          "title": "Model studio",
+          "headings": [
+            "Choose file location"
+          ],
+          "tabs": [],
+          "columns": [],
+          "facet_groups": [
+            "APPLICATIONS"
+          ],
+          "rows": 0,
+          "toolbar_controls": [
+            "Skip to content",
+            "Search…ctrl + J",
+            "Notifications",
+            "Gift IconWhat's New",
+            "Recent",
+            "Applications",
+            "View all",
+            "Support",
+            "LJAccount",
+            "Applications",
+            "Browse",
+            "Cancel",
+            "Save"
+          ],
+          "canvas_surfaces": 0,
+          "text_len": 251,
+          "login_wall": false
+        },
+        "expresses_ia": true,
+        "screenshot": ".artifacts/live-tenant-atlas/modelstudio-landing.png"
+      }
+    ],
+    "inference": [
+      {
+        "key": "landing",
+        "path": "/workspace/foundry-inference-app/",
+        "ia": {
+          "url": "https://test.usw-23.palantirfoundry.com/workspace/foundry-inference-app/",
+          "title": "Palantir",
+          "headings": [
+            "What's new in Sensitive Data Scanner"
+          ],
+          "tabs": [],
+          "columns": [],
+          "facet_groups": [
+            "APPLICATIONS"
+          ],
+          "rows": 0,
+          "toolbar_controls": [
+            "Skip to content",
+            "Search…ctrl + J",
+            "Notifications",
+            "Gift IconWhat's New",
+            "Recent",
+            "Applications",
+            "View all",
+            "Support",
+            "LJAccount",
+            "Select a space…",
+            "Go to all platform updates",
+            "Close"
+          ],
+          "canvas_surfaces": 0,
+          "text_len": 1388,
+          "login_wall": false
+        },
+        "expresses_ia": true,
+        "screenshot": ".artifacts/live-tenant-atlas/inference-landing.png"
+      }
+    ],
+    "listings": [
+      {
+        "key": "landing",
+        "path": "/workspace/marketplace/",
+        "ia": {
+          "url": "https://test.usw-23.palantirfoundry.com/workspace/marketplace/home",
+          "title": "Marketplace",
+          "headings": [
+            "Marketplace",
+            "Upload and install a product",
+            "Stores",
+            "What's new in Marketplace"
+          ],
+          "tabs": [],
+          "columns": [],
+          "facet_groups": [
+            "APPLICATIONS"
+          ],
+          "rows": 0,
+          "toolbar_controls": [
+            "Skip to content",
+            "Search…ctrl + J",
+            "Notifications",
+            "Gift IconWhat's New",
+            "Recent",
+            "Applications",
+            "View all",
+            "Support",
+            "LJAccount",
+            "Installations",
+            "Help",
+            "Upload",
+            "Try it out",
+            "Try it out",
+            "Go to all platform updates",
+            "Close"
+          ],
+          "canvas_surfaces": 0,
+          "text_len": 3555,
+          "login_wall": false
+        },
+        "expresses_ia": true,
+        "screenshot": ".artifacts/live-tenant-atlas/listings-landing.png"
+      }
+    ],
+    "registry": [
+      {
+        "key": "landing",
+        "path": "/workspace/artifacts/",
+        "ia": {
+          "url": "https://test.usw-23.palantirfoundry.com/workspace/artifacts/",
+          "title": "Artifacts",
+          "headings": [
+            "Explore artifacts"
+          ],
+          "tabs": [],
+          "columns": [],
+          "facet_groups": [
+            "APPLICATIONS"
+          ],
+          "rows": 0,
+          "toolbar_controls": [
+            "Skip to content",
+            "Search…ctrl + J",
+            "Notifications",
+            "Gift IconWhat's New",
+            "Recent",
+            "Applications",
+            "View all",
+            "Support",
+            "LJAccount",
+            "Create artifact repository",
+            "Help",
+            "000",
+            "Conda",
+            "Go to documentation"
+          ],
+          "canvas_surfaces": 0,
+          "text_len": 735,
+          "login_wall": false
+        },
+        "expresses_ia": true,
+        "screenshot": ".artifacts/live-tenant-atlas/registry-landing.png"
+      }
+    ],
+    "devconsole": [
+      {
+        "key": "landing",
+        "path": "/workspace/developer-console/",
+        "ia": {
+          "url": "https://test.usw-23.palantirfoundry.com/workspace/developer-console/",
+          "title": "Developer Console • Home page",
+          "headings": [
+            "Welcome to Developer Console"
+          ],
+          "tabs": [
+            "Applications",
+            "Standalone OAuth clientsLegacy"
+          ],
+          "columns": [],
+          "facet_groups": [
+            "APPLICATIONS",
+            "APPLICATION",
+            "CREATOR",
+            "LAST EDITED BY",
+            "LAST MODIFIED"
+          ],
+          "rows": 0,
+          "toolbar_controls": [
+            "Skip to content",
+            "Search…ctrl + J",
+            "Notifications",
+            "Gift IconWhat's New",
+            "Recent",
+            "Applications",
+            "View all",
+            "Support",
+            "LJAccount",
+            "New application",
+            "View documentation",
+            "Recents (0)",
+            "Recents (0)",
+            "Favorites (0)",
+            "Favorites (0)",
+            "All (0)",
+            "All (0)",
+            "Created by me",
+            "Created by me"
+          ],
+          "canvas_surfaces": 0,
+          "text_len": 757,
+          "login_wall": false
+        },
+        "expresses_ia": true,
+        "screenshot": ".artifacts/live-tenant-atlas/devconsole-landing.png"
+      }
+    ],
+    "widgets": [
+      {
+        "key": "landing",
+        "path": "/workspace/custom-widgets/",
+        "ia": {
+          "url": "https://test.usw-23.palantirfoundry.com/workspace/custom-widgets/",
+          "title": "Custom Widgets",
+          "headings": [
+            "Custom Widgets"
+          ],
+          "tabs": [],
+          "columns": [],
+          "facet_groups": [
+            "APPLICATIONS",
+            "FILES",
+            "CREATOR",
+            "LAST EDITED BY",
+            "LAST VIEWED"
+          ],
+          "rows": 0,
+          "toolbar_controls": [
+            "Skip to content",
+            "Search…ctrl + J",
+            "Notifications",
+            "Gift IconWhat's New",
+            "Recent",
+            "Applications",
+            "View all",
+            "Support",
+            "LJAccount",
+            "New widget set",
+            "Help",
+            "Recents",
+            "Recents",
+            "Favorites",
+            "Favorites"
+          ],
+          "canvas_surfaces": 0,
+          "text_len": 389,
+          "login_wall": false
+        },
+        "expresses_ia": true,
+        "screenshot": ".artifacts/live-tenant-atlas/widgets-landing.png"
+      },
+      {
+        "key": "create",
+        "path": "/workspace/custom-widgets/new",
+        "ia": {
+          "url": "https://test.usw-23.palantirfoundry.com/workspace/custom-widgets/new",
+          "title": "Custom Widgets",
+          "headings": [
+            "Create New Widget Set"
+          ],
+          "tabs": [],
+          "columns": [],
+          "facet_groups": [
+            "APPLICATIONS"
+          ],
+          "rows": 0,
+          "toolbar_controls": [
+            "Skip to content",
+            "Search…ctrl + J",
+            "Notifications",
+            "Gift IconWhat's New",
+            "Recent",
+            "Applications",
+            "View all",
+            "Walkthroughs",
+            "Support",
+            "LJAccount",
+            "Guide",
+            "Overview",
+            "Files",
+            "Start",
+            "Browse",
+            "Cancel",
+            "Create widget set"
+          ],
+          "canvas_surfaces": 0,
+          "text_len": 1593,
+          "login_wall": false
+        },
+        "expresses_ia": true,
+        "screenshot": ".artifacts/live-tenant-atlas/widgets-create.png"
+      }
+    ],
+    "developer": [
+      {
+        "key": "landing",
+        "path": "/workspace/developer/",
+        "ia": {
+          "url": "https://test.usw-23.palantirfoundry.com/workspace/developer/",
+          "title": "Developer settings app",
+          "headings": [],
+          "tabs": [],
+          "columns": [],
+          "facet_groups": [],
+          "rows": 0,
+          "toolbar_controls": [],
+          "canvas_surfaces": 0,
+          "text_len": 44,
+          "login_wall": false
+        },
+        "expresses_ia": false,
+        "screenshot": ".artifacts/live-tenant-atlas/developer-landing.png"
+      }
+    ],
+    "workspaces": [
+      {
+        "key": "landing",
+        "path": "/workspace/code-workspaces/",
+        "ia": {
+          "url": "https://test.usw-23.palantirfoundry.com/workspace/code-workspaces/splash",
+          "title": "Home page - Code Workspaces",
+          "headings": [
+            "Code Workspaces"
+          ],
+          "tabs": [],
+          "columns": [],
+          "facet_groups": [
+            "APPLICATIONS",
+            "WORKSPACES",
+            "CREATOR",
+            "LAST EDITED BY",
+            "LAST EDITED"
+          ],
+          "rows": 0,
+          "toolbar_controls": [
+            "Skip to content",
+            "Search…ctrl + J",
+            "Notifications",
+            "Gift IconWhat's New",
+            "Recent",
+            "Applications",
+            "View all",
+            "Support",
+            "LJAccount",
+            "New workspace",
+            "Help",
+            "Recents",
+            "Recents",
+            "Favorites",
+            "Favorites",
+            "All",
+            "All",
+            "Created by me",
+            "Created by me",
+            "VS Code",
+            "VS Code",
+            "Jupyter",
+            "Jupyter",
+            "RStudio"
+          ],
+          "canvas_surfaces": 0,
+          "text_len": 1286,
+          "login_wall": false
+        },
+        "expresses_ia": true,
+        "screenshot": ".artifacts/live-tenant-atlas/workspaces-landing.png"
+      }
+    ],
+    "repositories": [
+      {
+        "key": "landing",
+        "path": "/workspace/code-repositories/",
+        "ia": {
+          "url": "https://test.usw-23.palantirfoundry.com/workspace/code-repositories/",
+          "title": "Palantir",
+          "headings": [
+            "Page not found"
+          ],
+          "tabs": [],
+          "columns": [],
+          "facet_groups": [],
+          "rows": 0,
+          "toolbar_controls": [],
+          "canvas_surfaces": 1,
+          "text_len": 83,
+          "login_wall": false
+        },
+        "expresses_ia": true,
+        "screenshot": ".artifacts/live-tenant-atlas/repositories-landing.png"
+      }
+    ],
+    "notepad": [
+      {
+        "key": "landing",
+        "path": "/workspace/notepad/",
+        "ia": {
+          "url": "https://test.usw-23.palantirfoundry.com/workspace/notepad/",
+          "title": "Notepad Home",
+          "headings": [
+            "Notepad"
+          ],
+          "tabs": [],
+          "columns": [],
+          "facet_groups": [
+            "APPLICATIONS",
+            "RESOURCE",
+            "TYPE",
+            "AUTHOR",
+            "LAST MODIFIED"
+          ],
+          "rows": 0,
+          "toolbar_controls": [
+            "Skip to content",
+            "Search…ctrl + J",
+            "Notifications",
+            "Gift IconWhat's New",
+            "Recent",
+            "Applications",
+            "View all",
+            "Support",
+            "LJAccount",
+            "New document",
+            "Help",
+            "Recents",
+            "Recents",
+            "Created by me",
+            "Created by me",
+            "Favorites",
+            "Favorites",
+            "All",
+            "All"
+          ],
+          "canvas_surfaces": 0,
+          "text_len": 1503,
+          "login_wall": false
+        },
+        "expresses_ia": true,
+        "screenshot": ".artifacts/live-tenant-atlas/notepad-landing.png"
+      },
+      {
+        "key": "create",
+        "path": "/workspace/notepad/create",
+        "ia": {
+          "url": "https://test.usw-23.palantirfoundry.com/workspace/notepad/create",
+          "title": "Palantir",
+          "headings": [
+            "Save"
+          ],
+          "tabs": [],
+          "columns": [],
+          "facet_groups": [
+            "APPLICATIONS"
+          ],
+          "rows": 0,
+          "toolbar_controls": [
+            "Skip to content",
+            "Search…ctrl + J",
+            "Notifications",
+            "Gift IconWhat's New",
+            "Recent",
+            "Applications",
+            "View all",
+            "Walkthroughs",
+            "Support",
+            "LJAccount",
+            "Guide",
+            "Overview",
+            "Files",
+            "Start",
+            "Browse",
+            "Cancel",
+            "Save"
+          ],
+          "canvas_surfaces": 0,
+          "text_len": 1252,
+          "login_wall": false
+        },
+        "expresses_ia": true,
+        "screenshot": ".artifacts/live-tenant-atlas/notepad-create.png"
+      }
+    ],
+    "vertex": [
+      {
+        "key": "landing",
+        "path": "/workspace/vertex/",
+        "ia": {
+          "url": "https://test.usw-23.palantirfoundry.com/workspace/vertex/",
+          "title": "Vertex",
+          "headings": [],
+          "tabs": [],
+          "columns": [],
+          "facet_groups": [
+            "APPLICATIONS",
+            "GRAPH",
+            "CREATOR",
+            "LAST MODIFIED"
+          ],
+          "rows": 0,
+          "toolbar_controls": [
+            "Skip to content",
+            "Search…ctrl + J",
+            "Notifications",
+            "Gift IconWhat's New",
+            "Recent",
+            "Applications",
+            "View all",
+            "Support",
+            "LJAccount",
+            "New exploration",
+            "Explore",
+            "Explore",
+            "Explore",
+            "Favorites",
+            "Favorites",
+            "Promoted",
+            "Promoted",
+            "Recents",
+            "Recents",
+            "Your graphs",
+            "Your graphs"
+          ],
+          "canvas_surfaces": 0,
+          "text_len": 2114,
+          "login_wall": false
+        },
+        "expresses_ia": true,
+        "screenshot": ".artifacts/live-tenant-atlas/vertex-landing.png"
+      },
+      {
+        "key": "search-page",
+        "path": "/workspace/vertex/?q=graph",
+        "ia": {
+          "url": "https://test.usw-23.palantirfoundry.com/workspace/vertex/?q=graph",
+          "title": "Vertex",
+          "headings": [],
+          "tabs": [],
+          "columns": [],
+          "facet_groups": [
+            "APPLICATIONS",
+            "GRAPH",
+            "CREATOR",
+            "LAST MODIFIED"
+          ],
+          "rows": 0,
+          "toolbar_controls": [
+            "Skip to content",
+            "Search…ctrl + J",
+            "Notifications",
+            "Gift IconWhat's New",
+            "Recent",
+            "Applications",
+            "View all",
+            "Support",
+            "LJAccount",
+            "New exploration",
+            "Explore",
+            "Explore",
+            "Explore",
+            "Favorites",
+            "Favorites",
+            "Promoted",
+            "Promoted",
+            "Recents",
+            "Recents",
+            "Your graphs",
+            "Your graphs"
+          ],
+          "canvas_surfaces": 0,
+          "text_len": 2114,
+          "login_wall": false
+        },
+        "expresses_ia": true,
+        "screenshot": ".artifacts/live-tenant-atlas/vertex-search-page.png"
+      },
+      {
+        "key": "template-canvas",
+        "path": "/workspace/vertex/graph/ri.opus.main.graph-template.0ad31874-deb8-447c-80d4-8f5b6ca2e6a0",
+        "ia": {
+          "url": "https://test.usw-23.palantirfoundry.com/workspace/vertex/graph/ri.opus.main.graph-template.0ad31874-deb8-447c-80d4-8f5b6ca2e6a0",
+          "title": "Reference Objects Network Template - Reference Objects Network - Graph Template",
+          "headings": [],
+          "tabs": [],
+          "columns": [],
+          "facet_groups": [
+            "APPLICATIONS",
+            "NODES",
+            "EDGES"
+          ],
+          "rows": 0,
+          "toolbar_controls": [
+            "Skip to content",
+            "Search…ctrl + J",
+            "Notifications",
+            "Gift IconWhat's New",
+            "Recent",
+            "Applications",
+            "View all",
+            "Walkthroughs",
+            "Support",
+            "LJAccount",
+            "File",
+            "View",
+            "Help",
+            "1",
+            "Template",
+            "Save as…",
+            "Share",
+            "Layers",
+            "Selection",
+            "Search",
+            "Histogram",
+            "Info",
+            "Default styling",
+            "Model config"
+          ],
+          "canvas_surfaces": 1,
+          "text_len": 996,
+          "login_wall": false
+        },
+        "expresses_ia": true,
+        "screenshot": ".artifacts/live-tenant-atlas/vertex-template-canvas.png"
+      }
+    ],
+    "map": [
+      {
+        "key": "landing",
+        "path": "/workspace/map/",
+        "ia": {
+          "url": "https://test.usw-23.palantirfoundry.com/workspace/map/",
+          "title": "New map",
+          "headings": [],
+          "tabs": [],
+          "columns": [],
+          "facet_groups": [
+            "APPLICATIONS"
+          ],
+          "rows": 0,
+          "toolbar_controls": [
+            "Skip to content",
+            "Search…ctrl + J",
+            "Notifications",
+            "Gift IconWhat's New",
+            "Recent",
+            "Applications",
+            "View all",
+            "Support",
+            "LJAccount",
+            "Save as…",
+            "Layers",
+            "Legend",
+            "Histogram",
+            "Add to map",
+            "Timeline",
+            "Select",
+            "Search Around",
+            "Select",
+            "Search Around",
+            "Selection"
+          ],
+          "canvas_surfaces": 2,
+          "text_len": 840,
+          "login_wall": false
+        },
+        "expresses_ia": true,
+        "screenshot": ".artifacts/live-tenant-atlas/map-landing.png"
+      }
+    ],
+    "slate": [
+      {
+        "key": "landing",
+        "path": "/workspace/slate/",
+        "ia": {
+          "url": "https://test.usw-23.palantirfoundry.com/workspace/slate/",
+          "title": "Slate",
+          "headings": [],
+          "tabs": [],
+          "columns": [],
+          "facet_groups": [
+            "APPLICATIONS"
+          ],
+          "rows": 0,
+          "toolbar_controls": [
+            "Skip to content",
+            "Search…ctrl + J",
+            "Notifications",
+            "Gift IconWhat's New",
+            "Recent",
+            "Applications",
+            "View all",
+            "Support",
+            "LJAccount"
+          ],
+          "canvas_surfaces": 0,
+          "text_len": 172,
+          "login_wall": false
+        },
+        "expresses_ia": true,
+        "screenshot": ".artifacts/live-tenant-atlas/slate-landing.png"
+      }
+    ],
+    "logic": [
+      {
+        "key": "landing",
+        "path": "/workspace/logic-app/",
+        "ia": {
+          "url": "https://test.usw-23.palantirfoundry.com/workspace/logic-app/",
+          "title": "AIP Logic",
+          "headings": [
+            "Build no-code Ontology functions"
+          ],
+          "tabs": [],
+          "columns": [],
+          "facet_groups": [
+            "APPLICATIONS",
+            "LOGIC FILE",
+            "CREATOR",
+            "LAST EDITED BY",
+            "LAST VIEWED"
+          ],
+          "rows": 0,
+          "toolbar_controls": [
+            "Skip to content",
+            "Search…ctrl + J",
+            "Notifications",
+            "Gift IconWhat's New",
+            "Recent",
+            "Applications",
+            "View all",
+            "Support",
+            "LJAccount",
+            "New logic",
+            "Help",
+            "Recents",
+            "Recents",
+            "Favorites",
+            "Favorites",
+            "All",
+            "All",
+            "Create new logic function"
+          ],
+          "canvas_surfaces": 0,
+          "text_len": 1210,
+          "login_wall": false
+        },
+        "expresses_ia": true,
+        "screenshot": ".artifacts/live-tenant-atlas/logic-landing.png"
+      },
+      {
+        "key": "create",
+        "path": "/workspace/logic-app/create-new",
+        "ia": {
+          "url": "https://test.usw-23.palantirfoundry.com/workspace/logic-app/create-new",
+          "title": "AIP Logic",
+          "headings": [
+            "Choose Logic file location"
+          ],
+          "tabs": [],
+          "columns": [],
+          "facet_groups": [
+            "APPLICATIONS"
+          ],
+          "rows": 0,
+          "toolbar_controls": [
+            "Skip to content",
+            "Search…ctrl + J",
+            "Notifications",
+            "Gift IconWhat's New",
+            "Recent",
+            "Applications",
+            "View all",
+            "Walkthroughs",
+            "Support",
+            "LJAccount",
+            "Guide",
+            "Overview",
+            "Files",
+            "Start",
+            "Browse",
+            "Cancel",
+            "Save"
+          ],
+          "canvas_surfaces": 0,
+          "text_len": 1276,
+          "login_wall": false
+        },
+        "expresses_ia": true,
+        "screenshot": ".artifacts/live-tenant-atlas/logic-create.png"
+      }
+    ],
+    "contour": [
+      {
+        "key": "landing",
+        "path": "/workspace/contour-app/",
+        "ia": {
+          "url": "https://test.usw-23.palantirfoundry.com/workspace/contour-app/",
+          "title": "Contour Home",
+          "headings": [
+            "Contour"
+          ],
+          "tabs": [],
+          "columns": [],
+          "facet_groups": [
+            "APPLICATIONS",
+            "FILES",
+            "CREATOR",
+            "LAST EDITED BY",
+            "LAST VIEWED"
+          ],
+          "rows": 0,
+          "toolbar_controls": [
+            "Skip to content",
+            "Search…ctrl + J",
+            "Notifications",
+            "Gift IconWhat's New",
+            "Recent",
+            "Applications",
+            "View all",
+            "Support",
+            "LJAccount",
+            "New analysis",
+            "Help",
+            "Recents",
+            "Recents",
+            "Favorites",
+            "Favorites"
+          ],
+          "canvas_surfaces": 0,
+          "text_len": 870,
+          "login_wall": false
+        },
+        "expresses_ia": true,
+        "screenshot": ".artifacts/live-tenant-atlas/contour-landing.png"
+      }
+    ],
+    "fusion": [
+      {
+        "key": "landing",
+        "path": "/workspace/fusion/",
+        "ia": {
+          "url": "https://test.usw-23.palantirfoundry.com/workspace/compass/home",
+          "title": "Home",
+          "headings": [],
+          "tabs": [
+            "All files",
+            "Shared with you",
+            "Data Catalog",
+            "Trash"
+          ],
+          "columns": [],
+          "facet_groups": [
+            "APPLICATIONS",
+            "FILE NAME",
+            "VIEWS",
+            "YOUR ROLE",
+            "TAGS",
+            "PORTFOLIO",
+            "LAST MODIFIED"
+          ],
+          "rows": 0,
+          "toolbar_controls": [
+            "Skip to content",
+            "Search…ctrl + J",
+            "Notifications",
+            "Gift IconWhat's New",
+            "Recent",
+            "Applications",
+            "View all",
+            "Support",
+            "LJAccount",
+            "All spaces",
+            "New",
+            "Hide",
+            "Apply",
+            "Apply",
+            "Apply",
+            "Types",
+            "View all (24)",
+            "Status",
+            "Portfolios",
+            "Projects",
+            "Load more…",
+            "Select tags…",
+            "Organizations",
+            "1"
+          ],
+          "canvas_surfaces": 0,
+          "text_len": 10094,
+          "login_wall": false
+        },
+        "expresses_ia": true,
+        "screenshot": ".artifacts/live-tenant-atlas/fusion-landing.png"
+      }
+    ],
+    "jobs": [
+      {
+        "key": "landing",
+        "path": "/workspace/job-tracker/",
+        "ia": {
+          "url": "https://test.usw-23.palantirfoundry.com/workspace/job-tracker/builds",
+          "title": "Your builds · Builds",
+          "headings": [],
+          "tabs": [],
+          "columns": [],
+          "facet_groups": [
+            "APPLICATIONS"
+          ],
+          "rows": 0,
+          "toolbar_controls": [
+            "Skip to content",
+            "Search…ctrl + J",
+            "Notifications",
+            "Gift IconWhat's New",
+            "Recent",
+            "Applications",
+            "View all",
+            "Support",
+            "LJAccount",
+            "000",
+            "Clear all filters",
+            "All",
+            "Running",
+            "Finished"
+          ],
+          "canvas_surfaces": 0,
+          "text_len": 817,
+          "login_wall": false
+        },
+        "expresses_ia": true,
+        "screenshot": ".artifacts/live-tenant-atlas/jobs-landing.png"
+      }
+    ],
+    "incidents": [
+      {
+        "key": "landing",
+        "path": "/workspace/issues-app/",
+        "ia": {
+          "url": "https://test.usw-23.palantirfoundry.com/workspace/issues-app/",
+          "title": "Issues • Open (0)",
+          "headings": [],
+          "tabs": [],
+          "columns": [],
+          "facet_groups": [
+            "APPLICATIONS",
+            "FILTERS"
+          ],
+          "rows": 0,
+          "toolbar_controls": [
+            "Skip to content",
+            "Search…ctrl + J",
+            "Notifications",
+            "Gift IconWhat's New",
+            "Recent",
+            "Applications",
+            "View all",
+            "Support",
+            "LJAccount",
+            "New"
+          ],
+          "canvas_surfaces": 0,
+          "text_len": 628,
+          "login_wall": false
+        },
+        "expresses_ia": true,
+        "screenshot": ".artifacts/live-tenant-atlas/incidents-landing.png"
+      }
+    ],
+    "approvals": [
+      {
+        "key": "landing",
+        "path": "/workspace/approvals-app/",
+        "ia": {
+          "url": "https://test.usw-23.palantirfoundry.com/workspace/approvals-app/",
+          "title": "Approvals inbox",
+          "headings": [],
+          "tabs": [],
+          "columns": [],
+          "facet_groups": [
+            "APPLICATIONS"
+          ],
+          "rows": 0,
+          "toolbar_controls": [
+            "Skip to content",
+            "Search…ctrl + J",
+            "Notifications",
+            "Gift IconWhat's New",
+            "Recent",
+            "Applications",
+            "View all",
+            "Support",
+            "LJAccount",
+            "Clear",
+            "Access requests",
+            "Approved +3",
+            "Select user",
+            "Select user or group",
+            "Select group",
+            "Sort: Recently created"
+          ],
+          "canvas_surfaces": 0,
+          "text_len": 515,
+          "login_wall": false
+        },
+        "expresses_ia": true,
+        "screenshot": ".artifacts/live-tenant-atlas/approvals-landing.png"
+      }
+    ],
+    "changes": [
+      {
+        "key": "landing",
+        "path": "/workspace/upgrade-assistant/",
+        "ia": {
+          "url": "https://test.usw-23.palantirfoundry.com/workspace/upgrade-assistant/",
+          "title": "Upgrade Assistant",
+          "headings": [
+            "What's new in Upgrade Assistant"
+          ],
+          "tabs": [
+            "Active",
+            "Past due",
+            "Archived"
+          ],
+          "columns": [],
+          "facet_groups": [
+            "APPLICATIONS",
+            "UPGRADE PROGRESS",
+            "UPGRADE TYPE",
+            "SORT",
+            "NAME",
+            "TYPE",
+            "DUE DATE",
+            "MY ACTIONS"
+          ],
+          "rows": 0,
+          "toolbar_controls": [
+            "Skip to content",
+            "Search…ctrl + J",
+            "Notifications",
+            "Gift IconWhat's New",
+            "Recent",
+            "Applications",
+            "View all",
+            "Support",
+            "LJAccount",
+            "1 organizationAdmin view",
+            "Assignee view",
+            "Help",
+            "Go to all platform updates",
+            "Close"
+          ],
+          "canvas_surfaces": 0,
+          "text_len": 1710,
+          "login_wall": false
+        },
+        "expresses_ia": true,
+        "screenshot": ".artifacts/live-tenant-atlas/changes-landing.png"
+      }
+    ]
+  }
+}

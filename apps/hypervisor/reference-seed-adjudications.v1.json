@@ -599,6 +599,30 @@
       },
       "outcome": "portable",
       "reason": "the search-page grammar is buildable TODAY over real estate rows (built this pass); the template-generator + canvas grammars are recorded for future cuts (canvas remains the authority-ruled boundary)"
+    },
+    {
+      "action": "LIVE-TENANT-SUPERSESSION",
+      "record_id": "live-tenant-sweep",
+      "date": "2026-08-20",
+      "source": "reference-live-tenant-atlas.v1.json \u2014 47 read-only states recorded over the owner's authorized CDP session (canvas-aware census)",
+      "overturned": [
+        "scheduler",
+        "ingest",
+        "dataset",
+        "objecteditor",
+        "modelstudio",
+        "inference",
+        "registry",
+        "map",
+        "fusion",
+        "jobs"
+      ],
+      "stands_doubly_evidenced": [
+        "objectview (dead on mirror AND live)",
+        "developer (dead on mirror AND live)"
+      ],
+      "outcome": "portable",
+      "reason": "10 mirror-scoped terminal verdicts (absent_confirmed / capture_broken_no_donor) were rendered against a DEAD MIRROR, not a dead APP \u2014 the live tenant expresses IA on all 10 (e.g. fusion ctrl=24, map canvas=2, registry ctrl=14). Reclassified live_ia_recorded (matrix) = the NEW PORTABLE BACKLOG; porting sources from the live atlas. The mirror-scoped records stand as history with this supersession on top."
     }
   ]
 }

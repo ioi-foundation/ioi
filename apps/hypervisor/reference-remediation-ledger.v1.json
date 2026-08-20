@@ -584,6 +584,12 @@
       "date": "2026-08-20",
       "did": "LIVE-TENANT fidelity pass (owner screenshots as recorded evidence, #vertex-live-tenant): template-generator + canvas + search-page grammars recorded; Vertex search went LIVE as the reference search-page grammar (tabs with live counts over real rows; Object Type Search over REAL materialized object types linking Explorer; Templates/Search-Arounds typed absences). CDP attach to the owner's browser unavailable \u2014 spinning up a dedicated CDP Chrome for authenticated live-tenant atlasing",
       "next": "owner logs into the CDP Chrome window \u2192 live-tenant atlas recording"
+    },
+    {
+      "n": 32,
+      "date": "2026-08-20",
+      "did": "LIVE-TENANT ATLAS: 47 read-only states over owner-authorized CDP (canvas-aware census). 10 mirror-scoped terminal verdicts OVERTURNED \u2192 live_ia_recorded (new portable backlog); objectview/developer doubly-evidenced terminal; vertex canvas/template/search grammars now first-hand",
+      "next": "owner: prioritize the live backlog and/or release the held transfers"
     }
   ],
   "pr_blockers": [
@@ -597,5 +603,21 @@
       "blocker": "PERMISSION: auto-mode classifier denied committing the admission-evidence baseline re-pin (a security-gate pin edit) \u2014 patch preserved at scratchpad/admission-evidence-repin.patch + worktree wt-repin; owner decision needed (run it, grant permission, or fix master themselves)",
       "found": "2026-08-19"
     }
-  ]
+  ],
+  "live_tenant_backlog": {
+    "recorded": "2026-08-20",
+    "portable_candidates": [
+      "scheduler",
+      "ingest",
+      "dataset",
+      "objecteditor",
+      "modelstudio",
+      "inference",
+      "registry",
+      "map",
+      "fusion",
+      "jobs"
+    ],
+    "note": "live-tenant atlas overturned 10 mirror-scoped terminal verdicts \u2014 a NEW port backlog beyond the completed program scope; each needs a live-atlas-sourced designation + port leg. objectview/developer stay terminal (doubly evidenced)."
+  }
 }

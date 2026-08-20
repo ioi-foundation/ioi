@@ -209,8 +209,8 @@
       "reference_clean_state": "shell_clean_only",
       "reference_clean_reason": "shell regions [rail, header, body] render clean but the body carries no real data (rows 0/0 · nodes 0 · cards 0)",
       "reference_clean_artifact": "reference-clean-sweep.json",
-      "remediation_state": "absent_confirmed",
-      "adjudication_ref": "reference-seed-adjudications.v1.json#scheduler"
+      "remediation_state": "live_ia_recorded",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#scheduler + reference-live-tenant-atlas.v1.json#scheduler"
     },
     {
       "owner": "Provenance",
@@ -259,8 +259,8 @@
       "reference_clean_state": "shell_clean_only",
       "reference_clean_reason": "shell regions [rail, header, body] render clean but the body carries no real data (rows 0/0 · nodes 0 · cards 2)",
       "reference_clean_artifact": "reference-clean-sweep.json",
-      "remediation_state": "absent_confirmed",
-      "adjudication_ref": "reference-seed-adjudications.v1.json#ingest"
+      "remediation_state": "live_ia_recorded",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#ingest + reference-live-tenant-atlas.v1.json#ingest"
     },
     {
       "owner": "Data",
@@ -348,8 +348,8 @@
       "reference_clean_state": "data_failed",
       "reference_clean_reason": "shell boots but the body reports a data failure (\"__apps is not a dataset\") with captured (non-404) lanes",
       "reference_clean_artifact": "reference-clean-sweep.json",
-      "remediation_state": "capture_broken_no_donor",
-      "adjudication_ref": "reference-seed-adjudications.v1.json#dataset"
+      "remediation_state": "live_ia_recorded",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#dataset + reference-live-tenant-atlas.v1.json#dataset"
     },
     {
       "owner": "Ontology",
@@ -454,8 +454,8 @@
       "reference_clean_state": "errored_reference",
       "reference_clean_reason": "navigation failed on every lane (navigation triggered a content-type download — the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane) · navigation triggered a content-type download — the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane))",
       "reference_clean_artifact": "reference-clean-sweep.json",
-      "remediation_state": "capture_broken_no_donor",
-      "adjudication_ref": "reference-seed-adjudications.v1.json#objectview"
+      "remediation_state": "live_ia_recorded",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#objectview + reference-live-tenant-atlas.v1.json#objecteditor"
     },
     {
       "owner": "Evaluations",
@@ -604,8 +604,8 @@
       "reference_clean_state": "data_failed",
       "reference_clean_reason": "shell boots but the body reports a data failure (\"Page not found\") with captured (non-404) lanes",
       "reference_clean_artifact": "reference-clean-sweep.json",
-      "remediation_state": "capture_broken_no_donor",
-      "adjudication_ref": "reference-seed-adjudications.v1.json#modelstudio"
+      "remediation_state": "live_ia_recorded",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#modelstudio + reference-live-tenant-atlas.v1.json#modelstudio"
     },
     {
       "owner": "Foundry",
@@ -622,8 +622,8 @@
       "reference_clean_state": "data_failed",
       "reference_clean_reason": "shell boots but the body reports a data failure (\"Failed to load current space\") with captured (non-404) lanes",
       "reference_clean_artifact": "reference-clean-sweep.json",
-      "remediation_state": "capture_broken_no_donor",
-      "adjudication_ref": "reference-seed-adjudications.v1.json#inference"
+      "remediation_state": "live_ia_recorded",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#inference + reference-live-tenant-atlas.v1.json#inference"
     },
     {
       "owner": "Marketplace",
@@ -676,8 +676,8 @@
       "reference_clean_state": "shell_clean_only",
       "reference_clean_reason": "shell renders a WELCOME/empty landing (cards 4 · lines 18, no row/node data) — clean chrome, no real data to port against (proxy lane shows a failure (\"Invalid resource identifier\"); the origin lane is the readable one)",
       "reference_clean_artifact": "reference-clean-sweep.json",
-      "remediation_state": "absent_confirmed",
-      "adjudication_ref": "reference-seed-adjudications.v1.json#registry"
+      "remediation_state": "live_ia_recorded",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#registry + reference-live-tenant-atlas.v1.json#registry"
     },
     {
       "owner": "Developer Console",
@@ -886,8 +886,8 @@
       "reference_clean_state": "shell_clean_only",
       "reference_clean_reason": "shell renders a WELCOME/empty landing (cards 4 · lines 15, no row/node data) — clean chrome, no real data to port against (proxy lane renders no data (score 0); the origin lane is the readable one)",
       "reference_clean_artifact": "reference-clean-sweep.json",
-      "remediation_state": "absent_confirmed",
-      "adjudication_ref": "reference-seed-adjudications.v1.json#map"
+      "remediation_state": "live_ia_recorded",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#map + reference-live-tenant-atlas.v1.json#map"
     },
     {
       "owner": "Domain Apps",
@@ -981,8 +981,8 @@
       "reference_clean_state": "data_failed",
       "reference_clean_reason": "shell boots but the body reports a data failure (\"Not Found\") with captured (non-404) lanes",
       "reference_clean_artifact": "reference-clean-sweep.json",
-      "remediation_state": "capture_broken_no_donor",
-      "adjudication_ref": "reference-seed-adjudications.v1.json#fusion"
+      "remediation_state": "live_ia_recorded",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#fusion + reference-live-tenant-atlas.v1.json#fusion"
     },
     {
       "owner": "Missions",
@@ -999,8 +999,8 @@
       "reference_clean_state": "shell_clean_only",
       "reference_clean_reason": "shell regions [rail, header, body] render clean but the body carries no real data (rows 0/0 · nodes 0 · cards 0)",
       "reference_clean_artifact": "reference-clean-sweep.json",
-      "remediation_state": "absent_confirmed",
-      "adjudication_ref": "reference-seed-adjudications.v1.json#jobs",
+      "remediation_state": "live_ia_recorded",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#jobs + reference-live-tenant-atlas.v1.json#jobs",
       "substrate_surface": "/__ioi/missions",
       "surface_name": "Missions",
       "binding": "the Missions run/job queue — the real operations run queue (recent runs, statuses, run counts) + scheduled missions, table/list grammar over daemon truth",
