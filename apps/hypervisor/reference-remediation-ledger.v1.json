@@ -643,6 +643,12 @@
       "date": "2026-08-20",
       "did": "UX DEEP-ATLAS MODE (owner-directed): sweep driver built (hypervisor-ux-atlas.mjs) \u2014 stage 1 across 48 product surfaces: ZERO http/console/empty-body/reason-less-gap issues; 1 false-positive dead link (OAuth start correctly 302s to the external authorize URL \u2014 probe fixed to manual redirects); 1 REAL fix: Sessions labeled vendor captures as functional lanes ('daemon-truth rebind \u2192' \u2192 /__apps/jobs|incidents) \u2014 re-aimed to /__ioi/missions + the certified Issues inbox. 32 LOW capture-links remain = doctrine-sanctioned evidence citations in port feet. FUS-1 (fusion port) DELEGATED to a background Opus session; my serve-file edits paused until it lands.",
       "next": "sweep stage 2 (container/SPA interactive flows) read-only while FUS-1 builds"
+    },
+    {
+      "n": 40,
+      "date": "2026-08-20",
+      "did": "UX sweep STAGE 2 (container flows): 24 apps opened in the SPA container \u2014 ALL frames railless (two-rails class confirmed dead in practice), all render content. Two finds: (1) FIXED \u2014 the Projects modal row embedded the SPA shell into itself (blank frame) \u2192 top-nav like /ai; (2) DELEGATED (ORG-1, background Opus session on ioi-api-adapter.mjs) \u2014 the SPA's OrganizationService RPCs (GetOrganizationPolicies/GetTermsOfService/ListMembers) 503 on every app open (pre-existing unbound family; console noise + SPA error labels). FUS-1 (fusion port) still building in a parallel session.",
+      "next": "stage 3 (in-frame interaction depth) after the two agents land"
     }
   ],
   "pr_blockers": [

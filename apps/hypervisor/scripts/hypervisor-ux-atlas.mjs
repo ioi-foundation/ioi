@@ -34,6 +34,7 @@ const SURFACES = [
   "/__ioi/environments", "/__ioi/operations", "/__ioi/work-ledger", "/__ioi/home", "/__ioi/odk", "/__ioi/domain-apps",
 ];
 
+const STAGE = process.argv[2] || "stage1";
 const { chromium } = await import("playwright");
 const browser = await chromium.launch();
 const pg = await browser.newPage({ viewport: { width: 1600, height: 950 } });
@@ -50,7 +51,49 @@ async function probe(href) {
   return st;
 }
 
-for (const route of SURFACES) {
+if (STAGE === "stage2") {
+  // CONTAINER SWEEP: the SPA Applications modal → open every row → the frame must be railless,
+  // error-free, and non-empty. This is where the owner's two-rails class lived.
+  const pg2 = await browser.newPage({ viewport: { width: 1600, height: 950 } });
+  const errs2 = [];
+  pg2.on("console", (m) => { if (m.type() === "error") errs2.push(m.text().slice(0, 140)); });
+  pg2.on("pageerror", (e) => errs2.push("PAGEERROR " + String(e).slice(0, 140)));
+  await pg2.goto(SERVE + "/projects", { waitUntil: "domcontentloaded", timeout: 30000 });
+  await pg2.waitForTimeout(4000);
+  const authWalled = await pg2.evaluate(() => /sign in|sign-in/i.test(document.body.innerText) && !document.querySelector('a[href="#applications"]'));
+  if (authWalled) { issue("HIGH", "container-authwall", "/projects", "SPA sign-in blocks the headless sweep — container flows unverifiable headless"); }
+  else {
+    const opened = [];
+    for (let round = 0; round < 24; round++) {
+      await pg2.click('a[href="#applications"]').catch(() => {});
+      await pg2.waitForTimeout(1200);
+      const rows = await pg2.evaluate(() => [...document.querySelectorAll(".ioi-mrow[data-href]")].map((r) => ({ href: r.getAttribute("data-href"), name: r.getAttribute("data-name"), top: r.getAttribute("data-nav") === "top" })));
+      const next = rows.find((r) => !opened.includes(r.href) && !r.top);
+      if (!next) break;
+      opened.push(next.href);
+      errs2.length = 0;
+      await pg2.click(`.ioi-mrow[data-href="${next.href}"]`).catch(() => issue("HIGH", "modal-click-failed", next.href, "row not clickable"));
+      await pg2.waitForTimeout(3500);
+      const frameState = await pg2.evaluate(() => {
+        const f = document.querySelector("#ioi-open-app iframe");
+        if (!f) return { present: false };
+        let railAsides = -1, textLen = -1;
+        try { const d = f.contentDocument; railAsides = d ? d.querySelectorAll('aside.og-grail').length : -1; textLen = d ? d.body.innerText.trim().length : -1; } catch { /* cross-origin impossible here */ }
+        return { present: true, src: f.getAttribute("src"), railAsides, textLen };
+      });
+      if (!frameState.present) issue("HIGH", "container-no-frame", next.href, "iframe never appeared");
+      else {
+        if (frameState.railAsides > 0) issue("HIGH", "second-rail", next.href, `embedded frame carries ${frameState.railAsides} ported rail(s) — src ${frameState.src}`);
+        if (frameState.railAsides === 0 && frameState.textLen >= 0 && frameState.textLen < 40) issue("HIGH", "container-empty", next.href, `frame text ${frameState.textLen} chars — src ${frameState.src}`);
+      }
+      for (const ce of [...new Set(errs2)].slice(0, 2)) issue("MED", "container-console", next.href, ce);
+      console.log(`  container ok? ${next.name || next.href} rail=${frameState.railAsides} text=${frameState.textLen}`);
+    }
+    console.log(`stage2: opened ${opened.length} apps in the container`);
+  }
+  await pg2.close();
+}
+if (STAGE === "stage1") for (const route of SURFACES) {
   consoleErrs.length = 0;
   let resp = null;
   try { resp = await pg.goto(SERVE + route, { waitUntil: "domcontentloaded", timeout: 20000 }); } catch (e) { issue("HIGH", "nav-failed", route, e); continue; }

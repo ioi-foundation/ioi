@@ -93,7 +93,7 @@
       // target that cannot nest.
       const target = (s.open_today && s.open_today.href) || (s.launchable ? (s.launch_route || s.route) : "") || "";
       const pill = s.launchable ? "open" : esc((s.disabled_reason_codes || [])[0] || "not launchable");
-      const top = target === "/ai" ? ' data-nav="top"' : "";
+      const top = (target === "/ai" || target === "/projects") ? ' data-nav="top"' : ""; // /projects IS the shell — embedding it nests the SPA into itself (blank frame; stage-2 sweep find)
       return '<div class="ioi-mrow' + (target ? "" : " disabled") + '"' + (target ? ' data-href="' + target + '" data-name="' + esc(s.name) + '"' + top : "") +
         '><span>' + (s.icon || "◳") + '</span><span><div class="ioi-mname">' + esc(s.name) + '</div><div class="ioi-mdesc">' + esc(s.desc || "") + (s.route ? " · " + esc(s.route) : "") + '</div></span><span class="ioi-mpill">' + pill + "</span></div>";
     };
