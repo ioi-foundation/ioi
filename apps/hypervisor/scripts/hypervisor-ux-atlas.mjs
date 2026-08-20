@@ -93,6 +93,54 @@ if (STAGE === "stage2") {
   }
   await pg2.close();
 }
+if (STAGE === "stage3") {
+  // IN-FRAME INTERACTION DEPTH: inside key embedded apps, drive whitelisted interactions
+  // (tabs, list rows, back links) and assert each state renders (no blank, no console error,
+  // no unstyled crash). Read-only: never Run/Delete/Create/Save.
+  const FLOWS = [
+    { app: "/automations", steps: ["tab:Automations", "row:first", "back:← All automations"] },
+    { app: "/__ioi/data/sources", steps: ["link:Syncs"] },
+    { app: "/provenance", steps: ["tab:History", "tab:Build timeline", "tab:Preview"] },
+    { app: "/foundry", steps: ["link:Registered models", "link:IOI-provided models"] },
+    { app: "/__ioi/evaluations/insight", steps: [] },
+    { app: "/__ioi/domain-apps/fusion", steps: ["tab:Data Catalog", "tab:All files"] },
+    { app: "/studio", steps: ["row:first"] },
+    { app: "/__ioi/vertex", steps: ["row:first", "back:← All graphs"] },
+  ];
+  const pg3 = await browser.newPage({ viewport: { width: 1600, height: 950 } });
+  const errs3 = [];
+  pg3.on("console", (m) => { if (m.type() === "error") errs3.push(m.text().slice(0, 140)); });
+  pg3.on("pageerror", (e) => errs3.push("PAGEERROR " + String(e).slice(0, 140)));
+  const BLACK3 = /run|delete|remove|create|save|new |pause|resume|publish|install/i;
+  for (const flow of FLOWS) {
+    errs3.length = 0;
+    try { await pg3.goto(SERVE + flow.app + (flow.app.includes("?") ? "&" : "?") + "embed=1", { waitUntil: "domcontentloaded", timeout: 20000 }); } catch (e) { issue("HIGH", "flow-nav", flow.app, e); continue; }
+    await pg3.waitForTimeout(1500);
+    for (const step of flow.steps) {
+      const [kind, label] = step.split(":");
+      let clicked = false;
+      if (BLACK3.test(label || "")) { issue("MED", "flow-blacklist", flow.app, step); continue; }
+      clicked = await pg3.evaluate(({ kind, label }) => {
+        const t = (el) => (el.textContent || "").trim().replace(/\s+/g, " ");
+        let el = null;
+        if (kind === "row") el = document.querySelector('a[class*="-arow"], a[class*="-row"], a.spl-row, a.vtx-row, a.mon-row, a.dcx-row');
+        else el = [...document.querySelectorAll('a, [role="tab"], button')].find((x) => t(x).startsWith(label));
+        if (el) { el.click(); return true; }
+        return false;
+      }, { kind, label });
+      await pg3.waitForTimeout(2200);
+      const state = await pg3.evaluate(() => ({ len: document.body.innerText.trim().length, rails: document.querySelectorAll('aside.og-grail').length, url: location.pathname + location.search }));
+      if (!clicked) issue("MED", "flow-step-missing", flow.app, `${step} — control not found`);
+      else {
+        if (state.len < 40) issue("HIGH", "flow-blank", flow.app, `${step} → ${state.url} blank (${state.len} chars)`);
+        if (state.rails > 0) issue("HIGH", "flow-second-rail", flow.app, `${step} → ${state.url} carries ${state.rails} ported rail(s) IN EMBED`);
+        console.log(`  ${flow.app} ${step} → ${state.url} (${state.len} chars, rails ${state.rails})`);
+      }
+    }
+    for (const ce of [...new Set(errs3)].filter((x) => !/OrganizationService/.test(x)).slice(0, 2)) issue("MED", "flow-console", flow.app, ce);
+  }
+  await pg3.close();
+}
 if (STAGE === "stage1") for (const route of SURFACES) {
   consoleErrs.length = 0;
   let resp = null;

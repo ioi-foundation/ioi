@@ -7846,6 +7846,33 @@ async function handleEstateRequest(req, res, body) {
       const _canon = pathname.replace(/^\/api\/[a-z][a-z0-9.]*\.v\d+\./, "/api/ioi.v1.");
       if (_canon !== pathname) { req.url = _canon + (req.url || "").slice(pathname.length); pathname = _canon; }
     }
+    // Exposure normalization: if reached via a non-local Host without a forwarded header, mark it
+    // forwarded so the loopback daemon (behind serve) can apply context-aware auth enforcement.
+    if (!req.headers["x-forwarded-host"]) {
+      const host = (req.headers.host || "").split(":")[0];
+      if (host && host !== "127.0.0.1" && host !== "localhost" && host !== "::1") req.headers["x-forwarded-host"] = req.headers.host;
+    }
+    const remoteAddress = req.socket?.remoteAddress || "";
+    if (remoteAddress && !LOOPBACK_REMOTE_ADDRESSES.has(remoteAddress)) {
+      req.headers["x-ioi-forwarded"] ||= "product-shell";
+    }
+    // ---- Native container contract (#65): ONE choke point renders the embedded mode for EVERY
+    // estate surface — flat handlers and bound modules alike. Any /__ioi/* GET carrying embed=1
+    // has its final whole-document HTML rewritten (structural global-rail removal + embed
+    // threading, embedSurfaceHtml); only chunks that are a complete text/html document are
+    // touched — JSON, assets, streams, and partial writes pass through byte-untouched.
+    if (req.method === "GET" && (pathname.startsWith("/__ioi/") || CANONICAL_EMBED_PATHS.has(pathname))) {
+      let embedReq = false;
+      try { embedReq = new URL(req.url || "", "http://x").searchParams.get("embed") === "1"; } catch { /* malformed URL → standalone render */ }
+      // GRE-2 hardening (owner catch 2026-08-20, "two session rails"): browsers stamp iframe
+      // loads with Sec-Fetch-Dest — strip the ported rail on ANY iframe delivery, so no client
+      // path (stale bundle, embed-less hop, old iframe src) can ever nest a second rail.
+      if (!embedReq && req.headers["sec-fetch-dest"] === "iframe") embedReq = true;
+      if (embedReq) {
+        const endRaw = res.end.bind(res);
+        res.end = (chunk, ...rest) => endRaw(typeof chunk === "string" && /^<!doctype html>/i.test(chunk) ? embedSurfaceHtml(chunk) : chunk, ...rest);
+      }
+    }
     // ---- GRE-2 CANONICAL TRANSFERS (owner authorization recorded 2026-08-20: "i authorize you.
     // go to your discretion."). The redirect-class transfers: canonical nav routes land on their
     // DESIGNATED reference-grammar surfaces (landing-designations.v1.json; E1/E7). The legacy
@@ -7894,33 +7921,6 @@ async function handleEstateRequest(req, res, body) {
       res.writeHead(302, { Location: loc, "Cache-Control": "no-cache", "x-ioi-gre2-transfer": pathname });
       res.end();
       return;
-    }
-    // Exposure normalization: if reached via a non-local Host without a forwarded header, mark it
-    // forwarded so the loopback daemon (behind serve) can apply context-aware auth enforcement.
-    if (!req.headers["x-forwarded-host"]) {
-      const host = (req.headers.host || "").split(":")[0];
-      if (host && host !== "127.0.0.1" && host !== "localhost" && host !== "::1") req.headers["x-forwarded-host"] = req.headers.host;
-    }
-    const remoteAddress = req.socket?.remoteAddress || "";
-    if (remoteAddress && !LOOPBACK_REMOTE_ADDRESSES.has(remoteAddress)) {
-      req.headers["x-ioi-forwarded"] ||= "product-shell";
-    }
-    // ---- Native container contract (#65): ONE choke point renders the embedded mode for EVERY
-    // estate surface — flat handlers and bound modules alike. Any /__ioi/* GET carrying embed=1
-    // has its final whole-document HTML rewritten (structural global-rail removal + embed
-    // threading, embedSurfaceHtml); only chunks that are a complete text/html document are
-    // touched — JSON, assets, streams, and partial writes pass through byte-untouched.
-    if (req.method === "GET" && (pathname.startsWith("/__ioi/") || CANONICAL_EMBED_PATHS.has(pathname))) {
-      let embedReq = false;
-      try { embedReq = new URL(req.url || "", "http://x").searchParams.get("embed") === "1"; } catch { /* malformed URL → standalone render */ }
-      // GRE-2 hardening (owner catch 2026-08-20, "two session rails"): browsers stamp iframe
-      // loads with Sec-Fetch-Dest — strip the ported rail on ANY iframe delivery, so no client
-      // path (stale bundle, embed-less hop, old iframe src) can ever nest a second rail.
-      if (!embedReq && req.headers["sec-fetch-dest"] === "iframe") embedReq = true;
-      if (embedReq) {
-        const endRaw = res.end.bind(res);
-        res.end = (chunk, ...rest) => endRaw(typeof chunk === "string" && /^<!doctype html>/i.test(chunk) ? embedSurfaceHtml(chunk) : chunk, ...rest);
-      }
     }
     if (pathname === TERMINAL_CHUNK_PATH) {
       res.writeHead(200, { "Content-Type": "application/javascript; charset=utf-8", "Cache-Control": "no-cache" });

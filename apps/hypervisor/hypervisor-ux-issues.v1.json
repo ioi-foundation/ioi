@@ -1,35 +1,7 @@
 {
   "schema": "ioi.hypervisor.ux-issues.v1",
-  "swept_at": "2026-08-20T12:07:05.814Z",
+  "swept_at": "2026-08-20T12:23:27.264Z",
   "serve": "http://127.0.0.1:4173",
-  "issues": [
-    {
-      "sev": "MED",
-      "kind": "container-console",
-      "where": "/studio",
-      "detail": "Failed to load resource: the server responded with a status of 503 (Service Unavailable)"
-    },
-    {
-      "sev": "MED",
-      "kind": "container-console",
-      "where": "/automations",
-      "detail": "Failed to load resource: the server responded with a status of 503 (Service Unavailable)"
-    },
-    {
-      "sev": "HIGH",
-      "kind": "container-empty",
-      "where": "/projects",
-      "detail": "frame text 0 chars — src /projects"
-    },
-    {
-      "sev": "MED",
-      "kind": "container-console",
-      "where": "/__ioi/applications",
-      "detail": "Failed to load resource: the server responded with a status of 503 (Service Unavailable)"
-    }
-  ],
-  "tally": {
-    "container-console": 3,
-    "container-empty": 1
-  }
+  "issues": [],
+  "tally": {}
 }
