@@ -44,7 +44,7 @@ magnitude and is out of scope for an in-repo measurement.
 
 ## Class C — box-variable, deferred to a pinned bench runner (throughput / close latency)
 
-Boundary-close LATENCY and sustained TPS at n ∈ {4, 8} are produced by
+Boundary-close LATENCY and sustained TPS at n ∈ {4, 7} are produced by
 the existing paper-benchmark harness
 (`crates/cli/tests/benchmark_throughput/aft*`, `PaperBenchmarkResult`
 with p50/p95/p99/max commit latency + injection/sustained TPS + churn).
@@ -59,7 +59,7 @@ are deliberately NOT pinned in this repo because:
   same discipline the estate already applies to its deterministic gates.
 
 **Honest residual (RES-P4.3-throughput):** the close-latency / TPS table
-at n ∈ {4, 8} lands when a pinned bench runner exists. The instrument is
+at n ∈ {4, 7} lands when a pinned bench runner exists. The instrument is
 built; only the stable execution environment is missing. Reproduce the
 shape today with:
 `cargo test -p ioi-cli --features consensus-aft,vm-wasm,state-jellyfish -- --ignored <aft paper-benchmark scenario>`

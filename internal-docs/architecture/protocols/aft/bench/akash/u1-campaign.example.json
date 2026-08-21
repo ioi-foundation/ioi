@@ -1,0 +1,25 @@
+{
+  "schema_version": "ioi.hypervisor.certified-provider-campaign.v1",
+  "provider_id": "pacc_18cd245812ad55b9",
+  "environment_ref": "env-u1-CAMPAIGN-COMMIT",
+  "owner_ref": "org://local",
+  "idempotency_key": "u1-aft-CAMPAIGN-COMMIT",
+  "authority_principal_ref": "org://acme/research",
+  "data_dir": "/home/heathledger/.ioi/hypervisor/data",
+  "sdl_path": "internal-docs/architecture/protocols/aft/bench/akash/deploy.sdl",
+  "result_poll_attempts": 120,
+  "result_poll_interval_ms": 15000,
+  "plan": {
+    "deposit_usd": 1.0,
+    "ceiling_amount": "1000",
+    "ceiling_denom": "uact",
+    "provider_selector": {
+      "mode": "exact",
+      "provider_address": "akash15tl6v6gd0nte0syyxnv57zmmspgju4c3xfmdhk",
+      "selection": "only_qualified_bid_from_exact_provider"
+    },
+    "registry_credential_ref": "connector://conn_PRIVATE_REGISTRY",
+    "result_credential_ref": "connector://conn_U1_RESULT_TOKEN",
+    "teardown_policy": "always_teardown_required"
+  }
+}

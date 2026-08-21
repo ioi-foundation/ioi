@@ -219,8 +219,8 @@ pub fn summarize_latencies(samples: &[Duration]) -> LatencySummary {
 
 pub fn render_markdown_table(results: &[PaperBenchmarkResult]) -> String {
     let mut lines = vec![
-        "| scenario | validators | mode | lane | attempted | accepted | committed | blocks | injection_tps | sustained_tps | fallback_blocks | max_replay_debt | max_validation_aborts | max_execution_errors | submit_retries | submit_timeout_retries | submit_duplicates | submit_p50_ms | submit_p95_ms | align_requested_lead_ms | align_actual_start_lead_ms | align_ready_budget_ms | submit_complete_vs_due_ms | align_target_height | align_hit_target_height | first_commit_height_delta | committed_before_target_height_txs | committed_at_target_height_txs | commit_p50_ms | commit_p95_ms | commit_p99_ms | sampled_commit_visibility_lag_ms | terminal_p50_ms | terminal_p95_ms | terminal_close_blocks | terminal_abort_blocks |".to_string(),
-        "|---|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|".to_string(),
+        "| scenario | validators | mode | lane | attempted | accepted | committed | blocks | injection_tps | sustained_tps | fallback_blocks | max_replay_debt | max_validation_aborts | max_execution_errors | submit_retries | submit_timeout_retries | submit_duplicates | submit_p50_ms | submit_p95_ms | align_requested_lead_ms | align_actual_start_lead_ms | align_ready_budget_ms | submit_complete_vs_due_ms | align_target_height | align_hit_target_height | first_commit_height_delta | committed_before_target_height_txs | committed_at_target_height_txs | commit_p50_ms | commit_p95_ms | commit_p99_ms | commit_max_ms | sampled_commit_visibility_lag_ms | terminal_p50_ms | terminal_p95_ms | terminal_close_blocks | terminal_abort_blocks |".to_string(),
+        "|---|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|".to_string(),
     ];
 
     for result in results {
@@ -274,7 +274,7 @@ pub fn render_markdown_table(results: &[PaperBenchmarkResult]) -> String {
             .unwrap_or_else(|| "-".to_string());
 
         lines.push(format!(
-            "| {} | {} | {} | {} | {} | {} | {} | {} | {:.2} | {:.2} | {} | {} | {} | {} | {} | {} | {} | {:.2} | {:.2} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {:.2} | {:.2} | {:.2} | {} | {} | {} | {} | {} |",
+            "| {} | {} | {} | {} | {} | {} | {} | {} | {:.2} | {:.2} | {} | {} | {} | {} | {} | {} | {} | {:.2} | {:.2} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {:.2} | {:.2} | {:.2} | {:.2} | {} | {} | {} | {} | {} |",
             result.scenario,
             result.validators,
             result.safety_mode,
@@ -306,6 +306,7 @@ pub fn render_markdown_table(results: &[PaperBenchmarkResult]) -> String {
             result.commit_latency.p50_ms,
             result.commit_latency.p95_ms,
             result.commit_latency.p99_ms,
+            result.commit_latency.max_ms,
             sampled_commit_visibility_lag_ms,
             terminal_p50,
             terminal_p95,
@@ -388,9 +389,10 @@ mod tests {
         assert!(table.contains("first_commit_height_delta"));
         assert!(table.contains("committed_before_target_height_txs"));
         assert!(table.contains("committed_at_target_height_txs"));
+        assert!(table.contains("commit_max_ms"));
         assert!(table.contains("sampled_commit_visibility_lag_ms"));
         assert!(table.contains(
-            "| guardian_majority_4v | 4 | GuardianMajority | base_final | 256 | 256 | 256 | 2 | 10119.85 | 207.89 | 1 | 5128 | 4972 | 2926 | 17 | 3 | 9 | 18.50 | 77.00 | 250 | 374 | 374 | -24 | 11 | no | 1 | 64 | 128 | 304.37 | 1230.48 | 1231.26 | 287 |"
+            "| guardian_majority_4v | 4 | GuardianMajority | base_final | 256 | 256 | 256 | 2 | 10119.85 | 207.89 | 1 | 5128 | 4972 | 2926 | 17 | 3 | 9 | 18.50 | 77.00 | 250 | 374 | 374 | -24 | 11 | no | 1 | 64 | 128 | 304.37 | 1230.48 | 1231.26 | 1231.26 | 287 |"
         ));
     }
 }

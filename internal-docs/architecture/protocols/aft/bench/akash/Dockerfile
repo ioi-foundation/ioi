@@ -22,18 +22,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         protobuf-compiler \
         libxcb1-dev \
         libxdo-dev \
+        python3 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /ioi
 
 # Build context MUST be a clean checkout of the pinned commit:
-#   git -C <repo> archive 98a04f163 | tar -x -C /tmp/ioi-pinned
-#   docker build -f internal-docs/architecture/protocols/aft/bench/akash/Dockerfile -t <registry>/aft-bench:98a04f163 /tmp/ioi-pinned
+#   git archive <full-commit> | tar -x -C <empty-build-directory>
+#   docker build --build-arg IOI_COMMIT=<full-commit> -f <this-file> -t <private-image> <empty-build-directory>
 COPY . .
 
 # Record the source commit into the image for the manifest (best-effort;
 # overridable via --build-arg so an archive build without .git still stamps it).
-ARG IOI_COMMIT=98a04f163b1b1e5c81d953eeeb71511114acc83e
+ARG IOI_COMMIT
+RUN test -n "${IOI_COMMIT}" && test "${IOI_COMMIT}" != "unknown"
 ENV IOI_BENCH_COMMIT=${IOI_COMMIT}
 
 # Pre-compile the benchmark test binary (release) at build time so the paid
@@ -44,7 +46,8 @@ RUN cargo test --release --no-run \
         -- test_aft_paper_benchmark_matrix
 
 COPY internal-docs/architecture/protocols/aft/bench/akash/run-bench.sh /usr/local/bin/run-bench.sh
-RUN chmod +x /usr/local/bin/run-bench.sh
+COPY internal-docs/architecture/protocols/aft/bench/akash/result-tools.py /usr/local/bin/aft-result-tools.py
+RUN chmod +x /usr/local/bin/run-bench.sh /usr/local/bin/aft-result-tools.py
 
 # Repetition + warmup knobs (override in the SDL env).
 ENV AFT_BENCH_WARMUPS=1 \

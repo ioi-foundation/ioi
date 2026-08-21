@@ -1,47 +1,39 @@
 ---
-# AFT paper-benchmark on Akash (RES-P4.3, Stage 1: console deploy).
+# RES-P4.3 certified-provider SDL template.
 #
-# Batch job: runs the benchmark matrix, prints Markdown tables to stdout
-# (retrieve via lease-logs), then holds the container so results stay
-# retrievable. CLOSE THE LEASE MANUALLY when you have the logs.
-#
-# REPRODUCIBILITY: Akash schedules onto heterogeneous third-party providers,
-# so a fresh lease can land on a different host. For RES-P4.3 you MUST select
-# the SAME provider on every re-run (record its provider address + the printed
-# environment manifest), request whole-core dedicated CPU, and report the
-# run-to-run variance envelope. The provider host kernel is not ours — a
-# documented caveat. This remains a NON-GATING reference until a reserved
-# bare-metal / pinned runner exists.
-#
-# PRIVATE IMAGE: fill `credentials` with a PRIVATE registry token. The image
-# carries proprietary source — never a public registry.
+# This file is hashed into the daemon-issued proposal and wallet challenge. It
+# intentionally contains only secret sentinels. The Hypervisor resolves the two
+# connector references after C2 intent commitment and injects the values only in
+# daemon memory at the Akash execution boundary.
 
 version: "2.0"
 
 services:
   aft-bench:
-    # Pin the image by the source commit tag, not `latest`.
-    image: REGISTRY_HOST/ORG/aft-bench:98a04f163
+    image: PRIVATE_REGISTRY/ORG/aft-bench@sha256:IMMUTABLE_IMAGE_DIGEST
     credentials:
-      host: REGISTRY_HOST
-      username: REGISTRY_USER
-      password: REGISTRY_TOKEN
+      host: PRIVATE_REGISTRY
+      username: '__IOI_REGISTRY_USERNAME__'
+      password: '__IOI_REGISTRY_PASSWORD__'
     env:
-      - AFT_BENCH_WARMUPS=1
-      - AFT_BENCH_REPEATS=5
-      # Empty = full matrix. Or pin one scenario:
-      #   paper_guardian_majority_4v | paper_guardian_majority_7v
-      #   paper_asymptote_4v         | paper_asymptote_7v
-      - IOI_AFT_BENCH_SCENARIO=
-    # No `expose`: this is a batch job; results come back over lease-logs.
+      - 'AFT_BENCH_CAMPAIGN_ID=OWNER_APPROVED_CAMPAIGN_ID'
+      - 'AFT_BENCH_WARMUPS=1'
+      - 'AFT_BENCH_REPEATS=5'
+      - 'IOI_AFT_BENCH_SCENARIO='
+      - 'IOI_BENCH_IMAGE_DIGEST=sha256:IMMUTABLE_IMAGE_DIGEST'
+      - 'AFT_RESULT_BEARER_TOKEN=__IOI_AFT_RESULT_BEARER_TOKEN__'
+      - 'IOI_SECRET_CANARIES=OWNER_SEEDED_NON_SECRET_TEST_CANARY'
+    expose:
+      - port: 8080
+        as: 80
+        to:
+          - global: true
 
 profiles:
   compute:
     aft-bench:
       resources:
         cpu:
-          # Whole-core request. Prefer a provider that honors dedicated CPU;
-          # oversubscribed vCPU is the main reproducibility risk.
           units: 8
         memory:
           size: 16Gi
@@ -49,19 +41,12 @@ profiles:
           size: 20Gi
   placement:
     pinned:
-      # Constrain the bid set. For a true pin, narrow these to attributes only
-      # your chosen provider advertises (and/or `signedBy` an audited set),
-      # then still select the SAME provider from the bid list each re-run.
       attributes:
         host: akash
-      # signedBy:
-      #   anyOf:
-      #     - "akash1365yvmc4s7awdyj3n2sav7xfx76adc6dnmlx63"   # example auditor
       pricing:
         aft-bench:
-          denom: uakt
-          # Max price you'll pay (console lets you set this at deploy time).
-          amount: 100000
+          denom: uact
+          amount: OWNER_APPROVED_UACT_CEILING
 
 deployment:
   aft-bench:

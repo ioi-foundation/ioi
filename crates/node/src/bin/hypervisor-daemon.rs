@@ -3224,6 +3224,10 @@ async fn async_main() -> anyhow::Result<()> {
             get(provider_routes::handle_providers_list),
         )
         .route(
+            "/v1/hypervisor/provider-operation-proposals",
+            post(provider_routes::handle_provider_operation_proposal_issue),
+        )
+        .route(
             "/v1/hypervisor/provider-ops",
             post(provider_routes::handle_provider_op),
         )

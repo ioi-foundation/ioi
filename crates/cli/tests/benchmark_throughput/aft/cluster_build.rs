@@ -226,7 +226,7 @@ struct AftBenchmarkScenario {
 impl AftBenchmarkScenario {
     const fn paper_guardian_majority_4v() -> Self {
         Self {
-            name: "guardian_majority_4v",
+            name: "paper_guardian_majority_4v",
             validators: 4,
             safety_mode: AftSafetyMode::GuardianMajority,
             target_block_time_ms: BLOCK_TIME_MS,
@@ -240,7 +240,7 @@ impl AftBenchmarkScenario {
 
     const fn paper_guardian_majority_7v() -> Self {
         Self {
-            name: "guardian_majority_7v",
+            name: "paper_guardian_majority_7v",
             validators: 7,
             safety_mode: AftSafetyMode::GuardianMajority,
             target_block_time_ms: BLOCK_TIME_MS,
@@ -254,7 +254,7 @@ impl AftBenchmarkScenario {
 
     const fn paper_asymptote_4v() -> Self {
         Self {
-            name: "asymptote_4v",
+            name: "paper_asymptote_4v",
             validators: 4,
             safety_mode: AftSafetyMode::Asymptote,
             target_block_time_ms: BLOCK_TIME_MS,
@@ -268,7 +268,7 @@ impl AftBenchmarkScenario {
 
     const fn paper_asymptote_7v() -> Self {
         Self {
-            name: "asymptote_7v",
+            name: "paper_asymptote_7v",
             validators: 7,
             safety_mode: AftSafetyMode::Asymptote,
             target_block_time_ms: BLOCK_TIME_MS,

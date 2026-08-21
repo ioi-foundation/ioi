@@ -19,6 +19,44 @@ fn benchmark_lanes_for_scenario(
     }
 }
 
+fn canonical_paper_scenario_id(selected: &str) -> Option<&'static str> {
+    match selected {
+        "paper_guardian_majority_4v" | "guardian_majority_4v" => {
+            Some("paper_guardian_majority_4v")
+        }
+        "paper_guardian_majority_7v" | "guardian_majority_7v" => {
+            Some("paper_guardian_majority_7v")
+        }
+        "paper_asymptote_4v" | "asymptote_4v" => Some("paper_asymptote_4v"),
+        "paper_asymptote_7v" | "asymptote_7v" => Some("paper_asymptote_7v"),
+        _ => None,
+    }
+}
+
+fn selected_paper_scenarios(filter: Option<&str>) -> Result<Vec<AftBenchmarkScenario>> {
+    let scenarios = [
+        AftBenchmarkScenario::paper_guardian_majority_4v(),
+        AftBenchmarkScenario::paper_guardian_majority_7v(),
+        AftBenchmarkScenario::paper_asymptote_4v(),
+        AftBenchmarkScenario::paper_asymptote_7v(),
+    ];
+    let selected = match filter {
+        None | Some("") => scenarios.to_vec(),
+        Some(value) => {
+            let canonical = canonical_paper_scenario_id(value)
+                .ok_or_else(|| anyhow!("unknown IOI_AFT_BENCH_SCENARIO '{value}'"))?;
+            scenarios
+                .into_iter()
+                .filter(|scenario| scenario.name == canonical)
+                .collect::<Vec<_>>()
+        }
+    };
+    if selected.is_empty() {
+        return Err(anyhow!("AFT paper benchmark selected zero scenarios"));
+    }
+    Ok(selected)
+}
+
 async fn run_benchmark_matrix(lane_filter: Option<AftBenchmarkLane>) -> Result<()> {
     if std::env::var_os("IOI_TEST_BUILD_PROFILE").is_none() {
         std::env::set_var("IOI_TEST_BUILD_PROFILE", "release");
@@ -29,20 +67,14 @@ async fn run_benchmark_matrix(lane_filter: Option<AftBenchmarkLane>) -> Result<(
     }
 
     let scenario_filter = std::env::var("IOI_AFT_BENCH_SCENARIO").ok();
-    let scenarios = [
-        AftBenchmarkScenario::paper_guardian_majority_4v(),
-        AftBenchmarkScenario::paper_guardian_majority_7v(),
-        AftBenchmarkScenario::paper_asymptote_4v(),
-        AftBenchmarkScenario::paper_asymptote_7v(),
-    ]
-    .into_iter()
-    .filter(|scenario| {
-        scenario_filter
-            .as_deref()
-            .map(|selected| selected == scenario.name)
-            .unwrap_or(true)
-    })
-    .collect::<Vec<_>>();
+    let scenarios = selected_paper_scenarios(scenario_filter.as_deref())?;
+    let expected_rows = scenarios
+        .iter()
+        .map(|scenario| benchmark_lanes_for_scenario(*scenario, lane_filter).len())
+        .sum::<usize>();
+    if expected_rows == 0 {
+        return Err(anyhow!("AFT paper benchmark selected zero scenario/lane rows"));
+    }
 
     let mut results = Vec::new();
     for scenario in scenarios {
@@ -50,11 +82,41 @@ async fn run_benchmark_matrix(lane_filter: Option<AftBenchmarkLane>) -> Result<(
             results.push(run_scenario(scenario, lane).await?);
         }
     }
+    if results.len() != expected_rows {
+        return Err(anyhow!(
+            "AFT paper benchmark produced {} rows; expected {expected_rows}",
+            results.len()
+        ));
+    }
 
     println!("\n--- AFT Paper Benchmark Matrix ---");
     println!("{}", render_markdown_table(&results));
 
     Ok(())
+}
+
+#[test]
+fn paper_scenario_filters_are_canonical_and_unknown_values_refuse() {
+    let canonical = selected_paper_scenarios(Some("paper_guardian_majority_4v"))
+        .expect("documented canonical ID selects one scenario");
+    assert_eq!(canonical.len(), 1);
+    assert_eq!(canonical[0].name, "paper_guardian_majority_4v");
+
+    let alias = selected_paper_scenarios(Some("guardian_majority_4v"))
+        .expect("legacy ID normalizes to the canonical scenario");
+    assert_eq!(alias[0].name, "paper_guardian_majority_4v");
+    assert!(selected_paper_scenarios(Some("paper_unknown_4v")).is_err());
+}
+
+#[test]
+fn full_paper_matrix_has_exactly_four_scenarios_and_fourteen_rows() {
+    let scenarios = selected_paper_scenarios(None).expect("full matrix");
+    assert_eq!(scenarios.len(), 4);
+    let rows = scenarios
+        .iter()
+        .map(|scenario| benchmark_lanes_for_scenario(*scenario, None).len())
+        .sum::<usize>();
+    assert_eq!(rows, 14);
 }
 
 #[test]
