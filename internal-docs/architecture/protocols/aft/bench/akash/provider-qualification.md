@@ -68,6 +68,8 @@ market-level planning estimate, not the exact selected provider's bid. It does
 not authorize a deposit or ceiling and does not supersede the daemon's dry
 challenge. The runnable campaign configuration therefore retains explicit
 owner-review placeholders for provider address, deposit, and `uact` ceiling.
+The canonical pricing response captured at `2026-08-21T19:54:35Z` has SHA-256
+`5c98c8e54c9324d5be7203c723538fd6677a91518ac52bdc504a1509711798a4`.
 
 It is **not yet qualified as a dedicated bare-metal runner for this tenant workload**. `location-type=colo` and an audited provider describe the provider’s infrastructure; they do not prove that a specific Kubernetes container received a reserved physical host, non-oversubscribed cores, or stable host identity across leases. The workload environment manifest can identify the CPU/kernel visible inside each lease, but that observation is not a provider attestation.
 
