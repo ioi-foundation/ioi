@@ -13,7 +13,7 @@ const campaignAArg = arg("--campaign-a");
 const campaignBArg = arg("--campaign-b");
 const outputPath = arg("--output") ? path.resolve(arg("--output")) : null;
 if (![attestationArg, publicKeyArg, campaignAArg, campaignBArg].every(Boolean)) {
-  throw new Error("usage: --attestation <json> --public-key <ed25519-public.pem> --campaign-a <certificate.json> --campaign-b <certificate.json> [--output <json>]");
+  throw new Error("usage: --attestation <json> --public-key <provider-secp256k1-public.pem> --campaign-a <certificate.json> --campaign-b <certificate.json> [--output <json>]");
 }
 const attestationPath = path.resolve(attestationArg);
 const publicKeyPath = path.resolve(publicKeyArg);
@@ -25,7 +25,7 @@ const result = verifyPlacementAttestation(
   fs.readFileSync(publicKeyPath),
   [readJson(campaignAPath), readJson(campaignBPath)],
 );
-const record = { schema_version: "ioi.check.u1-placement-attestation.v1", ...result };
+const record = { schema_version: "ioi.check.u1-placement-attestation.v2", ...result };
 if (outputPath) fs.writeFileSync(outputPath, `${JSON.stringify(record, null, 2)}\n`, { mode: 0o600 });
 console.log(JSON.stringify(record, null, 2));
 process.exit(result.ok ? 0 : 1);

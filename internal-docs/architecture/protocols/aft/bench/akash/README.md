@@ -107,13 +107,13 @@ After both separately authorized campaigns are certified, compare their medians 
 ```
 
 If the provider returns the requested two-campaign placement statement, resolve
-its Ed25519 public key independently and verify it before assigning an elevated
-honesty class:
+its secp256k1 provider public key independently and verify that the key derives
+to the pinned Akash address before assigning an elevated honesty class:
 
 ```bash
 npm --prefix apps/hypervisor run check:u1-placement-attestation -- \
   --attestation placement.json \
-  --public-key provider-ed25519-public.pem \
+  --public-key provider-operator-secp256k1.pem \
   --campaign-a campaign-a/u1-campaign-certificate.json \
   --campaign-b campaign-b/u1-campaign-certificate.json \
   --output placement-verification.json

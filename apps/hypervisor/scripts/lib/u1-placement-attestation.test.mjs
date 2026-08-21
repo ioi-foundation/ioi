@@ -4,7 +4,28 @@ import test from "node:test";
 import { stableStringify } from "./c7-c8-certificate.mjs";
 import { sealU1Certificate } from "./u1-campaign-certificate.mjs";
 import { validU1Fixture } from "./u1-campaign-certificate.test-fixture.mjs";
-import { placementSigningBytes, publicKeyFingerprint, verifyPlacementAttestation } from "./u1-placement-attestation.mjs";
+import {
+  akashAddressFromPublicKey,
+  cosmosAddressFromPublicKey,
+  placementSigningBytes,
+  publicKeyFingerprint,
+  verifyPlacementAttestation,
+} from "./u1-placement-attestation.mjs";
+
+test("matches the published Cosmos compressed-key address vector", () => {
+  const compressed = Buffer.from("At8sTdbKdkdyvxi8FjLe4Dl9PYc+u19VMqCpmA7PBrPz", "base64");
+  const uncompressed = crypto.ECDH.convertKey(compressed, "secp256k1", undefined, undefined, "uncompressed");
+  const publicKey = crypto.createPublicKey({
+    format: "jwk",
+    key: {
+      kty: "EC",
+      crv: "secp256k1",
+      x: uncompressed.subarray(1, 33).toString("base64url"),
+      y: uncompressed.subarray(33, 65).toString("base64url"),
+    },
+  });
+  assert.equal(cosmosAddressFromPublicKey(publicKey, "hid"), "hid18vux70nvs5ee0sfvqfjgt6rq5fd89asd7xaypj");
+});
 
 function rebindMeasurementResponses(certificate) {
   const response = (value) => {
@@ -36,8 +57,13 @@ function rebindMeasurementResponses(certificate) {
 }
 
 function fixture() {
-  const { publicKey, privateKey } = crypto.generateKeyPairSync("ed25519");
+  const { publicKey, privateKey } = crypto.generateKeyPairSync("ec", { namedCurve: "secp256k1" });
+  const providerAddress = akashAddressFromPublicKey(publicKey);
   const campaignA = validU1Fixture();
+  campaignA.authority.provider_address = providerAddress;
+  campaignA.authority.provider_selector.provider_address = providerAddress;
+  campaignA.provider.provider_address = providerAddress;
+  campaignA.certificate_hash = sealU1Certificate(campaignA).certificate_hash;
   const campaignB = structuredClone(campaignA);
   campaignB.authority.campaign_id = "u1-campaign-b";
   campaignB.measurement.status.campaign_id = "u1-campaign-b";
@@ -48,7 +74,7 @@ function fixture() {
   rebindMeasurementResponses(campaignB);
   campaignB.certificate_hash = sealU1Certificate(campaignB).certificate_hash;
   const attestation = {
-    schema_version: "ioi.aft.provider-placement-attestation.v1",
+    schema_version: "ioi.aft.provider-placement-attestation.v2",
     provider_address: campaignA.provider.provider_address,
     campaigns: [campaignA, campaignB].map((campaign) => ({
       campaign_id: campaign.authority.campaign_id,
@@ -77,9 +103,10 @@ function fixture() {
       name_or_role: "provider operator",
       authority_ref: campaignA.provider.provider_address,
       public_key_ref: publicKeyFingerprint(publicKey),
+      signature_algorithm: "secp256k1-sha256-der",
     },
   };
-  attestation.signature = crypto.sign(null, placementSigningBytes(attestation), privateKey).toString("base64");
+  attestation.signature = crypto.sign("sha256", placementSigningBytes(attestation), { key: privateKey, dsaEncoding: "der" }).toString("base64");
   return { publicKey, privateKey, campaignA, campaignB, attestation };
 }
 
@@ -93,7 +120,7 @@ test("verifies a signed attestation bound to both exact campaign certificates", 
 test("refuses dseq substitution even after the attestation is re-signed", () => {
   const { publicKey, privateKey, campaignA, campaignB, attestation } = fixture();
   attestation.campaigns[1].dseq = "1787000099999";
-  attestation.signature = crypto.sign(null, placementSigningBytes(attestation), privateKey).toString("base64");
+  attestation.signature = crypto.sign("sha256", placementSigningBytes(attestation), { key: privateKey, dsaEncoding: "der" }).toString("base64");
   const result = verifyPlacementAttestation(attestation, publicKey, [campaignA, campaignB]);
   assert.equal(result.ok, false);
   assert(!result.failures.some((failure) => failure.code === "placement_signature_invalid"));
@@ -103,7 +130,7 @@ test("refuses dseq substitution even after the attestation is re-signed", () => 
 test("refuses bare-metal elevation when overcommit or memory isolation is weaker", () => {
   const { publicKey, privateKey, campaignA, campaignB, attestation } = fixture();
   attestation.placement.cpu.maximum_overcommit_ratio = "2:1";
-  attestation.signature = crypto.sign(null, placementSigningBytes(attestation), privateKey).toString("base64");
+  attestation.signature = crypto.sign("sha256", placementSigningBytes(attestation), { key: privateKey, dsaEncoding: "der" }).toString("base64");
   const result = verifyPlacementAttestation(attestation, publicKey, [campaignA, campaignB]);
   assert.equal(result.classification, "same_provider_container_unknown_host");
   assert(result.failures.some((failure) => failure.code === "placement_bare_metal_facts_insufficient"));
@@ -120,9 +147,24 @@ test("refuses an extra duplicate campaign statement and mismatched authority", (
   const { publicKey, privateKey, campaignA, campaignB, attestation } = fixture();
   attestation.campaigns.push(structuredClone(attestation.campaigns[0]));
   attestation.attestor.authority_ref = "akash1other";
-  attestation.signature = crypto.sign(null, placementSigningBytes(attestation), privateKey).toString("base64");
+  attestation.signature = crypto.sign("sha256", placementSigningBytes(attestation), { key: privateKey, dsaEncoding: "der" }).toString("base64");
   const result = verifyPlacementAttestation(attestation, publicKey, [campaignA, campaignB]);
   assert.equal(result.ok, false);
   assert(result.failures.some((failure) => failure.code === "placement_campaign_set_invalid"));
   assert(result.failures.some((failure) => failure.code === "placement_attestor_authority_mismatch"));
+});
+
+test("refuses an attacker key that self-asserts the real provider address", () => {
+  const { campaignA, campaignB, attestation } = fixture();
+  const attacker = crypto.generateKeyPairSync("ec", { namedCurve: "secp256k1" });
+  attestation.attestor.public_key_ref = publicKeyFingerprint(attacker.publicKey);
+  attestation.signature = crypto.sign(
+    "sha256",
+    placementSigningBytes(attestation),
+    { key: attacker.privateKey, dsaEncoding: "der" },
+  ).toString("base64");
+  const result = verifyPlacementAttestation(attestation, attacker.publicKey, [campaignA, campaignB]);
+  assert.equal(result.ok, false);
+  assert(!result.failures.some((failure) => failure.code === "placement_signature_invalid"));
+  assert(result.failures.some((failure) => failure.code === "placement_attestor_address_mismatch"));
 });

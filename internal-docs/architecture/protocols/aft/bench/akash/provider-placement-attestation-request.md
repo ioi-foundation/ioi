@@ -39,12 +39,14 @@ dedicated bare-metal placement.
 
 ## Evidence form
 
-Preferred evidence is a UTF-8 JSON object signed by the Akash provider operator
-key or another independently resolvable operator key:
+Preferred evidence is a UTF-8 JSON object signed directly by the pinned Akash
+provider operator key. The verifier derives the Akash bech32 address from the
+supplied secp256k1 public key and requires it to equal the provider address;
+merely writing the provider address beside an unrelated signing key is refused:
 
 ```json
 {
-  "schema_version": "ioi.aft.provider-placement-attestation.v1",
+  "schema_version": "ioi.aft.provider-placement-attestation.v2",
   "provider_address": "akash15tl6v6gd0nte0syyxnv57zmmspgju4c3xfmdhk",
   "campaigns": [
     {
@@ -84,20 +86,23 @@ key or another independently resolvable operator key:
   },
   "attestor": {
     "name_or_role": "...",
-    "authority_ref": "...",
-    "public_key_ref": "sha256:SPKI_DER_SHA256"
+    "authority_ref": "akash15tl6v6gd0nte0syyxnv57zmmspgju4c3xfmdhk",
+    "public_key_ref": "sha256:SPKI_DER_SHA256",
+    "signature_algorithm": "secp256k1-sha256-der"
   },
   "signature": "..."
 }
 ```
 
-The verifier signs UTF-8 canonical JSON (recursively sorted object keys, compact
-encoding) with the `signature` field omitted. `signature` is base64 Ed25519;
-`public_key_ref` is the `sha256:` digest of the independently supplied SPKI DER
-public key. The verifier resolves that key outside the attestation, verifies the
-signature, and checks every campaign field against both certified provider
-lifecycles. Run `check:u1-placement-attestation` with the attestation, resolved
-public-key file, and campaign A/B certificates.
+The provider signs UTF-8 canonical JSON (recursively sorted object keys, compact
+encoding) with the `signature` field omitted. `signature` is base64 ECDSA over
+SHA-256 using secp256k1, encoded as ASN.1 DER; P1363 is also supported when the
+declared algorithm is `secp256k1-sha256-p1363`. `public_key_ref` is the
+`sha256:` digest of the independently supplied SPKI DER public key. The verifier
+derives the `akash1...` account address from that key, verifies the signature,
+and checks every campaign field against both certified provider lifecycles. Run
+`check:u1-placement-attestation` with the attestation, provider public-key file,
+and campaign A/B certificates.
 
 ## Honesty-class ruling
 
@@ -105,8 +110,8 @@ public-key file, and campaign A/B certificates.
   `qualified_reserved_bare_metal`.
 - Valid evidence for exclusive physical cores without an exclusive host permits
   `provider_attested_dedicated_cpu`.
-- Missing, unsigned, generic, mismatched, or unverifiable evidence permits only
-  `same_provider_container_unknown_host`.
+- Missing, unsigned, generic, self-asserted, mismatched, or unverifiable evidence
+  permits only `same_provider_container_unknown_host`.
 
 The guest environment manifest remains useful variance evidence, but it cannot
 upgrade the placement class by itself.
