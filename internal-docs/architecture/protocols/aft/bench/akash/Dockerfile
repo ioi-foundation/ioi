@@ -43,7 +43,19 @@ ENV IOI_BENCH_COMMIT=${IOI_COMMIT}
 RUN cargo test --release --no-run \
         -p ioi-cli \
         --features consensus-aft,vm-wasm,state-jellyfish \
-        -- test_aft_paper_benchmark_matrix
+        --test benchmark_throughput
+
+# The harness starts three node roles under two state-tree feature sets. Build
+# those exact feature-keyed target directories after the test executable so a
+# paid lease can execute immediately. Runtime rebuilding is disabled: a stale
+# or absent binary must fail the campaign rather than consume provider time
+# compiling software that was supposed to be immutable.
+RUN CARGO_TARGET_DIR=/ioi/target/test-node-builds/release-0b7414797d7f2187 \
+      cargo build --release -p ioi-node --no-default-features \
+        --features validator-bins,consensus-aft,state-iavl,commitment-hash,vm-wasm \
+    && CARGO_TARGET_DIR=/ioi/target/test-node-builds/release-6bdc4f43f691ae57 \
+      cargo build --release -p ioi-node --no-default-features \
+        --features validator-bins,consensus-aft,state-jellyfish,commitment-hash,vm-wasm
 
 COPY internal-docs/architecture/protocols/aft/bench/akash/run-bench.sh /usr/local/bin/run-bench.sh
 COPY internal-docs/architecture/protocols/aft/bench/akash/result-tools.py /usr/local/bin/aft-result-tools.py
@@ -52,7 +64,9 @@ RUN chmod +x /usr/local/bin/run-bench.sh /usr/local/bin/aft-result-tools.py
 # Repetition + warmup knobs (override in the SDL env).
 ENV AFT_BENCH_WARMUPS=1 \
     AFT_BENCH_REPEATS=5 \
+    AFT_BENCH_PROTOCOL_VERSION=res-p4.3.v1 \
     IOI_AFT_BENCH_SCENARIO= \
-    IOI_TEST_BUILD_PROFILE=release
+    IOI_TEST_BUILD_PROFILE=release \
+    IOI_AFT_BENCH_REBUILD_NODE=0
 
 ENTRYPOINT ["/usr/local/bin/run-bench.sh"]

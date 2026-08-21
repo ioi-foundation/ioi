@@ -19,6 +19,7 @@ use axum::extract::{Path as AxumPath, State};
 use axum::http::HeaderMap;
 use axum::http::StatusCode;
 use axum::Json;
+use base64::Engine as _;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
@@ -5242,6 +5243,13 @@ impl AkashProvider {
                 "execution_mode": "live_console_api", "sdl_yaml_bytes": sdl_yaml.len(),
                 "sdl_template_hash": plan.get("sdl_hash").cloned().unwrap_or(Value::Null),
                 "result_credential_ref": plan.get("result_credential_ref").cloned().unwrap_or(Value::Null),
+                "campaign_id": plan.get("campaign_id").cloned().unwrap_or(Value::Null),
+                "benchmark_source_commit": plan.get("benchmark_source_commit").cloned().unwrap_or(Value::Null),
+                "image_digest": plan.get("image_digest").cloned().unwrap_or(Value::Null),
+                "benchmark_protocol_version": plan.get("benchmark_protocol_version").cloned().unwrap_or(Value::Null),
+                "result_schema_version": plan.get("result_schema_version").cloned().unwrap_or(Value::Null),
+                "benchmark_warmups": plan.get("benchmark_warmups").cloned().unwrap_or(Value::Null),
+                "benchmark_repeats": plan.get("benchmark_repeats").cloned().unwrap_or(Value::Null),
                 "endpoint_discovered": false, "endpoint_ready": false,
                 "workload_readiness_proven": false, "workload_result_retrieved": false,
                 "desired_replicas": 0, "ready_replicas": 0,
@@ -5756,33 +5764,21 @@ impl EnvironmentProvider for AkashProvider {
                             if bytes.len() > 2 * 1024 * 1024 {
                                 return Err("akash_result_artifact_too_large");
                             }
-                            let value = if name == "manifest" {
-                                json!({
-                                    "text": String::from_utf8(bytes.to_vec()).map_err(|_| "akash_result_manifest_not_utf8")?,
-                                    "sha256": sha256_bytes(&bytes),
-                                })
-                            } else {
-                                let value: Value = serde_json::from_slice(&bytes)
-                                    .map_err(|_| "akash_result_artifact_invalid_json")?;
-                                json!({ "value": value, "sha256": sha256_bytes(&bytes) })
-                            };
+                            let value: Value = serde_json::from_slice(&bytes)
+                                .map_err(|_| "akash_result_artifact_invalid_json")?;
+                            let value = json!({
+                                "value": value,
+                                "sha256": sha256_bytes(&bytes),
+                                "bytes": bytes.len(),
+                                "body_base64": base64::engine::general_purpose::STANDARD.encode(&bytes),
+                            });
                             bundle.insert(name.into(), value);
                         }
                         Ok::<Value, &'static str>(Value::Object(bundle))
                     })
                 })
                 .map_err(str::to_string)?;
-                if bundle
-                    .pointer("/status/value/state")
-                    .and_then(Value::as_str)
-                    != Some("complete")
-                    || bundle
-                        .pointer("/results/value/schema_version")
-                        .and_then(Value::as_str)
-                        != Some("ioi.aft.benchmark-campaign.v1")
-                {
-                    return Err("akash_result_campaign_not_complete_or_invalid".into());
-                }
+                validate_akash_result_bundle(&dep, &bundle).map_err(str::to_string)?;
                 let result_id = format!(
                     "akresult_{}",
                     &sha256_bytes(&serde_jcs::to_vec(&bundle).unwrap_or_default())[7..23]
@@ -7310,6 +7306,201 @@ fn validate_akash_sdl_secret_refs(plan: &Value, sdl: &str) -> Result<(), &'stati
     Ok(())
 }
 
+/// Bind the workload-result identity and measurement shape independently of the
+/// SDL hash, then require the reviewed SDL to carry the same values. This makes
+/// a stale but internally consistent result bundle distinguishable from the
+/// exact campaign authorized by the wallet grant.
+fn validate_akash_result_contract(plan: &Value, sdl: &str) -> Result<(), &'static str> {
+    let result_ref = text(plan, "result_credential_ref");
+    let campaign_id = text(plan, "campaign_id");
+    let source_commit = text(plan, "benchmark_source_commit");
+    let image_digest = text(plan, "image_digest");
+    let protocol_version = text(plan, "benchmark_protocol_version");
+    let result_schema = text(plan, "result_schema_version");
+    let warmups = plan.get("benchmark_warmups").and_then(Value::as_u64);
+    let repeats = plan.get("benchmark_repeats").and_then(Value::as_u64);
+
+    if result_ref.is_empty() {
+        if !campaign_id.is_empty()
+            || !source_commit.is_empty()
+            || !image_digest.is_empty()
+            || !protocol_version.is_empty()
+            || !result_schema.is_empty()
+            || warmups.is_some()
+            || repeats.is_some()
+        {
+            return Err("akash_result_contract_without_result_credential");
+        }
+        return Ok(());
+    }
+    if campaign_id.is_empty()
+        || campaign_id.len() > 128
+        || !campaign_id.chars().all(|character| {
+            character.is_ascii_alphanumeric() || matches!(character, '.' | '_' | '-')
+        })
+    {
+        return Err("akash_result_campaign_id_invalid");
+    }
+    if source_commit.len() != 40
+        || !source_commit
+            .chars()
+            .all(|character| character.is_ascii_hexdigit())
+    {
+        return Err("akash_result_source_commit_invalid");
+    }
+    if image_digest.len() != 71
+        || !image_digest.starts_with("sha256:")
+        || !image_digest[7..]
+            .chars()
+            .all(|character| character.is_ascii_hexdigit())
+    {
+        return Err("akash_result_image_digest_invalid");
+    }
+    if protocol_version != "res-p4.3.v1"
+        || result_schema != "ioi.aft.benchmark-campaign.v1"
+        || warmups != Some(1)
+        || repeats != Some(5)
+    {
+        return Err("akash_result_measurement_protocol_invalid");
+    }
+    for required in [
+        format!("AFT_BENCH_CAMPAIGN_ID={campaign_id}"),
+        format!("IOI_BENCH_COMMIT={source_commit}"),
+        format!("IOI_BENCH_IMAGE_DIGEST={image_digest}"),
+        format!("AFT_BENCH_PROTOCOL_VERSION={protocol_version}"),
+        format!("AFT_BENCH_WARMUPS={}", warmups.unwrap_or_default()),
+        format!("AFT_BENCH_REPEATS={}", repeats.unwrap_or_default()),
+    ] {
+        if !sdl.contains(&required) {
+            return Err("akash_result_contract_sdl_mismatch");
+        }
+    }
+    if !sdl.contains(&format!("@{image_digest}")) {
+        return Err("akash_result_image_digest_sdl_mismatch");
+    }
+    Ok(())
+}
+
+fn validate_akash_result_bundle(dep: &Value, bundle: &Value) -> Result<(), &'static str> {
+    let expected_campaign = text(dep, "campaign_id");
+    let expected_source_commit = text(dep, "benchmark_source_commit");
+    let expected_image_digest = text(dep, "image_digest");
+    let expected_protocol = text(dep, "benchmark_protocol_version");
+    let expected_result_schema = text(dep, "result_schema_version");
+    let expected_warmups = dep.get("benchmark_warmups").and_then(Value::as_u64);
+    let expected_repeats = dep.get("benchmark_repeats").and_then(Value::as_u64);
+    for name in ["status", "environment", "results", "manifest"] {
+        let encoded = bundle
+            .pointer(&format!("/{name}/body_base64"))
+            .and_then(Value::as_str)
+            .ok_or("akash_result_raw_body_missing")?;
+        let raw = base64::engine::general_purpose::STANDARD
+            .decode(encoded)
+            .map_err(|_| "akash_result_raw_body_invalid")?;
+        let parsed: Value =
+            serde_json::from_slice(&raw).map_err(|_| "akash_result_raw_body_invalid")?;
+        let raw_hash = sha256_bytes(&raw);
+        if bundle
+            .pointer(&format!("/{name}/bytes"))
+            .and_then(Value::as_u64)
+            != Some(raw.len() as u64)
+            || bundle
+                .pointer(&format!("/{name}/sha256"))
+                .and_then(Value::as_str)
+                != Some(raw_hash.as_str())
+            || bundle.pointer(&format!("/{name}/value")) != Some(&parsed)
+        {
+            return Err("akash_result_raw_body_mismatch");
+        }
+    }
+    if expected_campaign.is_empty()
+        || bundle
+            .pointer("/status/value/state")
+            .and_then(Value::as_str)
+            != Some("complete")
+        || bundle
+            .pointer("/results/value/schema_version")
+            .and_then(Value::as_str)
+            != Some(expected_result_schema)
+    {
+        return Err("akash_result_campaign_not_complete_or_invalid");
+    }
+    for path in [
+        "/status/value/campaign_id",
+        "/environment/value/campaign_id",
+        "/results/value/campaign_id",
+        "/manifest/value/campaign_id",
+    ] {
+        if bundle.pointer(path).and_then(Value::as_str) != Some(expected_campaign) {
+            return Err("akash_result_campaign_identity_mismatch");
+        }
+    }
+    if bundle
+        .pointer("/environment/value/schema_version")
+        .and_then(Value::as_str)
+        != Some("ioi.aft.environment-manifest.v1")
+        || bundle
+            .pointer("/manifest/value/schema_version")
+            .and_then(Value::as_str)
+            != Some("ioi.aft.artifact-manifest.v1")
+        || bundle
+            .pointer("/environment/value/source_commit")
+            .and_then(Value::as_str)
+            != Some(expected_source_commit)
+        || bundle
+            .pointer("/environment/value/image_digest")
+            .and_then(Value::as_str)
+            != Some(expected_image_digest)
+        || bundle
+            .pointer("/environment/value/protocol_version")
+            .and_then(Value::as_str)
+            != Some(expected_protocol)
+        || bundle
+            .pointer("/environment/value/warmups")
+            .and_then(Value::as_u64)
+            != expected_warmups
+        || bundle
+            .pointer("/environment/value/measured_passes")
+            .and_then(Value::as_u64)
+            != expected_repeats
+        || bundle
+            .pointer("/results/value/measured_passes")
+            .and_then(Value::as_u64)
+            != expected_repeats
+        || bundle
+            .pointer("/results/value/row_count_per_pass")
+            .and_then(Value::as_u64)
+            != Some(14)
+    {
+        return Err("akash_result_measurement_contract_mismatch");
+    }
+    let manifest_artifacts = bundle
+        .pointer("/manifest/value/artifacts")
+        .and_then(Value::as_array)
+        .ok_or("akash_result_manifest_artifacts_missing")?;
+    for (artifact_name, bundle_name) in [
+        ("environment.json", "environment"),
+        ("result.json", "results"),
+    ] {
+        let artifact = manifest_artifacts
+            .iter()
+            .find(|item| text(item, "name") == artifact_name)
+            .ok_or("akash_result_manifest_required_artifact_missing")?;
+        if artifact.get("sha256").and_then(Value::as_str)
+            != bundle
+                .pointer(&format!("/{bundle_name}/sha256"))
+                .and_then(Value::as_str)
+            || artifact.get("bytes").and_then(Value::as_u64)
+                != bundle
+                    .pointer(&format!("/{bundle_name}/bytes"))
+                    .and_then(Value::as_u64)
+        {
+            return Err("akash_result_manifest_hash_mismatch");
+        }
+    }
+    Ok(())
+}
+
 fn resolve_connector_bearer(data_dir: &str, reference: &str) -> Result<String, String> {
     let connector_id = reference
         .strip_prefix("connector://")
@@ -7529,6 +7720,10 @@ pub(crate) async fn handle_provider_op(
                         body.pointer("/plan").unwrap_or(&Value::Null),
                         sdl_yaml,
                     );
+                    let result_contract = validate_akash_result_contract(
+                        body.pointer("/plan").unwrap_or(&Value::Null),
+                        sdl_yaml,
+                    );
                     let ceiling_ok = ceiling_denom == "uact"
                         && ceiling_amount
                             .parse::<f64>()
@@ -7538,6 +7733,7 @@ pub(crate) async fn handle_provider_op(
                         || !(deposit_usd > 0.0 && deposit_usd <= AKASH_MAX_DEPLOY_DEPOSIT_USD)
                         || provider_pin.is_err()
                         || secret_refs.is_err()
+                        || result_contract.is_err()
                         || !ceiling_ok
                     {
                         let selector_error = provider_pin.err();
@@ -7548,7 +7744,8 @@ pub(crate) async fn handle_provider_op(
                                 "code": "akash_live_marketplace_facets_required",
                                 "message": "direct Akash live deployment requires sdl_yaml, bounded deposit_usd, ceiling_amount in uact, and either any_marketplace/lowest_qualified_bid or an exact/only_qualified_bid_from_exact_provider selector",
                                 "selector_error": selector_error,
-                                "secret_reference_error": secret_refs.err()
+                                "secret_reference_error": secret_refs.err(),
+                                "result_contract_error": result_contract.err()
                             })),
                         );
                     }
@@ -7564,6 +7761,13 @@ pub(crate) async fn handle_provider_op(
                         "sdl_hash": sha256_bytes(sdl_yaml.as_bytes()),
                         "registry_credential_ref": body.pointer("/plan/registry_credential_ref").cloned().unwrap_or(Value::Null),
                         "result_credential_ref": body.pointer("/plan/result_credential_ref").cloned().unwrap_or(Value::Null),
+                        "campaign_id": body.pointer("/plan/campaign_id").cloned().unwrap_or(Value::Null),
+                        "benchmark_source_commit": body.pointer("/plan/benchmark_source_commit").cloned().unwrap_or(Value::Null),
+                        "image_digest": body.pointer("/plan/image_digest").cloned().unwrap_or(Value::Null),
+                        "benchmark_protocol_version": body.pointer("/plan/benchmark_protocol_version").cloned().unwrap_or(Value::Null),
+                        "result_schema_version": body.pointer("/plan/result_schema_version").cloned().unwrap_or(Value::Null),
+                        "benchmark_warmups": body.pointer("/plan/benchmark_warmups").cloned().unwrap_or(Value::Null),
+                        "benchmark_repeats": body.pointer("/plan/benchmark_repeats").cloned().unwrap_or(Value::Null),
                         "execution_mode": "live",
                         "teardown_policy": body
                             .get("teardown_policy")
@@ -7919,6 +8123,13 @@ pub(crate) async fn handle_provider_op(
                             "sdl_hash",
                             "registry_credential_ref",
                             "result_credential_ref",
+                            "campaign_id",
+                            "benchmark_source_commit",
+                            "image_digest",
+                            "benchmark_protocol_version",
+                            "result_schema_version",
+                            "benchmark_warmups",
+                            "benchmark_repeats",
                             "deposit_usd",
                             "ceiling_amount",
                             "ceiling_denom",
@@ -8667,6 +8878,134 @@ env:
                 sdl,
             ),
             Err("result_credential_ref_or_sentinel_invalid")
+        );
+    }
+
+    #[test]
+    fn akash_result_contract_binds_campaign_source_image_protocol_and_run_count() {
+        let commit = "b".repeat(40);
+        let digest = format!("sha256:{}", "a".repeat(64));
+        let plan = json!({
+            "result_credential_ref": "connector://conn_results",
+            "campaign_id": "u1-campaign-a",
+            "benchmark_source_commit": commit,
+            "image_digest": digest,
+            "benchmark_protocol_version": "res-p4.3.v1",
+            "result_schema_version": "ioi.aft.benchmark-campaign.v1",
+            "benchmark_warmups": 1,
+            "benchmark_repeats": 5,
+        });
+        let sdl = format!(
+            r#"services:
+  aft:
+    image: ghcr.io/ioi/aft@{digest}
+    env:
+      - 'AFT_BENCH_CAMPAIGN_ID=u1-campaign-a'
+      - 'IOI_BENCH_COMMIT={commit}'
+      - 'IOI_BENCH_IMAGE_DIGEST={digest}'
+      - 'AFT_BENCH_PROTOCOL_VERSION=res-p4.3.v1'
+      - 'AFT_BENCH_WARMUPS=1'
+      - 'AFT_BENCH_REPEATS=5'
+"#
+        );
+        assert_eq!(validate_akash_result_contract(&plan, &sdl), Ok(()));
+
+        let mut stale = plan.clone();
+        stale["campaign_id"] = json!("u1-campaign-b");
+        assert_eq!(
+            validate_akash_result_contract(&stale, &sdl),
+            Err("akash_result_contract_sdl_mismatch")
+        );
+        let mut shortened = plan;
+        shortened["benchmark_repeats"] = json!(4);
+        assert_eq!(
+            validate_akash_result_contract(&shortened, &sdl),
+            Err("akash_result_measurement_protocol_invalid")
+        );
+    }
+
+    #[test]
+    fn akash_result_bundle_rejects_stale_partial_and_tampered_campaigns() {
+        fn response(value: Value) -> Value {
+            let raw = serde_json::to_vec(&value).unwrap();
+            json!({
+                "value": value,
+                "sha256": sha256_bytes(&raw),
+                "bytes": raw.len(),
+                "body_base64": base64::engine::general_purpose::STANDARD.encode(&raw),
+            })
+        }
+        let commit = "b".repeat(40);
+        let digest = format!("sha256:{}", "a".repeat(64));
+        let dep = json!({
+            "campaign_id": "u1-campaign-a",
+            "benchmark_source_commit": commit,
+            "image_digest": digest,
+            "benchmark_protocol_version": "res-p4.3.v1",
+            "result_schema_version": "ioi.aft.benchmark-campaign.v1",
+            "benchmark_warmups": 1,
+            "benchmark_repeats": 5,
+        });
+        let status = response(json!({
+            "campaign_id": "u1-campaign-a", "state": "complete"
+        }));
+        let environment = response(json!({
+            "schema_version": "ioi.aft.environment-manifest.v1",
+            "campaign_id": "u1-campaign-a",
+            "source_commit": commit,
+            "image_digest": digest,
+            "protocol_version": "res-p4.3.v1",
+            "warmups": 1,
+            "measured_passes": 5
+        }));
+        let results = response(json!({
+            "schema_version": "ioi.aft.benchmark-campaign.v1",
+            "campaign_id": "u1-campaign-a",
+            "measured_passes": 5,
+            "row_count_per_pass": 14
+        }));
+        let manifest = response(json!({
+            "schema_version": "ioi.aft.artifact-manifest.v1",
+            "campaign_id": "u1-campaign-a",
+            "artifacts": [
+                { "name": "environment.json", "sha256": environment["sha256"], "bytes": environment["bytes"] },
+                { "name": "result.json", "sha256": results["sha256"], "bytes": results["bytes"] }
+            ]
+        }));
+        let bundle = json!({
+            "status": status,
+            "environment": environment,
+            "results": results,
+            "manifest": manifest,
+        });
+        assert_eq!(validate_akash_result_bundle(&dep, &bundle), Ok(()));
+
+        let mut stale = bundle.clone();
+        stale["results"]["value"]["campaign_id"] = json!("u1-campaign-b");
+        stale["results"] = response(stale["results"]["value"].clone());
+        assert_eq!(
+            validate_akash_result_bundle(&dep, &stale),
+            Err("akash_result_campaign_identity_mismatch")
+        );
+        let mut partial = bundle.clone();
+        partial["results"]["value"]["row_count_per_pass"] = json!(13);
+        partial["results"] = response(partial["results"]["value"].clone());
+        assert_eq!(
+            validate_akash_result_bundle(&dep, &partial),
+            Err("akash_result_measurement_contract_mismatch")
+        );
+        let mut raw_mismatch = bundle.clone();
+        raw_mismatch["results"]["value"]["row_count_per_pass"] = json!(13);
+        assert_eq!(
+            validate_akash_result_bundle(&dep, &raw_mismatch),
+            Err("akash_result_raw_body_mismatch")
+        );
+        let mut tampered = bundle;
+        tampered["manifest"]["value"]["artifacts"][1]["sha256"] = json!("sha256:different");
+        tampered["manifest"] = response(tampered["manifest"]["value"].clone());
+        assert_eq!(
+            validate_akash_result_bundle(&dep, &tampered),
+            Err("akash_result_manifest_hash_mismatch")
         );
     }
 

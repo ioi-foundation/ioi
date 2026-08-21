@@ -12,13 +12,13 @@ This protocol is fixed before observing the certified-provider measurements. It 
 
 ## Recorded metrics
 
-For every scenario/lane row, retain injection TPS, sustained TPS, and commit-latency p50, p95, p99, and max. Retain raw output, normalized pass JSON, the environment manifest, aggregate JSON/Markdown, and a SHA-256 artifact manifest.
+For every scenario/lane row, retain injection TPS, sustained TPS, and commit-latency p50, p95, p99, and max. For each metric report count, minimum, median, maximum, median absolute deviation, sample coefficient of variation, and a deterministic exact 95% bootstrap interval for the median when five measured passes are present. Retain raw output, normalized pass JSON, the environment manifest, aggregate JSON/Markdown, a machine-readable artifact manifest, and its SHA-256 companion.
 
 ## Reproduction thresholds
 
 The aggregate uses `(maximum - minimum) / median` across measured passes. Injection TPS, sustained TPS, p50, and p95 must be within 10%. P99 and max must be within 15%. Every row and metric must clear its threshold for `reproduced_within_threshold`; otherwise the only permitted verdict is `variance_caveated`.
 
-The two-campaign comparison applies the same thresholds to each campaign median. A within-campaign verdict cannot substitute for the required second campaign.
+The `compare` operation applies the same thresholds to each campaign median, requires both environment manifests, and emits a separate `ioi.aft.benchmark-campaign-comparison.v1` artifact. Source commit, image digest, protocol version, CPU model/count, kernel, machine, memory, and governor must match for `reproduced_within_threshold`; drift forces an explicit `variance_caveated` verdict. A within-campaign verdict cannot substitute for the required second campaign.
 
 ## Honesty class
 

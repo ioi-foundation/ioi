@@ -85,15 +85,19 @@ key or another independently resolvable operator key:
   "attestor": {
     "name_or_role": "...",
     "authority_ref": "...",
-    "public_key_ref": "..."
+    "public_key_ref": "sha256:SPKI_DER_SHA256"
   },
   "signature": "..."
 }
 ```
 
-The verifier hashes canonical JSON with the `signature` field omitted, resolves
-the signer independently, verifies the signature, and checks every campaign
-field against provider-native and C2 evidence.
+The verifier signs UTF-8 canonical JSON (recursively sorted object keys, compact
+encoding) with the `signature` field omitted. `signature` is base64 Ed25519;
+`public_key_ref` is the `sha256:` digest of the independently supplied SPKI DER
+public key. The verifier resolves that key outside the attestation, verifies the
+signature, and checks every campaign field against both certified provider
+lifecycles. Run `check:u1-placement-attestation` with the attestation, resolved
+public-key file, and campaign A/B certificates.
 
 ## Honesty-class ruling
 

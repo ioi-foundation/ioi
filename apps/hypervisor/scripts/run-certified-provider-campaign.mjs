@@ -19,6 +19,7 @@ import {
 import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
+import { materializeReviewedSdl } from "./lib/certified-campaign-config.mjs";
 import { startRealWalletNetworkPrincipalAuthorityFixture } from "./lib/wallet-network-principal-authority-fixture.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -66,13 +67,14 @@ const headers = (session = "") => ({
   "Content-Type": "application/json",
   ...(session ? { cookie: `ioi_session=${session}` } : {}),
 });
+const sdlTemplate = readFileSync(path.resolve(config.sdl_path), "utf8");
 const request = {
   provider_id: config.provider_id,
   op: "create",
   environment_ref: config.environment_ref,
   owner_ref: config.owner_ref,
   idempotency_key: config.idempotency_key,
-  plan: { ...config.plan, sdl_yaml: readFileSync(path.resolve(config.sdl_path), "utf8") },
+  plan: { ...config.plan, sdl_yaml: materializeReviewedSdl(sdlTemplate, config) },
 };
 const expectedSdlHash = sha256(request.plan.sdl_yaml);
 
@@ -130,6 +132,13 @@ function verifyFacets(challenge) {
     sdl_hash: expectedSdlHash,
     registry_credential_ref: request.plan.registry_credential_ref ?? null,
     result_credential_ref: request.plan.result_credential_ref ?? null,
+    campaign_id: request.plan.campaign_id ?? null,
+    benchmark_source_commit: request.plan.benchmark_source_commit ?? null,
+    image_digest: request.plan.image_digest ?? null,
+    benchmark_protocol_version: request.plan.benchmark_protocol_version ?? null,
+    result_schema_version: request.plan.result_schema_version ?? null,
+    benchmark_warmups: request.plan.benchmark_warmups ?? null,
+    benchmark_repeats: request.plan.benchmark_repeats ?? null,
   };
   for (const [key, value] of Object.entries(expected)) {
     if (JSON.stringify(facets[key] ?? null) !== JSON.stringify(value)) {

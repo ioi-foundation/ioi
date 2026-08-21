@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import http.server
+import itertools
 import json
 import math
 import os
@@ -18,11 +19,15 @@ import sys
 import tempfile
 from pathlib import Path
 
-SCENARIO_ROWS = {
-    "paper_guardian_majority_4v": 3,
-    "paper_guardian_majority_7v": 3,
-    "paper_asymptote_4v": 4,
-    "paper_asymptote_7v": 4,
+SCENARIO_LANES = {
+    "paper_guardian_majority_4v": ("base_final", "canonical_ordering", "durable_collapse"),
+    "paper_guardian_majority_7v": ("base_final", "canonical_ordering", "durable_collapse"),
+    "paper_asymptote_4v": (
+        "base_final", "canonical_ordering", "durable_collapse", "sealed_final"
+    ),
+    "paper_asymptote_7v": (
+        "base_final", "canonical_ordering", "durable_collapse", "sealed_final"
+    ),
 }
 REQUIRED_METRICS = (
     "injection_tps",
@@ -40,6 +45,18 @@ THRESHOLDS = {
     "commit_p99_ms": 0.15,
     "commit_max_ms": 0.15,
 }
+ALLOWED_STATES = {"starting", "warmup", "measuring", "complete", "failed"}
+ENVIRONMENT_MATCH_FIELDS = (
+    "source_commit",
+    "image_digest",
+    "protocol_version",
+    "cpu_model",
+    "cpu_cores_online",
+    "kernel_release",
+    "machine",
+    "memory_kib",
+    "governor",
+)
 
 
 def atomic_write(path: Path, content: str) -> None:
@@ -80,7 +97,7 @@ def parse_markdown_table(raw: str, scenario_filter: str) -> list[dict[str, objec
             raise ValueError(f"malformed benchmark row has {len(cells)} cells; expected {len(headers)}")
         row: dict[str, object] = dict(zip(headers, cells))
         scenario = str(row["scenario"])
-        if scenario not in SCENARIO_ROWS:
+        if scenario not in SCENARIO_LANES:
             raise ValueError(f"unexpected scenario {scenario!r}")
         for metric in REQUIRED_METRICS:
             try:
@@ -99,10 +116,10 @@ def parse_markdown_table(raw: str, scenario_filter: str) -> list[dict[str, objec
             raise ValueError(f"{scenario}/{row['lane']} did not commit every attempted transaction")
         rows.append(row)
 
-    expected_scenarios = [scenario_filter] if scenario_filter else list(SCENARIO_ROWS)
-    if any(scenario not in SCENARIO_ROWS for scenario in expected_scenarios):
+    expected_scenarios = [scenario_filter] if scenario_filter else list(SCENARIO_LANES)
+    if any(scenario not in SCENARIO_LANES for scenario in expected_scenarios):
         raise ValueError(f"unknown scenario filter {scenario_filter!r}")
-    expected = sum(SCENARIO_ROWS[scenario] for scenario in expected_scenarios)
+    expected = sum(len(SCENARIO_LANES[scenario]) for scenario in expected_scenarios)
     if len(rows) != expected:
         raise ValueError(f"partial matrix: got {len(rows)} rows; expected {expected}")
     keys = [(str(row["scenario"]), str(row["lane"])) for row in rows]
@@ -110,6 +127,19 @@ def parse_markdown_table(raw: str, scenario_filter: str) -> list[dict[str, objec
         raise ValueError("benchmark table contains duplicate scenario/lane rows")
     if set(row["scenario"] for row in rows) != set(expected_scenarios):
         raise ValueError("benchmark table scenario set does not match the requested matrix")
+    expected_keys = {
+        (scenario, lane)
+        for scenario in expected_scenarios
+        for lane in SCENARIO_LANES[scenario]
+    }
+    if set(keys) != expected_keys:
+        raise ValueError("benchmark table lane set does not match the canonical matrix")
+    for row in rows:
+        scenario = str(row["scenario"])
+        expected_validators = 4 if scenario.endswith("_4v") else 7
+        expected_mode = "asymptote" if "asymptote" in scenario else "guardian_majority"
+        if row["validators"] != expected_validators or row["mode"] != expected_mode:
+            raise ValueError(f"{scenario}/{row['lane']} has inconsistent scenario metadata")
     return rows
 
 
@@ -137,11 +167,67 @@ def relative_spread(values: list[float]) -> float:
     return (max(values) - min(values)) / median
 
 
+def percentile(values: list[float], quantile: float) -> float:
+    ordered = sorted(values)
+    if not ordered:
+        raise ValueError("cannot compute a percentile over no values")
+    position = quantile * (len(ordered) - 1)
+    lower = math.floor(position)
+    upper = math.ceil(position)
+    if lower == upper:
+        return ordered[lower]
+    fraction = position - lower
+    return ordered[lower] * (1 - fraction) + ordered[upper] * fraction
+
+
+def exact_bootstrap_median_interval(values: list[float]) -> dict[str, object] | None:
+    # The protocol fixes five measured passes. Enumerating 5^5 resamples makes
+    # this deterministic and avoids publishing a seed-dependent interval.
+    if len(values) < 5 or len(values) > 7:
+        return None
+    medians = [statistics.median(sample) for sample in itertools.product(values, repeat=len(values))]
+    return {
+        "confidence": 0.95,
+        "lower": percentile(medians, 0.025),
+        "upper": percentile(medians, 0.975),
+        "method": "exact_bootstrap_median",
+        "resamples": len(medians),
+    }
+
+
+def summarize_metric(values: list[float], threshold: float) -> dict[str, object]:
+    median = statistics.median(values)
+    mean = statistics.fmean(values)
+    spread = relative_spread(values)
+    mad = statistics.median(abs(value - median) for value in values)
+    coefficient_of_variation = (
+        statistics.stdev(values) / mean
+        if len(values) > 1 and mean != 0
+        else (0.0 if max(values) == min(values) else math.inf)
+    )
+    return {
+        "count": len(values),
+        "min": min(values),
+        "median": median,
+        "max": max(values),
+        "median_absolute_deviation": mad,
+        "coefficient_of_variation": coefficient_of_variation,
+        "bootstrap_median_95": exact_bootstrap_median_interval(values),
+        "relative_spread": spread,
+        "threshold": threshold,
+        "within_threshold": spread <= threshold,
+    }
+
+
 def aggregate(args: argparse.Namespace) -> None:
     paths = sorted(Path().glob(args.inputs))
     if len(paths) != args.repeats:
         raise ValueError(f"found {len(paths)} measured passes; expected {args.repeats}")
     passes = [json.loads(path.read_text()) for path in paths]
+    if any(item.get("schema_version") != "ioi.aft.benchmark-pass.v1" for item in passes):
+        raise ValueError("measured pass schema is unsupported")
+    if any(item.get("campaign_id") != args.campaign for item in passes):
+        raise ValueError("measured pass campaign identity does not match the aggregate")
     if [item["pass"] for item in passes] != list(range(1, args.repeats + 1)):
         raise ValueError("measured pass sequence is incomplete or duplicated")
     row_maps = [
@@ -158,18 +244,11 @@ def aggregate(args: argparse.Namespace) -> None:
         row_within = True
         for metric in REQUIRED_METRICS:
             values = [float(row_map[(scenario, lane)][metric]) for row_map in row_maps]
-            spread = relative_spread(values)
             threshold = THRESHOLDS[metric]
-            within = spread <= threshold
+            summary = summarize_metric(values, threshold)
+            within = bool(summary["within_threshold"])
             row_within &= within
-            metrics[metric] = {
-                "min": min(values),
-                "median": statistics.median(values),
-                "max": max(values),
-                "relative_spread": spread,
-                "threshold": threshold,
-                "within_threshold": within,
-            }
+            metrics[metric] = summary
         all_within &= row_within
         summaries.append(
             {"scenario": scenario, "lane": lane, "within_threshold": row_within, "metrics": metrics}
@@ -207,6 +286,121 @@ def aggregate(args: argparse.Namespace) -> None:
     atomic_write(Path(args.output_markdown), "\n".join(markdown) + "\n")
 
 
+def compare_campaigns(args: argparse.Namespace) -> None:
+    campaign_paths = [Path(args.campaign_a), Path(args.campaign_b)]
+    campaigns = [json.loads(path.read_text()) for path in campaign_paths]
+    environment_paths = [Path(args.environment_a), Path(args.environment_b)]
+    environments = [json.loads(path.read_text()) for path in environment_paths]
+    if any(item.get("schema_version") != "ioi.aft.benchmark-campaign.v1" for item in campaigns):
+        raise ValueError("campaign comparison input schema is unsupported")
+    campaign_ids = [str(item.get("campaign_id", "")) for item in campaigns]
+    if not all(campaign_ids) or campaign_ids[0] == campaign_ids[1]:
+        raise ValueError("campaign comparison requires two distinct campaign identities")
+    if any(item.get("threshold_policy") != THRESHOLDS for item in campaigns):
+        raise ValueError("campaign threshold policy differs from the fixed protocol")
+    if any(
+        item.get("schema_version") != "ioi.aft.environment-manifest.v1"
+        for item in environments
+    ):
+        raise ValueError("campaign environment manifest schema is unsupported")
+    if any(
+        environments[index].get("campaign_id") != campaign_ids[index]
+        for index in range(2)
+    ):
+        raise ValueError("environment manifest campaign identity differs from its campaign")
+    missing_environment_fields = [
+        field
+        for field in ENVIRONMENT_MATCH_FIELDS
+        if any(environment.get(field) in (None, "") for environment in environments)
+    ]
+    if missing_environment_fields:
+        raise ValueError(
+            f"environment manifests are missing comparison fields: {missing_environment_fields}"
+        )
+    environment_comparison = {
+        field: {
+            "campaign_a": environments[0][field],
+            "campaign_b": environments[1][field],
+            "matches": environments[0][field] == environments[1][field],
+        }
+        for field in ENVIRONMENT_MATCH_FIELDS
+    }
+    environment_compatible = all(
+        comparison["matches"] for comparison in environment_comparison.values()
+    )
+
+    summary_maps = [
+        {(row["scenario"], row["lane"]): row for row in item["summaries"]}
+        for item in campaigns
+    ]
+    expected_keys = set(summary_maps[0])
+    if not expected_keys or set(summary_maps[1]) != expected_keys:
+        raise ValueError("campaign scenario/lane matrices differ")
+
+    comparisons = []
+    all_within = True
+    for scenario, lane in sorted(expected_keys):
+        metrics = {}
+        row_within = True
+        for metric in REQUIRED_METRICS:
+            values = [
+                float(summary_map[(scenario, lane)]["metrics"][metric]["median"])
+                for summary_map in summary_maps
+            ]
+            spread = relative_spread(values)
+            threshold = THRESHOLDS[metric]
+            within = spread <= threshold
+            row_within &= within
+            metrics[metric] = {
+                "campaign_a_median": values[0],
+                "campaign_b_median": values[1],
+                "relative_spread": spread,
+                "threshold": threshold,
+                "within_threshold": within,
+            }
+        all_within &= row_within
+        comparisons.append(
+            {"scenario": scenario, "lane": lane, "within_threshold": row_within, "metrics": metrics}
+        )
+
+    verdict = (
+        "reproduced_within_threshold"
+        if all_within and environment_compatible
+        else "variance_caveated"
+    )
+    result = {
+        "schema_version": "ioi.aft.benchmark-campaign-comparison.v1",
+        "campaign_ids": campaign_ids,
+        "campaign_artifacts": [str(path) for path in campaign_paths],
+        "environment_artifacts": [str(path) for path in environment_paths],
+        "environment_compatible": environment_compatible,
+        "environment_comparison": environment_comparison,
+        "threshold_policy": THRESHOLDS,
+        "verdict": verdict,
+        "all_rows_within_threshold": all_within,
+        "comparisons": comparisons,
+    }
+    write_json(Path(args.output_json), result)
+    markdown = [
+        "# AFT cross-campaign comparison",
+        "",
+        f"Campaigns: `{campaign_ids[0]}` and `{campaign_ids[1]}`",
+        "",
+        f"Verdict: **{verdict.replace('_', ' ')}**",
+        "",
+        f"Environment compatible: **{'yes' if environment_compatible else 'no'}**",
+        "",
+        "| scenario | lane | threshold verdict |",
+        "|---|---|---|",
+    ]
+    markdown.extend(
+        f"| {row['scenario']} | {row['lane']} | "
+        f"{'within' if row['within_threshold'] else 'variance-caveated'} |"
+        for row in comparisons
+    )
+    atomic_write(Path(args.output_markdown), "\n".join(markdown) + "\n")
+
+
 def environment_manifest(args: argparse.Namespace) -> None:
     cpu_model = "unknown"
     cpuinfo = Path("/proc/cpuinfo")
@@ -228,6 +422,7 @@ def environment_manifest(args: argparse.Namespace) -> None:
         "campaign_id": args.campaign,
         "source_commit": args.commit,
         "image_digest": args.image_digest,
+        "protocol_version": args.protocol_version,
         "scenario_filter": args.scenario or None,
         "warmups": args.warmups,
         "measured_passes": args.repeats,
@@ -248,6 +443,8 @@ def environment_manifest(args: argparse.Namespace) -> None:
 
 
 def status(args: argparse.Namespace) -> None:
+    if args.state not in ALLOWED_STATES:
+        raise ValueError(f"invalid campaign state {args.state!r}")
     write_json(
         Path(args.output),
         {
@@ -261,11 +458,28 @@ def status(args: argparse.Namespace) -> None:
 
 def manifest(args: argparse.Namespace) -> None:
     root = Path(args.directory)
+    excluded = {args.output, args.json_output, "status.json"}
     candidates = sorted(
-        path for path in root.iterdir() if path.is_file() and path.name not in {args.output, "status.json"}
+        path for path in root.iterdir() if path.is_file() and path.name not in excluded
     )
     lines = [f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}" for path in candidates]
     atomic_write(root / args.output, "\n".join(lines) + "\n")
+    status_record = json.loads((root / "status.json").read_text())
+    write_json(
+        root / args.json_output,
+        {
+            "schema_version": "ioi.aft.artifact-manifest.v1",
+            "campaign_id": status_record["campaign_id"],
+            "artifacts": [
+                {
+                    "name": path.name,
+                    "bytes": path.stat().st_size,
+                    "sha256": f"sha256:{hashlib.sha256(path.read_bytes()).hexdigest()}",
+                }
+                for path in candidates
+            ],
+        },
+    )
 
 
 def scan(args: argparse.Namespace) -> None:
@@ -296,7 +510,7 @@ class ResultHandler(http.server.BaseHTTPRequestHandler):
             "/environment": "environment.json",
             "/results": "result.json",
             "/results.md": "result.md",
-            "/manifest": "manifest.sha256",
+            "/manifest": "artifact-manifest.json",
         }
         name = routes.get(self.path)
         if not name:
@@ -305,6 +519,36 @@ class ResultHandler(http.server.BaseHTTPRequestHandler):
         path = self.server.root / name  # type: ignore[attr-defined]
         if not path.exists():
             self.send_error(404)
+            return
+        try:
+            status_record = json.loads((self.server.root / "status.json").read_text())  # type: ignore[attr-defined]
+            if status_record.get("state") not in ALLOWED_STATES:
+                raise ValueError("invalid status state")
+            if self.path in {"/results", "/results.md", "/manifest"}:
+                if status_record.get("state") != "complete":
+                    self.send_error(409, "campaign is not complete")
+                    return
+                manifest_record = json.loads(
+                    (self.server.root / "artifact-manifest.json").read_text()  # type: ignore[attr-defined]
+                )
+                if manifest_record.get("campaign_id") != status_record.get("campaign_id"):
+                    raise ValueError("manifest campaign identity mismatch")
+                artifact = next(
+                    (item for item in manifest_record.get("artifacts", []) if item.get("name") == name),
+                    None,
+                )
+                if self.path != "/manifest" and artifact is None:
+                    raise ValueError(f"{name} is absent from the artifact manifest")
+                if artifact is not None:
+                    digest = f"sha256:{hashlib.sha256(path.read_bytes()).hexdigest()}"
+                    if digest != artifact.get("sha256") or path.stat().st_size != artifact.get("bytes"):
+                        raise ValueError(f"{name} does not match the artifact manifest")
+                if self.path == "/results":
+                    result_record = json.loads(path.read_text())
+                    if result_record.get("campaign_id") != status_record.get("campaign_id"):
+                        raise ValueError("result campaign identity mismatch")
+        except (OSError, ValueError, KeyError, json.JSONDecodeError) as error:
+            self.send_error(409, str(error))
             return
         payload = path.read_bytes()
         self.send_response(200)
@@ -344,8 +588,16 @@ def parser() -> argparse.ArgumentParser:
     aggregate_parser.add_argument("--output-json", required=True)
     aggregate_parser.add_argument("--output-markdown", required=True)
     aggregate_parser.set_defaults(function=aggregate)
+    compare_parser = sub.add_parser("compare")
+    compare_parser.add_argument("--campaign-a", required=True)
+    compare_parser.add_argument("--campaign-b", required=True)
+    compare_parser.add_argument("--environment-a", required=True)
+    compare_parser.add_argument("--environment-b", required=True)
+    compare_parser.add_argument("--output-json", required=True)
+    compare_parser.add_argument("--output-markdown", required=True)
+    compare_parser.set_defaults(function=compare_campaigns)
     environment_parser = sub.add_parser("environment")
-    for name in ("campaign", "commit", "image-digest", "scenario", "output"):
+    for name in ("campaign", "commit", "image-digest", "protocol-version", "scenario", "output"):
         environment_parser.add_argument(f"--{name}", required=name not in {"scenario"})
     environment_parser.add_argument("--warmups", type=int, required=True)
     environment_parser.add_argument("--repeats", type=int, required=True)
@@ -357,6 +609,7 @@ def parser() -> argparse.ArgumentParser:
     manifest_parser = sub.add_parser("manifest")
     manifest_parser.add_argument("--directory", required=True)
     manifest_parser.add_argument("--output", default="manifest.sha256")
+    manifest_parser.add_argument("--json-output", default="artifact-manifest.json")
     manifest_parser.set_defaults(function=manifest)
     scan_parser = sub.add_parser("scan")
     scan_parser.add_argument("--directory", required=True)

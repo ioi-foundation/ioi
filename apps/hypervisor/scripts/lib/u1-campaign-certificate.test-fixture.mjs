@@ -1,0 +1,159 @@
+import crypto from "node:crypto";
+import { stableStringify } from "./c7-c8-certificate.mjs";
+import { sealU1Certificate, U1_METRICS, U1_SCENARIO_LANES, U1_THRESHOLDS } from "./u1-campaign-certificate.mjs";
+
+export function validU1Fixture() {
+  const campaign = "u1-campaign-a";
+  const sourceCommit = "b".repeat(40);
+  const imageDigest = `sha256:${"a".repeat(64)}`;
+  const summaries = Object.entries(U1_SCENARIO_LANES).flatMap(([scenario, lanes]) => lanes.map((lane) => ({
+    scenario,
+    lane,
+    within_threshold: true,
+    metrics: Object.fromEntries(U1_METRICS.map((metric) => [metric, {
+      count: 5,
+      min: 98,
+      median: 100,
+      max: 102,
+      median_absolute_deviation: 1,
+      coefficient_of_variation: 0.015,
+      bootstrap_median_95: {
+        confidence: 0.95,
+        lower: 99,
+        upper: 101,
+        method: "exact_bootstrap_median",
+        resamples: 3125,
+      },
+      relative_spread: 0.04,
+      threshold: U1_THRESHOLDS[metric],
+      within_threshold: true,
+    }])),
+  })));
+  const providerAddress = "akash15tl6v6gd0nte0syyxnv57zmmspgju4c3xfmdhk";
+  const status = { schema_version: "ioi.aft.benchmark-status.v1", campaign_id: campaign, state: "complete" };
+  const environment = {
+    schema_version: "ioi.aft.environment-manifest.v1",
+    campaign_id: campaign,
+    source_commit: sourceCommit,
+    image_digest: imageDigest,
+    protocol_version: "res-p4.3.v1",
+    warmups: 1,
+    measured_passes: 5,
+  };
+  const aggregate = {
+    schema_version: "ioi.aft.benchmark-campaign.v1",
+    campaign_id: campaign,
+    measured_passes: 5,
+    row_count_per_pass: 14,
+    threshold_policy: U1_THRESHOLDS,
+    verdict: "reproduced_within_threshold",
+    all_rows_within_threshold: true,
+    summaries,
+  };
+  const raw = (value) => Buffer.from(stableStringify(value));
+  const response = (value) => ({
+    bytes: raw(value).length,
+    sha256: `sha256:${crypto.createHash("sha256").update(raw(value)).digest("hex")}`,
+    body_base64: raw(value).toString("base64"),
+  });
+  const environmentResponse = response(environment);
+  const resultsResponse = response(aggregate);
+  const manifest = {
+    schema_version: "ioi.aft.artifact-manifest.v1",
+    campaign_id: campaign,
+    artifacts: [
+      { name: "environment.json", bytes: environmentResponse.bytes, sha256: environmentResponse.sha256 },
+      { name: "result.json", bytes: resultsResponse.bytes, sha256: resultsResponse.sha256 },
+    ],
+  };
+  const responses = {
+    status: response(status),
+    environment: environmentResponse,
+    results: resultsResponse,
+    manifest: response(manifest),
+  };
+  return sealU1Certificate({
+    ok: true,
+    result: "success",
+    lifecycle: {
+      certificate_hash: `sha256:${"3".repeat(64)}`,
+      verification_ok: true,
+      mutation_count: 22,
+      source_commit: sourceCommit,
+      source_dirty_state: "clean",
+      publication_eligible: true,
+    },
+    authority: {
+      policy_hash: `sha256:${"4".repeat(64)}`,
+      request_hash: `sha256:${"5".repeat(64)}`,
+      review_bundle_sha256: `sha256:${"6".repeat(64)}`,
+      campaign_id: campaign,
+      source_commit: sourceCommit,
+      image_digest: imageDigest,
+      protocol_version: "res-p4.3.v1",
+      result_schema_version: "ioi.aft.benchmark-campaign.v1",
+      warmups: 1,
+      measured_passes: 5,
+      provider_address: providerAddress,
+      provider_selector: {
+        mode: "exact",
+        provider_address: providerAddress,
+        selection: "only_qualified_bid_from_exact_provider",
+      },
+      auto_topup: false,
+      deposit_usd: 1,
+      ceiling_amount: "1000",
+      ceiling_denom: "uact",
+      teardown_policy: "always_teardown_required",
+    },
+    measurement: {
+      status,
+      environment,
+      aggregate,
+      manifest,
+      response_hashes: {
+        status: { bytes: responses.status.bytes, sha256: responses.status.sha256 },
+        environment: { bytes: responses.environment.bytes, sha256: responses.environment.sha256 },
+        results: { bytes: responses.results.bytes, sha256: responses.results.sha256 },
+        manifest: { bytes: responses.manifest.bytes, sha256: responses.manifest.sha256 },
+      },
+      raw_response_bodies_base64: {
+        status: responses.status.body_base64,
+        environment: responses.environment.body_base64,
+        results: responses.results.body_base64,
+        manifest: responses.manifest.body_base64,
+      },
+    },
+    provider: {
+      dseq: "1787000000000",
+      provider_address: providerAddress,
+      lease_ref: "akash-lease://one",
+      lease_state: "closed",
+      endpoint_ref: "akash-endpoint://one",
+      workload_result_retrieved: true,
+    },
+    settlement: {
+      provider_terminal: true,
+      state: "final_debit_settled",
+      final_net_cost_usd: 0.000002,
+      open_exposure_count: 0,
+      unknown_exposure_count: 0,
+      provider_response_hash: `sha256:${"9".repeat(64)}`,
+    },
+    placement: {
+      classification: "same_provider_container_unknown_host",
+      attestation_verified: false,
+    },
+    claims: {
+      benchmark_measurement_claimed: true,
+      bare_metal_claimed: false,
+      provider_neutrality_claimed: false,
+      formal_theorem_claimed: false,
+    },
+    nonclaims: [
+      "tenant-specific bare-metal placement",
+      "provider-neutral reproduction",
+      "formal theorem proof",
+    ],
+  });
+}

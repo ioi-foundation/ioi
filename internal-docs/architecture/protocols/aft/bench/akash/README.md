@@ -12,9 +12,11 @@ Read [measurement-protocol.md](measurement-protocol.md) before building the imag
 
 - `environment.json`;
 - one raw and one normalized JSON artifact per measured pass;
-- `result.json` and `result.md` with the variance verdict;
-- `manifest.sha256`;
+- `result.json` and `result.md` with count, median, min/max, MAD, sample CV, deterministic bootstrap interval, and the within-campaign variance verdict;
+- `artifact-manifest.json` and `manifest.sha256`;
 - `status.json`, whose state is `complete` only after every validation passes.
+
+Only the canonical states `starting`, `warmup`, `measuring`, `complete`, and `failed` are accepted. Authenticated result and manifest retrieval remains closed until `complete`; the result server then verifies the campaign identity, byte length, and SHA-256 against `artifact-manifest.json` on every read.
 
 ## Immutable private image
 
@@ -67,3 +69,44 @@ The initial review envelope in `u1-campaign.example.json` is a $1 deposit and a 
 Same-provider pinning does not prove bare metal. Record the provider qualification evidence separately and use [provider-placement-attestation-request.md](provider-placement-attestation-request.md) for the tenant-specific placement statement. Use `Class C — measured on attested pinned bare metal` only if the runner/host allocation is independently attested and verified. Otherwise publish a measured-container or variance-caveated result and leave the bare-metal residual explicit.
 
 After results are retrieved, always delete, confirm closure, reconcile the deposit and final debit/refund, and verify zero open or unknown exposure before assembling the U1 certificate and updating `specs/p4_measured_costs.md`.
+
+Each campaign gets a separate `ioi.hypervisor.u1-aft-campaign-certificate.v1`
+chained to its verified C7/C8 lifecycle certificate. The U1 verifier checks the
+complete 14-row matrix, five-pass statistics, provider response hashes,
+artifact manifest, exact provider, and terminal settlement; its 27-mutation
+self-test also refuses unsupported bare-metal elevation:
+
+```bash
+npm --prefix apps/hypervisor run assemble:u1-campaign-certificate -- \
+  --artifacts <CAMPAIGN_ARTIFACTS> \
+  --lifecycle-certificate <C8_CERTIFICATE> \
+  --lifecycle-verification <C8_VERIFICATION> \
+  --output <U1_CERTIFICATE>
+npm --prefix apps/hypervisor run check:u1-campaign-certificate -- \
+  --certificate <U1_CERTIFICATE> --mutation-test
+```
+
+After both separately authorized campaigns are certified, compare their medians without dropping any metric:
+
+```bash
+./result-tools.py compare \
+  --campaign-a campaign-a/result.json \
+  --campaign-b campaign-b/result.json \
+  --environment-a campaign-a/environment.json \
+  --environment-b campaign-b/environment.json \
+  --output-json campaign-comparison.json \
+  --output-markdown campaign-comparison.md
+```
+
+If the provider returns the requested two-campaign placement statement, resolve
+its Ed25519 public key independently and verify it before assigning an elevated
+honesty class:
+
+```bash
+npm --prefix apps/hypervisor run check:u1-placement-attestation -- \
+  --attestation placement.json \
+  --public-key provider-ed25519-public.pem \
+  --campaign-a campaign-a/u1-campaign-certificate.json \
+  --campaign-b campaign-b/u1-campaign-certificate.json \
+  --output placement-verification.json
+```

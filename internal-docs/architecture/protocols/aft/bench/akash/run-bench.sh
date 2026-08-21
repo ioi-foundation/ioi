@@ -10,6 +10,7 @@ OUTDIR="${AFT_BENCH_OUTDIR:-/output}"
 CAMPAIGN="${AFT_BENCH_CAMPAIGN_ID:?AFT_BENCH_CAMPAIGN_ID is required}"
 COMMIT="${IOI_BENCH_COMMIT:?IOI_BENCH_COMMIT is required}"
 IMAGE_DIGEST="${IOI_BENCH_IMAGE_DIGEST:?IOI_BENCH_IMAGE_DIGEST is required}"
+PROTOCOL_VERSION="${AFT_BENCH_PROTOCOL_VERSION:?AFT_BENCH_PROTOCOL_VERSION is required}"
 TOOLS=/usr/local/bin/aft-result-tools.py
 
 case "$WARMUPS:$REPEATS" in
@@ -35,18 +36,19 @@ bench_cmd() {
 
 run_campaign() (
   set -euo pipefail
-  set_status preparing "capturing environment manifest"
+  set_status starting "capturing environment manifest"
   "$TOOLS" environment \
     --output "$OUTDIR/environment.json" \
     --campaign "$CAMPAIGN" \
     --commit "$COMMIT" \
     --image-digest "$IMAGE_DIGEST" \
+    --protocol-version "$PROTOCOL_VERSION" \
     --scenario "$SCENARIO" \
     --warmups "$WARMUPS" \
     --repeats "$REPEATS"
 
   for (( warmup = 1; warmup <= WARMUPS; warmup++ )); do
-    set_status warming_up "warmup $warmup of $WARMUPS"
+    set_status warmup "warmup $warmup of $WARMUPS"
     bench_cmd >"$OUTDIR/warmup-${warmup}.raw" 2>&1
   done
 
