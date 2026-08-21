@@ -186,22 +186,41 @@ try {
   const requestHash = challenge.approval?.request_hash;
   if (!policyHash || !requestHash || challenge.host_mutation !== false) throw new Error("dry challenge was not a spend-free authority refusal");
   const { facets } = verifyFacets(challenge);
+  const reviewBundle = {
+    policy_hash: policyHash,
+    request_hash: requestHash,
+    environment_ref: config.environment_ref,
+    provider_id: request.provider_id,
+    operation: request.op,
+    owner_ref: request.owner_ref,
+    idempotency_key: request.idempotency_key,
+    reviewed_facets: facets,
+  };
   const approvalRequest = {
     schema_version: "ioi.hypervisor.certified-provider-approval.v1",
     approved: false,
-    policy_hash: policyHash,
-    request_hash: requestHash,
-    challenge_sha256: sha256(JSON.stringify(challenge)),
-    environment_ref: config.environment_ref,
-    reviewed_facets: facets,
+    ...reviewBundle,
+    review_bundle_sha256: sha256(JSON.stringify(reviewBundle)),
   };
   save("approval-request.json", approvalRequest);
   if (prepareOnly) {
     log("prepare-only complete; no grant minted and no provider mutation attempted");
   } else {
     const approval = JSON.parse(readFileSync(approvalPath, "utf8"));
-    for (const key of ["policy_hash", "request_hash", "challenge_sha256", "environment_ref"]) {
+    for (const key of [
+      "policy_hash",
+      "request_hash",
+      "environment_ref",
+      "provider_id",
+      "operation",
+      "owner_ref",
+      "idempotency_key",
+      "review_bundle_sha256",
+    ]) {
       if (approval[key] !== approvalRequest[key]) throw new Error(`approval does not bind exact ${key}`);
+    }
+    if (JSON.stringify(approval.reviewed_facets) !== JSON.stringify(approvalRequest.reviewed_facets)) {
+      throw new Error("approval does not bind exact reviewed_facets");
     }
     if (approval.schema_version !== approvalRequest.schema_version || approval.approved !== true) {
       throw new Error("approval file does not carry approved=true under the expected schema");
