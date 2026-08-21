@@ -70,6 +70,14 @@ challenge. The runnable campaign configuration therefore retains explicit
 owner-review placeholders for provider address, deposit, and `uact` ceiling.
 The canonical pricing response captured at `2026-08-21T19:54:35Z` has SHA-256
 `5c98c8e54c9324d5be7203c723538fd6677a91518ac52bdc504a1509711798a4`.
+Akash documents approximately 432,000 six-second blocks per month and bills a
+bid in `uact` per block. On that basis, the estimate is about `137 uact/block`.
+A `$1` deposit would cover about 12.2 hours at the estimate, or about 1.67 hours
+if the accepted bid were exactly the proposed `1000 uact` ceiling. The local
+full-matrix rehearsal took 782.59 seconds. Therefore `$1` and `1000 uact` are
+the recommended bounded owner-review values for one campaign, subject to the
+exact dry challenge and provider bid; they are not pre-approved values and must
+not auto-expand. Reference: [Akash deployments and lifecycle](https://akash.network/docs/learn/core-concepts/deployments/).
 
 It is **not yet qualified as a dedicated bare-metal runner for this tenant workload**. `location-type=colo` and an audited provider describe the provider’s infrastructure; they do not prove that a specific Kubernetes container received a reserved physical host, non-oversubscribed cores, or stable host identity across leases. The workload environment manifest can identify the CPU/kernel visible inside each lease, but that observation is not a provider attestation.
 
