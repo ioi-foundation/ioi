@@ -6,8 +6,8 @@ does not authorize a deployment or benchmark spend.
 ## Requested attestor
 
 - Akash provider address:
-  `akash15tl6v6gd0nte0syyxnv57zmmspgju4c3xfmdhk`
-- Provider endpoint: `provider.hurricane.akash.pub`
+  `OWNER_SELECTED_AKASH_PROVIDER_ADDRESS`
+- Provider endpoint: `OWNER_SELECTED_PROVIDER_ENDPOINT`
 - Attestor must identify their operational authority for this provider and bind
   the statement to the provider address above.
 
@@ -47,7 +47,7 @@ merely writing the provider address beside an unrelated signing key is refused:
 ```json
 {
   "schema_version": "ioi.aft.provider-placement-attestation.v2",
-  "provider_address": "akash15tl6v6gd0nte0syyxnv57zmmspgju4c3xfmdhk",
+  "provider_address": "OWNER_SELECTED_AKASH_PROVIDER_ADDRESS",
   "campaigns": [
     {
       "campaign_id": "OWNER_APPROVED_CAMPAIGN_A",
@@ -86,7 +86,7 @@ merely writing the provider address beside an unrelated signing key is refused:
   },
   "attestor": {
     "name_or_role": "...",
-    "authority_ref": "akash15tl6v6gd0nte0syyxnv57zmmspgju4c3xfmdhk",
+    "authority_ref": "OWNER_SELECTED_AKASH_PROVIDER_ADDRESS",
     "public_key_ref": "sha256:SPKI_DER_SHA256",
     "signature_algorithm": "secp256k1-sha256-der"
   },

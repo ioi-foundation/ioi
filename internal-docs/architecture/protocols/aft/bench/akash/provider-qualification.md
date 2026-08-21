@@ -53,6 +53,15 @@ and the selected record must be refreshed immediately before challenge review.
 The U1 provider may differ from C7 without weakening C7's clean-rerun claim;
 both U1 campaigns must use the same owner-approved U1 pin.
 
+Current public operator contacts are `hosting@ovrclk.com` for both Overclock
+CPU candidates and `admin@digitalfrontier.so` for the Digital Frontier
+candidate. Recording these public contacts is not authorization to message
+them. For the ordinary measured-container lane, Dallas is the leading current
+choice because it has the strongest combination of available CPU, audited
+10-Gbps datacenter attributes, perfect one- and seven-day uptime, and a
+spend-free eligibility result. The string “dedicated” in the Digital Frontier
+provider name is not a reason to elevate its placement class.
+
 The Console API's spend-free pricing endpoint estimated the complete planned
 8 CPU / 16 GiB / 20 GiB envelope at `$59.19/month` on 2026-08-21. This is a
 market-level planning estimate, not the exact selected provider's bid. It does
