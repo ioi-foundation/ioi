@@ -20,6 +20,12 @@ async-trait = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
 serde_json = { workspace = true }
+# Maintained successor to the archived serde_yaml. Used ONLY to parse a caller-supplied
+# Akash SDL into its price ceiling for the pre-bid spend gate (never to emit).
+serde_yaml_ng = "0.10"
+# Exact decimal arithmetic for Akash DecCoin prices — f64 would admit boundary rounding and
+# lets +inf pass `> 0`. All ceiling/bid parse, compare, and hashing go through Decimal.
+rust_decimal = "1"
 base64 = { workspace = true }
 dcrypt = { workspace = true }
 hex = { workspace = true }

@@ -4702,6 +4702,85 @@ fn load_akash_deployment(data_dir: &str, account_id: &str, env_ref: &str) -> Opt
     mine.pop()
 }
 
+/// C7 restart recovery — a `deployment_created` record with no terminal (lease_accepted / closed /
+/// reconciliation) state is STRANDED: the daemon funded an akash deposit but did not reach a Stage B
+/// terminal outcome before it stopped. Scan for these and transition each to
+/// `reconciliation_required`, so a funded deposit is never silently lost. Returns the stranded
+/// dseqs. Marks records only; the live close + escrow-refund confirmation is a follow-up step that
+/// needs the credential (closed != refund_settled).
+pub(crate) fn reconcile_stranded_akash_deployments(data_dir: &str) -> Vec<String> {
+    let stranded: Vec<Value> = read_record_dir(data_dir, AKASH_DEPLOYMENT_KIND)
+        .into_iter()
+        .filter(|d| text(d, "state") == "deployment_created")
+        .collect();
+    let mut dseqs = Vec::new();
+    for rec in stranded {
+        let dseq = text(&rec, "dseq").to_string();
+        let id = format!("akdep_intent_{dseq}");
+        let mut updated = rec.clone();
+        if let Some(o) = updated.as_object_mut() {
+            o.insert("state".into(), json!("reconciliation_required"));
+            o.insert("reconciled_at".into(), json!(iso_now()));
+            o.insert("reconcile_note".into(), json!("STRANDED on restart: the deposit was funded but Stage B never reached a terminal outcome. Close the deployment from the provider console and confirm the escrow refund; the daemon marks it here so the funded deposit is not silently lost."));
+        }
+        let _ = persist_record(data_dir, AKASH_DEPLOYMENT_KIND, &id, &updated);
+        dseqs.push(dseq);
+    }
+    dseqs
+}
+
+/// C7 provider_selector — the typed, wallet-bound admissible-provider policy. A clean typed break:
+/// NO legacy `provider_address` alias, no migration branch, no fallback from exact to any_marketplace.
+/// Returns the CANONICAL selector (exactly the allowed fields) on success, or a refusal reason.
+///   { "mode": "exact",           "address": "akash1..." }
+///   { "mode": "any_marketplace", "selection": "lowest_qualified_bid" }
+/// The wallet approves the admissible set; Stage B selects and records the actual provider.
+fn validate_provider_selector(sel: &Value) -> Result<Value, String> {
+    let obj = sel.as_object().ok_or(
+        "provider_selector is required — an object with mode 'exact' (address) or 'any_marketplace' (selection)",
+    )?;
+    let mode = obj
+        .get("mode")
+        .and_then(Value::as_str)
+        .ok_or("provider_selector.mode is required")?;
+    match mode {
+        "exact" => {
+            for k in obj.keys() {
+                if k != "mode" && k != "address" {
+                    return Err(format!(
+                        "provider_selector.exact has unknown field '{k}' (allowed: mode, address)"
+                    ));
+                }
+            }
+            let address = obj
+                .get("address")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .trim();
+            if address.is_empty() {
+                return Err("provider_selector.exact requires one non-empty 'address'".into());
+            }
+            Ok(json!({ "mode": "exact", "address": address }))
+        }
+        "any_marketplace" => {
+            for k in obj.keys() {
+                if k != "mode" && k != "selection" {
+                    return Err(format!(
+                        "provider_selector.any_marketplace has unknown field '{k}' (allowed: mode, selection)"
+                    ));
+                }
+            }
+            if obj.get("selection").and_then(Value::as_str) != Some("lowest_qualified_bid") {
+                return Err("provider_selector.any_marketplace requires selection == 'lowest_qualified_bid' (the only deterministic selection today)".into());
+            }
+            Ok(json!({ "mode": "any_marketplace", "selection": "lowest_qualified_bid" }))
+        }
+        other => Err(format!(
+            "provider_selector.mode '{other}' is unknown (allowed: exact, any_marketplace)"
+        )),
+    }
+}
+
 struct AkashProvider {
     account: Value,
 }
@@ -4840,10 +4919,15 @@ impl AkashProvider {
                 ));
             }
 
-            // C6 provider-pin: the caller may pin the provider address (the one the
-            // wallet challenge hashed into the approval). If set, the daemon deploys
-            // on THAT provider or refuses — it never falls through to the cheapest.
-            let pinned_provider = text(plan, "provider_address").to_string();
+            // provider_selector: the wallet-approved ADMISSIBLE provider set (bound into the
+            // approval facets at Stage A). Stage B selects the actual provider under it — exact
+            // address, or the deterministic lowest-qualified marketplace bid — and records it.
+            let selector = plan
+                .get("provider_selector")
+                .cloned()
+                .unwrap_or(Value::Null);
+            let selector_mode = text(&selector, "mode").to_string();
+            let selector_address = text(&selector, "address").to_string();
 
             // Run the async create→bid→lease→status flow from this sync body,
             // mirroring the live Vast path.
@@ -4891,48 +4975,150 @@ impl AkashProvider {
                         "akash_console_create_no_manifest — create response had no data.manifest",
                     )?;
 
-                    // 2. poll bids (up to 10× at 6s). Pinned → select THAT provider's
-                    //    bid (refuse if it never bids); unpinned → the cheapest.
-                    let mut selected = None;
-                    for _ in 0..10 {
-                        let (bc, bl) = send(ac::list_bids(&api_key, &dseq)).await?;
-                        if (200..300).contains(&bc) {
-                            let picked = if pinned_provider.is_empty() {
-                                ac::parse_cheapest_bid(&bl)
-                            } else {
-                                ac::parse_pinned_bid(&bl, &pinned_provider)
-                            };
-                            if let Some(b) = picked {
-                                selected = Some(b);
-                                break;
+                    // Journal the deployment_create transition NOW — the deposit is funded, so a
+                    // crash mid-Stage-B must leave a recoverable record. Keyed by dseq; restart
+                    // recovery (reconcile_stranded_akash_deployments) reconciles any record left in
+                    // `deployment_created` with no terminal (lease_accepted / closed) outcome.
+                    let intent_rec_id = format!("akdep_intent_{dseq}");
+                    // CLASSIFIED (reconciliation evidence, checked-elsewhere): the deployment_create
+                    // MUTATION TRUTH is the shared-foundation C2 INTENT journal, committed and
+                    // checked in handle_provider_op BEFORE this external op. This dseq-keyed akash
+                    // record is provider-native reconciliation evidence for restart recovery; a lost
+                    // write leaves the C2 intent as the state truth, so it is not owed the shared path.
+                    let _ = persist_record(
+                        data_dir,
+                        AKASH_DEPLOYMENT_KIND,
+                        &intent_rec_id,
+                        &json!({
+                            "schema_version": "ioi.hypervisor.akash-deployment.v1",
+                            "record_id": intent_rec_id, "dseq": dseq,
+                            "account_id": self.account_id(), "environment_ref": env_ref,
+                            "state": "deployment_created", "deposit_usd": deposit,
+                            "sdl_hash": text(plan, "sdl_hash"), "provider_selector": selector.clone(),
+                            "note": "Stage A committed: deposit funded, awaiting Stage B. A record left in this state past a restart is stranded and gets reconciled (closed).",
+                            "execution_mode": "live_console_api", "at": iso_now(),
+                        }),
+                    );
+
+                    // ── THE DEPOSIT IS NOW FUNDED (the deployment exists). From here, ANY failure
+                    //    before the lease opens MUST close the deployment — Stage B is wrapped so it
+                    //    does. Stage B is the REAL post-bid quote gate: poll bids, accept ONLY the
+                    //    wallet-pinned provider, verify the bid's denom + EXACT amount against the
+                    //    SDL ceiling bound at Stage A, then open the lease. No second grant is
+                    //    consumed: this validates the real bid under the Stage A authority.
+                    let ceiling_denom = text(plan, "ceiling_denom").to_string();
+                    let ceiling_amount =
+                        rust_decimal::Decimal::from_str_exact(text(plan, "ceiling_amount").trim())
+                            .unwrap_or_default();
+                    let stage_b: Result<(ac::AkashBid, String), String> = async {
+                        // Poll (up to 10× at 6s) for a bid that satisfies the wallet-approved
+                        // selector: exact → the authorized address's bid; any_marketplace → the
+                        // DETERMINISTIC lowest qualified (in-ceiling) bid.
+                        let mut priced: Option<
+                            Result<(ac::AkashBid, rust_decimal::Decimal, String), String>,
+                        > = None;
+                        for _ in 0..10 {
+                            let (bc, bl) = send(ac::list_bids(&api_key, &dseq)).await?;
+                            if (200..300).contains(&bc) {
+                                let picked = match selector_mode.as_str() {
+                                    "exact" => ac::parse_pinned_bid_priced(&bl, &selector_address),
+                                    "any_marketplace" => ac::select_lowest_qualified_bid(
+                                        &bl,
+                                        &ceiling_denom,
+                                        ceiling_amount,
+                                    )
+                                    .map(Ok),
+                                    other => Some(Err(format!(
+                                        "akash_selector_mode_unknown — '{other}' (Stage A should have refused this)"
+                                    ))),
+                                };
+                                if let Some(p) = picked {
+                                    priced = Some(p);
+                                    break;
+                                }
                             }
+                            tokio::time::sleep(std::time::Duration::from_secs(6)).await;
                         }
-                        tokio::time::sleep(std::time::Duration::from_secs(6)).await;
-                    }
-                    let bid = selected.ok_or_else(|| {
-                        if pinned_provider.is_empty() {
-                            "akash_console_no_bids — no provider bid within the polling window"
-                                .to_string()
-                        } else {
-                            format!("akash_pinned_provider_did_not_bid — the wallet-approved provider '{pinned_provider}' returned no bid within the polling window; the daemon refuses to deploy on a provider that was not approved")
+                        let (bid, bid_amount, bid_denom) = priced.ok_or_else(|| {
+                            format!("akash_no_qualified_bid — no bid satisfied the '{selector_mode}' selector within the polling window")
+                        })??;
+                        // The bid must price in the accepted denom AND be ≤ the SDL max (the exact
+                        // path needs this; any_marketplace already filtered — re-checked uniformly).
+                        ac::bid_passes_ceiling(bid_amount, &bid_denom, &ceiling_denom, ceiling_amount)?;
+                        // Prove the SELECTED provider satisfies the selector.
+                        if selector_mode == "exact" && bid.provider != selector_address {
+                            return Err(format!(
+                                "akash_selector_mismatch — selected '{}' != exact '{selector_address}'",
+                                bid.provider
+                            ));
                         }
-                    })?;
-                    // Prove selected == pinned (the pin selector guarantees it; assert the invariant
-                    // so a future selector change cannot silently deploy on an unapproved provider).
-                    if !pinned_provider.is_empty() && bid.provider != pinned_provider {
-                        return Err(format!(
-                            "akash_pin_mismatch — selected provider '{}' != wallet-approved '{pinned_provider}'",
-                            bid.provider
-                        ));
+                        // Auto-top-up must be PROVABLY off before the lease opens (checked now the
+                        // DSEQ exists). If the deployment cannot be read, or carries an enabled
+                        // auto-top-up, the deposit is not provably the hard bound → refuse (→ close).
+                        let (adc, add) = send(ac::get_deployment(&api_key, &dseq)).await?;
+                        if !(200..300).contains(&adc) {
+                            return Err(format!(
+                                "akash_auto_topup_unprovable — could not read deployment {dseq} to prove auto-top-up off (http {adc})"
+                            ));
+                        }
+                        if ac::deployment_has_auto_topup(&add) {
+                            return Err("akash_auto_topup_enabled — the deployment has auto-top-up enabled; refusing a lease that could exceed the deposit bound".into());
+                        }
+                        // Open the lease against the accepted, in-ceiling, wallet-pinned bid.
+                        let (lc, ll) =
+                            send(ac::create_lease(&api_key, &manifest, &dseq, &bid)).await?;
+                        if !(200..300).contains(&lc) {
+                            return Err(format!("akash_console_lease_failed: http {lc} {ll}"));
+                        }
+                        Ok((bid, format!("{bid_amount}{bid_denom}")))
                     }
+                    .await;
+                    let (bid, burn_rate) = match stage_b {
+                        Ok(v) => v,
+                        Err(e) => {
+                            // The deposit is funded but the lease did not open — CLOSE the deployment
+                            // so escrow stops, and JOURNAL the close outcome separately. A 2xx close
+                            // is `deposit_closed_refund_pending`: the close is accepted but the
+                            // escrow refund is the provider's async settlement, so closed ≠
+                            // refund_settled. A non-2xx / unreachable close is
+                            // `reconciliation_required`: the deposit may still be funded — reconcile.
+                            let close_http = send(ac::close_deployment(&api_key, &dseq))
+                                .await
+                                .map(|(c, _)| c)
+                                .unwrap_or(0);
+                            let close_state = if (200..300).contains(&close_http) {
+                                "deposit_closed_refund_pending"
+                            } else {
+                                "reconciliation_required"
+                            };
+                            // Transition the SAME dseq-keyed record to its terminal close state, so
+                            // restart recovery does not see it as stranded.
+                            let close_id = format!("akdep_intent_{dseq}");
+                            // CLASSIFIED (reconciliation evidence, checked-elsewhere): the close
+                            // outcome MUTATION TRUTH is the shared-foundation C2 failure-outcome
+                            // journal (committed by handle_provider_op on Err); this record is
+                            // provider-native close/refund evidence, not owed the shared path.
+                            let _ = persist_record(
+                                data_dir,
+                                AKASH_DEPLOYMENT_KIND,
+                                &close_id,
+                                &json!({
+                                    "schema_version": "ioi.hypervisor.akash-deployment.v1",
+                                    "record_id": close_id, "dseq": dseq,
+                                    "account_id": self.account_id(), "environment_ref": env_ref,
+                                    "state": close_state, "close_http": close_http,
+                                    "stage_b_error": e,
+                                    "note": "Stage B refused AFTER the deposit was funded; the deployment was closed. deposit_closed_refund_pending = close accepted, escrow refund is the provider's async settlement (closed != refund_settled). reconciliation_required = close unconfirmed; reconcile from the provider console.",
+                                    "execution_mode": "live_console_api", "at": iso_now(),
+                                }),
+                            );
+                            return Err(format!(
+                                "akash_stage_b_refused ({close_state}): {e} | close_http={close_http} dseq={dseq}"
+                            ));
+                        }
+                    };
 
-                    // 3. create the lease against the selected bid
-                    let (lc, ll) = send(ac::create_lease(&api_key, &manifest, &dseq, &bid)).await?;
-                    if !(200..300).contains(&lc) {
-                        return Err(format!("akash_console_lease_failed: http {lc} {ll}"));
-                    }
-
-                    // 4. status snapshot
+                    // status snapshot
                     let (_sc, sd) = send(ac::get_deployment(&api_key, &dseq)).await?;
                     let dep_state =
                         ac::parse_deployment_state(&sd).unwrap_or_else(|| "unknown".into());
@@ -4940,6 +5126,7 @@ impl AkashProvider {
                     Ok::<Value, String>(json!({
                         "dseq": dseq, "provider": bid.provider, "gseq": bid.gseq,
                         "oseq": bid.oseq, "deployment_state": dep_state, "deposit_usd": deposit,
+                        "burn_rate": burn_rate,
                     }))
                 })
             })?;
@@ -4950,6 +5137,30 @@ impl AkashProvider {
             let record_id = format!("akdep_{stamp:x}");
             let deployment_ref = format!("akash-deployment://{record_id}");
             let real_dseq = text(&live, "dseq").to_string();
+            // Transition the dseq-keyed deployment_create record to its TERMINAL lease_accepted
+            // state, binding the accepted bid + burn rate — so restart recovery does not see it as
+            // stranded. (Stage B already verified pin + denom + ceiling before the lease opened.)
+            let lease_rec_id = format!("akdep_intent_{real_dseq}");
+            // CLASSIFIED (reconciliation evidence, checked-elsewhere): the lease_accept MUTATION
+            // TRUTH is the shared-foundation C2 OUTCOME journal + the provider-operation receipt,
+            // committed by handle_provider_op after this returns Ok. This record is provider-native
+            // evidence; a lost write leaves the journal as truth, so it is not owed the shared path.
+            let _ = persist_record(
+                data_dir,
+                AKASH_DEPLOYMENT_KIND,
+                &lease_rec_id,
+                &json!({
+                    "schema_version": "ioi.hypervisor.akash-deployment.v1",
+                    "record_id": lease_rec_id, "dseq": real_dseq,
+                    "account_id": self.account_id(), "environment_ref": env_ref,
+                    "state": "lease_accepted", "provider_selector": selector,
+                    "selected_provider": text(&live, "provider"),
+                    "gseq": live["gseq"], "oseq": live["oseq"],
+                    "deposit_usd": live["deposit_usd"], "burn_rate": live["burn_rate"],
+                    "note": "Stage B selected the provider under the wallet-approved selector and within the SDL ceiling; the lease opened.",
+                    "execution_mode": "live_console_api", "at": iso_now(),
+                }),
+            );
             let provider_address = text(&live, "provider").to_string();
             let bid_id = format!("akbid_{stamp:x}");
             let bid_rec = json!({
@@ -6459,256 +6670,351 @@ pub(crate) async fn handle_provider_op(
             ) && matches!(op, "create" | "redeploy")
                 && !vast_mode(&account).is_empty()
             {
-                let candidate_ref = body
-                    .get("candidate_ref")
-                    .and_then(Value::as_str)
-                    .unwrap_or("");
-                if candidate_ref.is_empty() {
-                    let code = format!("{kind}_candidate_ref_required");
-                    let receipt = provider_receipt_ext(
-                        data_dir,
-                        &kind,
-                        &env_ref,
-                        op,
-                        "quote_gate_refused",
-                        &json!({ "account_ref": account_ref, "error": code }),
-                    );
-                    return (
-                        StatusCode::UNPROCESSABLE_ENTITY,
-                        Json(
-                            json!({ "ok": false, "op": op, "provider": provider_id, "reason": format!("{code} — provisioning is quote-gated; pass the candidate_ref of a fresh, live, priced CloudResourceCandidate"), "receipt_ref": receipt }),
-                        ),
-                    );
-                }
-                let candidate = read_record_dir(data_dir, "cloud-resource-candidates")
-                    .into_iter()
-                    .find(|c| text(c, "candidate_ref") == candidate_ref);
-                let refuse = |code: &str, detail: String| {
-                    let receipt = provider_receipt_ext(
-                        data_dir,
-                        &kind,
-                        &env_ref,
-                        op,
-                        "quote_gate_refused",
-                        &json!({ "account_ref": account_ref, "candidate_ref": candidate_ref, "error": code }),
-                    );
-                    (
-                        StatusCode::CONFLICT,
-                        Json(
-                            json!({ "ok": false, "op": op, "provider": provider_id, "reason": format!("{code} — {detail}"), "receipt_ref": receipt }),
-                        ),
-                    )
-                };
-                let Some(candidate) = candidate else {
-                    return refuse(
-                        &format!("{kind}_candidate_unknown"),
-                        "no such CloudResourceCandidate — refresh candidates and retry".into(),
-                    );
-                };
-                if text(&candidate, "provider_account_ref") != account_ref {
-                    return refuse(
-                        &format!("{kind}_candidate_account_mismatch"),
-                        "the candidate belongs to a different provider account".into(),
-                    );
-                }
-                let now = std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .map(|d| d.as_secs())
-                    .unwrap_or(0);
-                let expired = candidate
-                    .get("expires_epoch")
-                    .and_then(Value::as_u64)
-                    .map(|e| now > e)
-                    .unwrap_or(true);
-                if expired || candidate.get("status").and_then(Value::as_str) == Some("superseded")
-                {
-                    return refuse(&format!("{kind}_quote_expired_requires_requote"), "expired or superseded quotes can never mutate — refresh candidates for a fresh quote".into());
-                }
-                let evidence_mode = text(&candidate, "evidence_mode").to_string();
-                let account_mode = vast_mode(&account);
-                if evidence_mode == "fixture_evidence" {
-                    return refuse(
-                        &format!("{kind}_quote_not_live"),
-                        "fixture quotes are advisory forever and can never provision".into(),
-                    );
-                }
-                let mode_ok = (account_mode == "live" && evidence_mode == "live_evidence")
-                    || (account_mode == "simulator" && evidence_mode == "simulator_evidence");
-                if !mode_ok {
-                    return refuse(&format!("{kind}_quote_mode_mismatch"), format!("account control plane is '{account_mode}' but the quote evidence is '{evidence_mode}' — live provisioning demands live quotes; the simulator demands simulator quotes"));
-                }
-                let k8s_unmetered = kind == "k8s"
-                    && account
-                        .pointer("/endpoint/metered")
-                        .map(Value::is_null)
-                        .unwrap_or(true);
-                let (price_v, max_hourly_v): (Value, Value) = if k8s_unmetered {
-                    // Customer/operator cluster: NO price exists and none is invented — the
-                    // exposure plane opens nothing without a sourced price.
-                    (Value::Null, Value::Null)
-                } else {
-                    let Some(price) = candidate
-                        .pointer("/quote/usd_per_hour")
-                        .and_then(Value::as_f64)
-                    else {
-                        let code = if kind == "k8s" {
-                            "k8s_metered_posture_unpriced".to_string()
-                        } else {
-                            format!("{kind}_quote_unpriced")
-                        };
-                        return refuse(&code, "a candidate without a real sourced price can never provision on a metered posture".into());
+                if kind == "akash" {
+                    // ── STAGE A — akash pre-bid intent gate. Akash prices via POST-create bids,
+                    //    so `create` is NOT pre-bid-quote-gated; it is bounded by the explicit
+                    //    deposit and the SDL's single-group max bid, reserved whole against budget,
+                    //    pinned to the wallet-approved provider. The real post-bid quote gate is
+                    //    Stage B, inside provision, before the lease. The deposit + sdl_hash + pin
+                    //    are bound into the wallet facets (below) and the C2 intent, so the approval
+                    //    authorizes exactly this bounded continuation.
+                    let refuse_a = |code: &str, detail: String| {
+                        let receipt = provider_receipt_ext(
+                            data_dir,
+                            &kind,
+                            &env_ref,
+                            op,
+                            "stage_a_refused",
+                            &json!({ "account_ref": account_ref, "error": code }),
+                        );
+                        (
+                            StatusCode::UNPROCESSABLE_ENTITY,
+                            Json(json!({ "ok": false, "op": op, "provider": provider_id,
+                                "reason": format!("{code} — {detail}"), "receipt_ref": receipt })),
+                        )
                     };
-                    let max_hourly = body
-                        .get("max_hourly_usd")
-                        .and_then(Value::as_f64)
-                        .unwrap_or(price);
-                    if price > max_hourly {
-                        return refuse(
-                            &format!("{kind}_price_above_max"),
-                            format!(
-                                "offer price ${price}/hr exceeds the declared max ${max_hourly}/hr"
-                            ),
+                    // 1) explicit deposit, bounded — no live default. The exact value is bound into
+                    //    the wallet facets, so the approval covers THIS deposit only.
+                    let Some(deposit) = body.pointer("/plan/deposit_usd").and_then(Value::as_f64)
+                    else {
+                        return refuse_a(
+                            "akash_deposit_required",
+                            "provide plan.deposit_usd explicitly — there is no live default".into(),
+                        );
+                    };
+                    if !(deposit > 0.0 && deposit <= AKASH_MAX_DEPLOY_DEPOSIT_USD) {
+                        return refuse_a(
+                            "akash_deposit_out_of_bounds",
+                            format!("deposit ${deposit} must be > 0 and ≤ ${AKASH_MAX_DEPLOY_DEPOSIT_USD}"),
                         );
                     }
-                    // Reservation adequacy: headroom after OPEN exposures must cover this create's
-                    // first-hour reservation at the declared max rate. Checked here (not at budget
-                    // discovery) because the price is only known once the quote is validated.
+                    // 2) single-group SDL, priced in uact — the max-bid ceiling (exact decimal).
+                    let sdl_yaml = body
+                        .pointer("/plan/sdl_yaml")
+                        .and_then(Value::as_str)
+                        .unwrap_or("");
+                    let (ceiling_denom, ceiling_amount) =
+                        match ioi_drivers::provisioning::akash_console::parse_c7_sdl_ceiling(
+                            sdl_yaml,
+                        ) {
+                            Ok(c) => c,
+                            Err(e) => return refuse_a("akash_sdl_rejected", e),
+                        };
+                    let sdl_hash = sha256_bytes(sdl_yaml.as_bytes());
+                    // 3) provider_selector REQUIRED — the wallet approves the ADMISSIBLE provider
+                    //    SET (an exact address, or any_marketplace with deterministic selection),
+                    //    not necessarily one address. Stage B selects + records the ACTUAL provider
+                    //    from real bids and proves it satisfied the selector. No provider_address.
+                    let selector = match validate_provider_selector(
+                        body.pointer("/plan/provider_selector")
+                            .unwrap_or(&Value::Null),
+                    ) {
+                        Ok(s) => s,
+                        Err(e) => return refuse_a("akash_provider_selector_invalid", e),
+                    };
+                    // 4) auto-top-up must not be requested (Stage B re-verifies against the DSEQ).
+                    if body.pointer("/plan/auto_topup").and_then(Value::as_bool) == Some(true) {
+                        return refuse_a(
+                            "akash_auto_topup_forbidden",
+                            "auto-top-up must be disabled — the deposit is the hard bound".into(),
+                        );
+                    }
+                    // 5) reserve the WHOLE deposit against external_spend headroom.
                     let headroom = budget_note
                         .get("remaining_headroom_after_reservations")
                         .and_then(Value::as_f64)
                         .unwrap_or(0.0);
-                    if headroom - max_hourly < 0.0 {
-                        return refuse(&format!("{kind}_budget_reservation_exceeded"), format!("open exposures already reserve the external_spend headroom (remaining ${headroom:.3} < first-hour reservation ${max_hourly:.3}/hr) — tear an instance down or raise the budget"));
+                    if headroom - deposit < 0.0 {
+                        return refuse_a(
+                            "akash_budget_reservation_exceeded",
+                            format!("remaining headroom ${headroom:.3} < deposit ${deposit:.3}"),
+                        );
                     }
-                    (json!(price), json!(max_hourly))
-                };
-                // k8s: the wallet challenge binds the WORKLOAD SPEC + namespace + PVC/service
-                // posture — a canonical spec is built from the request and its hash rides the
-                // facets (admission is namespace-scoped; nothing generic).
-                let k8s_workload: Value = if kind == "k8s" {
-                    let namespace = body
-                        .get("namespace")
-                        .and_then(Value::as_str)
-                        .or_else(|| {
-                            account
-                                .pointer("/endpoint/namespace")
-                                .and_then(Value::as_str)
-                        })
-                        .unwrap_or("default")
-                        .to_string();
-                    let spec = json!({
-                        "image": body.get("image").cloned().unwrap_or(json!("ubuntu:24.04")),
-                        "resources": body.get("resources").cloned().unwrap_or(json!({ "cpu_milli": 500, "memory_gb": 1, "gpu": 0 })),
-                        "pvc": body.get("pvc").cloned().unwrap_or(Value::Null),
-                        "service": body.get("service").cloned().unwrap_or(Value::Null),
-                        "kubevirt": body.get("kubevirt").cloned().unwrap_or(json!(false)),
+                    vast_gate = json!({
+                        "stage": "deployment_intent",
+                        "provider_selector": selector,
+                        "sdl": sdl_yaml,
+                        "sdl_hash": sdl_hash,
+                        "deposit_usd": deposit,
+                        "ceiling_denom": ceiling_denom,
+                        "ceiling_amount": ceiling_amount.to_string(),
+                        "auto_topup": false,
+                        "execution_mode": "live",
+                        "teardown_policy": body.pointer("/plan/teardown_policy").and_then(Value::as_str).unwrap_or("always_teardown_required"),
                     });
-                    let spec_hash = sha256_bytes(spec.to_string().as_bytes());
-                    json!({ "namespace": namespace, "workload_spec": spec, "workload_spec_hash": spec_hash,
-                            "exec_posture": "kubernetes_exec" })
                 } else {
-                    Value::Null
-                };
-                // akash: the wallet challenge binds the DEPLOYMENT SPEC — a canonical SDL is
-                // built from the validated bid candidate; its hash rides the facets.
-                let akash_sdl: Value = if kind == "akash" {
-                    let sdl = akash_build_sdl(&candidate, &body);
-                    let sdl_hash = sha256_bytes(sdl.to_string().as_bytes());
-                    json!({ "sdl": sdl, "sdl_hash": sdl_hash })
-                } else {
-                    Value::Null
-                };
-                // aws|gcp: the wallet challenge binds the ENTERPRISE NETWORK POSTURE — explicit
-                // VPC/subnet(/security-group|firewall) config or the labelled default simulator
-                // posture, with reachability flags (public/external IP + SSH ingress).
-                let aws_network: Value = if matches!(kind.as_str(), "aws" | "gcp" | "azure") {
-                    let configured = body
-                        .get("network")
-                        .cloned()
-                        .or_else(|| account.pointer("/endpoint/network").cloned())
-                        .filter(|n| !n.is_null());
-                    let (explicit_label, default_label) = if kind == "gcp" {
-                        ("explicit_network_config", "default_network_simulator")
-                    } else if kind == "azure" {
-                        ("explicit_vnet_config", "default_vnet_simulator")
-                    } else {
-                        ("explicit_vpc_config", "default_vpc_simulator")
-                    };
-                    match configured {
-                        Some(n) => {
-                            let explicit = n.get("vpc_id").is_some()
-                                || n.get("subnet_id").is_some()
-                                || n.get("security_group_id").is_some()
-                                || n.get("network").is_some()
-                                || n.get("subnetwork").is_some()
-                                || n.get("firewall").is_some()
-                                || n.get("vnet").is_some()
-                                || n.get("subnet").is_some()
-                                || n.get("nsg").is_some();
-                            let mut posture = n.clone();
-                            if let Some(o) = posture.as_object_mut() {
-                                o.entry("public_ip").or_insert(json!(true));
-                                o.entry("ssh_ingress").or_insert(json!(true));
-                                o.insert(
-                                    "posture_label".into(),
-                                    json!(if explicit {
-                                        explicit_label
-                                    } else {
-                                        default_label
-                                    }),
-                                );
-                            }
-                            posture
-                        }
-                        None => {
-                            json!({ "posture_label": default_label, "public_ip": true, "ssh_ingress": true })
-                        }
+                    let candidate_ref = body
+                        .get("candidate_ref")
+                        .and_then(Value::as_str)
+                        .unwrap_or("");
+                    if candidate_ref.is_empty() {
+                        let code = format!("{kind}_candidate_ref_required");
+                        let receipt = provider_receipt_ext(
+                            data_dir,
+                            &kind,
+                            &env_ref,
+                            op,
+                            "quote_gate_refused",
+                            &json!({ "account_ref": account_ref, "error": code }),
+                        );
+                        return (
+                            StatusCode::UNPROCESSABLE_ENTITY,
+                            Json(
+                                json!({ "ok": false, "op": op, "provider": provider_id, "reason": format!("{code} — provisioning is quote-gated; pass the candidate_ref of a fresh, live, priced CloudResourceCandidate"), "receipt_ref": receipt }),
+                            ),
+                        );
                     }
-                } else {
-                    Value::Null
-                };
-                vast_gate = json!({
-                    "candidate_ref": candidate_ref,
-                    "quote_ref": candidate["quote_ref"],
-                    "namespace": k8s_workload.get("namespace").cloned().unwrap_or(Value::Null),
-                    "workload_spec": k8s_workload.get("workload_spec").cloned().unwrap_or(Value::Null),
-                    "workload_spec_hash": k8s_workload.get("workload_spec_hash").cloned().unwrap_or(Value::Null),
-                    "exec_posture": k8s_workload.get("exec_posture").cloned().unwrap_or(Value::Null),
-                    "az": candidate.get("az").cloned().unwrap_or(Value::Null),
-                    "project": candidate.get("project").cloned().unwrap_or(Value::Null),
-                    "zone": candidate.get("zone").cloned().unwrap_or(Value::Null),
-                    "machine_type": candidate.get("machine_type").cloned().unwrap_or(Value::Null),
-                    "subscription_id": candidate.get("subscription_id").cloned().unwrap_or(Value::Null),
-                    "resource_group": body.get("resource_group").cloned()
-                        .or_else(|| candidate.get("resource_group").cloned())
-                        .unwrap_or(Value::Null),
-                    "location": candidate.get("location").cloned().unwrap_or(Value::Null),
-                    "vm_size": candidate.get("vm_size").cloned().unwrap_or(Value::Null),
-                    "network_posture": aws_network,
-                    "deployment_class": candidate.get("deployment_class").cloned().unwrap_or(Value::Null),
-                    "provider_address": candidate.get("provider_address").cloned().unwrap_or(Value::Null),
-                    "bid_ref": candidate.get("bid_ref").cloned().unwrap_or(Value::Null),
-                    "persistent_storage": candidate.pointer("/storage/persistent_storage").cloned().unwrap_or(Value::Null),
-                    "resources": candidate.get("resources").cloned().unwrap_or(Value::Null),
-                    "native_rate": candidate.pointer("/quote/native_rate").cloned().unwrap_or(Value::Null),
-                    "sdl": akash_sdl.get("sdl").cloned().unwrap_or(Value::Null),
-                    "sdl_hash": akash_sdl.get("sdl_hash").cloned().unwrap_or(Value::Null),
-                    "restore_material_ref": body.get("restore_material_ref").cloned().unwrap_or(Value::Null),
-                    "archive_ref": body.get("archive_ref").cloned().unwrap_or(Value::Null),
-                    "offer_id": candidate.pointer("/quote/offer_id").cloned().unwrap_or(Value::Null),
-                    "usd_per_hour": price_v,
-                    "max_hourly_usd": max_hourly_v,
-                    "gpu": candidate.get("gpu").cloned().unwrap_or(Value::Null),
-                    "region": body.get("region").cloned()
-                        .or_else(|| candidate.get("region").cloned())
-                        .or_else(|| candidate.get("regions").and_then(Value::as_array).and_then(|r| r.first().cloned()))
-                        .unwrap_or(Value::Null),
-                    "instance_type": candidate.get("instance_type").cloned().unwrap_or(Value::Null),
-                    "disk_gb": candidate.pointer("/storage/disk_gb").cloned().unwrap_or(Value::Null),
-                    "spend_estimate": candidate.get("spend_estimate").cloned().unwrap_or(Value::Null),
-                    "execution_mode": if account_mode == "live" { "live" } else { "simulated_control_plane" },
-                    "teardown_policy": body.get("teardown_policy").and_then(Value::as_str).unwrap_or("always_teardown_required"),
-                });
+                    let candidate = read_record_dir(data_dir, "cloud-resource-candidates")
+                        .into_iter()
+                        .find(|c| text(c, "candidate_ref") == candidate_ref);
+                    let refuse = |code: &str, detail: String| {
+                        let receipt = provider_receipt_ext(
+                            data_dir,
+                            &kind,
+                            &env_ref,
+                            op,
+                            "quote_gate_refused",
+                            &json!({ "account_ref": account_ref, "candidate_ref": candidate_ref, "error": code }),
+                        );
+                        (
+                            StatusCode::CONFLICT,
+                            Json(
+                                json!({ "ok": false, "op": op, "provider": provider_id, "reason": format!("{code} — {detail}"), "receipt_ref": receipt }),
+                            ),
+                        )
+                    };
+                    let Some(candidate) = candidate else {
+                        return refuse(
+                            &format!("{kind}_candidate_unknown"),
+                            "no such CloudResourceCandidate — refresh candidates and retry".into(),
+                        );
+                    };
+                    if text(&candidate, "provider_account_ref") != account_ref {
+                        return refuse(
+                            &format!("{kind}_candidate_account_mismatch"),
+                            "the candidate belongs to a different provider account".into(),
+                        );
+                    }
+                    let now = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .map(|d| d.as_secs())
+                        .unwrap_or(0);
+                    let expired = candidate
+                        .get("expires_epoch")
+                        .and_then(Value::as_u64)
+                        .map(|e| now > e)
+                        .unwrap_or(true);
+                    if expired
+                        || candidate.get("status").and_then(Value::as_str) == Some("superseded")
+                    {
+                        return refuse(&format!("{kind}_quote_expired_requires_requote"), "expired or superseded quotes can never mutate — refresh candidates for a fresh quote".into());
+                    }
+                    let evidence_mode = text(&candidate, "evidence_mode").to_string();
+                    let account_mode = vast_mode(&account);
+                    if evidence_mode == "fixture_evidence" {
+                        return refuse(
+                            &format!("{kind}_quote_not_live"),
+                            "fixture quotes are advisory forever and can never provision".into(),
+                        );
+                    }
+                    let mode_ok = (account_mode == "live" && evidence_mode == "live_evidence")
+                        || (account_mode == "simulator" && evidence_mode == "simulator_evidence");
+                    if !mode_ok {
+                        return refuse(&format!("{kind}_quote_mode_mismatch"), format!("account control plane is '{account_mode}' but the quote evidence is '{evidence_mode}' — live provisioning demands live quotes; the simulator demands simulator quotes"));
+                    }
+                    let k8s_unmetered = kind == "k8s"
+                        && account
+                            .pointer("/endpoint/metered")
+                            .map(Value::is_null)
+                            .unwrap_or(true);
+                    let (price_v, max_hourly_v): (Value, Value) = if k8s_unmetered {
+                        // Customer/operator cluster: NO price exists and none is invented — the
+                        // exposure plane opens nothing without a sourced price.
+                        (Value::Null, Value::Null)
+                    } else {
+                        let Some(price) = candidate
+                            .pointer("/quote/usd_per_hour")
+                            .and_then(Value::as_f64)
+                        else {
+                            let code = if kind == "k8s" {
+                                "k8s_metered_posture_unpriced".to_string()
+                            } else {
+                                format!("{kind}_quote_unpriced")
+                            };
+                            return refuse(&code, "a candidate without a real sourced price can never provision on a metered posture".into());
+                        };
+                        let max_hourly = body
+                            .get("max_hourly_usd")
+                            .and_then(Value::as_f64)
+                            .unwrap_or(price);
+                        if price > max_hourly {
+                            return refuse(
+                                &format!("{kind}_price_above_max"),
+                                format!(
+                                "offer price ${price}/hr exceeds the declared max ${max_hourly}/hr"
+                            ),
+                            );
+                        }
+                        // Reservation adequacy: headroom after OPEN exposures must cover this create's
+                        // first-hour reservation at the declared max rate. Checked here (not at budget
+                        // discovery) because the price is only known once the quote is validated.
+                        let headroom = budget_note
+                            .get("remaining_headroom_after_reservations")
+                            .and_then(Value::as_f64)
+                            .unwrap_or(0.0);
+                        if headroom - max_hourly < 0.0 {
+                            return refuse(&format!("{kind}_budget_reservation_exceeded"), format!("open exposures already reserve the external_spend headroom (remaining ${headroom:.3} < first-hour reservation ${max_hourly:.3}/hr) — tear an instance down or raise the budget"));
+                        }
+                        (json!(price), json!(max_hourly))
+                    };
+                    // k8s: the wallet challenge binds the WORKLOAD SPEC + namespace + PVC/service
+                    // posture — a canonical spec is built from the request and its hash rides the
+                    // facets (admission is namespace-scoped; nothing generic).
+                    let k8s_workload: Value = if kind == "k8s" {
+                        let namespace = body
+                            .get("namespace")
+                            .and_then(Value::as_str)
+                            .or_else(|| {
+                                account
+                                    .pointer("/endpoint/namespace")
+                                    .and_then(Value::as_str)
+                            })
+                            .unwrap_or("default")
+                            .to_string();
+                        let spec = json!({
+                            "image": body.get("image").cloned().unwrap_or(json!("ubuntu:24.04")),
+                            "resources": body.get("resources").cloned().unwrap_or(json!({ "cpu_milli": 500, "memory_gb": 1, "gpu": 0 })),
+                            "pvc": body.get("pvc").cloned().unwrap_or(Value::Null),
+                            "service": body.get("service").cloned().unwrap_or(Value::Null),
+                            "kubevirt": body.get("kubevirt").cloned().unwrap_or(json!(false)),
+                        });
+                        let spec_hash = sha256_bytes(spec.to_string().as_bytes());
+                        json!({ "namespace": namespace, "workload_spec": spec, "workload_spec_hash": spec_hash,
+                            "exec_posture": "kubernetes_exec" })
+                    } else {
+                        Value::Null
+                    };
+                    // akash: the wallet challenge binds the DEPLOYMENT SPEC — a canonical SDL is
+                    // built from the validated bid candidate; its hash rides the facets.
+                    let akash_sdl: Value = if kind == "akash" {
+                        let sdl = akash_build_sdl(&candidate, &body);
+                        let sdl_hash = sha256_bytes(sdl.to_string().as_bytes());
+                        json!({ "sdl": sdl, "sdl_hash": sdl_hash })
+                    } else {
+                        Value::Null
+                    };
+                    // aws|gcp: the wallet challenge binds the ENTERPRISE NETWORK POSTURE — explicit
+                    // VPC/subnet(/security-group|firewall) config or the labelled default simulator
+                    // posture, with reachability flags (public/external IP + SSH ingress).
+                    let aws_network: Value = if matches!(kind.as_str(), "aws" | "gcp" | "azure") {
+                        let configured = body
+                            .get("network")
+                            .cloned()
+                            .or_else(|| account.pointer("/endpoint/network").cloned())
+                            .filter(|n| !n.is_null());
+                        let (explicit_label, default_label) = if kind == "gcp" {
+                            ("explicit_network_config", "default_network_simulator")
+                        } else if kind == "azure" {
+                            ("explicit_vnet_config", "default_vnet_simulator")
+                        } else {
+                            ("explicit_vpc_config", "default_vpc_simulator")
+                        };
+                        match configured {
+                            Some(n) => {
+                                let explicit = n.get("vpc_id").is_some()
+                                    || n.get("subnet_id").is_some()
+                                    || n.get("security_group_id").is_some()
+                                    || n.get("network").is_some()
+                                    || n.get("subnetwork").is_some()
+                                    || n.get("firewall").is_some()
+                                    || n.get("vnet").is_some()
+                                    || n.get("subnet").is_some()
+                                    || n.get("nsg").is_some();
+                                let mut posture = n.clone();
+                                if let Some(o) = posture.as_object_mut() {
+                                    o.entry("public_ip").or_insert(json!(true));
+                                    o.entry("ssh_ingress").or_insert(json!(true));
+                                    o.insert(
+                                        "posture_label".into(),
+                                        json!(if explicit {
+                                            explicit_label
+                                        } else {
+                                            default_label
+                                        }),
+                                    );
+                                }
+                                posture
+                            }
+                            None => {
+                                json!({ "posture_label": default_label, "public_ip": true, "ssh_ingress": true })
+                            }
+                        }
+                    } else {
+                        Value::Null
+                    };
+                    vast_gate = json!({
+                        "candidate_ref": candidate_ref,
+                        "quote_ref": candidate["quote_ref"],
+                        "namespace": k8s_workload.get("namespace").cloned().unwrap_or(Value::Null),
+                        "workload_spec": k8s_workload.get("workload_spec").cloned().unwrap_or(Value::Null),
+                        "workload_spec_hash": k8s_workload.get("workload_spec_hash").cloned().unwrap_or(Value::Null),
+                        "exec_posture": k8s_workload.get("exec_posture").cloned().unwrap_or(Value::Null),
+                        "az": candidate.get("az").cloned().unwrap_or(Value::Null),
+                        "project": candidate.get("project").cloned().unwrap_or(Value::Null),
+                        "zone": candidate.get("zone").cloned().unwrap_or(Value::Null),
+                        "machine_type": candidate.get("machine_type").cloned().unwrap_or(Value::Null),
+                        "subscription_id": candidate.get("subscription_id").cloned().unwrap_or(Value::Null),
+                        "resource_group": body.get("resource_group").cloned()
+                            .or_else(|| candidate.get("resource_group").cloned())
+                            .unwrap_or(Value::Null),
+                        "location": candidate.get("location").cloned().unwrap_or(Value::Null),
+                        "vm_size": candidate.get("vm_size").cloned().unwrap_or(Value::Null),
+                        "network_posture": aws_network,
+                        "deployment_class": candidate.get("deployment_class").cloned().unwrap_or(Value::Null),
+                        "provider_address": candidate.get("provider_address").cloned().unwrap_or(Value::Null),
+                        "bid_ref": candidate.get("bid_ref").cloned().unwrap_or(Value::Null),
+                        "persistent_storage": candidate.pointer("/storage/persistent_storage").cloned().unwrap_or(Value::Null),
+                        "resources": candidate.get("resources").cloned().unwrap_or(Value::Null),
+                        "native_rate": candidate.pointer("/quote/native_rate").cloned().unwrap_or(Value::Null),
+                        "sdl": akash_sdl.get("sdl").cloned().unwrap_or(Value::Null),
+                        "sdl_hash": akash_sdl.get("sdl_hash").cloned().unwrap_or(Value::Null),
+                        "restore_material_ref": body.get("restore_material_ref").cloned().unwrap_or(Value::Null),
+                        "archive_ref": body.get("archive_ref").cloned().unwrap_or(Value::Null),
+                        "offer_id": candidate.pointer("/quote/offer_id").cloned().unwrap_or(Value::Null),
+                        "usd_per_hour": price_v,
+                        "max_hourly_usd": max_hourly_v,
+                        "gpu": candidate.get("gpu").cloned().unwrap_or(Value::Null),
+                        "region": body.get("region").cloned()
+                            .or_else(|| candidate.get("region").cloned())
+                            .or_else(|| candidate.get("regions").and_then(Value::as_array).and_then(|r| r.first().cloned()))
+                            .unwrap_or(Value::Null),
+                        "instance_type": candidate.get("instance_type").cloned().unwrap_or(Value::Null),
+                        "disk_gb": candidate.pointer("/storage/disk_gb").cloned().unwrap_or(Value::Null),
+                        "spend_estimate": candidate.get("spend_estimate").cloned().unwrap_or(Value::Null),
+                        "execution_mode": if account_mode == "live" { "live" } else { "simulated_control_plane" },
+                        "teardown_policy": body.get("teardown_policy").and_then(Value::as_str).unwrap_or("always_teardown_required"),
+                    });
+                }
             }
             // 2) A REAL wallet grant via the capability-lease gateway — 403 challenge echoes the
             //    exact policy/request hashes to mint against; the lease descriptor carries no secret.
@@ -6747,9 +7053,18 @@ pub(crate) async fn handle_provider_op(
                             "network_posture",
                             "deployment_class",
                             "provider_address",
+                            "provider_selector",
                             "bid_ref",
                             "persistent_storage",
                             "sdl_hash",
+                            // akash Stage A: the exact deposit + single-group ceiling + auto-top-up
+                            // posture are hashed into the wallet challenge, so the approval
+                            // authorizes THIS bounded continuation (Stage B validates the real bid
+                            // under it, never a second grant).
+                            "deposit_usd",
+                            "ceiling_denom",
+                            "ceiling_amount",
+                            "auto_topup",
                             "restore_material_ref",
                             "archive_ref",
                             "teardown_policy",
@@ -7005,7 +7320,7 @@ pub(crate) async fn handle_provider_op(
                 // ── Spend exposure accounting (customer-borne; estimates only, never a bill) ──
                 if matches!(op, "create" | "redeploy")
                     && !vast_gate.is_null()
-                    && !vast_gate["usd_per_hour"].is_null()
+                    && (!vast_gate["usd_per_hour"].is_null() || kind == "akash")
                 {
                     let exp_id = format!("pse_{:x}", nanos());
                     let exposure = json!({
@@ -7016,6 +7331,13 @@ pub(crate) async fn handle_provider_op(
                         "candidate_ref": vast_gate["candidate_ref"], "quote_ref": vast_gate["quote_ref"],
                         "grant_ref": grant_ref, "capability_lease_ref": lease_note.get("lease_id").cloned().unwrap_or(Value::Null),
                         "usd_per_hour": vast_gate["usd_per_hour"], "max_hourly_usd": vast_gate["max_hourly_usd"],
+                        // akash two-stage: the exposure is keyed on the RESERVED deposit (the hard
+                        // bound) + the accepted bid's exact burn rate (uact/block). akash has no
+                        // pre-bid usd/hour, so those stay null and these carry the real numbers.
+                        "deposit_usd": vast_gate.get("deposit_usd").cloned().unwrap_or(Value::Null),
+                        "burn_rate": evidence.get("burn_rate").cloned().unwrap_or(Value::Null),
+                        "ceiling": { "denom": vast_gate.get("ceiling_denom").cloned().unwrap_or(Value::Null),
+                                     "amount": vast_gate.get("ceiling_amount").cloned().unwrap_or(Value::Null) },
                         "execution_mode": vast_gate["execution_mode"],
                         "budget_ref": budget_note.get("budget_ref").cloned().unwrap_or(Value::Null),
                         "provider_native": {
@@ -7600,6 +7922,78 @@ mod containment_tests {
             !serialized.contains("manifest-echo"),
             "the raw provider evidence was stored verbatim instead of hashed"
         );
+    }
+
+    // ---- MEC akash two-stage: restart recovery of a stranded funded deposit ----
+    #[test]
+    fn restart_recovery_marks_only_stranded_deployment_created_records() {
+        let dir = tempfile::tempdir().unwrap();
+        let data_dir = dir.path().to_str().unwrap();
+        // A stranded Stage-A record (deposit funded, no terminal outcome) + a completed one.
+        persist_record(
+            data_dir,
+            AKASH_DEPLOYMENT_KIND,
+            "akdep_intent_100",
+            &json!({ "state": "deployment_created", "dseq": "100", "account_id": "a", "environment_ref": "e" }),
+        )
+        .unwrap();
+        persist_record(
+            data_dir,
+            AKASH_DEPLOYMENT_KIND,
+            "akdep_intent_200",
+            &json!({ "state": "lease_accepted", "dseq": "200", "account_id": "a", "environment_ref": "e" }),
+        )
+        .unwrap();
+        let stranded = reconcile_stranded_akash_deployments(data_dir);
+        assert_eq!(
+            stranded,
+            vec!["100".to_string()],
+            "only the funded-but-unfinished deposit is stranded"
+        );
+        let recs = read_record_dir(data_dir, AKASH_DEPLOYMENT_KIND);
+        let r100 = recs.iter().find(|r| text(r, "dseq") == "100").unwrap();
+        assert_eq!(text(r100, "state"), "reconciliation_required");
+        let r200 = recs.iter().find(|r| text(r, "dseq") == "200").unwrap();
+        assert_eq!(
+            text(r200, "state"),
+            "lease_accepted",
+            "a completed deploy is untouched"
+        );
+        // Idempotent: a second pass finds nothing new (the record is no longer deployment_created).
+        assert!(reconcile_stranded_akash_deployments(data_dir).is_empty());
+    }
+
+    #[test]
+    fn provider_selector_is_a_clean_typed_break_no_provider_address_alias() {
+        // exact: canonicalizes to {mode, address}.
+        let ex = validate_provider_selector(&json!({ "mode": "exact", "address": "akash1abc" }))
+            .expect("exact with an address is valid");
+        assert_eq!(ex, json!({ "mode": "exact", "address": "akash1abc" }));
+        // any_marketplace: requires the deterministic selection.
+        let mkt = validate_provider_selector(
+            &json!({ "mode": "any_marketplace", "selection": "lowest_qualified_bid" }),
+        )
+        .expect("any_marketplace with lowest_qualified_bid is valid");
+        assert_eq!(mkt["mode"], "any_marketplace");
+        // Refusals (the mutation drills):
+        assert!(validate_provider_selector(&Value::Null).is_err()); // missing selector
+        assert!(validate_provider_selector(&json!({ "mode": "wildcard" })).is_err()); // unknown mode
+        assert!(validate_provider_selector(&json!({ "mode": "exact" })).is_err()); // exact, no address
+        assert!(validate_provider_selector(&json!({ "mode": "exact", "address": "" })).is_err()); // empty address
+        assert!(
+            validate_provider_selector(&json!({ "mode": "exact", "address": "a", "x": 1 }))
+                .is_err()
+        ); // unknown field
+        assert!(validate_provider_selector(
+            &json!({ "mode": "any_marketplace", "selection": "cheapest" })
+        )
+        .is_err()); // non-deterministic selection
+        assert!(
+            validate_provider_selector(&json!({ "mode": "any_marketplace", "address": "a" }))
+                .is_err()
+        ); // wrong field for mode
+           // The clean break: a bare provider_address is NOT a selector (no mode) → refused.
+        assert!(validate_provider_selector(&json!({ "provider_address": "akash1abc" })).is_err());
     }
 
     // ---- CARVE-OUT: provider deletion stays callable and reports exactly ----
