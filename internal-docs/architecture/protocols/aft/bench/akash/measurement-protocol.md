@@ -22,6 +22,6 @@ The two-campaign comparison applies the same thresholds to each campaign median.
 
 ## Honesty class
 
-Provider address pinning proves stable provider identity, not physical bare-metal allocation. A result is `Class C — measured on attested pinned bare metal` only when provider evidence independently establishes the reserved host and its hardware identity. Without that evidence, publish the more limited measured-container class and keep RES-P4.3 open or variance-caveated as the Common-Boundary ledger requires.
+Provider address pinning proves stable provider identity, not physical bare-metal allocation. A result is `Class C — measured on attested pinned bare metal` only when evidence satisfying [provider-placement-attestation-request.md](provider-placement-attestation-request.md) independently establishes the reserved host and its hardware identity. Without that evidence, publish the more limited measured-container class and keep RES-P4.3 open or variance-caveated as the Common-Boundary ledger requires.
 
 Zero ready replicas, missing result artifacts, an unverified manifest, a mutable image tag, a provider mismatch, or unreconciled exposure invalidates the campaign. Endpoint discovery alone is not workload readiness.

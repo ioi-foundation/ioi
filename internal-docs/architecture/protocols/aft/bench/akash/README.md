@@ -64,6 +64,6 @@ The initial review envelope in `u1-campaign.example.json` is a $1 deposit and a 
 
 ## Result claim
 
-Same-provider pinning does not prove bare metal. Record the provider qualification evidence separately. Use `Class C — measured on attested pinned bare metal` only if the runner/host allocation is independently attested. Otherwise publish a measured-container or variance-caveated result and leave the bare-metal residual explicit.
+Same-provider pinning does not prove bare metal. Record the provider qualification evidence separately and use [provider-placement-attestation-request.md](provider-placement-attestation-request.md) for the tenant-specific placement statement. Use `Class C — measured on attested pinned bare metal` only if the runner/host allocation is independently attested and verified. Otherwise publish a measured-container or variance-caveated result and leave the bare-metal residual explicit.
 
 After results are retrieved, always delete, confirm closure, reconcile the deposit and final debit/refund, and verify zero open or unknown exposure before assembling the U1 certificate and updating `specs/p4_measured_costs.md`.
