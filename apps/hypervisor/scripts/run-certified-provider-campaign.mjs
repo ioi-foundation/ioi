@@ -114,6 +114,7 @@ async function capture(session) {
   ]) {
     const value = await fetch(`${daemonUrl}${endpoint}`, { headers: headers(session) }).then((response) => response.json());
     save(`${name}.json`, value);
+    save(`c7-${name}.json`, value);
   }
 }
 
@@ -174,6 +175,14 @@ try {
   session = loginBody.session_token || "";
   if (!session.startsWith("ioi_sess_")) throw new Error(`operator login refused: HTTP ${login.status}`);
   save("operator.json", { principal_ref: loginBody.principal_ref || null, email_hash: sha256(operatorEmail) });
+  const whoamiResponse = await fetch(`${daemonUrl}/v1/hypervisor/auth/whoami`, {
+    headers: headers(session),
+  });
+  const whoami = await whoamiResponse.json();
+  if (!whoamiResponse.ok || whoami.authenticated !== true) {
+    throw new Error(`operator whoami refused: HTTP ${whoamiResponse.status}`);
+  }
+  save("c7-whoami.json", whoami);
 
   const dryResponse = await fetch(`${daemonUrl}/v1/hypervisor/provider-ops`, {
     method: "POST",
@@ -182,6 +191,7 @@ try {
   });
   const challenge = await dryResponse.json();
   save("challenge.json", challenge);
+  save("c7-challenge.json", challenge);
   const policyHash = challenge.approval?.policy_hash;
   const requestHash = challenge.approval?.request_hash;
   if (!policyHash || !requestHash || challenge.host_mutation !== false) throw new Error("dry challenge was not a spend-free authority refusal");
@@ -240,6 +250,7 @@ try {
     });
     const proposal = await proposalResponse.json();
     save("proposal.json", proposal);
+    save("c7-proposal-admission.json", proposal);
     if (!proposalResponse.ok || proposal.ok !== true) throw new Error("daemon proposal issuance refused");
     const castResponse = await fetch(`${daemonUrl}/v1/hypervisor/provider-ops`, {
       method: "POST",
@@ -248,6 +259,7 @@ try {
     });
     const cast = await castResponse.json();
     save("cast.json", cast);
+    save("c7-cast.json", cast);
     dseq = String(
       cast.evidence?.dseq
       || cast.evidence?.provider_native?.dseq
@@ -257,6 +269,7 @@ try {
     if (!castResponse.ok || cast.ok !== true || !dseq) throw new Error(`cast refused: ${cast.reason || cast.code || castResponse.status}`);
 
     const started = await postProvider(session, "start");
+    save("c7-start.json", started.value);
     if (started.value.ok !== true || started.value.evidence?.endpoint_discovered !== true) throw new Error("provider endpoint was not discovered");
     let proof;
     for (let attempt = 1; attempt <= Number(config.result_poll_attempts || 1); attempt += 1) {
@@ -264,13 +277,16 @@ try {
       if (proof.value.ok === true && (!request.plan.result_credential_ref || proof.value.evidence?.workload_result?.retrieved_live === true)) break;
       await sleep(Number(config.result_poll_interval_ms || 15_000));
     }
+    if (proof?.value) save("c7-logs.json", proof.value);
     if (proof?.value.ok !== true || proof.value.evidence?.lease_state_proof?.retrieved_live !== true) throw new Error("provider-native proof was not retrieved");
     if (request.plan.result_credential_ref && proof.value.evidence?.workload_result?.retrieved_live !== true) throw new Error("authenticated workload result was not retrieved");
 
     let closed = await postProvider(session, "delete");
+    save("c7-delete.json", closed.value);
     for (let attempt = 1; attempt <= 20 && closed.value.evidence?.settlement?.provider_terminal !== true; attempt += 1) {
       await sleep(6_000);
       closed = await postProvider(session, "reconcile", `reconcile.${attempt}`);
+      save("c7-reconcile.json", closed.value);
     }
     terminal = closed.value.evidence?.settlement?.provider_terminal === true;
     if (!terminal) throw new Error("provider settlement did not reach terminal readback");
