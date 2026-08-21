@@ -56,9 +56,11 @@ RUN cargo test --release --no-run \
 RUN CARGO_TARGET_DIR=/ioi/target/test-node-builds/release-0b7414797d7f2187 \
       cargo build --release -p ioi-node --no-default-features \
         --features validator-bins,consensus-aft,state-iavl,commitment-hash,vm-wasm \
+        --bin orchestration --bin workload --bin guardian \
     && CARGO_TARGET_DIR=/ioi/target/test-node-builds/release-6bdc4f43f691ae57 \
       cargo build --release -p ioi-node --no-default-features \
-        --features validator-bins,consensus-aft,state-jellyfish,commitment-hash,vm-wasm
+        --features validator-bins,consensus-aft,state-jellyfish,commitment-hash,vm-wasm \
+        --bin orchestration --bin workload --bin guardian
 
 COPY internal-docs/architecture/protocols/aft/bench/akash/run-bench.sh /usr/local/bin/run-bench.sh
 COPY internal-docs/architecture/protocols/aft/bench/akash/result-tools.py /usr/local/bin/aft-result-tools.py
@@ -67,7 +69,7 @@ RUN chmod +x /usr/local/bin/run-bench.sh /usr/local/bin/aft-result-tools.py
 # Repetition + warmup knobs (override in the SDL env).
 ENV AFT_BENCH_WARMUPS=1 \
     AFT_BENCH_REPEATS=5 \
-    AFT_BENCH_PROTOCOL_VERSION=res-p4.3.v1 \
+    AFT_BENCH_PROTOCOL_VERSION=res-p4.3.v2 \
     IOI_AFT_BENCH_SCENARIO= \
     IOI_TEST_BUILD_PROFILE=release \
     IOI_AFT_BENCH_REBUILD_NODE=0

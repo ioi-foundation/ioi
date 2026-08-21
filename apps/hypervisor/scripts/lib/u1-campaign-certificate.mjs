@@ -2,8 +2,8 @@ import crypto from "node:crypto";
 import { stableStringify } from "./c7-c8-certificate.mjs";
 
 export const U1_SCENARIO_LANES = {
-  paper_guardian_majority_4v: ["base_final", "canonical_ordering", "durable_collapse"],
-  paper_guardian_majority_7v: ["base_final", "canonical_ordering", "durable_collapse"],
+  paper_guardian_majority_4v: ["base_final"],
+  paper_guardian_majority_7v: ["base_final"],
   paper_asymptote_4v: ["base_final", "canonical_ordering", "durable_collapse", "sealed_final"],
   paper_asymptote_7v: ["base_final", "canonical_ordering", "durable_collapse", "sealed_final"],
 };
@@ -60,7 +60,7 @@ export function validateU1Certificate(certificate) {
   if (![authority?.policy_hash, authority?.request_hash, authority?.review_bundle_sha256].every(hash)) fail("u1_authority_hash_invalid", "authority", "policy, request, and review bundle hashes must be SHA-256 commitments");
   if (!/^[0-9a-f]{40}$/u.test(authority?.source_commit || "") || !hash(authority?.image_digest)) fail("u1_workload_identity_invalid", "authority", "full source commit and OCI digest are required");
   if (lifecycle?.source_commit !== authority?.source_commit) fail("u1_lifecycle_source_mismatch", "lifecycle.source_commit", "measurement source differs from the certified lifecycle source");
-  if (authority?.protocol_version !== "res-p4.3.v1" || authority?.result_schema_version !== "ioi.aft.benchmark-campaign.v1" || authority?.warmups !== 1 || authority?.measured_passes !== 5) fail("u1_protocol_contract_invalid", "authority", "U1 fixes one warmup and five measured passes under RES-P4.3 v1");
+  if (authority?.protocol_version !== "res-p4.3.v2" || authority?.result_schema_version !== "ioi.aft.benchmark-campaign.v1" || authority?.warmups !== 1 || authority?.measured_passes !== 5) fail("u1_protocol_contract_invalid", "authority", "U1 fixes one warmup and five measured passes under RES-P4.3 v2");
   if (authority?.provider_selector?.mode !== "exact" || authority?.provider_selector?.selection !== "only_qualified_bid_from_exact_provider" || authority?.provider_selector?.provider_address !== authority?.provider_address) fail("u1_provider_pin_invalid", "authority.provider_selector", "campaign must be bound to one exact provider");
   if (authority?.auto_topup !== false || authority?.teardown_policy !== "always_teardown_required") fail("u1_spend_posture_invalid", "authority", "auto-topup must be false and teardown mandatory");
 
@@ -79,7 +79,7 @@ export function validateU1Certificate(certificate) {
       || environment?.measured_passes !== authority?.measured_passes) {
     fail("u1_environment_mismatch", "measurement.environment", "environment manifest differs from authorized campaign facets");
   }
-  if (aggregate?.schema_version !== authority?.result_schema_version || aggregate?.campaign_id !== authority?.campaign_id || aggregate?.measured_passes !== 5 || aggregate?.row_count_per_pass !== 14) fail("u1_aggregate_identity_mismatch", "measurement.aggregate", "aggregate schema, campaign, pass count, or row count differs");
+  if (aggregate?.schema_version !== authority?.result_schema_version || aggregate?.campaign_id !== authority?.campaign_id || aggregate?.measured_passes !== 5 || aggregate?.row_count_per_pass !== 10) fail("u1_aggregate_identity_mismatch", "measurement.aggregate", "aggregate schema, campaign, pass count, or row count differs");
   if (!same(aggregate?.threshold_policy, U1_THRESHOLDS)) fail("u1_threshold_policy_changed", "measurement.aggregate.threshold_policy", "thresholds differ from the predeclared protocol");
 
   const expectedKeys = new Set(Object.entries(U1_SCENARIO_LANES).flatMap(([scenario, lanes]) => lanes.map((lane) => `${scenario}/${lane}`)));
@@ -117,7 +117,7 @@ export function validateU1Certificate(certificate) {
     if (row?.within_threshold !== rowWithin) fail("u1_row_verdict_mismatch", `measurement.aggregate.${key}`, "row verdict differs from its metrics");
     allRowsWithin &&= rowWithin;
   }
-  if (observedKeys.size !== 14 || [...expectedKeys].some((key) => !observedKeys.has(key)) || [...observedKeys].some((key) => !expectedKeys.has(key))) fail("u1_matrix_incomplete", "measurement.aggregate.summaries", "the canonical 14-row matrix is incomplete or changed");
+  if (observedKeys.size !== 10 || [...expectedKeys].some((key) => !observedKeys.has(key)) || [...observedKeys].some((key) => !expectedKeys.has(key))) fail("u1_matrix_incomplete", "measurement.aggregate.summaries", "the canonical 10-row matrix is incomplete or changed");
   if (aggregate?.all_rows_within_threshold !== allRowsWithin || aggregate?.verdict !== (allRowsWithin ? "reproduced_within_threshold" : "variance_caveated")) fail("u1_campaign_verdict_mismatch", "measurement.aggregate.verdict", "campaign verdict differs from the complete metric set");
 
   if (manifest?.schema_version !== "ioi.aft.artifact-manifest.v1" || manifest?.campaign_id !== authority?.campaign_id) fail("u1_manifest_identity_mismatch", "measurement.manifest", "artifact manifest identity differs");

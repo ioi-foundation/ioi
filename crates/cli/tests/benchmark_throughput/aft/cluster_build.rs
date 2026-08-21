@@ -60,8 +60,10 @@ impl AftBenchmarkLane {
 
     fn supports(self, safety_mode: AftSafetyMode) -> bool {
         match self {
-            Self::BaseFinal | Self::CanonicalOrdering | Self::DurableCollapse => true,
-            Self::SealedFinal => matches!(safety_mode, AftSafetyMode::Asymptote),
+            Self::BaseFinal => true,
+            Self::SealedFinal | Self::CanonicalOrdering | Self::DurableCollapse => {
+                matches!(safety_mode, AftSafetyMode::Asymptote)
+            }
         }
     }
 
@@ -163,6 +165,12 @@ fn ensure_benchmark_node_built(state_tree: &str) -> Result<()> {
         "--no-default-features",
         "--features",
         &features,
+        "--bin",
+        "orchestration",
+        "--bin",
+        "workload",
+        "--bin",
+        "guardian",
     ]);
     cmd.env("CARGO_TARGET_DIR", &node_target_dir);
     if build_profile.eq_ignore_ascii_case("release") {

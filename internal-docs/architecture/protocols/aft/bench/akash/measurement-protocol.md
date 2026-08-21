@@ -5,7 +5,12 @@ This protocol is fixed before observing the certified-provider measurements. It 
 ## Campaign shape
 
 - Run the canonical four-scenario matrix: `paper_guardian_majority_4v`, `paper_guardian_majority_7v`, `paper_asymptote_4v`, and `paper_asymptote_7v`.
-- Each measured pass must contain exactly 14 unique scenario/lane rows: three lanes for each guardian-majority scenario and four lanes for each asymptote scenario.
+- Each measured pass must contain exactly 10 unique scenario/lane rows: the
+  `base_final` surface for each guardian-majority scenario, plus `base_final`,
+  `canonical_ordering`, `durable_collapse`, and `sealed_final` for each
+  asymptote scenario. Guardian-majority does not publish the asymptote-only
+  canonical-order, collapse, or sealed-final surfaces; scheduling those rows
+  would create a benchmark that can only time out.
 - Each campaign performs one discarded full-matrix warmup followed by five measured full-matrix passes.
 - Run two campaigns through separately admitted, separately authorized provider operations against the same exact provider and the same immutable image digest.
 - Never retry a failed or partial pass inside a paid campaign. Retain the failed evidence, close and reconcile the lease, diagnose offline, and admit a fresh campaign.

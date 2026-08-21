@@ -22,7 +22,7 @@ export function mutationTest(base) {
     ["u1_spend_posture_invalid", (c) => { c.authority.auto_topup = true; }],
     ["u1_environment_mismatch", (c) => { c.measurement.environment.source_commit = "c".repeat(40); }],
     ["u1_status_not_complete", (c) => { c.measurement.status.state = "measuring"; }],
-    ["u1_aggregate_identity_mismatch", (c) => { c.measurement.aggregate.row_count_per_pass = 13; }],
+    ["u1_aggregate_identity_mismatch", (c) => { c.measurement.aggregate.row_count_per_pass = 9; }],
     ["u1_threshold_policy_changed", (c) => { c.measurement.aggregate.threshold_policy.commit_max_ms = 0.5; }],
     ["u1_duplicate_summary_row", (c) => { c.measurement.aggregate.summaries[1] = structuredClone(c.measurement.aggregate.summaries[0]); }],
     ["u1_metric_summary_invalid", (c) => { c.measurement.aggregate.summaries[0].metrics.commit_p99_ms.count = 4; }],

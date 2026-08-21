@@ -109,14 +109,33 @@ fn paper_scenario_filters_are_canonical_and_unknown_values_refuse() {
 }
 
 #[test]
-fn full_paper_matrix_has_exactly_four_scenarios_and_fourteen_rows() {
+fn full_paper_matrix_has_exactly_four_scenarios_and_ten_rows() {
     let scenarios = selected_paper_scenarios(None).expect("full matrix");
     assert_eq!(scenarios.len(), 4);
     let rows = scenarios
         .iter()
         .map(|scenario| benchmark_lanes_for_scenario(*scenario, None).len())
         .sum::<usize>();
-    assert_eq!(rows, 14);
+    assert_eq!(rows, 10);
+}
+
+#[test]
+fn guardian_majority_exposes_only_its_real_base_final_surface() {
+    let scenario = AftBenchmarkScenario::paper_guardian_majority_4v();
+    assert_eq!(
+        benchmark_lanes_for_scenario(scenario, None),
+        vec![AftBenchmarkLane::BaseFinal]
+    );
+    assert!(benchmark_lanes_for_scenario(
+        scenario,
+        Some(AftBenchmarkLane::CanonicalOrdering)
+    )
+    .is_empty());
+    assert!(benchmark_lanes_for_scenario(
+        scenario,
+        Some(AftBenchmarkLane::DurableCollapse)
+    )
+    .is_empty());
 }
 
 #[test]

@@ -28,7 +28,7 @@
     "campaign_id": "u1-CAMPAIGN-FULL_COMMIT",
     "benchmark_source_commit": "OWNER_APPROVED_FULL_40_HEX_COMMIT",
     "image_digest": "sha256:OWNER_APPROVED_64_HEX_DIGEST",
-    "benchmark_protocol_version": "res-p4.3.v1",
+    "benchmark_protocol_version": "res-p4.3.v2",
     "result_schema_version": "ioi.aft.benchmark-campaign.v1",
     "benchmark_warmups": 1,
     "benchmark_repeats": 5,

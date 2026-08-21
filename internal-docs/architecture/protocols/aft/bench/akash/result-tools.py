@@ -20,8 +20,8 @@ import tempfile
 from pathlib import Path
 
 SCENARIO_LANES = {
-    "paper_guardian_majority_4v": ("base_final", "canonical_ordering", "durable_collapse"),
-    "paper_guardian_majority_7v": ("base_final", "canonical_ordering", "durable_collapse"),
+    "paper_guardian_majority_4v": ("base_final",),
+    "paper_guardian_majority_7v": ("base_final",),
     "paper_asymptote_4v": (
         "base_final", "canonical_ordering", "durable_collapse", "sealed_final"
     ),

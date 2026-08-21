@@ -7356,7 +7356,7 @@ fn validate_akash_result_contract(plan: &Value, sdl: &str) -> Result<(), &'stati
     {
         return Err("akash_result_image_digest_invalid");
     }
-    if protocol_version != "res-p4.3.v1"
+    if protocol_version != "res-p4.3.v2"
         || result_schema != "ioi.aft.benchmark-campaign.v1"
         || warmups != Some(1)
         || repeats != Some(5)
@@ -7470,7 +7470,7 @@ fn validate_akash_result_bundle(dep: &Value, bundle: &Value) -> Result<(), &'sta
         || bundle
             .pointer("/results/value/row_count_per_pass")
             .and_then(Value::as_u64)
-            != Some(14)
+            != Some(10)
     {
         return Err("akash_result_measurement_contract_mismatch");
     }
@@ -8890,7 +8890,7 @@ env:
             "campaign_id": "u1-campaign-a",
             "benchmark_source_commit": commit,
             "image_digest": digest,
-            "benchmark_protocol_version": "res-p4.3.v1",
+            "benchmark_protocol_version": "res-p4.3.v2",
             "result_schema_version": "ioi.aft.benchmark-campaign.v1",
             "benchmark_warmups": 1,
             "benchmark_repeats": 5,
@@ -8903,7 +8903,7 @@ env:
       - 'AFT_BENCH_CAMPAIGN_ID=u1-campaign-a'
       - 'IOI_BENCH_COMMIT={commit}'
       - 'IOI_BENCH_IMAGE_DIGEST={digest}'
-      - 'AFT_BENCH_PROTOCOL_VERSION=res-p4.3.v1'
+      - 'AFT_BENCH_PROTOCOL_VERSION=res-p4.3.v2'
       - 'AFT_BENCH_WARMUPS=1'
       - 'AFT_BENCH_REPEATS=5'
 "#
@@ -8941,7 +8941,7 @@ env:
             "campaign_id": "u1-campaign-a",
             "benchmark_source_commit": commit,
             "image_digest": digest,
-            "benchmark_protocol_version": "res-p4.3.v1",
+            "benchmark_protocol_version": "res-p4.3.v2",
             "result_schema_version": "ioi.aft.benchmark-campaign.v1",
             "benchmark_warmups": 1,
             "benchmark_repeats": 5,
@@ -8954,7 +8954,7 @@ env:
             "campaign_id": "u1-campaign-a",
             "source_commit": commit,
             "image_digest": digest,
-            "protocol_version": "res-p4.3.v1",
+            "protocol_version": "res-p4.3.v2",
             "warmups": 1,
             "measured_passes": 5
         }));
@@ -8962,7 +8962,7 @@ env:
             "schema_version": "ioi.aft.benchmark-campaign.v1",
             "campaign_id": "u1-campaign-a",
             "measured_passes": 5,
-            "row_count_per_pass": 14
+            "row_count_per_pass": 10
         }));
         let manifest = response(json!({
             "schema_version": "ioi.aft.artifact-manifest.v1",
@@ -8988,14 +8988,14 @@ env:
             Err("akash_result_campaign_identity_mismatch")
         );
         let mut partial = bundle.clone();
-        partial["results"]["value"]["row_count_per_pass"] = json!(13);
+        partial["results"]["value"]["row_count_per_pass"] = json!(9);
         partial["results"] = response(partial["results"]["value"].clone());
         assert_eq!(
             validate_akash_result_bundle(&dep, &partial),
             Err("akash_result_measurement_contract_mismatch")
         );
         let mut raw_mismatch = bundle.clone();
-        raw_mismatch["results"]["value"]["row_count_per_pass"] = json!(13);
+        raw_mismatch["results"]["value"]["row_count_per_pass"] = json!(9);
         assert_eq!(
             validate_akash_result_bundle(&dep, &raw_mismatch),
             Err("akash_result_raw_body_mismatch")

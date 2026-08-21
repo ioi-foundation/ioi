@@ -3,7 +3,7 @@ import test from "node:test";
 import { validateU1Certificate } from "./u1-campaign-certificate.mjs";
 import { validU1Fixture } from "./u1-campaign-certificate.test-fixture.mjs";
 
-test("accepts a complete 14-row five-pass campaign chained to verified C8", () => {
+test("accepts a complete 10-row five-pass campaign chained to verified C8", () => {
   assert.deepEqual(validateU1Certificate(validU1Fixture()), { ok: true, failures: [] });
 });
 

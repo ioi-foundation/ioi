@@ -17,7 +17,7 @@ const valid = {
     campaign_id: "u1-campaign-a",
     benchmark_source_commit: "b".repeat(40),
     image_digest: digest,
-    benchmark_protocol_version: "res-p4.3.v1",
+    benchmark_protocol_version: "res-p4.3.v2",
     result_schema_version: "ioi.aft.benchmark-campaign.v1",
     benchmark_warmups: 1,
     benchmark_repeats: 5,

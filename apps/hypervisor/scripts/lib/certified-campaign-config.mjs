@@ -21,7 +21,7 @@ export function materializeReviewedSdl(template, config) {
     throw new Error("sdl_values.image_reference must be a safe registry path ending in the approved digest");
   }
   if (!/^u1-canary-[A-Za-z0-9_-]{8,80}$/u.test(canary)) throw new Error("sdl_values.secret_canary must be an explicit non-secret U1 canary");
-  if (plan.benchmark_protocol_version !== "res-p4.3.v1"
+  if (plan.benchmark_protocol_version !== "res-p4.3.v2"
       || plan.result_schema_version !== "ioi.aft.benchmark-campaign.v1"
       || plan.benchmark_warmups !== 1
       || plan.benchmark_repeats !== 5) {

@@ -80,7 +80,7 @@ After results are retrieved, always delete, confirm closure, reconcile the depos
 
 Each campaign gets a separate `ioi.hypervisor.u1-aft-campaign-certificate.v1`
 chained to its verified C7/C8 lifecycle certificate. The U1 verifier checks the
-complete 14-row matrix, five-pass statistics, provider response hashes,
+complete 10-row matrix, five-pass statistics, provider response hashes,
 artifact manifest, exact provider, and terminal settlement; its 27-mutation
 self-test also refuses unsupported bare-metal elevation:
 

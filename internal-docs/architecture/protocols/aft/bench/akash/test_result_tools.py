@@ -19,8 +19,8 @@ RESULT_TOOLS = importlib.util.module_from_spec(SPEC)
 assert SPEC and SPEC.loader
 SPEC.loader.exec_module(RESULT_TOOLS)
 SCENARIOS = (
-    ("paper_guardian_majority_4v", ("base_final", "canonical_ordering", "durable_collapse")),
-    ("paper_guardian_majority_7v", ("base_final", "canonical_ordering", "durable_collapse")),
+    ("paper_guardian_majority_4v", ("base_final",)),
+    ("paper_guardian_majority_7v", ("base_final",)),
     ("paper_asymptote_4v", ("base_final", "canonical_ordering", "durable_collapse", "sealed_final")),
     ("paper_asymptote_7v", ("base_final", "canonical_ordering", "durable_collapse", "sealed_final")),
 )
@@ -76,7 +76,7 @@ class ResultToolsTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         return json.loads((root / "result.json").read_text())
 
-    def test_collect_accepts_exact_fourteen_row_matrix(self):
+    def test_collect_accepts_exact_ten_row_matrix(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / "run.raw").write_text(table())
@@ -85,7 +85,7 @@ class ResultToolsTests(unittest.TestCase):
                 "--campaign", "campaign-1", "--pass-number", "1",
             )
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(json.loads((root / "run.json").read_text())["row_count"], 14)
+            self.assertEqual(json.loads((root / "run.json").read_text())["row_count"], 10)
 
     def test_collect_rejects_partial_matrix(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -153,7 +153,7 @@ class ResultToolsTests(unittest.TestCase):
                 "schema_version": "ioi.aft.environment-manifest.v1",
                 "source_commit": "a" * 40,
                 "image_digest": f"sha256:{'b' * 64}",
-                "protocol_version": "res-p4.3.v1",
+                "protocol_version": "res-p4.3.v2",
                 "cpu_model": "fixture",
                 "cpu_cores_online": 8,
                 "kernel_release": "fixture",
@@ -190,7 +190,7 @@ class ResultToolsTests(unittest.TestCase):
                 "schema_version": "ioi.aft.environment-manifest.v1",
                 "source_commit": "a" * 40,
                 "image_digest": f"sha256:{'b' * 64}",
-                "protocol_version": "res-p4.3.v1",
+                "protocol_version": "res-p4.3.v2",
                 "cpu_model": "fixture",
                 "cpu_cores_online": 8,
                 "kernel_release": "fixture",
