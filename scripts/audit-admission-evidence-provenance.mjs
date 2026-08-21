@@ -267,6 +267,7 @@ const PINNED = [
   {"file": "orchestration_routes.rs", "rule": "F", "key": "auth-header", "count": 1, "disposition": "sanctioned", "justification": "read 2026-08-08: webhook delivery authenticates by a per-automation rotated trigger token (x-ioi-trigger-token / Bearer) compared against the stored secret \u2014 a presented capability, not a principal resolver"},
   {"file": "portal_session_exchange_routes.rs", "rule": "F", "key": "tenant-resolver", "count": 1, "disposition": "sanctioned", "justification": "read 2026-08-08: session-mint seam delegates to the canonical lifecycle_routes resolver to snapshot full membership INTO the session record (the projection later requests narrow FROM); it does not re-derive scope on a later request"},
   {"file": "supervisor_routes.rs", "rule": "F", "key": "auth-header", "count": 1, "disposition": "sanctioned", "justification": "read 2026-08-08: bearer() extracts a capability-lease token adjudicated against the durable authority-grants record (lease_binds_env) \u2014 a presented grant independently verified, not a principal resolver"},
+  {"file": "provider_routes.rs", "rule": "E", "key": "handle_provider_op", "count": 1, "disposition": "sanctioned", "justification": "read 2026-08-19 (post-C6 #351 reshape): the pre-identity reads are the quote/pin GATES reading daemon-owned records (cloud-resource-candidates, provider accounts) to REFUSE under-evidenced ops fail-closed with receipted refusals; identity is resolved by require_write_caller at the C2 intent phase BEFORE any external effect or record write \u2014 gate-reads-then-authenticate-before-effect, not bc73b5b20's authorize-after-admission-read. The same reshape moved this handler OUT of the rule-H no-in-handler-identity baseline (an improvement, re-pinned by removal)."},
 ];
 
 // Rule H baseline: mutating handlers with no in-handler identity/authority
@@ -442,7 +443,6 @@ const H_BASELINE = [
   "provider_routes.rs::handle_provider_account_delete",
   "provider_routes.rs::handle_provider_account_patch",
   "provider_routes.rs::handle_provider_account_preflight",
-  "provider_routes.rs::handle_provider_op",
   "resource_routes.rs::handle_allocate",
   "resource_routes.rs::handle_budget_create",
   "resource_routes.rs::handle_catchup",
