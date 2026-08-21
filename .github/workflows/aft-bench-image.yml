@@ -38,7 +38,61 @@ jobs:
 
       - uses: docker/setup-buildx-action@v3
 
-      - name: Refuse upload unless the GHCR package is already private
+      - name: Inspect the destination package before authentication
+        if: ${{ inputs.push_private_image }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          status="$(curl --silent --show-error \
+            --output /tmp/aft-bench-package.json \
+            --write-out '%{http_code}' \
+            --header 'Accept: application/vnd.github+json' \
+            --header "Authorization: Bearer ${GH_TOKEN}" \
+            --header 'X-GitHub-Api-Version: 2022-11-28' \
+            https://api.github.com/orgs/ioi-foundation/packages/container/ioi-aft-bench)"
+          case "${status}" in
+            200)
+              test "$(jq -r .visibility /tmp/aft-bench-package.json)" = private
+              echo 'AFT_BENCH_PACKAGE_EXISTS=true' >> "${GITHUB_ENV}"
+              ;;
+            404)
+              echo 'AFT_BENCH_PACKAGE_EXISTS=false' >> "${GITHUB_ENV}"
+              ;;
+            *)
+              jq -r '.message // "package lookup failed"' /tmp/aft-bench-package.json >&2
+              exit 1
+              ;;
+          esac
+
+      - name: Authenticate to GHCR
+        if: ${{ inputs.push_private_image }}
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Bootstrap an absent package with a source-free image
+        if: ${{ inputs.push_private_image && env.AFT_BENCH_PACKAGE_EXISTS == 'false' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          bootstrap_dir="$(mktemp -d)"
+          trap 'rm -rf "${bootstrap_dir}"' EXIT
+          printf '%s\n' \
+            'FROM scratch' \
+            'LABEL org.opencontainers.image.source="https://github.com/ioi-foundation/ioi"' \
+            'LABEL org.opencontainers.image.description="Private AFT benchmark image namespace bootstrap; contains no IOI source"' \
+            > "${bootstrap_dir}/Dockerfile"
+          docker buildx build \
+            --file "${bootstrap_dir}/Dockerfile" \
+            --tag "ghcr.io/ioi-foundation/ioi-aft-bench:private-bootstrap-${GITHUB_RUN_ID}" \
+            --push \
+            "${bootstrap_dir}"
+
+      - name: Refuse a proprietary build unless package visibility is private
         if: ${{ inputs.push_private_image }}
         shell: bash
         env:
@@ -52,14 +106,6 @@ jobs:
             --jq .visibility)"
           test "${visibility}" = private
 
-      - name: Authenticate to the pre-provisioned private GHCR package
-        if: ${{ inputs.push_private_image }}
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Build immutable benchmark image without publishing
         id: build_only
         if: ${{ !inputs.push_private_image }}
@@ -70,6 +116,7 @@ jobs:
           build-args: IOI_COMMIT=${{ inputs.source_ref }}
           push: false
           tags: ghcr.io/ioi-foundation/ioi-aft-bench:${{ inputs.source_ref }}
+          labels: org.opencontainers.image.source=https://github.com/ioi-foundation/ioi
           outputs: type=oci,dest=/tmp/aft-bench.tar
 
       - name: Build and push explicitly approved private image
@@ -82,6 +129,7 @@ jobs:
           build-args: IOI_COMMIT=${{ inputs.source_ref }}
           push: true
           tags: ghcr.io/ioi-foundation/ioi-aft-bench:${{ inputs.source_ref }}
+          labels: org.opencontainers.image.source=https://github.com/ioi-foundation/ioi
 
       - name: Record immutable digest
         run: |

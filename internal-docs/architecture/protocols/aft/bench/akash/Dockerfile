@@ -14,6 +14,9 @@
 
 FROM rust:1.93.1-bookworm
 
+LABEL org.opencontainers.image.source="https://github.com/ioi-foundation/ioi"
+LABEL org.opencontainers.image.description="Private IOI AFT RES-P4.3 benchmark runner"
+
 # Native deps — mirrors the "Install native deps for kernel build" CI step.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         pkg-config \

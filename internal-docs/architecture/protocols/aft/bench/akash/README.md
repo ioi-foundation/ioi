@@ -35,6 +35,14 @@ docker inspect --format='{{index .RepoDigests 0}}' <PRIVATE_REGISTRY>/aft-bench:
 
 The provider plan and SDL must use the resulting `@sha256:` digest, never a mutable tag.
 
+The repository's `Build private AFT benchmark image` workflow supports the
+first publication without exposing proprietary source. If the GHCR package is
+absent, it first pushes a source-free `FROM scratch` bootstrap image, verifies
+through the GitHub Packages API that the newly created package is private, and
+only then builds and pushes the source-bearing benchmark image. Existing
+packages must already report private visibility. A lookup failure other than a
+typed 404 refuses the workflow rather than guessing that the package is absent.
+
 ## Secret boundary
 
 Do not put registry credentials or the result bearer token in the SDL, driver, shell history, proposal, evidence bundle, or chat. Bind them as two sealed generic-connector credentials:
