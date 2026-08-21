@@ -34,7 +34,26 @@ function publicFacets(certificate) {
   return facets;
 }
 
-export function buildPublicEvidence(certificate, verification) {
+export function publicProvider(certificate) {
+  const provider = certificate.provider;
+  return {
+    dseq: provider.dseq,
+    provider_address: provider.provider_address,
+    bid_ref_hash: hashLocator(provider.bid_ref),
+    lease_ref_hash: hashLocator(provider.lease_ref),
+    lease_state: provider.lease_state,
+    endpoint_ref_hash: hashLocator(provider.endpoint_ref),
+    endpoint_discovered: provider.endpoint_discovered,
+    service_uri_present: provider.service_uri_present,
+    desired_replicas: provider.desired_replicas,
+    ready_replicas: provider.ready_replicas,
+    workload_readiness_proven: provider.workload_readiness_proven,
+    workload_result_retrieved: provider.workload_result_retrieved,
+    c6: provider.c6,
+  };
+}
+
+export function buildPublicEvidence(certificate, verification, structuralVerification = null) {
   const structural = validateCertificate(certificate);
   if (!structural.ok) {
     throw new Error(`certificate is not structurally valid: ${JSON.stringify(structural.failures)}`);
@@ -45,8 +64,16 @@ export function buildPublicEvidence(certificate, verification) {
   if (verification?.ok !== true || verification?.mutations?.ok !== true) {
     throw new Error("independent verification and mutation testing must both pass");
   }
-  if (!Number.isSafeInteger(verification.mutations.mutation_count) || verification.mutations.mutation_count < 20) {
+  if (!Number.isSafeInteger(verification.mutations.mutation_count) || verification.mutations.mutation_count < 22) {
     throw new Error("public evidence requires the corrected adversarial mutation suite");
+  }
+  if (structuralVerification && (
+    structuralVerification.ok !== true
+    || !Number.isSafeInteger(structuralVerification.mutation_count)
+    || structuralVerification.mutation_count < 22
+    || (structuralVerification.failures || []).length > 0
+  )) {
+    throw new Error("public evidence structural verifier self-test did not pass");
   }
 
   const summary = {
@@ -57,7 +84,8 @@ export function buildPublicEvidence(certificate, verification) {
       certificate_hash: certificate.certificate_hash,
       verifier_schema_version: verification.schema_version,
       verifier_passed: true,
-      adversarial_mutation_count: verification.mutations.mutation_count,
+      live_artifact_mutation_count: verification.mutations.mutation_count,
+      structural_self_test_mutation_count: structuralVerification?.mutation_count ?? null,
     },
     source: certificate.source,
     authority: {
@@ -84,7 +112,7 @@ export function buildPublicEvidence(certificate, verification) {
       consumed_once: certificate.proposal.consumed_once,
     },
     journal: certificate.journal,
-    provider: certificate.provider,
+    provider: publicProvider(certificate),
     teardown: certificate.teardown,
     settlement: certificate.settlement,
     negative_receipt_hashes: certificate.negative_receipts.map(hashLocator),
@@ -115,16 +143,25 @@ function writeAtomic(file, bytes) {
   fs.renameSync(temporary, file);
 }
 
-export function writePublicEvidenceBundle(outputDir, summary, verification, canary = "") {
+export function writePublicEvidenceBundle(outputDir, summary, verification, canary = "", structuralVerification = null) {
   fs.mkdirSync(outputDir, { recursive: true, mode: 0o755 });
   const existing = fs.readdirSync(outputDir);
   if (existing.length > 0) throw new Error("public evidence output directory must be empty");
   const files = new Map([
     ["public-evidence.json", `${JSON.stringify(summary, null, 2)}\n`],
     ["claims-and-nonclaims.json", `${JSON.stringify({ schema_version: "ioi.hypervisor.c7-c8-claims.v1", claims: summary.claims, nonclaims: summary.nonclaims }, null, 2)}\n`],
-    ["verification-summary.json", `${JSON.stringify({ schema_version: verification.schema_version, ok: verification.ok, mutation_count: verification.mutations.mutation_count, mutation_failures: verification.mutations.failures }, null, 2)}\n`],
+    ["verification-summary.json", `${JSON.stringify({ schema_version: verification.schema_version, ok: verification.ok, mutation_count: verification.mutations.mutation_count, mutation_cases: verification.mutations.cases || [], mutation_failures: verification.mutations.failures }, null, 2)}\n`],
     ["redacted-sdl.yaml", summary.workload.redacted_sdl],
   ]);
+  if (structuralVerification) {
+    files.set("structural-verifier-self-test.json", `${JSON.stringify({
+      schema_version: structuralVerification.schema_version,
+      ok: structuralVerification.ok,
+      mutation_count: structuralVerification.mutation_count,
+      mutation_cases: structuralVerification.cases || [],
+      failures: structuralVerification.failures || [],
+    }, null, 2)}\n`);
+  }
   for (const [name, bytes] of files) {
     assertDisclosureSafe(bytes, canary);
     writeAtomic(path.join(outputDir, name), bytes);

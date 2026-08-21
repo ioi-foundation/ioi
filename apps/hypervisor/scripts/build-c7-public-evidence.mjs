@@ -12,17 +12,22 @@ const arg = (name) => {
 };
 const certificatePath = arg("--certificate");
 const verificationPath = arg("--verification");
+const structuralVerificationPath = arg("--structural-verification");
 const outputDir = arg("--output");
 if (!certificatePath || !verificationPath || !outputDir) {
-  throw new Error("usage: --certificate <json> --verification <json> --output <empty-dir>");
+  throw new Error("usage: --certificate <json> --verification <json> [--structural-verification <json>] --output <empty-dir>");
 }
 const certificate = JSON.parse(fs.readFileSync(path.resolve(certificatePath), "utf8"));
 const verification = JSON.parse(fs.readFileSync(path.resolve(verificationPath), "utf8"));
-const summary = buildPublicEvidence(certificate, verification);
+const structuralVerification = structuralVerificationPath
+  ? JSON.parse(fs.readFileSync(path.resolve(structuralVerificationPath), "utf8"))
+  : null;
+const summary = buildPublicEvidence(certificate, verification, structuralVerification);
 const result = writePublicEvidenceBundle(
   path.resolve(outputDir),
   summary,
   verification,
   process.env.IOI_PUBLIC_EVIDENCE_CANARY || "",
+  structuralVerification,
 );
 console.log(JSON.stringify({ ok: true, ...result, certificate_hash: certificate.certificate_hash }));

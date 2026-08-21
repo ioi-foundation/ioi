@@ -163,7 +163,12 @@ function selfTest() {
     const result = validateCertificate(certificate);
     if (result.ok || !result.failures.some((failure) => failure.code === expected)) failures.push({ code: "mutation_false_green", mutation: expected, observed: result.failures });
   }
-  return { ok: failures.length === 0, mutation_count: cases.length, failures };
+  return {
+    ok: failures.length === 0,
+    mutation_count: cases.length,
+    cases: cases.map(([expected], index) => ({ case: index + 1, expected_failure: expected })),
+    failures,
+  };
 }
 
 async function mutationTest(base, dataDir, repo, daemon) {
@@ -188,6 +193,8 @@ async function mutationTest(base, dataDir, repo, daemon) {
     ["c6_live_proof_missing", (c) => { c.provider.c6.retrieved_live = false; }, false],
     ["open_or_unknown_exposure", (c) => { c.settlement.unknown_exposure_count = 1; }, false],
     ["secret_bearing_artifact", (c) => { c.operator.session_token = "ioi_sess_forbidden"; }, false],
+    ["unsupported_architecture_claim", (c) => { c.claims.bare_metal_claimed = true; }, false],
+    ["authority_lifecycle_evidence_missing", (c) => { c.authority.lease.revocation_ref = null; }, false],
   ];
   const failures = [];
   for (const [expected, mutate, needsDurable] of cases) {
@@ -199,7 +206,12 @@ async function mutationTest(base, dataDir, repo, daemon) {
     const observed = [...structural, ...durable];
     if (!observed.some((failure) => failure.code === expected)) failures.push({ code: "mutation_false_green", mutation: expected, observed });
   }
-  return { ok: failures.length === 0, mutation_count: cases.length, failures };
+  return {
+    ok: failures.length === 0,
+    mutation_count: cases.length,
+    cases: cases.map(([expected], index) => ({ case: index + 1, expected_failure: expected })),
+    failures,
+  };
 }
 
 if (process.argv.includes("--self-test")) {
