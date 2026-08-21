@@ -1,7 +1,42 @@
+const unresolvedOwnerReview = /OWNER_(?:APPROVED|SELECTED|SEEDED)|IMMUTABLE_IMAGE_DIGEST|PRIVATE_REGISTRY/u;
+
+/** Refuse a campaign until every authority-bearing choice is concrete. */
+export function validateCertifiedCampaignConfig(config) {
+  if (unresolvedOwnerReview.test(JSON.stringify(config))) {
+    throw new Error("campaign config contains unresolved owner-review tokens");
+  }
+  if (config?.schema_version !== "ioi.hypervisor.certified-provider-campaign.v1") {
+    throw new Error("unsupported campaign config schema");
+  }
+  const plan = config.plan || {};
+  const deposit = plan.deposit_usd;
+  const ceiling = String(plan.ceiling_amount || "");
+  const selector = plan.provider_selector || {};
+  if (!(typeof deposit === "number" && Number.isFinite(deposit) && deposit > 0 && deposit <= 5)) {
+    throw new Error("plan.deposit_usd must be an explicit number greater than 0 and at most 5");
+  }
+  if (!/^(?:0|[1-9][0-9]*)(?:\.[0-9]+)?$/u.test(ceiling) || Number(ceiling) <= 0) {
+    throw new Error("plan.ceiling_amount must be an explicit positive decimal string");
+  }
+  if (plan.ceiling_denom !== "uact") throw new Error("plan.ceiling_denom must be uact");
+  if (plan.teardown_policy !== "always_teardown_required") {
+    throw new Error("plan.teardown_policy must be always_teardown_required");
+  }
+  if (plan.auto_topup === true) throw new Error("plan.auto_topup cannot be enabled");
+  if (plan.benchmark_protocol_version) {
+    if (selector.mode !== "exact"
+        || selector.selection !== "only_qualified_bid_from_exact_provider"
+        || !/^akash1[02-9ac-hj-np-z]{38}$/u.test(String(selector.provider_address || ""))) {
+      throw new Error("U1 requires one explicit exact Akash provider address");
+    }
+  }
+  return config;
+}
+
 /** Materialize only owner-reviewed, non-secret SDL values before challenge hashing. */
 export function materializeReviewedSdl(template, config) {
   const values = config.sdl_values || null;
-  const hasReviewTokens = /OWNER_(?:APPROVED|SEEDED)|IMMUTABLE_IMAGE_DIGEST|PRIVATE_REGISTRY/u.test(template);
+  const hasReviewTokens = unresolvedOwnerReview.test(template);
   if (!values) {
     if (hasReviewTokens) throw new Error("SDL contains unresolved owner-review tokens");
     return template;
@@ -44,7 +79,7 @@ export function materializeReviewedSdl(template, config) {
     if (!materialized.includes(token)) throw new Error(`SDL is missing ${token}`);
     materialized = materialized.replaceAll(token, value);
   }
-  if (/OWNER_(?:APPROVED|SEEDED)|IMMUTABLE_IMAGE_DIGEST|PRIVATE_REGISTRY/u.test(materialized)) {
+  if (unresolvedOwnerReview.test(materialized)) {
     throw new Error("SDL retains unresolved owner-review tokens after materialization");
   }
   return materialized;

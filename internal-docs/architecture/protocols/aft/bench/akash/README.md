@@ -70,7 +70,16 @@ Exact pinning has no marketplace fallback. The daemon also enforces the approved
 
 The owner must review the immutable image digest, exact provider, SDL hash, resources, campaign ID, deposit, `uact` ceiling, connector references, and teardown policy in the dry challenge before minting the one-shot grant. Each of the two campaigns gets a fresh proposal, admission nonce, challenge, grant, and explicit approval.
 
-The initial review envelope in `u1-campaign.example.json` is a $1 deposit and a `1000 uact` bid ceiling. This is deliberately the same hard deposit bound as C7; the known provider's tiny C7 workload bid was `0.726898 uact`, so the larger resource request still has a generous ceiling without raising maximum escrow exposure. The dry challenge is authoritative: if the exact provider does not bid within that bound, the daemon closes and reconciles rather than widening it automatically.
+`u1-campaign.example.json` intentionally leaves the exact provider, deposit, and
+`uact` ceiling as owner-review tokens, and campaign validation refuses to run
+while any token remains. A spend-free Console pricing estimate captured on
+2026-08-21 priced the requested 8 CPU / 16 GiB / 20 GiB envelope at
+$59.19/month. That estimate is useful for bounding the short campaign, but it
+is neither an exact-provider quote nor evidence that the selected provider will
+bid. The owner must set the final deposit and ceiling deliberately, then use the
+daemon's dry challenge as the authoritative request. If the exact provider does
+not bid within the reviewed bound, the daemon closes and reconciles rather than
+widening it automatically.
 
 ## Result claim
 
@@ -81,7 +90,7 @@ After results are retrieved, always delete, confirm closure, reconcile the depos
 Each campaign gets a separate `ioi.hypervisor.u1-aft-campaign-certificate.v1`
 chained to its verified C7/C8 lifecycle certificate. The U1 verifier checks the
 complete 10-row matrix, five-pass statistics, provider response hashes,
-artifact manifest, exact provider, and terminal settlement; its 27-mutation
+artifact manifest, exact provider, and terminal settlement; its 28-mutation
 self-test also refuses unsupported bare-metal elevation:
 
 ```bash

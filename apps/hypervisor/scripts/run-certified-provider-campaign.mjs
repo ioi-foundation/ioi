@@ -19,7 +19,10 @@ import {
 import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
-import { materializeReviewedSdl } from "./lib/certified-campaign-config.mjs";
+import {
+  materializeReviewedSdl,
+  validateCertifiedCampaignConfig,
+} from "./lib/certified-campaign-config.mjs";
 import { startRealWalletNetworkPrincipalAuthorityFixture } from "./lib/wallet-network-principal-authority-fixture.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -38,7 +41,7 @@ if (!configPath || !artifactDir || (!prepareOnly && !approvalPath)) {
   throw new Error("usage: --config <json> --artifacts <dir> (--prepare-only | --approval-file <json>)");
 }
 mkdirSync(artifactDir, { recursive: true, mode: 0o700 });
-const config = JSON.parse(readFileSync(configPath, "utf8"));
+const config = validateCertifiedCampaignConfig(JSON.parse(readFileSync(configPath, "utf8")));
 const daemonUrl = config.daemon_url || "http://127.0.0.1:8765";
 const operatorEmail = process.env.IOI_C7_EMAIL || "";
 const operatorPassword = process.env.IOI_C7_PASSWORD_FILE
@@ -49,9 +52,6 @@ const walletPass = process.env.IOI_WALLET_SECRET_PASS_FILE
   : (process.env.IOI_WALLET_SECRET_PASS || "");
 if (!operatorEmail || !operatorPassword || !walletPass) {
   throw new Error("IOI_C7_EMAIL, IOI_C7_PASSWORD_FILE, and an ephemeral IOI_WALLET_SECRET_PASS (or file) are required");
-}
-if (config.schema_version !== "ioi.hypervisor.certified-provider-campaign.v1") {
-  throw new Error("unsupported campaign config schema");
 }
 if (!String(config.environment_ref || "").startsWith("env-")) throw new Error("environment_ref must start with env-");
 if (!String(config.idempotency_key || "").trim()) throw new Error("idempotency_key is required");
@@ -127,6 +127,7 @@ function verifyFacets(challenge) {
     ceiling_amount: request.plan.ceiling_amount,
     ceiling_denom: request.plan.ceiling_denom,
     provider_selector: request.plan.provider_selector,
+    auto_topup: false,
     teardown_policy: request.plan.teardown_policy,
     execution_mode: "live",
     sdl_hash: expectedSdlHash,

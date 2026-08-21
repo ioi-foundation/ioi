@@ -53,6 +53,13 @@ and the selected record must be refreshed immediately before challenge review.
 The U1 provider may differ from C7 without weakening C7's clean-rerun claim;
 both U1 campaigns must use the same owner-approved U1 pin.
 
+The Console API's spend-free pricing endpoint estimated the complete planned
+8 CPU / 16 GiB / 20 GiB envelope at `$59.19/month` on 2026-08-21. This is a
+market-level planning estimate, not the exact selected provider's bid. It does
+not authorize a deposit or ceiling and does not supersede the daemon's dry
+challenge. The runnable campaign configuration therefore retains explicit
+owner-review placeholders for provider address, deposit, and `uact` ceiling.
+
 It is **not yet qualified as a dedicated bare-metal runner for this tenant workload**. `location-type=colo` and an audited provider describe the provider’s infrastructure; they do not prove that a specific Kubernetes container received a reserved physical host, non-oversubscribed cores, or stable host identity across leases. The workload environment manifest can identify the CPU/kernel visible inside each lease, but that observation is not a provider attestation.
 
 Permitted pre-run label: `same exact audited provider; container allocation; physical-host dedication unproven`.

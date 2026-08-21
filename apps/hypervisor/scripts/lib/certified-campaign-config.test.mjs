@@ -3,7 +3,10 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { materializeReviewedSdl } from "./certified-campaign-config.mjs";
+import {
+  materializeReviewedSdl,
+  validateCertifiedCampaignConfig,
+} from "./certified-campaign-config.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repo = path.resolve(here, "..", "..", "..", "..");
@@ -13,6 +16,7 @@ const template = readFileSync(
 );
 const digest = `sha256:${"a".repeat(64)}`;
 const valid = {
+  schema_version: "ioi.hypervisor.certified-provider-campaign.v1",
   plan: {
     campaign_id: "u1-campaign-a",
     benchmark_source_commit: "b".repeat(40),
@@ -22,6 +26,13 @@ const valid = {
     benchmark_warmups: 1,
     benchmark_repeats: 5,
     ceiling_amount: "1000",
+    ceiling_denom: "uact",
+    teardown_policy: "always_teardown_required",
+    provider_selector: {
+      mode: "exact",
+      provider_address: "akash19zzh7whjt4vfwxd5wtj3tjtyatnpntfhldshd8",
+      selection: "only_qualified_bid_from_exact_provider",
+    },
   },
   sdl_values: {
     registry_host: "ghcr.io",
@@ -29,6 +40,42 @@ const valid = {
     secret_canary: "u1-canary-abcdefgh",
   },
 };
+
+test("accepts a fully resolved bounded U1 campaign config", () => {
+  const config = structuredClone(valid);
+  config.plan.deposit_usd = 1;
+  assert.equal(validateCertifiedCampaignConfig(config), config);
+});
+
+test("rejects unresolved provider, spend, and image review choices before execution", () => {
+  for (const mutate of [
+    (config) => { config.plan.provider_selector.provider_address = "OWNER_SELECTED_AKASH_PROVIDER_ADDRESS"; },
+    (config) => { config.plan.deposit_usd = "OWNER_APPROVED_DEPOSIT_USD"; },
+    (config) => { config.plan.ceiling_amount = "OWNER_APPROVED_UACT_CEILING"; },
+    (config) => { config.sdl_values.image_reference = "ghcr.io/ioi-foundation/ioi-aft-bench@sha256:OWNER_APPROVED_64_HEX_DIGEST"; },
+  ]) {
+    const config = structuredClone(valid);
+    config.plan.deposit_usd = 1;
+    mutate(config);
+    assert.throws(() => validateCertifiedCampaignConfig(config), /unresolved owner-review/u);
+  }
+});
+
+test("rejects unbounded or non-exact U1 authority", () => {
+  const invalidDeposit = structuredClone(valid);
+  invalidDeposit.plan.deposit_usd = 5.01;
+  assert.throws(() => validateCertifiedCampaignConfig(invalidDeposit), /deposit_usd/u);
+
+  const marketplace = structuredClone(valid);
+  marketplace.plan.deposit_usd = 1;
+  marketplace.plan.provider_selector = { mode: "any_marketplace", selection: "lowest_qualified_bid" };
+  assert.throws(() => validateCertifiedCampaignConfig(marketplace), /exact Akash provider/u);
+
+  const topup = structuredClone(valid);
+  topup.plan.deposit_usd = 1;
+  topup.plan.auto_topup = true;
+  assert.throws(() => validateCertifiedCampaignConfig(topup), /auto_topup/u);
+});
 
 test("materializes every reviewed non-secret token into the hashed SDL", () => {
   const rendered = materializeReviewedSdl(template, valid);
