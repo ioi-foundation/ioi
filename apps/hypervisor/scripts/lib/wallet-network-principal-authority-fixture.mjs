@@ -253,6 +253,12 @@ export async function startRealWalletNetworkPrincipalAuthorityFixture({
   resumeResourceDir,
   persistChainState = false,
 } = {}) {
+  const readyTimeoutMs = Number(
+    baseEnv.IOI_WALLET_FIXTURE_READY_TIMEOUT_MS || "600000",
+  );
+  if (!Number.isSafeInteger(readyTimeoutMs) || readyTimeoutMs < 1_000 || readyTimeoutMs > 3_600_000) {
+    throw new Error("IOI_WALLET_FIXTURE_READY_TIMEOUT_MS must be an integer between 1000 and 3600000");
+  }
   const normalizedRootSeed = rootSeedHex == null
     ? null
     : exactHex32(rootSeedHex, "rootSeedHex");
@@ -409,7 +415,7 @@ export async function startRealWalletNetworkPrincipalAuthorityFixture({
   const ownedProcessGroupIdentityMatches = () =>
     walletFixtureProcessGroupStartTimeTicks(processGroupId) ===
       processGroupStartTimeTicks;
-  const teeLogPath = process.env.IOI_WALLET_FIXTURE_TEE_LOG || null;
+  const teeLogPath = baseEnv.IOI_WALLET_FIXTURE_TEE_LOG || null;
   const capture = (chunk) => {
     output = `${output}${chunk}`;
     if (output.length > 32_000) output = output.slice(-32_000);
@@ -475,13 +481,13 @@ export async function startRealWalletNetworkPrincipalAuthorityFixture({
   let transactionLockPath;
   try {
     const readyPath = path.join(fixtureDir, "ready.json");
-    const deadline = Date.now() + 600_000;
+    const deadline = Date.now() + readyTimeoutMs;
     while (!existsSync(readyPath)) {
       if (exited) {
         throw new Error(`real wallet.network fixture exited before readiness (${JSON.stringify(exited)}):\n${output}`);
       }
       if (Date.now() >= deadline) {
-        throw new Error(`real wallet.network fixture did not become ready:\n${output}`);
+        throw new Error(`real wallet.network fixture did not become ready after ${readyTimeoutMs}ms:\n${output}`);
       }
       await delay(50);
     }

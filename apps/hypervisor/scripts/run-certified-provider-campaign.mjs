@@ -155,7 +155,11 @@ let terminal = false;
 try {
   if (!prepareOnly) {
     fixture = await startRealWalletNetworkPrincipalAuthorityFixture({
-      baseEnv: { ...process.env, IOI_WALLET_SECRET_PASS: walletPass },
+      baseEnv: {
+        ...process.env,
+        IOI_WALLET_SECRET_PASS: walletPass,
+        IOI_WALLET_FIXTURE_TEE_LOG: path.join(artifactDir, "wallet-authority.log"),
+      },
     });
   } else {
     log("prepare-only: wallet authority plane intentionally not started");
