@@ -1,16 +1,21 @@
 # AFT paper-benchmark runner image (RES-P4.3, Stage 1: Akash console deploy).
 #
 # Builds the ioi workspace at a pinned commit and runs the AFT paper-benchmark
-# matrix. Output is a Markdown table on stdout (retrieve via `akash ... lease-logs`).
+# matrix. Canonical results are served through the authenticated result endpoint;
+# managed Console control-plane logs are not a result channel.
 #
 # PROPRIETARY: this image contains the full ioi source at the pinned commit.
-# It MUST be pushed to a PRIVATE registry only, and the Akash SDL must pull it
-# with `credentials` (see deploy.sdl). Never push to a public registry.
+# It MUST be pushed to a PRIVATE registry only. The reviewed SDL contains a
+# credential sentinel and connector reference; the daemon resolves the sealed
+# registry credential only after the C2 intent commit and does not retain the
+# expanded SDL. Never put registry plaintext in source, SDL, or artifacts, and
+# never push this image to a public registry.
 #
 # Reproducibility: pin the toolchain (rust-toolchain.toml → 1.93.1) and the
 # source commit. The host KERNEL is the Akash provider's, not ours — a
-# documented caveat; this run is a NON-GATING reference until a reserved
-# bare-metal / pinned runner exists (see README.md and the RES-P4.3 residual).
+# documented caveat. An exact-provider campaign remains measured-container or
+# variance-caveated unless tenant-specific placement evidence passes the
+# provider-key-bound attestation verifier (see README.md).
 
 FROM rust:1.93.1-bookworm
 
