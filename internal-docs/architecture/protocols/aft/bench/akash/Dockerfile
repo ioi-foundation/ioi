@@ -17,7 +17,7 @@
 # variance-caveated unless tenant-specific placement evidence passes the
 # provider-key-bound attestation verifier (see README.md).
 
-FROM rust:1.93.1-bookworm
+FROM rust:1.93.1-bookworm@sha256:7c4ae649a84014c467d79319bbf17ce2632ae8b8be123ac2fb2ea5be46823f31
 
 LABEL org.opencontainers.image.source="https://github.com/ioi-foundation/ioi"
 LABEL org.opencontainers.image.description="Private IOI AFT RES-P4.3 benchmark runner"
@@ -48,7 +48,7 @@ ENV IOI_BENCH_COMMIT=${IOI_COMMIT}
 
 # Pre-compile the benchmark test binary (release) at build time so the paid
 # Akash lease pays for EXECUTION, not compilation.
-RUN cargo test --release --no-run \
+RUN cargo test --locked --release --no-run \
         -p ioi-cli \
         --features consensus-aft,vm-wasm,state-jellyfish \
         --test benchmark_throughput
@@ -59,11 +59,11 @@ RUN cargo test --release --no-run \
 # or absent binary must fail the campaign rather than consume provider time
 # compiling software that was supposed to be immutable.
 RUN CARGO_TARGET_DIR=/ioi/target/test-node-builds/release-0b7414797d7f2187 \
-      cargo build --release -p ioi-node --no-default-features \
+      cargo build --locked --release -p ioi-node --no-default-features \
         --features validator-bins,consensus-aft,state-iavl,commitment-hash,vm-wasm \
         --bin orchestration --bin workload --bin guardian \
     && CARGO_TARGET_DIR=/ioi/target/test-node-builds/release-6bdc4f43f691ae57 \
-      cargo build --release -p ioi-node --no-default-features \
+      cargo build --locked --release -p ioi-node --no-default-features \
         --features validator-bins,consensus-aft,state-jellyfish,commitment-hash,vm-wasm \
         --bin orchestration --bin workload --bin guardian
 
