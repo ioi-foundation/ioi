@@ -45,9 +45,9 @@ const operatorPassword = process.env.IOI_C7_PASSWORD_FILE
   : "";
 const walletPass = process.env.IOI_WALLET_SECRET_PASS_FILE
   ? readFileSync(process.env.IOI_WALLET_SECRET_PASS_FILE, "utf8").trimEnd()
-  : "";
+  : (process.env.IOI_WALLET_SECRET_PASS || "");
 if (!operatorEmail || !operatorPassword || !walletPass) {
-  throw new Error("IOI_C7_EMAIL, IOI_C7_PASSWORD_FILE, and IOI_WALLET_SECRET_PASS_FILE are required");
+  throw new Error("IOI_C7_EMAIL, IOI_C7_PASSWORD_FILE, and an ephemeral IOI_WALLET_SECRET_PASS (or file) are required");
 }
 if (config.schema_version !== "ioi.hypervisor.certified-provider-campaign.v1") {
   throw new Error("unsupported campaign config schema");
