@@ -153,9 +153,13 @@ let session = "";
 let dseq = "";
 let terminal = false;
 try {
-  fixture = await startRealWalletNetworkPrincipalAuthorityFixture({
-    baseEnv: { ...process.env, IOI_WALLET_SECRET_PASS: walletPass },
-  });
+  if (!prepareOnly) {
+    fixture = await startRealWalletNetworkPrincipalAuthorityFixture({
+      baseEnv: { ...process.env, IOI_WALLET_SECRET_PASS: walletPass },
+    });
+  } else {
+    log("prepare-only: wallet authority plane intentionally not started");
+  }
   const portOwner = spawnSync("bash", ["-lc", "ss -tlnp 2>/dev/null | awk '/:8765 / {match($0,/pid=[0-9]+/); if (RSTART) print substr($0,RSTART+4,RLENGTH-4)}'"], { encoding: "utf8" }).stdout.trim();
   if (portOwner && /^\d+$/u.test(portOwner)) process.kill(Number(portOwner), "SIGTERM");
   await sleep(2_000);
@@ -164,7 +168,7 @@ try {
     detached: true,
     env: {
       ...process.env,
-      ...fixture.env,
+      ...(fixture?.env || {}),
       IOI_WALLET_SECRET_PASS: walletPass,
       IOI_HYPERVISOR_DATA_DIR: config.data_dir,
       IOI_HYPERVISOR_DAEMON_ADDR: "127.0.0.1:8765",
