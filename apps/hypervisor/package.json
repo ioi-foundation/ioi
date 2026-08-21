@@ -38,6 +38,7 @@
     "check:akash-live-lifecycle": "node scripts/verify-akash-live-lifecycle.mjs",
     "generate:c7-c8-capstone": "node scripts/generate-c7-c8-certificate.mjs",
     "build:c7-public-evidence": "node scripts/build-c7-public-evidence.mjs",
+    "hash:artifact-directory": "node scripts/hash-artifact-directory.mjs",
     "assemble:c7-c8-capstone": "node scripts/assemble-c7-c8-evidence.mjs",
     "run:certified-provider-campaign": "node scripts/run-certified-provider-campaign.mjs",
     "check:verifier-floors": "node scripts/check-verifier-floors.mjs",

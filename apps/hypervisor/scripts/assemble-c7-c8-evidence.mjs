@@ -9,9 +9,10 @@ const artifacts = path.resolve(arg("--artifacts") || "");
 const dataDir = path.resolve(arg("--data-dir") || "");
 const repo = path.resolve(arg("--repo") || process.cwd());
 const environment = arg("--environment");
+const historicalSourcePath = arg("--source-basis-certificate");
 const output = path.resolve(arg("--output") || path.join(artifacts, "run-evidence.json"));
 if (!artifacts || !dataDir || !environment) {
-  console.error("usage: assemble-c7-c8-evidence --artifacts <dir> --data-dir <dir> --environment <env> [--repo <repo>] [--output <json>]");
+  console.error("usage: assemble-c7-c8-evidence --artifacts <dir> --data-dir <dir> --environment <env> [--repo <repo>] [--source-basis-certificate <historical-certificate.json>] [--output <json>]");
   process.exit(2);
 }
 const read = (name) => JSON.parse(fs.readFileSync(path.join(artifacts, name), "utf8"));
@@ -73,7 +74,19 @@ const imageRef = sdlImageRef(rawSdl);
 const reviewedFacets = structuredClone(facets);
 delete reviewedFacets.sdl_yaml;
 const negativeReceipt = receipts.find((record) => record.receipt_ref === challenge.receipt_ref);
-const status = execFileSync("git", ["status", "--short"], { cwd: repo, encoding: "utf8" }).trim();
+const historicalSource = historicalSourcePath
+  ? JSON.parse(fs.readFileSync(path.resolve(historicalSourcePath), "utf8")).source
+  : null;
+if (historicalSourcePath && (
+  !historicalSource?.commit
+  || !historicalSource?.daemon_binary_sha256
+  || typeof historicalSource?.dirty_state_declaration !== "string"
+)) {
+  throw new Error("historical source-basis certificate lacks commit, binary hash, or dirty-state declaration");
+}
+const status = historicalSource
+  ? historicalSource.dirty_state_declaration
+  : execFileSync("git", ["status", "--short"], { cwd: repo, encoding: "utf8" }).trim();
 const muxlogPath = path.join(dataDir, "substrate/muxlog.bin");
 const muxlog = fs.readFileSync(muxlogPath);
 const whoamiPrincipal = whoami.principal_ref || whoami.principal?.principal_ref || whoami.identity?.principal_ref || whoami.user?.principal_ref;
@@ -87,16 +100,18 @@ const workloadReadinessProven = readyReplicas > 0;
 const workloadResultRetrieved = endpoint?.workload_result_retrieved === true
   || deployment?.workload_result_retrieved === true;
 const immutableImage = /@sha256:[0-9a-f]{64}$/u.test(imageRef);
-const publicationEligible = (status || "clean") === "clean" && immutableImage;
+const publicationEligible = historicalSource === null && (status || "clean") === "clean" && immutableImage;
 
 const evidence = {
   ok: cast.ok === true && start.ok === true && logs.ok === true && settlement.provider_terminal === true,
   result: "success",
   source: {
-    commit: execFileSync("git", ["rev-parse", "HEAD"], { cwd: repo, encoding: "utf8" }).trim(),
+    commit: historicalSource?.commit
+      || execFileSync("git", ["rev-parse", "HEAD"], { cwd: repo, encoding: "utf8" }).trim(),
     dirty_state_declaration: status || "clean",
     publication_eligible: publicationEligible,
-    daemon_binary_sha256: shaFile(path.join(repo, "target/debug/hypervisor-daemon")),
+    daemon_binary_sha256: historicalSource?.daemon_binary_sha256
+      || shaFile(path.join(repo, "target/debug/hypervisor-daemon")),
   },
   operator: { principal_ref: required(proposal.principal_ref, "authenticated proposal consumer") },
   authority: {
