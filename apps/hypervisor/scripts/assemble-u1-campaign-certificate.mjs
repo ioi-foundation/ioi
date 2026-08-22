@@ -63,6 +63,7 @@ const certificate = sealU1Certificate({
     warmups: facets.benchmark_warmups,
     measured_passes: facets.benchmark_repeats,
     provider_address: facets.provider_address,
+    result_tls_server_certificate_sha256: facets.result_tls_server_certificate_sha256,
     provider_selector: facets.provider_selector,
     auto_topup: facets.auto_topup,
     deposit_usd: facets.deposit_usd,

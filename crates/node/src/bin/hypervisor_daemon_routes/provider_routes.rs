@@ -5284,6 +5284,7 @@ impl AkashProvider {
                 "execution_mode": "live_console_api", "sdl_yaml_bytes": sdl_yaml.len(),
                 "sdl_template_hash": plan.get("sdl_hash").cloned().unwrap_or(Value::Null),
                 "result_credential_ref": plan.get("result_credential_ref").cloned().unwrap_or(Value::Null),
+                "result_tls_server_certificate_sha256": plan.get("result_tls_server_certificate_sha256").cloned().unwrap_or(Value::Null),
                 "campaign_id": plan.get("campaign_id").cloned().unwrap_or(Value::Null),
                 "benchmark_source_commit": plan.get("benchmark_source_commit").cloned().unwrap_or(Value::Null),
                 "image_digest": plan.get("image_digest").cloned().unwrap_or(Value::Null),
@@ -5776,12 +5777,10 @@ impl EnvironmentProvider for AkashProvider {
                 }
                 let token = resolve_connector_bearer(data_dir, &result_ref)?;
                 let base = format!("https://{host}");
+                let certificate_pin = text(&dep, "result_tls_server_certificate_sha256");
                 let bundle = tokio::task::block_in_place(|| {
                     tokio::runtime::Handle::current().block_on(async {
-                        let client = reqwest::Client::builder()
-                            .timeout(std::time::Duration::from_secs(30))
-                            .build()
-                            .map_err(|_| "akash_result_client_build_failed")?;
+                        let client = pinned_result_client(host, certificate_pin)?;
                         let mut bundle = serde_json::Map::new();
                         for (name, path) in [
                             ("status", "/status"),
@@ -7704,6 +7703,11 @@ fn validate_standing_provider_facets(
             "/result_destination_refs",
             "standing_result_destination_outside_envelope",
         ),
+        (
+            "result_tls_server_certificate_sha256",
+            "/result_transport_certificate_hashes",
+            "standing_result_transport_outside_envelope",
+        ),
     ] {
         let value = facets
             .get(facet)
@@ -7818,6 +7822,7 @@ fn validate_akash_result_contract(plan: &Value, sdl: &str) -> Result<(), &'stati
     let result_schema = text(plan, "result_schema_version");
     let warmups = plan.get("benchmark_warmups").and_then(Value::as_u64);
     let repeats = plan.get("benchmark_repeats").and_then(Value::as_u64);
+    let tls_server_certificate_sha256 = text(plan, "result_tls_server_certificate_sha256");
 
     if result_ref.is_empty() {
         if !campaign_id.is_empty()
@@ -7827,10 +7832,22 @@ fn validate_akash_result_contract(plan: &Value, sdl: &str) -> Result<(), &'stati
             || !result_schema.is_empty()
             || warmups.is_some()
             || repeats.is_some()
+            || !tls_server_certificate_sha256.is_empty()
         {
             return Err("akash_result_contract_without_result_credential");
         }
         return Ok(());
+    }
+    if !tls_server_certificate_sha256
+        .strip_prefix("sha256:")
+        .is_some_and(|digest| {
+            digest.len() == 64
+                && digest.chars().all(|character| {
+                    character.is_ascii_hexdigit() && !character.is_ascii_uppercase()
+                })
+        })
+    {
+        return Err("akash_result_tls_certificate_pin_invalid");
     }
     if campaign_id.is_empty()
         || campaign_id.len() > 128
@@ -8086,6 +8103,60 @@ fn materialize_akash_sdl(data_dir: &str, plan: &Value, template: &str) -> Result
         Some(resolve_connector_bearer(data_dir, result_ref)?)
     };
     inject_akash_sdl_secrets(template, registry.as_deref(), result.as_deref())
+}
+
+/// Build a result client that accepts exactly the owner-reviewed leaf
+/// certificate. Some Akash ingress controllers expose a provider-local,
+/// self-signed certificate without a DNS SAN. We therefore retrieve the leaf
+/// without sending application bytes, verify its DER hash against the
+/// authority-bound pin, add only that certificate as a trust root, and disable
+/// hostname matching for the subsequent HTTPS request. Chain validation stays
+/// enabled, so this is not a global invalid-certificate escape hatch.
+fn pinned_result_client(host: &str, expected_pin: &str) -> Result<reqwest::Client, &'static str> {
+    let expected = expected_pin
+        .strip_prefix("sha256:")
+        .filter(|digest| {
+            digest.len() == 64
+                && digest.chars().all(|character| {
+                    character.is_ascii_hexdigit() && !character.is_ascii_uppercase()
+                })
+        })
+        .ok_or("akash_result_tls_certificate_pin_invalid")?;
+    let stream = std::net::TcpStream::connect((host, 443))
+        .map_err(|_| "akash_result_tls_certificate_probe_failed")?;
+    stream
+        .set_read_timeout(Some(std::time::Duration::from_secs(30)))
+        .map_err(|_| "akash_result_tls_certificate_probe_failed")?;
+    stream
+        .set_write_timeout(Some(std::time::Duration::from_secs(30)))
+        .map_err(|_| "akash_result_tls_certificate_probe_failed")?;
+    let connector = native_tls::TlsConnector::builder()
+        .danger_accept_invalid_certs(true)
+        .danger_accept_invalid_hostnames(true)
+        .build()
+        .map_err(|_| "akash_result_tls_certificate_probe_failed")?;
+    let tls = connector
+        .connect(host, stream)
+        .map_err(|_| "akash_result_tls_certificate_probe_failed")?;
+    let certificate = tls
+        .peer_certificate()
+        .map_err(|_| "akash_result_tls_certificate_probe_failed")?
+        .ok_or("akash_result_tls_certificate_absent")?;
+    let der = certificate
+        .to_der()
+        .map_err(|_| "akash_result_tls_certificate_invalid")?;
+    if sha256_bytes(&der).strip_prefix("sha256:") != Some(expected) {
+        return Err("akash_result_tls_certificate_pin_mismatch");
+    }
+    let root =
+        reqwest::Certificate::from_der(&der).map_err(|_| "akash_result_tls_certificate_invalid")?;
+    reqwest::Client::builder()
+        .tls_built_in_root_certs(false)
+        .add_root_certificate(root)
+        .danger_accept_invalid_hostnames(true)
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .map_err(|_| "akash_result_client_build_failed")
 }
 
 /// The single final-invoker implementation for static provider adapters. Both the HTTP route and
@@ -8420,6 +8491,7 @@ pub(crate) async fn handle_provider_op(
                         "registry_credential_ref": body.pointer("/plan/registry_credential_ref").cloned().unwrap_or(Value::Null),
                         "registry_host": body.pointer("/plan/registry_host").cloned().unwrap_or(Value::Null),
                         "result_credential_ref": body.pointer("/plan/result_credential_ref").cloned().unwrap_or(Value::Null),
+                        "result_tls_server_certificate_sha256": body.pointer("/plan/result_tls_server_certificate_sha256").cloned().unwrap_or(Value::Null),
                         "campaign_id": body.pointer("/plan/campaign_id").cloned().unwrap_or(Value::Null),
                         "benchmark_source_commit": body.pointer("/plan/benchmark_source_commit").cloned().unwrap_or(Value::Null),
                         "image_digest": body.pointer("/plan/image_digest").cloned().unwrap_or(Value::Null),
@@ -8783,6 +8855,7 @@ pub(crate) async fn handle_provider_op(
                             "registry_credential_ref",
                             "registry_host",
                             "result_credential_ref",
+                            "result_tls_server_certificate_sha256",
                             "campaign_id",
                             "benchmark_source_commit",
                             "image_digest",
@@ -9568,6 +9641,7 @@ mod containment_tests {
             "image_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
             "registry_host": "ghcr.io",
             "result_credential_ref": "connector://conn_eee2dfac02809de0",
+            "result_tls_server_certificate_sha256": format!("sha256:{}", "a".repeat(64)),
             "auto_topup": false,
             "teardown_policy": "always_teardown_required",
             "max_duration_seconds": 3600
@@ -9593,6 +9667,19 @@ mod containment_tests {
             )
             .unwrap_err(),
             "standing_result_destination_outside_envelope"
+        );
+        let mut repinned = facets.clone();
+        repinned["result_tls_server_certificate_sha256"] =
+            json!(format!("sha256:{}", "b".repeat(64)));
+        assert_eq!(
+            validate_standing_provider_facets(
+                &envelope,
+                "pacc_18cd245812ad55b9",
+                "create",
+                &repinned,
+            )
+            .unwrap_err(),
+            "standing_result_transport_outside_envelope"
         );
         let mut expensive = facets;
         expensive["deposit_usd"] = json!(1.000001);
@@ -9659,6 +9746,7 @@ env:
         let digest = format!("sha256:{}", "a".repeat(64));
         let plan = json!({
             "result_credential_ref": "connector://conn_results",
+            "result_tls_server_certificate_sha256": format!("sha256:{}", "c".repeat(64)),
             "campaign_id": "u1-campaign-a",
             "benchmark_source_commit": commit,
             "image_digest": digest,
@@ -9681,6 +9769,13 @@ env:
 "#
         );
         assert_eq!(validate_akash_result_contract(&plan, &sdl), Ok(()));
+
+        let mut unpinned = plan.clone();
+        unpinned["result_tls_server_certificate_sha256"] = Value::Null;
+        assert_eq!(
+            validate_akash_result_contract(&unpinned, &sdl),
+            Err("akash_result_tls_certificate_pin_invalid")
+        );
 
         let mut stale = plan.clone();
         stale["campaign_id"] = json!("u1-campaign-b");

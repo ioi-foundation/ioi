@@ -105,6 +105,7 @@ export function validU1Fixture() {
       warmups: 1,
       measured_passes: 5,
       provider_address: providerAddress,
+      result_tls_server_certificate_sha256: `sha256:${"a".repeat(64)}`,
       provider_selector: {
         mode: "exact",
         provider_address: providerAddress,

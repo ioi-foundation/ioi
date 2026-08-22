@@ -29,6 +29,9 @@ export function validateCertifiedCampaignConfig(config) {
         || !/^akash1[02-9ac-hj-np-z]{38}$/u.test(String(selector.provider_address || ""))) {
       throw new Error("U1 requires one explicit exact Akash provider address");
     }
+    if (!/^sha256:[0-9a-f]{64}$/u.test(String(plan.result_tls_server_certificate_sha256 || ""))) {
+      throw new Error("U1 requires one explicit result TLS server certificate SHA-256 pin");
+    }
   }
   return config;
 }

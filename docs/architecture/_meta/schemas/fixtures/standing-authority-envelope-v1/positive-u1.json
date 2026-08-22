@@ -20,6 +20,7 @@
     "image_digests": ["sha256:2222222222222222222222222222222222222222222222222222222222222222"],
     "registry_hosts": ["ghcr.io"],
     "result_destination_refs": ["connector://conn_eee2dfac02809de0"],
+    "result_transport_certificate_hashes": ["sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
     "auto_topup": false,
     "teardown_policy": "always_teardown_required",
     "max_duration_seconds": 3600
@@ -39,5 +40,5 @@
   "trajectory_policy_hash": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
   "approval_mode": "standing_envelope",
   "recovery_posture": "recovery_never_widens_or_resets_drawdown",
-  "body_hash": "sha256:3e1948155b11ca8c7d076de860175142f0f4b01a403286d9924d45876f371110"
+  "body_hash": "sha256:2a1d8054d087668a8c985596d24da9c87f7c0c0e0e80ded648c2fbfe519664d4"
 }

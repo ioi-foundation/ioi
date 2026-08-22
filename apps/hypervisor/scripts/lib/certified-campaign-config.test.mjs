@@ -25,6 +25,7 @@ const valid = {
     result_schema_version: "ioi.aft.benchmark-campaign.v1",
     benchmark_warmups: 1,
     benchmark_repeats: 5,
+    result_tls_server_certificate_sha256: `sha256:${"c".repeat(64)}`,
     ceiling_amount: "1000",
     ceiling_denom: "uact",
     teardown_policy: "always_teardown_required",
@@ -75,6 +76,11 @@ test("rejects unbounded or non-exact U1 authority", () => {
   topup.plan.deposit_usd = 1;
   topup.plan.auto_topup = true;
   assert.throws(() => validateCertifiedCampaignConfig(topup), /auto_topup/u);
+
+  const unpinned = structuredClone(valid);
+  unpinned.plan.deposit_usd = 1;
+  delete unpinned.plan.result_tls_server_certificate_sha256;
+  assert.throws(() => validateCertifiedCampaignConfig(unpinned), /certificate SHA-256 pin/u);
 });
 
 test("materializes every reviewed non-secret token into the hashed SDL", () => {

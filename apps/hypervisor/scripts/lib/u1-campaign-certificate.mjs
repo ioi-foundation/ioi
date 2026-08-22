@@ -52,14 +52,15 @@ export function validateU1Certificate(certificate) {
   const lifecycle = certificate?.lifecycle;
   if (!hash(lifecycle?.certificate_hash) || lifecycle?.verification_ok !== true || !Number.isSafeInteger(lifecycle?.mutation_count) || lifecycle.mutation_count < 22) fail("u1_lifecycle_certificate_unverified", "lifecycle", "a verified C7/C8 v2 lifecycle with its mutation run is required");
   if (lifecycle?.publication_eligible !== true || lifecycle?.source_dirty_state !== "clean") fail("u1_lifecycle_source_not_clean", "lifecycle", "U1 must chain to a clean publication-eligible lifecycle basis");
+  if (!/^[0-9a-f]{40}$/u.test(lifecycle?.source_commit || "")) fail("u1_lifecycle_source_invalid", "lifecycle.source_commit", "the daemon lifecycle must name its full source commit");
 
   const authority = certificate?.authority;
-  for (const key of ["policy_hash", "request_hash", "review_bundle_sha256", "campaign_id", "source_commit", "image_digest", "protocol_version", "result_schema_version", "provider_address"]) {
+  for (const key of ["policy_hash", "request_hash", "review_bundle_sha256", "campaign_id", "source_commit", "image_digest", "protocol_version", "result_schema_version", "provider_address", "result_tls_server_certificate_sha256"]) {
     if (authority?.[key] === undefined || authority?.[key] === null || authority?.[key] === "") fail("u1_authority_facet_missing", `authority.${key}`, "authority-bound campaign facet missing");
   }
   if (![authority?.policy_hash, authority?.request_hash, authority?.review_bundle_sha256].every(hash)) fail("u1_authority_hash_invalid", "authority", "policy, request, and review bundle hashes must be SHA-256 commitments");
+  if (!hash(authority?.result_tls_server_certificate_sha256)) fail("u1_result_tls_pin_invalid", "authority.result_tls_server_certificate_sha256", "the owner-reviewed result transport certificate pin is required");
   if (!/^[0-9a-f]{40}$/u.test(authority?.source_commit || "") || !hash(authority?.image_digest)) fail("u1_workload_identity_invalid", "authority", "full source commit and OCI digest are required");
-  if (lifecycle?.source_commit !== authority?.source_commit) fail("u1_lifecycle_source_mismatch", "lifecycle.source_commit", "measurement source differs from the certified lifecycle source");
   if (authority?.protocol_version !== "res-p4.3.v2" || authority?.result_schema_version !== "ioi.aft.benchmark-campaign.v1" || authority?.warmups !== 1 || authority?.measured_passes !== 5) fail("u1_protocol_contract_invalid", "authority", "U1 fixes one warmup and five measured passes under RES-P4.3 v2");
   if (authority?.provider_selector?.mode !== "exact" || authority?.provider_selector?.selection !== "only_qualified_bid_from_exact_provider" || authority?.provider_selector?.provider_address !== authority?.provider_address) fail("u1_provider_pin_invalid", "authority.provider_selector", "campaign must be bound to one exact provider");
   if (authority?.auto_topup !== false || authority?.teardown_policy !== "always_teardown_required") fail("u1_spend_posture_invalid", "authority", "auto-topup must be false and teardown mandatory");

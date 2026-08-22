@@ -6861,6 +6861,7 @@ dependencies = [
  "libp2p",
  "log",
  "mime_guess",
+ "native-tls",
  "parity-scale-codec",
  "parking_lot",
  "rand 0.8.5",

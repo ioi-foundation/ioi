@@ -50,6 +50,13 @@ Do not put registry credentials or the result bearer token in the SDL, driver, s
 - `registry_credential_ref`: a sealed bearer whose plaintext is JSON with `username` and `password` fields;
 - `result_credential_ref`: a sealed random bearer token of at least 32 characters.
 
+The result transport also binds `result_tls_server_certificate_sha256` into the
+wallet-reviewed facets. This is required for providers whose ingress uses a
+provider-local certificate without a DNS SAN. The daemon probes the leaf
+certificate without sending the bearer, rejects a DER hash mismatch, adds only
+the pinned certificate as a trust root, and then performs HTTPS retrieval. It
+never falls back to plaintext HTTP or globally disables certificate checks.
+
 The proposal carries only `connector://conn_…` references and the SDL sentinels. The daemon injects plaintext after the C2 intent commits, sends the expanded SDL directly to Akash, and does not persist it. A seeded canary scan refuses the result bundle if a known test canary appears in any artifact.
 
 After `start` discovers the provider endpoint, `logs` performs authenticated retrieval of `/status`, `/environment`, `/results`, and `/manifest`, verifies that the campaign is complete, caps each response at 2 MiB, persists a content-hashed `akash-workload-result://…` record, and returns a receipt without returning the bearer token.
@@ -68,7 +75,7 @@ The provider selection is part of the wallet-bound plan:
 
 Exact pinning has no marketplace fallback. The daemon also enforces the approved `uact` denomination and ceiling against that provider’s bid. No bid means refusal, automatic close, and provider-native settlement reconciliation.
 
-The owner must review the immutable image digest, exact provider, SDL hash, resources, campaign ID, deposit, `uact` ceiling, connector references, and teardown policy in the dry challenge before minting the one-shot grant. Each of the two campaigns gets a fresh proposal, admission nonce, challenge, grant, and explicit approval.
+The owner must review the immutable image digest, exact provider, SDL hash, resources, campaign ID, deposit, `uact` ceiling, connector references, result-transport certificate pin, and teardown policy in the dry challenge before minting the one-shot grant. Each of the two campaigns gets a fresh proposal, admission nonce, challenge, grant, and explicit approval.
 
 `u1-campaign.example.json` intentionally leaves the exact provider, deposit, and
 `uact` ceiling as owner-review tokens, and campaign validation refuses to run
@@ -90,8 +97,14 @@ After results are retrieved, always delete, confirm closure, reconcile the depos
 Each campaign gets a separate `ioi.hypervisor.u1-aft-campaign-certificate.v1`
 chained to its verified C7/C8 lifecycle certificate. The U1 verifier checks the
 complete 10-row matrix, five-pass statistics, provider response hashes,
-artifact manifest, exact provider, and terminal settlement; its 28-mutation
+artifact manifest, exact provider, and terminal settlement; its 29-mutation
 self-test also refuses unsupported bare-metal elevation:
+
+The lifecycle and workload source bases are explicit and may differ: the C7/C8
+certificate names the daemon revision that enforced and retrieved the run,
+while `benchmark_source_commit` names the immutable source embedded in the
+workload image. Both full commits and the image digest remain independently
+bound; a transport fix does not require rebuilding the measured workload.
 
 ```bash
 npm --prefix apps/hypervisor run assemble:u1-campaign-certificate -- \

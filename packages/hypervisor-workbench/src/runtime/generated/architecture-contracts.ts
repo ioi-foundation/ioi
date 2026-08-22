@@ -2902,6 +2902,7 @@ export type StandingAuthorityEnvelopeV1 = {
       image_digests: Array<string>;
       registry_hosts: Array<string>;
       result_destination_refs: Array<string>;
+      result_transport_certificate_hashes: Array<string>;
       auto_topup: false;
       teardown_policy: "always_teardown_required";
       max_duration_seconds: number;
@@ -21433,7 +21434,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/active-skill-set-snapshot/v1": "sha256:c62f6d794bf48172de77fa72cb71ea86dd1ed07944abf70d92aa8e82a97f87d6",
   "schema://ioi/foundations/authority-grant-envelope/v1": "sha256:9f8a2e183e7bb02cdb02274c59b06c0dda1abe293e4c377c80aaccbf9fee5796",
   "schema://ioi/foundations/authority-grant-envelope/v2": "sha256:5d702231006db3551371f3d5f581532292c6a616c30c314b331ae747adfc219e",
-  "schema://ioi/foundations/standing-authority-envelope/v1": "sha256:8b7076330ee412a05eadfa7cbe02fd9147aa136235fc823fe77a1caa50863410",
+  "schema://ioi/foundations/standing-authority-envelope/v1": "sha256:2966cc385e7c95a28d8a61304b57c6a39a787325c71b20019ec4a10705e7f006",
   "schema://ioi/foundations/authority-trajectory-state/v1": "sha256:b6699e24b52eb2d8e57fd086bee951e34d64b5d1a80d34c8ba47bfb77b6603f3",
   "schema://ioi/foundations/trajectory-admission-decision/v1": "sha256:3fdb69ca87b0946ba7f3644ee6197f0b47cda4c3f095864528973473cb9e6245",
   "schema://ioi/foundations/authority-key-set/v1": "sha256:ea66e12fa2584b1769d15c70f886a1e7b2c844a3220c13f8c3d6a0231969ec6c",
@@ -43596,6 +43597,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           "image_digests",
           "registry_hosts",
           "result_destination_refs",
+          "result_transport_certificate_hashes",
           "auto_topup",
           "teardown_policy",
           "max_duration_seconds"
@@ -43685,6 +43687,9 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           },
           "result_destination_refs": {
             "$ref": "#/$defs/refSet"
+          },
+          "result_transport_certificate_hashes": {
+            "$ref": "#/$defs/hashSet"
           },
           "auto_topup": {
             "const": false

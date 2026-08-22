@@ -133,6 +133,7 @@ function verifyFacets(challenge) {
     sdl_hash: expectedSdlHash,
     registry_credential_ref: request.plan.registry_credential_ref ?? null,
     result_credential_ref: request.plan.result_credential_ref ?? null,
+    result_tls_server_certificate_sha256: request.plan.result_tls_server_certificate_sha256 ?? null,
     campaign_id: request.plan.campaign_id ?? null,
     benchmark_source_commit: request.plan.benchmark_source_commit ?? null,
     image_digest: request.plan.image_digest ?? null,
