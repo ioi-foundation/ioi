@@ -13,6 +13,7 @@ const SELF_HASH_FIELDS = new Map([
   ["ioi.foundations.verifier-independence-profile.v1", "profile_hash"],
   ["ioi.components.hypervisor.governed-effect-claim-manifest.v1", "manifest_hash"],
   ["ioi.components.hypervisor.workload-isolation-binding.v1", "binding_hash"],
+  ["ioi.components.hypervisor.workload-isolation-requirements.v1", "requirements_hash"],
   ["ioi.foundations.standing-authority-envelope.v1", "body_hash"],
   ["ioi.foundations.authority-trajectory-state.v1", "trajectory_state_hash"],
   ["ioi.foundations.trajectory-admission-decision.v1", "decision_hash"],

@@ -19,7 +19,10 @@ const write = (name, value) => {
   return target;
 };
 const object = (name, ref, schemaRef, value) => ({ ref, schema_ref: schemaRef, file: `${name}.json`, path: write(`source-${name}.json`, value) });
-const generic = (name, ref, schemaRef, extra = {}) => object(name, ref, schemaRef, { schema_version: schemaRef.replace("schema://", ""), ...extra });
+const generic = (name, ref, schemaRef, extra = {}) => object(name, ref, schemaRef, {
+  schema_version: schemaRef.replace("schema://", "").replaceAll("/", "."),
+  ...extra,
+});
 const run = (...args) => spawnSync(verifier, args, { cwd: repo, encoding: "utf8" });
 
 try {
@@ -93,7 +96,9 @@ try {
   });
   const refs = {
     predecessor: "certificate://c8/v2/corpus", source: "source://ioi/corpus", request: requestRef,
-    claims: claimManifest.manifest_ref, isolation: "isolation-binding://workrun/corpus", readiness: "evidence://provider/readiness-corpus",
+    claims: claimManifest.manifest_ref, isolation: "isolation-binding://workrun/corpus",
+    isolationRequirements: "isolation-requirements://workrun/corpus", isolationEvidence: "enforcement-coverage://workrun/corpus",
+    readiness: "evidence://provider/readiness-corpus",
     campaign: "certificate://u1/campaign-fixture", contract: "schema://ioi/aft/u1-campaign-result/v1", result: resultRef,
     retrieval: "receipt://aft/result-retrieval-corpus", environment: "environment://aft/campaign-fixture", variance: "variance://aft/campaign-fixture",
     envelope: "standing-envelope://aft/corpus", drawRequest: "authority-draw-request://aft/corpus", drawReceipt: "receipt://authority-draw/corpus",
@@ -105,10 +110,39 @@ try {
     object("source", refs.source, "schema://ioi/foundations/source-basis/v1", { commit: sourceCommit }),
     object("request", refs.request, "schema://ioi/components/hypervisor/provider-operation/v1", requestValue),
     object("claims", refs.claims, "schema://ioi/components/hypervisor/governed-effect-claim-manifest/v1", claimManifest),
+    generic("isolation-requirements", refs.isolationRequirements, "schema://ioi/components/hypervisor/workload-isolation-requirements/v1", {
+      requirements_ref: refs.isolationRequirements,
+      source_policy_refs_and_hashes: [{ ref: "policy://isolation/corpus", hash: h("1") }],
+      compiled_risk_classes: ["untrusted_code", "mutating"], hostile_to_boundary_requirement: "hostile_to_guest_kernel",
+      instance_policy: "fresh_per_workrun", minimum_isolation: "vm_kernel", host_mount_policy: "none",
+      daemon_socket_exposed: false, host_pid_namespace_exposed: false, raw_secret_material_in_guest: false,
+      capability_broker_ref: "broker://capability/corpus", permitted_lease_classes: ["proposal_write"],
+      network_policy_ref: "policy://network/deny-default", dependency_broker_policy_ref: "policy://dependency/none",
+      output_admission: { quarantine_required: true, policy_ref: "policy://output/quarantine", maximum_bytes: 65536,
+        maximum_files: 4, archive_entry_policy_ref: "policy://archive/regular-relative-only", evaluator_refs: ["evaluator://output/static/v1"] },
+      teardown: { destruction_policy_ref: "policy://cleanup/workrun", deadline_ms: 60000, verify_all_resources: true, cleanup_obligation_on_uncertainty: true },
+      required_backend_capabilities: ["kernel_initramfs_boot", "guest_agent", "no_nic"], required_enforcement_coverage: ["preventable", "receipted"],
+      required_evidence_and_receipt_policy_refs: ["policy://receipt/workrun-isolation"], compiler_ref: "compiler://workload-isolation/v1", compiler_version: "1.0.0",
+    }),
+    generic("isolation-evidence", refs.isolationEvidence, "schema://ioi/components/hypervisor/workload-boundary-enforcement-evidence/v1", {
+      protection_profile: "trusted_host_hostile_guest", network_posture: "no_nic", final_invoker_audience: "hypervisor-final-invoker",
+      direct_protected_effect_invocations: 0, final_invoker_calls: 1, guest_uid: 0, output_quarantined: true, capability_replay: "refused", monitor_terminal: true,
+    }),
     generic("isolation", refs.isolation, "schema://ioi/components/hypervisor/workload-isolation-binding/v1", {
-      binding_ref: refs.isolation, protection_profile: "trusted_host_hostile_guest", network_posture: "no_nic",
-      final_invoker_audience: "hypervisor-final-invoker", direct_protected_effect_invocations: 0, final_invoker_calls: 1,
-      guest_uid: 0, output_quarantined: true,
+      binding_ref: refs.isolation, requirements_ref: refs.isolationRequirements, workrun_ref: "workrun://aft/corpus",
+      runtime_assignment_ref: "runtime-assignment://aft/corpus", environment_ref: refs.environment, startup_plan_ref: "startup-plan://aft/corpus",
+      startup_plan_hash: h("2"), boundary_instance_ref: "boundary://vm/corpus", compute_host_ref: "runtime-node://local/corpus",
+      failure_domain_ref: "failure-domain://local/corpus", backend_capability_declaration_ref: "capability://backend/local-kvm/corpus",
+      backend_capability_declaration_hash: h("3"), enforcement_coverage_refs_and_hashes: [{ ref: refs.isolationEvidence, hash: h("0") }],
+      immutable_component_refs_and_hashes: [{ ref: "image://guest/corpus", hash: imageDigest }, { ref: "kernel://linux/corpus", hash: h("4") }, { ref: "guest-agent://ioi/corpus", hash: h("5") }],
+      exact_input_and_mount_closure_hash: h("6"), guest_network_identity_ref: "network-identity://workrun/no-nic-corpus",
+      route_policy_ref: "policy://network/deny-default", dependency_broker_ref: "broker://dependency/none",
+      dependency_broker_policy_hash: h("7"), brokered_lease_refs: ["workload-effect-capability://wec_corpus"],
+      pep_ref: "pep://daemon/workrun", final_invoker_ref: "final-invoker://hypervisor/provider-operation",
+      governed_action_classes: ["provider_operation"], output_quarantine_ref: "quarantine://workrun/corpus",
+      output_policy_ref: "policy://output/quarantine", cleanup_obligation_ref: "cleanup-obligation://workrun/corpus",
+      required_terminal_disposition: "destroyed_verified", readiness_evidence_refs: [refs.readiness],
+      currentness_evaluation_refs: ["evaluation://currentness/corpus"],
     }),
     generic("readiness", refs.readiness, "schema://ioi/components/hypervisor/provider-readiness/v1", {
       status: "ready", campaign_id: "campaign-fixture", provider_ref: providerRef, image_digest: imageDigest,
@@ -132,9 +166,11 @@ try {
       standing_envelope_ref: refs.envelope, owner_ref: "org://local", bounded_system_ref: "system://aft/corpus",
       principal_ref: "principal://aft/worker", audience_ref: "runtime://hypervisor/corpus",
       authority_scope: "scope:hypervisor.live-route.hypervisor-provider-op",
-      facet_template: { operations: ["create", "start", "logs", "delete", "reconcile"], provider_addresses: [providerAddress],
-        image_digests: [imageDigest], result_destination_refs: [requestValue.result_destination_ref], auto_topup: false,
-        teardown_policy: "always_teardown_required" },
+      facet_template: { provider_id: "pacc_18cd245812ad55b9", operations: ["create", "start", "logs", "delete", "reconcile"],
+        provider_selector: { mode: "exact", provider_addresses: [providerAddress], selection: "only_qualified_bid_from_exact_provider" },
+        per_operation_deposit_microusd: 1000000, pricing_ceiling: { amount: "1000", denom: "uact" }, sdl_hashes: [h("8")],
+        image_digests: [imageDigest], registry_hosts: ["ghcr.io"], result_destination_refs: [requestValue.result_destination_ref],
+        result_transport_certificate_hashes: [h("9")], auto_topup: false, teardown_policy: "always_teardown_required", max_duration_seconds: 7200 },
       aggregate_bounds: { max_cumulative_deposit_microusd: 2000000, max_cumulative_spend_microusd: 2000000, max_usages: 2,
         max_concurrent_resources: 1, max_provider_fanout: 1, max_failures: 1 },
       not_before_ms: 1787410000000, expires_at_ms: 1787496400000, revocation_epoch: 1,
@@ -191,6 +227,12 @@ try {
     return [entry, JSON.parse(fs.readFileSync(entry.path, "utf8"))];
   };
   const rewriteObject = (entry, value) => fs.writeFileSync(entry.path, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
+  const [requirementsEntry] = readObject(refs.isolationRequirements);
+  const [isolationEvidenceEntry] = readObject(refs.isolationEvidence);
+  const [isolationEntry, isolationValue] = readObject(refs.isolation);
+  isolationValue.requirements_hash = contentHash(JSON.parse(fs.readFileSync(requirementsEntry.path, "utf8")));
+  isolationValue.enforcement_coverage_refs_and_hashes[0].hash = contentHash(JSON.parse(fs.readFileSync(isolationEvidenceEntry.path, "utf8")));
+  rewriteObject(isolationEntry, isolationValue);
   const [resultEntry] = readObject(refs.result);
   const [environmentEntry] = readObject(refs.environment);
   const [settlementEntry] = readObject(refs.settlement);
@@ -311,6 +353,12 @@ try {
         decisionObject[objectRef === refs.before ? "state_before_hash" : "state_after_hash"] = changedHash;
         writeBoundObject(refs.decision, decisionObject);
       }
+      if (objectRef === refs.isolationRequirements || objectRef === refs.isolationEvidence) {
+        const [, isolationObject] = readBundleObject(directory, bundle, refs.isolation);
+        if (objectRef === refs.isolationRequirements) isolationObject.requirements_hash = changedHash;
+        else isolationObject.enforcement_coverage_refs_and_hashes.find((entry) => entry.ref === objectRef).hash = changedHash;
+        writeBoundObject(refs.isolation, isolationObject);
+      }
     }
     if (mutateCertificate) mutateCertificate(certificate);
     certificate = sealSelfHash(certificate);
@@ -339,9 +387,11 @@ try {
     ["environment-class", refs.environment, (v) => { v.environment_class = "unmeasured"; }],
     ["campaign-status", refs.campaign, (v) => { v.status = "partial"; }],
     ["campaign-result", refs.campaign, (v) => { v.result_hash = h("9"); }],
-    ["isolation-network", refs.isolation, (v) => { v.network_posture = "egress_enabled"; }],
-    ["isolation-bypass", refs.isolation, (v) => { v.direct_protected_effect_invocations = 1; }],
-    ["isolation-invoker", refs.isolation, (v) => { v.final_invoker_calls = 0; }],
+    ["isolation-network", refs.isolationEvidence, (v) => { v.network_posture = "egress_enabled"; }],
+    ["isolation-bypass", refs.isolationEvidence, (v) => { v.direct_protected_effect_invocations = 1; }],
+    ["isolation-invoker", refs.isolationEvidence, (v) => { v.final_invoker_calls = 0; }],
+    ["isolation-host-mount", refs.isolationRequirements, (v) => { v.host_mount_policy = "read_only"; }],
+    ["isolation-daemon-socket", refs.isolationRequirements, (v) => { v.daemon_socket_exposed = true; }],
     ["secret-finding", refs.secret, (v) => { v.secret_findings = 1; }],
     ["secret-credential", refs.secret, (v) => { v.provider_credential_observed = true; }],
     ["envelope-topup", refs.envelope, (v) => { v.facet_template.auto_topup = true; }],

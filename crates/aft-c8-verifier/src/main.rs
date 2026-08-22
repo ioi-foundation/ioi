@@ -838,24 +838,96 @@ fn validate_semantic_chain(
     )?;
     ensure_value_str(
         isolation,
-        "protection_profile",
-        "trusted_host_hostile_guest",
+        "route_policy_ref",
+        "policy://network/deny-default",
     )?;
-    ensure_value_str(isolation, "network_posture", "no_nic")?;
     ensure_value_str(
         isolation,
-        "final_invoker_audience",
-        "hypervisor-final-invoker",
+        "final_invoker_ref",
+        "final-invoker://hypervisor/provider-operation",
     )?;
-    if isolation
-        .get("direct_protected_effect_invocations")
-        .and_then(Value::as_u64)
-        != Some(0)
-        || isolation.get("final_invoker_calls").and_then(Value::as_u64) != Some(1)
-        || isolation.get("guest_uid").and_then(Value::as_u64) != Some(0)
-        || isolation.get("output_quarantined").and_then(Value::as_bool) != Some(true)
+    ensure_value_str(
+        isolation,
+        "required_terminal_disposition",
+        "destroyed_verified",
+    )?;
+    if !array_contains(isolation, "governed_action_classes", "provider_operation") {
+        bail!("isolation_provider_action_not_governed")
+    }
+    let requirements_ref = required_str(isolation, "requirements_ref")?;
+    let requirements = object_value(all, requirements_ref, "isolation_requirements_missing")?;
+    ensure_eq(
+        &content_hash(requirements)?,
+        required_str(isolation, "requirements_hash")?,
+        "isolation_requirements_hash",
+    )?;
+    ensure_value_str(
+        requirements,
+        "hostile_to_boundary_requirement",
+        "hostile_to_guest_kernel",
+    )?;
+    ensure_value_str(requirements, "minimum_isolation", "vm_kernel")?;
+    ensure_value_str(requirements, "host_mount_policy", "none")?;
+    if requirements
+        .get("daemon_socket_exposed")
+        .and_then(Value::as_bool)
+        != Some(false)
+        || requirements
+            .get("host_pid_namespace_exposed")
+            .and_then(Value::as_bool)
+            != Some(false)
+        || requirements
+            .get("raw_secret_material_in_guest")
+            .and_then(Value::as_bool)
+            != Some(false)
+        || requirements
+            .pointer("/output_admission/quarantine_required")
+            .and_then(Value::as_bool)
+            != Some(true)
+        || requirements
+            .pointer("/teardown/verify_all_resources")
+            .and_then(Value::as_bool)
+            != Some(true)
     {
-        bail!("isolation_boundary_not_demonstrated")
+        bail!("isolation_requirements_not_hostile_guest_safe")
+    }
+    let coverage = isolation
+        .get("enforcement_coverage_refs_and_hashes")
+        .and_then(Value::as_array)
+        .ok_or_else(|| anyhow!("isolation_enforcement_coverage_missing"))?;
+    if coverage.is_empty() {
+        bail!("isolation_enforcement_coverage_missing")
+    }
+    for binding in coverage {
+        let evidence = object_value(
+            all,
+            required_str(binding, "ref")?,
+            "isolation_enforcement_evidence_missing",
+        )?;
+        ensure_eq(
+            &content_hash(evidence)?,
+            required_str(binding, "hash")?,
+            "isolation_enforcement_evidence_hash",
+        )?;
+        ensure_value_str(evidence, "protection_profile", "trusted_host_hostile_guest")?;
+        ensure_value_str(evidence, "network_posture", "no_nic")?;
+        ensure_value_str(
+            evidence,
+            "final_invoker_audience",
+            "hypervisor-final-invoker",
+        )?;
+        if evidence
+            .get("direct_protected_effect_invocations")
+            .and_then(Value::as_u64)
+            != Some(0)
+            || evidence.get("final_invoker_calls").and_then(Value::as_u64) != Some(1)
+            || evidence.get("guest_uid").and_then(Value::as_u64) != Some(0)
+            || evidence.get("output_quarantined").and_then(Value::as_bool) != Some(true)
+            || evidence.get("capability_replay").and_then(Value::as_str) != Some("refused")
+            || evidence.get("monitor_terminal").and_then(Value::as_bool) != Some(true)
+        {
+            bail!("isolation_boundary_not_demonstrated")
+        }
     }
 
     if required_str(cert, "brokered_secret_use_posture")? != "opaque_handle_final_invoker" {
@@ -957,10 +1029,13 @@ fn validate_authority_and_trajectory(
     let facets = envelope
         .get("facet_template")
         .ok_or_else(|| anyhow!("standing_envelope_facets_missing"))?;
+    let provider_selector = facets
+        .get("provider_selector")
+        .ok_or_else(|| anyhow!("standing_envelope_provider_selector_missing"))?;
     if facets.get("auto_topup").and_then(Value::as_bool) != Some(false)
         || facets.get("teardown_policy").and_then(Value::as_str) != Some("always_teardown_required")
         || !array_contains(facets, "image_digests", image_digest)
-        || !array_contains(facets, "provider_addresses", provider_address)
+        || !array_contains(provider_selector, "provider_addresses", provider_address)
         || !array_contains(facets, "operations", "create")
     {
         bail!("standing_envelope_does_not_cover_request")
@@ -1535,6 +1610,7 @@ fn content_hash(value: &Value) -> Result<String> {
         RECEIPT_V1 => Some("receipt_hash"),
         "ioi.components.hypervisor.governed-effect-claim-manifest.v1" => Some("manifest_hash"),
         "ioi.components.hypervisor.workload-isolation-binding.v1" => Some("binding_hash"),
+        "ioi.components.hypervisor.workload-isolation-requirements.v1" => Some("requirements_hash"),
         "ioi.foundations.standing-authority-envelope.v1" => Some("body_hash"),
         "ioi.foundations.authority-trajectory-state.v1" => Some("trajectory_state_hash"),
         "ioi.foundations.trajectory-admission-decision.v1" => Some("decision_hash"),
