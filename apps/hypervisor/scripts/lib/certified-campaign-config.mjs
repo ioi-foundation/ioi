@@ -1,5 +1,24 @@
 const unresolvedOwnerReview = /OWNER_(?:APPROVED|SELECTED|SEEDED)|IMMUTABLE_IMAGE_DIGEST|PRIVATE_REGISTRY/u;
 
+export function certifiedWorkloadDeadlineMs(readinessProvenAtMs, maxDurationSeconds) {
+  if (!Number.isSafeInteger(readinessProvenAtMs) || readinessProvenAtMs < 0) {
+    throw new Error("readinessProvenAtMs must be a non-negative safe integer");
+  }
+  if (!Number.isSafeInteger(maxDurationSeconds) || maxDurationSeconds < 1) {
+    throw new Error("maxDurationSeconds must be a positive safe integer");
+  }
+  const deadline = readinessProvenAtMs + maxDurationSeconds * 1_000;
+  if (!Number.isSafeInteger(deadline)) throw new Error("workload deadline exceeds safe integer range");
+  return deadline;
+}
+
+export function certifiedRemainingDelayMs(nowMs, deadlineMs, requestedMs) {
+  if (![nowMs, deadlineMs, requestedMs].every(Number.isSafeInteger) || requestedMs < 0) {
+    throw new Error("deadline delay inputs must be safe integers and requestedMs non-negative");
+  }
+  return Math.max(0, Math.min(requestedMs, deadlineMs - nowMs));
+}
+
 /** Refuse a campaign until every authority-bearing choice is concrete. */
 export function validateCertifiedCampaignConfig(config) {
   if (unresolvedOwnerReview.test(JSON.stringify(config))) {
@@ -31,6 +50,11 @@ export function validateCertifiedCampaignConfig(config) {
     }
     if (!/^sha256:[0-9a-f]{64}$/u.test(String(plan.result_tls_server_certificate_sha256 || ""))) {
       throw new Error("U1 requires one explicit result TLS server certificate SHA-256 pin");
+    }
+    if (!Number.isSafeInteger(plan.max_duration_seconds)
+        || plan.max_duration_seconds < 60
+        || plan.max_duration_seconds > 24 * 60 * 60) {
+      throw new Error("U1 requires an explicit max_duration_seconds between 60 and 86400");
     }
   }
   return config;

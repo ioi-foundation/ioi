@@ -4,6 +4,8 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import {
+  certifiedRemainingDelayMs,
+  certifiedWorkloadDeadlineMs,
   materializeReviewedSdl,
   validateCertifiedCampaignConfig,
 } from "./certified-campaign-config.mjs";
@@ -25,6 +27,7 @@ const valid = {
     result_schema_version: "ioi.aft.benchmark-campaign.v1",
     benchmark_warmups: 1,
     benchmark_repeats: 5,
+    max_duration_seconds: 7_200,
     result_tls_server_certificate_sha256: `sha256:${"c".repeat(64)}`,
     ceiling_amount: "1000",
     ceiling_denom: "uact",
@@ -46,6 +49,15 @@ test("accepts a fully resolved bounded U1 campaign config", () => {
   const config = structuredClone(valid);
   config.plan.deposit_usd = 1;
   assert.equal(validateCertifiedCampaignConfig(config), config);
+});
+
+test("starts the workload duration at readiness and never sleeps past its deadline", () => {
+  assert.equal(certifiedWorkloadDeadlineMs(1_000, 7_200), 7_201_000);
+  assert.equal(certifiedRemainingDelayMs(7_180_000, 7_201_000, 15_000), 15_000);
+  assert.equal(certifiedRemainingDelayMs(7_195_000, 7_201_000, 15_000), 6_000);
+  assert.equal(certifiedRemainingDelayMs(7_201_000, 7_201_000, 15_000), 0);
+  assert.throws(() => certifiedWorkloadDeadlineMs(-1, 7_200), /readinessProvenAtMs/u);
+  assert.throws(() => certifiedRemainingDelayMs(0, 1, -1), /requestedMs/u);
 });
 
 test("rejects unresolved provider, spend, and image review choices before execution", () => {
@@ -81,6 +93,13 @@ test("rejects unbounded or non-exact U1 authority", () => {
   unpinned.plan.deposit_usd = 1;
   delete unpinned.plan.result_tls_server_certificate_sha256;
   assert.throws(() => validateCertifiedCampaignConfig(unpinned), /certificate SHA-256 pin/u);
+
+  for (const duration of [undefined, 59, 86_401, 7_200.5]) {
+    const invalidDuration = structuredClone(valid);
+    invalidDuration.plan.deposit_usd = 1;
+    invalidDuration.plan.max_duration_seconds = duration;
+    assert.throws(() => validateCertifiedCampaignConfig(invalidDuration), /max_duration_seconds/u);
+  }
 });
 
 test("materializes every reviewed non-secret token into the hashed SDL", () => {

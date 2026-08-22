@@ -11,7 +11,7 @@ CAMPAIGN="${AFT_BENCH_CAMPAIGN_ID:?AFT_BENCH_CAMPAIGN_ID is required}"
 COMMIT="${IOI_BENCH_COMMIT:?IOI_BENCH_COMMIT is required}"
 IMAGE_DIGEST="${IOI_BENCH_IMAGE_DIGEST:?IOI_BENCH_IMAGE_DIGEST is required}"
 PROTOCOL_VERSION="${AFT_BENCH_PROTOCOL_VERSION:?AFT_BENCH_PROTOCOL_VERSION is required}"
-TOOLS=/usr/local/bin/aft-result-tools.py
+TOOLS="${AFT_RESULT_TOOLS:-/usr/local/bin/aft-result-tools.py}"
 
 case "$WARMUPS:$REPEATS" in
   *[!0-9:]*|:*|*:) echo "warmups and repeats must be integers" >&2; exit 2 ;;
@@ -78,6 +78,24 @@ run_campaign() (
 )
 
 set_status starting "campaign has not crossed the benchmark boundary"
+
+# Bring the authenticated evidence channel up before the paid benchmark starts.
+# `/results` remains fail-closed until status reaches `complete`, while `/status`
+# and `/environment` make a slow or failed run distinguishable from an absent
+# container. Keeping the same server process alive across the campaign also
+# prevents a completed result from depending on a late bind to the ingress port.
+"$TOOLS" serve --directory "$OUTDIR" --port "${AFT_RESULT_PORT:-8080}" &
+RESULT_SERVER_PID=$!
+cleanup_result_server() {
+  kill "$RESULT_SERVER_PID" 2>/dev/null || true
+  wait "$RESULT_SERVER_PID" 2>/dev/null || true
+}
+trap cleanup_result_server EXIT INT TERM
+sleep 1
+if ! kill -0 "$RESULT_SERVER_PID" 2>/dev/null; then
+  wait "$RESULT_SERVER_PID"
+fi
+
 set +e
 run_campaign
 code=$?
@@ -91,5 +109,6 @@ else
 fi
 
 # Never exit after the paid workload starts: Akash may restart an exited
-# service and accidentally repeat a spend-bearing benchmark campaign.
-exec "$TOOLS" serve --directory "$OUTDIR" --port "${AFT_RESULT_PORT:-8080}"
+# service and accidentally repeat a spend-bearing benchmark campaign. The
+# already-running server keeps both successful and failed evidence available.
+wait "$RESULT_SERVER_PID"

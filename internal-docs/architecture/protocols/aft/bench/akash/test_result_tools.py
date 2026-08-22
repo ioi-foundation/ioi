@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 
 import json
+import os
+import socket
 import socketserver
 import subprocess
 import tempfile
 import threading
+import time
 import unittest
 import urllib.error
 import urllib.request
@@ -14,6 +17,7 @@ import importlib.util
 
 ROOT = Path(__file__).resolve().parent
 TOOL = ROOT / "result-tools.py"
+RUNNER = ROOT / "run-bench.sh"
 SPEC = importlib.util.spec_from_file_location("aft_result_tools", TOOL)
 RESULT_TOOLS = importlib.util.module_from_spec(SPEC)
 assert SPEC and SPEC.loader
@@ -50,6 +54,88 @@ def table(multiplier=1.0, truncate=False):
 
 
 class ResultToolsTests(unittest.TestCase):
+    @staticmethod
+    def free_port():
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
+            listener.bind(("127.0.0.1", 0))
+            return listener.getsockname()[1]
+
+    def test_runner_serves_authenticated_status_while_benchmark_is_running(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            binary = root / "bin"
+            binary.mkdir()
+            cargo = binary / "cargo"
+            cargo.write_text(
+                "#!/usr/bin/env bash\n"
+                "if [[ ${1:-} == --version ]]; then echo 'cargo 1.0.0-test'; exit 0; fi\n"
+                "touch \"$AFT_TEST_STARTED\"\n"
+                "while [[ ! -f \"$AFT_TEST_RELEASE\" ]]; do sleep 0.05; done\n"
+                "exit 17\n"
+            )
+            cargo.chmod(0o755)
+            token = "u1-progress-token-abcdefghijklmnopqrstuvwxyz"
+            port = self.free_port()
+            environment = {
+                **os.environ,
+                "PATH": f"{binary}:{os.environ['PATH']}",
+                "AFT_RESULT_TOOLS": str(TOOL),
+                "AFT_RESULT_BEARER_TOKEN": token,
+                "AFT_RESULT_PORT": str(port),
+                "AFT_BENCH_OUTDIR": str(root / "output"),
+                "AFT_BENCH_CAMPAIGN_ID": "campaign-progress",
+                "IOI_BENCH_COMMIT": "a" * 40,
+                "IOI_BENCH_IMAGE_DIGEST": f"sha256:{'b' * 64}",
+                "AFT_BENCH_PROTOCOL_VERSION": "res-p4.3.v2",
+                "AFT_TEST_RELEASE": str(root / "release"),
+                "AFT_TEST_STARTED": str(root / "started"),
+                "AFT_BENCH_WARMUPS": "1",
+                "AFT_BENCH_REPEATS": "2",
+            }
+            process = subprocess.Popen(
+                [str(RUNNER)],
+                env=environment,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            try:
+                deadline = time.monotonic() + 10
+                status = None
+                while time.monotonic() < deadline:
+                    try:
+                        request = urllib.request.Request(
+                            f"http://127.0.0.1:{port}/status",
+                            headers={"Authorization": f"Bearer {token}"},
+                        )
+                        with urllib.request.urlopen(request, timeout=1) as response:
+                            status = json.loads(response.read())
+                        if (Path(environment["AFT_TEST_STARTED"]).exists()
+                                and status.get("state") in {"starting", "warmup", "measuring"}):
+                            break
+                    except (OSError, urllib.error.URLError):
+                        pass
+                    time.sleep(0.05)
+                if (status is None
+                        or not Path(environment["AFT_TEST_STARTED"]).exists()
+                        or status.get("state") not in {"starting", "warmup", "measuring"}):
+                    Path(environment["AFT_TEST_RELEASE"]).touch()
+                    time.sleep(0.2)
+                    process.terminate()
+                    stdout, stderr = process.communicate(timeout=10)
+                    self.fail(
+                        f"runner did not reach warmup; status={status!r}, "
+                        f"benchmark_started={Path(environment['AFT_TEST_STARTED']).exists()}, "
+                        f"stdout={stdout!r}, stderr={stderr!r}"
+                    )
+                self.assertEqual(status["campaign_id"], "campaign-progress")
+            finally:
+                Path(environment["AFT_TEST_RELEASE"]).touch()
+                time.sleep(0.2)
+                if process.poll() is None:
+                    process.terminate()
+                    process.communicate(timeout=10)
+
     def run_tool(self, *args, cwd=None):
         return subprocess.run(
             [str(TOOL), *args], cwd=cwd, text=True, capture_output=True, check=False

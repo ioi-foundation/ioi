@@ -20,6 +20,8 @@ import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import {
+  certifiedRemainingDelayMs,
+  certifiedWorkloadDeadlineMs,
   materializeReviewedSdl,
   validateCertifiedCampaignConfig,
 } from "./lib/certified-campaign-config.mjs";
@@ -141,6 +143,7 @@ function verifyFacets(challenge) {
     result_schema_version: request.plan.result_schema_version ?? null,
     benchmark_warmups: request.plan.benchmark_warmups ?? null,
     benchmark_repeats: request.plan.benchmark_repeats ?? null,
+    max_duration_seconds: request.plan.max_duration_seconds ?? null,
   };
   for (const [key, value] of Object.entries(expected)) {
     if (JSON.stringify(facets[key] ?? null) !== JSON.stringify(value)) {
@@ -287,16 +290,45 @@ try {
     );
     if (!castResponse.ok || cast.ok !== true || !dseq) throw new Error(`cast refused: ${cast.reason || cast.code || castResponse.status}`);
 
-    const started = await postProvider(session, "start");
+    let started = await postProvider(session, "start");
     save("c7-start.json", started.value);
     if (started.value.ok !== true || started.value.evidence?.endpoint_discovered !== true) throw new Error("provider endpoint was not discovered");
-    let proof;
-    for (let attempt = 1; attempt <= Number(config.result_poll_attempts || 1); attempt += 1) {
-      proof = await postProvider(session, "logs", `logs.${attempt}`);
-      if (proof.value.ok === true && (!request.plan.result_credential_ref || proof.value.evidence?.workload_result?.retrieved_live === true)) break;
+    for (let attempt = 1; started.value.evidence?.workload_readiness_proven !== true; attempt += 1) {
+      if (attempt > 120) throw new Error("provider workload readiness was not proven");
       await sleep(Number(config.result_poll_interval_ms || 15_000));
+      started = await postProvider(session, "start", `readiness.${attempt}`);
+      save("c7-start.json", started.value);
+      if (started.value.ok !== true || started.value.evidence?.endpoint_discovered !== true) {
+        throw new Error("provider endpoint readiness readback failed");
+      }
     }
-    if (proof?.value) save("c7-logs.json", proof.value);
+    const readinessProvenAtMs = Date.now();
+    const workloadDeadlineMs = certifiedWorkloadDeadlineMs(
+      readinessProvenAtMs,
+      request.plan.max_duration_seconds,
+    );
+    save("workload-deadline.json", {
+      schema_version: "ioi.hypervisor.workload-deadline.v1",
+      readiness_proven_at: new Date(readinessProvenAtMs).toISOString(),
+      max_duration_seconds: request.plan.max_duration_seconds,
+      deadline: new Date(workloadDeadlineMs).toISOString(),
+    });
+    let proof;
+    for (let attempt = 1; Date.now() < workloadDeadlineMs; attempt += 1) {
+      proof = await postProvider(session, "logs", `logs.${attempt}`);
+      save("c7-logs.json", proof.value);
+      if (proof.value.ok === true && (!request.plan.result_credential_ref || proof.value.evidence?.workload_result?.retrieved_live === true)) break;
+      const delay = certifiedRemainingDelayMs(
+        Date.now(),
+        workloadDeadlineMs,
+        Number(config.result_poll_interval_ms || 15_000),
+      );
+      if (delay > 0) await sleep(delay);
+    }
+    if (Date.now() >= workloadDeadlineMs
+        && proof?.value?.evidence?.workload_result?.retrieved_live !== true) {
+      throw new Error("authenticated workload result was not retrieved inside max_duration_seconds after readiness");
+    }
     if (proof?.value.ok !== true || proof.value.evidence?.lease_state_proof?.retrieved_live !== true) throw new Error("provider-native proof was not retrieved");
     if (request.plan.result_credential_ref && proof.value.evidence?.workload_result?.retrieved_live !== true) throw new Error("authenticated workload result was not retrieved");
 
@@ -319,9 +351,11 @@ try {
   if (session && dseq && !terminal) {
     try {
       let closed = await postProvider(session, "delete", "compensation-delete");
+      save("c7-delete.json", closed.value);
       for (let attempt = 1; attempt <= 20 && closed.value.evidence?.settlement?.provider_terminal !== true; attempt += 1) {
         await sleep(6_000);
         closed = await postProvider(session, "reconcile", `compensation-reconcile.${attempt}`);
+        save("c7-reconcile.json", closed.value);
       }
       terminal = closed.value.evidence?.settlement?.provider_terminal === true;
     } catch (cleanupError) {
