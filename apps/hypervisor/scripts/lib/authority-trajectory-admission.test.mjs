@@ -63,6 +63,42 @@ test("cross-provider and descendant splitting cannot cross aggregate bounds", ()
   assert.equal(refused.state_after.trajectory_state_hash, state.trajectory_state_hash);
 });
 
+test("forty locally small deployments cannot cross the system resource envelope", () => {
+  let state = base();
+  const aggregatePolicy = {
+    ...policy,
+    max_cumulative_spend_usd: 40,
+    max_cumulative_deposit_usd: 40,
+    max_active_resources: 10,
+    max_provider_fanout: 6,
+    max_calls: 40,
+  };
+  for (let index = 0; index < 40; index += 1) {
+    const decision = admitTrajectory({
+      state,
+      expected_state_hash: state.trajectory_state_hash,
+      candidate: candidate(index, {
+        provider_ref: `provider://compute/${index % 6}`,
+        resource_ref: `provider-resource://compute/small-${index}`,
+        deposit_reservation_usd: 0.1,
+        spend_reservation_usd: 0.1,
+      }),
+      policy: aggregatePolicy,
+      now,
+    });
+    if (index < 10) {
+      assert.equal(decision.decision, "admit");
+      state = decision.state_after;
+    } else {
+      assert.equal(decision.decision, "deny");
+      assert.ok(decision.reason_codes.includes("trajectory_max_active_resources_exceeded"));
+      assert.equal(decision.state_after.trajectory_state_hash, state.trajectory_state_hash);
+    }
+  }
+  assert.equal(state.active_resource_refs.length, 10);
+  assert.equal(state.admitted_call_count, 10);
+});
+
 test("provider fanout and destination convergence refuse before effect", () => {
   let state = base();
   for (let index = 0; index < 2; index += 1) {

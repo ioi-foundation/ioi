@@ -65,6 +65,35 @@ async function probe(engine) {
     now,
   });
   if (semantic.decision !== "step_up_required") failures.push("semantic_signal_admitted");
+  let aggregateState = state;
+  const aggregatePolicy = {
+    ...policy,
+    max_cumulative_spend_usd: 40,
+    max_cumulative_deposit_usd: 40,
+    max_active_resources: 10,
+    max_provider_fanout: 6,
+    max_calls: 40,
+  };
+  for (let index = 0; index < 11; index += 1) {
+    const aggregateCandidate = {
+      ...staleCandidate,
+      candidate_operation_ref: `provider-operation://candidate/aggregate-${index}`,
+      candidate_operation_hash: sha(((index % 9) + 1).toString()),
+      provider_ref: `provider://compute/${index % 6}`,
+      resource_ref: `provider-resource://compute/small-${index}`,
+      deposit_reservation_usd: 0.1,
+      spend_reservation_usd: 0.1,
+    };
+    const aggregate = engine.admitTrajectory({
+      state: aggregateState,
+      expected_state_hash: aggregateState.trajectory_state_hash,
+      candidate: aggregateCandidate,
+      policy: aggregatePolicy,
+      now,
+    });
+    if (index < 10 && aggregate.decision === "admit") aggregateState = aggregate.state_after;
+    if (index === 10 && aggregate.decision !== "deny") failures.push("active_resource_aggregate_overshoot_admitted");
+  }
   return failures;
 }
 
@@ -93,6 +122,11 @@ if (process.argv.includes("--mutation")) {
       expected: "semantic_signal_admitted",
       source: source.replace('semantic.length > 0 ? "step_up_required" : "admit"', 'semantic.length > 0 ? "admit" : "admit"'),
     },
+    {
+      name: "active_resource_ceiling_removed",
+      expected: "active_resource_aggregate_overshoot_admitted",
+      source: source.replace("active.length <= policy.max_active_resources", "true"),
+    },
   ];
   const survived = [];
   for (const mutation of mutations) {
@@ -114,6 +148,6 @@ if (process.argv.includes("--mutation")) {
   console.log(JSON.stringify({
     check: "check:authority-trajectory-admission",
     verdict: "PASS",
-    properties: ["aggregate bounds", "optimistic state hash", "semantic evidence cannot admit"],
+    properties: ["aggregate bounds including forty-small-deployment campaign", "optimistic state hash", "semantic evidence cannot admit"],
   }, null, 2));
 }
