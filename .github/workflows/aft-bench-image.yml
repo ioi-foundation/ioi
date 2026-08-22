@@ -1,0 +1,208 @@
+name: Build private AFT benchmark image
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Full committed source revision to build
+        required: true
+        type: string
+      push_private_image:
+        description: Push only to the pre-provisioned private GHCR package
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref }}
+
+      - name: Refuse mutable or foreign source refs
+        shell: bash
+        env:
+          SOURCE_REF: ${{ inputs.source_ref }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${SOURCE_REF}"
+          test "${SOURCE_REF}" = "$(printf '%s' "${SOURCE_REF}" | grep -E '^[0-9a-f]{40}$')"
+          test -z "$(git status --porcelain)"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Inspect the destination package before authentication
+        if: ${{ inputs.push_private_image }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          status="$(curl --silent --show-error \
+            --output /tmp/aft-bench-package.json \
+            --write-out '%{http_code}' \
+            --header 'Accept: application/vnd.github+json' \
+            --header "Authorization: Bearer ${GH_TOKEN}" \
+            --header 'X-GitHub-Api-Version: 2022-11-28' \
+            https://api.github.com/orgs/ioi-foundation/packages/container/ioi-aft-bench)"
+          case "${status}" in
+            200)
+              test "$(jq -r .visibility /tmp/aft-bench-package.json)" = private
+              echo 'AFT_BENCH_PACKAGE_EXISTS=true' >> "${GITHUB_ENV}"
+              ;;
+            404)
+              echo 'AFT_BENCH_PACKAGE_EXISTS=false' >> "${GITHUB_ENV}"
+              ;;
+            *)
+              jq -r '.message // "package lookup failed"' /tmp/aft-bench-package.json >&2
+              exit 1
+              ;;
+          esac
+
+      - name: Authenticate to GHCR
+        if: ${{ inputs.push_private_image }}
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Bootstrap an absent package with a source-free image
+        if: ${{ inputs.push_private_image && env.AFT_BENCH_PACKAGE_EXISTS == 'false' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          bootstrap_dir="$(mktemp -d)"
+          trap 'rm -rf "${bootstrap_dir}"' EXIT
+          printf '%s\n' \
+            'FROM scratch' \
+            'LABEL org.opencontainers.image.source="https://github.com/ioi-foundation/ioi"' \
+            'LABEL org.opencontainers.image.description="Private AFT benchmark image namespace bootstrap; contains no IOI source"' \
+            > "${bootstrap_dir}/Dockerfile"
+          docker buildx build \
+            --file "${bootstrap_dir}/Dockerfile" \
+            --tag "ghcr.io/ioi-foundation/ioi-aft-bench:private-bootstrap-${GITHUB_RUN_ID}" \
+            --push \
+            "${bootstrap_dir}"
+
+      - name: Refuse a proprietary build unless package visibility is private
+        if: ${{ inputs.push_private_image }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          visibility="$(gh api \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            /orgs/ioi-foundation/packages/container/ioi-aft-bench \
+            --jq .visibility)"
+          test "${visibility}" = private
+
+      - name: Build immutable benchmark image without publishing
+        id: build_only
+        if: ${{ !inputs.push_private_image }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: internal-docs/architecture/protocols/aft/bench/akash/Dockerfile
+          build-args: IOI_COMMIT=${{ inputs.source_ref }}
+          push: false
+          tags: ghcr.io/ioi-foundation/ioi-aft-bench:${{ inputs.source_ref }}
+          labels: org.opencontainers.image.source=https://github.com/ioi-foundation/ioi
+          outputs: type=oci,dest=/tmp/aft-bench.tar
+
+      - name: Build and push explicitly approved private image
+        id: push
+        if: ${{ inputs.push_private_image }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: internal-docs/architecture/protocols/aft/bench/akash/Dockerfile
+          build-args: IOI_COMMIT=${{ inputs.source_ref }}
+          push: true
+          tags: ghcr.io/ioi-foundation/ioi-aft-bench:${{ inputs.source_ref }}
+          labels: org.opencontainers.image.source=https://github.com/ioi-foundation/ioi
+
+      - name: Record immutable build identity
+        id: identity
+        shell: bash
+        env:
+          SOURCE_REF: ${{ inputs.source_ref }}
+          BUILD_ONLY_DIGEST: ${{ steps.build_only.outputs.digest }}
+          PUSHED_DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          set -euo pipefail
+          digest="${PUSHED_DIGEST:-${BUILD_ONLY_DIGEST:-}}"
+          printf '%s' "${digest}" | grep -Eq '^sha256:[0-9a-f]{64}$'
+          cargo_lock_sha256="$(sha256sum Cargo.lock | awk '{print $1}')"
+          dockerfile_sha256="$(sha256sum internal-docs/architecture/protocols/aft/bench/akash/Dockerfile | awk '{print $1}')"
+          runner_sha256="$(sha256sum internal-docs/architecture/protocols/aft/bench/akash/run-bench.sh | awk '{print $1}')"
+          result_tools_sha256="$(sha256sum internal-docs/architecture/protocols/aft/bench/akash/result-tools.py | awk '{print $1}')"
+          jq -n \
+            --arg source_ref "${SOURCE_REF}" \
+            --arg image_digest "${digest}" \
+            --arg base_image_digest 'sha256:7c4ae649a84014c467d79319bbf17ce2632ae8b8be123ac2fb2ea5be46823f31' \
+            --arg cargo_lock_sha256 "sha256:${cargo_lock_sha256}" \
+            --arg dockerfile_sha256 "sha256:${dockerfile_sha256}" \
+            --arg runner_sha256 "sha256:${runner_sha256}" \
+            --arg result_tools_sha256 "sha256:${result_tools_sha256}" \
+            --arg run_id "${GITHUB_RUN_ID}" \
+            --arg run_attempt "${GITHUB_RUN_ATTEMPT}" \
+            '{
+              schema_version: "ioi.aft.benchmark-image-build-identity.v1",
+              source_ref: $source_ref,
+              image_digest: $image_digest,
+              base_image_digest: $base_image_digest,
+              cargo_lock_sha256: $cargo_lock_sha256,
+              dockerfile_sha256: $dockerfile_sha256,
+              runner_sha256: $runner_sha256,
+              result_tools_sha256: $result_tools_sha256,
+              github_run_id: $run_id,
+              github_run_attempt: $run_attempt
+            }' > /tmp/aft-bench-build-identity.json
+          jq -e \
+            --arg source_ref "${SOURCE_REF}" \
+            --arg image_digest "${digest}" \
+            '.source_ref == $source_ref and .image_digest == $image_digest' \
+            /tmp/aft-bench-build-identity.json >/dev/null
+          cat /tmp/aft-bench-build-identity.json
+          echo "image_digest=${digest}" >> "${GITHUB_OUTPUT}"
+          echo 'The U1 SDL must use this @sha256 digest, never the tag.'
+
+      - name: Retain immutable build identity
+        uses: actions/upload-artifact@v4
+        with:
+          name: aft-bench-identity-${{ inputs.source_ref }}-${{ github.run_id }}
+          path: /tmp/aft-bench-build-identity.json
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Re-verify private visibility after upload
+        if: ${{ inputs.push_private_image }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          visibility="$(gh api \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            /orgs/ioi-foundation/packages/container/ioi-aft-bench \
+            --jq .visibility)"
+          test "${visibility}" = private
+
+      - name: Retain build-only image for inspection
+        if: ${{ !inputs.push_private_image }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: aft-bench-${{ inputs.source_ref }}
+          path: /tmp/aft-bench.tar
+          retention-days: 1
