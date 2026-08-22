@@ -484,6 +484,11 @@ fn verify_bundle(bundle_dir: &Path, policy_path: &Path, now: OffsetDateTime) -> 
     if journal.get("intent_root") != journal.get("outcome_predecessor_root") {
         bail!("outcome_predecessor_mismatch")
     }
+    if journal.get("intent_root") == journal.get("outcome_root") {
+        bail!("outcome_root_did_not_advance")
+    }
+
+    validate_semantic_chain(&certificate, &all, &result)?;
 
     let profile_entry = all
         .get(&policy.verifier_profile_ref)
@@ -565,7 +570,93 @@ fn validate_campaign_result(result: &CampaignResult) -> Result<()> {
     if unique.len() != result.pass_artifacts.len() || result.summaries.len() != 10 {
         bail!("campaign_coverage_invalid")
     }
-    if result.verdict == "reproduced_within_threshold" && !result.all_rows_within_threshold {
+    let expected_rows: BTreeSet<_> = [
+        ("paper_guardian_majority_4v", "base_final"),
+        ("paper_guardian_majority_7v", "base_final"),
+        ("paper_asymptote_4v", "base_final"),
+        ("paper_asymptote_4v", "canonical_ordering"),
+        ("paper_asymptote_4v", "durable_collapse"),
+        ("paper_asymptote_4v", "sealed_final"),
+        ("paper_asymptote_7v", "base_final"),
+        ("paper_asymptote_7v", "canonical_ordering"),
+        ("paper_asymptote_7v", "durable_collapse"),
+        ("paper_asymptote_7v", "sealed_final"),
+    ]
+    .into_iter()
+    .collect();
+    let mut observed_rows = BTreeSet::new();
+    let metric_names = [
+        "injection_tps",
+        "sustained_tps",
+        "commit_p50_ms",
+        "commit_p95_ms",
+        "commit_p99_ms",
+        "commit_max_ms",
+    ];
+    let mut every_row_within = true;
+    for summary in &result.summaries {
+        let scenario = required_str(summary, "scenario")?;
+        let lane = required_str(summary, "lane")?;
+        if !observed_rows.insert((scenario, lane)) {
+            bail!("campaign_duplicate_scenario_lane")
+        }
+        let within = summary
+            .get("within_threshold")
+            .and_then(Value::as_bool)
+            .ok_or_else(|| anyhow!("campaign_row_threshold_missing"))?;
+        every_row_within &= within;
+        let metrics = summary
+            .get("metrics")
+            .and_then(Value::as_object)
+            .ok_or_else(|| anyhow!("campaign_metrics_missing"))?;
+        if metrics.len() != metric_names.len() {
+            bail!("campaign_metric_set_mismatch")
+        }
+        for name in metric_names {
+            let metric_value = metrics
+                .get(name)
+                .ok_or_else(|| anyhow!("campaign_metric_missing:{name}"))?;
+            let metric = metric_value
+                .as_object()
+                .ok_or_else(|| anyhow!("campaign_metric_invalid:{name}"))?;
+            let values = metric
+                .get("values")
+                .and_then(Value::as_array)
+                .ok_or_else(|| anyhow!("campaign_metric_values_missing:{name}"))?;
+            if values.len() != result.measured_passes as usize
+                || values
+                    .iter()
+                    .any(|value| value.as_f64().is_none_or(|number| number < 0.0))
+            {
+                bail!("campaign_metric_values_invalid:{name}")
+            }
+            let min = required_nonnegative_number(metric_value, "min")?;
+            let median = required_nonnegative_number(metric_value, "median")?;
+            let max = required_nonnegative_number(metric_value, "max")?;
+            if min > median || median > max {
+                bail!("campaign_metric_order_invalid:{name}")
+            }
+            let threshold = required_nonnegative_number(metric_value, "threshold")?;
+            let declared_threshold = result
+                .threshold_policy
+                .get(name)
+                .and_then(Value::as_f64)
+                .ok_or_else(|| anyhow!("campaign_threshold_missing:{name}"))?;
+            if threshold != declared_threshold {
+                bail!("campaign_threshold_substitution:{name}")
+            }
+            if metric.get("within_threshold").and_then(Value::as_bool) != Some(within) {
+                bail!("campaign_metric_verdict_inconsistent:{name}")
+            }
+        }
+    }
+    if observed_rows != expected_rows {
+        bail!("campaign_scenario_lane_matrix_mismatch")
+    }
+    if result.all_rows_within_threshold != every_row_within {
+        bail!("result_verdict_inconsistent")
+    }
+    if (result.verdict == "reproduced_within_threshold") != every_row_within {
         bail!("result_verdict_inconsistent")
     }
     if !matches!(
@@ -578,6 +669,448 @@ fn validate_campaign_result(result: &CampaignResult) -> Result<()> {
         bail!("threshold_policy_invalid")
     }
     Ok(())
+}
+
+fn validate_semantic_chain(
+    cert: &Value,
+    all: &BTreeMap<String, (BundleObject, Value)>,
+    result: &CampaignResult,
+) -> Result<()> {
+    let campaign_id = required_str(cert, "campaign_id")?;
+    let source_commit = required_str(cert, "benchmark_source_commit")?;
+    let image_digest = required_str(cert, "workload_image_digest")?;
+    let request_ref = required_str(cert, "governed_request_ref")?;
+    let request_hash = required_str(cert, "governed_request_hash")?;
+    let request = object_value(all, request_ref, "governed_request_missing")?;
+    ensure_value_str(request, "campaign_id", campaign_id)?;
+    ensure_value_str(request, "benchmark_source_commit", source_commit)?;
+    ensure_value_str(request, "image_digest", image_digest)?;
+    if !matches!(
+        required_str(request, "operation")?,
+        "create" | "create_deployment"
+    ) {
+        bail!("governed_request_operation_invalid")
+    }
+
+    let settlement = object_value(
+        all,
+        required_str(cert, "terminal_settlement_ref")?,
+        "settlement_missing",
+    )?;
+    let provider_ref = required_str(settlement, "provider_ref")?;
+    ensure_value_str(settlement, "campaign_id", campaign_id)?;
+    ensure_value_str(settlement, "lease_status", "closed")?;
+    ensure_value_str(settlement, "deployment_status", "closed")?;
+    ensure_value_str(settlement, "escrow_status", "closed")?;
+    if settlement.get("active_lease_count").and_then(Value::as_u64) != Some(0)
+        || settlement
+            .get("open_unknown_exposure_microusd")
+            .and_then(Value::as_u64)
+            != Some(0)
+        || settlement.get("teardown_verified").and_then(Value::as_bool) != Some(true)
+    {
+        bail!("terminal_settlement_incomplete")
+    }
+    ensure_value_str(request, "provider_ref", provider_ref)?;
+    let provider_address = required_str(request, "provider_address")?;
+    ensure_value_str(settlement, "provider_address", provider_address)?;
+
+    let source_refs = cert
+        .get("source_basis_refs")
+        .and_then(Value::as_array)
+        .ok_or_else(|| anyhow!("source_basis_refs_missing"))?;
+    let source_matches = source_refs.iter().any(|entry| {
+        entry
+            .get("ref")
+            .and_then(Value::as_str)
+            .and_then(|reference| all.get(reference))
+            .and_then(|(_, value)| value.get("commit"))
+            .and_then(Value::as_str)
+            == Some(source_commit)
+    });
+    if !source_matches {
+        bail!("source_basis_commit_mismatch")
+    }
+
+    let environment = object_value(
+        all,
+        required_str(cert, "environment_ref")?,
+        "environment_missing",
+    )?;
+    for (field, expected) in [
+        ("campaign_id", campaign_id),
+        ("provider_ref", provider_ref),
+        ("image_digest", image_digest),
+        ("source_commit", source_commit),
+        (
+            "environment_class",
+            required_str(cert, "environment_class")?,
+        ),
+        ("honesty_class", required_str(cert, "honesty_class")?),
+    ] {
+        ensure_value_str(environment, field, expected)?;
+    }
+
+    let readiness = cert
+        .get("workload_readiness_evidence")
+        .and_then(Value::as_array)
+        .ok_or_else(|| anyhow!("workload_readiness_evidence_missing"))?;
+    for binding in readiness {
+        let evidence = object_value(
+            all,
+            required_str(binding, "ref")?,
+            "readiness_evidence_missing",
+        )?;
+        ensure_value_str(evidence, "status", "ready")?;
+        for (field, expected) in [
+            ("campaign_id", campaign_id),
+            ("provider_ref", provider_ref),
+            ("image_digest", image_digest),
+            ("source_commit", source_commit),
+        ] {
+            ensure_value_str(evidence, field, expected)?;
+        }
+        let requested = evidence
+            .get("requested_replicas")
+            .and_then(Value::as_u64)
+            .ok_or_else(|| anyhow!("readiness_requested_replicas_missing"))?;
+        if requested == 0
+            || evidence.get("ready_replicas").and_then(Value::as_u64) != Some(requested)
+        {
+            bail!("workload_not_ready")
+        }
+    }
+
+    let retrieval = object_value(
+        all,
+        required_str(cert, "result_retrieval_receipt_ref")?,
+        "result_retrieval_missing",
+    )?;
+    ensure_value_str(retrieval, "status", "verified")?;
+    ensure_value_str(retrieval, "campaign_id", campaign_id)?;
+    ensure_value_str(retrieval, "result_ref", required_str(cert, "result_ref")?)?;
+    ensure_value_str(retrieval, "result_hash", required_str(cert, "result_hash")?)?;
+    ensure_value_str(
+        retrieval,
+        "environment_ref",
+        required_str(cert, "environment_ref")?,
+    )?;
+    ensure_value_str(
+        retrieval,
+        "environment_hash",
+        required_str(cert, "environment_hash")?,
+    )?;
+    if retrieval.get("authenticated").and_then(Value::as_bool) != Some(true) {
+        bail!("result_retrieval_not_authenticated")
+    }
+
+    let campaign = object_value(
+        all,
+        required_str(cert, "campaign_certificate_ref")?,
+        "campaign_certificate_missing",
+    )?;
+    ensure_value_str(campaign, "status", "complete")?;
+    for (field, expected) in [
+        ("campaign_id", campaign_id),
+        ("provider_ref", provider_ref),
+        ("image_digest", image_digest),
+        ("source_commit", source_commit),
+        ("result_ref", required_str(cert, "result_ref")?),
+        ("result_hash", required_str(cert, "result_hash")?),
+        ("environment_ref", required_str(cert, "environment_ref")?),
+        ("environment_hash", required_str(cert, "environment_hash")?),
+        (
+            "terminal_settlement_ref",
+            required_str(cert, "terminal_settlement_ref")?,
+        ),
+        (
+            "terminal_settlement_hash",
+            required_str(cert, "terminal_settlement_hash")?,
+        ),
+    ] {
+        ensure_value_str(campaign, field, expected)?;
+    }
+
+    let isolation = object_value(
+        all,
+        required_str(cert, "isolation_binding_ref")?,
+        "isolation_binding_missing",
+    )?;
+    ensure_value_str(
+        isolation,
+        "protection_profile",
+        "trusted_host_hostile_guest",
+    )?;
+    ensure_value_str(isolation, "network_posture", "no_nic")?;
+    ensure_value_str(
+        isolation,
+        "final_invoker_audience",
+        "hypervisor-final-invoker",
+    )?;
+    if isolation
+        .get("direct_protected_effect_invocations")
+        .and_then(Value::as_u64)
+        != Some(0)
+        || isolation.get("final_invoker_calls").and_then(Value::as_u64) != Some(1)
+        || isolation.get("guest_uid").and_then(Value::as_u64) != Some(0)
+        || isolation.get("output_quarantined").and_then(Value::as_bool) != Some(true)
+    {
+        bail!("isolation_boundary_not_demonstrated")
+    }
+
+    if required_str(cert, "brokered_secret_use_posture")? != "opaque_handle_final_invoker" {
+        bail!("brokered_secret_posture_invalid")
+    }
+    for binding in cert
+        .get("secret_use_evidence")
+        .and_then(Value::as_array)
+        .ok_or_else(|| anyhow!("secret_use_evidence_missing"))?
+    {
+        let evidence = object_value(
+            all,
+            required_str(binding, "ref")?,
+            "secret_use_evidence_object_missing",
+        )?;
+        if evidence.get("guest_uid").and_then(Value::as_u64) != Some(0)
+            || evidence.get("seeded_canary_count").and_then(Value::as_u64) == Some(0)
+            || evidence.get("secret_findings").and_then(Value::as_u64) != Some(0)
+            || evidence
+                .get("provider_credential_observed")
+                .and_then(Value::as_bool)
+                != Some(false)
+            || evidence
+                .get("recovery_material_observed")
+                .and_then(Value::as_bool)
+                != Some(false)
+            || evidence
+                .get("broker_separate_from_guest")
+                .and_then(Value::as_bool)
+                != Some(true)
+        {
+            bail!("worker_secret_non_possession_not_demonstrated")
+        }
+    }
+
+    validate_authority_and_trajectory(
+        cert,
+        all,
+        request_ref,
+        request_hash,
+        provider_ref,
+        provider_address,
+        image_digest,
+    )?;
+
+    for binding in cert
+        .get("terminal_acceptance_prerequisites")
+        .and_then(Value::as_array)
+        .ok_or_else(|| anyhow!("terminal_acceptance_prerequisites_missing"))?
+    {
+        let prerequisite = object_value(
+            all,
+            required_str(binding, "ref")?,
+            "terminal_prerequisite_missing",
+        )?;
+        ensure_value_str(prerequisite, "campaign_id", campaign_id)?;
+        if prerequisite.get("terminal").and_then(Value::as_bool) != Some(true)
+            || prerequisite
+                .get("cleanup_verified")
+                .and_then(Value::as_bool)
+                != Some(true)
+            || prerequisite.get("result_verified").and_then(Value::as_bool) != Some(true)
+        {
+            bail!("terminal_prerequisite_unsatisfied")
+        }
+    }
+
+    if result.campaign_id != campaign_id {
+        bail!("campaign_result_binding_mismatch")
+    }
+    Ok(())
+}
+
+fn validate_authority_and_trajectory(
+    cert: &Value,
+    all: &BTreeMap<String, (BundleObject, Value)>,
+    request_ref: &str,
+    request_hash: &str,
+    provider_ref: &str,
+    provider_address: &str,
+    image_digest: &str,
+) -> Result<()> {
+    let authority = cert
+        .get("authority_draw")
+        .ok_or_else(|| anyhow!("authority_draw_missing"))?;
+    let envelope_ref = required_str(authority, "standing_envelope_ref")?;
+    let envelope = object_value(all, envelope_ref, "standing_envelope_missing")?;
+    ensure_value_str(envelope, "approval_mode", "standing_envelope")?;
+    ensure_value_str(
+        envelope,
+        "authority_scope",
+        "scope:hypervisor.live-route.hypervisor-provider-op",
+    )?;
+    ensure_value_str(
+        envelope,
+        "recovery_posture",
+        "recovery_never_widens_or_resets_drawdown",
+    )?;
+    let facets = envelope
+        .get("facet_template")
+        .ok_or_else(|| anyhow!("standing_envelope_facets_missing"))?;
+    if facets.get("auto_topup").and_then(Value::as_bool) != Some(false)
+        || facets.get("teardown_policy").and_then(Value::as_str) != Some("always_teardown_required")
+        || !array_contains(facets, "image_digests", image_digest)
+        || !array_contains(facets, "provider_addresses", provider_address)
+        || !array_contains(facets, "operations", "create")
+    {
+        bail!("standing_envelope_does_not_cover_request")
+    }
+
+    let draw_request = object_value(
+        all,
+        required_str(authority, "draw_request_ref")?,
+        "authority_draw_request_missing",
+    )?;
+    ensure_value_str(draw_request, "standing_envelope_ref", envelope_ref)?;
+    ensure_value_str(draw_request, "candidate_operation_ref", request_ref)?;
+    ensure_value_str(draw_request, "candidate_operation_hash", request_hash)?;
+
+    let draw_receipt = object_value(
+        all,
+        required_str(authority, "draw_receipt_ref")?,
+        "authority_draw_receipt_missing",
+    )?;
+    ensure_value_str(draw_receipt, "standing_envelope_ref", envelope_ref)?;
+    ensure_value_str(
+        draw_receipt,
+        "draw_request_ref",
+        required_str(authority, "draw_request_ref")?,
+    )?;
+    ensure_value_str(draw_receipt, "candidate_operation_hash", request_hash)?;
+    ensure_value_str(draw_receipt, "decision", "consumed")?;
+    if draw_receipt
+        .get("atomic_consumption")
+        .and_then(Value::as_bool)
+        != Some(true)
+        || draw_receipt.get("revoked").and_then(Value::as_bool) != Some(false)
+    {
+        bail!("authority_draw_not_terminally_consumed")
+    }
+
+    let trajectory = cert
+        .get("trajectory_binding")
+        .ok_or_else(|| anyhow!("trajectory_binding_missing"))?;
+    let before = object_value(
+        all,
+        required_str(trajectory, "state_before_ref")?,
+        "trajectory_before_missing",
+    )?;
+    let decision = object_value(
+        all,
+        required_str(trajectory, "decision_ref")?,
+        "trajectory_decision_missing",
+    )?;
+    let after = object_value(
+        all,
+        required_str(trajectory, "state_after_ref")?,
+        "trajectory_after_missing",
+    )?;
+    ensure_value_str(decision, "decision", "admit")?;
+    ensure_value_str(decision, "candidate_operation_ref", request_ref)?;
+    ensure_value_str(decision, "candidate_operation_hash", request_hash)?;
+    ensure_value_str(
+        decision,
+        "state_before_ref",
+        required_str(trajectory, "state_before_ref")?,
+    )?;
+    ensure_value_str(
+        decision,
+        "state_before_hash",
+        required_str(trajectory, "state_before_hash")?,
+    )?;
+    ensure_value_str(
+        decision,
+        "state_after_ref",
+        required_str(trajectory, "state_after_ref")?,
+    )?;
+    ensure_value_str(
+        decision,
+        "state_after_hash",
+        required_str(trajectory, "state_after_hash")?,
+    )?;
+    ensure_value_str(
+        decision,
+        "policy_ref",
+        required_str(envelope, "trajectory_policy_ref")?,
+    )?;
+    ensure_value_str(
+        decision,
+        "policy_hash",
+        required_str(envelope, "trajectory_policy_hash")?,
+    )?;
+    let constraints = decision
+        .get("constraint_results")
+        .and_then(Value::as_array)
+        .ok_or_else(|| anyhow!("trajectory_constraints_missing"))?;
+    if constraints.is_empty()
+        || constraints
+            .iter()
+            .any(|item| item.get("satisfied").and_then(Value::as_bool) != Some(true))
+    {
+        bail!("trajectory_constraint_not_satisfied")
+    }
+    for field in [
+        "owner_ref",
+        "bounded_system_ref",
+        "principal_ref",
+        "revocation_epoch",
+        "window_started_at",
+        "window_ends_at",
+    ] {
+        if before.get(field) != after.get(field) {
+            bail!("trajectory_identity_or_window_changed:{field}")
+        }
+    }
+    let before_calls = before
+        .get("admitted_call_count")
+        .and_then(Value::as_u64)
+        .ok_or_else(|| anyhow!("trajectory_before_count_missing"))?;
+    if after.get("admitted_call_count").and_then(Value::as_u64) != Some(before_calls + 1)
+        || required_nonnegative_number(after, "cumulative_spend_usd")?
+            < required_nonnegative_number(before, "cumulative_spend_usd")?
+        || required_nonnegative_number(after, "cumulative_deposit_usd")?
+            < required_nonnegative_number(before, "cumulative_deposit_usd")?
+        || !array_contains(after, "provider_refs", provider_ref)
+        || !array_contains(after, "envelope_ancestor_refs", envelope_ref)
+    {
+        bail!("trajectory_state_transition_invalid")
+    }
+    Ok(())
+}
+
+fn object_value<'a>(
+    all: &'a BTreeMap<String, (BundleObject, Value)>,
+    reference: &str,
+    code: &str,
+) -> Result<&'a Value> {
+    all.get(reference)
+        .map(|(_, value)| value)
+        .ok_or_else(|| anyhow!(code.to_string()))
+}
+
+fn required_nonnegative_number(value: &Value, key: &str) -> Result<f64> {
+    value
+        .get(key)
+        .and_then(Value::as_f64)
+        .filter(|number| *number >= 0.0 && number.is_finite())
+        .ok_or_else(|| anyhow!("invalid_nonnegative_number:{key}"))
+}
+
+fn array_contains(value: &Value, key: &str, expected: &str) -> bool {
+    value
+        .get(key)
+        .and_then(Value::as_array)
+        .is_some_and(|items| items.iter().any(|item| item.as_str() == Some(expected)))
 }
 
 fn accept(
