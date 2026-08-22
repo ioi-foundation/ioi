@@ -72,10 +72,36 @@ async function verifyDurable(certificate, dataDir, repo, daemon) {
     if (create.grant_ref !== certificate.authority.grant_ref) fail("durable_grant_mismatch", "authority.grant_ref", "grant differs from daemon create record");
   }
   if (c6 && (c6.environment_ref !== d.environment_ref || c6.op !== "logs" || c6.evidence?.lease_state_proof?.retrieved_live !== true || c6.evidence?.settlement_readback?.provider_response_hash !== certificate.provider.c6.provider_response_hash)) fail("durable_c6_mismatch", "provider.c6", "live readback differs from daemon logs record");
+  if (certificate.claims?.workload_result_claimed === true && c6) {
+    const journal = certificate.journal;
+    const bundle = c6.evidence?.workload_result?.bundle;
+    if (JSON.stringify(c6.journal_state_roots) !== JSON.stringify([
+      journal.intent_root,
+      journal.outcome_root,
+      journal.workload_result_outcome_root,
+    ])
+      || bundle?.status?.sha256 !== journal.workload_status_hash
+      || bundle?.environment?.sha256 !== journal.workload_environment_hash
+      || bundle?.results?.sha256 !== journal.workload_result_hash
+      || bundle?.manifest?.sha256 !== journal.workload_manifest_hash
+      || c6.evidence?.workload_result?.result_ref !== journal.workload_result_ref) {
+      fail("durable_workload_result_journal_mismatch", "journal", "the result successor root or authenticated artifact hashes differ from the durable logs operation");
+    }
+  }
   if (deleted && (deleted.environment_ref !== d.environment_ref || deleted.op !== "delete")) fail("durable_delete_mismatch", "teardown", "delete record does not bind certified environment");
   if (deployment) {
     if (deployment.environment_ref !== d.environment_ref || String(deployment.dseq) !== certificate.provider.dseq || deployment.endpoint_ref !== certificate.provider.endpoint_ref || deployment.account_ref !== certificate.authority.reviewed_facets.provider_account_ref || deployment.deposit_usd !== certificate.authority.reviewed_facets.deposit_usd) fail("durable_deployment_mismatch", "provider", "deployment identity or bounded deposit differs from daemon record");
     if (deployment.teardown_state !== "torn_down" || deployment.provider_native_settlement?.provider_terminal !== true || deployment.provider_readback_hash !== certificate.settlement.provider_response_hash || deployment.provider_native_settlement?.final_debit_usd !== certificate.settlement.final_net_cost_usd) fail("durable_settlement_mismatch", "settlement", "terminal settlement differs from daemon record");
+    if (certificate.claims?.workload_result_claimed === true && (
+      deployment.provider_operation_intent_root !== certificate.journal.workload_result_intent_root
+      || deployment.provider_operation_effect_outcome_root !== certificate.journal.workload_result_predecessor_root
+      || deployment.provider_operation_result_outcome_root !== certificate.journal.workload_result_outcome_root
+      || deployment.workload_status_hash !== certificate.journal.workload_status_hash
+      || deployment.workload_environment_hash !== certificate.journal.workload_environment_hash
+      || deployment.workload_result_hash !== certificate.journal.workload_result_hash
+      || deployment.workload_manifest_hash !== certificate.journal.workload_manifest_hash
+      || deployment.workload_result_ref !== certificate.journal.workload_result_ref
+    )) fail("durable_workload_result_projection_mismatch", "journal", "the deployment projection differs from the certified result-binding root and hashes");
   }
   if (providerLease && (providerLease.environment_ref !== d.environment_ref || providerLease.state !== "closed" || providerLease.lease_ref !== certificate.provider.lease_ref)) fail("durable_provider_lease_mismatch", "provider.lease_state", "provider lease projection is not closed");
   if (endpoint) {

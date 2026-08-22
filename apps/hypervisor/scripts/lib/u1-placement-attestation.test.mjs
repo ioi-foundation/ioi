@@ -54,6 +54,10 @@ function rebindMeasurementResponses(certificate) {
   certificate.measurement.raw_response_bodies_base64 = Object.fromEntries(
     Object.entries(responses).map(([name, item]) => [name, item.body_base64]),
   );
+  certificate.lifecycle.result_binding.status_hash = responses.status.sha256;
+  certificate.lifecycle.result_binding.environment_hash = responses.environment.sha256;
+  certificate.lifecycle.result_binding.result_hash = responses.results.sha256;
+  certificate.lifecycle.result_binding.manifest_hash = responses.manifest.sha256;
 }
 
 function fixture() {

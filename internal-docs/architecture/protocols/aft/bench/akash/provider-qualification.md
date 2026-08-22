@@ -85,6 +85,30 @@ Permitted pre-run label: `same exact audited provider; container allocation; phy
 
 Class C bare-metal wording requires additional evidence that binds both campaigns to the same reserved host or an attested equivalent. Without it, the measurement may still be published as measured-container/variance-caveated evidence, but it must not close the bare-metal residual by implication.
 
+## Spend-free refresh — 2026-08-22
+
+The public inventory, exact provider details, bid-screening result, and pricing
+estimate were refreshed at `2026-08-22T05:38:00Z`. The reproducible request
+facets, raw-response hashes, and selected provider facts are retained in
+[`provider-qualification-refresh-2026-08-22.json`](provider-qualification-refresh-2026-08-22.json).
+
+Dallas remains the leading owner-review candidate. It was online, audited,
+version-valid, screened eligible for the full 8 CPU / 16 GiB / 20 GiB envelope,
+and reported 29,115 CPU units, 148,940,127,232 memory bytes, and
+2,091,412,536,640 ephemeral-storage bytes available. Its one-day and seven-day
+uptime were 100%, and its audited attributes still reported x86-64 and 10-Gbps
+up/down links. Philadelphia and Digital Frontier also cleared the spend-free
+screen at the same 1000-uact ceiling. Screening returned 54 eligible providers;
+it remains neither a bid nor authorization to fund a deployment.
+
+The public pricing estimate remained `$59.19/month`. No candidate acquired
+tenant-specific physical-host evidence during this refresh. Consequently the
+recommendation remains a **measured-container or variance-caveated** campaign
+on exact-provider Dallas; `Class C — measured on attested pinned bare metal`
+remains unavailable unless the provider-key-bound placement attestation lands
+and verifies before both campaign certificates are promoted. The provider,
+honesty class, image digest, deposit, and ceiling remain owner decisions.
+
 ## Live-campaign checks
 
 Before each spend, refresh the provider record and compare its owner, audit status, online status, valid-version status, CPU architecture, and relevant audited attributes with this packet. After endpoint discovery, compare CPU model, online cores, memory, kernel, and governor between campaigns. Any provider-address mismatch, mutable image, missing result bundle, readiness failure, hardware-manifest mismatch, or open/unknown settlement exposure invalidates the campaign.

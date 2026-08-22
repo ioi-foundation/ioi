@@ -40,6 +40,16 @@ const certificate = sealU1Certificate({
     source_commit: lifecycle.source?.commit,
     source_dirty_state: lifecycle.source?.dirty_state_declaration,
     publication_eligible: lifecycle.source?.publication_eligible,
+    result_binding: {
+      intent_root: lifecycle.journal?.workload_result_intent_root,
+      predecessor_root: lifecycle.journal?.workload_result_predecessor_root,
+      outcome_root: lifecycle.journal?.workload_result_outcome_root,
+      workload_result_ref: lifecycle.journal?.workload_result_ref,
+      status_hash: lifecycle.journal?.workload_status_hash,
+      environment_hash: lifecycle.journal?.workload_environment_hash,
+      result_hash: lifecycle.journal?.workload_result_hash,
+      manifest_hash: lifecycle.journal?.workload_manifest_hash,
+    },
   },
   authority: {
     policy_hash: approval.policy_hash,

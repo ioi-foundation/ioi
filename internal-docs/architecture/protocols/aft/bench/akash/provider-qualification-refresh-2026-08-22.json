@@ -1,0 +1,101 @@
+{
+  "schema_version": "ioi.aft.u1-provider-qualification-refresh.v1",
+  "captured_at": "2026-08-22T05:38:00Z",
+  "sources": {
+    "provider_inventory_url": "https://console-api.akash.network/v1/providers",
+    "provider_detail_url_template": "https://console-api.akash.network/v1/providers/{address}",
+    "bid_screening_url": "https://console-api.akash.network/v1/bid-screening",
+    "pricing_url": "https://console-api.akash.network/v1/pricing",
+    "openapi_url": "https://console-api.akash.network/v1/doc",
+    "provider_inventory_response_sha256": "sha256:7984ca77b9b88b5869cdbe8247c708199a30da81e252990ab5711cdf2d261f12",
+    "bid_screening_request_sha256": "sha256:7fde78e76c3e4ca1ce34a9484bddc18f2c5c32b633c1dc6cd8b290fc4a43c5f0",
+    "bid_screening_response_sha256": "sha256:01ab012576a8107a2664c21eb5a3213add173859cd303aeefe00b2af681efffd",
+    "pricing_request_sha256": "sha256:a5b3dc1133a6b97c5137d958ea9714c6306847506b74c1853de9ecbb53c697e4",
+    "pricing_response_sha256": "sha256:17b63de8dfbf0cfb7e765d6530ad95183435ffe99a7a1f3c33e1f5affa519656"
+  },
+  "screened_envelope": {
+    "cpu_units": 8000,
+    "memory_bytes": 17179869184,
+    "ephemeral_storage_bytes": 21474836480,
+    "gpu_units": 0,
+    "replicas": 1,
+    "price_ceiling": {
+      "amount": "1000",
+      "denom": "uact"
+    },
+    "eligible_provider_count": 54
+  },
+  "pricing_estimate": {
+    "akash_usd_per_month": 59.19,
+    "classification": "market_planning_estimate_not_provider_bid"
+  },
+  "candidates": [
+    {
+      "provider_address": "akash19zzh7whjt4vfwxd5wtj3tjtyatnpntfhldshd8",
+      "name": "provider.cpu.dal.aes.akash.pub",
+      "provider_detail_response_sha256": "sha256:08cad81f9a1694f402476ed3e82cc2c0636e3dbaf95c2a9676b43d6b2a2fef41",
+      "last_check_date": "2026-08-22T05:16:25.000Z",
+      "online": true,
+      "audited": true,
+      "valid_version": true,
+      "uptime_1d": 1,
+      "uptime_7d": 1,
+      "uptime_30d": 0.9999456018518519,
+      "cpu_units_available": 29115,
+      "memory_bytes_available": 148940127232,
+      "ephemeral_storage_bytes_available": 2091412536640,
+      "screened_eligible": true,
+      "audited_cpu_arch": "x86-64",
+      "audited_network_mbps_up": 10000,
+      "audited_network_mbps_down": 10000,
+      "placement_class": "same_exact_audited_provider_container_allocation_physical_host_unproven"
+    },
+    {
+      "provider_address": "akash1ggfvyhr9sar4uxjs4hth3p4kzrwk7lysnenj3g",
+      "name": "provider.cpu.phl.aes.akash.pub",
+      "provider_detail_response_sha256": "sha256:22cd0ac954148a871934c9ae5a57442ceeee8f1c719ec15cc5c6f3d7e662d51a",
+      "last_check_date": "2026-08-22T05:20:25.000Z",
+      "online": true,
+      "audited": true,
+      "valid_version": true,
+      "uptime_1d": 1,
+      "uptime_7d": 1,
+      "uptime_30d": 0.9995061728395062,
+      "cpu_units_available": 12615,
+      "memory_bytes_available": 172763490304,
+      "ephemeral_storage_bytes_available": 2981604546880,
+      "screened_eligible": true,
+      "audited_cpu_arch": "x86-64",
+      "audited_network_mbps_up": 10000,
+      "audited_network_mbps_down": 10000,
+      "placement_class": "same_exact_audited_provider_container_allocation_physical_host_unproven"
+    },
+    {
+      "provider_address": "akash1aaul837r7en7hpk9wv2svg8u78fdq0t2j2e82z",
+      "name": "provider.h6i-dedicated.eu-se-1.digitalfrontier.so",
+      "provider_detail_response_sha256": "sha256:932ce8f8b69c9dfc33c1a4148fba227366991201fad3466bddffb2327e43986d",
+      "last_check_date": "2026-08-22T05:09:56.000Z",
+      "online": true,
+      "audited": true,
+      "valid_version": true,
+      "uptime_1d": 1,
+      "uptime_7d": 0.9983713624338625,
+      "uptime_30d": 0.9995405092592593,
+      "cpu_units_available": 177585,
+      "memory_bytes_available": 640996525568,
+      "ephemeral_storage_bytes_available": 2887154417441,
+      "screened_eligible": true,
+      "audited_cpu_arch": "x86-64",
+      "audited_network_mbps_up": 1000,
+      "audited_network_mbps_down": 1000,
+      "placement_class": "same_exact_audited_provider_container_allocation_physical_host_unproven"
+    }
+  ],
+  "recommendation": {
+    "provider_address": "akash19zzh7whjt4vfwxd5wtj3tjtyatnpntfhldshd8",
+    "basis": "largest current capacity among the two audited US CPU candidates, perfect one-day and seven-day uptime, audited 10-Gbps attributes, and positive spend-free screening",
+    "owner_selected": false,
+    "bare_metal_attested": false,
+    "maximum_honesty_class_without_new_attestation": "measured_container_or_variance_caveated"
+  }
+}

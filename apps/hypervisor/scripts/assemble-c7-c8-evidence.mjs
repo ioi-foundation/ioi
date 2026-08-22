@@ -54,7 +54,8 @@ const reconciliation = read("c7-reconciliation.json");
 const allOperations = read("c7-operations.json").operations || [];
 const operations = allOperations.filter((record) => record.environment_ref === environment);
 const createOp = operations.find((record) => record.op === "create");
-const logsOp = operations.find((record) => record.op === "logs");
+const logsOp = operations.find((record) => record.op === "logs" && Array.isArray(record.journal_state_roots) && record.journal_state_roots.length >= 3)
+  || operations.find((record) => record.op === "logs");
 const deleteOp = operations.find((record) => record.op === "delete");
 const deployment = records("akash-deployments").find((record) => record.environment_ref === environment);
 const providerLease = records("akash-leases").find((record) => record.environment_ref === environment);
@@ -99,6 +100,16 @@ const desiredReplicas = Number(endpoint?.desired_replicas ?? deployment?.desired
 const workloadReadinessProven = readyReplicas > 0;
 const workloadResultRetrieved = endpoint?.workload_result_retrieved === true
   || deployment?.workload_result_retrieved === true;
+const resultBindingRoots = workloadResultRetrieved
+  ? required(logsOp?.journal_state_roots, "durable workload-result C2 roots")
+  : null;
+if (workloadResultRetrieved && (
+  resultBindingRoots.length < 3
+  || resultBindingRoots[0] !== roots[0]
+  || resultBindingRoots[1] !== roots[1]
+)) {
+  throw new Error("workload-result outcome does not extend the exact create intent/outcome chain");
+}
 const immutableImage = /@sha256:[0-9a-f]{64}$/u.test(imageRef);
 const publicationEligible = historicalSource === null && (status || "clean") === "clean" && immutableImage;
 
@@ -145,7 +156,21 @@ const evidence = {
     request_hash: proposal.request_hash,
     consumed_once: true,
   },
-  journal: { intent_root: roots[0], outcome_root: roots[1], outcome_predecessor_root: roots[0] },
+  journal: {
+    intent_root: roots[0],
+    outcome_root: roots[1],
+    outcome_predecessor_root: roots[0],
+    ...(workloadResultRetrieved ? {
+      workload_result_outcome_root: resultBindingRoots[2],
+      workload_result_predecessor_root: resultBindingRoots[1],
+      workload_result_intent_root: resultBindingRoots[0],
+      workload_result_ref: required(deployment.workload_result_ref, "workload result ref"),
+      workload_status_hash: required(deployment.workload_status_hash, "workload status hash"),
+      workload_result_hash: required(deployment.workload_result_hash, "workload result hash"),
+      workload_environment_hash: required(deployment.workload_environment_hash, "workload environment hash"),
+      workload_manifest_hash: required(deployment.workload_manifest_hash, "workload manifest hash"),
+    } : {}),
+  },
   provider: {
     dseq: String(required(deployment.dseq, "dseq")),
     bid_ref: required(deployment.bid_ref, "bid ref"),

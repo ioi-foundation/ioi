@@ -141,6 +141,19 @@ export function validateU1Certificate(certificate) {
       || !same(parsed, expectedValue)
     )) fail("u1_response_body_mismatch", `measurement.raw_response_bodies_base64.${name}`, "parsed evidence differs from its authenticated response bytes");
   }
+  const resultBinding = lifecycle?.result_binding;
+  if (!hash(resultBinding?.intent_root)
+      || !hash(resultBinding?.predecessor_root)
+      || !hash(resultBinding?.outcome_root)
+      || resultBinding?.outcome_root === resultBinding?.predecessor_root
+      || typeof resultBinding?.workload_result_ref !== "string"
+      || !resultBinding.workload_result_ref.startsWith("akash-workload-result://")
+      || resultBinding?.status_hash !== hashes?.status?.sha256
+      || resultBinding?.environment_hash !== hashes?.environment?.sha256
+      || resultBinding?.result_hash !== hashes?.results?.sha256
+      || resultBinding?.manifest_hash !== hashes?.manifest?.sha256) {
+    fail("u1_lifecycle_result_binding_invalid", "lifecycle.result_binding", "the C2 successor root must bind the exact authenticated status, environment, result, and manifest response hashes");
+  }
   for (const [name, responseName] of [["environment.json", "environment"], ["result.json", "results"]]) {
     const item = manifest?.artifacts?.find((artifact) => artifact?.name === name);
     if (!item || !hash(item.sha256) || item.sha256 !== hashes?.[responseName]?.sha256 || item.bytes !== hashes?.[responseName]?.bytes) fail("u1_manifest_binding_mismatch", `measurement.manifest.${name}`, "response bytes differ from the provider artifact manifest");

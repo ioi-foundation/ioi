@@ -7161,6 +7161,54 @@ fn provider_operation_outcome_payload(
     })
 }
 
+/// U1 result binding — append the authenticated workload result as a successor
+/// of the create outcome while retaining the original pre-effect intent root.
+/// The journal stores only content hashes and opaque refs; result bytes remain
+/// in the bounded workload-result record.
+fn provider_operation_result_outcome_payload(
+    journal_ref: &str,
+    intent_state_root: &str,
+    predecessor_state_root: &str,
+    evidence: &Value,
+    receipt: &Option<String>,
+) -> Result<Value, &'static str> {
+    let workload = evidence
+        .get("workload_result")
+        .ok_or("akash_result_outcome_evidence_missing")?;
+    let bundle = workload
+        .get("bundle")
+        .ok_or("akash_result_outcome_bundle_missing")?;
+    let hash_at = |name: &str| {
+        bundle
+            .pointer(&format!("/{name}/sha256"))
+            .and_then(Value::as_str)
+            .filter(|value| {
+                value.len() == 71
+                    && value.starts_with("sha256:")
+                    && value[7..]
+                        .chars()
+                        .all(|character| character.is_ascii_hexdigit())
+            })
+            .map(str::to_string)
+            .ok_or("akash_result_outcome_hash_missing")
+    };
+    Ok(json!({
+        "schema_version": "ioi.hypervisor.provider-operation-journal.v1",
+        "phase": "outcome",
+        "operation_ref": journal_ref,
+        "intent_state_root": intent_state_root,
+        "predecessor_state_root": predecessor_state_root,
+        "outcome": "workload_result_retrieved",
+        "evidence_hash": sha256_bytes(&serde_jcs::to_vec(evidence).unwrap_or_default()),
+        "workload_result_ref": workload.get("result_ref").cloned().unwrap_or(Value::Null),
+        "status_hash": hash_at("status")?,
+        "environment_hash": hash_at("environment")?,
+        "result_hash": hash_at("results")?,
+        "manifest_hash": hash_at("manifest")?,
+        "receipt_ref": receipt,
+    }))
+}
+
 /// C2 — the pre-effect state captured by a committed provider-operation INTENT.
 /// Carries the caller (to author the successor outcome under the same owner scope),
 /// the op's journal stream ref, and the intent root the outcome must chain to.
@@ -7168,6 +7216,192 @@ struct ProviderJournalIntent {
     caller: super::mutation_event_foundation::WriteCaller,
     journal_ref: String,
     intent_state_root: String,
+}
+
+fn bind_akash_create_journal_to_deployment(
+    data_dir: &str,
+    env_ref: &str,
+    intent: &ProviderJournalIntent,
+    roots: &[String],
+) -> Result<(), String> {
+    let mut deployment = read_record_dir(data_dir, AKASH_DEPLOYMENT_KIND)
+        .into_iter()
+        .find(|record| text(record, "environment_ref") == env_ref)
+        .ok_or_else(|| "akash_journal_deployment_absent".to_string())?;
+    let effect_root = roots
+        .last()
+        .filter(|root| !root.is_empty())
+        .ok_or_else(|| "akash_journal_effect_root_missing".to_string())?;
+    deployment["provider_operation_journal_ref"] = json!(intent.journal_ref);
+    deployment["provider_operation_journal_owner_ref"] = json!(intent.caller.owner_ref);
+    deployment["provider_operation_intent_root"] = json!(intent.intent_state_root);
+    deployment["provider_operation_effect_outcome_root"] = json!(effect_root);
+    deployment["provider_operation_current_root"] = json!(effect_root);
+    let record_id = text(&deployment, "record_id").to_string();
+    persist_record(data_dir, AKASH_DEPLOYMENT_KIND, &record_id, &deployment)
+        .map_err(|error| format!("akash_journal_deployment_binding_failed: {error}"))
+}
+
+fn commit_akash_result_outcome(
+    data_dir: &str,
+    caller: &super::mutation_event_foundation::WriteCaller,
+    env_ref: &str,
+    evidence: &Value,
+    receipt: &Option<String>,
+) -> Result<Vec<String>, (StatusCode, Json<Value>)> {
+    let mut deployment = read_record_dir(data_dir, AKASH_DEPLOYMENT_KIND)
+        .into_iter()
+        .find(|record| text(record, "environment_ref") == env_ref)
+        .ok_or_else(|| {
+            provider_op_reconciliation_required(
+                "logs",
+                "akash",
+                env_ref,
+                receipt,
+                Value::Null,
+                "",
+                "",
+                "the authenticated workload result was fetched but its deployment record is absent",
+            )
+        })?;
+    let journal_ref = text(&deployment, "provider_operation_journal_ref").to_string();
+    let intent_root = text(&deployment, "provider_operation_intent_root").to_string();
+    let predecessor_root = text(&deployment, "provider_operation_current_root").to_string();
+    if journal_ref.is_empty() || intent_root.is_empty() || predecessor_root.is_empty() {
+        return Err(provider_op_reconciliation_required(
+            "logs",
+            "akash",
+            env_ref,
+            receipt,
+            deployment
+                .get("provider_native")
+                .cloned()
+                .unwrap_or(Value::Null),
+            &journal_ref,
+            &intent_root,
+            "the authenticated workload result was fetched but the create journal binding is incomplete",
+        ));
+    }
+    if text(&deployment, "provider_operation_journal_owner_ref") != caller.owner_ref {
+        return Err((
+            StatusCode::FORBIDDEN,
+            Json(json!({
+                "ok": false,
+                "code": "akash_result_outcome_owner_mismatch",
+                "message": "the result-binding caller does not own the pre-effect journal"
+            })),
+        ));
+    }
+    if deployment
+        .get("workload_readiness_proven")
+        .and_then(Value::as_bool)
+        != Some(true)
+        || evidence
+            .pointer("/workload_result/retrieved_live")
+            .and_then(Value::as_bool)
+            != Some(true)
+    {
+        return Err((
+            StatusCode::CONFLICT,
+            Json(json!({
+                "ok": false,
+                "code": "akash_result_outcome_readiness_unproven",
+                "message": "result bytes cannot finalize the journal without positive workload readiness and live authenticated retrieval"
+            })),
+        ));
+    }
+    let payload = provider_operation_result_outcome_payload(
+        &journal_ref,
+        &intent_root,
+        &predecessor_root,
+        evidence,
+        receipt,
+    )
+    .map_err(|reason| {
+        (
+            StatusCode::CONFLICT,
+            Json(json!({ "ok": false, "code": reason })),
+        )
+    })?;
+    let result_hash = text(&payload, "result_hash").to_string();
+    let status_hash = text(&payload, "status_hash").to_string();
+    let environment_hash = text(&payload, "environment_hash").to_string();
+    let manifest_hash = text(&payload, "manifest_hash").to_string();
+    let existing_root = text(&deployment, "provider_operation_result_outcome_root");
+    if !existing_root.is_empty() {
+        if text(&deployment, "workload_result_hash") == result_hash
+            && text(&deployment, "workload_status_hash") == status_hash
+            && text(&deployment, "workload_environment_hash") == environment_hash
+            && text(&deployment, "workload_manifest_hash") == manifest_hash
+        {
+            return Ok(vec![
+                intent_root,
+                predecessor_root,
+                existing_root.to_string(),
+            ]);
+        }
+        return Err((
+            StatusCode::CONFLICT,
+            Json(json!({
+                "ok": false,
+                "code": "akash_result_bundle_changed_after_commit",
+                "message": "the completed workload result changed after its outcome root committed"
+            })),
+        ));
+    }
+    let outcome_caller = super::mutation_event_foundation::WriteCaller {
+        identity: caller.identity.clone(),
+        owner_ref: caller.owner_ref.clone(),
+        idempotency_key: format!("{}.workload-result-outcome", caller.idempotency_key),
+    };
+    let commit = super::mutation_event_foundation::admit_owner_scoped_write(
+        data_dir,
+        &outcome_caller,
+        "hypervisor-provider-operations",
+        "provider_operation",
+        &journal_ref,
+        "provider_operation.workload_result_outcome",
+        Some(&predecessor_root),
+        &payload,
+    )
+    .map_err(|_| {
+        provider_op_reconciliation_required(
+            "logs",
+            "akash",
+            env_ref,
+            receipt,
+            deployment
+                .get("provider_native")
+                .cloned()
+                .unwrap_or(Value::Null),
+            &journal_ref,
+            &intent_root,
+            "the authenticated workload result was fetched but its successor outcome root did not finalize",
+        )
+    })?;
+    deployment["provider_operation_result_outcome_root"] = json!(commit.projection.head);
+    deployment["provider_operation_current_root"] = json!(commit.projection.head);
+    deployment["workload_result_hash"] = json!(result_hash);
+    deployment["workload_status_hash"] = json!(status_hash);
+    deployment["workload_environment_hash"] = json!(environment_hash);
+    deployment["workload_manifest_hash"] = json!(manifest_hash);
+    let record_id = text(&deployment, "record_id").to_string();
+    persist_record(data_dir, AKASH_DEPLOYMENT_KIND, &record_id, &deployment).map_err(|_| {
+        provider_op_reconciliation_required(
+            "logs",
+            "akash",
+            env_ref,
+            receipt,
+            deployment
+                .get("provider_native")
+                .cloned()
+                .unwrap_or(Value::Null),
+            &journal_ref,
+            &intent_root,
+            "the result outcome committed but the deployment projection did not retain its root and hashes",
+        )
+    })?;
+    Ok(vec![intent_root, predecessor_root, commit.projection.head])
 }
 
 /// C2 phase 2 — commit the OUTCOME as a successor of the intent (expected_head = the
@@ -7635,11 +7869,30 @@ pub(crate) async fn handle_provider_op(
         // still owner-scoped local writes and are authenticated below.
         let akash_live_readiness =
             op == "start" && kind == "akash" && vast_mode(&account) == "live";
+        let akash_live_result_binding = op == "logs"
+            && kind == "akash"
+            && vast_mode(&account) == "live"
+            && read_record_dir(data_dir, AKASH_DEPLOYMENT_KIND)
+                .into_iter()
+                .find(|record| text(record, "environment_ref") == env_ref)
+                .map(|record| !text(&record, "result_credential_ref").is_empty())
+                .unwrap_or(false);
         let mutation = !matches!(
             op,
             "preflight" | "observe" | "logs" | "events" | "reconcile" | "delete"
         ) && !akash_live_readiness;
-        if matches!(op, "reconcile" | "delete") || akash_live_readiness {
+        let result_binding_caller = if akash_live_result_binding {
+            match super::mutation_event_foundation::require_write_caller(data_dir, &headers, &body)
+            {
+                Ok(caller) => Some(caller),
+                Err(reply) => return reply,
+            }
+        } else {
+            None
+        };
+        if (matches!(op, "reconcile" | "delete") || akash_live_readiness)
+            && result_binding_caller.is_none()
+        {
             if let Err(reply) =
                 super::mutation_event_foundation::require_write_caller(data_dir, &headers, &body)
             {
@@ -8361,6 +8614,38 @@ pub(crate) async fn handle_provider_op(
                         &evidence,
                         &receipt,
                         "the provider op executed against the provider but its completion root did not finalize",
+                    ) {
+                        Ok(roots) => {
+                            if let Err(error) = bind_akash_create_journal_to_deployment(
+                                data_dir,
+                                &env_ref,
+                                intent,
+                                &roots,
+                            ) {
+                                return provider_op_reconciliation_required(
+                                    op,
+                                    &kind,
+                                    &env_ref,
+                                    &receipt,
+                                    evidence
+                                        .get("provider_native")
+                                        .cloned()
+                                        .unwrap_or(Value::Null),
+                                    &intent.journal_ref,
+                                    &intent.intent_state_root,
+                                    &format!(
+                                        "the create outcome committed but its deployment journal binding did not persist ({error})"
+                                    ),
+                                );
+                            }
+                            journal_state_roots = roots;
+                        }
+                        Err(reconciliation) => return reconciliation,
+                    }
+                }
+                if let Some(caller) = result_binding_caller.as_ref() {
+                    match commit_akash_result_outcome(
+                        data_dir, caller, &env_ref, &evidence, &receipt,
                     ) {
                         Ok(roots) => journal_state_roots = roots,
                         Err(reconciliation) => return reconciliation,
@@ -9358,6 +9643,143 @@ env:
             !serialized.contains("manifest-echo"),
             "the raw provider evidence was stored verbatim instead of hashed"
         );
+    }
+
+    #[test]
+    fn the_workload_result_outcome_names_both_roots_and_binds_each_authenticated_artifact() {
+        let evidence = json!({
+            "workload_result": {
+                "result_ref": "akash-workload-result://akresult_1",
+                "retrieved_live": true,
+                "bundle": {
+                    "status": { "sha256": format!("sha256:{}", "1".repeat(64)) },
+                    "environment": { "sha256": format!("sha256:{}", "2".repeat(64)) },
+                    "results": { "sha256": format!("sha256:{}", "3".repeat(64)) },
+                    "manifest": { "sha256": format!("sha256:{}", "4".repeat(64)) }
+                }
+            }
+        });
+        let payload = provider_operation_result_outcome_payload(
+            "provider-operation://pop_c2_result",
+            "sha256:intent",
+            "sha256:create-outcome",
+            &evidence,
+            &Some("agentgres://provider-receipt/result".to_string()),
+        )
+        .expect("a complete authenticated bundle is bindable");
+        assert_eq!(payload["phase"], "outcome");
+        assert_eq!(payload["outcome"], "workload_result_retrieved");
+        assert_eq!(payload["intent_state_root"], "sha256:intent");
+        assert_eq!(payload["predecessor_state_root"], "sha256:create-outcome");
+        assert_eq!(payload["result_hash"], format!("sha256:{}", "3".repeat(64)));
+        assert_eq!(
+            payload["environment_hash"],
+            format!("sha256:{}", "2".repeat(64))
+        );
+        assert!(payload["evidence_hash"]
+            .as_str()
+            .unwrap()
+            .starts_with("sha256:"));
+    }
+
+    #[test]
+    fn a_ready_authenticated_result_extends_the_create_journal_once_and_then_is_immutable() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        super::super::substrate_store::reset_handle_for_test();
+        let create_caller = journal_caller_for_test("c2-result-create");
+        let journal_ref = "provider-operation://pop_c2_result_chain";
+        let intent = super::super::mutation_event_foundation::admit_owner_scoped_write(
+            data_dir,
+            &super::super::mutation_event_foundation::WriteCaller {
+                identity: create_caller.identity.clone(),
+                owner_ref: create_caller.owner_ref.clone(),
+                idempotency_key: format!("{}.intent", create_caller.idempotency_key),
+            },
+            "hypervisor-provider-operations",
+            "provider_operation",
+            journal_ref,
+            "provider_operation.intent",
+            None,
+            &sample_intent_payload(journal_ref),
+        )
+        .unwrap();
+        let intent_state = ProviderJournalIntent {
+            caller: create_caller,
+            journal_ref: journal_ref.to_string(),
+            intent_state_root: intent.projection.head.clone(),
+        };
+        let create_roots = commit_provider_operation_outcome(
+            data_dir,
+            &intent_state,
+            "create",
+            "akash",
+            "environment:result",
+            "ok",
+            &json!({ "provider_native": { "dseq": "88" } }),
+            &Some("agentgres://provider-receipt/create".to_string()),
+            "unused",
+        )
+        .unwrap();
+        let deployment = json!({
+            "schema_version": "ioi.hypervisor.akash-deployment.v1",
+            "record_id": "akdep_result",
+            "environment_ref": "environment:result",
+            "provider_native": { "dseq": "88" },
+            "workload_readiness_proven": true,
+            "provider_operation_journal_ref": journal_ref,
+            "provider_operation_journal_owner_ref": "org://one",
+            "provider_operation_intent_root": intent.projection.head,
+            "provider_operation_effect_outcome_root": create_roots[1],
+            "provider_operation_current_root": create_roots[1]
+        });
+        persist_record(data_dir, AKASH_DEPLOYMENT_KIND, "akdep_result", &deployment).unwrap();
+        let evidence = json!({
+            "workload_result": {
+                "result_ref": "akash-workload-result://akresult_88",
+                "retrieved_live": true,
+                "bundle": {
+                    "status": { "sha256": format!("sha256:{}", "1".repeat(64)) },
+                    "environment": { "sha256": format!("sha256:{}", "2".repeat(64)) },
+                    "results": { "sha256": format!("sha256:{}", "3".repeat(64)) },
+                    "manifest": { "sha256": format!("sha256:{}", "4".repeat(64)) }
+                }
+            }
+        });
+        let result_caller = journal_caller_for_test("c2-result-logs");
+        let roots = commit_akash_result_outcome(
+            data_dir,
+            &result_caller,
+            "environment:result",
+            &evidence,
+            &Some("agentgres://provider-receipt/result".to_string()),
+        )
+        .expect("the result successor commits");
+        assert_eq!(roots.len(), 3);
+        assert_ne!(roots[1], roots[2]);
+        let replay = commit_akash_result_outcome(
+            data_dir,
+            &result_caller,
+            "environment:result",
+            &evidence,
+            &Some("agentgres://provider-receipt/result".to_string()),
+        )
+        .expect("identical result retrieval reuses the committed root");
+        assert_eq!(replay[2], roots[2]);
+        let mut changed = evidence;
+        changed["workload_result"]["bundle"]["results"]["sha256"] =
+            json!(format!("sha256:{}", "9".repeat(64)));
+        let (status, body) = commit_akash_result_outcome(
+            data_dir,
+            &result_caller,
+            "environment:result",
+            &changed,
+            &Some("agentgres://provider-receipt/result".to_string()),
+        )
+        .expect_err("a changed completed result must not replace the root");
+        assert_eq!(status, StatusCode::CONFLICT);
+        assert_eq!(body.0["code"], "akash_result_bundle_changed_after_commit");
+        super::super::substrate_store::reset_handle_for_test();
     }
 
     // ---- CARVE-OUT: provider deletion stays callable and reports exactly ----

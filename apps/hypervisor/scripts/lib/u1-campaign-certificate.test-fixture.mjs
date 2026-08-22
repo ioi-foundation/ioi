@@ -82,6 +82,16 @@ export function validU1Fixture() {
       source_commit: sourceCommit,
       source_dirty_state: "clean",
       publication_eligible: true,
+      result_binding: {
+        intent_root: `sha256:${"c".repeat(64)}`,
+        predecessor_root: `sha256:${"d".repeat(64)}`,
+        outcome_root: `sha256:${"e".repeat(64)}`,
+        workload_result_ref: "akash-workload-result://akresult_fixture",
+        status_hash: responses.status.sha256,
+        environment_hash: responses.environment.sha256,
+        result_hash: responses.results.sha256,
+        manifest_hash: responses.manifest.sha256,
+      },
     },
     authority: {
       policy_hash: `sha256:${"4".repeat(64)}`,

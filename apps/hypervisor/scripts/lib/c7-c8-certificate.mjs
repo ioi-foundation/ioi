@@ -102,6 +102,19 @@ export function validateCertificate(certificate) {
   if (claims?.certified_scope !== "governed_infrastructure_lifecycle") fail("certified_scope_invalid", "claims.certified_scope", "C7/C8 certifies the governed infrastructure lifecycle only");
   if (claims?.application_readiness_claimed !== provider?.workload_readiness_proven) fail("application_readiness_claim_mismatch", "claims.application_readiness_claimed", "the claim must follow provider replica evidence exactly");
   if (claims?.workload_result_claimed !== provider?.workload_result_retrieved) fail("workload_result_claim_mismatch", "claims.workload_result_claimed", "the claim must follow retrieved workload-result evidence exactly");
+  if (claims?.workload_result_claimed === true) {
+    if (!hash(journal?.workload_result_outcome_root)
+      || journal?.workload_result_intent_root !== journal?.intent_root
+      || journal?.workload_result_predecessor_root !== journal?.outcome_root
+      || journal?.workload_result_outcome_root === journal?.outcome_root
+      || !ref(journal?.workload_result_ref)
+      || !hash(journal?.workload_status_hash)
+      || !hash(journal?.workload_result_hash)
+      || !hash(journal?.workload_environment_hash)
+      || !hash(journal?.workload_manifest_hash)) {
+      fail("workload_result_journal_binding_invalid", "journal", "a claimed workload result must be a distinct successor of the create outcome and bind result, environment, and manifest hashes");
+    }
+  }
   if (claims?.bare_metal_claimed !== false || claims?.provider_neutrality_claimed !== false || claims?.remote_worker_secret_non_possession_claimed !== false) fail("unsupported_architecture_claim", "claims", "C7/C8 does not certify bare metal, provider neutrality, or hard remote-worker secret non-possession");
   if (!Array.isArray(certificate?.nonclaims) || certificate.nonclaims.length < 3) fail("nonclaims_missing", "nonclaims", "the certificate must carry explicit bounded nonclaims");
 
