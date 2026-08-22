@@ -12,6 +12,8 @@ COMMIT="${IOI_BENCH_COMMIT:?IOI_BENCH_COMMIT is required}"
 IMAGE_DIGEST="${IOI_BENCH_IMAGE_DIGEST:?IOI_BENCH_IMAGE_DIGEST is required}"
 PROTOCOL_VERSION="${AFT_BENCH_PROTOCOL_VERSION:?AFT_BENCH_PROTOCOL_VERSION is required}"
 TOOLS="${AFT_RESULT_TOOLS:-/usr/local/bin/aft-result-tools.py}"
+RESULT_TLS_CERT="${AFT_RESULT_TLS_CERT:-/etc/ioi-aft-result/tls.crt}"
+RESULT_TLS_KEY="${AFT_RESULT_TLS_KEY:-/etc/ioi-aft-result/tls.key}"
 
 case "$WARMUPS:$REPEATS" in
   *[!0-9:]*|:*|*:) echo "warmups and repeats must be integers" >&2; exit 2 ;;
@@ -22,6 +24,10 @@ if (( WARMUPS < 1 || REPEATS < 2 )); then
 fi
 
 mkdir -p "$OUTDIR"
+if [[ ! -r "$RESULT_TLS_CERT" || ! -r "$RESULT_TLS_KEY" ]]; then
+  echo "result TLS certificate and key must be readable before the campaign starts" >&2
+  exit 2
+fi
 
 set_status() {
   "$TOOLS" status --output "$OUTDIR/status.json" --campaign "$CAMPAIGN" --state "$1" --detail "$2"
@@ -84,7 +90,11 @@ set_status starting "campaign has not crossed the benchmark boundary"
 # and `/environment` make a slow or failed run distinguishable from an absent
 # container. Keeping the same server process alive across the campaign also
 # prevents a completed result from depending on a late bind to the ingress port.
-"$TOOLS" serve --directory "$OUTDIR" --port "${AFT_RESULT_PORT:-8080}" &
+"$TOOLS" serve \
+  --directory "$OUTDIR" \
+  --port "${AFT_RESULT_PORT:-8080}" \
+  --tls-cert "$RESULT_TLS_CERT" \
+  --tls-key "$RESULT_TLS_KEY" &
 RESULT_SERVER_PID=$!
 cleanup_result_server() {
   kill "$RESULT_SERVER_PID" 2>/dev/null || true

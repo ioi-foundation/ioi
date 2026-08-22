@@ -31,6 +31,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         protobuf-compiler \
         libxcb1-dev \
         libxdo-dev \
+        openssl \
         python3 \
     && rm -rf /var/lib/apt/lists/*
 
@@ -71,6 +72,22 @@ RUN CARGO_TARGET_DIR=/ioi/target/test-node-builds/release-0b7414797d7f2187 \
 COPY internal-docs/architecture/protocols/aft/bench/akash/run-bench.sh /usr/local/bin/run-bench.sh
 COPY internal-docs/architecture/protocols/aft/bench/akash/result-tools.py /usr/local/bin/aft-result-tools.py
 RUN chmod +x /usr/local/bin/run-bench.sh /usr/local/bin/aft-result-tools.py
+
+# Generate a unique workload-transport identity inside this immutable private
+# image. The public certificate fingerprint is extracted by the build workflow
+# and bound into the owner-reviewed challenge. The private key is not a user or
+# provider credential; it only terminates the raw Akash TCP forwarding inside
+# this exact image and is never emitted as an artifact.
+RUN install -d -m 0700 /etc/ioi-aft-result \
+    && openssl req -x509 -newkey rsa:3072 -sha256 -nodes -days 3650 \
+      -keyout /etc/ioi-aft-result/tls.key \
+      -out /etc/ioi-aft-result/tls.crt \
+      -subj '/CN=ioi-aft-result' \
+      -addext 'basicConstraints=critical,CA:TRUE' \
+      -addext 'keyUsage=critical,digitalSignature,keyEncipherment,keyCertSign' \
+      -addext 'subjectAltName=DNS:ioi-aft-result' \
+    && chmod 0600 /etc/ioi-aft-result/tls.key \
+    && chmod 0644 /etc/ioi-aft-result/tls.crt
 
 # Repetition + warmup knobs (override in the SDL env).
 ENV AFT_BENCH_WARMUPS=1 \

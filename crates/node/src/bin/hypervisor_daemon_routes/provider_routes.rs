@@ -5751,36 +5751,17 @@ impl EnvironmentProvider for AkashProvider {
                     .into_iter()
                     .find(|record| text(record, "endpoint_ref") == endpoint_ref)
                     .ok_or("akash_result_endpoint_record_absent")?;
-                let host = endpoint
-                    .get("services")
-                    .and_then(Value::as_object)
-                    .and_then(|services| {
-                        services.values().find_map(|service| {
-                            service
-                                .get("uris")
-                                .and_then(Value::as_array)
-                                .and_then(|uris| uris.first())
-                                .and_then(Value::as_str)
-                        })
-                    })
-                    .ok_or("akash_result_endpoint_uri_absent")?;
-                if host.len() > 253
-                    || !host.contains('.')
-                    || host.contains('/')
-                    || host.contains(':')
-                    || host.eq_ignore_ascii_case("localhost")
-                    || host.chars().any(|character| {
-                        !(character.is_ascii_alphanumeric() || character == '.' || character == '-')
-                    })
-                {
-                    return Err("akash_result_endpoint_uri_invalid".into());
-                }
+                let (host, port) = akash_result_endpoint_target(&endpoint)?;
                 let token = resolve_connector_bearer(data_dir, &result_ref)?;
-                let base = format!("https://{host}");
+                let base = if port == 443 {
+                    format!("https://{host}")
+                } else {
+                    format!("https://{host}:{port}")
+                };
                 let certificate_pin = text(&dep, "result_tls_server_certificate_sha256");
                 let bundle = tokio::task::block_in_place(|| {
                     tokio::runtime::Handle::current().block_on(async {
-                        let client = pinned_result_client(host, certificate_pin)?;
+                        let client = pinned_result_client(&host, port, certificate_pin)?;
                         let mut bundle = serde_json::Map::new();
                         for (name, path) in [
                             ("status", "/status"),
@@ -7907,9 +7888,7 @@ fn validate_akash_result_status(dep: &Value, status: &Value) -> Result<(), &'sta
     match status.get("state").and_then(Value::as_str) {
         Some("complete") => Ok(()),
         Some("failed") => Err("akash_workload_campaign_failed"),
-        Some("starting" | "warmup" | "measuring") => {
-            Err("akash_result_endpoint_not_complete")
-        }
+        Some("starting" | "warmup" | "measuring") => Err("akash_result_endpoint_not_complete"),
         _ => Err("akash_result_status_invalid"),
     }
 }
@@ -8129,7 +8108,70 @@ fn materialize_akash_sdl(data_dir: &str, plan: &Value, template: &str) -> Result
 /// authority-bound pin, add only that certificate as a trust root, and disable
 /// hostname matching for the subsequent HTTPS request. Chain validation stays
 /// enabled, so this is not a global invalid-certificate escape hatch.
-fn pinned_result_client(host: &str, expected_pin: &str) -> Result<reqwest::Client, &'static str> {
+fn valid_akash_result_host(host: &str) -> bool {
+    host.len() <= 253
+        && host.contains('.')
+        && !host.contains('/')
+        && !host.contains(':')
+        && !host.eq_ignore_ascii_case("localhost")
+        && host.chars().all(|character| {
+            character.is_ascii_alphanumeric() || character == '.' || character == '-'
+        })
+}
+
+/// Resolve the only two result transports admitted by the U1 contract:
+/// provider-terminated HTTPS on a service URI, or workload-terminated TLS on
+/// the provider-assigned raw forwarding for the immutable result port 8080.
+/// The latter is required by providers that represent `as: 443` as a random
+/// TCP forwarding rather than a Gateway hostname. Ambiguous or plaintext
+/// forwards refuse instead of guessing.
+fn akash_result_endpoint_target(endpoint: &Value) -> Result<(String, u16), &'static str> {
+    if let Some(host) = endpoint
+        .get("services")
+        .and_then(Value::as_object)
+        .and_then(|services| {
+            services.values().find_map(|service| {
+                service
+                    .get("uris")
+                    .and_then(Value::as_array)
+                    .and_then(|uris| uris.first())
+                    .and_then(Value::as_str)
+            })
+        })
+    {
+        if !valid_akash_result_host(host) {
+            return Err("akash_result_endpoint_uri_invalid");
+        }
+        return Ok((host.to_string(), 443));
+    }
+
+    let forwards = endpoint
+        .pointer("/forwarded_ports/aft-bench")
+        .and_then(Value::as_array)
+        .ok_or("akash_result_endpoint_uri_absent")?;
+    let mut matches = forwards.iter().filter_map(|forward| {
+        let internal_port = forward.get("port")?.as_u64()?;
+        let external_port = forward.get("externalPort")?.as_u64()?;
+        let protocol = forward.get("proto")?.as_str()?;
+        let host = forward.get("host")?.as_str()?;
+        (internal_port == 8080
+            && protocol.eq_ignore_ascii_case("tcp")
+            && (1..=u16::MAX as u64).contains(&external_port)
+            && valid_akash_result_host(host))
+        .then(|| (host.to_string(), external_port as u16))
+    });
+    let target = matches.next().ok_or("akash_result_tls_forward_absent")?;
+    if matches.next().is_some() {
+        return Err("akash_result_tls_forward_ambiguous");
+    }
+    Ok(target)
+}
+
+fn pinned_result_client(
+    host: &str,
+    port: u16,
+    expected_pin: &str,
+) -> Result<reqwest::Client, &'static str> {
     let expected = expected_pin
         .strip_prefix("sha256:")
         .filter(|digest| {
@@ -8139,7 +8181,7 @@ fn pinned_result_client(host: &str, expected_pin: &str) -> Result<reqwest::Clien
                 })
         })
         .ok_or("akash_result_tls_certificate_pin_invalid")?;
-    let stream = std::net::TcpStream::connect((host, 443))
+    let stream = std::net::TcpStream::connect((host, port))
         .map_err(|_| "akash_result_tls_certificate_probe_failed")?;
     stream
         .set_read_timeout(Some(std::time::Duration::from_secs(30)))
@@ -9932,6 +9974,49 @@ env:
                 &json!({"campaign_id": "u1-campaign-a", "state": "unknown"}),
             ),
             Err("akash_result_status_invalid")
+        );
+    }
+
+    #[test]
+    fn akash_result_target_accepts_only_one_tls_capable_provider_endpoint() {
+        let uri = json!({
+            "services": {"aft-bench": {"uris": ["result.ingress.provider.example"]}}
+        });
+        assert_eq!(
+            akash_result_endpoint_target(&uri),
+            Ok(("result.ingress.provider.example".into(), 443))
+        );
+
+        let forwarded = json!({
+            "services": {"aft-bench": {"uris": null}},
+            "forwarded_ports": {"aft-bench": [{
+                "port": 8080,
+                "externalPort": 30284,
+                "proto": "TCP",
+                "host": "provider.example"
+            }]}
+        });
+        assert_eq!(
+            akash_result_endpoint_target(&forwarded),
+            Ok(("provider.example".into(), 30284))
+        );
+
+        let mut plaintext_or_wrong_port = forwarded.clone();
+        plaintext_or_wrong_port["forwarded_ports"]["aft-bench"][0]["port"] = json!(80);
+        assert_eq!(
+            akash_result_endpoint_target(&plaintext_or_wrong_port),
+            Err("akash_result_tls_forward_absent")
+        );
+
+        let mut ambiguous = forwarded;
+        let duplicate = ambiguous["forwarded_ports"]["aft-bench"][0].clone();
+        ambiguous["forwarded_ports"]["aft-bench"]
+            .as_array_mut()
+            .unwrap()
+            .push(duplicate);
+        assert_eq!(
+            akash_result_endpoint_target(&ambiguous),
+            Err("akash_result_tls_forward_ambiguous")
         );
     }
 

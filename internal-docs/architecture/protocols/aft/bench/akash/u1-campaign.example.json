@@ -26,7 +26,7 @@
     },
     "registry_credential_ref": "connector://conn_PRIVATE_REGISTRY",
     "result_credential_ref": "connector://conn_U1_RESULT_TOKEN",
-    "result_tls_server_certificate_sha256": "sha256:OWNER_APPROVED_PROVIDER_INGRESS_CERTIFICATE_64_HEX_DIGEST",
+    "result_tls_server_certificate_sha256": "sha256:OWNER_APPROVED_WORKLOAD_CERTIFICATE_64_HEX_DIGEST",
     "campaign_id": "u1-CAMPAIGN-FULL_COMMIT",
     "benchmark_source_commit": "OWNER_APPROVED_FULL_40_HEX_COMMIT",
     "image_digest": "sha256:OWNER_APPROVED_64_HEX_DIGEST",

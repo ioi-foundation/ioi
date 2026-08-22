@@ -40,8 +40,9 @@ Provider address pinning proves stable provider identity, not physical bare-meta
 
 Zero ready replicas, missing result artifacts, an unverified manifest, a mutable image tag, a provider mismatch, or unreconciled exposure invalidates the campaign. Endpoint discovery alone is not workload readiness.
 
-The result service must be exposed through provider-terminated HTTPS on
-external port 443, with the exact ingress leaf certificate bound into the
-owner-reviewed request. Plaintext external port 80 is not a valid result
-channel, even when the bearer-authenticated container listener is otherwise
-reachable.
+The result service must terminate TLS inside the immutable workload and request
+external intent port 443. The exact workload leaf certificate extracted from
+the digest-bound image is bound into the owner-reviewed request. The daemon may
+use the provider-assigned raw TCP host/port only after pin verification.
+Plaintext external port 80 is not a valid result channel, even when the
+bearer-authenticated container listener is otherwise reachable.

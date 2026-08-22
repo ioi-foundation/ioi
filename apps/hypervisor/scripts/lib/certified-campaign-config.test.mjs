@@ -116,7 +116,18 @@ test("rejects a U1 result service exposed only over plaintext", () => {
   const plaintext = template.replace(/as:\s*443/u, "as: 80");
   assert.throws(
     () => materializeReviewedSdl(plaintext, valid),
-    /provider-terminated HTTPS on external port 443/u,
+    /workload-terminated TLS result service with external intent port 443/u,
+  );
+});
+
+test("rejects an additional plaintext result exposure beside TLS", () => {
+  const dual = template.replace(
+    /\s+to:\s*\n\s+-\s+global:\s*true/u,
+    "$&\n      - port: 8080\n        as: 80\n        to:\n          - global: true",
+  );
+  assert.throws(
+    () => materializeReviewedSdl(dual, valid),
+    /cannot expose a plaintext external port 80/u,
   );
 });
 

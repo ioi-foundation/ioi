@@ -27,10 +27,10 @@ services:
       - 'IOI_SECRET_CANARIES=OWNER_SEEDED_NON_SECRET_TEST_CANARY'
     expose:
       - port: 8080
-        # The provider gateway terminates owner-pinned HTTPS on its public
-        # listener and forwards the authenticated request to this HTTP port.
-        # External port 80 is forbidden: the daemon never sends the result
-        # bearer over plaintext and never falls back from HTTPS.
+        # Providers may represent this as a raw high-port TCP forwarding. The
+        # immutable workload terminates owner-pinned TLS on port 8080; the
+        # daemon discovers the assigned host/port without sending the bearer,
+        # pins the image certificate, and never falls back to plaintext.
         as: 443
         to:
           - global: true

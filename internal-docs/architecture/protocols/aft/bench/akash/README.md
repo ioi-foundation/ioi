@@ -56,12 +56,16 @@ provider-local certificate without a DNS SAN. The daemon probes the leaf
 certificate without sending the bearer, rejects a DER hash mismatch, adds only
 the pinned certificate as a trust root, and then performs HTTPS retrieval. It
 never falls back to plaintext HTTP or globally disables certificate checks.
-The reviewed SDL maps the container's HTTP result listener on port 8080 to the
-provider gateway's external port 443. The provider gateway terminates TLS; an
-external-port-80 result route is rejected during campaign materialization so a
-bearer can never be sent through the plaintext listener. The pin is therefore
-the exact provider ingress leaf observed and reviewed before the challenge,
-not a certificate or private key embedded in the workload image.
+The reviewed SDL requests external intent port 443 for the container's result
+listener on port 8080. Some providers materialize that request as a raw random
+high-port TCP forwarding rather than a Gateway hostname. The immutable private
+workload therefore terminates TLS itself. The image workflow extracts only its
+public leaf certificate, records the DER SHA-256 in the v2 build-identity
+artifact, and the owner binds that exact pin into the challenge. The daemon
+discovers the provider-assigned host/port without application bytes, pins the
+workload leaf, and only then sends the bearer. The transport private key stays
+inside the digest-bound private image; it is not a user or provider credential.
+External-port-80 campaign materialization remains forbidden.
 
 The proposal carries only `connector://conn_…` references and the SDL sentinels. The daemon injects plaintext after the C2 intent commits, sends the expanded SDL directly to Akash, and does not persist it. A seeded canary scan refuses the result bundle if a known test canary appears in any artifact.
 

@@ -13,6 +13,7 @@ import os
 import platform
 import re
 import socketserver
+import ssl
 import statistics
 import subprocess
 import sys
@@ -568,6 +569,10 @@ def serve(args: argparse.Namespace) -> None:
     with socketserver.ThreadingTCPServer(("0.0.0.0", args.port), ResultHandler) as server:
         server.root = Path(args.directory)  # type: ignore[attr-defined]
         server.token = token  # type: ignore[attr-defined]
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.minimum_version = ssl.TLSVersion.TLSv1_2
+        context.load_cert_chain(certfile=args.tls_cert, keyfile=args.tls_key)
+        server.socket = context.wrap_socket(server.socket, server_side=True)
         server.serve_forever()
 
 
@@ -618,6 +623,8 @@ def parser() -> argparse.ArgumentParser:
     serve_parser = sub.add_parser("serve")
     serve_parser.add_argument("--directory", required=True)
     serve_parser.add_argument("--port", type=int, default=8080)
+    serve_parser.add_argument("--tls-cert", required=True)
+    serve_parser.add_argument("--tls-key", required=True)
     serve_parser.set_defaults(function=serve)
     return root
 

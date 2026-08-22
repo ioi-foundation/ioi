@@ -4,6 +4,7 @@ import json
 import os
 import socket
 import socketserver
+import ssl
 import subprocess
 import tempfile
 import threading
@@ -60,9 +61,28 @@ class ResultToolsTests(unittest.TestCase):
             listener.bind(("127.0.0.1", 0))
             return listener.getsockname()[1]
 
+    @staticmethod
+    def tls_identity(root):
+        certificate = root / "tls.crt"
+        key = root / "tls.key"
+        subprocess.run(
+            [
+                "openssl", "req", "-x509", "-newkey", "rsa:2048", "-sha256",
+                "-nodes", "-days", "1", "-keyout", str(key), "-out", str(certificate),
+                "-subj", "/CN=ioi-aft-result",
+                "-addext", "basicConstraints=critical,CA:TRUE",
+                "-addext", "subjectAltName=DNS:ioi-aft-result",
+            ],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        return certificate, key
+
     def test_runner_serves_authenticated_status_while_benchmark_is_running(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
+            certificate, key = self.tls_identity(root)
             binary = root / "bin"
             binary.mkdir()
             cargo = binary / "cargo"
@@ -82,6 +102,8 @@ class ResultToolsTests(unittest.TestCase):
                 "AFT_RESULT_TOOLS": str(TOOL),
                 "AFT_RESULT_BEARER_TOKEN": token,
                 "AFT_RESULT_PORT": str(port),
+                "AFT_RESULT_TLS_CERT": str(certificate),
+                "AFT_RESULT_TLS_KEY": str(key),
                 "AFT_BENCH_OUTDIR": str(root / "output"),
                 "AFT_BENCH_CAMPAIGN_ID": "campaign-progress",
                 "IOI_BENCH_COMMIT": "a" * 40,
@@ -105,10 +127,12 @@ class ResultToolsTests(unittest.TestCase):
                 while time.monotonic() < deadline:
                     try:
                         request = urllib.request.Request(
-                            f"http://127.0.0.1:{port}/status",
+                            f"https://127.0.0.1:{port}/status",
                             headers={"Authorization": f"Bearer {token}"},
                         )
-                        with urllib.request.urlopen(request, timeout=1) as response:
+                        context = ssl.create_default_context(cafile=str(certificate))
+                        context.check_hostname = False
+                        with urllib.request.urlopen(request, timeout=1, context=context) as response:
                             status = json.loads(response.read())
                         if (Path(environment["AFT_TEST_STARTED"]).exists()
                                 and status.get("state") in {"starting", "warmup", "measuring"}):
@@ -135,6 +159,54 @@ class ResultToolsTests(unittest.TestCase):
                 if process.poll() is None:
                     process.terminate()
                     process.communicate(timeout=10)
+
+    def test_cli_result_server_requires_tls_before_bearer_authentication(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            certificate, key = self.tls_identity(root)
+            (root / "status.json").write_text(
+                json.dumps({"campaign_id": "campaign-tls", "state": "measuring"})
+            )
+            token = "u1-tls-token-abcdefghijklmnopqrstuvwxyz"
+            port = self.free_port()
+            process = subprocess.Popen(
+                [
+                    str(TOOL), "serve", "--directory", str(root), "--port", str(port),
+                    "--tls-cert", str(certificate), "--tls-key", str(key),
+                ],
+                env={**os.environ, "AFT_RESULT_BEARER_TOKEN": token},
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            try:
+                deadline = time.monotonic() + 10
+                response = None
+                while time.monotonic() < deadline:
+                    try:
+                        context = ssl.create_default_context(cafile=str(certificate))
+                        context.check_hostname = False
+                        request = urllib.request.Request(
+                            f"https://127.0.0.1:{port}/status",
+                            headers={"Authorization": f"Bearer {token}"},
+                        )
+                        response = urllib.request.urlopen(request, context=context, timeout=1)
+                        break
+                    except (OSError, urllib.error.URLError):
+                        time.sleep(0.05)
+                self.assertIsNotNone(response)
+                self.assertEqual(json.loads(response.read())["campaign_id"], "campaign-tls")
+
+                with self.assertRaises((OSError, urllib.error.URLError, ssl.SSLError)):
+                    urllib.request.urlopen(
+                        urllib.request.Request(
+                            f"http://127.0.0.1:{port}/status",
+                            headers={"Authorization": f"Bearer {token}"},
+                        ),
+                        timeout=2,
+                    )
+            finally:
+                process.terminate()
+                process.wait(timeout=10)
 
     def run_tool(self, *args, cwd=None):
         return subprocess.run(

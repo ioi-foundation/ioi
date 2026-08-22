@@ -117,7 +117,7 @@ jobs:
           push: false
           tags: ghcr.io/ioi-foundation/ioi-aft-bench:${{ inputs.source_ref }}
           labels: org.opencontainers.image.source=https://github.com/ioi-foundation/ioi
-          outputs: type=oci,dest=/tmp/aft-bench.tar
+          outputs: type=docker,dest=/tmp/aft-bench.tar
 
       - name: Build and push explicitly approved private image
         id: push
@@ -130,6 +130,31 @@ jobs:
           push: true
           tags: ghcr.io/ioi-foundation/ioi-aft-bench:${{ inputs.source_ref }}
           labels: org.opencontainers.image.source=https://github.com/ioi-foundation/ioi
+
+      - name: Extract immutable workload TLS identity
+        shell: bash
+        env:
+          SOURCE_REF: ${{ inputs.source_ref }}
+          BUILD_ONLY_DIGEST: ${{ steps.build_only.outputs.digest }}
+          PUSHED_DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          set -euo pipefail
+          digest="${PUSHED_DIGEST:-${BUILD_ONLY_DIGEST:-}}"
+          printf '%s' "${digest}" | grep -Eq '^sha256:[0-9a-f]{64}$'
+          image_ref="ghcr.io/ioi-foundation/ioi-aft-bench:${SOURCE_REF}"
+          if [[ -n "${PUSHED_DIGEST:-}" ]]; then
+            image_ref="ghcr.io/ioi-foundation/ioi-aft-bench@${digest}"
+            docker pull "${image_ref}" >/dev/null
+          else
+            docker load --input /tmp/aft-bench.tar >/dev/null
+          fi
+          container_id="$(docker create "${image_ref}")"
+          trap 'docker rm -f "${container_id}" >/dev/null 2>&1 || true' EXIT
+          docker cp "${container_id}:/etc/ioi-aft-result/tls.crt" /tmp/aft-result-tls.crt
+          openssl x509 -in /tmp/aft-result-tls.crt -outform DER \
+            | sha256sum | awk '{print "sha256:" $1}' \
+            > /tmp/aft-result-tls-certificate.sha256
+          grep -Eq '^sha256:[0-9a-f]{64}$' /tmp/aft-result-tls-certificate.sha256
 
       - name: Record immutable build identity
         id: identity
@@ -146,6 +171,7 @@ jobs:
           dockerfile_sha256="$(sha256sum internal-docs/architecture/protocols/aft/bench/akash/Dockerfile | awk '{print $1}')"
           runner_sha256="$(sha256sum internal-docs/architecture/protocols/aft/bench/akash/run-bench.sh | awk '{print $1}')"
           result_tools_sha256="$(sha256sum internal-docs/architecture/protocols/aft/bench/akash/result-tools.py | awk '{print $1}')"
+          result_tls_server_certificate_sha256="$(cat /tmp/aft-result-tls-certificate.sha256)"
           jq -n \
             --arg source_ref "${SOURCE_REF}" \
             --arg image_digest "${digest}" \
@@ -154,10 +180,11 @@ jobs:
             --arg dockerfile_sha256 "sha256:${dockerfile_sha256}" \
             --arg runner_sha256 "sha256:${runner_sha256}" \
             --arg result_tools_sha256 "sha256:${result_tools_sha256}" \
+            --arg result_tls_server_certificate_sha256 "${result_tls_server_certificate_sha256}" \
             --arg run_id "${GITHUB_RUN_ID}" \
             --arg run_attempt "${GITHUB_RUN_ATTEMPT}" \
             '{
-              schema_version: "ioi.aft.benchmark-image-build-identity.v1",
+              schema_version: "ioi.aft.benchmark-image-build-identity.v2",
               source_ref: $source_ref,
               image_digest: $image_digest,
               base_image_digest: $base_image_digest,
@@ -165,13 +192,15 @@ jobs:
               dockerfile_sha256: $dockerfile_sha256,
               runner_sha256: $runner_sha256,
               result_tools_sha256: $result_tools_sha256,
+              result_tls_server_certificate_sha256: $result_tls_server_certificate_sha256,
               github_run_id: $run_id,
               github_run_attempt: $run_attempt
             }' > /tmp/aft-bench-build-identity.json
           jq -e \
             --arg source_ref "${SOURCE_REF}" \
             --arg image_digest "${digest}" \
-            '.source_ref == $source_ref and .image_digest == $image_digest' \
+            '.source_ref == $source_ref and .image_digest == $image_digest
+             and (.result_tls_server_certificate_sha256 | test("^sha256:[0-9a-f]{64}$"))' \
             /tmp/aft-bench-build-identity.json >/dev/null
           cat /tmp/aft-bench-build-identity.json
           echo "image_digest=${digest}" >> "${GITHUB_OUTPUT}"

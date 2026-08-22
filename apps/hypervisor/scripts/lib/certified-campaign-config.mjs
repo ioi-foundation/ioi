@@ -111,7 +111,10 @@ export function materializeReviewedSdl(template, config) {
   }
   const resultExposure = /expose:\s*\n\s*-\s+port:\s*8080\s*\n(?:\s*#[^\n]*\n)*\s*as:\s*443\s*\n\s*to:\s*\n\s*-\s+global:\s*true(?:\s|$)/u;
   if (!resultExposure.test(materialized)) {
-    throw new Error("U1 SDL must expose the result service only as provider-terminated HTTPS on external port 443");
+    throw new Error("U1 SDL must expose the workload-terminated TLS result service with external intent port 443");
+  }
+  if (/\bas:\s*80(?:\s|$)/u.test(materialized)) {
+    throw new Error("U1 SDL cannot expose a plaintext external port 80 result route");
   }
   return materialized;
 }
