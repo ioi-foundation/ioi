@@ -15,12 +15,13 @@ const paths = {
   governed: "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs",
   client: "crates/node/src/bin/hypervisor_daemon_routes/wallet_network_capability_client.rs",
   lifecycle: "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+  tests: "crates/services/src/wallet_network/tests/approvals_and_injection.rs",
 };
 const sources = Object.fromEntries(
   Object.entries(paths).map(([name, path]) => [name, readFileSync(join(repo, path), "utf8")]),
 );
 
-function inspect({ action, handler, wallet, auth, config, provider, governed, client, lifecycle }) {
+function inspect({ action, handler, wallet, auth, config, provider, governed, client, lifecycle, tests }) {
   const findings = [];
   const requireText = (source, value, code) => {
     if (!source.includes(value)) findings.push(code);
@@ -70,6 +71,11 @@ function inspect({ action, handler, wallet, auth, config, provider, governed, cl
   requireText(client, "recover_standing_approval_grant_consumption_for_effect", "standing_receipt_recovery_missing");
   requireText(lifecycle, "CapabilityAuthorityAdmission::Standing", "capability_gateway_standing_lane_missing");
   requireText(provider, "terminal_spend_microusd(&evidence)", "provider_terminal_spend_not_reconciled_to_wallet");
+  requireText(
+    tests,
+    "standing_envelope_emits_two_hundred_silent_receipts_then_refuses_draw_201",
+    "approval_habituation_regression_missing",
+  );
   return [...new Set(findings)].sort();
 }
 
@@ -135,6 +141,11 @@ if (process.argv.includes("--mutation")) {
       expected: "terminal_spend_not_bounded_by_reservation",
       sources: { ...sources, handler: sources.handler.replace("params.actual_spend_microusd > consumption.estimated_spend_microusd", "false") },
     },
+    {
+      name: "remove_two_hundred_draw_habituation_regression",
+      expected: "approval_habituation_regression_missing",
+      sources: { ...sources, tests: sources.tests.replace("standing_envelope_emits_two_hundred_silent_receipts_then_refuses_draw_201", "standing_envelope_habituation_regression_removed") },
+    },
   ];
   const survived = mutations.filter(({ sources: mutated, expected }) => !inspect(mutated).includes(expected));
   if (survived.length > 0) {
@@ -164,4 +175,5 @@ console.log(JSON.stringify({
   c7_exact_request_grant: "preserved",
   standing_grant: "separate signed artifact",
   draw_accounting: "atomic usage/deposit/spend reservation plus terminal settlement without authority reset",
+  approval_habituation: "one signed envelope emits 200 silent activity receipts and refuses draw 201 before effect",
 }, null, 2));

@@ -652,6 +652,125 @@ fn standing_grant_draws_are_atomic_bounded_replay_safe_and_revocable() {
     assert!(revoked.to_string().contains("not active"));
 }
 
+#[test]
+fn standing_envelope_emits_two_hundred_silent_receipts_then_refuses_draw_201() {
+    let service = WalletNetworkService;
+    let mut state = MockState::default();
+    let approver = new_approval_signer();
+    let policy_hash = [0x82; 32];
+    let fixture = signed_standing_approval_grant(
+        &approver,
+        policy_hash,
+        [7; 32],
+        [0x83; 32],
+        1,
+        200,
+        200,
+        200,
+        0x81,
+    );
+    let grant_hash = fixture.grant.artifact_hash().expect("standing grant hash");
+    let envelope_hash = fixture.grant.standing_envelope_hash;
+    with_ctx(|ctx| {
+        run_async(
+            service.handle_service_call(
+                &mut state,
+                "register_approval_authority@v1",
+                &codec::to_bytes_canonical(&RegisterApprovalAuthorityParams {
+                    authority: approver.authority.clone(),
+                })
+                .expect("encode authority"),
+                ctx,
+            ),
+        )
+        .expect("register authority");
+        run_async(service.handle_service_call(
+            &mut state,
+            "record_standing_approval_grant@v1",
+            &codec::to_bytes_canonical(&fixture.record_params()).expect("encode standing grant"),
+            ctx,
+        ))
+        .expect("record one standing envelope");
+    });
+    let binding = install_effect_binding(
+        &service,
+        &mut state,
+        &approver.authority,
+        EFFECT_NOW_MS + 10_000,
+    );
+
+    for index in 0_u8..200 {
+        let request = ConsumeStandingApprovalGrantForEffectParams {
+            grant_hash,
+            standing_envelope_hash: envelope_hash,
+            policy_hash,
+            request_hash: [index.wrapping_add(1); 32],
+            consumption_id: [index.wrapping_add(1); 32],
+            estimated_deposit_microusd: 1,
+            estimated_spend_microusd: 1,
+            expected_principal_authority: binding.expected.clone(),
+            expected_target_label: "provider.create".into(),
+        };
+        with_ctx(|ctx| {
+            run_async(service.handle_service_call(
+                &mut state,
+                "consume_standing_approval_grant_for_effect@v1",
+                &codec::to_bytes_canonical(&request).expect("encode standing draw"),
+                ctx,
+            ))
+            .expect("in-envelope unattended draw");
+        });
+        let receipt: StandingApprovalGrantConsumptionReceipt = load_typed(
+            &state,
+            &standing_approval_consumption_receipt_key(&[index.wrapping_add(1); 32]),
+        )
+        .expect("load activity receipt")
+        .expect("activity receipt");
+        assert_eq!(
+            receipt.approval_mode,
+            StandingApprovalMode::SilentWithinStandingEnvelope
+        );
+        assert_eq!(receipt.remaining_usages, 199 - u32::from(index));
+    }
+
+    let stored: StandingApprovalGrantState =
+        load_typed(&state, &standing_approval_grant_state_key(&grant_hash))
+            .expect("load standing state")
+            .expect("standing state");
+    assert_eq!(stored.uses_consumed, 200);
+    assert_eq!(stored.cumulative_deposit_reserved_microusd, 200);
+    assert_eq!(stored.cumulative_spend_reserved_microusd, 200);
+    assert_eq!(stored.status, StandingApprovalGrantStatus::Exhausted);
+
+    let request_201 = ConsumeStandingApprovalGrantForEffectParams {
+        grant_hash,
+        standing_envelope_hash: envelope_hash,
+        policy_hash,
+        request_hash: [0xfe; 32],
+        consumption_id: [0xff; 32],
+        estimated_deposit_microusd: 1,
+        estimated_spend_microusd: 1,
+        expected_principal_authority: binding.expected,
+        expected_target_label: "provider.create".into(),
+    };
+    with_ctx(|ctx| {
+        let refusal = run_async(service.handle_service_call(
+            &mut state,
+            "consume_standing_approval_grant_for_effect@v1",
+            &codec::to_bytes_canonical(&request_201).expect("encode over-limit draw"),
+            ctx,
+        ))
+        .expect_err("draw 201 must refuse before effect");
+        assert!(refusal.to_string().contains("not active"));
+    });
+    assert!(load_typed::<StandingApprovalGrantConsumptionReceipt>(
+        &state,
+        &standing_approval_consumption_receipt_key(&[0xff; 32]),
+    )
+    .expect("load absent over-limit receipt")
+    .is_none());
+}
+
 fn record_shared_budget_approval(
     service: &WalletNetworkService,
     state: &mut MockState,
