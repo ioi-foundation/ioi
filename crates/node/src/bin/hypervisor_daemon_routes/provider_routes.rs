@@ -6455,7 +6455,7 @@ pub(crate) async fn handle_provider_account_credential(
         // connector_id keys the CapabilityLease gateway lookup — one spine, no new gate.
         "connector_id": aid,
         "kind": cred_kind,
-        "key_source": std::env::var("IOI_WALLET_SECRET_PASS").map(|_| "wallet-secret").unwrap_or("local-mode"),
+        "key_source": super::lifecycle_routes::scm_key_source(),
         "fingerprint": fingerprint,
         // Non-secret aux hints (region/project/cluster) travel in the clear; secrets never do.
         "aux": body.get("aux").cloned().unwrap_or_else(|| json!({})),

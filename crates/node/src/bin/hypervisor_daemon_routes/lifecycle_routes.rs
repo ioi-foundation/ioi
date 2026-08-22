@@ -14382,23 +14382,42 @@ pub(crate) async fn handle_connector_mcp_tools(
 }
 
 // SCM credentials are sealed at rest with the canonical ioi-crypto secret encryption (Argon2id KDF
-// + AEAD), keyed by the SAME wallet-secret passphrase the wallet.network secret model uses
-// (IOI_WALLET_SECRET_PASS → IOI_GUARDIAN_KEY_PASS → "local-mode" fallback). With a real passphrase
-// set this is genuine at-rest protection (key supplied out-of-band, never in the data dir); without
-// one it seals under the local-mode fallback (no plaintext at rest, but key is well-known — honest
-// label travels via key_source). Decrypt failure → token unavailable → publish fails closed.
-pub(crate) fn scm_secret_passphrase() -> String {
-    std::env::var("IOI_WALLET_SECRET_PASS")
-        .ok()
+// + AEAD), keyed by the SAME out-of-band custody key wallet.network uses. The well-known
+// `local-mode` value is available only to the explicitly development-cooperative profile. A
+// sovereign, production, remote-wallet, or brokered profile without a usable custody key refuses
+// sealing/decryption; it never silently downgrades. Decrypt failure makes the credential unavailable
+// and every dependent effect fails closed.
+fn scm_secret_passphrase_from(
+    wallet_secret_pass: Option<String>,
+    guardian_secret_pass: Option<String>,
+    custody_profile: Option<String>,
+    development_test_fixture: bool,
+) -> Option<String> {
+    wallet_secret_pass
         .map(|v| v.trim().to_string())
         .filter(|v| !v.is_empty())
         .or_else(|| {
-            std::env::var("IOI_GUARDIAN_KEY_PASS")
-                .ok()
+            guardian_secret_pass
                 .map(|v| v.trim().to_string())
                 .filter(|v| !v.is_empty())
         })
-        .unwrap_or_else(|| "local-mode".to_string())
+        .or_else(|| {
+            let profile = custody_profile
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty());
+            (profile == Some("development_cooperative")
+                || (profile.is_none() && development_test_fixture))
+                .then(|| "local-mode".to_string())
+        })
+}
+pub(crate) fn scm_secret_passphrase() -> Option<String> {
+    scm_secret_passphrase_from(
+        std::env::var("IOI_WALLET_SECRET_PASS").ok(),
+        std::env::var("IOI_GUARDIAN_KEY_PASS").ok(),
+        std::env::var("IOI_SECRET_CUSTODY_PROFILE").ok(),
+        cfg!(test),
+    )
 }
 pub(crate) fn scm_key_source() -> &'static str {
     let has = |k: &str| {
@@ -14408,19 +14427,77 @@ pub(crate) fn scm_key_source() -> &'static str {
     };
     if has("IOI_WALLET_SECRET_PASS") || has("IOI_GUARDIAN_KEY_PASS") {
         "wallet-secret-pass"
-    } else {
+    } else if std::env::var("IOI_SECRET_CUSTODY_PROFILE")
+        .ok()
+        .map(|value| value.trim() == "development_cooperative")
+        .unwrap_or(cfg!(test))
+    {
         "local-mode-fallback"
+    } else {
+        "custody-key-unavailable"
     }
 }
 pub(crate) fn seal_scm_token(token: &str) -> Option<String> {
-    ioi_crypto::key_store::encrypt_key(token.as_bytes(), &scm_secret_passphrase())
+    let passphrase = scm_secret_passphrase()?;
+    ioi_crypto::key_store::encrypt_key(token.as_bytes(), &passphrase)
         .ok()
         .map(hex::encode)
 }
 pub(crate) fn open_scm_token(sealed_hex: &str) -> Option<String> {
     let bytes = hex::decode(sealed_hex).ok()?;
-    let plain = ioi_crypto::key_store::decrypt_key(&bytes, &scm_secret_passphrase()).ok()?;
+    let passphrase = scm_secret_passphrase()?;
+    let plain = ioi_crypto::key_store::decrypt_key(&bytes, &passphrase).ok()?;
     String::from_utf8(plain.0.to_vec()).ok()
+}
+
+#[cfg(test)]
+mod secret_custody_profile_tests {
+    use super::scm_secret_passphrase_from;
+
+    #[test]
+    fn conforming_profiles_never_use_the_well_known_fallback() {
+        assert_eq!(
+            scm_secret_passphrase_from(
+                None,
+                None,
+                Some("development_cooperative".to_string()),
+                false,
+            )
+            .as_deref(),
+            Some("local-mode")
+        );
+        assert_eq!(scm_secret_passphrase_from(None, None, None, false), None);
+        assert_eq!(
+            scm_secret_passphrase_from(None, None, None, true).as_deref(),
+            Some("local-mode")
+        );
+        for profile in [
+            "sovereign_local_passphrase",
+            "brokered_local",
+            "remote_wallet",
+            "production",
+        ] {
+            assert_eq!(
+                scm_secret_passphrase_from(None, None, Some(profile.to_string()), false),
+                None,
+                "{profile} must fail closed without its custody key or broker"
+            );
+        }
+    }
+
+    #[test]
+    fn explicit_custody_key_is_usable_in_non_development_profiles() {
+        assert_eq!(
+            scm_secret_passphrase_from(
+                Some("wallet-key".to_string()),
+                None,
+                Some("sovereign_local_passphrase".to_string()),
+                false,
+            )
+            .as_deref(),
+            Some("wallet-key")
+        );
+    }
 }
 
 /// POST /v1/hypervisor/scm-connectors — register a named SCM remote target.

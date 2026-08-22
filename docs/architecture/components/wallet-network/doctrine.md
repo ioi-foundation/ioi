@@ -114,6 +114,14 @@ The gateway must be portable, revocable, policy-bound, receipted, and visible
 across local, hosted, enterprise, cTEE/private-workspace, DePIN, cloud, model,
 connector, marketplace, and domain-application routes.
 
+Secret custody is profile-explicit. `development_cooperative` may use the
+well-known `local-mode` sealing value solely as an honestly labelled fixture;
+it establishes neither secret non-possession nor a conforming custody claim.
+Sovereign, production, remote-wallet, and brokered profiles have no such
+fallback: absent their out-of-band custody key or authenticated broker, secret
+sealing, opening, and every dependent effect refuse. A profile label never
+substitutes for the key or broker it names.
+
 This is how Web4 moves autonomous-work authority outside provider trust by
 default. Model providers, cloud providers, connector providers, venues, and
 managed services can perform work or expose capabilities, but wallet.network

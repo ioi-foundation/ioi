@@ -106,6 +106,8 @@ jobs:
         run: |
           npm run check:device-custody-boundary
           npm run mutate:device-custody-boundary
+          npm run check:secret-custody-profile
+          npm run mutate:secret-custody-profile
 
       # A green verifier certifies nothing until a MUTATION proves it red on its own finding. Every
       # anchor is a replayable second-admission path planted in the daemon's own source, with the
@@ -321,7 +323,11 @@ jobs:
   aft_formal_floor:
     name: AFT Formal Floor
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # A clean cache must download the proof toolchain, discharge every TLAPS
+    # obligation, and exhaust the registered TLC state spaces. The previous
+    # 30-minute job cap cancelled that complete floor after all cheap gates had
+    # passed; cancellation is neither a proof failure nor acceptable evidence.
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
         with:
