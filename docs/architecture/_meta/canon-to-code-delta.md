@@ -149,8 +149,8 @@ Two rules keep this from becoming a source of conflation:
 
 - The canon states the **target** contract. Nothing in it may be read as a claim
   that the runtime already conforms. Where a canon file needs to describe present
-  state, it cites this file or
-  [`implementation-matrix.md`](./implementation-matrix.md).
+  state, it cites this file or a
+  [`work-items/`](./work-items/) record.
 - This deferral is **not** a gate on the canon pass. Canon converging ahead of
   code is the normal direction of travel here; the recorded delta is what keeps
   that honest rather than aspirational.
@@ -1050,7 +1050,7 @@ landed. Correct every copy, or the ones left behind go on reading as evidence.
 
 ## Related Canon
 
-- [`implementation-matrix.md`](./implementation-matrix.md) — per-concept durable-form index (the wider matrix).
+- [`work-items/README.md`](./work-items/README.md) — the machine-checked status records beside this file (the former wider implementation matrix is archived; its stub at [`implementation-matrix.md`](./implementation-matrix.md) records the move).
 - [`execution-horizons.md`](./execution-horizons.md) — horizon framing + the contract-first build sequence.
 - [`source-of-truth-map.md`](./source-of-truth-map.md) — subject-to-owner map.
 - [`../foundations/institutional-learning-boundary.md`](../foundations/institutional-learning-boundary.md) — enterprise-owned learning compiler, portability, and model-independence owner.

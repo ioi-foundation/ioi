@@ -25,10 +25,10 @@ synchronized.
 
 ## Reading Order
 
-1. Start with [start-here.md](./start-here.md) for the five-minute stack model.
+1. Start with the architecture guide at [../guide/README.md](../guide/README.md) for the narrative stack model, then [start-here.md](./start-here.md) to route problems to owners.
 2. Use this digest for the current cross-owner defaults.
 3. Use [source-of-truth-map.md](./source-of-truth-map.md) to find the edit-first owner.
-4. Use [implementation-matrix.md](./implementation-matrix.md) to map a concept to durable forms, code anchors, and conformance hooks.
+4. Use [canon-to-code-delta.md](./canon-to-code-delta.md) and the [work-items/](./work-items/) records to map a concept to durable forms, code anchors, and status truth (the former implementation matrix is archived).
 
 ## Current Defaults
 

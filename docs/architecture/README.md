@@ -4,7 +4,7 @@ Status: canonical navigation and source-of-authority index.
 Canonical owner: this file for architecture navigation; see [`source-of-truth-map.md`](./_meta/source-of-truth-map.md) for subject ownership.
 Supersedes: ad hoc architecture navigation in plans/specs when links or ownership disagree.
 Superseded by: none.
-Last alignment pass: 2026-07-20.
+Last alignment pass: 2026-08-16 (guide layer added as the first-read front door; archived implementation-matrix citations redirected to the two live implementation indexes).
 Doctrine status: canonical
 Implementation status: mixed (navigation index over built, partial, planned, and speculative subjects)
 Last implementation audit: 2026-07-19
@@ -16,14 +16,17 @@ IOI. It separates owner documents by subject so implementation, product copy,
 protocol schemas, and the whitepaper can converge on one target without turning
 any synthesis or UI into a competing source of truth.
 
-Start with [`START_HERE.md`](./START_HERE.md). Then use:
+Read the guide first — [`guide/README.md`](./guide/README.md), the non-owning
+narrative front door ([`START_HERE.md`](./START_HERE.md) forwards there); route
+specific problems through [`start-here.md`](./_meta/start-here.md). Then use:
 
 - [`current-canon-defaults.md`](./_meta/current-canon-defaults.md) for the
   cross-owner target-state digest;
 - [`source-of-truth-map.md`](./_meta/source-of-truth-map.md) before changing a
   subject;
-- [`implementation-matrix.md`](./_meta/implementation-matrix.md) before making
-  a built/partial/planned claim;
+- [`canon-to-code-delta.md`](./_meta/canon-to-code-delta.md) and the
+  [`work-items/`](./_meta/work-items/) records before making a
+  built/partial/planned claim (the former implementation matrix is archived);
 - [`shipped-products.v1.json`](./_meta/shipped-products.v1.json) for the
   machine-checked executable product-lane, release-posture, state-boundary,
   fixture-disposition, and required-verification register;
@@ -425,11 +428,12 @@ actuator commands, safety heartbeats, or emergency-stop authorities.
 
 | File | Owns |
 | --- | --- |
-| [`start-here.md`](./_meta/start-here.md) | reader orientation and reading paths |
+| [`guide/README.md`](./guide/README.md) | progressive first-read narrative (non-owning synthesis; chapters 00–08) |
+| [`start-here.md`](./_meta/start-here.md) | problem-to-owner routing and role reading paths |
 | [`source-of-truth-map.md`](./_meta/source-of-truth-map.md) | edit-first subject ownership |
 | [`current-canon-defaults.md`](./_meta/current-canon-defaults.md) | cross-owner defaults |
 | [`vocabulary.md`](./_meta/vocabulary.md) | shared names and boundary terms |
-| [`implementation-matrix.md`](./_meta/implementation-matrix.md) | durable forms, status, code anchors, conformance hooks |
+| [`canon-to-code-delta.md`](./_meta/canon-to-code-delta.md) and the [`work-items/`](./_meta/work-items/) records | per-object implementation state, code anchors, and machine-checked status truth (the former implementation matrix is archived) |
 | [`execution-horizons.md`](./_meta/execution-horizons.md) | convergence target and gated later horizons |
 | [`doc-classes.md`](./_meta/doc-classes.md) | document classes and authority order |
 | [`decisions/README.md`](../decisions/README.md) | accepted architecture decision records |
@@ -633,15 +637,17 @@ access to an IOI-hosted room. Same-owner multiplicity never satisfies it.
 ## Implementation Discipline
 
 The target architecture is not a claim that every target object is built.
-Consult [`implementation-matrix.md`](./_meta/implementation-matrix.md) for the
-current durable form and code anchors. In particular, the existing narrow
-software GoalRun is partial implementation; OutcomeRoom federation,
-collaborative AIIP, full route-right enforcement, invoice-grade Work Credits,
-the complete semantic action plane, and cross-domain assurance remain target
-work unless the matrix is updated with current proof. The target Hypervisor
-shell taxonomy, shared product-surface compiler, and registration axes likewise
-remain target architecture where the matrix still records hard-coded catalogs,
-routes, or parity-derived UI classifications.
+Consult [`canon-to-code-delta.md`](./_meta/canon-to-code-delta.md) and the
+[`work-items/`](./_meta/work-items/) records for the current durable form and
+code anchors (the former implementation matrix is archived). In particular,
+the existing narrow software GoalRun is partial implementation; OutcomeRoom
+federation, collaborative AIIP, full route-right enforcement, invoice-grade
+Work Credits, the complete semantic action plane, and cross-domain assurance
+remain target work unless those indexes are updated with current proof. The
+target Hypervisor shell taxonomy, shared product-surface compiler, and
+registration axes likewise remain target architecture where those indexes
+still record hard-coded catalogs, routes, or parity-derived UI
+classifications.
 
 When implementing:
 
