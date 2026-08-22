@@ -20,7 +20,10 @@ use ioi_types::app::wallet_network::{
     WalletInterceptionContext, WalletListClientsParams, WalletRegisterClientParams,
     WalletRevokeClientParams,
 };
-use ioi_types::app::{action::ApprovalAuthority, ActionTarget};
+use ioi_types::app::{
+    action::{ApprovalAuthority, StandingApprovalGrant},
+    ActionTarget,
+};
 use ioi_types::codec;
 use ioi_types::error::{TransactionError, UpgradeError};
 use parity_scale_codec::{Decode, Encode};
@@ -154,6 +157,84 @@ pub struct ApprovalGrantState {
     pub remaining_usages: u32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_consumed_at_ms: Option<u64>,
+}
+
+/// Wallet-owned mutable state for a signed standing authority grant.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub struct StandingApprovalGrantState {
+    pub schema_version: u16,
+    pub grant_hash: [u8; 32],
+    pub grant: StandingApprovalGrant,
+    pub issued_revocation_epoch: u64,
+    pub uses_consumed: u32,
+    pub cumulative_deposit_reserved_microusd: u64,
+    pub cumulative_spend_reserved_microusd: u64,
+    pub cumulative_spend_settled_microusd: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_consumed_at_ms: Option<u64>,
+    pub status: StandingApprovalGrantStatus,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub enum StandingApprovalGrantStatus {
+    Active,
+    Revoked,
+    Expired,
+    Exhausted,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+pub struct RecordStandingApprovalGrantParams {
+    pub grant: StandingApprovalGrant,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+pub struct RevokeStandingApprovalGrantParams {
+    pub grant_hash: [u8; 32],
+}
+
+/// One daemon-derived reservation against a standing envelope.
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+pub struct ConsumeStandingApprovalGrantForEffectParams {
+    pub grant_hash: [u8; 32],
+    pub standing_envelope_hash: [u8; 32],
+    pub policy_hash: [u8; 32],
+    pub request_hash: [u8; 32],
+    pub consumption_id: [u8; 32],
+    pub estimated_deposit_microusd: u64,
+    pub estimated_spend_microusd: u64,
+    pub expected_principal_authority: ExpectedPrincipalAuthorityBinding,
+    pub expected_target_label: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub struct StandingApprovalGrantConsumptionReceipt {
+    pub schema_version: u16,
+    pub receipt_hash: [u8; 32],
+    pub grant_hash: [u8; 32],
+    pub standing_envelope_hash: [u8; 32],
+    pub policy_hash: [u8; 32],
+    pub request_hash: [u8; 32],
+    pub consumption_id: [u8; 32],
+    pub authority_id: [u8; 32],
+    pub audience: [u8; 32],
+    pub expected_principal_authority: ExpectedPrincipalAuthorityBinding,
+    pub target_label: String,
+    pub estimated_deposit_microusd: u64,
+    pub estimated_spend_microusd: u64,
+    pub usage_ordinal: u32,
+    pub remaining_usages: u32,
+    pub cumulative_deposit_reserved_microusd: u64,
+    pub remaining_deposit_microusd: u64,
+    pub cumulative_spend_reserved_microusd: u64,
+    pub remaining_spend_microusd: u64,
+    pub consumed_at_ms: u64,
+    pub approval_mode: StandingApprovalMode,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub enum StandingApprovalMode {
+    SilentWithinStandingEnvelope,
 }
 
 /// Parameters for registering an approval authority.
@@ -502,6 +583,23 @@ impl BlockchainService for WalletNetworkService {
                 let consume: ConsumeApprovalGrantForEffectV2Params =
                     codec::from_bytes_canonical(params)?;
                 handlers::approval::consume_approval_grant_for_effect_v2(state, ctx, consume)
+            }
+            "record_standing_approval_grant@v1" => {
+                let request: RecordStandingApprovalGrantParams =
+                    codec::from_bytes_canonical(params)?;
+                handlers::standing_authority::record_standing_approval_grant(state, ctx, request)
+            }
+            "consume_standing_approval_grant_for_effect@v1" => {
+                let request: ConsumeStandingApprovalGrantForEffectParams =
+                    codec::from_bytes_canonical(params)?;
+                handlers::standing_authority::consume_standing_approval_grant_for_effect(
+                    state, ctx, request,
+                )
+            }
+            "revoke_standing_approval_grant@v1" => {
+                let request: RevokeStandingApprovalGrantParams =
+                    codec::from_bytes_canonical(params)?;
+                handlers::standing_authority::revoke_standing_approval_grant(state, ctx, request)
             }
             "panic_stop@v1" => {
                 let params: BumpRevocationEpochParams = codec::from_bytes_canonical(params)?;

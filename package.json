@@ -50,6 +50,8 @@
     "mutate:device-custody-boundary": "node scripts/check-device-custody-boundary.mjs --mutation",
     "check:secret-custody-profile": "node scripts/check-secret-custody-profile.mjs",
     "mutate:secret-custody-profile": "node scripts/check-secret-custody-profile.mjs --mutation",
+    "check:standing-authority": "node scripts/check-standing-authority.mjs",
+    "mutate:standing-authority": "node scripts/check-standing-authority.mjs --mutation",
     "check:ioi-ai-vendor": "node scripts/generate-ioi-ai-vendor-manifest.mjs --check",
     "smoke:implementation-daemon": "node scripts/smoke-implementation-daemon.mjs",
     "smoke:package-registry": "node scripts/smoke-package-registry.mjs",

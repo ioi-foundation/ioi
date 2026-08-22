@@ -26,6 +26,9 @@ pub(super) const APPROVAL_CONSUMPTION_PREFIX: &[u8] = b"approval_consumption::";
 pub(super) const APPROVAL_GRANT_STATE_PREFIX: &[u8] = b"approval_grant_state::";
 pub(super) const APPROVAL_EFFECT_CONSUMPTION_RECEIPT_PREFIX: &[u8] =
     b"approval_effect_consumption_receipt::";
+pub(super) const STANDING_APPROVAL_GRANT_STATE_PREFIX: &[u8] = b"standing_approval_grant_state::";
+pub(super) const STANDING_APPROVAL_CONSUMPTION_RECEIPT_PREFIX: &[u8] =
+    b"standing_approval_consumption_receipt::";
 pub(super) const APPROVAL_AUTHORITY_PREFIX: &[u8] = b"approval_authority::";
 pub(super) const PRINCIPAL_AUTHORITY_BINDING_PREFIX: &[u8] = b"principal_authority_binding::";
 pub(super) const PRINCIPAL_AUTHORITY_BINDING_HEAD_PREFIX: &[u8] =
@@ -149,6 +152,18 @@ pub(super) fn approval_effect_consumption_receipt_key(consumption_id: &[u8; 32])
 
 pub(super) fn approval_grant_state_key(grant_hash: &[u8; 32]) -> Vec<u8> {
     [APPROVAL_GRANT_STATE_PREFIX, grant_hash.as_slice()].concat()
+}
+
+pub(super) fn standing_approval_grant_state_key(grant_hash: &[u8; 32]) -> Vec<u8> {
+    [STANDING_APPROVAL_GRANT_STATE_PREFIX, grant_hash.as_slice()].concat()
+}
+
+pub(super) fn standing_approval_consumption_receipt_key(consumption_id: &[u8; 32]) -> Vec<u8> {
+    [
+        STANDING_APPROVAL_CONSUMPTION_RECEIPT_PREFIX,
+        consumption_id.as_slice(),
+    ]
+    .concat()
 }
 
 pub(super) fn approval_authority_key(authority_id: &[u8; 32]) -> Vec<u8> {

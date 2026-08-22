@@ -1,6 +1,7 @@
 use super::{
     default_service_policies, CommitmentSchemeType, ConsensusType, InferenceConfig, McpMode,
     StateTreeType, VmFuelCosts, WorkloadConfig, ZkConfig, WALLET_EFFECT_V2_CONFIG_MIGRATION_CODE,
+    WALLET_STANDING_AUTHORITY_CONFIG_MIGRATION_CODE,
 };
 use crate::service_configs::MethodPermission;
 use std::collections::HashMap;
@@ -35,6 +36,9 @@ fn wallet_network_policy_exposes_policy_rule_upsert() {
         "consume_approval_grant@v1",
         "consume_approval_grant_for_effect@v1",
         "consume_approval_grant_for_effect@v2",
+        "record_standing_approval_grant@v1",
+        "consume_standing_approval_grant_for_effect@v1",
+        "revoke_standing_approval_grant@v1",
     ] {
         assert_eq!(
             wallet.methods.get(method),
@@ -42,6 +46,89 @@ fn wallet_network_policy_exposes_policy_rule_upsert() {
             "wallet_network ActiveServiceMeta must advertise {method}",
         );
     }
+}
+
+#[test]
+fn stale_wallet_method_map_requires_standing_authority_migration() {
+    for standing_method in [
+        "record_standing_approval_grant@v1",
+        "consume_standing_approval_grant_for_effect@v1",
+        "revoke_standing_approval_grant@v1",
+    ] {
+        let mut config = WorkloadConfig {
+            runtimes: vec!["WASM".to_string()],
+            state_tree: StateTreeType::IAVL,
+            commitment_scheme: CommitmentSchemeType::Hash,
+            consensus_type: ConsensusType::Aft,
+            genesis_file: "genesis.json".to_string(),
+            state_file: "state.json".to_string(),
+            srs_file_path: None,
+            fuel_costs: VmFuelCosts::default(),
+            initial_services: Vec::new(),
+            service_policies: default_service_policies(),
+            min_finality_depth: 1_000,
+            keep_recent_heights: 100_000,
+            epoch_size: 50_000,
+            gc_interval_secs: 3_600,
+            zk_config: ZkConfig::default(),
+            inference: InferenceConfig::default(),
+            fast_inference: None,
+            reasoning_inference: None,
+            connectors: HashMap::new(),
+            mcp_servers: HashMap::new(),
+            mcp_mode: McpMode::Disabled,
+        };
+        config
+            .service_policies
+            .get_mut("wallet_network")
+            .expect("wallet policy")
+            .methods
+            .remove(standing_method);
+        let error = config
+            .validate()
+            .expect_err("missing standing-authority method must fail before startup");
+        assert!(
+            error.starts_with(WALLET_STANDING_AUTHORITY_CONFIG_MIGRATION_CODE),
+            "standing authority migration must expose its stable code: {error}"
+        );
+    }
+
+    let mut config = WorkloadConfig {
+        runtimes: vec!["WASM".to_string()],
+        state_tree: StateTreeType::IAVL,
+        commitment_scheme: CommitmentSchemeType::Hash,
+        consensus_type: ConsensusType::Aft,
+        genesis_file: "genesis.json".to_string(),
+        state_file: "state.json".to_string(),
+        srs_file_path: None,
+        fuel_costs: VmFuelCosts::default(),
+        initial_services: Vec::new(),
+        service_policies: default_service_policies(),
+        min_finality_depth: 1_000,
+        keep_recent_heights: 100_000,
+        epoch_size: 50_000,
+        gc_interval_secs: 3_600,
+        zk_config: ZkConfig::default(),
+        inference: InferenceConfig::default(),
+        fast_inference: None,
+        reasoning_inference: None,
+        connectors: HashMap::new(),
+        mcp_servers: HashMap::new(),
+        mcp_mode: McpMode::Disabled,
+    };
+    config
+        .service_policies
+        .get_mut("wallet_network")
+        .expect("wallet policy")
+        .methods
+        .insert(
+            "consume_standing_approval_grant_for_effect@v1".to_string(),
+            MethodPermission::Internal,
+        );
+    let error = config
+        .validate()
+        .expect_err("standing-authority permission mismatch must fail before startup");
+    assert!(error.starts_with(WALLET_STANDING_AUTHORITY_CONFIG_MIGRATION_CODE));
 }
 
 #[test]

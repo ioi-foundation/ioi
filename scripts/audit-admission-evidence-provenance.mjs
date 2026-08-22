@@ -274,6 +274,11 @@ const PINNED = [
 // Rule H baseline: mutating handlers with no in-handler identity/authority
 // call — the middleware-covered legacy surface. Growth is red.
 const H_BASELINE = [
+  // Passkey login finish authenticates the principal through a consumed, server-owned WebAuthn
+  // ceremony, verifies user presence/verification and the registered credential, then persists
+  // only the authenticator counter and a session. It cannot call the ordinary authenticated-
+  // session resolver because successful completion is precisely what creates that session.
+  "device_custody_routes.rs::handle_login_finish",
   "authority_routes.rs::handle_authority_grant",
   "authority_routes.rs::handle_authority_revoke",
   "authority_routes.rs::handle_harness_binding_create",

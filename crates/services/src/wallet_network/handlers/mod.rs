@@ -8,3 +8,4 @@ pub(super) mod identity;
 pub(super) mod principal_authority;
 pub(super) mod secrets;
 pub(super) mod session;
+pub(super) mod standing_authority;

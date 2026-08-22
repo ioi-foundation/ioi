@@ -415,6 +415,161 @@ fn effect_consumption_v1_and_v2_keep_distinct_scale_wires_and_methods() {
     });
 }
 
+#[test]
+fn standing_grant_draws_are_atomic_bounded_replay_safe_and_revocable() {
+    let service = WalletNetworkService;
+    let mut state = MockState::default();
+    let approver = new_approval_signer();
+    let envelope_hash = [0xa1; 32];
+    let policy_hash = [0xa2; 32];
+    let grant = signed_standing_approval_grant(
+        &approver,
+        envelope_hash,
+        policy_hash,
+        [7; 32],
+        [0xa3; 32],
+        1,
+        2,
+        600,
+        100,
+    );
+    let grant_hash = grant.artifact_hash().expect("standing grant hash");
+    with_ctx(|ctx| {
+        run_async(
+            service.handle_service_call(
+                &mut state,
+                "register_approval_authority@v1",
+                &codec::to_bytes_canonical(&RegisterApprovalAuthorityParams {
+                    authority: approver.authority.clone(),
+                })
+                .expect("encode authority"),
+                ctx,
+            ),
+        )
+        .expect("register authority");
+        run_async(
+            service.handle_service_call(
+                &mut state,
+                "record_standing_approval_grant@v1",
+                &codec::to_bytes_canonical(&RecordStandingApprovalGrantParams {
+                    grant: grant.clone(),
+                })
+                .expect("encode standing grant"),
+                ctx,
+            ),
+        )
+        .expect("record standing grant");
+    });
+    let binding = install_effect_binding(
+        &service,
+        &mut state,
+        &approver.authority,
+        EFFECT_NOW_MS + 10_000,
+    );
+    let draw = |request: u8, consumption: u8| ConsumeStandingApprovalGrantForEffectParams {
+        grant_hash,
+        standing_envelope_hash: envelope_hash,
+        policy_hash,
+        request_hash: [request; 32],
+        consumption_id: [consumption; 32],
+        estimated_deposit_microusd: 300,
+        estimated_spend_microusd: 50,
+        expected_principal_authority: binding.expected.clone(),
+        expected_target_label: "provider.create".into(),
+    };
+    let consume = |state: &mut MockState,
+                   request: ConsumeStandingApprovalGrantForEffectParams|
+     -> Result<(), ioi_types::error::TransactionError> {
+        let encoded = codec::to_bytes_canonical(&request).expect("encode standing draw");
+        let mut output = None;
+        with_ctx(|ctx| {
+            output = Some(run_async(service.handle_service_call(
+                state,
+                "consume_standing_approval_grant_for_effect@v1",
+                &encoded,
+                ctx,
+            )));
+        });
+        output.expect("standing draw result")
+    };
+
+    let first = draw(0xb1, 0xc1);
+    consume(&mut state, first.clone()).expect("first draw");
+    consume(&mut state, first).expect("exact replay is idempotent");
+    consume(&mut state, draw(0xb2, 0xc2)).expect("second draw");
+    let exhausted = consume(&mut state, draw(0xb3, 0xc3)).expect_err("third draw refused");
+    assert!(exhausted.to_string().contains("not active"));
+
+    let stored: StandingApprovalGrantState =
+        load_typed(&state, &standing_approval_grant_state_key(&grant_hash))
+            .expect("load standing state")
+            .expect("standing state");
+    assert_eq!(stored.uses_consumed, 2);
+    assert_eq!(stored.cumulative_deposit_reserved_microusd, 600);
+    assert_eq!(stored.cumulative_spend_reserved_microusd, 100);
+    assert_eq!(stored.status, StandingApprovalGrantStatus::Exhausted);
+    let first_receipt: StandingApprovalGrantConsumptionReceipt = load_typed(
+        &state,
+        &standing_approval_consumption_receipt_key(&[0xc1; 32]),
+    )
+    .expect("load receipt")
+    .expect("first receipt");
+    assert_eq!(
+        first_receipt.approval_mode,
+        StandingApprovalMode::SilentWithinStandingEnvelope
+    );
+    assert_eq!(first_receipt.remaining_usages, 1);
+
+    let mut substituted = draw(0xb4, 0xc4);
+    substituted.standing_envelope_hash = [0xee; 32];
+    let substitution = consume(&mut state, substituted).expect_err("envelope substitution refused");
+    assert!(substitution.to_string().contains("exact envelope"));
+
+    let second_grant = signed_standing_approval_grant(
+        &approver,
+        [0xd1; 32],
+        policy_hash,
+        [7; 32],
+        [0xd2; 32],
+        2,
+        2,
+        600,
+        100,
+    );
+    let second_hash = second_grant.artifact_hash().expect("second hash");
+    with_ctx_signer(binding.root.account_id, |ctx| {
+        run_async(
+            service.handle_service_call(
+                &mut state,
+                "record_standing_approval_grant@v1",
+                &codec::to_bytes_canonical(&RecordStandingApprovalGrantParams {
+                    grant: second_grant,
+                })
+                .expect("encode second grant"),
+                ctx,
+            ),
+        )
+        .expect("record second grant");
+        run_async(
+            service.handle_service_call(
+                &mut state,
+                "revoke_standing_approval_grant@v1",
+                &codec::to_bytes_canonical(&RevokeStandingApprovalGrantParams {
+                    grant_hash: second_hash,
+                })
+                .expect("encode revoke"),
+                ctx,
+            ),
+        )
+        .expect("revoke second grant");
+    });
+    let mut revoked_draw = draw(0xd3, 0xd4);
+    revoked_draw.grant_hash = second_hash;
+    revoked_draw.standing_envelope_hash = [0xd1; 32];
+    let revoked = consume(&mut state, revoked_draw).expect_err("revoked next draw refused");
+    assert!(revoked.to_string().contains("not active"));
+}
+
 fn record_shared_budget_approval(
     service: &WalletNetworkService,
     state: &mut MockState,

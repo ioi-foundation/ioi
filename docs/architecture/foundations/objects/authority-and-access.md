@@ -442,6 +442,21 @@ requires an atomic trajectory decision and durable intent commitment.
 Registered subject contract:
 `schema://ioi/foundations/standing-authority-envelope/v1`.
 
+The portable authority artifact for this subject is a distinct
+`StandingApprovalGrant`; it is not an `ApprovalGrant` with a nullable request
+hash. The exact-request C7 grant retains its original signing domain and bytes.
+The standing grant instead signs the exact envelope and policy commitments,
+audience, validity interval, usage/deposit/spend ceilings, review receipt,
+ceremony context, authentication-factor receipt, issuer key, and signature
+suite. wallet.network registers and revokes that artifact through a
+control-plane client and permits draws only through a capability client bound
+to the current principal-authority record. Each successful draw atomically
+persists its idempotent receipt with checked usage, cumulative-deposit, and
+cumulative-spend reservation; signature, issuer, validity, revocation epoch,
+audience, envelope, policy, and principal substitution all refuse before the
+state change. `approval_mode=silent_within_standing_envelope` describes the
+actual per-effect ceremony and never implies a new human review.
+
 ## Authority Trajectory State And Admission
 
 Per-operation authority is necessary but not sufficient: individually bounded

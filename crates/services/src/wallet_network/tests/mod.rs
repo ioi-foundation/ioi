@@ -8,7 +8,8 @@ use super::keys::{
     mail_connector_get_receipt_key, mail_connector_key, mail_count_receipt_key,
     mail_delete_receipt_key, mail_list_receipt_key, mail_read_receipt_key, mail_reply_receipt_key,
     policy_key, receipt_window_key, secret_alias_key, secret_key, session_delegation_key,
-    session_key, PANIC_FLAG_KEY, REVOCATION_EPOCH_KEY,
+    session_key, standing_approval_consumption_receipt_key, standing_approval_grant_state_key,
+    PANIC_FLAG_KEY, REVOCATION_EPOCH_KEY,
 };
 use super::support::load_typed;
 use super::*;
@@ -19,7 +20,7 @@ use ioi_api::transaction::context::TxContext;
 use ioi_crypto::security::SecurityLevel;
 use ioi_crypto::sign::dilithium::{MldsaKeyPair, MldsaScheme};
 use ioi_crypto::sign::eddsa::Ed25519KeyPair;
-use ioi_types::app::action::{ApprovalAuthority, ApprovalGrant};
+use ioi_types::app::action::{ApprovalAuthority, ApprovalGrant, StandingApprovalGrant};
 use ioi_types::app::wallet_network::{
     ConnectorAuthExportParams, ConnectorAuthExportReceipt, ConnectorAuthGetParams,
     ConnectorAuthGetReceipt, ConnectorAuthImportParams, ConnectorAuthImportReceipt,
@@ -232,6 +233,46 @@ fn signed_wallet_approval_grant(
         .keypair
         .sign(&bytes)
         .expect("sign grant")
+        .to_bytes()
+        .to_vec();
+    grant
+}
+
+fn signed_standing_approval_grant(
+    signer: &ApprovalSigner,
+    standing_envelope_hash: [u8; 32],
+    policy_hash: [u8; 32],
+    audience: [u8; 32],
+    nonce: [u8; 32],
+    counter: u64,
+    max_usages: u32,
+    max_cumulative_deposit_microusd: u64,
+    max_cumulative_spend_microusd: u64,
+) -> StandingApprovalGrant {
+    let mut grant = StandingApprovalGrant {
+        schema_version: 1,
+        authority_id: signer.authority.authority_id,
+        standing_envelope_hash,
+        policy_hash,
+        audience,
+        nonce,
+        counter,
+        issued_at_ms: 1_749_999_999_999,
+        expires_at_ms: 1_850_000_000_000,
+        max_usages,
+        max_cumulative_deposit_microusd,
+        max_cumulative_spend_microusd,
+        review_receipt_hash: [0x31; 32],
+        approval_ceremony_context_hash: [0x32; 32],
+        auth_factor_receipt_hash: [0x33; 32],
+        approver_public_key: signer.authority.public_key.clone(),
+        approver_sig: Vec::new(),
+        approver_suite: SignatureSuite::ED25519,
+    };
+    grant.approver_sig = signer
+        .keypair
+        .sign(&grant.signing_bytes().expect("standing grant signing bytes"))
+        .expect("sign standing grant")
         .to_bytes()
         .to_vec();
     grant

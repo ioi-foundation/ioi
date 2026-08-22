@@ -108,6 +108,8 @@ jobs:
           npm run mutate:device-custody-boundary
           npm run check:secret-custody-profile
           npm run mutate:secret-custody-profile
+          npm run check:standing-authority
+          npm run mutate:standing-authority
 
       # A green verifier certifies nothing until a MUTATION proves it red on its own finding. Every
       # anchor is a replayable second-admission path planted in the daemon's own source, with the
