@@ -1420,6 +1420,12 @@ readiness, secret-use probes, and terminal acceptance prerequisites. The result
 retrieval receipt is likewise bound by both ref and hash. A portable verifier
 never infers an object hash from a filename or producer-owned lookup rule.
 
+The v3 claim manifest's `subject_ref` and `subject_hash` bind the governed
+request, not the completed C8 certificate. C8 then binds the manifest by hash.
+This ordering is deliberately acyclic: governed request -> claim manifest ->
+C8 certificate -> portable bundle. A verifier refuses a manifest that attempts
+to describe an unbound or different request.
+
 The registered wire contract is
 `schema://ioi/components/hypervisor/c8-certificate/v3`.
 

@@ -1,0 +1,24 @@
+[package]
+name = "aft-c8-verifier"
+version = "0.1.0"
+edition = "2021"
+license.workspace = true
+description = "Separately derived C8 v3 verifier and AFT measured-results relying party"
+
+[[bin]]
+name = "aft-c8-verifier"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+fs2.workspace = true
+hex.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+serde_jcs.workspace = true
+sha2 = "0.10"
+time.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

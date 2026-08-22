@@ -12,6 +12,7 @@ exclude = [
     "crates/aft-proofs",
 ]
 members = [
+    "crates/aft-c8-verifier",
     "crates/agentgres",
     "crates/node",
     "crates/cli",
@@ -82,6 +83,7 @@ futures-util = "0.3"
 # --- Serialization ---
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }
+serde_jcs = "0.1"
 toml = { version = "0.8" }
 bytes = { version = "1" }
 hex = { version = "0.4" }
@@ -145,6 +147,7 @@ regex = "1.10"
 libc = "0.2"
 bcs = "0.1"
 tempfile = "3.10"
+fs2 = "0.4"
 uuid = { version = "1.8", features = ["v4"] }
 http-body-util = "0.1"
 
@@ -185,7 +188,7 @@ ics23 = { version = "0.12.0", default-features = false, features = [
     "host-functions",
 ] }
 
-time = { version = "0.3.36", features = ["macros", "serde"] }
+time = { version = "0.3.36", features = ["formatting", "macros", "parsing", "serde"] }
 
 [profile.release]
 opt-level = 3
