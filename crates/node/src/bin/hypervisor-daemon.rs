@@ -3852,6 +3852,14 @@ async fn async_main() -> anyhow::Result<()> {
             post(device_custody_routes::handle_login_finish),
         )
         .route(
+            "/v1/hypervisor/auth/passkeys/authority/start",
+            post(device_custody_routes::handle_authority_start),
+        )
+        .route(
+            "/v1/hypervisor/auth/passkeys/authority/finish",
+            post(device_custody_routes::handle_authority_finish),
+        )
+        .route(
             "/v1/hypervisor/auth/passkeys",
             get(device_custody_routes::handle_passkey_list),
         )

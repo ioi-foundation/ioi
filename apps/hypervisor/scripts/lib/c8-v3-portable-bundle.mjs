@@ -20,6 +20,7 @@ const SELF_HASH_FIELDS = new Map([
   ["ioi.aft.measured-results-registry.v1", "state_hash"],
   ["ioi.aft.measured-result-row.v1", "row_hash"],
   ["ioi.foundations.certificate-acceptance-receipt.v1", "receipt_hash"],
+  ["ioi.hypervisor.auth-factor-receipt.v1", "receipt_hash"],
 ]);
 
 const sha256 = (bytes) => `sha256:${crypto.createHash("sha256").update(bytes).digest("hex")}`;

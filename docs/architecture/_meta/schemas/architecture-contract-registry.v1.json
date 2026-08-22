@@ -2706,6 +2706,26 @@
       ]
     },
     {
+      "contract_id": "schema://ioi/components/hypervisor/auth-factor-receipt/v1",
+      "canonical_name": "HypervisorAuthFactorReceipt",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/authority-and-access.md#approvalceremonycontextenvelope",
+      "schema_version": "ioi.hypervisor.auth-factor-receipt.v1",
+      "maturity": "target",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": { "successor_of": null, "successor_contract_id": null, "compatibility": "initial", "migration_policy": "explicit_adapter_required", "predecessor_remains_valid": false, "wire_mutation_policy": "forbidden", "hash_impact": "signature_preimage_changed" },
+      "schema_ref": "auth-factor-receipt.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        { "kind": "typescript_projection", "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts", "symbol": "HypervisorAuthFactorReceiptV1" },
+        { "kind": "rust_projection", "path": "crates/types/src/app/generated/architecture_contracts.rs", "symbol": "HypervisorAuthFactorReceiptV1" }
+      ],
+      "positive_fixture_refs": ["fixtures/auth-factor-receipt-v1/positive-standing-effect-authority.json"],
+      "negative_fixture_refs": [{ "path": "fixtures/auth-factor-receipt-v1/negative-authority-missing-context.json", "expected_failure": "schema" }]
+    },
+    {
       "contract_id": "schema://ioi/components/hypervisor/c8-certificate/v3",
       "canonical_name": "C8Certificate",
       "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/providers-and-environments.md#c8-workload-bound-governed-effect-certificate",
@@ -4427,6 +4447,26 @@
           "expected_failure": "schema"
         }
       ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/approval-ceremony-context/v1",
+      "canonical_name": "ApprovalCeremonyContextEnvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/authority-and-access.md#approvalceremonycontextenvelope",
+      "schema_version": "ioi.foundations.approval-ceremony-context.v1",
+      "maturity": "target",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": { "successor_of": null, "successor_contract_id": null, "compatibility": "initial", "migration_policy": "explicit_adapter_required", "predecessor_remains_valid": false, "wire_mutation_policy": "forbidden", "hash_impact": "signature_preimage_changed" },
+      "schema_ref": "approval-ceremony-context.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        { "kind": "typescript_projection", "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts", "symbol": "ApprovalCeremonyContextEnvelopeV1" },
+        { "kind": "rust_projection", "path": "crates/types/src/app/generated/architecture_contracts.rs", "symbol": "ApprovalCeremonyContextEnvelopeV1" }
+      ],
+      "positive_fixture_refs": ["fixtures/approval-ceremony-context-v1/positive-standing-envelope.json"],
+      "negative_fixture_refs": [{ "path": "fixtures/approval-ceremony-context-v1/negative-partial-predecessor.json", "expected_failure": "schema" }]
     },
     {
       "contract_id": "schema://ioi/foundations/active-skill-set-snapshot/v1",

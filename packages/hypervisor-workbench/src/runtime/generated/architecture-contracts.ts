@@ -1791,6 +1791,29 @@ export type HypervisorCollectionQueryV1 = {
   page_size: number;
 };
 
+export type HypervisorAuthFactorReceiptV1 = {
+  schema_version: "ioi.hypervisor.auth-factor-receipt.v1";
+  receipt_id: string;
+  receipt_hash: string;
+  ceremony_id: string;
+  principal_id: string;
+  factor_kind: "passkey";
+  credential_id_hash: string;
+  user_verification: "required_and_verified";
+  purpose: "custody_enrollment" | "identity_authentication" | "standing_effect_authority";
+  approval_ceremony_context_ref: string | null;
+  approval_ceremony_context_hash: string | null;
+  authorization_subject: {
+      kind: "exact_effect" | "batch_manifest" | "standing_envelope";
+      subject_ref: string;
+      subject_hash: string;
+      validation_profile_ref: string;
+    } | null;
+  policy_hash: string | null;
+  effect_authority_created: false;
+  created_at: string;
+};
+
 export type C8CertificateV3 = {
   schema_version: "ioi.components.hypervisor.c8-certificate.v3";
   certificate_ref: string;
@@ -2980,6 +3003,51 @@ export type HypervisorWorkloadIsolationRequirementsV1 = {
   required_evidence_and_receipt_policy_refs: Array<string>;
   compiler_ref: string;
   compiler_version: string;
+};
+
+export type ApprovalCeremonyContextEnvelopeV1 = {
+  schema_version: "ioi.foundations.approval-ceremony-context.v1";
+  approval_ceremony_context_ref: string;
+  authority_request_ref: string;
+  authority_request_body_hash: string;
+  authority_review_ref: string;
+  authority_review_body_hash: string;
+  predecessor_authority_review_ref: string | null;
+  predecessor_authority_review_body_hash: string | null;
+  predecessor_authority_request_ref: string | null;
+  predecessor_authority_request_body_hash: string | null;
+  predecessor_authority_review_receipt_ref: string | null;
+  predecessor_authority_review_receipt_hash: string | null;
+  reviewed_representation_hash: string;
+  principal_ref: string;
+  acting_subject_ref: string;
+  product_session_ref: string | null;
+  origin_binding_ref: string | null;
+  authorization_subject: {
+      kind: "exact_effect" | "batch_manifest" | "standing_envelope";
+      subject_ref: string;
+      subject_hash: string;
+      validation_profile_ref: string;
+    };
+  presentation_surface_ref: string;
+  presentation_evidence_profile_ref: string;
+  principal_authority_resolution_ref: string | null;
+  principal_authority_resolution_hash: string | null;
+  required_auth_factor_posture_refs: Array<string>;
+  required_guardian_surface_refs: Array<string>;
+  posture_satisfaction_profile_ref: string;
+  interaction_mode: "interactive" | "noninteractive_policy";
+  authentication_posture: "baseline" | "step_up";
+  receipt_timing: "before_effect" | "after_effect";
+  policy_decision_receipt_ref: string;
+  policy_decision_receipt_hash: string;
+  policy_hash: string;
+  risk_classes: Array<string>;
+  revocation_epoch: number;
+  nonce_b64url: string;
+  issued_at: string;
+  expires_at: string;
+  single_use: true;
 };
 
 export type ActiveSkillSetSnapshotV1 = {
@@ -9455,6 +9523,22 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
+    "contract_id": "schema://ioi/components/hypervisor/auth-factor-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/auth-factor-receipt-v1/positive-standing-effect-authority.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/auth-factor-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/auth-factor-receipt-v1/negative-authority-missing-context.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
     "contract_id": "schema://ioi/components/hypervisor/c8-certificate/v3",
     "path": "docs/architecture/_meta/schemas/fixtures/c8-certificate-v3/positive-workload-bound.json",
     "expected": "accept",
@@ -10449,6 +10533,22 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
   {
     "contract_id": "schema://ioi/components/hypervisor/workload-isolation-requirements/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-requirements-v1/negative-ambient-secret.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/approval-ceremony-context/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/approval-ceremony-context-v1/positive-standing-envelope.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/approval-ceremony-context/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/approval-ceremony-context-v1/negative-partial-predecessor.json",
     "expected": "reject",
     "expected_schema_accept": false,
     "expected_failure": "schema",
@@ -17113,6 +17213,20 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/auth-factor-receipt-v1/positive-standing-effect-authority.json",
+    "contract_id": "schema://ioi/components/hypervisor/auth-factor-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/auth-factor-receipt-v1/positive-standing-effect-authority.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/auth-factor-receipt-v1/negative-authority-missing-context.json",
+    "contract_id": "schema://ioi/components/hypervisor/auth-factor-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/auth-factor-receipt-v1/negative-authority-missing-context.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/c8-certificate-v3/positive-workload-bound.json",
     "contract_id": "schema://ioi/components/hypervisor/c8-certificate/v3",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/c8-certificate-v3/positive-workload-bound.json",
@@ -17984,6 +18098,20 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-requirements-v1/negative-ambient-secret.json",
     "contract_id": "schema://ioi/components/hypervisor/workload-isolation-requirements/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-requirements-v1/negative-ambient-secret.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/approval-ceremony-context-v1/positive-standing-envelope.json",
+    "contract_id": "schema://ioi/foundations/approval-ceremony-context/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/approval-ceremony-context-v1/positive-standing-envelope.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/approval-ceremony-context-v1/negative-partial-predecessor.json",
+    "contract_id": "schema://ioi/foundations/approval-ceremony-context/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/approval-ceremony-context-v1/negative-partial-predecessor.json",
     "mutation_id": null,
     "value_json": null
   },
@@ -21273,6 +21401,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
   "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}[.]json$",
   "^[A-Za-z0-9_-]+$",
+  "^[A-Za-z0-9_-]{43,256}$",
   "^[A-Za-z0-9_-]{43}$",
   "^[A-Za-z0-9_-]{86}$",
   "^[A-Za-z0-9_.-]+$",
@@ -21308,6 +21437,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^active-profile-set://[^\\s]{1,248}$",
   "^actuator://[^\\s]+$",
   "^adapter://[^\\s]{1,500}$",
+  "^afr_[a-z0-9]{8,64}$",
   "^agent-harness-adapter://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^agent-harness-adapter:[^\\s]{1,200}$",
   "^agent://[^\\s]{1,500}$",
@@ -21522,6 +21652,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^participation-request://[^\\s]{1,500}$",
   "^payload://[^\\s]+$",
   "^physical-action-admission:[^\\s]+$",
+  "^pkc_[A-Za-z0-9_-]{1,128}$",
   "^plg_[0-9a-f]+$",
   "^policy://[A-Za-z0-9._:/-]+$",
   "^policy://[A-Za-z0-9._~:/-]+$",
@@ -21738,6 +21869,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/hypervisor/backend-capability-declaration/v1": "sha256:ff20dc82932a0095e15e8ecd6ccb8f458e92ce81990ab0c7c3f25c5d7942cddf",
   "schema://ioi/components/hypervisor/collection-page/v1": "sha256:1838faff61bec1c9b137763e19114dcca2017b8ddb20b3a7400561391e2321d7",
   "schema://ioi/components/hypervisor/collection-query/v1": "sha256:fc25b17cf6830faca44e00eedad7b6d4dd7c4eee5008e2c05ca553ce7da25bd5",
+  "schema://ioi/components/hypervisor/auth-factor-receipt/v1": "sha256:0697940531b77f7d2f625bcb7948d4bffc274643d7a57cac2cf53e7df0ee9d29",
   "schema://ioi/components/hypervisor/c8-certificate/v3": "sha256:b29daef4a3b18681c4c65beefe8ed8e662ab8bd3a08b82201f0ba14b2b84dd63",
   "schema://ioi/components/hypervisor/governed-effect-claim-manifest/v1": "sha256:1834df26ab76fd1fc15066a8db5cabb24de5185b8b5299a920233cc88078aa53",
   "schema://ioi/aft/u1-campaign-result/v1": "sha256:53f9a944ed1379a4509a691d16bc35fc93a9e10f293d80724c7355e33097c802",
@@ -21777,6 +21909,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/hypervisor/workload-effect-reconciliation-receipt/v1": "sha256:723f357a24bf30049898e3f165fdf6d900cab0c96b2ca045001db290cdac7955",
   "schema://ioi/components/hypervisor/workload-isolation-binding/v1": "sha256:57099f54fe5e9de26028f4910be956ee4f3ce585a67698b68d0bcc1e31371899",
   "schema://ioi/components/hypervisor/workload-isolation-requirements/v1": "sha256:718d9c35d0e969108feb391bb83e0a1b8029f24e0cb2272de15b3fb261a64fd1",
+  "schema://ioi/foundations/approval-ceremony-context/v1": "sha256:79ab3938ba4f148bddecb4ed29107f72f709d2339d20977b2dbb0cbae6703c98",
   "schema://ioi/foundations/active-skill-set-snapshot/v1": "sha256:c62f6d794bf48172de77fa72cb71ea86dd1ed07944abf70d92aa8e82a97f87d6",
   "schema://ioi/foundations/authority-grant-envelope/v1": "sha256:9f8a2e183e7bb02cdb02274c59b06c0dda1abe293e4c377c80aaccbf9fee5796",
   "schema://ioi/foundations/authority-grant-envelope/v2": "sha256:5d702231006db3551371f3d5f581532292c6a616c30c314b331ae747adfc219e",
@@ -36583,6 +36716,219 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     }
   },
+  "schema://ioi/components/hypervisor/auth-factor-receipt/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/auth-factor-receipt/v1",
+    "title": "HypervisorAuthFactorReceipt",
+    "x-ioi-schema-version": "ioi.hypervisor.auth-factor-receipt.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "receipt_id",
+      "receipt_hash",
+      "ceremony_id",
+      "principal_id",
+      "factor_kind",
+      "credential_id_hash",
+      "user_verification",
+      "purpose",
+      "approval_ceremony_context_ref",
+      "approval_ceremony_context_hash",
+      "authorization_subject",
+      "policy_hash",
+      "effect_authority_created",
+      "created_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.hypervisor.auth-factor-receipt.v1"
+      },
+      "receipt_id": {
+        "type": "string",
+        "pattern": "^afr_[a-z0-9]{8,64}$"
+      },
+      "receipt_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "ceremony_id": {
+        "type": "string",
+        "pattern": "^pkc_[A-Za-z0-9_-]{1,128}$"
+      },
+      "principal_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "factor_kind": {
+        "const": "passkey"
+      },
+      "credential_id_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "user_verification": {
+        "const": "required_and_verified"
+      },
+      "purpose": {
+        "enum": [
+          "custody_enrollment",
+          "identity_authentication",
+          "standing_effect_authority"
+        ]
+      },
+      "approval_ceremony_context_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ref"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "approval_ceremony_context_hash": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/hash"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "authorization_subject": {
+        "anyOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "subject_ref",
+              "subject_hash",
+              "validation_profile_ref"
+            ],
+            "properties": {
+              "kind": {
+                "enum": [
+                  "exact_effect",
+                  "batch_manifest",
+                  "standing_envelope"
+                ]
+              },
+              "subject_ref": {
+                "$ref": "#/$defs/ref"
+              },
+              "subject_hash": {
+                "$ref": "#/$defs/hash"
+              },
+              "validation_profile_ref": {
+                "$ref": "#/$defs/ref"
+              }
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "policy_hash": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/hash"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "effect_authority_created": {
+        "const": false
+      },
+      "created_at": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "purpose": {
+              "const": "standing_effect_authority"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "approval_ceremony_context_ref": {
+              "$ref": "#/$defs/ref"
+            },
+            "approval_ceremony_context_hash": {
+              "$ref": "#/$defs/hash"
+            },
+            "authorization_subject": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "subject_ref",
+                "subject_hash",
+                "validation_profile_ref"
+              ],
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "exact_effect",
+                    "batch_manifest",
+                    "standing_envelope"
+                  ]
+                },
+                "subject_ref": {
+                  "$ref": "#/$defs/ref"
+                },
+                "subject_hash": {
+                  "$ref": "#/$defs/hash"
+                },
+                "validation_profile_ref": {
+                  "$ref": "#/$defs/ref"
+                }
+              }
+            },
+            "policy_hash": {
+              "$ref": "#/$defs/hash"
+            }
+          }
+        },
+        "else": {
+          "properties": {
+            "approval_ceremony_context_ref": {
+              "type": "null"
+            },
+            "approval_ceremony_context_hash": {
+              "type": "null"
+            },
+            "authorization_subject": {
+              "type": "null"
+            },
+            "policy_hash": {
+              "type": "null"
+            }
+          }
+        }
+      }
+    ],
+    "$defs": {
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      },
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      }
+    }
+  },
   "schema://ioi/components/hypervisor/c8-certificate/v3": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "schema://ioi/components/hypervisor/c8-certificate/v3",
@@ -43967,6 +44313,328 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
             "$ref": "#/$defs/hash"
           }
         }
+      }
+    }
+  },
+  "schema://ioi/foundations/approval-ceremony-context/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/approval-ceremony-context/v1",
+    "title": "ApprovalCeremonyContextEnvelope",
+    "x-ioi-schema-version": "ioi.foundations.approval-ceremony-context.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "approval_ceremony_context_ref",
+      "authority_request_ref",
+      "authority_request_body_hash",
+      "authority_review_ref",
+      "authority_review_body_hash",
+      "predecessor_authority_review_ref",
+      "predecessor_authority_review_body_hash",
+      "predecessor_authority_request_ref",
+      "predecessor_authority_request_body_hash",
+      "predecessor_authority_review_receipt_ref",
+      "predecessor_authority_review_receipt_hash",
+      "reviewed_representation_hash",
+      "principal_ref",
+      "acting_subject_ref",
+      "product_session_ref",
+      "origin_binding_ref",
+      "authorization_subject",
+      "presentation_surface_ref",
+      "presentation_evidence_profile_ref",
+      "principal_authority_resolution_ref",
+      "principal_authority_resolution_hash",
+      "required_auth_factor_posture_refs",
+      "required_guardian_surface_refs",
+      "posture_satisfaction_profile_ref",
+      "interaction_mode",
+      "authentication_posture",
+      "receipt_timing",
+      "policy_decision_receipt_ref",
+      "policy_decision_receipt_hash",
+      "policy_hash",
+      "risk_classes",
+      "revocation_epoch",
+      "nonce_b64url",
+      "issued_at",
+      "expires_at",
+      "single_use"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.foundations.approval-ceremony-context.v1"
+      },
+      "approval_ceremony_context_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "authority_request_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "authority_request_body_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "authority_review_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "authority_review_body_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "predecessor_authority_review_ref": {
+        "$ref": "#/$defs/nullableRef"
+      },
+      "predecessor_authority_review_body_hash": {
+        "$ref": "#/$defs/nullableHash"
+      },
+      "predecessor_authority_request_ref": {
+        "$ref": "#/$defs/nullableRef"
+      },
+      "predecessor_authority_request_body_hash": {
+        "$ref": "#/$defs/nullableHash"
+      },
+      "predecessor_authority_review_receipt_ref": {
+        "$ref": "#/$defs/nullableRef"
+      },
+      "predecessor_authority_review_receipt_hash": {
+        "$ref": "#/$defs/nullableHash"
+      },
+      "reviewed_representation_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "principal_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "acting_subject_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "product_session_ref": {
+        "$ref": "#/$defs/nullableRef"
+      },
+      "origin_binding_ref": {
+        "$ref": "#/$defs/nullableRef"
+      },
+      "authorization_subject": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "subject_ref",
+          "subject_hash",
+          "validation_profile_ref"
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "exact_effect",
+              "batch_manifest",
+              "standing_envelope"
+            ]
+          },
+          "subject_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "subject_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "validation_profile_ref": {
+            "$ref": "#/$defs/ref"
+          }
+        }
+      },
+      "presentation_surface_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "presentation_evidence_profile_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "principal_authority_resolution_ref": {
+        "$ref": "#/$defs/nullableRef"
+      },
+      "principal_authority_resolution_hash": {
+        "$ref": "#/$defs/nullableHash"
+      },
+      "required_auth_factor_posture_refs": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "required_guardian_surface_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "posture_satisfaction_profile_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "interaction_mode": {
+        "enum": [
+          "interactive",
+          "noninteractive_policy"
+        ]
+      },
+      "authentication_posture": {
+        "enum": [
+          "baseline",
+          "step_up"
+        ]
+      },
+      "receipt_timing": {
+        "enum": [
+          "before_effect",
+          "after_effect"
+        ]
+      },
+      "policy_decision_receipt_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "policy_decision_receipt_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "policy_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "risk_classes": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/name"
+        }
+      },
+      "revocation_epoch": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "nonce_b64url": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_-]{43,256}$"
+      },
+      "issued_at": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "expires_at": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "single_use": {
+        "const": true
+      }
+    },
+    "allOf": [
+      {
+        "oneOf": [
+          {
+            "properties": {
+              "predecessor_authority_review_ref": {
+                "type": "null"
+              },
+              "predecessor_authority_review_body_hash": {
+                "type": "null"
+              },
+              "predecessor_authority_request_ref": {
+                "type": "null"
+              },
+              "predecessor_authority_request_body_hash": {
+                "type": "null"
+              },
+              "predecessor_authority_review_receipt_ref": {
+                "type": "null"
+              },
+              "predecessor_authority_review_receipt_hash": {
+                "type": "null"
+              }
+            }
+          },
+          {
+            "properties": {
+              "predecessor_authority_review_ref": {
+                "$ref": "#/$defs/ref"
+              },
+              "predecessor_authority_review_body_hash": {
+                "$ref": "#/$defs/hash"
+              },
+              "predecessor_authority_request_ref": {
+                "$ref": "#/$defs/ref"
+              },
+              "predecessor_authority_request_body_hash": {
+                "$ref": "#/$defs/hash"
+              },
+              "predecessor_authority_review_receipt_ref": {
+                "$ref": "#/$defs/ref"
+              },
+              "predecessor_authority_review_receipt_hash": {
+                "$ref": "#/$defs/hash"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "oneOf": [
+          {
+            "properties": {
+              "principal_authority_resolution_ref": {
+                "type": "null"
+              },
+              "principal_authority_resolution_hash": {
+                "type": "null"
+              }
+            }
+          },
+          {
+            "properties": {
+              "principal_authority_resolution_ref": {
+                "$ref": "#/$defs/ref"
+              },
+              "principal_authority_resolution_hash": {
+                "$ref": "#/$defs/hash"
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "$defs": {
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      },
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "name": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9._-]{0,127}$"
+      },
+      "nullableRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ref"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "nullableHash": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/hash"
+          },
+          {
+            "type": "null"
+          }
+        ]
       }
     }
   },
@@ -80991,6 +81659,7 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
   "schema://ioi/components/hypervisor/backend-capability-declaration/v1": [],
   "schema://ioi/components/hypervisor/collection-page/v1": [],
   "schema://ioi/components/hypervisor/collection-query/v1": [],
+  "schema://ioi/components/hypervisor/auth-factor-receipt/v1": [],
   "schema://ioi/components/hypervisor/c8-certificate/v3": [],
   "schema://ioi/components/hypervisor/governed-effect-claim-manifest/v1": [],
   "schema://ioi/aft/u1-campaign-result/v1": [],
@@ -81548,6 +82217,7 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
   "schema://ioi/components/hypervisor/workload-effect-reconciliation-receipt/v1": [],
   "schema://ioi/components/hypervisor/workload-isolation-binding/v1": [],
   "schema://ioi/components/hypervisor/workload-isolation-requirements/v1": [],
+  "schema://ioi/foundations/approval-ceremony-context/v1": [],
   "schema://ioi/foundations/active-skill-set-snapshot/v1": [],
   "schema://ioi/foundations/authority-grant-envelope/v1": [
     {
@@ -88612,6 +89282,12 @@ export function validateHypervisorCollectionQueryV1(
   return validateArchitectureContract("schema://ioi/components/hypervisor/collection-query/v1", value).ok;
 }
 
+export function validateHypervisorAuthFactorReceiptV1(
+  value: unknown,
+): value is HypervisorAuthFactorReceiptV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/auth-factor-receipt/v1", value).ok;
+}
+
 export function validateC8CertificateV3(
   value: unknown,
 ): value is C8CertificateV3 {
@@ -88844,6 +89520,12 @@ export function validateHypervisorWorkloadIsolationRequirementsV1(
   value: unknown,
 ): value is HypervisorWorkloadIsolationRequirementsV1 {
   return validateArchitectureContract("schema://ioi/components/hypervisor/workload-isolation-requirements/v1", value).ok;
+}
+
+export function validateApprovalCeremonyContextEnvelopeV1(
+  value: unknown,
+): value is ApprovalCeremonyContextEnvelopeV1 {
+  return validateArchitectureContract("schema://ioi/foundations/approval-ceremony-context/v1", value).ok;
 }
 
 export function validateActiveSkillSetSnapshotV1(

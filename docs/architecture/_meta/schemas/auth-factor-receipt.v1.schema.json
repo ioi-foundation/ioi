@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/auth-factor-receipt/v1",
+  "title": "HypervisorAuthFactorReceipt",
+  "x-ioi-schema-version": "ioi.hypervisor.auth-factor-receipt.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "receipt_id",
+    "receipt_hash",
+    "ceremony_id",
+    "principal_id",
+    "factor_kind",
+    "credential_id_hash",
+    "user_verification",
+    "purpose",
+    "approval_ceremony_context_ref",
+    "approval_ceremony_context_hash",
+    "authorization_subject",
+    "policy_hash",
+    "effect_authority_created",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": { "const": "ioi.hypervisor.auth-factor-receipt.v1" },
+    "receipt_id": { "type": "string", "pattern": "^afr_[a-z0-9]{8,64}$" },
+    "receipt_hash": { "$ref": "#/$defs/hash" },
+    "ceremony_id": { "type": "string", "pattern": "^pkc_[A-Za-z0-9_-]{1,128}$" },
+    "principal_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "factor_kind": { "const": "passkey" },
+    "credential_id_hash": { "$ref": "#/$defs/hash" },
+    "user_verification": { "const": "required_and_verified" },
+    "purpose": { "enum": ["custody_enrollment", "identity_authentication", "standing_effect_authority"] },
+    "approval_ceremony_context_ref": {
+      "anyOf": [{ "$ref": "#/$defs/ref" }, { "type": "null" }]
+    },
+    "approval_ceremony_context_hash": {
+      "anyOf": [{ "$ref": "#/$defs/hash" }, { "type": "null" }]
+    },
+    "authorization_subject": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "subject_ref", "subject_hash", "validation_profile_ref"],
+          "properties": {
+            "kind": { "enum": ["exact_effect", "batch_manifest", "standing_envelope"] },
+            "subject_ref": { "$ref": "#/$defs/ref" },
+            "subject_hash": { "$ref": "#/$defs/hash" },
+            "validation_profile_ref": { "$ref": "#/$defs/ref" }
+          }
+        },
+        { "type": "null" }
+      ]
+    },
+    "policy_hash": { "anyOf": [{ "$ref": "#/$defs/hash" }, { "type": "null" }] },
+    "effect_authority_created": { "const": false },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "purpose": { "const": "standing_effect_authority" } } },
+      "then": {
+        "properties": {
+          "approval_ceremony_context_ref": { "$ref": "#/$defs/ref" },
+          "approval_ceremony_context_hash": { "$ref": "#/$defs/hash" },
+          "authorization_subject": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "subject_ref", "subject_hash", "validation_profile_ref"],
+            "properties": {
+              "kind": { "enum": ["exact_effect", "batch_manifest", "standing_envelope"] },
+              "subject_ref": { "$ref": "#/$defs/ref" },
+              "subject_hash": { "$ref": "#/$defs/hash" },
+              "validation_profile_ref": { "$ref": "#/$defs/ref" }
+            }
+          },
+          "policy_hash": { "$ref": "#/$defs/hash" }
+        }
+      },
+      "else": {
+        "properties": {
+          "approval_ceremony_context_ref": { "type": "null" },
+          "approval_ceremony_context_hash": { "type": "null" },
+          "authorization_subject": { "type": "null" },
+          "policy_hash": { "type": "null" }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "ref": { "type": "string", "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$" },
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+  }
+}

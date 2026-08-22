@@ -2,8 +2,9 @@
 //!
 //! Identity authentication is deliberately separate from effect authority. A successful passkey
 //! assertion may issue an operator session, but it does not mint a wallet grant, standing envelope,
-//! or provider capability. Authority ceremonies consume a second, request-bound assertion in the
-//! wallet authority plane.
+//! or provider capability. This identity plane consumes a second, request-bound assertion and emits
+//! only a factor receipt; the wallet authority plane must verify and bind that receipt before it can
+//! mint any effect authority.
 
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -12,10 +13,13 @@ use axum::extract::{Path, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::Json;
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
+use time::format_description::well_known::Rfc3339;
+use time::OffsetDateTime;
 use uuid::Uuid;
 use webauthn_rs::prelude::{
     Passkey, PasskeyAuthentication, PasskeyRegistration, PublicKeyCredential,
-    RegisterPublicKeyCredential, Url, Webauthn, WebauthnBuilder,
+    RegisterPublicKeyCredential, RequestChallengeResponse, Url, Webauthn, WebauthnBuilder,
 };
 
 use super::durable_fs::persist_record_durable;
@@ -26,6 +30,7 @@ const CEREMONY_FAMILY: &str = "passkey-ceremonies";
 const CREDENTIAL_FAMILY: &str = "passkey-credentials";
 const RECEIPT_FAMILY: &str = "auth-factor-receipts";
 const CEREMONY_TTL_MS: u64 = 5 * 60 * 1_000;
+const APPROVAL_CONTEXT_DOMAIN: &[u8] = b"IOI-APPROVAL-CEREMONY-CONTEXT-V1\0";
 
 static CEREMONY_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
@@ -110,6 +115,17 @@ fn persist_ceremony(
     principal_id: &str,
     state: Value,
 ) -> Result<(), String> {
+    persist_ceremony_with_context(data_dir, ceremony_id, kind, principal_id, state, None)
+}
+
+fn persist_ceremony_with_context(
+    data_dir: &str,
+    ceremony_id: &str,
+    kind: &str,
+    principal_id: &str,
+    state: Value,
+    approval_context: Option<(&Value, &str)>,
+) -> Result<(), String> {
     let record = json!({
         "schema_version": "ioi.hypervisor.passkey-ceremony.v1",
         "ceremony_id": ceremony_id,
@@ -120,8 +136,175 @@ fn persist_ceremony(
         "expires_at_ms": now_ms().saturating_add(CEREMONY_TTL_MS),
         "state": state,
     });
+    let mut record = record;
+    if let Some((context, context_hash)) = approval_context {
+        record["approval_ceremony_context"] = context.clone();
+        record["approval_ceremony_context_hash"] = json!(context_hash);
+    }
     persist_record_durable(data_dir, CEREMONY_FAMILY, ceremony_id, &record)
         .map_err(|error| format!("passkey_ceremony_persistence_failed: {error:?}"))
+}
+
+fn sha256_ref_bytes(value: &str, label: &str) -> Result<[u8; 32], String> {
+    let Some(hex) = value.strip_prefix("sha256:") else {
+        return Err(format!("{label}_invalid"));
+    };
+    if hex.len() != 64 || !hex.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err(format!("{label}_invalid"));
+    }
+    let decoded = hex::decode(hex).map_err(|_| format!("{label}_invalid"))?;
+    let mut bytes = [0u8; 32];
+    bytes.copy_from_slice(&decoded);
+    Ok(bytes)
+}
+
+fn approval_context_hash(context: &Value) -> Result<String, String> {
+    let canonical = serde_jcs::to_vec(context)
+        .map_err(|error| format!("approval_ceremony_context_not_canonical: {error}"))?;
+    let mut hasher = Sha256::new();
+    hasher.update(APPROVAL_CONTEXT_DOMAIN);
+    hasher.update(canonical);
+    Ok(format!("sha256:{}", hex::encode(hasher.finalize())))
+}
+
+fn validate_approval_context(
+    context: &Value,
+    expected_hash: &str,
+    principal_ref: &str,
+) -> Result<[u8; 32], String> {
+    const CONTRACT: &str = "schema://ioi/foundations/approval-ceremony-context/v1";
+    ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
+        CONTRACT, context,
+    )
+    .map_err(|error| format!("approval_ceremony_context_contract_invalid: {error}"))?;
+    let object = context
+        .as_object()
+        .ok_or_else(|| "approval_ceremony_context_invalid".to_string())?;
+    const FIELDS: &[&str] = &[
+        "schema_version",
+        "approval_ceremony_context_ref",
+        "authority_request_ref",
+        "authority_request_body_hash",
+        "authority_review_ref",
+        "authority_review_body_hash",
+        "predecessor_authority_review_ref",
+        "predecessor_authority_review_body_hash",
+        "predecessor_authority_request_ref",
+        "predecessor_authority_request_body_hash",
+        "predecessor_authority_review_receipt_ref",
+        "predecessor_authority_review_receipt_hash",
+        "reviewed_representation_hash",
+        "principal_ref",
+        "acting_subject_ref",
+        "product_session_ref",
+        "origin_binding_ref",
+        "authorization_subject",
+        "presentation_surface_ref",
+        "presentation_evidence_profile_ref",
+        "principal_authority_resolution_ref",
+        "principal_authority_resolution_hash",
+        "required_auth_factor_posture_refs",
+        "required_guardian_surface_refs",
+        "posture_satisfaction_profile_ref",
+        "interaction_mode",
+        "authentication_posture",
+        "receipt_timing",
+        "policy_decision_receipt_ref",
+        "policy_decision_receipt_hash",
+        "policy_hash",
+        "risk_classes",
+        "revocation_epoch",
+        "nonce_b64url",
+        "issued_at",
+        "expires_at",
+        "single_use",
+    ];
+    if object.len() != FIELDS.len() || object.keys().any(|key| !FIELDS.contains(&key.as_str())) {
+        return Err("approval_ceremony_context_fields_invalid".to_string());
+    }
+    if context["schema_version"] != json!("ioi.foundations.approval-ceremony-context.v1")
+        || context["principal_ref"].as_str() != Some(principal_ref)
+        || context["interaction_mode"].as_str() != Some("interactive")
+        || context["authentication_posture"].as_str() != Some("step_up")
+        || context["receipt_timing"].as_str() != Some("before_effect")
+        || context["single_use"].as_bool() != Some(true)
+        || context["authorization_subject"]["kind"].as_str() != Some("standing_envelope")
+    {
+        return Err("approval_ceremony_context_posture_invalid".to_string());
+    }
+    for field in [
+        "authority_request_body_hash",
+        "authority_review_body_hash",
+        "reviewed_representation_hash",
+        "policy_decision_receipt_hash",
+        "policy_hash",
+    ] {
+        sha256_ref_bytes(context[field].as_str().unwrap_or(""), field)?;
+    }
+    for field in [
+        "predecessor_authority_review_body_hash",
+        "predecessor_authority_request_body_hash",
+        "predecessor_authority_review_receipt_hash",
+        "principal_authority_resolution_hash",
+    ] {
+        if let Some(value) = context[field].as_str() {
+            sha256_ref_bytes(value, field)?;
+        }
+    }
+    sha256_ref_bytes(
+        context["authorization_subject"]["subject_hash"]
+            .as_str()
+            .unwrap_or(""),
+        "authorization_subject_hash",
+    )?;
+    let nonce = context["nonce_b64url"].as_str().unwrap_or("");
+    if nonce.len() < 43
+        || !nonce
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_')
+    {
+        return Err("approval_ceremony_context_nonce_invalid".to_string());
+    }
+    let issued_at = OffsetDateTime::parse(context["issued_at"].as_str().unwrap_or(""), &Rfc3339)
+        .map_err(|_| "approval_ceremony_context_issued_at_invalid".to_string())?;
+    let expires_at = OffsetDateTime::parse(context["expires_at"].as_str().unwrap_or(""), &Rfc3339)
+        .map_err(|_| "approval_ceremony_context_expires_at_invalid".to_string())?;
+    let now = OffsetDateTime::now_utc();
+    if issued_at > now + time::Duration::seconds(30)
+        || expires_at <= issued_at
+        || expires_at - issued_at > time::Duration::minutes(5)
+        || expires_at <= now
+        || expires_at - now > time::Duration::minutes(5)
+    {
+        return Err("approval_ceremony_context_validity_invalid".to_string());
+    }
+    let derived_hash = approval_context_hash(context)?;
+    if derived_hash != expected_hash {
+        return Err("approval_ceremony_context_hash_mismatch".to_string());
+    }
+    sha256_ref_bytes(expected_hash, "approval_ceremony_context_hash")
+}
+
+fn bind_authentication_challenge(
+    mut options: RequestChallengeResponse,
+    state: PasskeyAuthentication,
+    challenge: [u8; 32],
+) -> Result<(RequestChallengeResponse, PasskeyAuthentication), String> {
+    options.public_key.challenge = challenge.to_vec().into();
+    let encoded = serde_json::to_value(&options)
+        .map_err(|error| format!("passkey_challenge_serialization_failed: {error}"))?
+        .pointer("/publicKey/challenge")
+        .cloned()
+        .ok_or_else(|| "passkey_challenge_serialization_failed".to_string())?;
+    let mut state_value = serde_json::to_value(state)
+        .map_err(|error| format!("passkey_state_serialization_failed: {error}"))?;
+    let Some(state_challenge) = state_value.pointer_mut("/ast/challenge") else {
+        return Err("passkey_state_challenge_missing".to_string());
+    };
+    *state_challenge = encoded;
+    let state = serde_json::from_value(state_value)
+        .map_err(|error| format!("passkey_state_serialization_failed: {error}"))?;
+    Ok((options, state))
 }
 
 /// Mark a ceremony consumed before cryptographic verification. An invalid assertion burns the
@@ -161,15 +344,16 @@ fn persist_factor_receipt(
     principal_id: &str,
     credential_id: &str,
     purpose: &str,
+    approval_context: Option<(&Value, &str)>,
 ) -> Result<Value, String> {
-    let credential_hash = sha256_hex_str(credential_id);
+    let credential_hash = format!("sha256:{}", sha256_hex_str(credential_id));
     let receipt_id = format!(
         "afr_{}",
         short_hash(&sha256_hex_str(&format!(
             "{ceremony_id}:{principal_id}:{credential_hash}:{purpose}"
         )))
     );
-    let receipt = json!({
+    let mut receipt = json!({
         "schema_version": "ioi.hypervisor.auth-factor-receipt.v1",
         "receipt_id": receipt_id,
         "ceremony_id": ceremony_id,
@@ -178,9 +362,27 @@ fn persist_factor_receipt(
         "credential_id_hash": credential_hash,
         "user_verification": "required_and_verified",
         "purpose": purpose,
+        "approval_ceremony_context_ref": null,
+        "approval_ceremony_context_hash": null,
+        "authorization_subject": null,
+        "policy_hash": null,
         "effect_authority_created": false,
         "created_at": iso_now(),
     });
+    if let Some((context, context_hash)) = approval_context {
+        receipt["approval_ceremony_context_ref"] = context["approval_ceremony_context_ref"].clone();
+        receipt["approval_ceremony_context_hash"] = json!(context_hash);
+        receipt["authorization_subject"] = context["authorization_subject"].clone();
+        receipt["policy_hash"] = context["policy_hash"].clone();
+    }
+    let canonical = serde_jcs::to_vec(&receipt)
+        .map_err(|error| format!("passkey_receipt_hash_failed: {error}"))?;
+    receipt["receipt_hash"] = json!(format!("sha256:{}", hex::encode(Sha256::digest(canonical))));
+    const CONTRACT: &str = "schema://ioi/components/hypervisor/auth-factor-receipt/v1";
+    ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
+        CONTRACT, &receipt,
+    )
+    .map_err(|error| format!("passkey_receipt_contract_invalid: {error}"))?;
     persist_record_durable(data_dir, RECEIPT_FAMILY, &receipt_id, &receipt)
         .map_err(|error| format!("passkey_receipt_persistence_failed: {error:?}"))?;
     Ok(receipt)
@@ -362,6 +564,7 @@ pub(crate) async fn handle_registration_finish(
         principal_id,
         record["credential_id"].as_str().unwrap_or(""),
         "custody_enrollment",
+        None,
     ) {
         Ok(value) => value,
         Err(code) => {
@@ -483,6 +686,264 @@ pub(crate) async fn handle_passkey_revoke(
             "credential_ref": expected_ref,
             "status": "revoked",
             "effect_authority_changed": false,
+        })),
+    )
+}
+
+/// POST /v1/hypervisor/auth/passkeys/authority/start
+///
+/// Starts a second, effect-consent ceremony for an already authenticated operator. The
+/// authenticator challenge is exactly the domain-separated approval-ceremony-context hash. The
+/// resulting factor receipt can be committed into a standing grant, but this route creates no
+/// grant, capability, provider credential, or provider effect.
+pub(crate) async fn handle_authority_start(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let Some(principal) = resolve_principal(&st.data_dir, &headers) else {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(json!({"ok": false, "code": "passkey_authority_authentication_required"})),
+        );
+    };
+    let Some(body_object) = body.as_object() else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"ok": false, "code": "passkey_authority_request_invalid"})),
+        );
+    };
+    if body_object.len() != 2
+        || !body_object.contains_key("approval_ceremony_context")
+        || !body_object.contains_key("approval_ceremony_context_hash")
+    {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"ok": false, "code": "passkey_authority_request_fields_invalid"})),
+        );
+    }
+    let principal_id = principal["principal_id"].as_str().unwrap_or("");
+    let principal_ref = principal["principal_ref"]
+        .as_str()
+        .map(str::to_string)
+        .unwrap_or_else(|| format!("user://{principal_id}"));
+    let context = &body["approval_ceremony_context"];
+    let context_hash = body["approval_ceremony_context_hash"]
+        .as_str()
+        .unwrap_or("");
+    let challenge = match validate_approval_context(context, context_hash, &principal_ref) {
+        Ok(value) => value,
+        Err(code) => {
+            return (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                Json(json!({"ok": false, "code": code})),
+            )
+        }
+    };
+    let passkeys: Vec<Passkey> = credential_records(&st.data_dir, principal_id)
+        .into_iter()
+        .map(|(_, passkey)| passkey)
+        .collect();
+    if passkeys.is_empty() {
+        return (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(json!({"ok": false, "code": "passkey_authority_factor_unavailable"})),
+        );
+    }
+    let started = webauthn()
+        .and_then(|rp| {
+            rp.start_passkey_authentication(&passkeys)
+                .map_err(|error| format!("passkey_authority_start_refused: {error}"))
+        })
+        .and_then(|(options, state)| bind_authentication_challenge(options, state, challenge));
+    let (options, state) = match started {
+        Ok(value) => value,
+        Err(code) => {
+            return (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                Json(json!({"ok": false, "code": code})),
+            )
+        }
+    };
+    let ceremony_id = format!("pkc_{}", Uuid::new_v4().simple());
+    let state = serde_json::to_value(state).expect("passkey authentication state is serializable");
+    if let Err(code) = persist_ceremony_with_context(
+        &st.data_dir,
+        &ceremony_id,
+        "effect_authority",
+        principal_id,
+        state,
+        Some((context, context_hash)),
+    ) {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"ok": false, "code": code})),
+        );
+    }
+    (
+        StatusCode::OK,
+        Json(json!({
+            "ok": true,
+            "ceremony_id": ceremony_id,
+            "approval_ceremony_context_ref": context["approval_ceremony_context_ref"],
+            "approval_ceremony_context_hash": context_hash,
+            "public_key": options,
+            "effect_authority_created": false,
+        })),
+    )
+}
+
+/// POST /v1/hypervisor/auth/passkeys/authority/finish
+pub(crate) async fn handle_authority_finish(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let Some(principal) = resolve_principal(&st.data_dir, &headers) else {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(json!({"ok": false, "code": "passkey_authority_authentication_required"})),
+        );
+    };
+    let Some(body_object) = body.as_object() else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"ok": false, "code": "passkey_authority_request_invalid"})),
+        );
+    };
+    if body_object.len() != 2
+        || !body_object.contains_key("ceremony_id")
+        || !body_object.contains_key("credential")
+    {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"ok": false, "code": "passkey_authority_request_fields_invalid"})),
+        );
+    }
+    let principal_id = principal["principal_id"].as_str().unwrap_or("");
+    let principal_ref = principal["principal_ref"]
+        .as_str()
+        .map(str::to_string)
+        .unwrap_or_else(|| format!("user://{principal_id}"));
+    let ceremony_id = body["ceremony_id"].as_str().unwrap_or("");
+    let ceremony = match consume_ceremony(&st.data_dir, ceremony_id, "effect_authority") {
+        Ok(value) => value,
+        Err(code) => {
+            return (
+                StatusCode::CONFLICT,
+                Json(json!({"ok": false, "code": code})),
+            )
+        }
+    };
+    if ceremony["principal_id"].as_str() != Some(principal_id) {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(json!({"ok": false, "code": "passkey_ceremony_principal_mismatch"})),
+        );
+    }
+    let context = &ceremony["approval_ceremony_context"];
+    let context_hash = ceremony["approval_ceremony_context_hash"]
+        .as_str()
+        .unwrap_or("");
+    if let Err(code) = validate_approval_context(context, context_hash, &principal_ref) {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(json!({"ok": false, "code": code})),
+        );
+    }
+    let state: PasskeyAuthentication = match serde_json::from_value(ceremony["state"].clone()) {
+        Ok(value) => value,
+        Err(_) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({"ok": false, "code": "passkey_ceremony_state_invalid"})),
+            )
+        }
+    };
+    let credential: PublicKeyCredential = match serde_json::from_value(
+        body.get("credential").cloned().unwrap_or(Value::Null),
+    ) {
+        Ok(value) => value,
+        Err(error) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(
+                    json!({"ok": false, "code": "passkey_authority_credential_invalid", "detail": error.to_string()}),
+                ),
+            )
+        }
+    };
+    let result = match webauthn().and_then(|rp| {
+        rp.finish_passkey_authentication(&credential, &state)
+            .map_err(|error| format!("passkey_authority_refused: {error}"))
+    }) {
+        Ok(value) => value,
+        Err(code) => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(json!({"ok": false, "code": code})),
+            )
+        }
+    };
+    if !result.user_verified() {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(json!({"ok": false, "code": "passkey_user_verification_required"})),
+        );
+    }
+    let credential_id = hex::encode(result.cred_id().as_ref());
+    let Some((mut record, mut passkey)) = credential_records(&st.data_dir, principal_id)
+        .into_iter()
+        .find(|(record, _)| record["credential_id"].as_str() == Some(credential_id.as_str()))
+    else {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(json!({"ok": false, "code": "passkey_credential_not_registered"})),
+        );
+    };
+    passkey.update_credential(&result);
+    record["passkey"] = serde_json::to_value(passkey).expect("passkey is serializable");
+    record["updated_at"] = json!(iso_now());
+    record["last_authorized_at"] = json!(iso_now());
+    let record_id = record["credential_ref"]
+        .as_str()
+        .and_then(|value| value.rsplit('/').next())
+        .unwrap_or("");
+    if let Err(error) = persist_record_durable(&st.data_dir, CREDENTIAL_FAMILY, record_id, &record)
+    {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({"ok": false, "code": "passkey_counter_persistence_failed", "detail": format!("{error:?}")}),
+            ),
+        );
+    }
+    let receipt = match persist_factor_receipt(
+        &st.data_dir,
+        ceremony_id,
+        principal_id,
+        &credential_id,
+        "standing_effect_authority",
+        Some((context, context_hash)),
+    ) {
+        Ok(value) => value,
+        Err(code) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({"ok": false, "code": code})),
+            )
+        }
+    };
+    (
+        StatusCode::OK,
+        Json(json!({
+            "ok": true,
+            "receipt_ref": format!("receipt://auth-factor/{}", receipt["receipt_id"].as_str().unwrap_or("")),
+            "receipt_hash": receipt["receipt_hash"],
+            "approval_ceremony_context_ref": context["approval_ceremony_context_ref"],
+            "approval_ceremony_context_hash": context_hash,
+            "authorization_subject": context["authorization_subject"],
+            "effect_authority_created": false,
         })),
     )
 }
@@ -656,6 +1117,7 @@ pub(crate) async fn handle_login_finish(
         principal_id,
         &credential_id,
         "identity_authentication",
+        None,
     ) {
         Ok(value) => value,
         Err(code) => {
@@ -682,6 +1144,59 @@ pub(crate) async fn handle_login_finish(
 mod tests {
     use super::*;
     use tempfile::tempdir;
+
+    fn standing_approval_context(principal_ref: &str) -> Value {
+        let issued_at = (OffsetDateTime::now_utc() - time::Duration::seconds(1))
+            .format(&Rfc3339)
+            .unwrap();
+        let expires_at = (OffsetDateTime::now_utc() + time::Duration::minutes(4))
+            .format(&Rfc3339)
+            .unwrap();
+        json!({
+            "schema_version": "ioi.foundations.approval-ceremony-context.v1",
+            "approval_ceremony_context_ref": "approval-ceremony-context://standing/test",
+            "authority_request_ref": "authority-request://standing/test",
+            "authority_request_body_hash": format!("sha256:{}", "1".repeat(64)),
+            "authority_review_ref": "review://standing/test",
+            "authority_review_body_hash": format!("sha256:{}", "2".repeat(64)),
+            "predecessor_authority_review_ref": null,
+            "predecessor_authority_review_body_hash": null,
+            "predecessor_authority_request_ref": null,
+            "predecessor_authority_request_body_hash": null,
+            "predecessor_authority_review_receipt_ref": null,
+            "predecessor_authority_review_receipt_hash": null,
+            "reviewed_representation_hash": format!("sha256:{}", "3".repeat(64)),
+            "principal_ref": principal_ref,
+            "acting_subject_ref": "runtime://hypervisor/operator",
+            "product_session_ref": "session://hypervisor/test",
+            "origin_binding_ref": "origin://hypervisor/local",
+            "authorization_subject": {
+                "kind": "standing_envelope",
+                "subject_ref": "standing-envelope://aft/test",
+                "subject_hash": format!("sha256:{}", "4".repeat(64)),
+                "validation_profile_ref": "schema://ioi/foundations/standing-authority-envelope/v1"
+            },
+            "presentation_surface_ref": "wallet-client://hypervisor/local",
+            "presentation_evidence_profile_ref": "policy://presentation/local/v1",
+            "principal_authority_resolution_ref": null,
+            "principal_authority_resolution_hash": null,
+            "required_auth_factor_posture_refs": ["auth_factor://passkey/operator/device"],
+            "required_guardian_surface_refs": [],
+            "posture_satisfaction_profile_ref": "policy://auth-posture/step-up/v1",
+            "interaction_mode": "interactive",
+            "authentication_posture": "step_up",
+            "receipt_timing": "before_effect",
+            "policy_decision_receipt_ref": "receipt://policy/standing-test",
+            "policy_decision_receipt_hash": format!("sha256:{}", "5".repeat(64)),
+            "policy_hash": format!("sha256:{}", "6".repeat(64)),
+            "risk_classes": ["external_spend", "standing_authority"],
+            "revocation_epoch": 1,
+            "nonce_b64url": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+            "issued_at": issued_at,
+            "expires_at": expires_at,
+            "single_use": true
+        })
+    }
 
     #[test]
     fn principal_user_handle_is_stable_and_distinct() {
@@ -718,10 +1233,98 @@ mod tests {
             "operator",
             "public-credential-id",
             "custody_enrollment",
+            None,
         )
         .unwrap();
         assert_eq!(receipt["effect_authority_created"], json!(false));
         assert!(receipt.get("credential_id").is_none());
+        assert!(receipt["receipt_hash"]
+            .as_str()
+            .is_some_and(|value| value.starts_with("sha256:") && value.len() == 71));
+    }
+
+    #[test]
+    fn standing_authority_context_is_the_exact_passkey_challenge() {
+        let principal_ref = "user://operator";
+        let context = standing_approval_context(principal_ref);
+        let context_hash = approval_context_hash(&context).unwrap();
+        let challenge = validate_approval_context(&context, &context_hash, principal_ref).unwrap();
+        assert_eq!(format!("sha256:{}", hex::encode(challenge)), context_hash);
+
+        let mut widened = context.clone();
+        widened["authorization_subject"]["subject_hash"] =
+            json!(format!("sha256:{}", "7".repeat(64)));
+        assert_eq!(
+            validate_approval_context(&widened, &context_hash, principal_ref).unwrap_err(),
+            "approval_ceremony_context_hash_mismatch"
+        );
+    }
+
+    #[test]
+    fn authority_context_refuses_future_or_overlong_validity() {
+        let principal_ref = "user://operator";
+        let mut future = standing_approval_context(principal_ref);
+        future["issued_at"] = json!((OffsetDateTime::now_utc() + time::Duration::minutes(1))
+            .format(&Rfc3339)
+            .unwrap());
+        future["expires_at"] = json!((OffsetDateTime::now_utc() + time::Duration::minutes(4))
+            .format(&Rfc3339)
+            .unwrap());
+        let future_hash = approval_context_hash(&future).unwrap();
+        assert_eq!(
+            validate_approval_context(&future, &future_hash, principal_ref).unwrap_err(),
+            "approval_ceremony_context_validity_invalid"
+        );
+
+        let mut overlong = standing_approval_context(principal_ref);
+        overlong["issued_at"] = json!((OffsetDateTime::now_utc() - time::Duration::minutes(2))
+            .format(&Rfc3339)
+            .unwrap());
+        overlong["expires_at"] = json!((OffsetDateTime::now_utc() + time::Duration::minutes(4))
+            .format(&Rfc3339)
+            .unwrap());
+        let overlong_hash = approval_context_hash(&overlong).unwrap();
+        assert_eq!(
+            validate_approval_context(&overlong, &overlong_hash, principal_ref).unwrap_err(),
+            "approval_ceremony_context_validity_invalid"
+        );
+    }
+
+    #[test]
+    fn authority_context_refuses_malformed_optional_hashes() {
+        let principal_ref = "user://operator";
+        let mut context = standing_approval_context(principal_ref);
+        context["principal_authority_resolution_ref"] =
+            json!("artifact://authority-resolution/test");
+        context["principal_authority_resolution_hash"] = json!("sha256:not-a-hash");
+        let context_hash = approval_context_hash(&context).unwrap();
+        assert!(
+            validate_approval_context(&context, &context_hash, principal_ref)
+                .unwrap_err()
+                .contains("approval_ceremony_context_contract_invalid")
+        );
+    }
+
+    #[test]
+    fn authority_factor_receipt_binds_context_but_creates_no_authority() {
+        let directory = tempdir().unwrap();
+        let context = standing_approval_context("user://operator");
+        let context_hash = approval_context_hash(&context).unwrap();
+        let receipt = persist_factor_receipt(
+            directory.path().to_str().unwrap(),
+            "pkc_authority",
+            "operator",
+            "public-credential-id",
+            "standing_effect_authority",
+            Some((&context, &context_hash)),
+        )
+        .unwrap();
+        assert_eq!(receipt["approval_ceremony_context_hash"], context_hash);
+        assert_eq!(
+            receipt["authorization_subject"]["kind"],
+            "standing_envelope"
+        );
+        assert_eq!(receipt["effect_authority_created"], false);
     }
 
     #[test]

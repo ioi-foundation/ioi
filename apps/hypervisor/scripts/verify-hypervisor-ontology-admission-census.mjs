@@ -230,9 +230,9 @@ const RECORDED_TEST_WRITES = {
 const PINNED = {
   modules: 90,
   familyMentions: 300,
-  tokenMentions: 109600,
+  tokenMentions: 110455,
   judgedTokenPositions: 282,
-  productionWriterCalls: { family: 72, nonFamilyLiteral: 221, runtimeParameter: 293 },
+  productionWriterCalls: { family: 72, nonFamilyLiteral: 224, runtimeParameter: 294 },
   productionFsCalls: 231,
   /**
    * THE NAMES THIS CENSUS CANNOT ADJUDICATE, by cause. Pinned exactly, both directions.
@@ -251,17 +251,17 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 3559,
-    "opaque-initialiser": 1570,
+    "foreign-qualified": 3602,
+    "opaque-initialiser": 1595,
     "bare-undeclared": 522,
     "ambiguous-module": 0,
     "not-a-visible-const": 0,
     "resolution-cycle": 0,
   },
   /** `include!` splices code and is followed; the data forms carry no Rust and are pinned. */
-  includes: { splicedCode: 0, dataStr: 31, dataBytes: 0, dataOpaqueArg: 6 },
+  includes: { splicedCode: 0, dataStr: 32, dataBytes: 0, dataOpaqueArg: 7 },
   /** Compile-time name assembly. Every production one must be READABLE and is followed. */
-  compileAssembly: { production: 0, test: 8 },
+  compileAssembly: { production: 0, test: 9 },
 };
 
 /**
