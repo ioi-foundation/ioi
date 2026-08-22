@@ -1405,6 +1405,7 @@ async fn storage_lease(
         revocation_ref: format!("storage-backends/{account_id}/credential"),
         authority_reason: "storage_archive_authority_required".to_string(),
         grant_value,
+        standing_draw: None,
     };
     match authorize_capability_lease(st, &lease_req).await {
         Ok(lease) => Ok((lease.descriptor.clone(), lease.grant_ref.clone())),

@@ -1333,6 +1333,7 @@ async fn resolve_route_credential(
             .get("wallet_approval_grant")
             .cloned()
             .unwrap_or(Value::Null),
+        standing_draw: None,
     };
 
     match super::lifecycle_routes::authorize_capability_lease(st, &lease_request).await {

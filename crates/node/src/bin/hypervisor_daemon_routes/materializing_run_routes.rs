@@ -647,6 +647,7 @@ pub(crate) async fn handle_mrun_acquire_lease(
             .get("wallet_approval_grant")
             .cloned()
             .unwrap_or(Value::Null),
+        standing_draw: None,
     };
     let _ = run_receipt(
         &st.data_dir,

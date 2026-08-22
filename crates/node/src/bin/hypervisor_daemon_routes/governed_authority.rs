@@ -15,12 +15,13 @@ use ioi_services::agentic::runtime::kernel::approval::{
 };
 use ioi_services::wallet_network::{
     ApprovalGrantConsumptionReceipt, ConsumeApprovalGrantForEffectV2Params,
-    ExpectedPrincipalAuthorityBinding,
+    ConsumeStandingApprovalGrantForEffectParams, ExpectedPrincipalAuthorityBinding,
+    StandingApprovalGrantConsumptionReceipt,
 };
 use ioi_types::app::{
     ApprovalAuthority, ApprovalGrant, PrincipalAuthorityBindingCoordinates,
     PrincipalAuthorityBindingProofV1, PrincipalAuthorityKind, PrincipalAuthorityResolutionReceipt,
-    PrincipalAuthorityResolutionV1, ResolvePrincipalAuthorityParams,
+    PrincipalAuthorityResolutionV1, ResolvePrincipalAuthorityParams, StandingApprovalGrant,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -212,6 +213,14 @@ pub(crate) struct AdmittedDeploymentGrant {
     pub(crate) admission_intent_ref: String,
 }
 
+/// One standing-envelope draw admitted by the same durable intent-before-effect discipline.
+pub(crate) struct AdmittedStandingGrant {
+    pub(crate) admission_intent_ref: String,
+    pub(crate) effect_hash: String,
+    pub(crate) grant_ref: String,
+    pub(crate) receipt: StandingApprovalGrantConsumptionReceipt,
+}
+
 /// Durable final-invocation disposition carried on the admission-intent record.
 ///
 /// `admitted` is what a successful consumption leaves behind: authority is spent and no invoker
@@ -320,6 +329,27 @@ const APPROVAL_GRANT_FIELDS: &[&str] = &[
     "approver_suite",
 ];
 
+const STANDING_APPROVAL_GRANT_FIELDS: &[&str] = &[
+    "schema_version",
+    "authority_id",
+    "standing_envelope_hash",
+    "policy_hash",
+    "audience",
+    "nonce",
+    "counter",
+    "issued_at_ms",
+    "expires_at_ms",
+    "max_usages",
+    "max_cumulative_deposit_microusd",
+    "max_cumulative_spend_microusd",
+    "review_receipt_hash",
+    "approval_ceremony_context_hash",
+    "auth_factor_receipt_hash",
+    "approver_public_key",
+    "approver_sig",
+    "approver_suite",
+];
+
 /// Parse the accepted ApprovalGrant JSON ABI, reject undeclared fields, and return the one
 /// canonical typed projection retained by new evidence. Explicit null and omission remain
 /// equivalent for optional legacy fields.
@@ -356,6 +386,37 @@ pub(crate) fn canonicalize_approval_grant(value: &Value) -> Result<(ApprovalGran
     if canonical != normalized {
         return Err(
             "approval grant differs from its closed canonical typed projection".to_string(),
+        );
+    }
+    Ok((parsed, canonical))
+}
+
+/// Parse the separate standing-grant signature domain without weakening the C7 grant ABI.
+pub(crate) fn canonicalize_standing_approval_grant(
+    value: &Value,
+) -> Result<(StandingApprovalGrant, Value), String> {
+    let object = value
+        .as_object()
+        .ok_or_else(|| "standing approval grant must be one JSON object".to_string())?;
+    if let Some(field) = object
+        .keys()
+        .find(|field| !STANDING_APPROVAL_GRANT_FIELDS.contains(&field.as_str()))
+    {
+        return Err(format!(
+            "standing approval grant contains undeclared field '{field}'"
+        ));
+    }
+    let parsed: StandingApprovalGrant = serde_json::from_value(value.clone())
+        .map_err(|error| format!("standing approval grant is not canonical: {error}"))?;
+    parsed
+        .verify()
+        .map_err(|error| format!("standing approval grant is structurally invalid: {error}"))?;
+    let canonical = serde_json::to_value(&parsed).map_err(|error| {
+        format!("standing approval grant cannot be serialized canonically: {error}")
+    })?;
+    if canonical != *value {
+        return Err(
+            "standing approval grant differs from its closed canonical typed projection".into(),
         );
     }
     Ok((parsed, canonical))
@@ -708,6 +769,59 @@ pub(crate) async fn revalidate_admission_receipt(
         &admitted.authorized,
     )
     .await
+}
+
+/// Recover and byte-compare the wallet-owned standing draw before a caller may reach its invoker.
+pub(crate) async fn revalidate_standing_admission_receipt(
+    data_dir: &str,
+    admitted: &AdmittedStandingGrant,
+) -> Result<(), String> {
+    let tail = admitted
+        .admission_intent_ref
+        .strip_prefix(&format!("{AUTHORITY_ADMISSION_INTENT_FAMILY}/"))
+        .ok_or_else(|| {
+            "standing authority intent reference is outside its owner family".to_string()
+        })?;
+    let record =
+        super::durable_fs::read_record_durable(data_dir, AUTHORITY_ADMISSION_INTENT_FAMILY, tail)?
+            .ok_or_else(|| "standing authority intent receipt is absent".to_string())?;
+    if record.get("status").and_then(Value::as_str) != Some("consumed")
+        || record
+            .pointer("/commitment/effect_hash")
+            .and_then(Value::as_str)
+            != Some(admitted.effect_hash.as_str())
+    {
+        return Err("standing authority intent is not the consumed exact effect".to_string());
+    }
+    let local_receipt: StandingApprovalGrantConsumptionReceipt = serde_json::from_value(
+        record
+            .get("wallet_consumption_receipt")
+            .cloned()
+            .unwrap_or(Value::Null),
+    )
+    .map_err(|error| format!("standing authority receipt is malformed: {error}"))?;
+    if local_receipt != admitted.receipt {
+        return Err("standing authority receipt changed after admission".to_string());
+    }
+    let params = ConsumeStandingApprovalGrantForEffectParams {
+        grant_hash: local_receipt.grant_hash,
+        standing_envelope_hash: local_receipt.standing_envelope_hash,
+        policy_hash: local_receipt.policy_hash,
+        request_hash: local_receipt.request_hash,
+        consumption_id: local_receipt.consumption_id,
+        estimated_deposit_microusd: local_receipt.estimated_deposit_microusd,
+        estimated_spend_microusd: local_receipt.estimated_spend_microusd,
+        expected_principal_authority: local_receipt.expected_principal_authority.clone(),
+        expected_target_label: local_receipt.target_label.clone(),
+    };
+    let wallet_receipt = super::wallet_network_capability_client::recover_standing_approval_grant_consumption_for_effect(&params)
+        .await
+        .map_err(|error| format!("standing wallet receipt recovery failed: {error:?}"))?
+        .ok_or_else(|| "wallet.network no longer resolves the standing draw receipt".to_string())?;
+    if wallet_receipt != local_receipt {
+        return Err("standing wallet receipt differs from durable daemon evidence".to_string());
+    }
+    Ok(())
 }
 
 async fn revalidate_authoritative_admission(
@@ -1765,6 +1879,265 @@ pub(crate) async fn authorize_deployment_grant(
         false,
     )
     .await
+}
+
+/// Resolve current deployment authority, bind one exact effect to a registered standing
+/// envelope, durably prepare it, and atomically reserve usage/deposit/spend in wallet.network.
+/// The C7 exact-request path above remains a separate signing and consumption domain.
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn authorize_standing_deployment_grant(
+    data_dir: &str,
+    grant_value: &Value,
+    standing_envelope_hash: [u8; 32],
+    policy_hash: [u8; 32],
+    required_scope: &str,
+    request_hash_ref: &str,
+    subject_ref: &str,
+    op: &str,
+    revision: u64,
+    effect: &Value,
+    estimated_deposit_microusd: u64,
+    estimated_spend_microusd: u64,
+    max_usages: u32,
+    max_cumulative_deposit_microusd: u64,
+    max_cumulative_spend_microusd: u64,
+) -> Result<AdmittedStandingGrant, (StatusCode, Json<Value>)> {
+    let required_authority = std::env::var("IOI_HYPERVISOR_AUTHORITY_PRINCIPAL_REF")
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| {
+            authority_consumption_challenge(
+                LIVE_ROUTE_AUTHORITY,
+                StatusCode::NOT_IMPLEMENTED,
+                "authority_principal_not_configured",
+                "IOI_HYPERVISOR_AUTHORITY_PRINCIPAL_REF is required; a standing grant never selects its own deployment authority".to_string(),
+            )
+        })?;
+    let resolution = resolve_required_authority(
+        LIVE_ROUTE_AUTHORITY,
+        &required_authority,
+        required_scope,
+        None,
+    )
+    .await
+    .map_err(|(status, code, message)| {
+        (
+            status,
+            Json(json!({"error": {
+                "code": code,
+                "message": message,
+                "required_authority_ref": required_authority,
+                "required_scope": required_scope,
+                "runtimeTruthSource": "daemon-runtime"
+            }})),
+        )
+    })?;
+    let (grant, canonical_grant) =
+        canonicalize_standing_approval_grant(grant_value).map_err(|message| {
+            authority_consumption_challenge(
+                LIVE_ROUTE_AUTHORITY,
+                StatusCode::FORBIDDEN,
+                "standing_authority_grant_invalid",
+                message,
+            )
+        })?;
+    let now_ms = local_now_ms();
+    if grant.standing_envelope_hash != standing_envelope_hash
+        || grant.policy_hash != policy_hash
+        || grant.max_usages > max_usages
+        || grant.max_cumulative_deposit_microusd > max_cumulative_deposit_microusd
+        || grant.max_cumulative_spend_microusd > max_cumulative_spend_microusd
+        || now_ms < grant.issued_at_ms
+        || now_ms > grant.expires_at_ms
+    {
+        return Err(authority_consumption_challenge(
+            LIVE_ROUTE_AUTHORITY,
+            StatusCode::FORBIDDEN,
+            "standing_authority_grant_invalid",
+            "standing grant does not bind the exact envelope/policy or current validity window"
+                .to_string(),
+        ));
+    }
+    let authority = &resolution.resolution.approval_authority;
+    if grant.authority_id != authority.authority_id
+        || grant.approver_public_key != authority.public_key
+        || grant.approver_suite != authority.signature_suite
+    {
+        return Err(authority_consumption_challenge(
+            LIVE_ROUTE_AUTHORITY,
+            StatusCode::FORBIDDEN,
+            "standing_authority_issuer_mismatch",
+            "standing grant signer tuple does not match the independently resolved current deployment authority".to_string(),
+        ));
+    }
+    let request_hash = sha256_ref_bytes(request_hash_ref, "request_hash").map_err(|message| {
+        authority_consumption_challenge(
+            LIVE_ROUTE_AUTHORITY,
+            StatusCode::FORBIDDEN,
+            "standing_authority_consumption_invalid",
+            message,
+        )
+    })?;
+    let grant_hash = grant.artifact_hash().map_err(|error| {
+        authority_consumption_challenge(
+            LIVE_ROUTE_AUTHORITY,
+            StatusCode::FORBIDDEN,
+            "standing_authority_consumption_invalid",
+            format!("standing approval grant cannot be hashed: {error}"),
+        )
+    })?;
+    let expected_principal_authority: ExpectedPrincipalAuthorityBinding =
+        serde_json::from_value(resolution.authority_binding.clone()).map_err(|error| {
+            authority_consumption_challenge(
+                LIVE_ROUTE_AUTHORITY,
+                StatusCode::BAD_GATEWAY,
+                "standing_authority_consumption_invalid",
+                format!("resolved principal authority cannot authorize standing use: {error}"),
+            )
+        })?;
+    let effect_hash = live_effect_hash(effect).map_err(|message| {
+        authority_consumption_challenge(
+            LIVE_ROUTE_AUTHORITY,
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "standing_authority_effect_invalid",
+            message,
+        )
+    })?;
+    let commitment = json!({
+        "domain": "ioi.hypervisor.standing-authority-consumption.v1",
+        "approval_mode": "silent_within_standing_envelope",
+        "subject_ref": subject_ref,
+        "operation": op,
+        "revision": revision,
+        "required_scope": required_scope,
+        "standing_envelope_hash": format!("sha256:{}", hex::encode(standing_envelope_hash)),
+        "policy_hash": format!("sha256:{}", hex::encode(policy_hash)),
+        "request_hash": request_hash_ref,
+        "effect_hash": effect_hash,
+        "grant_hash": format!("sha256:{}", hex::encode(grant_hash)),
+        "estimated_deposit_microusd": estimated_deposit_microusd,
+        "estimated_spend_microusd": estimated_spend_microusd,
+        "principal_authority": expected_principal_authority,
+        "standing_approval_grant": canonical_grant,
+    });
+    let encoded = serde_jcs::to_vec(&commitment).map_err(|error| {
+        authority_consumption_challenge(
+            LIVE_ROUTE_AUTHORITY,
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "standing_authority_intent_invalid",
+            format!("standing authority intent cannot be canonicalized: {error}"),
+        )
+    })?;
+    let mut consumption_id = [0u8; 32];
+    consumption_id.copy_from_slice(&Sha256::digest(encoded));
+    let tail = format!("sai_{}", hex::encode(consumption_id));
+    let params = ConsumeStandingApprovalGrantForEffectParams {
+        grant_hash,
+        standing_envelope_hash,
+        policy_hash,
+        request_hash,
+        consumption_id,
+        estimated_deposit_microusd,
+        estimated_spend_microusd,
+        expected_principal_authority,
+        expected_target_label: required_scope.to_string(),
+    };
+
+    let _guard = AUTHORITY_ADMISSION_LOCK.lock().await;
+    let existing =
+        super::durable_fs::read_record_durable(data_dir, AUTHORITY_ADMISSION_INTENT_FAMILY, &tail)
+            .map_err(|message| {
+                authority_consumption_challenge(
+                    LIVE_ROUTE_AUTHORITY,
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "standing_authority_intent_unreadable",
+                    message,
+                )
+            })?;
+    if existing
+        .as_ref()
+        .is_some_and(|record| record.get("commitment") != Some(&commitment))
+    {
+        return Err(authority_consumption_challenge(
+            LIVE_ROUTE_AUTHORITY,
+            StatusCode::CONFLICT,
+            "standing_authority_intent_conflict",
+            "the deterministic standing-authority slot contains a different commitment".into(),
+        ));
+    }
+    if existing
+        .as_ref()
+        .is_some_and(|record| record.get("status").and_then(Value::as_str) == Some("consumed"))
+    {
+        return Err(authority_consumption_challenge(
+            LIVE_ROUTE_AUTHORITY,
+            StatusCode::CONFLICT,
+            "standing_authority_operation_already_admitted",
+            "this exact standing-authority operation is already consumed and cannot invoke twice"
+                .into(),
+        ));
+    }
+    if existing.is_none() {
+        super::durable_fs::persist_record_durable(
+            data_dir,
+            AUTHORITY_ADMISSION_INTENT_FAMILY,
+            &tail,
+            &json!({
+                "schema_version": "ioi.hypervisor.authority-admission-intent.v1",
+                "intent_id": tail,
+                "status": "prepared",
+                "authority_mode": "standing_envelope",
+                "commitment": commitment,
+                "consumption_id": hex::encode(consumption_id),
+                "wallet_consumption_receipt": Value::Null,
+                "final_invoker_status": "pending",
+            }),
+        )
+        .map_err(|error| {
+            authority_consumption_challenge(
+                LIVE_ROUTE_AUTHORITY,
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "standing_authority_intent_not_durable",
+                format!("standing authority intent was not durably prepared: {error:?}"),
+            )
+        })?;
+    }
+    let receipt =
+        super::wallet_network_capability_client::consume_standing_approval_grant_for_effect(params)
+            .await
+            .map_err(|error| map_consumption_error(LIVE_ROUTE_AUTHORITY, error))?;
+    let mut consumed = json!({
+        "schema_version": "ioi.hypervisor.authority-admission-intent.v1",
+        "intent_id": tail,
+        "status": "consumed",
+        "authority_mode": "standing_envelope",
+        "commitment": commitment,
+        "consumption_id": hex::encode(consumption_id),
+        "wallet_consumption_receipt": receipt,
+        "final_invoker_status": "admitted",
+    });
+    consumed["output_hash"] = json!(record_output_hash(&consumed, &["output_hash"]));
+    super::durable_fs::persist_record_durable(
+        data_dir,
+        AUTHORITY_ADMISSION_INTENT_FAMILY,
+        &tail,
+        &consumed,
+    )
+    .map_err(|error| {
+        authority_consumption_challenge(
+            LIVE_ROUTE_AUTHORITY,
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "standing_authority_receipt_not_durable",
+            format!("wallet committed the draw but its daemon receipt did not persist: {error:?}"),
+        )
+    })?;
+    Ok(AdmittedStandingGrant {
+        admission_intent_ref: format!("{AUTHORITY_ADMISSION_INTENT_FAMILY}/{tail}"),
+        effect_hash,
+        grant_ref: format!("standing-grant://sha256:{}", hex::encode(grant_hash)),
+        receipt,
+    })
 }
 
 /// Resolve deployment authority for an operation whose owner route is byte-idempotent and whose

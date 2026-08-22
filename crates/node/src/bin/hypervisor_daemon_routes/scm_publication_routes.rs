@@ -2988,6 +2988,7 @@ pub(crate) async fn handle_scm_publish(
             .get("wallet_approval_grant")
             .cloned()
             .unwrap_or(Value::Null),
+        standing_draw: None,
     };
     let lease = match authorize_capability_lease(&state, &lease_request).await {
         Ok(lease) => lease,
@@ -2999,14 +3000,24 @@ pub(crate) async fn handle_scm_publish(
         .and_then(Value::as_str)
         .unwrap_or_default()
         .to_owned();
+    let Some(exact_admitted) = lease.admitted.exact() else {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "ok": false,
+                "code": "scm_publication_standing_authority_not_supported",
+                "message": "SCM publication requires its exact-request authority path"
+            })),
+        );
+    };
     // The admission receipt the invoker records is the wallet-owned identity the authority owner
     // can resolve — never a reference synthesized from the lease id.
     let mut authority = PublicationAuthority {
         grant_refs: vec![format!("grant://{}", lease.grant_ref)],
         scope_refs: scopes,
         capability_lease_ref: format!("lease://{lease_id}"),
-        admission_receipt_ref: format!("receipt://{}", lease.admitted.admission_intent_ref),
-        admission_effect_hash: lease.admitted.authorized.evidence.effect_hash.clone(),
+        admission_receipt_ref: format!("receipt://{}", exact_admitted.admission_intent_ref),
+        admission_effect_hash: exact_admitted.authorized.evidence.effect_hash.clone(),
         final_invocation_claim_ref: None,
         final_invocation_claim_id: None,
     };
@@ -3014,7 +3025,7 @@ pub(crate) async fn handle_scm_publish(
     // inside the dispatch window is recoverable as Unknown rather than replayable.
     let claim = match super::governed_authority::claim_final_invocation(
         &state.data_dir,
-        &lease.admitted,
+        exact_admitted,
         "scm.publication.advance-target-ref",
     )
     .await

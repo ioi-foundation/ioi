@@ -2668,6 +2668,7 @@ pub(crate) async fn handle_model_route_credential_bind(
             .get("wallet_approval_grant")
             .cloned()
             .unwrap_or(Value::Null),
+        standing_draw: None,
     };
     let custody_lease =
         match super::lifecycle_routes::authorize_capability_lease(&st, &lease_request).await {

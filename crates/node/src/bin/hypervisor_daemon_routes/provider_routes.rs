@@ -7504,6 +7504,230 @@ fn direct_akash_provider_pin(plan: &Value) -> Result<Option<String>, &'static st
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct StandingProviderDrawBounds {
+    envelope_hash: [u8; 32],
+    policy_hash: [u8; 32],
+    deposit_microusd: u64,
+    spend_reservation_microusd: u64,
+    max_usages: u32,
+    max_cumulative_deposit_microusd: u64,
+    max_cumulative_spend_microusd: u64,
+}
+
+fn decode_sha256_ref(value: &str, label: &str) -> Result<[u8; 32], String> {
+    let hex_value = value
+        .strip_prefix("sha256:")
+        .ok_or_else(|| format!("{label} is not a sha256 ref"))?;
+    if hex_value.len() != 64 || hex_value != hex_value.to_ascii_lowercase() {
+        return Err(format!("{label} is not 32 lowercase bytes"));
+    }
+    let decoded = hex::decode(hex_value).map_err(|_| format!("{label} is not hexadecimal"))?;
+    let mut output = [0u8; 32];
+    output.copy_from_slice(&decoded);
+    if output == [0u8; 32] {
+        return Err(format!("{label} must not be zero"));
+    }
+    Ok(output)
+}
+
+/// Validate daemon-derived provider facets as a subset of a registered standing envelope.
+/// Host/tool-advertised filters are never read here and therefore cannot widen this decision.
+fn validate_standing_provider_facets(
+    envelope: &Value,
+    provider_id: &str,
+    op: &str,
+    facets: &Value,
+) -> Result<StandingProviderDrawBounds, String> {
+    const CONTRACT: &str = "schema://ioi/foundations/standing-authority-envelope/v1";
+    ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
+        CONTRACT, envelope,
+    )
+    .map_err(|error| format!("standing envelope is not registered-contract valid: {error}"))?;
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_millis() as u64)
+        .unwrap_or(0);
+    if envelope
+        .get("not_before_ms")
+        .and_then(Value::as_u64)
+        .unwrap_or(u64::MAX)
+        > now_ms
+        || envelope
+            .get("expires_at_ms")
+            .and_then(Value::as_u64)
+            .unwrap_or(0)
+            < now_ms
+    {
+        return Err("standing_envelope_outside_validity_window".to_string());
+    }
+    let template = envelope
+        .get("facet_template")
+        .ok_or_else(|| "standing envelope has no facet template".to_string())?;
+    let equals = |pointer: &str, actual: &Value, code: &str| {
+        if envelope.pointer(pointer) == Some(actual) {
+            Ok(())
+        } else {
+            Err(code.to_string())
+        }
+    };
+    equals(
+        "/facet_template/provider_id",
+        &json!(provider_id),
+        "standing_provider_id_outside_envelope",
+    )?;
+    if !template
+        .get("operations")
+        .and_then(Value::as_array)
+        .is_some_and(|operations| operations.iter().any(|operation| operation == op))
+    {
+        return Err("standing_operation_outside_envelope".to_string());
+    }
+    equals(
+        "/facet_template/provider_selector/mode",
+        facets
+            .pointer("/provider_selector/mode")
+            .unwrap_or(&Value::Null),
+        "standing_provider_selector_mode_outside_envelope",
+    )?;
+    equals(
+        "/facet_template/provider_selector/selection",
+        facets
+            .pointer("/provider_selector/selection")
+            .unwrap_or(&Value::Null),
+        "standing_provider_selection_outside_envelope",
+    )?;
+    let provider_address = facets
+        .get("provider_address")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "standing_exact_provider_address_missing".to_string())?;
+    if !template
+        .pointer("/provider_selector/provider_addresses")
+        .and_then(Value::as_array)
+        .is_some_and(|addresses| addresses.iter().any(|address| address == provider_address))
+    {
+        return Err("standing_provider_address_outside_envelope".to_string());
+    }
+    let deposit_usd = facets
+        .get("deposit_usd")
+        .and_then(Value::as_f64)
+        .ok_or_else(|| "standing_deposit_missing".to_string())?;
+    let deposit_scaled = deposit_usd * 1_000_000.0;
+    if !deposit_scaled.is_finite()
+        || deposit_scaled <= 0.0
+        || (deposit_scaled.round() - deposit_scaled).abs() > 0.000_001
+    {
+        return Err("standing_deposit_not_exact_microusd".to_string());
+    }
+    let deposit_microusd = deposit_scaled.round() as u64;
+    if deposit_microusd
+        > template
+            .get("per_operation_deposit_microusd")
+            .and_then(Value::as_u64)
+            .unwrap_or(0)
+    {
+        return Err("standing_deposit_outside_envelope".to_string());
+    }
+    equals(
+        "/facet_template/pricing_ceiling/denom",
+        facets.get("ceiling_denom").unwrap_or(&Value::Null),
+        "standing_ceiling_denom_outside_envelope",
+    )?;
+    let requested_ceiling = facets
+        .get("ceiling_amount")
+        .and_then(Value::as_str)
+        .and_then(|value| value.parse::<u64>().ok())
+        .ok_or_else(|| "standing_ceiling_amount_invalid".to_string())?;
+    let allowed_ceiling = template
+        .pointer("/pricing_ceiling/amount")
+        .and_then(Value::as_str)
+        .and_then(|value| value.parse::<u64>().ok())
+        .ok_or_else(|| "standing_envelope_ceiling_invalid".to_string())?;
+    if requested_ceiling > allowed_ceiling {
+        return Err("standing_ceiling_outside_envelope".to_string());
+    }
+    for (facet, set_pointer, code) in [
+        ("sdl_hash", "/sdl_hashes", "standing_sdl_outside_envelope"),
+        (
+            "image_digest",
+            "/image_digests",
+            "standing_image_outside_envelope",
+        ),
+        (
+            "registry_host",
+            "/registry_hosts",
+            "standing_registry_outside_envelope",
+        ),
+        (
+            "result_credential_ref",
+            "/result_destination_refs",
+            "standing_result_destination_outside_envelope",
+        ),
+    ] {
+        let value = facets
+            .get(facet)
+            .and_then(Value::as_str)
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| format!("standing_{facet}_missing"))?;
+        if !template
+            .pointer(set_pointer)
+            .and_then(Value::as_array)
+            .is_some_and(|allowed| allowed.iter().any(|candidate| candidate == value))
+        {
+            return Err(code.to_string());
+        }
+    }
+    equals(
+        "/facet_template/auto_topup",
+        facets.get("auto_topup").unwrap_or(&Value::Null),
+        "standing_auto_topup_outside_envelope",
+    )?;
+    equals(
+        "/facet_template/teardown_policy",
+        facets.get("teardown_policy").unwrap_or(&Value::Null),
+        "standing_teardown_outside_envelope",
+    )?;
+    let duration = facets
+        .get("max_duration_seconds")
+        .and_then(Value::as_u64)
+        .ok_or_else(|| "standing_duration_missing".to_string())?;
+    if duration
+        > template
+            .get("max_duration_seconds")
+            .and_then(Value::as_u64)
+            .unwrap_or(0)
+    {
+        return Err("standing_duration_outside_envelope".to_string());
+    }
+    let aggregate = envelope
+        .get("aggregate_bounds")
+        .ok_or_else(|| "standing_aggregate_bounds_missing".to_string())?;
+    Ok(StandingProviderDrawBounds {
+        envelope_hash: decode_sha256_ref(text(envelope, "body_hash"), "standing envelope hash")?,
+        policy_hash: decode_sha256_ref(
+            text(envelope, "trajectory_policy_hash"),
+            "standing trajectory policy hash",
+        )?,
+        deposit_microusd,
+        // Until provider-native settlement arrives, reserve the full deposit as the conservative
+        // spend bound. Refund reconciliation may reduce exposure but never creates authority.
+        spend_reservation_microusd: deposit_microusd,
+        max_usages: aggregate
+            .get("max_usages")
+            .and_then(Value::as_u64)
+            .and_then(|value| u32::try_from(value).ok())
+            .ok_or_else(|| "standing_max_usages_invalid".to_string())?,
+        max_cumulative_deposit_microusd: aggregate
+            .get("max_cumulative_deposit_microusd")
+            .and_then(Value::as_u64)
+            .ok_or_else(|| "standing_cumulative_deposit_invalid".to_string())?,
+        max_cumulative_spend_microusd: aggregate
+            .get("max_cumulative_spend_microusd")
+            .and_then(Value::as_u64)
+            .ok_or_else(|| "standing_cumulative_spend_invalid".to_string())?,
+    })
+}
+
 const AKASH_REGISTRY_USERNAME_SENTINEL: &str = "__IOI_REGISTRY_USERNAME__";
 const AKASH_REGISTRY_PASSWORD_SENTINEL: &str = "__IOI_REGISTRY_PASSWORD__";
 const AKASH_RESULT_TOKEN_SENTINEL: &str = "__IOI_AFT_RESULT_BEARER_TOKEN__";
@@ -8144,6 +8368,7 @@ pub(crate) async fn handle_provider_op(
                     let provider_pin = provider_pin.ok().flatten();
                     vast_gate = json!({
                         "stage": "deployment_intent",
+                        "provider_id": provider_id,
                         "deposit_usd": deposit_usd,
                         "ceiling_amount": ceiling_amount,
                         "ceiling_denom": ceiling_denom,
@@ -8152,6 +8377,7 @@ pub(crate) async fn handle_provider_op(
                         "sdl_yaml": sdl_yaml,
                         "sdl_hash": sha256_bytes(sdl_yaml.as_bytes()),
                         "registry_credential_ref": body.pointer("/plan/registry_credential_ref").cloned().unwrap_or(Value::Null),
+                        "registry_host": body.pointer("/plan/registry_host").cloned().unwrap_or(Value::Null),
                         "result_credential_ref": body.pointer("/plan/result_credential_ref").cloned().unwrap_or(Value::Null),
                         "campaign_id": body.pointer("/plan/campaign_id").cloned().unwrap_or(Value::Null),
                         "benchmark_source_commit": body.pointer("/plan/benchmark_source_commit").cloned().unwrap_or(Value::Null),
@@ -8160,6 +8386,7 @@ pub(crate) async fn handle_provider_op(
                         "result_schema_version": body.pointer("/plan/result_schema_version").cloned().unwrap_or(Value::Null),
                         "benchmark_warmups": body.pointer("/plan/benchmark_warmups").cloned().unwrap_or(Value::Null),
                         "benchmark_repeats": body.pointer("/plan/benchmark_repeats").cloned().unwrap_or(Value::Null),
+                        "max_duration_seconds": body.pointer("/plan/max_duration_seconds").cloned().unwrap_or(Value::Null),
                         "execution_mode": "live",
                         "teardown_policy": body
                             .get("teardown_policy")
@@ -8432,10 +8659,9 @@ pub(crate) async fn handle_provider_op(
             if matches!(op, "create" | "redeploy")
                 && kind == "akash"
                 && vast_mode(&account) == "live"
-                && body
-                    .get("wallet_approval_grant")
-                    .map(|grant| !grant.is_null())
-                    .unwrap_or(false)
+                && ["wallet_approval_grant", "wallet_standing_approval_grant"]
+                    .iter()
+                    .any(|field| body.get(*field).is_some_and(|grant| !grant.is_null()))
             {
                 let caller = match super::mutation_event_foundation::require_write_caller(
                     data_dir, &headers, &body,
@@ -8475,7 +8701,7 @@ pub(crate) async fn handle_provider_op(
             }
             // 2) A REAL wallet grant via the capability-lease gateway — 403 challenge echoes the
             //    exact policy/request hashes to mint against; the lease descriptor carries no secret.
-            let lease_req = CapabilityLeaseRequest {
+            let mut lease_req = CapabilityLeaseRequest {
                 authority_provider_ref: "wallet.network".to_string(),
                 backing_provider: format!("provider:account:{account_id}"),
                 allowed_tools: vec![format!("provider.{op}")],
@@ -8514,6 +8740,7 @@ pub(crate) async fn handle_provider_op(
                             "persistent_storage",
                             "sdl_hash",
                             "registry_credential_ref",
+                            "registry_host",
                             "result_credential_ref",
                             "campaign_id",
                             "benchmark_source_commit",
@@ -8522,6 +8749,7 @@ pub(crate) async fn handle_provider_op(
                             "result_schema_version",
                             "benchmark_warmups",
                             "benchmark_repeats",
+                            "max_duration_seconds",
                             "deposit_usd",
                             "ceiling_amount",
                             "ceiling_denom",
@@ -8551,7 +8779,67 @@ pub(crate) async fn handle_provider_op(
                     .get("wallet_approval_grant")
                     .cloned()
                     .unwrap_or(Value::Null),
+                standing_draw: None,
             };
+            let standing_grant = body
+                .get("wallet_standing_approval_grant")
+                .cloned()
+                .unwrap_or(Value::Null);
+            let standing_envelope = body
+                .get("standing_authority_envelope")
+                .cloned()
+                .unwrap_or(Value::Null);
+            if !standing_grant.is_null() || !standing_envelope.is_null() {
+                if !lease_req.grant_value.is_null() {
+                    return (
+                        StatusCode::UNPROCESSABLE_ENTITY,
+                        Json(json!({
+                            "ok": false,
+                            "code": "provider_authority_mode_ambiguous",
+                            "message": "present exactly one of wallet_approval_grant or wallet_standing_approval_grant"
+                        })),
+                    );
+                }
+                if standing_grant.is_null() || standing_envelope.is_null() {
+                    return (
+                        StatusCode::UNPROCESSABLE_ENTITY,
+                        Json(json!({
+                            "ok": false,
+                            "code": "provider_standing_authority_incomplete",
+                            "message": "standing authority requires both its signed grant and registered envelope"
+                        })),
+                    );
+                }
+                let bounds = match validate_standing_provider_facets(
+                    &standing_envelope,
+                    provider_id,
+                    op,
+                    &lease_req.request_facets,
+                ) {
+                    Ok(bounds) => bounds,
+                    Err(reason) => {
+                        return (
+                            StatusCode::FORBIDDEN,
+                            Json(json!({
+                                "ok": false,
+                                "code": "provider_standing_authority_facets_refused",
+                                "reason": reason,
+                                "host_mutation": false
+                            })),
+                        )
+                    }
+                };
+                lease_req.standing_draw = Some(super::lifecycle_routes::StandingCapabilityDraw {
+                    grant_value: standing_grant,
+                    envelope_hash: bounds.envelope_hash,
+                    policy_hash: bounds.policy_hash,
+                    estimated_deposit_microusd: bounds.deposit_microusd,
+                    estimated_spend_microusd: bounds.spend_reservation_microusd,
+                    max_usages: bounds.max_usages,
+                    max_cumulative_deposit_microusd: bounds.max_cumulative_deposit_microusd,
+                    max_cumulative_spend_microusd: bounds.max_cumulative_spend_microusd,
+                });
+            }
             match authorize_capability_lease(&st, &lease_req).await {
                 Err((status, challenge)) => {
                     let outcome = if status == StatusCode::PRECONDITION_REQUIRED {
@@ -9157,6 +9445,67 @@ mod containment_tests {
         assert_eq!(
             direct_akash_provider_pin(&smuggled),
             Err("marketplace_selector_cannot_carry_provider_pin")
+        );
+    }
+
+    #[test]
+    fn standing_provider_facets_are_closed_over_daemon_derived_values() {
+        let envelope: Value = serde_json::from_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../docs/architecture/_meta/schemas/fixtures/standing-authority-envelope-v1/positive-u1.json"
+        )))
+        .expect("standing envelope fixture");
+        let facets = json!({
+            "provider_selector": {
+                "mode": "exact",
+                "provider_address": "akash19zzh7whjt4vfwxd5wtj3tjtyatnpntfhldshd8",
+                "selection": "only_qualified_bid_from_exact_provider"
+            },
+            "provider_address": "akash19zzh7whjt4vfwxd5wtj3tjtyatnpntfhldshd8",
+            "deposit_usd": 1.0,
+            "ceiling_amount": "1000",
+            "ceiling_denom": "uact",
+            "sdl_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "image_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "registry_host": "ghcr.io",
+            "result_credential_ref": "connector://conn_eee2dfac02809de0",
+            "auto_topup": false,
+            "teardown_policy": "always_teardown_required",
+            "max_duration_seconds": 3600
+        });
+        let bounds = validate_standing_provider_facets(
+            &envelope,
+            "pacc_18cd245812ad55b9",
+            "create",
+            &facets,
+        )
+        .expect("exact subset");
+        assert_eq!(bounds.deposit_microusd, 1_000_000);
+        assert_eq!(bounds.spend_reservation_microusd, 1_000_000);
+
+        let mut widened = facets.clone();
+        widened["result_credential_ref"] = json!("connector://attacker");
+        assert_eq!(
+            validate_standing_provider_facets(
+                &envelope,
+                "pacc_18cd245812ad55b9",
+                "create",
+                &widened,
+            )
+            .unwrap_err(),
+            "standing_result_destination_outside_envelope"
+        );
+        let mut expensive = facets;
+        expensive["deposit_usd"] = json!(1.000001);
+        assert_eq!(
+            validate_standing_provider_facets(
+                &envelope,
+                "pacc_18cd245812ad55b9",
+                "create",
+                &expensive,
+            )
+            .unwrap_err(),
+            "standing_deposit_outside_envelope"
         );
     }
 

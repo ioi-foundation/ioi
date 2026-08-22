@@ -12424,6 +12424,48 @@ pub(crate) struct CapabilityLeaseRequest {
     pub(crate) authority_reason: String,
     /// The wallet_approval_grant carried on the request body (Null → 403 challenge).
     pub(crate) grant_value: Value,
+    /// Optional daemon-derived standing-envelope draw. Only a route that has validated every
+    /// effect facet against the registered envelope may construct this value.
+    pub(crate) standing_draw: Option<StandingCapabilityDraw>,
+}
+
+pub(crate) struct StandingCapabilityDraw {
+    pub(crate) grant_value: Value,
+    pub(crate) envelope_hash: [u8; 32],
+    pub(crate) policy_hash: [u8; 32],
+    pub(crate) estimated_deposit_microusd: u64,
+    pub(crate) estimated_spend_microusd: u64,
+    pub(crate) max_usages: u32,
+    pub(crate) max_cumulative_deposit_microusd: u64,
+    pub(crate) max_cumulative_spend_microusd: u64,
+}
+
+pub(crate) enum CapabilityAuthorityAdmission {
+    Exact(super::governed_authority::AdmittedDeploymentGrant),
+    Standing(super::governed_authority::AdmittedStandingGrant),
+}
+
+impl CapabilityAuthorityAdmission {
+    pub(crate) fn intent_ref(&self) -> &str {
+        match self {
+            Self::Exact(admitted) => &admitted.admission_intent_ref,
+            Self::Standing(admitted) => &admitted.admission_intent_ref,
+        }
+    }
+
+    pub(crate) fn effect_hash(&self) -> &str {
+        match self {
+            Self::Exact(admitted) => &admitted.authorized.evidence.effect_hash,
+            Self::Standing(admitted) => &admitted.effect_hash,
+        }
+    }
+
+    pub(crate) fn exact(&self) -> Option<&super::governed_authority::AdmittedDeploymentGrant> {
+        match self {
+            Self::Exact(admitted) => Some(admitted),
+            Self::Standing(_) => None,
+        }
+    }
 }
 
 /// The authorized lease. `token` is for the daemon to USE; it is NEVER serialized or returned.
@@ -12437,7 +12479,7 @@ pub(crate) struct AuthorizedCapabilityLease {
     /// The wallet-owned admission this lease was issued under. Callers that reach a real final
     /// invoker MUST claim through this value rather than synthesizing a receipt reference from
     /// the lease id, so the identity the invoker records is the one the owner can resolve.
-    pub(crate) admitted: super::governed_authority::AdmittedDeploymentGrant,
+    pub(crate) admitted: CapabilityAuthorityAdmission,
 }
 
 fn capability_lease_policy_hash(req: &CapabilityLeaseRequest) -> String {
@@ -12658,19 +12700,41 @@ pub(crate) async fn authorize_capability_lease(
         "receipt_required": req.receipt_required,
         "revocation_ref": req.revocation_ref,
     });
-    let admitted = match super::governed_authority::authorize_deployment_grant(
-        &st.data_dir,
-        &req.grant_value,
-        &required_scope,
-        &policy_hash,
-        &request_hash,
-        &subject_ref,
-        &operation,
-        1,
-        &effect,
-    )
-    .await
-    {
+    let admitted = match if let Some(draw) = req.standing_draw.as_ref() {
+        super::governed_authority::authorize_standing_deployment_grant(
+            &st.data_dir,
+            &draw.grant_value,
+            draw.envelope_hash,
+            draw.policy_hash,
+            &required_scope,
+            &request_hash,
+            &subject_ref,
+            &operation,
+            1,
+            &effect,
+            draw.estimated_deposit_microusd,
+            draw.estimated_spend_microusd,
+            draw.max_usages,
+            draw.max_cumulative_deposit_microusd,
+            draw.max_cumulative_spend_microusd,
+        )
+        .await
+        .map(CapabilityAuthorityAdmission::Standing)
+    } else {
+        super::governed_authority::authorize_deployment_grant(
+            &st.data_dir,
+            &req.grant_value,
+            &required_scope,
+            &policy_hash,
+            &request_hash,
+            &subject_ref,
+            &operation,
+            1,
+            &effect,
+        )
+        .await
+        .map(CapabilityAuthorityAdmission::Exact)
+    } {
         Ok(admitted) => admitted,
         Err((status, Json(challenge))) => {
             return Err((
@@ -12689,9 +12753,16 @@ pub(crate) async fn authorize_capability_lease(
             ));
         }
     };
-    if let Err(reason) =
-        super::governed_authority::revalidate_admission_receipt(&st.data_dir, &admitted).await
-    {
+    let revalidation = match &admitted {
+        CapabilityAuthorityAdmission::Exact(exact) => {
+            super::governed_authority::revalidate_admission_receipt(&st.data_dir, exact).await
+        }
+        CapabilityAuthorityAdmission::Standing(standing) => {
+            super::governed_authority::revalidate_standing_admission_receipt(&st.data_dir, standing)
+                .await
+        }
+    };
+    if let Err(reason) = revalidation {
         return Err((
             StatusCode::SERVICE_UNAVAILABLE,
             json!({
@@ -12705,20 +12776,25 @@ pub(crate) async fn authorize_capability_lease(
     }
 
     // 3) Issue + persist the lease (the 9-field shape). No secret in the descriptor.
-    let expires_at = req
-        .grant_value
+    let authority_grant_value = req
+        .standing_draw
+        .as_ref()
+        .map(|draw| &draw.grant_value)
+        .unwrap_or(&req.grant_value);
+    let expires_at = authority_grant_value
         .get("expires_at")
-        .or_else(|| req.grant_value.get("expiresAt"))
+        .or_else(|| authority_grant_value.get("expiresAt"))
+        .or_else(|| authority_grant_value.get("expires_at_ms"))
         .cloned()
         .unwrap_or(Value::Null);
     let lease_id = format!(
         "lease_{}",
         short_hash(&format!("{policy_hash}:{request_hash}"))
     );
-    let authority_provider_ref = if admitted.authorized.evidence.grant_ref.trim().is_empty() {
-        req.authority_provider_ref.clone()
-    } else {
-        "wallet.network".to_string()
+    let authority_provider_ref = "wallet.network".to_string();
+    let admitted_grant_ref = match &admitted {
+        CapabilityAuthorityAdmission::Exact(exact) => exact.authorized.evidence.grant_ref.clone(),
+        CapabilityAuthorityAdmission::Standing(standing) => standing.grant_ref.clone(),
     };
     let descriptor = json!({
         "schema_version": "ioi.hypervisor.capability-lease.v1",
@@ -12732,8 +12808,9 @@ pub(crate) async fn authorize_capability_lease(
         "expires_at": expires_at,
         "receipt_required": req.receipt_required,
         "revocation_ref": req.revocation_ref,
-        "grant_ref": admitted.authorized.evidence.grant_ref.clone(),
-        "admission_intent_ref": admitted.admission_intent_ref.clone(),
+        "grant_ref": admitted_grant_ref,
+        "admission_intent_ref": admitted.intent_ref(),
+        "authority_mode": if req.standing_draw.is_some() { "standing_envelope" } else { "exact_request" },
         "state": "active",
         "remaining_calls": 0,
         "credential_source": credential_source,
@@ -12756,7 +12833,7 @@ pub(crate) async fn authorize_capability_lease(
     Ok(AuthorizedCapabilityLease {
         descriptor,
         token,
-        grant_ref: admitted.authorized.evidence.grant_ref.clone(),
+        grant_ref: admitted_grant_ref,
         credential_source,
         credential_key_source,
         admitted,
@@ -14160,6 +14237,7 @@ pub(crate) async fn handle_connector_invoke(
             .get("wallet_approval_grant")
             .cloned()
             .unwrap_or(Value::Null),
+        standing_draw: None,
     };
     let lease = match authorize_capability_lease(&st, &lease_req).await {
         Ok(l) => l,
@@ -20745,6 +20823,7 @@ pub(crate) async fn handle_scm_abandon_pull_request(
             .get("wallet_approval_grant")
             .cloned()
             .unwrap_or(Value::Null),
+        standing_draw: None,
     };
     let lease = match authorize_capability_lease(&st, &lease_req).await {
         Ok(l) => l,

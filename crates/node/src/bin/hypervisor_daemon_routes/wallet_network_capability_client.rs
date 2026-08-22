@@ -28,6 +28,7 @@ use ioi_ipc::public::{
 use ioi_services::wallet_network::{
     verify_wallet_signature_proof, ApprovalGrantConsumptionReceipt, ApprovalGrantState,
     ConsumeApprovalGrantForEffectParams, ConsumeApprovalGrantForEffectV2Params,
+    ConsumeStandingApprovalGrantForEffectParams, StandingApprovalGrantConsumptionReceipt,
 };
 use ioi_types::app::wallet_network::{WalletApprovalDecision, WalletApprovalDecisionKind};
 use ioi_types::app::{
@@ -39,6 +40,7 @@ use ioi_types::app::{
 use ioi_types::codec;
 use ioi_types::keys::ACCOUNT_NONCE_PREFIX;
 use ioi_validator::common::GuardianContainer;
+use sha2::{Digest, Sha256};
 use tonic::transport::{Certificate, Channel, ClientTlsConfig, Endpoint};
 
 const RECEIPT_PREFIX: &[u8] = b"principal_authority_resolution_receipt::";
@@ -46,6 +48,8 @@ const BINDING_PREFIX: &[u8] = b"principal_authority_binding::";
 const EFFECT_CONSUMPTION_RECEIPT_PREFIX: &[u8] = b"approval_effect_consumption_receipt::";
 const APPROVAL_PREFIX: &[u8] = b"approval::";
 const APPROVAL_GRANT_STATE_PREFIX: &[u8] = b"approval_grant_state::";
+const STANDING_EFFECT_CONSUMPTION_RECEIPT_PREFIX: &[u8] =
+    b"standing_approval_consumption_receipt::";
 const REVOCATION_EPOCH_KEY: &[u8] = b"revocation_epoch";
 const PANIC_FLAG_KEY: &[u8] = b"panic";
 const DEFAULT_TIMEOUT_MS: u64 = 5_000;
@@ -721,6 +725,113 @@ pub(crate) async fn consume_approval_grant_for_effect_v2(
     .map_err(|_| {
         ResolveError::Unavailable(format!(
             "authenticated wallet.network grant consumption exceeded {} ms",
+            timeout.as_millis()
+        ))
+    })?
+}
+
+fn validate_standing_effect_consumption_receipt(
+    params: &ConsumeStandingApprovalGrantForEffectParams,
+    receipt: StandingApprovalGrantConsumptionReceipt,
+) -> Result<StandingApprovalGrantConsumptionReceipt, ResolveError> {
+    let mut material = serde_json::to_value(&receipt).map_err(|error| {
+        ResolveError::Invalid(format!("standing receipt cannot be projected: {error}"))
+    })?;
+    material["receipt_hash"] = serde_json::json!(vec![0u8; 32]);
+    let canonical = serde_jcs::to_vec(&material).map_err(|error| {
+        ResolveError::Invalid(format!("standing receipt cannot be canonicalized: {error}"))
+    })?;
+    let expected_hash: [u8; 32] = Sha256::digest(canonical).into();
+    if receipt.schema_version == 1
+        && receipt.grant_hash == params.grant_hash
+        && receipt.standing_envelope_hash == params.standing_envelope_hash
+        && receipt.policy_hash == params.policy_hash
+        && receipt.request_hash == params.request_hash
+        && receipt.consumption_id == params.consumption_id
+        && receipt.expected_principal_authority == params.expected_principal_authority
+        && receipt.target_label == params.expected_target_label
+        && receipt.estimated_deposit_microusd == params.estimated_deposit_microusd
+        && receipt.estimated_spend_microusd == params.estimated_spend_microusd
+        && receipt.receipt_hash == expected_hash
+    {
+        Ok(receipt)
+    } else {
+        Err(ResolveError::Invalid(
+            "wallet.network found a foreign standing receipt in the requested consumption slot"
+                .to_string(),
+        ))
+    }
+}
+
+/// Atomically reserve one bounded effect against a previously registered standing grant.
+pub(crate) async fn consume_standing_approval_grant_for_effect(
+    params: ConsumeStandingApprovalGrantForEffectParams,
+) -> Result<StandingApprovalGrantConsumptionReceipt, ResolveError> {
+    let config = load_config()?;
+    let timeout = config.timeout;
+    tokio::time::timeout(timeout, async {
+        let _transaction_guard = TRANSACTION_LOCK.lock().await;
+        #[cfg(unix)]
+        let _process_guard =
+            acquire_wallet_transaction_process_lock(&config.transaction_lock_path).await?;
+        let mut client = connect(&config).await?;
+        let encoded = codec::to_bytes_canonical(&params).map_err(|error| {
+            ResolveError::Invalid(format!("standing approval draw encoding failed: {error}"))
+        })?;
+        submit_service_call(
+            &config,
+            &mut client,
+            "consume_standing_approval_grant_for_effect@v1",
+            encoded,
+        )
+        .await?;
+        let receipt_key = namespaced_key(
+            STANDING_EFFECT_CONSUMPTION_RECEIPT_PREFIX,
+            &params.consumption_id,
+        );
+        let bytes = query_raw(&mut client, receipt_key).await?.ok_or_else(|| {
+            ResolveError::Invalid(
+                "committed wallet.network standing draw emitted no receipt".to_string(),
+            )
+        })?;
+        let receipt: StandingApprovalGrantConsumptionReceipt = decode_state_value(&bytes)?;
+        validate_standing_effect_consumption_receipt(&params, receipt)
+    })
+    .await
+    .map_err(|_| {
+        ResolveError::Unavailable(format!(
+            "authenticated wallet.network standing draw exceeded {} ms",
+            timeout.as_millis()
+        ))
+    })?
+}
+
+/// Recover an idempotent standing draw after wallet commit without spending a second usage.
+pub(crate) async fn recover_standing_approval_grant_consumption_for_effect(
+    params: &ConsumeStandingApprovalGrantForEffectParams,
+) -> Result<Option<StandingApprovalGrantConsumptionReceipt>, ResolveError> {
+    let config = load_config()?;
+    let timeout = config.timeout;
+    tokio::time::timeout(timeout, async {
+        let _transaction_guard = TRANSACTION_LOCK.lock().await;
+        let mut client = connect(&config).await?;
+        let receipt_key = namespaced_key(
+            STANDING_EFFECT_CONSUMPTION_RECEIPT_PREFIX,
+            &params.consumption_id,
+        );
+        query_raw(&mut client, receipt_key)
+            .await?
+            .map(|bytes| {
+                decode_state_value::<StandingApprovalGrantConsumptionReceipt>(&bytes).and_then(
+                    |receipt| validate_standing_effect_consumption_receipt(params, receipt),
+                )
+            })
+            .transpose()
+    })
+    .await
+    .map_err(|_| {
+        ResolveError::Unavailable(format!(
+            "authenticated wallet.network standing draw recovery exceeded {} ms",
             timeout.as_millis()
         ))
     })?

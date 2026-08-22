@@ -11,12 +11,16 @@ const paths = {
   wallet: "crates/services/src/wallet_network/mod.rs",
   auth: "crates/services/src/wallet_network/handlers/client_auth.rs",
   config: "crates/types/src/config/mod.rs",
+  provider: "crates/node/src/bin/hypervisor_daemon_routes/provider_routes.rs",
+  governed: "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs",
+  client: "crates/node/src/bin/hypervisor_daemon_routes/wallet_network_capability_client.rs",
+  lifecycle: "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
 };
 const sources = Object.fromEntries(
   Object.entries(paths).map(([name, path]) => [name, readFileSync(join(repo, path), "utf8")]),
 );
 
-function inspect({ action, handler, wallet, auth, config }) {
+function inspect({ action, handler, wallet, auth, config, provider, governed, client, lifecycle }) {
   const findings = [];
   const requireText = (source, value, code) => {
     if (!source.includes(value)) findings.push(code);
@@ -43,6 +47,17 @@ function inspect({ action, handler, wallet, auth, config }) {
   requireText(auth, "WalletAuthRole::ControlPlane", "standing_grant_control_plane_gate_missing");
   requireText(auth, "WalletAuthRole::Capability", "standing_draw_capability_gate_missing");
   requireText(config, "WALLET_STANDING_AUTHORITY_CONFIG_MIGRATION_CODE", "explicit_policy_migration_missing");
+  requireText(provider, "fn validate_standing_provider_facets(", "daemon_facet_containment_missing");
+  requireText(provider, "standing_result_destination_outside_envelope", "result_destination_containment_missing");
+  requireText(provider, "standing_provider_address_outside_envelope", "provider_containment_missing");
+  requireText(provider, "standing_deposit_outside_envelope", "per_effect_deposit_containment_missing");
+  requireText(provider, "provider_authority_mode_ambiguous", "authority_mode_confusion_not_refused");
+  requireText(governed, "canonicalize_standing_approval_grant", "standing_grant_canonicalizer_missing");
+  requireText(governed, "ioi.hypervisor.standing-authority-consumption.v1", "standing_intent_domain_missing");
+  requireText(governed, "revalidate_standing_admission_receipt", "standing_pre_invoker_revalidation_missing");
+  requireText(client, "receipt.receipt_hash == expected_hash", "standing_receipt_hash_not_verified");
+  requireText(client, "recover_standing_approval_grant_consumption_for_effect", "standing_receipt_recovery_missing");
+  requireText(lifecycle, "CapabilityAuthorityAdmission::Standing", "capability_gateway_standing_lane_missing");
   return [...new Set(findings)].sort();
 }
 
@@ -72,6 +87,16 @@ if (process.argv.includes("--mutation")) {
       name: "revocation_epoch_ignored",
       expected: "revocation_epoch_not_enforced",
       sources: { ...sources, handler: sources.handler.replace("issued_revocation_epoch != load_revocation_epoch(state)?", "false") },
+    },
+    {
+      name: "result_destination_containment_removed",
+      expected: "result_destination_containment_missing",
+      sources: { ...sources, provider: sources.provider.replaceAll("standing_result_destination_outside_envelope", "standing_destination_unchecked") },
+    },
+    {
+      name: "wallet_receipt_hash_not_compared",
+      expected: "standing_receipt_hash_not_verified",
+      sources: { ...sources, client: sources.client.replace("receipt.receipt_hash == expected_hash", "receipt.receipt_hash != [0u8; 32]") },
     },
   ];
   const survived = mutations.filter(({ sources: mutated, expected }) => !inspect(mutated).includes(expected));
