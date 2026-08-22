@@ -265,8 +265,10 @@ const PINNED = [
   {"file": "lifecycle_routes.rs", "rule": "B", "key": "is_impersonated", "count": 1, "disposition": "sanctioned", "justification": "W1.2 2026-08-08: this is resolve_acting_principal_ref's REFUSAL list, not a body->record copy \u2014 it is the gate that ENFORCES INV-37 (refuses any caller-supplied WHO field incl. is_impersonated), the opposite of a violation"},
   {"file": "lifecycle_routes.rs", "rule": "D", "key": "user://local-operator", "count": 7, "disposition": "sanctioned", "justification": "W1.2 2026-08-08 all read: 1 canonical resolver local-dev lane (hypervisor_request_identity :6012), 1 new resolve_acting_principal_ref local-dev fallback (both the sanctioned unauthenticated lane), and 5 stored-session absent-owner_ref legacy defaults \u2014 under enforcement session_request_owner yields user://usr_* or the OPERATOR UUID so a defaulted record equals NO authenticated principal (legacy records invisible/unmodifiable = fail-closed); load-bearing only in the local-dev seed lane, not an impersonation surface"},
   {"file": "orchestration_routes.rs", "rule": "F", "key": "auth-header", "count": 1, "disposition": "sanctioned", "justification": "read 2026-08-08: webhook delivery authenticates by a per-automation rotated trigger token (x-ioi-trigger-token / Bearer) compared against the stored secret \u2014 a presented capability, not a principal resolver"},
+  {"file": "provider_routes.rs", "rule": "F", "key": "auth-header", "count": 2, "disposition": "sanctioned", "justification": "read 2026-08-22: provider_proposal_session_binding hashes the already-authenticated transport token solely to require proposal issuance and one-time consumption under the same session; require_write_caller separately resolves the principal first, and no header value becomes principal evidence"},
   {"file": "portal_session_exchange_routes.rs", "rule": "F", "key": "tenant-resolver", "count": 1, "disposition": "sanctioned", "justification": "read 2026-08-08: session-mint seam delegates to the canonical lifecycle_routes resolver to snapshot full membership INTO the session record (the projection later requests narrow FROM); it does not re-derive scope on a later request"},
   {"file": "supervisor_routes.rs", "rule": "F", "key": "auth-header", "count": 1, "disposition": "sanctioned", "justification": "read 2026-08-08: bearer() extracts a capability-lease token adjudicated against the durable authority-grants record (lease_binds_env) \u2014 a presented grant independently verified, not a principal resolver"},
+  {"file": "workload_effect_boundary.rs", "rule": "B", "key": "principal_ref", "count": 1, "disposition": "sanctioned", "justification": "read 2026-08-22: proposal_matches_record iterates principal_ref only to compare the guest proposal against the host-minted durable capability and refuses substitution; it never copies caller attribution into a record"},
 ];
 
 // Rule H baseline: mutating handlers with no in-handler identity/authority
@@ -442,7 +444,6 @@ const H_BASELINE = [
   "provider_routes.rs::handle_provider_account_delete",
   "provider_routes.rs::handle_provider_account_patch",
   "provider_routes.rs::handle_provider_account_preflight",
-  "provider_routes.rs::handle_provider_op",
   "resource_routes.rs::handle_allocate",
   "resource_routes.rs::handle_budget_create",
   "resource_routes.rs::handle_catchup",

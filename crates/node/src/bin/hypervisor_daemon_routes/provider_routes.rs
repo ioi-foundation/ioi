@@ -8003,9 +8003,18 @@ pub(crate) async fn handle_provider_op(
         // still owner-scoped local writes and are authenticated below.
         let akash_live_readiness =
             op == "start" && kind == "akash" && vast_mode(&account) == "live";
-        let akash_live_result_binding = op == "logs"
-            && kind == "akash"
-            && vast_mode(&account) == "live"
+        let akash_live_logs_caller =
+            if op == "logs" && kind == "akash" && vast_mode(&account) == "live" {
+                match super::mutation_event_foundation::require_write_caller(
+                    data_dir, &headers, &body,
+                ) {
+                    Ok(caller) => Some(caller),
+                    Err(reply) => return reply,
+                }
+            } else {
+                None
+            };
+        let akash_live_result_binding = akash_live_logs_caller.is_some()
             && read_record_dir(data_dir, AKASH_DEPLOYMENT_KIND)
                 .into_iter()
                 .find(|record| text(record, "environment_ref") == env_ref)
@@ -8016,11 +8025,7 @@ pub(crate) async fn handle_provider_op(
             "preflight" | "observe" | "logs" | "events" | "reconcile" | "delete"
         ) && !akash_live_readiness;
         let result_binding_caller = if akash_live_result_binding {
-            match super::mutation_event_foundation::require_write_caller(data_dir, &headers, &body)
-            {
-                Ok(caller) => Some(caller),
-                Err(reply) => return reply,
-            }
+            akash_live_logs_caller
         } else {
             None
         };
