@@ -272,7 +272,7 @@ jobs:
             --env IOI_AFT_BENCH_TRACE=1 \
             --env IOI_AFT_BENCH_SCENARIO=paper_guardian_majority_4v \
             "${image}" \
-            test --release \
+            test --locked --offline --release \
               -p ioi-cli \
               --features consensus-aft,vm-wasm,state-jellyfish \
               --test benchmark_throughput \

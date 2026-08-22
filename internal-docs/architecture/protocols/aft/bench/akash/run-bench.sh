@@ -34,7 +34,7 @@ set_status() {
 }
 
 bench_cmd() {
-  cargo test --release \
+  cargo test --locked --offline --release \
     -p ioi-cli \
     --features consensus-aft,vm-wasm,state-jellyfish \
     --test benchmark_throughput \
