@@ -91,6 +91,22 @@ function inspect(microvm, brokerSource = broker, daemonSource = daemon) {
     "live_root_guest_probe_missing",
   );
   requireText(
+    "pub(crate) fn hostile_guest_proposal_roundtrip",
+    "hostile_guest_proposal_roundtrip_missing",
+  );
+  requireText(
+    "if returned != proposal_bytes",
+    "guest_proposal_roundtrip_exactness_missing",
+  );
+  requireText(
+    '"host_trigger_in_guest": false',
+    "host_trigger_guest_nonpossession_evidence_missing",
+  );
+  requireText(
+    '"direct_protected_provider_invocations": 0',
+    "direct_provider_invocation_counter_missing",
+  );
+  requireText(
     "arm_monitor_parent_death(&mut cmd);",
     "monitor_parent_death_cleanup_missing",
   );
@@ -152,6 +168,14 @@ function inspect(microvm, brokerSource = broker, daemonSource = daemon) {
     [
       "handle_governed_capability_consume",
       "capability_authenticated_host_finalizer_missing",
+    ],
+    [
+      "handle_hostile_guest_roundtrip",
+      "hostile_guest_roundtrip_handler_missing",
+    ],
+    [
+      "authorize_hostile_guest_roundtrip",
+      "hostile_guest_roundtrip_host_binding_missing",
     ],
     [
       "invoke_workload_brokered_provider_operation",
@@ -225,6 +249,10 @@ function inspect(microvm, brokerSource = broker, daemonSource = daemon) {
       '"/v1/hypervisor/workload-effect-capabilities/consume"',
       "host_finalizer_route_missing",
     ],
+    [
+      '"/v1/hypervisor/workload-effect-capabilities/hostile-guest-roundtrip"',
+      "hostile_guest_roundtrip_route_missing",
+    ],
   ]) {
     if (!daemonSource.includes(text)) findings.push(code);
   }
@@ -289,6 +317,17 @@ if (process.argv.includes("--mutation")) {
     );
     process.exit(1);
   }
+  const inexactRoundtrip = originalMicrovm.replace(
+    "if returned != proposal_bytes",
+    "if false",
+  );
+  const roundtripFindings = inspect(inexactRoundtrip);
+  if (!roundtripFindings.includes("guest_proposal_roundtrip_exactness_missing")) {
+    console.error(
+      "MUTATION SURVIVED: hostile guest could substitute proposal bytes across quarantine",
+    );
+    process.exit(1);
+  }
   console.log(
     JSON.stringify(
       {
@@ -310,6 +349,10 @@ if (process.argv.includes("--mutation")) {
           {
             mutation: "remove_host_only_trigger_from_governed_finalizer",
             detected_by: "host_trigger_finalizer_gate_missing",
+          },
+          {
+            mutation: "remove_byte_exact_hostile_guest_proposal_roundtrip_check",
+            detected_by: "guest_proposal_roundtrip_exactness_missing",
           },
         ],
       },
@@ -347,6 +390,10 @@ if (process.argv.includes("--live")) {
   runCargo("root_guest_cannot_reach_a_host_canary_or_find_protected_material", [
     "--ignored",
   ]);
+  runCargo(
+    "governed_proposal_crosses_the_real_hostile_guest_roundtrip_without_host_authority",
+    ["--ignored"],
+  );
 }
 
 console.log(

@@ -28,6 +28,7 @@ import {
   validateProviderPreflight,
   validateProviderPreflightResponse,
 } from "./lib/certified-campaign-config.mjs";
+import { stableStringify } from "./lib/c7-c8-certificate.mjs";
 import { startRealWalletNetworkPrincipalAuthorityFixture } from "./lib/wallet-network-principal-authority-fixture.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -253,6 +254,9 @@ try {
     owner_ref: request.owner_ref,
     idempotency_key: request.idempotency_key,
     reviewed_facets: facets,
+    workload_effect_broker: config.workload_effect_broker?.enabled === true
+      ? config.workload_effect_broker
+      : null,
   };
   const approvalRequest = {
     schema_version: "ioi.hypervisor.certified-provider-approval.v1",
@@ -300,12 +304,83 @@ try {
     save("proposal.json", proposal);
     save("c7-proposal-admission.json", proposal);
     if (!proposalResponse.ok || proposal.ok !== true) throw new Error("daemon proposal issuance refused");
-    const castResponse = await fetch(`${daemonUrl}/v1/hypervisor/provider-ops`, {
-      method: "POST",
-      headers: headers(session),
-      body: JSON.stringify({ ...admitted, operation_proposal_ref: proposal.proposal_ref }),
-    });
-    const cast = await castResponse.json();
+    const fullProviderRequest = { ...admitted, operation_proposal_ref: proposal.proposal_ref };
+    let castResponse;
+    let cast;
+    if (config.workload_effect_broker?.enabled === true) {
+      const broker = config.workload_effect_broker;
+      const mintedResponse = await fetch(`${daemonUrl}/v1/hypervisor/workload-effect-capabilities`, {
+        method: "POST",
+        headers: headers(session),
+        body: JSON.stringify({
+          isolation_binding_ref: broker.isolation_binding_ref,
+          isolation_binding_hash: broker.isolation_binding_hash,
+          guest_principal_ref: broker.guest_principal_ref,
+          proposal_nonce: broker.proposal_nonce,
+          resource_ref: broker.resource_ref,
+          result_destination_ref: broker.result_destination_ref,
+          full_provider_request: fullProviderRequest,
+          expires_at_ms: Date.now() + broker.expires_in_seconds * 1_000,
+        }),
+      });
+      const minted = await mintedResponse.json();
+      const guestProposal = minted.broker_bundle?.guest_proposal;
+      const hostTrigger = minted.broker_bundle?.host_trigger || "";
+      if (!mintedResponse.ok || minted.ok !== true || !guestProposal || !hostTrigger.startsWith("wbt_")) {
+        throw new Error(`workload effect capability mint refused: ${minted.code || mintedResponse.status}`);
+      }
+      const guestProposalBytes = Buffer.from(stableStringify(guestProposal));
+      save("workload-effect-mint.json", {
+        ok: true,
+        schema_version: minted.broker_bundle.schema_version,
+        capability_ref: guestProposal.capability_ref,
+        guest_proposal_hash: sha256(guestProposalBytes),
+        host_trigger_hash: sha256(hostTrigger),
+        host_trigger_persisted: false,
+      });
+      const roundtripResponse = await fetch(
+        `${daemonUrl}/v1/hypervisor/workload-effect-capabilities/hostile-guest-roundtrip`,
+        {
+          method: "POST",
+          headers: headers(session),
+          body: JSON.stringify({ proposal_jcs_base64: guestProposalBytes.toString("base64") }),
+        },
+      );
+      const roundtrip = await roundtripResponse.json();
+      if (!roundtripResponse.ok || roundtrip.ok !== true || !roundtrip.proposal_jcs_base64) {
+        throw new Error(`hostile guest roundtrip refused: ${roundtrip.code || roundtripResponse.status}`);
+      }
+      save("workload-effect-isolation-evidence.json", roundtrip.enforcement_evidence);
+      const returnedBytes = Buffer.from(roundtrip.proposal_jcs_base64, "base64");
+      if (!returnedBytes.equals(guestProposalBytes)) {
+        throw new Error("hostile guest changed proposal bytes after daemon quarantine");
+      }
+      const consumedResponse = await fetch(
+        `${daemonUrl}/v1/hypervisor/workload-effect-capabilities/consume`,
+        {
+          method: "POST",
+          headers: headers(),
+          body: JSON.stringify({
+            proposal_jcs_base64: roundtrip.proposal_jcs_base64,
+            host_trigger: hostTrigger,
+          }),
+        },
+      );
+      const consumed = await consumedResponse.json();
+      save("workload-effect-consumption.json", consumed);
+      castResponse = consumedResponse;
+      cast = consumed.receipts?.effect_receipt || consumed;
+      if (consumedResponse.ok && consumed.ok === true && consumed.receipts?.consumption_receipt) {
+        log("cast crossed fresh no-NIC hostile guest and host-triggered governed final invoker");
+      }
+    } else {
+      castResponse = await fetch(`${daemonUrl}/v1/hypervisor/provider-ops`, {
+        method: "POST",
+        headers: headers(session),
+        body: JSON.stringify(fullProviderRequest),
+      });
+      cast = await castResponse.json();
+    }
     save("cast.json", cast);
     save("c7-cast.json", cast);
     dseq = String(

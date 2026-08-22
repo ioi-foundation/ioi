@@ -3240,6 +3240,10 @@ async fn async_main() -> anyhow::Result<()> {
             post(workload_effect_boundary::handle_governed_capability_consume),
         )
         .route(
+            "/v1/hypervisor/workload-effect-capabilities/hostile-guest-roundtrip",
+            post(workload_effect_boundary::handle_hostile_guest_roundtrip),
+        )
+        .route(
             "/v1/hypervisor/provider-ops",
             post(provider_routes::handle_provider_op),
         )

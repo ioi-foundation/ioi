@@ -44,6 +44,38 @@ export function validateCertifiedCampaignConfig(config) {
     throw new Error("plan.teardown_policy must be always_teardown_required");
   }
   if (plan.auto_topup === true) throw new Error("plan.auto_topup cannot be enabled");
+  if (config.workload_effect_broker?.enabled === true) {
+    const broker = config.workload_effect_broker;
+    const exactKeys = [
+      "enabled",
+      "isolation_binding_ref",
+      "isolation_binding_hash",
+      "guest_principal_ref",
+      "proposal_nonce",
+      "resource_ref",
+      "result_destination_ref",
+      "expires_in_seconds",
+    ];
+    if (Object.keys(broker).length !== exactKeys.length
+        || Object.keys(broker).some((key) => !exactKeys.includes(key))) {
+      throw new Error("workload_effect_broker must use the exact reviewed field set");
+    }
+    if (!/^workload-isolation-binding:\/\/\S{1,480}$/u.test(String(broker.isolation_binding_ref || ""))
+        || !/^sha256:[0-9a-f]{64}$/u.test(String(broker.isolation_binding_hash || ""))
+        || !/^principal:\/\/\S{1,480}$/u.test(String(broker.guest_principal_ref || ""))
+        || !/^[A-Za-z0-9._-]{8,256}$/u.test(String(broker.proposal_nonce || ""))
+        || !/^result-destination:\/\/\S{1,480}$/u.test(String(broker.result_destination_ref || ""))) {
+      throw new Error("workload_effect_broker carries an invalid reviewed binding");
+    }
+    if (broker.resource_ref !== `provider-resource://${config.provider_id}/${config.environment_ref}`) {
+      throw new Error("workload_effect_broker resource_ref must bind the exact provider account and environment");
+    }
+    if (!Number.isSafeInteger(broker.expires_in_seconds)
+        || broker.expires_in_seconds < 60
+        || broker.expires_in_seconds > 15 * 60) {
+      throw new Error("workload_effect_broker expires_in_seconds must be between 60 and 900");
+    }
+  }
   if (plan.benchmark_protocol_version) {
     if (selector.mode !== "exact"
         || selector.selection !== "only_qualified_bid_from_exact_provider"

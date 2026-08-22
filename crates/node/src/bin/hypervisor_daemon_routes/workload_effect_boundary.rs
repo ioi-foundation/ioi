@@ -26,6 +26,27 @@ const FAMILY: &str = "workload-effect-capabilities";
 const MAX_PROPOSAL_BYTES: usize = 64 * 1024;
 static CONSUMPTION_LOCK: OnceLock<tokio::sync::Mutex<()>> = OnceLock::new();
 
+#[derive(Debug)]
+pub(crate) struct GovernedEffectRefusal {
+    code: String,
+    effect_receipt: Option<Value>,
+}
+
+impl From<String> for GovernedEffectRefusal {
+    fn from(code: String) -> Self {
+        Self {
+            code,
+            effect_receipt: None,
+        }
+    }
+}
+
+impl From<&str> for GovernedEffectRefusal {
+    fn from(code: &str) -> Self {
+        code.to_owned().into()
+    }
+}
+
 fn consumption_lock() -> &'static tokio::sync::Mutex<()> {
     CONSUMPTION_LOCK.get_or_init(|| tokio::sync::Mutex::new(()))
 }
@@ -473,10 +494,10 @@ async fn consume_guest_effect_capability_async<F, Fut>(
     proposal: &Value,
     now_ms: u64,
     final_invoker: F,
-) -> Result<Value, String>
+) -> Result<Value, GovernedEffectRefusal>
 where
     F: FnOnce(Value) -> Fut,
-    Fut: Future<Output = Result<Value, String>>,
+    Fut: Future<Output = Result<Value, GovernedEffectRefusal>>,
 {
     let _guard = consumption_lock().lock().await;
     let id = record_id(proposal)?;
@@ -533,13 +554,20 @@ where
                 "effect_receipt": effect_receipt,
             }))
         }
-        Err(reason) => {
+        Err(refusal) => {
+            let final_invoker_calls = usize::from(refusal.effect_receipt.is_some());
             record["status"] = json!("refused");
-            record["final_invoker_calls"] = json!(0);
-            record["refusal_reason"] = json!(reason.clone());
+            record["final_invoker_calls"] = json!(final_invoker_calls);
+            record["refusal_reason"] = json!(refusal.code.clone());
+            if let Some(effect_receipt) = refusal.effect_receipt.as_ref() {
+                record["effect_receipt_hash"] = json!(canonical_hash(effect_receipt)?);
+            }
             record["settled_at_ms"] = json!(now_ms);
             persist(data_dir, id, &record)?;
-            Err(format!("workload_effect_final_invoker_refused: {reason}"))
+            Err(GovernedEffectRefusal {
+                code: format!("workload_effect_final_invoker_refused: {}", refusal.code),
+                effect_receipt: refusal.effect_receipt,
+            })
         }
     }
 }
@@ -597,7 +625,7 @@ pub(crate) async fn consume_guest_governed_provider_operation_bytes(
     proposal_bytes: &[u8],
     host_trigger: &str,
     now_ms: u64,
-) -> Result<Value, String> {
+) -> Result<Value, GovernedEffectRefusal> {
     let proposal = parse_canonical_proposal_bytes(proposal_bytes)?;
     static_provider_coordinates(&proposal)?;
     let id = record_id(&proposal)?;
@@ -625,7 +653,9 @@ pub(crate) async fn consume_guest_governed_provider_operation_bytes(
                 .ok_or_else(|| "workload_effect_host_authority_attachment_required".to_string())?
             {
                 if target.insert(key.clone(), value.clone()).is_some() {
-                    return Err("workload_effect_guest_authority_field_collision".into());
+                    return Err(
+                        String::from("workload_effect_guest_authority_field_collision").into(),
+                    );
                 }
             }
             let owner_ref = required_text(&guest_request, "owner_ref")?.to_owned();
@@ -639,13 +669,13 @@ pub(crate) async fn consume_guest_governed_provider_operation_bytes(
                 &correlation_ref,
             )
             .map_err(|(_, axum::Json(reply))| {
-                format!(
+                GovernedEffectRefusal::from(format!(
                     "provider_broker_authority_refused:{}",
                     reply
                         .get("code")
                         .and_then(Value::as_str)
                         .unwrap_or("unknown")
-                )
+                ))
             })?;
             let (status, axum::Json(reply)) =
                 super::provider_routes::invoke_workload_brokered_provider_operation(
@@ -655,14 +685,17 @@ pub(crate) async fn consume_guest_governed_provider_operation_bytes(
                 )
                 .await;
             if !status.is_success() || reply.get("ok").and_then(Value::as_bool) != Some(true) {
-                return Err(format!(
-                    "provider_final_invoker_refused:{}",
-                    reply
-                        .get("code")
-                        .or_else(|| reply.get("reason"))
-                        .and_then(Value::as_str)
-                        .unwrap_or("unknown")
-                ));
+                return Err(GovernedEffectRefusal {
+                    code: format!(
+                        "provider_final_invoker_refused:{}",
+                        reply
+                            .get("code")
+                            .or_else(|| reply.get("reason"))
+                            .and_then(Value::as_str)
+                            .unwrap_or("unknown")
+                    ),
+                    effect_receipt: Some(reply),
+                });
             }
             Ok(reply)
         },
@@ -760,6 +793,133 @@ pub(crate) async fn handle_governed_capability_mint(
     }
 }
 
+fn authorize_hostile_guest_roundtrip(
+    data_dir: &str,
+    proposal_bytes: &[u8],
+    authenticated_principal_ref: &str,
+    proposal_session_binding: &str,
+    now_ms: u64,
+) -> Result<Value, String> {
+    let proposal = parse_canonical_proposal_bytes(proposal_bytes)?;
+    static_provider_coordinates(&proposal)?;
+    let id = record_id(&proposal)?;
+    let record = load(data_dir, id)?;
+    proposal_matches_record(&proposal, &record)?;
+    if required_text(&record, "authenticated_principal_ref")? != authenticated_principal_ref
+        || required_text(&record, "proposal_session_binding")? != proposal_session_binding
+    {
+        return Err("workload_effect_roundtrip_host_controller_mismatch".into());
+    }
+    if record.get("status").and_then(Value::as_str) != Some("issued") {
+        return Err("workload_effect_roundtrip_capability_not_issued".into());
+    }
+    if now_ms > record["expires_at_ms"].as_u64().unwrap_or_default() {
+        return Err("workload_effect_capability_expired".into());
+    }
+    required_text(&record, "host_trigger_hash")?;
+    verified_host_provider_authority(&record)?;
+    Ok(proposal)
+}
+
+/// Authenticated host-controller isolation step. It sends only the canonical guest proposal into
+/// a fresh no-NIC KVM guest, runs the fixed root-level bypass/secret probes, quarantines the output,
+/// and returns the byte-exact proposal plus enforcement evidence. The host trigger remains outside
+/// this call and this route cannot invoke a provider.
+pub(crate) async fn handle_hostile_guest_roundtrip(
+    State(st): State<Arc<super::DaemonState>>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let identity = match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(error) => return super::mutation_event_foundation::scope_refusal_reply(error),
+    };
+    let Some(object) = body.as_object() else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"ok":false,"code":"workload_effect_roundtrip_request_invalid"})),
+        );
+    };
+    if object.len() != 1 || !object.contains_key("proposal_jcs_base64") {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"ok":false,"code":"workload_effect_roundtrip_fields_invalid"})),
+        );
+    }
+    let encoded = body
+        .get("proposal_jcs_base64")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let proposal_bytes = match base64::engine::general_purpose::STANDARD.decode(encoded) {
+        Ok(bytes) if bytes.len() <= MAX_PROPOSAL_BYTES => bytes,
+        _ => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({"ok":false,"code":"workload_effect_proposal_base64_invalid"})),
+            )
+        }
+    };
+    let session_binding = match super::provider_routes::provider_proposal_session_binding(&headers)
+    {
+        Ok(binding) => binding,
+        Err(reply) => return reply,
+    };
+    let proposal = match authorize_hostile_guest_roundtrip(
+        &st.data_dir,
+        &proposal_bytes,
+        &identity.principal_ref,
+        &session_binding,
+        unix_millis(),
+    ) {
+        Ok(proposal) => proposal,
+        Err(reason) => {
+            return (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                Json(json!({"ok":false,"code":reason,"host_mutation":false})),
+            )
+        }
+    };
+    let exact_request = &proposal["exact_request"];
+    let owner_ref = exact_request
+        .get("owner_ref")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let idempotency_key = exact_request
+        .get("idempotency_key")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    if owner_ref.is_empty() || idempotency_key.is_empty() || !identity.authorizes_tenant(owner_ref)
+    {
+        return super::mutation_event_foundation::scope_refusal_reply(
+            super::substrate_store::RequestScopeRefusal::TenantAuthorityRequired,
+        );
+    }
+    let roundtrip = tokio::task::spawn_blocking(move || {
+        super::microvm::hostile_guest_proposal_roundtrip(&proposal_bytes)
+    })
+    .await;
+    match roundtrip {
+        Ok(Ok((returned, evidence))) => (
+            StatusCode::OK,
+            Json(json!({
+                "ok": true,
+                "proposal_jcs_base64": base64::engine::general_purpose::STANDARD.encode(returned),
+                "enforcement_evidence": evidence,
+            })),
+        ),
+        Ok(Err(reason)) => (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(json!({"ok":false,"code":reason,"host_mutation":false})),
+        ),
+        Err(error) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({"ok":false,"code":"workload_effect_roundtrip_join_failed","detail":error.to_string()}),
+            ),
+        ),
+    }
+}
+
 /// Capability-authenticated host finalizer.  It needs no operator password or session: the random
 /// host trigger names one already-authenticated, already-reviewed capability, while current owner
 /// membership, wallet state, proposal one-shot state, and every provider/C2 gate are rechecked at
@@ -809,11 +969,11 @@ pub(crate) async fn handle_governed_capability_consume(
     .await
     {
         Ok(receipts) => (StatusCode::OK, Json(json!({"ok":true,"receipts":receipts}))),
-        Err(reason) => {
-            let status = if reason == "workload_effect_host_trigger_invalid" {
+        Err(refusal) => {
+            let status = if refusal.code == "workload_effect_host_trigger_invalid" {
                 StatusCode::UNAUTHORIZED
-            } else if reason.contains("already_consumed")
-                || reason.contains("requires_reconciliation")
+            } else if refusal.code.contains("already_consumed")
+                || refusal.code.contains("requires_reconciliation")
             {
                 StatusCode::CONFLICT
             } else {
@@ -821,7 +981,12 @@ pub(crate) async fn handle_governed_capability_consume(
             };
             (
                 status,
-                Json(json!({"ok":false,"code":reason,"host_mutation":false})),
+                Json(json!({
+                    "ok":false,
+                    "code":refusal.code,
+                    "effect_receipt":refusal.effect_receipt,
+                    "host_mutation":false
+                })),
             )
         }
     }
@@ -1081,6 +1246,106 @@ mod tests {
     }
 
     #[test]
+    fn governed_roundtrip_requires_the_exact_authenticated_host_controller() {
+        let dir = fixture();
+        let data_dir = dir.path().to_str().unwrap();
+        let bundle = mint_guest_governed_provider_effect_capability(
+            data_dir,
+            "workload-isolation-binding://roundtrip-controller",
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "principal://hostile-roundtrip-worker",
+            "nonce-roundtrip-controller",
+            "provider-resource://provider-account/env-roundtrip-controller",
+            "result-destination://aft/u1",
+            &json!({
+                "provider_id":"provider-account",
+                "op":"create",
+                "environment_ref":"env-roundtrip-controller",
+                "owner_ref":"org://local",
+                "idempotency_key":"roundtrip-controller",
+                "operation_proposal_ref":"provider-operation-proposal://popp_roundtrip",
+                "wallet_approval_grant":{"grant_ref":"wallet.network://grant/roundtrip"}
+            }),
+            "user://operator",
+            "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            1_000,
+            61_000,
+        )
+        .unwrap();
+        let bytes = serde_jcs::to_vec(&bundle["guest_proposal"]).unwrap();
+        assert!(authorize_hostile_guest_roundtrip(
+            data_dir,
+            &bytes,
+            "user://operator",
+            "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            2_000,
+        )
+        .is_ok());
+        assert_eq!(
+            authorize_hostile_guest_roundtrip(
+                data_dir,
+                &bytes,
+                "user://other",
+                "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                2_000,
+            )
+            .unwrap_err(),
+            "workload_effect_roundtrip_host_controller_mismatch"
+        );
+        assert_eq!(
+            authorize_hostile_guest_roundtrip(
+                data_dir,
+                &bytes,
+                "user://operator",
+                "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                2_000,
+            )
+            .unwrap_err(),
+            "workload_effect_roundtrip_host_controller_mismatch"
+        );
+    }
+
+    #[test]
+    #[ignore = "requires /dev/kvm and the checksum-pinned ~/.ioi/vm-toolchain"]
+    fn governed_proposal_crosses_the_real_hostile_guest_roundtrip_without_host_authority() {
+        let dir = fixture();
+        let bundle = mint_guest_governed_provider_effect_capability(
+            dir.path().to_str().unwrap(),
+            "workload-isolation-binding://governed-live-roundtrip",
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "principal://hostile-governed-live-worker",
+            "nonce-governed-live-roundtrip",
+            "provider-resource://provider-account/env-governed-live-roundtrip",
+            "result-destination://aft/u1",
+            &json!({
+                "provider_id":"provider-account",
+                "op":"create",
+                "environment_ref":"env-governed-live-roundtrip",
+                "owner_ref":"org://local",
+                "idempotency_key":"governed-live-roundtrip",
+                "operation_proposal_ref":"provider-operation-proposal://popp_governed_live",
+                "wallet_approval_grant":{"grant_ref":"wallet.network://grant/governed-live"}
+            }),
+            "user://operator",
+            "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            1_000,
+            61_000,
+        )
+        .unwrap();
+        let guest_bytes = serde_jcs::to_vec(&bundle["guest_proposal"]).unwrap();
+        let host_trigger = bundle["host_trigger"].as_str().unwrap();
+        assert!(!String::from_utf8_lossy(&guest_bytes).contains(host_trigger));
+        let (returned, evidence) =
+            super::super::microvm::hostile_guest_proposal_roundtrip(&guest_bytes).unwrap();
+        assert_eq!(returned, guest_bytes);
+        assert_eq!(evidence["guest_uid"], 0);
+        assert_eq!(evidence["direct_protected_provider_invocations"], 0);
+        assert_eq!(evidence["host_trigger_in_guest"], false);
+        assert_eq!(evidence["proposal_roundtrip_exact"], true);
+        assert_eq!(evidence["monitor_terminal"], true);
+    }
+
+    #[test]
     fn exact_guest_proposal_invokes_once_and_replay_preserves_one() {
         let dir = fixture();
         let calls = AtomicUsize::new(0);
@@ -1108,6 +1373,42 @@ mod tests {
             "workload_effect_capability_already_consumed"
         );
         assert_eq!(calls.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn governed_refusal_retains_the_called_provider_receipt_for_compensation() {
+        let dir = fixture();
+        let data_dir = dir.path().to_str().unwrap();
+        let proposal = mint(data_dir);
+        let provider_reply = json!({
+            "ok": false,
+            "reason": "provider_outcome_requires_reconciliation",
+            "evidence": {"dseq": "1787000000000"}
+        });
+        let refusal =
+            consume_guest_effect_capability_async(data_dir, &proposal, 2_000, |_| async {
+                Err(GovernedEffectRefusal {
+                    code: "provider_final_invoker_refused:reconciliation_required".into(),
+                    effect_receipt: Some(provider_reply.clone()),
+                })
+            })
+            .await
+            .unwrap_err();
+        assert!(refusal.code.contains("reconciliation_required"));
+        assert_eq!(refusal.effect_receipt, Some(provider_reply.clone()));
+        let record = load(data_dir, record_id(&proposal).unwrap()).unwrap();
+        assert_eq!(record["status"], "refused");
+        assert_eq!(record["final_invoker_calls"], 1);
+        assert_eq!(
+            record["effect_receipt_hash"],
+            canonical_hash(&provider_reply).unwrap()
+        );
+        let replay = consume_guest_effect_capability_async(data_dir, &proposal, 3_000, |_| async {
+            panic!("refused capability replay cannot call the provider")
+        })
+        .await
+        .unwrap_err();
+        assert_eq!(replay.code, "workload_effect_capability_already_consumed");
     }
 
     #[test]

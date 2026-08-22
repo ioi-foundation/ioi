@@ -96,6 +96,34 @@ test("accepts a fully resolved bounded U1 campaign config", () => {
   assert.equal(validateCertifiedCampaignConfig(config), config);
 });
 
+test("binds the optional hostile-guest broker to the exact campaign resource", () => {
+  const config = structuredClone(valid);
+  config.provider_id = "pacc_exact";
+  config.environment_ref = "env-u1-brokered";
+  config.plan.deposit_usd = 1;
+  config.workload_effect_broker = {
+    enabled: true,
+    isolation_binding_ref: "workload-isolation-binding://u1-brokered",
+    isolation_binding_hash: `sha256:${"8".repeat(64)}`,
+    guest_principal_ref: "principal://u1-hostile-worker",
+    proposal_nonce: "u1-brokered-nonce-1",
+    resource_ref: "provider-resource://pacc_exact/env-u1-brokered",
+    result_destination_ref: "result-destination://aft/u1-brokered",
+    expires_in_seconds: 300,
+  };
+  assert.equal(validateCertifiedCampaignConfig(config), config);
+
+  for (const mutate of [
+    (candidate) => { candidate.workload_effect_broker.resource_ref = "provider-resource://pacc_other/env-u1-brokered"; },
+    (candidate) => { candidate.workload_effect_broker.expires_in_seconds = 901; },
+    (candidate) => { candidate.workload_effect_broker.host_trigger = "caller-supplied"; },
+  ]) {
+    const candidate = structuredClone(config);
+    mutate(candidate);
+    assert.throws(() => validateCertifiedCampaignConfig(candidate), /workload_effect_broker/u);
+  }
+});
+
 test("binds the retained workflow build identity to the reviewed workload", () => {
   assert.equal(validateBenchmarkBuildIdentity(validBuildIdentity, valid), validBuildIdentity);
   for (const field of ["source_ref", "image_digest", "result_tls_server_certificate_sha256"]) {

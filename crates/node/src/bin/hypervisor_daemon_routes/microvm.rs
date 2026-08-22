@@ -9,6 +9,7 @@
 //! a checksum mismatch fails closed. Provision it with scripts/phase1/provision-vm-toolchain.sh.
 use std::collections::BTreeMap;
 use std::io::{Read, Write};
+use std::net::TcpListener;
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::os::unix::net::UnixStream;
 use std::os::unix::process::CommandExt;
@@ -1155,6 +1156,209 @@ pub(crate) fn untar_into(dir: &Path, tar: &[u8]) -> Result<(), String> {
         return Err(format!("commit quarantine stage: {error}"));
     }
     Ok(())
+}
+
+struct HostileGuestRoundtripDir(PathBuf);
+
+impl HostileGuestRoundtripDir {
+    fn create() -> Result<Self, String> {
+        let path = std::env::temp_dir().join(format!(
+            "ioi-hostile-guest-roundtrip-{}",
+            uuid::Uuid::new_v4().simple()
+        ));
+        std::fs::create_dir(&path)
+            .map_err(|error| format!("create hostile guest roundtrip directory: {error}"))?;
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o700))
+            .map_err(|error| format!("protect hostile guest roundtrip directory: {error}"))?;
+        Ok(Self(path))
+    }
+}
+
+impl Drop for HostileGuestRoundtripDir {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
+/// Pass one canonical, already-minted workload proposal through a fresh no-NIC KVM guest running
+/// as uid 0. The guest receives no host trigger or provider authority: it can only return the
+/// proposal through the bounded archive channel. Fixed probes attempt the direct network, host
+/// device, inherited-FD, environment, and secret paths before the proposal is admitted back into
+/// quarantine. This function never invokes a provider; the caller must separately present the
+/// host-only trigger to the governed finalizer.
+pub(crate) fn hostile_guest_proposal_roundtrip(
+    proposal_bytes: &[u8],
+) -> Result<(Vec<u8>, Value), String> {
+    admit_guest_transfer_len(
+        proposal_bytes.len() as u64,
+        std::env::var(UNBOUNDED_GUEST_TRANSFER_GATE).ok().as_deref(),
+    )
+    .map_err(|refusal| format!("{}: {}", refusal.reason, refusal.detail))?;
+    let proposal: Value = serde_json::from_slice(proposal_bytes)
+        .map_err(|error| format!("hostile guest proposal JSON invalid: {error}"))?;
+    let canonical = serde_jcs::to_vec(&proposal)
+        .map_err(|error| format!("hostile guest proposal canonicalization failed: {error}"))?;
+    if canonical != proposal_bytes {
+        return Err("hostile_guest_proposal_noncanonical".into());
+    }
+    let text = |field: &str| {
+        proposal
+            .get(field)
+            .and_then(Value::as_str)
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| format!("hostile_guest_proposal_{field}_required"))
+    };
+    let isolation_binding_ref = text("isolation_binding_ref")?;
+    let isolation_binding_hash = text("isolation_binding_hash")?;
+    let principal_ref = text("principal_ref")?;
+    let capability_ref = text("capability_ref")?;
+    let capability_id = capability_ref
+        .strip_prefix("workload-effect-capability://")
+        .filter(|value| value.starts_with("wec_"))
+        .ok_or_else(|| "hostile_guest_capability_ref_invalid".to_string())?;
+
+    let home =
+        std::env::var("HOME").map_err(|_| "HOME is required for VM toolchain".to_string())?;
+    let run = HostileGuestRoundtripDir::create()?;
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .map_err(|error| format!("bind hostile guest host canary: {error}"))?;
+    listener
+        .set_nonblocking(true)
+        .map_err(|error| format!("configure hostile guest host canary: {error}"))?;
+    let port = listener
+        .local_addr()
+        .map_err(|error| format!("read hostile guest host canary address: {error}"))?
+        .port();
+    let mut spec = build_vm_spec(&home, "cloud-hypervisor", run.0.join("vm"), 1, 384)?;
+    spec.bind_workload(
+        &format!("workrun://{capability_id}"),
+        isolation_binding_ref,
+        isolation_binding_hash,
+        principal_ref,
+    )?;
+    spec.sock_path = short_sock_path(&format!("t2-capstone-{}", uuid::Uuid::new_v4().simple()))?;
+    let declaration = spec.workload_bound_enforcement_declaration("cloud-hypervisor")?;
+    let monitor = CloudHypervisorMonitor;
+    let mut vm = monitor.start(&spec)?;
+
+    let execution = (|| -> Result<(Vec<u8>, Value), String> {
+        let input = run.0.join("input");
+        std::fs::create_dir(&input)
+            .map_err(|error| format!("create hostile guest input directory: {error}"))?;
+        std::fs::write(input.join("proposal.json"), proposal_bytes)
+            .map_err(|error| format!("write hostile guest proposal: {error}"))?;
+        monitor.import_workspace(&vm, &tar_dir(&input)?)?;
+
+        let root = monitor.exec(&vm, "id -u")?;
+        let network = monitor.exec(
+            &vm,
+            &format!(
+                "set +e; printf 'interfaces='; ls -1 /sys/class/net 2>/dev/null | tr '\\n' ','; echo; \
+                 /bin/busybox wget -T 1 -qO- http://10.0.2.2:{port}/protected >/tmp/raw-ip 2>&1; echo raw_ip=$?; \
+                 /bin/busybox wget -T 1 -qO- http://127.0.0.1:{port}/protected >/tmp/loopback 2>&1; echo loopback=$?; \
+                 /bin/busybox wget -T 1 -qO- 'http://[::1]:{port}/protected' >/tmp/ipv6 2>&1; echo ipv6=$?; \
+                 /bin/busybox wget -T 1 -qO- http://169.254.169.254/latest/meta-data/ >/tmp/metadata 2>&1; echo metadata=$?; \
+                 /bin/busybox wget -T 1 -qO- https://console-api.akash.network/ >/tmp/provider 2>&1; echo provider=$?; \
+                 /bin/busybox nc -u -w 1 10.0.2.2 {port} </dev/null >/tmp/udp 2>&1; echo udp=$?; \
+                 /bin/busybox nc -w 1 10.0.2.2 {port} </dev/null >/tmp/tunnel 2>&1; echo tunnel=$?; \
+                 http_proxy=http://10.0.2.2:{port} /bin/busybox wget -T 1 -qO- http://proxy-canary.invalid/ >/tmp/proxy 2>&1; echo proxy=$?; \
+                 /bin/busybox nslookup t2-exfil-canary.invalid >/tmp/dns-exfil 2>&1; echo dns_exfil=$?; \
+                 /bin/busybox wget -T 1 -qO- https://dl-cdn.alpinelinux.org/alpine/ >/tmp/package 2>&1; echo package=$?"
+            ),
+        )?;
+        let material = monitor.exec(
+            &vm,
+            "set +e; for p in /dev/kvm /dev/vhost-vsock /var/run/docker.sock /run/docker.sock /host /wallet /secrets; do [ -e \"$p\" ] && echo exposed=$p; done; for f in /proc/1/fd/*; do printf 'pid1_fd=%s:' \"$f\"; /bin/busybox readlink \"$f\"; done; tr '\\000' '\\n' </proc/1/environ | /bin/busybox grep -E 'AKASH|IOI_C7|PASSWORD|RECOVERY|PRIVATE_KEY|TOKEN|http_proxy|https_proxy|ALL_PROXY' || echo no_protected_environment",
+        )?;
+        let submitted = monitor.exec(&vm, "cp proposal.json submitted-proposal.json")?;
+        if submitted.exit_code != 0 {
+            return Err("hostile guest did not return its exact proposal".into());
+        }
+        let exported = monitor.export_workspace(&vm)?;
+        let quarantine = run.0.join("quarantine");
+        untar_into(&quarantine, &exported)?;
+        let returned = std::fs::read(quarantine.join("submitted-proposal.json"))
+            .map_err(|error| format!("read quarantined guest proposal: {error}"))?;
+
+        if root.output.trim() != "0" {
+            return Err("hostile guest probe did not run as uid 0".into());
+        }
+        if !network.output.contains("interfaces=lo,") {
+            return Err(
+                "hostile guest did not expose the exact loopback-only interface set".into(),
+            );
+        }
+        for probe in [
+            "raw_ip",
+            "loopback",
+            "ipv6",
+            "metadata",
+            "provider",
+            "udp",
+            "tunnel",
+            "proxy",
+            "dns_exfil",
+            "package",
+        ] {
+            if network.output.contains(&format!("{probe}=0")) {
+                return Err(format!("hostile guest network bypass succeeded: {probe}"));
+            }
+        }
+        if listener.accept().is_ok() {
+            return Err("hostile guest reached the protected host canary".into());
+        }
+        if material.output.contains("exposed=")
+            || !material.output.contains("no_protected_environment")
+        {
+            return Err("protected host material crossed into the hostile guest".into());
+        }
+        for forbidden in ["docker.sock", "/wallet", "/secrets", "/dev/kvm"] {
+            if material.output.contains(forbidden) {
+                return Err(format!(
+                    "protected inherited target crossed into guest: {forbidden}"
+                ));
+            }
+        }
+        if returned != proposal_bytes {
+            return Err("hostile_guest_proposal_roundtrip_mismatch".into());
+        }
+        let proposal_hash = format!("sha256:{}", hex::encode(Sha256::digest(proposal_bytes)));
+        Ok((
+            returned,
+            serde_json::json!({
+                "schema_version": "ioi.hypervisor.workload-bound-effect-boundary-live-probe.v2",
+                "protection_profile": "trusted_host_hostile_guest",
+                "guest_uid": 0,
+                "enforcement_declaration": declaration,
+                "attempted_paths": ["raw_ip", "loopback", "ipv6", "metadata", "provider", "udp", "proxy", "tunnel", "dns_exfil", "package_fetch", "host_device", "host_socket", "inherited_fd", "environment"],
+                "direct_host_canary_invocations": 0,
+                "direct_protected_provider_invocations": 0,
+                "host_trigger_in_guest": false,
+                "secret_findings": 0,
+                "proposal_roundtrip_exact": true,
+                "proposal_hash": proposal_hash,
+                "output_quarantine": "bounded_archive_validated",
+                "claim_boundary": "This probe establishes the named local KVM/no-NIC hostile-guest profile; it does not establish resistance to a compromised host kernel, VMM, daemon, firmware, or hardware."
+            }),
+        ))
+    })();
+
+    let stop = monitor.stop(&mut vm);
+    let terminal = vm
+        .child
+        .try_wait()
+        .map_err(|error| format!("observe hostile guest monitor terminal state: {error}"))?
+        .is_some();
+    if let Err(error) = stop {
+        return Err(format!("hostile guest teardown failed: {error}"));
+    }
+    if !terminal {
+        return Err("hostile guest monitor did not reach terminal state".into());
+    }
+    execution.map(|(bytes, mut evidence)| {
+        evidence["monitor_terminal"] = serde_json::json!(true);
+        (bytes, evidence)
+    })
 }
 
 #[cfg(test)]
