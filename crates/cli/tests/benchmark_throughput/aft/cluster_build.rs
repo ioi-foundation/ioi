@@ -145,6 +145,11 @@ fn ensure_benchmark_node_built(state_tree: &str) -> Result<()> {
     if binaries_present && !rebuild_node_binary && !stale_binaries {
         return Ok(());
     }
+    if !binaries_present && !rebuild_node_binary {
+        return Err(anyhow!(
+            "cached benchmark node binaries are absent while IOI_AFT_BENCH_REBUILD_NODE=0. Refresh the release node binaries before starting a paid benchmark."
+        ));
+    }
     if stale_binaries && !rebuild_node_binary {
         return Err(anyhow!(
             "cached benchmark node binaries are older than the current benchmark executable while IOI_AFT_BENCH_REBUILD_NODE=0. Refresh the release node binaries first or set IOI_AFT_BENCH_REBUILD_NODE=1 intentionally."

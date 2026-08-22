@@ -19,13 +19,13 @@ use ioi_types::config::{
 };
 use ioi_validator::common::generate_certificates_if_needed;
 use libp2p::{identity, Multiaddr, PeerId};
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap};
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::net::Ipv4Addr;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use std::sync::{Arc, Mutex as StdMutex, OnceLock};
+use std::sync::Arc;
 use tempfile::TempDir;
 use tokio::process::Command as TokioCommand;
 use tokio::sync::{broadcast, Mutex};
@@ -184,9 +184,14 @@ fn append_benchmark_trace_line(path: &Path, line: &str) {
     }
 }
 
-fn built_node_profiles() -> &'static StdMutex<HashSet<String>> {
-    static BUILT_NODE_PROFILES: OnceLock<StdMutex<HashSet<String>>> = OnceLock::new();
-    BUILT_NODE_PROFILES.get_or_init(|| StdMutex::new(HashSet::new()))
+fn node_profile_needs_build(binaries_present: bool) -> bool {
+    !binaries_present
+}
+
+fn node_profile_build_forbidden() -> bool {
+    std::env::var("IOI_TEST_FORBID_NODE_BUILD")
+        .ok()
+        .is_some_and(|value| matches!(value.as_str(), "1" | "true" | "TRUE" | "True"))
 }
 
 // BinaryFeatureConfig helps resolve the feature string for building the node binary.
@@ -440,16 +445,13 @@ impl TestValidator {
             .iter()
             .all(|bin| node_binary_dir.join(bin).exists());
 
-        let build_cache_key = format!("{build_profile}|{features}");
-        let needs_build = {
-            let mut built = built_node_profiles()
-                .lock()
-                .expect("build profile cache poisoned");
-            // Cache once per unique profile+feature combination in this process, and rebuild if the
-            // feature-isolated binary directory has not been materialized yet.
-            built.insert(build_cache_key) || !binaries_present
-        };
+        let needs_build = node_profile_needs_build(binaries_present);
         if needs_build {
+            if node_profile_build_forbidden() {
+                return Err(anyhow!(
+                    "test node profile {build_profile}|{features} is absent but IOI_TEST_FORBID_NODE_BUILD=1"
+                ));
+            }
             println!(
                 "--- Building node binaries with profile={} features: {} ---",
                 build_profile, features
@@ -1080,5 +1082,20 @@ impl TestValidator {
             log_drain_handles: Arc::new(Mutex::new(log_drain_handles)),
             signing_oracle_guard,
         }))
+    }
+}
+
+#[cfg(test)]
+mod node_profile_build_tests {
+    use super::node_profile_needs_build;
+
+    #[test]
+    fn a_prebuilt_profile_is_never_rebuilt_on_first_use() {
+        assert!(!node_profile_needs_build(true));
+    }
+
+    #[test]
+    fn an_absent_profile_requires_a_build() {
+        assert!(node_profile_needs_build(false));
     }
 }
