@@ -1,0 +1,23 @@
+{
+  "schema_version": "ioi.aft.benchmark-campaign.v1",
+  "campaign_id": "u1-campaign-a",
+  "measured_passes": 2,
+  "row_count_per_pass": 1,
+  "threshold_policy": { "injection_tps": 0.1, "sustained_tps": 0.1, "commit_p50_ms": 0.1, "commit_p95_ms": 0.1, "commit_p99_ms": 0.15, "commit_max_ms": 0.15 },
+  "verdict": "reproduced_within_threshold",
+  "all_rows_within_threshold": true,
+  "summaries": [{
+    "scenario": "paper_guardian_majority_4v",
+    "lane": "base_final",
+    "within_threshold": true,
+    "metrics": {
+      "injection_tps": { "values": [100, 100], "min": 100, "median": 100, "max": 100, "median_absolute_deviation": 0, "coefficient_of_variation": 0, "bootstrap_median_95": [100, 100], "relative_spread": 0, "threshold": 0.1, "within_threshold": true },
+      "sustained_tps": { "values": [90, 90], "min": 90, "median": 90, "max": 90, "median_absolute_deviation": 0, "coefficient_of_variation": 0, "bootstrap_median_95": [90, 90], "relative_spread": 0, "threshold": 0.1, "within_threshold": true },
+      "commit_p50_ms": { "values": [2, 2], "min": 2, "median": 2, "max": 2, "median_absolute_deviation": 0, "coefficient_of_variation": 0, "bootstrap_median_95": [2, 2], "relative_spread": 0, "threshold": 0.1, "within_threshold": true },
+      "commit_p95_ms": { "values": [4, 4], "min": 4, "median": 4, "max": 4, "median_absolute_deviation": 0, "coefficient_of_variation": 0, "bootstrap_median_95": [4, 4], "relative_spread": 0, "threshold": 0.1, "within_threshold": true },
+      "commit_p99_ms": { "values": [6, 6], "min": 6, "median": 6, "max": 6, "median_absolute_deviation": 0, "coefficient_of_variation": 0, "bootstrap_median_95": [6, 6], "relative_spread": 0, "threshold": 0.15, "within_threshold": true },
+      "commit_max_ms": { "values": [8, 8], "min": 8, "median": 8, "max": 8, "median_absolute_deviation": 0, "coefficient_of_variation": 0, "bootstrap_median_95": [8, 8], "relative_spread": 0, "threshold": 0.15, "within_threshold": true }
+    }
+  }],
+  "pass_artifacts": ["run-1.json", "run-2.json"]
+}

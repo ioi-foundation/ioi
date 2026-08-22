@@ -2769,6 +2769,66 @@
       ]
     },
     {
+      "contract_id": "schema://ioi/aft/u1-campaign-result/v1",
+      "canonical_name": "AftU1CampaignResult",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/verifiable-bounded-agency.md#relying-party-acceptance",
+      "schema_version": "ioi.aft.benchmark-campaign.v1",
+      "maturity": "target",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": { "successor_of": null, "successor_contract_id": null, "compatibility": "initial", "migration_policy": "none", "predecessor_remains_valid": false, "wire_mutation_policy": "forbidden", "hash_impact": "signature_preimage_changed" },
+      "schema_ref": "aft-u1-campaign-result.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        { "kind": "typescript_projection", "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts", "symbol": "AftU1CampaignResultV1" },
+        { "kind": "rust_projection", "path": "crates/types/src/app/generated/architecture_contracts.rs", "symbol": "AftU1CampaignResultV1" }
+      ],
+      "positive_fixture_refs": ["fixtures/aft-u1-campaign-result-v1/positive-complete.json"],
+      "negative_fixture_refs": [{ "path": "fixtures/aft-u1-campaign-result-v1/negative-partial.json", "expected_failure": "schema" }]
+    },
+    {
+      "contract_id": "schema://ioi/aft/measured-result-row/v1",
+      "canonical_name": "AftMeasuredResultRow",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/verifiable-bounded-agency.md#relying-party-acceptance",
+      "schema_version": "ioi.aft.measured-result-row.v1",
+      "maturity": "target",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": { "successor_of": null, "successor_contract_id": null, "compatibility": "initial", "migration_policy": "none", "predecessor_remains_valid": false, "wire_mutation_policy": "forbidden", "hash_impact": "signature_preimage_changed" },
+      "schema_ref": "aft-measured-result-row.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        { "kind": "typescript_projection", "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts", "symbol": "AftMeasuredResultRowV1" },
+        { "kind": "rust_projection", "path": "crates/types/src/app/generated/architecture_contracts.rs", "symbol": "AftMeasuredResultRowV1" }
+      ],
+      "positive_fixture_refs": ["fixtures/aft-measured-result-row-v1/positive-measured-container.json"],
+      "negative_fixture_refs": [{ "path": "fixtures/aft-measured-result-row-v1/negative-bare-metal-inflation.json", "expected_failure": "schema" }]
+    },
+    {
+      "contract_id": "schema://ioi/aft/measured-results-registry/v1",
+      "canonical_name": "AftMeasuredResultsRegistry",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/verifiable-bounded-agency.md#relying-party-acceptance",
+      "schema_version": "ioi.aft.measured-results-registry.v1",
+      "maturity": "target",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": { "successor_of": null, "successor_contract_id": null, "compatibility": "initial", "migration_policy": "none", "predecessor_remains_valid": false, "wire_mutation_policy": "forbidden", "hash_impact": "signature_preimage_changed" },
+      "schema_ref": "aft-measured-results-registry.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        { "kind": "typescript_projection", "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts", "symbol": "AftMeasuredResultsRegistryV1" },
+        { "kind": "rust_projection", "path": "crates/types/src/app/generated/architecture_contracts.rs", "symbol": "AftMeasuredResultsRegistryV1" }
+      ],
+      "positive_fixture_refs": ["fixtures/aft-measured-results-registry-v1/positive-empty.json"],
+      "negative_fixture_refs": [{ "path": "fixtures/aft-measured-results-registry-v1/negative-revision.json", "expected_failure": "schema" }]
+    },
+    {
       "contract_id": "schema://ioi/foundations/relying-party-acceptance-policy/v1",
       "canonical_name": "RelyingPartyAcceptancePolicy",
       "canonical_owner_ref": "canon://docs/architecture/foundations/verifiable-bounded-agency.md#relying-party-acceptance",

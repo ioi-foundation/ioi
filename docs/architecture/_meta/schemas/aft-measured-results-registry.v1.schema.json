@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/aft/measured-results-registry/v1",
+  "title": "AftMeasuredResultsRegistry",
+  "x-ioi-schema-version": "ioi.aft.measured-results-registry.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "registry_ref", "revision", "previous_state_hash", "entries", "state_hash"],
+  "properties": {
+    "schema_version": { "const": "ioi.aft.measured-results-registry.v1" },
+    "registry_ref": { "const": "registry://aft/measured-results" },
+    "revision": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+    "previous_state_hash": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/hash" }] },
+    "entries": { "type": "array", "maxItems": 100000, "items": { "$ref": "#/$defs/entry" } },
+    "state_hash": { "$ref": "#/$defs/hash" }
+  },
+  "$defs": {
+    "ref": { "type": "string", "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$" },
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "entry": {
+      "type": "object", "additionalProperties": false,
+      "required": ["row_ref", "row_hash"],
+      "properties": { "row_ref": { "$ref": "#/$defs/ref" }, "row_hash": { "$ref": "#/$defs/hash" } }
+    }
+  }
+}

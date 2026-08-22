@@ -19,6 +19,15 @@ This protocol is fixed before observing the certified-provider measurements. It 
 
 For every scenario/lane row, retain injection TPS, sustained TPS, and commit-latency p50, p95, p99, and max. For each metric report count, minimum, median, maximum, median absolute deviation, sample coefficient of variation, and a deterministic exact 95% bootstrap interval for the median when five measured passes are present. Retain raw output, normalized pass JSON, the environment manifest, aggregate JSON/Markdown, a machine-readable artifact manifest, and its SHA-256 companion.
 
+## Campaign output contract
+
+`AftU1CampaignResult` is the canonical aggregate emitted after all measured
+passes validate. Its registered schema is
+`schema://ioi/aft/u1-campaign-result/v1`. Schema validation establishes the
+closed object shape; the campaign verifier additionally requires the complete
+ten-row U1 matrix, five ordered pass artifacts, metric-summary arithmetic, and
+the campaign identity bound by the provider request.
+
 ## Reproduction thresholds
 
 The aggregate uses `(maximum - minimum) / median` across measured passes. Injection TPS, sustained TPS, p50, and p95 must be within 10%. P99 and max must be within 15%. Every row and metric must clear its threshold for `reproduced_within_threshold`; otherwise the only permitted verdict is `variance_caveated`.

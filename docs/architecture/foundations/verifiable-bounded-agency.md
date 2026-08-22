@@ -516,10 +516,22 @@ policy, verifier identity/build, exact trust-input hashes, observation time,
 and validity horizon. A producer cannot self-declare registry acceptance by
 embedding an `accepted` field in its own certificate.
 
+`AftU1CampaignResult` is the closed aggregate emitted by the fixed U1
+measurement protocol. `AftMeasuredResultRow` is the promoted object binding
+that result to the accepting C8 v3 certificate, immutable workload and source,
+environment, provider, honesty class, and verdict. `AftMeasuredResultsRegistry`
+is the compare-and-set target containing an ordered set of accepted row
+ref/hash pairs, a monotonic revision, the prior state hash, and its own state
+commitment. Row bodies remain separately portable and schema-verifiable rather
+than being copied into registry state.
+
 The registered contracts are:
 
 - `schema://ioi/foundations/relying-party-acceptance-policy/v1`; and
-- `schema://ioi/foundations/certificate-acceptance-receipt/v1`.
+- `schema://ioi/foundations/certificate-acceptance-receipt/v1`;
+- `schema://ioi/aft/u1-campaign-result/v1`;
+- `schema://ioi/aft/measured-result-row/v1`; and
+- `schema://ioi/aft/measured-results-registry/v1`.
 
 External witnessing initially composes the registered `ReceiptCheckpoint` and
 `ReceiptProofBundle` contracts over the acceptance receipt and C8 outcome root.

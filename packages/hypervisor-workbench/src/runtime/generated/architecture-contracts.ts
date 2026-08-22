@@ -1866,6 +1866,134 @@ export type GovernedEffectClaimManifestV1 = {
   generated_at: string;
 };
 
+export type AftU1CampaignResultV1 = {
+  schema_version: "ioi.aft.benchmark-campaign.v1";
+  campaign_id: string;
+  measured_passes: number;
+  row_count_per_pass: number;
+  threshold_policy: {
+      injection_tps: number;
+      sustained_tps: number;
+      commit_p50_ms: number;
+      commit_p95_ms: number;
+      commit_p99_ms: number;
+      commit_max_ms: number;
+    };
+  verdict: "reproduced_within_threshold" | "variance_caveated";
+  all_rows_within_threshold: boolean;
+  summaries: Array<{
+        scenario: string;
+        lane: string;
+        within_threshold: boolean;
+        metrics: {
+                injection_tps: {
+                          values: Array<number>;
+                          min: number;
+                          median: number;
+                          max: number;
+                          median_absolute_deviation: number;
+                          coefficient_of_variation: number;
+                          bootstrap_median_95: Array<number>;
+                          relative_spread: number;
+                          threshold: number;
+                          within_threshold: boolean;
+                        };
+                sustained_tps: {
+                          values: Array<number>;
+                          min: number;
+                          median: number;
+                          max: number;
+                          median_absolute_deviation: number;
+                          coefficient_of_variation: number;
+                          bootstrap_median_95: Array<number>;
+                          relative_spread: number;
+                          threshold: number;
+                          within_threshold: boolean;
+                        };
+                commit_p50_ms: {
+                          values: Array<number>;
+                          min: number;
+                          median: number;
+                          max: number;
+                          median_absolute_deviation: number;
+                          coefficient_of_variation: number;
+                          bootstrap_median_95: Array<number>;
+                          relative_spread: number;
+                          threshold: number;
+                          within_threshold: boolean;
+                        };
+                commit_p95_ms: {
+                          values: Array<number>;
+                          min: number;
+                          median: number;
+                          max: number;
+                          median_absolute_deviation: number;
+                          coefficient_of_variation: number;
+                          bootstrap_median_95: Array<number>;
+                          relative_spread: number;
+                          threshold: number;
+                          within_threshold: boolean;
+                        };
+                commit_p99_ms: {
+                          values: Array<number>;
+                          min: number;
+                          median: number;
+                          max: number;
+                          median_absolute_deviation: number;
+                          coefficient_of_variation: number;
+                          bootstrap_median_95: Array<number>;
+                          relative_spread: number;
+                          threshold: number;
+                          within_threshold: boolean;
+                        };
+                commit_max_ms: {
+                          values: Array<number>;
+                          min: number;
+                          median: number;
+                          max: number;
+                          median_absolute_deviation: number;
+                          coefficient_of_variation: number;
+                          bootstrap_median_95: Array<number>;
+                          relative_spread: number;
+                          threshold: number;
+                          within_threshold: boolean;
+                        };
+              };
+      }>;
+  pass_artifacts: Array<string>;
+};
+
+export type AftMeasuredResultRowV1 = {
+  schema_version: "ioi.aft.measured-result-row.v1";
+  row_ref: string;
+  row_hash: string;
+  certificate_ref: string;
+  certificate_hash: string;
+  result_ref: string;
+  result_hash: string;
+  environment_hash: string;
+  campaign_id: string;
+  source_commit: string;
+  image_digest: string;
+  provider_ref: string;
+  environment_class: "measured_container" | "attested_pinned_bare_metal";
+  honesty_class: "same_provider_container_unknown_host" | "attested_pinned_bare_metal" | "variance_caveated";
+  verdict: "reproduced_within_threshold" | "variance_caveated";
+  accepted_at: string;
+};
+
+export type AftMeasuredResultsRegistryV1 = {
+  schema_version: "ioi.aft.measured-results-registry.v1";
+  registry_ref: "registry://aft/measured-results";
+  revision: number;
+  previous_state_hash: null | string;
+  entries: Array<{
+        row_ref: string;
+        row_hash: string;
+      }>;
+  state_hash: string;
+};
+
 export type RelyingPartyAcceptancePolicyV1 = {
   schema_version: "ioi.foundations.relying-party-acceptance-policy.v1";
   policy_ref: string;
@@ -9294,6 +9422,54 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
   {
     "contract_id": "schema://ioi/components/hypervisor/governed-effect-claim-manifest/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/governed-effect-claim-manifest-v1/negative-unknown-status.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/aft/u1-campaign-result/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/aft-u1-campaign-result-v1/positive-complete.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/aft/u1-campaign-result/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/aft-u1-campaign-result-v1/negative-partial.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/aft/measured-result-row/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/aft-measured-result-row-v1/positive-measured-container.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/aft/measured-result-row/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/aft-measured-result-row-v1/negative-bare-metal-inflation.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/aft/measured-results-registry/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/aft-measured-results-registry-v1/positive-empty.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/aft/measured-results-registry/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/aft-measured-results-registry-v1/negative-revision.json",
     "expected": "reject",
     "expected_schema_accept": false,
     "expected_failure": "schema",
@@ -16874,6 +17050,48 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/aft-u1-campaign-result-v1/positive-complete.json",
+    "contract_id": "schema://ioi/aft/u1-campaign-result/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/aft-u1-campaign-result-v1/positive-complete.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/aft-u1-campaign-result-v1/negative-partial.json",
+    "contract_id": "schema://ioi/aft/u1-campaign-result/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/aft-u1-campaign-result-v1/negative-partial.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/aft-measured-result-row-v1/positive-measured-container.json",
+    "contract_id": "schema://ioi/aft/measured-result-row/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/aft-measured-result-row-v1/positive-measured-container.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/aft-measured-result-row-v1/negative-bare-metal-inflation.json",
+    "contract_id": "schema://ioi/aft/measured-result-row/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/aft-measured-result-row-v1/negative-bare-metal-inflation.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/aft-measured-results-registry-v1/positive-empty.json",
+    "contract_id": "schema://ioi/aft/measured-results-registry/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/aft-measured-results-registry-v1/positive-empty.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/aft-measured-results-registry-v1/negative-revision.json",
+    "contract_id": "schema://ioi/aft/measured-results-registry/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/aft-measured-results-registry-v1/negative-revision.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/relying-party-acceptance-policy-v1/positive-aft-registry.json",
     "contract_id": "schema://ioi/foundations/relying-party-acceptance-policy/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/relying-party-acceptance-policy-v1/positive-aft-registry.json",
@@ -20929,9 +21147,11 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$",
   "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[^\\s]+Z$",
   "^[0-9a-f]{128}$",
+  "^[0-9a-f]{40}$",
   "^[0-9a-f]{64}$",
   "^[A-Z]{3}$",
   "^[A-Za-z0-9.-]+$",
+  "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
   "^[A-Za-z0-9_-]+$",
   "^[A-Za-z0-9_-]{43}$",
   "^[A-Za-z0-9_-]{86}$",
@@ -21235,6 +21455,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^retention-disposition://[A-Za-z0-9._:-]+$",
   "^room-discovery://[^\\s]{1,500}$",
   "^routing-decision://[^\\s]{1,500}$",
+  "^run-[1-9][0-9]*[.]json$",
   "^run://[^\\s]+$",
   "^runtime-assignment://[^\\s]{1,500}$",
   "^runtime://[^\\s]{1,248}$",
@@ -21399,6 +21620,9 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/hypervisor/collection-query/v1": "sha256:fc25b17cf6830faca44e00eedad7b6d4dd7c4eee5008e2c05ca553ce7da25bd5",
   "schema://ioi/components/hypervisor/c8-certificate/v3": "sha256:3567d341536acd7e6fd962efb4d3a9bac9fbe8e16d95d86c48989088c57798b1",
   "schema://ioi/components/hypervisor/governed-effect-claim-manifest/v1": "sha256:1834df26ab76fd1fc15066a8db5cabb24de5185b8b5299a920233cc88078aa53",
+  "schema://ioi/aft/u1-campaign-result/v1": "sha256:53f9a944ed1379a4509a691d16bc35fc93a9e10f293d80724c7355e33097c802",
+  "schema://ioi/aft/measured-result-row/v1": "sha256:a13962e8d58491420fbc68a5a9057ad3998475d8a531ff65432692f24bde79a8",
+  "schema://ioi/aft/measured-results-registry/v1": "sha256:0516efc32f6e4bf54217bed7fc2327de56abd34b43cb2b7ffaf51ca30ecd607f",
   "schema://ioi/foundations/relying-party-acceptance-policy/v1": "sha256:64705441cf760d415ded81428fcf9acae5f7a1c73b6b357167cde52d083570fe",
   "schema://ioi/foundations/certificate-acceptance-receipt/v1": "sha256:8a241d88eb5e1406847ffcf1a410b8ee578198875301b322f6110c71ff67ef90",
   "schema://ioi/components/hypervisor/harness-session-binding-admission/v1": "sha256:272fed9f39075b80d523e895f65815be3103e5266d75b59b759564dc028cd40a",
@@ -36643,6 +36867,410 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
             "type": "string",
             "minLength": 1,
             "maxLength": 500
+          }
+        }
+      }
+    }
+  },
+  "schema://ioi/aft/u1-campaign-result/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/aft/u1-campaign-result/v1",
+    "title": "AftU1CampaignResult",
+    "x-ioi-schema-version": "ioi.aft.benchmark-campaign.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "campaign_id",
+      "measured_passes",
+      "row_count_per_pass",
+      "threshold_policy",
+      "verdict",
+      "all_rows_within_threshold",
+      "summaries",
+      "pass_artifacts"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.aft.benchmark-campaign.v1"
+      },
+      "campaign_id": {
+        "$ref": "#/$defs/name"
+      },
+      "measured_passes": {
+        "type": "integer",
+        "minimum": 2,
+        "maximum": 64
+      },
+      "row_count_per_pass": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 256
+      },
+      "threshold_policy": {
+        "$ref": "#/$defs/thresholds"
+      },
+      "verdict": {
+        "enum": [
+          "reproduced_within_threshold",
+          "variance_caveated"
+        ]
+      },
+      "all_rows_within_threshold": {
+        "type": "boolean"
+      },
+      "summaries": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 256,
+        "items": {
+          "$ref": "#/$defs/summary"
+        }
+      },
+      "pass_artifacts": {
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^run-[1-9][0-9]*[.]json$"
+        }
+      }
+    },
+    "$defs": {
+      "name": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+      },
+      "nonNegative": {
+        "type": "number",
+        "minimum": 0
+      },
+      "thresholds": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "injection_tps",
+          "sustained_tps",
+          "commit_p50_ms",
+          "commit_p95_ms",
+          "commit_p99_ms",
+          "commit_max_ms"
+        ],
+        "properties": {
+          "injection_tps": {
+            "$ref": "#/$defs/nonNegative"
+          },
+          "sustained_tps": {
+            "$ref": "#/$defs/nonNegative"
+          },
+          "commit_p50_ms": {
+            "$ref": "#/$defs/nonNegative"
+          },
+          "commit_p95_ms": {
+            "$ref": "#/$defs/nonNegative"
+          },
+          "commit_p99_ms": {
+            "$ref": "#/$defs/nonNegative"
+          },
+          "commit_max_ms": {
+            "$ref": "#/$defs/nonNegative"
+          }
+        }
+      },
+      "metric": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "values",
+          "min",
+          "median",
+          "max",
+          "median_absolute_deviation",
+          "coefficient_of_variation",
+          "bootstrap_median_95",
+          "relative_spread",
+          "threshold",
+          "within_threshold"
+        ],
+        "properties": {
+          "values": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 64,
+            "items": {
+              "$ref": "#/$defs/nonNegative"
+            }
+          },
+          "min": {
+            "$ref": "#/$defs/nonNegative"
+          },
+          "median": {
+            "$ref": "#/$defs/nonNegative"
+          },
+          "max": {
+            "$ref": "#/$defs/nonNegative"
+          },
+          "median_absolute_deviation": {
+            "$ref": "#/$defs/nonNegative"
+          },
+          "coefficient_of_variation": {
+            "$ref": "#/$defs/nonNegative"
+          },
+          "bootstrap_median_95": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": {
+              "$ref": "#/$defs/nonNegative"
+            }
+          },
+          "relative_spread": {
+            "$ref": "#/$defs/nonNegative"
+          },
+          "threshold": {
+            "$ref": "#/$defs/nonNegative"
+          },
+          "within_threshold": {
+            "type": "boolean"
+          }
+        }
+      },
+      "metrics": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "injection_tps",
+          "sustained_tps",
+          "commit_p50_ms",
+          "commit_p95_ms",
+          "commit_p99_ms",
+          "commit_max_ms"
+        ],
+        "properties": {
+          "injection_tps": {
+            "$ref": "#/$defs/metric"
+          },
+          "sustained_tps": {
+            "$ref": "#/$defs/metric"
+          },
+          "commit_p50_ms": {
+            "$ref": "#/$defs/metric"
+          },
+          "commit_p95_ms": {
+            "$ref": "#/$defs/metric"
+          },
+          "commit_p99_ms": {
+            "$ref": "#/$defs/metric"
+          },
+          "commit_max_ms": {
+            "$ref": "#/$defs/metric"
+          }
+        }
+      },
+      "summary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "scenario",
+          "lane",
+          "within_threshold",
+          "metrics"
+        ],
+        "properties": {
+          "scenario": {
+            "$ref": "#/$defs/name"
+          },
+          "lane": {
+            "$ref": "#/$defs/name"
+          },
+          "within_threshold": {
+            "type": "boolean"
+          },
+          "metrics": {
+            "$ref": "#/$defs/metrics"
+          }
+        }
+      }
+    }
+  },
+  "schema://ioi/aft/measured-result-row/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/aft/measured-result-row/v1",
+    "title": "AftMeasuredResultRow",
+    "x-ioi-schema-version": "ioi.aft.measured-result-row.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "row_ref",
+      "row_hash",
+      "certificate_ref",
+      "certificate_hash",
+      "result_ref",
+      "result_hash",
+      "environment_hash",
+      "campaign_id",
+      "source_commit",
+      "image_digest",
+      "provider_ref",
+      "environment_class",
+      "honesty_class",
+      "verdict",
+      "accepted_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.aft.measured-result-row.v1"
+      },
+      "row_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "row_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "certificate_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "certificate_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "result_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "result_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "environment_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "campaign_id": {
+        "$ref": "#/$defs/name"
+      },
+      "source_commit": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{40}$"
+      },
+      "image_digest": {
+        "$ref": "#/$defs/hash"
+      },
+      "provider_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "environment_class": {
+        "enum": [
+          "measured_container",
+          "attested_pinned_bare_metal"
+        ]
+      },
+      "honesty_class": {
+        "enum": [
+          "same_provider_container_unknown_host",
+          "attested_pinned_bare_metal",
+          "variance_caveated"
+        ]
+      },
+      "verdict": {
+        "enum": [
+          "reproduced_within_threshold",
+          "variance_caveated"
+        ]
+      },
+      "accepted_at": {
+        "$ref": "#/$defs/timestamp"
+      }
+    },
+    "$defs": {
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+      },
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "name": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+      },
+      "timestamp": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    }
+  },
+  "schema://ioi/aft/measured-results-registry/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/aft/measured-results-registry/v1",
+    "title": "AftMeasuredResultsRegistry",
+    "x-ioi-schema-version": "ioi.aft.measured-results-registry.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "registry_ref",
+      "revision",
+      "previous_state_hash",
+      "entries",
+      "state_hash"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.aft.measured-results-registry.v1"
+      },
+      "registry_ref": {
+        "const": "registry://aft/measured-results"
+      },
+      "revision": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "previous_state_hash": {
+        "oneOf": [
+          {
+            "type": "null"
+          },
+          {
+            "$ref": "#/$defs/hash"
+          }
+        ]
+      },
+      "entries": {
+        "type": "array",
+        "maxItems": 100000,
+        "items": {
+          "$ref": "#/$defs/entry"
+        }
+      },
+      "state_hash": {
+        "$ref": "#/$defs/hash"
+      }
+    },
+    "$defs": {
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+      },
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "entry": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "row_ref",
+          "row_hash"
+        ],
+        "properties": {
+          "row_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "row_hash": {
+            "$ref": "#/$defs/hash"
           }
         }
       }
@@ -79999,6 +80627,9 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
   "schema://ioi/components/hypervisor/collection-query/v1": [],
   "schema://ioi/components/hypervisor/c8-certificate/v3": [],
   "schema://ioi/components/hypervisor/governed-effect-claim-manifest/v1": [],
+  "schema://ioi/aft/u1-campaign-result/v1": [],
+  "schema://ioi/aft/measured-result-row/v1": [],
+  "schema://ioi/aft/measured-results-registry/v1": [],
   "schema://ioi/foundations/relying-party-acceptance-policy/v1": [],
   "schema://ioi/foundations/certificate-acceptance-receipt/v1": [],
   "schema://ioi/components/hypervisor/harness-session-binding-admission/v1": [
@@ -87623,6 +88254,24 @@ export function validateGovernedEffectClaimManifestV1(
   value: unknown,
 ): value is GovernedEffectClaimManifestV1 {
   return validateArchitectureContract("schema://ioi/components/hypervisor/governed-effect-claim-manifest/v1", value).ok;
+}
+
+export function validateAftU1CampaignResultV1(
+  value: unknown,
+): value is AftU1CampaignResultV1 {
+  return validateArchitectureContract("schema://ioi/aft/u1-campaign-result/v1", value).ok;
+}
+
+export function validateAftMeasuredResultRowV1(
+  value: unknown,
+): value is AftMeasuredResultRowV1 {
+  return validateArchitectureContract("schema://ioi/aft/measured-result-row/v1", value).ok;
+}
+
+export function validateAftMeasuredResultsRegistryV1(
+  value: unknown,
+): value is AftMeasuredResultsRegistryV1 {
+  return validateArchitectureContract("schema://ioi/aft/measured-results-registry/v1", value).ok;
 }
 
 export function validateRelyingPartyAcceptancePolicyV1(

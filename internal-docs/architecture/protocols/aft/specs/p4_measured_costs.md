@@ -78,3 +78,13 @@ about custody and audit overhead) are exact and gate-pinned now. Class B
 (throughput/latency) is instrument-ready but honestly deferred to a
 pinned runner rather than committed from a variable box — recording the
 residual instead of a number that could not survive its own gate.
+
+## Measured-results registry contract
+
+Class C promotion is a relying-party state transition, not a manual table
+edit. `AftMeasuredResultRow` binds one accepted campaign result to its C8 v3
+certificate, environment, immutable image, provider, honesty class, and
+verdict. `AftMeasuredResultsRegistry` is the compare-and-set target: every
+accepted transition increments its revision, names the prior state hash, and
+commits the complete ordered row set. Rejection leaves the registry bytes
+unchanged and is represented only by a `CertificateAcceptanceReceipt`.
