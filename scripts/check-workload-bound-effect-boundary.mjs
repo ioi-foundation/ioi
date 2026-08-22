@@ -121,6 +121,26 @@ function inspect(microvm, brokerSource = broker) {
     ["final_invoker_calls", "final_invoker_counter_missing"],
     ["consume_guest_effect_proposal_bytes", "canonical_guest_byte_boundary_missing"],
     [
+      "mint_guest_governed_provider_effect_capability",
+      "host_authority_compartment_mint_missing",
+    ],
+    [
+      "host_authority_attachment_hash",
+      "host_authority_attachment_binding_missing",
+    ],
+    [
+      "consume_guest_governed_provider_operation_bytes",
+      "governed_provider_broker_composition_missing",
+    ],
+    [
+      "invoke_workload_brokered_provider_operation",
+      "full_provider_final_invoker_call_missing",
+    ],
+    [
+      "governed_guest_proposal_contains_no_wallet_authority_or_operator_session",
+      "guest_authority_nonpossession_regression_missing",
+    ],
+    [
       "reconcile_guest_static_provider_operation",
       "ambiguous_claim_reconciliation_missing",
     ],
@@ -159,6 +179,14 @@ function inspect(microvm, brokerSource = broker) {
     [
       "pub(crate) fn invoke_static_provider_operation",
       "shared_static_final_invoker_missing",
+    ],
+    [
+      "pub(crate) async fn invoke_workload_brokered_provider_operation",
+      "governed_provider_final_invoker_missing",
+    ],
+    [
+      "handle_provider_op_internal(st, HeaderMap::new(), body, Some(authority)).await",
+      "governed_provider_route_not_shared_with_http_lane",
     ],
     [
       "invoke_static_provider_operation(data_dir, &body)",
@@ -206,6 +234,17 @@ if (process.argv.includes("--mutation")) {
     console.error("MUTATION SURVIVED: planted second provider path was not detected");
     process.exit(1);
   }
+  const bypassedGovernedProvider = broker.replace(
+    "super::provider_routes::invoke_workload_brokered_provider_operation(",
+    "super::provider_routes::invoke_static_provider_operation(",
+  );
+  const governedFindings = inspect(originalMicrovm, bypassedGovernedProvider);
+  if (!governedFindings.includes("full_provider_final_invoker_call_missing")) {
+    console.error(
+      "MUTATION SURVIVED: governed guest broker was diverted to the static provider lane",
+    );
+    process.exit(1);
+  }
   console.log(
     JSON.stringify(
       {
@@ -219,6 +258,10 @@ if (process.argv.includes("--mutation")) {
           {
             mutation: "plant_second_provider_client_inside_guest_broker",
             detected_by: "provider_or_secret_client_inside_guest_broker",
+          },
+          {
+            mutation: "divert_governed_guest_broker_to_static_provider_lane",
+            detected_by: "full_provider_final_invoker_call_missing",
           },
         ],
       },
@@ -267,7 +310,7 @@ console.log(
       floor_status:
         "not_yet_in_global_verifier_floor_pending_live_c2_authority_composition_and_complete_failure_matrix",
       claim_boundary:
-        "The local KVM/no-NIC guest launch, canonical output quarantine, exact authenticated proposal, durable one-use claim, and shared static-provider final-invoker composition are enforced and mutation-tested. This check does not yet claim live C2/wallet-authority composition, external-provider non-bypassability, or the complete T2 fault matrix.",
+        "The local KVM/no-NIC guest launch, canonical output quarantine, exact authenticated proposal, durable one-use claim, host-only authority compartment, and shared full-provider final-invoker implementation are enforced and mutation-tested. The full-provider seam now reaches the wallet/proposal/C2/provider implementation without retaining a bearer operator session, but this check does not claim the live external-provider composition until the integrated paid capstone and complete T2 fault matrix pass.",
     },
     null,
     2,

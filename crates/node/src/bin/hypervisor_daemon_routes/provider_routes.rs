@@ -8380,10 +8380,116 @@ pub(crate) fn invoke_static_provider_operation(
     }
 }
 
+/// Host-only authenticated context used by the workload effect broker.  It contains no bearer
+/// session: the principal's current membership is re-resolved when the context is constructed,
+/// and the stored proposal-session binding is only a hash used to consume the already admitted
+/// daemon proposal.  HTTP callers can never select this path.
+#[derive(Clone)]
+pub(crate) struct WorkloadBrokerProviderAuthority {
+    caller: super::mutation_event_foundation::WriteCaller,
+    proposal_session_binding: String,
+}
+
+impl WorkloadBrokerProviderAuthority {
+    pub(crate) fn resolve(
+        data_dir: &str,
+        principal_ref: &str,
+        owner_ref: &str,
+        idempotency_key: &str,
+        proposal_session_binding: &str,
+        correlation_ref: &str,
+    ) -> Result<Self, (StatusCode, Json<Value>)> {
+        if idempotency_key.is_empty()
+            || idempotency_key.len() > 256
+            || idempotency_key.chars().any(char::is_control)
+            || !proposal_session_binding.starts_with("sha256:")
+            || proposal_session_binding.len() != 71
+        {
+            return Err((
+                StatusCode::UNAUTHORIZED,
+                Json(json!({
+                    "ok": false,
+                    "code": "workload_broker_authority_binding_invalid",
+                    "message": "the host broker authority binding is malformed"
+                })),
+            ));
+        }
+        let identity = super::substrate_store::resolve_workload_broker_identity(
+            data_dir,
+            principal_ref,
+            owner_ref,
+            correlation_ref,
+        )
+        .map_err(super::mutation_event_foundation::scope_refusal_reply)?;
+        Ok(Self {
+            caller: super::mutation_event_foundation::WriteCaller {
+                identity,
+                owner_ref: owner_ref.to_owned(),
+                idempotency_key: idempotency_key.to_owned(),
+            },
+            proposal_session_binding: proposal_session_binding.to_owned(),
+        })
+    }
+}
+
+fn provider_write_caller(
+    data_dir: &str,
+    headers: &HeaderMap,
+    body: &Value,
+    broker_authority: Option<&WorkloadBrokerProviderAuthority>,
+) -> Result<super::mutation_event_foundation::WriteCaller, (StatusCode, Json<Value>)> {
+    if let Some(authority) = broker_authority {
+        if text(body, "owner_ref") != authority.caller.owner_ref
+            || text(body, "idempotency_key") != authority.caller.idempotency_key
+        {
+            return Err((
+                StatusCode::FORBIDDEN,
+                Json(json!({
+                    "ok": false,
+                    "code": "workload_broker_owner_binding_mismatch",
+                    "message": "the brokered request changed its authenticated owner or idempotency key"
+                })),
+            ));
+        }
+        return Ok(authority.caller.clone());
+    }
+    super::mutation_event_foundation::require_write_caller(data_dir, headers, body)
+}
+
+fn provider_request_session_binding(
+    headers: &HeaderMap,
+    broker_authority: Option<&WorkloadBrokerProviderAuthority>,
+) -> Result<String, (StatusCode, Json<Value>)> {
+    broker_authority
+        .map(|authority| authority.proposal_session_binding.clone())
+        .map(Ok)
+        .unwrap_or_else(|| provider_proposal_session_binding(headers))
+}
+
 pub(crate) async fn handle_provider_op(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
     Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    handle_provider_op_internal(st, headers, body, None).await
+}
+
+/// Invoke the exact provider route from the trusted host broker without materializing an operator
+/// session. The opaque guest capability is consumed by `workload_effect_boundary`; only that
+/// module can assemble this authority context from its host-only durable record.
+pub(crate) async fn invoke_workload_brokered_provider_operation(
+    st: Arc<DaemonState>,
+    body: Value,
+    authority: WorkloadBrokerProviderAuthority,
+) -> (StatusCode, Json<Value>) {
+    handle_provider_op_internal(st, HeaderMap::new(), body, Some(authority)).await
+}
+
+async fn handle_provider_op_internal(
+    st: Arc<DaemonState>,
+    headers: HeaderMap,
+    body: Value,
+    broker_authority: Option<WorkloadBrokerProviderAuthority>,
 ) -> (StatusCode, Json<Value>) {
     let data_dir = &st.data_dir;
     let provider_id = body
@@ -8428,9 +8534,7 @@ pub(crate) async fn handle_provider_op(
             op == "start" && kind == "akash" && vast_mode(&account) == "live";
         let akash_live_logs_caller =
             if op == "logs" && kind == "akash" && vast_mode(&account) == "live" {
-                match super::mutation_event_foundation::require_write_caller(
-                    data_dir, &headers, &body,
-                ) {
+                match provider_write_caller(data_dir, &headers, &body, broker_authority.as_ref()) {
                     Ok(caller) => Some(caller),
                     Err(reply) => return reply,
                 }
@@ -8456,7 +8560,7 @@ pub(crate) async fn handle_provider_op(
             && result_binding_caller.is_none()
         {
             if let Err(reply) =
-                super::mutation_event_foundation::require_write_caller(data_dir, &headers, &body)
+                provider_write_caller(data_dir, &headers, &body, broker_authority.as_ref())
             {
                 return reply;
             }
@@ -8865,16 +8969,20 @@ pub(crate) async fn handle_provider_op(
                     .iter()
                     .any(|field| body.get(*field).is_some_and(|grant| !grant.is_null()))
             {
-                let caller = match super::mutation_event_foundation::require_write_caller(
-                    data_dir, &headers, &body,
+                let caller = match provider_write_caller(
+                    data_dir,
+                    &headers,
+                    &body,
+                    broker_authority.as_ref(),
                 ) {
                     Ok(caller) => caller,
                     Err(reply) => return reply,
                 };
-                let session_binding = match provider_proposal_session_binding(&headers) {
-                    Ok(binding) => binding,
-                    Err(reply) => return reply,
-                };
+                let session_binding =
+                    match provider_request_session_binding(&headers, broker_authority.as_ref()) {
+                        Ok(binding) => binding,
+                        Err(reply) => return reply,
+                    };
                 proposal_consumption = match consume_provider_operation_proposal(
                     data_dir,
                     &caller,
@@ -9106,12 +9214,11 @@ pub(crate) async fn handle_provider_op(
             && kind == "akash"
             && vast_mode(&account) == "live"
         {
-            let caller = match super::mutation_event_foundation::require_write_caller(
-                data_dir, &headers, &body,
-            ) {
-                Ok(caller) => caller,
-                Err((status, reply)) => return (status, reply),
-            };
+            let caller =
+                match provider_write_caller(data_dir, &headers, &body, broker_authority.as_ref()) {
+                    Ok(caller) => caller,
+                    Err((status, reply)) => return (status, reply),
+                };
             let credential_fingerprint = load_account_credential(data_dir, &account_id)
                 .map(|c| text(&c, "fingerprint").to_string())
                 .unwrap_or_default();

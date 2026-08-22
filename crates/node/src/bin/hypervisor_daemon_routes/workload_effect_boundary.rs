@@ -7,7 +7,8 @@
 //! Provider credentials and signing material are not inputs to this module and never enter the
 //! guest envelope.
 
-use std::sync::Mutex;
+use std::future::Future;
+use std::sync::{Arc, OnceLock};
 
 use ioi_types::app::generated::architecture_contracts::{
     HypervisorWorkloadBoundEffectProposalV1, HypervisorWorkloadEffectConsumptionReceiptV1,
@@ -19,7 +20,11 @@ use sha2::{Digest, Sha256};
 
 const FAMILY: &str = "workload-effect-capabilities";
 const MAX_PROPOSAL_BYTES: usize = 64 * 1024;
-static CONSUMPTION_LOCK: Mutex<()> = Mutex::new(());
+static CONSUMPTION_LOCK: OnceLock<tokio::sync::Mutex<()>> = OnceLock::new();
+
+fn consumption_lock() -> &'static tokio::sync::Mutex<()> {
+    CONSUMPTION_LOCK.get_or_init(|| tokio::sync::Mutex::new(()))
+}
 
 fn sha256_ref(bytes: &[u8]) -> String {
     format!("sha256:{}", hex::encode(Sha256::digest(bytes)))
@@ -162,6 +167,113 @@ pub(crate) fn mint_guest_effect_capability(
     Ok(proposal)
 }
 
+const HOST_ONLY_PROVIDER_AUTHORITY_FIELDS: &[&str] = &[
+    "wallet_approval_grant",
+    "wallet_standing_approval_grant",
+    "standing_authority_envelope",
+    "operation_proposal_ref",
+];
+
+fn split_host_provider_authority(full_request: &Value) -> Result<(Value, Value), String> {
+    let mut guest_request = full_request.clone();
+    let guest = guest_request
+        .as_object_mut()
+        .ok_or("workload_effect_provider_request_object_required")?;
+    let mut attachment = serde_json::Map::new();
+    for field in HOST_ONLY_PROVIDER_AUTHORITY_FIELDS {
+        if let Some(value) = guest.remove(*field) {
+            attachment.insert((*field).to_owned(), value);
+        }
+    }
+    let one_shot = attachment
+        .get("wallet_approval_grant")
+        .is_some_and(|value| !value.is_null());
+    let standing_grant = attachment
+        .get("wallet_standing_approval_grant")
+        .is_some_and(|value| !value.is_null());
+    let standing_envelope = attachment
+        .get("standing_authority_envelope")
+        .is_some_and(|value| !value.is_null());
+    if one_shot == standing_grant || standing_grant != standing_envelope {
+        return Err("workload_effect_host_authority_mode_invalid".into());
+    }
+    if !attachment
+        .get("operation_proposal_ref")
+        .and_then(Value::as_str)
+        .is_some_and(|value| value.starts_with("provider-operation-proposal://"))
+    {
+        return Err("workload_effect_host_proposal_ref_required".into());
+    }
+    if required_text(&guest_request, "owner_ref")?.is_empty()
+        || required_text(&guest_request, "idempotency_key")?.is_empty()
+    {
+        return Err("workload_effect_host_owner_binding_required".into());
+    }
+    Ok((guest_request, Value::Object(attachment)))
+}
+
+fn verified_host_provider_authority(record: &Value) -> Result<Value, String> {
+    let attachment = record
+        .get("host_authority_attachment")
+        .filter(|value| value.is_object())
+        .cloned()
+        .ok_or("workload_effect_host_authority_attachment_required")?;
+    if canonical_hash(&attachment)? != required_text(record, "host_authority_attachment_hash")? {
+        return Err("workload_effect_host_authority_attachment_hash_mismatch".into());
+    }
+    Ok(attachment)
+}
+
+/// Mint a guest-visible capability for the full governed provider lane.  The guest receives the
+/// exact non-authorizing request and one opaque token.  Wallet grants, the standing envelope, and
+/// the daemon proposal ref remain in the host-only durable record; no bearer operator session is
+/// retained.  Their canonical hash is committed before the capability is emitted.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn mint_guest_governed_provider_effect_capability(
+    data_dir: &str,
+    isolation_binding_ref: &str,
+    isolation_binding_hash: &str,
+    principal_ref: &str,
+    proposal_nonce: &str,
+    resource_ref: &str,
+    result_destination_ref: &str,
+    full_provider_request: &Value,
+    authenticated_principal_ref: &str,
+    proposal_session_binding: &str,
+    issued_at_ms: u64,
+    expires_at_ms: u64,
+) -> Result<Value, String> {
+    let (guest_request, host_authority) = split_host_provider_authority(full_provider_request)?;
+    if !authenticated_principal_ref.starts_with("user://")
+        || authenticated_principal_ref.chars().any(char::is_whitespace)
+        || !proposal_session_binding.starts_with("sha256:")
+        || proposal_session_binding.len() != 71
+    {
+        return Err("workload_effect_host_principal_binding_invalid".into());
+    }
+    let proposal = mint_guest_effect_capability(
+        data_dir,
+        isolation_binding_ref,
+        isolation_binding_hash,
+        principal_ref,
+        proposal_nonce,
+        "hypervisor-final-invoker",
+        resource_ref,
+        result_destination_ref,
+        &guest_request,
+        issued_at_ms,
+        expires_at_ms,
+    )?;
+    let id = record_id(&proposal)?;
+    let mut record = load(data_dir, id)?;
+    record["host_authority_attachment_hash"] = json!(canonical_hash(&host_authority)?);
+    record["host_authority_attachment"] = host_authority;
+    record["authenticated_principal_ref"] = json!(authenticated_principal_ref);
+    record["proposal_session_binding"] = json!(proposal_session_binding);
+    persist(data_dir, id, &record)?;
+    Ok(proposal)
+}
+
 fn record_id_from_capability_ref(capability_ref: &str) -> Result<&str, String> {
     capability_ref
         .strip_prefix("workload-effect-capability://")
@@ -262,9 +374,7 @@ fn consume_guest_effect_capability<F>(
 where
     F: FnOnce(&Value) -> Result<Value, String>,
 {
-    let _guard = CONSUMPTION_LOCK
-        .lock()
-        .map_err(|_| "workload_effect_consumption_lock_poisoned".to_string())?;
+    let _guard = consumption_lock().blocking_lock();
     let id = record_id(proposal)?;
     let mut record = load(data_dir, id)?;
     proposal_matches_record(proposal, &record)?;
@@ -296,6 +406,83 @@ where
     .map_err(|error| format!("workload_effect_crash_coordination_failed: {error}"))?;
 
     match final_invoker(&record["exact_request"]) {
+        Ok(effect_receipt) => {
+            record["status"] = json!("consumed");
+            record["final_invoker_calls"] = json!(1);
+            record["effect_receipt_hash"] = json!(canonical_hash(&effect_receipt)?);
+            record["settled_at_ms"] = json!(now_ms);
+            persist(data_dir, id, &record)?;
+            let receipt = json!({
+                "schema_version": "ioi.components.hypervisor.workload-effect-consumption-receipt.v1",
+                "capability_ref": record["capability_ref"],
+                "isolation_binding_ref": record["isolation_binding_ref"],
+                "principal_ref": record["principal_ref"],
+                "request_hash": record["request_hash"],
+                "effect_receipt_hash": record["effect_receipt_hash"],
+                "final_invoker_calls": 1,
+                "status": "consumed"
+            });
+            serde_json::from_value::<HypervisorWorkloadEffectConsumptionReceiptV1>(receipt.clone())
+                .map_err(|error| format!("workload_effect_receipt_contract_invalid: {error}"))?;
+            Ok(receipt)
+        }
+        Err(reason) => {
+            record["status"] = json!("refused");
+            record["final_invoker_calls"] = json!(0);
+            record["refusal_reason"] = json!(reason.clone());
+            record["settled_at_ms"] = json!(now_ms);
+            persist(data_dir, id, &record)?;
+            Err(format!("workload_effect_final_invoker_refused: {reason}"))
+        }
+    }
+}
+
+/// Async form of the exact same durable one-use boundary.  The async mutex remains held across
+/// the host final invoker so an in-process replay cannot turn a currently executing claim into a
+/// restart ambiguity.  A process death still leaves the durable `claimed` record for the explicit
+/// reconciler, exactly like the synchronous path.
+async fn consume_guest_effect_capability_async<F, Fut>(
+    data_dir: &str,
+    proposal: &Value,
+    now_ms: u64,
+    final_invoker: F,
+) -> Result<Value, String>
+where
+    F: FnOnce(Value) -> Fut,
+    Fut: Future<Output = Result<Value, String>>,
+{
+    let _guard = consumption_lock().lock().await;
+    let id = record_id(proposal)?;
+    let mut record = load(data_dir, id)?;
+    proposal_matches_record(proposal, &record)?;
+    if now_ms > record["expires_at_ms"].as_u64().unwrap_or_default() {
+        return Err("workload_effect_capability_expired".into());
+    }
+    match record["status"].as_str().unwrap_or_default() {
+        "issued" => {}
+        "claimed" | "reconciliation_required" => {
+            if record["status"] == "claimed" {
+                record["status"] = json!("reconciliation_required");
+                record["reconciliation_reason"] = json!("prior_process_lost_after_durable_claim");
+                persist(data_dir, id, &record)?;
+            }
+            return Err("workload_effect_prior_claim_requires_reconciliation".into());
+        }
+        _ => return Err("workload_effect_capability_already_consumed".into()),
+    }
+
+    record["status"] = json!("claimed");
+    record["claimed_at_ms"] = json!(now_ms);
+    persist(data_dir, id, &record)?;
+    super::durable_fs::test_crash_pause_if_selected(
+        "IOI_TEST_CRASH_AT",
+        "workload_effect_claimed",
+        "IOI_TEST_CRASH_MARKER_PATH",
+        id,
+    )
+    .map_err(|error| format!("workload_effect_crash_coordination_failed: {error}"))?;
+
+    match final_invoker(record["exact_request"].clone()).await {
         Ok(effect_receipt) => {
             record["status"] = json!("consumed");
             record["final_invoker_calls"] = json!(1);
@@ -370,6 +557,87 @@ pub(crate) fn consume_guest_static_provider_operation_bytes(
     })
 }
 
+/// Cross the hostile-guest boundary into the complete governed provider path.  The host-only
+/// attachment is recovered from the durable capability record, hash-checked, and combined with
+/// the guest's immutable non-authorizing request only after the one-use capability is durably
+/// claimed.  This invokes the same wallet draw, proposal consumption, C2 intent/outcome, provider,
+/// receipt, teardown, and settlement implementation used by the public provider route.
+pub(crate) async fn consume_guest_governed_provider_operation_bytes(
+    st: Arc<super::DaemonState>,
+    proposal_bytes: &[u8],
+    now_ms: u64,
+) -> Result<Value, String> {
+    let proposal = parse_canonical_proposal_bytes(proposal_bytes)?;
+    static_provider_coordinates(&proposal)?;
+    let id = record_id(&proposal)?;
+    let record = load(&st.data_dir, id)?;
+    proposal_matches_record(&proposal, &record)?;
+    let attachment = verified_host_provider_authority(&record)?;
+    let authenticated_principal_ref =
+        required_text(&record, "authenticated_principal_ref")?.to_owned();
+    let proposal_session_binding = required_text(&record, "proposal_session_binding")?.to_owned();
+    let correlation_ref = required_text(&record, "capability_ref")?.to_owned();
+    let data_dir = st.data_dir.clone();
+    let broker_data_dir = data_dir.clone();
+
+    consume_guest_effect_capability_async(
+        &data_dir,
+        &proposal,
+        now_ms,
+        move |mut guest_request| async move {
+            let target = guest_request
+                .as_object_mut()
+                .ok_or_else(|| "workload_effect_provider_request_object_required".to_string())?;
+            for (key, value) in attachment
+                .as_object()
+                .ok_or_else(|| "workload_effect_host_authority_attachment_required".to_string())?
+            {
+                if target.insert(key.clone(), value.clone()).is_some() {
+                    return Err("workload_effect_guest_authority_field_collision".into());
+                }
+            }
+            let owner_ref = required_text(&guest_request, "owner_ref")?.to_owned();
+            let idempotency_key = required_text(&guest_request, "idempotency_key")?.to_owned();
+            let authority = super::provider_routes::WorkloadBrokerProviderAuthority::resolve(
+                &broker_data_dir,
+                &authenticated_principal_ref,
+                &owner_ref,
+                &idempotency_key,
+                &proposal_session_binding,
+                &correlation_ref,
+            )
+            .map_err(|(_, axum::Json(reply))| {
+                format!(
+                    "provider_broker_authority_refused:{}",
+                    reply
+                        .get("code")
+                        .and_then(Value::as_str)
+                        .unwrap_or("unknown")
+                )
+            })?;
+            let (status, axum::Json(reply)) =
+                super::provider_routes::invoke_workload_brokered_provider_operation(
+                    st,
+                    guest_request,
+                    authority,
+                )
+                .await;
+            if !status.is_success() || reply.get("ok").and_then(Value::as_bool) != Some(true) {
+                return Err(format!(
+                    "provider_final_invoker_refused:{}",
+                    reply
+                        .get("code")
+                        .or_else(|| reply.get("reason"))
+                        .and_then(Value::as_str)
+                        .unwrap_or("unknown")
+                ));
+            }
+            Ok(reply)
+        },
+    )
+    .await
+}
+
 /// Resolve an ambiguous durable claim without replaying its original effect. The reconciler first
 /// observes the exact provider/environment bound into the capability. An absent resource closes as
 /// `reconciled_no_effect`; an observed resource is deleted and must return positive cleanup truth.
@@ -379,9 +647,7 @@ pub(crate) fn reconcile_guest_static_provider_operation(
     capability_ref: &str,
     now_ms: u64,
 ) -> Result<Value, String> {
-    let _guard = CONSUMPTION_LOCK
-        .lock()
-        .map_err(|_| "workload_effect_consumption_lock_poisoned".to_string())?;
+    let _guard = consumption_lock().blocking_lock();
     let id = record_id_from_capability_ref(capability_ref)?;
     let mut record = load(data_dir, id)?;
     if record.get("capability_ref").and_then(Value::as_str) != Some(capability_ref) {
@@ -518,6 +784,89 @@ mod tests {
             61_000,
         )
         .unwrap()
+    }
+
+    #[test]
+    fn governed_guest_proposal_contains_no_wallet_authority_or_operator_session() {
+        let dir = fixture();
+        let data_dir = dir.path().to_str().unwrap();
+        let full_request = json!({
+            "provider_id": "provider-account",
+            "op": "create",
+            "environment_ref": "env-host-authority-hidden",
+            "owner_ref": "org://local",
+            "idempotency_key": "host-authority-hidden",
+            "plan": {"deposit_usd": 1.0},
+            "operation_proposal_ref": "provider-operation-proposal://popp_exact",
+            "wallet_approval_grant": {
+                "grant_ref": "wallet.network://grant/secret-marker-must-not-reach-guest"
+            }
+        });
+        let proposal = mint_guest_governed_provider_effect_capability(
+            data_dir,
+            "workload-isolation-binding://run-governed-provider",
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "principal://worker-governed-provider",
+            "nonce-governed-provider",
+            "provider-resource://provider-account/env-host-authority-hidden",
+            "result-destination://aft/u1",
+            &full_request,
+            "user://operator",
+            "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            1_000,
+            61_000,
+        )
+        .unwrap();
+        let guest_bytes = serde_jcs::to_vec(&proposal).unwrap();
+        let guest_text = String::from_utf8(guest_bytes).unwrap();
+        for forbidden in [
+            "wallet_approval_grant",
+            "wallet_standing_approval_grant",
+            "standing_authority_envelope",
+            "operation_proposal_ref",
+            "secret-marker-must-not-reach-guest",
+            "ioi_session",
+        ] {
+            assert!(!guest_text.contains(forbidden), "guest leaked {forbidden}");
+        }
+        let id = record_id(&proposal).unwrap();
+        let mut record = load(data_dir, id).unwrap();
+        let attachment = verified_host_provider_authority(&record).unwrap();
+        assert_eq!(
+            attachment["wallet_approval_grant"]["grant_ref"],
+            "wallet.network://grant/secret-marker-must-not-reach-guest"
+        );
+        record["host_authority_attachment"]["wallet_approval_grant"]["grant_ref"] =
+            json!("wallet.network://grant/mutated");
+        assert_eq!(
+            verified_host_provider_authority(&record).unwrap_err(),
+            "workload_effect_host_authority_attachment_hash_mismatch"
+        );
+    }
+
+    #[test]
+    fn governed_guest_capability_refuses_ambiguous_or_incomplete_authority_modes() {
+        let base = json!({
+            "provider_id": "provider-account",
+            "op": "create",
+            "environment_ref": "env-authority-mode",
+            "owner_ref": "org://local",
+            "idempotency_key": "authority-mode",
+            "operation_proposal_ref": "provider-operation-proposal://popp_exact"
+        });
+        assert_eq!(
+            split_host_provider_authority(&base).unwrap_err(),
+            "workload_effect_host_authority_mode_invalid"
+        );
+        let mut ambiguous = base.clone();
+        ambiguous["wallet_approval_grant"] = json!({"grant_ref":"wallet.network://grant/one"});
+        ambiguous["wallet_standing_approval_grant"] =
+            json!({"grant_ref":"wallet.network://standing/one"});
+        ambiguous["standing_authority_envelope"] = json!({"body_hash":"sha256:one"});
+        assert_eq!(
+            split_host_provider_authority(&ambiguous).unwrap_err(),
+            "workload_effect_host_authority_mode_invalid"
+        );
     }
 
     #[test]

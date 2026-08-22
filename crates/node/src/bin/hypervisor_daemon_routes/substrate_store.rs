@@ -2845,6 +2845,44 @@ pub(crate) fn resolve_request_identity(
     })
 }
 
+/// Re-resolve a previously authenticated principal for a host-only workload broker.
+///
+/// The broker persists no bearer session.  At effect time it names the principal and the
+/// *single* owner that were bound when the opaque workload capability was minted; this helper
+/// rechecks current membership and deliberately narrows the reconstructed identity to that owner.
+/// It must never be used for a caller-controlled HTTP body because doing so would replace
+/// transport authentication with an asserted principal ref.
+pub(crate) fn resolve_workload_broker_identity(
+    data_dir: &str,
+    principal_ref: &str,
+    owner_ref: &str,
+    correlation_ref: &str,
+) -> Result<RequestIdentity, RequestScopeRefusal> {
+    if !principal_ref.starts_with("user://")
+        || principal_ref.len() <= "user://".len()
+        || principal_ref.len() > 512
+        || principal_ref.chars().any(char::is_whitespace)
+    {
+        return Err(RequestScopeRefusal::PrincipalIdentityInvalid);
+    }
+    if !matches!(owner_ref.split_once("://"), Some(("org" | "project", tail)) if !tail.is_empty())
+        || owner_ref.len() > 512
+        || owner_ref.chars().any(char::is_whitespace)
+    {
+        return Err(RequestScopeRefusal::TenantAuthorityRequired);
+    }
+    let current = super::lifecycle_routes::resolve_principal_tenant_refs(data_dir, principal_ref)
+        .map_err(RequestScopeRefusal::SubstrateUnavailable)?;
+    if !current.contains(owner_ref) {
+        return Err(RequestScopeRefusal::TenantAuthorityRequired);
+    }
+    Ok(RequestIdentity {
+        principal_ref: principal_ref.to_owned(),
+        tenant_refs: [owner_ref.to_owned()].into_iter().collect(),
+        correlation_seed: scoped_digest(correlation_ref),
+    })
+}
+
 fn request_scope_tail(resource_kind: &str, resource_ref: &str) -> String {
     format!(
         "scope.{}",
