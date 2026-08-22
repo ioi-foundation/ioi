@@ -39,3 +39,9 @@ The `compare` operation applies the same thresholds to each campaign median, req
 Provider address pinning proves stable provider identity, not physical bare-metal allocation. A result is `Class C — measured on attested pinned bare metal` only when evidence satisfying [provider-placement-attestation-request.md](provider-placement-attestation-request.md) independently establishes the reserved host and its hardware identity. Without that evidence, publish the more limited measured-container class and keep RES-P4.3 open or variance-caveated as the Common-Boundary ledger requires.
 
 Zero ready replicas, missing result artifacts, an unverified manifest, a mutable image tag, a provider mismatch, or unreconciled exposure invalidates the campaign. Endpoint discovery alone is not workload readiness.
+
+The result service must be exposed through provider-terminated HTTPS on
+external port 443, with the exact ingress leaf certificate bound into the
+owner-reviewed request. Plaintext external port 80 is not a valid result
+channel, even when the bearer-authenticated container listener is otherwise
+reachable.

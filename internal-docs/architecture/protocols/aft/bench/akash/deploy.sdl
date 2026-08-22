@@ -27,7 +27,11 @@ services:
       - 'IOI_SECRET_CANARIES=OWNER_SEEDED_NON_SECRET_TEST_CANARY'
     expose:
       - port: 8080
-        as: 80
+        # The provider gateway terminates owner-pinned HTTPS on its public
+        # listener and forwards the authenticated request to this HTTP port.
+        # External port 80 is forbidden: the daemon never sends the result
+        # bearer over plaintext and never falls back from HTTPS.
+        as: 443
         to:
           - global: true
 

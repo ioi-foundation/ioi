@@ -56,6 +56,12 @@ provider-local certificate without a DNS SAN. The daemon probes the leaf
 certificate without sending the bearer, rejects a DER hash mismatch, adds only
 the pinned certificate as a trust root, and then performs HTTPS retrieval. It
 never falls back to plaintext HTTP or globally disables certificate checks.
+The reviewed SDL maps the container's HTTP result listener on port 8080 to the
+provider gateway's external port 443. The provider gateway terminates TLS; an
+external-port-80 result route is rejected during campaign materialization so a
+bearer can never be sent through the plaintext listener. The pin is therefore
+the exact provider ingress leaf observed and reviewed before the challenge,
+not a certificate or private key embedded in the workload image.
 
 The proposal carries only `connector://conn_…` references and the SDL sentinels. The daemon injects plaintext after the C2 intent commits, sends the expanded SDL directly to Akash, and does not persist it. A seeded canary scan refuses the result bundle if a known test canary appears in any artifact.
 

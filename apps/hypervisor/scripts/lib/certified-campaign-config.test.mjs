@@ -107,7 +107,17 @@ test("materializes every reviewed non-secret token into the hashed SDL", () => {
   assert.match(rendered, /AFT_BENCH_CAMPAIGN_ID=u1-campaign-a/u);
   assert.match(rendered, new RegExp(`@${digest}`));
   assert.match(rendered, /AFT_BENCH_REPEATS=5/u);
+  assert.match(rendered, /port:\s*8080[\s\S]*?as:\s*443/u);
+  assert.doesNotMatch(rendered, /as:\s*80(?:\s|$)/u);
   assert.doesNotMatch(rendered, /OWNER_(?:APPROVED|SEEDED)|IMMUTABLE_IMAGE_DIGEST|PRIVATE_REGISTRY/u);
+});
+
+test("rejects a U1 result service exposed only over plaintext", () => {
+  const plaintext = template.replace(/as:\s*443/u, "as: 80");
+  assert.throws(
+    () => materializeReviewedSdl(plaintext, valid),
+    /provider-terminated HTTPS on external port 443/u,
+  );
 });
 
 test("rejects an image reference that differs from the authority-bound digest", () => {

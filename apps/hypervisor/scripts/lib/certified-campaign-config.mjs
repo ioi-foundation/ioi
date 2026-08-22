@@ -109,5 +109,9 @@ export function materializeReviewedSdl(template, config) {
   if (unresolvedOwnerReview.test(materialized)) {
     throw new Error("SDL retains unresolved owner-review tokens after materialization");
   }
+  const resultExposure = /expose:\s*\n\s*-\s+port:\s*8080\s*\n(?:\s*#[^\n]*\n)*\s*as:\s*443\s*\n\s*to:\s*\n\s*-\s+global:\s*true(?:\s|$)/u;
+  if (!resultExposure.test(materialized)) {
+    throw new Error("U1 SDL must expose the result service only as provider-terminated HTTPS on external port 443");
+  }
   return materialized;
 }
