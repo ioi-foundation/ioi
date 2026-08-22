@@ -1812,10 +1812,22 @@ export type C8CertificateV3 = {
   workload_image_ref: string;
   workload_image_digest: string;
   workload_readiness_evidence_refs: Array<string>;
+  campaign_certificate_ref: string;
+  campaign_certificate_hash: string;
+  campaign_id: string;
+  benchmark_source_commit: string;
+  benchmark_protocol_version: string;
   result_contract_ref: string;
+  result_contract_hash: string;
   result_ref: string;
   result_hash: string;
   result_retrieval_receipt_ref: string;
+  environment_ref: string;
+  environment_hash: string;
+  variance_evidence_ref: string;
+  variance_evidence_hash: string;
+  environment_class: "measured_container" | "attested_pinned_bare_metal";
+  honesty_class: "same_provider_container_unknown_host" | "attested_pinned_bare_metal" | "variance_caveated";
   authority_draw: {
       standing_envelope_ref: string;
       standing_envelope_hash: string;
@@ -21618,7 +21630,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/hypervisor/backend-capability-declaration/v1": "sha256:ff20dc82932a0095e15e8ecd6ccb8f458e92ce81990ab0c7c3f25c5d7942cddf",
   "schema://ioi/components/hypervisor/collection-page/v1": "sha256:1838faff61bec1c9b137763e19114dcca2017b8ddb20b3a7400561391e2321d7",
   "schema://ioi/components/hypervisor/collection-query/v1": "sha256:fc25b17cf6830faca44e00eedad7b6d4dd7c4eee5008e2c05ca553ce7da25bd5",
-  "schema://ioi/components/hypervisor/c8-certificate/v3": "sha256:3567d341536acd7e6fd962efb4d3a9bac9fbe8e16d95d86c48989088c57798b1",
+  "schema://ioi/components/hypervisor/c8-certificate/v3": "sha256:670c607dc8dc08b97364db1f394559da8334aac8b10f4c9b6ffeed12fa0ff74d",
   "schema://ioi/components/hypervisor/governed-effect-claim-manifest/v1": "sha256:1834df26ab76fd1fc15066a8db5cabb24de5185b8b5299a920233cc88078aa53",
   "schema://ioi/aft/u1-campaign-result/v1": "sha256:53f9a944ed1379a4509a691d16bc35fc93a9e10f293d80724c7355e33097c802",
   "schema://ioi/aft/measured-result-row/v1": "sha256:a13962e8d58491420fbc68a5a9057ad3998475d8a531ff65432692f24bde79a8",
@@ -36486,10 +36498,22 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "workload_image_ref",
       "workload_image_digest",
       "workload_readiness_evidence_refs",
+      "campaign_certificate_ref",
+      "campaign_certificate_hash",
+      "campaign_id",
+      "benchmark_source_commit",
+      "benchmark_protocol_version",
       "result_contract_ref",
+      "result_contract_hash",
       "result_ref",
       "result_hash",
       "result_retrieval_receipt_ref",
+      "environment_ref",
+      "environment_hash",
+      "variance_evidence_ref",
+      "variance_evidence_hash",
+      "environment_class",
+      "honesty_class",
       "authority_draw",
       "trajectory_binding",
       "brokered_secret_use_posture",
@@ -36561,8 +36585,27 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           "$ref": "#/$defs/ref"
         }
       },
+      "campaign_certificate_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "campaign_certificate_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "campaign_id": {
+        "$ref": "#/$defs/name"
+      },
+      "benchmark_source_commit": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{40}$"
+      },
+      "benchmark_protocol_version": {
+        "$ref": "#/$defs/name"
+      },
       "result_contract_ref": {
         "$ref": "#/$defs/ref"
+      },
+      "result_contract_hash": {
+        "$ref": "#/$defs/hash"
       },
       "result_ref": {
         "$ref": "#/$defs/ref"
@@ -36572,6 +36615,31 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       },
       "result_retrieval_receipt_ref": {
         "$ref": "#/$defs/ref"
+      },
+      "environment_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "environment_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "variance_evidence_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "variance_evidence_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "environment_class": {
+        "enum": [
+          "measured_container",
+          "attested_pinned_bare_metal"
+        ]
+      },
+      "honesty_class": {
+        "enum": [
+          "same_provider_container_unknown_host",
+          "attested_pinned_bare_metal",
+          "variance_caveated"
+        ]
       },
       "authority_draw": {
         "$ref": "#/$defs/authorityDraw"
@@ -36625,6 +36693,10 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "hash": {
         "type": "string",
         "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "name": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
       },
       "timestamp": {
         "type": "string",

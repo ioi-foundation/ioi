@@ -1400,8 +1400,10 @@ exact v2 certificate named by `predecessor_certificate_ref` and hash; v2 remains
 readable and unchanged. V3 additionally binds the source basis and governed
 request, typed claim manifest, workload-isolation binding, immutable image
 digest, provider-native readiness evidence, result contract/ref/hash and
-retrieval receipt, standing-envelope draw, trajectory state before/decision/
-after, brokered secret-use posture and evidence, relying-party audience,
+retrieval receipt, U1 campaign certificate, campaign/protocol identity,
+environment ref/hash, variance evidence, environment and honesty classes,
+standing-envelope draw, trajectory state before/decision/after, brokered
+secret-use posture and evidence, relying-party audience,
 terminal acceptance prerequisites, C2 intent/outcome predecessor chain, and
 provider-native terminal settlement.
 
