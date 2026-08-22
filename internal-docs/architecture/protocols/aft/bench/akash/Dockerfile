@@ -27,6 +27,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         pkg-config \
         cmake \
         libdbus-1-dev \
+        libprotobuf-dev \
         protobuf-compiler \
         libxcb1-dev \
         libxdo-dev \
