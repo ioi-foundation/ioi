@@ -35,6 +35,7 @@
     "check:provider-transport:live": "node scripts/verify-hypervisor-provider-transport.mjs --live",
     "check:provider-proposal-provenance": "node scripts/verify-provider-proposal-provenance.mjs",
     "check:c7-c8-capstone": "node scripts/verify-c7-c8-capstone.mjs",
+    "check:governed-effect-claims": "node --test scripts/lib/governed-effect-claim-manifest.test.mjs scripts/lib/c7-public-evidence.test.mjs",
     "check:akash-live-lifecycle": "node scripts/verify-akash-live-lifecycle.mjs",
     "generate:c7-c8-capstone": "node scripts/generate-c7-c8-certificate.mjs",
     "build:c7-public-evidence": "node scripts/build-c7-public-evidence.mjs",

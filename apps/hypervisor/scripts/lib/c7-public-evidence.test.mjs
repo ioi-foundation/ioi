@@ -72,6 +72,7 @@ test("public bundle writes only regular, hashed disclosure-safe artifacts", () =
         schema_version: "fixture",
         claims: { certified_scope: "governed_infrastructure_lifecycle" },
         nonclaims: ["provider neutrality"],
+        claim_manifest: { schema_version: "claim-manifest-fixture" },
         workload: { redacted_sdl: "version: fixture\n" },
       },
       {
@@ -80,11 +81,11 @@ test("public bundle writes only regular, hashed disclosure-safe artifacts", () =
         mutations: { mutation_count: 22, failures: [] },
       },
     );
-    assert.equal(result.artifact_count, 6);
+    assert.equal(result.artifact_count, 7);
     assert.match(fs.readFileSync(path.join(directory, "manifest.sha256"), "utf8"), /public-evidence\.json/u);
     assert.deepEqual(
       fs.readdirSync(directory).filter((name) => fs.lstatSync(path.join(directory, name)).isFile()).length,
-      6,
+      7,
     );
   } finally {
     fs.rmSync(directory, { recursive: true, force: true });
@@ -100,6 +101,7 @@ test("public bundle retains the passed structural and live mutation matrices", (
         schema_version: "fixture",
         claims: { certified_scope: "governed_infrastructure_lifecycle" },
         nonclaims: ["provider neutrality"],
+        claim_manifest: { schema_version: "claim-manifest-fixture" },
         workload: { redacted_sdl: "version: fixture\n" },
       },
       {
@@ -116,7 +118,7 @@ test("public bundle retains the passed structural and live mutation matrices", (
         failures: [],
       },
     );
-    assert.equal(result.artifact_count, 7);
+    assert.equal(result.artifact_count, 8);
     assert.equal(JSON.parse(fs.readFileSync(path.join(directory, "verification-summary.json"), "utf8")).mutation_cases.length, 1);
     assert.equal(JSON.parse(fs.readFileSync(path.join(directory, "structural-verifier-self-test.json"), "utf8")).mutation_count, 22);
   } finally {

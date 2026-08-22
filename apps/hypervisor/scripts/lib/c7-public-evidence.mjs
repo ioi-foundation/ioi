@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { stableStringify, validateCertificate } from "./c7-c8-certificate.mjs";
+import { buildC7GovernedEffectClaimManifest } from "./governed-effect-claim-manifest.mjs";
 
 const sha256Bytes = (value) => `sha256:${crypto.createHash("sha256").update(value).digest("hex")}`;
 const sha256Text = (value) => sha256Bytes(Buffer.from(String(value), "utf8"));
@@ -118,6 +119,7 @@ export function buildPublicEvidence(certificate, verification, structuralVerific
     negative_receipt_hashes: certificate.negative_receipts.map(hashLocator),
     claims: certificate.claims,
     nonclaims: certificate.nonclaims,
+    claim_manifest: buildC7GovernedEffectClaimManifest(certificate, verification),
     durable: {
       environment_ref_hash: hashLocator(certificate.durable.environment_ref),
       locator_hashes: Object.fromEntries(
@@ -149,6 +151,7 @@ export function writePublicEvidenceBundle(outputDir, summary, verification, cana
   if (existing.length > 0) throw new Error("public evidence output directory must be empty");
   const files = new Map([
     ["public-evidence.json", `${JSON.stringify(summary, null, 2)}\n`],
+    ["claim-manifest.json", `${JSON.stringify(summary.claim_manifest, null, 2)}\n`],
     ["claims-and-nonclaims.json", `${JSON.stringify({ schema_version: "ioi.hypervisor.c7-c8-claims.v1", claims: summary.claims, nonclaims: summary.nonclaims }, null, 2)}\n`],
     ["verification-summary.json", `${JSON.stringify({ schema_version: verification.schema_version, ok: verification.ok, mutation_count: verification.mutations.mutation_count, mutation_cases: verification.mutations.cases || [], mutation_failures: verification.mutations.failures }, null, 2)}\n`],
     ["redacted-sdl.yaml", summary.workload.redacted_sdl],

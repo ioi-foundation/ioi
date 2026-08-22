@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/trajectory-admission-decision/v1",
+  "title": "TrajectoryAdmissionDecision",
+  "x-ioi-schema-version": "ioi.foundations.trajectory-admission-decision.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "decision_ref", "decision_hash", "candidate_operation_ref", "candidate_operation_hash", "state_before_ref", "state_before_hash", "constraint_results", "semantic_risk_evidence_refs", "decision", "reason_codes", "step_up_requirement_refs", "policy_ref", "policy_hash", "state_after_ref", "state_after_hash", "policy_epoch", "decided_at"],
+  "properties": {
+    "schema_version": { "const": "ioi.foundations.trajectory-admission-decision.v1" },
+    "decision_ref": { "$ref": "#/$defs/ref" },
+    "decision_hash": { "$ref": "#/$defs/hash" },
+    "candidate_operation_ref": { "$ref": "#/$defs/ref" },
+    "candidate_operation_hash": { "$ref": "#/$defs/hash" },
+    "state_before_ref": { "$ref": "#/$defs/ref" },
+    "state_before_hash": { "$ref": "#/$defs/hash" },
+    "constraint_results": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/constraintResult" } },
+    "semantic_risk_evidence_refs": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/ref" } },
+    "decision": { "enum": ["admit", "step_up_required", "deny"] },
+    "reason_codes": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/name" } },
+    "step_up_requirement_refs": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/ref" } },
+    "policy_ref": { "$ref": "#/$defs/ref" },
+    "policy_hash": { "$ref": "#/$defs/hash" },
+    "state_after_ref": { "$ref": "#/$defs/ref" },
+    "state_after_hash": { "$ref": "#/$defs/hash" },
+    "policy_epoch": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+    "decided_at": { "$ref": "#/$defs/timestamp" }
+  },
+  "$defs": {
+    "ref": { "type": "string", "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$" },
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "name": { "type": "string", "pattern": "^[a-z][a-z0-9._-]{0,127}$" },
+    "timestamp": { "type": "string", "format": "date-time", "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$" },
+    "constraintResult": { "type": "object", "additionalProperties": false, "required": ["constraint_id", "satisfied", "observed_value", "limit_value", "evidence_refs"], "properties": { "constraint_id": { "$ref": "#/$defs/name" }, "satisfied": { "type": "boolean" }, "observed_value": { "type": "string", "maxLength": 500 }, "limit_value": { "type": "string", "maxLength": 500 }, "evidence_refs": { "type": "array", "items": { "$ref": "#/$defs/ref" } } } }
+  }
+}

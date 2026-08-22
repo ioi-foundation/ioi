@@ -1344,6 +1344,30 @@ storage, leases, caches, and ephemeral credentials or retains a durable
 unknown enforcement, unsafe output, or uncertain cleanup fails closed; none
 permits host fallback.
 
+### C8 workload-bound governed-effect certificate
+
+`C8CertificateV3` is an additive successor envelope over the immutable C8 v2
+bounded provider-lifecycle certificate. A v3 evidence bundle MUST carry the
+exact v2 certificate named by `predecessor_certificate_ref` and hash; v2 remains
+readable and unchanged. V3 additionally binds the source basis and governed
+request, typed claim manifest, workload-isolation binding, immutable image
+digest, provider-native readiness evidence, result contract/ref/hash and
+retrieval receipt, standing-envelope draw, trajectory state before/decision/
+after, brokered secret-use posture and evidence, relying-party audience,
+terminal acceptance prerequisites, C2 intent/outcome predecessor chain, and
+provider-native terminal settlement.
+
+The presence of a binding field is not proof of its claim. Verification must
+resolve each exact ref/hash under the declared trust/freshness profile. Result
+binding requires the canonical result bytes and retrieval receipt;
+workload-bound isolation requires the current immutable binding and hostile-
+guest evidence; worker secret non-possession requires its separately named
+negative-probe profile. Unknown schemas, absent prerequisites, stale evidence,
+or any predecessor/hash substitution fail closed.
+
+The registered wire contract is
+`schema://ioi/components/hypervisor/c8-certificate/v3`.
+
 ### Typed virtual-machine target and observation payloads
 
 The existing `VirtualMachineWorkload`, `HypervisorTargetState`, and

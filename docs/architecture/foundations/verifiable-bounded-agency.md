@@ -459,6 +459,74 @@ principal. Independent-party verification requires a separately accountable
 principal with disclosed affiliation, its own authority and revocation path,
 and the declared verification/adjudication role.
 
+## Governed Effect Claim Manifest
+
+Every public governed-effect certificate or evidence bundle MUST carry a typed
+`GovernedEffectClaimManifest`. The manifest binds an exact certificate subject,
+its source basis, and a named protection profile to an exhaustive vocabulary of
+demonstrated claims and bounded nonclaims. A claim marked `demonstrated` MUST
+name at least one durable evidence reference. A claim without such evidence
+MUST be `not_demonstrated`, `indeterminate`, or `not_applicable` and MUST explain
+the limitation. Claim status is evidence-derived; a publisher cannot promote it
+through prose or by changing only the manifest.
+
+The canonical claim identifiers are:
+
+- `governed_infrastructure_lifecycle`;
+- `workload_readiness`;
+- `workload_result_binding`;
+- `logical_policy_mediation`;
+- `workload_bound_isolation_enforced`;
+- `worker_secret_non_possession_tested`;
+- `separate_verifier`;
+- `independently_reproduced`;
+- `third_party_verified`;
+- `provider_neutrality`;
+- `bare_metal_placement`.
+
+These identifiers are deliberately non-substitutable. A separate verifier
+binary is not an independent reimplementation; an independent implementation
+is not third-party operation; daemon policy mediation is not workload-bound
+isolation; and secret custody outside model context is not an adversarial test
+of worker secret non-possession. The manifest names one of four protection
+profiles: `development_cooperative`, `trusted_host_hostile_guest`,
+`unattested_remote_host_bounded_authority`, or
+`attested_confidential_worker`. A stronger protection profile cannot be inferred
+from a weaker one.
+
+The registered wire contract is
+`schema://ioi/components/hypervisor/governed-effect-claim-manifest/v1`.
+
+## Relying-Party Acceptance
+
+A certificate is evidence, not acceptance. `RelyingPartyAcceptancePolicy`
+names the accountable audience, accepted certificate and result schemas, trust
+roots, freshness and revocation posture, required demonstrated claims,
+tolerated nonclaims, environment/honesty classes, verifier profile, and the
+single durable transition that acceptance may perform. Unknown schemas,
+claims, trust roots, audiences, verifier profiles, or stale inputs fail closed.
+
+The first relying party is the AFT measured-results registry. Its only admitted
+transition promotes one verified U1 measurement row into the measured-cost
+registry. Verification failure or policy mismatch writes a
+`CertificateAcceptanceReceipt` with typed failures and leaves the target state
+hash unchanged. Acceptance writes the accepted object/revision and binds the
+state-before and state-after hashes. The receipt also binds the certificate,
+policy, verifier identity/build, exact trust-input hashes, observation time,
+and validity horizon. A producer cannot self-declare registry acceptance by
+embedding an `accepted` field in its own certificate.
+
+The registered contracts are:
+
+- `schema://ioi/foundations/relying-party-acceptance-policy/v1`; and
+- `schema://ioi/foundations/certificate-acceptance-receipt/v1`.
+
+External witnessing initially composes the registered `ReceiptCheckpoint` and
+`ReceiptProofBundle` contracts over the acceptance receipt and C8 outcome root.
+No separate `ExternalWitnessCommitment` contract is introduced until a concrete
+external witness protocol requires response semantics those contracts cannot
+express. A locally emitted checkpoint is not external witnessing.
+
 ## Verifiability Instead of Vendor Trust
 
 The difference between a platform promise and a durable guarantee is evidence.

@@ -429,6 +429,33 @@ remain immutable compatibility contracts. V3 requires a new registered schema,
 fixtures, generated Rust/TypeScript projections, and verifier support rather
 than silently changing either registered version.
 
+## Authority Trajectory State And Admission
+
+Per-operation authority is necessary but not sufficient: individually bounded
+operations can compose into an aggregate outcome outside the owner's intent.
+`AuthorityTrajectoryState` is the deterministic projection over admitted
+effect events for the minimum scope key
+`owner + bounded_system + principal + envelope_ancestor`. It records the
+revocation epoch and time window; cumulative spend and deposit; active
+resources; provider fan-out; result/data destinations; data classes; calls and
+failures; and the exact ref/hash event set from which the state is re-derived.
+Provider-local counters and caller-authored summaries are inadmissible.
+
+`TrajectoryAdmissionDecision` binds one candidate operation and the exact
+state-before hash to deterministic constraint results, optional semantic-risk
+evidence, policy epoch, decision, reason codes, and state-after commitment. Its
+decision is exactly `admit`, `step_up_required`, or `deny`. Semantic scoring may
+force step-up or denial but can never admit, widen an envelope, change a
+constraint result, or mint authority. A denied or step-up decision consumes no
+effect authority and leaves the trajectory state unchanged; an admission's
+state update, capability draw-down, and C2 intent commitment are one atomic
+logical transition.
+
+The registered contracts are:
+
+- `schema://ioi/foundations/authority-trajectory-state/v1`; and
+- `schema://ioi/foundations/trajectory-admission-decision/v1`.
+
 ## AuthorityClientEnvelope
 
 ```yaml

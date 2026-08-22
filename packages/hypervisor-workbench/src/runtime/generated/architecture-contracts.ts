@@ -1791,6 +1791,130 @@ export type HypervisorCollectionQueryV1 = {
   page_size: number;
 };
 
+export type C8CertificateV3 = {
+  schema_version: "ioi.components.hypervisor.c8-certificate.v3";
+  certificate_ref: string;
+  certificate_hash: string;
+  predecessor_certificate_schema_version: "ioi.hypervisor.c7-c8-certificate.v2";
+  predecessor_certificate_ref: string;
+  predecessor_certificate_hash: string;
+  source_basis_refs: Array<{
+        ref: string;
+        hash: string;
+      }>;
+  operator_principal_ref: string;
+  governed_request_ref: string;
+  governed_request_hash: string;
+  claim_manifest_ref: string;
+  claim_manifest_hash: string;
+  isolation_binding_ref: string;
+  isolation_binding_hash: string;
+  workload_image_ref: string;
+  workload_image_digest: string;
+  workload_readiness_evidence_refs: Array<string>;
+  result_contract_ref: string;
+  result_ref: string;
+  result_hash: string;
+  result_retrieval_receipt_ref: string;
+  authority_draw: {
+      standing_envelope_ref: string;
+      standing_envelope_hash: string;
+      draw_request_ref: string;
+      draw_request_hash: string;
+      draw_receipt_ref: string;
+      draw_receipt_hash: string;
+    };
+  trajectory_binding: {
+      state_before_ref: string;
+      state_before_hash: string;
+      decision_ref: string;
+      decision_hash: string;
+      state_after_ref: string;
+      state_after_hash: string;
+    };
+  brokered_secret_use_posture: "no_secret_required" | "opaque_handle_final_invoker" | "attested_secret_release";
+  secret_use_evidence_refs: Array<string>;
+  relying_party_audience_ref: string;
+  terminal_acceptance_prerequisite_refs: Array<string>;
+  journal_binding: {
+      intent_root: string;
+      outcome_predecessor_root: string;
+      outcome_root: string;
+    };
+  terminal_settlement_ref: string;
+  terminal_settlement_hash: string;
+  generated_at: string;
+};
+
+export type GovernedEffectClaimManifestV1 = {
+  schema_version: "ioi.components.hypervisor.governed-effect-claim-manifest.v1";
+  manifest_ref: string;
+  manifest_hash: string;
+  subject_ref: string;
+  subject_hash: string;
+  protection_profile: "development_cooperative" | "trusted_host_hostile_guest" | "unattested_remote_host_bounded_authority" | "attested_confidential_worker";
+  claims: Array<{
+        claim_id: "governed_infrastructure_lifecycle" | "workload_readiness" | "workload_result_binding" | "logical_policy_mediation" | "workload_bound_isolation_enforced" | "worker_secret_non_possession_tested" | "separate_verifier" | "independently_reproduced" | "third_party_verified" | "provider_neutrality" | "bare_metal_placement";
+        status: "demonstrated" | "not_demonstrated" | "indeterminate" | "not_applicable";
+        evidence_refs: Array<string>;
+        limitation_note: string;
+      }>;
+  source_basis_refs: Array<{
+        ref: string;
+        hash: string;
+      }>;
+  generated_at: string;
+};
+
+export type RelyingPartyAcceptancePolicyV1 = {
+  schema_version: "ioi.foundations.relying-party-acceptance-policy.v1";
+  policy_ref: string;
+  policy_hash: string;
+  audience_ref: string;
+  accepted_certificate_schema_refs: Array<string>;
+  accepted_result_schema_refs: Array<string>;
+  trust_roots: Array<{
+        ref: string;
+        hash: string;
+      }>;
+  maximum_certificate_age_seconds: number;
+  revocation_check_required: boolean;
+  required_claim_ids: Array<"governed_infrastructure_lifecycle" | "workload_readiness" | "workload_result_binding" | "logical_policy_mediation" | "workload_bound_isolation_enforced" | "worker_secret_non_possession_tested" | "separate_verifier" | "independently_reproduced" | "third_party_verified" | "provider_neutrality" | "bare_metal_placement">;
+  tolerated_nonclaim_ids: Array<"governed_infrastructure_lifecycle" | "workload_readiness" | "workload_result_binding" | "logical_policy_mediation" | "workload_bound_isolation_enforced" | "worker_secret_non_possession_tested" | "separate_verifier" | "independently_reproduced" | "third_party_verified" | "provider_neutrality" | "bare_metal_placement">;
+  accepted_environment_classes: Array<string>;
+  verifier_profile_ref: string;
+  verifier_profile_hash: string;
+  target_transition: {
+      target_registry_ref: string;
+      mutation_kind: "aft_measured_result_promote";
+      target_schema_ref: string;
+    };
+  valid_from: string;
+  valid_until: string;
+};
+
+export type CertificateAcceptanceReceiptV1 = {
+  schema_version: "ioi.foundations.certificate-acceptance-receipt.v1";
+  receipt_ref: string;
+  receipt_hash: string;
+  certificate_ref: string;
+  certificate_hash: string;
+  policy_ref: string;
+  policy_hash: string;
+  verifier_identity_ref: string;
+  verifier_build_hash: string;
+  trust_input_hashes: Array<string>;
+  decision: "accepted" | "rejected";
+  failure_codes: Array<string>;
+  accepted_object_refs: Array<string>;
+  accepted_revision: number;
+  mutation_applied: boolean;
+  target_state_before_hash: string;
+  target_state_after_hash: string;
+  observed_at: string;
+  valid_until: string;
+};
+
 export type HarnessSessionBindingAdmissionV1 = {
   schema_version: "ioi.runtime.harness_session_binding_admission.v1";
   admission_id: string;
@@ -2688,6 +2812,59 @@ export type AuthorityGrantEnvelopeV2 = {
   signature_suite: "ed25519";
   signature_key_id: string;
   signature: string;
+};
+
+export type AuthorityTrajectoryStateV1 = {
+  schema_version: "ioi.foundations.authority-trajectory-state.v1";
+  trajectory_state_ref: string;
+  trajectory_state_hash: string;
+  owner_ref: string;
+  bounded_system_ref: string;
+  principal_ref: string;
+  envelope_ancestor_refs: Array<string>;
+  revocation_epoch: number;
+  window_started_at: string;
+  window_ends_at: string;
+  cumulative_spend_usd: number;
+  cumulative_deposit_usd: number;
+  active_resource_refs: Array<string>;
+  provider_refs: Array<string>;
+  destination_refs: Array<string>;
+  data_class_refs: Array<string>;
+  admitted_call_count: number;
+  failed_call_count: number;
+  admitted_events: Array<{
+        ref: string;
+        hash: string;
+      }>;
+  derived_at: string;
+};
+
+export type TrajectoryAdmissionDecisionV1 = {
+  schema_version: "ioi.foundations.trajectory-admission-decision.v1";
+  decision_ref: string;
+  decision_hash: string;
+  candidate_operation_ref: string;
+  candidate_operation_hash: string;
+  state_before_ref: string;
+  state_before_hash: string;
+  constraint_results: Array<{
+        constraint_id: string;
+        satisfied: boolean;
+        observed_value: string;
+        limit_value: string;
+        evidence_refs: Array<string>;
+      }>;
+  semantic_risk_evidence_refs: Array<string>;
+  decision: "admit" | "step_up_required" | "deny";
+  reason_codes: Array<string>;
+  step_up_requirement_refs: Array<string>;
+  policy_ref: string;
+  policy_hash: string;
+  state_after_ref: string;
+  state_after_hash: string;
+  policy_epoch: number;
+  decided_at: string;
 };
 
 export type AuthorityKeySetV1 = {
@@ -8980,6 +9157,70 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
+    "contract_id": "schema://ioi/components/hypervisor/c8-certificate/v3",
+    "path": "docs/architecture/_meta/schemas/fixtures/c8-certificate-v3/positive-workload-bound.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/c8-certificate/v3",
+    "path": "docs/architecture/_meta/schemas/fixtures/c8-certificate-v3/negative-missing-result.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/governed-effect-claim-manifest/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/governed-effect-claim-manifest-v1/positive-c7-bounded.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/governed-effect-claim-manifest/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/governed-effect-claim-manifest-v1/negative-unknown-status.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/relying-party-acceptance-policy/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/relying-party-acceptance-policy-v1/positive-aft-registry.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/relying-party-acceptance-policy/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/relying-party-acceptance-policy-v1/negative-no-trust-root.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/certificate-acceptance-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/certificate-acceptance-receipt-v1/positive-rejected.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/certificate-acceptance-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/certificate-acceptance-receipt-v1/negative-unknown-decision.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
     "contract_id": "schema://ioi/components/hypervisor/harness-session-binding-admission/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/harness-session-binding-admission-v1/positive-profile.json",
     "expected": "accept",
@@ -9862,6 +10103,38 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
   {
     "contract_id": "schema://ioi/foundations/authority-grant-envelope/v2",
     "path": "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-padded-signature.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/authority-trajectory-state/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/authority-trajectory-state-v1/positive-derived.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/authority-trajectory-state/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/authority-trajectory-state-v1/negative-negative-spend.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/trajectory-admission-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/trajectory-admission-decision-v1/positive-deny.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/trajectory-admission-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/trajectory-admission-decision-v1/negative-unknown-decision.json",
     "expected": "reject",
     "expected_schema_accept": false,
     "expected_failure": "schema",
@@ -16366,6 +16639,62 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/c8-certificate-v3/positive-workload-bound.json",
+    "contract_id": "schema://ioi/components/hypervisor/c8-certificate/v3",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/c8-certificate-v3/positive-workload-bound.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/c8-certificate-v3/negative-missing-result.json",
+    "contract_id": "schema://ioi/components/hypervisor/c8-certificate/v3",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/c8-certificate-v3/negative-missing-result.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/governed-effect-claim-manifest-v1/positive-c7-bounded.json",
+    "contract_id": "schema://ioi/components/hypervisor/governed-effect-claim-manifest/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/governed-effect-claim-manifest-v1/positive-c7-bounded.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/governed-effect-claim-manifest-v1/negative-unknown-status.json",
+    "contract_id": "schema://ioi/components/hypervisor/governed-effect-claim-manifest/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/governed-effect-claim-manifest-v1/negative-unknown-status.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/relying-party-acceptance-policy-v1/positive-aft-registry.json",
+    "contract_id": "schema://ioi/foundations/relying-party-acceptance-policy/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/relying-party-acceptance-policy-v1/positive-aft-registry.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/relying-party-acceptance-policy-v1/negative-no-trust-root.json",
+    "contract_id": "schema://ioi/foundations/relying-party-acceptance-policy/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/relying-party-acceptance-policy-v1/negative-no-trust-root.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/certificate-acceptance-receipt-v1/positive-rejected.json",
+    "contract_id": "schema://ioi/foundations/certificate-acceptance-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/certificate-acceptance-receipt-v1/positive-rejected.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/certificate-acceptance-receipt-v1/negative-unknown-decision.json",
+    "contract_id": "schema://ioi/foundations/certificate-acceptance-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/certificate-acceptance-receipt-v1/negative-unknown-decision.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-binding-admission-v1/positive-profile.json",
     "contract_id": "schema://ioi/components/hypervisor/harness-session-binding-admission/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-binding-admission-v1/positive-profile.json",
@@ -17139,6 +17468,34 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-padded-signature.json",
     "contract_id": "schema://ioi/foundations/authority-grant-envelope/v2",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-padded-signature.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-trajectory-state-v1/positive-derived.json",
+    "contract_id": "schema://ioi/foundations/authority-trajectory-state/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-trajectory-state-v1/positive-derived.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-trajectory-state-v1/negative-negative-spend.json",
+    "contract_id": "schema://ioi/foundations/authority-trajectory-state/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-trajectory-state-v1/negative-negative-spend.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/trajectory-admission-decision-v1/positive-deny.json",
+    "contract_id": "schema://ioi/foundations/trajectory-admission-decision/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/trajectory-admission-decision-v1/positive-deny.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/trajectory-admission-decision-v1/negative-unknown-decision.json",
+    "contract_id": "schema://ioi/foundations/trajectory-admission-decision/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/trajectory-admission-decision-v1/negative-unknown-decision.json",
     "mutation_id": null,
     "value_json": null
   },
@@ -20743,6 +21100,10 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/hypervisor/backend-capability-declaration/v1": "sha256:ff20dc82932a0095e15e8ecd6ccb8f458e92ce81990ab0c7c3f25c5d7942cddf",
   "schema://ioi/components/hypervisor/collection-page/v1": "sha256:1838faff61bec1c9b137763e19114dcca2017b8ddb20b3a7400561391e2321d7",
   "schema://ioi/components/hypervisor/collection-query/v1": "sha256:fc25b17cf6830faca44e00eedad7b6d4dd7c4eee5008e2c05ca553ce7da25bd5",
+  "schema://ioi/components/hypervisor/c8-certificate/v3": "sha256:3567d341536acd7e6fd962efb4d3a9bac9fbe8e16d95d86c48989088c57798b1",
+  "schema://ioi/components/hypervisor/governed-effect-claim-manifest/v1": "sha256:1834df26ab76fd1fc15066a8db5cabb24de5185b8b5299a920233cc88078aa53",
+  "schema://ioi/foundations/relying-party-acceptance-policy/v1": "sha256:64705441cf760d415ded81428fcf9acae5f7a1c73b6b357167cde52d083570fe",
+  "schema://ioi/foundations/certificate-acceptance-receipt/v1": "sha256:8a241d88eb5e1406847ffcf1a410b8ee578198875301b322f6110c71ff67ef90",
   "schema://ioi/components/hypervisor/harness-session-binding-admission/v1": "sha256:272fed9f39075b80d523e895f65815be3103e5266d75b59b759564dc028cd40a",
   "schema://ioi/components/hypervisor/harness-session-binding/v1": "sha256:89e0cd13c371d30221e73f6af8b656f2a19af2aa55657e53ddeb65ee200499f6",
   "schema://ioi/components/hypervisor/harness-session-readiness/v1": "sha256:04971bfbd7dcff54d841cdc469bf646a25b2cdb2a6d2cfa245e52ed0fe713a0a",
@@ -20772,6 +21133,8 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/active-skill-set-snapshot/v1": "sha256:c62f6d794bf48172de77fa72cb71ea86dd1ed07944abf70d92aa8e82a97f87d6",
   "schema://ioi/foundations/authority-grant-envelope/v1": "sha256:9f8a2e183e7bb02cdb02274c59b06c0dda1abe293e4c377c80aaccbf9fee5796",
   "schema://ioi/foundations/authority-grant-envelope/v2": "sha256:5d702231006db3551371f3d5f581532292c6a616c30c314b331ae747adfc219e",
+  "schema://ioi/foundations/authority-trajectory-state/v1": "sha256:b6699e24b52eb2d8e57fd086bee951e34d64b5d1a80d34c8ba47bfb77b6603f3",
+  "schema://ioi/foundations/trajectory-admission-decision/v1": "sha256:3fdb69ca87b0946ba7f3644ee6197f0b47cda4c3f095864528973473cb9e6245",
   "schema://ioi/foundations/authority-key-set/v1": "sha256:ea66e12fa2584b1769d15c70f886a1e7b2c844a3220c13f8c3d6a0231969ec6c",
   "schema://ioi/foundations/authority-revocation-snapshot/v1": "sha256:53bab792fe1cc9dca5e6f21765d327c325fff91c17d149bb1de6d1ce6e0ce8c3",
   "schema://ioi/foundations/autonomous-system-activation-authority-decision/v1": "sha256:210403787f1bf5bba0a638add2bce5b68f7bd593b74c99b1bc340ada1007825c",
@@ -35572,6 +35935,724 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     }
   },
+  "schema://ioi/components/hypervisor/c8-certificate/v3": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/c8-certificate/v3",
+    "title": "C8CertificateV3",
+    "x-ioi-schema-version": "ioi.components.hypervisor.c8-certificate.v3",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "certificate_ref",
+      "certificate_hash",
+      "predecessor_certificate_schema_version",
+      "predecessor_certificate_ref",
+      "predecessor_certificate_hash",
+      "source_basis_refs",
+      "operator_principal_ref",
+      "governed_request_ref",
+      "governed_request_hash",
+      "claim_manifest_ref",
+      "claim_manifest_hash",
+      "isolation_binding_ref",
+      "isolation_binding_hash",
+      "workload_image_ref",
+      "workload_image_digest",
+      "workload_readiness_evidence_refs",
+      "result_contract_ref",
+      "result_ref",
+      "result_hash",
+      "result_retrieval_receipt_ref",
+      "authority_draw",
+      "trajectory_binding",
+      "brokered_secret_use_posture",
+      "secret_use_evidence_refs",
+      "relying_party_audience_ref",
+      "terminal_acceptance_prerequisite_refs",
+      "journal_binding",
+      "terminal_settlement_ref",
+      "terminal_settlement_hash",
+      "generated_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.components.hypervisor.c8-certificate.v3"
+      },
+      "certificate_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "certificate_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "predecessor_certificate_schema_version": {
+        "const": "ioi.hypervisor.c7-c8-certificate.v2"
+      },
+      "predecessor_certificate_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "predecessor_certificate_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "source_basis_refs": {
+        "type": "array",
+        "minItems": 2,
+        "items": {
+          "$ref": "#/$defs/refHash"
+        }
+      },
+      "operator_principal_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "governed_request_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "governed_request_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "claim_manifest_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "claim_manifest_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "isolation_binding_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "isolation_binding_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "workload_image_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "workload_image_digest": {
+        "$ref": "#/$defs/hash"
+      },
+      "workload_readiness_evidence_refs": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "result_contract_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "result_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "result_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "result_retrieval_receipt_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "authority_draw": {
+        "$ref": "#/$defs/authorityDraw"
+      },
+      "trajectory_binding": {
+        "$ref": "#/$defs/trajectoryBinding"
+      },
+      "brokered_secret_use_posture": {
+        "enum": [
+          "no_secret_required",
+          "opaque_handle_final_invoker",
+          "attested_secret_release"
+        ]
+      },
+      "secret_use_evidence_refs": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "relying_party_audience_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "terminal_acceptance_prerequisite_refs": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "journal_binding": {
+        "$ref": "#/$defs/journalBinding"
+      },
+      "terminal_settlement_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "terminal_settlement_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "generated_at": {
+        "$ref": "#/$defs/timestamp"
+      }
+    },
+    "$defs": {
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+      },
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "timestamp": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "refHash": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ref",
+          "hash"
+        ],
+        "properties": {
+          "ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "hash": {
+            "$ref": "#/$defs/hash"
+          }
+        }
+      },
+      "authorityDraw": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "standing_envelope_ref",
+          "standing_envelope_hash",
+          "draw_request_ref",
+          "draw_request_hash",
+          "draw_receipt_ref",
+          "draw_receipt_hash"
+        ],
+        "properties": {
+          "standing_envelope_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "standing_envelope_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "draw_request_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "draw_request_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "draw_receipt_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "draw_receipt_hash": {
+            "$ref": "#/$defs/hash"
+          }
+        }
+      },
+      "trajectoryBinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "state_before_ref",
+          "state_before_hash",
+          "decision_ref",
+          "decision_hash",
+          "state_after_ref",
+          "state_after_hash"
+        ],
+        "properties": {
+          "state_before_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "state_before_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "decision_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "decision_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "state_after_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "state_after_hash": {
+            "$ref": "#/$defs/hash"
+          }
+        }
+      },
+      "journalBinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "intent_root",
+          "outcome_predecessor_root",
+          "outcome_root"
+        ],
+        "properties": {
+          "intent_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "outcome_predecessor_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "outcome_root": {
+            "$ref": "#/$defs/hash"
+          }
+        }
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/governed-effect-claim-manifest/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/governed-effect-claim-manifest/v1",
+    "title": "GovernedEffectClaimManifest",
+    "x-ioi-schema-version": "ioi.components.hypervisor.governed-effect-claim-manifest.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "manifest_ref",
+      "manifest_hash",
+      "subject_ref",
+      "subject_hash",
+      "protection_profile",
+      "claims",
+      "source_basis_refs",
+      "generated_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.components.hypervisor.governed-effect-claim-manifest.v1"
+      },
+      "manifest_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "manifest_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "subject_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "subject_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "protection_profile": {
+        "enum": [
+          "development_cooperative",
+          "trusted_host_hostile_guest",
+          "unattested_remote_host_bounded_authority",
+          "attested_confidential_worker"
+        ]
+      },
+      "claims": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 11,
+        "items": {
+          "$ref": "#/$defs/claim"
+        }
+      },
+      "source_basis_refs": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "$ref": "#/$defs/refHash"
+        }
+      },
+      "generated_at": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    },
+    "$defs": {
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+      },
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "claimId": {
+        "enum": [
+          "governed_infrastructure_lifecycle",
+          "workload_readiness",
+          "workload_result_binding",
+          "logical_policy_mediation",
+          "workload_bound_isolation_enforced",
+          "worker_secret_non_possession_tested",
+          "separate_verifier",
+          "independently_reproduced",
+          "third_party_verified",
+          "provider_neutrality",
+          "bare_metal_placement"
+        ]
+      },
+      "refHash": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ref",
+          "hash"
+        ],
+        "properties": {
+          "ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "hash": {
+            "$ref": "#/$defs/hash"
+          }
+        }
+      },
+      "claim": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "claim_id",
+          "status",
+          "evidence_refs",
+          "limitation_note"
+        ],
+        "properties": {
+          "claim_id": {
+            "$ref": "#/$defs/claimId"
+          },
+          "status": {
+            "enum": [
+              "demonstrated",
+              "not_demonstrated",
+              "indeterminate",
+              "not_applicable"
+            ]
+          },
+          "evidence_refs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/ref"
+            }
+          },
+          "limitation_note": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        }
+      }
+    }
+  },
+  "schema://ioi/foundations/relying-party-acceptance-policy/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/relying-party-acceptance-policy/v1",
+    "title": "RelyingPartyAcceptancePolicy",
+    "x-ioi-schema-version": "ioi.foundations.relying-party-acceptance-policy.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "policy_ref",
+      "policy_hash",
+      "audience_ref",
+      "accepted_certificate_schema_refs",
+      "accepted_result_schema_refs",
+      "trust_roots",
+      "maximum_certificate_age_seconds",
+      "revocation_check_required",
+      "required_claim_ids",
+      "tolerated_nonclaim_ids",
+      "accepted_environment_classes",
+      "verifier_profile_ref",
+      "verifier_profile_hash",
+      "target_transition",
+      "valid_from",
+      "valid_until"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.foundations.relying-party-acceptance-policy.v1"
+      },
+      "policy_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "policy_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "audience_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "accepted_certificate_schema_refs": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "accepted_result_schema_refs": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "trust_roots": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "$ref": "#/$defs/refHash"
+        }
+      },
+      "maximum_certificate_age_seconds": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 9007199254740991
+      },
+      "revocation_check_required": {
+        "type": "boolean"
+      },
+      "required_claim_ids": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/claimId"
+        }
+      },
+      "tolerated_nonclaim_ids": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/claimId"
+        }
+      },
+      "accepted_environment_classes": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/name"
+        }
+      },
+      "verifier_profile_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "verifier_profile_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "target_transition": {
+        "$ref": "#/$defs/targetTransition"
+      },
+      "valid_from": {
+        "$ref": "#/$defs/timestamp"
+      },
+      "valid_until": {
+        "$ref": "#/$defs/timestamp"
+      }
+    },
+    "$defs": {
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+      },
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "name": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9._-]{0,127}$"
+      },
+      "timestamp": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "claimId": {
+        "enum": [
+          "governed_infrastructure_lifecycle",
+          "workload_readiness",
+          "workload_result_binding",
+          "logical_policy_mediation",
+          "workload_bound_isolation_enforced",
+          "worker_secret_non_possession_tested",
+          "separate_verifier",
+          "independently_reproduced",
+          "third_party_verified",
+          "provider_neutrality",
+          "bare_metal_placement"
+        ]
+      },
+      "refHash": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ref",
+          "hash"
+        ],
+        "properties": {
+          "ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "hash": {
+            "$ref": "#/$defs/hash"
+          }
+        }
+      },
+      "targetTransition": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target_registry_ref",
+          "mutation_kind",
+          "target_schema_ref"
+        ],
+        "properties": {
+          "target_registry_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "mutation_kind": {
+            "enum": [
+              "aft_measured_result_promote"
+            ]
+          },
+          "target_schema_ref": {
+            "$ref": "#/$defs/ref"
+          }
+        }
+      }
+    }
+  },
+  "schema://ioi/foundations/certificate-acceptance-receipt/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/certificate-acceptance-receipt/v1",
+    "title": "CertificateAcceptanceReceipt",
+    "x-ioi-schema-version": "ioi.foundations.certificate-acceptance-receipt.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "receipt_ref",
+      "receipt_hash",
+      "certificate_ref",
+      "certificate_hash",
+      "policy_ref",
+      "policy_hash",
+      "verifier_identity_ref",
+      "verifier_build_hash",
+      "trust_input_hashes",
+      "decision",
+      "failure_codes",
+      "accepted_object_refs",
+      "accepted_revision",
+      "mutation_applied",
+      "target_state_before_hash",
+      "target_state_after_hash",
+      "observed_at",
+      "valid_until"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.foundations.certificate-acceptance-receipt.v1"
+      },
+      "receipt_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "receipt_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "certificate_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "certificate_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "policy_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "policy_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "verifier_identity_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "verifier_build_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "trust_input_hashes": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/hash"
+        }
+      },
+      "decision": {
+        "enum": [
+          "accepted",
+          "rejected"
+        ]
+      },
+      "failure_codes": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/name"
+        }
+      },
+      "accepted_object_refs": {
+        "type": "array",
+        "maxItems": 1,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "accepted_revision": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "mutation_applied": {
+        "type": "boolean"
+      },
+      "target_state_before_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "target_state_after_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "observed_at": {
+        "$ref": "#/$defs/timestamp"
+      },
+      "valid_until": {
+        "$ref": "#/$defs/timestamp"
+      }
+    },
+    "$defs": {
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+      },
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "name": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9._-]{0,127}$"
+      },
+      "timestamp": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    }
+  },
   "schema://ioi/components/hypervisor/harness-session-binding-admission/v1": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "schema://ioi/components/hypervisor/harness-session-binding-admission/v1",
@@ -41743,6 +42824,320 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           "cloud_deploy",
           "physical_action"
         ]
+      }
+    }
+  },
+  "schema://ioi/foundations/authority-trajectory-state/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/authority-trajectory-state/v1",
+    "title": "AuthorityTrajectoryState",
+    "x-ioi-schema-version": "ioi.foundations.authority-trajectory-state.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "trajectory_state_ref",
+      "trajectory_state_hash",
+      "owner_ref",
+      "bounded_system_ref",
+      "principal_ref",
+      "envelope_ancestor_refs",
+      "revocation_epoch",
+      "window_started_at",
+      "window_ends_at",
+      "cumulative_spend_usd",
+      "cumulative_deposit_usd",
+      "active_resource_refs",
+      "provider_refs",
+      "destination_refs",
+      "data_class_refs",
+      "admitted_call_count",
+      "failed_call_count",
+      "admitted_events",
+      "derived_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.foundations.authority-trajectory-state.v1"
+      },
+      "trajectory_state_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "trajectory_state_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "owner_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "bounded_system_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "principal_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "envelope_ancestor_refs": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "revocation_epoch": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "window_started_at": {
+        "$ref": "#/$defs/timestamp"
+      },
+      "window_ends_at": {
+        "$ref": "#/$defs/timestamp"
+      },
+      "cumulative_spend_usd": {
+        "type": "number",
+        "minimum": 0
+      },
+      "cumulative_deposit_usd": {
+        "type": "number",
+        "minimum": 0
+      },
+      "active_resource_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "provider_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "destination_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "data_class_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "admitted_call_count": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "failed_call_count": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "admitted_events": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/refHash"
+        }
+      },
+      "derived_at": {
+        "$ref": "#/$defs/timestamp"
+      }
+    },
+    "$defs": {
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+      },
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "timestamp": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "refHash": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ref",
+          "hash"
+        ],
+        "properties": {
+          "ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "hash": {
+            "$ref": "#/$defs/hash"
+          }
+        }
+      }
+    }
+  },
+  "schema://ioi/foundations/trajectory-admission-decision/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/trajectory-admission-decision/v1",
+    "title": "TrajectoryAdmissionDecision",
+    "x-ioi-schema-version": "ioi.foundations.trajectory-admission-decision.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "decision_ref",
+      "decision_hash",
+      "candidate_operation_ref",
+      "candidate_operation_hash",
+      "state_before_ref",
+      "state_before_hash",
+      "constraint_results",
+      "semantic_risk_evidence_refs",
+      "decision",
+      "reason_codes",
+      "step_up_requirement_refs",
+      "policy_ref",
+      "policy_hash",
+      "state_after_ref",
+      "state_after_hash",
+      "policy_epoch",
+      "decided_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.foundations.trajectory-admission-decision.v1"
+      },
+      "decision_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "decision_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "candidate_operation_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "candidate_operation_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "state_before_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "state_before_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "constraint_results": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "$ref": "#/$defs/constraintResult"
+        }
+      },
+      "semantic_risk_evidence_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "decision": {
+        "enum": [
+          "admit",
+          "step_up_required",
+          "deny"
+        ]
+      },
+      "reason_codes": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/name"
+        }
+      },
+      "step_up_requirement_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "policy_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "policy_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "state_after_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "state_after_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "policy_epoch": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "decided_at": {
+        "$ref": "#/$defs/timestamp"
+      }
+    },
+    "$defs": {
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+      },
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "name": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9._-]{0,127}$"
+      },
+      "timestamp": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "constraintResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "constraint_id",
+          "satisfied",
+          "observed_value",
+          "limit_value",
+          "evidence_refs"
+        ],
+        "properties": {
+          "constraint_id": {
+            "$ref": "#/$defs/name"
+          },
+          "satisfied": {
+            "type": "boolean"
+          },
+          "observed_value": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "limit_value": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "evidence_refs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/ref"
+            }
+          }
+        }
       }
     }
   },
@@ -77626,6 +79021,10 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
   "schema://ioi/components/hypervisor/backend-capability-declaration/v1": [],
   "schema://ioi/components/hypervisor/collection-page/v1": [],
   "schema://ioi/components/hypervisor/collection-query/v1": [],
+  "schema://ioi/components/hypervisor/c8-certificate/v3": [],
+  "schema://ioi/components/hypervisor/governed-effect-claim-manifest/v1": [],
+  "schema://ioi/foundations/relying-party-acceptance-policy/v1": [],
+  "schema://ioi/foundations/certificate-acceptance-receipt/v1": [],
   "schema://ioi/components/hypervisor/harness-session-binding-admission/v1": [
     {
       "rule_id": "harness_session_binding_admission.receipt_preview.bound",
@@ -78238,6 +79637,8 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
       }
     }
   ],
+  "schema://ioi/foundations/authority-trajectory-state/v1": [],
+  "schema://ioi/foundations/trajectory-admission-decision/v1": [],
   "schema://ioi/foundations/authority-key-set/v1": [
     {
       "rule_id": "authority_key_set.issued_at.before_expiry",
@@ -85134,6 +86535,30 @@ export function validateHypervisorCollectionQueryV1(
   return validateArchitectureContract("schema://ioi/components/hypervisor/collection-query/v1", value).ok;
 }
 
+export function validateC8CertificateV3(
+  value: unknown,
+): value is C8CertificateV3 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/c8-certificate/v3", value).ok;
+}
+
+export function validateGovernedEffectClaimManifestV1(
+  value: unknown,
+): value is GovernedEffectClaimManifestV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/governed-effect-claim-manifest/v1", value).ok;
+}
+
+export function validateRelyingPartyAcceptancePolicyV1(
+  value: unknown,
+): value is RelyingPartyAcceptancePolicyV1 {
+  return validateArchitectureContract("schema://ioi/foundations/relying-party-acceptance-policy/v1", value).ok;
+}
+
+export function validateCertificateAcceptanceReceiptV1(
+  value: unknown,
+): value is CertificateAcceptanceReceiptV1 {
+  return validateArchitectureContract("schema://ioi/foundations/certificate-acceptance-receipt/v1", value).ok;
+}
+
 export function validateHarnessSessionBindingAdmissionV1(
   value: unknown,
 ): value is HarnessSessionBindingAdmissionV1 {
@@ -85306,6 +86731,18 @@ export function validateAuthorityGrantEnvelopeV2(
   value: unknown,
 ): value is AuthorityGrantEnvelopeV2 {
   return validateArchitectureContract("schema://ioi/foundations/authority-grant-envelope/v2", value).ok;
+}
+
+export function validateAuthorityTrajectoryStateV1(
+  value: unknown,
+): value is AuthorityTrajectoryStateV1 {
+  return validateArchitectureContract("schema://ioi/foundations/authority-trajectory-state/v1", value).ok;
+}
+
+export function validateTrajectoryAdmissionDecisionV1(
+  value: unknown,
+): value is TrajectoryAdmissionDecisionV1 {
+  return validateArchitectureContract("schema://ioi/foundations/trajectory-admission-decision/v1", value).ok;
 }
 
 export function validateAuthorityKeySetV1(

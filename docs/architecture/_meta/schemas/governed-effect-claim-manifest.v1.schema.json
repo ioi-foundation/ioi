@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/governed-effect-claim-manifest/v1",
+  "title": "GovernedEffectClaimManifest",
+  "x-ioi-schema-version": "ioi.components.hypervisor.governed-effect-claim-manifest.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "manifest_ref",
+    "manifest_hash",
+    "subject_ref",
+    "subject_hash",
+    "protection_profile",
+    "claims",
+    "source_basis_refs",
+    "generated_at"
+  ],
+  "properties": {
+    "schema_version": { "const": "ioi.components.hypervisor.governed-effect-claim-manifest.v1" },
+    "manifest_ref": { "$ref": "#/$defs/ref" },
+    "manifest_hash": { "$ref": "#/$defs/hash" },
+    "subject_ref": { "$ref": "#/$defs/ref" },
+    "subject_hash": { "$ref": "#/$defs/hash" },
+    "protection_profile": {
+      "enum": [
+        "development_cooperative",
+        "trusted_host_hostile_guest",
+        "unattested_remote_host_bounded_authority",
+        "attested_confidential_worker"
+      ]
+    },
+    "claims": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 11,
+      "items": { "$ref": "#/$defs/claim" }
+    },
+    "source_basis_refs": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/refHash" }
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    }
+  },
+  "$defs": {
+    "ref": { "type": "string", "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$" },
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "claimId": {
+      "enum": [
+        "governed_infrastructure_lifecycle",
+        "workload_readiness",
+        "workload_result_binding",
+        "logical_policy_mediation",
+        "workload_bound_isolation_enforced",
+        "worker_secret_non_possession_tested",
+        "separate_verifier",
+        "independently_reproduced",
+        "third_party_verified",
+        "provider_neutrality",
+        "bare_metal_placement"
+      ]
+    },
+    "refHash": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ref", "hash"],
+      "properties": {
+        "ref": { "$ref": "#/$defs/ref" },
+        "hash": { "$ref": "#/$defs/hash" }
+      }
+    },
+    "claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["claim_id", "status", "evidence_refs", "limitation_note"],
+      "properties": {
+        "claim_id": { "$ref": "#/$defs/claimId" },
+        "status": { "enum": ["demonstrated", "not_demonstrated", "indeterminate", "not_applicable"] },
+        "evidence_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ref" }
+        },
+        "limitation_note": { "type": "string", "minLength": 1, "maxLength": 500 }
+      }
+    }
+  }
+}
