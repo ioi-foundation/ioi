@@ -18,6 +18,8 @@ export function mutationTest(base) {
     ["u1_authority_hash_invalid", (c) => { c.authority.request_hash = "bad"; }],
     ["u1_result_tls_pin_invalid", (c) => { c.authority.result_tls_server_certificate_sha256 = "sha256:bad"; }],
     ["u1_workload_identity_invalid", (c) => { c.authority.image_digest = "sha256:bad"; }],
+    ["u1_build_identity_hash_invalid", (c) => { c.authority.image_build_identity_sha256 = "sha256:bad"; }],
+    ["u1_build_identity_mismatch", (c) => { c.workload_build_identity.github_run_id = "9"; }],
     ["u1_protocol_contract_invalid", (c) => { c.authority.measured_passes = 4; }],
     ["u1_provider_pin_invalid", (c) => { c.authority.provider_selector.provider_address = "akash1other"; }],
     ["u1_spend_posture_invalid", (c) => { c.authority.auto_topup = true; }],

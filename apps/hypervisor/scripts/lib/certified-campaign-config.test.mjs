@@ -7,6 +7,7 @@ import {
   certifiedRemainingDelayMs,
   certifiedWorkloadDeadlineMs,
   materializeReviewedSdl,
+  validateBenchmarkBuildIdentity,
   validateCertifiedCampaignConfig,
 } from "./certified-campaign-config.mjs";
 
@@ -19,10 +20,12 @@ const template = readFileSync(
 const digest = `sha256:${"a".repeat(64)}`;
 const valid = {
   schema_version: "ioi.hypervisor.certified-provider-campaign.v1",
+  image_build_identity_path: "/tmp/aft-bench-build-identity.json",
   plan: {
     campaign_id: "u1-campaign-a",
     benchmark_source_commit: "b".repeat(40),
     image_digest: digest,
+    image_build_identity_sha256: `sha256:${"d".repeat(64)}`,
     benchmark_protocol_version: "res-p4.3.v2",
     result_schema_version: "ioi.aft.benchmark-campaign.v1",
     benchmark_warmups: 1,
@@ -45,10 +48,36 @@ const valid = {
   },
 };
 
+const validBuildIdentity = {
+  schema_version: "ioi.aft.benchmark-image-build-identity.v2",
+  source_ref: "b".repeat(40),
+  image_digest: digest,
+  base_image_digest: `sha256:${"e".repeat(64)}`,
+  cargo_lock_sha256: `sha256:${"f".repeat(64)}`,
+  dockerfile_sha256: `sha256:${"1".repeat(64)}`,
+  runner_sha256: `sha256:${"2".repeat(64)}`,
+  result_tools_sha256: `sha256:${"3".repeat(64)}`,
+  result_tls_server_certificate_sha256: `sha256:${"c".repeat(64)}`,
+  github_run_id: "32590976443",
+  github_run_attempt: "1",
+};
+
 test("accepts a fully resolved bounded U1 campaign config", () => {
   const config = structuredClone(valid);
   config.plan.deposit_usd = 1;
   assert.equal(validateCertifiedCampaignConfig(config), config);
+});
+
+test("binds the retained workflow build identity to the reviewed workload", () => {
+  assert.equal(validateBenchmarkBuildIdentity(validBuildIdentity, valid), validBuildIdentity);
+  for (const field of ["source_ref", "image_digest", "result_tls_server_certificate_sha256"]) {
+    const changed = structuredClone(validBuildIdentity);
+    changed[field] = field === "source_ref" ? "9".repeat(40) : `sha256:${"9".repeat(64)}`;
+    assert.throws(
+      () => validateBenchmarkBuildIdentity(changed, valid),
+      /differs from the reviewed workload identity/u,
+    );
+  }
 });
 
 test("starts the workload duration at readiness and never sleeps past its deadline", () => {
@@ -93,6 +122,11 @@ test("rejects unbounded or non-exact U1 authority", () => {
   unpinned.plan.deposit_usd = 1;
   delete unpinned.plan.result_tls_server_certificate_sha256;
   assert.throws(() => validateCertifiedCampaignConfig(unpinned), /certificate SHA-256 pin/u);
+
+  const unboundBuild = structuredClone(valid);
+  unboundBuild.plan.deposit_usd = 1;
+  delete unboundBuild.plan.image_build_identity_sha256;
+  assert.throws(() => validateCertifiedCampaignConfig(unboundBuild), /build-identity SHA-256/u);
 
   for (const duration of [undefined, 59, 86_401, 7_200.5]) {
     const invalidDuration = structuredClone(valid);

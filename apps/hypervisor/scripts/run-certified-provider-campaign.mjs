@@ -23,6 +23,7 @@ import {
   certifiedRemainingDelayMs,
   certifiedWorkloadDeadlineMs,
   materializeReviewedSdl,
+  validateBenchmarkBuildIdentity,
   validateCertifiedCampaignConfig,
 } from "./lib/certified-campaign-config.mjs";
 import { startRealWalletNetworkPrincipalAuthorityFixture } from "./lib/wallet-network-principal-authority-fixture.mjs";
@@ -42,8 +43,17 @@ const approvalPath = arg("--approval-file") ? path.resolve(arg("--approval-file"
 if (!configPath || !artifactDir || (!prepareOnly && !approvalPath)) {
   throw new Error("usage: --config <json> --artifacts <dir> (--prepare-only | --approval-file <json>)");
 }
+const sha256 = (value) => `sha256:${crypto.createHash("sha256").update(value).digest("hex")}`;
 mkdirSync(artifactDir, { recursive: true, mode: 0o700 });
 const config = validateCertifiedCampaignConfig(JSON.parse(readFileSync(configPath, "utf8")));
+const imageBuildIdentityBytes = readFileSync(path.resolve(config.image_build_identity_path));
+const imageBuildIdentity = validateBenchmarkBuildIdentity(
+  JSON.parse(imageBuildIdentityBytes.toString("utf8")),
+  config,
+);
+if (sha256(`${JSON.stringify(imageBuildIdentity, null, 2)}\n`) !== config.plan.image_build_identity_sha256) {
+  throw new Error("immutable image build identity differs from the reviewed semantic SHA-256");
+}
 const daemonUrl = config.daemon_url || "http://127.0.0.1:8765";
 const operatorEmail = process.env.IOI_C7_EMAIL || "";
 const operatorPassword = process.env.IOI_C7_PASSWORD_FILE
@@ -58,7 +68,6 @@ if (!operatorEmail || !operatorPassword || !walletPass) {
 if (!String(config.environment_ref || "").startsWith("env-")) throw new Error("environment_ref must start with env-");
 if (!String(config.idempotency_key || "").trim()) throw new Error("idempotency_key is required");
 
-const sha256 = (value) => `sha256:${crypto.createHash("sha256").update(value).digest("hex")}`;
 const save = (name, value) => writeFileSync(path.join(artifactDir, name), `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
 const log = (message) => {
   const line = `[certified-campaign] ${message}`;
@@ -79,6 +88,7 @@ const request = {
   plan: { ...config.plan, sdl_yaml: materializeReviewedSdl(sdlTemplate, config) },
 };
 const expectedSdlHash = sha256(request.plan.sdl_yaml);
+save("image-build-identity.json", imageBuildIdentity);
 
 async function daemonReady(timeoutMs = 90_000) {
   const deadline = Date.now() + timeoutMs;
@@ -139,6 +149,7 @@ function verifyFacets(challenge) {
     campaign_id: request.plan.campaign_id ?? null,
     benchmark_source_commit: request.plan.benchmark_source_commit ?? null,
     image_digest: request.plan.image_digest ?? null,
+    image_build_identity_sha256: request.plan.image_build_identity_sha256 ?? null,
     benchmark_protocol_version: request.plan.benchmark_protocol_version ?? null,
     result_schema_version: request.plan.result_schema_version ?? null,
     benchmark_warmups: request.plan.benchmark_warmups ?? null,

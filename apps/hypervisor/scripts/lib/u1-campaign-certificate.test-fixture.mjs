@@ -6,6 +6,21 @@ export function validU1Fixture() {
   const campaign = "u1-campaign-a";
   const sourceCommit = "b".repeat(40);
   const imageDigest = `sha256:${"a".repeat(64)}`;
+  const resultTlsPin = `sha256:${"a".repeat(64)}`;
+  const buildIdentity = {
+    schema_version: "ioi.aft.benchmark-image-build-identity.v2",
+    source_ref: sourceCommit,
+    image_digest: imageDigest,
+    base_image_digest: `sha256:${"7".repeat(64)}`,
+    cargo_lock_sha256: `sha256:${"8".repeat(64)}`,
+    dockerfile_sha256: `sha256:${"9".repeat(64)}`,
+    runner_sha256: `sha256:${"a".repeat(64)}`,
+    result_tools_sha256: `sha256:${"b".repeat(64)}`,
+    result_tls_server_certificate_sha256: resultTlsPin,
+    github_run_id: "32590976443",
+    github_run_attempt: "1",
+  };
+  const buildIdentityHash = `sha256:${crypto.createHash("sha256").update(`${JSON.stringify(buildIdentity, null, 2)}\n`).digest("hex")}`;
   const summaries = Object.entries(U1_SCENARIO_LANES).flatMap(([scenario, lanes]) => lanes.map((lane) => ({
     scenario,
     lane,
@@ -100,12 +115,13 @@ export function validU1Fixture() {
       campaign_id: campaign,
       source_commit: sourceCommit,
       image_digest: imageDigest,
+      image_build_identity_sha256: buildIdentityHash,
       protocol_version: "res-p4.3.v2",
       result_schema_version: "ioi.aft.benchmark-campaign.v1",
       warmups: 1,
       measured_passes: 5,
       provider_address: providerAddress,
-      result_tls_server_certificate_sha256: `sha256:${"a".repeat(64)}`,
+      result_tls_server_certificate_sha256: resultTlsPin,
       provider_selector: {
         mode: "exact",
         provider_address: providerAddress,
@@ -117,6 +133,7 @@ export function validU1Fixture() {
       ceiling_denom: "uact",
       teardown_policy: "always_teardown_required",
     },
+    workload_build_identity: buildIdentity,
     measurement: {
       status,
       environment,

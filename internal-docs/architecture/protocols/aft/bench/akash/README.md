@@ -34,6 +34,13 @@ docker inspect --format='{{index .RepoDigests 0}}' <PRIVATE_REGISTRY>/aft-bench:
 ```
 
 The provider plan and SDL must use the resulting `@sha256:` digest, never a mutable tag.
+Retain the workflow's `ioi.aft.benchmark-image-build-identity.v2` artifact as
+well. The campaign driver validates its source revision, image digest, result
+TLS certificate pin, workflow run identity, and recorded input hashes before it
+prepares the challenge. The normalized build-identity SHA-256 is a separately
+reviewed daemon facet, is committed into C2 with the plan, and is carried into
+the U1 certificate; matching three individually valid values from different
+builds therefore refuses before authority is minted.
 
 The repository's `Build private AFT benchmark image` workflow supports the
 first publication without exposing proprietary source. If the GHCR package is
@@ -85,7 +92,11 @@ The provider selection is part of the wallet-bound plan:
 
 Exact pinning has no marketplace fallback. The daemon also enforces the approved `uact` denomination and ceiling against that provider’s bid. No bid means refusal, automatic close, and provider-native settlement reconciliation.
 
-The owner must review the immutable image digest, exact provider, SDL hash, resources, campaign ID, deposit, `uact` ceiling, connector references, result-transport certificate pin, and teardown policy in the dry challenge before minting the one-shot grant. Each of the two campaigns gets a fresh proposal, admission nonce, challenge, grant, and explicit approval.
+The owner must review the immutable image digest and build-identity hash, exact
+provider, SDL hash, resources, campaign ID, deposit, `uact` ceiling, connector
+references, result-transport certificate pin, and teardown policy in the dry
+challenge before minting the one-shot grant. Each of the two campaigns gets a
+fresh proposal, admission nonce, challenge, grant, and explicit approval.
 
 `u1-campaign.example.json` intentionally leaves the exact provider, deposit, and
 `uact` ceiling as owner-review tokens, and campaign validation refuses to run

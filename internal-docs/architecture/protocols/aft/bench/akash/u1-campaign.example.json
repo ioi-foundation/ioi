@@ -6,6 +6,7 @@
   "idempotency_key": "u1-aft-CAMPAIGN-COMMIT",
   "authority_principal_ref": "org://acme/research",
   "data_dir": "/home/heathledger/.ioi/hypervisor/data",
+  "image_build_identity_path": "/OWNER/REVIEWED/aft-bench-build-identity.json",
   "sdl_path": "internal-docs/architecture/protocols/aft/bench/akash/deploy.sdl",
   "sdl_values": {
     "registry_host": "ghcr.io",
@@ -30,6 +31,7 @@
     "campaign_id": "u1-CAMPAIGN-FULL_COMMIT",
     "benchmark_source_commit": "OWNER_APPROVED_FULL_40_HEX_COMMIT",
     "image_digest": "sha256:OWNER_APPROVED_64_HEX_DIGEST",
+    "image_build_identity_sha256": "sha256:OWNER_APPROVED_BUILD_IDENTITY_64_HEX_DIGEST",
     "benchmark_protocol_version": "res-p4.3.v2",
     "result_schema_version": "ioi.aft.benchmark-campaign.v1",
     "benchmark_warmups": 1,

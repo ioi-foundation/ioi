@@ -51,6 +51,12 @@ export function validateCertifiedCampaignConfig(config) {
     if (!/^sha256:[0-9a-f]{64}$/u.test(String(plan.result_tls_server_certificate_sha256 || ""))) {
       throw new Error("U1 requires one explicit result TLS server certificate SHA-256 pin");
     }
+    if (!/^sha256:[0-9a-f]{64}$/u.test(String(plan.image_build_identity_sha256 || ""))) {
+      throw new Error("U1 requires one explicit immutable image build-identity SHA-256");
+    }
+    if (typeof config.image_build_identity_path !== "string" || config.image_build_identity_path.length === 0) {
+      throw new Error("U1 requires image_build_identity_path");
+    }
     if (!Number.isSafeInteger(plan.max_duration_seconds)
         || plan.max_duration_seconds < 60
         || plan.max_duration_seconds > 24 * 60 * 60) {
@@ -58,6 +64,36 @@ export function validateCertifiedCampaignConfig(config) {
     }
   }
   return config;
+}
+
+/** Validate the retained workflow identity before any challenge is prepared. */
+export function validateBenchmarkBuildIdentity(identity, config) {
+  const plan = config?.plan || {};
+  const hash = (value) => /^sha256:[0-9a-f]{64}$/u.test(String(value || ""));
+  if (identity?.schema_version !== "ioi.aft.benchmark-image-build-identity.v2") {
+    throw new Error("unsupported benchmark image build identity schema");
+  }
+  if (identity.source_ref !== plan.benchmark_source_commit
+      || identity.image_digest !== plan.image_digest
+      || identity.result_tls_server_certificate_sha256 !== plan.result_tls_server_certificate_sha256) {
+    throw new Error("benchmark image build identity differs from the reviewed workload identity");
+  }
+  for (const field of [
+    "image_digest",
+    "base_image_digest",
+    "cargo_lock_sha256",
+    "dockerfile_sha256",
+    "runner_sha256",
+    "result_tools_sha256",
+    "result_tls_server_certificate_sha256",
+  ]) {
+    if (!hash(identity[field])) throw new Error(`benchmark image build identity has invalid ${field}`);
+  }
+  if (!/^[1-9][0-9]*$/u.test(String(identity.github_run_id || ""))
+      || !/^[1-9][0-9]*$/u.test(String(identity.github_run_attempt || ""))) {
+    throw new Error("benchmark image build identity lacks a valid workflow run identity");
+  }
+  return identity;
 }
 
 /** Materialize only owner-reviewed, non-secret SDL values before challenge hashing. */
