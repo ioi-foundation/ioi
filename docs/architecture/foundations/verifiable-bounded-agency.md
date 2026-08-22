@@ -525,13 +525,23 @@ ref/hash pairs, a monotonic revision, the prior state hash, and its own state
 commitment. Row bodies remain separately portable and schema-verifiable rather
 than being copied into registry state.
 
+`VerifierIndependenceProfile` declares the ADR 0032 axes individually. The
+first-party AFT verifier may claim `separate_binary`, `separate_codegen`, and
+`separate_transport` only with evidence for each, and must leave
+`separate_authoring_party` false until a disclosed external principal authors
+and maintains an implementation. `C8PortableEvidenceBundle` is the filesystem
+framing used by that verifier: every JSON object and trust input is named by a
+safe relative filename plus its schema ref, object ref, and canonical hash.
+
 The registered contracts are:
 
 - `schema://ioi/foundations/relying-party-acceptance-policy/v1`; and
 - `schema://ioi/foundations/certificate-acceptance-receipt/v1`;
 - `schema://ioi/aft/u1-campaign-result/v1`;
 - `schema://ioi/aft/measured-result-row/v1`; and
-- `schema://ioi/aft/measured-results-registry/v1`.
+- `schema://ioi/aft/measured-results-registry/v1`;
+- `schema://ioi/foundations/verifier-independence-profile/v1`; and
+- `schema://ioi/components/hypervisor/c8-portable-evidence-bundle/v1`.
 
 External witnessing initially composes the registered `ReceiptCheckpoint` and
 `ReceiptProofBundle` contracts over the acceptance receipt and C8 outcome root.

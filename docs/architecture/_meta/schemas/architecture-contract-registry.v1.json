@@ -2829,6 +2829,38 @@
       "negative_fixture_refs": [{ "path": "fixtures/aft-measured-results-registry-v1/negative-revision.json", "expected_failure": "schema" }]
     },
     {
+      "contract_id": "schema://ioi/foundations/verifier-independence-profile/v1",
+      "canonical_name": "VerifierIndependenceProfile",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/verifiable-bounded-agency.md#relying-party-acceptance",
+      "schema_version": "ioi.foundations.verifier-independence-profile.v1",
+      "maturity": "target", "stability": "provisional", "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": { "successor_of": null, "successor_contract_id": null, "compatibility": "initial", "migration_policy": "none", "predecessor_remains_valid": false, "wire_mutation_policy": "forbidden", "hash_impact": "signature_preimage_changed" },
+      "schema_ref": "verifier-independence-profile.v1.schema.json", "cross_field_invariant_refs": [], "compatibility_aliases": [],
+      "generated_targets": [
+        { "kind": "typescript_projection", "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts", "symbol": "VerifierIndependenceProfileV1" },
+        { "kind": "rust_projection", "path": "crates/types/src/app/generated/architecture_contracts.rs", "symbol": "VerifierIndependenceProfileV1" }
+      ],
+      "positive_fixture_refs": ["fixtures/verifier-independence-profile-v1/positive-first-party-separate.json"],
+      "negative_fixture_refs": [{ "path": "fixtures/verifier-independence-profile-v1/negative-unknown-axis.json", "expected_failure": "schema" }]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/c8-portable-evidence-bundle/v1",
+      "canonical_name": "C8PortableEvidenceBundle",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/providers-and-environments.md#c8-workload-bound-governed-effect-certificate",
+      "schema_version": "ioi.components.hypervisor.c8-portable-evidence-bundle.v1",
+      "maturity": "target", "stability": "provisional", "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": { "successor_of": null, "successor_contract_id": null, "compatibility": "initial", "migration_policy": "none", "predecessor_remains_valid": false, "wire_mutation_policy": "forbidden", "hash_impact": "signature_preimage_changed" },
+      "schema_ref": "c8-portable-evidence-bundle.v1.schema.json", "cross_field_invariant_refs": [], "compatibility_aliases": [],
+      "generated_targets": [
+        { "kind": "typescript_projection", "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts", "symbol": "C8PortableEvidenceBundleV1" },
+        { "kind": "rust_projection", "path": "crates/types/src/app/generated/architecture_contracts.rs", "symbol": "C8PortableEvidenceBundleV1" }
+      ],
+      "positive_fixture_refs": ["fixtures/c8-portable-evidence-bundle-v1/positive-aft.json"],
+      "negative_fixture_refs": [{ "path": "fixtures/c8-portable-evidence-bundle-v1/negative-path-traversal.json", "expected_failure": "schema" }]
+    },
+    {
       "contract_id": "schema://ioi/foundations/relying-party-acceptance-policy/v1",
       "canonical_name": "RelyingPartyAcceptancePolicy",
       "canonical_owner_ref": "canon://docs/architecture/foundations/verifiable-bounded-agency.md#relying-party-acceptance",

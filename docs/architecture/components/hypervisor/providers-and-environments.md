@@ -1418,6 +1418,14 @@ or any predecessor/hash substitution fail closed.
 The registered wire contract is
 `schema://ioi/components/hypervisor/c8-certificate/v3`.
 
+Fresh-machine verification uses the closed portable filesystem framing
+`schema://ioi/components/hypervisor/c8-portable-evidence-bundle/v1`. The
+manifest carries no secret bytes or machine-specific absolute paths: it binds
+the certificate plus every resolved object and trust input by safe filename,
+schema ref, object ref, and canonical hash. The bundle manifest hash excludes
+only its own `bundle_hash` field; the certificate hash analogously excludes
+only `certificate_hash`. All other fields participate in JCS SHA-256.
+
 ### Typed virtual-machine target and observation payloads
 
 The existing `VirtualMachineWorkload`, `HypervisorTargetState`, and

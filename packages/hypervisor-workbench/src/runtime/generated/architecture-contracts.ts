@@ -2006,6 +2006,43 @@ export type AftMeasuredResultsRegistryV1 = {
   state_hash: string;
 };
 
+export type VerifierIndependenceProfileV1 = {
+  schema_version: "ioi.foundations.verifier-independence-profile.v1";
+  profile_ref: string;
+  profile_hash: string;
+  verifier_identity_ref: string;
+  verifier_build_hash: string;
+  contract_schema_refs: Array<string>;
+  separate_binary: boolean;
+  separate_codegen: boolean;
+  separate_transport: boolean;
+  separate_authoring_party: boolean;
+  accountable_authoring_party_ref: string;
+  evidence_refs: Array<string>;
+};
+
+export type C8PortableEvidenceBundleV1 = {
+  schema_version: "ioi.components.hypervisor.c8-portable-evidence-bundle.v1";
+  bundle_ref: string;
+  bundle_hash: string;
+  certificate_ref: string;
+  certificate_hash: string;
+  certificate_file: string;
+  objects: Array<{
+        ref: string;
+        hash: string;
+        schema_ref: string;
+        file: string;
+      }>;
+  trust_inputs: Array<{
+        ref: string;
+        hash: string;
+        schema_ref: string;
+        file: string;
+      }>;
+  created_at: string;
+};
+
 export type RelyingPartyAcceptancePolicyV1 = {
   schema_version: "ioi.foundations.relying-party-acceptance-policy.v1";
   policy_ref: string;
@@ -9482,6 +9519,38 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
   {
     "contract_id": "schema://ioi/aft/measured-results-registry/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/aft-measured-results-registry-v1/negative-revision.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/verifier-independence-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/verifier-independence-profile-v1/positive-first-party-separate.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/verifier-independence-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/verifier-independence-profile-v1/negative-unknown-axis.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/c8-portable-evidence-bundle/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/c8-portable-evidence-bundle-v1/positive-aft.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/c8-portable-evidence-bundle/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/c8-portable-evidence-bundle-v1/negative-path-traversal.json",
     "expected": "reject",
     "expected_schema_accept": false,
     "expected_failure": "schema",
@@ -17104,6 +17173,34 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/verifier-independence-profile-v1/positive-first-party-separate.json",
+    "contract_id": "schema://ioi/foundations/verifier-independence-profile/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/verifier-independence-profile-v1/positive-first-party-separate.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/verifier-independence-profile-v1/negative-unknown-axis.json",
+    "contract_id": "schema://ioi/foundations/verifier-independence-profile/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/verifier-independence-profile-v1/negative-unknown-axis.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/c8-portable-evidence-bundle-v1/positive-aft.json",
+    "contract_id": "schema://ioi/components/hypervisor/c8-portable-evidence-bundle/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/c8-portable-evidence-bundle-v1/positive-aft.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/c8-portable-evidence-bundle-v1/negative-path-traversal.json",
+    "contract_id": "schema://ioi/components/hypervisor/c8-portable-evidence-bundle/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/c8-portable-evidence-bundle-v1/negative-path-traversal.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/relying-party-acceptance-policy-v1/positive-aft-registry.json",
     "contract_id": "schema://ioi/foundations/relying-party-acceptance-policy/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/relying-party-acceptance-policy-v1/positive-aft-registry.json",
@@ -21164,6 +21261,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^[A-Z]{3}$",
   "^[A-Za-z0-9.-]+$",
   "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+  "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}[.]json$",
   "^[A-Za-z0-9_-]+$",
   "^[A-Za-z0-9_-]{43}$",
   "^[A-Za-z0-9_-]{86}$",
@@ -21635,6 +21733,8 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/aft/u1-campaign-result/v1": "sha256:53f9a944ed1379a4509a691d16bc35fc93a9e10f293d80724c7355e33097c802",
   "schema://ioi/aft/measured-result-row/v1": "sha256:a13962e8d58491420fbc68a5a9057ad3998475d8a531ff65432692f24bde79a8",
   "schema://ioi/aft/measured-results-registry/v1": "sha256:0516efc32f6e4bf54217bed7fc2327de56abd34b43cb2b7ffaf51ca30ecd607f",
+  "schema://ioi/foundations/verifier-independence-profile/v1": "sha256:79dcd6f4d215d9bf4f37f602a9187cfee07b968b66ede46418aab0bbd84af0d9",
+  "schema://ioi/components/hypervisor/c8-portable-evidence-bundle/v1": "sha256:89b2fdfcdefc25a65cd223e28857541a90e23dd12221393017c3b11118fa04bb",
   "schema://ioi/foundations/relying-party-acceptance-policy/v1": "sha256:64705441cf760d415ded81428fcf9acae5f7a1c73b6b357167cde52d083570fe",
   "schema://ioi/foundations/certificate-acceptance-receipt/v1": "sha256:8a241d88eb5e1406847ffcf1a410b8ee578198875301b322f6110c71ff67ef90",
   "schema://ioi/components/hypervisor/harness-session-binding-admission/v1": "sha256:272fed9f39075b80d523e895f65815be3103e5266d75b59b759564dc028cd40a",
@@ -37343,6 +37443,187 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           },
           "row_hash": {
             "$ref": "#/$defs/hash"
+          }
+        }
+      }
+    }
+  },
+  "schema://ioi/foundations/verifier-independence-profile/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/verifier-independence-profile/v1",
+    "title": "VerifierIndependenceProfile",
+    "x-ioi-schema-version": "ioi.foundations.verifier-independence-profile.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "profile_ref",
+      "profile_hash",
+      "verifier_identity_ref",
+      "verifier_build_hash",
+      "contract_schema_refs",
+      "separate_binary",
+      "separate_codegen",
+      "separate_transport",
+      "separate_authoring_party",
+      "accountable_authoring_party_ref",
+      "evidence_refs"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.foundations.verifier-independence-profile.v1"
+      },
+      "profile_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "profile_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "verifier_identity_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "verifier_build_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "contract_schema_refs": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "separate_binary": {
+        "type": "boolean"
+      },
+      "separate_codegen": {
+        "type": "boolean"
+      },
+      "separate_transport": {
+        "type": "boolean"
+      },
+      "separate_authoring_party": {
+        "type": "boolean"
+      },
+      "accountable_authoring_party_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "evidence_refs": {
+        "type": "array",
+        "minItems": 3,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      }
+    },
+    "$defs": {
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+      },
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/c8-portable-evidence-bundle/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/c8-portable-evidence-bundle/v1",
+    "title": "C8PortableEvidenceBundle",
+    "x-ioi-schema-version": "ioi.components.hypervisor.c8-portable-evidence-bundle.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "bundle_ref",
+      "bundle_hash",
+      "certificate_ref",
+      "certificate_hash",
+      "certificate_file",
+      "objects",
+      "trust_inputs",
+      "created_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.components.hypervisor.c8-portable-evidence-bundle.v1"
+      },
+      "bundle_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "bundle_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "certificate_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "certificate_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "certificate_file": {
+        "$ref": "#/$defs/file"
+      },
+      "objects": {
+        "type": "array",
+        "minItems": 10,
+        "maxItems": 128,
+        "items": {
+          "$ref": "#/$defs/object"
+        }
+      },
+      "trust_inputs": {
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 64,
+        "items": {
+          "$ref": "#/$defs/object"
+        }
+      },
+      "created_at": {
+        "$ref": "#/$defs/timestamp"
+      }
+    },
+    "$defs": {
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+      },
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "file": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}[.]json$"
+      },
+      "timestamp": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "object": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ref",
+          "hash",
+          "schema_ref",
+          "file"
+        ],
+        "properties": {
+          "ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "schema_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "file": {
+            "$ref": "#/$defs/file"
           }
         }
       }
@@ -80702,6 +80983,8 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
   "schema://ioi/aft/u1-campaign-result/v1": [],
   "schema://ioi/aft/measured-result-row/v1": [],
   "schema://ioi/aft/measured-results-registry/v1": [],
+  "schema://ioi/foundations/verifier-independence-profile/v1": [],
+  "schema://ioi/components/hypervisor/c8-portable-evidence-bundle/v1": [],
   "schema://ioi/foundations/relying-party-acceptance-policy/v1": [],
   "schema://ioi/foundations/certificate-acceptance-receipt/v1": [],
   "schema://ioi/components/hypervisor/harness-session-binding-admission/v1": [
@@ -88344,6 +88627,18 @@ export function validateAftMeasuredResultsRegistryV1(
   value: unknown,
 ): value is AftMeasuredResultsRegistryV1 {
   return validateArchitectureContract("schema://ioi/aft/measured-results-registry/v1", value).ok;
+}
+
+export function validateVerifierIndependenceProfileV1(
+  value: unknown,
+): value is VerifierIndependenceProfileV1 {
+  return validateArchitectureContract("schema://ioi/foundations/verifier-independence-profile/v1", value).ok;
+}
+
+export function validateC8PortableEvidenceBundleV1(
+  value: unknown,
+): value is C8PortableEvidenceBundleV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/c8-portable-evidence-bundle/v1", value).ok;
 }
 
 export function validateRelyingPartyAcceptancePolicyV1(
