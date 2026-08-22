@@ -12,7 +12,7 @@
 //!
 //! Ops are BODY-dispatched via POST /v1/hypervisor/provider-ops to avoid matchit route collisions.
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use axum::extract::{Path as AxumPath, State};
@@ -22,6 +22,8 @@ use axum::Json;
 use base64::Engine as _;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
+use time::format_description::well_known::Rfc3339;
+use time::OffsetDateTime;
 
 use super::lifecycle_routes::{
     authorize_capability_lease, open_scm_token, seal_scm_token, CapabilityLeaseRequest,
@@ -38,6 +40,225 @@ fn nanos() -> u128 {
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_nanos())
         .unwrap_or(0)
+}
+
+fn trajectory_lock() -> &'static Mutex<()> {
+    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    LOCK.get_or_init(|| Mutex::new(()))
+}
+
+fn trajectory_hash(mut value: Value, hash_field: &str) -> Result<String, String> {
+    value
+        .as_object_mut()
+        .ok_or_else(|| "trajectory object must be an object".to_string())?
+        .remove(hash_field);
+    serde_jcs::to_vec(&value)
+        .map(|bytes| sha256_bytes(&bytes))
+        .map_err(|error| format!("trajectory object cannot be canonicalized: {error}"))
+}
+
+fn ms_rfc3339(ms: u64) -> String {
+    OffsetDateTime::from_unix_timestamp_nanos(i128::from(ms).saturating_mul(1_000_000))
+        .ok()
+        .and_then(|value| value.format(&Rfc3339).ok())
+        .unwrap_or_else(iso_now)
+}
+
+/// Reserve one deterministic trajectory slot for a standing-authority provider effect. The
+/// wallet draw has already committed when this runs; therefore any failure conservatively burns
+/// that use but never reaches the provider. The global daemon lock plus immutable state records
+/// prevents concurrent or restarted callers from admitting against the same stale revision.
+fn admit_standing_provider_trajectory(
+    data_dir: &str,
+    envelope: &Value,
+    request_hash: &str,
+    provider_id: &str,
+    environment_ref: &str,
+    facets: &Value,
+) -> Result<Value, String> {
+    let _guard = trajectory_lock()
+        .lock()
+        .map_err(|_| "trajectory admission lock poisoned".to_string())?;
+    let state_ref = format!(
+        "trajectory-state://{}",
+        sha256_bytes(
+            format!(
+                "{}\0{}",
+                text(envelope, "owner_ref"),
+                text(envelope, "bounded_system_ref")
+            )
+            .as_bytes()
+        )
+        .trim_start_matches("sha256:")
+    );
+    let prior = read_record_dir(data_dir, "authority-trajectory-states")
+        .into_iter()
+        .filter(|record| text(record, "trajectory_state_ref") == state_ref)
+        .max_by_key(|record| {
+            record
+                .get("admitted_call_count")
+                .and_then(Value::as_u64)
+                .unwrap_or(0)
+        });
+    let now_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_millis() as u64)
+        .unwrap_or(0);
+    let mut before = prior.unwrap_or_else(|| {
+        json!({
+            "schema_version": "ioi.foundations.authority-trajectory-state.v1",
+            "trajectory_state_ref": state_ref,
+            "owner_ref": envelope["owner_ref"],
+            "bounded_system_ref": envelope["bounded_system_ref"],
+            "principal_ref": envelope["principal_ref"],
+            "envelope_ancestor_refs": [envelope["standing_envelope_ref"]],
+            "revocation_epoch": envelope["revocation_epoch"],
+            "window_started_at": ms_rfc3339(now_ms),
+            "window_ends_at": ms_rfc3339(envelope["expires_at_ms"].as_u64().unwrap_or(now_ms)),
+            "cumulative_spend_usd": 0.0,
+            "cumulative_deposit_usd": 0.0,
+            "active_resource_refs": [],
+            "provider_refs": [],
+            "destination_refs": [],
+            "data_class_refs": [],
+            "admitted_call_count": 0,
+            "failed_call_count": 0,
+            "admitted_events": [],
+            "derived_at": ms_rfc3339(now_ms),
+        })
+    });
+    before["trajectory_state_hash"] =
+        json!(trajectory_hash(before.clone(), "trajectory_state_hash")?);
+    ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
+        "schema://ioi/foundations/authority-trajectory-state/v1",
+        &before,
+    )
+    .map_err(|error| format!("trajectory state is not contract valid: {error}"))?;
+
+    let unique_with = |values: &Value, added: &str| {
+        let mut output = values
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+            .map(str::to_string)
+            .collect::<Vec<_>>();
+        if !output.iter().any(|value| value == added) {
+            output.push(added.to_string());
+        }
+        output.sort();
+        output.dedup();
+        output
+    };
+    let provider_address = text(facets, "provider_address");
+    let provider_ref = format!("provider://akash/{provider_address}");
+    let destination = text(facets, "result_credential_ref");
+    let resource_ref = format!("provider-resource://{provider_id}/{environment_ref}");
+    let active = unique_with(&before["active_resource_refs"], &resource_ref);
+    let providers = unique_with(&before["provider_refs"], &provider_ref);
+    let destinations = unique_with(&before["destination_refs"], destination);
+    let data_classes = unique_with(&before["data_class_refs"], "data-class://public-benchmark");
+    let deposit = facets
+        .get("deposit_usd")
+        .and_then(Value::as_f64)
+        .ok_or_else(|| "trajectory deposit is absent".to_string())?;
+    let spend = before["cumulative_spend_usd"].as_f64().unwrap_or(0.0) + deposit;
+    let cumulative_deposit = before["cumulative_deposit_usd"].as_f64().unwrap_or(0.0) + deposit;
+    let calls = before["admitted_call_count"].as_u64().unwrap_or(0) + 1;
+    let bounds = &envelope["aggregate_bounds"];
+    let constraints = vec![
+        json!({"constraint_id":"max_cumulative_spend_usd","satisfied": spend * 1_000_000.0 <= bounds["max_cumulative_spend_microusd"].as_u64().unwrap_or(0) as f64,"observed_value":spend.to_string(),"limit_value":(bounds["max_cumulative_spend_microusd"].as_u64().unwrap_or(0) as f64 / 1_000_000.0).to_string(),"evidence_refs":[]}),
+        json!({"constraint_id":"max_cumulative_deposit_usd","satisfied": cumulative_deposit * 1_000_000.0 <= bounds["max_cumulative_deposit_microusd"].as_u64().unwrap_or(0) as f64,"observed_value":cumulative_deposit.to_string(),"limit_value":(bounds["max_cumulative_deposit_microusd"].as_u64().unwrap_or(0) as f64 / 1_000_000.0).to_string(),"evidence_refs":[]}),
+        json!({"constraint_id":"max_active_resources","satisfied": active.len() as u64 <= bounds["max_concurrent_resources"].as_u64().unwrap_or(0),"observed_value":active.len().to_string(),"limit_value":bounds["max_concurrent_resources"].as_u64().unwrap_or(0).to_string(),"evidence_refs":[]}),
+        json!({"constraint_id":"max_provider_fanout","satisfied": providers.len() as u64 <= bounds["max_provider_fanout"].as_u64().unwrap_or(0),"observed_value":providers.len().to_string(),"limit_value":bounds["max_provider_fanout"].as_u64().unwrap_or(0).to_string(),"evidence_refs":[]}),
+        json!({"constraint_id":"max_destination_fanout","satisfied": destinations.len() <= 1,"observed_value":destinations.len().to_string(),"limit_value":"1","evidence_refs":[]}),
+        json!({"constraint_id":"max_calls","satisfied": calls <= bounds["max_usages"].as_u64().unwrap_or(0),"observed_value":calls.to_string(),"limit_value":bounds["max_usages"].as_u64().unwrap_or(0).to_string(),"evidence_refs":[]}),
+    ];
+    let exceeded = constraints
+        .iter()
+        .filter(|constraint| constraint["satisfied"].as_bool() != Some(true))
+        .map(|constraint| format!("trajectory_{}_exceeded", text(constraint, "constraint_id")))
+        .collect::<Vec<_>>();
+    let admitted = exceeded.is_empty();
+    let candidate_ref = format!(
+        "provider-operation://trajectory/{}",
+        request_hash.trim_start_matches("sha256:")
+    );
+    let event = json!({"ref": candidate_ref, "hash": request_hash});
+    let mut after = before.clone();
+    if admitted {
+        after["cumulative_spend_usd"] = json!(spend);
+        after["cumulative_deposit_usd"] = json!(cumulative_deposit);
+        after["active_resource_refs"] = json!(active);
+        after["provider_refs"] = json!(providers);
+        after["destination_refs"] = json!(destinations);
+        after["data_class_refs"] = json!(data_classes);
+        after["admitted_call_count"] = json!(calls);
+        let mut events = after["admitted_events"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default();
+        events.push(event);
+        after["admitted_events"] = json!(events);
+        after["derived_at"] = json!(ms_rfc3339(now_ms));
+        after["trajectory_state_hash"] =
+            json!(trajectory_hash(after.clone(), "trajectory_state_hash")?);
+        ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
+            "schema://ioi/foundations/authority-trajectory-state/v1",
+            &after,
+        )
+        .map_err(|error| format!("trajectory state-after is not contract valid: {error}"))?;
+    }
+    let mut decision = json!({
+        "schema_version": "ioi.foundations.trajectory-admission-decision.v1",
+        "candidate_operation_ref": candidate_ref,
+        "candidate_operation_hash": request_hash,
+        "state_before_ref": before["trajectory_state_ref"],
+        "state_before_hash": before["trajectory_state_hash"],
+        "constraint_results": constraints,
+        "semantic_risk_evidence_refs": [],
+        "decision": if admitted { "admit" } else { "deny" },
+        "reason_codes": if admitted { json!(["trajectory_within_policy"]) } else { json!(exceeded) },
+        "step_up_requirement_refs": [],
+        "policy_ref": envelope["trajectory_policy_ref"],
+        "policy_hash": envelope["trajectory_policy_hash"],
+        "state_after_ref": after["trajectory_state_ref"],
+        "state_after_hash": after["trajectory_state_hash"],
+        "policy_epoch": envelope["revocation_epoch"],
+        "decided_at": ms_rfc3339(now_ms),
+    });
+    let decision_hash = trajectory_hash(decision.clone(), "decision_hash")?;
+    decision["decision_hash"] = json!(decision_hash);
+    decision["decision_ref"] = json!(format!(
+        "trajectory-decision://{}",
+        decision_hash.trim_start_matches("sha256:")
+    ));
+    ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
+        "schema://ioi/foundations/trajectory-admission-decision/v1",
+        &decision,
+    )
+    .map_err(|error| format!("trajectory decision is not contract valid: {error}"))?;
+    let decision_id = decision_hash.trim_start_matches("sha256:");
+    persist_record(
+        data_dir,
+        "authority-trajectory-decisions",
+        decision_id,
+        &decision,
+    )
+    .map_err(|error| format!("trajectory decision did not persist: {error}"))?;
+    if !admitted {
+        return Err(format!(
+            "trajectory admission refused: {}",
+            exceeded.join(",")
+        ));
+    }
+    let state_id = format!(
+        "{}-{calls}",
+        sha256_bytes(state_ref.as_bytes()).trim_start_matches("sha256:")
+    );
+    persist_record(data_dir, "authority-trajectory-states", &state_id, &after)
+        .map_err(|error| format!("trajectory state did not persist: {error}"))?;
+    Ok(decision)
 }
 fn safe(seg: &str) -> String {
     seg.replace(
@@ -8570,6 +8791,7 @@ async fn handle_provider_op_internal(
         let mut lease_note = Value::Null;
         let mut grant_ref = Value::Null;
         let mut proposal_consumption = Value::Null;
+        let mut trajectory_admission = Value::Null;
         if mutation {
             // 1) external_spend posture is discovered BEFORE any provider mutation.
             match discover_budget(data_dir, &kind, op, &account) {
@@ -9190,12 +9412,39 @@ async fn handle_provider_op_internal(
                     grant_ref = json!(lease.grant_ref);
                 }
             }
+            if !standing_envelope.is_null() {
+                trajectory_admission = match admit_standing_provider_trajectory(
+                    data_dir,
+                    &standing_envelope,
+                    text(&lease_note, "request_hash"),
+                    provider_id,
+                    &env_ref,
+                    &lease_req.request_facets,
+                ) {
+                    Ok(decision) => decision,
+                    Err(reason) => {
+                        return (
+                            StatusCode::CONFLICT,
+                            Json(json!({
+                                "ok": false,
+                                "code": "provider_trajectory_admission_refused",
+                                "reason": reason,
+                                "authority_consumed": true,
+                                "host_mutation": false
+                            })),
+                        )
+                    }
+                };
+            }
         }
         let mut plan = body.get("plan").cloned().unwrap_or_else(|| json!({}));
         if let (Some(target), Some(gate)) = (plan.as_object_mut(), vast_gate.as_object()) {
             for (k, v) in gate {
                 target.insert(k.clone(), v.clone());
             }
+        }
+        if !trajectory_admission.is_null() {
+            plan["trajectory_admission"] = trajectory_admission.clone();
         }
         let command = body
             .get("command")
@@ -9302,6 +9551,7 @@ async fn handle_provider_op_internal(
                     &json!({
                         "account_ref": account_ref, "grant_ref": grant_ref, "capability_lease": lease_note,
                         "proposal_consumption": proposal_consumption,
+                        "trajectory_admission": trajectory_admission,
                         "cost_estimate": cost_estimate, "budget_discovery": budget_note,
                         "candidate_ref": vast_gate.get("candidate_ref").cloned().unwrap_or(Value::Null),
                         "quote_ref": vast_gate.get("quote_ref").cloned().unwrap_or(Value::Null),
@@ -9318,6 +9568,7 @@ async fn handle_provider_op_internal(
                     "operation_id": op_id, "provider": kind, "account_ref": account_ref,
                     "environment_ref": env_ref, "op": op, "evidence": evidence,
                     "proposal_consumption": proposal_consumption,
+                    "trajectory_admission": trajectory_admission,
                     "capability_lease": lease_note,
                     "grant_ref": grant_ref, "budget_discovery": budget_note, "cost_estimate": cost_estimate,
                     "receipt_ref": receipt, "at": iso_now()
@@ -10787,5 +11038,75 @@ env:
                 );
             }
         }
+    }
+
+    #[test]
+    fn standing_provider_trajectory_reserves_once_and_refuses_the_next_draw() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        let envelope = json!({
+            "schema_version": "ioi.foundations.standing-authority-envelope.v1",
+            "standing_envelope_ref": "standing-envelope://aft/trajectory-test",
+            "owner_ref": "org://local",
+            "bounded_system_ref": "system://aft/u1",
+            "principal_ref": "user://operator",
+            "audience_ref": "wallet-client://hypervisor/provider-ops",
+            "authority_scope": "scope:hypervisor.live-route.hypervisor-provider-op",
+            "facet_template": {},
+            "aggregate_bounds": {
+                "max_cumulative_deposit_microusd": 1_000_000,
+                "max_cumulative_spend_microusd": 1_000_000,
+                "max_usages": 1,
+                "max_concurrent_resources": 1,
+                "max_provider_fanout": 1,
+                "max_failures": 1
+            },
+            "not_before_ms": 1,
+            "expires_at_ms": 4_102_444_800_000u64,
+            "revocation_epoch": 0,
+            "trajectory_policy_ref": "policy://aft/u1/trajectory/v1",
+            "trajectory_policy_hash": format!("sha256:{}", "e".repeat(64)),
+            "approval_mode": "standing_envelope",
+            "recovery_posture": "recovery_never_widens_or_resets_drawdown",
+            "body_hash": format!("sha256:{}", "f".repeat(64))
+        });
+        let facets = json!({
+            "deposit_usd": 1.0,
+            "provider_address": "akash1ggfvyhr9sar4uxjs4hth3p4kzrwk7lysnenj3g",
+            "result_credential_ref": "connector://conn_eee2dfac02809de0"
+        });
+        let first = admit_standing_provider_trajectory(
+            data_dir,
+            &envelope,
+            &format!("sha256:{}", "1".repeat(64)),
+            "pacc_18cd245812ad55b9",
+            "env-trajectory-a",
+            &facets,
+        )
+        .expect("the first bounded trajectory draw admits");
+        assert_eq!(first["decision"], "admit");
+        assert_eq!(
+            read_record_dir(data_dir, "authority-trajectory-states").len(),
+            1
+        );
+        let second = admit_standing_provider_trajectory(
+            data_dir,
+            &envelope,
+            &format!("sha256:{}", "2".repeat(64)),
+            "pacc_18cd245812ad55b9",
+            "env-trajectory-b",
+            &facets,
+        )
+        .expect_err("the second call crosses the envelope and must refuse");
+        assert!(second.contains("max_cumulative_spend_usd"));
+        assert_eq!(
+            read_record_dir(data_dir, "authority-trajectory-states").len(),
+            1,
+            "a refused trajectory cannot mutate the admitted state"
+        );
+        assert_eq!(
+            read_record_dir(data_dir, "authority-trajectory-decisions").len(),
+            2
+        );
     }
 }
