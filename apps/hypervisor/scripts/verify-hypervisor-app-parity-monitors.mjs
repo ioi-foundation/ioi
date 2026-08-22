@@ -52,7 +52,11 @@ async function run() {
   const row = bySlug.monitors;
   ok("matrix: monitors is daemon_wired at /__ioi/automations/monitors (Automations) with Automate-IA landmarks", row && row.parity_class === "daemon_wired" && row.candidate_surface === "/__ioi/automations/monitors" && row.surface_name === "Automations" && Array.isArray(row.reference_landmarks) && row.reference_landmarks.length >= 8, row ? `class=${row.parity_class}` : "row missing");
   ok("matrix: the reference is ORIGIN-ALIGNED (reference_url_override → localhost:9225/workspace/object-monitoring/)", row && row.reference_url_override === "http://localhost:9225/workspace/object-monitoring/");
-  ok("the estate census accepts monitors among the certified daemon_wired surfaces (>= 10 since #51); reference_capture stays the honest majority", (matrix.by_parity_class?.daemon_wired || 0) >= 10 && (matrix.by_parity_class?.reference_capture || 0) >= 20, JSON.stringify(matrix.by_parity_class));
+  // RE-AIMED (remediation v2, 2026-08-20): the frozen reference_capture floor went stale as seeds
+  // legitimately moved to adjudicated reference_ported ports. The anti-overclaim intent stands:
+  // daemon_wired grows only via the hardened gate; every ported row carries candidate_surface +
+  // adjudication_ref (the clean-sweep promotion ratchet validates each drift).
+  ok("the estate census accepts monitors among daemon_wired (>= 10 since #51); every ported row carries adjudication evidence; no over-claiming", (matrix.by_parity_class?.daemon_wired || 0) >= 10 && !(matrix.seeds || []).some((s) => s.parity_class === "covered") && (matrix.seeds || []).filter((s) => s.parity_class === "reference_ported").every((s) => s.candidate_surface && s.adjudication_ref), JSON.stringify(matrix.by_parity_class));
 
   // 0b. Shell-pixel certification is REAL, committed, non-pinned, SHELL-scoped.
   let cert = null;
@@ -94,19 +98,15 @@ async function run() {
   const newest = [...autos].sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")))[0];
   ok("a REAL automation renders as a row: id + project + trigger + steps census; CREATOR = the real executor_identity.ref", t.includes(newest.automation_id) && t.includes(newest.project_id || "") && ((newest.executor_identity || {}).ref ? t.includes(newest.executor_identity.ref) : true), newest.automation_id);
   ok("rendered rows equal the daemon plane after the same cap (newest 12)", (t.match(/class="mon-row"/g) || []).length === Math.min(12, autos.length), `${(t.match(/class="mon-row"/g) || []).length} rows vs ${Math.min(12, autos.length)}`);
-  // A real execution renders with status + proof refs.
-  const runsOf = await jd(`/v1/hypervisor/automations/${encodeURIComponent(newest.automation_id)}/runs`);
-  const anyRun = (runsOf.runs || [])[0];
-  let feedChecked = false, feedDetail = "no runs on the newest automation — feed checked for honest render only";
-  if (anyRun) { feedChecked = t.includes(anyRun.execution_id); feedDetail = anyRun.execution_id; }
-  else {
-    // find ANY automation with a run for the proof cross-check
-    for (const a of autos.slice(0, 15)) {
-      const rr = await jd(`/v1/hypervisor/automations/${encodeURIComponent(a.automation_id)}/runs`);
-      if ((rr.runs || [])[0]) { feedChecked = t.includes(rr.runs[0].execution_id); feedDetail = rr.runs[0].execution_id; break; }
-    }
-  }
-  ok("a REAL execution renders in the Recently-triggered feed with its execution ref (the proof trail) — or the feed is honestly empty", feedChecked || /No executions recorded yet/.test(t), feedDetail);
+  // A real execution renders with status + proof refs. RE-AIMED (remediation v2): the old check
+  // sampled the newest AUTOMATION's first run — not the feed's semantics (top-10 by started_at
+  // across the WHOLE plane) — and began failing as the plane grew. Assert exactly what the
+  // surface renders: the plane-wide newest execution.
+  const runsAll = await Promise.all(autos.map((a) => jd(`/v1/hypervisor/automations/${encodeURIComponent(a.automation_id)}/runs`).then((j) => j.runs || []).catch(() => [])));
+  const newestRun = runsAll.flat().sort((x, y) => String(y.started_at || "").localeCompare(String(x.started_at || "")))[0];
+  let feedChecked = false, feedDetail = "no executions exist on the plane — feed checked for honest-empty render";
+  if (newestRun) { feedChecked = t.includes(newestRun.execution_id); feedDetail = newestRun.execution_id; }
+  ok("the PLANE-WIDE NEWEST execution renders in the Recently-triggered feed with its execution ref (the proof trail) — or the feed is honestly empty", feedChecked || /No executions recorded yet/.test(t), feedDetail);
   ok("execution statuses render honestly (completed vs status verbatim; never invented)", /Execution completed|Execution status:|No executions recorded yet/.test(t));
   ok("the em-dash gap columns name their gaps (no edit principal · no view tracking on the automation plane)", /No edit principal is recorded on the automation plane \(named gap\)/.test(t) && /View tracking is not recorded on the automation plane \(named gap\)/.test(t));
   ok("the Recently-viewed ordering is HONESTLY declared creation-recency (no view tracking)", /Ordered by creation recency[^"]*named gap/.test(t));
@@ -114,13 +114,47 @@ async function run() {
   // 4. NO NEW SEMANTICS — read-only projection; owner keeps authority lanes.
   ok("the surface is READ-ONLY (no form posts anywhere; no run/step/execute affordance)", !/<form/.test(t) && !/action="[^"]*\/(run|step|execute)"/.test(t));
   ok("the projection declares itself + no scheduler/execution semantics were added", /read-only projection over the real automation plane/.test(t) && /no scheduler or execution semantics were added/.test(t));
-  ok("unsupported controls are DISABLED IN PLACE with named-gap titles (store dropdown · New automation ×2 · Help · template docs ×3 · example installs ×2)", (t.match(/aria-disabled="true"/g) || []).length >= 8 && /Automation authoring from this surface is a reference-only lane/.test(t) && /Template docs are a reference-only lane/.test(t) && /Marketplace example installs are a reference-only lane/.test(t), `${(t.match(/aria-disabled="true"/g) || []).length} disabled controls`);
+  // RE-AIMED by AUT-2: New automation ×2 became LIVE in-shell create links (a gap became a
+  // function); the remaining census is store dropdown · Help · template docs ×3 · example installs ×2.
+  ok("unsupported controls are DISABLED IN PLACE with named-gap titles (store dropdown · Help · template docs ×3 · example installs ×2); New automation is LIVE", (t.match(/aria-disabled="true"/g) || []).length >= 7 && !/Automation authoring from this surface is a reference-only lane/.test(t) && t.includes("?tab=automations&view=new") && /Template docs are a reference-only lane/.test(t) && /Marketplace example installs are a reference-only lane/.test(t), `${(t.match(/aria-disabled="true"/g) || []).length} disabled controls`);
   ok("the verbatim strips are declared capture chrome (vendor content, never estate data)", /verbatim capture chrome/.test(t) && /never estate data/.test(t));
 
   // 5. Owner discoverability + brand.
   const owner = await page(`${SERVE}/__ioi/automations`);
   ok("owner discoverability: /__ioi/automations links the overview port first-class, and the port links back (tab + View-all + copy)", owner.status === 200 && owner.text.includes("/__ioi/automations/monitors") && t.includes('href="/__ioi/automations"'));
-  ok("the Automations tab + View-all land on the REAL owner substrate (live links, not gaps)", /<a class="mon-tab" href="\/__ioi\/automations"/.test(t) && /class="mon-viewall" href="\/__ioi\/automations"/.test(t));
+  ok("the Automations tab is the IN-SHELL live lane (AUT-1) and View-all lands on the owner substrate", /<a class="mon-tab" href="\/__ioi\/automations\/monitors\?tab=automations"/.test(t) && /class="mon-viewall" href="\/__ioi\/automations"/.test(t));
+
+  // 6. AUT-1 — the Automations tab: the reference's own in-app /automations faceted list
+  // (atlas: reference-family-atlas.v1.json monitors tab_lane state, 8 facet groups) rebuilt LIVE
+  // inside the certified shell. Semantic truth checked against the plane fetched above.
+  const tabPage = await page(`${SERVE}/__ioi/automations/monitors?tab=automations`);
+  const tt = tabPage.text;
+  ok("AUT-1: tab renders 200 with the certified shell (rail + Automate header)", tabPage.status === 200 && tt.includes("og-grail") && tt.includes("Automate"), String(tabPage.status));
+  ok("AUT-1: all 7 reference facet groups render", ["STATUS", "CONDITION", "EFFECTS", "RECEIVING NOTIFICATIONS", "OWNER", "CREATOR", "EXPIRATION DATE"].every((g) => tt.includes(g)));
+  ok("AUT-1: reference columns render (Name · Condition · Status · Creator)", [">Name</span>", ">Condition</span>", ">Status</span>", ">Creator</span>"].every((c) => tt.includes(c)));
+  const liveActive = autos.filter((a) => a.enabled !== false).length;
+  const livePaused = autos.length - liveActive;
+  ok("AUT-1: row count equals the REAL plane count (no fabrication, no cap)", (tt.match(/class="mon-arow"/g) || []).length === autos.length, `rows=${(tt.match(/class="mon-arow"/g) || []).length} plane=${autos.length}`);
+  ok("AUT-1: STATUS facet counts are LIVE plane truth (Active/Paused)", tt.includes(`Active<span class="mon-fn">${liveActive}</span>`) && tt.includes(`Paused<span class="mon-fn">${livePaused}</span>`));
+  ok("AUT-1: a sampled REAL automation id renders as a row linking the IN-SHELL detail (AUT-2)", autos.length > 0 && tt.includes(autos[0].automation_id) && tt.includes(`?tab=automations&automation=`));
+
+  // 7. AUT-2 — verbs rehomed under the Automate grammar: in-shell detail + create, every mutation
+  // a form posting the EXISTING seed lane (back=automate) — same lanes re-chromed, no second spine.
+  const det = await page(`${SERVE}/__ioi/automations/monitors?tab=automations&automation=${encodeURIComponent(autos[0].automation_id)}`);
+  const dt = det.text;
+  ok("AUT-2: detail renders the REAL spec (name + id + project + trigger)", det.status === 200 && dt.includes(autos[0].automation_id) && dt.includes(autos[0].project_id || ""), autos[0].automation_id);
+  ok("AUT-2: run/pause-or-resume/delete are forms posting the SEED lanes with back=automate", [`/run?back=automate`, `/delete?back=automate`].every((v) => dt.includes(v)) && (dt.includes(`/pause?back=automate`) || dt.includes(`/resume?back=automate`)));
+  ok("AUT-2: NO new mutation route — every form action targets /__ioi/automations seed lanes only", [...dt.matchAll(/action="([^"]+)"/g)].every((m) => m[1].startsWith("/__ioi/automations")));
+  ok("AUT-2: webhook rotate stays a LINK to the substrate (show-once token boundary, recorded)", dt.includes(`href="/__ioi/automations/${encodeURIComponent(autos[0].automation_id)}"`) && /SHOW-ONCE token/.test(dt));
+  ok("AUT-2: detail run history renders real executions or an honest empty", dt.includes("Run history") && (dt.includes("mon-runrow") || /No executions recorded for this automation/.test(dt)));
+  const neu = await page(`${SERVE}/__ioi/automations/monitors?tab=automations&view=new`);
+  ok("AUT-2: the create form posts the SEED create lane (project-first: project_ref required)", neu.status === 200 && neu.text.includes(`action="/__ioi/automations?back=automate"`) && neu.text.includes(`name="project_ref" required`));
+  ok("AUT-2: New-automation entries are LIVE in-shell links (no longer gaps)", t.includes(`?tab=automations&view=new`) && !/New automation<\/span><\/span>/.test(t));
+  ok("AUT-1: unsupported facets are typed absences in BOTH vocabularies (aria-disabled+title AND data-ioi-disabled-reason)", (tt.match(/aria-disabled="true"[^>]*data-ioi-disabled-reason/g) || []).length >= 8);
+  ok("AUT-1: the lane is READ-ONLY (no form posts anywhere on the tab)", !tt.includes("<form"));
+  const pausedPage = await page(`${SERVE}/__ioi/automations/monitors?tab=automations&status=paused`);
+  ok("AUT-1: the paused filter is a LIVE server-side lane whose row count equals plane truth", pausedPage.status === 200 && (pausedPage.text.match(/class="mon-arow"/g) || []).length === livePaused);
+  ok("AUT-1: the tab links back to the Overview in-shell", tt.includes('href="/__ioi/automations/monitors"'));
   ok("the origin-aligned reference + the insufficient proxy lane are BOTH linked and explained on the surface", t.includes("http://localhost:9225/workspace/object-monitoring/") && t.includes("/__apps/monitors") && /favorites-load failure/.test(t));
   ok("IOI surface brand-clean (no Palantir)", !/\bPalantir\b/.test(t));
 }

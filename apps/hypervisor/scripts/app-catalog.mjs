@@ -72,7 +72,11 @@ export function buildAppCatalog({ matrix, atlas, surfaces = SURFACES, resolveBin
       slug: surface.slug,
       title: surface.title,
       family: surface.owner,
-      route: surface.route,
+      // GRE-2 (owner go 2026-08-20): the LAUNCH route is the surface's canonical click target when
+      // one exists — the registry binds the same module at both mounts, and for seeded families the
+      // canonical is the designated landing (transfer or family splash). The legacy mount stays a
+      // direct-URL lane; launching it from the catalog was the old-vs-new leak the owner caught.
+      route: surface.canonical_route || surface.route,
       icon: surface.icon || null,
     }));
   const apps = [...certified, ...contractComplete]

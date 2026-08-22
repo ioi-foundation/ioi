@@ -4,6 +4,16 @@
 // daemon rebind → later IOI-owned surface. This module is the SINGLE SOURCE OF TRUTH the parity
 // verifier iterates; it is also the follow-up map for truth-binding cuts.
 //
+// REMEDIATION-v2 SUPERSESSION (2026-08-19, DOC-1): this inventory's UNIT is the capture workspace
+// ROOT — a filesystem path, NOT an app. The remediation program proved a reference app's tabs and
+// authoring entries are real in-app routes one segment away (41 routes + 18 tab lanes across
+// 25/39 seeds, reference-subroute-census.v1.json), that landing-state verdicts misclassified
+// IA-bearing seeds (reference-seed-adjudications.v1.json), and that seeds are not 1:1 with apps
+// (D6 combined-seed designations: workshop+module = ONE app). Per-seed TERMINAL TRUTH lives in
+// the generated matrix's remediation fields (remediation_state · adjudication_ref ·
+// donor_capture) and landing-designations.v1.json — read those beside any `note:` below; the
+// notes record what the 2026-06 harvest saw, not current truth.
+//
 // Each entry:
 //   owner       — the canonical Hypervisor suite surface that owns this UX
 //   slug        — the /__apps/<slug> route inside Hypervisor

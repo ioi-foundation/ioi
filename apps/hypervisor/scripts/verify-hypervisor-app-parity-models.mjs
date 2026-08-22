@@ -42,7 +42,12 @@ async function run() {
   const row = (matrix.seeds || []).find((s) => s.slug === "models");
   ok("matrix: models is daemon_wired at /__ioi/foundry/models with Models-IA landmarks + the intact /__ioi/foundry substrate", row && row.parity_class === "daemon_wired" && row.port_surface === "/__ioi/foundry/models" && row.candidate_surface === "/__ioi/foundry/models" && row.substrate_surface === "/__ioi/foundry" && Array.isArray(row.reference_landmarks) && row.reference_landmarks.length >= 8, row ? `class=${row.parity_class}` : "row missing");
   ok("matrix: the models REFERENCE is data_clean per the sweep (its catalog lanes are rebound to the same daemon registry)", row && row.reference_clean_state === "data_clean", row ? row.reference_clean_reason?.slice(0, 80) : "");
-  ok("the estate census accepts models among the certified daemon_wired surfaces (>= 6 since #47, the first Foundry-family one); reference_capture stays the honest majority", (matrix.by_parity_class?.daemon_wired || 0) >= 6 && (matrix.by_parity_class?.reference_capture || 0) >= 20, JSON.stringify(matrix.by_parity_class));
+  // RE-AIMED (remediation v2, W3): six seeds legitimately left reference_capture via adjudicated
+  // I-4 ports (module/logic/contour/widgets/workspaces/notepad — each with atlas evidence and a
+  // green verifier), so the frozen >=20 floor went stale. The anti-overclaim intent stands:
+  // daemon_wired only grows via the hardened gate, and every reference_ported row carries a
+  // candidate_surface + adjudication_ref.
+  ok("the estate census accepts models among daemon_wired (>= 6); ported rows carry adjudication evidence; no over-claiming", (matrix.by_parity_class?.daemon_wired || 0) >= 6 && (matrix.seeds || []).filter((s) => s.parity_class === "reference_ported").every((s) => s.candidate_surface && s.adjudication_ref), JSON.stringify(matrix.by_parity_class));
 
   // 2. VISUAL PARITY
   const artDir = path.join(appRoot, ".artifacts", "models-port-verify");
@@ -80,6 +85,15 @@ async function run() {
   ok("route ADMINISTRATION stays in Agent Studio (linked), not on the read-only catalog", port.text.includes("/__ioi/agent-studio#model-routes"));
   ok("unsupported reference lanes are DISABLED IN PLACE + named, never hidden", (port.text.match(/disabled/g) || []).length >= 4 && /named gap/.test(port.text) && /reference-only/.test(port.text) && /aria-disabled="true"/.test(port.text));
   ok("brand-clean: no Palantir/Foundry-vendor branding beyond the estate's own Foundry surface name", !/\bPalantir\b/.test(port.text));
+
+  // FOU-1 (remediation v2): the Registered-models tab is a LIVE lane over the SAME registry,
+  // keyed on the registry's own origin field (verbatim). Asset import stays a named gap.
+  const reg = await page(`${SERVE}/__ioi/foundry/models?tab=registered`);
+  const rt = reg.text;
+  ok("FOU-1: registered lane renders 200 with rows == the registry, origin verbatim", reg.status === 200 && (rt.match(/class="mc-regrow"/g) || []).length === routes.length && (routes.length === 0 || rt.includes(routes[0].origin || "—")), `rows=${(rt.match(/class="mc-regrow"/g) || []).length} plane=${routes.length}`);
+  ok("FOU-1: asset-import is a named gap in BOTH vocabularies; the lane is read-only", rt.includes('data-ioi-disabled-reason="External model-ASSET import') && !rt.includes("<form"));
+  ok("FOU-1: both tabs live in-shell; the old gap tab is gone", port.text.includes(`href="/__ioi/foundry/models?tab=registered"`) && rt.includes(`href="/__ioi/foundry/models"`) && !/Registered \(externally imported\) models are a reference-only lane/.test(port.text));
+  ok("FOU-1: the lane cites its adjudication", /reference-seed-adjudications\.v1\.json#models-registered/.test(rt));
 
   // 5. SHELL-PIXEL CERTIFICATION
   {

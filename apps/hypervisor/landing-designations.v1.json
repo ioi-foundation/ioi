@@ -1,0 +1,299 @@
+{
+  "schema": "ioi.hypervisor.landing-designations.v1",
+  "doctrine": "The machine record of remediation-plan \u00a74.1: exactly ONE designated landing grammar per click target (launcher tile, canonical route, owner landing, certified deep route). Choice governed by D-rules: D1 grammar-fit-to-job, D2 evidence rank, D3 richer IA breaks ties, D4 losers never deleted (sibling app/tab or terminal absence), D5 one designation per target, D6 combined-seed designations (seeds are not 1:1 with apps; grafts carry roles donor|authoring_flow|detail_view|secondary_grammar). Status: NOW = designated; TERMINAL = recorded terminal absence (requires adjudication_ref); LATER = undecidable until the named action's W1 evidence lands (illegal after W1 exit \u2014 the E8 audit); GRE = greenfield, governed by the GRE-1 owner ruling.",
+  "plan": "internal-docs/prompts/hypervisor-application-surface-plans/reference-seed-remediation-plan.md \u00a74.1",
+  "authored": "2026-08-19",
+  "targets": [
+    {
+      "click_target": "/automations",
+      "status": "NOW",
+      "grammar": "Automate (monitors capture): Overview + live Automations tab",
+      "grafts": [
+        {
+          "seed": "monitors-wizard-strip",
+          "role": "secondary_grammar",
+          "note": "linked walkthrough, never a rebound surface or peer CTA"
+        }
+      ],
+      "competitors": [
+        {
+          "seed": "scheduler",
+          "disposition": "expected terminal absence (AUT-4); scheduler health Operations-owned"
+        }
+      ]
+    },
+    {
+      "click_target": "/studio",
+      "status": "NOW",
+      "grammar": "Solution Designer landing (I-4) hosting agent estate + blueprints",
+      "competitors": [
+        {
+          "seed": "machinery",
+          "disposition": "sibling app tab (D1: single-purpose graph app)"
+        },
+        {
+          "seed": "workshop+module",
+          "disposition": "ONE combined-seed sibling app (D6): primary grammar module (boots as Workshop Home); roles donor+authoring_flow for the dead workshop capture"
+        }
+      ]
+    },
+    {
+      "click_target": "/data",
+      "status": "NOW",
+      "grammar": "family splash (I-4) \u2014 no single reference Data home exists; recipes/sources first-class tabs",
+      "competitors": [
+        {
+          "seed": "ingest",
+          "disposition": "D6 authoring_flow graft REFUTED \u2014 ingest absent_confirmed (reference-seed-adjudications.v1.json#ingest); the Data ladder stands alone"
+        }
+      ]
+    },
+    {
+      "click_target": "/data/sources",
+      "status": "NOW",
+      "grammar": "Data Connection (certified, shipped)"
+    },
+    {
+      "click_target": "/data/recipes",
+      "status": "NOW",
+      "grammar": "Pipeline Builder (certified, shipped)"
+    },
+    {
+      "click_target": "/ontology",
+      "status": "NOW",
+      "grammar": "family splash (I-4); schema + explorer first-class",
+      "competitors": [
+        {
+          "seed": "objectview+objecteditor",
+          "disposition": "capture_broken_no_donor \u2014 hubble carries no drillable detail on the mirror (reference-seed-adjudications.v1.json#objectview); ONT-2.build skipped"
+        }
+      ]
+    },
+    {
+      "click_target": "/ontology/schema",
+      "status": "NOW",
+      "grammar": "Ontology Manager (certified, shipped)"
+    },
+    {
+      "click_target": "/ontology/explore",
+      "status": "NOW",
+      "grammar": "Object Explorer (certified, shipped)"
+    },
+    {
+      "click_target": "/governance",
+      "status": "NOW",
+      "grammar": "Approvals faceted inbox family grammar"
+    },
+    {
+      "click_target": "/governance/approvals",
+      "status": "NOW",
+      "grammar": "Approvals faceted inbox (certified, shipped)"
+    },
+    {
+      "click_target": "/provenance",
+      "status": "NOW",
+      "grammar": "Monocle (lineage) \u2014 the proof-plane app: 6-tab IA (Preview/SQL/History/Code/Build timeline/Data health); Vertex = sibling app (own 4-facet landing)",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#lineage"
+    },
+    {
+      "click_target": "/evaluations",
+      "status": "NOW",
+      "grammar": "AIP Evals (evalsuites, certified)",
+      "competitors": [
+        {
+          "seed": "analysis",
+          "disposition": "sibling app or terminal absence \u2014 EVA-2"
+        },
+        {
+          "seed": "quiver",
+          "disposition": "expected terminal absence \u2014 EVA-3"
+        }
+      ],
+      "pending_roles": [
+        "EVA-2.recon",
+        "EVA-3"
+      ]
+    },
+    {
+      "click_target": "/improvement",
+      "status": "NOW",
+      "grammar": "Upgrade Assistant (changes \u2014 THE EXEMPLAR: reference tabs already live ?lane= links)"
+    },
+    {
+      "click_target": "/foundry",
+      "status": "NOW",
+      "grammar": "Model Catalog (models, certified)",
+      "competitors": [
+        {
+          "seed": "modelstudio",
+          "disposition": "capture_broken_no_donor (reference-seed-adjudications.v1.json)"
+        },
+        {
+          "seed": "inference",
+          "disposition": "capture_broken_no_donor (reference-seed-adjudications.v1.json)"
+        }
+      ]
+    },
+    {
+      "click_target": "/packages/marketplace",
+      "status": "NOW",
+      "grammar": "Marketplace (listings, certified)",
+      "competitors": [
+        {
+          "seed": "registry",
+          "disposition": "CORRECTED (REG-1, 2026-08-20): this entry carried the registry seed's mirror-scoped absent_confirmed (reference-seed-adjudications.v1.json#registry, MAR-1). The owner-authorized live-tenant sweep OVERTURNED it (a real artifact-registry landing: 14 controls, 1 search input, 0 rows) and the registry seed now has its OWN designation (marketplace:artifacts \u2192 NOW, /__ioi/marketplace/artifacts, reference-seed-adjudications.v1.json#registry-port). The NOW status of THIS target is unchanged and is about Packages / Marketplace itself, not about registry.",
+          "superseded_disposition": "absent_confirmed (reference-seed-adjudications.v1.json#registry) \u2014 kept as history; overturned by the live-tenant sweep and re-adjudicated in #registry-port"
+        }
+      ]
+    },
+    {
+      "click_target": "marketplace:artifacts",
+      "status": "NOW",
+      "grammar": "Artifact-registry landing (the LIVE-tenant grammar the registry click target actually boots): header + three-counter task tray + Help + Create-artifact-repository \u00b7 centred \"Explore artifacts\" hero with its ecosystem scope and search bar \u00b7 four-card \"Learn about artifacts\" band with its documentation link \u2014 served as a READ-ONLY PROJECTION over the estate's real registry LADDER. Ten daemon planes are probed on every render and classified live into FOUR states: LIVE (records rendered verbatim, each row naming WHICH plane it came from with id / ref / schema_version and a typed dash for every field the record does not carry), EMPTY (the plane answered and holds none \u2014 the reference's own state), REFUSED (identity-first planes whose typed code renders verbatim and NEVER as a zero) and NO READ ROUTE (POST-only planes that cannot be read at all). The package family's eight-route closure and the ZERO artifact-search-route census are re-counted from the daemon's index on every render. Every app control the reference offers is a typed absence with a reason written for it; every registry VERB stays on its owner surface and is linked, never duplicated.",
+      "route": "/__ioi/marketplace/artifacts",
+      "supersedes_terminal": "absent_confirmed (mirror-scoped, recorded as a competitor disposition on the /packages/marketplace target because the registry seed had no target of its own) \u2014 overturned by the owner-authorized live-tenant sweep; the mirror record stands as history",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#registry-port",
+      "evidence": "reference-live-tenant-deep-atlas.v1.json#registry + reference-live-tenant-atlas.v1.json#registry",
+      "competitors": [
+        {
+          "seed": "registry",
+          "disposition": "the registry seed IS this target; the Packages / Marketplace click target (/packages/marketplace) stays NOW and is a different target that OWNS the verbs this projection only links to (D5: one designation per target)"
+        }
+      ]
+    },
+    {
+      "click_target": "/packages",
+      "status": "GRE"
+    },
+    {
+      "click_target": "missions:incidents",
+      "status": "NOW",
+      "grammar": "Issues (certified, shipped); no canonical route yet"
+    },
+    {
+      "click_target": "missions:jobs",
+      "status": "NOW",
+      "grammar": "Builds (the LIVE-tenant grammar the job-tracker click target actually boots): header + a three-counter tray COUNTED from the plane + settings/theme absences \u00b7 a left Search-by / Filter-by panel (resource + object-type search, intermediate-resource and my-builds toggles, a three-way Branch radio, a Started-by principal chip, a Job-type filter, Start-date and Finish-date ranges, Clear all filters) \u2014 every one a typed absence with a reason written for it \u00b7 an All/Running/Finished segmented control rendered as a LIVE CENSUS of the plane and said on-surface to be a count, not a filter \u00b7 and the build table, served as a READ-ONLY PROJECTION over the estate's REAL build plane. THE FINDING: no single plane lists every build. The agent-run-transcript plane carries a state_root on every record and a principal on NONE; the per-automation execution projection carries executor_identity but can never reach an execution whose automation was deleted (the daemon publishes no automation-executions list route); the work ledger's `run` lane is the EXACT UNION of both and the only plane carrying the acting authority AND the proof anchor on one record \u2014 so it is what the table reads, and the three counts that justify that choice are re-derived on every render. Sixteen run/build planes are classified live into FOUR states (LIVE / EMPTY / REFUSED / NO READ ROUTE, the last decided from the daemon's own route index rather than a status guess). The reference's Outputs and Actions columns bind NO estate field and are answered as REFUSALS in a six-row column-mapping table rather than filled with different truth; Duration is labelled COMPUTED on every row; a build's sub-unit is a STEP and is never relabelled a job, because `job` is a live estate noun on /v1/jobs. The 3174-record transcript plane is LINKED to the Monocle Build timeline, never re-rendered. Read-only: the build verbs stay on Automations.",
+      "route": "/__ioi/missions/builds",
+      "supersedes_terminal": "absent_confirmed (mirror-scoped, reference-seed-adjudications.v1.json#jobs \u2014 MIS-1.recon: \"no Builds grammar expresses at any recorded state; the substrate STANDS as the surface\") \u2014 OVERTURNED by the owner-authorized live-tenant sweep; the mirror record stands as history and is not rewritten",
+      "substrate_unchanged": "/__ioi/missions keeps its class (read_only_by_contract) and its content untouched \u2014 the Builds port is a SIBLING lane in the same owner family, and the jobs seed row CARRIES substrate_surface: /__ioi/missions forward so the promotion to reference_ported never unbinds the substrate",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#jobs-port",
+      "superseded_note": "absent_confirmed \u2014 the substrate stands as the surface (reference-seed-adjudications.v1.json#jobs) \u2014 kept as history; overturned by the live-tenant sweep and re-adjudicated in #jobs-port",
+      "evidence": "reference-live-tenant-atlas.v1.json#jobs + .artifacts/live-tenant-atlas/jobs-landing.png"
+    },
+    {
+      "click_target": "/developer-console",
+      "status": "NOW",
+      "grammar": "Developer Console (devconsole: Applications/OAuth tabs + guided create); binding depth gated by DEV-2",
+      "competitors": [
+        {
+          "seed": "widgets",
+          "disposition": "sibling app, own grammar (origin-align)"
+        },
+        {
+          "seed": "developer",
+          "disposition": "donor devconsole RECORDED (reference-seed-adjudications.v1.json#developer); ships with DEV-2"
+        }
+      ]
+    },
+    {
+      "click_target": "/developer-workspace",
+      "status": "NOW",
+      "grammar": "family splash (I-4); workspaces/notepad/repositories(donor: code) siblings"
+    },
+    {
+      "click_target": "domain-apps:logic",
+      "status": "NOW",
+      "grammar": "AIP Logic landing (origin-align, I-4 instance)"
+    },
+    {
+      "click_target": "domain-apps:contour",
+      "status": "NOW",
+      "grammar": "Contour landing (origin-align, I-4 instance)"
+    },
+    {
+      "click_target": "domain-apps:slate",
+      "status": "NOW",
+      "grammar": "Slate landing via splash alias (I-4 instance; origin-aligned)",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#slate"
+    },
+    {
+      "click_target": "domain-apps:fusion",
+      "status": "NOW",
+      "grammar": "Projects-and-files browser (the LIVE-tenant grammar the fusion click target actually resolves to \u2014 NOT a spreadsheet): 4-tab header (All files LIVE \u00b7 Shared with you absent \u00b7 Data Catalog LIVE \u00b7 Trash absent) + quick-filter band + 6-group facet rail + Data-Catalog sub-tabs (Collections absent \u00b7 Files LIVE)",
+      "route": "/__ioi/domain-apps/fusion",
+      "supersedes_terminal": "capture_broken_no_donor (mirror-scoped) \u2014 overturned by the owner-authorized live-tenant sweep; the mirror record stands as history",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#fusion-port",
+      "evidence": "reference-live-tenant-deep-atlas.v1.json#fusion + reference-live-tenant-atlas.v1.json#fusion"
+    },
+    {
+      "click_target": "/environments",
+      "status": "GRE",
+      "note": "the owned Environments app is greenfield \u2014 awaits GRE-1 like its siblings. CORRECTION (MAP-1, 2026-08-20): this note carried the map seed's mirror-scoped absent_confirmed verdict (reference-seed-adjudications.v1.json#map); the owner-authorized live-tenant sweep OVERTURNED it (20 controls \u00b7 2 canvas surfaces) and the map seed now has its OWN designation (environments:map \u2192 NOW, /__ioi/environments/map, reference-seed-adjudications.v1.json#map-port). The GRE status here is unchanged and is about the owned Environments app itself, not about map.",
+      "superseded_note": "map seed absent_confirmed (reference-seed-adjudications.v1.json#map) \u2014 kept as history; overturned by the live-tenant sweep and re-adjudicated in #map-port"
+    },
+    {
+      "click_target": "environments:map",
+      "status": "NOW",
+      "grammar": "Map workbench landing (the LIVE-tenant grammar the map click target actually boots): header + Save-as \u00b7 left layer panel (tab strip Search/Layers/Basemap/Legend/Histogram, Add-to-map, active-basemap footer) \u00b7 select + search-around and six draw tools \u00b7 vertical Selection tray \u00b7 zoom + Timeline under-bar \u2014 over a canvas region that is a TYPED ABSENCE. A map CANVAS cannot be honestly faked and the estate has NO geospatial plane (0 geospatial routes of 753; 247 param-free GET routes swept), so nothing map-shaped is drawn and the absence names MISSING vs the reference's own EMPTY layer list. One LIVE lane, explicitly NOT a map: the placement plane's cloud-resource candidates that carry placement geography (region \u00b7 location \u00b7 zone \u00b7 az), rendered verbatim with each record's expired / not-live-supply state.",
+      "route": "/__ioi/environments/map",
+      "supersedes_terminal": "absent_confirmed (mirror-scoped, recorded on the /environments target's note because the map seed had no target of its own) \u2014 overturned by the owner-authorized live-tenant sweep; the mirror record stands as history",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#map-port",
+      "evidence": "reference-live-tenant-deep-atlas.v1.json#map + reference-live-tenant-atlas.v1.json#map",
+      "competitors": [
+        {
+          "seed": "map",
+          "disposition": "the map seed IS this target; the owned Environments app (/environments) stays GRE and is a different click target (D5: one designation per target)"
+        }
+      ]
+    },
+    {
+      "click_target": "/work",
+      "status": "GRE"
+    },
+    {
+      "click_target": "/home",
+      "status": "GRE"
+    },
+    {
+      "click_target": "/systems",
+      "status": "GRE"
+    },
+    {
+      "click_target": "/applications",
+      "status": "GRE"
+    },
+    {
+      "click_target": "/operations",
+      "status": "GRE"
+    },
+    {
+      "click_target": "/settings",
+      "status": "GRE"
+    },
+    {
+      "click_target": "seed:dataset",
+      "status": "TERMINAL",
+      "note": "capture_broken_no_donor \u2014 preview grammar survives inside the certified pipeline port",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#dataset"
+    },
+    {
+      "click_target": "seed:scheduler",
+      "status": "TERMINAL",
+      "note": "absent_confirmed \u2014 no expressed IA at any atlas state; Operations boundary stands",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#scheduler"
+    }
+  ],
+  "cross_family_edges": [
+    {
+      "edge": "vertex \u2192 workshop (resource_embed)",
+      "recorded": "2026-08-20",
+      "evidence": "vendor docs: Workshop's 'Vertex Graph widget' displays an existing graph/template/diagram created in Vertex; live tenant: Vertex's example installations open as Workshop modules (ri.workshop.main.module\u2026) \u2014 owner screenshots 2026-08-20",
+      "relationship": "PRODUCER/CONSUMER, not one app (contrast D6 workshop+module = one app): Vertex authors graph resources; Workshop composes applications that embed them",
+      "estate_analogue": "the ODK composition plane already declares compositions over materialized-set/domain-app RESOURCES (real refs) \u2014 the estate's Vertex renders exactly those materialized sets as its graph; the edge exists in schema, both planes honestly empty today",
+      "backlog": "wire reciprocal links read-first when either plane carries records: Workshop rows show referenced materialized-set resources linking the Vertex detail graph; Vertex detail shows 'used in compositions' linking back \u2014 honest-empty until then",
+      "corroboration": "vendor nav marks 'Object Monitors [Sunset]' \u2014 independently validates the Automate family designation (monitors overview = the landing, monitor wizard = secondary grammar)"
+    }
+  ],
+  "updated": "2026-08-20"
+}

@@ -1,0 +1,2350 @@
+{
+  "schema": "ioi.hypervisor.reference-live-tenant-deep-atlas.v1",
+  "origin": "https://test.usw-23.palantirfoundry.com",
+  "doctrine": "DRIVEN states from the live tenant over the owner-authorized CDP session — whitelist-only clicks (tabs/explore/rows/dialog-open), mutation verbs BLACKLISTED, ambiguity skipped+logged. The port-evidence source for the live_ia_recorded backlog.",
+  "states": [
+    {
+      "slug": "vertex",
+      "key": "canvas-layers",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/vertex/graph/ri.opus.main.graph-template.0ad31874-deb8-447c-80d4-8f5b6ca2e6a0",
+        "title": "Reference Objects Network Template - Reference Objects Network - Graph Template",
+        "headings": [
+          "Reference Objects Network Template"
+        ],
+        "tabs": [],
+        "columns": [],
+        "facet_groups": [
+          "APPLICATIONS",
+          "NODES",
+          "EDGES"
+        ],
+        "rows": 0,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "View all",
+          "Walkthroughs",
+          "Support",
+          "LJAccount",
+          "File",
+          "View",
+          "Help",
+          "1",
+          "Template",
+          "Save as…",
+          "Share",
+          "Show graph while still loading",
+          "Layers",
+          "Selection",
+          "Search",
+          "Histogram",
+          "Info",
+          "Default styling",
+          "Model config",
+          "Simulation",
+          "Timeline",
+          "Select an option…",
+          "Edit template",
+          "Run"
+        ],
+        "inputs": [],
+        "dialogs": 16,
+        "canvas_surfaces": 1,
+        "text_len": 996
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/vertex-canvas-layers.png"
+    },
+    {
+      "slug": "vertex",
+      "key": "canvas-selection",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/vertex/graph/ri.opus.main.graph-template.0ad31874-deb8-447c-80d4-8f5b6ca2e6a0",
+        "title": "Reference Objects Network Template - Reference Objects Network - Graph Template",
+        "headings": [
+          "Reference Objects Network Template"
+        ],
+        "tabs": [],
+        "columns": [],
+        "facet_groups": [
+          "APPLICATIONS"
+        ],
+        "rows": 0,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "View all",
+          "Walkthroughs",
+          "Support",
+          "LJAccount",
+          "File",
+          "View",
+          "Help",
+          "1",
+          "Template",
+          "Save as…",
+          "Share",
+          "Show graph while still loading",
+          "Layers",
+          "Selection",
+          "Search",
+          "Histogram",
+          "Info",
+          "Model config",
+          "Simulation",
+          "Timeline",
+          "Select an option…",
+          "Edit template",
+          "Run"
+        ],
+        "inputs": [],
+        "dialogs": 15,
+        "canvas_surfaces": 1,
+        "text_len": 627
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/vertex-canvas-selection.png"
+    },
+    {
+      "slug": "vertex",
+      "key": "canvas-search",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/vertex/graph/ri.opus.main.graph-template.0ad31874-deb8-447c-80d4-8f5b6ca2e6a0",
+        "title": "Reference Objects Network Template - Reference Objects Network - Graph Template",
+        "headings": [
+          "Reference Objects Network Template"
+        ],
+        "tabs": [],
+        "columns": [],
+        "facet_groups": [
+          "APPLICATIONS",
+          "RECENT SEARCHES",
+          "HOTKEYS"
+        ],
+        "rows": 0,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "View all",
+          "Walkthroughs",
+          "Support",
+          "LJAccount",
+          "File",
+          "View",
+          "Help",
+          "1",
+          "Template",
+          "Save as…",
+          "Share",
+          "Show graph while still loading",
+          "Layers",
+          "Selection",
+          "Search",
+          "Histogram",
+          "Info",
+          "Model config",
+          "Simulation",
+          "Timeline",
+          "Select an option…",
+          "Edit template",
+          "Run",
+          "Apps"
+        ],
+        "inputs": [
+          "Search for anything in your enterprise…"
+        ],
+        "dialogs": 22,
+        "canvas_surfaces": 1,
+        "text_len": 724
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/vertex-canvas-search.png"
+    },
+    {
+      "slug": "vertex",
+      "key": "canvas-histogram",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/vertex/graph/ri.opus.main.graph-template.0ad31874-deb8-447c-80d4-8f5b6ca2e6a0",
+        "title": "Reference Objects Network Template - Reference Objects Network - Graph Template",
+        "headings": [
+          "Reference Objects Network Template"
+        ],
+        "tabs": [],
+        "columns": [],
+        "facet_groups": [
+          "APPLICATIONS",
+          "RECENT SEARCHES",
+          "HOTKEYS"
+        ],
+        "rows": 0,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "View all",
+          "Walkthroughs",
+          "Support",
+          "LJAccount",
+          "File",
+          "View",
+          "Help",
+          "1",
+          "Template",
+          "Save as…",
+          "Share",
+          "Show graph while still loading",
+          "Layers",
+          "Selection",
+          "Search",
+          "Histogram",
+          "Info",
+          "Model config",
+          "Simulation",
+          "Timeline",
+          "Select an option…",
+          "Edit template",
+          "Run",
+          "Apps"
+        ],
+        "inputs": [
+          "Search for anything in your enterprise…"
+        ],
+        "dialogs": 22,
+        "canvas_surfaces": 1,
+        "text_len": 684
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/vertex-canvas-histogram.png"
+    },
+    {
+      "slug": "vertex",
+      "key": "canvas-info",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/vertex/graph/ri.opus.main.graph-template.0ad31874-deb8-447c-80d4-8f5b6ca2e6a0",
+        "title": "Reference Objects Network Template - Reference Objects Network - Graph Template",
+        "headings": [
+          "Reference Objects Network Template"
+        ],
+        "tabs": [],
+        "columns": [],
+        "facet_groups": [
+          "APPLICATIONS",
+          "LAYERS SUMMARY",
+          "RECENT SEARCHES",
+          "HOTKEYS"
+        ],
+        "rows": 0,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "View all",
+          "Walkthroughs",
+          "Support",
+          "LJAccount",
+          "File",
+          "View",
+          "Help",
+          "1",
+          "Template",
+          "Save as…",
+          "Share",
+          "Show graph while still loading",
+          "Layers",
+          "Selection",
+          "Search",
+          "Histogram",
+          "Info",
+          "View layers",
+          "Model config",
+          "Simulation",
+          "Timeline",
+          "Select an option…",
+          "Edit template",
+          "Run"
+        ],
+        "inputs": [
+          "Search for anything in your enterprise…"
+        ],
+        "dialogs": 22,
+        "canvas_surfaces": 1,
+        "text_len": 706
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/vertex-canvas-info.png"
+    },
+    {
+      "slug": "vertex",
+      "key": "canvas-timeline",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/vertex/graph/ri.opus.main.graph-template.0ad31874-deb8-447c-80d4-8f5b6ca2e6a0",
+        "title": "Reference Objects Network Template - Reference Objects Network - Graph Template",
+        "headings": [
+          "Reference Objects Network Template"
+        ],
+        "tabs": [],
+        "columns": [],
+        "facet_groups": [
+          "APPLICATIONS",
+          "LAYERS SUMMARY",
+          "RECENT SEARCHES",
+          "HOTKEYS"
+        ],
+        "rows": 0,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "View all",
+          "Walkthroughs",
+          "Support",
+          "LJAccount",
+          "File",
+          "View",
+          "Help",
+          "1",
+          "Template",
+          "Save as…",
+          "Share",
+          "Show graph while still loading",
+          "Layers",
+          "Selection",
+          "Search",
+          "Histogram",
+          "Info",
+          "View layers",
+          "Model config",
+          "Simulation",
+          "Timeline",
+          "Select an option…",
+          "Edit template",
+          "Run"
+        ],
+        "inputs": [
+          "Search for anything in your enterprise…"
+        ],
+        "dialogs": 22,
+        "canvas_surfaces": 1,
+        "text_len": 706
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/vertex-canvas-timeline.png"
+    },
+    {
+      "slug": "vertex",
+      "key": "templates-list",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/vertex/?q=template",
+        "title": "Vertex",
+        "headings": [
+          "Graphs",
+          "Templates",
+          "Search Arounds"
+        ],
+        "tabs": [],
+        "columns": [],
+        "facet_groups": [
+          "APPLICATIONS",
+          "GRAPH",
+          "CREATOR",
+          "LAST MODIFIED"
+        ],
+        "rows": 2,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "View all",
+          "Walkthroughs",
+          "Support",
+          "LJAccount",
+          "Guide",
+          "Overview",
+          "Files",
+          "Start",
+          "New exploration",
+          "Explore",
+          "Explore",
+          "Explore",
+          "Favorites",
+          "Favorites",
+          "Promoted",
+          "Promoted",
+          "Recents",
+          "Recents",
+          "Your graphs",
+          "Your graphs"
+        ],
+        "inputs": [
+          "Search for Graphs, Graph Templates, and Search Arounds…"
+        ],
+        "dialogs": 7,
+        "canvas_surfaces": 0,
+        "text_len": 3098
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/vertex-templates-list.png"
+    },
+    {
+      "slug": "hubble",
+      "key": "landing",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/hubble/",
+        "title": "Object Explorer",
+        "headings": [
+          "No recents",
+          "No type groups",
+          "No saved explorations and lists"
+        ],
+        "tabs": [
+          "New exploration"
+        ],
+        "columns": [],
+        "facet_groups": [
+          "APPLICATIONS",
+          "TYPE GROUP",
+          "OBJECT TYPE NAME",
+          "STATUS",
+          "OBJECT COUNT",
+          "USAGE",
+          "TYPE GROUPS",
+          "DESCRIPTION"
+        ],
+        "rows": 24,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "View all",
+          "Walkthroughs",
+          "Support",
+          "LJAccount",
+          "Guide",
+          "Overview",
+          "Files",
+          "Start",
+          "All Ontologies",
+          "Recents",
+          "Favorites",
+          "Your object sets",
+          "Relevancy",
+          "All",
+          "Type group",
+          "Application",
+          "All",
+          "All",
+          "Created by me",
+          "Created by me",
+          "Shared with me",
+          "Shared with me",
+          "Favorites",
+          "Favorites"
+        ],
+        "inputs": [
+          "Search for objects...",
+          "Filter for a type group...",
+          "Filter for an object type...",
+          "Search explorations..."
+        ],
+        "dialogs": 12,
+        "canvas_surfaces": 0,
+        "text_len": 4244
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/hubble-landing.png"
+    },
+    {
+      "slug": "vertex",
+      "key": "canvas-layers",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/vertex/graph/ri.opus.main.graph-template.0ad31874-deb8-447c-80d4-8f5b6ca2e6a0",
+        "title": "Reference Objects Network Template - Reference Objects Network - Graph Template",
+        "headings": [
+          "Reference Objects Network Template"
+        ],
+        "tabs": [],
+        "columns": [],
+        "facet_groups": [
+          "APPLICATIONS",
+          "NODES",
+          "EDGES"
+        ],
+        "rows": 0,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "View all",
+          "Walkthroughs",
+          "Support",
+          "LJAccount",
+          "File",
+          "View",
+          "Help",
+          "1",
+          "Template",
+          "Save as…",
+          "Share",
+          "Show graph while still loading",
+          "Layers",
+          "Selection",
+          "Search",
+          "Histogram",
+          "Info",
+          "Default styling",
+          "Model config",
+          "Simulation",
+          "Timeline",
+          "Select an option…",
+          "Edit template",
+          "Run"
+        ],
+        "inputs": [],
+        "dialogs": 16,
+        "canvas_surfaces": 1,
+        "text_len": 996
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/vertex-canvas-layers.png"
+    },
+    {
+      "slug": "vertex",
+      "key": "canvas-selection",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/vertex/graph/ri.opus.main.graph-template.0ad31874-deb8-447c-80d4-8f5b6ca2e6a0",
+        "title": "Reference Objects Network Template - Reference Objects Network - Graph Template",
+        "headings": [
+          "Reference Objects Network Template"
+        ],
+        "tabs": [],
+        "columns": [],
+        "facet_groups": [
+          "APPLICATIONS"
+        ],
+        "rows": 0,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "View all",
+          "Walkthroughs",
+          "Support",
+          "LJAccount",
+          "File",
+          "View",
+          "Help",
+          "1",
+          "Template",
+          "Save as…",
+          "Share",
+          "Show graph while still loading",
+          "Layers",
+          "Selection",
+          "Search",
+          "Histogram",
+          "Info",
+          "Model config",
+          "Simulation",
+          "Timeline",
+          "Select an option…",
+          "Edit template",
+          "Run"
+        ],
+        "inputs": [],
+        "dialogs": 15,
+        "canvas_surfaces": 1,
+        "text_len": 627
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/vertex-canvas-selection.png"
+    },
+    {
+      "slug": "vertex",
+      "key": "canvas-search",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/vertex/graph/ri.opus.main.graph-template.0ad31874-deb8-447c-80d4-8f5b6ca2e6a0",
+        "title": "Reference Objects Network Template - Reference Objects Network - Graph Template",
+        "headings": [
+          "Reference Objects Network Template"
+        ],
+        "tabs": [],
+        "columns": [],
+        "facet_groups": [
+          "APPLICATIONS",
+          "RECENT SEARCHES",
+          "HOTKEYS"
+        ],
+        "rows": 0,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "View all",
+          "Walkthroughs",
+          "Support",
+          "LJAccount",
+          "File",
+          "View",
+          "Help",
+          "1",
+          "Template",
+          "Save as…",
+          "Share",
+          "Show graph while still loading",
+          "Layers",
+          "Selection",
+          "Search",
+          "Histogram",
+          "Info",
+          "Model config",
+          "Simulation",
+          "Timeline",
+          "Select an option…",
+          "Edit template",
+          "Run",
+          "Apps"
+        ],
+        "inputs": [
+          "Search for anything in your enterprise…"
+        ],
+        "dialogs": 22,
+        "canvas_surfaces": 1,
+        "text_len": 724
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/vertex-canvas-search.png"
+    },
+    {
+      "slug": "vertex",
+      "key": "canvas-histogram",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/vertex/graph/ri.opus.main.graph-template.0ad31874-deb8-447c-80d4-8f5b6ca2e6a0",
+        "title": "Reference Objects Network Template - Reference Objects Network - Graph Template",
+        "headings": [
+          "Reference Objects Network Template"
+        ],
+        "tabs": [],
+        "columns": [],
+        "facet_groups": [
+          "APPLICATIONS",
+          "RECENT SEARCHES",
+          "HOTKEYS"
+        ],
+        "rows": 0,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "View all",
+          "Walkthroughs",
+          "Support",
+          "LJAccount",
+          "File",
+          "View",
+          "Help",
+          "1",
+          "Template",
+          "Save as…",
+          "Share",
+          "Show graph while still loading",
+          "Layers",
+          "Selection",
+          "Search",
+          "Histogram",
+          "Info",
+          "Model config",
+          "Simulation",
+          "Timeline",
+          "Select an option…",
+          "Edit template",
+          "Run",
+          "Apps"
+        ],
+        "inputs": [
+          "Search for anything in your enterprise…"
+        ],
+        "dialogs": 22,
+        "canvas_surfaces": 1,
+        "text_len": 684
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/vertex-canvas-histogram.png"
+    },
+    {
+      "slug": "vertex",
+      "key": "canvas-info",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/vertex/graph/ri.opus.main.graph-template.0ad31874-deb8-447c-80d4-8f5b6ca2e6a0",
+        "title": "Reference Objects Network Template - Reference Objects Network - Graph Template",
+        "headings": [
+          "Reference Objects Network Template"
+        ],
+        "tabs": [],
+        "columns": [],
+        "facet_groups": [
+          "APPLICATIONS",
+          "LAYERS SUMMARY",
+          "RECENT SEARCHES",
+          "HOTKEYS"
+        ],
+        "rows": 0,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "View all",
+          "Walkthroughs",
+          "Support",
+          "LJAccount",
+          "File",
+          "View",
+          "Help",
+          "1",
+          "Template",
+          "Save as…",
+          "Share",
+          "Show graph while still loading",
+          "Layers",
+          "Selection",
+          "Search",
+          "Histogram",
+          "Info",
+          "View layers",
+          "Model config",
+          "Simulation",
+          "Timeline",
+          "Select an option…",
+          "Edit template",
+          "Run"
+        ],
+        "inputs": [
+          "Search for anything in your enterprise…"
+        ],
+        "dialogs": 22,
+        "canvas_surfaces": 1,
+        "text_len": 706
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/vertex-canvas-info.png"
+    },
+    {
+      "slug": "vertex",
+      "key": "canvas-timeline",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/vertex/graph/ri.opus.main.graph-template.0ad31874-deb8-447c-80d4-8f5b6ca2e6a0",
+        "title": "Reference Objects Network Template - Reference Objects Network - Graph Template",
+        "headings": [
+          "Reference Objects Network Template"
+        ],
+        "tabs": [],
+        "columns": [],
+        "facet_groups": [
+          "APPLICATIONS",
+          "LAYERS SUMMARY",
+          "RECENT SEARCHES",
+          "HOTKEYS"
+        ],
+        "rows": 0,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "View all",
+          "Walkthroughs",
+          "Support",
+          "LJAccount",
+          "File",
+          "View",
+          "Help",
+          "1",
+          "Template",
+          "Save as…",
+          "Share",
+          "Show graph while still loading",
+          "Layers",
+          "Selection",
+          "Search",
+          "Histogram",
+          "Info",
+          "View layers",
+          "Model config",
+          "Simulation",
+          "Timeline",
+          "Select an option…",
+          "Edit template",
+          "Run"
+        ],
+        "inputs": [
+          "Search for anything in your enterprise…"
+        ],
+        "dialogs": 22,
+        "canvas_surfaces": 1,
+        "text_len": 706
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/vertex-canvas-timeline.png"
+    },
+    {
+      "slug": "vertex",
+      "key": "templates-list",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/vertex/?q=template",
+        "title": "Vertex",
+        "headings": [
+          "Graphs",
+          "Templates",
+          "Search Arounds"
+        ],
+        "tabs": [],
+        "columns": [],
+        "facet_groups": [
+          "APPLICATIONS",
+          "GRAPH",
+          "CREATOR",
+          "LAST MODIFIED"
+        ],
+        "rows": 21,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "View all",
+          "Walkthroughs",
+          "Support",
+          "LJAccount",
+          "Guide",
+          "Overview",
+          "Files",
+          "Start",
+          "New exploration",
+          "Explore",
+          "Explore",
+          "Explore",
+          "Favorites",
+          "Favorites",
+          "Promoted",
+          "Promoted",
+          "Recents",
+          "Recents",
+          "Your graphs",
+          "Your graphs"
+        ],
+        "inputs": [
+          "Search for Graphs, Graph Templates, and Search Arounds…"
+        ],
+        "dialogs": 6,
+        "canvas_surfaces": 0,
+        "text_len": 2952
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/vertex-templates-list.png"
+    },
+    {
+      "slug": "hubble",
+      "key": "landing",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/hubble/",
+        "title": "Object Explorer",
+        "headings": [
+          "No recents",
+          "No type groups",
+          "No saved explorations and lists"
+        ],
+        "tabs": [
+          "New exploration"
+        ],
+        "columns": [],
+        "facet_groups": [
+          "TYPE GROUP",
+          "OBJECT TYPE NAME",
+          "STATUS",
+          "OBJECT COUNT",
+          "USAGE",
+          "TYPE GROUPS",
+          "DESCRIPTION"
+        ],
+        "rows": 24,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "Walkthroughs",
+          "Support",
+          "Account",
+          "Guide",
+          "Overview",
+          "Files",
+          "Start",
+          "All Ontologies",
+          "Recents",
+          "Favorites",
+          "Your object sets",
+          "Relevancy",
+          "All",
+          "Type group",
+          "Application",
+          "All",
+          "All",
+          "Created by me",
+          "Created by me",
+          "Shared with me",
+          "Shared with me",
+          "Favorites",
+          "Favorites"
+        ],
+        "inputs": [
+          "Search for objects...",
+          "Filter for a type group...",
+          "Filter for an object type...",
+          "Search explorations..."
+        ],
+        "dialogs": 12,
+        "canvas_surfaces": 0,
+        "text_len": 4203
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/hubble-landing.png"
+    },
+    {
+      "slug": "vertex",
+      "key": "canvas-layers",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/vertex/graph/ri.opus.main.graph-template.0ad31874-deb8-447c-80d4-8f5b6ca2e6a0",
+        "title": "Reference Objects Network Template - Reference Objects Network - Graph Template",
+        "headings": [
+          "Reference Objects Network Template"
+        ],
+        "tabs": [],
+        "columns": [],
+        "facet_groups": [
+          "NODES",
+          "EDGES"
+        ],
+        "rows": 0,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "Walkthroughs",
+          "Support",
+          "Account",
+          "File",
+          "View",
+          "Help",
+          "1",
+          "Template",
+          "Save as…",
+          "Share",
+          "Show graph while still loading",
+          "Layers",
+          "Selection",
+          "Search",
+          "Histogram",
+          "Info",
+          "Default styling",
+          "Model config",
+          "Simulation",
+          "Timeline",
+          "Select an option…",
+          "Edit template",
+          "Run"
+        ],
+        "inputs": [],
+        "dialogs": 16,
+        "canvas_surfaces": 1,
+        "text_len": 964
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/vertex-canvas-layers.png"
+    },
+    {
+      "slug": "vertex",
+      "key": "canvas-selection",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/vertex/graph/ri.opus.main.graph-template.0ad31874-deb8-447c-80d4-8f5b6ca2e6a0",
+        "title": "Reference Objects Network Template - Reference Objects Network - Graph Template",
+        "headings": [
+          "Reference Objects Network Template"
+        ],
+        "tabs": [],
+        "columns": [],
+        "facet_groups": [],
+        "rows": 0,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "Walkthroughs",
+          "Support",
+          "Account",
+          "File",
+          "View",
+          "Help",
+          "1",
+          "Template",
+          "Save as…",
+          "Share",
+          "Show graph while still loading",
+          "Layers",
+          "Selection",
+          "Search",
+          "Histogram",
+          "Info",
+          "Model config",
+          "Simulation",
+          "Timeline",
+          "Select an option…",
+          "Edit template",
+          "Run"
+        ],
+        "inputs": [],
+        "dialogs": 15,
+        "canvas_surfaces": 1,
+        "text_len": 595
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/vertex-canvas-selection.png"
+    },
+    {
+      "slug": "vertex",
+      "key": "canvas-search",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/vertex/graph/ri.opus.main.graph-template.0ad31874-deb8-447c-80d4-8f5b6ca2e6a0",
+        "title": "Reference Objects Network Template - Reference Objects Network - Graph Template",
+        "headings": [
+          "Reference Objects Network Template"
+        ],
+        "tabs": [],
+        "columns": [],
+        "facet_groups": [
+          "RECENT SEARCHES",
+          "HOTKEYS"
+        ],
+        "rows": 0,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "Walkthroughs",
+          "Support",
+          "Account",
+          "File",
+          "View",
+          "Help",
+          "1",
+          "Template",
+          "Save as…",
+          "Share",
+          "Show graph while still loading",
+          "Layers",
+          "Selection",
+          "Search",
+          "Histogram",
+          "Info",
+          "Model config",
+          "Simulation",
+          "Timeline",
+          "Select an option…",
+          "Edit template",
+          "Run",
+          "Apps",
+          "Objects"
+        ],
+        "inputs": [
+          "Search for anything in your enterprise…"
+        ],
+        "dialogs": 22,
+        "canvas_surfaces": 1,
+        "text_len": 692
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/vertex-canvas-search.png"
+    },
+    {
+      "slug": "vertex",
+      "key": "canvas-histogram",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/vertex/graph/ri.opus.main.graph-template.0ad31874-deb8-447c-80d4-8f5b6ca2e6a0",
+        "title": "Reference Objects Network Template - Reference Objects Network - Graph Template",
+        "headings": [
+          "Reference Objects Network Template"
+        ],
+        "tabs": [],
+        "columns": [],
+        "facet_groups": [
+          "RECENT SEARCHES",
+          "HOTKEYS"
+        ],
+        "rows": 0,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "Walkthroughs",
+          "Support",
+          "Account",
+          "File",
+          "View",
+          "Help",
+          "1",
+          "Template",
+          "Save as…",
+          "Share",
+          "Show graph while still loading",
+          "Layers",
+          "Selection",
+          "Search",
+          "Histogram",
+          "Info",
+          "Model config",
+          "Simulation",
+          "Timeline",
+          "Select an option…",
+          "Edit template",
+          "Run",
+          "Apps",
+          "Objects"
+        ],
+        "inputs": [
+          "Search for anything in your enterprise…"
+        ],
+        "dialogs": 22,
+        "canvas_surfaces": 1,
+        "text_len": 652
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/vertex-canvas-histogram.png"
+    },
+    {
+      "slug": "vertex",
+      "key": "canvas-info",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/vertex/graph/ri.opus.main.graph-template.0ad31874-deb8-447c-80d4-8f5b6ca2e6a0",
+        "title": "Reference Objects Network Template - Reference Objects Network - Graph Template",
+        "headings": [
+          "Reference Objects Network Template"
+        ],
+        "tabs": [],
+        "columns": [],
+        "facet_groups": [
+          "APPLICATIONS",
+          "LAYERS SUMMARY",
+          "RECENT SEARCHES",
+          "HOTKEYS"
+        ],
+        "rows": 0,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "View all",
+          "Walkthroughs",
+          "Support",
+          "LJAccount",
+          "File",
+          "View",
+          "Help",
+          "1",
+          "Template",
+          "Save as…",
+          "Share",
+          "Show graph while still loading",
+          "Layers",
+          "Selection",
+          "Search",
+          "Histogram",
+          "Info",
+          "View layers",
+          "Model config",
+          "Simulation",
+          "Timeline",
+          "Select an option…",
+          "Edit template",
+          "Run"
+        ],
+        "inputs": [
+          "Search for anything in your enterprise…"
+        ],
+        "dialogs": 22,
+        "canvas_surfaces": 1,
+        "text_len": 706
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/vertex-canvas-info.png"
+    },
+    {
+      "slug": "vertex",
+      "key": "canvas-timeline",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/vertex/graph/ri.opus.main.graph-template.0ad31874-deb8-447c-80d4-8f5b6ca2e6a0",
+        "title": "Reference Objects Network Template - Reference Objects Network - Graph Template",
+        "headings": [
+          "Reference Objects Network Template"
+        ],
+        "tabs": [],
+        "columns": [],
+        "facet_groups": [
+          "APPLICATIONS",
+          "LAYERS SUMMARY",
+          "RECENT SEARCHES",
+          "HOTKEYS"
+        ],
+        "rows": 0,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "View all",
+          "Walkthroughs",
+          "Support",
+          "LJAccount",
+          "File",
+          "View",
+          "Help",
+          "1",
+          "Template",
+          "Save as…",
+          "Share",
+          "Show graph while still loading",
+          "Layers",
+          "Selection",
+          "Search",
+          "Histogram",
+          "Info",
+          "View layers",
+          "Model config",
+          "Simulation",
+          "Timeline",
+          "Select an option…",
+          "Edit template",
+          "Run"
+        ],
+        "inputs": [
+          "Search for anything in your enterprise…"
+        ],
+        "dialogs": 22,
+        "canvas_surfaces": 1,
+        "text_len": 706
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/vertex-canvas-timeline.png"
+    },
+    {
+      "slug": "vertex",
+      "key": "templates-list",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/vertex/?q=template",
+        "title": "Vertex",
+        "headings": [
+          "Graphs",
+          "Templates",
+          "Search Arounds"
+        ],
+        "tabs": [],
+        "columns": [],
+        "facet_groups": [
+          "APPLICATIONS",
+          "GRAPH",
+          "CREATOR",
+          "LAST MODIFIED"
+        ],
+        "rows": 2,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "View all",
+          "Walkthroughs",
+          "Support",
+          "LJAccount",
+          "Guide",
+          "Overview",
+          "Files",
+          "Start",
+          "New exploration",
+          "Explore",
+          "Explore",
+          "Explore",
+          "Favorites",
+          "Favorites",
+          "Promoted",
+          "Promoted",
+          "Recents",
+          "Recents",
+          "Your graphs",
+          "Your graphs"
+        ],
+        "inputs": [
+          "Search for Graphs, Graph Templates, and Search Arounds…"
+        ],
+        "dialogs": 7,
+        "canvas_surfaces": 0,
+        "text_len": 3098
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/vertex-templates-list.png"
+    },
+    {
+      "slug": "hubble",
+      "key": "landing",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/hubble/",
+        "title": "Object Explorer",
+        "headings": [
+          "No recents",
+          "No type groups",
+          "No saved explorations and lists"
+        ],
+        "tabs": [
+          "New exploration"
+        ],
+        "columns": [],
+        "facet_groups": [
+          "APPLICATIONS",
+          "TYPE GROUP",
+          "OBJECT TYPE NAME",
+          "STATUS",
+          "OBJECT COUNT",
+          "USAGE",
+          "TYPE GROUPS",
+          "DESCRIPTION"
+        ],
+        "rows": 24,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "View all",
+          "Walkthroughs",
+          "Support",
+          "LJAccount",
+          "Guide",
+          "Overview",
+          "Files",
+          "Start",
+          "All Ontologies",
+          "Recents",
+          "Favorites",
+          "Your object sets",
+          "Relevancy",
+          "All",
+          "Type group",
+          "Application",
+          "All",
+          "All",
+          "Created by me",
+          "Created by me",
+          "Shared with me",
+          "Shared with me",
+          "Favorites",
+          "Favorites"
+        ],
+        "inputs": [
+          "Search for objects...",
+          "Filter for a type group...",
+          "Filter for an object type...",
+          "Search explorations..."
+        ],
+        "dialogs": 12,
+        "canvas_surfaces": 0,
+        "text_len": 4244
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/hubble-landing.png"
+    },
+    {
+      "slug": "scheduler",
+      "key": "landing",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/scheduler/find?v=1&uid=fe77707c-1590-4b15-9dca-9f92e943d79d&s=LAST_UPDATED_DATE&dir=DESCENDING",
+        "title": "Build Schedules",
+        "headings": [],
+        "tabs": [],
+        "columns": [],
+        "facet_groups": [
+          "APPLICATIONS"
+        ],
+        "rows": 0,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "View all",
+          "Support",
+          "LJAccount",
+          "Create schedule",
+          "000",
+          "Levi Josman",
+          "Set search parameters",
+          "Sorted by most recently updated",
+          "Select schedules…"
+        ],
+        "inputs": [
+          "Filter by name or rid…"
+        ],
+        "dialogs": 6,
+        "canvas_surfaces": 0,
+        "text_len": 418
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/scheduler-landing.png"
+    },
+    {
+      "slug": "ingest",
+      "key": "landing",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/hyperauto/pipeline",
+        "title": "HyperAuto",
+        "headings": [],
+        "tabs": [],
+        "columns": [],
+        "facet_groups": [
+          "APPLICATIONS"
+        ],
+        "rows": 0,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "View all",
+          "Support",
+          "LJAccount",
+          "Create pipeline"
+        ],
+        "inputs": [],
+        "dialogs": 4,
+        "canvas_surfaces": 0,
+        "text_len": 399
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/ingest-landing.png"
+    },
+    {
+      "slug": "dataset",
+      "key": "landing",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/dataset/",
+        "title": "Palantir",
+        "headings": [
+          "Page not found"
+        ],
+        "tabs": [],
+        "columns": [],
+        "facet_groups": [
+          "APPLICATIONS"
+        ],
+        "rows": 0,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "View all",
+          "Support",
+          "LJAccount"
+        ],
+        "inputs": [],
+        "dialogs": 4,
+        "canvas_surfaces": 0,
+        "text_len": 218
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/dataset-landing.png"
+    },
+    {
+      "slug": "objectview",
+      "key": "landing",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/object-view/",
+        "title": "Object View",
+        "headings": [
+          "Invalid path"
+        ],
+        "tabs": [],
+        "columns": [],
+        "facet_groups": [],
+        "rows": 0,
+        "controls": [],
+        "inputs": [],
+        "dialogs": 0,
+        "canvas_surfaces": 0,
+        "text_len": 12
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/objectview-landing.png"
+    },
+    {
+      "slug": "objecteditor",
+      "key": "landing",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/object-view-editor/",
+        "title": "Object view editor",
+        "headings": [
+          "Page not found"
+        ],
+        "tabs": [],
+        "columns": [],
+        "facet_groups": [
+          "APPLICATIONS"
+        ],
+        "rows": 0,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "View all",
+          "Support",
+          "LJAccount"
+        ],
+        "inputs": [],
+        "dialogs": 4,
+        "canvas_surfaces": 0,
+        "text_len": 218
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/objecteditor-landing.png"
+    },
+    {
+      "slug": "modelstudio",
+      "key": "landing",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/model-studio/",
+        "title": "Model studio",
+        "headings": [
+          "Choose file location"
+        ],
+        "tabs": [],
+        "columns": [],
+        "facet_groups": [
+          "APPLICATIONS"
+        ],
+        "rows": 0,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "View all",
+          "Support",
+          "LJAccount",
+          "Browse",
+          "Cancel",
+          "Save"
+        ],
+        "inputs": [
+          "Enter a name…"
+        ],
+        "dialogs": 7,
+        "canvas_surfaces": 0,
+        "text_len": 289
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/modelstudio-landing.png"
+    },
+    {
+      "slug": "inference",
+      "key": "landing",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/foundry-inference-app/",
+        "title": "Palantir",
+        "headings": [
+          "Please select a space",
+          "What's new in Sensitive Data Scanner"
+        ],
+        "tabs": [],
+        "columns": [],
+        "facet_groups": [
+          "APPLICATIONS"
+        ],
+        "rows": 0,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "View all",
+          "Support",
+          "LJAccount",
+          "Select a space…",
+          "Go to all platform updates",
+          "Close"
+        ],
+        "inputs": [],
+        "dialogs": 8,
+        "canvas_surfaces": 0,
+        "text_len": 1769
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/inference-landing.png"
+    },
+    {
+      "slug": "registry",
+      "key": "landing",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/artifacts/",
+        "title": "Artifacts",
+        "headings": [
+          "Explore artifacts",
+          "Learn about artifacts"
+        ],
+        "tabs": [],
+        "columns": [],
+        "facet_groups": [
+          "APPLICATIONS"
+        ],
+        "rows": 0,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "View all",
+          "Support",
+          "LJAccount",
+          "Create artifact repository",
+          "Help",
+          "000",
+          "Conda",
+          "Go to documentation"
+        ],
+        "inputs": [
+          "Search artifacts…"
+        ],
+        "dialogs": 6,
+        "canvas_surfaces": 0,
+        "text_len": 735
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/registry-landing.png"
+    },
+    {
+      "slug": "map",
+      "key": "landing",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/map/",
+        "title": "New map",
+        "headings": [
+          "No layers"
+        ],
+        "tabs": [],
+        "columns": [],
+        "facet_groups": [
+          "APPLICATIONS"
+        ],
+        "rows": 0,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "View all",
+          "Support",
+          "LJAccount",
+          "Save as…",
+          "Layers",
+          "Legend",
+          "Histogram",
+          "Add to map",
+          "Timeline",
+          "Select",
+          "Search Around",
+          "Select",
+          "Search Around",
+          "Selection"
+        ],
+        "inputs": [],
+        "dialogs": 13,
+        "canvas_surfaces": 2,
+        "text_len": 840
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/map-landing.png"
+    },
+    {
+      "slug": "fusion",
+      "key": "landing",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/compass/home",
+        "title": "Home",
+        "headings": [],
+        "tabs": [
+          "All files",
+          "Shared with you",
+          "Data Catalog",
+          "Trash"
+        ],
+        "columns": [],
+        "facet_groups": [
+          "APPLICATIONS",
+          "FILE NAME",
+          "VIEWS",
+          "YOUR ROLE",
+          "TAGS",
+          "PORTFOLIO",
+          "LAST MODIFIED"
+        ],
+        "rows": 39,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "View all",
+          "Support",
+          "LJAccount",
+          "All spaces",
+          "New",
+          "Hide",
+          "Apply",
+          "Apply",
+          "Apply",
+          "Types",
+          "View all (24)",
+          "Status",
+          "Portfolios",
+          "Projects",
+          "Load more…",
+          "Select tags…",
+          "Organizations",
+          "1",
+          "1",
+          "1",
+          "1",
+          "1",
+          "1",
+          "1"
+        ],
+        "inputs": [
+          "Search all portfolios, projects, folders and files…",
+          "Search types…",
+          "Search portfolios…",
+          "Search projects…",
+          "Search organizations…"
+        ],
+        "dialogs": 55,
+        "canvas_surfaces": 0,
+        "text_len": 10014
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/fusion-landing.png"
+    },
+    {
+      "slug": "fusion",
+      "key": "tab-all-files",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/compass/home",
+        "title": "Home",
+        "headings": [],
+        "tabs": [
+          "All files",
+          "Shared with you",
+          "Data Catalog",
+          "Trash"
+        ],
+        "columns": [],
+        "facet_groups": [
+          "APPLICATIONS",
+          "FILE NAME",
+          "VIEWS",
+          "YOUR ROLE",
+          "TAGS",
+          "PORTFOLIO",
+          "LAST MODIFIED"
+        ],
+        "rows": 39,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "View all",
+          "Support",
+          "LJAccount",
+          "All spaces",
+          "New",
+          "Hide",
+          "Apply",
+          "Apply",
+          "Apply",
+          "Types",
+          "View all (24)",
+          "Status",
+          "Portfolios",
+          "Projects",
+          "Load more…",
+          "Select tags…",
+          "Organizations",
+          "1",
+          "1",
+          "1",
+          "1",
+          "1",
+          "1",
+          "1"
+        ],
+        "inputs": [
+          "Search all portfolios, projects, folders and files…",
+          "Search types…",
+          "Search portfolios…",
+          "Search projects…",
+          "Search organizations…"
+        ],
+        "dialogs": 55,
+        "canvas_surfaces": 0,
+        "text_len": 10014
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/fusion-tab-all-files.png"
+    },
+    {
+      "slug": "fusion",
+      "key": "tab-data-catalog",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/compass/data-catalog",
+        "title": "Data Catalog",
+        "headings": [
+          "No collections yet"
+        ],
+        "tabs": [
+          "All files",
+          "Shared with you",
+          "Data Catalog",
+          "Trash",
+          "Collections",
+          "Files"
+        ],
+        "columns": [],
+        "facet_groups": [
+          "APPLICATIONS"
+        ],
+        "rows": 0,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "View all",
+          "Support",
+          "LJAccount",
+          "New"
+        ],
+        "inputs": [],
+        "dialogs": 6,
+        "canvas_surfaces": 0,
+        "text_len": 359
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/fusion-tab-data-catalog.png"
+    },
+    {
+      "slug": "jobs",
+      "key": "landing",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/job-tracker/builds",
+        "title": "Your builds · Builds",
+        "headings": [],
+        "tabs": [],
+        "columns": [],
+        "facet_groups": [
+          "APPLICATIONS"
+        ],
+        "rows": 0,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "View all",
+          "Support",
+          "LJAccount",
+          "000",
+          "Clear all filters",
+          "All",
+          "Running",
+          "Finished"
+        ],
+        "inputs": [
+          "Search for resource names or RIDs…",
+          "Search for object types…",
+          "Filter job type…",
+          "Start date",
+          "End date",
+          "Start date",
+          "End date"
+        ],
+        "dialogs": 15,
+        "canvas_surfaces": 0,
+        "text_len": 817
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/jobs-landing.png"
+    },
+    {
+      "slug": "hubble",
+      "key": "landing-retry",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/hubble/",
+        "title": "Object Explorer",
+        "headings": [
+          "No recents",
+          "No type groups",
+          "No saved explorations and lists"
+        ],
+        "tabs": [
+          "New exploration"
+        ],
+        "columns": [],
+        "facet_groups": [
+          "APPLICATIONS",
+          "TYPE GROUP",
+          "OBJECT TYPE NAME",
+          "STATUS",
+          "OBJECT COUNT",
+          "USAGE",
+          "TYPE GROUPS",
+          "DESCRIPTION"
+        ],
+        "rows": 24,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "View all",
+          "Support",
+          "LJAccount",
+          "All Ontologies",
+          "Recents",
+          "Favorites",
+          "Your object sets",
+          "Relevancy",
+          "All",
+          "Type group",
+          "Application",
+          "All",
+          "All",
+          "Created by me",
+          "Created by me",
+          "Shared with me",
+          "Shared with me",
+          "Favorites",
+          "Favorites"
+        ],
+        "inputs": [
+          "Search for objects...",
+          "Filter for a type group...",
+          "Filter for an object type...",
+          "Search explorations..."
+        ],
+        "dialogs": 11,
+        "canvas_surfaces": 0,
+        "text_len": 3339
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/hubble-landing-retry.png"
+    },
+    {
+      "slug": "hubble",
+      "key": "object-detail",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/hubble/",
+        "title": "Object Explorer",
+        "headings": [
+          "No recents",
+          "No type groups",
+          "No saved explorations and lists"
+        ],
+        "tabs": [
+          "New exploration"
+        ],
+        "columns": [],
+        "facet_groups": [
+          "APPLICATIONS",
+          "TYPE GROUP",
+          "OBJECT TYPE NAME",
+          "STATUS",
+          "OBJECT COUNT",
+          "USAGE",
+          "TYPE GROUPS",
+          "DESCRIPTION"
+        ],
+        "rows": 24,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "View all",
+          "Support",
+          "LJAccount",
+          "All Ontologies",
+          "Recents",
+          "Favorites",
+          "Your object sets",
+          "Relevancy",
+          "All",
+          "Type group",
+          "Application",
+          "All",
+          "All",
+          "Created by me",
+          "Created by me",
+          "Shared with me",
+          "Shared with me",
+          "Favorites",
+          "Favorites"
+        ],
+        "inputs": [
+          "Search for objects...",
+          "Filter for a type group...",
+          "Filter for an object type...",
+          "Search explorations..."
+        ],
+        "dialogs": 11,
+        "canvas_surfaces": 0,
+        "text_len": 3260
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/hubble-object-detail.png"
+    },
+    {
+      "slug": "workshop",
+      "key": "landing",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/workshop/",
+        "title": "Palantir",
+        "headings": [
+          "Page not found"
+        ],
+        "tabs": [],
+        "columns": [],
+        "facet_groups": [],
+        "rows": 0,
+        "controls": [],
+        "inputs": [],
+        "dialogs": 0,
+        "canvas_surfaces": 1,
+        "text_len": 83
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/workshop-landing.png"
+    },
+    {
+      "slug": "machinery",
+      "key": "process",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/machinery-app/process",
+        "title": "Machinery",
+        "headings": [
+          "Select a node"
+        ],
+        "tabs": [],
+        "columns": [],
+        "facet_groups": [
+          "APPLICATIONS",
+          "NAVIGATION TREE"
+        ],
+        "rows": 0,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "View all",
+          "Support",
+          "LJAccount",
+          "Workshop modules",
+          "Save",
+          "Add process",
+          "Preview",
+          "Show more",
+          "Go to all platform updates"
+        ],
+        "inputs": [],
+        "dialogs": 7,
+        "canvas_surfaces": 1,
+        "text_len": 1874
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/machinery-process.png"
+    },
+    {
+      "slug": "notepad",
+      "key": "create-from-template",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/notepad/create-new-from-template",
+        "title": "Palantir",
+        "headings": [
+          "Choose template",
+          "No recently opened Notepad templates found"
+        ],
+        "tabs": [],
+        "columns": [],
+        "facet_groups": [
+          "APPLICATIONS",
+          "RESOURCE",
+          "AUTHOR",
+          "LAST MODIFIED"
+        ],
+        "rows": 1,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "View all",
+          "Support",
+          "LJAccount",
+          "Recents",
+          "Recents",
+          "Created by me",
+          "Created by me",
+          "Favorites",
+          "Favorites",
+          "All",
+          "All"
+        ],
+        "inputs": [
+          "Search templates…"
+        ],
+        "dialogs": 6,
+        "canvas_surfaces": 0,
+        "text_len": 418
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/notepad-create-from-template.png"
+    },
+    {
+      "slug": "devconsole",
+      "key": "wizard-step1",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/developer-console/create/guided/basic-information",
+        "title": "Developer Console • Create a new application",
+        "headings": [
+          "Basic information"
+        ],
+        "tabs": [],
+        "columns": [],
+        "facet_groups": [
+          "APPLICATIONS"
+        ],
+        "rows": 0,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "View all",
+          "Support",
+          "LJAccount",
+          "Exit",
+          "Customize icon",
+          "click here to select a file",
+          "Browse",
+          "Select an organization",
+          "Continue",
+          "Got it!"
+        ],
+        "inputs": [
+          "Enter a name…",
+          "Enter a description…"
+        ],
+        "dialogs": 8,
+        "canvas_surfaces": 0,
+        "text_len": 957
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/devconsole-wizard-step1.png"
+    },
+    {
+      "slug": "contour",
+      "key": "create",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/contour-app/overview/create",
+        "title": "Contour Home",
+        "headings": [
+          "Creating new analysis",
+          "Save"
+        ],
+        "tabs": [],
+        "columns": [],
+        "facet_groups": [
+          "APPLICATIONS"
+        ],
+        "rows": 0,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "View all",
+          "Support",
+          "LJAccount",
+          "Browse",
+          "Cancel",
+          "Save"
+        ],
+        "inputs": [
+          "Enter a name…"
+        ],
+        "dialogs": 7,
+        "canvas_surfaces": 0,
+        "text_len": 290
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/contour-create.png"
+    },
+    {
+      "slug": "modelstudio",
+      "key": "create-attempt",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/model-studio/",
+        "title": "Model studio",
+        "headings": [
+          "Choose file location"
+        ],
+        "tabs": [],
+        "columns": [],
+        "facet_groups": [
+          "APPLICATIONS"
+        ],
+        "rows": 0,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "View all",
+          "Support",
+          "LJAccount",
+          "Browse",
+          "Cancel",
+          "Save"
+        ],
+        "inputs": [
+          "Enter a name…"
+        ],
+        "dialogs": 7,
+        "canvas_surfaces": 0,
+        "text_len": 289
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/modelstudio-create-attempt.png"
+    },
+    {
+      "slug": "dataset",
+      "key": "preview-attempt",
+      "ia": {
+        "url": "https://test.usw-23.palantirfoundry.com/workspace/dataset/",
+        "title": "Palantir",
+        "headings": [
+          "Page not found"
+        ],
+        "tabs": [],
+        "columns": [],
+        "facet_groups": [
+          "APPLICATIONS"
+        ],
+        "rows": 0,
+        "controls": [
+          "Skip to content",
+          "Search…ctrl + J",
+          "Notifications",
+          "Gift IconWhat's New",
+          "Recent",
+          "Applications",
+          "View all",
+          "Support",
+          "LJAccount"
+        ],
+        "inputs": [],
+        "dialogs": 4,
+        "canvas_surfaces": 0,
+        "text_len": 218
+      },
+      "screenshot": ".artifacts/live-tenant-atlas/deep/dataset-preview-attempt.png"
+    }
+  ],
+  "skipped": [
+    "NOT FOUND: Parameters",
+    "NOT FOUND sel: hubble object row",
+    "NOT FOUND: Parameters",
+    "NOT FOUND sel: hubble object row",
+    "NOT FOUND: Parameters",
+    "NOT FOUND sel: hubble object row",
+    "BLACKLISTED: Shared with you"
+  ],
+  "recorded_at": "2026-08-20T10:43:32.047Z"
+}

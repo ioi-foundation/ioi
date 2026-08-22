@@ -190,10 +190,19 @@ async function run() {
   await waitFor(`${SERVE}/automations`, 30000);
 
   // -- canonical mount: rehomed grammar, honest-empty, boundaries held --------
-  const landing = await pageText("/automations");
-  ok("canonical /automations 200s as the module's own mount (ownership headers name the served route)",
-    landing.status === 200 && landing.headers.get("x-ioi-surface-route") === "/automations" && landing.headers.get("x-ioi-surface-owner") === "Automations",
-    `status ${landing.status} route ${landing.headers.get("x-ioi-surface-route")}`);
+  // GRE-2 AUT-3 (owner go 2026-08-20): canonical /automations is a TRANSFER — nav lands on the
+  // designated Automate shell (E1/E7). The module's rehomed grammar keeps serving on its legacy
+  // mount (asserted below via FRESH_LANE); the redirect is asserted both raw (302 + transfer
+  // header) and followed (the Automate shell renders).
+  const rawT = await fetch(`${SERVE}/automations`, { redirect: "manual" }).then((r) => ({ status: r.status, loc: r.headers.get("location"), tag: r.headers.get("x-ioi-gre2-transfer") })).catch(() => ({ status: 0 }));
+  ok("canonical /automations is the GRE-2 transfer: 302 → the designated Automate landing, transfer-tagged",
+    rawT.status === 302 && rawT.loc === "/__ioi/automations/monitors" && rawT.tag === "/automations",
+    `status ${rawT.status} loc ${rawT.loc}`);
+  const landingFollowed = await pageText("/automations");
+  ok("followed, the canonical click lands on the Automate shell (the modified seed — E7)",
+    landingFollowed.status === 200 && landingFollowed.text.includes("Automate") && landingFollowed.text.includes("mon-tabs"),
+    String(landingFollowed.status));
+  const landing = await pageText(FRESH_LANE);
   ok("the rehomed grammar renders with its owner-surface contract intact (heading anchor + durable-orchestration framing + daemon-truth claim) and HONEST-EMPTY (no fixture rows)",
     landing.text.includes('id="automations-owner"') && landing.text.includes("Durable orchestration")
       && landing.text.includes("daemon truth") && landing.text.includes("No daemon automations yet"),
@@ -222,7 +231,7 @@ async function run() {
   ok("the seed lanes keep serving untouched (seed preservation: T2 cockpit + protected monitors)",
     seedReadout.status === 200 && seedReadout.text.includes("Automations") && seedMonitors.status === 200,
     `statuses ${seedReadout.status}/${seedMonitors.status}`);
-  const newForm = await pageText("/automations?view=new");
+  const newForm = await pageText(`${FRESH_LANE}?view=new`);
   ok("the New-automation view renders project-first (project_ref REQUIRED) and posts through the seed cockpit's own create lane — no second mutation path",
     newForm.status === 200 && newForm.text.includes("New automation") && newForm.text.includes("project_ref")
       && newForm.text.includes(`action="${SEED_LANE}"`),
@@ -323,7 +332,7 @@ async function run() {
       && runsAfterAnonServe.length === 0,
     `status ${anonServeRun.status} · ${runsAfterAnonServe.length} runs`);
 
-  const listPage = await pageText(`/automations?project=${encodeURIComponent(projectId)}`);
+  const listPage = await pageText(`${FRESH_LANE}?project=${encodeURIComponent(projectId)}`);
   // The trigger pill keeps the SEED grammar's own precedence (the `trigger` object — which the
   // create handler defaults to {kind:"manual"} beside trigger_kind:"time" — wins over
   // trigger_kind), rehomed verbatim; the stored trigger_kind truth is asserted on the round-trip
@@ -332,7 +341,7 @@ async function run() {
     listPage.status === 200 && listPage.text.includes("journey-nightly") && listPage.text.includes(">enabled<")
       && listPage.text.includes(automationId),
     "");
-  let detail = await pageText(`/automations?automation=${encodeURIComponent(automationId)}`);
+  let detail = await pageText(`${FRESH_LANE}?automation=${encodeURIComponent(automationId)}`);
   ok("the canonical detail renders the spec grid + the daemon-owned verbs (Run now / Pause via the seed lanes) + the declared step",
     detail.status === 200 && detail.text.includes("every 5m") && detail.text.includes("Run now")
       && detail.text.includes("Pause schedule") && detail.text.includes("echo journey-effect")
@@ -355,7 +364,7 @@ async function run() {
   ok("pause crosses (302) and reads back: enabled false + next_run_at reset (the scheduler skips disabled specs)",
     paused.status === 302 && spec.automation?.enabled === false && spec.automation?.next_run_at === null,
     `enabled ${spec.automation?.enabled}`);
-  detail = await pageText(`/automations?automation=${encodeURIComponent(automationId)}`);
+  detail = await pageText(`${FRESH_LANE}?automation=${encodeURIComponent(automationId)}`);
   ok("the canonical detail renders the paused truth (disabled pill + Resume verb)",
     detail.status === 200 && detail.text.includes(">disabled<") && detail.text.includes("Resume schedule"),
     "");
@@ -388,7 +397,7 @@ async function run() {
   ok("the unified proof stream carries the run with its transcript state_root (readback proof — the family's real evidence lane)",
     !!ledgerHit && JSON.stringify(ledgerHit).includes("state_root"),
     "");
-  detail = await pageText(`/automations?automation=${encodeURIComponent(automationId)}`);
+  detail = await pageText(`${FRESH_LANE}?automation=${encodeURIComponent(automationId)}`);
   ok("the canonical run pane renders the execution with its terminal state and proof link",
     detail.status === 200 && detail.text.includes(exec.execution_id || "@") && detail.text.includes("last run · done")
       && detail.text.includes(`/__ioi/run-timeline/${encodeURIComponent(exec.execution_id || "")}`),
@@ -413,7 +422,7 @@ async function run() {
     badTrigger.status === 401 && badTrigger.body?.reason === "invalid_token"
       && !!rejectedEvent && !!rejectedEvent.receipt_id && events.body?.rejected_count === 1,
     JSON.stringify({ status: badTrigger.status, receipt: rejectedEvent?.receipt_id }));
-  detail = await pageText(`/automations?automation=${encodeURIComponent(automationId)}`);
+  detail = await pageText(`${FRESH_LANE}?automation=${encodeURIComponent(automationId)}`);
   ok("the canonical webhook band renders the endpoint truth + the receipted rejected event (its receipt id verbatim)",
     detail.status === 200 && detail.text.includes("X-IOI-Trigger-Token") && detail.text.includes(">rejected<")
       && detail.text.includes(rejectedEvent?.receipt_id || "@"),
@@ -427,7 +436,7 @@ async function run() {
   const throwawayId = throwaway.body?.automation?.automation_id || "";
   const deleted = await seedPost(`/${encodeURIComponent(throwawayId)}/delete`, {});
   const deletedGet = await specGet(throwawayId);
-  const deletedPage = await pageText(`/automations?automation=${encodeURIComponent(throwawayId)}`);
+  const deletedPage = await pageText(`${FRESH_LANE}?automation=${encodeURIComponent(throwawayId)}`);
   ok("delete crosses through the seed lane and the record is GONE — daemon readback ok:false, canonical page renders the honest not-found (nothing inferred)",
     throwaway.status === 201 && deleted.status === 302 && deletedGet.ok === false
       && deletedPage.status === 200 && deletedPage.text.includes("Automation not found"),
@@ -448,7 +457,7 @@ async function run() {
   let reload = { status: 0, text: "" };
   for (let attempt = 0; attempt < 3; attempt++) {
     await new Promise((r) => setTimeout(r, 1500));
-    reload = await pageText(`/automations?automation=${encodeURIComponent(automationId)}`);
+    reload = await pageText(`${FRESH_LANE}?automation=${encodeURIComponent(automationId)}`);
     if (reload.status === 200 && reload.text.includes("journey-nightly")) break;
   }
   ok("the canonical mount re-renders the surviving spec after restart",

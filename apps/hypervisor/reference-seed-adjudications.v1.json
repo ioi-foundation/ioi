@@ -1,0 +1,817 @@
+{
+  "schema": "ioi.hypervisor.reference-seed-adjudications.v1",
+  "doctrine": "Estate-wide seed adjudications (W1 sweep). Each record re-adjudicates a seed (or a named gap) against the reference surface behind it: the reference route, its EXPRESSED IA (\u00a73.2 \u2014 facets, columns, tabs, empty-state copy; an empty body is never itself a blocker), the estate plane (or its absence), and the outcome. Outcomes: portable | absent_confirmed | boundary_held (the reference lane EXPRESSES IA but a standing authority boundary rules the port out \u2014 the gap stands citing the ruling AND the IA evidence, never pretending absence) | donor_ported | capture_broken_no_donor. The sources proof pass (Syncs et al.) lives in reference-gap-adjudication.v1.json; this file carries every subsequent W1 record.",
+  "recorded": "2026-08-20",
+  "atlas": "reference-family-atlas.v1.json",
+  "records": [
+    {
+      "action": "AUT-4",
+      "seed": "scheduler",
+      "owner": "Automations",
+      "reference_route": "http://localhost:9225/workspace/scheduler/",
+      "atlas_state": "landing",
+      "expressed_ia": {
+        "columns": 0,
+        "facet_groups": 0,
+        "tabs": 0,
+        "rows": 0,
+        "empty_copy": "",
+        "expresses_ia": false
+      },
+      "estate_plane": "scheduler HEALTH exists at /v1/hypervisor/scheduler/status but is Operations-owned by standing boundary (matrix note); per-spec schedule fields are Automations spec truth and already render there",
+      "outcome": "absent_confirmed",
+      "reason": "the reference schedule-table seed serves but expresses NO IA at any recorded state \u2014 nothing to port backwards from; the Operations boundary stands and the Automate family designation (monitors) is unaffected"
+    },
+    {
+      "action": "MAR-1",
+      "seed": "registry",
+      "owner": "Marketplace",
+      "reference_route": "http://localhost:9225/workspace/artifacts/",
+      "atlas_state": "landing",
+      "expressed_ia": {
+        "columns": 0,
+        "facet_groups": 0,
+        "tabs": 0,
+        "rows": 0,
+        "empty_copy": "",
+        "expresses_ia": false
+      },
+      "estate_plane": "the package registry plane exists (/packages substrate, marketplace object-plane) \u2014 but the reference Artifacts seed expresses no IA to carry it",
+      "outcome": "absent_confirmed",
+      "reason": "shell renders clean with zero expressed IA; the Marketplace family designation (listings) stands; artifacts/registry UX is not a portable grammar from this capture"
+    },
+    {
+      "action": "ENV-1",
+      "seed": "map",
+      "owner": "Environments",
+      "reference_route": "http://localhost:9225/workspace/map/",
+      "atlas_state": "landing",
+      "expressed_ia": {
+        "columns": 0,
+        "facet_groups": 0,
+        "tabs": 0,
+        "rows": 0,
+        "empty_copy": "",
+        "expresses_ia": false
+      },
+      "estate_plane": "the owned Environments app is the estate's real surface (greenfield, daemon env-ops planes)",
+      "outcome": "absent_confirmed",
+      "reason": "the map seed expresses no IA; /environments click target moves to GRE \u2014 the owned Environments app is governed by the GRE-1 chrome ruling, not by a reference port"
+    },
+    {
+      "action": "GOV-1",
+      "seed": "approvals",
+      "owner": "Governance",
+      "reference_route": "http://localhost:9225/workspace/approvals-app/",
+      "atlas_state": "landing",
+      "expressed_ia": {
+        "columns": 0,
+        "facet_groups": 1,
+        "tabs": 0,
+        "rows": 0,
+        "expresses_ia": false
+      },
+      "estate_plane": "certified daemon_wired port (pixel cert + parity verifier are its evidence); zero uncaptured IA in the census",
+      "outcome": "portable",
+      "reason": "VERIFY-ONLY: family complete \u2014 the atlas converts 'no findings' into recorded coverage; the mirror's empty landing adds nothing beyond the certified port; no action"
+    },
+    {
+      "action": "IMP-1",
+      "seed": "changes",
+      "owner": "Improvement",
+      "reference_route": "http://localhost:9225/workspace/upgrade-assistant/",
+      "atlas_states": [
+        "landing",
+        "tab:Active",
+        "tab:Past due",
+        "tab:Archived"
+      ],
+      "expressed_ia": {
+        "columns": 0,
+        "facet_groups": 8,
+        "tabs": 3,
+        "rows": 0,
+        "expresses_ia": true
+      },
+      "estate_plane": "improvement-proposal plane; the port's tabs are LIVE ?lane= links and facet radios are LIVE ?filter= \u2014 already daemon truth",
+      "outcome": "portable",
+      "reason": "THE EXEMPLAR (E6): reference tabs became live lanes, facets became live filters \u2014 recorded as the model every family's tabs converge to; I-4 docs must cite this record; no build"
+    },
+    {
+      "action": "DEV-3",
+      "seed": "developer",
+      "owner": "Developer Console",
+      "reference_route": "/__apps/developer (capture errored: content-type download, cannot boot on any lane)",
+      "atlas_state": "donor: devconsole landing + tab:Applications (expresses_ia=true \u2014 5 facet groups, 2 tabs)",
+      "expressed_ia": {
+        "donor_landing": true,
+        "donor_applications_tab": true,
+        "donor_oauth_tab": false,
+        "donor_create_wizard": false
+      },
+      "estate_plane": "connector estate + BYOA GitHub-App planes (exist); binding depth is the DEV-2 build",
+      "outcome": "portable",
+      "donor_capture": "devconsole",
+      "reason": "D6 donor record: developer's own capture is byte-dead; devconsole (same family console) boots with expressed IA and is the named donor \u2014 terminal donor_ported lands with the DEV-2 build"
+    },
+    {
+      "action": "ONT-1",
+      "seed": "explorer",
+      "owner": "Ontology",
+      "reference_route": "http://localhost:9225/workspace/hubble/ (tab: New exploration)",
+      "atlas_states": [
+        "landing",
+        "tab:New exploration"
+      ],
+      "expressed_ia": {
+        "columns": 0,
+        "facet_groups": 8,
+        "tabs": 1,
+        "rows": 0,
+        "expresses_ia": true
+      },
+      "estate_plane": "/v1/hypervisor/odk/saved-object-sets (+ :id, :id/retire) \u2014 the port already carries `create` (registry capabilities) over this plane",
+      "outcome": "portable",
+      "reason": "the reference authoring entry maps to the port's EXISTING create capability \u2014 already bound; atlas state recorded as the evidence the binding was weighed against; no build"
+    },
+    {
+      "action": "EVA-1",
+      "seed": "evalsuites",
+      "owner": "Evaluations",
+      "reference_route": "http://localhost:9225/workspace/evals/create-new",
+      "atlas_state": "authoring:/workspace/evals/create-new",
+      "expressed_ia": {
+        "columns": 0,
+        "facet_groups": 1,
+        "tabs": 0,
+        "rows": 0,
+        "expresses_ia": false
+      },
+      "estate_plane": "/v1/hypervisor/eval-suites (+ /overview, :id) EXISTS \u2014 the plane is real; the reference FORM grammar is not renderable on the mirror",
+      "outcome": "absent_confirmed",
+      "reason": "the reference create-form lane expresses NO IA on the mirror (dead form) \u2014 no grammar to port backwards from; the port's suite-authoring gap STANDS citing this record; a future authoring cut binds the existing plane with an estate-authored form, not a reference port"
+    },
+    {
+      "action": "DAT-2",
+      "seed": "sources",
+      "owner": "Data",
+      "reference_route": "http://localhost:9225/workspace/data-ingestion-app/sources/new",
+      "atlas_state": "authoring:/workspace/data-ingestion-app/sources/new",
+      "expressed_ia": {
+        "columns": 0,
+        "facet_groups": 16,
+        "tabs": 0,
+        "rows": 0,
+        "expresses_ia": true
+      },
+      "estate_plane": "POST /v1/hypervisor/data-sources (declare, dsr_ receipts) \u2014 the port's governed declare form already ships",
+      "outcome": "portable",
+      "reason": "the reference declare-form IA (16 facet groups) is NOW ON RECORD; the port's existing receipted form satisfies the verb \u2014 layout alignment is a later cheap pass citing this state, not a W1 build. Bonus: this recording independently re-confirms the Syncs adjudication (cols=6 at the syncs lane)"
+    },
+    {
+      "action": "STU-4",
+      "seed": "designer",
+      "owner": "Studio",
+      "reference_route": "http://localhost:9225/workspace/solution-design/create",
+      "atlas_state": "authoring:/workspace/solution-design/create",
+      "expressed_ia": {
+        "facet_groups": 6,
+        "expresses_ia": true
+      },
+      "estate_plane": "ODK composition/descriptor planes (the port renders composition truth read-only)",
+      "outcome": "portable",
+      "reason": "New-Diagram authoring expresses IA (6 facet groups) \u2014 PORTABLE, backlogged as the declared later authority-crossing cut (in-canvas authoring); recorded, never silent"
+    },
+    {
+      "action": "STU-4",
+      "seed": "designer",
+      "owner": "Studio",
+      "reference_route": "http://localhost:9225/workspace/solution-design/onboarding",
+      "atlas_state": "authoring:/workspace/solution-design/onboarding",
+      "expressed_ia": {
+        "facet_groups": 1,
+        "expresses_ia": false
+      },
+      "estate_plane": "n/a",
+      "outcome": "absent_confirmed",
+      "reason": "Start-planning walkthrough lane expresses no IA on the mirror; gap stands citing this record"
+    },
+    {
+      "action": "STU-4",
+      "seed": "machinery",
+      "owner": "Studio",
+      "reference_route": "http://localhost:9225/workspace/machinery-app/process",
+      "atlas_state": "tab_lane:/workspace/machinery-app/process",
+      "expressed_ia": {
+        "facet_groups": 2,
+        "expresses_ia": true
+      },
+      "estate_plane": "inert #30 state-machine plane (definitions only)",
+      "outcome": "boundary_held",
+      "reason": "the New-graph lane EXPRESSES IA \u2014 but DEFINITION-ONLY IS THE HARD BOUNDARY (standing ruling: no run/step/execute, graph authoring = later authority-crossing cut); the gap stands on the RULING, with the IA evidence honestly on record rather than claimed absent"
+    },
+    {
+      "action": "DAT-3",
+      "seed": "ingest",
+      "owner": "Data",
+      "reference_route": "http://localhost:9225/workspace/hyperauto/ (+ /create)",
+      "atlas_states": [
+        "landing",
+        "authoring:/workspace/hyperauto/create"
+      ],
+      "expressed_ia": {
+        "facet_groups": 1,
+        "expresses_ia": false
+      },
+      "estate_plane": "pipeline creation is the Data ladder (/__ioi/pipeline, certified)",
+      "outcome": "absent_confirmed",
+      "reason": "HyperAuto expresses no IA at any recorded state \u2014 the D6 authoring_flow graft into Pipeline Builder is REFUTED; the Data ladder stands alone"
+    },
+    {
+      "action": "MIS-2",
+      "seed": "incidents",
+      "owner": "Missions",
+      "reference_route": "http://localhost:9225/workspace/issues-app/settings",
+      "atlas_state": "tab_lane:/workspace/issues-app/settings",
+      "expressed_ia": {
+        "facet_groups": 1,
+        "expresses_ia": false
+      },
+      "estate_plane": "certified Issues port (evidence stands)",
+      "outcome": "absent_confirmed",
+      "reason": "app-settings subroute expresses no IA; nothing uncaptured remains for the family"
+    },
+    {
+      "action": "DAT-4",
+      "seed": "dataset",
+      "owner": "Data",
+      "reference_route": "http://localhost:9225/workspace/dataset/",
+      "atlas_state": "landing",
+      "expressed_ia": {
+        "facet_groups": 1,
+        "expresses_ia": false
+      },
+      "donor_search": "atlas landing dead (no IA); crawl index (75 routes) never reached a dataset app; grammar-compatible sibling: the CERTIFIED pipeline port's Preview tray states already carry the dataset-preview grammar in-place (pipeline-reference-atlas tab-preview/node-selected) \u2014 a bounded pane, not a standalone-page donor",
+      "estate_plane": "dataset truth is served on the certified Data surfaces (pipeline Preview tray; sources registry)",
+      "outcome": "capture_broken_no_donor",
+      "reason": "no standalone donor boots; NO standalone dataset app will exist \u2014 the preview grammar survives inside the certified pipeline port, where dataset truth already renders"
+    },
+    {
+      "action": "FOU-2",
+      "seed": "modelstudio",
+      "owner": "Foundry",
+      "reference_route": "http://localhost:9225/workspace/model-studio/",
+      "atlas_state": "landing",
+      "expressed_ia": {
+        "facet_groups": 1,
+        "expresses_ia": false
+      },
+      "donor_search": "atlas landing dead; crawl never reached it; sibling grammars incompatible (Model Catalog is a catalog \u2014 a catalog cannot donate an editor_canvas shell)",
+      "estate_plane": "model authoring/fine-tuning has no daemon plane (typed absences on the models port)",
+      "outcome": "capture_broken_no_donor",
+      "reason": "terminal: no donor, no plane \u2014 the models port's fine-tuning/studio gaps stand citing this record"
+    },
+    {
+      "action": "FOU-2",
+      "seed": "inference",
+      "owner": "Foundry",
+      "reference_route": "http://localhost:9225/workspace/foundry-inference-app/",
+      "atlas_state": "landing",
+      "expressed_ia": {
+        "facet_groups": 1,
+        "expresses_ia": false
+      },
+      "donor_search": "atlas landing dead; crawl never reached it; no wizard-grammar sibling boots in the Foundry family",
+      "estate_plane": "inference exists at /v1/chat/completions but is not a governed catalog workflow (named on the models port)",
+      "outcome": "capture_broken_no_donor",
+      "reason": "terminal: no donor; the inference gap stands citing this record"
+    },
+    {
+      "action": "MAR-2",
+      "seed": "listings",
+      "owner": "Marketplace",
+      "reference_route": "8 store-instance routes under /workspace/marketplace/store/ri.marketplace.main.remote-store.*",
+      "atlas_state": "census kind=instance (9 instance routes recorded)",
+      "expressed_ia": {
+        "note": "instance records carry vendor example store data"
+      },
+      "estate_plane": "the certified listings port renders the estate's real marketplace objects",
+      "outcome": "boundary_held",
+      "reason": "TERMINAL BY KIND: store instances are vendor example data \u2014 never port targets, never estate truth (the census classifies them `instance`); recorded so the kind is matrix-terminal, not silently skipped"
+    },
+    {
+      "action": "DOM-2",
+      "seed": "slate",
+      "owner": "Domain Apps",
+      "reference_route": "http://localhost:9225/workspace/slate/splash",
+      "atlas_state": "splash_alias:/workspace/slate/splash",
+      "expressed_ia": {
+        "facet_groups": 5,
+        "expresses_ia": true
+      },
+      "estate_plane": "domain-app descriptor plane (read-first)",
+      "outcome": "portable",
+      "reason": "slate BOOTS via its splash alias with expressed IA \u2014 errored_reference was a root-URL artifact; origin-align to the splash lane and port as an I-4 landing instance (W3)"
+    },
+    {
+      "action": "DOM-2",
+      "seed": "fusion",
+      "owner": "Domain Apps",
+      "reference_route": "http://localhost:9225/workspace/fusion/",
+      "atlas_state": "landing",
+      "expressed_ia": {
+        "facet_groups": 1,
+        "expresses_ia": false
+      },
+      "donor_search": "dead at landing; crawl (75 routes) never reached it; no same-grammar sibling boots in the family",
+      "estate_plane": "none identified",
+      "outcome": "capture_broken_no_donor",
+      "reason": "terminal: no IA, no donor"
+    },
+    {
+      "action": "PRO-2.recon",
+      "seed": "vertex",
+      "owner": "Provenance",
+      "reference_route": "http://localhost:9225/workspace/vertex/ (+ graph/create)",
+      "atlas_states": [
+        "landing",
+        "authoring:/workspace/vertex/graph/create"
+      ],
+      "expressed_ia": {
+        "landing_facet_groups": 4,
+        "landing_expresses_ia": true,
+        "create_expresses_ia": false
+      },
+      "estate_plane": "substrate_bound /__ioi/vertex renders real daemon truth",
+      "outcome": "portable",
+      "reason": "vertex landing EXPRESSES IA (4 facet groups) \u2014 the W4 light re-shell over the existing substrate stands; graph/create is dead on the mirror so the authoring gap stands citing this record"
+    },
+    {
+      "action": "MIS-1.recon",
+      "seed": "jobs",
+      "owner": "Missions",
+      "reference_route": "http://localhost:9225/workspace/job-tracker/ (+ /splash)",
+      "atlas_states": [
+        "landing",
+        "splash_alias:/workspace/job-tracker/splash"
+      ],
+      "expressed_ia": {
+        "facet_groups": 1,
+        "expresses_ia": false
+      },
+      "estate_plane": "substrate_bound /__ioi/missions renders real daemon truth (read_only_by_contract)",
+      "outcome": "absent_confirmed",
+      "reason": "REFUTED: no Builds grammar expresses at any recorded state \u2014 the light re-shell has nothing to port backwards from; the substrate STANDS as the surface (MIS-1.build skipped by evidence)"
+    },
+    {
+      "action": "PRO-1.recon",
+      "seed": "lineage",
+      "owner": "Provenance",
+      "reference_route": "http://localhost:9225/workspace/monocle/",
+      "atlas_states": [
+        "landing",
+        "tab:Preview",
+        "tab:SQL scratchpad",
+        "tab:History",
+        "tab:Code",
+        "tab:Build timeline",
+        "tab:Data health"
+      ],
+      "expressed_ia": {
+        "tabs": 6,
+        "expresses_ia": true
+      },
+      "estate_plane": "substrate_bound /__ioi/lineage (work-ledger lineage edges); run receipts/history planes exist for History/Build-timeline lanes",
+      "outcome": "portable",
+      "reason": "Monocle expresses its FULL 6-tab IA at every recorded state \u2014 the W4 light re-shell over the existing substrate stands. D1 CONTEST RESOLVED: /provenance lands on Monocle (the proof-plane app: lineage + history + build timeline); Vertex stays a sibling app (its own 4-facet landing recorded separately)"
+    },
+    {
+      "action": "EVA-2.recon",
+      "seed": "analysis",
+      "owner": "Evaluations",
+      "reference_route": "http://localhost:9225/workspace/insight/",
+      "atlas_states": [
+        "landing",
+        "tab:Workbooks",
+        "tab:Object sets"
+      ],
+      "expressed_ia": {
+        "tabs": 2,
+        "facet_groups_max": 5,
+        "expresses_ia": true
+      },
+      "estate_plane": "odk saved/materialized object-set planes exist (Object-sets lane); no workbook plane \u2014 the Workbooks lane binds honestly-empty or stands as a typed absence at build time",
+      "outcome": "portable",
+      "reason": "both tabs express IA \u2014 the W4 port stands; ia_bearing_empty reclassification applies (shell_clean_only was the landing-only verdict)"
+    },
+    {
+      "action": "ONT-2.recon",
+      "seed": "objectview",
+      "owner": "Ontology",
+      "reference_route": "donor drive: http://localhost:9225/workspace/hubble/ \u2192 object detail",
+      "atlas_state": "detail-drive (recorded screenshot explorer/detail-drive.png)",
+      "expressed_ia": {
+        "drillable_objects": 0,
+        "expresses_ia": false
+      },
+      "donor_search": "hubble landing carries 6 cards but ZERO drillable object rows/links on the mirror \u2014 the detail grammar never renders; objectview/objecteditor own captures are byte-dead (307/octet-stream)",
+      "estate_plane": "explorer port renders object truth via its own lanes already",
+      "outcome": "capture_broken_no_donor",
+      "reason": "terminal for BOTH objectview and objecteditor: no donor detail grammar reachable; ONT-2.build skipped by evidence"
+    },
+    {
+      "action": "STU-1/STU-2",
+      "seed": "workshop",
+      "owner": "Studio",
+      "reference_route": "/__apps/workshop (byte-dead: 307/octet-stream) \u2192 donor http://localhost:9225/workspace/module/splash (boots as 'Workshop \u2014 Home')",
+      "atlas_state": "module splash_alias state (5 facet groups, expresses_ia=true)",
+      "expressed_ia": {
+        "donor_facet_groups": 5,
+        "expresses_ia": true
+      },
+      "estate_plane": "/v1/hypervisor/domain-apps + /v1/hypervisor/odk/surface-descriptors (both real, both honestly empty today)",
+      "outcome": "donor_ported",
+      "donor_capture": "module",
+      "reason": "D6 combined-seed SHIPPED: workshop+module are ONE app; the module capture is the donor (roles donor+authoring_flow); the Workshop app serves at /__ioi/studio/workshop via the I-4 grammar, read-first over empty-but-real planes; module-authoring stays an ODK authority cut (named gap)"
+    },
+    {
+      "action": "DOM-1",
+      "seed": "logic",
+      "owner": "Domain Apps",
+      "reference_route": "http://localhost:9225/workspace/logic-app/ (+ create-new)",
+      "atlas_states": [
+        "landing (5 facet groups, ia=true)",
+        "authoring:create-new (ia=false)"
+      ],
+      "estate_plane": "NONE \u2014 no no-code-function plane exists",
+      "outcome": "portable",
+      "reason": "landing grammar portable (I-4 instance SHIPPED at /__ioi/domain-apps/logic); BODY is a typed absence \u2014 no plane claimed, none faked; the create lane is dead on the mirror too"
+    },
+    {
+      "action": "DOM-1",
+      "seed": "contour",
+      "owner": "Domain Apps",
+      "reference_route": "http://localhost:9225/workspace/contour-app/splash (+ overview/create)",
+      "atlas_states": [
+        "landing + splash (5 facet groups, ia=true)",
+        "authoring:overview/create (ia=false)"
+      ],
+      "estate_plane": "analysis-workbook: NONE today; object-set analysis binding is the EVA-2 build",
+      "outcome": "portable",
+      "reason": "landing grammar portable (I-4 instance SHIPPED at /__ioi/domain-apps/contour); BODY typed-absent pointing at EVA-2"
+    },
+    {
+      "action": "DEV-1",
+      "seed": "widgets",
+      "owner": "Developer Console",
+      "reference_route": "http://localhost:9225/workspace/custom-widgets/ (+ /new)",
+      "atlas_states": [
+        "landing (5 facet groups, ia=true)",
+        "authoring:/new (ia=false)"
+      ],
+      "estate_plane": "NONE \u2014 no widget plane exists",
+      "outcome": "portable",
+      "reason": "landing grammar portable (I-4 instance SHIPPED at /__ioi/developer-console/widgets); BODY typed-absent; create lane dead on the mirror"
+    },
+    {
+      "action": "WOR-1",
+      "seed": "workspaces",
+      "owner": "Workbench",
+      "reference_route": "http://localhost:9225/workspace/code-workspaces/splash (+ create, quickCreate)",
+      "atlas_states": [
+        "splash (5 facet groups, ia=true)",
+        "authoring lanes (ia=false)"
+      ],
+      "estate_plane": "/v1/hypervisor/environments \u2014 610 real records (the workspace substrate)",
+      "outcome": "portable",
+      "reason": "SHIPPED at /__ioi/developer-workspace/workspaces over the real environments plane (newest 15, cap named); creation stays the governed environment ladder"
+    },
+    {
+      "action": "WOR-1",
+      "seed": "notepad",
+      "owner": "Workbench",
+      "reference_route": "http://localhost:9225/workspace/notepad/ (+ 3 create lanes)",
+      "atlas_states": [
+        "landing (5 facets, ia=true)",
+        "create-new-from-template (4 facets, ia=true \u2014 RECORDED for a future cut)",
+        "create/create-template (ia=false)"
+      ],
+      "estate_plane": "NONE \u2014 no document plane",
+      "outcome": "portable",
+      "reason": "landing SHIPPED at /__ioi/developer-workspace/notepad over a TYPED-ABSENT body; the template-picker IA is on record for the day a document plane lands"
+    },
+    {
+      "action": "FOU-1",
+      "seed": "models",
+      "owner": "Foundry",
+      "record_id": "models-registered",
+      "reference_route": "http://localhost:9225/workspace/model-catalog/ (tab: Registered models)",
+      "atlas_state": "models tabs state (Palantir-provided/Registered tabs recorded)",
+      "estate_plane": "the model-route registry (routes carry the origin field; registration verb = POST /v1/hypervisor/model-routes, Agent-Studio-owned)",
+      "outcome": "portable",
+      "reason": "SHIPPED as a live lane over the SAME registry keyed on origin (verbatim); external model-ASSET import remains a named gap ON the lane (import \u2260 route registration)"
+    },
+    {
+      "action": "PRO-1.build",
+      "seed": "lineage",
+      "owner": "Provenance",
+      "record_id": "lineage-tabs",
+      "reference_route": "http://localhost:9225/workspace/monocle/ (6 tabs)",
+      "per_tab_adjudication": {
+        "Preview": "the lineage graph \u2014 the substrate render itself; light re-chrome = the named residual completing PRO-1.build",
+        "History": "PORTABLE \u2014 SHIPPED live over /v1/hypervisor/work-ledger (7140-entry proof stream; newest 30, cap named)",
+        "Build timeline": "PORTABLE \u2014 SHIPPED live over /v1/hypervisor/agent-run-transcripts (3173 runs; newest 30, cap named; state_root as the proof anchor)",
+        "SQL scratchpad": "absent_confirmed \u2014 no SQL plane exists",
+        "Code": "absent_confirmed \u2014 no code plane for lineage nodes",
+        "Data health": "absent_confirmed \u2014 execution health is Operations-owned (boundary)"
+      },
+      "outcome": "portable",
+      "reason": "the portable tab set (History + Build timeline) SHIPPED as light Monocle lanes at /__ioi/lineage?tab=; three absences typed in both vocabularies on the tab row; Preview re-chrome is the recorded residual"
+    },
+    {
+      "action": "DEV-2",
+      "seed": "devconsole",
+      "owner": "Developer Console",
+      "reference_route": "http://localhost:9225/workspace/developer-console/ (+ create/guided/basic-information)",
+      "atlas_states": [
+        "landing + tab:Applications (5 facet groups, ia=true)",
+        "tab:OAuth-clients (ia=false)",
+        "authoring wizard (ia=false)"
+      ],
+      "estate_plane": "/v1/hypervisor/connectors (10 declared, use-only leases) + /v1/hypervisor/scm-connectors (4, BYOA/token leases)",
+      "outcome": "portable",
+      "reason": "SHIPPED at /__ioi/developer-console: Applications-as-registrations LIVE (14 real rows); OAuth-clients typed-absent naming the real lanes (capability leases/BYOA, Connections-owned); guided-create dead on the mirror, verbs stay owner-surfaced"
+    },
+    {
+      "action": "EVA-2.build",
+      "seed": "analysis",
+      "owner": "Evaluations",
+      "reference_route": "http://localhost:9225/workspace/insight/ (tabs Workbooks | Object sets)",
+      "estate_plane": "materialized-object-sets (4, open read) + saved-object-sets (principal-required control plane \u2014 refusal rendered verbatim); NO workbook plane",
+      "outcome": "portable",
+      "reason": "SHIPPED at /__ioi/evaluations/insight: Object-sets LIVE with proof refs; saved-sets typed degradation honest; Workbooks typed absence"
+    },
+    {
+      "action": "WOR-2",
+      "seed": "repositories",
+      "owner": "Workbench",
+      "reference_route": "/__apps/repositories (byte-dead) \u2192 donor http://localhost:9225/workspace/code/ (boots: title 'Code repositories'; crawl: search + New repository)",
+      "atlas_state": "donor shot .artifacts/family-atlas/repositories-donor-code.png + crawl route-index evidence",
+      "estate_plane": "/v1/hypervisor/scm-connectors (4 real BYOA/token-lease bindings)",
+      "outcome": "donor_ported",
+      "donor_capture": "code (non-seed capture)",
+      "reason": "SHIPPED at /__ioi/developer-workspace/repositories over the real SCM plane; repo creation typed-absent (publish is the governed verb, owner-surfaced)"
+    },
+    {
+      "action": "EVA-3",
+      "seed": "quiver",
+      "owner": "Evaluations",
+      "reference_route": "http://localhost:9225/workspace/quiver/splash",
+      "atlas_states": [
+        "landing (ia=false)",
+        "splash_alias (5 facet groups, ia=true)"
+      ],
+      "estate_plane": "NONE \u2014 no time-series analysis plane",
+      "outcome": "portable",
+      "reason": "AUDIT CORRECTION: this adjudication was ledger-claimed but never executed (caught by the E3 audit); the atlas then REFUTED the expected absence \u2014 splash alias boots with IA. SHIPPED at /__ioi/evaluations/quiver as an I-4 typed-absent landing."
+    },
+    {
+      "action": "OWNER-CORRECTION",
+      "record_id": "vertex-canvas-correction",
+      "seed": "vertex",
+      "owner": "Provenance",
+      "date": "2026-08-20",
+      "correction": "The #vertex record claimed the create lane 'dead on the mirror'. Owner screenshots (2026-08-20) show /workspace/vertex/graph/create BOOTS (canvas + toolbar + Layers/Info panels render); the owner qualifies it as 'somewhat buggy'. The atlas expressed-IA heuristic counts facets/columns/tables/rows and is BLIND TO CANVAS GRAMMARS \u2014 it scored a booting canvas as ia=false. Corrected truth: the canvas boots-degraded; the New-exploration absence is AUTHORITY-RULED (graph authoring = a later authority-crossing cut, boundary_held), not capture-ruled.",
+      "blast_radius": "every ia=false verdict on a CANVAS/CREATE lane is under re-check with a canvas-aware census (toolbar/canvas/panel detection): logic create-new, contour overview/create, widgets /new, notepad create + create-template, designer onboarding. Their PORTS are unaffected (all landing-grammar builds); only the recorded per-lane REASONS may need the same dead\u2192boots-degraded/authority-ruled correction.",
+      "outcome": "boundary_held"
+    },
+    {
+      "action": "LIVE-TENANT-EVIDENCE",
+      "record_id": "vertex-live-tenant",
+      "seed": "vertex",
+      "owner": "Provenance",
+      "date": "2026-08-20",
+      "source": "owner screenshots of a LIVE Foundry tenant (test.usw-23) \u2014 a richer reference source than the static mirror; headed tabs not CDP-attachable (recorded from screenshots)",
+      "recorded_grammars": {
+        "graph_template": "a PARAMETERIZED GRAPH GENERATOR: 'This template will generate a Graph based on the parameter below' \u2014 typed object parameter (Alert) with a searchable dropdown of REAL objects \u2192 generates the graph. Estate: no template plane (absence stands), but the reference IA is now on record for a future cut",
+        "graph_canvas": "toolbar: Add objects \u00b7 Search Around \u00b7 Select \u00b7 Layout \u00b7 Group \u00b7 Create \u00b7 Remove \u00b7 Undo \u00b7 Redo; left panel tabs: Layers \u00b7 Selection \u00b7 Search \u00b7 Histogram \u00b7 Info (Layers = per-template node/edge layers with counts + colored-by-object-type); right rail: Model config \u00b7 Simulation \u00b7 Search Around; Timeline; Parameters; Save as / Share; breadcrumb + Template tag + version selector (default \u00b7 Latest Data); nodes colored by object type; labeled typed edges",
+        "search_page": "a full PAGE (not just an input): \u2190 Homepage \u00b7 search input \u00b7 tabs with LIVE COUNTS (Graphs n \u00b7 Templates n \u00b7 Search Arounds n) \u00b7 'Object Type Search' band (prominent-visibility note: object types configured in Ontology Manager appear here) \u00b7 result cards ('By <author> \u00b7 Edited <ago>') \u00b7 Load more"
+      },
+      "outcome": "portable",
+      "reason": "the search-page grammar is buildable TODAY over real estate rows (built this pass); the template-generator + canvas grammars are recorded for future cuts (canvas remains the authority-ruled boundary)"
+    },
+    {
+      "action": "LIVE-TENANT-SUPERSESSION",
+      "record_id": "live-tenant-sweep",
+      "date": "2026-08-20",
+      "source": "reference-live-tenant-atlas.v1.json \u2014 47 read-only states recorded over the owner's authorized CDP session (canvas-aware census)",
+      "overturned": [
+        "scheduler",
+        "ingest",
+        "dataset",
+        "objecteditor",
+        "modelstudio",
+        "inference",
+        "registry",
+        "map",
+        "fusion",
+        "jobs"
+      ],
+      "stands_doubly_evidenced": [
+        "objectview (dead on mirror AND live)",
+        "developer (dead on mirror AND live)"
+      ],
+      "outcome": "portable",
+      "reason": "10 mirror-scoped terminal verdicts (absent_confirmed / capture_broken_no_donor) were rendered against a DEAD MIRROR, not a dead APP \u2014 the live tenant expresses IA on all 10 (e.g. fusion ctrl=24, map canvas=2, registry ctrl=14). Reclassified live_ia_recorded (matrix) = the NEW PORTABLE BACKLOG; porting sources from the live atlas. The mirror-scoped records stand as history with this supersession on top."
+    },
+    {
+      "action": "FUS-1",
+      "record_id": "fusion-port",
+      "seed": "fusion",
+      "owner": "Domain Apps",
+      "date": "2026-08-20",
+      "supersedes": "the mirror-scoped #fusion record (capture_broken_no_donor) \u2014 that verdict was rendered against a DEAD MIRROR, not a dead app, and stands only as history under #live-tenant-sweep",
+      "evidence": "reference-live-tenant-deep-atlas.v1.json#fusion (3 states: landing \u00b7 tab-all-files \u00b7 tab-data-catalog) + reference-live-tenant-atlas.v1.json#fusion (landing, 24 controls) + .artifacts/live-tenant-atlas/deep/fusion-*.png",
+      "reference_states": [
+        "landing / tab-all-files \u2014 the tenant's projects-and-files home: 4 tabs (All files \u00b7 Shared with you \u00b7 Data Catalog \u00b7 Trash), 39 rows, 6 facet groups (Types \u00b7 Status \u00b7 Portfolios \u00b7 Projects \u00b7 Organizations \u00b7 Tags), 5 search inputs, a 3-card Quick-filters band (Portfolios \u00b7 Projects \u00b7 Promoted items, each carrying Apply), columns FILE NAME \u00b7 VIEWS \u00b7 YOUR ROLE \u00b7 TAGS \u00b7 PORTFOLIO \u00b7 LAST MODIFIED",
+        "tab-data-catalog \u2014 a distinct route and title (Data Catalog) adding 2 sub-tabs (Collections \u00b7 Files) over an EMPTY catalog: heading 'No collections yet', rows 0"
+      ],
+      "identity_correction": "THE SEED NAME IS REFUTED BY ITS OWN LIVE EVIDENCE. 'fusion' is the vendor's spreadsheet app and the mirror-era matrix note said exactly that ('Fusion spreadsheet; unbound'). The LIVE capture of the fusion click target resolves to the tenant's projects-and-files HOME \u2014 a faceted file browser, not a sheet grid. Porting a spreadsheet here would have been a fabricated reference; the port serves the grammar the click target actually expresses and names the correction on-surface.",
+      "estate_plane": {
+        "all_files": "LIVE \u2014 /v1/hypervisor/projects: the estate's REAL file/custody records (name \u00b7 project_id \u00b7 custody_posture \u00b7 repository binding \u00b7 artifact refs \u00b7 last modified). 11 records at port time; newest-40 cap NAMED. Owner surface: /projects.",
+        "data_catalog_files": "LIVE \u2014 the estate's REAL data-asset planes read together, each row naming WHICH plane it is: /v1/hypervisor/odk/materialized-object-sets (4 at port time \u2014 materialized data with object counts and sealed provenance; owner /__ioi/odk) + /v1/hypervisor/data-sources (544 at port time \u2014 DECLARATIONS, not data; the daemon's own 'declaration only \u2014 extraction unwired' state renders verbatim; owner /__ioi/data/sources). Newest-20 source cap NAMED.",
+        "data_catalog_collections": "ABSENT \u2014 no curation/collection plane exists on the estate. The distinction this port refuses to blur: the live reference's Collections lane is EMPTY ('No collections yet'); the estate's is MISSING.",
+        "shared_with_you": "ABSENT \u2014 no sharing-scope plane. Project records are custody-scoped (local_private); cross-principal grants are capability leases owned by Connections, which is not a file-share list.",
+        "trash": "ABSENT \u2014 no soft-delete/trash/retention plane. Deletion is a governed verb on the owner surface with no recoverable bin behind it.",
+        "facets_and_quick_filters": "ABSENT \u2014 no facet-index, portfolio, tag, promotion-status or organization-scoping plane is bound to this surface. 'Projects' is a typed absence of a FILTER, not of the data: the All-files body already IS every project record.",
+        "columns": "The reference's VIEWS / YOUR ROLE / TAGS / PORTFOLIO columns have NO estate fields behind them. The port renders columns that name what the plane actually records (File \u00b7 Custody \u00b7 Repository \u00b7 Artifacts \u00b7 Last modified) rather than putting different truth under a reference header \u2014 the recurring 'an assertion satisfied by a different element than it names' defect. The reference column set stays recorded here and in the live atlas."
+      },
+      "outcome": "portable",
+      "shipped": "/__ioi/domain-apps/fusion (FUS-1; parity_class reference_ported, remediation_state live_ia_recorded)",
+      "reason": "landing grammar portable AND live-evidenced: 2 of the 4 reference tabs bind REAL estate planes (All files \u2192 the projects plane; Data Catalog \u203a Files \u2192 the ODK materialized-object-set + declared-data-source planes, both caps NAMED); the other 2 tabs, the Collections sub-tab, all six facet groups and all three quick filters are TYPED ABSENCES under the unified gap contract (aria-disabled + title + data-ioi-disabled-reason). No plane is claimed that does not exist, no row is fabricated, no authority-crossing verb is re-minted on a read landing. Landing designation domain-apps:fusion moves TERMINAL \u2192 NOW."
+    },
+    {
+      "action": "MAP-1",
+      "record_id": "map-port",
+      "seed": "map",
+      "owner": "Environments",
+      "date": "2026-08-20",
+      "supersedes": "the mirror-scoped #map record (ENV-1, absent_confirmed) \u2014 that verdict was rendered against a capture recorded blocked_missing_capture (a dead capture, not a dead app) and stands only as history under #live-tenant-sweep",
+      "evidence": "reference-live-tenant-deep-atlas.v1.json#map (landing) + reference-live-tenant-atlas.v1.json#map (landing, 20 controls, 2 canvas surfaces) + .artifacts/live-tenant-atlas/map-landing.png + .artifacts/live-tenant-atlas/deep/map-landing.png",
+      "reference_states": [
+        "landing \u2014 a live geospatial workbench: title \"New map\" (chrome reads \"Unsaved Map\"), heading \"No layers\" with the copy \"Add data to your map to get started\", 20 controls (Save as\u2026 \u00b7 Layers \u00b7 Legend \u00b7 Histogram \u00b7 Add to map \u00b7 Timeline \u00b7 Select \u00d72 \u00b7 Search Around \u00d72 \u00b7 Selection + the vendor global-rail items), TWO canvas surfaces rendering a live third-party basemap under an EMPTY layer list, a left layer panel with an icon tab strip and an active-basemap footer row, a draw-tool group (polygon \u00b7 path \u00b7 rectangle \u00b7 circle \u00b7 more \u00b7 point), a vertical Selection tray, zoom/zoom-to-fit controls and a Timeline chip, plus a third-party tile attribution line",
+        "landing (overlay, NOT ported) \u2014 a marketplace promotion dialog (\"Explore reference examples\" \u2014 two example Map modules from the vendor Marketplace). Recorded because it is in the capture; not ported because the estate has no example map modules to promote and rendering vendor promo cards would fabricate both the modules and the marketplace offer"
+      ],
+      "geo_plane_sweep": {
+        "method": "read the daemon's own route index (GET /v1) and then FETCH every param-free GET route under it, walking each response for geo-bearing keys (region \u00b7 location \u00b7 zone \u00b7 az \u00b7 geo \u00b7 geolocation \u00b7 geometry \u00b7 latitude \u00b7 longitude \u00b7 coordinates \u00b7 country \u00b7 city \u00b7 address \u00b7 locality \u00b7 place \u00b7 datacenter \u00b7 site \u00b7 timezone)",
+        "routes_published": 753,
+        "param_free_get_routes_fetched": 247,
+        "geospatial_routes_found": 0,
+        "coordinate_geometry_or_tile_fields_found": 0,
+        "verdict": "the estate has NO geospatial plane: no coordinate store, no geometry type, no basemap/tile source, no geocoder, and no layer plane. Nothing in the estate can be plotted, and nothing renders a map."
+      },
+      "canvas_ruling": "A map CANVAS CANNOT BE HONESTLY FAKED. The canvas region is therefore a TYPED ABSENCE that names WHICH absence it is: the reference's canvas draws a real basemap and its \"No layers\" is an EMPTY layer list on top of a map that exists; the estate's canvas is MISSING. The port renders no canvas element, no svg geometry, no tile source and no borrowed vendor basemap \u2014 a drawn map would be a fabricated reference, and it would erase exactly the missing-vs-empty distinction this program exists to hold. The four things a real canvas would need are NAMED on-surface rather than implied: a geometry-bearing record type, a coordinate reference system, a tile or vector basemap source, and a layer plane binding them \u2014 each an authority-and-plane cut, never a UI cut.",
+      "estate_plane": {
+        "canvas": "ABSENT \u2014 no geospatial plane (see geo_plane_sweep). Typed absence, missing not empty.",
+        "layers": "ABSENT \u2014 no layer plane. The port distinguishes this from the reference's own EMPTY layer list verbatim.",
+        "basemap_and_tiles": "ABSENT \u2014 the estate binds no tile service and ships no map tiles. The reference's active third-party basemap style is recorded here and deliberately NOT printed on-surface: naming a vendor basemap the estate has no binding to would imply one.",
+        "draw_tools_search_around_selection_timeline_zoom": "ABSENT \u2014 every one of these controls writes or reads geometry (a ring, a path, an extent, a radius, a point, a selected feature set, a temporal geometry animation, a camera over tiles). None has a plane behind it; each renders under the unified gap contract with a reason written for THAT control.",
+        "save_as": "ABSENT as a plane AND refused as a verb \u2014 no map-document plane exists, and a ported READ landing never re-mints an authority-crossing write.",
+        "placement_geography": "LIVE \u2014 the one lane that binds, and it is deliberately NOT a map. /v1/hypervisor/placement/venues carries the estate's REAL cloud-resource candidates; 132 of 546 at port time carry a placement-geography field (region \u00b7 location \u00b7 zone \u00b7 az). Rendered verbatim, each row naming WHICH field its value came from so a value never sits under a header it does not belong to. THE STATE MATTERS MORE THAN THE GEOGRAPHY and renders with it: all 132 are status `expired` and all 132 carry a `*_evidence_not_live_supply` risk label (simulator_evidence_not_live_supply / fixture_evidence_not_live_supply) \u2014 the daemon's own words. A coarse provider region label is not a coordinate and cannot be plotted without a geocoding plane the estate does not have; the surface states that too.",
+        "second_geography_lane": "NAMED, NOT RENDERED \u2014 /v1/hypervisor/provider-operations records the same fields on its evidence: 117 of 1459 operations at port time, and all 117 carry the daemon's own `simulated_control_plane` marker in that evidence. One location lane per surface; the second is named on-surface with live counts rather than silently dropped.",
+        "vendor_global_rail": "NOT PORTED \u2014 railless per the owner ruling 2026-08-20; the reference's rail items (Search \u00b7 Notifications \u00b7 What's New \u00b7 Recent \u00b7 Applications \u00b7 Support \u00b7 Account) are estate chrome owned elsewhere and are never re-minted on a ported landing."
+      },
+      "outcome": "portable",
+      "shipped": "/__ioi/environments/map (MAP-1; parity_class reference_ported, remediation_state live_ia_recorded)",
+      "reason": "the LANDING grammar is portable and live-evidenced; the CANVAS is not, and refusing to draw it is the finding, not a shortfall. Every control the reference hangs on the canvas renders as a typed absence under the unified contract (aria-disabled + title + data-ioi-disabled-reason) with a reason written for that control \u2014 no boilerplate reason is reused. The single live lane is real, verbatim, capped, and explicitly labelled NOT-a-map, and it carries its records' expired / not-live-supply state so location strings are never read as running infrastructure. Landing designation for the map seed moves TERMINAL-by-inheritance (the /environments GRE note carried absent_confirmed) to its own NOW target; the owned Environments app itself stays GRE."
+    },
+    {
+      "action": "REG-1",
+      "record_id": "registry-port",
+      "seed": "registry",
+      "owner": "Marketplace",
+      "date": "2026-08-20",
+      "supersedes": "the mirror-scoped #registry record (MAR-1, absent_confirmed \u2014 \"the reference Artifacts seed expresses no IA to carry it\") \u2014 that verdict was rendered against a capture recorded blocked_missing_capture, and it stands only as history under #live-tenant-sweep",
+      "evidence": "reference-live-tenant-deep-atlas.v1.json#registry (landing) + reference-live-tenant-atlas.v1.json#registry (landing, 14 controls, 1 input, 0 rows) + .artifacts/live-tenant-atlas/registry-landing.png + .artifacts/live-tenant-atlas/deep/registry-landing.png",
+      "reference_states": [
+        "landing \u2014 a real artifact-registry entry point: title \"Artifacts\", headings \"Explore artifacts\" and \"Learn about artifacts\", 14 controls (Skip to content \u00b7 Search\u2026 \u00b7 Notifications \u00b7 What's New \u00b7 Recent \u00b7 Applications \u00b7 View all \u00b7 Support \u00b7 Account \u2014 nine vendor global-rail items \u2014 plus Create artifact repository \u00b7 Help \u00b7 a three-counter task tray rendered \"000\" \u00b7 an ecosystem scope selector \u00b7 Go to documentation), ONE search input (\"Search artifacts\u2026\"), ZERO repository rows, ZERO tabs, ZERO columns, and a four-card documentation band (Core concepts \u00b7 Publish an artifact \u00b7 Search an artifact \u00b7 Recall an artifact) under a \"Go to documentation\" link. The reference's own facet_groups entry is the rail's APPLICATIONS group, not an app facet.",
+        "landing (ecosystem scope, NOT ported) \u2014 the capture's scope selector had a third-party PACKAGE-ECOSYSTEM value selected (recorded here, deliberately not printed on-surface). The estate binds no package ecosystem at all, and naming one would imply a binding that does not exist \u2014 the same rule the map leg applied to the vendor basemap."
+      ],
+      "registry_plane_sweep": {
+        "method": "probe every candidate registry plane over the SAME identity envelope this surface renders with, keep the raw HTTP status, and classify from the response itself (405 before any body is read; a non-2xx typed refusal before any collection is looked for; live-or-empty only for a 200 that actually carried a collection). Route arithmetic re-derived from the daemon's own index (GET /v1).",
+        "planes_probed": 10,
+        "live": [
+          "/v1/hypervisor/marketplace/admission-reviews \u2014 1 record (madm_18be70639ae87349, decision admitted, status draft, candidate_ref marketplace-publish://mpub_18be706388059f3e, schema ioi.hypervisor.marketplace-admission-review.v1)"
+        ],
+        "empty": [
+          "/v1/hypervisor/marketplace/publish-candidates",
+          "/v1/hypervisor/marketplace/listings",
+          "/v1/hypervisor/marketplace/instance-offers",
+          "/v1/hypervisor/governance/release-controls"
+        ],
+        "refused": [
+          "/v1/hypervisor/packages \u2014 HTTP 401 request_principal_required (identity-first)",
+          "/v1/hypervisor/scm-publication-effects \u2014 HTTP 401 request_principal_required (identity-first)"
+        ],
+        "no_read_route": [
+          "/v1/hypervisor/scm-publication-proposals \u2014 POST-only (HTTP 405 on GET)",
+          "/v1/hypervisor/worker-package-install-admissions \u2014 POST-only (HTTP 405 on GET)",
+          "/v1/hypervisor/artifact-availability-incidents \u2014 POST-only (HTTP 405 on GET)"
+        ],
+        "package_family_routes": 8,
+        "marketplace_routes": 10,
+        "search_or_query_routes_published": 4,
+        "routes_indexing_packages_releases_or_listings": 0,
+        "verdict": "the estate HAS registry planes \u2014 several \u2014 so the adjudication was never \"is there anything\" but \"which plane backs WHICH lane, and what does each answer to THIS surface's identity\". Four distinct non-fabricable states came back, and blurring any two of them is the defect this port refuses."
+      },
+      "four_state_ruling": "REFUSED is not EMPTY, EMPTY is not MISSING, and a plane with NO READ ROUTE is none of the three. A refusal is a closed door, not a measurement: rendering /v1/hypervisor/packages as \"0 packages\" would convert an identity-first refusal into a count the estate never took \u2014 the same defect class as reading a declared data source as extracted data (FUS-1) or drawing a plausible map (MAP-1). Every plane's state is therefore CLASSIFIED FROM ITS OWN LIVE RESPONSE ON EVERY RENDER and stamped on its row as data-ioi-plane-state, so a state can never be pasted and can never rot; a gate re-derives all ten states independently and fails on any drift.",
+      "authority_ruling": "READ-ONLY PROJECTION. The estate's registry verbs are REAL and they are OWNED ELSEWHERE: candidate admission, release creation, release recall and uninstall belong to the closed Packages family (/__ioi/packages/registry, canonical /packages); draft \u2192 publish-candidate \u2192 review \u2192 publish belongs to Marketplace (/__ioi/marketplace/listings + the marketplace substrate lane). This landing re-mints NONE of them \u2014 the reference's \"Create artifact repository\" renders as a typed absence whose reason states that the verb EXISTS and names where, and the surface links there. A ported read landing never mints a second owner for a verb that already has one.",
+      "estate_plane": {
+        "package_registry": "REFUSED at port time \u2014 /v1/hypervisor/packages is identity-first and answered this projection's identity with request_principal_required. Rendered as a refusal carrying the daemon's own code verbatim and NO count of any kind. The lane states on-surface that this differs from the reference's own EMPTY registry (0 repositories over a plane that answered).",
+        "registry_records": "LIVE \u2014 the readable record planes are rendered as the reference's repository list: every row NAMES which plane it came from and carries the record's id, ref and schema_version verbatim, with a typed dash for every field the record does not carry (no name, no kind, no bound ref). The estate versions a release by content DIGEST; there is no version string on these records and none is invented. Cap 50, NAMED only when it truncates.",
+        "registry_taxonomy": "LIVE \u2014 the daemon's own listing_kinds enum (5) with listings_by_kind counts, read from /v1/hypervisor/marketplace/overview. These are estate OBJECT kinds, not package ecosystems, and they scope nothing: the reference's ecosystem selector is a typed absence because there is no artifact search to scope.",
+        "publishable_substrate": "LIVE but deliberately NOT rendered as artifact rows \u2014 the daemon's own substrate census (agents \u00b7 domain apps \u00b7 foundry specs and run-plans \u00b7 ODK recipes and manifests) read verbatim with its own key names. Material that COULD be published is not a published artifact; counting candidate material as inventory is the same error class as reading a refusal as a zero.",
+        "artifact_search": "ABSENT \u2014 counted from the daemon's route index on every render: 4 search/query routes published, 0 of them indexing packages, releases or listings. The search input and the \"Search an artifact\" card are typed absences rather than a box that would return an empty result looking like an answer.",
+        "artifact_task_tray": "ABSENT \u2014 the reference's three counters (in flight \u00b7 succeeded \u00b7 failed) print 0; the estate has no artifact-task plane with a read route, and its nearest plane (artifact-availability-incidents) is POST-only. Printing 0 would claim an empty queue where there is no queue, and would convert an unreadable plane into a clean bill of health. Each of the three counters carries its OWN reason.",
+        "help_and_documentation": "ABSENT \u2014 the estate serves no documentation plane and has no binding to the vendor's docs; the Help control and the \"Go to documentation\" link name their absence instead of sending an operator somewhere the estate does not own.",
+        "vendor_global_rail": "NOT PORTED \u2014 railless per the owner ruling 2026-08-20; nine of the reference's 14 controls are the vendor global rail (Skip to content \u00b7 Search \u00b7 Notifications \u00b7 What's New \u00b7 Recent \u00b7 Applications \u00b7 View all \u00b7 Support \u00b7 Account), estate chrome owned elsewhere and never re-minted on a ported landing."
+      },
+      "outcome": "portable",
+      "shipped": "/__ioi/marketplace/artifacts (REG-1; parity_class reference_ported, remediation_state live_ia_recorded)",
+      "reason": "the landing grammar is portable AND the estate has real planes to carry it \u2014 so the finding is DISCRIMINATION, not absence. Ten planes probed live and classified into four states the surface refuses to blur; the one live plane's records rendered verbatim with the plane named on every row; the package family's eight-route closure and the zero artifact-search census re-counted from the daemon's index on every render; every app control the reference offers rendered as a typed absence with a reason written for it (all distinct); and every registry VERB left on its owner surface and linked rather than duplicated. The landing designation for the registry seed moves TERMINAL-by-competitor (the /packages/marketplace target carried absent_confirmed for it) to its own NOW target; the /packages/marketplace designation itself is unchanged."
+    },
+    {
+      "action": "JOB-1",
+      "record_id": "jobs-port",
+      "seed": "jobs",
+      "owner": "Missions",
+      "date": "2026-08-20",
+      "supersedes": "the mirror-scoped #jobs record (MIS-1.recon, absent_confirmed \u2014 \"REFUTED: no Builds grammar expresses at any recorded state \u2014 the light re-shell has nothing to port backwards from; the substrate STANDS as the surface (MIS-1.build skipped by evidence)\"). That verdict was rendered against MIRROR captures whose recorded expressed_ia was false; the owner-authorized live-tenant sweep OVERTURNED it. The mirror record STANDS AS HISTORY under #live-tenant-sweep and is not rewritten.",
+      "supersession_scope": "The supersession is about the SEED, not about the substrate. /__ioi/missions keeps its own class (read_only_by_contract) and its own content untouched: the Builds port is a SIBLING lane in the same owner family, and the seed row CARRIES substrate_surface: /__ioi/missions forward so the promotion never unbinds it. MIS-1.recon's ruling that 'the substrate stands as the surface' was right about the substrate and wrong only about the reference having no grammar to port.",
+      "evidence": "reference-live-tenant-atlas.v1.json#jobs (landing, url /workspace/job-tracker/builds, title \"Your builds \u00b7 Builds\", 14 controls, 1 facet group APPLICATIONS) + .artifacts/live-tenant-atlas/jobs-landing.png + .artifacts/live-tenant-atlas/deep/jobs-landing.png",
+      "reference_states": [
+        "landing \u2014 a real BUILD TRACKER: title \"Your builds \u00b7 Builds\"; a left panel with \"Search by\u2026\" (a resource name/RID input with an All scope selector, an \"Include intermediate job resources\" toggle, an object-type input) and \"Filter by\u2026\" (a \"Show only my builds\" toggle, a three-way Branch radio \u2014 All branches / Only master branch / All branches excluding master \u2014 a Started-by principal chip, a Job-type filter, a Start-date range and a Finish-date range, and Clear all filters); a header with a settings gear, a three-counter tray and a theme control; an All/Running/Finished segmented control with an overflow caret; and a six-column build table (Outputs \u00b7 Started by \u00b7 Start time \u00b7 Duration \u00b7 Status \u00b7 Actions) over REAL build rows, each row's Status carrying a terminal word, an \"N of M jobs succeeded\" roll-up and a relative age.",
+        "atlas-vs-screenshot correction (recorded, and the SCREENSHOT is the binding evidence for the table): the atlas's DOM heuristics recorded rows: 0 and columns: [] for this landing, but the committed screenshots show TWO build rows under SIX column headers. The vendor renders the grid as non-table markup, so the heuristic under-counted. The port is built from the screenshot grammar and the discrepancy is recorded here rather than silently resolved in either direction.",
+        "the 14 recorded toolbar controls are NINE vendor global-rail items (Skip to content \u00b7 Search\u2026ctrl+J \u00b7 Notifications \u00b7 What's New \u00b7 Recent \u00b7 Applications \u00b7 View all \u00b7 Support \u00b7 Account) plus FIVE app controls (the three-counter tray rendered \"000\" \u00b7 Clear all filters \u00b7 All \u00b7 Running \u00b7 Finished). Railless per the owner ruling 2026-08-20: the nine are estate chrome owned elsewhere and are not re-minted."
+      ],
+      "build_plane_sweep": {
+        "method": "probe every candidate run/build plane over the SAME identity envelope this surface renders with; keep the raw HTTP status; decide 'no read route' from the DAEMON'S OWN ROUTE INDEX (GET /v1) rather than from a status guess, because a 404 body cannot tell a missing route apart from a missing record; then classify from the response itself (a typed refusal before any collection is looked for; live-or-empty only for a 200 that actually carried a collection).",
+        "planes_probed": 16,
+        "live": [
+          "/v1/hypervisor/work-ledger \u2014 7141 entries, of which 57 carry kind=run (THE build lane rendered)",
+          "/v1/hypervisor/agent-run-transcripts \u2014 3174 run transcripts (kinds: harness-profile-op 2783 \u00b7 model-route-op 301 \u00b7 automation-run 50 \u00b7 unkinded 40)",
+          "/v1/jobs \u2014 10 runtime job records (jobType agent_run, status completed)",
+          "/v1/runs \u2014 10 persisted run records",
+          "/v1/tasks \u2014 10 runtime task records",
+          "/v1/goal-orchestration/goal-runs \u2014 190 (complete 120 \u00b7 blocked 49 \u00b7 draft 16 \u00b7 active 5)",
+          "/v1/goal-orchestration/ioi-agent/launches \u2014 289 (executed 247 \u00b7 prepared 42)",
+          "/v1/hypervisor/odk/transformation-runs \u2014 6 (all dry_run_ready)",
+          "/v1/hypervisor/odk/materializing-runs \u2014 7 (executed 4 \u00b7 lease_obtained 2 \u00b7 planned 1)",
+          "/v1/hypervisor/failover/runs \u2014 40 (refused 30 \u00b7 restored 5 \u00b7 awaiting_authority 5)",
+          "/v1/hypervisor/workruns \u2014 4 (all open; the ONLY estate plane recording a branch + base_commit)"
+        ],
+        "empty": [
+          "/v1/goal-orchestration/attempts \u2014 the plane answered and holds none",
+          "/v1/hypervisor/foundry/run-plans \u2014 the plane answered and holds none"
+        ],
+        "refused": [
+          "/v1/hypervisor/sessions \u2014 HTTP 503 session_registry_unavailable (a recorded legacy-slot refusal, pre-existing and not this leg's)"
+        ],
+        "no_read_route": [
+          "/v1/hypervisor/automation-executions \u2014 the daemon's route index publishes NO route at this path at all (only /:id and /:id/cancel); HTTP 404 on GET",
+          "/v1/hypervisor/session-execution-bindings \u2014 POST-only, HTTP 405 on GET"
+        ],
+        "verdict": "the estate HAS run planes \u2014 many \u2014 so, as with the registry leg, the adjudication was never 'is there anything' but 'which plane can honestly carry a BUILD ROW'. The four states came back again and a fifth finding came with them."
+      },
+      "union_finding": {
+        "claim": "NO SINGLE PLANE LISTS EVERY BUILD, and the two obvious ones each record a field the other lacks.",
+        "measured_at_port_time": {
+          "work_ledger_run_entries": 57,
+          "agent_run_transcripts_of_kind_automation_run": 50,
+          "per_automation_execution_fanout_total": 50,
+          "on_all_three": 43,
+          "ledger_and_transcripts_only": 7,
+          "ledger_and_fanout_only": 7,
+          "ledger_equals_union_of_the_two": true
+        },
+        "why_each_projection_is_incomplete": "The per-automation projection (/v1/hypervisor/automations/:id/runs) can only be reached automation by automation and the daemon publishes NO list route for automation-executions, so the 7 executions whose automation has since been deleted (auto_18bda3bafd8f31ff, auto_18bda68ea6706c5e, auto_18bda74bfd502ede, auto_18bda81093c48c0c) are unreachable through it forever. The transcript projection never recorded 7 other executions (all from 2026-06-25, belonging to automations that still exist) \u2014 and those same 7 are exactly the ledger entries whose state_root is EMPTY, because the state root lives on the transcript.",
+        "disjoint_fields": "The transcript projection carries state_root on 3174 of 3174 records and a principal on ZERO of them. The per-automation projection carries executor_identity on 50 of 50 and state_root on none. The work-ledger run entry carries BOTH (authority + state_root) on one record, plus automation_name, project_id, environment_id, counts, timestamp, finished_at, trigger_kind, step_results and timeline_ref.",
+        "ruling": "the builds table reads the work-ledger run lane, and the three counts that justify that choice (ledger total \u00b7 transcript-reachable \u00b7 fan-out-unreachable) are RE-DERIVED ON EVERY RENDER from the three planes themselves. A pasted '57 / 50 / 7' would rot the first time a build lands or an automation is deleted, and a gate fails on any drift."
+      },
+      "link_not_duplicate_ruling": "The 3174-record transcript plane is ALREADY rendered by the Monocle Build-timeline lane at /__ioi/lineage?tab=timeline (op/kind \u00b7 status \u00b7 started_at \u00b7 state_root, newest 30, cap named). This surface LINKS it and does not re-render it: a second renderer over the same records is a second answer waiting to disagree, and one plane gets one renderer. The surface also names WHY the transcript plane is not the builds table \u2014 it records no principal on any record, and 3124 of its 3174 records are hypervisor OPERATION transcripts (harness-profile ops, model-route ops), not builds at all.",
+      "column_mapping_ruling": "FUS-1's column refusal applies and is made explicit on-surface as a six-row mapping table. OUTPUTS binds NOTHING: an estate build record carries no output-resource field of any kind; its step_results carry per-step evidence whose shape changes with the step kind (a command's stdout excerpt, an agent turn's conversation file, a proposal's changed files), which is evidence of how a step ran and not a list of what the build produced. The estate's nearest artifact list is artifactNames on the RUNTIME JOB plane (/v1/jobs) \u2014 a different plane holding a different noun, and no estate record joins a runtime job to a build; inventing that edge would be a fabricated column. ACTIONS binds nothing either, by DESIGN: the verbs are real (POST /v1/hypervisor/automations/:id/runs to start, POST /v1/hypervisor/automation-executions/:id/cancel to cancel) and owned by Automations, so the column carries the record's PROOF (state_root + timeline_ref) instead and the surface links to the owner. STARTED BY, START TIME and STATUS bind directly (authority \u00b7 timestamp \u00b7 status + counts). DURATION is COMPUTED from timestamp and finished_at and is labelled as computed on every row, because a derived number presented as a recorded one is still a fabrication.",
+      "steps_are_not_jobs_ruling": "The reference's status roll-up reads 'N of M jobs succeeded'. On the estate the sub-unit of a build is a STEP (counts.done / failed / pending / running / stopped over step_results), and `job` is a LIVE estate noun on a different plane (/v1/jobs, runtime job records with a jobType, a checklist and an artifactNames list). Relabelling a step as a job would invent a hierarchy the estate does not have, so every roll-up on this surface says 'steps, not jobs' in its own words and a gate fails if the word 'jobs' is used for a step count.",
+      "estate_plane": {
+        "build_lane": "LIVE \u2014 the work ledger's `run` entries, rendered with the estate's OWN column names (Build \u00b7 Started by \u00b7 Start time \u00b7 Duration \u00b7 Status \u00b7 Proof). Every field is read off the record; a field the record does not carry is a typed dash, never a blank and never an invented value. Cap 50, NAMED whenever it truncates.",
+        "proof_anchor": "LIVE but PARTIAL, and said so: the state_root is present on the ledger entries the transcript plane recorded and EMPTY on the others. Those rows carry a typed dash whose reason says the proof anchor is genuinely absent \u2014 not withheld, and not zero.",
+        "task_tray_and_segmented_control": "COUNTED, not refused \u2014 and this is the deliberate contrast with REG-1. The registry leg refused to print 0 because its plane REFUSED the read; here the plane ANSWERED, so 0 running and 0 failed steps are MEASUREMENTS and they print, each chip naming exactly what was counted. The All/Running/Finished control renders as a live census of the plane and says on-surface that it is a count and not a filter, because this is a read-only projection.",
+        "filters": "ABSENT \u2014 the whole left Search-by/Filter-by panel is typed absences, each reason written for ITS control and all distinct. The load-bearing ones: no estate plane indexes builds by resource or by object type; a 'my builds' toggle would partition a domain of one AND would silently hide the entries whose principal cannot be resolved; the BRANCH radio has no build-record field behind it at all \u2014 the estate records a branch only on the workruns plane, which records no status, no start time and no duration and is therefore not an execution plane; the job-type filter would let the reference's vocabulary stand in for the estate's, because jobType lives on /v1/jobs and ledger runs carry a trigger_kind instead; and the date ranges have no server-side range parameter, no recorded tenant timezone, and would quietly exclude every unfinished build.",
+        "sessions": "REFUSED at port time \u2014 /v1/hypervisor/sessions answered HTTP 503 session_registry_unavailable (a pre-existing recorded legacy-slot refusal). No session count is printed and no build is bound to a session: rendering '0 sessions' would convert a closed door into a measurement, and the builds would silently look session-less rather than unresolved.",
+        "vendor_global_rail": "NOT PORTED \u2014 railless per the owner ruling 2026-08-20; nine of the reference's 14 controls are the vendor global rail and are never re-minted on a ported landing."
+      },
+      "outcome": "portable",
+      "shipped": "/__ioi/missions/builds (JOB-1; parity_class reference_ported, remediation_state live_ia_recorded; substrate_surface /__ioi/missions carried forward)",
+      "reason": "the landing grammar is portable AND the estate has a real build plane to carry it \u2014 but only one of its three projections is complete, so the leg's work was choosing the plane and PROVING the choice on-surface. Sixteen planes probed live and classified into four states; the three counts that justify the plane choice re-derived on every render; the build rows rendered verbatim from the work-ledger run lane with a typed dash wherever the record carries nothing; the reference's Outputs and Actions columns answered as REFUSALS rather than filled with different truth; a STEP never relabelled a job; the 3174-transcript plane linked to the Monocle Build timeline rather than re-rendered; every filter control a typed absence with a reason written for it; and every build VERB left on Automations. The landing designation for the jobs seed moves TERMINAL \u2192 NOW; the /__ioi/missions substrate keeps its class and its content and stays bound on the seed row."
+    }
+  ]
+}

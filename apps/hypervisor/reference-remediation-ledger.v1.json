@@ -1,0 +1,746 @@
+{
+  "schema": "ioi.hypervisor.reference-remediation-ledger.v1",
+  "program": "Hypervisor Reference-UX Remediation Program v2",
+  "plan": "internal-docs/prompts/hypervisor-application-surface-plans/reference-seed-remediation-plan.md",
+  "branch": "hv/reference-ux-remediation",
+  "base": "origin/master@539a99bb5e0d",
+  "started": "2026-08-19",
+  "status_vocabulary": [
+    "queued",
+    "in_progress",
+    "done",
+    "blocked",
+    "held_for_owner"
+  ],
+  "hold_gates": {
+    "GRE-1": "greenfield chrome ruling \u2014 owner decision, W6",
+    "GRE-2": "every canonical-route transfer (AUT-3, STU-3, all W5 transfers) \u2014 owner go per transfer",
+    "E7-retirement": "cutover retirement of any legacy lane \u2014 owner go",
+    "landing-divergence": "any landing-tab divergence from reference behavior \u2014 record divergence, default reference"
+  },
+  "owner_gos_recorded": [
+    "2026-08-20: owner corrections \u2014 (1) fabricated reference rails are certified-port evidence ONLY: all non-certified remediation shells re-shipped RAILLESS; (2) vertex REBUILT to the seed welcome grammar (cards + Recents over real graph rows; substrate cross-plane graph = the detail view); (3) the atlas ia-heuristic has a CANVAS BLIND SPOT \u2014 vertex create 'dead' verdict corrected to boots-degraded/authority-ruled (owner-evidenced, 'somewhat buggy'); other canvas-lane verdicts flagged for canvas-aware re-check (#vertex-canvas-correction)",
+    "2026-08-20: \"i authorize you. go to your discretion.\" \u2014 recorded as the owner go releasing the held gates, sequenced at Claude discretion (GRE-2 transfers, E7 staged retirement, GRE-1 ruling, admission-evidence re-pin retry)"
+  ],
+  "waves": {
+    "W0": [
+      {
+        "id": "I-1",
+        "title": "sub-route census recorder",
+        "status": "done",
+        "commit": "bootstrap",
+        "note": "pre-existing: scripts/record-reference-subroute-census.mjs + reference-subroute-census.v1.json"
+      },
+      {
+        "id": "I-2",
+        "title": "gap adjudication record",
+        "status": "done",
+        "commit": "bootstrap",
+        "note": "pre-existing: reference-gap-adjudication.v1.json (sources proof pass: 1 portable, 3 absent_confirmed)"
+      },
+      {
+        "id": "I-3",
+        "title": "family atlas recorder (generalize pipeline-reference-atlas)",
+        "status": "done",
+        "commit": "b944fe37b",
+        "evidence": "recorder built + proof run on Automations family: 5 states recorded; monitors tab_lane:/automations expresses_ia=true (8 facet groups), scheduler landing expresses_ia=false \u2014 the \u00a73.2 instrument works"
+      },
+      {
+        "id": "I-5",
+        "title": "unified gap contract (aria-disabled + title + data-ioi-disabled-reason, one verifier)",
+        "status": "done",
+        "evidence": "71 titled aria-disabled emissions migrated to carry data-ioi-disabled-reason (70 mechanical + 1 interpolated hand-edit; decorative chevron + models facet checkboxes excluded \u2014 untitled, not gaps); surface-modules verifier = single enforcement point (zero-unpaired check + floor 71), MUTATION-TESTED (dropped one attr \u2192 both checks red naming the line); repaired a stale pre-existing gate (dead-daemon honest-empty now asserts empty lists + typed degradation record); serve restarted detached (pid 2438710), live emission confirmed on 5 certified ports",
+        "commit": "0e7c70f6f"
+      },
+      {
+        "id": "I-6",
+        "title": "matrix vocabulary upgrade (adjudication_ref, donor_capture, landing_designation, terminal states)",
+        "status": "done",
+        "evidence": "matrix legend +7 vocabulary entries (terminal states donor_ported/absent_confirmed/capture_broken_no_donor/ia_bearing_empty + fields adjudication_ref/donor_capture/landing_designation); landing-designations.v1.json authored (33 click targets: NOW=19 LATER=7 GRE=7, transcribing plan \u00a74.1 with D6 grafts); check-landing-designations.mjs 6/6 structural + --exit-gate correctly RED naming all 7 LATER (exit 1)"
+      }
+    ],
+    "W1": [
+      {
+        "id": "AUT-4",
+        "title": "scheduler seed adjudication",
+        "status": "done",
+        "evidence": "absent_confirmed \u2014 atlas landing state expresses_ia=false (0 cols/0 facets/0 tabs/0 rows); recorded in reference-seed-adjudications.v1.json"
+      },
+      {
+        "id": "STU-4",
+        "title": "designer create/onboarding + machinery process adjudications",
+        "status": "done",
+        "evidence": "designer/create portable-backlogged (6 facets); onboarding absent; machinery/process BOUNDARY_HELD (IA exists, definition-only ruling governs \u2014 new honest outcome value)"
+      },
+      {
+        "id": "DAT-2",
+        "title": "sources/new authoring IA adjudication",
+        "status": "done",
+        "evidence": "portable \u2014 reference declare-form IA (16 facets) on record; port receipted form satisfies the verb; syncs cols=6 re-confirmed"
+      },
+      {
+        "id": "DAT-3",
+        "title": "ingest (HyperAuto) create-wizard adjudication (D6 authoring_flow candidate)",
+        "status": "done",
+        "evidence": "absent_confirmed \u2014 HyperAuto no IA anywhere; D6 authoring_flow graft REFUTED, /data designation fully NOW"
+      },
+      {
+        "id": "DAT-4",
+        "title": "dataset donor search",
+        "status": "done",
+        "evidence": "capture_broken_no_donor \u2014 no standalone donor; preview grammar survives inside certified pipeline port (donor search recorded)"
+      },
+      {
+        "id": "ONT-1",
+        "title": "explorer New-exploration adjudication",
+        "status": "done",
+        "evidence": "portable/already-bound \u2014 New-exploration maps to the port create capability over saved-object-sets (atlas 8 facets)"
+      },
+      {
+        "id": "ONT-2.recon",
+        "title": "hubble atlas-drive for object-detail donor (D6 detail_view)",
+        "status": "done",
+        "evidence": "no drillable detail in hubble on mirror \u2014 capture_broken_no_donor for objectview+objecteditor; build skipped"
+      },
+      {
+        "id": "EVA-1",
+        "title": "evalsuites create-new adjudication",
+        "status": "done",
+        "evidence": "absent_confirmed \u2014 create-form lane dead on mirror (no IA); eval-suites plane EXISTS; authoring gap stands citing record"
+      },
+      {
+        "id": "EVA-2.recon",
+        "title": "analysis (Insight) Workbooks/Object-sets atlas-drive",
+        "status": "done",
+        "evidence": "both Insight tabs express IA \u2014 portable; ia_bearing_empty reclass"
+      },
+      {
+        "id": "EVA-3",
+        "title": "quiver adjudication",
+        "status": "queued",
+        "evidence": "AUDIT CORRECTION (iteration 27): this action was ledger-claimed done in the W1 close but NEVER EXECUTED \u2014 caught by the E3 audit. Executed now: atlas REFUTED the expected absence (splash alias 5 facet groups); SHIPPED as an I-4 typed-absent landing at /__ioi/evaluations/quiver (46/46)."
+      },
+      {
+        "id": "FOU-2",
+        "title": "modelstudio/inference donor search",
+        "status": "done",
+        "evidence": "both capture_broken_no_donor \u2014 no donor, no plane (modelstudio) / ungoverned inference named (inference)"
+      },
+      {
+        "id": "MAR-1",
+        "title": "registry (Artifacts) adjudication",
+        "status": "done",
+        "evidence": "absent_confirmed \u2014 atlas landing state expresses_ia=false (0 cols/0 facets/0 tabs/0 rows); recorded in reference-seed-adjudications.v1.json"
+      },
+      {
+        "id": "MAR-2",
+        "title": "store-instance routes terminal record",
+        "status": "done",
+        "evidence": "instance-kind terminal record \u2014 8 vendor store instances never port targets"
+      },
+      {
+        "id": "MIS-1.recon",
+        "title": "jobs (Builds) atlas-drive past splash",
+        "status": "done",
+        "evidence": "REFUTED \u2014 jobs dead at all states; substrate stands; MIS-1.build skipped by evidence"
+      },
+      {
+        "id": "MIS-2",
+        "title": "incidents settings subroute adjudication",
+        "status": "done",
+        "evidence": "absent_confirmed \u2014 settings subroute no IA; Missions family census closed"
+      },
+      {
+        "id": "GOV-1",
+        "title": "governance family atlas (verify-only)",
+        "status": "done",
+        "evidence": "verify-only coverage recorded (atlas landing; certified port evidence stands)"
+      },
+      {
+        "id": "IMP-1",
+        "title": "changes exemplar atlas record (verify-only)",
+        "status": "done",
+        "evidence": "EXEMPLAR recorded: 8 facet groups + 3 tabs, tabs are live ?lane= links (E6 model)"
+      },
+      {
+        "id": "DEV-3",
+        "title": "developer donor record (devconsole)",
+        "status": "done",
+        "evidence": "donor devconsole RECORDED (donor landing+Applications tab express IA); matrix donor_capture set"
+      },
+      {
+        "id": "DOM-2",
+        "title": "slate splash boot evidence + fusion donor search",
+        "status": "done",
+        "evidence": "slate PORTABLE via splash alias (5 facets, origin-align recorded); fusion capture_broken_no_donor"
+      },
+      {
+        "id": "ENV-1",
+        "title": "map adjudication",
+        "status": "done",
+        "evidence": "absent_confirmed \u2014 atlas landing state expresses_ia=false (0 cols/0 facets/0 tabs/0 rows); recorded in reference-seed-adjudications.v1.json"
+      },
+      {
+        "id": "PRO-1.recon",
+        "title": "lineage (Monocle) 6-tab atlas-drive",
+        "status": "done",
+        "evidence": "Monocle 6-tab IA at every state \u2014 portable; /provenance CONTEST RESOLVED to Monocle (D1), vertex sibling"
+      },
+      {
+        "id": "PRO-2.recon",
+        "title": "vertex graph/create adjudication",
+        "status": "done",
+        "evidence": "vertex landing IA (4 facets) \u2014 W4 re-shell stands; create dead"
+      }
+    ],
+    "W1_exit_gate": {
+      "rule": "zero undesignated click targets \u2014 every \u00a74.1 LATER row flips to designation or terminal absence (E8)",
+      "status": "CLOSED \u2014 check-landing-designations --exit-gate green"
+    },
+    "W2": [
+      {
+        "id": "AUT-1",
+        "title": "Automations tab (live faceted list) inside certified Automate shell",
+        "status": "done",
+        "evidence": "the Automations tab is LIVE inside the certified Automate shell: 7 reference facet groups (STATUS/CONDITION live plane counts; EFFECTS/NOTIFICATIONS/CREATOR/EXPIRATION typed absences in both vocabularies), Name\u00b7Condition\u00b7Status\u00b7Creator rows = 25/25 real records linking owner-substrate detail, server-side live filters, read-only. Verifier 41/41 (13 new AUT-1 checks). Matrix vocabulary MOVED INTO the generator (build-app-parity-matrix \u2014 hand-edits were the DOC-1 defect class, caught by the matrix staleness gate); feed check re-aimed to plane-wide-newest semantics."
+      },
+      {
+        "id": "AUT-2",
+        "title": "rehome cockpit verbs under Automate grammar",
+        "status": "done",
+        "evidence": "in-shell detail (?automation=id: real spec + run history + verbs) + create (?view=new: project-first form) \u2014 EVERY mutation a form posting the EXISTING seed lane with back=automate (run/pause/resume/delete + POST create; verified: all form actions target /__ioi/automations lanes only). Webhook rotate stays a substrate LINK (show-once token boundary, recorded). New-automation entries LIVE (gap\u2192function; surface-modules floor 71\u219269 with justification). Verifier 48/48 (7 new AUT-2 checks + census re-aim)."
+      },
+      {
+        "id": "AUT-3",
+        "title": "canonical /automations transfer",
+        "status": "done",
+        "gate": "GRE-2",
+        "note": "ready to execute \u2014 AUT-1/AUT-2 landed; transfer changes the nav landing (GRE-2)",
+        "evidence": "EXECUTED under the recorded owner go: canonical /automations \u2192 302 to the Automate shell with QUERY CONTINUITY (?automation=/?view=new translate into the in-shell lanes); registry canonical moved to the monitors row; legacy cockpit lanes intact; automations-journey re-aimed and 45/45"
+      },
+      {
+        "id": "DAT-1",
+        "title": "Syncs lane (read-only over materializing-runs) per recorded adjudication",
+        "status": "done",
+        "evidence": "the Syncs lane LIVE at /__ioi/data/sources?lane=syncs: 7/7 real materializing-runs, reference cols Name\u00b7Dataset\u00b7Source\u00b7Status\u00b7Next-run\u00b7Actions (Next-run typed absence \u2014 no scheduling field; Actions named authority-crossing gap in both vocabularies; Source joins the declared registry), read-only, cites adjudication + atlas. Verifier 41/41 (9 new DAT-1 checks + census re-aim); floor 69\u219268 (Syncs tab gap\u2192live)."
+      }
+    ],
+    "W3": [
+      {
+        "id": "I-4",
+        "title": "splash-landing shared grammar template",
+        "status": "done",
+        "evidence": "splash-landing-grammar.mjs: the ONE parameterized landing template (header chip/store/New/Help \u00b7 hero \u00b7 Recents/Favorites view row \u00b7 truth-owned recents table \u00b7 truthful footer) over the shared chrome; unified gap contract built-in (gap() emits all three attrs); embed honors native_single_rail; exemplar (changes/IMP-1) cited in header docs. Enforcement: 4 I-4 contract checks in surface-modules (70/70) incl. aria-disabled count === data-ioi count on the rendered fixture."
+      },
+      {
+        "id": "STU-1",
+        "title": "module origin-align + I-4 port (Workshop Home)",
+        "status": "done",
+        "evidence": "the Workshop app SHIPPED at /__ioi/studio/workshop \u2014 first I-4 instantiation, origin-aligned to the module splash lane (donor), read-first over the real (honestly empty) domain-app + ODK surface-descriptor planes; module\u2192reference_ported; new verifier 10/10"
+      },
+      {
+        "id": "STU-2",
+        "title": "workshop D6 combined-seed record (donor: module)",
+        "status": "done",
+        "evidence": "D6 combined-seed record: workshop donor_ported via module (adjudication #workshop; matrix donor_capture + remediation_state via generator); one app ships, not two"
+      },
+      {
+        "id": "DEV-1",
+        "title": "widgets origin-align + port",
+        "status": "done",
+        "evidence": "Custom Widgets SHIPPED at /__ioi/developer-console/widgets \u2014 origin-aligned I-4 landing (atlas: 5 facets) over a TYPED-ABSENT body (no widget plane; adjudicated first per plan). widgets \u2192 reference_ported; I-4 landings verifier 18/18"
+      },
+      {
+        "id": "WOR-1",
+        "title": "workspaces + notepad origin-align + I-4 ports",
+        "status": "done",
+        "evidence": "Code Workspaces + Notepad SHIPPED at /__ioi/developer-workspace/{workspaces,notepad} \u2014 workspaces over the REAL environments plane (610 records, newest 15 with the cap NAMED); notepad TYPED-ABSENT body (no document plane; the template-picker IA \u2014 4 facet groups \u2014 atlas-recorded for a future cut). Verifier 28/28."
+      },
+      {
+        "id": "DOM-1",
+        "title": "logic + contour origin-align + I-4 ports",
+        "status": "done",
+        "evidence": "Logic + Contour SHIPPED at /__ioi/domain-apps/{logic,contour} \u2014 origin-aligned I-4 landings (atlas: 5 facet groups each) over TYPED-ABSENT bodies (no no-code-function / analysis-workbook planes \u2014 named in both vocabularies, zero fabricated rows; contour points at EVA-2). logic/contour \u2192 reference_ported; shared verifier 12/12; workshop 10/10 + surface-modules 70/70 still green"
+      },
+      {
+        "id": "FOU-1",
+        "title": "Registered-models lane (post-adjudication)",
+        "status": "done",
+        "evidence": "Registered-models LIVE lane at /__ioi/foundry/models?tab=registered \u2014 the SAME registry keyed on the origin field (verbatim); asset-import stays a named gap in both vocabularies (import \u2260 route registration; the old gap tab was a single-vocabulary I-5 straggler, resolved by going live). models-port verifier 29/29 (census floor re-aimed with the six adjudicated departures named); foundry-substrate 17/17."
+      }
+    ],
+    "W4": [
+      {
+        "id": "PRO-1.build",
+        "title": "Monocle light shell over lineage substrate (portable tab set)",
+        "status": "done",
+        "evidence": "COMPLETE: Preview re-chromed in place (the SAME lineage graph body hosted in the light Monocle shell via a wrap-param refactor \u2014 automationsShell replaced for this surface only); History (7140-entry proof stream) + Build timeline (3173 transcripts, state_root anchors) live lanes; SQL/Code/Data-health typed per-tab (#lineage-tabs). lineage \u2192 reference_ported. Smoke green; surface-modules green."
+      },
+      {
+        "id": "PRO-2.build",
+        "title": "vertex light shell",
+        "status": "done",
+        "evidence": "the light Vertex shell in place at /__ioi/vertex (wrap-param re-chrome, same graph body); New-exploration typed absence in both vocabularies citing #vertex; sibling-linked to Monocle; regression-checked (lineage intact, missions substrate untouched). vertex \u2192 reference_ported; substrate_bound \u2192 1."
+      },
+      {
+        "id": "EVA-2.build",
+        "title": "analysis port (if plane binds)",
+        "status": "done",
+        "evidence": "Insight SHIPPED at /__ioi/evaluations/insight: Object-sets LIVE (4 materialized sets with run/lease proof refs; saved-sets control-plane refusal rendered VERBATIM as typed degradation \u2014 request_principal_required, never masked); Workbooks typed absence. analysis \u2192 reference_ported. Verifier 37/37."
+      },
+      {
+        "id": "DEV-2",
+        "title": "devconsole landing + Applications lane over connector estate",
+        "status": "done",
+        "evidence": "the Developer-Console landing SHIPPED at /__ioi/developer-console (previously SPA fallthrough): Applications lane LIVE over the REAL connector estate \u2014 14 registrations (10 declared connectors + 4 SCM) with auth posture + declared-tools census verbatim, verbs staying on Connections/owner surfaces; OAuth-clients + guided-create typed absences naming the real lanes. devconsole \u2192 reference_ported. Verifier 33/33."
+      },
+      {
+        "id": "MIS-1.build",
+        "title": "jobs light Builds grammar over missions substrate",
+        "status": "done",
+        "evidence": "SKIPPED BY EVIDENCE (MIS-1.recon: no Builds grammar expresses \u2014 nothing to build; substrate stands as the surface)"
+      },
+      {
+        "id": "ONT-2.build",
+        "title": "object detail lanes inside explorer (donor: hubble)",
+        "status": "done",
+        "evidence": "SKIPPED BY EVIDENCE (ONT-2.recon: no donor detail grammar reachable)"
+      },
+      {
+        "id": "WOR-2",
+        "title": "repositories port (donor: code) over SCM connector plane",
+        "status": "done",
+        "evidence": "Code Repositories SHIPPED at /__ioi/developer-workspace/repositories \u2014 D6 donor port (the byte-dead repositories capture ships via the booting /workspace/code/ donor, recorded with shot + crawl evidence) over the REAL SCM plane (4 bindings, auth posture verbatim); repo creation typed-absent naming the governed publish verb. Verifier 40/40. W4 EXECUTABLE SET COMPLETE."
+      }
+    ],
+    "W5": [
+      {
+        "id": "STU-3",
+        "title": "/studio landing re-shell (Designer grammar)",
+        "status": "done",
+        "gate": "GRE-2",
+        "evidence": "EXECUTED: /studio serves the STU-3 family landing (Designer-grammar splash; rows = Solution Designer \u00b7 Machinery \u00b7 Workshop \u00b7 Agent Studio estate \u00b7 blueprints/design-map legacy views; New-Diagram gap cites the adjudicated authority cut); studio-journey re-aimed (module lens on the workbench mount) 33/33"
+      },
+      {
+        "id": "DAT-5",
+        "title": "/data landing (family splash)",
+        "status": "done",
+        "gate": "GRE-2",
+        "evidence": "EXECUTED (build-class landing under the recorded owner go): the family splash SERVES at the canonical route (railless I-4; every row a LIVE shipped surface; live New lane where the family owns one); the dark v2 shell page retires in the staged cutover"
+      },
+      {
+        "id": "ONT-3",
+        "title": "/ontology landing",
+        "status": "done",
+        "gate": "GRE-2",
+        "evidence": "EXECUTED (build-class landing under the recorded owner go): the family splash SERVES at the canonical route (railless I-4; every row a LIVE shipped surface; live New lane where the family owns one); the dark v2 shell page retires in the staged cutover"
+      },
+      {
+        "id": "EVA-4",
+        "title": "/evaluations landing",
+        "status": "done",
+        "gate": "GRE-2",
+        "evidence": "EXECUTED (redirect-class transfer under the recorded owner go): canonical route 302 \u2192 the designated certified/shipped landing; legacy lanes intact"
+      },
+      {
+        "id": "FOU-3",
+        "title": "/foundry landing",
+        "status": "done",
+        "gate": "GRE-2",
+        "evidence": "EXECUTED (redirect-class transfer under the recorded owner go): canonical route 302 \u2192 the designated certified/shipped landing; legacy lanes intact"
+      },
+      {
+        "id": "WOR-3",
+        "title": "/developer-workspace landing",
+        "status": "done",
+        "gate": "GRE-2",
+        "evidence": "EXECUTED (build-class landing under the recorded owner go): the family splash SERVES at the canonical route (railless I-4; every row a LIVE shipped surface; live New lane where the family owns one); the dark v2 shell page retires in the staged cutover"
+      },
+      {
+        "id": "PRO-3",
+        "title": "/provenance landing (post PRO-1/2 designation)",
+        "status": "done",
+        "gate": "GRE-2",
+        "evidence": "EXECUTED (redirect-class transfer under the recorded owner go): canonical route 302 \u2192 the designated certified/shipped landing; legacy lanes intact"
+      }
+    ],
+    "W6": [
+      {
+        "id": "E-audit",
+        "title": "E1-E9 acceptance checklist audit",
+        "status": "done",
+        "evidence": {
+          "E1": "GREEN \u2014 every seeded-family canonical route lands on its designated reference-grammar surface (7 transfers + 4 family landings); greenfield routes governed by the recorded GRE-1 ADOPT ruling (implementation backlog)",
+          "E2": "GREEN \u2014 every lane on every shipped surface is live or a typed absence citing its adjudication (per-surface verifiers 46/46, 48/48, 41/41, 29/29, 10/10; unified-gap floor green)",
+          "E3": "GREEN after audit correction \u2014 all 39 seeds carry terminal truth (13 wired \u00b7 12 ported \u00b7 13 capture-with-records \u00b7 1 substrate-ruled); the audit caught quiver ledger-claimed-but-unexecuted, now shipped",
+          "E4": "GREEN \u2014 one gap vocabulary (I-5 floor + I-4 template emitter + strict aria===data-ioi checks)",
+          "E5": "GREEN \u2014 every daemon_wired seed has recorded atlas coverage (pipeline via its own interaction atlas; schema/models/listings recorded this iteration)",
+          "E6": "GREEN \u2014 the exemplar pattern (tabs\u2192live lanes) realized on AUT-1, DAT-1, FOU-1, EVA-2, PRO-1",
+          "E7": "GREEN with a NAMED residual \u2014 one designated surface per click; legacy lanes direct-URL-only pending the code-removal leg (seed action lanes stay by design)",
+          "E8": "GREEN \u2014 designation exit-gate 8/8, zero LATER (NOW=21 \u00b7 TERMINAL=4 \u00b7 GRE=8)",
+          "E9": "GREEN \u2014 DOC-1 executed (supersession annotations + index notice + ratchet re-aim; 25/25)"
+        }
+      },
+      {
+        "id": "one-surface-audit",
+        "title": "E7: every click resolves to exactly one surface",
+        "status": "done",
+        "gate": "E7-retirement",
+        "evidence": "E7 AUDIT GREEN: all 11 seeded-family click targets resolve to their designated surfaces (7 tagged 302 transfers + 4 family landings; query continuity on /automations). NAMED RESIDUAL: legacy dark lanes remain reachable by DIRECT URL (seed action lanes must keep serving \u2014 AUT-2 verbs post through them); full code-removal is a scoped follow-up leg, not silent"
+      },
+      {
+        "id": "DOC-1",
+        "title": "documentation reconciliation (conflation-era corpus)",
+        "status": "done",
+        "evidence": "conflation-era corpus reconciled: seed-inventory header carries the unit-error supersession; starting-points + clean-sweep artifacts annotated (_supersession \u2014 recorded history never rewritten); matrix doctrine gains the remediation addendum (via generator); sweep instrument + verifier headers annotated; briefs tree gets the index-level supersession notice (artifacts win over briefs); the sweep verifier promotion ratchet RE-AIMED to recognize the adjudicated reference_ported sanction class (25/25). E9 audit: zero tracked docs assert the retired doctrine as current truth."
+      },
+      {
+        "id": "census-rerun",
+        "title": "final census re-run",
+        "status": "done",
+        "evidence": "family atlas now 32 seeds \u00b7 78 states; designation exit-gate 8/8 (zero LATER)"
+      },
+      {
+        "id": "GRE-1",
+        "title": "greenfield chrome ruling",
+        "status": "done",
+        "gate": "GRE-1",
+        "evidence": "RULING RECORDED under the owner go: ADOPT \u2014 the greenfield cockpits (Work/Home/Systems/Applications/Operations/Packages/Settings) adopt the dark-rail+light-body chrome contract. IMPLEMENTATION = a scoped follow-up program (body-theme re-skins over unchanged truth bindings), NOT executed in this pass"
+      }
+    ]
+  },
+  "iterations": [
+    {
+      "n": 1,
+      "date": "2026-08-19",
+      "did": "BOOTSTRAP: branch hv/reference-ux-remediation off origin/master@539a99bb5e0d; committed census recorder + census + gap adjudication; ledger initialized (42 actions across W0-W6; I-1/I-2 pre-done)",
+      "next": "W0: I-3 family atlas recorder"
+    },
+    {
+      "n": 2,
+      "date": "2026-08-19",
+      "did": "I-3 family atlas recorder built (record-family-reference-atlas.mjs) + tracked manifest reference-family-atlas.v1.json; proof-run Automations family (5 states)",
+      "next": "W0: I-5 unified gap contract"
+    },
+    {
+      "n": 3,
+      "date": "2026-08-19",
+      "did": "I-5 unified gap contract: 71 emissions migrated, verifier floor added + mutation-tested, stale dead-daemon gate repaired, serve restarted; 66/66 green",
+      "next": "W0: I-6 matrix vocabulary upgrade"
+    },
+    {
+      "n": 4,
+      "date": "2026-08-19",
+      "did": "I-6 matrix vocabulary + landing designations machine record + audit checker; W0 COMPLETE",
+      "next": "open W0 PR; W1 batch 1 (AUT-4, MAR-1, ENV-1)"
+    },
+    {
+      "n": 5,
+      "date": "2026-08-19",
+      "did": "W1 batch 1: AUT-4/MAR-1/ENV-1 all absent_confirmed (atlas-evidenced); estate adjudication file created; designations LATER 7\u21925, TERMINAL vocabulary added to checker (7/7); PR #354 found blocked by pre-existing master red (admission-evidence baseline)",
+      "next": "W1 batch 2 (GOV-1, IMP-1, DEV-3) + consider side-PR to re-pin admission-evidence baseline"
+    },
+    {
+      "n": 6,
+      "date": "2026-08-19",
+      "did": "admission-evidence re-pin PREPARED + verified green locally but commit DENIED by permission classifier (patch preserved; surfaced to owner); W1 batch 2: GOV-1/IMP-1/DEV-3 done with atlas evidence (changes=exemplar 8 facets/3 live tabs; devconsole donor validated)",
+      "next": "W1 batch 3 (ONT-1, EVA-1, DAT-2)"
+    },
+    {
+      "n": 7,
+      "date": "2026-08-19",
+      "did": "W1 batch 3: ONT-1/EVA-1/DAT-2 adjudicated with atlas states (10 seeds \u00b7 27 states in manifest)",
+      "next": "W1 batch 4 (STU-4, DAT-3, MIS-2)"
+    },
+    {
+      "n": 8,
+      "date": "2026-08-19",
+      "did": "W1 batch 4: STU-4/DAT-3/MIS-2 (5 records incl. new boundary_held outcome for machinery); atlas 14 seeds \u00b7 36 states",
+      "next": "W1 batch 5 (DAT-4, FOU-2, MAR-2)"
+    },
+    {
+      "n": 9,
+      "date": "2026-08-19",
+      "did": "W1 batch 5: DAT-4/FOU-2/MAR-2 \u2014 3 capture_broken_no_donor terminals with recorded donor searches + instance-kind terminal; LATER 5\u21924",
+      "next": "W1 final batch: DOM-2 + recon halves (PRO-1, PRO-2, ONT-2, EVA-2, MIS-1)"
+    },
+    {
+      "n": 10,
+      "date": "2026-08-19",
+      "did": "W1: DOM-2/PRO-2.recon/MIS-1.recon \u2014 slate portable via splash alias, fusion+jobs terminal, vertex re-shell stands; MIS-1.build skipped by evidence; LATER 4\u21921 (/provenance only)",
+      "next": "W1 close: PRO-1.recon (Monocle 6 tabs), ONT-2.recon, EVA-2.recon"
+    },
+    {
+      "n": 11,
+      "date": "2026-08-19",
+      "did": "W1 CLOSED: PRO-1.recon (Monocle wins /provenance), EVA-2.recon portable, ONT-2.recon terminal (build skipped); ia_bearing_empty reclass applied to lineage/analysis/vertex/slate",
+      "next": "W2: AUT-1 (Automations tab inside certified Automate shell)"
+    },
+    {
+      "n": 12,
+      "date": "2026-08-19",
+      "did": "W2 AUT-1 BUILT + verifier 41/41; matrix remediation vocabulary moved into generator (staleness gate caught the hand-edit defect); feed check re-aimed",
+      "next": "W2 AUT-2 (rehome cockpit verbs under Automate grammar)"
+    },
+    {
+      "n": 13,
+      "date": "2026-08-19",
+      "did": "W2 AUT-2 BUILT: verbs rehomed under Automate grammar via back=automate on the seed lanes; 48/48",
+      "next": "W2 AUT-3 = GRE-2 HOLD (canonical /automations transfer needs owner go); DAT-1 Syncs lane next executable"
+    },
+    {
+      "n": 14,
+      "date": "2026-08-19",
+      "did": "W2 DAT-1 BUILT (Syncs lane 41/41); W2 executable set COMPLETE (AUT-3 held for GRE-2); opening W1+W2 PR \u2014 PR #354 re-scoped to W0-W2 (one PR per head branch)",
+      "next": "W3: I-4 splash-landing template"
+    },
+    {
+      "n": 15,
+      "date": "2026-08-19",
+      "did": "W3 I-4 splash-landing grammar BUILT + contract-checked (70/70)",
+      "next": "W3 STU-1 (module origin-align + Workshop Home port via I-4)"
+    },
+    {
+      "n": 16,
+      "date": "2026-08-19",
+      "did": "W3 STU-1+STU-2: the Workshop combined-seed port SHIPPED (I-4 first instantiation; 10/10 + 70/70); matrix gains reference_ported class row",
+      "next": "W3 DEV-1 (widgets) + DOM-1 (logic/contour) I-4 ports"
+    },
+    {
+      "n": 17,
+      "date": "2026-08-19",
+      "did": "W3 DOM-1: Logic + Contour I-4 ports SHIPPED over typed-absent bodies (12/12); matrix reference_ported=3",
+      "next": "W3 DEV-1 (widgets) + WOR-1 (workspaces/notepad)"
+    },
+    {
+      "n": 18,
+      "date": "2026-08-19",
+      "did": "W3 DEV-1: Custom Widgets I-4 port SHIPPED (18/18); reference_ported=4",
+      "next": "W3 WOR-1 (workspaces+notepad) then FOU-1"
+    },
+    {
+      "n": 19,
+      "date": "2026-08-19",
+      "did": "W3 WOR-1: Code Workspaces (real 610-env substrate) + Notepad (typed-absent) SHIPPED; 28/28; reference_ported=6",
+      "next": "W3 FOU-1 (Registered-models lane) \u2014 closes W3 executable set"
+    },
+    {
+      "n": 20,
+      "date": "2026-08-19",
+      "did": "W3 FOU-1: Registered-models live lane (29/29 + 17/17); W3 EXECUTABLE SET COMPLETE",
+      "next": "W4: PRO-1.build (Monocle light re-shell \u2014 the census's richest miss)"
+    },
+    {
+      "n": 21,
+      "date": "2026-08-19",
+      "did": "W4 PRO-1.build increment 1: Monocle History+Timeline lanes live; per-tab adjudication recorded; Preview re-chrome = named residual",
+      "next": "PRO-1.build completion (Preview light re-chrome) OR parallel W4 items"
+    },
+    {
+      "n": 22,
+      "date": "2026-08-19",
+      "did": "W4 PRO-1.build COMPLETE \u2014 the Monocle 6-tab re-shell in place at /__ioi/lineage",
+      "next": "W4: PRO-2.build (vertex) or DEV-2 (devconsole)"
+    },
+    {
+      "n": 23,
+      "date": "2026-08-19",
+      "did": "W4 PRO-2.build COMPLETE \u2014 Vertex light re-shell in place; substrate_bound down to 1 (missions only)",
+      "next": "W4: DEV-2 (devconsole) then EVA-2.build, WOR-2"
+    },
+    {
+      "n": 24,
+      "date": "2026-08-19",
+      "did": "W4 DEV-2 SHIPPED (33/33); reference_ported=9, capture=16",
+      "next": "W4: EVA-2.build (Insight) then WOR-2 (repositories)"
+    },
+    {
+      "n": 25,
+      "date": "2026-08-19",
+      "did": "W4 EVA-2.build SHIPPED (37/37); reference_ported=10",
+      "next": "W4 final: WOR-2 (repositories via donor code)"
+    },
+    {
+      "n": 26,
+      "date": "2026-08-19",
+      "did": "W4 WOR-2 SHIPPED (40/40) \u2014 W4 COMPLETE. Census: 13 wired \u00b7 11 ported \u00b7 14 capture \u00b7 1 substrate. W5 = all GRE-2 held transfers; proceeding to W6 executable items (E-audit, DOC-1, census re-run) with W5 held",
+      "next": "W6: census re-run + E1-E9 audit + DOC-1"
+    },
+    {
+      "n": 27,
+      "date": "2026-08-19",
+      "did": "W6: E1-E9 audit RECORDED (green except E1/E7 held + E9 pending); AUDIT CAUGHT + CORRECTED an over-claim (EVA-3 never executed \u2192 quiver shipped, absence refuted by atlas); atlas coverage completed for schema/models/listings; census 13 wired \u00b7 12 ported \u00b7 13 capture \u00b7 1 substrate",
+      "next": "W6 DOC-1 (documentation reconciliation)"
+    },
+    {
+      "n": 28,
+      "date": "2026-08-19",
+      "did": "W6 DOC-1 COMPLETE (E9 GREEN); clean-sweep ratchet re-aimed to the adjudicated-port sanction class (25/25). ALL EXECUTABLE ACTIONS DONE \u2014 remaining work is owner-gated",
+      "next": "final program report + loop pacing to held-only mode"
+    },
+    {
+      "n": 29,
+      "date": "2026-08-20",
+      "did": "OWNER-CORRECTION pass: rails stripped from 12 non-certified shells (verifiers re-aimed to assert RAILLESS; certified ports keep theirs as pixel evidence); vertex rebuilt seed-first (welcome grammar + detail-behind-row, 4 real graph rows); canvas-blind-spot correction recorded; stale census floors re-aimed on monitors/sources/models. All verifiers green (46/46, 10/10, 48/48, 41/41, 29/29, 70/70)",
+      "next": "holds unchanged: 8 GRE-2 transfers + E7 cutover + GRE-1 + admission-evidence re-pin"
+    },
+    {
+      "n": 30,
+      "date": "2026-08-20",
+      "did": "RULING RECORDED: vertex\u2194workshop = producer/consumer via resource embed (owner evidence: vendor docs Vertex-Graph-widget + live tenant examples opening as Workshop modules); estate analogue edge already in schema (ODK compositions reference materialized-set resources); reciprocal read-first links = backlog item, honest-empty until planes carry records. Vendor 'Object Monitors [Sunset]' corroborates the Automate designation.",
+      "next": "holds unchanged"
+    },
+    {
+      "n": 31,
+      "date": "2026-08-20",
+      "did": "LIVE-TENANT fidelity pass (owner screenshots as recorded evidence, #vertex-live-tenant): template-generator + canvas + search-page grammars recorded; Vertex search went LIVE as the reference search-page grammar (tabs with live counts over real rows; Object Type Search over REAL materialized object types linking Explorer; Templates/Search-Arounds typed absences). CDP attach to the owner's browser unavailable \u2014 spinning up a dedicated CDP Chrome for authenticated live-tenant atlasing",
+      "next": "owner logs into the CDP Chrome window \u2192 live-tenant atlas recording"
+    },
+    {
+      "n": 32,
+      "date": "2026-08-20",
+      "did": "LIVE-TENANT ATLAS: 47 read-only states over owner-authorized CDP (canvas-aware census). 10 mirror-scoped terminal verdicts OVERTURNED \u2192 live_ia_recorded (new portable backlog); objectview/developer doubly-evidenced terminal; vertex canvas/template/search grammars now first-hand",
+      "next": "owner: prioritize the live backlog and/or release the held transfers"
+    },
+    {
+      "n": 33,
+      "date": "2026-08-20",
+      "did": "GRE-2 REDIRECT-CLASS TRANSFERS EXECUTED (AUT-3, EVA-4, FOU-3, PRO-3): nav now lands on Automate / AIP Evals / Model Catalog / Monocle with query continuity; journey 45/45, monitors 48/48, modules 70/70. Chunk A deep atlas done (8 canvas/dialog states); chunk B running",
+      "next": "re-pin retry; chunk B/C; build-class landings STU-3/DAT-5/ONT-3/WOR-3; staged retirement; GRE-1 ruling"
+    },
+    {
+      "n": 34,
+      "date": "2026-08-20",
+      "did": "W5 build-class landings DAT-5/ONT-3/WOR-3 SHIPPED at /data /ontology /developer-workspace (family splashes, live rows). Deep atlas: chunk B done (15 states \u2014 fusion RICH live: 39 rows/4 tabs; objectview stays dead ctrl=0); chunk C rerun with dialog-dismiss fix",
+      "next": "STU-3 (last W5 build) \u2192 staged retirement \u2192 GRE-1 ruling \u2192 final report"
+    },
+    {
+      "n": 35,
+      "date": "2026-08-20",
+      "did": "AUTHORIZATION SPENT: STU-3 landing + /improvement /governance /packages/marketplace transfers (E1 complete); ONE-SURFACE AUDIT GREEN (E7, residual named); GRE-1 ADOPT ruling recorded (implementation backlog); deep atlas COMPLETE (30 driven states, 3 chunks); all journeys green (33/33 \u00b7 50/50 \u00b7 27/27 \u00b7 45/45)",
+      "next": "remaining backlogs: live_ia_recorded ports (10) \u00b7 canvas-grammar cuts \u00b7 greenfield re-skins \u00b7 legacy code-removal leg \u00b7 admission-evidence re-pin (owner hands)"
+    },
+    {
+      "n": 36,
+      "date": "2026-08-20",
+      "did": "OWNER CATCH \u2192 ROOT CAUSE FIXED: the launcher (surface-compiler open_today map + app-catalog contractComplete route) still opened LEGACY mounts \u2014 clicking Studio opened the old agent-studio readout and leaked the vendor capture into nav. Both re-pointed to the DESIGNATED click targets (10 families). Verifiers: applications 27/27, studio 33/33, automations 45/45, depth 145/146 (the 1 fail = the pre-existing isolated-spawn posture 503, recorded in found_defects with a queued repair leg; runtime-safety confirmed a non-CI pre-existing red).",
+      "next": "owner re-check: click Studio/any app tile \u2014 should land on the designated shell"
+    },
+    {
+      "n": 37,
+      "date": "2026-08-20",
+      "did": "OWNER RULING APPLIED \u2014 CONTAINER-FIRST: the session rail persists on every click path. Modal rows open in the embedded container (top-nav reserved for /ai, the un-nestable SPA shell); the 80-automations forced full-load now opens the container; embed continuity through the 302s verified (rail aside stripped, count 0). applications 27/27 \u00b7 automations 45/45. Direct URL visits remain the standalone railless lane by design. native-shell-integration harness needs a designation-aware re-aim (recorded, queued).",
+      "next": "owner recheck: click any app \u2014 session rail should persist with the designated railless surface inside"
+    },
+    {
+      "n": 38,
+      "date": "2026-08-20",
+      "did": "TWO-RAILS CLASS KILLED: (a) the embed contract extended to the designated CANONICAL paths (intercept arms on them; the rewriter carries embed=1 through in-frame canonical hops); (b) Sec-Fetch-Dest hardening \u2014 ANY iframe delivery strips the ported rail server-side, immune to stale bundles/embed-less hops/old iframe srcs. Verified: iframe-header delivery of monitors//automations//studio = 0 rail asides; standalone monitors keeps its certified evidence rail (1). monitors 48/48 \u00b7 automations 45/45 \u00b7 applications 27/27.",
+      "next": "owner: HARD-REFRESH the /projects tab (the SPA bundle in the open tab predates the fixes), then re-click"
+    },
+    {
+      "n": 39,
+      "date": "2026-08-20",
+      "did": "UX DEEP-ATLAS MODE (owner-directed): sweep driver built (hypervisor-ux-atlas.mjs) \u2014 stage 1 across 48 product surfaces: ZERO http/console/empty-body/reason-less-gap issues; 1 false-positive dead link (OAuth start correctly 302s to the external authorize URL \u2014 probe fixed to manual redirects); 1 REAL fix: Sessions labeled vendor captures as functional lanes ('daemon-truth rebind \u2192' \u2192 /__apps/jobs|incidents) \u2014 re-aimed to /__ioi/missions + the certified Issues inbox. 32 LOW capture-links remain = doctrine-sanctioned evidence citations in port feet. FUS-1 (fusion port) DELEGATED to a background Opus session; my serve-file edits paused until it lands.",
+      "next": "sweep stage 2 (container/SPA interactive flows) read-only while FUS-1 builds"
+    },
+    {
+      "n": 40,
+      "date": "2026-08-20",
+      "did": "UX sweep STAGE 2 (container flows): 24 apps opened in the SPA container \u2014 ALL frames railless (two-rails class confirmed dead in practice), all render content. Two finds: (1) FIXED \u2014 the Projects modal row embedded the SPA shell into itself (blank frame) \u2192 top-nav like /ai; (2) DELEGATED (ORG-1, background Opus session on ioi-api-adapter.mjs) \u2014 the SPA's OrganizationService RPCs (GetOrganizationPolicies/GetTermsOfService/ListMembers) 503 on every app open (pre-existing unbound family; console noise + SPA error labels). FUS-1 (fusion port) still building in a parallel session.",
+      "next": "stage 3 (in-frame interaction depth) after the two agents land"
+    },
+    {
+      "n": 41,
+      "date": "2026-08-20",
+      "did": "FUS-1 SHIPPED \u2014 the first live_ia_recorded port. /__ioi/domain-apps/fusion serves the LIVE-tenant grammar (4-tab file browser: All files - Shared with you - Data Catalog - Trash; quick-filter band; 6-group facet rail; Data-Catalog sub-tabs Collections/Files), RAILLESS. IDENTITY CORRECTION recorded: the fusion click target is NOT a spreadsheet \u2014 it resolves to the tenant's projects-and-files home, so a sheet grid would have been a fabricated reference. LIVE lanes: All files = the REAL projects plane (11 records, newest-40 cap named); Data Catalog > Files = the REAL data-asset planes (4 ODK materialized object sets + newest 20 of 544 declared data sources, cap named, the daemon's own 'declaration only \u2014 extraction unwired' state verbatim). TYPED ABSENCES (unified contract, 15 gaps): Collections (missing plane, explicitly distinguished from the reference's EMPTY one), Shared with you, Trash, all six facet groups, all three quick filters, search, New, spaces switcher. Landed in one commit: serve handler + matrix overlay (regenerated: reference_ported 12->13) + adjudication #fusion-port + registry row + verifier block + designation TERMINAL->NOW. domain-landings 43/43 - surface-modules green.",
+      "next": "live_tenant_backlog: 9 candidates left (scheduler, ingest, dataset, objecteditor, modelstudio, inference, registry, map, jobs) \u2014 read each one's LIVE state before assuming the seed name names the app"
+    },
+    {
+      "n": 42,
+      "date": "2026-08-20",
+      "did": "ORG-1 SHIPPED (adapter-only cut, scripts/ioi-api-adapter.mjs). The three OrganizationService RPCs the SPA fires on EVERY app open no longer 503. Daemon probe first (GET /v1/hypervisor \u2014 753-route index, byte-verified): NO /terms/ route and NO organization-policy-defaults family exist (the only /polic/ routes are auth/policy, branch-policy, connectors/:id/policy, placement/venue-policy, odk/policy-bound-data-views, ioi-agent launch-policies) \u2014 both are TYPED ABSENCES, now served as the service's well-formed EMPTY message with every field OMITTED (proto defaults only): GetOrganizationPolicies \u2192 {\"policies\":{}}, GetTermsOfService \u2192 {\"termsOfService\":{}}. Behaviour-neutral by construction: the bundle's only load-bearing policy read is the env-start gate's policies?.maximumEnvironmentLifetime?.seconds (absent \u2192 0 = no cap, the same non-gating outcome the 503 gave, minus the throw that ALSO aborted the start mutation), and the ToS acceptance gate reads !enabled || !currentVersion \u2192 no gate. ListMembers: the principals plane DOES exist (GET /v1/hypervisor/principals) but the daemon adjudicates it org-admin-only (handle_principal_list \u2192 require_authenticated_org_admin \u2192 401 'an authenticated session or API token is required even on loopback' for the unauthenticated local session). The adapter does NOT escalate the caller's authority and does NOT invent rows: authorized \u2192 the REAL roster projection (unchanged); refused/unreachable \u2192 well-formed EMPTY members, commented as a typed absence naming the probed route and the exact daemon refusal. So that empty does not read as a false zero, the membership CARDINALITY the daemon discloses unauthenticated (GET /v1/hypervisor/organization \u2192 organization.members.principals_total = 41, 200 ok) is carried through when and only when an UNFILTERED count was requested; a filtered count has no undisclosed-roster truth behind it and is omitted rather than approximated. EVIDENCE: atlas stage2 = 24 apps opened, SWEEP 0 issues (the baseline at HEAD was 3\u00d7 container-console 503 + 1\u00d7 container-empty /projects); targeted network probe over /projects /workspaces /settings /settings/members = 15 OrganizationService responses, ALL 200, non-2xx 0.",
+      "next": "RESIDUAL (not ORG-1, not adapter-owned): /v1/hypervisor/sessions 503s at the DAEMON itself \u2014 'session_registry_unavailable: Hypervisor Session session:ai-agent_mqwrwdge1 occupies non-authoritative slot session_ai-agent_mqwrwdge1.json instead of session_f60509af\u2026.json; The complete Session registry cannot be proven; no partial list is projected.' A real fail-closed registry-integrity refusal over a mis-slotted record file, passed through honestly by serve \u2014 it is the ONLY remaining console error on app open and needs a daemon-side record re-slot, not a UI change."
+    },
+    {
+      "n": 41,
+      "date": "2026-08-20",
+      "did": "ORG-1 VERIFIED (255921458: three org RPCs = typed absences/refusal-shaped truth; env-start no longer throws; container sweep 0 issues) + its hand-offs executed: atlas arg guard (unknown stage now refuses instead of writing a fake-clean sweep), /settings/members org_roster_admin_gated banner (refusal \u2260 zero), session-registry mis-slot diagnosed to the digest convention (owner one-liner). Issues artifact regenerated (stage1: 32 sanctioned capture-links; stage3: 0).",
+      "next": "stage 4 (forms/honest-empty depth) + next live-backlog delegation (map or modelstudio)"
+    },
+    {
+      "n": 43,
+      "date": "2026-08-20",
+      "did": "MAP-1 SHIPPED \u2014 the CANVAS-grammar port, and the leg where honesty is a REFUSAL to draw. /__ioi/environments/map serves the LIVE-tenant map-workbench grammar (header + Save-as; left layer panel with its tab strip, Add-to-map and basemap footer; select/search-around + six draw tools; selection tray; zoom + timeline under-bar), RAILLESS. ADJUDICATED FIRST: swept the daemon's own route index \u2014 753 routes published, all 247 param-free GET routes fetched and walked for geo-bearing fields \u2014 ZERO geospatial routes and ZERO coordinate/geometry/tile fields. The ROUTE census is re-counted from the daemon's index on EVERY RENDER (a pasted number would rot the day a geo route lands); a gate fails if the page drifts from the plane or if the geospatial count ever leaves zero. So the CANVAS is a TYPED ABSENCE that names which absence it is (the reference draws a real basemap under an EMPTY layer list; the estate's canvas is MISSING), and the port renders no canvas element, no svg geometry, no tile source and no borrowed vendor basemap. LIVE lane, deliberately NOT a map: 132 of 546 REAL cloud-resource candidates on the placement plane carry placement geography (region/location/zone/az), each row naming WHICH field the value came from and carrying the record's own state \u2014 all 132 are status expired and all 132 carry a *_evidence_not_live_supply risk label, so a region string is never read as running infrastructure. Second geography lane NAMED not rendered: provider-operations, 117 of 1459 ops, all 117 carrying the daemon's simulated_control_plane marker. TYPED ABSENCES: 24 (23 chrome controls + the canvas region), unified contract, every chrome reason written for ITS control and all 23 DISTINCT (a reused boilerplate reason now fails a gate). Landed in one commit: serve handler + matrix overlay (regenerated: reference_ported 13->14, reference_capture 12->11) + adjudication #map-port + registry row (owner Environments) + verifier block + designation environments:map NOW + the /environments GRE note corrected (it still carried the overturned absent_confirmed). Gates: app-parity-domain-landings 70/70 (57 before) - surface-modules 70/70 - landing-designations 7/7 - ux-atlas stage1 32 LOW capture-links, ZERO HIGH/MED, byte-identical to the pre-leg baseline. SEVEN mutations were run against the new gates and each failed exactly the assertion that owns the defect: a drawn <canvas>, a blurred missing-vs-empty heading, a boilerplate reason reused across two controls, a silent truncation of the location lane, a stripped data-ioi vocabulary, an azure 'location' value relabelled 'region', and a pasted stale route census.",
+      "next": "live_tenant_backlog: 8 candidates left (scheduler, ingest, dataset, objecteditor, modelstudio, inference, registry, jobs) \u2014 MAP-1's finding for the rest: adjudicate the PLANE before the pixels, and when the reference's core grammar is a rendering the estate cannot honestly produce, port the landing and refuse the render rather than downgrading the seed",
+      "note_on_numbering": "parallel sessions collided on n: HEAD already carried an n=42 (ORG-1 shipped) and a second n=41 (ORG-1 verified) appended after it. This leg takes 43 rather than renumbering another session's landed entries."
+    },
+    {
+      "n": 44,
+      "date": "2026-08-20",
+      "did": "MAP-1 VERIFIED (8523be142 \u2014 landing ported, canvas honestly REFUSED, live-counted route-census gate; 70/70). Sweep STAGE 4 (forms + honest-empty depth): 10/10 contracts green \u2014 create form posts the seed lane with project-first required, zero-match filters + nonsense searches render honest copy with zero fabricated rows, missing-vs-empty phrasing holds. Backlog: 8 left.",
+      "next": "REG-1 delegation (Artifacts registry \u2014 the packages plane EXISTS, live rows expected)"
+    },
+    {
+      "n": 45,
+      "date": "2026-08-20",
+      "did": "REG-1 SHIPPED \u2014 the REGISTRY port, and the leg where honesty is a FOUR-WAY read-state census. /__ioi/marketplace/artifacts serves the LIVE-tenant artifact-registry landing grammar (header + three-counter task tray + Help + Create-artifact-repository; centred \u201cExplore artifacts\u201d hero with its ecosystem scope and search bar; four-card \u201cLearn about artifacts\u201d band with its documentation link), RAILLESS. ADJUDICATED FIRST, and unlike MAP-1 the answer was NOT absence: the estate HAS registry planes, so the question was which plane backs which lane. Ten were probed over this surface's own identity envelope and they answered in FOUR distinct states \u2014 1 LIVE (marketplace/admission-reviews, 1 record) \u00b7 4 EMPTY (publish-candidates, listings, instance-offers, governance/release-controls) \u00b7 2 REFUSED (packages and scm-publication-effects, both identity-first, both HTTP 401 request_principal_required) \u00b7 3 NO READ ROUTE (scm-publication-proposals, worker-package-install-admissions, artifact-availability-incidents \u2014 all POST-only, HTTP 405 on GET). THE FINDING: REFUSED is not EMPTY, EMPTY is not MISSING, and a plane with no read route is none of the three. The estate's real artifact registry (/v1/hypervisor/packages) REFUSED this read, so the surface prints no candidate count, no release list and no binding \u2014 rendering \u201c0 packages\u201d would convert a closed door into a measurement the estate never took. Every plane's state is CLASSIFIED FROM ITS OWN LIVE RESPONSE ON EVERY RENDER and stamped as data-ioi-plane-state; a gate re-derives all ten independently and fails on any drift. Two route-arithmetic claims are counted live too (the package family is CLOSED at 8 routes; 4 search/query routes exist and 0 index packages, releases or listings \u2014 which forces a re-adjudication the day an artifact index lands). LIVE lanes rendered verbatim: the readable record planes (each row NAMING which plane it came from, carrying id, ref and schema_version, with a typed dash for every field the record does not carry \u2014 the estate versions a release by content DIGEST and no version string is invented), the daemon's own listing-kind taxonomy (5 kinds with live counts), and the substrate census read with the daemon's own key names and deliberately NOT rendered as artifact rows (publishable material is not a published artifact). READ-ONLY: the registry VERBS are real and owned elsewhere (candidate admission / release / recall / uninstall on Packages; draft \u2192 candidate \u2192 review \u2192 publish on Marketplace) and none is re-minted here \u2014 \u201cCreate artifact repository\u201d is a typed absence whose reason says the verb EXISTS and names where, and the surface links there. TYPED ABSENCES: 9 chrome controls under the unified contract, every reason written for ITS control and all 9 DISTINCT. Landed in one commit: serve handler + matrix overlay (regenerated: reference_ported 14->15, reference_capture 11->10) + adjudication #registry-port + registry row (owner Marketplace) + verifier block + designation marketplace:artifacts NOW and the /packages/marketplace competitor disposition corrected (it still carried the overturned absent_confirmed) + this entry. Gates: app-parity-domain-landings 84/84 (70 before) \u00b7 surface-modules green \u00b7 packages-journey green (this leg sits next to its territory and did not touch it) \u00b7 landing-designations 7/7 \u00b7 ux-atlas stage1 32 LOW capture-links and ZERO HIGH/MED, byte-identical to the stage-1 baseline MAP-1 recorded (the issues artifact is left at its committed STAGE-4 record rather than overwritten with a stage-1 one \u2014 that file holds one slot and the last committed sweep was stage 4). NINE mutations were run against the new gates and each failed the assertion that owns the defect: a refusal rendered as a zero-count, a pasted plane state, a fabricated artifact row, a stale pasted route census, a boilerplate reason reused across two controls, a stripped data-ioi vocabulary, the write verb re-minted as a form on the read landing, a POST-only plane relabelled as an EMPTY one, and a falsified substrate count (M6 and M7 each failed two assertions, both of which own part of their defect; the other seven failed exactly one). TRANSIENT NOTED, not a defect of this leg: one verifier run right after a serve restart saw /v1/hypervisor/placement/venues answer with a partial projection (2 candidates instead of 550) and the three MAP-1 location-lane gates failed on it; three consecutive re-probes and every subsequent run returned 550/132 and 84/84 \u2014 the gates are correct, the daemon read was momentarily partial.",
+      "next": "live_tenant_backlog: 7 candidates left (scheduler, ingest, dataset, objecteditor, modelstudio, inference, jobs) \u2014 REG-1's finding for the rest: when a lane's plane EXISTS, the work is not \"is there anything\" but DISCRIMINATION. Probe every candidate plane over the surface's own identity and classify from the response itself: a typed refusal, an empty collection, and a plane with no read route are three different truths and none of them is a zero. Classify on every render and stamp it, so no state can be pasted.",
+      "note_on_numbering": "n=45 is the next free integer. HEAD already carried a DUPLICATE n=41 (one ORG-1 shipped, one ORG-1 verified, appended by parallel sessions) and MAP-1 recorded the same collision at n=43. This leg takes 45 rather than renumbering another session's landed entries."
+    },
+    {
+      "n": 46,
+      "date": "2026-08-20",
+      "did": "JOB-1 SHIPPED \u2014 the BUILDS port, and the leg whose finding is that NO SINGLE PLANE LISTS EVERY BUILD. /__ioi/missions/builds serves the LIVE-tenant build-tracker grammar (header + a three-counter tray COUNTED from the plane; a left Search-by / Filter-by panel \u2014 resource + object-type search, intermediate-resource and my-builds toggles, a three-way Branch radio, a Started-by principal chip, a Job-type filter, two date ranges, Clear all filters; an All/Running/Finished segmented control; the build table), RAILLESS. It SUPERSEDES the mirror-scoped absent_confirmed (#jobs, MIS-1.recon: \"no Builds grammar expresses at any recorded state \u2014 the substrate STANDS as the surface; MIS-1.build skipped by evidence\") \u2014 the owner-authorized live sweep OVERTURNED it (title \"Your builds \u00b7 Builds\" \u00b7 14 controls \u00b7 a six-column build table over REAL rows) \u2014 and the mirror record STANDS AS HISTORY. THE SUBSTRATE IS UNTOUCHED: /__ioi/missions keeps its class (read_only_by_contract) and its content, and the jobs seed row CARRIES substrate_surface: /__ioi/missions forward so the promotion never unbinds it; the missions gate's frozen class PIN was widened to a SET the same way #45 did for incidents, and STRENGTHENED with a new assertion that a ported jobs row must name the sibling Builds surface and must not re-point the substrate at it. ADJUDICATED FIRST: 16 run/build planes probed over this surface's own identity and classified into REG-1's four states \u2014 11 LIVE (work-ledger 7141/57 run \u00b7 agent-run-transcripts 3174 \u00b7 /v1/jobs 10 \u00b7 /v1/runs 10 \u00b7 /v1/tasks 10 \u00b7 goal-runs 190 \u00b7 agent launches 289 \u00b7 ODK transformation-runs 6 \u00b7 ODK materializing-runs 7 \u00b7 failover runs 40 \u00b7 workruns 4) \u00b7 2 EMPTY (orchestration attempts, foundry run-plans) \u00b7 1 REFUSED (/v1/hypervisor/sessions, HTTP 503 session_registry_unavailable \u2014 the pre-existing legacy-slot refusal, rendered as a refusal and NEVER as a zero) \u00b7 2 NO READ ROUTE (automation-executions, which the daemon's route index publishes at NO path at all \u2014 only /:id and /:id/cancel \u2014 and session-execution-bindings, POST-only). NO-READ-ROUTE is decided from the DAEMON'S OWN ROUTE INDEX rather than a status guess, because a 404 body cannot tell a missing route apart from a missing record. THE FINDING: the transcript plane carries a state_root on 3174 of 3174 records and a principal on ZERO; the per-automation execution projection carries executor_identity but is reachable only per automation and can NEVER reach the 7 executions whose automations were deleted; the work ledger's `run` lane is the EXACT UNION of both (57 = 43 on all three + 7 + 7) and the only plane carrying BOTH the acting authority and the proof anchor on one record \u2014 so the table reads the ledger, and the three counts that justify that choice (ledger total \u00b7 transcript-reachable \u00b7 fan-out-unreachable, plus the 7 EMPTY state_roots which are exactly the 7 untranscribed entries) are RE-DERIVED ON EVERY RENDER from the three planes themselves. LINK, NOT DUPLICATE: the 3174-transcript plane is already rendered by the Monocle Build-timeline lane at /__ioi/lineage?tab=timeline, so this surface links it and never re-renders it \u2014 one plane, one renderer \u2014 and says why it is not the builds table (no principal on any record; 3124 of 3174 are hypervisor OPERATION transcripts, not builds). COLUMN MAPPING IS A REFUSAL (the FUS-1 precedent), stated on-surface as a six-row mapping table: OUTPUTS binds NOTHING (a build record carries no output-resource field; step_results are evidence of HOW a step ran, not what the build produced; the estate's nearest artifact list, artifactNames, lives on the RUNTIME JOB plane \u2014 a different plane, a different noun, and no record joins them) and ACTIONS binds nothing BY DESIGN (the verbs are real and owned by Automations, so the column carries the record's PROOF instead). DURATION is labelled COMPUTED on every row because the plane records no duration field. A STEP IS NEVER RELABELLED A JOB: `job` is a live estate noun on /v1/jobs, so every roll-up reads \"N of M steps done (steps, not jobs)\". DELIBERATE CONTRAST WITH REG-1: the tray and segmented control PRINT their zeros here, because this plane ANSWERED \u2014 0 running and 0 failed steps are measurements, not placeholders; REG-1 refused to print 0 only because its plane REFUSED. TYPED ABSENCES: 18 under the unified contract (aria-disabled + title + data-ioi-disabled-reason), every reason written for ITS control and all 18 DISTINCT. Landed in one commit: serve handler + registry row (owner Missions, title Builds) + matrix overlay (REFERENCE_PORTED.jobs carrying substrate_surface; regenerated, reference_ported 15->16, substrate_bound 1->0) + adjudication #jobs-port WITH the supersession note over #jobs + verifier block + the missions-gate widening + designation missions:jobs TERMINAL -> NOW + this entry. Gates: app-parity-domain-landings 97/97 (84 before) \u00b7 surface-modules 70/70 \u00b7 app-parity-missions 27/27 (STAYED green, and now asserts more) \u00b7 landing-designations 7/7 \u00b7 ux-atlas stage1 no new HIGH/MED. TEN mutations were run against the new gates and each failed the assertion that owns the defect: a fabricated Outputs column, a pasted plane state, a refusal printed as a zero, a step roll-up relabelled \"jobs\", a silent cap truncation, an invented Started-by, a fabricated state_root over the 7 empty ones, the transcript plane duplicated instead of linked, a boilerplate reason reused across two controls, and a pasted union census.",
+      "next": "live_tenant_backlog: 6 candidates left (scheduler, ingest, dataset, objecteditor, modelstudio, inference) \u2014 JOB-1's finding for the rest: when several planes project the SAME records, do not stop at picking the biggest. Check which projection is COMPLETE and which fields each one actually carries: two projections of one plane can be individually incomplete AND individually missing a field the other has, and rendering either alone silently drops records or drops columns. Re-derive the reach counts on every render so the plane choice can never rot into a stale justification.",
+      "note_on_numbering": "n=46 is the next free integer. HEAD carries a DUPLICATE n=41 (one ORG-1 shipped, one ORG-1 verified, appended by parallel sessions); MAP-1 recorded the same collision at n=43 and REG-1 at n=45. This leg takes 46 rather than renumbering another session's landed entries."
+    }
+  ],
+  "pr_blockers": [
+    {
+      "pr": 354,
+      "blocker": "UPSTREAM master red: check:admission-evidence \u2014 provider_routes.rs::handle_provider_op baseline stale after provider_selector merge; reproduces on clean master, branch touches zero .rs files",
+      "found": "2026-08-19"
+    },
+    {
+      "pr": "(pending)",
+      "blocker": "PERMISSION: auto-mode classifier denied committing the admission-evidence baseline re-pin (a security-gate pin edit) \u2014 patch preserved at scratchpad/admission-evidence-repin.patch + worktree wt-repin; owner decision needed (run it, grant permission, or fix master themselves)",
+      "found": "2026-08-19"
+    }
+  ],
+  "live_tenant_backlog": {
+    "recorded": "2026-08-20",
+    "portable_candidates": [
+      "scheduler",
+      "ingest",
+      "dataset",
+      "objecteditor",
+      "modelstudio",
+      "inference"
+    ],
+    "note": "live-tenant atlas overturned 10 mirror-scoped terminal verdicts \u2014 a NEW port backlog beyond the completed program scope; each needs a live-atlas-sourced designation + port leg. objectview/developer stay terminal (doubly evidenced). FUS-1 SHIPPED fusion (the first of this backlog) and returned a finding the backlog must carry: a live capture can overturn a terminal verdict AND correct the seed's IDENTITY \u2014 'fusion' is the vendor spreadsheet by name, but the click target resolves to the projects-and-files browser, so the port serves the grammar the target actually expresses. Read each remaining candidate's LIVE state before assuming its seed name names its app. MAP-1 SHIPPED map (the second of this backlog) and returned the finding the remaining legs must carry: adjudicate the PLANE before the pixels. A canvas-grammar seed can be fully live-evidenced AND still have no honest rendering behind it \u2014 the answer is to port the landing grammar and make the un-renderable region a typed absence that distinguishes MISSING from the reference's own EMPTY, never to draw a plausible picture and never to downgrade the seed back to absent. REG-1 SHIPPED registry (the third of this backlog) and returned the finding the remaining legs must carry: when the estate DOES have the plane, the honest work is DISCRIMINATION rather than absence. Probe each lane's plane over the surface's own identity and classify from the response itself \u2014 a typed refusal, an empty collection and a plane with no read route are three different truths and NONE of them is a zero. Rendering an identity-first refusal as \u201c0 records\u201d is the same defect class as drawing a plausible map: it converts a closed door into a measurement the estate never took. JOB-1 SHIPPED jobs (the fourth of this backlog) and returned the finding the remaining legs must carry: when several planes project the SAME records, the work is not picking the biggest one but asking which projection is COMPLETE and which fields each one carries. Here two projections of one plane were each incomplete AND each missing a field the other had (the transcript plane: a state_root on every record and a principal on none; the per-automation projection: a principal, no state root, and no reach at all to executions whose automation was deleted) \u2014 and the union plane that carried both had to be found before a single row could be rendered honestly. Re-derive the reach counts on every render so the plane choice can never rot into a stale justification, and LINK a plane that another surface already renders rather than minting a second renderer over the same records.",
+    "ported": [
+      "fusion \u2014 FUS-1 (2026-08-20): /__ioi/domain-apps/fusion; adjudication reference-seed-adjudications.v1.json#fusion-port; designation domain-apps:fusion TERMINAL -> NOW",
+      "map \u2014 MAP-1 (2026-08-20): /__ioi/environments/map; adjudication reference-seed-adjudications.v1.json#map-port; designation environments:map NOW (the /environments GRE note carried the overturned absent_confirmed and was corrected)",
+      "registry \u2014 REG-1 (2026-08-20): /__ioi/marketplace/artifacts; adjudication reference-seed-adjudications.v1.json#registry-port; designation marketplace:artifacts NOW (the /packages/marketplace target's registry competitor disposition carried the overturned absent_confirmed and was corrected)",
+      "jobs \u2014 JOB-1 (2026-08-20): /__ioi/missions/builds; adjudication reference-seed-adjudications.v1.json#jobs-port; designation missions:jobs TERMINAL \u2192 NOW (the mirror-scoped absent_confirmed stands as history); /__ioi/missions substrate unchanged and still bound on the seed row"
+    ]
+  },
+  "found_defects": [
+    {
+      "found": "2026-08-20",
+      "what": "verify-hypervisor-app-runtime-safety is a PRE-EXISTING red (not in CI/scripts/floors): its registry-additions check fails on rows predating the program (work/home/operations/missions/...) and its isolated-serve spawns 503 on a dead-daemon posture gate ('unrebound internal surface... unavailable outside local development') \u2014 reproduced identically with correct env; /__ioi/applications is 200 on the live serve. The program's 10 new registry rows ADD to the already-failing lists (unclassified in the depth atlas).",
+      "queued_repair_leg": "runtime-safety repair: (a) posture-gate reading for dead-daemon loopback (fail-open-for-loopback vs fail-closed ruling), (b) contract evidence + depth-atlas naming for the 10 remediation rows, (c) decide CI membership"
+    },
+    {
+      "found": "2026-08-20",
+      "what": "verify-hypervisor-native-shell-integration pins PRE-TRANSFER modal hrefs (data-href === registry route per surface) \u2014 post-transfer the launcher opens DESIGNATED targets, so the harness times out on the old rows. Needs a designation-aware re-aim (expected href/frame-route/landmark per re-pointed family).",
+      "queued_repair_leg": "fold into the runtime-safety repair leg: re-aim #65 harness to landing-designations truth"
+    },
+    {
+      "found": "2026-08-20",
+      "what": "daemon session registry fail-closed refusal (correct behavior, real UX noise): legacy record session_ai-agent_mqwrwdge1.json occupies a pre-convention slot; the authoritative slot is session_<sha256(session_ref)>.json (digest CONFIRMED matching). GET /v1/hypervisor/sessions 503s estate-wide until re-slotted.",
+      "fix": "one-line rename (classifier-gated for Claude; owner command provided in-conversation); backup at scratchpad/session_ai-agent_mqwrwdge1.json.bak"
+    }
+  ]
+}

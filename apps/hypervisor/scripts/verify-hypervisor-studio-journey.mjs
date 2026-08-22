@@ -156,10 +156,15 @@ async function run() {
   await waitFor(`${SERVE}/studio`, 30000);
 
   // -- canonical mount renders the rehomed lens grammar ----------------------
-  const landing = await pageText("/studio");
-  ok("canonical /studio 200s as the module's own mount (ownership headers)",
-    landing.status === 200 && landing.headers.get("x-ioi-surface-route") === "/studio" && landing.headers.get("x-ioi-surface-owner") === "Studio",
-    `status ${landing.status} route ${landing.headers.get("x-ioi-surface-route")}`);
+  // GRE-2 STU-3 (owner go 2026-08-20): canonical /studio is the FAMILY LANDING (Designer-grammar
+  // splash; every row a live surface incl. the Agent Studio estate). The module's agent-estate
+  // lens keeps serving on its legacy workbench mount, asserted below.
+  const stuLanding = await pageText("/studio");
+  ok("canonical /studio serves the STU-3 family landing (ownership headers + splash grammar + live family rows)",
+    stuLanding.status === 200 && stuLanding.headers.get("x-ioi-surface-route") === "/studio" && stuLanding.headers.get("x-ioi-surface-owner") === "Studio"
+      && stuLanding.text.includes("Solution Designer") && stuLanding.text.includes("Agent Studio") && stuLanding.text.includes('class="spl-row"'),
+    `status ${stuLanding.status}`);
+  const landing = await pageText("/__ioi/studio/workbench");
   ok("the landing renders the agent-estate lens grammar (panes + labels)",
     landing.text.includes("the agent estate") && landing.text.includes("Agent estate")
       && landing.text.includes("System designs") && landing.text.includes("Composition pattern library")
@@ -176,7 +181,7 @@ async function run() {
     agentStudioSeed.status === 200 && agentStudioSeed.text.includes("Studio"), `status ${agentStudioSeed.status}`);
 
   // -- composer: intent-frame projection --------------------------------------
-  const composer = await pageText(`/studio?view=composer&prompt=${encodeURIComponent("summarize provider spend weekly")}`);
+  const composer = await pageText(`/__ioi/studio/workbench?view=composer&prompt=${encodeURIComponent("summarize provider spend weekly")}`);
   ok("the composer compiles an intent frame and says it is a projection only",
     composer.status === 200 && composer.text.includes("Projection only")
       && (composer.text.includes('data-testid="intent-frame"') || composer.text.includes("intent-frame projection did not answer")),
@@ -211,7 +216,7 @@ async function run() {
   ok("the created record reads back content-addressed with a live admitted head",
     bp.ok === true && bp.blueprint?.status === "draft" && hashV1.startsWith("sha256:") && !!headV1,
     `${hashV1.slice(0, 18)}… head ${String(headV1).slice(0, 12)}…`);
-  const bpPage = await pageText(`/studio?view=blueprints&bp=${encodeURIComponent(bpId)}`);
+  const bpPage = await pageText(`/__ioi/studio/workbench?view=blueprints&bp=${encodeURIComponent(bpId)}`);
   ok("the canonical blueprints view renders the record (hash + head seeded into the CAS forms)",
     bpPage.status === 200 && bpPage.text.includes("journey blueprint alpha")
       && bpPage.text.includes(hashV1) && bpPage.text.includes(`name="expected_head" value="${headV1}"`),
@@ -301,7 +306,7 @@ async function run() {
   const sdHead = sd.admitted_head || "";
   ok("the descriptor reads back admitted (schema + head) and the authoring view renders it",
     sd.ok === true && sd.surface_descriptor?.schema_version === "ioi.hypervisor.odk.surface-descriptor.v1" && !!sdHead
-      && (await pageText(`/studio?view=descriptors&sd=${encodeURIComponent(sdId)}`)).text.includes("journey descriptor"),
+      && (await pageText(`/__ioi/studio/workbench?view=descriptors&sd=${encodeURIComponent(sdId)}`)).text.includes("journey descriptor"),
     "");
   const sdUpdated = await act(`/${encodeURIComponent(sdId)}/update-descriptor`, {
     idempotency_key: "studio-journey-sd-update-1",
@@ -338,7 +343,7 @@ async function run() {
   let reload = { status: 0, text: "" };
   for (let attempt = 0; attempt < 3; attempt++) {
     await new Promise((r) => setTimeout(r, 1500));
-    reload = await pageText(`/studio?view=blueprints&bp=${encodeURIComponent(bpId)}`);
+    reload = await pageText(`/__ioi/studio/workbench?view=blueprints&bp=${encodeURIComponent(bpId)}`);
     if (reload.status === 200 && reload.text.includes("journey blueprint alpha")) break;
   }
   ok("the canonical blueprints view re-renders admitted state after restart",

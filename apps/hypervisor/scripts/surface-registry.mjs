@@ -77,6 +77,41 @@ export const SURFACES = [
   // shared owner-scoped admission contract. Its evidence is the studio journey verifier (an
   // end-to-end live journey), not a pixel certification.
   { slug: "studio-home", owner: "Studio", title: "Studio", icon: DSG_APP_TILE_URI, route: "/__ioi/studio/workbench", canonical_route: "/studio", verifier: "scripts/verify-hypervisor-studio-journey.mjs", certification: "n/a", capabilities: ["browse", "select", "inspect", "create", "update", "transition"], operational_state: "act", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  // STU-1/STU-2 (remediation v2): the D6 combined-seed Workshop port (donor: module) — I-4 splash
+  // grammar over the real domain-app + ODK surface-descriptor planes; atlas-backed, read-first.
+  { slug: "workshop", owner: "Studio", title: "Workshop", icon: DSG_APP_TILE_URI, route: "/__ioi/studio/workshop", verifier: "scripts/verify-hypervisor-app-parity-workshop.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  // DOM-1 (remediation v2): origin-aligned I-4 landings over typed-absent bodies.
+  { slug: "logic", owner: "Domain Apps", title: "Logic", icon: DSG_APP_TILE_URI, route: "/__ioi/domain-apps/logic", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  { slug: "contour", owner: "Domain Apps", title: "Contour", icon: DSG_APP_TILE_URI, route: "/__ioi/domain-apps/contour", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  // FUS-1 (remediation v2): the live-tenant-sourced Fusion port — the reference click target
+  // resolves to a PROJECTS-&-FILES browser (4 tabs), not a spreadsheet; All files = the real
+  // projects plane, Data Catalog > Files = the real data-asset planes, the rest typed absences.
+  { slug: "fusion", owner: "Domain Apps", title: "Fusion", icon: DSG_APP_TILE_URI, route: "/__ioi/domain-apps/fusion", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  // MAP-1 (remediation v2): the live-tenant-sourced Map port — CANVAS grammar over a canvas the
+  // estate cannot honestly render. No geospatial plane exists in the daemon's 753 routes, so the
+  // canvas region is a TYPED ABSENCE (missing, not empty) and the one live lane is deliberately
+  // NOT a map: the placement plane's region/location/zone/az strings, rendered verbatim.
+  { slug: "map", owner: "Environments", title: "Map", icon: DSG_APP_TILE_URI, route: "/__ioi/environments/map", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  // REG-1 (remediation v2): the live-tenant-sourced Artifacts port — a READ-ONLY projection
+  // of the estate's registry LADDER (packages · marketplace publish ladder · release controls
+  // · SCM publication), classified live into four states (LIVE / EMPTY / REFUSED / NO READ
+  // ROUTE). The verbs stay on the Packages + Marketplace owner surfaces and are linked, never
+  // duplicated here.
+  { slug: "registry", owner: "Marketplace", title: "Artifacts", icon: MARKETPLACE_APP_ICON_URI, route: "/__ioi/marketplace/artifacts", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  // JOB-1 (remediation v2): the live-tenant-sourced Builds port — a READ-ONLY projection of the
+  // estate's build plane (the work ledger's `run` lane, the exact UNION of the transcript and
+  // per-automation projections and the only plane carrying both the acting authority and the
+  // state root). Sixteen run/build planes are classified live into four states. The build VERBS
+  // stay on Automations and are linked, never duplicated; /__ioi/missions — the read_only_by_contract
+  // substrate — is untouched and this is a sibling lane beside it, not a replacement.
+  { slug: "jobs", owner: "Missions", title: "Builds", icon: missionsModule.MISSIONS_APP_ICON_URI, route: "/__ioi/missions/builds", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  { slug: "widgets", owner: "Developer Console", title: "Custom Widgets", icon: DSG_APP_TILE_URI, route: "/__ioi/developer-console/widgets", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  { slug: "workspaces", owner: "Workbench", title: "Code Workspaces", icon: DSG_APP_TILE_URI, route: "/__ioi/developer-workspace/workspaces", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  { slug: "notepad", owner: "Workbench", title: "Notepad", icon: DSG_APP_TILE_URI, route: "/__ioi/developer-workspace/notepad", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  { slug: "devconsole", owner: "Developer Console", title: "Developer Console", icon: DSG_APP_TILE_URI, route: "/__ioi/developer-console", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  { slug: "insight", owner: "Evaluations", title: "Insight", icon: EVL_APP_TILE_URI, route: "/__ioi/evaluations/insight", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  { slug: "repositories", owner: "Workbench", title: "Code Repositories", icon: DSG_APP_TILE_URI, route: "/__ioi/developer-workspace/repositories", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  { slug: "quiver", owner: "Evaluations", title: "Quiver", icon: EVL_APP_TILE_URI, route: "/__ioi/evaluations/quiver", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "machinery", owner: "Studio", title: "Machinery", icon: MCH_APP_TILE_URI, route: "/__ioi/studio/machinery", verifier: "scripts/verify-hypervisor-app-parity-studio-machinery.mjs", certification: "pixel-certifications/machinery.json", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   // W2.3 (next-legs II Leg 2): the Packages surface packet — ONE module, two mounts, over the
   // CLOSED /v1/hypervisor/packages daemon family. A FRESH legacy action lane
@@ -109,7 +144,7 @@ export const SURFACES = [
   // every other family verb is read-first or disabled with a named reason, and Interfaces is
   // the OQ-9 disabled named gap. Evidence: the systems journey verifier.
   { slug: "systems", owner: "Systems", title: "Systems", icon: EXPLORER_APP_ICON_URI, route: "/__ioi/systems-workspace", canonical_route: "/systems", verifier: "scripts/verify-hypervisor-systems-journey.mjs", certification: "n/a", capabilities: ["browse", "inspect", "create", "transition"], operational_state: "act", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
-  { slug: "monitors", owner: "Automations", title: "Automate", icon: MON_APP_TILE_URI, route: "/__ioi/automations/monitors", verifier: "scripts/verify-hypervisor-app-parity-monitors.mjs", certification: "pixel-certifications/monitors.json", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  { slug: "monitors", owner: "Automations", title: "Automate", icon: MON_APP_TILE_URI, route: "/__ioi/automations/monitors", canonical_route: "/automations", verifier: "scripts/verify-hypervisor-app-parity-monitors.mjs", certification: "pixel-certifications/monitors.json", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   // W2.1 next-legs II Leg 4: the Automations surface packet — canonical /automations plus a
   // FRESH legacy lane /__ioi/automations-cockpit (deliberately NOT nested under
   // /__ioi/automations/, whose flat :id dispatch would shadow it; every seed lane there keeps
@@ -119,7 +154,8 @@ export const SURFACES = [
   // returns NO admission receipts yet (the brief's named W2 defect) — so the module declares no
   // receipted actions and its operational_state stays "inspect" honestly. Evidence: the
   // automations journey verifier.
-  { slug: "automations", owner: "Automations", title: "Automations", icon: MON_APP_TILE_URI, route: "/__ioi/automations-cockpit", canonical_route: "/automations", verifier: "scripts/verify-hypervisor-automations-journey.mjs", certification: "n/a", capabilities: ["browse", "filter", "select", "inspect"], operational_state: "inspect", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  // GRE-2 AUT-3 (2026-08-20): canonical /automations moved to the monitors (Automate) row; the cockpit module keeps its legacy lane until the staged retirement.
+  { slug: "automations", owner: "Automations", title: "Automations", icon: MON_APP_TILE_URI, route: "/__ioi/automations-cockpit", verifier: "scripts/verify-hypervisor-automations-journey.mjs", certification: "n/a", capabilities: ["browse", "filter", "select", "inspect"], operational_state: "inspect", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   // W2.1 next-legs IV Leg 3: the Work PARTIAL PRE-W3 COCKPIT SLICE — NOT Work completion (W3.1
   // owns the admission→harness→run→events/receipts→stop/archive/recovery/replay chain; SURF-work
   // and W3.1 remain open). ONE module, three mounts, on FRESH non-colliding legacy lanes
