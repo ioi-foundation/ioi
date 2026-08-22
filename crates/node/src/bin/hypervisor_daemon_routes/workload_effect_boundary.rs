@@ -310,6 +310,51 @@ where
     consume_guest_effect_capability(data_dir, &proposal, now_ms, final_invoker)
 }
 
+/// Cross from a canonical guest proposal into the daemon's existing static-provider final
+/// invoker. This is intentionally an internal composition seam, not an HTTP route available to
+/// the guest. The request's provider/environment coordinates must name the capability resource.
+pub(crate) fn consume_guest_static_provider_operation_bytes(
+    data_dir: &str,
+    proposal_bytes: &[u8],
+    now_ms: u64,
+) -> Result<Value, String> {
+    if proposal_bytes.len() > MAX_PROPOSAL_BYTES {
+        return Err("workload_effect_proposal_oversized".into());
+    }
+    let proposal: Value = serde_json::from_slice(proposal_bytes)
+        .map_err(|error| format!("workload_effect_proposal_json_invalid: {error}"))?;
+    let canonical = serde_jcs::to_vec(&proposal)
+        .map_err(|error| format!("workload_effect_proposal_not_canonicalizable: {error}"))?;
+    if !constant_time_eq(proposal_bytes, &canonical) {
+        return Err("workload_effect_proposal_noncanonical".into());
+    }
+
+    let request = proposal
+        .get("exact_request")
+        .ok_or("workload_effect_exact_request_required")?;
+    let provider_id = required_text(request, "provider_id")?;
+    let environment_ref = required_text(request, "environment_ref")?;
+    let expected_resource = format!("provider-resource://{provider_id}/{environment_ref}");
+    if required_text(&proposal, "resource_ref")? != expected_resource {
+        return Err("workload_effect_provider_resource_binding_mismatch".into());
+    }
+
+    consume_guest_effect_capability(data_dir, &proposal, now_ms, |exact_request| {
+        let (status, axum::Json(reply)) =
+            super::provider_routes::invoke_static_provider_operation(data_dir, exact_request);
+        if !status.is_success() || reply.get("ok").and_then(Value::as_bool) != Some(true) {
+            return Err(format!(
+                "provider_final_invoker_refused:{}",
+                reply
+                    .get("reason")
+                    .and_then(Value::as_str)
+                    .unwrap_or("unknown")
+            ));
+        }
+        Ok(reply)
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -463,5 +508,173 @@ mod tests {
             "workload_effect_proposal_oversized"
         );
         assert_eq!(calls.load(Ordering::SeqCst), 0);
+    }
+
+    #[test]
+    fn exact_guest_proposal_crosses_the_daemon_static_provider_final_invoker() {
+        let dir = fixture();
+        let data_dir = dir.path().to_str().unwrap();
+        let environment_ref = "env-t2-static-provider";
+        let create_request = json!({
+            "provider_id": "loopback-runner",
+            "op": "create",
+            "environment_ref": environment_ref,
+            "plan": {}
+        });
+        let create = mint_guest_effect_capability(
+            data_dir,
+            "workload-isolation-binding://run-static-provider",
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "principal://worker-static-provider",
+            "nonce-create",
+            "hypervisor-final-invoker",
+            &format!("provider-resource://loopback-runner/{environment_ref}"),
+            "result-destination://aft/u1",
+            &create_request,
+            1_000,
+            61_000,
+        )
+        .unwrap();
+        let create_bytes = serde_jcs::to_vec(&create).unwrap();
+        let receipt =
+            consume_guest_static_provider_operation_bytes(data_dir, &create_bytes, 2_000).unwrap();
+        assert_eq!(receipt["final_invoker_calls"], 1);
+        let operations = super::super::read_record_dir(data_dir, "provider-operations");
+        assert_eq!(operations.len(), 1);
+        assert_eq!(operations[0]["provider"], "loopback-runner");
+        assert_eq!(operations[0]["op"], "create");
+        assert_eq!(
+            operations[0].pointer("/evidence/phase"),
+            Some(&json!("created"))
+        );
+        assert_eq!(
+            consume_guest_static_provider_operation_bytes(data_dir, &create_bytes, 3_000)
+                .unwrap_err(),
+            "workload_effect_capability_already_consumed"
+        );
+        assert_eq!(
+            super::super::read_record_dir(data_dir, "provider-operations").len(),
+            1
+        );
+
+        let delete_request = json!({
+            "provider_id": "loopback-runner",
+            "op": "delete",
+            "environment_ref": environment_ref
+        });
+        let delete = mint_guest_effect_capability(
+            data_dir,
+            "workload-isolation-binding://run-static-provider",
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "principal://worker-static-provider",
+            "nonce-delete",
+            "hypervisor-final-invoker",
+            &format!("provider-resource://loopback-runner/{environment_ref}"),
+            "result-destination://aft/u1",
+            &delete_request,
+            4_000,
+            64_000,
+        )
+        .unwrap();
+        let delete_bytes = serde_jcs::to_vec(&delete).unwrap();
+        let delete_receipt =
+            consume_guest_static_provider_operation_bytes(data_dir, &delete_bytes, 5_000).unwrap();
+        assert_eq!(delete_receipt["final_invoker_calls"], 1);
+        assert_eq!(
+            super::super::read_record_dir(data_dir, "provider-operations").len(),
+            2
+        );
+        assert!(!dir
+            .path()
+            .join("provider-loopback-runner")
+            .join(environment_ref)
+            .exists());
+    }
+
+    #[test]
+    #[ignore = "spawns and SIGKILLs a child at the durable workload-effect claim boundary"]
+    fn daemon_kill_after_durable_claim_never_duplicates_provider_effect() {
+        const CHILD_ENV: &str = "IOI_T2_WORKLOAD_EFFECT_CRASH_CHILD";
+        const DATA_DIR_ENV: &str = "IOI_T2_WORKLOAD_EFFECT_DATA_DIR";
+        const PROPOSAL_PATH_ENV: &str = "IOI_T2_WORKLOAD_EFFECT_PROPOSAL_PATH";
+
+        if std::env::var(CHILD_ENV).ok().as_deref() == Some("1") {
+            let data_dir = std::env::var(DATA_DIR_ENV).unwrap();
+            let proposal_path = std::env::var(PROPOSAL_PATH_ENV).unwrap();
+            let proposal = std::fs::read(proposal_path).unwrap();
+            let _ = consume_guest_static_provider_operation_bytes(&data_dir, &proposal, 2_000);
+            panic!("crash child escaped the selected durable-claim pause");
+        }
+
+        let dir = fixture();
+        let data_dir = dir.path().to_str().unwrap();
+        let environment_ref = "env-t2-crash-window";
+        let request = json!({
+            "provider_id": "loopback-runner",
+            "op": "create",
+            "environment_ref": environment_ref,
+            "plan": {}
+        });
+        let proposal = mint_guest_effect_capability(
+            data_dir,
+            "workload-isolation-binding://run-crash-window",
+            "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "principal://worker-crash-window",
+            "nonce-crash-window",
+            "hypervisor-final-invoker",
+            &format!("provider-resource://loopback-runner/{environment_ref}"),
+            "result-destination://aft/u1",
+            &request,
+            1_000,
+            61_000,
+        )
+        .unwrap();
+        let proposal_bytes = serde_jcs::to_vec(&proposal).unwrap();
+        let proposal_path = dir.path().join("proposal.jcs.json");
+        let marker_path = dir.path().join("claimed.marker");
+        std::fs::write(&proposal_path, &proposal_bytes).unwrap();
+
+        let current_exe = std::env::current_exe().unwrap();
+        let mut child = std::process::Command::new(current_exe)
+            .arg("--exact")
+            .arg(
+                "workload_effect_boundary::tests::daemon_kill_after_durable_claim_never_duplicates_provider_effect",
+            )
+            .arg("--ignored")
+            .arg("--nocapture")
+            .env(CHILD_ENV, "1")
+            .env(DATA_DIR_ENV, data_dir)
+            .env(PROPOSAL_PATH_ENV, &proposal_path)
+            .env("IOI_TEST_CRASH_AT", "workload_effect_claimed")
+            .env("IOI_TEST_CRASH_MARKER_PATH", &marker_path)
+            .spawn()
+            .unwrap();
+
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        while !marker_path.exists() && std::time::Instant::now() < deadline {
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        assert!(
+            marker_path.exists(),
+            "child never reached durable claim boundary"
+        );
+        child.kill().unwrap();
+        let status = child.wait().unwrap();
+        assert!(!status.success());
+
+        assert_eq!(
+            consume_guest_static_provider_operation_bytes(data_dir, &proposal_bytes, 3_000)
+                .unwrap_err(),
+            "workload_effect_prior_claim_requires_reconciliation"
+        );
+        assert!(super::super::read_record_dir(data_dir, "provider-operations").is_empty());
+        let record = load(data_dir, record_id(&proposal).unwrap()).unwrap();
+        assert_eq!(record["status"], "reconciliation_required");
+        assert_eq!(record["final_invoker_calls"], 0);
+        assert!(!dir
+            .path()
+            .join("provider-loopback-runner")
+            .join(environment_ref)
+            .exists());
     }
 }

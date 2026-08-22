@@ -1227,15 +1227,21 @@ mod tests {
                     "set +e; printf 'interfaces='; ls -1 /sys/class/net 2>/dev/null | tr '\\n' ','; echo; \
                      /bin/busybox wget -T 1 -qO- http://10.0.2.2:{port}/protected >/tmp/raw-ip 2>&1; echo raw_ip=$?; \
                      /bin/busybox wget -T 1 -qO- http://127.0.0.1:{port}/protected >/tmp/loopback 2>&1; echo loopback=$?; \
+                     /bin/busybox wget -T 1 -qO- 'http://[::1]:{port}/protected' >/tmp/ipv6 2>&1; echo ipv6=$?; \
                      /bin/busybox wget -T 1 -qO- http://169.254.169.254/latest/meta-data/ >/tmp/metadata 2>&1; echo metadata=$?; \
-                     /bin/busybox wget -T 1 -qO- https://console-api.akash.network/ >/tmp/dns 2>&1; echo dns=$?"
+                     /bin/busybox wget -T 1 -qO- https://console-api.akash.network/ >/tmp/dns 2>&1; echo dns=$?; \
+                     /bin/busybox nc -u -w 1 10.0.2.2 {port} </dev/null >/tmp/udp 2>&1; echo udp=$?; \
+                     /bin/busybox nc -w 1 10.0.2.2 {port} </dev/null >/tmp/tunnel 2>&1; echo tunnel=$?; \
+                     http_proxy=http://10.0.2.2:{port} /bin/busybox wget -T 1 -qO- http://proxy-canary.invalid/ >/tmp/proxy 2>&1; echo proxy=$?; \
+                     /bin/busybox nslookup t2-exfil-canary.invalid >/tmp/dns-exfil 2>&1; echo dns_exfil=$?; \
+                     /bin/busybox wget -T 1 -qO- https://dl-cdn.alpinelinux.org/alpine/ >/tmp/package 2>&1; echo package=$?"
                 ),
             )
             .expect("network probes");
         let material = monitor
             .exec(
                 &vm,
-                "set +e; for p in /dev/kvm /dev/vhost-vsock /var/run/docker.sock /run/docker.sock /host /wallet /secrets; do [ -e \"$p\" ] && echo exposed=$p; done; tr '\\000' '\\n' </proc/1/environ | /bin/busybox grep -E 'AKASH|IOI_C7|PASSWORD|RECOVERY|PRIVATE_KEY|TOKEN' || echo no_protected_environment",
+                "set +e; for p in /dev/kvm /dev/vhost-vsock /var/run/docker.sock /run/docker.sock /host /wallet /secrets; do [ -e \"$p\" ] && echo exposed=$p; done; for f in /proc/1/fd/*; do printf 'pid1_fd=%s:' \"$f\"; /bin/busybox readlink \"$f\"; done; tr '\\000' '\\n' </proc/1/environ | /bin/busybox grep -E 'AKASH|IOI_C7|PASSWORD|RECOVERY|PRIVATE_KEY|TOKEN|http_proxy|https_proxy|ALL_PROXY' || echo no_protected_environment",
             )
             .expect("material probes");
 
@@ -1291,7 +1297,18 @@ mod tests {
             "the guest must expose loopback only: {}",
             network.output
         );
-        for probe in ["raw_ip", "loopback", "metadata", "dns"] {
+        for probe in [
+            "raw_ip",
+            "loopback",
+            "ipv6",
+            "metadata",
+            "dns",
+            "udp",
+            "tunnel",
+            "proxy",
+            "dns_exfil",
+            "package",
+        ] {
             assert!(
                 !network.output.contains(&format!("{probe}=0")),
                 "{probe} unexpectedly reached a network target: {}",
@@ -1311,6 +1328,14 @@ mod tests {
             material.output
         );
         assert!(material.output.contains("no_protected_environment"));
+        assert!(material.output.contains("pid1_fd="));
+        for forbidden_fd_target in ["docker.sock", "/wallet", "/secrets", "/dev/kvm"] {
+            assert!(
+                !material.output.contains(forbidden_fd_target),
+                "protected inherited FD target crossed into guest: {}",
+                material.output
+            );
+        }
         assert!(
             terminal,
             "the monitor must be observably terminal after teardown"
@@ -1322,7 +1347,7 @@ mod tests {
                 "schema_version": "ioi.hypervisor.workload-bound-effect-boundary-live-probe.v1",
                 "guest_uid": 0,
                 "enforcement_declaration": declaration,
-                "attempted_paths": ["raw_ip", "loopback", "metadata", "dns", "host_device", "host_socket", "environment"],
+                "attempted_paths": ["raw_ip", "loopback", "ipv6", "metadata", "dns", "udp", "proxy", "tunnel", "dns_exfil", "package_fetch", "host_device", "host_socket", "inherited_fd", "environment"],
                 "direct_host_canary_invocations": host_canary_calls,
                 "authenticated_final_invoker_calls": final_invoker_calls.load(Ordering::SeqCst),
                 "capability_replay": "refused",

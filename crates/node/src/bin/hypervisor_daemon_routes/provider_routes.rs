@@ -7823,6 +7823,140 @@ fn materialize_akash_sdl(data_dir: &str, plan: &Value, template: &str) -> Result
     inject_akash_sdl_secrets(template, registry.as_deref(), result.as_deref())
 }
 
+/// The single final-invoker implementation for static provider adapters. Both the HTTP route and
+/// the workload-bound broker enter here, so the guest lane cannot grow a second provider client
+/// or persistence path.
+pub(crate) fn invoke_static_provider_operation(
+    data_dir: &str,
+    body: &Value,
+) -> (StatusCode, Json<Value>) {
+    let provider_id = text(body, "provider_id");
+    let op = text(body, "op");
+    let env_ref = body
+        .get("environment_ref")
+        .and_then(Value::as_str)
+        .unwrap_or("env-default");
+    let Some(provider) = resolve(provider_id) else {
+        let receipt = provider_receipt(data_dir, provider_id, env_ref, op, "error");
+        return (
+            StatusCode::OK,
+            Json(json!({
+                "ok": false,
+                "reason": format!("unknown provider '{provider_id}'"),
+                "receipt_ref": receipt
+            })),
+        );
+    };
+
+    let credentials_required = provider
+        .capabilities()
+        .get("credentials_required")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    if credentials_required
+        && matches!(op, "create" | "start" | "workrun")
+        && body.get("grant_ref").and_then(Value::as_str).is_none()
+    {
+        let receipt = provider_receipt(data_dir, provider_id, env_ref, op, "authority_missing");
+        return (
+            StatusCode::OK,
+            Json(json!({
+                "ok": false,
+                "op": op,
+                "provider": provider_id,
+                "reason": "provider credentials are authority-gated; present a grant_ref (effect=provider_credential)",
+                "receipt_ref": receipt
+            })),
+        );
+    }
+
+    let plan = body.get("plan").cloned().unwrap_or_else(|| json!({}));
+    let command = body
+        .get("command")
+        .and_then(Value::as_str)
+        .unwrap_or("true");
+    let material_ref = body
+        .get("material_ref")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let result = match op {
+        "preflight" => Ok(provider.preflight(&plan)),
+        "create" => provider.create(data_dir, env_ref, &plan),
+        "start" => provider.start(data_dir, env_ref),
+        "workrun" => provider.workrun(data_dir, env_ref, command),
+        "stop" => provider.stop(data_dir, env_ref),
+        "snapshot" => provider.snapshot(data_dir, env_ref),
+        "restore" => provider.restore(data_dir, env_ref, material_ref),
+        "inject_outage" => provider.inject_outage(data_dir, env_ref),
+        "recover" => provider.recover(data_dir, env_ref),
+        "delete" => provider.delete(data_dir, env_ref),
+        "observe" => Ok(provider.observe(data_dir, env_ref)),
+        other => Err(format!("unknown op '{other}'")),
+    };
+
+    match result {
+        Ok(evidence) => {
+            let receipt = provider_receipt(data_dir, provider_id, env_ref, op, "ok");
+            let op_id = format!("pop_{:x}", nanos());
+            let record = json!({
+                "schema_version": "ioi.hypervisor.provider-operation.v1",
+                "operation_id": op_id,
+                "provider": provider_id,
+                "environment_ref": env_ref,
+                "op": op,
+                "evidence": evidence,
+                "receipt_ref": receipt,
+                "at": iso_now()
+            });
+            if persist_record(data_dir, "provider-operations", &op_id, &record).is_err() {
+                return provider_op_persist_failed(
+                    "provider_operation_persistence_failed",
+                    op,
+                    provider_id,
+                    env_ref,
+                    &receipt,
+                    evidence
+                        .get("provider_native")
+                        .cloned()
+                        .unwrap_or(Value::Null),
+                    "the provider op executed but its admitted-operation record did not commit",
+                );
+            }
+            (
+                StatusCode::OK,
+                Json(json!({
+                    "ok": true,
+                    "op": op,
+                    "provider": provider_id,
+                    "environment_ref": env_ref,
+                    "evidence": evidence,
+                    "receipt_ref": receipt
+                })),
+            )
+        }
+        Err(reason) => {
+            let outcome = if reason.contains("NOT_CONFIGURED") {
+                "not_configured"
+            } else {
+                "error"
+            };
+            let receipt = provider_receipt(data_dir, provider_id, env_ref, op, outcome);
+            (
+                StatusCode::OK,
+                Json(json!({
+                    "ok": false,
+                    "op": op,
+                    "provider": provider_id,
+                    "environment_ref": env_ref,
+                    "reason": reason,
+                    "outcome": outcome,
+                    "receipt_ref": receipt
+                })),
+            )
+        }
+    }
+}
+
 pub(crate) async fn handle_provider_op(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
@@ -8844,108 +8978,8 @@ pub(crate) async fn handle_provider_op(
         };
     }
 
-    // ── Legacy static-adapter lane (local-microvm / loopback-runner / cloud-vpc) — unchanged. ──
-    let Some(provider) = resolve(provider_id) else {
-        let receipt = provider_receipt(data_dir, provider_id, &env_ref, op, "error");
-        return (
-            StatusCode::OK,
-            Json(
-                json!({ "ok": false, "reason": format!("unknown provider '{provider_id}'"), "receipt_ref": receipt }),
-            ),
-        );
-    };
-
-    // Remote/external providers require an authority grant for provider-credential materialization.
-    let cap = provider.capabilities();
-    let creds_required = cap
-        .get("credentials_required")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
-    if creds_required
-        && matches!(op, "create" | "start" | "workrun")
-        && body.get("grant_ref").and_then(|v| v.as_str()).is_none()
-    {
-        let receipt = provider_receipt(data_dir, provider_id, &env_ref, op, "authority_missing");
-        return (
-            StatusCode::OK,
-            Json(
-                json!({ "ok": false, "op": op, "provider": provider_id, "reason": "provider credentials are authority-gated; present a grant_ref (effect=provider_credential)", "receipt_ref": receipt }),
-            ),
-        );
-    }
-
-    let plan = body.get("plan").cloned().unwrap_or_else(|| json!({}));
-    let command = body
-        .get("command")
-        .and_then(|v| v.as_str())
-        .unwrap_or("true");
-    let material_ref = body
-        .get("material_ref")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    let result = match op {
-        "preflight" => Ok(provider.preflight(&plan)),
-        "create" => provider.create(data_dir, &env_ref, &plan),
-        "start" => provider.start(data_dir, &env_ref),
-        "workrun" => provider.workrun(data_dir, &env_ref, command),
-        "stop" => provider.stop(data_dir, &env_ref),
-        "snapshot" => provider.snapshot(data_dir, &env_ref),
-        "restore" => provider.restore(data_dir, &env_ref, material_ref),
-        "inject_outage" => provider.inject_outage(data_dir, &env_ref),
-        "recover" => provider.recover(data_dir, &env_ref),
-        "delete" => provider.delete(data_dir, &env_ref),
-        "observe" => Ok(provider.observe(data_dir, &env_ref)),
-        other => Err(format!("unknown op '{other}'")),
-    };
-
-    match result {
-        Ok(evidence) => {
-            let receipt = provider_receipt(data_dir, provider_id, &env_ref, op, "ok");
-            // Record the admitted operation as daemon truth (provider IDs inside are evidence only).
-            let op_id = format!("pop_{:x}", nanos());
-            let record = json!({
-                "schema_version": "ioi.hypervisor.provider-operation.v1",
-                "operation_id": op_id, "provider": provider_id, "environment_ref": env_ref,
-                "op": op, "evidence": evidence, "receipt_ref": receipt, "at": iso_now()
-            });
-            // W1.2 / MEF-GAP-008 — the legacy-adapter op executed; a lost admitted-operation record
-            // orphans the resource from its own lifecycle lane. Refuse, naming the effect + receipt.
-            if persist_record(data_dir, "provider-operations", &op_id, &record).is_err() {
-                return provider_op_persist_failed(
-                    "provider_operation_persistence_failed",
-                    op,
-                    provider_id,
-                    &env_ref,
-                    &receipt,
-                    evidence
-                        .get("provider_native")
-                        .cloned()
-                        .unwrap_or(Value::Null),
-                    "the provider op executed but its admitted-operation record did not commit",
-                );
-            }
-            (
-                StatusCode::OK,
-                Json(
-                    json!({ "ok": true, "op": op, "provider": provider_id, "environment_ref": env_ref, "evidence": evidence, "receipt_ref": receipt }),
-                ),
-            )
-        }
-        Err(reason) => {
-            let outcome = if reason.contains("NOT_CONFIGURED") {
-                "not_configured"
-            } else {
-                "error"
-            };
-            let receipt = provider_receipt(data_dir, provider_id, &env_ref, op, outcome);
-            (
-                StatusCode::OK,
-                Json(
-                    json!({ "ok": false, "op": op, "provider": provider_id, "environment_ref": env_ref, "reason": reason, "outcome": outcome, "receipt_ref": receipt }),
-                ),
-            )
-        }
-    }
+    // ── Legacy static-adapter lane (local-microvm / loopback-runner / cloud-vpc). ──
+    invoke_static_provider_operation(data_dir, &body)
 }
 
 /// GET /v1/hypervisor/provider-spend/reconciliation — customer-borne external-spend

@@ -23,6 +23,13 @@ const broker = readFileSync(
   ),
   "utf8",
 );
+const providerRoutes = readFileSync(
+  join(
+    repo,
+    "crates/node/src/bin/hypervisor_daemon_routes/provider_routes.rs",
+  ),
+  "utf8",
+);
 
 function inspect(microvm, brokerSource = broker) {
   const findings = [];
@@ -89,11 +96,39 @@ function inspect(microvm, brokerSource = broker) {
     ["workload_effect_claimed", "durable_boundary_crash_hook_missing"],
     ["final_invoker_calls", "final_invoker_counter_missing"],
     ["consume_guest_effect_proposal_bytes", "canonical_guest_byte_boundary_missing"],
+    [
+      "daemon_kill_after_durable_claim_never_duplicates_provider_effect",
+      "durable_claim_sigkill_regression_missing",
+    ],
   ]) {
     if (!brokerSource.includes(text)) findings.push(code);
   }
   if (/reqwest|AKASH_CONSOLE|open_scm_token/u.test(brokerSource)) {
     findings.push("provider_or_secret_client_inside_guest_broker");
+  }
+  for (const [text, code] of [
+    [
+      "consume_guest_static_provider_operation_bytes",
+      "static_provider_broker_composition_missing",
+    ],
+    [
+      "super::provider_routes::invoke_static_provider_operation",
+      "shared_static_final_invoker_call_missing",
+    ],
+  ]) {
+    if (!brokerSource.includes(text)) findings.push(code);
+  }
+  for (const [text, code] of [
+    [
+      "pub(crate) fn invoke_static_provider_operation",
+      "shared_static_final_invoker_missing",
+    ],
+    [
+      "invoke_static_provider_operation(data_dir, &body)",
+      "http_route_not_using_shared_static_final_invoker",
+    ],
+  ]) {
+    if (!providerRoutes.includes(text)) findings.push(code);
   }
   return [...new Set(findings)].sort();
 }
@@ -175,6 +210,9 @@ if (findings.length > 0) {
 
 runCargo("hostile_guest_floor_refuses_each_planted_bypass_before_launch");
 runCargo("workload_effect_boundary::tests");
+runCargo("daemon_kill_after_durable_claim_never_duplicates_provider_effect", [
+  "--ignored",
+]);
 if (process.argv.includes("--live")) {
   runCargo("root_guest_cannot_reach_a_host_canary_or_find_protected_material", [
     "--ignored",
@@ -188,9 +226,9 @@ console.log(
       verdict: "PASS",
       live_kvm_probe: process.argv.includes("--live") ? "passed" : "not_run",
       floor_status:
-        "not_yet_in_global_verifier_floor_pending_daemon_route_composition_and_complete_failure_matrix",
+        "not_yet_in_global_verifier_floor_pending_live_c2_authority_composition_and_complete_failure_matrix",
       claim_boundary:
-        "The local KVM/no-NIC guest launch, canonical output quarantine, exact authenticated proposal, durable one-use claim, and mock final-invoker composition are enforced and mutation-tested. This check does not yet claim production route integration or the complete T2 fault matrix.",
+        "The local KVM/no-NIC guest launch, canonical output quarantine, exact authenticated proposal, durable one-use claim, and shared static-provider final-invoker composition are enforced and mutation-tested. This check does not yet claim live C2/wallet-authority composition, external-provider non-bypassability, or the complete T2 fault matrix.",
     },
     null,
     2,

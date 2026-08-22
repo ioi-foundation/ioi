@@ -1,6 +1,6 @@
 # Workload-bound effect boundary — 2026-08-22
 
-Status: spend-free local T2 implementation slice; real KVM probe passed; global floor not yet promoted.
+Status: spend-free local T2 implementation slice; real KVM and static-provider composition passed; global floor not yet promoted.
 Canonical owner: `docs/architecture/components/hypervisor/providers-and-environments.md#local-hostile-guest-enforcement-profile`.
 Doctrine status: reference
 Implementation status: partial
@@ -9,11 +9,13 @@ Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/microvm.rs`
   - `crates/node/src/bin/hypervisor_daemon_routes/workload_effect_boundary.rs`
   - `scripts/check-workload-bound-effect-boundary.mjs`
-Last implementation audit: 2026-08-22 (local live probe passed; daemon route and complete fault matrix remain open)
+Last implementation audit: 2026-08-22 (local live probe and shared static-provider final invoker passed; live C2/authority composition and complete fault matrix remain open)
 
 This record is the implementation and evidence boundary for the first
-`trusted_host_hostile_guest/no-nic-v1` slice. It performs no provider mutation
-and moves no money. It must not be cited as U1 execution, worker-secret
+`trusted_host_hostile_guest/no-nic-v1` slice. Its composition test creates and
+deletes one local loopback-runner resource through the daemon's shared static
+provider final invoker; it performs no external provider mutation and moves no
+money. It must not be cited as U1 execution, worker-secret
 non-possession, production non-bypassability, or a complete T2 exit.
 
 ## Implemented boundary
@@ -37,8 +39,15 @@ non-possession, production non-bypassability, or a complete T2 exit.
 - The broker durably records `claimed` before the final invoker. Replay after a
   terminal result refuses; restart over an ambiguous claim becomes
   `reconciliation_required` and never invokes again.
+- A subprocess fault test reaches that durable claim, writes its coordination
+  marker, is SIGKILLed, and proves on restart that the provider-operation count
+  remains zero while the capability becomes `reconciliation_required`.
 - The broker contains no provider client, provider credential resolver, wallet
   signer, C2 writer, or secret-unsealing path.
+- The canonical guest proposal can enter the same static-provider final-invoker
+  function used by the HTTP provider route. A real local loopback-runner create
+  is durably recorded, replay preserves exactly one operation, and a second
+  exact capability deletes the resource with verified cleanup.
 
 ## Registered contracts
 
@@ -75,7 +84,7 @@ Observed on 2026-08-22:
 | Guest privilege | UID 0 |
 | VM instance scope | `fresh_per_workrun` |
 | Guest interfaces | loopback only |
-| Raw-IP, loopback-to-host, metadata, and DNS attempts | refused/unreachable |
+| Raw-IP, IPv6, UDP, proxy, tunnel, metadata, DNS, DNS-exfil, and package-fetch attempts | refused/unreachable |
 | Protected host device/socket/environment material | none found by the named probes |
 | Direct host-canary invocations | `0` |
 | Authenticated final-invoker calls | `1` |
@@ -101,13 +110,15 @@ and final invoker. It does not claim resistance to compromise of those parts.
 
 This slice does not yet establish the complete T2 exit because:
 
-- the broker is composed with a mock protected effect in the live probe, not a
-  daemon provider route under a real C2/authority admission;
+- the real KVM row still uses a host canary/mock effect, while the daemon-route
+  composition row uses a spend-free static provider; neither yet composes the
+  live Akash C2 intent/outcome and wallet-authority path;
 - the owner has not selected the final local backend/TCB for the integrated
   capstone;
-- IPv6, UDP, proxy/tunnel, DNS-exfiltration, package/dependency, inherited-FD,
-  guest/daemon kill-window, and cleanup-obligation campaigns are not yet all
-  present as live rows;
+- dependency confusion, quota/decompression races, guest kill windows, all
+  daemon durable boundaries, and cleanup-obligation campaigns are not yet all
+  present as live rows; package fetch and inherited-FD discovery are present,
+  but do not by themselves close those broader classes;
 - Firecracker and QEMU are enforced by the same pre-launch fields but were not
   exercised by this live row; and
 - the check is intentionally absent from global verifier floors until the
