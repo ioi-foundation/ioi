@@ -54,6 +54,8 @@ mod connector_session_routes;
 mod data_source_routes;
 #[path = "hypervisor_daemon_routes/decentralized_cloud_routes.rs"]
 mod decentralized_cloud_routes;
+#[path = "hypervisor_daemon_routes/device_custody_routes.rs"]
+mod device_custody_routes;
 #[path = "hypervisor_daemon_routes/domain_apps_routes.rs"]
 mod domain_apps_routes;
 #[path = "hypervisor_daemon_routes/download_intent_routes.rs"]
@@ -3832,6 +3834,30 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/auth/bootstrap",
             post(lifecycle_routes::handle_auth_bootstrap),
+        )
+        .route(
+            "/v1/hypervisor/auth/passkeys/register/start",
+            post(device_custody_routes::handle_registration_start),
+        )
+        .route(
+            "/v1/hypervisor/auth/passkeys/register/finish",
+            post(device_custody_routes::handle_registration_finish),
+        )
+        .route(
+            "/v1/hypervisor/auth/passkeys/login/start",
+            post(device_custody_routes::handle_login_start),
+        )
+        .route(
+            "/v1/hypervisor/auth/passkeys/login/finish",
+            post(device_custody_routes::handle_login_finish),
+        )
+        .route(
+            "/v1/hypervisor/auth/passkeys",
+            get(device_custody_routes::handle_passkey_list),
+        )
+        .route(
+            "/v1/hypervisor/auth/passkeys/{credential_ref_id}",
+            delete(device_custody_routes::handle_passkey_revoke),
         )
         .route(
             "/v1/hypervisor/auth/portal-session-exchange",

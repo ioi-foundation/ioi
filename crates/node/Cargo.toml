@@ -73,6 +73,7 @@ rpassword = "7.0"
 atty = "0.2"
 ahash = "0.8"
 parking_lot = "0.12"
+webauthn-rs = { version = "0.5.5", features = ["danger-allow-state-serialisation"] }
 
 # [NEW] Dependencies for Embedded App Host & Agent Binary
 rust-embed = "8.0"

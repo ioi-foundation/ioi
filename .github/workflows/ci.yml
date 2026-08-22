@@ -102,6 +102,11 @@ jobs:
       - name: Test the shipped Hypervisor daemon
         run: cargo test --locked -p ioi-node --bin hypervisor-daemon
 
+      - name: Verify passkey identity remains separate from effect authority
+        run: |
+          npm run check:device-custody-boundary
+          npm run mutate:device-custody-boundary
+
       # A green verifier certifies nothing until a MUTATION proves it red on its own finding. Every
       # anchor is a replayable second-admission path planted in the daemon's own source, with the
       # assertion it must turn red named beside it — and the harness re-derives the population pins

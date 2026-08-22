@@ -228,11 +228,11 @@ const RECORDED_TEST_WRITES = {
  * stops reaching a construct weakens all of them at once without failing any of them.
  */
 const PINNED = {
-  modules: 89,
+  modules: 90,
   familyMentions: 300,
-  tokenMentions: 109194,
+  tokenMentions: 109600,
   judgedTokenPositions: 282,
-  productionWriterCalls: { family: 72, nonFamilyLiteral: 214, runtimeParameter: 293 },
+  productionWriterCalls: { family: 72, nonFamilyLiteral: 221, runtimeParameter: 293 },
   productionFsCalls: 231,
   /**
    * THE NAMES THIS CENSUS CANNOT ADJUDICATE, by cause. Pinned exactly, both directions.
@@ -251,9 +251,9 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 3519,
-    "opaque-initialiser": 1566,
-    "bare-undeclared": 520,
+    "foreign-qualified": 3559,
+    "opaque-initialiser": 1570,
+    "bare-undeclared": 522,
     "ambiguous-module": 0,
     "not-a-visible-const": 0,
     "resolution-cycle": 0,

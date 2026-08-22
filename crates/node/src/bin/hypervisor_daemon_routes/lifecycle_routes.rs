@@ -17217,6 +17217,8 @@ const AUTH_GATE_EXEMPT_PATHS: &[&str] = &[
     "/v1/hypervisor/auth/portal-session-exchange",
     "/v1/hypervisor/auth/oidc/start",
     "/v1/hypervisor/auth/oidc/callback",
+    "/v1/hypervisor/auth/passkeys/login/start",
+    "/v1/hypervisor/auth/passkeys/login/finish",
     "/v1/hypervisor/org-invite/accept",
     "/v1/hypervisor/editor-targets",
     "/v1/hypervisor/cron-preview",
@@ -17344,7 +17346,11 @@ pub(crate) async fn handle_auth_login(
 
 /// Issue a session for a principal (shared by local login + OIDC/SSO callback). Returns the plaintext
 /// session token ONCE.
-fn issue_session(data_dir: &str, principal_id: &str, source: &str) -> (StatusCode, Value) {
+pub(crate) fn issue_session(
+    data_dir: &str,
+    principal_id: &str,
+    source: &str,
+) -> (StatusCode, Value) {
     issue_session_with_context(data_dir, principal_id, source, 7 * 24 * 3600, None)
 }
 
