@@ -67,12 +67,36 @@ function inspect(microvm, brokerSource = broker) {
     "output_quarantine_validation_missing",
   );
   requireText(
+    "commit quarantine stage",
+    "atomic_output_quarantine_commit_missing",
+  );
+  requireText(
+    "host_extract_rejects_duplicate_and_path_type_collisions",
+    "archive_collision_regression_missing",
+  );
+  requireText(
+    "new_quarantine_destination_is_absent_after_late_extractor_failure",
+    "partial_quarantine_failure_regression_missing",
+  );
+  requireText(
     "hostile_guest_floor_refuses_each_planted_bypass_before_launch",
     "planted_bypass_regression_missing",
   );
   requireText(
     "root_guest_cannot_reach_a_host_canary_or_find_protected_material",
     "live_root_guest_probe_missing",
+  );
+  requireText(
+    "arm_monitor_parent_death(&mut cmd);",
+    "monitor_parent_death_cleanup_missing",
+  );
+  requireText(
+    "monitor_is_killed_when_its_daemon_parent_disappears",
+    "monitor_parent_death_regression_missing",
+  );
+  requireText(
+    "killed_guest_monitor_reaches_terminal_cleanup",
+    "guest_crash_cleanup_regression_missing",
   );
   requireText("workload_binding: None", "generic_vm_scope_truth_missing");
   requireText(
@@ -213,7 +237,9 @@ runCargo("workload_effect_boundary::tests");
 runCargo("daemon_kill_after_durable_claim_never_duplicates_provider_effect", [
   "--ignored",
 ]);
+runCargo("monitor_is_killed_when_its_daemon_parent_disappears", ["--ignored"]);
 if (process.argv.includes("--live")) {
+  runCargo("killed_guest_monitor_reaches_terminal_cleanup", ["--ignored"]);
   runCargo("root_guest_cannot_reach_a_host_canary_or_find_protected_material", [
     "--ignored",
   ]);

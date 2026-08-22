@@ -7,12 +7,14 @@
 //! the host checkout is never the workspace and stays untouched. The toolchain (cloud-hypervisor,
 //! guest kernel, initramfs+guest-agent) is pinned + sha256-verified at boot (G2 supply chain):
 //! a checksum mismatch fails closed. Provision it with scripts/phase1/provision-vm-toolchain.sh.
+use std::collections::BTreeMap;
 use std::io::{Read, Write};
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::os::unix::net::UnixStream;
+use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use ioi_services::agentic::runtime::kernel::emergency_containment::{
     admit_guest_transfer_len, UNBOUNDED_GUEST_TRANSFER_GATE,
@@ -219,6 +221,25 @@ pub(crate) struct VmHandle {
 pub(crate) struct ExecOut {
     pub exit_code: i32,
     pub output: String,
+}
+
+/// Make the VMM die if the daemon process that spawned it disappears. The child checks `getppid`
+/// after arming `PR_SET_PDEATHSIG` to close the race where the parent dies between `fork` and
+/// `prctl`. This is a host cleanup primitive, not guest cooperation.
+fn arm_monitor_parent_death(cmd: &mut Command) {
+    unsafe {
+        cmd.pre_exec(|| {
+            if libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGKILL) != 0 {
+                return Err(std::io::Error::last_os_error());
+            }
+            if libc::getppid() == 1 {
+                return Err(std::io::Error::other(
+                    "monitor parent disappeared before parent-death signal was armed",
+                ));
+            }
+            Ok(())
+        });
+    }
 }
 
 /// A byte stream to the guest agent: the CH/Firecracker UDS hybrid, or a direct AF_VSOCK socket
@@ -710,8 +731,8 @@ impl VmMonitor for CloudHypervisorMonitor {
         let log2 = log
             .try_clone()
             .map_err(|e| format!("serial log clone: {e}"))?;
-        let child = Command::new(&spec.monitor_bin)
-            .arg("--kernel")
+        let mut cmd = Command::new(&spec.monitor_bin);
+        cmd.arg("--kernel")
             .arg(&spec.kernel)
             .arg("--initramfs")
             .arg(&spec.initramfs)
@@ -729,7 +750,9 @@ impl VmMonitor for CloudHypervisorMonitor {
             .arg(format!("size={}M", spec.mem_mib.max(256)))
             .stdin(Stdio::null())
             .stdout(Stdio::from(log))
-            .stderr(Stdio::from(log2))
+            .stderr(Stdio::from(log2));
+        arm_monitor_parent_death(&mut cmd);
+        let child = cmd
             .spawn()
             .map_err(|e| format!("spawn cloud-hypervisor: {e}"))?;
         let pid = child.id();
@@ -775,15 +798,15 @@ impl VmMonitor for FirecrackerMonitor {
         let log2 = log
             .try_clone()
             .map_err(|e| format!("serial log clone: {e}"))?;
-        let child = Command::new(&spec.monitor_bin)
-            .arg("--no-api")
+        let mut cmd = Command::new(&spec.monitor_bin);
+        cmd.arg("--no-api")
             .arg("--config-file")
             .arg(&config)
             .stdin(Stdio::null())
             .stdout(Stdio::from(log))
-            .stderr(Stdio::from(log2))
-            .spawn()
-            .map_err(|e| format!("spawn firecracker: {e}"))?;
+            .stderr(Stdio::from(log2));
+        arm_monitor_parent_death(&mut cmd);
+        let child = cmd.spawn().map_err(|e| format!("spawn firecracker: {e}"))?;
         let pid = child.id();
         let mut vm = VmHandle {
             child,
@@ -888,6 +911,7 @@ impl VmMonitor for QemuMonitor {
             .stdin(Stdio::null())
             .stdout(Stdio::from(log))
             .stderr(Stdio::from(log2));
+        arm_monitor_parent_death(&mut cmd);
         let child = cmd.spawn().map_err(|e| format!("spawn qemu: {e}"))?;
         let pid = child.id();
         let mut vm = VmHandle {
@@ -952,9 +976,11 @@ fn tar_path(header: &[u8]) -> Result<PathBuf, String> {
         return Err("tar member has no path".into());
     }
     let path = PathBuf::from(joined);
+    let mut normalized = PathBuf::new();
     for component in path.components() {
         match component {
-            std::path::Component::Normal(_) | std::path::Component::CurDir => {}
+            std::path::Component::Normal(part) => normalized.push(part),
+            std::path::Component::CurDir => {}
             _ => {
                 return Err(format!(
                     "tar member escapes extraction root: {}",
@@ -963,7 +989,16 @@ fn tar_path(header: &[u8]) -> Result<PathBuf, String> {
             }
         }
     }
-    Ok(path)
+    if normalized.as_os_str().is_empty() {
+        if path
+            .components()
+            .all(|component| matches!(component, std::path::Component::CurDir))
+        {
+            return Ok(PathBuf::from("."));
+        }
+        return Err("tar member normalizes to an empty path".into());
+    }
+    Ok(normalized)
 }
 
 /// Validate an archive at the host trust boundary. Only regular files and directories with
@@ -980,6 +1015,7 @@ fn validate_tar_for_host_extract(tar: &[u8]) -> Result<(), String> {
     .map_err(|refusal| format!("{}: {}", refusal.reason, refusal.detail))?;
     let mut offset = 0usize;
     let mut members = 0usize;
+    let mut member_types: BTreeMap<PathBuf, u8> = BTreeMap::new();
     while offset < tar.len() {
         let header = &tar[offset..offset + 512];
         if header.iter().all(|byte| *byte == 0) {
@@ -1000,10 +1036,40 @@ fn validate_tar_for_host_extract(tar: &[u8]) -> Result<(), String> {
                 path.display()
             ));
         }
+        if path == Path::new(".") && kind != b'5' {
+            return Err("tar root marker must be a directory".into());
+        }
         let size = parse_tar_octal(&header[124..136])?;
         if kind == b'5' && size != 0 {
             return Err(format!("tar directory carries payload: {}", path.display()));
         }
+        if member_types.contains_key(&path) {
+            return Err(format!("tar contains duplicate member: {}", path.display()));
+        }
+        let mut ancestor = path.parent();
+        while let Some(parent) = ancestor.filter(|parent| !parent.as_os_str().is_empty()) {
+            if member_types
+                .get(parent)
+                .is_some_and(|parent_kind| *parent_kind != b'5')
+            {
+                return Err(format!(
+                    "tar member is nested below a non-directory: {}",
+                    path.display()
+                ));
+            }
+            ancestor = parent.parent();
+        }
+        if kind != b'5'
+            && member_types
+                .keys()
+                .any(|existing| existing != &path && existing.starts_with(&path))
+        {
+            return Err(format!(
+                "tar non-directory collides with an existing descendant: {}",
+                path.display()
+            ));
+        }
+        member_types.insert(path.clone(), kind);
         let padded = size
             .checked_add(511)
             .ok_or_else(|| "tar member size overflow".to_string())?
@@ -1021,10 +1087,7 @@ fn validate_tar_for_host_extract(tar: &[u8]) -> Result<(), String> {
     Ok(())
 }
 
-/// Extract a validated tar into a host directory.
-pub(crate) fn untar_into(dir: &Path, tar: &[u8]) -> Result<(), String> {
-    validate_tar_for_host_extract(tar)?;
-    std::fs::create_dir_all(dir).map_err(|e| format!("mkdir: {e}"))?;
+fn extract_validated_tar_into_existing(dir: &Path, tar: &[u8]) -> Result<(), String> {
     let mut child = Command::new("tar")
         .arg("-xf")
         .arg("-")
@@ -1050,6 +1113,50 @@ pub(crate) fn untar_into(dir: &Path, tar: &[u8]) -> Result<(), String> {
     Ok(())
 }
 
+/// Extract a validated tar. A new destination is populated in a private sibling stage and renamed
+/// only after complete extraction, so a late extractor failure cannot expose partial quarantine
+/// output. Existing destinations retain the legacy merge behavior used only by explicitly gated
+/// workspace restoration callers.
+pub(crate) fn untar_into(dir: &Path, tar: &[u8]) -> Result<(), String> {
+    validate_tar_for_host_extract(tar)?;
+    if dir.exists() {
+        let metadata = std::fs::symlink_metadata(dir).map_err(|e| format!("stat: {e}"))?;
+        if !metadata.file_type().is_dir() || metadata.file_type().is_symlink() {
+            return Err("tar extraction destination is not a real directory".into());
+        }
+        return extract_validated_tar_into_existing(dir, tar);
+    }
+    let parent = dir
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .ok_or("tar extraction destination has no parent")?;
+    std::fs::create_dir_all(parent).map_err(|e| format!("mkdir parent: {e}"))?;
+    let leaf = dir
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or("tar extraction destination name is invalid")?;
+    let staging = parent.join(format!(
+        ".ioi-quarantine-{leaf}-{}-{}",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(|e| format!("quarantine stage clock: {e}"))?
+            .as_nanos()
+    ));
+    std::fs::create_dir(&staging).map_err(|e| format!("create quarantine stage: {e}"))?;
+    std::fs::set_permissions(&staging, std::fs::Permissions::from_mode(0o700))
+        .map_err(|e| format!("restrict quarantine stage: {e}"))?;
+    if let Err(error) = extract_validated_tar_into_existing(&staging, tar) {
+        let _ = std::fs::remove_dir_all(&staging);
+        return Err(error);
+    }
+    if let Err(error) = std::fs::rename(&staging, dir) {
+        let _ = std::fs::remove_dir_all(&staging);
+        return Err(format!("commit quarantine stage: {error}"));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1062,6 +1169,16 @@ mod tests {
         archive[156] = kind;
         let encoded = format!("{size:011o}\0");
         archive[124..136].copy_from_slice(encoded.as_bytes());
+        archive
+    }
+
+    fn archive_with_two_members(first: (&str, u8), second: (&str, u8)) -> Vec<u8> {
+        let mut archive = vec![0u8; 2048];
+        for (offset, (name, kind)) in [(0usize, first), (512usize, second)] {
+            archive[offset..offset + name.len()].copy_from_slice(name.as_bytes());
+            archive[offset + 156] = kind;
+            archive[offset + 124..offset + 136].copy_from_slice(b"00000000000\0");
+        }
         archive
     }
 
@@ -1101,6 +1218,38 @@ mod tests {
         let mut trailing = archive_with("./safe", b'0', 0);
         *trailing.last_mut().expect("archive has end block") = 1;
         assert!(validate_tar_for_host_extract(&trailing).is_err());
+    }
+
+    #[test]
+    fn host_extract_rejects_duplicate_and_path_type_collisions() {
+        assert!(validate_tar_for_host_extract(&archive_with_two_members(
+            ("./same", b'0'),
+            ("same", b'0')
+        ))
+        .is_err());
+        assert!(validate_tar_for_host_extract(&archive_with_two_members(
+            ("./parent", b'0'),
+            ("./parent/child", b'0')
+        ))
+        .is_err());
+        assert!(validate_tar_for_host_extract(&archive_with_two_members(
+            ("./parent/child", b'0'),
+            ("./parent", b'0')
+        ))
+        .is_err());
+    }
+
+    #[test]
+    fn new_quarantine_destination_is_absent_after_late_extractor_failure() {
+        let dir = tempfile::tempdir().unwrap();
+        let destination = dir.path().join("quarantine");
+        let invalid_checksum = archive_with("./payload", b'0', 0);
+        assert!(untar_into(&destination, &invalid_checksum).is_err());
+        assert!(
+            !destination.exists(),
+            "partial quarantine became visible after extractor failure"
+        );
+        assert!(std::fs::read_dir(dir.path()).unwrap().next().is_none());
     }
 
     fn test_spec() -> VmSpec {
@@ -1153,6 +1302,100 @@ mod tests {
         assert_eq!(
             socket.enforce_hostile_guest_floor().unwrap_err(),
             "workload_boundary_host_control_socket_refused"
+        );
+    }
+
+    #[test]
+    #[ignore = "spawns and SIGKILLs a parent process to verify monitor parent-death cleanup"]
+    fn monitor_is_killed_when_its_daemon_parent_disappears() {
+        const CHILD_ENV: &str = "IOI_T2_PARENT_DEATH_CHILD";
+        const PID_PATH_ENV: &str = "IOI_T2_PARENT_DEATH_PID_PATH";
+
+        if std::env::var(CHILD_ENV).ok().as_deref() == Some("1") {
+            let pid_path = std::env::var(PID_PATH_ENV).unwrap();
+            let mut monitor = Command::new("/bin/sleep");
+            monitor.arg("60");
+            arm_monitor_parent_death(&mut monitor);
+            let child = monitor.spawn().unwrap();
+            std::fs::write(pid_path, child.id().to_string()).unwrap();
+            loop {
+                std::thread::park_timeout(Duration::from_secs(60));
+            }
+        }
+
+        let dir = tempfile::tempdir().unwrap();
+        let pid_path = dir.path().join("monitor.pid");
+        let current_exe = std::env::current_exe().unwrap();
+        let mut daemon = Command::new(current_exe)
+            .arg("--exact")
+            .arg("microvm::tests::monitor_is_killed_when_its_daemon_parent_disappears")
+            .arg("--ignored")
+            .arg("--nocapture")
+            .env(CHILD_ENV, "1")
+            .env(PID_PATH_ENV, &pid_path)
+            .spawn()
+            .unwrap();
+        let ready_deadline = Instant::now() + Duration::from_secs(10);
+        while !pid_path.exists() && Instant::now() < ready_deadline {
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        assert!(pid_path.exists(), "child daemon never spawned its monitor");
+        let monitor_pid: i32 = std::fs::read_to_string(&pid_path)
+            .unwrap()
+            .trim()
+            .parse()
+            .unwrap();
+
+        daemon.kill().unwrap();
+        let daemon_status = daemon.wait().unwrap();
+        assert!(!daemon_status.success());
+        let death_deadline = Instant::now() + Duration::from_secs(10);
+        loop {
+            let alive = unsafe { libc::kill(monitor_pid, 0) } == 0;
+            if !alive {
+                break;
+            }
+            assert!(
+                Instant::now() < death_deadline,
+                "monitor {monitor_pid} survived its daemon parent"
+            );
+            std::thread::sleep(Duration::from_millis(20));
+        }
+    }
+
+    #[test]
+    #[ignore = "requires /dev/kvm and the checksum-pinned ~/.ioi/vm-toolchain"]
+    fn killed_guest_monitor_reaches_terminal_cleanup() {
+        let home = std::env::var("HOME").expect("HOME selects the local pinned toolchain");
+        let run = tempfile::tempdir().expect("probe run dir");
+        let mut spec = build_vm_spec(
+            &home,
+            "cloud-hypervisor",
+            run.path().join("vm-crash"),
+            1,
+            384,
+        )
+        .expect("verified VM spec");
+        spec.bind_workload(
+            "workrun://t2-guest-crash",
+            "workload-isolation-binding://t2-guest-crash",
+            "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "principal://hostile-root-guest",
+        )
+        .unwrap();
+        spec.sock_path = short_sock_path(&format!("t2-crash-{}", std::process::id())).unwrap();
+        let monitor = CloudHypervisorMonitor;
+        let mut vm = monitor.start(&spec).expect("real KVM guest boot");
+        let uds = vm.uds.clone();
+        assert!(uds.exists());
+        vm.child.kill().expect("inject monitor/guest crash");
+        let _ = vm.child.wait();
+        monitor.stop(&mut vm).expect("idempotent crash cleanup");
+        assert!(vm.child.try_wait().unwrap().is_some());
+        assert!(!uds.exists(), "host-side guest channel survived cleanup");
+        assert!(
+            vm.serial_log.exists(),
+            "forensic serial evidence should remain in the private run directory"
         );
     }
 

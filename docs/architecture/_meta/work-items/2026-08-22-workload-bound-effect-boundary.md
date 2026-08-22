@@ -29,7 +29,10 @@ non-possession, production non-bypassability, or a complete T2 exit.
 - Workspace ingress and egress remain length bounded. Guest output enters a
   quarantine archive parser accepting relative regular files/directories only;
   traversal, symlink, hardlink, FIFO, device, truncated, extended, over-count,
-  and over-size shapes refuse.
+  over-size, duplicate, and file/directory collision shapes refuse. A new
+  quarantine destination is extracted into a private sibling stage and renamed
+  only after complete extraction; a late extractor failure leaves neither the
+  destination nor a staging residue.
 - The guest-visible capability is an opaque bearer bound to one canonical
   request, isolation binding, principal, proposal nonce, audience, resource,
   result destination, and expiry. Persistent state retains its hash, not the
@@ -42,6 +45,12 @@ non-possession, production non-bypassability, or a complete T2 exit.
 - A subprocess fault test reaches that durable claim, writes its coordination
   marker, is SIGKILLed, and proves on restart that the provider-operation count
   remains zero while the capability becomes `reconciliation_required`.
+- Every VMM command arms Linux `PR_SET_PDEATHSIG(SIGKILL)` and closes the
+  fork/arm race with a parent check. A killed-parent subprocess regression
+  proves the monitor does not outlive the daemon process that owns it.
+- A real KVM crash row kills the running VMM/guest and proves idempotent cleanup
+  reaches a terminal child state, removes the host-side channel socket, and
+  retains the private serial log as forensic evidence.
 - The broker contains no provider client, provider credential resolver, wallet
   signer, C2 writer, or secret-unsealing path.
 - The canonical guest proposal can enter the same static-provider final-invoker
@@ -115,8 +124,8 @@ This slice does not yet establish the complete T2 exit because:
   live Akash C2 intent/outcome and wallet-authority path;
 - the owner has not selected the final local backend/TCB for the integrated
   capstone;
-- dependency confusion, quota/decompression races, guest kill windows, all
-  daemon durable boundaries, and cleanup-obligation campaigns are not yet all
+- dependency confusion, quota/decompression races, all daemon durable
+  boundaries, and the full cleanup-obligation campaign are not yet all
   present as live rows; package fetch and inherited-FD discovery are present,
   but do not by themselves close those broader classes;
 - Firecracker and QEMU are enforced by the same pre-launch fields but were not
