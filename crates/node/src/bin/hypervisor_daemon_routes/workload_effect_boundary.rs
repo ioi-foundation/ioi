@@ -11,6 +11,7 @@ use std::sync::Mutex;
 
 use ioi_types::app::generated::architecture_contracts::{
     HypervisorWorkloadBoundEffectProposalV1, HypervisorWorkloadEffectConsumptionReceiptV1,
+    HypervisorWorkloadEffectReconciliationReceiptV1,
 };
 use rand::{rngs::OsRng, RngCore};
 use serde_json::{json, Value};
@@ -161,17 +162,58 @@ pub(crate) fn mint_guest_effect_capability(
     Ok(proposal)
 }
 
-fn record_id(proposal: &Value) -> Result<&str, String> {
-    required_text(proposal, "capability_ref")?
+fn record_id_from_capability_ref(capability_ref: &str) -> Result<&str, String> {
+    capability_ref
         .strip_prefix("workload-effect-capability://")
         .filter(|id| id.starts_with("wec_") && id.len() == 36)
         .ok_or_else(|| "workload_effect_capability_ref_invalid".into())
+}
+
+fn record_id(proposal: &Value) -> Result<&str, String> {
+    record_id_from_capability_ref(required_text(proposal, "capability_ref")?)
 }
 
 fn load(data_dir: &str, id: &str) -> Result<Value, String> {
     super::durable_fs::read_record_durable(data_dir, FAMILY, id)
         .map_err(|error| format!("workload_effect_capability_read_refused: {error:?}"))?
         .ok_or_else(|| "workload_effect_capability_absent".into())
+}
+
+fn parse_canonical_proposal_bytes(proposal_bytes: &[u8]) -> Result<Value, String> {
+    if proposal_bytes.len() > MAX_PROPOSAL_BYTES {
+        return Err("workload_effect_proposal_oversized".into());
+    }
+    let proposal: Value = serde_json::from_slice(proposal_bytes)
+        .map_err(|error| format!("workload_effect_proposal_json_invalid: {error}"))?;
+    let canonical = serde_jcs::to_vec(&proposal)
+        .map_err(|error| format!("workload_effect_proposal_not_canonicalizable: {error}"))?;
+    if !constant_time_eq(proposal_bytes, &canonical) {
+        return Err("workload_effect_proposal_noncanonical".into());
+    }
+    Ok(proposal)
+}
+
+fn static_provider_coordinates(proposal: &Value) -> Result<(&Value, &str, &str), String> {
+    let request = proposal
+        .get("exact_request")
+        .ok_or("workload_effect_exact_request_required")?;
+    let provider_id = required_text(request, "provider_id")?;
+    let environment_ref = required_text(request, "environment_ref")?;
+    let expected_resource = format!("provider-resource://{provider_id}/{environment_ref}");
+    if required_text(proposal, "resource_ref")? != expected_resource {
+        return Err("workload_effect_provider_resource_binding_mismatch".into());
+    }
+    Ok((request, provider_id, environment_ref))
+}
+
+fn provider_operation_count(data_dir: &str, provider_id: &str, environment_ref: &str) -> u64 {
+    super::read_record_dir(data_dir, "provider-operations")
+        .into_iter()
+        .filter(|record| {
+            record.get("provider").and_then(Value::as_str) == Some(provider_id)
+                && record.get("environment_ref").and_then(Value::as_str) == Some(environment_ref)
+        })
+        .count() as u64
 }
 
 fn proposal_matches_record(proposal: &Value, record: &Value) -> Result<(), String> {
@@ -297,16 +339,7 @@ pub(crate) fn consume_guest_effect_proposal_bytes<F>(
 where
     F: FnOnce(&Value) -> Result<Value, String>,
 {
-    if proposal_bytes.len() > MAX_PROPOSAL_BYTES {
-        return Err("workload_effect_proposal_oversized".into());
-    }
-    let proposal: Value = serde_json::from_slice(proposal_bytes)
-        .map_err(|error| format!("workload_effect_proposal_json_invalid: {error}"))?;
-    let canonical = serde_jcs::to_vec(&proposal)
-        .map_err(|error| format!("workload_effect_proposal_not_canonicalizable: {error}"))?;
-    if !constant_time_eq(proposal_bytes, &canonical) {
-        return Err("workload_effect_proposal_noncanonical".into());
-    }
+    let proposal = parse_canonical_proposal_bytes(proposal_bytes)?;
     consume_guest_effect_capability(data_dir, &proposal, now_ms, final_invoker)
 }
 
@@ -318,26 +351,8 @@ pub(crate) fn consume_guest_static_provider_operation_bytes(
     proposal_bytes: &[u8],
     now_ms: u64,
 ) -> Result<Value, String> {
-    if proposal_bytes.len() > MAX_PROPOSAL_BYTES {
-        return Err("workload_effect_proposal_oversized".into());
-    }
-    let proposal: Value = serde_json::from_slice(proposal_bytes)
-        .map_err(|error| format!("workload_effect_proposal_json_invalid: {error}"))?;
-    let canonical = serde_jcs::to_vec(&proposal)
-        .map_err(|error| format!("workload_effect_proposal_not_canonicalizable: {error}"))?;
-    if !constant_time_eq(proposal_bytes, &canonical) {
-        return Err("workload_effect_proposal_noncanonical".into());
-    }
-
-    let request = proposal
-        .get("exact_request")
-        .ok_or("workload_effect_exact_request_required")?;
-    let provider_id = required_text(request, "provider_id")?;
-    let environment_ref = required_text(request, "environment_ref")?;
-    let expected_resource = format!("provider-resource://{provider_id}/{environment_ref}");
-    if required_text(&proposal, "resource_ref")? != expected_resource {
-        return Err("workload_effect_provider_resource_binding_mismatch".into());
-    }
+    let proposal = parse_canonical_proposal_bytes(proposal_bytes)?;
+    static_provider_coordinates(&proposal)?;
 
     consume_guest_effect_capability(data_dir, &proposal, now_ms, |exact_request| {
         let (status, axum::Json(reply)) =
@@ -353,6 +368,130 @@ pub(crate) fn consume_guest_static_provider_operation_bytes(
         }
         Ok(reply)
     })
+}
+
+/// Resolve an ambiguous durable claim without replaying its original effect. The reconciler first
+/// observes the exact provider/environment bound into the capability. An absent resource closes as
+/// `reconciled_no_effect`; an observed resource is deleted and must return positive cleanup truth.
+/// The observation and optional cleanup are ordinary provider operations and are counted exactly.
+pub(crate) fn reconcile_guest_static_provider_operation(
+    data_dir: &str,
+    capability_ref: &str,
+    now_ms: u64,
+) -> Result<Value, String> {
+    let _guard = CONSUMPTION_LOCK
+        .lock()
+        .map_err(|_| "workload_effect_consumption_lock_poisoned".to_string())?;
+    let id = record_id_from_capability_ref(capability_ref)?;
+    let mut record = load(data_dir, id)?;
+    if record.get("capability_ref").and_then(Value::as_str) != Some(capability_ref) {
+        return Err("workload_effect_capability_ref_substitution_refused".into());
+    }
+    let (request, provider_id, environment_ref) = static_provider_coordinates(&record)?;
+    if required_text(request, "op")? != "create" {
+        return Err("workload_effect_reconciliation_operation_unsupported".into());
+    }
+    let provider_id = provider_id.to_string();
+    let environment_ref = environment_ref.to_string();
+    let prior_status = record["status"].as_str().unwrap_or_default().to_string();
+    if !matches!(prior_status.as_str(), "claimed" | "reconciliation_required") {
+        return Err("workload_effect_reconciliation_not_required".into());
+    }
+    if prior_status == "claimed" {
+        record["status"] = json!("reconciliation_required");
+        record["reconciliation_reason"] = json!("prior_process_lost_after_durable_claim");
+        persist(data_dir, id, &record)?;
+    }
+
+    let provider_operations_before =
+        provider_operation_count(data_dir, &provider_id, &environment_ref);
+    let observe_request = json!({
+        "provider_id": provider_id,
+        "op": "observe",
+        "environment_ref": environment_ref,
+    });
+    let (observe_status, axum::Json(observe_reply)) =
+        super::provider_routes::invoke_static_provider_operation(data_dir, &observe_request);
+    if !observe_status.is_success()
+        || observe_reply.get("ok").and_then(Value::as_bool) != Some(true)
+    {
+        return Err("workload_effect_reconciliation_observe_refused".into());
+    }
+    let observed_phase = observe_reply
+        .pointer("/evidence/phase")
+        .and_then(Value::as_str)
+        .ok_or("workload_effect_reconciliation_phase_missing")?
+        .to_string();
+
+    let (disposition, status, invoker_calls, reconciliation_evidence) =
+        if observed_phase == "absent" {
+            (
+                "no_effect_observed",
+                "reconciled_no_effect",
+                1_u64,
+                json!({ "observation": observe_reply }),
+            )
+        } else {
+            let delete_request = json!({
+                "provider_id": provider_id,
+                "op": "delete",
+                "environment_ref": environment_ref,
+            });
+            let (delete_status, axum::Json(delete_reply)) =
+                super::provider_routes::invoke_static_provider_operation(data_dir, &delete_request);
+            if !delete_status.is_success()
+                || delete_reply.get("ok").and_then(Value::as_bool) != Some(true)
+                || delete_reply
+                    .pointer("/evidence/cleanup_verified")
+                    .and_then(Value::as_bool)
+                    != Some(true)
+            {
+                return Err("workload_effect_reconciliation_cleanup_unverified".into());
+            }
+            (
+                "cleanup_succeeded",
+                "reconciled_cleanup_succeeded",
+                2_u64,
+                json!({ "observation": observe_reply, "cleanup": delete_reply }),
+            )
+        };
+
+    let provider_operations_after =
+        provider_operation_count(data_dir, &provider_id, &environment_ref);
+    if provider_operations_after != provider_operations_before.saturating_add(invoker_calls) {
+        return Err("workload_effect_reconciliation_operation_count_mismatch".into());
+    }
+    let reconciliation_evidence_hash = canonical_hash(&reconciliation_evidence)?;
+    let receipt = json!({
+        "schema_version": "ioi.components.hypervisor.workload-effect-reconciliation-receipt.v1",
+        "capability_ref": record["capability_ref"],
+        "isolation_binding_ref": record["isolation_binding_ref"],
+        "principal_ref": record["principal_ref"],
+        "request_hash": record["request_hash"],
+        "prior_status": prior_status,
+        "disposition": disposition,
+        "observed_phase": observed_phase,
+        "cleanup_verified": true,
+        "original_effect_reinvoked": false,
+        "reconciliation_invoker_calls": invoker_calls,
+        "provider_operations_before": provider_operations_before,
+        "provider_operations_after": provider_operations_after,
+        "reconciliation_evidence_hash": reconciliation_evidence_hash,
+        "status": status,
+    });
+    serde_json::from_value::<HypervisorWorkloadEffectReconciliationReceiptV1>(receipt.clone())
+        .map_err(|error| {
+            format!("workload_effect_reconciliation_receipt_contract_invalid: {error}")
+        })?;
+    record["status"] = json!(status);
+    record["original_effect_reinvoked"] = json!(false);
+    record["reconciliation_invoker_calls"] = json!(invoker_calls);
+    record["provider_operations_before_reconciliation"] = json!(provider_operations_before);
+    record["provider_operations_after_reconciliation"] = json!(provider_operations_after);
+    record["reconciliation_evidence_hash"] = json!(reconciliation_evidence_hash);
+    record["reconciled_at_ms"] = json!(now_ms);
+    persist(data_dir, id, &record)?;
+    Ok(receipt)
 }
 
 #[cfg(test)]
@@ -473,6 +612,143 @@ mod tests {
             load(dir.path().to_str().unwrap(), id).unwrap()["status"],
             "reconciliation_required"
         );
+    }
+
+    #[test]
+    fn reconciliation_proves_no_effect_without_reinvoking_the_original() {
+        let dir = fixture();
+        let data_dir = dir.path().to_str().unwrap();
+        let environment_ref = "env-t2-reconcile-absent";
+        let request = json!({
+            "provider_id": "loopback-runner",
+            "op": "create",
+            "environment_ref": environment_ref,
+            "plan": {}
+        });
+        let proposal = mint_guest_effect_capability(
+            data_dir,
+            "workload-isolation-binding://run-reconcile-absent",
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "principal://worker-reconcile-absent",
+            "nonce-reconcile-absent",
+            "hypervisor-final-invoker",
+            &format!("provider-resource://loopback-runner/{environment_ref}"),
+            "result-destination://aft/u1",
+            &request,
+            1_000,
+            61_000,
+        )
+        .unwrap();
+        let id = record_id(&proposal).unwrap();
+        let mut record = load(data_dir, id).unwrap();
+        record["status"] = json!("claimed");
+        persist(data_dir, id, &record).unwrap();
+        let receipt = reconcile_guest_static_provider_operation(
+            data_dir,
+            proposal["capability_ref"].as_str().unwrap(),
+            62_000,
+        )
+        .unwrap();
+        assert_eq!(receipt["prior_status"], "claimed");
+        assert_eq!(receipt["disposition"], "no_effect_observed");
+        assert_eq!(receipt["status"], "reconciled_no_effect");
+        assert_eq!(receipt["original_effect_reinvoked"], false);
+        assert_eq!(receipt["reconciliation_invoker_calls"], 1);
+        assert_eq!(receipt["provider_operations_before"], 0);
+        assert_eq!(receipt["provider_operations_after"], 1);
+        let operations = super::super::read_record_dir(data_dir, "provider-operations");
+        assert_eq!(operations.len(), 1);
+        assert_eq!(operations[0]["op"], "observe");
+        assert!(!dir
+            .path()
+            .join("providers/loopback")
+            .join(environment_ref)
+            .exists());
+        assert_eq!(
+            reconcile_guest_static_provider_operation(
+                data_dir,
+                proposal["capability_ref"].as_str().unwrap(),
+                63_000,
+            )
+            .unwrap_err(),
+            "workload_effect_reconciliation_not_required"
+        );
+    }
+
+    #[test]
+    fn reconciliation_observes_and_cleans_an_effect_without_duplicate_create() {
+        let dir = fixture();
+        let data_dir = dir.path().to_str().unwrap();
+        let environment_ref = "env-t2-reconcile-created";
+        let request = json!({
+            "provider_id": "loopback-runner",
+            "op": "create",
+            "environment_ref": environment_ref,
+            "plan": {}
+        });
+        let proposal = mint_guest_effect_capability(
+            data_dir,
+            "workload-isolation-binding://run-reconcile-created",
+            "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "principal://worker-reconcile-created",
+            "nonce-reconcile-created",
+            "hypervisor-final-invoker",
+            &format!("provider-resource://loopback-runner/{environment_ref}"),
+            "result-destination://aft/u1",
+            &request,
+            1_000,
+            61_000,
+        )
+        .unwrap();
+        let id = record_id(&proposal).unwrap();
+        let mut record = load(data_dir, id).unwrap();
+        record["status"] = json!("reconciliation_required");
+        persist(data_dir, id, &record).unwrap();
+        let (status, axum::Json(created)) =
+            super::super::provider_routes::invoke_static_provider_operation(data_dir, &request);
+        assert!(status.is_success());
+        assert_eq!(created["ok"], true);
+        let receipt = reconcile_guest_static_provider_operation(
+            data_dir,
+            proposal["capability_ref"].as_str().unwrap(),
+            2_000,
+        )
+        .unwrap();
+        assert_eq!(receipt["prior_status"], "reconciliation_required");
+        assert_eq!(receipt["disposition"], "cleanup_succeeded");
+        assert_eq!(receipt["observed_phase"], "created");
+        assert_eq!(receipt["status"], "reconciled_cleanup_succeeded");
+        assert_eq!(receipt["original_effect_reinvoked"], false);
+        assert_eq!(receipt["reconciliation_invoker_calls"], 2);
+        assert_eq!(receipt["provider_operations_before"], 1);
+        assert_eq!(receipt["provider_operations_after"], 3);
+        let operations = super::super::read_record_dir(data_dir, "provider-operations");
+        assert_eq!(
+            operations
+                .iter()
+                .filter(|operation| operation["op"] == "create")
+                .count(),
+            1
+        );
+        assert_eq!(
+            operations
+                .iter()
+                .filter(|operation| operation["op"] == "observe")
+                .count(),
+            1
+        );
+        assert_eq!(
+            operations
+                .iter()
+                .filter(|operation| operation["op"] == "delete")
+                .count(),
+            1
+        );
+        assert!(!dir
+            .path()
+            .join("providers/loopback")
+            .join(environment_ref)
+            .exists());
     }
 
     #[test]
@@ -676,5 +952,19 @@ mod tests {
             .join("provider-loopback-runner")
             .join(environment_ref)
             .exists());
+
+        let receipt = reconcile_guest_static_provider_operation(
+            data_dir,
+            proposal["capability_ref"].as_str().unwrap(),
+            4_000,
+        )
+        .unwrap();
+        assert_eq!(receipt["disposition"], "no_effect_observed");
+        assert_eq!(receipt["status"], "reconciled_no_effect");
+        assert_eq!(receipt["original_effect_reinvoked"], false);
+        assert_eq!(receipt["reconciliation_invoker_calls"], 1);
+        let operations = super::super::read_record_dir(data_dir, "provider-operations");
+        assert_eq!(operations.len(), 1);
+        assert_eq!(operations[0]["op"], "observe");
     }
 }

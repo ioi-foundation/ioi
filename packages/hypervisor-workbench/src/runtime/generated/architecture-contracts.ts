@@ -2695,6 +2695,24 @@ export type HypervisorWorkloadEffectConsumptionReceiptV1 = {
   status: "consumed";
 };
 
+export type HypervisorWorkloadEffectReconciliationReceiptV1 = {
+  schema_version: "ioi.components.hypervisor.workload-effect-reconciliation-receipt.v1";
+  capability_ref: string;
+  isolation_binding_ref: string;
+  principal_ref: string;
+  request_hash: string;
+  prior_status: "claimed" | "reconciliation_required";
+  disposition: "no_effect_observed" | "cleanup_succeeded";
+  observed_phase: string;
+  cleanup_verified: boolean;
+  original_effect_reinvoked: false;
+  reconciliation_invoker_calls: number;
+  provider_operations_before: number;
+  provider_operations_after: number;
+  reconciliation_evidence_hash: string;
+  status: "reconciled_no_effect" | "reconciled_cleanup_succeeded";
+};
+
 export type HypervisorWorkloadIsolationBindingV1 = {
   schema_version: "ioi.components.hypervisor.workload-isolation-binding.v1";
   binding_ref: string;
@@ -10052,6 +10070,38 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
   {
     "contract_id": "schema://ioi/components/hypervisor/workload-effect-consumption-receipt/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-consumption-receipt-v1/negative-two-invocations.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/workload-effect-reconciliation-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/positive-cleanup.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/workload-effect-reconciliation-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/positive-no-effect.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/workload-effect-reconciliation-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/negative-reinvoked-original.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/workload-effect-reconciliation-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/negative-cleanup-count.json",
     "expected": "reject",
     "expected_schema_accept": false,
     "expected_failure": "schema",
@@ -17481,6 +17531,34 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/positive-cleanup.json",
+    "contract_id": "schema://ioi/components/hypervisor/workload-effect-reconciliation-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/positive-cleanup.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/positive-no-effect.json",
+    "contract_id": "schema://ioi/components/hypervisor/workload-effect-reconciliation-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/positive-no-effect.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/negative-reinvoked-original.json",
+    "contract_id": "schema://ioi/components/hypervisor/workload-effect-reconciliation-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/negative-reinvoked-original.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/negative-cleanup-count.json",
+    "contract_id": "schema://ioi/components/hypervisor/workload-effect-reconciliation-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/negative-cleanup-count.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-binding-v1/positive-bound.json",
     "contract_id": "schema://ioi/components/hypervisor/workload-isolation-binding/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-binding-v1/positive-bound.json",
@@ -21267,6 +21345,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/hypervisor/vm-enforcement-declaration/v1": "sha256:e6d7d16368856bbf8a0e293e6e0deb37b19503a91bb0af0da987485f293a141b",
   "schema://ioi/components/hypervisor/workload-bound-effect-proposal/v1": "sha256:685d5e20bd8ed0cb2a8a0075ffd8d52b906f0147f75612a4127c42dff31b7e08",
   "schema://ioi/components/hypervisor/workload-effect-consumption-receipt/v1": "sha256:4e2e07cb0e983869398a59984b6fc567009d451dfaa786b8b3adfcd887b16d86",
+  "schema://ioi/components/hypervisor/workload-effect-reconciliation-receipt/v1": "sha256:723f357a24bf30049898e3f165fdf6d900cab0c96b2ca045001db290cdac7955",
   "schema://ioi/components/hypervisor/workload-isolation-binding/v1": "sha256:57099f54fe5e9de26028f4910be956ee4f3ce585a67698b68d0bcc1e31371899",
   "schema://ioi/components/hypervisor/workload-isolation-requirements/v1": "sha256:718d9c35d0e969108feb391bb83e0a1b8029f24e0cb2272de15b3fb261a64fd1",
   "schema://ioi/foundations/active-skill-set-snapshot/v1": "sha256:c62f6d794bf48172de77fa72cb71ea86dd1ed07944abf70d92aa8e82a97f87d6",
@@ -42215,6 +42294,161 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "const": "consumed"
       }
     },
+    "$defs": {
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+      },
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/workload-effect-reconciliation-receipt/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/workload-effect-reconciliation-receipt/v1",
+    "title": "HypervisorWorkloadEffectReconciliationReceipt",
+    "x-ioi-schema-version": "ioi.components.hypervisor.workload-effect-reconciliation-receipt.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "capability_ref",
+      "isolation_binding_ref",
+      "principal_ref",
+      "request_hash",
+      "prior_status",
+      "disposition",
+      "observed_phase",
+      "cleanup_verified",
+      "original_effect_reinvoked",
+      "reconciliation_invoker_calls",
+      "provider_operations_before",
+      "provider_operations_after",
+      "reconciliation_evidence_hash",
+      "status"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.components.hypervisor.workload-effect-reconciliation-receipt.v1"
+      },
+      "capability_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "isolation_binding_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "principal_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "request_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "prior_status": {
+        "enum": [
+          "claimed",
+          "reconciliation_required"
+        ]
+      },
+      "disposition": {
+        "enum": [
+          "no_effect_observed",
+          "cleanup_succeeded"
+        ]
+      },
+      "observed_phase": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "cleanup_verified": {
+        "type": "boolean"
+      },
+      "original_effect_reinvoked": {
+        "const": false
+      },
+      "reconciliation_invoker_calls": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 2
+      },
+      "provider_operations_before": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "provider_operations_after": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "reconciliation_evidence_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "status": {
+        "enum": [
+          "reconciled_no_effect",
+          "reconciled_cleanup_succeeded"
+        ]
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "disposition": {
+              "const": "no_effect_observed"
+            }
+          },
+          "required": [
+            "disposition"
+          ]
+        },
+        "then": {
+          "properties": {
+            "cleanup_verified": {
+              "const": true
+            },
+            "reconciliation_invoker_calls": {
+              "enum": [
+                1
+              ]
+            },
+            "status": {
+              "const": "reconciled_no_effect"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "disposition": {
+              "const": "cleanup_succeeded"
+            }
+          },
+          "required": [
+            "disposition"
+          ]
+        },
+        "then": {
+          "properties": {
+            "cleanup_verified": {
+              "const": true
+            },
+            "reconciliation_invoker_calls": {
+              "enum": [
+                2
+              ]
+            },
+            "status": {
+              "const": "reconciled_cleanup_succeeded"
+            }
+          }
+        }
+      }
+    ],
     "$defs": {
       "ref": {
         "type": "string",
@@ -79959,6 +80193,7 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
   "schema://ioi/components/hypervisor/vm-enforcement-declaration/v1": [],
   "schema://ioi/components/hypervisor/workload-bound-effect-proposal/v1": [],
   "schema://ioi/components/hypervisor/workload-effect-consumption-receipt/v1": [],
+  "schema://ioi/components/hypervisor/workload-effect-reconciliation-receipt/v1": [],
   "schema://ioi/components/hypervisor/workload-isolation-binding/v1": [],
   "schema://ioi/components/hypervisor/workload-isolation-requirements/v1": [],
   "schema://ioi/foundations/active-skill-set-snapshot/v1": [],
@@ -87111,6 +87346,12 @@ export function validateHypervisorWorkloadEffectConsumptionReceiptV1(
   value: unknown,
 ): value is HypervisorWorkloadEffectConsumptionReceiptV1 {
   return validateArchitectureContract("schema://ioi/components/hypervisor/workload-effect-consumption-receipt/v1", value).ok;
+}
+
+export function validateHypervisorWorkloadEffectReconciliationReceiptV1(
+  value: unknown,
+): value is HypervisorWorkloadEffectReconciliationReceiptV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/workload-effect-reconciliation-receipt/v1", value).ok;
 }
 
 export function validateHypervisorWorkloadIsolationBindingV1(

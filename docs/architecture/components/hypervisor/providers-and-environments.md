@@ -1369,6 +1369,20 @@ an ambiguous claim becomes `reconciliation_required` rather than a second
 invocation. Provider credentials, wallet signing, provider clients, C2 writes,
 and final invocation stay outside the guest and its proposal broker.
 
+The static-provider profile resolves an ambiguous create claim only through its
+dedicated reconciler. It first observes the exact provider/environment bound by
+the capability. An absent provider resource closes as `reconciled_no_effect`;
+an observed resource is deleted and must return positive cleanup evidence before
+closing as `reconciled_cleanup_succeeded`. The original create request is never
+reissued. The typed reconciliation receipt binds the prior status, observed
+phase, cleanup truth, exact reconciliation invoker count, provider-operation
+counts before and after, and a hash of the observation/cleanup evidence. A
+non-create ambiguity or unverified cleanup remains unresolved and fails closed.
+Expiry prevents a fresh invocation but never blocks observation or mandatory
+cleanup of an already ambiguous claim. Reconciliation resolves the hash-bound
+durable capability record by reference; it does not require retaining the
+guest's plaintext bearer token.
+
 The executable check is `check:workload-bound-effect-boundary`; `--live` boots
 the pinned Cloud Hypervisor/KVM guest as root and exercises the broker through
 the output quarantine. Its current claim is local and profile-specific. The

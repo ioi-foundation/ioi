@@ -123,6 +123,7 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/vm-enforcement-declaration/v1", "sha256:e6d7d16368856bbf8a0e293e6e0deb37b19503a91bb0af0da987485f293a141b"),
     ("schema://ioi/components/hypervisor/workload-bound-effect-proposal/v1", "sha256:685d5e20bd8ed0cb2a8a0075ffd8d52b906f0147f75612a4127c42dff31b7e08"),
     ("schema://ioi/components/hypervisor/workload-effect-consumption-receipt/v1", "sha256:4e2e07cb0e983869398a59984b6fc567009d451dfaa786b8b3adfcd887b16d86"),
+    ("schema://ioi/components/hypervisor/workload-effect-reconciliation-receipt/v1", "sha256:723f357a24bf30049898e3f165fdf6d900cab0c96b2ca045001db290cdac7955"),
     ("schema://ioi/components/hypervisor/workload-isolation-binding/v1", "sha256:57099f54fe5e9de26028f4910be956ee4f3ce585a67698b68d0bcc1e31371899"),
     ("schema://ioi/components/hypervisor/workload-isolation-requirements/v1", "sha256:718d9c35d0e969108feb391bb83e0a1b8029f24e0cb2272de15b3fb261a64fd1"),
     ("schema://ioi/foundations/active-skill-set-snapshot/v1", "sha256:c62f6d794bf48172de77fa72cb71ea86dd1ed07944abf70d92aa8e82a97f87d6"),
@@ -29005,6 +29006,218 @@ impl<'de> serde::Deserialize<'de>
 pub enum HypervisorWorkloadEffectConsumptionReceiptV1Status {
     #[serde(rename = r#"consumed"#)]
     Consumed,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorWorkloadEffectReconciliationReceiptV1 {
+    pub schema_version: HypervisorWorkloadEffectReconciliationReceiptV1SchemaVersion,
+    pub capability_ref: String,
+    pub isolation_binding_ref: String,
+    pub principal_ref: String,
+    pub request_hash: String,
+    pub prior_status: HypervisorWorkloadEffectReconciliationReceiptV1PriorStatus,
+    pub disposition: HypervisorWorkloadEffectReconciliationReceiptV1Disposition,
+    pub observed_phase: String,
+    pub cleanup_verified: bool,
+    pub original_effect_reinvoked:
+        HypervisorWorkloadEffectReconciliationReceiptV1OriginalEffectReinvoked,
+    pub reconciliation_invoker_calls: ArchitectureContractInteger,
+    pub provider_operations_before: ArchitectureContractInteger,
+    pub provider_operations_after: ArchitectureContractInteger,
+    pub reconciliation_evidence_hash: String,
+    pub status: HypervisorWorkloadEffectReconciliationReceiptV1Status,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorWorkloadEffectReconciliationReceiptV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/workload-effect-reconciliation-receipt/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/workload-effect-reconciliation-receipt/v1","title":"HypervisorWorkloadEffectReconciliationReceipt","x-ioi-schema-version":"ioi.components.hypervisor.workload-effect-reconciliation-receipt.v1","type":"object","additionalProperties":false,"required":["schema_version","capability_ref","isolation_binding_ref","principal_ref","request_hash","prior_status","disposition","observed_phase","cleanup_verified","original_effect_reinvoked","reconciliation_invoker_calls","provider_operations_before","provider_operations_after","reconciliation_evidence_hash","status"],"properties":{"schema_version":{"const":"ioi.components.hypervisor.workload-effect-reconciliation-receipt.v1"},"capability_ref":{"$ref":"#/$defs/ref"},"isolation_binding_ref":{"$ref":"#/$defs/ref"},"principal_ref":{"$ref":"#/$defs/ref"},"request_hash":{"$ref":"#/$defs/hash"},"prior_status":{"enum":["claimed","reconciliation_required"]},"disposition":{"enum":["no_effect_observed","cleanup_succeeded"]},"observed_phase":{"type":"string","minLength":1,"maxLength":128},"cleanup_verified":{"type":"boolean"},"original_effect_reinvoked":{"const":false},"reconciliation_invoker_calls":{"type":"integer","minimum":1,"maximum":2},"provider_operations_before":{"type":"integer","minimum":0,"maximum":9007199254740991},"provider_operations_after":{"type":"integer","minimum":0,"maximum":9007199254740991},"reconciliation_evidence_hash":{"$ref":"#/$defs/hash"},"status":{"enum":["reconciled_no_effect","reconciled_cleanup_succeeded"]}},"allOf":[{"if":{"properties":{"disposition":{"const":"no_effect_observed"}},"required":["disposition"]},"then":{"properties":{"cleanup_verified":{"const":true},"reconciliation_invoker_calls":{"enum":[1]},"status":{"const":"reconciled_no_effect"}}}},{"if":{"properties":{"disposition":{"const":"cleanup_succeeded"}},"required":["disposition"]},"then":{"properties":{"cleanup_verified":{"const":true},"reconciliation_invoker_calls":{"enum":[2]},"status":{"const":"reconciled_cleanup_succeeded"}}}}],"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<
+                HypervisorWorkloadEffectReconciliationReceiptV1SchemaVersion,
+            >(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            capability_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"capability_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"capability_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            isolation_binding_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"isolation_binding_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"isolation_binding_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            principal_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"principal_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"principal_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            request_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"request_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"request_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            prior_status: serde_json::from_value::<
+                HypervisorWorkloadEffectReconciliationReceiptV1PriorStatus,
+            >(
+                object
+                    .remove(r#"prior_status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"prior_status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            disposition: serde_json::from_value::<
+                HypervisorWorkloadEffectReconciliationReceiptV1Disposition,
+            >(
+                object
+                    .remove(r#"disposition"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"disposition"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            observed_phase: serde_json::from_value::<String>(
+                object
+                    .remove(r#"observed_phase"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"observed_phase"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            cleanup_verified: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"cleanup_verified"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"cleanup_verified"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            original_effect_reinvoked: serde_json::from_value::<
+                HypervisorWorkloadEffectReconciliationReceiptV1OriginalEffectReinvoked,
+            >(
+                object
+                    .remove(r#"original_effect_reinvoked"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"original_effect_reinvoked"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            reconciliation_invoker_calls: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"reconciliation_invoker_calls"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"reconciliation_invoker_calls"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            provider_operations_before: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"provider_operations_before"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"provider_operations_before"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            provider_operations_after: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"provider_operations_after"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"provider_operations_after"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            reconciliation_evidence_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"reconciliation_evidence_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"reconciliation_evidence_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status:
+                serde_json::from_value::<HypervisorWorkloadEffectReconciliationReceiptV1Status>(
+                    object
+                        .remove(r#"status"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorWorkloadEffectReconciliationReceiptV1SchemaVersion {
+    #[serde(rename = r#"ioi.components.hypervisor.workload-effect-reconciliation-receipt.v1"#)]
+    IoiComponentsHypervisorWorkloadEffectReconciliationReceiptV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorWorkloadEffectReconciliationReceiptV1PriorStatus {
+    #[serde(rename = r#"claimed"#)]
+    Claimed,
+    #[serde(rename = r#"reconciliation_required"#)]
+    ReconciliationRequired,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorWorkloadEffectReconciliationReceiptV1Disposition {
+    #[serde(rename = r#"no_effect_observed"#)]
+    NoEffectObserved,
+    #[serde(rename = r#"cleanup_succeeded"#)]
+    CleanupSucceeded,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HypervisorWorkloadEffectReconciliationReceiptV1OriginalEffectReinvoked {
+    False,
+}
+
+impl serde::Serialize for HypervisorWorkloadEffectReconciliationReceiptV1OriginalEffectReinvoked {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de>
+    for HypervisorWorkloadEffectReconciliationReceiptV1OriginalEffectReinvoked
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorWorkloadEffectReconciliationReceiptV1Status {
+    #[serde(rename = r#"reconciled_no_effect"#)]
+    ReconciledNoEffect,
+    #[serde(rename = r#"reconciled_cleanup_succeeded"#)]
+    ReconciledCleanupSucceeded,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
@@ -82887,6 +83100,38 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_rule_id: None,
     },
     GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/workload-effect-reconciliation-receipt/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/positive-cleanup.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/workload-effect-reconciliation-receipt/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/positive-no-effect.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/workload-effect-reconciliation-receipt/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/negative-reinvoked-original.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/workload-effect-reconciliation-receipt/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/negative-cleanup-count.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
         contract_id: "schema://ioi/components/hypervisor/workload-isolation-binding/v1",
         path: "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-binding-v1/positive-bound.json",
         expected_accept: true,
@@ -90628,6 +90873,50 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/positive-cleanup.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/workload-effect-reconciliation-receipt/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/positive-cleanup.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/positive-no-effect.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/workload-effect-reconciliation-receipt/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/positive-no-effect.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/negative-reinvoked-original.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/workload-effect-reconciliation-receipt/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/negative-reinvoked-original.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/negative-cleanup-count.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/workload-effect-reconciliation-receipt/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/negative-cleanup-count.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-binding-v1/positive-bound.json"#,
         contract_id: r#"schema://ioi/components/hypervisor/workload-isolation-binding/v1"#,
         source_fixture_path: Some(
@@ -95589,6 +95878,7 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/vm-enforcement-declaration/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/vm-enforcement-declaration/v1","title":"HypervisorVmEnforcementDeclaration","x-ioi-schema-version":"ioi.components.hypervisor.vm-enforcement-declaration.v1","type":"object","additionalProperties":false,"required":["schema_version","backend","guest_kernel_boundary","fresh_instance","instance_scope","workrun_ref","isolation_binding_ref","isolation_binding_hash","principal_ref","network_policy","network_device_count","host_mount_count","host_control_socket_count","guest_channel","output_policy"],"properties":{"schema_version":{"const":"ioi.components.hypervisor.vm-enforcement-declaration.v1"},"backend":{"enum":["cloud-hypervisor","firecracker","qemu"]},"guest_kernel_boundary":{"const":true},"fresh_instance":{"type":"boolean"},"instance_scope":{"enum":["environment_scoped","fresh_per_workrun"]},"workrun_ref":{"$ref":"#/$defs/nullableRef"},"isolation_binding_ref":{"$ref":"#/$defs/nullableRef"},"isolation_binding_hash":{"$ref":"#/$defs/nullableHash"},"principal_ref":{"$ref":"#/$defs/nullableRef"},"network_policy":{"const":"deny_all_no_virtual_nic"},"network_device_count":{"enum":[0]},"host_mount_count":{"enum":[0]},"host_control_socket_count":{"enum":[0]},"guest_channel":{"const":"host_initiated_vsock_uds_bounded"},"output_policy":{"const":"bounded_regular_file_archive_quarantine"}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nullableRef":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"nullableHash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]}}}"##),
     ("schema://ioi/components/hypervisor/workload-bound-effect-proposal/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/workload-bound-effect-proposal/v1","title":"HypervisorWorkloadBoundEffectProposal","x-ioi-schema-version":"ioi.components.hypervisor.workload-bound-effect-proposal.v1","type":"object","additionalProperties":false,"required":["schema_version","capability_ref","capability_token","isolation_binding_ref","isolation_binding_hash","principal_ref","proposal_nonce","audience","resource_ref","result_destination_ref","request_hash","exact_request","expires_at_ms"],"properties":{"schema_version":{"const":"ioi.components.hypervisor.workload-bound-effect-proposal.v1"},"capability_ref":{"$ref":"#/$defs/ref"},"capability_token":{"type":"string","pattern":"^wec_[0-9a-f]{64}$"},"isolation_binding_ref":{"$ref":"#/$defs/ref"},"isolation_binding_hash":{"$ref":"#/$defs/hash"},"principal_ref":{"$ref":"#/$defs/ref"},"proposal_nonce":{"type":"string","minLength":1,"maxLength":256},"audience":{"const":"hypervisor-final-invoker"},"resource_ref":{"$ref":"#/$defs/ref"},"result_destination_ref":{"$ref":"#/$defs/ref"},"request_hash":{"$ref":"#/$defs/hash"},"exact_request":{"type":"object"},"expires_at_ms":{"type":"integer","minimum":1,"maximum":9007199254740991}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"##),
     ("schema://ioi/components/hypervisor/workload-effect-consumption-receipt/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/workload-effect-consumption-receipt/v1","title":"HypervisorWorkloadEffectConsumptionReceipt","x-ioi-schema-version":"ioi.components.hypervisor.workload-effect-consumption-receipt.v1","type":"object","additionalProperties":false,"required":["schema_version","capability_ref","isolation_binding_ref","principal_ref","request_hash","effect_receipt_hash","final_invoker_calls","status"],"properties":{"schema_version":{"const":"ioi.components.hypervisor.workload-effect-consumption-receipt.v1"},"capability_ref":{"$ref":"#/$defs/ref"},"isolation_binding_ref":{"$ref":"#/$defs/ref"},"principal_ref":{"$ref":"#/$defs/ref"},"request_hash":{"$ref":"#/$defs/hash"},"effect_receipt_hash":{"$ref":"#/$defs/hash"},"final_invoker_calls":{"enum":[1]},"status":{"const":"consumed"}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"##),
+    ("schema://ioi/components/hypervisor/workload-effect-reconciliation-receipt/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/workload-effect-reconciliation-receipt/v1","title":"HypervisorWorkloadEffectReconciliationReceipt","x-ioi-schema-version":"ioi.components.hypervisor.workload-effect-reconciliation-receipt.v1","type":"object","additionalProperties":false,"required":["schema_version","capability_ref","isolation_binding_ref","principal_ref","request_hash","prior_status","disposition","observed_phase","cleanup_verified","original_effect_reinvoked","reconciliation_invoker_calls","provider_operations_before","provider_operations_after","reconciliation_evidence_hash","status"],"properties":{"schema_version":{"const":"ioi.components.hypervisor.workload-effect-reconciliation-receipt.v1"},"capability_ref":{"$ref":"#/$defs/ref"},"isolation_binding_ref":{"$ref":"#/$defs/ref"},"principal_ref":{"$ref":"#/$defs/ref"},"request_hash":{"$ref":"#/$defs/hash"},"prior_status":{"enum":["claimed","reconciliation_required"]},"disposition":{"enum":["no_effect_observed","cleanup_succeeded"]},"observed_phase":{"type":"string","minLength":1,"maxLength":128},"cleanup_verified":{"type":"boolean"},"original_effect_reinvoked":{"const":false},"reconciliation_invoker_calls":{"type":"integer","minimum":1,"maximum":2},"provider_operations_before":{"type":"integer","minimum":0,"maximum":9007199254740991},"provider_operations_after":{"type":"integer","minimum":0,"maximum":9007199254740991},"reconciliation_evidence_hash":{"$ref":"#/$defs/hash"},"status":{"enum":["reconciled_no_effect","reconciled_cleanup_succeeded"]}},"allOf":[{"if":{"properties":{"disposition":{"const":"no_effect_observed"}},"required":["disposition"]},"then":{"properties":{"cleanup_verified":{"const":true},"reconciliation_invoker_calls":{"enum":[1]},"status":{"const":"reconciled_no_effect"}}}},{"if":{"properties":{"disposition":{"const":"cleanup_succeeded"}},"required":["disposition"]},"then":{"properties":{"cleanup_verified":{"const":true},"reconciliation_invoker_calls":{"enum":[2]},"status":{"const":"reconciled_cleanup_succeeded"}}}}],"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"##),
     ("schema://ioi/components/hypervisor/workload-isolation-binding/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/workload-isolation-binding/v1","title":"HypervisorWorkloadIsolationBinding","x-ioi-schema-version":"ioi.components.hypervisor.workload-isolation-binding.v1","type":"object","additionalProperties":false,"required":["schema_version","binding_ref","binding_hash","requirements_ref","requirements_hash","workrun_ref","runtime_assignment_ref","environment_ref","startup_plan_ref","startup_plan_hash","boundary_instance_ref","compute_host_ref","failure_domain_ref","backend_capability_declaration_ref","backend_capability_declaration_hash","enforcement_coverage_refs_and_hashes","immutable_component_refs_and_hashes","exact_input_and_mount_closure_hash","guest_network_identity_ref","route_policy_ref","dependency_broker_ref","dependency_broker_policy_hash","brokered_lease_refs","pep_ref","final_invoker_ref","governed_action_classes","output_quarantine_ref","output_policy_ref","cleanup_obligation_ref","required_terminal_disposition","readiness_evidence_refs","currentness_evaluation_refs"],"properties":{"schema_version":{"const":"ioi.components.hypervisor.workload-isolation-binding.v1"},"binding_ref":{"$ref":"#/$defs/ref"},"binding_hash":{"$ref":"#/$defs/hash"},"requirements_ref":{"$ref":"#/$defs/ref"},"requirements_hash":{"$ref":"#/$defs/hash"},"workrun_ref":{"$ref":"#/$defs/ref"},"runtime_assignment_ref":{"$ref":"#/$defs/ref"},"environment_ref":{"$ref":"#/$defs/ref"},"startup_plan_ref":{"$ref":"#/$defs/ref"},"startup_plan_hash":{"$ref":"#/$defs/hash"},"boundary_instance_ref":{"$ref":"#/$defs/ref"},"compute_host_ref":{"$ref":"#/$defs/ref"},"failure_domain_ref":{"$ref":"#/$defs/ref"},"backend_capability_declaration_ref":{"$ref":"#/$defs/ref"},"backend_capability_declaration_hash":{"$ref":"#/$defs/hash"},"enforcement_coverage_refs_and_hashes":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/refHash"}},"immutable_component_refs_and_hashes":{"type":"array","minItems":3,"items":{"$ref":"#/$defs/refHash"}},"exact_input_and_mount_closure_hash":{"$ref":"#/$defs/hash"},"guest_network_identity_ref":{"$ref":"#/$defs/ref"},"route_policy_ref":{"$ref":"#/$defs/ref"},"dependency_broker_ref":{"$ref":"#/$defs/ref"},"dependency_broker_policy_hash":{"$ref":"#/$defs/hash"},"brokered_lease_refs":{"type":"array","items":{"$ref":"#/$defs/ref"}},"pep_ref":{"$ref":"#/$defs/ref"},"final_invoker_ref":{"$ref":"#/$defs/ref"},"governed_action_classes":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/name"}},"output_quarantine_ref":{"$ref":"#/$defs/ref"},"output_policy_ref":{"$ref":"#/$defs/ref"},"cleanup_obligation_ref":{"$ref":"#/$defs/ref"},"required_terminal_disposition":{"enum":["destroyed_verified","quarantined_with_obligation"]},"readiness_evidence_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/ref"}},"currentness_evaluation_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/ref"}}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"name":{"type":"string","pattern":"^[a-z][a-z0-9._-]{0,127}$"},"refHash":{"type":"object","additionalProperties":false,"required":["ref","hash"],"properties":{"ref":{"$ref":"#/$defs/ref"},"hash":{"$ref":"#/$defs/hash"}}}}}"##),
     ("schema://ioi/components/hypervisor/workload-isolation-requirements/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/workload-isolation-requirements/v1","title":"HypervisorWorkloadIsolationRequirements","x-ioi-schema-version":"ioi.components.hypervisor.workload-isolation-requirements.v1","type":"object","additionalProperties":false,"required":["schema_version","requirements_ref","requirements_hash","source_policy_refs_and_hashes","compiled_risk_classes","hostile_to_boundary_requirement","instance_policy","minimum_isolation","host_mount_policy","daemon_socket_exposed","host_pid_namespace_exposed","raw_secret_material_in_guest","capability_broker_ref","permitted_lease_classes","network_policy_ref","dependency_broker_policy_ref","output_admission","teardown","required_backend_capabilities","required_enforcement_coverage","required_evidence_and_receipt_policy_refs","compiler_ref","compiler_version"],"properties":{"schema_version":{"const":"ioi.components.hypervisor.workload-isolation-requirements.v1"},"requirements_ref":{"$ref":"#/$defs/ref"},"requirements_hash":{"$ref":"#/$defs/hash"},"source_policy_refs_and_hashes":{"type":"array","minItems":3,"items":{"$ref":"#/$defs/refHash"}},"compiled_risk_classes":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/name"}},"hostile_to_boundary_requirement":{"enum":["not_declared","hostile_to_guest_kernel","hostile_to_vmm_host"]},"instance_policy":{"enum":["fresh_per_workrun","fresh_per_session","admitted_reuse"]},"minimum_isolation":{"$ref":"#/$defs/name"},"host_mount_policy":{"enum":["none","explicit_read_only","explicit_scoped_read_write"]},"daemon_socket_exposed":{"const":false},"host_pid_namespace_exposed":{"const":false},"raw_secret_material_in_guest":{"const":false},"capability_broker_ref":{"$ref":"#/$defs/ref"},"permitted_lease_classes":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/name"}},"network_policy_ref":{"$ref":"#/$defs/ref"},"dependency_broker_policy_ref":{"$ref":"#/$defs/ref"},"output_admission":{"type":"object","additionalProperties":false,"required":["quarantine_required","policy_ref","maximum_bytes","maximum_files","archive_entry_policy_ref","evaluator_refs"],"properties":{"quarantine_required":{"const":true},"policy_ref":{"$ref":"#/$defs/ref"},"maximum_bytes":{"type":"integer","minimum":1,"maximum":9007199254740991},"maximum_files":{"type":"integer","minimum":1,"maximum":9007199254740991},"archive_entry_policy_ref":{"$ref":"#/$defs/ref"},"evaluator_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/ref"}}}},"teardown":{"type":"object","additionalProperties":false,"required":["destruction_policy_ref","deadline_ms","verify_all_resources","cleanup_obligation_on_uncertainty"],"properties":{"destruction_policy_ref":{"$ref":"#/$defs/ref"},"deadline_ms":{"type":"integer","minimum":1,"maximum":9007199254740991},"verify_all_resources":{"const":true},"cleanup_obligation_on_uncertainty":{"const":true}}},"required_backend_capabilities":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/name"}},"required_enforcement_coverage":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/name"}},"required_evidence_and_receipt_policy_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/ref"}},"compiler_ref":{"$ref":"#/$defs/ref"},"compiler_version":{"type":"string","minLength":1,"maxLength":128}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"name":{"type":"string","pattern":"^[a-z][a-z0-9._-]{0,127}$"},"refHash":{"type":"object","additionalProperties":false,"required":["ref","hash"],"properties":{"ref":{"$ref":"#/$defs/ref"},"hash":{"$ref":"#/$defs/hash"}}}}}"##),
     ("schema://ioi/foundations/active-skill-set-snapshot/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/active-skill-set-snapshot/v1","title":"ActiveSkillSetSnapshot","x-ioi-schema-version":"ioi.active-skill-set-snapshot.v1","type":"object","additionalProperties":false,"required":["schema_version","active_skill_set_snapshot_id","work_subject_ref","selected_skills","excluded_candidates","active_set_hash","resolved_runtime_tool_contracts","resolution_receipt_ref","registry_status"],"properties":{"schema_version":{"const":"ioi.active-skill-set-snapshot.v1"},"active_skill_set_snapshot_id":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"work_subject_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"selected_skills":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["skill_entry_ref","skill_entry_binding_revision_ref","skill_entry_binding_hash","skill_revision_ref","manifest_content_hash"],"properties":{"skill_entry_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"skill_entry_binding_revision_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"skill_entry_binding_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"skill_revision_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"manifest_content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"inclusion_basis_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}}}}},"excluded_candidates":{"type":"array","items":{"type":"object"}},"compatibility_and_evaluation_result_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"active_set_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"resolved_runtime_tool_contracts":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["revision_ref","content_hash"],"properties":{"revision_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}},"context_lease_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"resolution_receipt_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"registry_lifecycle_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"registry_status":{"enum":["admitted","active","superseded","revoked"]}}}"#),
@@ -95773,6 +96063,7 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/vm-enforcement-declaration/v1", r#"[]"#),
     ("schema://ioi/components/hypervisor/workload-bound-effect-proposal/v1", r#"[]"#),
     ("schema://ioi/components/hypervisor/workload-effect-consumption-receipt/v1", r#"[]"#),
+    ("schema://ioi/components/hypervisor/workload-effect-reconciliation-receipt/v1", r#"[]"#),
     ("schema://ioi/components/hypervisor/workload-isolation-binding/v1", r#"[]"#),
     ("schema://ioi/components/hypervisor/workload-isolation-requirements/v1", r#"[]"#),
     ("schema://ioi/foundations/active-skill-set-snapshot/v1", r#"[]"#),
@@ -99694,6 +99985,10 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-workload-bound-effect-proposal-v1/negative-wrong-audience.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-bound-effect-proposal-v1/negative-wrong-audience.json"))),
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-consumption-receipt-v1/positive-consumed.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-consumption-receipt-v1/positive-consumed.json"))),
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-consumption-receipt-v1/negative-two-invocations.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-consumption-receipt-v1/negative-two-invocations.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/positive-cleanup.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/positive-cleanup.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/positive-no-effect.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/positive-no-effect.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/negative-reinvoked-original.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/negative-reinvoked-original.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/negative-cleanup-count.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/negative-cleanup-count.json"))),
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-binding-v1/positive-bound.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-binding-v1/positive-bound.json"))),
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-binding-v1/negative-missing-cleanup.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-binding-v1/negative-missing-cleanup.json"))),
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-requirements-v1/positive-high-risk.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-requirements-v1/positive-high-risk.json"))),
@@ -100414,6 +100709,11 @@ mod tests {
         },
         "schema://ioi/components/hypervisor/workload-effect-consumption-receipt/v1" => {
             serde_json::from_value::<HypervisorWorkloadEffectConsumptionReceiptV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/workload-effect-reconciliation-receipt/v1" => {
+            serde_json::from_value::<HypervisorWorkloadEffectReconciliationReceiptV1>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -101328,6 +101628,11 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/components/hypervisor/workload-effect-reconciliation-receipt/v1" => {
+            let projection = serde_json::from_value::<HypervisorWorkloadEffectReconciliationReceiptV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
         "schema://ioi/components/hypervisor/workload-isolation-binding/v1" => {
             let projection = serde_json::from_value::<HypervisorWorkloadIsolationBindingV1>(value.clone())
                 .map_err(|error| error.to_string())?;
@@ -101969,8 +102274,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            646,
-            "the registered golden corpus must remain the explicit 646-fixture bar",
+            650,
+            "the registered golden corpus must remain the explicit 650-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES

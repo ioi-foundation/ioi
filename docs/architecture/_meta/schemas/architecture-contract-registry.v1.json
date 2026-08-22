@@ -4203,6 +4203,54 @@
       ]
     },
     {
+      "contract_id": "schema://ioi/components/hypervisor/workload-effect-reconciliation-receipt/v1",
+      "canonical_name": "HypervisorWorkloadEffectReconciliationReceipt",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/providers-and-environments.md#local-hostile-guest-enforcement-profile",
+      "schema_version": "ioi.components.hypervisor.workload-effect-reconciliation-receipt.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "hypervisor-workload-effect-reconciliation-receipt.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "HypervisorWorkloadEffectReconciliationReceiptV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "HypervisorWorkloadEffectReconciliationReceiptV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/positive-cleanup.json",
+        "fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/positive-no-effect.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/negative-reinvoked-original.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/negative-cleanup-count.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
       "contract_id": "schema://ioi/components/hypervisor/workload-isolation-binding/v1",
       "canonical_name": "HypervisorWorkloadIsolationBinding",
       "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/providers-and-environments.md#immutable-workload-isolation-binding",

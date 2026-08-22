@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/workload-effect-reconciliation-receipt/v1",
+  "title": "HypervisorWorkloadEffectReconciliationReceipt",
+  "x-ioi-schema-version": "ioi.components.hypervisor.workload-effect-reconciliation-receipt.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "capability_ref",
+    "isolation_binding_ref",
+    "principal_ref",
+    "request_hash",
+    "prior_status",
+    "disposition",
+    "observed_phase",
+    "cleanup_verified",
+    "original_effect_reinvoked",
+    "reconciliation_invoker_calls",
+    "provider_operations_before",
+    "provider_operations_after",
+    "reconciliation_evidence_hash",
+    "status"
+  ],
+  "properties": {
+    "schema_version": { "const": "ioi.components.hypervisor.workload-effect-reconciliation-receipt.v1" },
+    "capability_ref": { "$ref": "#/$defs/ref" },
+    "isolation_binding_ref": { "$ref": "#/$defs/ref" },
+    "principal_ref": { "$ref": "#/$defs/ref" },
+    "request_hash": { "$ref": "#/$defs/hash" },
+    "prior_status": { "enum": ["claimed", "reconciliation_required"] },
+    "disposition": { "enum": ["no_effect_observed", "cleanup_succeeded"] },
+    "observed_phase": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "cleanup_verified": { "type": "boolean" },
+    "original_effect_reinvoked": { "const": false },
+    "reconciliation_invoker_calls": { "type": "integer", "minimum": 1, "maximum": 2 },
+    "provider_operations_before": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+    "provider_operations_after": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+    "reconciliation_evidence_hash": { "$ref": "#/$defs/hash" },
+    "status": { "enum": ["reconciled_no_effect", "reconciled_cleanup_succeeded"] }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "disposition": { "const": "no_effect_observed" } }, "required": ["disposition"] },
+      "then": {
+        "properties": {
+          "cleanup_verified": { "const": true },
+          "reconciliation_invoker_calls": { "enum": [1] },
+          "status": { "const": "reconciled_no_effect" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "disposition": { "const": "cleanup_succeeded" } }, "required": ["disposition"] },
+      "then": {
+        "properties": {
+          "cleanup_verified": { "const": true },
+          "reconciliation_invoker_calls": { "enum": [2] },
+          "status": { "const": "reconciled_cleanup_succeeded" }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "ref": { "type": "string", "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$" },
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+  }
+}

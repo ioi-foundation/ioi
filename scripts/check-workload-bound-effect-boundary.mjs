@@ -121,6 +121,19 @@ function inspect(microvm, brokerSource = broker) {
     ["final_invoker_calls", "final_invoker_counter_missing"],
     ["consume_guest_effect_proposal_bytes", "canonical_guest_byte_boundary_missing"],
     [
+      "reconcile_guest_static_provider_operation",
+      "ambiguous_claim_reconciliation_missing",
+    ],
+    ["original_effect_reinvoked", "reconciliation_non_reinvocation_evidence_missing"],
+    [
+      "reconciliation_observes_and_cleans_an_effect_without_duplicate_create",
+      "observed_effect_cleanup_regression_missing",
+    ],
+    [
+      "reconciliation_proves_no_effect_without_reinvoking_the_original",
+      "no_effect_reconciliation_regression_missing",
+    ],
+    [
       "daemon_kill_after_durable_claim_never_duplicates_provider_effect",
       "durable_claim_sigkill_regression_missing",
     ],
