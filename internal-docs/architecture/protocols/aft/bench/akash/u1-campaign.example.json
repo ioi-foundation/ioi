@@ -36,6 +36,7 @@
     "result_schema_version": "ioi.aft.benchmark-campaign.v1",
     "benchmark_warmups": 1,
     "benchmark_repeats": 5,
+    "max_duration_seconds": 7200,
     "teardown_policy": "always_teardown_required"
   }
 }
