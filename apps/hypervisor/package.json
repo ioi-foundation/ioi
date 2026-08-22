@@ -48,7 +48,7 @@
     "assemble:c7-c8-capstone": "node scripts/assemble-c7-c8-evidence.mjs",
     "run:certified-provider-campaign": "node scripts/run-certified-provider-campaign.mjs",
     "assemble:u1-campaign-certificate": "node scripts/assemble-u1-campaign-certificate.mjs",
-    "check:u1-campaign-certificate": "node scripts/verify-u1-campaign-certificate.mjs",
+    "check:u1-campaign-certificate": "node scripts/verify-u1-campaign-certificate.mjs --self-test",
     "check:u1-placement-attestation": "node scripts/verify-u1-placement-attestation.mjs",
     "check:verifier-floors": "node scripts/check-verifier-floors.mjs",
     "check:ported-seed:live": "node scripts/verify-hypervisor-ported-seed-invariant.mjs --live",
