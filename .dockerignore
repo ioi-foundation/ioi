@@ -3,6 +3,7 @@
 # Ignore build artifacts
 **/target/
 **/Cargo.lock
+!Cargo.lock
 
 # Ignore Git history
 .git/
