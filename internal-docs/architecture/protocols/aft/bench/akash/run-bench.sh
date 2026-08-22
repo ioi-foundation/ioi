@@ -37,6 +37,7 @@ bench_cmd() {
   cargo test --release \
     -p ioi-cli \
     --features consensus-aft,vm-wasm,state-jellyfish \
+    --test benchmark_throughput \
     -- --ignored --nocapture test_aft_paper_benchmark_matrix
 }
 
