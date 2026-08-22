@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/vm-enforcement-declaration/v1",
+  "title": "HypervisorVmEnforcementDeclaration",
+  "x-ioi-schema-version": "ioi.components.hypervisor.vm-enforcement-declaration.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "backend", "guest_kernel_boundary", "fresh_instance", "instance_scope", "workrun_ref", "isolation_binding_ref", "isolation_binding_hash", "principal_ref", "network_policy", "network_device_count", "host_mount_count", "host_control_socket_count", "guest_channel", "output_policy"],
+  "properties": {
+    "schema_version": { "const": "ioi.components.hypervisor.vm-enforcement-declaration.v1" },
+    "backend": { "enum": ["cloud-hypervisor", "firecracker", "qemu"] },
+    "guest_kernel_boundary": { "const": true },
+    "fresh_instance": { "type": "boolean" },
+    "instance_scope": { "enum": ["environment_scoped", "fresh_per_workrun"] },
+    "workrun_ref": { "$ref": "#/$defs/nullableRef" },
+    "isolation_binding_ref": { "$ref": "#/$defs/nullableRef" },
+    "isolation_binding_hash": { "$ref": "#/$defs/nullableHash" },
+    "principal_ref": { "$ref": "#/$defs/nullableRef" },
+    "network_policy": { "const": "deny_all_no_virtual_nic" },
+    "network_device_count": { "enum": [0] },
+    "host_mount_count": { "enum": [0] },
+    "host_control_socket_count": { "enum": [0] },
+    "guest_channel": { "const": "host_initiated_vsock_uds_bounded" },
+    "output_policy": { "const": "bounded_regular_file_archive_quarantine" }
+  },
+  "$defs": {
+    "ref": { "type": "string", "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$" },
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "nullableRef": { "anyOf": [{ "$ref": "#/$defs/ref" }, { "type": "null" }] },
+    "nullableHash": { "anyOf": [{ "$ref": "#/$defs/hash" }, { "type": "null" }] }
+  }
+}

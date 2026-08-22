@@ -1344,6 +1344,40 @@ storage, leases, caches, and ephemeral credentials or retains a durable
 unknown enforcement, unsafe output, or uncertain cleanup fails closed; none
 permits host fallback.
 
+#### Local hostile-guest enforcement profile
+
+The code profile `trusted_host_hostile_guest/no-nic-v1` is narrower than the
+general VM contract. Its launch specification records zero virtual network
+devices, zero host mounts, and zero host-control sockets and refuses a nonzero
+value before the VMM process is created. The only guest transport is the
+host-initiated, length-bounded vsock workspace protocol. Guest output is
+accepted only through the regular-file/directory archive subset after path,
+type, member-count, and total-size validation into quarantine.
+
+A generic environment-scoped VM reports `fresh_instance: false` and
+`instance_scope: environment_scoped`. Only a VM spec carrying the exact
+WorkRun, isolation-binding ref/hash, and principal may emit the stronger
+`fresh_per_workrun` enforcement declaration. Absence or malformed binding
+refuses the stronger declaration; labels never promote an environment VM.
+
+One exact guest proposal may cross the boundary through an opaque capability
+bound to the isolation binding, principal, proposal nonce, final-invoker
+audience, provider resource, result destination, canonical request hash, and a
+maximum fifteen-minute expiry. Durable state retains the token hash only. It
+records `claimed` before the final invoker; replay is refused, and restart from
+an ambiguous claim becomes `reconciliation_required` rather than a second
+invocation. Provider credentials, wallet signing, provider clients, C2 writes,
+and final invocation stay outside the guest and its proposal broker.
+
+The executable check is `check:workload-bound-effect-boundary`; `--live` boots
+the pinned Cloud Hypervisor/KVM guest as root and exercises the broker through
+the output quarantine. Its current claim is local and profile-specific. The
+trusted computing base remains the host hardware/firmware, Linux/KVM,
+Cloud Hypervisor, pinned guest kernel/initramfs and guest agent, Hypervisor
+daemon, durable filesystem core, output importer, capability broker, and final
+invoker. It does not establish resistance to compromise in that TCB, an
+unattested remote host, or an arbitrary future network/broker profile.
+
 ### C8 workload-bound governed-effect certificate
 
 `C8CertificateV3` is an additive successor envelope over the immutable C8 v2

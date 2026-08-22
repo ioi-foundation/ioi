@@ -1549,6 +1549,9 @@ fn provision_microvm(
     // SUN_LEN-safe vsock socket path (the data dir can be arbitrarily deep; the socket cannot).
     spec.sock_path =
         microvm::short_sock_path(env_id).map_err(|e| app(format!("vm socket: {e}")))?;
+    let enforcement = spec
+        .enforcement_declaration(monitor_id)
+        .map_err(|e| app(format!("microvm enforcement: {e}")))?;
     let monitor = microvm::make_monitor(monitor_kind);
     let mut vm = monitor
         .start(&spec)
@@ -1581,7 +1584,13 @@ fn provision_microvm(
     env["status"]["isolation_claim"] = json!("selected_microvm_preview");
     env["status"]["minimum_isolation"] = json!("vm_kernel");
     env["status"]["trust_posture"] = json!("selected_profile_only");
-    env["status"]["vm"] = json!({ "monitor": monitor_id, "selection_reason": reason, "pid": vm.pid, "guest_agent_proto": proto });
+    env["status"]["vm"] = json!({
+        "monitor": monitor_id,
+        "selection_reason": reason,
+        "pid": vm.pid,
+        "guest_agent_proto": proto,
+        "enforcement_declaration": enforcement
+    });
     st.live_vms.lock().unwrap().insert(env_id.to_string(), vm);
     Ok(())
 }

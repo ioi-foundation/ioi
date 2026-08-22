@@ -17,6 +17,7 @@ use std::time::{Duration, Instant};
 use ioi_services::agentic::runtime::kernel::emergency_containment::{
     admit_guest_transfer_len, UNBOUNDED_GUEST_TRANSFER_GATE,
 };
+use ioi_types::app::generated::architecture_contracts::HypervisorVmEnforcementDeclarationV1;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
@@ -27,9 +28,140 @@ pub(crate) struct VmSpec {
     pub vcpus: u32,
     pub mem_mib: u32,
     pub run_dir: PathBuf,
+    /// Workload-bound hostile-guest profile: the guest receives no network device. A future
+    /// brokered network lane must be a different, admitted profile; silently attaching a NIC to
+    /// this one would turn direct provider egress back on.
+    pub network_device_count: u32,
+    /// Host filesystems and control sockets are never attached to this guest. Workspace bytes
+    /// cross only through the bounded import/export protocol below.
+    pub host_mount_count: u32,
+    pub host_control_socket_count: u32,
+    /// Present only for a VM minted for one admitted WorkRun. Generic environment VMs remain
+    /// environment-scoped and must not claim fresh-per-workload containment.
+    pub workload_binding: Option<WorkloadVmBinding>,
     // The vsock UDS path. MUST be short (≤108 bytes, SUN_LEN) regardless of how deep the data dir
     // is — the workspace/serial live under run_dir, but the socket rides a short path.
     pub sock_path: PathBuf,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub(crate) struct WorkloadVmBinding {
+    pub workrun_ref: String,
+    pub isolation_binding_ref: String,
+    pub isolation_binding_hash: String,
+    pub principal_ref: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub(crate) struct VmEnforcementDeclaration {
+    pub schema_version: &'static str,
+    pub backend: &'static str,
+    pub guest_kernel_boundary: bool,
+    pub fresh_instance: bool,
+    pub instance_scope: &'static str,
+    pub workrun_ref: Option<String>,
+    pub isolation_binding_ref: Option<String>,
+    pub isolation_binding_hash: Option<String>,
+    pub principal_ref: Option<String>,
+    pub network_policy: &'static str,
+    pub network_device_count: u32,
+    pub host_mount_count: u32,
+    pub host_control_socket_count: u32,
+    pub guest_channel: &'static str,
+    pub output_policy: &'static str,
+}
+
+impl VmSpec {
+    /// Refuse a weakened launch before the monitor process exists. These are observed launch
+    /// inputs, not a caller-authored label.
+    fn enforce_hostile_guest_floor(&self) -> Result<(), String> {
+        if self.network_device_count != 0 {
+            return Err("workload_boundary_network_device_refused".into());
+        }
+        if self.host_mount_count != 0 {
+            return Err("workload_boundary_host_mount_refused".into());
+        }
+        if self.host_control_socket_count != 0 {
+            return Err("workload_boundary_host_control_socket_refused".into());
+        }
+        Ok(())
+    }
+
+    pub(crate) fn enforcement_declaration(
+        &self,
+        backend: &'static str,
+    ) -> Result<VmEnforcementDeclaration, String> {
+        self.enforce_hostile_guest_floor()?;
+        let binding = self.workload_binding.as_ref();
+        let declaration = VmEnforcementDeclaration {
+            schema_version: "ioi.components.hypervisor.vm-enforcement-declaration.v1",
+            backend,
+            guest_kernel_boundary: true,
+            fresh_instance: binding.is_some(),
+            instance_scope: if binding.is_some() {
+                "fresh_per_workrun"
+            } else {
+                "environment_scoped"
+            },
+            workrun_ref: binding.map(|value| value.workrun_ref.clone()),
+            isolation_binding_ref: binding.map(|value| value.isolation_binding_ref.clone()),
+            isolation_binding_hash: binding.map(|value| value.isolation_binding_hash.clone()),
+            principal_ref: binding.map(|value| value.principal_ref.clone()),
+            network_policy: "deny_all_no_virtual_nic",
+            network_device_count: self.network_device_count,
+            host_mount_count: self.host_mount_count,
+            host_control_socket_count: self.host_control_socket_count,
+            guest_channel: "host_initiated_vsock_uds_bounded",
+            output_policy: "bounded_regular_file_archive_quarantine",
+        };
+        let value = serde_json::to_value(&declaration)
+            .map_err(|error| format!("VM enforcement declaration serialization: {error}"))?;
+        serde_json::from_value::<HypervisorVmEnforcementDeclarationV1>(value)
+            .map_err(|error| format!("VM enforcement declaration contract: {error}"))?;
+        Ok(declaration)
+    }
+
+    pub(crate) fn bind_workload(
+        &mut self,
+        workrun_ref: &str,
+        isolation_binding_ref: &str,
+        isolation_binding_hash: &str,
+        principal_ref: &str,
+    ) -> Result<(), String> {
+        if !workrun_ref.starts_with("workrun://")
+            || !isolation_binding_ref.starts_with("workload-isolation-binding://")
+            || !isolation_binding_hash.starts_with("sha256:")
+            || isolation_binding_hash.len() != 71
+            || !principal_ref.starts_with("principal://")
+            || [
+                workrun_ref,
+                isolation_binding_ref,
+                isolation_binding_hash,
+                principal_ref,
+            ]
+            .iter()
+            .any(|value| value.chars().any(char::is_whitespace))
+        {
+            return Err("workload_vm_binding_invalid".into());
+        }
+        self.workload_binding = Some(WorkloadVmBinding {
+            workrun_ref: workrun_ref.to_string(),
+            isolation_binding_ref: isolation_binding_ref.to_string(),
+            isolation_binding_hash: isolation_binding_hash.to_string(),
+            principal_ref: principal_ref.to_string(),
+        });
+        Ok(())
+    }
+
+    pub(crate) fn workload_bound_enforcement_declaration(
+        &self,
+        backend: &'static str,
+    ) -> Result<VmEnforcementDeclaration, String> {
+        if self.workload_binding.is_none() {
+            return Err("workload_vm_binding_required".into());
+        }
+        self.enforcement_declaration(backend)
+    }
 }
 
 /// A short, SUN_LEN-safe vsock socket path that still carries the env id (so orphan-VM detection
@@ -521,6 +653,10 @@ pub(crate) fn build_vm_spec(
         vcpus,
         mem_mib,
         run_dir,
+        network_device_count: 0,
+        host_mount_count: 0,
+        host_control_socket_count: 0,
+        workload_binding: None,
         sock_path,
     })
 }
@@ -565,6 +701,7 @@ impl VmMonitor for CloudHypervisorMonitor {
     }
 
     fn start(&self, spec: &VmSpec) -> Result<VmHandle, String> {
+        spec.enforce_hostile_guest_floor()?;
         std::fs::create_dir_all(&spec.run_dir).map_err(|e| format!("vm run_dir: {e}"))?;
         let uds = spec.sock_path.clone();
         let serial_log = spec.run_dir.join("serial.log");
@@ -616,6 +753,7 @@ impl VmMonitor for FirecrackerMonitor {
     }
 
     fn start(&self, spec: &VmSpec) -> Result<VmHandle, String> {
+        spec.enforce_hostile_guest_floor()?;
         std::fs::create_dir_all(&spec.run_dir).map_err(|e| format!("vm run_dir: {e}"))?;
         let uds = spec.sock_path.clone();
         let serial_log = spec.run_dir.join("serial.log");
@@ -672,6 +810,7 @@ impl VmMonitor for QemuMonitor {
     }
 
     fn start(&self, spec: &VmSpec) -> Result<VmHandle, String> {
+        spec.enforce_hostile_guest_floor()?;
         // QEMU compat/diagnostic lane — a REAL boot (microvm machine + qboot firmware + the MMIO
         // guest kernel + vhost-vsock-device). Fails CLOSED with a precise reason if the qemu binary
         // is absent or /dev/vhost-vsock is not openable (group kvm) — never a fake boot.
@@ -914,6 +1053,8 @@ pub(crate) fn untar_into(dir: &Path, tar: &[u8]) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::net::TcpListener;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     fn archive_with(name: &str, kind: u8, size: u64) -> Vec<u8> {
         let mut archive = vec![0u8; 1024 + (((size + 511) / 512) * 512) as usize];
@@ -946,6 +1087,8 @@ mod tests {
         assert!(validate_tar_for_host_extract(&archive_with("../escape", b'0', 0)).is_err());
         assert!(validate_tar_for_host_extract(&archive_with("/absolute", b'0', 0)).is_err());
         assert!(validate_tar_for_host_extract(&archive_with("./link", b'2', 0)).is_err());
+        assert!(validate_tar_for_host_extract(&archive_with("./hardlink", b'1', 0)).is_err());
+        assert!(validate_tar_for_host_extract(&archive_with("./fifo", b'6', 0)).is_err());
         assert!(validate_tar_for_host_extract(&archive_with("./device", b'3', 0)).is_err());
     }
 
@@ -958,5 +1101,236 @@ mod tests {
         let mut trailing = archive_with("./safe", b'0', 0);
         *trailing.last_mut().expect("archive has end block") = 1;
         assert!(validate_tar_for_host_extract(&trailing).is_err());
+    }
+
+    fn test_spec() -> VmSpec {
+        VmSpec {
+            monitor_bin: PathBuf::from("/bin/false"),
+            kernel: PathBuf::from("/dev/null"),
+            initramfs: PathBuf::from("/dev/null"),
+            vcpus: 1,
+            mem_mib: 256,
+            run_dir: PathBuf::from("/tmp/ioi-boundary-unit"),
+            network_device_count: 0,
+            host_mount_count: 0,
+            host_control_socket_count: 0,
+            workload_binding: None,
+            sock_path: PathBuf::from("/tmp/ioi-boundary-unit.sock"),
+        }
+    }
+
+    #[test]
+    fn hostile_guest_floor_refuses_each_planted_bypass_before_launch() {
+        let baseline = test_spec();
+        let environment = baseline
+            .enforcement_declaration("cloud-hypervisor")
+            .unwrap();
+        assert!(!environment.fresh_instance);
+        assert_eq!(environment.instance_scope, "environment_scoped");
+        assert_eq!(
+            baseline
+                .workload_bound_enforcement_declaration("cloud-hypervisor")
+                .unwrap_err(),
+            "workload_vm_binding_required"
+        );
+
+        let mut network = test_spec();
+        network.network_device_count = 1;
+        assert_eq!(
+            network.enforce_hostile_guest_floor().unwrap_err(),
+            "workload_boundary_network_device_refused"
+        );
+
+        let mut mount = test_spec();
+        mount.host_mount_count = 1;
+        assert_eq!(
+            mount.enforce_hostile_guest_floor().unwrap_err(),
+            "workload_boundary_host_mount_refused"
+        );
+
+        let mut socket = test_spec();
+        socket.host_control_socket_count = 1;
+        assert_eq!(
+            socket.enforce_hostile_guest_floor().unwrap_err(),
+            "workload_boundary_host_control_socket_refused"
+        );
+    }
+
+    /// Real-host T2 probe. This is ignored in generic CI because it needs KVM and the pinned VM
+    /// toolchain, but `check:workload-bound-effect-boundary -- --live` invokes it explicitly.
+    /// The guest agent is PID 1/root, so these probes execute with the strongest guest-local
+    /// privilege the selected `trusted_host_hostile_guest` profile promises to contain.
+    #[test]
+    #[ignore = "requires /dev/kvm and the checksum-pinned ~/.ioi/vm-toolchain"]
+    fn root_guest_cannot_reach_a_host_canary_or_find_protected_material() {
+        let home = std::env::var("HOME").expect("HOME selects the local pinned toolchain");
+        let run = tempfile::tempdir().expect("probe run dir");
+        let listener = TcpListener::bind("127.0.0.1:0").expect("host canary listener");
+        listener.set_nonblocking(true).expect("nonblocking canary");
+        let port = listener.local_addr().unwrap().port();
+
+        let mut spec = build_vm_spec(&home, "cloud-hypervisor", run.path().join("vm"), 1, 384)
+            .expect("verified VM spec");
+        spec.bind_workload(
+            "workrun://t2-live",
+            "workload-isolation-binding://t2-live",
+            "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "principal://hostile-root-guest",
+        )
+        .expect("exact workload VM binding");
+        spec.sock_path = short_sock_path(&format!("t2-live-{}", std::process::id()))
+            .expect("private short socket");
+        let declaration = spec
+            .workload_bound_enforcement_declaration("cloud-hypervisor")
+            .expect("hostile guest floor");
+        let monitor = CloudHypervisorMonitor;
+        let mut vm = monitor.start(&spec).expect("real KVM guest boot");
+
+        // Mint one exact guest-visible handle. It is authority to submit only the already-bound
+        // request, not a provider credential and not a general signing primitive.
+        let state_dir = run.path().join("state");
+        let request = serde_json::json!({
+            "operation": "test_protected_provider_effect",
+            "provider": "host-canary",
+            "maximum_invocations": 1
+        });
+        let proposal = crate::workload_effect_boundary::mint_guest_effect_capability(
+            state_dir.to_str().unwrap(),
+            "workload-isolation-binding://t2-live",
+            "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "principal://hostile-root-guest",
+            "nonce-t2-live",
+            "hypervisor-final-invoker",
+            "provider-resource://host-canary/protected",
+            "result-destination://t2/quarantine",
+            &request,
+            1_000,
+            61_000,
+        )
+        .expect("mint exact workload capability");
+        let input = run.path().join("input");
+        std::fs::create_dir_all(&input).unwrap();
+        std::fs::write(
+            input.join("proposal.json"),
+            serde_jcs::to_vec(&proposal).unwrap(),
+        )
+        .unwrap();
+        monitor
+            .import_workspace(&vm, &tar_dir(&input).unwrap())
+            .expect("bounded guest input");
+
+        let root = monitor.exec(&vm, "id -u").expect("root probe");
+        let network = monitor
+            .exec(
+                &vm,
+                &format!(
+                    "set +e; printf 'interfaces='; ls -1 /sys/class/net 2>/dev/null | tr '\\n' ','; echo; \
+                     /bin/busybox wget -T 1 -qO- http://10.0.2.2:{port}/protected >/tmp/raw-ip 2>&1; echo raw_ip=$?; \
+                     /bin/busybox wget -T 1 -qO- http://127.0.0.1:{port}/protected >/tmp/loopback 2>&1; echo loopback=$?; \
+                     /bin/busybox wget -T 1 -qO- http://169.254.169.254/latest/meta-data/ >/tmp/metadata 2>&1; echo metadata=$?; \
+                     /bin/busybox wget -T 1 -qO- https://console-api.akash.network/ >/tmp/dns 2>&1; echo dns=$?"
+                ),
+            )
+            .expect("network probes");
+        let material = monitor
+            .exec(
+                &vm,
+                "set +e; for p in /dev/kvm /dev/vhost-vsock /var/run/docker.sock /run/docker.sock /host /wallet /secrets; do [ -e \"$p\" ] && echo exposed=$p; done; tr '\\000' '\\n' </proc/1/environ | /bin/busybox grep -E 'AKASH|IOI_C7|PASSWORD|RECOVERY|PRIVATE_KEY|TOKEN' || echo no_protected_environment",
+            )
+            .expect("material probes");
+
+        // The hostile guest submits through the sole data path it has: bounded output. The host
+        // validates the archive into quarantine and then verifies every bound capability field
+        // before entering the final invoker exactly once.
+        let submitted = monitor
+            .exec(&vm, "cp proposal.json submitted-proposal.json")
+            .expect("guest proposal submission");
+        assert_eq!(submitted.exit_code, 0);
+        let exported = monitor.export_workspace(&vm).expect("bounded guest output");
+        let quarantine = run.path().join("quarantine");
+        untar_into(&quarantine, &exported).expect("transactional output quarantine");
+        let returned_proposal = std::fs::read(quarantine.join("submitted-proposal.json")).unwrap();
+        let final_invoker_calls = AtomicUsize::new(0);
+        let consumption = crate::workload_effect_boundary::consume_guest_effect_proposal_bytes(
+            state_dir.to_str().unwrap(),
+            &returned_proposal,
+            2_000,
+            |exact| {
+                final_invoker_calls.fetch_add(1, Ordering::SeqCst);
+                assert_eq!(exact, &request);
+                Ok(serde_json::json!({
+                    "provider_receipt_ref": "provider-receipt://host-canary/one",
+                    "outcome": "mock_effect_observed"
+                }))
+            },
+        )
+        .expect("legitimate syscall reaches final invoker");
+        let replay = crate::workload_effect_boundary::consume_guest_effect_proposal_bytes(
+            state_dir.to_str().unwrap(),
+            &returned_proposal,
+            3_000,
+            |_| panic!("replay cannot enter final invoker"),
+        )
+        .unwrap_err();
+
+        monitor.stop(&mut vm).expect("guest teardown request");
+        let terminal = vm
+            .child
+            .try_wait()
+            .expect("observe monitor process")
+            .is_some();
+        let host_canary_calls = usize::from(listener.accept().is_ok());
+
+        assert_eq!(
+            root.output.trim(),
+            "0",
+            "probe must actually have guest root"
+        );
+        assert!(
+            network.output.contains("interfaces=lo,"),
+            "the guest must expose loopback only: {}",
+            network.output
+        );
+        for probe in ["raw_ip", "loopback", "metadata", "dns"] {
+            assert!(
+                !network.output.contains(&format!("{probe}=0")),
+                "{probe} unexpectedly reached a network target: {}",
+                network.output
+            );
+        }
+        assert_eq!(
+            host_canary_calls, 0,
+            "direct guest host/provider boundary calls"
+        );
+        assert_eq!(final_invoker_calls.load(Ordering::SeqCst), 1);
+        assert_eq!(consumption["final_invoker_calls"], 1);
+        assert_eq!(replay, "workload_effect_capability_already_consumed");
+        assert!(
+            !material.output.contains("exposed="),
+            "protected host material crossed into guest: {}",
+            material.output
+        );
+        assert!(material.output.contains("no_protected_environment"));
+        assert!(
+            terminal,
+            "the monitor must be observably terminal after teardown"
+        );
+
+        eprintln!(
+            "{}",
+            serde_json::to_string_pretty(&serde_json::json!({
+                "schema_version": "ioi.hypervisor.workload-bound-effect-boundary-live-probe.v1",
+                "guest_uid": 0,
+                "enforcement_declaration": declaration,
+                "attempted_paths": ["raw_ip", "loopback", "metadata", "dns", "host_device", "host_socket", "environment"],
+                "direct_host_canary_invocations": host_canary_calls,
+                "authenticated_final_invoker_calls": final_invoker_calls.load(Ordering::SeqCst),
+                "capability_replay": "refused",
+                "output_quarantine": "bounded_archive_validated",
+                "monitor_terminal": terminal,
+                "claim_boundary": "This probe establishes the named local KVM/no-NIC hostile-guest profile; it does not establish resistance to a compromised host kernel, VMM, daemon, firmware, or hardware."
+            }))
+            .unwrap()
+        );
     }
 }

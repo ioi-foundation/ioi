@@ -1,6 +1,13 @@
 # Governed-effect security baseline — 2026-08-22
 
 Status: re-derived T0 baseline; spend-free; no provider mutation performed.
+Canonical owner: this record for the 2026-08-22 governed-effect T0 audit basis.
+Doctrine status: reference
+Implementation status: partial
+Implementation refs:
+  - `internal-docs/implementation/program/governed-effect-security-and-publication-target-plan.md`
+  - `docs/architecture/_meta/schemas/architecture-contract-registry.v1.json`
+Last implementation audit: 2026-08-22 (T0 contracts complete; later target-plan workstreams remain open)
 
 This audit is the reproducible source/contract basis for the governed-effect
 security and publication target. It records what passed, what initially failed,

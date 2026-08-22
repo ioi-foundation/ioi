@@ -202,6 +202,8 @@ mod wallet_network_capability_client;
 mod work_frontier_claim_routes;
 #[path = "hypervisor_daemon_routes/work_result_routes.rs"]
 mod work_result_routes;
+#[path = "hypervisor_daemon_routes/workload_effect_boundary.rs"]
+mod workload_effect_boundary;
 
 use std::collections::{HashMap, HashSet};
 use std::net::SocketAddr;

@@ -4074,6 +4074,135 @@
       ]
     },
     {
+      "contract_id": "schema://ioi/components/hypervisor/vm-enforcement-declaration/v1",
+      "canonical_name": "HypervisorVmEnforcementDeclaration",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/providers-and-environments.md#local-hostile-guest-enforcement-profile",
+      "schema_version": "ioi.components.hypervisor.vm-enforcement-declaration.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "hypervisor-vm-enforcement-declaration.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "HypervisorVmEnforcementDeclarationV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "HypervisorVmEnforcementDeclarationV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/hypervisor-vm-enforcement-declaration-v1/positive-workload-bound.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/hypervisor-vm-enforcement-declaration-v1/negative-network-device.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/workload-bound-effect-proposal/v1",
+      "canonical_name": "HypervisorWorkloadBoundEffectProposal",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/providers-and-environments.md#local-hostile-guest-enforcement-profile",
+      "schema_version": "ioi.components.hypervisor.workload-bound-effect-proposal.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "hypervisor-workload-bound-effect-proposal.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "HypervisorWorkloadBoundEffectProposalV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "HypervisorWorkloadBoundEffectProposalV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/hypervisor-workload-bound-effect-proposal-v1/positive-exact.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/hypervisor-workload-bound-effect-proposal-v1/negative-wrong-audience.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/workload-effect-consumption-receipt/v1",
+      "canonical_name": "HypervisorWorkloadEffectConsumptionReceipt",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/providers-and-environments.md#local-hostile-guest-enforcement-profile",
+      "schema_version": "ioi.components.hypervisor.workload-effect-consumption-receipt.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "hypervisor-workload-effect-consumption-receipt.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "HypervisorWorkloadEffectConsumptionReceiptV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "HypervisorWorkloadEffectConsumptionReceiptV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/hypervisor-workload-effect-consumption-receipt-v1/positive-consumed.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/hypervisor-workload-effect-consumption-receipt-v1/negative-two-invocations.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
       "contract_id": "schema://ioi/components/hypervisor/workload-isolation-binding/v1",
       "canonical_name": "HypervisorWorkloadIsolationBinding",
       "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/providers-and-environments.md#immutable-workload-isolation-binding",
