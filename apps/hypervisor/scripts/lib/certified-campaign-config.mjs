@@ -76,6 +76,54 @@ export function validateCertifiedCampaignConfig(config) {
       throw new Error("workload_effect_broker expires_in_seconds must be between 60 and 900");
     }
   }
+  if (config.standing_authority?.enabled === true) {
+    const standing = config.standing_authority;
+    const exactKeys = [
+      "enabled",
+      "factor_profile",
+      "standing_envelope_ref",
+      "bounded_system_ref",
+      "trajectory_policy_ref",
+      "trajectory_policy_hash",
+      "revocation_epoch",
+      "expires_in_seconds",
+      "aggregate_bounds",
+    ];
+    if (Object.keys(standing).length !== exactKeys.length
+        || Object.keys(standing).some((key) => !exactKeys.includes(key))) {
+      throw new Error("standing_authority must use the exact reviewed field set");
+    }
+    if (standing.factor_profile !== "software_passkey_trusted_host"
+        || !/^standing-envelope:\/\/\S{1,460}$/u.test(String(standing.standing_envelope_ref || ""))
+        || !/^[a-z][a-z0-9+._-]*:\/\/\S{1,500}$/u.test(String(standing.bounded_system_ref || ""))
+        || !/^policy:\/\/\S{1,490}$/u.test(String(standing.trajectory_policy_ref || ""))
+        || !/^sha256:[0-9a-f]{64}$/u.test(String(standing.trajectory_policy_hash || ""))) {
+      throw new Error("standing_authority carries an invalid reviewed identity or policy binding");
+    }
+    if (!Number.isSafeInteger(standing.revocation_epoch) || standing.revocation_epoch < 0
+        || !Number.isSafeInteger(standing.expires_in_seconds)
+        || standing.expires_in_seconds < 300 || standing.expires_in_seconds > 4 * 60 * 60) {
+      throw new Error("standing_authority validity or revocation epoch is invalid");
+    }
+    const bounds = standing.aggregate_bounds || {};
+    const boundKeys = [
+      "max_cumulative_deposit_microusd",
+      "max_cumulative_spend_microusd",
+      "max_usages",
+      "max_concurrent_resources",
+      "max_provider_fanout",
+      "max_failures",
+    ];
+    if (Object.keys(bounds).length !== boundKeys.length
+        || Object.keys(bounds).some((key) => !boundKeys.includes(key))
+        || !boundKeys.every((key) => Number.isSafeInteger(bounds[key]) && bounds[key] >= 0)
+        || bounds.max_usages < 1 || bounds.max_concurrent_resources < 1
+        || bounds.max_provider_fanout < 1
+        || bounds.max_cumulative_deposit_microusd < Math.round(deposit * 1_000_000)
+        || bounds.max_cumulative_spend_microusd < Math.round(deposit * 1_000_000)) {
+      throw new Error("standing_authority aggregate bounds are invalid or smaller than one reviewed draw");
+    }
+  }
   if (plan.benchmark_protocol_version) {
     if (selector.mode !== "exact"
         || selector.selection !== "only_qualified_bid_from_exact_provider"

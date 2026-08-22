@@ -124,6 +124,39 @@ test("binds the optional hostile-guest broker to the exact campaign resource", (
   }
 });
 
+test("binds a software-passkey standing envelope to exact aggregate limits", () => {
+  const config = structuredClone(valid);
+  config.plan.deposit_usd = 1;
+  config.standing_authority = {
+    enabled: true,
+    factor_profile: "software_passkey_trusted_host",
+    standing_envelope_ref: "standing-envelope://aft/u1-campaign-a",
+    bounded_system_ref: "system://aft/u1",
+    trajectory_policy_ref: "policy://aft/u1/trajectory/v1",
+    trajectory_policy_hash: `sha256:${"e".repeat(64)}`,
+    revocation_epoch: 0,
+    expires_in_seconds: 7_200,
+    aggregate_bounds: {
+      max_cumulative_deposit_microusd: 1_000_000,
+      max_cumulative_spend_microusd: 1_000_000,
+      max_usages: 1,
+      max_concurrent_resources: 1,
+      max_provider_fanout: 1,
+      max_failures: 1,
+    },
+  };
+  assert.equal(validateCertifiedCampaignConfig(config), config);
+  for (const mutate of [
+    (candidate) => { candidate.standing_authority.factor_profile = "hardware_backed"; },
+    (candidate) => { candidate.standing_authority.aggregate_bounds.max_cumulative_spend_microusd = 999_999; },
+    (candidate) => { candidate.standing_authority.unreviewed_widening = true; },
+  ]) {
+    const candidate = structuredClone(config);
+    mutate(candidate);
+    assert.throws(() => validateCertifiedCampaignConfig(candidate), /standing_authority/u);
+  }
+});
+
 test("binds the retained workflow build identity to the reviewed workload", () => {
   assert.equal(validateBenchmarkBuildIdentity(validBuildIdentity, valid), validBuildIdentity);
   for (const field of ["source_ref", "image_digest", "result_tls_server_certificate_sha256"]) {

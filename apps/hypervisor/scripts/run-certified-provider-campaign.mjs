@@ -29,6 +29,12 @@ import {
   validateProviderPreflightResponse,
 } from "./lib/certified-campaign-config.mjs";
 import { stableStringify } from "./lib/c7-c8-certificate.mjs";
+import {
+  approvalCeremonyContextHash,
+  randomHex32,
+  sealStandingAuthorityEnvelope,
+} from "./lib/standing-authority-evidence.mjs";
+import { issueSoftwarePasskeyAuthorityFactor } from "./lib/software-passkey-ceremony.mjs";
 import { startRealWalletNetworkPrincipalAuthorityFixture } from "./lib/wallet-network-principal-authority-fixture.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -184,6 +190,7 @@ let fixture;
 let session = "";
 let dseq = "";
 let terminal = false;
+let whoamiPrincipal = null;
 try {
   if (!prepareOnly) {
     fixture = await startRealWalletNetworkPrincipalAuthorityFixture({
@@ -209,6 +216,8 @@ try {
       IOI_HYPERVISOR_DATA_DIR: config.data_dir,
       IOI_HYPERVISOR_DAEMON_ADDR: "127.0.0.1:8765",
       IOI_HYPERVISOR_AUTHORITY_PRINCIPAL_REF: config.authority_principal_ref,
+      IOI_HYPERVISOR_WEBAUTHN_RP_ID: "localhost",
+      IOI_HYPERVISOR_WEBAUTHN_ORIGIN: "http://localhost:8766",
     },
     stdio: ["ignore", daemonLog, daemonLog],
   });
@@ -230,6 +239,10 @@ try {
   const whoami = await whoamiResponse.json();
   if (!whoamiResponse.ok || whoami.authenticated !== true) {
     throw new Error(`operator whoami refused: HTTP ${whoamiResponse.status}`);
+  }
+  whoamiPrincipal = whoami.principal || null;
+  if (!String(whoamiPrincipal?.principal_ref || "").startsWith("user://")) {
+    throw new Error("operator whoami did not resolve a user principal reference");
   }
   save("c7-whoami.json", whoami);
 
@@ -256,6 +269,9 @@ try {
     reviewed_facets: facets,
     workload_effect_broker: config.workload_effect_broker?.enabled === true
       ? config.workload_effect_broker
+      : null,
+    standing_authority: config.standing_authority?.enabled === true
+      ? config.standing_authority
       : null,
   };
   const approvalRequest = {
@@ -287,14 +303,155 @@ try {
     if (approval.schema_version !== approvalRequest.schema_version || approval.approved !== true) {
       throw new Error("approval file does not carry approved=true under the expected schema");
     }
-    const grant = await fixture.mintRecorded(
-      config.authority_principal_ref,
-      policyHash,
-      requestHash,
-      "scope:hypervisor.live-route.hypervisor-provider-op",
-    );
+    let grant;
+    let admitted;
+    if (config.standing_authority?.enabled === true) {
+      const standing = config.standing_authority;
+      const now = Date.now();
+      const envelope = sealStandingAuthorityEnvelope({
+        schema_version: "ioi.foundations.standing-authority-envelope.v1",
+        standing_envelope_ref: standing.standing_envelope_ref,
+        owner_ref: config.owner_ref,
+        bounded_system_ref: standing.bounded_system_ref,
+        principal_ref: whoamiPrincipal.principal_ref,
+        audience_ref: "wallet-client://hypervisor/provider-ops",
+        authority_scope: "scope:hypervisor.live-route.hypervisor-provider-op",
+        facet_template: {
+          provider_id: config.provider_id,
+          operations: ["create"],
+          provider_selector: {
+            mode: "exact",
+            provider_addresses: [facets.provider_address],
+            selection: "only_qualified_bid_from_exact_provider",
+          },
+          per_operation_deposit_microusd: Math.round(facets.deposit_usd * 1_000_000),
+          pricing_ceiling: { amount: facets.ceiling_amount, denom: facets.ceiling_denom },
+          sdl_hashes: [facets.sdl_hash],
+          image_digests: [facets.image_digest],
+          registry_hosts: [facets.registry_host],
+          result_destination_refs: [facets.result_credential_ref],
+          result_transport_certificate_hashes: [facets.result_tls_server_certificate_sha256],
+          auto_topup: false,
+          teardown_policy: facets.teardown_policy,
+          max_duration_seconds: facets.max_duration_seconds,
+        },
+        aggregate_bounds: standing.aggregate_bounds,
+        not_before_ms: now - 30_000,
+        expires_at_ms: now + standing.expires_in_seconds * 1_000,
+        revocation_epoch: standing.revocation_epoch,
+        trajectory_policy_ref: standing.trajectory_policy_ref,
+        trajectory_policy_hash: standing.trajectory_policy_hash,
+        approval_mode: "standing_envelope",
+        recovery_posture: "recovery_never_widens_or_resets_drawdown",
+      });
+      const authorizationSubject = {
+        kind: "standing_envelope",
+        subject_ref: envelope.standing_envelope_ref,
+        subject_hash: envelope.body_hash,
+        validation_profile_ref: "schema://ioi/foundations/standing-authority-envelope/v1",
+      };
+      const context = {
+        schema_version: "ioi.foundations.approval-ceremony-context.v1",
+        approval_ceremony_context_ref: `approval-ceremony-context://aft/${request.plan.campaign_id}`,
+        authority_request_ref: `authority-request://aft/${request.plan.campaign_id}`,
+        authority_request_body_hash: requestHash,
+        authority_review_ref: `review://aft/${request.plan.campaign_id}`,
+        authority_review_body_hash: approval.review_bundle_sha256,
+        predecessor_authority_review_ref: null,
+        predecessor_authority_review_body_hash: null,
+        predecessor_authority_request_ref: null,
+        predecessor_authority_request_body_hash: null,
+        predecessor_authority_review_receipt_ref: null,
+        predecessor_authority_review_receipt_hash: null,
+        reviewed_representation_hash: approval.review_bundle_sha256,
+        principal_ref: whoamiPrincipal.principal_ref,
+        acting_subject_ref: "runtime://hypervisor/operator",
+        product_session_ref: `session://aft/${request.plan.campaign_id}`,
+        origin_binding_ref: "origin://hypervisor/local",
+        authorization_subject: authorizationSubject,
+        presentation_surface_ref: "wallet-client://hypervisor/local",
+        presentation_evidence_profile_ref: "policy://presentation/software-passkey/v1",
+        principal_authority_resolution_ref: null,
+        principal_authority_resolution_hash: null,
+        required_auth_factor_posture_refs: ["auth-factor://software-passkey/trusted-host"],
+        required_guardian_surface_refs: [],
+        posture_satisfaction_profile_ref: "policy://auth-posture/step-up/v1",
+        interaction_mode: "interactive",
+        authentication_posture: "step_up",
+        receipt_timing: "before_effect",
+        policy_decision_receipt_ref: `receipt://aft/review/${request.plan.campaign_id}`,
+        policy_decision_receipt_hash: approval.review_bundle_sha256,
+        policy_hash: standing.trajectory_policy_hash,
+        risk_classes: ["external_spend", "standing_authority"],
+        revocation_epoch: standing.revocation_epoch,
+        nonce_b64url: randomHex32(),
+        issued_at: new Date(now - 1_000).toISOString(),
+        expires_at: new Date(now + 4 * 60_000).toISOString(),
+        single_use: true,
+      };
+      const contextHash = approvalCeremonyContextHash(context);
+      const factor = await issueSoftwarePasskeyAuthorityFactor({
+        daemonUrl,
+        session,
+        approvalContext: context,
+        approvalContextHash: contextHash,
+      });
+      const factorReceiptId = factor.authority_receipt_ref.split("/").at(-1);
+      const factorReceipt = JSON.parse(readFileSync(
+        path.join(config.data_dir, "auth-factor-receipts", `${factorReceiptId}.json`),
+        "utf8",
+      ));
+      if (factorReceipt.receipt_hash !== factor.authority_receipt_hash) {
+        throw new Error("persisted passkey authority receipt differs from the ceremony response");
+      }
+      grant = fixture.mintStandingForCapability(config.authority_principal_ref, {
+        standingEnvelopeHash: envelope.body_hash,
+        policyHash: standing.trajectory_policy_hash,
+        nonce: randomHex32(),
+        counter: 1,
+        issuedAtMs: now,
+        expiresAtMs: now + standing.expires_in_seconds * 1_000,
+        maxUsages: standing.aggregate_bounds.max_usages,
+        maxCumulativeDepositMicrousd: standing.aggregate_bounds.max_cumulative_deposit_microusd,
+        maxCumulativeSpendMicrousd: standing.aggregate_bounds.max_cumulative_spend_microusd,
+        reviewReceiptHash: approval.review_bundle_sha256,
+        approvalCeremonyContextHash: contextHash,
+        authFactorReceiptHash: factorReceipt.receipt_hash,
+      });
+      const recorded = await fixture.recordStandingApprovalGrant(
+        config.authority_principal_ref,
+        grant,
+        envelope,
+        context,
+        factorReceipt,
+      );
+      save("standing-authority-envelope.json", envelope);
+      save("approval-ceremony-context.json", context);
+      save("auth-factor-receipt.json", factorReceipt);
+      save("standing-authority-recording.json", recorded);
+      save("software-passkey-evidence.json", {
+        profile: factor.profile,
+        credential_ref: factor.credential_ref,
+        enrollment_receipt_ref: factor.enrollment_receipt_ref,
+        authority_receipt_ref: factor.authority_receipt_ref,
+        authority_receipt_hash: factor.authority_receipt_hash,
+        hardware_backed: false,
+      });
+      admitted = {
+        ...request,
+        wallet_standing_approval_grant: grant,
+        standing_authority_envelope: envelope,
+      };
+    } else {
+      grant = await fixture.mintRecorded(
+        config.authority_principal_ref,
+        policyHash,
+        requestHash,
+        "scope:hypervisor.live-route.hypervisor-provider-op",
+      );
+      admitted = { ...request, wallet_approval_grant: grant };
+    }
     save("grant.json", grant);
-    const admitted = { ...request, wallet_approval_grant: grant };
     const proposalResponse = await fetch(`${daemonUrl}/v1/hypervisor/provider-operation-proposals`, {
       method: "POST",
       headers: headers(session),
