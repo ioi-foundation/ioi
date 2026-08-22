@@ -29,6 +29,7 @@ use super::lifecycle_routes::{
 use ioi_services::agentic::runtime::kernel::emergency_containment::{
     close_deletion, DeletionOutcome,
 };
+use ioi_services::wallet_network::SettleStandingApprovalGrantConsumptionParams;
 
 use super::{iso_now, persist_record, read_record_dir, DaemonState};
 
@@ -43,6 +44,46 @@ fn safe(seg: &str) -> String {
         |c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_',
         "_",
     )
+}
+
+fn standing_consumption_for_environment(
+    data_dir: &str,
+    provider: &str,
+    environment_ref: &str,
+) -> Option<[u8; 32]> {
+    let record = read_record_dir(data_dir, "provider-operations")
+        .into_iter()
+        .filter(|record| {
+            text(record, "provider") == provider
+                && text(record, "environment_ref") == environment_ref
+                && matches!(text(record, "op"), "create" | "redeploy")
+                && record
+                    .pointer("/capability_lease/authority_mode")
+                    .and_then(Value::as_str)
+                    == Some("standing_envelope")
+        })
+        .max_by(|left, right| text(left, "at").cmp(text(right, "at")))?;
+    let encoded = record
+        .pointer("/capability_lease/standing_consumption_id")
+        .and_then(Value::as_str)?;
+    let mut consumption_id = [0u8; 32];
+    hex::decode_to_slice(encoded, &mut consumption_id).ok()?;
+    Some(consumption_id)
+}
+
+fn terminal_spend_microusd(evidence: &Value) -> Option<(u64, &Value)> {
+    let settlement = evidence
+        .get("settlement")
+        .or_else(|| evidence.get("provider_native_settlement"))
+        .or_else(|| evidence.pointer("/provider_native/settlement"))?;
+    if settlement.get("provider_terminal").and_then(Value::as_bool) != Some(true) {
+        return None;
+    }
+    let usd = settlement.get("final_debit_usd")?.as_f64()?;
+    if !usd.is_finite() || usd < 0.0 || usd > (u64::MAX as f64 / 1_000_000.0) {
+        return None;
+    }
+    Some(((usd * 1_000_000.0).round() as u64, settlement))
 }
 /// Derive the EXACT deletion outcome for a provider teardown.
 ///
@@ -9006,6 +9047,7 @@ pub(crate) async fn handle_provider_op(
                     "operation_id": op_id, "provider": kind, "account_ref": account_ref,
                     "environment_ref": env_ref, "op": op, "evidence": evidence,
                     "proposal_consumption": proposal_consumption,
+                    "capability_lease": lease_note,
                     "grant_ref": grant_ref, "budget_discovery": budget_note, "cost_estimate": cost_estimate,
                     "receipt_ref": receipt, "at": iso_now()
                 });
@@ -9096,6 +9138,63 @@ pub(crate) async fn handle_provider_op(
                                 .map(|intent| intent.intent_state_root.as_str())
                                 .unwrap_or(""),
                             "the outcome committed but its durable provider-operation evidence projection did not record the journal roots",
+                        );
+                    }
+                }
+                // A terminal provider readback settles the actual debit for the standing draw
+                // that created this environment. The original reservation remains monotonic:
+                // refunds are evidence, never newly minted authority.
+                if let (Some(consumption_id), Some((actual_spend_microusd, settlement))) = (
+                    standing_consumption_for_environment(data_dir, &kind, &env_ref),
+                    terminal_spend_microusd(&evidence),
+                ) {
+                    let terminal_evidence: [u8; 32] =
+                        Sha256::digest(serde_jcs::to_vec(settlement).unwrap_or_default()).into();
+                    let Some(terminal_evidence_ref) = receipt.clone() else {
+                        return provider_op_reconciliation_required(
+                            op,
+                            &kind,
+                            &env_ref,
+                            &receipt,
+                            evidence.get("provider_native").cloned().unwrap_or(Value::Null),
+                            provider_journal_intent.as_ref().map(|intent| intent.journal_ref.as_str()).unwrap_or(""),
+                            provider_journal_intent.as_ref().map(|intent| intent.intent_state_root.as_str()).unwrap_or(""),
+                            "provider settlement is terminal but its durable evidence receipt is missing",
+                        );
+                    };
+                    let settlement_params = SettleStandingApprovalGrantConsumptionParams {
+                        consumption_id,
+                        terminal_evidence_hash: terminal_evidence,
+                        terminal_evidence_ref,
+                        actual_spend_microusd,
+                    };
+                    let authority_settlement = match super::wallet_network_capability_client::settle_standing_approval_grant_consumption(settlement_params).await {
+                        Ok(receipt) => receipt,
+                        Err(error) => {
+                            return provider_op_reconciliation_required(
+                                op,
+                                &kind,
+                                &env_ref,
+                                &receipt,
+                                evidence.get("provider_native").cloned().unwrap_or(Value::Null),
+                                provider_journal_intent.as_ref().map(|intent| intent.journal_ref.as_str()).unwrap_or(""),
+                                provider_journal_intent.as_ref().map(|intent| intent.intent_state_root.as_str()).unwrap_or(""),
+                                &format!("provider settlement is terminal but wallet.network standing-authority settlement did not commit ({error:?})"),
+                            );
+                        }
+                    };
+                    record["standing_authority_settlement"] =
+                        serde_json::to_value(authority_settlement).unwrap_or(Value::Null);
+                    if persist_record(data_dir, "provider-operations", &op_id, &record).is_err() {
+                        return provider_op_reconciliation_required(
+                            op,
+                            &kind,
+                            &env_ref,
+                            &receipt,
+                            evidence.get("provider_native").cloned().unwrap_or(Value::Null),
+                            provider_journal_intent.as_ref().map(|intent| intent.journal_ref.as_str()).unwrap_or(""),
+                            provider_journal_intent.as_ref().map(|intent| intent.intent_state_root.as_str()).unwrap_or(""),
+                            "wallet.network settled the standing draw but the provider-operation projection did not persist its settlement receipt",
                         );
                     }
                 }
@@ -9835,6 +9934,52 @@ env:
             .expect("authority projection survives restart");
         assert_eq!(text(&lease, "state"), "exhausted");
         super::super::substrate_store::reset_handle_for_test();
+    }
+
+    #[test]
+    fn standing_draw_identity_and_terminal_debit_are_derived_from_durable_provider_truth() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        let consumption_id = [0x5a; 32];
+        persist_record(
+            data_dir,
+            "provider-operations",
+            "pop-standing-create",
+            &json!({
+                "operation_id": "pop-standing-create",
+                "provider": "akash",
+                "environment_ref": "env-standing",
+                "op": "create",
+                "at": "2026-08-22T10:00:00Z",
+                "capability_lease": {
+                    "authority_mode": "standing_envelope",
+                    "standing_consumption_id": hex::encode(consumption_id)
+                }
+            }),
+        )
+        .expect("persist standing create");
+        assert_eq!(
+            standing_consumption_for_environment(data_dir, "akash", "env-standing"),
+            Some(consumption_id)
+        );
+        assert_eq!(
+            standing_consumption_for_environment(data_dir, "akash", "other-environment"),
+            None
+        );
+
+        let evidence = json!({
+            "settlement": {
+                "provider_terminal": true,
+                "final_debit_usd": 0.000002,
+                "refund_usd": 0.999998,
+                "open_unknown_exposure_usd": 0
+            }
+        });
+        let (debit, _) = terminal_spend_microusd(&evidence).expect("terminal debit");
+        assert_eq!(debit, 2);
+        let mut nonterminal = evidence;
+        nonterminal["settlement"]["provider_terminal"] = json!(false);
+        assert!(terminal_spend_microusd(&nonterminal).is_none());
     }
 
     // ---- MEC C2/C5(b): the two-phase provider-operation journal (intent → outcome) ----

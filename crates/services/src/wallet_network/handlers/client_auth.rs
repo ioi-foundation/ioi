@@ -211,7 +211,8 @@ pub(crate) fn authorize_wallet_method(
         | "consume_approval_grant@v1"
         | "consume_approval_grant_for_effect@v1"
         | "consume_approval_grant_for_effect@v2"
-        | "consume_standing_approval_grant_for_effect@v1" => {
+        | "consume_standing_approval_grant_for_effect@v1"
+        | "settle_standing_approval_grant_consumption@v1" => {
             ensure_wallet_client_role(state, ctx, WalletAuthRole::Capability)
         }
         _ => Ok(()),

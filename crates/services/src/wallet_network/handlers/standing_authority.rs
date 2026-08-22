@@ -1,6 +1,7 @@
 use crate::wallet_network::handlers::principal_authority::validate_expected_principal_authority_binding;
 use crate::wallet_network::keys::{
     standing_approval_consumption_receipt_key, standing_approval_grant_state_key,
+    standing_approval_settlement_receipt_key,
 };
 use crate::wallet_network::support::{
     append_audit_event_with_records, base_audit_metadata, block_timestamp_ms,
@@ -9,7 +10,8 @@ use crate::wallet_network::support::{
 use crate::wallet_network::validation::load_registered_approval_authority;
 use crate::wallet_network::{
     ConsumeStandingApprovalGrantForEffectParams, RecordStandingApprovalGrantParams,
-    RevokeStandingApprovalGrantParams, StandingApprovalGrantConsumptionReceipt,
+    RevokeStandingApprovalGrantParams, SettleStandingApprovalGrantConsumptionParams,
+    StandingApprovalGrantConsumptionReceipt, StandingApprovalGrantSettlementReceipt,
     StandingApprovalGrantState, StandingApprovalGrantStatus, StandingApprovalMode,
 };
 use dcrypt::algorithms::hash::{HashFunction, Sha256};
@@ -165,6 +167,21 @@ pub(crate) fn revoke_standing_approval_grant(
 
 fn receipt_hash(
     receipt: &StandingApprovalGrantConsumptionReceipt,
+) -> Result<[u8; 32], TransactionError> {
+    let mut material = serde_json::to_value(receipt)
+        .map_err(|error| TransactionError::Invalid(error.to_string()))?;
+    material["receipt_hash"] = serde_json::json!(vec![0u8; 32]);
+    let canonical = serde_jcs::to_vec(&material)
+        .map_err(|error| TransactionError::Invalid(error.to_string()))?;
+    let digest =
+        Sha256::digest(&canonical).map_err(|error| TransactionError::Invalid(error.to_string()))?;
+    let mut output = [0u8; 32];
+    output.copy_from_slice(digest.as_ref());
+    Ok(output)
+}
+
+fn settlement_receipt_hash(
+    receipt: &StandingApprovalGrantSettlementReceipt,
 ) -> Result<[u8; 32], TransactionError> {
     let mut material = serde_json::to_value(receipt)
         .map_err(|error| TransactionError::Invalid(error.to_string()))?;
@@ -351,6 +368,133 @@ pub(crate) fn consume_standing_approval_grant_for_effect(
                     ioi_types::codec::to_bytes_canonical(&grant_state)?,
                 ),
                 (receipt_key, ioi_types::codec::to_bytes_canonical(&receipt)?),
+            ])
+        },
+    )
+    .map(|_| ())
+}
+
+pub(crate) fn settle_standing_approval_grant_consumption(
+    state: &mut dyn StateAccess,
+    ctx: &TxContext<'_>,
+    params: SettleStandingApprovalGrantConsumptionParams,
+) -> Result<(), TransactionError> {
+    if params.consumption_id == [0u8; 32]
+        || params.terminal_evidence_hash == [0u8; 32]
+        || params.terminal_evidence_ref.trim().is_empty()
+        || params.terminal_evidence_ref.len() > 512
+    {
+        return Err(TransactionError::Invalid(
+            "standing approval settlement evidence is invalid".into(),
+        ));
+    }
+
+    let settlement_key = standing_approval_settlement_receipt_key(&params.consumption_id);
+    if let Some(existing) =
+        load_typed::<StandingApprovalGrantSettlementReceipt>(state, &settlement_key)?
+    {
+        if existing.consumption_id == params.consumption_id
+            && existing.terminal_evidence_hash == params.terminal_evidence_hash
+            && existing.terminal_evidence_ref == params.terminal_evidence_ref
+            && existing.actual_spend_microusd == params.actual_spend_microusd
+            && existing.receipt_hash == settlement_receipt_hash(&existing)?
+        {
+            return Ok(());
+        }
+        return Err(TransactionError::Invalid(
+            "standing approval consumption already has different terminal settlement".into(),
+        ));
+    }
+
+    let consumption: StandingApprovalGrantConsumptionReceipt = load_typed(
+        state,
+        &standing_approval_consumption_receipt_key(&params.consumption_id),
+    )?
+    .ok_or_else(|| {
+        TransactionError::Invalid("standing approval consumption is not registered".into())
+    })?;
+    if consumption.receipt_hash != receipt_hash(&consumption)? {
+        return Err(TransactionError::Invalid(
+            "standing approval consumption receipt hash is invalid".into(),
+        ));
+    }
+    if ctx.signer_account_id.0 != consumption.audience {
+        return Err(TransactionError::UnauthorizedByCredentials);
+    }
+    if params.actual_spend_microusd > consumption.estimated_spend_microusd {
+        return Err(TransactionError::Invalid(
+            "terminal spend exceeds the authority reserved for this consumption".into(),
+        ));
+    }
+
+    let grant_key = standing_approval_grant_state_key(&consumption.grant_hash);
+    let mut grant_state: StandingApprovalGrantState = load_typed(state, &grant_key)?
+        .ok_or_else(|| TransactionError::Invalid("standing approval grant is missing".into()))?;
+    if grant_state.grant_hash != consumption.grant_hash
+        || grant_state.cumulative_spend_reserved_microusd
+            < consumption.cumulative_spend_reserved_microusd
+    {
+        return Err(TransactionError::Invalid(
+            "standing approval settlement does not match current grant state".into(),
+        ));
+    }
+    let next_settled = grant_state
+        .cumulative_spend_settled_microusd
+        .checked_add(params.actual_spend_microusd)
+        .ok_or_else(|| TransactionError::Invalid("settled spend counter overflow".into()))?;
+    if next_settled > grant_state.cumulative_spend_reserved_microusd {
+        return Err(TransactionError::Invalid(
+            "settled spend exceeds standing approval reservations".into(),
+        ));
+    }
+    grant_state.cumulative_spend_settled_microusd = next_settled;
+
+    let mut receipt = StandingApprovalGrantSettlementReceipt {
+        schema_version: 1,
+        receipt_hash: [0u8; 32],
+        grant_hash: consumption.grant_hash,
+        consumption_id: params.consumption_id,
+        request_hash: consumption.request_hash,
+        terminal_evidence_hash: params.terminal_evidence_hash,
+        terminal_evidence_ref: params.terminal_evidence_ref,
+        reserved_spend_microusd: consumption.estimated_spend_microusd,
+        actual_spend_microusd: params.actual_spend_microusd,
+        refunded_spend_microusd: consumption.estimated_spend_microusd
+            - params.actual_spend_microusd,
+        cumulative_spend_reserved_microusd: grant_state.cumulative_spend_reserved_microusd,
+        cumulative_spend_settled_microusd: next_settled,
+        settled_at_ms: block_timestamp_ms(ctx),
+    };
+    receipt.receipt_hash = settlement_receipt_hash(&receipt)?;
+
+    let mut metadata = base_audit_metadata(ctx);
+    metadata.insert(
+        "standing_grant_hash".into(),
+        hex::encode(consumption.grant_hash),
+    );
+    metadata.insert(
+        "standing_consumption_id".into(),
+        hex::encode(params.consumption_id),
+    );
+    metadata.insert(
+        "actual_spend_microusd".into(),
+        params.actual_spend_microusd.to_string(),
+    );
+    append_audit_event_with_records(
+        state,
+        ctx,
+        VaultAuditEventKind::ApprovalDecided,
+        metadata,
+        |_| {
+            Ok(vec![
+                (
+                    grant_key,
+                    ioi_types::codec::to_bytes_canonical(&grant_state)?,
+                ),
+                (
+                    settlement_key,
+                    ioi_types::codec::to_bytes_canonical(&receipt)?,
+                ),
             ])
         },
     )

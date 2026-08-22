@@ -520,6 +520,68 @@ fn standing_grant_draws_are_atomic_bounded_replay_safe_and_revocable() {
     );
     assert_eq!(first_receipt.remaining_usages, 1);
 
+    let settle = |state: &mut MockState,
+                  request: SettleStandingApprovalGrantConsumptionParams|
+     -> Result<(), ioi_types::error::TransactionError> {
+        let encoded = codec::to_bytes_canonical(&request).expect("encode standing settlement");
+        let mut output = None;
+        with_ctx(|ctx| {
+            output = Some(run_async(service.handle_service_call(
+                state,
+                "settle_standing_approval_grant_consumption@v1",
+                &encoded,
+                ctx,
+            )));
+        });
+        output.expect("standing settlement result")
+    };
+    let first_settlement = SettleStandingApprovalGrantConsumptionParams {
+        consumption_id: [0xc1; 32],
+        terminal_evidence_hash: [0xe1; 32],
+        terminal_evidence_ref: "agentgres://provider-settlement/first".into(),
+        actual_spend_microusd: 7,
+    };
+    settle(&mut state, first_settlement.clone()).expect("first terminal settlement");
+    settle(&mut state, first_settlement).expect("exact settlement replay is idempotent");
+    settle(
+        &mut state,
+        SettleStandingApprovalGrantConsumptionParams {
+            consumption_id: [0xc2; 32],
+            terminal_evidence_hash: [0xe2; 32],
+            terminal_evidence_ref: "agentgres://provider-settlement/second".into(),
+            actual_spend_microusd: 11,
+        },
+    )
+    .expect("second terminal settlement");
+    let settled_state: StandingApprovalGrantState =
+        load_typed(&state, &standing_approval_grant_state_key(&grant_hash))
+            .expect("load settled state")
+            .expect("settled state");
+    assert_eq!(settled_state.cumulative_spend_reserved_microusd, 100);
+    assert_eq!(settled_state.cumulative_spend_settled_microusd, 18);
+    let settlement: StandingApprovalGrantSettlementReceipt = load_typed(
+        &state,
+        &standing_approval_settlement_receipt_key(&[0xc1; 32]),
+    )
+    .expect("load settlement receipt")
+    .expect("settlement receipt");
+    assert_eq!(settlement.reserved_spend_microusd, 50);
+    assert_eq!(settlement.actual_spend_microusd, 7);
+    assert_eq!(settlement.refunded_spend_microusd, 43);
+    let conflict = settle(
+        &mut state,
+        SettleStandingApprovalGrantConsumptionParams {
+            consumption_id: [0xc1; 32],
+            terminal_evidence_hash: [0xe3; 32],
+            terminal_evidence_ref: "agentgres://provider-settlement/substituted".into(),
+            actual_spend_microusd: 8,
+        },
+    )
+    .expect_err("settlement substitution refused");
+    assert!(conflict
+        .to_string()
+        .contains("different terminal settlement"));
+
     let mut substituted = draw(0xb4, 0xc4);
     substituted.standing_envelope_hash = [0xee; 32];
     let substitution = consume(&mut state, substituted).expect_err("envelope substitution refused");

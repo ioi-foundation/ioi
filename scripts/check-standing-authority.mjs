@@ -36,6 +36,8 @@ function inspect({ action, handler, wallet, auth, config, provider, governed, cl
   requireText(handler, "next_usage > grant_state.grant.max_usages", "usage_ceiling_missing");
   requireText(handler, "next_deposit > grant_state.grant.max_cumulative_deposit_microusd", "deposit_ceiling_missing");
   requireText(handler, "next_spend > grant_state.grant.max_cumulative_spend_microusd", "spend_ceiling_missing");
+  requireText(handler, "params.actual_spend_microusd > consumption.estimated_spend_microusd", "terminal_spend_not_bounded_by_reservation");
+  requireText(handler, "cumulative_spend_reserved_microusd: grant_state.cumulative_spend_reserved_microusd", "refund_releases_authority");
   requireText(handler, "validate_expected_principal_authority_binding", "current_principal_authority_not_resolved");
   requireText(handler, "standing approval grant signer does not match current principal authority", "principal_authority_substitution_not_refused");
   requireText(handler, "StandingApprovalGrantStatus::Active", "revocation_status_not_enforced");
@@ -43,6 +45,7 @@ function inspect({ action, handler, wallet, auth, config, provider, governed, cl
   requireText(handler, "StandingApprovalMode::SilentWithinStandingEnvelope", "actual_approval_mode_not_receipted");
   requireText(wallet, '"record_standing_approval_grant@v1"', "record_method_missing");
   requireText(wallet, '"consume_standing_approval_grant_for_effect@v1"', "draw_method_missing");
+  requireText(wallet, '"settle_standing_approval_grant_consumption@v1"', "settlement_method_missing");
   requireText(wallet, '"revoke_standing_approval_grant@v1"', "revoke_method_missing");
   requireText(auth, "WalletAuthRole::ControlPlane", "standing_grant_control_plane_gate_missing");
   requireText(auth, "WalletAuthRole::Capability", "standing_draw_capability_gate_missing");
@@ -56,8 +59,10 @@ function inspect({ action, handler, wallet, auth, config, provider, governed, cl
   requireText(governed, "ioi.hypervisor.standing-authority-consumption.v1", "standing_intent_domain_missing");
   requireText(governed, "revalidate_standing_admission_receipt", "standing_pre_invoker_revalidation_missing");
   requireText(client, "receipt.receipt_hash == expected_hash", "standing_receipt_hash_not_verified");
+  requireText(client, "validate_standing_effect_settlement_receipt", "standing_settlement_receipt_not_verified");
   requireText(client, "recover_standing_approval_grant_consumption_for_effect", "standing_receipt_recovery_missing");
   requireText(lifecycle, "CapabilityAuthorityAdmission::Standing", "capability_gateway_standing_lane_missing");
+  requireText(provider, "terminal_spend_microusd(&evidence)", "provider_terminal_spend_not_reconciled_to_wallet");
   return [...new Set(findings)].sort();
 }
 
@@ -96,7 +101,17 @@ if (process.argv.includes("--mutation")) {
     {
       name: "wallet_receipt_hash_not_compared",
       expected: "standing_receipt_hash_not_verified",
-      sources: { ...sources, client: sources.client.replace("receipt.receipt_hash == expected_hash", "receipt.receipt_hash != [0u8; 32]") },
+      sources: { ...sources, client: sources.client.replaceAll("receipt.receipt_hash == expected_hash", "receipt.receipt_hash != [0u8; 32]") },
+    },
+    {
+      name: "refund_releases_fresh_authority",
+      expected: "refund_releases_authority",
+      sources: { ...sources, handler: sources.handler.replace("cumulative_spend_reserved_microusd: grant_state.cumulative_spend_reserved_microusd", "cumulative_spend_reserved_microusd: next_settled") },
+    },
+    {
+      name: "terminal_spend_can_exceed_reservation",
+      expected: "terminal_spend_not_bounded_by_reservation",
+      sources: { ...sources, handler: sources.handler.replace("params.actual_spend_microusd > consumption.estimated_spend_microusd", "false") },
     },
   ];
   const survived = mutations.filter(({ sources: mutated, expected }) => !inspect(mutated).includes(expected));
@@ -126,5 +141,5 @@ console.log(JSON.stringify({
   verdict: "PASS",
   c7_exact_request_grant: "preserved",
   standing_grant: "separate signed artifact",
-  draw_accounting: "atomic usage/deposit/spend reservation",
+  draw_accounting: "atomic usage/deposit/spend reservation plus terminal settlement without authority reset",
 }, null, 2));

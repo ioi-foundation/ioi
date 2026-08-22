@@ -232,6 +232,35 @@ pub struct StandingApprovalGrantConsumptionReceipt {
     pub approval_mode: StandingApprovalMode,
 }
 
+/// Provider-native terminal settlement for one prior standing-authority draw.
+///
+/// Reservations remain monotonic after settlement: a refund cannot manufacture
+/// fresh authority. This records the actual terminal debit separately.
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+pub struct SettleStandingApprovalGrantConsumptionParams {
+    pub consumption_id: [u8; 32],
+    pub terminal_evidence_hash: [u8; 32],
+    pub terminal_evidence_ref: String,
+    pub actual_spend_microusd: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub struct StandingApprovalGrantSettlementReceipt {
+    pub schema_version: u16,
+    pub receipt_hash: [u8; 32],
+    pub grant_hash: [u8; 32],
+    pub consumption_id: [u8; 32],
+    pub request_hash: [u8; 32],
+    pub terminal_evidence_hash: [u8; 32],
+    pub terminal_evidence_ref: String,
+    pub reserved_spend_microusd: u64,
+    pub actual_spend_microusd: u64,
+    pub refunded_spend_microusd: u64,
+    pub cumulative_spend_reserved_microusd: u64,
+    pub cumulative_spend_settled_microusd: u64,
+    pub settled_at_ms: u64,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
 pub enum StandingApprovalMode {
     SilentWithinStandingEnvelope,
@@ -593,6 +622,13 @@ impl BlockchainService for WalletNetworkService {
                 let request: ConsumeStandingApprovalGrantForEffectParams =
                     codec::from_bytes_canonical(params)?;
                 handlers::standing_authority::consume_standing_approval_grant_for_effect(
+                    state, ctx, request,
+                )
+            }
+            "settle_standing_approval_grant_consumption@v1" => {
+                let request: SettleStandingApprovalGrantConsumptionParams =
+                    codec::from_bytes_canonical(params)?;
+                handlers::standing_authority::settle_standing_approval_grant_consumption(
                     state, ctx, request,
                 )
             }

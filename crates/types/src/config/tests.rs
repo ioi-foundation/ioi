@@ -38,6 +38,7 @@ fn wallet_network_policy_exposes_policy_rule_upsert() {
         "consume_approval_grant_for_effect@v2",
         "record_standing_approval_grant@v1",
         "consume_standing_approval_grant_for_effect@v1",
+        "settle_standing_approval_grant_consumption@v1",
         "revoke_standing_approval_grant@v1",
     ] {
         assert_eq!(
@@ -53,6 +54,7 @@ fn stale_wallet_method_map_requires_standing_authority_migration() {
     for standing_method in [
         "record_standing_approval_grant@v1",
         "consume_standing_approval_grant_for_effect@v1",
+        "settle_standing_approval_grant_consumption@v1",
         "revoke_standing_approval_grant@v1",
     ] {
         let mut config = WorkloadConfig {

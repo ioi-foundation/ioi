@@ -12796,7 +12796,11 @@ pub(crate) async fn authorize_capability_lease(
         CapabilityAuthorityAdmission::Exact(exact) => exact.authorized.evidence.grant_ref.clone(),
         CapabilityAuthorityAdmission::Standing(standing) => standing.grant_ref.clone(),
     };
-    let descriptor = json!({
+    let standing_receipt = match &admitted {
+        CapabilityAuthorityAdmission::Standing(standing) => Some(&standing.receipt),
+        CapabilityAuthorityAdmission::Exact(_) => None,
+    };
+    let mut descriptor = json!({
         "schema_version": "ioi.hypervisor.capability-lease.v1",
         "lease_id": lease_id,
         "authority_provider_ref": authority_provider_ref,
@@ -12816,6 +12820,16 @@ pub(crate) async fn authorize_capability_lease(
         "credential_source": credential_source,
         "issued_at": iso_now(),
     });
+    if let (Some(target), Some(receipt)) = (descriptor.as_object_mut(), standing_receipt) {
+        target.insert(
+            "standing_consumption_id".into(),
+            json!(hex::encode(receipt.consumption_id)),
+        );
+        target.insert(
+            "standing_consumption_receipt_hash".into(),
+            json!(hex::encode(receipt.receipt_hash)),
+        );
+    }
     // W1.2 / MEF-GAP-008 — this write was discarded. The lease descriptor IS the authority
     // audit trail (served by handle_capability_lease_list); an authority crossing must never
     // execute without its durable descriptor, so refuse before returning the lease.

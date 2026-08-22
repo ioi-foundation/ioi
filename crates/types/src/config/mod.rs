@@ -646,6 +646,7 @@ impl WorkloadConfig {
                 for standing_method in [
                     "record_standing_approval_grant@v1",
                     "consume_standing_approval_grant_for_effect@v1",
+                    "settle_standing_approval_grant_consumption@v1",
                     "revoke_standing_approval_grant@v1",
                 ] {
                     if policy.methods.get(standing_method) != Some(effect_permission) {
@@ -1016,6 +1017,7 @@ pub fn default_service_policies() -> BTreeMap<String, ServicePolicy> {
         "consume_approval_grant_for_effect@v2",
         "record_standing_approval_grant@v1",
         "consume_standing_approval_grant_for_effect@v1",
+        "settle_standing_approval_grant_consumption@v1",
         "revoke_standing_approval_grant@v1",
         "panic_stop@v1",
     ] {
