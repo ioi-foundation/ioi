@@ -3232,6 +3232,14 @@ async fn async_main() -> anyhow::Result<()> {
             post(provider_routes::handle_provider_operation_proposal_issue),
         )
         .route(
+            "/v1/hypervisor/workload-effect-capabilities",
+            post(workload_effect_boundary::handle_governed_capability_mint),
+        )
+        .route(
+            "/v1/hypervisor/workload-effect-capabilities/consume",
+            post(workload_effect_boundary::handle_governed_capability_consume),
+        )
+        .route(
             "/v1/hypervisor/provider-ops",
             post(provider_routes::handle_provider_op),
         )

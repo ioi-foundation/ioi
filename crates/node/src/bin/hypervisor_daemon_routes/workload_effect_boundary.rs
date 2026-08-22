@@ -10,6 +10,10 @@
 use std::future::Future;
 use std::sync::{Arc, OnceLock};
 
+use axum::extract::State;
+use axum::http::{HeaderMap, StatusCode};
+use axum::Json;
+use base64::Engine as _;
 use ioi_types::app::generated::architecture_contracts::{
     HypervisorWorkloadBoundEffectProposalV1, HypervisorWorkloadEffectConsumptionReceiptV1,
     HypervisorWorkloadEffectReconciliationReceiptV1,
@@ -224,6 +228,21 @@ fn verified_host_provider_authority(record: &Value) -> Result<Value, String> {
     Ok(attachment)
 }
 
+fn verify_host_trigger(record: &Value, host_trigger: &str) -> Result<(), String> {
+    let observed_trigger_hash = sha256_ref(host_trigger.as_bytes());
+    let expected_trigger_hash = required_text(record, "host_trigger_hash")?;
+    if !host_trigger.starts_with("wbt_")
+        || host_trigger.len() != 68
+        || !constant_time_eq(
+            observed_trigger_hash.as_bytes(),
+            expected_trigger_hash.as_bytes(),
+        )
+    {
+        return Err("workload_effect_host_trigger_invalid".into());
+    }
+    Ok(())
+}
+
 /// Mint a guest-visible capability for the full governed provider lane.  The guest receives the
 /// exact non-authorizing request and one opaque token.  Wallet grants, the standing envelope, and
 /// the daemon proposal ref remain in the host-only durable record; no bearer operator session is
@@ -266,12 +285,20 @@ pub(crate) fn mint_guest_governed_provider_effect_capability(
     )?;
     let id = record_id(&proposal)?;
     let mut record = load(data_dir, id)?;
+    let mut trigger_random = [0u8; 32];
+    OsRng.fill_bytes(&mut trigger_random);
+    let host_trigger = format!("wbt_{}", hex::encode(trigger_random));
+    record["host_trigger_hash"] = json!(sha256_ref(host_trigger.as_bytes()));
     record["host_authority_attachment_hash"] = json!(canonical_hash(&host_authority)?);
     record["host_authority_attachment"] = host_authority;
     record["authenticated_principal_ref"] = json!(authenticated_principal_ref);
     record["proposal_session_binding"] = json!(proposal_session_binding);
     persist(data_dir, id, &record)?;
-    Ok(proposal)
+    Ok(json!({
+        "schema_version": "ioi.hypervisor.workload-effect-broker-bundle.v1",
+        "guest_proposal": proposal,
+        "host_trigger": host_trigger,
+    }))
 }
 
 fn record_id_from_capability_ref(capability_ref: &str) -> Result<&str, String> {
@@ -501,7 +528,10 @@ where
             });
             serde_json::from_value::<HypervisorWorkloadEffectConsumptionReceiptV1>(receipt.clone())
                 .map_err(|error| format!("workload_effect_receipt_contract_invalid: {error}"))?;
-            Ok(receipt)
+            Ok(json!({
+                "consumption_receipt": receipt,
+                "effect_receipt": effect_receipt,
+            }))
         }
         Err(reason) => {
             record["status"] = json!("refused");
@@ -565,6 +595,7 @@ pub(crate) fn consume_guest_static_provider_operation_bytes(
 pub(crate) async fn consume_guest_governed_provider_operation_bytes(
     st: Arc<super::DaemonState>,
     proposal_bytes: &[u8],
+    host_trigger: &str,
     now_ms: u64,
 ) -> Result<Value, String> {
     let proposal = parse_canonical_proposal_bytes(proposal_bytes)?;
@@ -572,6 +603,7 @@ pub(crate) async fn consume_guest_governed_provider_operation_bytes(
     let id = record_id(&proposal)?;
     let record = load(&st.data_dir, id)?;
     proposal_matches_record(&proposal, &record)?;
+    verify_host_trigger(&record, host_trigger)?;
     let attachment = verified_host_provider_authority(&record)?;
     let authenticated_principal_ref =
         required_text(&record, "authenticated_principal_ref")?.to_owned();
@@ -636,6 +668,163 @@ pub(crate) async fn consume_guest_governed_provider_operation_bytes(
         },
     )
     .await
+}
+
+fn unix_millis() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_millis() as u64)
+        .unwrap_or(0)
+}
+
+/// Authenticated host-controller mint.  The response deliberately separates the guest proposal
+/// from the host trigger; a controller sends only `guest_proposal` into the hostile VM and retains
+/// `host_trigger` outside it.  The submitted provider request must already carry a daemon-issued
+/// proposal and either exact or standing wallet authority.
+pub(crate) async fn handle_governed_capability_mint(
+    State(st): State<Arc<super::DaemonState>>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let full_request = body
+        .get("full_provider_request")
+        .filter(|value| value.is_object())
+        .cloned()
+        .unwrap_or(Value::Null);
+    // Authenticate before returning any request-shape detail. `require_write_caller` resolves the
+    // session as its first operation, then binds the nested provider request's owner and replay
+    // key. This preserves the daemon-wide write-path rule for the host-controller mint route.
+    let caller = match super::mutation_event_foundation::require_write_caller(
+        &st.data_dir,
+        &headers,
+        &full_request,
+    ) {
+        Ok(caller) => caller,
+        Err(reply) => return reply,
+    };
+    let Some(object) = body.as_object() else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"ok":false,"code":"workload_effect_mint_request_invalid"})),
+        );
+    };
+    const FIELDS: &[&str] = &[
+        "isolation_binding_ref",
+        "isolation_binding_hash",
+        "guest_principal_ref",
+        "proposal_nonce",
+        "resource_ref",
+        "result_destination_ref",
+        "full_provider_request",
+        "expires_at_ms",
+    ];
+    if object.len() != FIELDS.len() || object.keys().any(|key| !FIELDS.contains(&key.as_str())) {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"ok":false,"code":"workload_effect_mint_fields_invalid"})),
+        );
+    }
+    let session_binding = match super::provider_routes::provider_proposal_session_binding(&headers)
+    {
+        Ok(binding) => binding,
+        Err(reply) => return reply,
+    };
+    let issued_at_ms = unix_millis();
+    let expires_at_ms = body
+        .get("expires_at_ms")
+        .and_then(Value::as_u64)
+        .unwrap_or_default();
+    let field = |name: &str| body.get(name).and_then(Value::as_str).unwrap_or("");
+    match mint_guest_governed_provider_effect_capability(
+        &st.data_dir,
+        field("isolation_binding_ref"),
+        field("isolation_binding_hash"),
+        field("guest_principal_ref"),
+        field("proposal_nonce"),
+        field("resource_ref"),
+        field("result_destination_ref"),
+        &full_request,
+        &caller.identity.principal_ref,
+        &session_binding,
+        issued_at_ms,
+        expires_at_ms,
+    ) {
+        Ok(bundle) => (
+            StatusCode::CREATED,
+            Json(json!({"ok":true,"broker_bundle":bundle})),
+        ),
+        Err(reason) => (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(json!({"ok":false,"code":reason,"host_mutation":false})),
+        ),
+    }
+}
+
+/// Capability-authenticated host finalizer.  It needs no operator password or session: the random
+/// host trigger names one already-authenticated, already-reviewed capability, while current owner
+/// membership, wallet state, proposal one-shot state, and every provider/C2 gate are rechecked at
+/// invocation.  The selected hostile-guest profile has no route or network path to this trigger.
+pub(crate) async fn handle_governed_capability_consume(
+    State(st): State<Arc<super::DaemonState>>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let Some(object) = body.as_object() else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"ok":false,"code":"workload_effect_consume_request_invalid"})),
+        );
+    };
+    if object.len() != 2
+        || !object.contains_key("proposal_jcs_base64")
+        || !object.contains_key("host_trigger")
+    {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"ok":false,"code":"workload_effect_consume_fields_invalid"})),
+        );
+    }
+    let encoded = body
+        .get("proposal_jcs_base64")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let proposal_bytes = match base64::engine::general_purpose::STANDARD.decode(encoded) {
+        Ok(bytes) if bytes.len() <= MAX_PROPOSAL_BYTES => bytes,
+        _ => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({"ok":false,"code":"workload_effect_proposal_base64_invalid"})),
+            )
+        }
+    };
+    let host_trigger = body
+        .get("host_trigger")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    match consume_guest_governed_provider_operation_bytes(
+        st,
+        &proposal_bytes,
+        host_trigger,
+        unix_millis(),
+    )
+    .await
+    {
+        Ok(receipts) => (StatusCode::OK, Json(json!({"ok":true,"receipts":receipts}))),
+        Err(reason) => {
+            let status = if reason == "workload_effect_host_trigger_invalid" {
+                StatusCode::UNAUTHORIZED
+            } else if reason.contains("already_consumed")
+                || reason.contains("requires_reconciliation")
+            {
+                StatusCode::CONFLICT
+            } else {
+                StatusCode::UNPROCESSABLE_ENTITY
+            };
+            (
+                status,
+                Json(json!({"ok":false,"code":reason,"host_mutation":false})),
+            )
+        }
+    }
 }
 
 /// Resolve an ambiguous durable claim without replaying its original effect. The reconciler first
@@ -802,7 +991,7 @@ mod tests {
                 "grant_ref": "wallet.network://grant/secret-marker-must-not-reach-guest"
             }
         });
-        let proposal = mint_guest_governed_provider_effect_capability(
+        let bundle = mint_guest_governed_provider_effect_capability(
             data_dir,
             "workload-isolation-binding://run-governed-provider",
             "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -817,6 +1006,9 @@ mod tests {
             61_000,
         )
         .unwrap();
+        let proposal = bundle["guest_proposal"].clone();
+        let host_trigger = bundle["host_trigger"].as_str().unwrap();
+        assert!(host_trigger.starts_with("wbt_") && host_trigger.len() == 68);
         let guest_bytes = serde_jcs::to_vec(&proposal).unwrap();
         let guest_text = String::from_utf8(guest_bytes).unwrap();
         for forbidden in [
@@ -826,11 +1018,30 @@ mod tests {
             "operation_proposal_ref",
             "secret-marker-must-not-reach-guest",
             "ioi_session",
+            host_trigger,
         ] {
             assert!(!guest_text.contains(forbidden), "guest leaked {forbidden}");
         }
         let id = record_id(&proposal).unwrap();
         let mut record = load(data_dir, id).unwrap();
+        assert!(record.get("host_trigger").is_none());
+        assert_eq!(
+            record["host_trigger_hash"],
+            sha256_ref(host_trigger.as_bytes())
+        );
+        assert!(verify_host_trigger(&record, host_trigger).is_ok());
+        assert_eq!(
+            verify_host_trigger(
+                &record,
+                "wbt_ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+            )
+            .unwrap_err(),
+            "workload_effect_host_trigger_invalid"
+        );
+        assert_eq!(
+            verify_host_trigger(&record, "wbt_too-short").unwrap_err(),
+            "workload_effect_host_trigger_invalid"
+        );
         let attachment = verified_host_provider_authority(&record).unwrap();
         assert_eq!(
             attachment["wallet_approval_grant"]["grant_ref"],

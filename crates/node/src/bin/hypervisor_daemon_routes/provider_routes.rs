@@ -6788,7 +6788,7 @@ fn provider_proposal_ref(owner_ref: &str, idempotency_key: &str) -> String {
 
 /// Bind a proposal to the exact authenticated transport without retaining a bearer token.
 /// The hash is deliberately opaque and is useful only for same-session comparison.
-fn provider_proposal_session_binding(
+pub(crate) fn provider_proposal_session_binding(
     headers: &HeaderMap,
 ) -> Result<String, (StatusCode, Json<Value>)> {
     let material = headers

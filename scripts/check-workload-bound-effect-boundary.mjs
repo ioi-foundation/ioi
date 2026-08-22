@@ -30,8 +30,12 @@ const providerRoutes = readFileSync(
   ),
   "utf8",
 );
+const daemon = readFileSync(
+  join(repo, "crates/node/src/bin/hypervisor-daemon.rs"),
+  "utf8",
+);
 
-function inspect(microvm, brokerSource = broker) {
+function inspect(microvm, brokerSource = broker, daemonSource = daemon) {
   const findings = [];
   const requireText = (text, code) => {
     if (!microvm.includes(text)) findings.push(code);
@@ -132,6 +136,23 @@ function inspect(microvm, brokerSource = broker) {
       "consume_guest_governed_provider_operation_bytes",
       "governed_provider_broker_composition_missing",
     ],
+    ["host_trigger_hash", "host_trigger_hash_only_storage_missing"],
+    [
+      "verify_host_trigger(&record, host_trigger)?;",
+      "host_trigger_finalizer_gate_missing",
+    ],
+    [
+      "governed_guest_proposal_contains_no_wallet_authority_or_operator_session",
+      "guest_host_trigger_nonpossession_regression_missing",
+    ],
+    [
+      "handle_governed_capability_mint",
+      "authenticated_host_controller_mint_missing",
+    ],
+    [
+      "handle_governed_capability_consume",
+      "capability_authenticated_host_finalizer_missing",
+    ],
     [
       "invoke_workload_brokered_provider_operation",
       "full_provider_final_invoker_call_missing",
@@ -195,6 +216,18 @@ function inspect(microvm, brokerSource = broker) {
   ]) {
     if (!providerRoutes.includes(text)) findings.push(code);
   }
+  for (const [text, code] of [
+    [
+      '"/v1/hypervisor/workload-effect-capabilities"',
+      "host_controller_mint_route_missing",
+    ],
+    [
+      '"/v1/hypervisor/workload-effect-capabilities/consume"',
+      "host_finalizer_route_missing",
+    ],
+  ]) {
+    if (!daemonSource.includes(text)) findings.push(code);
+  }
   return [...new Set(findings)].sort();
 }
 
@@ -245,6 +278,17 @@ if (process.argv.includes("--mutation")) {
     );
     process.exit(1);
   }
+  const bypassedHostTrigger = broker.replace(
+    "verify_host_trigger(&record, host_trigger)?;",
+    "let _ = host_trigger;",
+  );
+  const hostTriggerFindings = inspect(originalMicrovm, bypassedHostTrigger);
+  if (!hostTriggerFindings.includes("host_trigger_finalizer_gate_missing")) {
+    console.error(
+      "MUTATION SURVIVED: host finalizer accepted a guest proposal without the host-only trigger",
+    );
+    process.exit(1);
+  }
   console.log(
     JSON.stringify(
       {
@@ -262,6 +306,10 @@ if (process.argv.includes("--mutation")) {
           {
             mutation: "divert_governed_guest_broker_to_static_provider_lane",
             detected_by: "full_provider_final_invoker_call_missing",
+          },
+          {
+            mutation: "remove_host_only_trigger_from_governed_finalizer",
+            detected_by: "host_trigger_finalizer_gate_missing",
           },
         ],
       },
