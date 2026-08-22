@@ -57,6 +57,12 @@ export function validateCertifiedCampaignConfig(config) {
     if (typeof config.image_build_identity_path !== "string" || config.image_build_identity_path.length === 0) {
       throw new Error("U1 requires image_build_identity_path");
     }
+    if (!/^sha256:[0-9a-f]{64}$/u.test(String(plan.provider_preflight_sha256 || ""))) {
+      throw new Error("U1 requires one explicit provider-preflight SHA-256");
+    }
+    if (typeof config.provider_preflight_path !== "string" || config.provider_preflight_path.length === 0) {
+      throw new Error("U1 requires provider_preflight_path");
+    }
     if (!Number.isSafeInteger(plan.max_duration_seconds)
         || plan.max_duration_seconds < 60
         || plan.max_duration_seconds > 24 * 60 * 60) {
@@ -94,6 +100,28 @@ export function validateBenchmarkBuildIdentity(identity, config) {
     throw new Error("benchmark image build identity lacks a valid workflow run identity");
   }
   return identity;
+}
+
+/** Refuse a stale, failed, or fallback provider qualification artifact. */
+export function validateProviderPreflight(preflight, config) {
+  const expected = config?.plan?.provider_selector?.provider_address;
+  if (preflight?.schema_version !== "ioi.aft.u1-provider-preflight.v1") {
+    throw new Error("unsupported U1 provider preflight schema");
+  }
+  if (preflight.provider_address !== expected
+      || preflight.qualified !== true
+      || !Array.isArray(preflight.refusal_codes)
+      || preflight.refusal_codes.length !== 0) {
+    throw new Error("U1 provider preflight does not qualify the exact reviewed provider");
+  }
+  if (preflight.bare_metal_attested !== false
+      || preflight.placement_class !== "same_exact_audited_provider_container_allocation_physical_host_unproven") {
+    throw new Error("U1 provider preflight inflates the supported placement class");
+  }
+  if (!/^sha256:[0-9a-f]{64}$/u.test(String(preflight.provider_response_sha256 || ""))) {
+    throw new Error("U1 provider preflight lacks its raw response hash");
+  }
+  return preflight;
 }
 
 /** Materialize only owner-reviewed, non-secret SDL values before challenge hashing. */

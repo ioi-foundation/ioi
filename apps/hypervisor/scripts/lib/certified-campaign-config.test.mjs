@@ -9,6 +9,7 @@ import {
   materializeReviewedSdl,
   validateBenchmarkBuildIdentity,
   validateCertifiedCampaignConfig,
+  validateProviderPreflight,
 } from "./certified-campaign-config.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -21,11 +22,13 @@ const digest = `sha256:${"a".repeat(64)}`;
 const valid = {
   schema_version: "ioi.hypervisor.certified-provider-campaign.v1",
   image_build_identity_path: "/tmp/aft-bench-build-identity.json",
+  provider_preflight_path: "/tmp/u1-provider-preflight.json",
   plan: {
     campaign_id: "u1-campaign-a",
     benchmark_source_commit: "b".repeat(40),
     image_digest: digest,
     image_build_identity_sha256: `sha256:${"d".repeat(64)}`,
+    provider_preflight_sha256: `sha256:${"4".repeat(64)}`,
     benchmark_protocol_version: "res-p4.3.v2",
     result_schema_version: "ioi.aft.benchmark-campaign.v1",
     benchmark_warmups: 1,
@@ -46,6 +49,15 @@ const valid = {
     image_reference: `ghcr.io/ioi-foundation/ioi-aft-bench@${digest}`,
     secret_canary: "u1-canary-abcdefgh",
   },
+};
+const validProviderPreflight = {
+  schema_version: "ioi.aft.u1-provider-preflight.v1",
+  provider_address: valid.plan.provider_selector.provider_address,
+  provider_response_sha256: `sha256:${"5".repeat(64)}`,
+  qualified: true,
+  refusal_codes: [],
+  placement_class: "same_exact_audited_provider_container_allocation_physical_host_unproven",
+  bare_metal_attested: false,
 };
 
 const validBuildIdentity = {
@@ -78,6 +90,16 @@ test("binds the retained workflow build identity to the reviewed workload", () =
       /differs from the reviewed workload identity/u,
     );
   }
+});
+
+test("binds a passing non-bare-metal preflight to the exact provider", () => {
+  assert.equal(validateProviderPreflight(validProviderPreflight, valid), validProviderPreflight);
+  const fallback = structuredClone(validProviderPreflight);
+  fallback.provider_address = "akash1aaul837r7en7hpk9wv2svg8u78fdq0t2j2e82z";
+  assert.throws(() => validateProviderPreflight(fallback, valid), /exact reviewed provider/u);
+  const inflated = structuredClone(validProviderPreflight);
+  inflated.bare_metal_attested = true;
+  assert.throws(() => validateProviderPreflight(inflated, valid), /inflates/u);
 });
 
 test("starts the workload duration at readiness and never sleeps past its deadline", () => {
@@ -127,6 +149,11 @@ test("rejects unbounded or non-exact U1 authority", () => {
   unboundBuild.plan.deposit_usd = 1;
   delete unboundBuild.plan.image_build_identity_sha256;
   assert.throws(() => validateCertifiedCampaignConfig(unboundBuild), /build-identity SHA-256/u);
+
+  const unboundProvider = structuredClone(valid);
+  unboundProvider.plan.deposit_usd = 1;
+  delete unboundProvider.plan.provider_preflight_sha256;
+  assert.throws(() => validateCertifiedCampaignConfig(unboundProvider), /provider-preflight SHA-256/u);
 
   for (const duration of [undefined, 59, 86_401, 7_200.5]) {
     const invalidDuration = structuredClone(valid);

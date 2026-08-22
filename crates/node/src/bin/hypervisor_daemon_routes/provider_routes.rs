@@ -5289,6 +5289,7 @@ impl AkashProvider {
                 "benchmark_source_commit": plan.get("benchmark_source_commit").cloned().unwrap_or(Value::Null),
                 "image_digest": plan.get("image_digest").cloned().unwrap_or(Value::Null),
                 "image_build_identity_sha256": plan.get("image_build_identity_sha256").cloned().unwrap_or(Value::Null),
+                "provider_preflight_sha256": plan.get("provider_preflight_sha256").cloned().unwrap_or(Value::Null),
                 "benchmark_protocol_version": plan.get("benchmark_protocol_version").cloned().unwrap_or(Value::Null),
                 "result_schema_version": plan.get("result_schema_version").cloned().unwrap_or(Value::Null),
                 "benchmark_warmups": plan.get("benchmark_warmups").cloned().unwrap_or(Value::Null),
@@ -7804,6 +7805,7 @@ fn validate_akash_result_contract(plan: &Value, sdl: &str) -> Result<(), &'stati
     let source_commit = text(plan, "benchmark_source_commit");
     let image_digest = text(plan, "image_digest");
     let image_build_identity_sha256 = text(plan, "image_build_identity_sha256");
+    let provider_preflight_sha256 = text(plan, "provider_preflight_sha256");
     let protocol_version = text(plan, "benchmark_protocol_version");
     let result_schema = text(plan, "result_schema_version");
     let warmups = plan.get("benchmark_warmups").and_then(Value::as_u64);
@@ -7815,6 +7817,7 @@ fn validate_akash_result_contract(plan: &Value, sdl: &str) -> Result<(), &'stati
             || !source_commit.is_empty()
             || !image_digest.is_empty()
             || !image_build_identity_sha256.is_empty()
+            || !provider_preflight_sha256.is_empty()
             || !protocol_version.is_empty()
             || !result_schema.is_empty()
             || warmups.is_some()
@@ -7869,6 +7872,17 @@ fn validate_akash_result_contract(plan: &Value, sdl: &str) -> Result<(), &'stati
         })
     {
         return Err("akash_result_image_build_identity_invalid");
+    }
+    if !provider_preflight_sha256
+        .strip_prefix("sha256:")
+        .is_some_and(|digest| {
+            digest.len() == 64
+                && digest.chars().all(|character| {
+                    character.is_ascii_hexdigit() && !character.is_ascii_uppercase()
+                })
+        })
+    {
+        return Err("akash_result_provider_preflight_invalid");
     }
     if protocol_version != "res-p4.3.v2"
         || result_schema != "ioi.aft.benchmark-campaign.v1"
@@ -8569,6 +8583,7 @@ pub(crate) async fn handle_provider_op(
                         "benchmark_source_commit": body.pointer("/plan/benchmark_source_commit").cloned().unwrap_or(Value::Null),
                         "image_digest": body.pointer("/plan/image_digest").cloned().unwrap_or(Value::Null),
                         "image_build_identity_sha256": body.pointer("/plan/image_build_identity_sha256").cloned().unwrap_or(Value::Null),
+                        "provider_preflight_sha256": body.pointer("/plan/provider_preflight_sha256").cloned().unwrap_or(Value::Null),
                         "benchmark_protocol_version": body.pointer("/plan/benchmark_protocol_version").cloned().unwrap_or(Value::Null),
                         "result_schema_version": body.pointer("/plan/result_schema_version").cloned().unwrap_or(Value::Null),
                         "benchmark_warmups": body.pointer("/plan/benchmark_warmups").cloned().unwrap_or(Value::Null),
@@ -8934,6 +8949,7 @@ pub(crate) async fn handle_provider_op(
                             "benchmark_source_commit",
                             "image_digest",
                             "image_build_identity_sha256",
+                            "provider_preflight_sha256",
                             "benchmark_protocol_version",
                             "result_schema_version",
                             "benchmark_warmups",
@@ -9826,6 +9842,7 @@ env:
             "benchmark_source_commit": commit,
             "image_digest": digest,
             "image_build_identity_sha256": format!("sha256:{}", "d".repeat(64)),
+            "provider_preflight_sha256": format!("sha256:{}", "e".repeat(64)),
             "benchmark_protocol_version": "res-p4.3.v2",
             "result_schema_version": "ioi.aft.benchmark-campaign.v1",
             "benchmark_warmups": 1,

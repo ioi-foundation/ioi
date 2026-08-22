@@ -21,6 +21,16 @@ export function validU1Fixture() {
     github_run_attempt: "1",
   };
   const buildIdentityHash = `sha256:${crypto.createHash("sha256").update(`${JSON.stringify(buildIdentity, null, 2)}\n`).digest("hex")}`;
+  const providerPreflight = {
+    schema_version: "ioi.aft.u1-provider-preflight.v1",
+    provider_address: "akash15tl6v6gd0nte0syyxnv57zmmspgju4c3xfmdhk",
+    provider_response_sha256: `sha256:${"c".repeat(64)}`,
+    qualified: true,
+    refusal_codes: [],
+    placement_class: "same_exact_audited_provider_container_allocation_physical_host_unproven",
+    bare_metal_attested: false,
+  };
+  const providerPreflightHash = `sha256:${crypto.createHash("sha256").update(`${JSON.stringify(providerPreflight, null, 2)}\n`).digest("hex")}`;
   const summaries = Object.entries(U1_SCENARIO_LANES).flatMap(([scenario, lanes]) => lanes.map((lane) => ({
     scenario,
     lane,
@@ -116,6 +126,7 @@ export function validU1Fixture() {
       source_commit: sourceCommit,
       image_digest: imageDigest,
       image_build_identity_sha256: buildIdentityHash,
+      provider_preflight_sha256: providerPreflightHash,
       protocol_version: "res-p4.3.v2",
       result_schema_version: "ioi.aft.benchmark-campaign.v1",
       warmups: 1,
@@ -134,6 +145,7 @@ export function validU1Fixture() {
       teardown_policy: "always_teardown_required",
     },
     workload_build_identity: buildIdentity,
+    provider_preflight: providerPreflight,
     measurement: {
       status,
       environment,

@@ -55,7 +55,7 @@ export function validateU1Certificate(certificate) {
   if (!/^[0-9a-f]{40}$/u.test(lifecycle?.source_commit || "")) fail("u1_lifecycle_source_invalid", "lifecycle.source_commit", "the daemon lifecycle must name its full source commit");
 
   const authority = certificate?.authority;
-  for (const key of ["policy_hash", "request_hash", "review_bundle_sha256", "campaign_id", "source_commit", "image_digest", "image_build_identity_sha256", "protocol_version", "result_schema_version", "provider_address", "result_tls_server_certificate_sha256"]) {
+  for (const key of ["policy_hash", "request_hash", "review_bundle_sha256", "campaign_id", "source_commit", "image_digest", "image_build_identity_sha256", "provider_preflight_sha256", "protocol_version", "result_schema_version", "provider_address", "result_tls_server_certificate_sha256"]) {
     if (authority?.[key] === undefined || authority?.[key] === null || authority?.[key] === "") fail("u1_authority_facet_missing", `authority.${key}`, "authority-bound campaign facet missing");
   }
   if (![authority?.policy_hash, authority?.request_hash, authority?.review_bundle_sha256].every(hash)) fail("u1_authority_hash_invalid", "authority", "policy, request, and review bundle hashes must be SHA-256 commitments");
@@ -69,6 +69,19 @@ export function validateU1Certificate(certificate) {
       || buildIdentity?.result_tls_server_certificate_sha256 !== authority?.result_tls_server_certificate_sha256
       || sha256Buffer(JSON.stringify(buildIdentity, null, 2) + "\n") !== authority?.image_build_identity_sha256) {
     fail("u1_build_identity_mismatch", "workload_build_identity", "retained workflow identity differs from the owner-reviewed source, image, TLS pin, or exact artifact hash");
+  }
+  const providerPreflight = certificate?.provider_preflight;
+  if (!hash(authority?.provider_preflight_sha256)
+      || providerPreflight?.schema_version !== "ioi.aft.u1-provider-preflight.v1"
+      || providerPreflight?.provider_address !== authority?.provider_address
+      || providerPreflight?.qualified !== true
+      || providerPreflight?.bare_metal_attested !== false
+      || providerPreflight?.placement_class !== "same_exact_audited_provider_container_allocation_physical_host_unproven"
+      || !hash(providerPreflight?.provider_response_sha256)
+      || !Array.isArray(providerPreflight?.refusal_codes)
+      || providerPreflight.refusal_codes.length !== 0
+      || sha256Buffer(JSON.stringify(providerPreflight, null, 2) + "\n") !== authority?.provider_preflight_sha256) {
+    fail("u1_provider_preflight_mismatch", "provider_preflight", "the reviewed exact-provider preflight must pass without a bare-metal claim");
   }
   if (authority?.protocol_version !== "res-p4.3.v2" || authority?.result_schema_version !== "ioi.aft.benchmark-campaign.v1" || authority?.warmups !== 1 || authority?.measured_passes !== 5) fail("u1_protocol_contract_invalid", "authority", "U1 fixes one warmup and five measured passes under RES-P4.3 v2");
   if (authority?.provider_selector?.mode !== "exact" || authority?.provider_selector?.selection !== "only_qualified_bid_from_exact_provider" || authority?.provider_selector?.provider_address !== authority?.provider_address) fail("u1_provider_pin_invalid", "authority.provider_selector", "campaign must be bound to one exact provider");

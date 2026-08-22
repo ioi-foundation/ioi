@@ -25,6 +25,7 @@ import {
   materializeReviewedSdl,
   validateBenchmarkBuildIdentity,
   validateCertifiedCampaignConfig,
+  validateProviderPreflight,
 } from "./lib/certified-campaign-config.mjs";
 import { startRealWalletNetworkPrincipalAuthorityFixture } from "./lib/wallet-network-principal-authority-fixture.mjs";
 
@@ -53,6 +54,13 @@ const imageBuildIdentity = validateBenchmarkBuildIdentity(
 );
 if (sha256(`${JSON.stringify(imageBuildIdentity, null, 2)}\n`) !== config.plan.image_build_identity_sha256) {
   throw new Error("immutable image build identity differs from the reviewed semantic SHA-256");
+}
+const providerPreflight = validateProviderPreflight(
+  JSON.parse(readFileSync(path.resolve(config.provider_preflight_path), "utf8")),
+  config,
+);
+if (sha256(`${JSON.stringify(providerPreflight, null, 2)}\n`) !== config.plan.provider_preflight_sha256) {
+  throw new Error("provider preflight differs from the reviewed semantic SHA-256");
 }
 const daemonUrl = config.daemon_url || "http://127.0.0.1:8765";
 const operatorEmail = process.env.IOI_C7_EMAIL || "";
@@ -89,6 +97,7 @@ const request = {
 };
 const expectedSdlHash = sha256(request.plan.sdl_yaml);
 save("image-build-identity.json", imageBuildIdentity);
+save("provider-preflight.json", providerPreflight);
 
 async function daemonReady(timeoutMs = 90_000) {
   const deadline = Date.now() + timeoutMs;
@@ -150,6 +159,7 @@ function verifyFacets(challenge) {
     benchmark_source_commit: request.plan.benchmark_source_commit ?? null,
     image_digest: request.plan.image_digest ?? null,
     image_build_identity_sha256: request.plan.image_build_identity_sha256 ?? null,
+    provider_preflight_sha256: request.plan.provider_preflight_sha256 ?? null,
     benchmark_protocol_version: request.plan.benchmark_protocol_version ?? null,
     result_schema_version: request.plan.result_schema_version ?? null,
     benchmark_warmups: request.plan.benchmark_warmups ?? null,

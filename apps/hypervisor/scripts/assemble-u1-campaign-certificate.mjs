@@ -22,6 +22,7 @@ const lifecycle = readJson(lifecyclePath);
 const lifecycleVerification = readJson(lifecycleVerificationPath);
 const approval = readJson(path.join(artifacts, "approval-request.json"));
 const imageBuildIdentity = readJson(path.join(artifacts, "image-build-identity.json"));
+const providerPreflight = readJson(path.join(artifacts, "provider-preflight.json"));
 const logs = readJson(path.join(artifacts, "c7-logs.json"));
 const bundle = logs?.evidence?.workload_result?.bundle;
 if (!bundle?.status?.value || !bundle?.environment?.value || !bundle?.results?.value || !bundle?.manifest?.value) {
@@ -60,6 +61,7 @@ const certificate = sealU1Certificate({
     source_commit: facets.benchmark_source_commit,
     image_digest: facets.image_digest,
     image_build_identity_sha256: facets.image_build_identity_sha256,
+    provider_preflight_sha256: facets.provider_preflight_sha256,
     protocol_version: facets.benchmark_protocol_version,
     result_schema_version: facets.result_schema_version,
     warmups: facets.benchmark_warmups,
@@ -96,6 +98,7 @@ const certificate = sealU1Certificate({
     },
   },
   workload_build_identity: imageBuildIdentity,
+  provider_preflight: providerPreflight,
   provider: {
     dseq: lifecycle.provider?.dseq,
     provider_address: lifecycle.provider?.provider_address,
