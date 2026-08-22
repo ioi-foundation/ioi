@@ -22,6 +22,7 @@ export function mutationTest(base) {
     ["u1_build_identity_mismatch", (c) => { c.workload_build_identity.github_run_id = "9"; }],
     ["u1_provider_preflight_mismatch", (c) => { c.provider_preflight.qualified = false; }],
     ["u1_provider_preflight_mismatch", (c) => { c.provider_preflight.placement_class = "bare_metal"; }],
+    ["u1_provider_response_mismatch", (c) => { c.provider_preflight_response.body_base64 = Buffer.from("{}").toString("base64"); }],
     ["u1_protocol_contract_invalid", (c) => { c.authority.measured_passes = 4; }],
     ["u1_provider_pin_invalid", (c) => { c.authority.provider_selector.provider_address = "akash1other"; }],
     ["u1_spend_posture_invalid", (c) => { c.authority.auto_topup = true; }],

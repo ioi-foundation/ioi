@@ -26,6 +26,7 @@ import {
   validateBenchmarkBuildIdentity,
   validateCertifiedCampaignConfig,
   validateProviderPreflight,
+  validateProviderPreflightResponse,
 } from "./lib/certified-campaign-config.mjs";
 import { startRealWalletNetworkPrincipalAuthorityFixture } from "./lib/wallet-network-principal-authority-fixture.mjs";
 
@@ -62,6 +63,8 @@ const providerPreflight = validateProviderPreflight(
 if (sha256(`${JSON.stringify(providerPreflight, null, 2)}\n`) !== config.plan.provider_preflight_sha256) {
   throw new Error("provider preflight differs from the reviewed semantic SHA-256");
 }
+const providerResponseBytes = readFileSync(path.resolve(config.provider_response_path));
+validateProviderPreflightResponse(providerResponseBytes, providerPreflight, config);
 const daemonUrl = config.daemon_url || "http://127.0.0.1:8765";
 const operatorEmail = process.env.IOI_C7_EMAIL || "";
 const operatorPassword = process.env.IOI_C7_PASSWORD_FILE
@@ -77,6 +80,7 @@ if (!String(config.environment_ref || "").startsWith("env-")) throw new Error("e
 if (!String(config.idempotency_key || "").trim()) throw new Error("idempotency_key is required");
 
 const save = (name, value) => writeFileSync(path.join(artifactDir, name), `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
+const saveBytes = (name, value) => writeFileSync(path.join(artifactDir, name), value, { mode: 0o600 });
 const log = (message) => {
   const line = `[certified-campaign] ${message}`;
   console.log(line);
@@ -98,6 +102,7 @@ const request = {
 const expectedSdlHash = sha256(request.plan.sdl_yaml);
 save("image-build-identity.json", imageBuildIdentity);
 save("provider-preflight.json", providerPreflight);
+saveBytes("provider-response.json", providerResponseBytes);
 
 async function daemonReady(timeoutMs = 90_000) {
   const deadline = Date.now() + timeoutMs;

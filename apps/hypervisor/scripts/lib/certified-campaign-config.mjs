@@ -1,3 +1,5 @@
+import { qualifyU1Provider, sha256Bytes } from "./u1-provider-preflight.mjs";
+
 const unresolvedOwnerReview = /OWNER_(?:APPROVED|SELECTED|SEEDED)|IMMUTABLE_IMAGE_DIGEST|PRIVATE_REGISTRY/u;
 
 export function certifiedWorkloadDeadlineMs(readinessProvenAtMs, maxDurationSeconds) {
@@ -63,6 +65,9 @@ export function validateCertifiedCampaignConfig(config) {
     if (typeof config.provider_preflight_path !== "string" || config.provider_preflight_path.length === 0) {
       throw new Error("U1 requires provider_preflight_path");
     }
+    if (typeof config.provider_response_path !== "string" || config.provider_response_path.length === 0) {
+      throw new Error("U1 requires provider_response_path");
+    }
     if (!Number.isSafeInteger(plan.max_duration_seconds)
         || plan.max_duration_seconds < 60
         || plan.max_duration_seconds > 24 * 60 * 60) {
@@ -122,6 +127,37 @@ export function validateProviderPreflight(preflight, config) {
     throw new Error("U1 provider preflight lacks its raw response hash");
   }
   return preflight;
+}
+
+/** Recompute the qualification summary from the exact provider response bytes. */
+export function validateProviderPreflightResponse(responseBytes, preflight, config) {
+  if (sha256Bytes(responseBytes) !== preflight?.provider_response_sha256) {
+    throw new Error("provider response bytes differ from the preflight commitment");
+  }
+  let record;
+  try {
+    record = JSON.parse(Buffer.from(responseBytes).toString("utf8"));
+  } catch {
+    throw new Error("provider response is not valid JSON");
+  }
+  const decision = qualifyU1Provider(record, config?.plan?.provider_selector?.provider_address);
+  for (const key of [
+    "provider_address",
+    "provider_name",
+    "provider_host_uri",
+    "provider_last_checked_at",
+    "qualified",
+    "refusal_codes",
+    "observed",
+    "required",
+    "placement_class",
+    "bare_metal_attested",
+  ]) {
+    if (JSON.stringify(decision[key]) !== JSON.stringify(preflight?.[key])) {
+      throw new Error(`provider preflight field ${key} was not derived from the committed response`);
+    }
+  }
+  return record;
 }
 
 /** Materialize only owner-reviewed, non-secret SDL values before challenge hashing. */

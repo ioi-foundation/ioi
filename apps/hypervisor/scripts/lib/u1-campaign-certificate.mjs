@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { stableStringify } from "./c7-c8-certificate.mjs";
+import { qualifyU1Provider } from "./u1-provider-preflight.mjs";
 
 export const U1_SCENARIO_LANES = {
   paper_guardian_majority_4v: ["base_final"],
@@ -82,6 +83,22 @@ export function validateU1Certificate(certificate) {
       || providerPreflight.refusal_codes.length !== 0
       || sha256Buffer(JSON.stringify(providerPreflight, null, 2) + "\n") !== authority?.provider_preflight_sha256) {
     fail("u1_provider_preflight_mismatch", "provider_preflight", "the reviewed exact-provider preflight must pass without a bare-metal claim");
+  }
+  const providerResponse = certificate?.provider_preflight_response;
+  try {
+    const raw = Buffer.from(providerResponse?.body_base64 || "", "base64");
+    const record = JSON.parse(raw.toString("utf8"));
+    const recomputed = qualifyU1Provider(record, authority?.provider_address);
+    const committedDecision = Object.fromEntries(Object.keys(recomputed).map((key) => [key, providerPreflight?.[key]]));
+    if (!Number.isSafeInteger(providerResponse?.bytes)
+        || providerResponse.bytes !== raw.length
+        || providerResponse?.sha256 !== providerPreflight?.provider_response_sha256
+        || sha256Buffer(raw) !== providerPreflight?.provider_response_sha256
+        || !same(recomputed, committedDecision)) {
+      fail("u1_provider_response_mismatch", "provider_preflight_response", "raw provider evidence does not reproduce the committed qualification decision");
+    }
+  } catch {
+    fail("u1_provider_response_mismatch", "provider_preflight_response", "raw provider evidence is absent or malformed");
   }
   if (authority?.protocol_version !== "res-p4.3.v2" || authority?.result_schema_version !== "ioi.aft.benchmark-campaign.v1" || authority?.warmups !== 1 || authority?.measured_passes !== 5) fail("u1_protocol_contract_invalid", "authority", "U1 fixes one warmup and five measured passes under RES-P4.3 v2");
   if (authority?.provider_selector?.mode !== "exact" || authority?.provider_selector?.selection !== "only_qualified_bid_from_exact_provider" || authority?.provider_selector?.provider_address !== authority?.provider_address) fail("u1_provider_pin_invalid", "authority.provider_selector", "campaign must be bound to one exact provider");

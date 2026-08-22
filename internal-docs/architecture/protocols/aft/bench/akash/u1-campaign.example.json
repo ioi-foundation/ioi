@@ -8,6 +8,7 @@
   "data_dir": "/home/heathledger/.ioi/hypervisor/data",
   "image_build_identity_path": "/OWNER/REVIEWED/aft-bench-build-identity.json",
   "provider_preflight_path": "/OWNER/REVIEWED/u1-provider-preflight.json",
+  "provider_response_path": "/OWNER/REVIEWED/provider-response.json",
   "sdl_path": "internal-docs/architecture/protocols/aft/bench/akash/deploy.sdl",
   "sdl_values": {
     "registry_host": "ghcr.io",

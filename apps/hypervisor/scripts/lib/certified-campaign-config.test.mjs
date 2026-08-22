@@ -10,7 +10,9 @@ import {
   validateBenchmarkBuildIdentity,
   validateCertifiedCampaignConfig,
   validateProviderPreflight,
+  validateProviderPreflightResponse,
 } from "./certified-campaign-config.mjs";
+import { qualifyU1Provider, sha256Bytes } from "./u1-provider-preflight.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repo = path.resolve(here, "..", "..", "..", "..");
@@ -23,6 +25,7 @@ const valid = {
   schema_version: "ioi.hypervisor.certified-provider-campaign.v1",
   image_build_identity_path: "/tmp/aft-bench-build-identity.json",
   provider_preflight_path: "/tmp/u1-provider-preflight.json",
+  provider_response_path: "/tmp/provider-response.json",
   plan: {
     campaign_id: "u1-campaign-a",
     benchmark_source_commit: "b".repeat(40),
@@ -50,14 +53,27 @@ const valid = {
     secret_canary: "u1-canary-abcdefgh",
   },
 };
+const validProviderResponse = Buffer.from(JSON.stringify({
+  owner: valid.plan.provider_selector.provider_address,
+  name: "fixture-provider",
+  hostUri: "https://provider.fixture.invalid:8443",
+  lastCheckDate: "2026-08-22T18:38:26Z",
+  isOnline: true,
+  isAudited: true,
+  isValidVersion: true,
+  hardwareCpuArch: "x86-64",
+  uptime1d: 1,
+  uptime7d: 1,
+  stats: {
+    cpu: { available: 16_000 },
+    memory: { available: 64 * 1024 ** 3 },
+    storage: { ephemeral: { available: 1024 ** 4 } },
+  },
+}));
 const validProviderPreflight = {
   schema_version: "ioi.aft.u1-provider-preflight.v1",
-  provider_address: valid.plan.provider_selector.provider_address,
-  provider_response_sha256: `sha256:${"5".repeat(64)}`,
-  qualified: true,
-  refusal_codes: [],
-  placement_class: "same_exact_audited_provider_container_allocation_physical_host_unproven",
-  bare_metal_attested: false,
+  provider_response_sha256: sha256Bytes(validProviderResponse),
+  ...qualifyU1Provider(JSON.parse(validProviderResponse), valid.plan.provider_selector.provider_address),
 };
 
 const validBuildIdentity = {
@@ -94,6 +110,16 @@ test("binds the retained workflow build identity to the reviewed workload", () =
 
 test("binds a passing non-bare-metal preflight to the exact provider", () => {
   assert.equal(validateProviderPreflight(validProviderPreflight, valid), validProviderPreflight);
+  assert.deepEqual(
+    validateProviderPreflightResponse(validProviderResponse, validProviderPreflight, valid),
+    JSON.parse(validProviderResponse),
+  );
+  const changedBytes = Buffer.from(validProviderResponse);
+  changedBytes[0] ^= 1;
+  assert.throws(
+    () => validateProviderPreflightResponse(changedBytes, validProviderPreflight, valid),
+    /differ from the preflight commitment/u,
+  );
   const fallback = structuredClone(validProviderPreflight);
   fallback.provider_address = "akash1aaul837r7en7hpk9wv2svg8u78fdq0t2j2e82z";
   assert.throws(() => validateProviderPreflight(fallback, valid), /exact reviewed provider/u);

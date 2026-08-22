@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { stableStringify } from "./c7-c8-certificate.mjs";
+import { qualifyU1Provider, sha256Bytes } from "./u1-provider-preflight.mjs";
 import { sealU1Certificate, U1_METRICS, U1_SCENARIO_LANES, U1_THRESHOLDS } from "./u1-campaign-certificate.mjs";
 
 export function validU1Fixture() {
@@ -7,6 +8,7 @@ export function validU1Fixture() {
   const sourceCommit = "b".repeat(40);
   const imageDigest = `sha256:${"a".repeat(64)}`;
   const resultTlsPin = `sha256:${"a".repeat(64)}`;
+  const providerAddress = "akash15tl6v6gd0nte0syyxnv57zmmspgju4c3xfmdhk";
   const buildIdentity = {
     schema_version: "ioi.aft.benchmark-image-build-identity.v2",
     source_ref: sourceCommit,
@@ -21,14 +23,27 @@ export function validU1Fixture() {
     github_run_attempt: "1",
   };
   const buildIdentityHash = `sha256:${crypto.createHash("sha256").update(`${JSON.stringify(buildIdentity, null, 2)}\n`).digest("hex")}`;
+  const providerResponseBytes = Buffer.from(JSON.stringify({
+    owner: providerAddress,
+    name: "fixture-provider",
+    hostUri: "https://provider.fixture.invalid:8443",
+    lastCheckDate: "2026-08-22T18:38:26Z",
+    isOnline: true,
+    isAudited: true,
+    isValidVersion: true,
+    hardwareCpuArch: "x86-64",
+    uptime1d: 1,
+    uptime7d: 1,
+    stats: {
+      cpu: { available: 16_000 },
+      memory: { available: 64 * 1024 ** 3 },
+      storage: { ephemeral: { available: 1024 ** 4 } },
+    },
+  }));
   const providerPreflight = {
     schema_version: "ioi.aft.u1-provider-preflight.v1",
-    provider_address: "akash15tl6v6gd0nte0syyxnv57zmmspgju4c3xfmdhk",
-    provider_response_sha256: `sha256:${"c".repeat(64)}`,
-    qualified: true,
-    refusal_codes: [],
-    placement_class: "same_exact_audited_provider_container_allocation_physical_host_unproven",
-    bare_metal_attested: false,
+    provider_response_sha256: sha256Bytes(providerResponseBytes),
+    ...qualifyU1Provider(JSON.parse(providerResponseBytes), providerAddress),
   };
   const providerPreflightHash = `sha256:${crypto.createHash("sha256").update(`${JSON.stringify(providerPreflight, null, 2)}\n`).digest("hex")}`;
   const summaries = Object.entries(U1_SCENARIO_LANES).flatMap(([scenario, lanes]) => lanes.map((lane) => ({
@@ -54,7 +69,6 @@ export function validU1Fixture() {
       within_threshold: true,
     }])),
   })));
-  const providerAddress = "akash15tl6v6gd0nte0syyxnv57zmmspgju4c3xfmdhk";
   const status = { schema_version: "ioi.aft.benchmark-status.v1", campaign_id: campaign, state: "complete" };
   const environment = {
     schema_version: "ioi.aft.environment-manifest.v1",
@@ -146,6 +160,11 @@ export function validU1Fixture() {
     },
     workload_build_identity: buildIdentity,
     provider_preflight: providerPreflight,
+    provider_preflight_response: {
+      bytes: providerResponseBytes.length,
+      sha256: providerPreflight.provider_response_sha256,
+      body_base64: providerResponseBytes.toString("base64"),
+    },
     measurement: {
       status,
       environment,

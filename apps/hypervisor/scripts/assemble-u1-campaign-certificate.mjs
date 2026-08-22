@@ -23,6 +23,7 @@ const lifecycleVerification = readJson(lifecycleVerificationPath);
 const approval = readJson(path.join(artifacts, "approval-request.json"));
 const imageBuildIdentity = readJson(path.join(artifacts, "image-build-identity.json"));
 const providerPreflight = readJson(path.join(artifacts, "provider-preflight.json"));
+const providerResponse = fs.readFileSync(path.join(artifacts, "provider-response.json"));
 const logs = readJson(path.join(artifacts, "c7-logs.json"));
 const bundle = logs?.evidence?.workload_result?.bundle;
 if (!bundle?.status?.value || !bundle?.environment?.value || !bundle?.results?.value || !bundle?.manifest?.value) {
@@ -99,6 +100,11 @@ const certificate = sealU1Certificate({
   },
   workload_build_identity: imageBuildIdentity,
   provider_preflight: providerPreflight,
+  provider_preflight_response: {
+    bytes: providerResponse.length,
+    sha256: providerPreflight.provider_response_sha256,
+    body_base64: providerResponse.toString("base64"),
+  },
   provider: {
     dseq: lifecycle.provider?.dseq,
     provider_address: lifecycle.provider?.provider_address,
