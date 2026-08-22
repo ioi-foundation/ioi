@@ -1415,6 +1415,11 @@ guest evidence; worker secret non-possession requires its separately named
 negative-probe profile. Unknown schemas, absent prerequisites, stale evidence,
 or any predecessor/hash substitution fail closed.
 
+Every evidence list carries ref/hash pairs rather than refs alone, including
+readiness, secret-use probes, and terminal acceptance prerequisites. The result
+retrieval receipt is likewise bound by both ref and hash. A portable verifier
+never infers an object hash from a filename or producer-owned lookup rule.
+
 The registered wire contract is
 `schema://ioi/components/hypervisor/c8-certificate/v3`.
 

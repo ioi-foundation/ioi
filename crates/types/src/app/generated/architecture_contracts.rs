@@ -92,7 +92,7 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/backend-capability-declaration/v1", "sha256:ff20dc82932a0095e15e8ecd6ccb8f458e92ce81990ab0c7c3f25c5d7942cddf"),
     ("schema://ioi/components/hypervisor/collection-page/v1", "sha256:1838faff61bec1c9b137763e19114dcca2017b8ddb20b3a7400561391e2321d7"),
     ("schema://ioi/components/hypervisor/collection-query/v1", "sha256:fc25b17cf6830faca44e00eedad7b6d4dd7c4eee5008e2c05ca553ce7da25bd5"),
-    ("schema://ioi/components/hypervisor/c8-certificate/v3", "sha256:670c607dc8dc08b97364db1f394559da8334aac8b10f4c9b6ffeed12fa0ff74d"),
+    ("schema://ioi/components/hypervisor/c8-certificate/v3", "sha256:b29daef4a3b18681c4c65beefe8ed8e662ab8bd3a08b82201f0ba14b2b84dd63"),
     ("schema://ioi/components/hypervisor/governed-effect-claim-manifest/v1", "sha256:1834df26ab76fd1fc15066a8db5cabb24de5185b8b5299a920233cc88078aa53"),
     ("schema://ioi/aft/u1-campaign-result/v1", "sha256:53f9a944ed1379a4509a691d16bc35fc93a9e10f293d80724c7355e33097c802"),
     ("schema://ioi/aft/measured-result-row/v1", "sha256:a13962e8d58491420fbc68a5a9057ad3998475d8a531ff65432692f24bde79a8"),
@@ -19288,7 +19288,7 @@ pub struct C8CertificateV3 {
     pub isolation_binding_hash: String,
     pub workload_image_ref: String,
     pub workload_image_digest: String,
-    pub workload_readiness_evidence_refs: Vec<String>,
+    pub workload_readiness_evidence: Vec<C8CertificateV3WorkloadReadinessEvidenceItem>,
     pub campaign_certificate_ref: String,
     pub campaign_certificate_hash: String,
     pub campaign_id: String,
@@ -19299,6 +19299,7 @@ pub struct C8CertificateV3 {
     pub result_ref: String,
     pub result_hash: String,
     pub result_retrieval_receipt_ref: String,
+    pub result_retrieval_receipt_hash: String,
     pub environment_ref: String,
     pub environment_hash: String,
     pub variance_evidence_ref: String,
@@ -19308,9 +19309,9 @@ pub struct C8CertificateV3 {
     pub authority_draw: C8CertificateV3AuthorityDraw,
     pub trajectory_binding: C8CertificateV3TrajectoryBinding,
     pub brokered_secret_use_posture: C8CertificateV3BrokeredSecretUsePosture,
-    pub secret_use_evidence_refs: Vec<String>,
+    pub secret_use_evidence: Vec<C8CertificateV3SecretUseEvidenceItem>,
     pub relying_party_audience_ref: String,
-    pub terminal_acceptance_prerequisite_refs: Vec<String>,
+    pub terminal_acceptance_prerequisites: Vec<C8CertificateV3TerminalAcceptancePrerequisitesItem>,
     pub journal_binding: C8CertificateV3JournalBinding,
     pub terminal_settlement_ref: String,
     pub terminal_settlement_hash: String,
@@ -19325,7 +19326,7 @@ impl<'de> serde::Deserialize<'de> for C8CertificateV3 {
         let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
         validate_projection_subschema(
             r#"schema://ioi/components/hypervisor/c8-certificate/v3"#,
-            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/c8-certificate/v3","title":"C8CertificateV3","x-ioi-schema-version":"ioi.components.hypervisor.c8-certificate.v3","type":"object","additionalProperties":false,"required":["schema_version","certificate_ref","certificate_hash","predecessor_certificate_schema_version","predecessor_certificate_ref","predecessor_certificate_hash","source_basis_refs","operator_principal_ref","governed_request_ref","governed_request_hash","claim_manifest_ref","claim_manifest_hash","isolation_binding_ref","isolation_binding_hash","workload_image_ref","workload_image_digest","workload_readiness_evidence_refs","campaign_certificate_ref","campaign_certificate_hash","campaign_id","benchmark_source_commit","benchmark_protocol_version","result_contract_ref","result_contract_hash","result_ref","result_hash","result_retrieval_receipt_ref","environment_ref","environment_hash","variance_evidence_ref","variance_evidence_hash","environment_class","honesty_class","authority_draw","trajectory_binding","brokered_secret_use_posture","secret_use_evidence_refs","relying_party_audience_ref","terminal_acceptance_prerequisite_refs","journal_binding","terminal_settlement_ref","terminal_settlement_hash","generated_at"],"properties":{"schema_version":{"const":"ioi.components.hypervisor.c8-certificate.v3"},"certificate_ref":{"$ref":"#/$defs/ref"},"certificate_hash":{"$ref":"#/$defs/hash"},"predecessor_certificate_schema_version":{"const":"ioi.hypervisor.c7-c8-certificate.v2"},"predecessor_certificate_ref":{"$ref":"#/$defs/ref"},"predecessor_certificate_hash":{"$ref":"#/$defs/hash"},"source_basis_refs":{"type":"array","minItems":2,"items":{"$ref":"#/$defs/refHash"}},"operator_principal_ref":{"$ref":"#/$defs/ref"},"governed_request_ref":{"$ref":"#/$defs/ref"},"governed_request_hash":{"$ref":"#/$defs/hash"},"claim_manifest_ref":{"$ref":"#/$defs/ref"},"claim_manifest_hash":{"$ref":"#/$defs/hash"},"isolation_binding_ref":{"$ref":"#/$defs/ref"},"isolation_binding_hash":{"$ref":"#/$defs/hash"},"workload_image_ref":{"$ref":"#/$defs/ref"},"workload_image_digest":{"$ref":"#/$defs/hash"},"workload_readiness_evidence_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/ref"}},"campaign_certificate_ref":{"$ref":"#/$defs/ref"},"campaign_certificate_hash":{"$ref":"#/$defs/hash"},"campaign_id":{"$ref":"#/$defs/name"},"benchmark_source_commit":{"type":"string","pattern":"^[0-9a-f]{40}$"},"benchmark_protocol_version":{"$ref":"#/$defs/name"},"result_contract_ref":{"$ref":"#/$defs/ref"},"result_contract_hash":{"$ref":"#/$defs/hash"},"result_ref":{"$ref":"#/$defs/ref"},"result_hash":{"$ref":"#/$defs/hash"},"result_retrieval_receipt_ref":{"$ref":"#/$defs/ref"},"environment_ref":{"$ref":"#/$defs/ref"},"environment_hash":{"$ref":"#/$defs/hash"},"variance_evidence_ref":{"$ref":"#/$defs/ref"},"variance_evidence_hash":{"$ref":"#/$defs/hash"},"environment_class":{"enum":["measured_container","attested_pinned_bare_metal"]},"honesty_class":{"enum":["same_provider_container_unknown_host","attested_pinned_bare_metal","variance_caveated"]},"authority_draw":{"$ref":"#/$defs/authorityDraw"},"trajectory_binding":{"$ref":"#/$defs/trajectoryBinding"},"brokered_secret_use_posture":{"enum":["no_secret_required","opaque_handle_final_invoker","attested_secret_release"]},"secret_use_evidence_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/ref"}},"relying_party_audience_ref":{"$ref":"#/$defs/ref"},"terminal_acceptance_prerequisite_refs":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"journal_binding":{"$ref":"#/$defs/journalBinding"},"terminal_settlement_ref":{"$ref":"#/$defs/ref"},"terminal_settlement_hash":{"$ref":"#/$defs/hash"},"generated_at":{"$ref":"#/$defs/timestamp"}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"name":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"timestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"refHash":{"type":"object","additionalProperties":false,"required":["ref","hash"],"properties":{"ref":{"$ref":"#/$defs/ref"},"hash":{"$ref":"#/$defs/hash"}}},"authorityDraw":{"type":"object","additionalProperties":false,"required":["standing_envelope_ref","standing_envelope_hash","draw_request_ref","draw_request_hash","draw_receipt_ref","draw_receipt_hash"],"properties":{"standing_envelope_ref":{"$ref":"#/$defs/ref"},"standing_envelope_hash":{"$ref":"#/$defs/hash"},"draw_request_ref":{"$ref":"#/$defs/ref"},"draw_request_hash":{"$ref":"#/$defs/hash"},"draw_receipt_ref":{"$ref":"#/$defs/ref"},"draw_receipt_hash":{"$ref":"#/$defs/hash"}}},"trajectoryBinding":{"type":"object","additionalProperties":false,"required":["state_before_ref","state_before_hash","decision_ref","decision_hash","state_after_ref","state_after_hash"],"properties":{"state_before_ref":{"$ref":"#/$defs/ref"},"state_before_hash":{"$ref":"#/$defs/hash"},"decision_ref":{"$ref":"#/$defs/ref"},"decision_hash":{"$ref":"#/$defs/hash"},"state_after_ref":{"$ref":"#/$defs/ref"},"state_after_hash":{"$ref":"#/$defs/hash"}}},"journalBinding":{"type":"object","additionalProperties":false,"required":["intent_root","outcome_predecessor_root","outcome_root"],"properties":{"intent_root":{"$ref":"#/$defs/hash"},"outcome_predecessor_root":{"$ref":"#/$defs/hash"},"outcome_root":{"$ref":"#/$defs/hash"}}}}}"##,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/c8-certificate/v3","title":"C8CertificateV3","x-ioi-schema-version":"ioi.components.hypervisor.c8-certificate.v3","type":"object","additionalProperties":false,"required":["schema_version","certificate_ref","certificate_hash","predecessor_certificate_schema_version","predecessor_certificate_ref","predecessor_certificate_hash","source_basis_refs","operator_principal_ref","governed_request_ref","governed_request_hash","claim_manifest_ref","claim_manifest_hash","isolation_binding_ref","isolation_binding_hash","workload_image_ref","workload_image_digest","workload_readiness_evidence","campaign_certificate_ref","campaign_certificate_hash","campaign_id","benchmark_source_commit","benchmark_protocol_version","result_contract_ref","result_contract_hash","result_ref","result_hash","result_retrieval_receipt_ref","result_retrieval_receipt_hash","environment_ref","environment_hash","variance_evidence_ref","variance_evidence_hash","environment_class","honesty_class","authority_draw","trajectory_binding","brokered_secret_use_posture","secret_use_evidence","relying_party_audience_ref","terminal_acceptance_prerequisites","journal_binding","terminal_settlement_ref","terminal_settlement_hash","generated_at"],"properties":{"schema_version":{"const":"ioi.components.hypervisor.c8-certificate.v3"},"certificate_ref":{"$ref":"#/$defs/ref"},"certificate_hash":{"$ref":"#/$defs/hash"},"predecessor_certificate_schema_version":{"const":"ioi.hypervisor.c7-c8-certificate.v2"},"predecessor_certificate_ref":{"$ref":"#/$defs/ref"},"predecessor_certificate_hash":{"$ref":"#/$defs/hash"},"source_basis_refs":{"type":"array","minItems":2,"items":{"$ref":"#/$defs/refHash"}},"operator_principal_ref":{"$ref":"#/$defs/ref"},"governed_request_ref":{"$ref":"#/$defs/ref"},"governed_request_hash":{"$ref":"#/$defs/hash"},"claim_manifest_ref":{"$ref":"#/$defs/ref"},"claim_manifest_hash":{"$ref":"#/$defs/hash"},"isolation_binding_ref":{"$ref":"#/$defs/ref"},"isolation_binding_hash":{"$ref":"#/$defs/hash"},"workload_image_ref":{"$ref":"#/$defs/ref"},"workload_image_digest":{"$ref":"#/$defs/hash"},"workload_readiness_evidence":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/refHash"}},"campaign_certificate_ref":{"$ref":"#/$defs/ref"},"campaign_certificate_hash":{"$ref":"#/$defs/hash"},"campaign_id":{"$ref":"#/$defs/name"},"benchmark_source_commit":{"type":"string","pattern":"^[0-9a-f]{40}$"},"benchmark_protocol_version":{"$ref":"#/$defs/name"},"result_contract_ref":{"$ref":"#/$defs/ref"},"result_contract_hash":{"$ref":"#/$defs/hash"},"result_ref":{"$ref":"#/$defs/ref"},"result_hash":{"$ref":"#/$defs/hash"},"result_retrieval_receipt_ref":{"$ref":"#/$defs/ref"},"result_retrieval_receipt_hash":{"$ref":"#/$defs/hash"},"environment_ref":{"$ref":"#/$defs/ref"},"environment_hash":{"$ref":"#/$defs/hash"},"variance_evidence_ref":{"$ref":"#/$defs/ref"},"variance_evidence_hash":{"$ref":"#/$defs/hash"},"environment_class":{"enum":["measured_container","attested_pinned_bare_metal"]},"honesty_class":{"enum":["same_provider_container_unknown_host","attested_pinned_bare_metal","variance_caveated"]},"authority_draw":{"$ref":"#/$defs/authorityDraw"},"trajectory_binding":{"$ref":"#/$defs/trajectoryBinding"},"brokered_secret_use_posture":{"enum":["no_secret_required","opaque_handle_final_invoker","attested_secret_release"]},"secret_use_evidence":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/refHash"}},"relying_party_audience_ref":{"$ref":"#/$defs/ref"},"terminal_acceptance_prerequisites":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/refHash"}},"journal_binding":{"$ref":"#/$defs/journalBinding"},"terminal_settlement_ref":{"$ref":"#/$defs/ref"},"terminal_settlement_hash":{"$ref":"#/$defs/hash"},"generated_at":{"$ref":"#/$defs/timestamp"}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"name":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"timestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"refHash":{"type":"object","additionalProperties":false,"required":["ref","hash"],"properties":{"ref":{"$ref":"#/$defs/ref"},"hash":{"$ref":"#/$defs/hash"}}},"authorityDraw":{"type":"object","additionalProperties":false,"required":["standing_envelope_ref","standing_envelope_hash","draw_request_ref","draw_request_hash","draw_receipt_ref","draw_receipt_hash"],"properties":{"standing_envelope_ref":{"$ref":"#/$defs/ref"},"standing_envelope_hash":{"$ref":"#/$defs/hash"},"draw_request_ref":{"$ref":"#/$defs/ref"},"draw_request_hash":{"$ref":"#/$defs/hash"},"draw_receipt_ref":{"$ref":"#/$defs/ref"},"draw_receipt_hash":{"$ref":"#/$defs/hash"}}},"trajectoryBinding":{"type":"object","additionalProperties":false,"required":["state_before_ref","state_before_hash","decision_ref","decision_hash","state_after_ref","state_after_hash"],"properties":{"state_before_ref":{"$ref":"#/$defs/ref"},"state_before_hash":{"$ref":"#/$defs/hash"},"decision_ref":{"$ref":"#/$defs/ref"},"decision_hash":{"$ref":"#/$defs/hash"},"state_after_ref":{"$ref":"#/$defs/ref"},"state_after_hash":{"$ref":"#/$defs/hash"}}},"journalBinding":{"type":"object","additionalProperties":false,"required":["intent_root","outcome_predecessor_root","outcome_root"],"properties":{"intent_root":{"$ref":"#/$defs/hash"},"outcome_predecessor_root":{"$ref":"#/$defs/hash"},"outcome_root":{"$ref":"#/$defs/hash"}}}}}"##,
             &value,
         )
             .map_err(serde::de::Error::custom)?;
@@ -19438,11 +19439,13 @@ impl<'de> serde::Deserialize<'de> for C8CertificateV3 {
                     .ok_or_else(|| serde::de::Error::missing_field(r#"workload_image_digest"#))?,
             )
             .map_err(serde::de::Error::custom)?,
-            workload_readiness_evidence_refs: serde_json::from_value::<Vec<String>>(
+            workload_readiness_evidence: serde_json::from_value::<
+                Vec<C8CertificateV3WorkloadReadinessEvidenceItem>,
+            >(
                 object
-                    .remove(r#"workload_readiness_evidence_refs"#)
+                    .remove(r#"workload_readiness_evidence"#)
                     .ok_or_else(|| {
-                        serde::de::Error::missing_field(r#"workload_readiness_evidence_refs"#)
+                        serde::de::Error::missing_field(r#"workload_readiness_evidence"#)
                     })?,
             )
             .map_err(serde::de::Error::custom)?,
@@ -19514,6 +19517,14 @@ impl<'de> serde::Deserialize<'de> for C8CertificateV3 {
                     })?,
             )
             .map_err(serde::de::Error::custom)?,
+            result_retrieval_receipt_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"result_retrieval_receipt_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"result_retrieval_receipt_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
             environment_ref: serde_json::from_value::<String>(
                 object
                     .remove(r#"environment_ref"#)
@@ -19572,14 +19583,13 @@ impl<'de> serde::Deserialize<'de> for C8CertificateV3 {
                     })?,
             )
             .map_err(serde::de::Error::custom)?,
-            secret_use_evidence_refs: serde_json::from_value::<Vec<String>>(
-                object
-                    .remove(r#"secret_use_evidence_refs"#)
-                    .ok_or_else(|| {
-                        serde::de::Error::missing_field(r#"secret_use_evidence_refs"#)
-                    })?,
-            )
-            .map_err(serde::de::Error::custom)?,
+            secret_use_evidence:
+                serde_json::from_value::<Vec<C8CertificateV3SecretUseEvidenceItem>>(
+                    object
+                        .remove(r#"secret_use_evidence"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"secret_use_evidence"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
             relying_party_audience_ref: serde_json::from_value::<String>(
                 object
                     .remove(r#"relying_party_audience_ref"#)
@@ -19588,11 +19598,13 @@ impl<'de> serde::Deserialize<'de> for C8CertificateV3 {
                     })?,
             )
             .map_err(serde::de::Error::custom)?,
-            terminal_acceptance_prerequisite_refs: serde_json::from_value::<Vec<String>>(
+            terminal_acceptance_prerequisites: serde_json::from_value::<
+                Vec<C8CertificateV3TerminalAcceptancePrerequisitesItem>,
+            >(
                 object
-                    .remove(r#"terminal_acceptance_prerequisite_refs"#)
+                    .remove(r#"terminal_acceptance_prerequisites"#)
                     .ok_or_else(|| {
-                        serde::de::Error::missing_field(r#"terminal_acceptance_prerequisite_refs"#)
+                        serde::de::Error::missing_field(r#"terminal_acceptance_prerequisites"#)
                     })?,
             )
             .map_err(serde::de::Error::custom)?,
@@ -19645,6 +19657,45 @@ pub struct C8CertificateV3SourceBasisRefsItem {
 }
 
 impl<'de> serde::Deserialize<'de> for C8CertificateV3SourceBasisRefsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/c8-certificate/v3"#,
+            r##"{"type":"object","additionalProperties":false,"required":["ref","hash"],"properties":{"ref":{"$ref":"#/$defs/ref"},"hash":{"$ref":"#/$defs/hash"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            r#ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct C8CertificateV3WorkloadReadinessEvidenceItem {
+    pub r#ref: String,
+    pub hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for C8CertificateV3WorkloadReadinessEvidenceItem {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -19837,6 +19888,84 @@ pub enum C8CertificateV3BrokeredSecretUsePosture {
     OpaqueHandleFinalInvoker,
     #[serde(rename = r#"attested_secret_release"#)]
     AttestedSecretRelease,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct C8CertificateV3SecretUseEvidenceItem {
+    pub r#ref: String,
+    pub hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for C8CertificateV3SecretUseEvidenceItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/c8-certificate/v3"#,
+            r##"{"type":"object","additionalProperties":false,"required":["ref","hash"],"properties":{"ref":{"$ref":"#/$defs/ref"},"hash":{"$ref":"#/$defs/hash"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            r#ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct C8CertificateV3TerminalAcceptancePrerequisitesItem {
+    pub r#ref: String,
+    pub hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for C8CertificateV3TerminalAcceptancePrerequisitesItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/c8-certificate/v3"#,
+            r##"{"type":"object","additionalProperties":false,"required":["ref","hash"],"properties":{"ref":{"$ref":"#/$defs/ref"},"hash":{"$ref":"#/$defs/hash"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            r#ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
@@ -98221,7 +98350,7 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/backend-capability-declaration/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/backend-capability-declaration/v1","title":"HypervisorBackendCapabilityDeclaration","x-ioi-schema-version":"ioi.components.hypervisor.backend-capability-declaration.v1","type":"object","additionalProperties":false,"required":["schema_version","declaration_ref","declaration_hash","producer_ref","producer_release_ref","backend_registration_ref","adapter_release_ref","scope_ref","observed_backend_version","evidence_mode","discovery_method_ref","supported_machine_architectures","supported_operations","unsupported_operations","limitations","evaluator_ref","signature_or_attestation_ref","temporal_verification_evidence_ref","currentness_evaluation_ref","provenance_evidence_refs"],"properties":{"schema_version":{"const":"ioi.components.hypervisor.backend-capability-declaration.v1"},"declaration_ref":{"$ref":"#/$defs/ref"},"declaration_hash":{"$ref":"#/$defs/hash"},"producer_ref":{"$ref":"#/$defs/ref"},"producer_release_ref":{"$ref":"#/$defs/ref"},"backend_registration_ref":{"$ref":"#/$defs/ref"},"adapter_release_ref":{"$ref":"#/$defs/ref"},"scope_ref":{"$ref":"#/$defs/ref"},"observed_backend_version":{"type":"string","minLength":1,"maxLength":256},"evidence_mode":{"enum":["live","simulated","declared"]},"discovery_method_ref":{"$ref":"#/$defs/ref"},"supported_machine_architectures":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/name"}},"supported_operations":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/name"}},"unsupported_operations":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["operation","reason_code"],"properties":{"operation":{"$ref":"#/$defs/name"},"reason_code":{"$ref":"#/$defs/name"}}}},"limitations":{"type":"array","items":{"type":"string","minLength":1,"maxLength":512}},"evaluator_ref":{"$ref":"#/$defs/ref"},"signature_or_attestation_ref":{"$ref":"#/$defs/ref"},"temporal_verification_evidence_ref":{"$ref":"#/$defs/ref"},"currentness_evaluation_ref":{"$ref":"#/$defs/ref"},"provenance_evidence_refs":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"name":{"type":"string","pattern":"^[a-z][a-z0-9._-]{0,127}$"}}}"##),
     ("schema://ioi/components/hypervisor/collection-page/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/collection-page/v1","title":"HypervisorCollectionPage","x-ioi-schema-version":"ioi.hypervisor.collection_page.v1","type":"object","additionalProperties":false,"required":["schema_version","query_ref","items","facets","next_cursor","snapshot_revision","serialized_bytes","total_policy_visible","policy_filtered_before_counts_and_cache"],"properties":{"schema_version":{"const":"ioi.hypervisor.collection_page.v1"},"query_ref":{"type":"string","pattern":"^query://hypervisor/\\S+$"},"items":{"type":"array","items":{}},"facets":{"type":"array","items":{"type":"object"}},"next_cursor":{"anyOf":[{"type":"string","minLength":1},{"type":"null"}]},"snapshot_revision":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},"serialized_bytes":{"type":"integer","minimum":0,"maximum":1048576},"total_policy_visible":{"type":"integer","minimum":0,"maximum":9007199254740991},"policy_filtered_before_counts_and_cache":{"const":true}}}"#),
     ("schema://ioi/components/hypervisor/collection-query/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/collection-query/v1","title":"HypervisorCollectionQuery","x-ioi-schema-version":"ioi.hypervisor.collection_query.v1","type":"object","additionalProperties":false,"required":["org_ref","collection","filters","sort","facets","page_size"],"properties":{"user_ref":{"type":"string","pattern":"^(?:user|wallet)://\\S+$"},"org_ref":{"type":"string","pattern":"^org://\\S+$"},"collection":{"enum":["work_runs","sessions","projects","systems","automations","notifications"]},"typed_context_refs":{"type":"array","items":{"type":"string"},"uniqueItems":true},"search":{"anyOf":[{"type":"string"},{"type":"null"}]},"filters":{"type":"array","items":{"type":"object"}},"sort":{"type":"array","items":{"type":"object"}},"facets":{"type":"array","items":{"type":"string"},"uniqueItems":true},"cursor":{"anyOf":[{"type":"string","minLength":1},{"type":"null"}]},"page_size":{"type":"integer","minimum":1,"maximum":50}}}"#),
-    ("schema://ioi/components/hypervisor/c8-certificate/v3", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/c8-certificate/v3","title":"C8CertificateV3","x-ioi-schema-version":"ioi.components.hypervisor.c8-certificate.v3","type":"object","additionalProperties":false,"required":["schema_version","certificate_ref","certificate_hash","predecessor_certificate_schema_version","predecessor_certificate_ref","predecessor_certificate_hash","source_basis_refs","operator_principal_ref","governed_request_ref","governed_request_hash","claim_manifest_ref","claim_manifest_hash","isolation_binding_ref","isolation_binding_hash","workload_image_ref","workload_image_digest","workload_readiness_evidence_refs","campaign_certificate_ref","campaign_certificate_hash","campaign_id","benchmark_source_commit","benchmark_protocol_version","result_contract_ref","result_contract_hash","result_ref","result_hash","result_retrieval_receipt_ref","environment_ref","environment_hash","variance_evidence_ref","variance_evidence_hash","environment_class","honesty_class","authority_draw","trajectory_binding","brokered_secret_use_posture","secret_use_evidence_refs","relying_party_audience_ref","terminal_acceptance_prerequisite_refs","journal_binding","terminal_settlement_ref","terminal_settlement_hash","generated_at"],"properties":{"schema_version":{"const":"ioi.components.hypervisor.c8-certificate.v3"},"certificate_ref":{"$ref":"#/$defs/ref"},"certificate_hash":{"$ref":"#/$defs/hash"},"predecessor_certificate_schema_version":{"const":"ioi.hypervisor.c7-c8-certificate.v2"},"predecessor_certificate_ref":{"$ref":"#/$defs/ref"},"predecessor_certificate_hash":{"$ref":"#/$defs/hash"},"source_basis_refs":{"type":"array","minItems":2,"items":{"$ref":"#/$defs/refHash"}},"operator_principal_ref":{"$ref":"#/$defs/ref"},"governed_request_ref":{"$ref":"#/$defs/ref"},"governed_request_hash":{"$ref":"#/$defs/hash"},"claim_manifest_ref":{"$ref":"#/$defs/ref"},"claim_manifest_hash":{"$ref":"#/$defs/hash"},"isolation_binding_ref":{"$ref":"#/$defs/ref"},"isolation_binding_hash":{"$ref":"#/$defs/hash"},"workload_image_ref":{"$ref":"#/$defs/ref"},"workload_image_digest":{"$ref":"#/$defs/hash"},"workload_readiness_evidence_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/ref"}},"campaign_certificate_ref":{"$ref":"#/$defs/ref"},"campaign_certificate_hash":{"$ref":"#/$defs/hash"},"campaign_id":{"$ref":"#/$defs/name"},"benchmark_source_commit":{"type":"string","pattern":"^[0-9a-f]{40}$"},"benchmark_protocol_version":{"$ref":"#/$defs/name"},"result_contract_ref":{"$ref":"#/$defs/ref"},"result_contract_hash":{"$ref":"#/$defs/hash"},"result_ref":{"$ref":"#/$defs/ref"},"result_hash":{"$ref":"#/$defs/hash"},"result_retrieval_receipt_ref":{"$ref":"#/$defs/ref"},"environment_ref":{"$ref":"#/$defs/ref"},"environment_hash":{"$ref":"#/$defs/hash"},"variance_evidence_ref":{"$ref":"#/$defs/ref"},"variance_evidence_hash":{"$ref":"#/$defs/hash"},"environment_class":{"enum":["measured_container","attested_pinned_bare_metal"]},"honesty_class":{"enum":["same_provider_container_unknown_host","attested_pinned_bare_metal","variance_caveated"]},"authority_draw":{"$ref":"#/$defs/authorityDraw"},"trajectory_binding":{"$ref":"#/$defs/trajectoryBinding"},"brokered_secret_use_posture":{"enum":["no_secret_required","opaque_handle_final_invoker","attested_secret_release"]},"secret_use_evidence_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/ref"}},"relying_party_audience_ref":{"$ref":"#/$defs/ref"},"terminal_acceptance_prerequisite_refs":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"journal_binding":{"$ref":"#/$defs/journalBinding"},"terminal_settlement_ref":{"$ref":"#/$defs/ref"},"terminal_settlement_hash":{"$ref":"#/$defs/hash"},"generated_at":{"$ref":"#/$defs/timestamp"}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"name":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"timestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"refHash":{"type":"object","additionalProperties":false,"required":["ref","hash"],"properties":{"ref":{"$ref":"#/$defs/ref"},"hash":{"$ref":"#/$defs/hash"}}},"authorityDraw":{"type":"object","additionalProperties":false,"required":["standing_envelope_ref","standing_envelope_hash","draw_request_ref","draw_request_hash","draw_receipt_ref","draw_receipt_hash"],"properties":{"standing_envelope_ref":{"$ref":"#/$defs/ref"},"standing_envelope_hash":{"$ref":"#/$defs/hash"},"draw_request_ref":{"$ref":"#/$defs/ref"},"draw_request_hash":{"$ref":"#/$defs/hash"},"draw_receipt_ref":{"$ref":"#/$defs/ref"},"draw_receipt_hash":{"$ref":"#/$defs/hash"}}},"trajectoryBinding":{"type":"object","additionalProperties":false,"required":["state_before_ref","state_before_hash","decision_ref","decision_hash","state_after_ref","state_after_hash"],"properties":{"state_before_ref":{"$ref":"#/$defs/ref"},"state_before_hash":{"$ref":"#/$defs/hash"},"decision_ref":{"$ref":"#/$defs/ref"},"decision_hash":{"$ref":"#/$defs/hash"},"state_after_ref":{"$ref":"#/$defs/ref"},"state_after_hash":{"$ref":"#/$defs/hash"}}},"journalBinding":{"type":"object","additionalProperties":false,"required":["intent_root","outcome_predecessor_root","outcome_root"],"properties":{"intent_root":{"$ref":"#/$defs/hash"},"outcome_predecessor_root":{"$ref":"#/$defs/hash"},"outcome_root":{"$ref":"#/$defs/hash"}}}}}"##),
+    ("schema://ioi/components/hypervisor/c8-certificate/v3", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/c8-certificate/v3","title":"C8CertificateV3","x-ioi-schema-version":"ioi.components.hypervisor.c8-certificate.v3","type":"object","additionalProperties":false,"required":["schema_version","certificate_ref","certificate_hash","predecessor_certificate_schema_version","predecessor_certificate_ref","predecessor_certificate_hash","source_basis_refs","operator_principal_ref","governed_request_ref","governed_request_hash","claim_manifest_ref","claim_manifest_hash","isolation_binding_ref","isolation_binding_hash","workload_image_ref","workload_image_digest","workload_readiness_evidence","campaign_certificate_ref","campaign_certificate_hash","campaign_id","benchmark_source_commit","benchmark_protocol_version","result_contract_ref","result_contract_hash","result_ref","result_hash","result_retrieval_receipt_ref","result_retrieval_receipt_hash","environment_ref","environment_hash","variance_evidence_ref","variance_evidence_hash","environment_class","honesty_class","authority_draw","trajectory_binding","brokered_secret_use_posture","secret_use_evidence","relying_party_audience_ref","terminal_acceptance_prerequisites","journal_binding","terminal_settlement_ref","terminal_settlement_hash","generated_at"],"properties":{"schema_version":{"const":"ioi.components.hypervisor.c8-certificate.v3"},"certificate_ref":{"$ref":"#/$defs/ref"},"certificate_hash":{"$ref":"#/$defs/hash"},"predecessor_certificate_schema_version":{"const":"ioi.hypervisor.c7-c8-certificate.v2"},"predecessor_certificate_ref":{"$ref":"#/$defs/ref"},"predecessor_certificate_hash":{"$ref":"#/$defs/hash"},"source_basis_refs":{"type":"array","minItems":2,"items":{"$ref":"#/$defs/refHash"}},"operator_principal_ref":{"$ref":"#/$defs/ref"},"governed_request_ref":{"$ref":"#/$defs/ref"},"governed_request_hash":{"$ref":"#/$defs/hash"},"claim_manifest_ref":{"$ref":"#/$defs/ref"},"claim_manifest_hash":{"$ref":"#/$defs/hash"},"isolation_binding_ref":{"$ref":"#/$defs/ref"},"isolation_binding_hash":{"$ref":"#/$defs/hash"},"workload_image_ref":{"$ref":"#/$defs/ref"},"workload_image_digest":{"$ref":"#/$defs/hash"},"workload_readiness_evidence":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/refHash"}},"campaign_certificate_ref":{"$ref":"#/$defs/ref"},"campaign_certificate_hash":{"$ref":"#/$defs/hash"},"campaign_id":{"$ref":"#/$defs/name"},"benchmark_source_commit":{"type":"string","pattern":"^[0-9a-f]{40}$"},"benchmark_protocol_version":{"$ref":"#/$defs/name"},"result_contract_ref":{"$ref":"#/$defs/ref"},"result_contract_hash":{"$ref":"#/$defs/hash"},"result_ref":{"$ref":"#/$defs/ref"},"result_hash":{"$ref":"#/$defs/hash"},"result_retrieval_receipt_ref":{"$ref":"#/$defs/ref"},"result_retrieval_receipt_hash":{"$ref":"#/$defs/hash"},"environment_ref":{"$ref":"#/$defs/ref"},"environment_hash":{"$ref":"#/$defs/hash"},"variance_evidence_ref":{"$ref":"#/$defs/ref"},"variance_evidence_hash":{"$ref":"#/$defs/hash"},"environment_class":{"enum":["measured_container","attested_pinned_bare_metal"]},"honesty_class":{"enum":["same_provider_container_unknown_host","attested_pinned_bare_metal","variance_caveated"]},"authority_draw":{"$ref":"#/$defs/authorityDraw"},"trajectory_binding":{"$ref":"#/$defs/trajectoryBinding"},"brokered_secret_use_posture":{"enum":["no_secret_required","opaque_handle_final_invoker","attested_secret_release"]},"secret_use_evidence":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/refHash"}},"relying_party_audience_ref":{"$ref":"#/$defs/ref"},"terminal_acceptance_prerequisites":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/refHash"}},"journal_binding":{"$ref":"#/$defs/journalBinding"},"terminal_settlement_ref":{"$ref":"#/$defs/ref"},"terminal_settlement_hash":{"$ref":"#/$defs/hash"},"generated_at":{"$ref":"#/$defs/timestamp"}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"name":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"timestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"refHash":{"type":"object","additionalProperties":false,"required":["ref","hash"],"properties":{"ref":{"$ref":"#/$defs/ref"},"hash":{"$ref":"#/$defs/hash"}}},"authorityDraw":{"type":"object","additionalProperties":false,"required":["standing_envelope_ref","standing_envelope_hash","draw_request_ref","draw_request_hash","draw_receipt_ref","draw_receipt_hash"],"properties":{"standing_envelope_ref":{"$ref":"#/$defs/ref"},"standing_envelope_hash":{"$ref":"#/$defs/hash"},"draw_request_ref":{"$ref":"#/$defs/ref"},"draw_request_hash":{"$ref":"#/$defs/hash"},"draw_receipt_ref":{"$ref":"#/$defs/ref"},"draw_receipt_hash":{"$ref":"#/$defs/hash"}}},"trajectoryBinding":{"type":"object","additionalProperties":false,"required":["state_before_ref","state_before_hash","decision_ref","decision_hash","state_after_ref","state_after_hash"],"properties":{"state_before_ref":{"$ref":"#/$defs/ref"},"state_before_hash":{"$ref":"#/$defs/hash"},"decision_ref":{"$ref":"#/$defs/ref"},"decision_hash":{"$ref":"#/$defs/hash"},"state_after_ref":{"$ref":"#/$defs/ref"},"state_after_hash":{"$ref":"#/$defs/hash"}}},"journalBinding":{"type":"object","additionalProperties":false,"required":["intent_root","outcome_predecessor_root","outcome_root"],"properties":{"intent_root":{"$ref":"#/$defs/hash"},"outcome_predecessor_root":{"$ref":"#/$defs/hash"},"outcome_root":{"$ref":"#/$defs/hash"}}}}}"##),
     ("schema://ioi/components/hypervisor/governed-effect-claim-manifest/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/governed-effect-claim-manifest/v1","title":"GovernedEffectClaimManifest","x-ioi-schema-version":"ioi.components.hypervisor.governed-effect-claim-manifest.v1","type":"object","additionalProperties":false,"required":["schema_version","manifest_ref","manifest_hash","subject_ref","subject_hash","protection_profile","claims","source_basis_refs","generated_at"],"properties":{"schema_version":{"const":"ioi.components.hypervisor.governed-effect-claim-manifest.v1"},"manifest_ref":{"$ref":"#/$defs/ref"},"manifest_hash":{"$ref":"#/$defs/hash"},"subject_ref":{"$ref":"#/$defs/ref"},"subject_hash":{"$ref":"#/$defs/hash"},"protection_profile":{"enum":["development_cooperative","trusted_host_hostile_guest","unattested_remote_host_bounded_authority","attested_confidential_worker"]},"claims":{"type":"array","minItems":1,"maxItems":11,"items":{"$ref":"#/$defs/claim"}},"source_basis_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/refHash"}},"generated_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"claimId":{"enum":["governed_infrastructure_lifecycle","workload_readiness","workload_result_binding","logical_policy_mediation","workload_bound_isolation_enforced","worker_secret_non_possession_tested","separate_verifier","independently_reproduced","third_party_verified","provider_neutrality","bare_metal_placement"]},"refHash":{"type":"object","additionalProperties":false,"required":["ref","hash"],"properties":{"ref":{"$ref":"#/$defs/ref"},"hash":{"$ref":"#/$defs/hash"}}},"claim":{"type":"object","additionalProperties":false,"required":["claim_id","status","evidence_refs","limitation_note"],"properties":{"claim_id":{"$ref":"#/$defs/claimId"},"status":{"enum":["demonstrated","not_demonstrated","indeterminate","not_applicable"]},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/ref"}},"limitation_note":{"type":"string","minLength":1,"maxLength":500}}}}}"##),
     ("schema://ioi/aft/u1-campaign-result/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/aft/u1-campaign-result/v1","title":"AftU1CampaignResult","x-ioi-schema-version":"ioi.aft.benchmark-campaign.v1","type":"object","additionalProperties":false,"required":["schema_version","campaign_id","measured_passes","row_count_per_pass","threshold_policy","verdict","all_rows_within_threshold","summaries","pass_artifacts"],"properties":{"schema_version":{"const":"ioi.aft.benchmark-campaign.v1"},"campaign_id":{"$ref":"#/$defs/name"},"measured_passes":{"type":"integer","minimum":2,"maximum":64},"row_count_per_pass":{"type":"integer","minimum":1,"maximum":256},"threshold_policy":{"$ref":"#/$defs/thresholds"},"verdict":{"enum":["reproduced_within_threshold","variance_caveated"]},"all_rows_within_threshold":{"type":"boolean"},"summaries":{"type":"array","minItems":1,"maxItems":256,"items":{"$ref":"#/$defs/summary"}},"pass_artifacts":{"type":"array","minItems":2,"maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^run-[1-9][0-9]*[.]json$"}}},"$defs":{"name":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"nonNegative":{"type":"number","minimum":0},"thresholds":{"type":"object","additionalProperties":false,"required":["injection_tps","sustained_tps","commit_p50_ms","commit_p95_ms","commit_p99_ms","commit_max_ms"],"properties":{"injection_tps":{"$ref":"#/$defs/nonNegative"},"sustained_tps":{"$ref":"#/$defs/nonNegative"},"commit_p50_ms":{"$ref":"#/$defs/nonNegative"},"commit_p95_ms":{"$ref":"#/$defs/nonNegative"},"commit_p99_ms":{"$ref":"#/$defs/nonNegative"},"commit_max_ms":{"$ref":"#/$defs/nonNegative"}}},"metric":{"type":"object","additionalProperties":false,"required":["values","min","median","max","median_absolute_deviation","coefficient_of_variation","bootstrap_median_95","relative_spread","threshold","within_threshold"],"properties":{"values":{"type":"array","minItems":2,"maxItems":64,"items":{"$ref":"#/$defs/nonNegative"}},"min":{"$ref":"#/$defs/nonNegative"},"median":{"$ref":"#/$defs/nonNegative"},"max":{"$ref":"#/$defs/nonNegative"},"median_absolute_deviation":{"$ref":"#/$defs/nonNegative"},"coefficient_of_variation":{"$ref":"#/$defs/nonNegative"},"bootstrap_median_95":{"type":"array","minItems":2,"maxItems":2,"items":{"$ref":"#/$defs/nonNegative"}},"relative_spread":{"$ref":"#/$defs/nonNegative"},"threshold":{"$ref":"#/$defs/nonNegative"},"within_threshold":{"type":"boolean"}}},"metrics":{"type":"object","additionalProperties":false,"required":["injection_tps","sustained_tps","commit_p50_ms","commit_p95_ms","commit_p99_ms","commit_max_ms"],"properties":{"injection_tps":{"$ref":"#/$defs/metric"},"sustained_tps":{"$ref":"#/$defs/metric"},"commit_p50_ms":{"$ref":"#/$defs/metric"},"commit_p95_ms":{"$ref":"#/$defs/metric"},"commit_p99_ms":{"$ref":"#/$defs/metric"},"commit_max_ms":{"$ref":"#/$defs/metric"}}},"summary":{"type":"object","additionalProperties":false,"required":["scenario","lane","within_threshold","metrics"],"properties":{"scenario":{"$ref":"#/$defs/name"},"lane":{"$ref":"#/$defs/name"},"within_threshold":{"type":"boolean"},"metrics":{"$ref":"#/$defs/metrics"}}}}}"##),
     ("schema://ioi/aft/measured-result-row/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/aft/measured-result-row/v1","title":"AftMeasuredResultRow","x-ioi-schema-version":"ioi.aft.measured-result-row.v1","type":"object","additionalProperties":false,"required":["schema_version","row_ref","row_hash","certificate_ref","certificate_hash","result_ref","result_hash","environment_hash","campaign_id","source_commit","image_digest","provider_ref","environment_class","honesty_class","verdict","accepted_at"],"properties":{"schema_version":{"const":"ioi.aft.measured-result-row.v1"},"row_ref":{"$ref":"#/$defs/ref"},"row_hash":{"$ref":"#/$defs/hash"},"certificate_ref":{"$ref":"#/$defs/ref"},"certificate_hash":{"$ref":"#/$defs/hash"},"result_ref":{"$ref":"#/$defs/ref"},"result_hash":{"$ref":"#/$defs/hash"},"environment_hash":{"$ref":"#/$defs/hash"},"campaign_id":{"$ref":"#/$defs/name"},"source_commit":{"type":"string","pattern":"^[0-9a-f]{40}$"},"image_digest":{"$ref":"#/$defs/hash"},"provider_ref":{"$ref":"#/$defs/ref"},"environment_class":{"enum":["measured_container","attested_pinned_bare_metal"]},"honesty_class":{"enum":["same_provider_container_unknown_host","attested_pinned_bare_metal","variance_caveated"]},"verdict":{"enum":["reproduced_within_threshold","variance_caveated"]},"accepted_at":{"$ref":"#/$defs/timestamp"}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"name":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"timestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##),

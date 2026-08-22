@@ -1811,7 +1811,10 @@ export type C8CertificateV3 = {
   isolation_binding_hash: string;
   workload_image_ref: string;
   workload_image_digest: string;
-  workload_readiness_evidence_refs: Array<string>;
+  workload_readiness_evidence: Array<{
+        ref: string;
+        hash: string;
+      }>;
   campaign_certificate_ref: string;
   campaign_certificate_hash: string;
   campaign_id: string;
@@ -1822,6 +1825,7 @@ export type C8CertificateV3 = {
   result_ref: string;
   result_hash: string;
   result_retrieval_receipt_ref: string;
+  result_retrieval_receipt_hash: string;
   environment_ref: string;
   environment_hash: string;
   variance_evidence_ref: string;
@@ -1845,9 +1849,15 @@ export type C8CertificateV3 = {
       state_after_hash: string;
     };
   brokered_secret_use_posture: "no_secret_required" | "opaque_handle_final_invoker" | "attested_secret_release";
-  secret_use_evidence_refs: Array<string>;
+  secret_use_evidence: Array<{
+        ref: string;
+        hash: string;
+      }>;
   relying_party_audience_ref: string;
-  terminal_acceptance_prerequisite_refs: Array<string>;
+  terminal_acceptance_prerequisites: Array<{
+        ref: string;
+        hash: string;
+      }>;
   journal_binding: {
       intent_root: string;
       outcome_predecessor_root: string;
@@ -21728,7 +21738,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/hypervisor/backend-capability-declaration/v1": "sha256:ff20dc82932a0095e15e8ecd6ccb8f458e92ce81990ab0c7c3f25c5d7942cddf",
   "schema://ioi/components/hypervisor/collection-page/v1": "sha256:1838faff61bec1c9b137763e19114dcca2017b8ddb20b3a7400561391e2321d7",
   "schema://ioi/components/hypervisor/collection-query/v1": "sha256:fc25b17cf6830faca44e00eedad7b6d4dd7c4eee5008e2c05ca553ce7da25bd5",
-  "schema://ioi/components/hypervisor/c8-certificate/v3": "sha256:670c607dc8dc08b97364db1f394559da8334aac8b10f4c9b6ffeed12fa0ff74d",
+  "schema://ioi/components/hypervisor/c8-certificate/v3": "sha256:b29daef4a3b18681c4c65beefe8ed8e662ab8bd3a08b82201f0ba14b2b84dd63",
   "schema://ioi/components/hypervisor/governed-effect-claim-manifest/v1": "sha256:1834df26ab76fd1fc15066a8db5cabb24de5185b8b5299a920233cc88078aa53",
   "schema://ioi/aft/u1-campaign-result/v1": "sha256:53f9a944ed1379a4509a691d16bc35fc93a9e10f293d80724c7355e33097c802",
   "schema://ioi/aft/measured-result-row/v1": "sha256:a13962e8d58491420fbc68a5a9057ad3998475d8a531ff65432692f24bde79a8",
@@ -36597,7 +36607,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "isolation_binding_hash",
       "workload_image_ref",
       "workload_image_digest",
-      "workload_readiness_evidence_refs",
+      "workload_readiness_evidence",
       "campaign_certificate_ref",
       "campaign_certificate_hash",
       "campaign_id",
@@ -36608,6 +36618,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "result_ref",
       "result_hash",
       "result_retrieval_receipt_ref",
+      "result_retrieval_receipt_hash",
       "environment_ref",
       "environment_hash",
       "variance_evidence_ref",
@@ -36617,9 +36628,9 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "authority_draw",
       "trajectory_binding",
       "brokered_secret_use_posture",
-      "secret_use_evidence_refs",
+      "secret_use_evidence",
       "relying_party_audience_ref",
-      "terminal_acceptance_prerequisite_refs",
+      "terminal_acceptance_prerequisites",
       "journal_binding",
       "terminal_settlement_ref",
       "terminal_settlement_hash",
@@ -36678,11 +36689,11 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "workload_image_digest": {
         "$ref": "#/$defs/hash"
       },
-      "workload_readiness_evidence_refs": {
+      "workload_readiness_evidence": {
         "type": "array",
         "minItems": 1,
         "items": {
-          "$ref": "#/$defs/ref"
+          "$ref": "#/$defs/refHash"
         }
       },
       "campaign_certificate_ref": {
@@ -36715,6 +36726,9 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       },
       "result_retrieval_receipt_ref": {
         "$ref": "#/$defs/ref"
+      },
+      "result_retrieval_receipt_hash": {
+        "$ref": "#/$defs/hash"
       },
       "environment_ref": {
         "$ref": "#/$defs/ref"
@@ -36754,22 +36768,21 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           "attested_secret_release"
         ]
       },
-      "secret_use_evidence_refs": {
+      "secret_use_evidence": {
         "type": "array",
         "minItems": 1,
         "items": {
-          "$ref": "#/$defs/ref"
+          "$ref": "#/$defs/refHash"
         }
       },
       "relying_party_audience_ref": {
         "$ref": "#/$defs/ref"
       },
-      "terminal_acceptance_prerequisite_refs": {
+      "terminal_acceptance_prerequisites": {
         "type": "array",
         "minItems": 1,
-        "uniqueItems": true,
         "items": {
-          "$ref": "#/$defs/ref"
+          "$ref": "#/$defs/refHash"
         }
       },
       "journal_binding": {
