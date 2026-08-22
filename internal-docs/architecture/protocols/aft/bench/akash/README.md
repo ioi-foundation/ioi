@@ -92,6 +92,20 @@ The provider selection is part of the wallet-bound plan:
 
 Exact pinning has no marketplace fallback. The daemon also enforces the approved `uact` denomination and ceiling against that provider’s bid. No bid means refusal, automatic close, and provider-native settlement reconciliation.
 
+Immediately before each challenge, capture the exact public provider response
+and apply the adopted capacity/version/audit floors without selecting a
+fallback:
+
+```bash
+npm --prefix apps/hypervisor run capture:u1-provider-preflight -- \
+  --provider <EXACT_AKASH_ADDRESS> \
+  --output-dir <PRIVATE_CAMPAIGN_PREFLIGHT_DIRECTORY>
+```
+
+The command retains the raw response, its SHA-256, the typed decision, and the
+explicit measured-container placement ceiling. A failed floor exits nonzero;
+it never widens the provider selector.
+
 The owner must review the immutable image digest and build-identity hash, exact
 provider, SDL hash, resources, campaign ID, deposit, `uact` ceiling, connector
 references, result-transport certificate pin, and teardown policy in the dry
