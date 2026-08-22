@@ -11,6 +11,7 @@
     "receipt_hash",
     "ceremony_id",
     "principal_id",
+    "principal_ref",
     "factor_kind",
     "credential_id_hash",
     "user_verification",
@@ -28,6 +29,7 @@
     "receipt_hash": { "$ref": "#/$defs/hash" },
     "ceremony_id": { "type": "string", "pattern": "^pkc_[A-Za-z0-9_-]{1,128}$" },
     "principal_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "principal_ref": { "anyOf": [{ "$ref": "#/$defs/ref" }, { "type": "null" }] },
     "factor_kind": { "const": "passkey" },
     "credential_id_hash": { "$ref": "#/$defs/hash" },
     "user_verification": { "const": "required_and_verified" },
@@ -80,7 +82,8 @@
               "validation_profile_ref": { "$ref": "#/$defs/ref" }
             }
           },
-          "policy_hash": { "$ref": "#/$defs/hash" }
+          "policy_hash": { "$ref": "#/$defs/hash" },
+          "principal_ref": { "$ref": "#/$defs/ref" }
         }
       },
       "else": {
@@ -88,7 +91,8 @@
           "approval_ceremony_context_ref": { "type": "null" },
           "approval_ceremony_context_hash": { "type": "null" },
           "authorization_subject": { "type": "null" },
-          "policy_hash": { "type": "null" }
+          "policy_hash": { "type": "null" },
+          "principal_ref": { "type": "null" }
         }
       }
     }

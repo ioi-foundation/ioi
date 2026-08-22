@@ -420,11 +420,9 @@ fn standing_grant_draws_are_atomic_bounded_replay_safe_and_revocable() {
     let service = WalletNetworkService;
     let mut state = MockState::default();
     let approver = new_approval_signer();
-    let envelope_hash = [0xa1; 32];
     let policy_hash = [0xa2; 32];
-    let grant = signed_standing_approval_grant(
+    let grant_fixture = signed_standing_approval_grant(
         &approver,
-        envelope_hash,
         policy_hash,
         [7; 32],
         [0xa3; 32],
@@ -432,7 +430,10 @@ fn standing_grant_draws_are_atomic_bounded_replay_safe_and_revocable() {
         2,
         600,
         100,
+        0xa1,
     );
+    let grant = grant_fixture.grant.clone();
+    let envelope_hash = grant.standing_envelope_hash;
     let grant_hash = grant.artifact_hash().expect("standing grant hash");
     with_ctx(|ctx| {
         run_async(
@@ -451,14 +452,29 @@ fn standing_grant_draws_are_atomic_bounded_replay_safe_and_revocable() {
             service.handle_service_call(
                 &mut state,
                 "record_standing_approval_grant@v1",
-                &codec::to_bytes_canonical(&RecordStandingApprovalGrantParams {
-                    grant: grant.clone(),
-                })
-                .expect("encode standing grant"),
+                &codec::to_bytes_canonical(&grant_fixture.record_params())
+                    .expect("encode standing grant"),
                 ctx,
             ),
         )
         .expect("record standing grant");
+    });
+    let mut substituted_factor = grant_fixture.clone();
+    let mut factor: Value =
+        serde_json::from_slice(&substituted_factor.auth_factor_receipt_json).unwrap();
+    factor["principal_ref"] = json!("user://attacker");
+    substituted_factor.auth_factor_receipt_json = serde_jcs::to_vec(&factor).unwrap();
+    with_ctx(|ctx| {
+        let refused = run_async(service.handle_service_call(
+            &mut state,
+            "record_standing_approval_grant@v1",
+            &codec::to_bytes_canonical(&substituted_factor.record_params()).unwrap(),
+            ctx,
+        ))
+        .expect_err("substituted factor evidence must be refused before idempotence");
+        assert!(refused
+            .to_string()
+            .contains("authentication factor receipt does not bind"));
     });
     let binding = install_effect_binding(
         &service,
@@ -508,6 +524,11 @@ fn standing_grant_draws_are_atomic_bounded_replay_safe_and_revocable() {
     assert_eq!(stored.cumulative_deposit_reserved_microusd, 600);
     assert_eq!(stored.cumulative_spend_reserved_microusd, 100);
     assert_eq!(stored.status, StandingApprovalGrantStatus::Exhausted);
+    assert_eq!(stored.principal_ref, EFFECT_PRINCIPAL_REF);
+    assert_eq!(
+        stored.auth_factor_receipt_json,
+        grant_fixture.auth_factor_receipt_json
+    );
     let first_receipt: StandingApprovalGrantConsumptionReceipt = load_typed(
         &state,
         &standing_approval_consumption_receipt_key(&[0xc1; 32]),
@@ -587,9 +608,8 @@ fn standing_grant_draws_are_atomic_bounded_replay_safe_and_revocable() {
     let substitution = consume(&mut state, substituted).expect_err("envelope substitution refused");
     assert!(substitution.to_string().contains("exact envelope"));
 
-    let second_grant = signed_standing_approval_grant(
+    let second_fixture = signed_standing_approval_grant(
         &approver,
-        [0xd1; 32],
         policy_hash,
         [7; 32],
         [0xd2; 32],
@@ -597,17 +617,17 @@ fn standing_grant_draws_are_atomic_bounded_replay_safe_and_revocable() {
         2,
         600,
         100,
+        0xd1,
     );
+    let second_grant = second_fixture.grant.clone();
     let second_hash = second_grant.artifact_hash().expect("second hash");
     with_ctx_signer(binding.root.account_id, |ctx| {
         run_async(
             service.handle_service_call(
                 &mut state,
                 "record_standing_approval_grant@v1",
-                &codec::to_bytes_canonical(&RecordStandingApprovalGrantParams {
-                    grant: second_grant,
-                })
-                .expect("encode second grant"),
+                &codec::to_bytes_canonical(&second_fixture.record_params())
+                    .expect("encode second grant"),
                 ctx,
             ),
         )
@@ -627,7 +647,7 @@ fn standing_grant_draws_are_atomic_bounded_replay_safe_and_revocable() {
     });
     let mut revoked_draw = draw(0xd3, 0xd4);
     revoked_draw.grant_hash = second_hash;
-    revoked_draw.standing_envelope_hash = [0xd1; 32];
+    revoked_draw.standing_envelope_hash = second_grant.standing_envelope_hash;
     let revoked = consume(&mut state, revoked_draw).expect_err("revoked next draw refused");
     assert!(revoked.to_string().contains("not active"));
 }

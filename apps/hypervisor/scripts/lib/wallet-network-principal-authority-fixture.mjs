@@ -20,6 +20,7 @@ import { connect as connectTcp } from "node:net";
 import { createServer as createTlsServer } from "node:tls";
 
 import { mintApprovalGrant } from "../../../../scripts/lib/mint-approval-grant.mjs";
+import { mintStandingApprovalGrant } from "../../../../scripts/lib/mint-standing-approval-grant.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
 const guardianPath = path.join(
@@ -492,6 +493,9 @@ export async function startRealWalletNetworkPrincipalAuthorityFixture({
       await delay(50);
     }
     manifest = JSON.parse(readFileSync(readyPath, "utf8"));
+    if (!Number.isSafeInteger(manifest.chain_timestamp_ms) || manifest.chain_timestamp_ms < 1) {
+      throw new Error("real wallet.network fixture returned an invalid chain timestamp");
+    }
     const ownerMarker = JSON.parse(
       readFileSync(
         path.join(fixtureDir, ".ioi-verifier-owner.json"),
@@ -678,6 +682,52 @@ export async function startRealWalletNetworkPrincipalAuthorityFixture({
     }
     return response;
   }
+
+  async function recordStandingApprovalGrant(
+    principalRef,
+    grant,
+    standingAuthorityEnvelope,
+    approvalCeremonyContext,
+    authFactorReceipt,
+  ) {
+    if (!seeds.has(principalRef)) {
+      throw new Error(`real wallet.network fixture has no approver for ${principalRef}`);
+    }
+    if (grantHex32(grant, "audience") !== capabilityAccountId) {
+      throw new Error("standing approval grant does not target the fixture capability account");
+    }
+    const response = await runCommand({
+      schema_version: 1,
+      operation: "record_standing_approval_grant",
+      principal_ref: principalRef,
+      standing_approval_grant: grant,
+      standing_authority_envelope: standingAuthorityEnvelope,
+      approval_ceremony_context: approvalCeremonyContext,
+      auth_factor_receipt: authFactorReceipt,
+    });
+    const expected = grantHex32(grant, "standing_envelope_hash");
+    if (response.standing_envelope_hash !== expected) {
+      throw new Error("wallet.network standing grant response named a different envelope hash");
+    }
+    return response;
+  }
+
+  async function revokeStandingApprovalGrant(principalRef, grantHash) {
+    if (!seeds.has(principalRef)) {
+      throw new Error(`real wallet.network fixture has no approver for ${principalRef}`);
+    }
+    const normalized = exactHex32(grantHash, "grantHash");
+    const response = await runCommand({
+      schema_version: 1,
+      operation: "revoke_standing_approval_grant",
+      principal_ref: principalRef,
+      standing_grant_hash: normalized,
+    });
+    if (response.standing_grant_hash !== normalized || response.standing_grant_status !== "revoked") {
+      throw new Error("wallet.network standing revocation response is not exact and terminal");
+    }
+    return response;
+  }
   return {
     resourceDir: fixtureDir,
     processGroupId,
@@ -703,6 +753,7 @@ export async function startRealWalletNetworkPrincipalAuthorityFixture({
       IOI_HYPERVISOR_GOVERNED_REPLAY_TIMEOUT_MS: "45000",
     },
     capabilityAccountId,
+    chainTimestampMs: manifest.chain_timestamp_ms,
     mint(principalRef, policyHash, requestHash) {
       const seed = seeds.get(principalRef);
       if (!seed) throw new Error(`real wallet.network fixture has no approver for ${principalRef}`);
@@ -715,6 +766,15 @@ export async function startRealWalletNetworkPrincipalAuthorityFixture({
         seed,
         policyHash,
         requestHash,
+        audience: capabilityAccountId,
+      });
+    },
+    mintStandingForCapability(principalRef, options) {
+      const seed = seeds.get(principalRef);
+      if (!seed) throw new Error(`real wallet.network fixture has no approver for ${principalRef}`);
+      return mintStandingApprovalGrant({
+        ...options,
+        seed,
         audience: capabilityAccountId,
       });
     },
@@ -740,6 +800,8 @@ export async function startRealWalletNetworkPrincipalAuthorityFixture({
       return grant;
     },
     recordApproval,
+    recordStandingApprovalGrant,
+    revokeStandingApprovalGrant,
     revokePrincipalAuthority,
     stop({ preserveResourceDir = false } = {}) {
       if (cleanupFinished) return Promise.resolve();

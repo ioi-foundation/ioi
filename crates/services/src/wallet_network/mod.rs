@@ -165,6 +165,12 @@ pub struct StandingApprovalGrantState {
     pub schema_version: u16,
     pub grant_hash: [u8; 32],
     pub grant: StandingApprovalGrant,
+    /// Exact portable principal named by both the envelope and consent evidence.
+    pub principal_ref: String,
+    /// Canonical registered evidence independently validated before activation.
+    pub standing_envelope_json: Vec<u8>,
+    pub approval_ceremony_context_json: Vec<u8>,
+    pub auth_factor_receipt_json: Vec<u8>,
     pub issued_revocation_epoch: u64,
     pub uses_consumed: u32,
     pub cumulative_deposit_reserved_microusd: u64,
@@ -186,6 +192,11 @@ pub enum StandingApprovalGrantStatus {
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 pub struct RecordStandingApprovalGrantParams {
     pub grant: StandingApprovalGrant,
+    /// Closed JSON contracts retained by wallet.network so a caller cannot activate a grant by
+    /// supplying hashes for evidence the authority broker never validated.
+    pub standing_envelope_json: Vec<u8>,
+    pub approval_ceremony_context_json: Vec<u8>,
+    pub auth_factor_receipt_json: Vec<u8>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]

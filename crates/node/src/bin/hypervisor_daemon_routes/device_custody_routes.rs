@@ -358,6 +358,7 @@ fn persist_factor_receipt(
         "receipt_id": receipt_id,
         "ceremony_id": ceremony_id,
         "principal_id": principal_id,
+        "principal_ref": null,
         "factor_kind": "passkey",
         "credential_id_hash": credential_hash,
         "user_verification": "required_and_verified",
@@ -370,6 +371,7 @@ fn persist_factor_receipt(
         "created_at": iso_now(),
     });
     if let Some((context, context_hash)) = approval_context {
+        receipt["principal_ref"] = context["principal_ref"].clone();
         receipt["approval_ceremony_context_ref"] = context["approval_ceremony_context_ref"].clone();
         receipt["approval_ceremony_context_hash"] = json!(context_hash);
         receipt["authorization_subject"] = context["authorization_subject"].clone();

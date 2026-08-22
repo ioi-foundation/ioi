@@ -27,12 +27,13 @@ use ioi_cli::testing::{
     submit_transaction, wait_for_height, TestCluster,
 };
 use ioi_crypto::sign::eddsa::{Ed25519KeyPair, Ed25519PrivateKey};
-use ioi_services::wallet_network::RegisterApprovalAuthorityParams;
 use ioi_services::wallet_network::{
     ApprovalGrantConsumptionReceipt, ConsumeApprovalGrantForEffectV2Params,
-    ExpectedPrincipalAuthorityBinding,
+    ExpectedPrincipalAuthorityBinding, RecordStandingApprovalGrantParams,
+    RegisterApprovalAuthorityParams, RevokeStandingApprovalGrantParams, StandingApprovalGrantState,
+    StandingApprovalGrantStatus,
 };
-use ioi_types::app::action::{ApprovalAuthority, ApprovalGrant};
+use ioi_types::app::action::{ApprovalAuthority, ApprovalGrant, StandingApprovalGrant};
 use ioi_types::app::wallet_network::{
     IssuePrincipalAuthorityBindingParams, PrincipalAuthorityBindingHeadV1,
     PrincipalAuthorityBindingProofV1, PrincipalAuthorityBindingStatementV1,
@@ -53,6 +54,7 @@ use ioi_types::service_configs::MethodPermission;
 use ioi_validator::common::GuardianContainer;
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 const HOST_SEED: [u8; 32] = [0x07; 32];
 const PARTICIPANT_SEED: [u8; 32] = [0x09; 32];
@@ -165,6 +167,16 @@ struct FixtureCommand {
     approval_grant: Option<ApprovalGrant>,
     #[serde(default)]
     target_scope: Option<String>,
+    #[serde(default)]
+    standing_approval_grant: Option<StandingApprovalGrant>,
+    #[serde(default)]
+    standing_authority_envelope: Option<Value>,
+    #[serde(default)]
+    approval_ceremony_context: Option<Value>,
+    #[serde(default)]
+    auth_factor_receipt: Option<Value>,
+    #[serde(default)]
+    standing_grant_hash: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -177,12 +189,23 @@ struct FixtureCommandResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     binding_ref: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    standing_grant_hash: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    standing_envelope_hash: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    standing_grant_status: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     error: Option<String>,
 }
 
 enum FixtureCommandResult {
     Approval([u8; 32]),
     Revocation(String),
+    StandingRecorded {
+        grant_hash: [u8; 32],
+        standing_envelope_hash: [u8; 32],
+    },
+    StandingRevoked([u8; 32]),
 }
 
 fn keypair(seed: &[u8; 32]) -> Result<Ed25519KeyPair> {
@@ -435,6 +458,15 @@ fn wallet_effect_receipt_key(consumption_id: &[u8; 32]) -> Vec<u8> {
         service_namespace_prefix("wallet_network").as_slice(),
         b"approval_effect_consumption_receipt::",
         consumption_id.as_slice(),
+    ]
+    .concat()
+}
+
+fn wallet_standing_grant_key(grant_hash: &[u8; 32]) -> Vec<u8> {
+    [
+        service_namespace_prefix("wallet_network").as_slice(),
+        b"standing_approval_grant_state::",
+        grant_hash.as_slice(),
     ]
     .concat()
 }
@@ -946,6 +978,187 @@ async fn submit_revoke_principal_authority(
     Ok(revoked.binding_ref)
 }
 
+async fn submit_record_standing_approval_grant(
+    rpc_addr: &str,
+    chain_id: ChainId,
+    root: &Ed25519KeyPair,
+    capability_account_id: [u8; 32],
+    command: FixtureCommand,
+) -> Result<([u8; 32], [u8; 32])> {
+    if command.schema_version != COMMAND_SCHEMA_VERSION
+        || command.operation != "record_standing_approval_grant"
+    {
+        return Err(anyhow!("unsupported standing-grant record command"));
+    }
+    if command.policy_hash.is_some()
+        || command.request_hash.is_some()
+        || command.approval_grant.is_some()
+        || command.target_scope.is_some()
+        || command.standing_grant_hash.is_some()
+    {
+        return Err(anyhow!(
+            "standing-grant record cannot carry one-shot or revocation fields"
+        ));
+    }
+    let expected_authority = authority_for_principal(&command.principal_ref)?;
+    let grant = command
+        .standing_approval_grant
+        .ok_or_else(|| anyhow!("standing-grant record requires its signed grant"))?;
+    grant.verify().map_err(|error| anyhow!(error.to_string()))?;
+    if grant.authority_id != expected_authority.authority_id
+        || grant.approver_public_key != expected_authority.public_key
+        || grant.approver_suite != expected_authority.signature_suite
+    {
+        return Err(anyhow!(
+            "standing approval grant does not match the requested principal authority"
+        ));
+    }
+    if grant.audience != capability_account_id {
+        return Err(anyhow!(
+            "standing approval grant audience does not match the fixture capability account"
+        ));
+    }
+    let params = RecordStandingApprovalGrantParams {
+        grant: grant.clone(),
+        standing_envelope_json: serde_jcs::to_vec(
+            &command
+                .standing_authority_envelope
+                .ok_or_else(|| anyhow!("standing-grant record requires its envelope"))?,
+        )?,
+        approval_ceremony_context_json: serde_jcs::to_vec(
+            &command
+                .approval_ceremony_context
+                .ok_or_else(|| anyhow!("standing-grant record requires its approval context"))?,
+        )?,
+        auth_factor_receipt_json: serde_jcs::to_vec(
+            &command
+                .auth_factor_receipt
+                .ok_or_else(|| anyhow!("standing-grant record requires its factor receipt"))?,
+        )?,
+    };
+    let grant_hash = grant
+        .artifact_hash()
+        .map_err(|error| anyhow!(error.to_string()))?;
+    let key = wallet_standing_grant_key(&grant_hash);
+    let matches = |stored: &StandingApprovalGrantState| {
+        stored.grant_hash == grant_hash
+            && stored.grant == grant
+            && stored.standing_envelope_json == params.standing_envelope_json
+            && stored.approval_ceremony_context_json == params.approval_ceremony_context_json
+            && stored.auth_factor_receipt_json == params.auth_factor_receipt_json
+    };
+    if let Some(bytes) = query_state_key(rpc_addr, &key).await? {
+        let stored: StandingApprovalGrantState =
+            decode_state_value(&bytes, "standing approval grant state")?;
+        if matches(&stored) {
+            return Ok((grant_hash, grant.standing_envelope_hash));
+        }
+        return Err(anyhow!(
+            "standing grant hash is already bound to different evidence"
+        ));
+    }
+    let root_account_id =
+        account_id_from_key_material(SignatureSuite::ED25519, &root.public_key().to_bytes())?;
+    let nonce = account_nonce(rpc_addr, &root_account_id).await?;
+    if let Err(error) = submit(
+        rpc_addr,
+        root,
+        chain_id,
+        nonce,
+        "record_standing_approval_grant@v1",
+        &params,
+    )
+    .await
+    {
+        if let Some(bytes) = query_state_key(rpc_addr, &key).await? {
+            let stored: StandingApprovalGrantState =
+                decode_state_value(&bytes, "standing approval grant state after timeout")?;
+            if matches(&stored) {
+                return Ok((grant_hash, grant.standing_envelope_hash));
+            }
+        }
+        return Err(error);
+    }
+    let bytes = query_state_key(rpc_addr, &key)
+        .await?
+        .ok_or_else(|| anyhow!("committed standing grant emitted no state"))?;
+    let stored: StandingApprovalGrantState =
+        decode_state_value(&bytes, "standing approval grant state")?;
+    if !matches(&stored) {
+        return Err(anyhow!("persisted standing grant evidence differs"));
+    }
+    Ok((grant_hash, grant.standing_envelope_hash))
+}
+
+async fn submit_revoke_standing_approval_grant(
+    rpc_addr: &str,
+    chain_id: ChainId,
+    root: &Ed25519KeyPair,
+    command: FixtureCommand,
+) -> Result<[u8; 32]> {
+    if command.schema_version != COMMAND_SCHEMA_VERSION
+        || command.operation != "revoke_standing_approval_grant"
+    {
+        return Err(anyhow!("unsupported standing-grant revocation command"));
+    }
+    if command.policy_hash.is_some()
+        || command.request_hash.is_some()
+        || command.approval_grant.is_some()
+        || command.target_scope.is_some()
+        || command.standing_approval_grant.is_some()
+        || command.standing_authority_envelope.is_some()
+        || command.approval_ceremony_context.is_some()
+        || command.auth_factor_receipt.is_some()
+    {
+        return Err(anyhow!("standing-grant revocation carries foreign fields"));
+    }
+    let grant_hash = exact_hash32(
+        command
+            .standing_grant_hash
+            .as_deref()
+            .ok_or_else(|| anyhow!("standing-grant revocation requires grant hash"))?,
+        "standing_grant_hash",
+    )?;
+    let key = wallet_standing_grant_key(&grant_hash);
+    let bytes = query_state_key(rpc_addr, &key)
+        .await?
+        .ok_or_else(|| anyhow!("standing approval grant is not registered"))?;
+    let stored: StandingApprovalGrantState =
+        decode_state_value(&bytes, "standing approval grant state")?;
+    let expected_authority = authority_for_principal(&command.principal_ref)?;
+    if stored.grant.authority_id != expected_authority.authority_id {
+        return Err(anyhow!(
+            "standing grant revocation principal does not match its signer"
+        ));
+    }
+    if stored.status == StandingApprovalGrantStatus::Revoked {
+        return Ok(grant_hash);
+    }
+    let root_account_id =
+        account_id_from_key_material(SignatureSuite::ED25519, &root.public_key().to_bytes())?;
+    let nonce = account_nonce(rpc_addr, &root_account_id).await?;
+    submit(
+        rpc_addr,
+        root,
+        chain_id,
+        nonce,
+        "revoke_standing_approval_grant@v1",
+        &RevokeStandingApprovalGrantParams { grant_hash },
+    )
+    .await?;
+    let bytes = query_state_key(rpc_addr, &key)
+        .await?
+        .ok_or_else(|| anyhow!("revoked standing grant state disappeared"))?;
+    let stored: StandingApprovalGrantState =
+        decode_state_value(&bytes, "revoked standing approval grant state")?;
+    if stored.status != StandingApprovalGrantStatus::Revoked {
+        return Err(anyhow!(
+            "standing approval grant revocation is not terminal"
+        ));
+    }
+    Ok(grant_hash)
+}
+
 fn write_command_response(command_dir: &Path, response: &FixtureCommandResponse) -> Result<()> {
     let final_path = command_dir.join("response.json");
     if final_path.exists() {
@@ -1037,6 +1250,31 @@ async fn process_fixture_commands(
                     )
                     .await
                     .map(FixtureCommandResult::Revocation),
+                    "record_standing_approval_grant" => {
+                        let _transaction_lock =
+                            acquire_fixture_transaction_lock(transaction_lock_path).await?;
+                        submit_record_standing_approval_grant(
+                            rpc_addr,
+                            chain_id,
+                            root,
+                            capability_account_id,
+                            command,
+                        )
+                        .await
+                        .map(|(grant_hash, standing_envelope_hash)| {
+                            FixtureCommandResult::StandingRecorded {
+                                grant_hash,
+                                standing_envelope_hash,
+                            }
+                        })
+                    }
+                    "revoke_standing_approval_grant" => {
+                        let _transaction_lock =
+                            acquire_fixture_transaction_lock(transaction_lock_path).await?;
+                        submit_revoke_standing_approval_grant(rpc_addr, chain_id, root, command)
+                            .await
+                            .map(FixtureCommandResult::StandingRevoked)
+                    }
                     operation => Err(anyhow!(
                         "unsupported fixture command operation '{operation}'"
                     )),
@@ -1044,17 +1282,55 @@ async fn process_fixture_commands(
                 Err(error) => Err(error),
             }
         };
-        let (ok, request_hash, binding_ref, error) = match result {
-            Ok(FixtureCommandResult::Approval(request_hash)) => {
-                (true, Some(hex::encode(request_hash)), None, None)
-            }
+        let (
+            ok,
+            request_hash,
+            binding_ref,
+            standing_grant_hash,
+            standing_envelope_hash,
+            standing_grant_status,
+            error,
+        ) = match result {
+            Ok(FixtureCommandResult::Approval(request_hash)) => (
+                true,
+                Some(hex::encode(request_hash)),
+                None,
+                None,
+                None,
+                None,
+                None,
+            ),
             Ok(FixtureCommandResult::Revocation(binding_ref)) => {
-                (true, None, Some(binding_ref), None)
+                (true, None, Some(binding_ref), None, None, None, None)
             }
+            Ok(FixtureCommandResult::StandingRecorded {
+                grant_hash,
+                standing_envelope_hash,
+            }) => (
+                true,
+                None,
+                None,
+                Some(hex::encode(grant_hash)),
+                Some(hex::encode(standing_envelope_hash)),
+                Some("active".to_string()),
+                None,
+            ),
+            Ok(FixtureCommandResult::StandingRevoked(grant_hash)) => (
+                true,
+                None,
+                None,
+                Some(hex::encode(grant_hash)),
+                None,
+                Some("revoked".to_string()),
+                None,
+            ),
             Err(error) => {
                 let text = format!("{error:#}");
                 (
                     false,
+                    None,
+                    None,
+                    None,
                     None,
                     None,
                     Some(text.chars().take(2_048).collect::<String>()),
@@ -1069,6 +1345,9 @@ async fn process_fixture_commands(
                 ok,
                 request_hash,
                 binding_ref,
+                standing_grant_hash,
+                standing_envelope_hash,
+                standing_grant_status,
                 error,
             },
         )?;
@@ -1247,6 +1526,11 @@ async fn system_activation_real_wallet_verifier() -> Result<()> {
                     request_hash: Some(format!("sha256:{}", hex::encode(request_hash))),
                     approval_grant: Some(grant.clone()),
                     target_scope: Some(scope.to_owned()),
+                    standing_approval_grant: None,
+                    standing_authority_envelope: None,
+                    approval_ceremony_context: None,
+                    auth_factor_receipt: None,
+                    standing_grant_hash: None,
                 },
             )
             .await?;
@@ -1608,9 +1892,11 @@ async fn wallet_network_principal_authority_fixture() -> Result<()> {
         std::fs::create_dir_all(&commands_dir)?;
         let transaction_lock_path = fixture_dir.join("hypervisor-wallet-transactions.lock");
         std::fs::File::open(&fixture_dir)?.sync_all()?;
+        let chain_timestamp_ms = get_chain_timestamp(&rpc_addr).await?.saturating_mul(1_000);
         let manifest = serde_json::json!({
             "rpc_addr": rpc_addr,
             "chain_id": chain_id.0,
+            "chain_timestamp_ms": chain_timestamp_ms,
             "capability_key_path": capability_key_path,
             "capability_account_id": hex::encode(capability_account_id),
             "root_record_path": root_record_path,

@@ -39,8 +39,15 @@ function inspect({ action, handler, wallet, auth, config, provider, governed, cl
   requireText(handler, "params.actual_spend_microusd > consumption.estimated_spend_microusd", "terminal_spend_not_bounded_by_reservation");
   requireText(handler, "cumulative_spend_reserved_microusd: grant_state.cumulative_spend_reserved_microusd", "refund_releases_authority");
   requireText(handler, "validate_expected_principal_authority_binding", "current_principal_authority_not_resolved");
-  requireText(handler, "standing approval grant signer does not match current principal authority", "principal_authority_substitution_not_refused");
+  requireText(handler, "standing approval grant principal or signer does not match current principal authority", "principal_authority_substitution_not_refused");
   requireText(handler, "StandingApprovalGrantStatus::Active", "revocation_status_not_enforced");
+  requireText(handler, "fn validate_standing_evidence(", "standing_evidence_validator_missing");
+  requireText(handler, "AUTH_FACTOR_RECEIPT_CONTRACT", "passkey_factor_contract_not_validated");
+  requireText(handler, "factor_hash != grant.auth_factor_receipt_hash", "factor_receipt_not_bound_to_grant");
+  requireText(handler, "context_hash != grant.approval_ceremony_context_hash", "approval_context_not_bound_to_grant");
+  requireText(handler, 'context.get("principal_ref") != envelope.get("principal_ref")', "consent_principal_not_bound_to_envelope");
+  requireText(handler, "params.expected_principal_authority.principal_ref != grant_state.principal_ref", "draw_principal_not_bound_to_envelope");
+  requireText(handler, "standing evidence does not bind the grant envelope and policy", "standing_envelope_evidence_not_bound");
   requireText(handler, "issued_revocation_epoch != load_revocation_epoch(state)?", "revocation_epoch_not_enforced");
   requireText(handler, "StandingApprovalMode::SilentWithinStandingEnvelope", "actual_approval_mode_not_receipted");
   requireText(wallet, '"record_standing_approval_grant@v1"', "record_method_missing");
@@ -97,6 +104,21 @@ if (process.argv.includes("--mutation")) {
       name: "result_destination_containment_removed",
       expected: "result_destination_containment_missing",
       sources: { ...sources, provider: sources.provider.replaceAll("standing_result_destination_outside_envelope", "standing_destination_unchecked") },
+    },
+    {
+      name: "factor_receipt_binding_removed",
+      expected: "factor_receipt_not_bound_to_grant",
+      sources: { ...sources, handler: sources.handler.replace("factor_hash != grant.auth_factor_receipt_hash", "false") },
+    },
+    {
+      name: "consent_principal_can_differ_from_envelope",
+      expected: "consent_principal_not_bound_to_envelope",
+      sources: { ...sources, handler: sources.handler.replace('context.get("principal_ref") != envelope.get("principal_ref")', "false") },
+    },
+    {
+      name: "draw_principal_can_differ_from_envelope",
+      expected: "draw_principal_not_bound_to_envelope",
+      sources: { ...sources, handler: sources.handler.replace("params.expected_principal_authority.principal_ref != grant_state.principal_ref", "false") },
     },
     {
       name: "wallet_receipt_hash_not_compared",

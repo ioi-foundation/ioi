@@ -1797,6 +1797,7 @@ export type HypervisorAuthFactorReceiptV1 = {
   receipt_hash: string;
   ceremony_id: string;
   principal_id: string;
+  principal_ref: string | null;
   factor_kind: "passkey";
   credential_id_hash: string;
   user_verification: "required_and_verified";
@@ -21869,7 +21870,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/hypervisor/backend-capability-declaration/v1": "sha256:ff20dc82932a0095e15e8ecd6ccb8f458e92ce81990ab0c7c3f25c5d7942cddf",
   "schema://ioi/components/hypervisor/collection-page/v1": "sha256:1838faff61bec1c9b137763e19114dcca2017b8ddb20b3a7400561391e2321d7",
   "schema://ioi/components/hypervisor/collection-query/v1": "sha256:fc25b17cf6830faca44e00eedad7b6d4dd7c4eee5008e2c05ca553ce7da25bd5",
-  "schema://ioi/components/hypervisor/auth-factor-receipt/v1": "sha256:0697940531b77f7d2f625bcb7948d4bffc274643d7a57cac2cf53e7df0ee9d29",
+  "schema://ioi/components/hypervisor/auth-factor-receipt/v1": "sha256:962d48d7696928d69ad6daf56289632eb7d556fa0609352bd1e9cf9de26fb2c2",
   "schema://ioi/components/hypervisor/c8-certificate/v3": "sha256:b29daef4a3b18681c4c65beefe8ed8e662ab8bd3a08b82201f0ba14b2b84dd63",
   "schema://ioi/components/hypervisor/governed-effect-claim-manifest/v1": "sha256:1834df26ab76fd1fc15066a8db5cabb24de5185b8b5299a920233cc88078aa53",
   "schema://ioi/aft/u1-campaign-result/v1": "sha256:53f9a944ed1379a4509a691d16bc35fc93a9e10f293d80724c7355e33097c802",
@@ -36729,6 +36730,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "receipt_hash",
       "ceremony_id",
       "principal_id",
+      "principal_ref",
       "factor_kind",
       "credential_id_hash",
       "user_verification",
@@ -36759,6 +36761,16 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "type": "string",
         "minLength": 1,
         "maxLength": 256
+      },
+      "principal_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ref"
+          },
+          {
+            "type": "null"
+          }
+        ]
       },
       "factor_kind": {
         "const": "passkey"
@@ -36897,6 +36909,9 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
             },
             "policy_hash": {
               "$ref": "#/$defs/hash"
+            },
+            "principal_ref": {
+              "$ref": "#/$defs/ref"
             }
           }
         },
@@ -36912,6 +36927,9 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
               "type": "null"
             },
             "policy_hash": {
+              "type": "null"
+            },
+            "principal_ref": {
               "type": "null"
             }
           }

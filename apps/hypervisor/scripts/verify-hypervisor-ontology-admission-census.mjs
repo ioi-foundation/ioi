@@ -230,7 +230,7 @@ const RECORDED_TEST_WRITES = {
 const PINNED = {
   modules: 90,
   familyMentions: 300,
-  tokenMentions: 110455,
+  tokenMentions: 110458,
   judgedTokenPositions: 282,
   productionWriterCalls: { family: 72, nonFamilyLiteral: 224, runtimeParameter: 294 },
   productionFsCalls: 231,

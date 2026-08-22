@@ -24,6 +24,16 @@ use ioi_types::app::action::StandingApprovalGrant;
 use ioi_types::app::wallet_network::VaultAuditEventKind;
 use ioi_types::app::SignatureSuite;
 use ioi_types::error::TransactionError;
+use serde_json::Value;
+use time::format_description::well_known::Rfc3339;
+use time::OffsetDateTime;
+
+const STANDING_ENVELOPE_CONTRACT: &str = "schema://ioi/foundations/standing-authority-envelope/v1";
+const APPROVAL_CONTEXT_CONTRACT: &str = "schema://ioi/foundations/approval-ceremony-context/v1";
+const AUTH_FACTOR_RECEIPT_CONTRACT: &str =
+    "schema://ioi/components/hypervisor/auth-factor-receipt/v1";
+const APPROVAL_CONTEXT_DOMAIN: &[u8] = b"IOI-APPROVAL-CEREMONY-CONTEXT-V1\0";
+const MAX_STANDING_EVIDENCE_BYTES: usize = 64 * 1024;
 
 fn verify_signature(grant: &StandingApprovalGrant) -> Result<(), TransactionError> {
     let message = grant
@@ -94,6 +104,259 @@ fn validate_registered_grant(
     Ok(())
 }
 
+fn digest32(bytes: &[u8]) -> Result<[u8; 32], TransactionError> {
+    let digest =
+        Sha256::digest(bytes).map_err(|error| TransactionError::Invalid(error.to_string()))?;
+    let mut output = [0u8; 32];
+    output.copy_from_slice(digest.as_ref());
+    Ok(output)
+}
+
+fn hash_value(value: &Value, pointer: &str, label: &str) -> Result<[u8; 32], TransactionError> {
+    let encoded = value
+        .pointer(pointer)
+        .and_then(Value::as_str)
+        .and_then(|value| value.strip_prefix("sha256:"))
+        .ok_or_else(|| TransactionError::Invalid(format!("{label} is not a sha256 ref")))?;
+    if encoded.len() != 64
+        || encoded != encoded.to_ascii_lowercase()
+        || !encoded.bytes().all(|byte| byte.is_ascii_hexdigit())
+    {
+        return Err(TransactionError::Invalid(format!(
+            "{label} is not 32 lowercase bytes"
+        )));
+    }
+    let decoded = hex::decode(encoded)
+        .map_err(|_| TransactionError::Invalid(format!("{label} is not hexadecimal")))?;
+    let mut output = [0u8; 32];
+    output.copy_from_slice(&decoded);
+    if output == [0u8; 32] {
+        return Err(TransactionError::Invalid(format!(
+            "{label} must not be zero"
+        )));
+    }
+    Ok(output)
+}
+
+fn parse_registered_evidence(
+    bytes: &[u8],
+    contract: &str,
+    label: &str,
+) -> Result<(Value, Vec<u8>), TransactionError> {
+    if bytes.is_empty() || bytes.len() > MAX_STANDING_EVIDENCE_BYTES {
+        return Err(TransactionError::Invalid(format!(
+            "{label} exceeds the standing evidence byte envelope"
+        )));
+    }
+    let value: Value = serde_json::from_slice(bytes)
+        .map_err(|error| TransactionError::Invalid(format!("{label} is invalid JSON: {error}")))?;
+    ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
+        contract, &value,
+    )
+    .map_err(|error| {
+        TransactionError::Invalid(format!("{label} violates its registered contract: {error}"))
+    })?;
+    let canonical = serde_jcs::to_vec(&value)
+        .map_err(|error| TransactionError::Invalid(format!("{label} is not canonical: {error}")))?;
+    Ok((value, canonical))
+}
+
+fn rfc3339_ms(value: &Value, pointer: &str, label: &str) -> Result<u64, TransactionError> {
+    let parsed = OffsetDateTime::parse(
+        value.pointer(pointer).and_then(Value::as_str).unwrap_or(""),
+        &Rfc3339,
+    )
+    .map_err(|_| TransactionError::Invalid(format!("{label} is not RFC3339")))?;
+    u64::try_from(parsed.unix_timestamp_nanos() / 1_000_000)
+        .map_err(|_| TransactionError::Invalid(format!("{label} predates the Unix epoch")))
+}
+
+fn validate_standing_evidence(
+    state: &dyn StateAccess,
+    grant: &StandingApprovalGrant,
+    params: &RecordStandingApprovalGrantParams,
+    now_ms: u64,
+) -> Result<(String, Vec<u8>, Vec<u8>, Vec<u8>), TransactionError> {
+    let (envelope, envelope_json) = parse_registered_evidence(
+        &params.standing_envelope_json,
+        STANDING_ENVELOPE_CONTRACT,
+        "standing envelope",
+    )?;
+    let (context, context_json) = parse_registered_evidence(
+        &params.approval_ceremony_context_json,
+        APPROVAL_CONTEXT_CONTRACT,
+        "approval ceremony context",
+    )?;
+    let (factor, factor_json) = parse_registered_evidence(
+        &params.auth_factor_receipt_json,
+        AUTH_FACTOR_RECEIPT_CONTRACT,
+        "authentication factor receipt",
+    )?;
+
+    let envelope_hash = hash_value(&envelope, "/body_hash", "standing envelope body_hash")?;
+    let policy_hash = hash_value(
+        &envelope,
+        "/trajectory_policy_hash",
+        "standing envelope trajectory_policy_hash",
+    )?;
+    if envelope_hash != grant.standing_envelope_hash || policy_hash != grant.policy_hash {
+        return Err(TransactionError::Invalid(
+            "standing evidence does not bind the grant envelope and policy".into(),
+        ));
+    }
+    let envelope_epoch = envelope
+        .get("revocation_epoch")
+        .and_then(Value::as_u64)
+        .ok_or_else(|| TransactionError::Invalid("standing envelope epoch is invalid".into()))?;
+    let current_epoch = load_revocation_epoch(state)?;
+    if envelope_epoch != current_epoch {
+        return Err(TransactionError::Invalid(
+            "standing envelope was invalidated by revocation epoch".into(),
+        ));
+    }
+    let aggregate = envelope
+        .get("aggregate_bounds")
+        .ok_or_else(|| TransactionError::Invalid("standing envelope bounds are absent".into()))?;
+    if grant.max_usages
+        > aggregate
+            .get("max_usages")
+            .and_then(Value::as_u64)
+            .and_then(|value| u32::try_from(value).ok())
+            .unwrap_or(0)
+        || grant.max_cumulative_deposit_microusd
+            > aggregate
+                .get("max_cumulative_deposit_microusd")
+                .and_then(Value::as_u64)
+                .unwrap_or(0)
+        || grant.max_cumulative_spend_microusd
+            > aggregate
+                .get("max_cumulative_spend_microusd")
+                .and_then(Value::as_u64)
+                .unwrap_or(0)
+        || grant.issued_at_ms
+            < envelope
+                .get("not_before_ms")
+                .and_then(Value::as_u64)
+                .unwrap_or(u64::MAX)
+        || grant.expires_at_ms
+            > envelope
+                .get("expires_at_ms")
+                .and_then(Value::as_u64)
+                .unwrap_or(0)
+    {
+        return Err(TransactionError::Invalid(
+            "standing grant widens its registered envelope".into(),
+        ));
+    }
+
+    let mut context_material =
+        Vec::with_capacity(APPROVAL_CONTEXT_DOMAIN.len() + context_json.len());
+    context_material.extend_from_slice(APPROVAL_CONTEXT_DOMAIN);
+    context_material.extend_from_slice(&context_json);
+    let context_hash = digest32(&context_material)?;
+    if context_hash != grant.approval_ceremony_context_hash
+        || hash_value(
+            &context,
+            "/authorization_subject/subject_hash",
+            "approval subject hash",
+        )? != envelope_hash
+        || hash_value(&context, "/policy_hash", "approval context policy hash")? != policy_hash
+        || context.pointer("/authorization_subject/subject_ref")
+            != envelope.get("standing_envelope_ref")
+        || context.get("principal_ref") != envelope.get("principal_ref")
+        || context
+            .pointer("/authorization_subject/validation_profile_ref")
+            .and_then(Value::as_str)
+            != Some(STANDING_ENVELOPE_CONTRACT)
+        || context.get("interaction_mode").and_then(Value::as_str) != Some("interactive")
+        || context
+            .get("authentication_posture")
+            .and_then(Value::as_str)
+            != Some("step_up")
+        || context.get("receipt_timing").and_then(Value::as_str) != Some("before_effect")
+        || !context
+            .get("required_auth_factor_posture_refs")
+            .and_then(Value::as_array)
+            .is_some_and(|refs| {
+                refs.iter().any(|value| {
+                    value
+                        .as_str()
+                        .is_some_and(|value| value.starts_with("auth_factor://passkey/"))
+                })
+            })
+        || context.get("revocation_epoch").and_then(Value::as_u64) != Some(current_epoch)
+        || hash_value(
+            &context,
+            "/policy_decision_receipt_hash",
+            "policy decision receipt hash",
+        )? != grant.review_receipt_hash
+    {
+        return Err(TransactionError::Invalid(
+            "approval ceremony context does not bind the standing grant".into(),
+        ));
+    }
+    let context_issued_ms = rfc3339_ms(&context, "/issued_at", "context issued_at")?;
+    let context_expires_ms = rfc3339_ms(&context, "/expires_at", "context expires_at")?;
+    if context_issued_ms > now_ms.saturating_add(30_000)
+        || context_expires_ms <= now_ms
+        || context_expires_ms <= context_issued_ms
+        || context_expires_ms.saturating_sub(context_issued_ms) > 5 * 60 * 1_000
+        || grant.issued_at_ms < context_issued_ms
+        || grant.issued_at_ms > context_expires_ms
+    {
+        return Err(TransactionError::Invalid(
+            "approval ceremony context is outside its issuance window".into(),
+        ));
+    }
+
+    let supplied_factor_hash = hash_value(&factor, "/receipt_hash", "factor receipt hash")?;
+    let mut factor_without_hash = factor.clone();
+    factor_without_hash
+        .as_object_mut()
+        .ok_or_else(|| TransactionError::Invalid("factor receipt is not an object".into()))?
+        .remove("receipt_hash");
+    let factor_hash = digest32(&serde_jcs::to_vec(&factor_without_hash).map_err(|error| {
+        TransactionError::Invalid(format!("factor receipt cannot be hashed: {error}"))
+    })?)?;
+    if factor_hash != supplied_factor_hash
+        || factor_hash != grant.auth_factor_receipt_hash
+        || hash_value(
+            &factor,
+            "/approval_ceremony_context_hash",
+            "factor approval context hash",
+        )? != context_hash
+        || factor.get("approval_ceremony_context_ref")
+            != context.get("approval_ceremony_context_ref")
+        || factor.get("authorization_subject") != context.get("authorization_subject")
+        || factor.get("policy_hash") != context.get("policy_hash")
+        || factor.get("principal_ref") != context.get("principal_ref")
+        || factor.get("purpose").and_then(Value::as_str) != Some("standing_effect_authority")
+        || factor
+            .get("effect_authority_created")
+            .and_then(Value::as_bool)
+            != Some(false)
+    {
+        return Err(TransactionError::Invalid(
+            "authentication factor receipt does not bind the standing grant".into(),
+        ));
+    }
+    let factor_created_ms = rfc3339_ms(&factor, "/created_at", "factor receipt created_at")?;
+    if factor_created_ms < context_issued_ms
+        || factor_created_ms > context_expires_ms
+        || factor_created_ms > now_ms.saturating_add(30_000)
+    {
+        return Err(TransactionError::Invalid(
+            "authentication factor receipt is outside the consent window".into(),
+        ));
+    }
+    let principal_ref = envelope
+        .get("principal_ref")
+        .and_then(Value::as_str)
+        .ok_or_else(|| TransactionError::Invalid("standing envelope principal is invalid".into()))?
+        .to_string();
+    Ok((principal_ref, envelope_json, context_json, factor_json))
+}
+
 pub(crate) fn record_standing_approval_grant(
     state: &mut dyn StateAccess,
     ctx: &TxContext<'_>,
@@ -101,12 +364,24 @@ pub(crate) fn record_standing_approval_grant(
 ) -> Result<(), TransactionError> {
     let now_ms = block_timestamp_ms(ctx);
     validate_registered_grant(state, &params.grant, now_ms)?;
+    let (
+        principal_ref,
+        standing_envelope_json,
+        approval_ceremony_context_json,
+        auth_factor_receipt_json,
+    ) = validate_standing_evidence(state, &params.grant, &params, now_ms)?;
     let grant_hash = params.grant.artifact_hash().map_err(|error| {
         TransactionError::Invalid(format!("standing approval grant hash failed: {error}"))
     })?;
     let key = standing_approval_grant_state_key(&grant_hash);
     if let Some(existing) = load_typed::<StandingApprovalGrantState>(state, &key)? {
-        if existing.grant == params.grant && existing.grant_hash == grant_hash {
+        if existing.grant == params.grant
+            && existing.grant_hash == grant_hash
+            && existing.principal_ref == principal_ref
+            && existing.standing_envelope_json == standing_envelope_json
+            && existing.approval_ceremony_context_json == approval_ceremony_context_json
+            && existing.auth_factor_receipt_json == auth_factor_receipt_json
+        {
             return Ok(());
         }
         return Err(TransactionError::Invalid(
@@ -117,6 +392,10 @@ pub(crate) fn record_standing_approval_grant(
         schema_version: 1,
         grant_hash,
         grant: params.grant,
+        principal_ref,
+        standing_envelope_json,
+        approval_ceremony_context_json,
+        auth_factor_receipt_json,
         issued_revocation_epoch: load_revocation_epoch(state)?,
         uses_consumed: 0,
         cumulative_deposit_reserved_microusd: 0,
@@ -281,12 +560,14 @@ pub(crate) fn consume_standing_approval_grant_for_effect(
         ctx,
         &params.expected_principal_authority,
     )?;
-    if principal.authority_id != grant_state.grant.authority_id
+    if params.expected_principal_authority.principal_ref != grant_state.principal_ref
+        || principal.authority_id != grant_state.grant.authority_id
         || principal.public_key != grant_state.grant.approver_public_key
         || principal.signature_suite != grant_state.grant.approver_suite
     {
         return Err(TransactionError::Invalid(
-            "standing approval grant signer does not match current principal authority".into(),
+            "standing approval grant principal or signer does not match current principal authority"
+                .into(),
         ));
     }
     let next_usage = grant_state.uses_consumed.checked_add(1).ok_or_else(|| {

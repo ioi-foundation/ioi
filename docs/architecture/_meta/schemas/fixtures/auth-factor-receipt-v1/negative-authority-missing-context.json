@@ -4,6 +4,7 @@
   "receipt_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
   "ceremony_id": "pkc_0123456789abcdef",
   "principal_id": "operator-42",
+  "principal_ref": "user://operator-42",
   "factor_kind": "passkey",
   "credential_id_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
   "user_verification": "required_and_verified",
