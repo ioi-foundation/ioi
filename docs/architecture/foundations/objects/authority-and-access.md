@@ -429,6 +429,19 @@ remain immutable compatibility contracts. V3 requires a new registered schema,
 fixtures, generated Rust/TypeScript projections, and verifier support rather
 than silently changing either registered version.
 
+The `standing_envelope` authorization subject resolves the registered
+`StandingAuthorityEnvelope` v1 object. That object closes the unattended class
+over exact provider-operation facets (provider, exact selector set, deposit,
+pricing ceiling, SDL and image hashes, registry and result destinations,
+duration, no-top-up and teardown posture) plus cumulative deposit/spend,
+usage, concurrency, provider-fan-out and failure bounds. It is inert until a
+separately signed portable grant binds its exact ref/hash. Its projection is
+never authority, recovery never widens or resets draw-down, and admission still
+requires an atomic trajectory decision and durable intent commitment.
+
+Registered subject contract:
+`schema://ioi/foundations/standing-authority-envelope/v1`.
+
 ## Authority Trajectory State And Admission
 
 Per-operation authority is necessary but not sufficient: individually bounded

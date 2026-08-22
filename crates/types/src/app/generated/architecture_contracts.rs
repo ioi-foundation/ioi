@@ -129,6 +129,7 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/foundations/active-skill-set-snapshot/v1", "sha256:c62f6d794bf48172de77fa72cb71ea86dd1ed07944abf70d92aa8e82a97f87d6"),
     ("schema://ioi/foundations/authority-grant-envelope/v1", "sha256:9f8a2e183e7bb02cdb02274c59b06c0dda1abe293e4c377c80aaccbf9fee5796"),
     ("schema://ioi/foundations/authority-grant-envelope/v2", "sha256:5d702231006db3551371f3d5f581532292c6a616c30c314b331ae747adfc219e"),
+    ("schema://ioi/foundations/standing-authority-envelope/v1", "sha256:8b7076330ee412a05eadfa7cbe02fd9147aa136235fc823fe77a1caa50863410"),
     ("schema://ioi/foundations/authority-trajectory-state/v1", "sha256:b6699e24b52eb2d8e57fd086bee951e34d64b5d1a80d34c8ba47bfb77b6603f3"),
     ("schema://ioi/foundations/trajectory-admission-decision/v1", "sha256:3fdb69ca87b0946ba7f3644ee6197f0b47cda4c3f095864528973473cb9e6245"),
     ("schema://ioi/foundations/authority-key-set/v1", "sha256:ea66e12fa2584b1769d15c70f886a1e7b2c844a3220c13f8c3d6a0231969ec6c"),
@@ -30994,6 +30995,526 @@ pub enum AuthorityGrantEnvelopeV2RiskRestrictionsAllowedRiskClassesItem {
 pub enum AuthorityGrantEnvelopeV2SignatureSuite {
     #[serde(rename = r#"ed25519"#)]
     Ed25519,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct StandingAuthorityEnvelopeV1 {
+    pub schema_version: StandingAuthorityEnvelopeV1SchemaVersion,
+    pub standing_envelope_ref: String,
+    pub owner_ref: String,
+    pub bounded_system_ref: String,
+    pub principal_ref: String,
+    pub audience_ref: String,
+    pub authority_scope: StandingAuthorityEnvelopeV1AuthorityScope,
+    pub facet_template: StandingAuthorityEnvelopeV1FacetTemplate,
+    pub aggregate_bounds: StandingAuthorityEnvelopeV1AggregateBounds,
+    pub not_before_ms: ArchitectureContractInteger,
+    pub expires_at_ms: ArchitectureContractInteger,
+    pub revocation_epoch: ArchitectureContractInteger,
+    pub trajectory_policy_ref: String,
+    pub trajectory_policy_hash: String,
+    pub approval_mode: StandingAuthorityEnvelopeV1ApprovalMode,
+    pub recovery_posture: StandingAuthorityEnvelopeV1RecoveryPosture,
+    pub body_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for StandingAuthorityEnvelopeV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/standing-authority-envelope/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/standing-authority-envelope/v1","title":"StandingAuthorityEnvelope","description":"Closed facet template and aggregate bounds for unattended draw-down under a separately signed portable authority grant.","x-ioi-schema-version":"ioi.foundations.standing-authority-envelope.v1","type":"object","additionalProperties":false,"required":["schema_version","standing_envelope_ref","owner_ref","bounded_system_ref","principal_ref","audience_ref","authority_scope","facet_template","aggregate_bounds","not_before_ms","expires_at_ms","revocation_epoch","trajectory_policy_ref","trajectory_policy_hash","approval_mode","recovery_posture","body_hash"],"properties":{"schema_version":{"const":"ioi.foundations.standing-authority-envelope.v1"},"standing_envelope_ref":{"type":"string","pattern":"^standing-envelope://[^\\s]{1,460}$"},"owner_ref":{"$ref":"#/$defs/ref"},"bounded_system_ref":{"$ref":"#/$defs/ref"},"principal_ref":{"$ref":"#/$defs/ref"},"audience_ref":{"$ref":"#/$defs/ref"},"authority_scope":{"const":"scope:hypervisor.live-route.hypervisor-provider-op"},"facet_template":{"type":"object","additionalProperties":false,"required":["provider_id","operations","provider_selector","per_operation_deposit_microusd","pricing_ceiling","sdl_hashes","image_digests","registry_hosts","result_destination_refs","auto_topup","teardown_policy","max_duration_seconds"],"properties":{"provider_id":{"type":"string","pattern":"^pacc_[0-9a-f]{16}$"},"operations":{"type":"array","minItems":1,"maxItems":8,"uniqueItems":true,"items":{"enum":["create","start","logs","delete","reconcile"]}},"provider_selector":{"type":"object","additionalProperties":false,"required":["mode","provider_addresses","selection"],"properties":{"mode":{"const":"exact"},"provider_addresses":{"type":"array","minItems":1,"maxItems":16,"uniqueItems":true,"items":{"type":"string","pattern":"^akash1[02-9ac-hj-np-z]{38}$"}},"selection":{"const":"only_qualified_bid_from_exact_provider"}}},"per_operation_deposit_microusd":{"$ref":"#/$defs/nonNegativeInteger"},"pricing_ceiling":{"type":"object","additionalProperties":false,"required":["amount","denom"],"properties":{"amount":{"type":"string","pattern":"^(?:0|[1-9][0-9]*)$"},"denom":{"const":"uact"}}},"sdl_hashes":{"$ref":"#/$defs/hashSet"},"image_digests":{"$ref":"#/$defs/hashSet"},"registry_hosts":{"type":"array","minItems":1,"maxItems":16,"uniqueItems":true,"items":{"type":"string","pattern":"^[A-Za-z0-9.-]+$"}},"result_destination_refs":{"$ref":"#/$defs/refSet"},"auto_topup":{"const":false},"teardown_policy":{"const":"always_teardown_required"},"max_duration_seconds":{"type":"integer","minimum":1,"maximum":604800}}},"aggregate_bounds":{"type":"object","additionalProperties":false,"required":["max_cumulative_deposit_microusd","max_cumulative_spend_microusd","max_usages","max_concurrent_resources","max_provider_fanout","max_failures"],"properties":{"max_cumulative_deposit_microusd":{"$ref":"#/$defs/nonNegativeInteger"},"max_cumulative_spend_microusd":{"$ref":"#/$defs/nonNegativeInteger"},"max_usages":{"type":"integer","minimum":1,"maximum":1000000},"max_concurrent_resources":{"type":"integer","minimum":1,"maximum":10000},"max_provider_fanout":{"type":"integer","minimum":1,"maximum":16},"max_failures":{"type":"integer","minimum":0,"maximum":1000000}}},"not_before_ms":{"$ref":"#/$defs/nonNegativeInteger"},"expires_at_ms":{"$ref":"#/$defs/nonNegativeInteger"},"revocation_epoch":{"$ref":"#/$defs/nonNegativeInteger"},"trajectory_policy_ref":{"$ref":"#/$defs/ref"},"trajectory_policy_hash":{"$ref":"#/$defs/hash"},"approval_mode":{"const":"standing_envelope"},"recovery_posture":{"const":"recovery_never_widens_or_resets_drawdown"},"body_hash":{"$ref":"#/$defs/hash"}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nonNegativeInteger":{"type":"integer","minimum":0,"maximum":9007199254740991},"hashSet":{"type":"array","minItems":1,"maxItems":128,"uniqueItems":true,"items":{"$ref":"#/$defs/hash"}},"refSet":{"type":"array","minItems":1,"maxItems":128,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<StandingAuthorityEnvelopeV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            standing_envelope_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"standing_envelope_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"standing_envelope_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            bounded_system_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"bounded_system_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"bounded_system_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            principal_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"principal_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"principal_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            audience_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"audience_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"audience_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_scope: serde_json::from_value::<StandingAuthorityEnvelopeV1AuthorityScope>(
+                object
+                    .remove(r#"authority_scope"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_scope"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            facet_template: serde_json::from_value::<StandingAuthorityEnvelopeV1FacetTemplate>(
+                object
+                    .remove(r#"facet_template"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"facet_template"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            aggregate_bounds: serde_json::from_value::<StandingAuthorityEnvelopeV1AggregateBounds>(
+                object
+                    .remove(r#"aggregate_bounds"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"aggregate_bounds"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            not_before_ms: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"not_before_ms"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"not_before_ms"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            expires_at_ms: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"expires_at_ms"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"expires_at_ms"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revocation_epoch: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"revocation_epoch"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revocation_epoch"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            trajectory_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"trajectory_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"trajectory_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            trajectory_policy_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"trajectory_policy_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"trajectory_policy_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            approval_mode: serde_json::from_value::<StandingAuthorityEnvelopeV1ApprovalMode>(
+                object
+                    .remove(r#"approval_mode"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"approval_mode"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            recovery_posture: serde_json::from_value::<StandingAuthorityEnvelopeV1RecoveryPosture>(
+                object
+                    .remove(r#"recovery_posture"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"recovery_posture"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            body_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"body_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"body_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum StandingAuthorityEnvelopeV1SchemaVersion {
+    #[serde(rename = r#"ioi.foundations.standing-authority-envelope.v1"#)]
+    IoiFoundationsStandingAuthorityEnvelopeV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum StandingAuthorityEnvelopeV1AuthorityScope {
+    #[serde(rename = r#"scope:hypervisor.live-route.hypervisor-provider-op"#)]
+    ScopeHypervisorLiveRouteHypervisorProviderOp,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct StandingAuthorityEnvelopeV1FacetTemplate {
+    pub provider_id: String,
+    pub operations: Vec<StandingAuthorityEnvelopeV1FacetTemplateOperationsItem>,
+    pub provider_selector: StandingAuthorityEnvelopeV1FacetTemplateProviderSelector,
+    pub per_operation_deposit_microusd: ArchitectureContractInteger,
+    pub pricing_ceiling: StandingAuthorityEnvelopeV1FacetTemplatePricingCeiling,
+    pub sdl_hashes: Vec<String>,
+    pub image_digests: Vec<String>,
+    pub registry_hosts: Vec<String>,
+    pub result_destination_refs: Vec<String>,
+    pub auto_topup: StandingAuthorityEnvelopeV1FacetTemplateAutoTopup,
+    pub teardown_policy: StandingAuthorityEnvelopeV1FacetTemplateTeardownPolicy,
+    pub max_duration_seconds: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de> for StandingAuthorityEnvelopeV1FacetTemplate {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/standing-authority-envelope/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["provider_id","operations","provider_selector","per_operation_deposit_microusd","pricing_ceiling","sdl_hashes","image_digests","registry_hosts","result_destination_refs","auto_topup","teardown_policy","max_duration_seconds"],"properties":{"provider_id":{"type":"string","pattern":"^pacc_[0-9a-f]{16}$"},"operations":{"type":"array","minItems":1,"maxItems":8,"uniqueItems":true,"items":{"enum":["create","start","logs","delete","reconcile"]}},"provider_selector":{"type":"object","additionalProperties":false,"required":["mode","provider_addresses","selection"],"properties":{"mode":{"const":"exact"},"provider_addresses":{"type":"array","minItems":1,"maxItems":16,"uniqueItems":true,"items":{"type":"string","pattern":"^akash1[02-9ac-hj-np-z]{38}$"}},"selection":{"const":"only_qualified_bid_from_exact_provider"}}},"per_operation_deposit_microusd":{"$ref":"#/$defs/nonNegativeInteger"},"pricing_ceiling":{"type":"object","additionalProperties":false,"required":["amount","denom"],"properties":{"amount":{"type":"string","pattern":"^(?:0|[1-9][0-9]*)$"},"denom":{"const":"uact"}}},"sdl_hashes":{"$ref":"#/$defs/hashSet"},"image_digests":{"$ref":"#/$defs/hashSet"},"registry_hosts":{"type":"array","minItems":1,"maxItems":16,"uniqueItems":true,"items":{"type":"string","pattern":"^[A-Za-z0-9.-]+$"}},"result_destination_refs":{"$ref":"#/$defs/refSet"},"auto_topup":{"const":false},"teardown_policy":{"const":"always_teardown_required"},"max_duration_seconds":{"type":"integer","minimum":1,"maximum":604800}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            provider_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"provider_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"provider_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            operations: serde_json::from_value::<
+                Vec<StandingAuthorityEnvelopeV1FacetTemplateOperationsItem>,
+            >(
+                object
+                    .remove(r#"operations"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"operations"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            provider_selector: serde_json::from_value::<
+                StandingAuthorityEnvelopeV1FacetTemplateProviderSelector,
+            >(
+                object
+                    .remove(r#"provider_selector"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"provider_selector"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            per_operation_deposit_microusd: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"per_operation_deposit_microusd"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"per_operation_deposit_microusd"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            pricing_ceiling: serde_json::from_value::<
+                StandingAuthorityEnvelopeV1FacetTemplatePricingCeiling,
+            >(
+                object
+                    .remove(r#"pricing_ceiling"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"pricing_ceiling"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            sdl_hashes: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"sdl_hashes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"sdl_hashes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            image_digests: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"image_digests"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"image_digests"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            registry_hosts: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"registry_hosts"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"registry_hosts"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            result_destination_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"result_destination_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"result_destination_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            auto_topup:
+                serde_json::from_value::<StandingAuthorityEnvelopeV1FacetTemplateAutoTopup>(
+                    object
+                        .remove(r#"auto_topup"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"auto_topup"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            teardown_policy: serde_json::from_value::<
+                StandingAuthorityEnvelopeV1FacetTemplateTeardownPolicy,
+            >(
+                object
+                    .remove(r#"teardown_policy"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"teardown_policy"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            max_duration_seconds: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"max_duration_seconds"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"max_duration_seconds"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum StandingAuthorityEnvelopeV1FacetTemplateOperationsItem {
+    #[serde(rename = r#"create"#)]
+    Create,
+    #[serde(rename = r#"start"#)]
+    Start,
+    #[serde(rename = r#"logs"#)]
+    Logs,
+    #[serde(rename = r#"delete"#)]
+    Delete,
+    #[serde(rename = r#"reconcile"#)]
+    Reconcile,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct StandingAuthorityEnvelopeV1FacetTemplateProviderSelector {
+    pub mode: StandingAuthorityEnvelopeV1FacetTemplateProviderSelectorMode,
+    pub provider_addresses: Vec<String>,
+    pub selection: StandingAuthorityEnvelopeV1FacetTemplateProviderSelectorSelection,
+}
+
+impl<'de> serde::Deserialize<'de> for StandingAuthorityEnvelopeV1FacetTemplateProviderSelector {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/standing-authority-envelope/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["mode","provider_addresses","selection"],"properties":{"mode":{"const":"exact"},"provider_addresses":{"type":"array","minItems":1,"maxItems":16,"uniqueItems":true,"items":{"type":"string","pattern":"^akash1[02-9ac-hj-np-z]{38}$"}},"selection":{"const":"only_qualified_bid_from_exact_provider"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            mode: serde_json::from_value::<
+                StandingAuthorityEnvelopeV1FacetTemplateProviderSelectorMode,
+            >(
+                object
+                    .remove(r#"mode"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"mode"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            provider_addresses: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"provider_addresses"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"provider_addresses"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            selection: serde_json::from_value::<
+                StandingAuthorityEnvelopeV1FacetTemplateProviderSelectorSelection,
+            >(
+                object
+                    .remove(r#"selection"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"selection"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum StandingAuthorityEnvelopeV1FacetTemplateProviderSelectorMode {
+    #[serde(rename = r#"exact"#)]
+    Exact,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum StandingAuthorityEnvelopeV1FacetTemplateProviderSelectorSelection {
+    #[serde(rename = r#"only_qualified_bid_from_exact_provider"#)]
+    OnlyQualifiedBidFromExactProvider,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct StandingAuthorityEnvelopeV1FacetTemplatePricingCeiling {
+    pub amount: String,
+    pub denom: StandingAuthorityEnvelopeV1FacetTemplatePricingCeilingDenom,
+}
+
+impl<'de> serde::Deserialize<'de> for StandingAuthorityEnvelopeV1FacetTemplatePricingCeiling {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/standing-authority-envelope/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["amount","denom"],"properties":{"amount":{"type":"string","pattern":"^(?:0|[1-9][0-9]*)$"},"denom":{"const":"uact"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            amount: serde_json::from_value::<String>(
+                object
+                    .remove(r#"amount"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"amount"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            denom: serde_json::from_value::<
+                StandingAuthorityEnvelopeV1FacetTemplatePricingCeilingDenom,
+            >(
+                object
+                    .remove(r#"denom"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"denom"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum StandingAuthorityEnvelopeV1FacetTemplatePricingCeilingDenom {
+    #[serde(rename = r#"uact"#)]
+    Uact,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StandingAuthorityEnvelopeV1FacetTemplateAutoTopup {
+    False,
+}
+
+impl serde::Serialize for StandingAuthorityEnvelopeV1FacetTemplateAutoTopup {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for StandingAuthorityEnvelopeV1FacetTemplateAutoTopup {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum StandingAuthorityEnvelopeV1FacetTemplateTeardownPolicy {
+    #[serde(rename = r#"always_teardown_required"#)]
+    AlwaysTeardownRequired,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct StandingAuthorityEnvelopeV1AggregateBounds {
+    pub max_cumulative_deposit_microusd: ArchitectureContractInteger,
+    pub max_cumulative_spend_microusd: ArchitectureContractInteger,
+    pub max_usages: ArchitectureContractInteger,
+    pub max_concurrent_resources: ArchitectureContractInteger,
+    pub max_provider_fanout: ArchitectureContractInteger,
+    pub max_failures: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de> for StandingAuthorityEnvelopeV1AggregateBounds {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/standing-authority-envelope/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["max_cumulative_deposit_microusd","max_cumulative_spend_microusd","max_usages","max_concurrent_resources","max_provider_fanout","max_failures"],"properties":{"max_cumulative_deposit_microusd":{"$ref":"#/$defs/nonNegativeInteger"},"max_cumulative_spend_microusd":{"$ref":"#/$defs/nonNegativeInteger"},"max_usages":{"type":"integer","minimum":1,"maximum":1000000},"max_concurrent_resources":{"type":"integer","minimum":1,"maximum":10000},"max_provider_fanout":{"type":"integer","minimum":1,"maximum":16},"max_failures":{"type":"integer","minimum":0,"maximum":1000000}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            max_cumulative_deposit_microusd: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"max_cumulative_deposit_microusd"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"max_cumulative_deposit_microusd"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            max_cumulative_spend_microusd: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"max_cumulative_spend_microusd"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"max_cumulative_spend_microusd"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            max_usages: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"max_usages"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"max_usages"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            max_concurrent_resources: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"max_concurrent_resources"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"max_concurrent_resources"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            max_provider_fanout: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"max_provider_fanout"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"max_provider_fanout"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            max_failures: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"max_failures"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"max_failures"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum StandingAuthorityEnvelopeV1ApprovalMode {
+    #[serde(rename = r#"standing_envelope"#)]
+    StandingEnvelope,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum StandingAuthorityEnvelopeV1RecoveryPosture {
+    #[serde(rename = r#"recovery_never_widens_or_resets_drawdown"#)]
+    RecoveryNeverWidensOrResetsDrawdown,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
@@ -83276,6 +83797,22 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_rule_id: None,
     },
     GoldenFixture {
+        contract_id: "schema://ioi/foundations/standing-authority-envelope/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/standing-authority-envelope-v1/positive-u1.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/standing-authority-envelope/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/standing-authority-envelope-v1/negative-auto-topup.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
         contract_id: "schema://ioi/foundations/authority-trajectory-state/v1",
         path: "docs/architecture/_meta/schemas/fixtures/authority-trajectory-state-v1/positive-derived.json",
         expected_accept: true,
@@ -89703,8 +90240,8 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         ),
         mutation_id: None,
         value_json: None,
-        ajv_schema_accept: false,
-        oracle_contract_accept: false,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
     },
     ArchitectureContractDifferentialCase {
         id: r#"fixture:docs/architecture/_meta/schemas/fixtures/c8-certificate-v3/negative-missing-result.json"#,
@@ -91108,6 +91645,28 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         contract_id: r#"schema://ioi/foundations/authority-grant-envelope/v2"#,
         source_fixture_path: Some(
             r#"docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-padded-signature.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/standing-authority-envelope-v1/positive-u1.json"#,
+        contract_id: r#"schema://ioi/foundations/standing-authority-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/standing-authority-envelope-v1/positive-u1.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/standing-authority-envelope-v1/negative-auto-topup.json"#,
+        contract_id: r#"schema://ioi/foundations/standing-authority-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/standing-authority-envelope-v1/negative-auto-topup.json"#,
         ),
         mutation_id: None,
         value_json: None,
@@ -95884,6 +96443,7 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/active-skill-set-snapshot/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/active-skill-set-snapshot/v1","title":"ActiveSkillSetSnapshot","x-ioi-schema-version":"ioi.active-skill-set-snapshot.v1","type":"object","additionalProperties":false,"required":["schema_version","active_skill_set_snapshot_id","work_subject_ref","selected_skills","excluded_candidates","active_set_hash","resolved_runtime_tool_contracts","resolution_receipt_ref","registry_status"],"properties":{"schema_version":{"const":"ioi.active-skill-set-snapshot.v1"},"active_skill_set_snapshot_id":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"work_subject_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"selected_skills":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["skill_entry_ref","skill_entry_binding_revision_ref","skill_entry_binding_hash","skill_revision_ref","manifest_content_hash"],"properties":{"skill_entry_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"skill_entry_binding_revision_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"skill_entry_binding_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"skill_revision_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"manifest_content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"inclusion_basis_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}}}}},"excluded_candidates":{"type":"array","items":{"type":"object"}},"compatibility_and_evaluation_result_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"active_set_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"resolved_runtime_tool_contracts":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["revision_ref","content_hash"],"properties":{"revision_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}},"context_lease_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"resolution_receipt_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"registry_lifecycle_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"registry_status":{"enum":["admitted","active","superseded","revoked"]}}}"#),
     ("schema://ioi/foundations/authority-grant-envelope/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/authority-grant-envelope/v1","title":"AuthorityGrantEnvelope","description":"Canonical IOI authority grant field envelope before the Cut 2 portable signature profile.","x-ioi-schema-version":"ioi.foundations.authority-grant-envelope.v1","type":"object","additionalProperties":false,"required":["authority_grant_id","request_id","issuer_id","subject_id","authority_scopes","primitive_capability_constraints","resources","constraints","revocation_epoch","status"],"properties":{"authority_grant_id":{"$ref":"#/$defs/grantRef"},"request_id":{"$ref":"#/$defs/authorityRequestRef"},"issuer_id":{"$ref":"#/$defs/issuerRef"},"subject_id":{"$ref":"#/$defs/subjectRef"},"authority_scopes":{"type":"array","items":{"$ref":"#/$defs/authorityScope"},"uniqueItems":true},"primitive_capability_constraints":{"type":"array","items":{"$ref":"#/$defs/primitiveCapability"},"uniqueItems":true},"resources":{"type":"array","items":{"$ref":"#/$defs/resourceRef"},"minItems":1,"uniqueItems":true},"constraints":{"type":"object","additionalProperties":false,"required":["max_budget_usd","expires_at","approval_required_for"],"properties":{"max_budget_usd":{"type":"number","minimum":0},"expires_at":{"$ref":"#/$defs/canonicalDateTime"},"max_calls":{"type":"integer","minimum":1,"maximum":9007199254740991},"approval_required_for":{"type":"array","items":{"type":"string","pattern":"^[a-z][a-z0-9._-]*$"},"uniqueItems":true}}},"revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"status":{"enum":["active","expired","revoked"]}},"$defs":{"canonicalDateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"grantRef":{"type":"string","pattern":"^grant://[^\\s]+$"},"authorityRequestRef":{"type":"string","pattern":"^authority-request://[^\\s]+$"},"issuerRef":{"type":"string","pattern":"^(?:system|wallet|org|policy)://[^\\s]+$"},"subjectRef":{"type":"string","pattern":"^(?:system|agent|worker|runtime)://[^\\s]+$"},"authorityScope":{"type":"string","pattern":"^scope:[a-z][a-z0-9._-]*$"},"primitiveCapability":{"type":"string","pattern":"^prim:[a-z][a-z0-9._-]*$"},"resourceRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*://[^\\s]+$"}}}"##),
     ("schema://ioi/foundations/authority-grant-envelope/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/authority-grant-envelope/v2","title":"AuthorityGrantEnvelope","description":"Portable, individually signed IOI authority grant with holder, audience, attenuation, revocation, and canonical-body bindings.","x-ioi-schema-version":"ioi.foundations.authority-grant-envelope.v2","type":"object","additionalProperties":false,"required":["schema_version","envelope_type","signature_domain","schema_hash","authority_grant_id","request_id","issuer_id","issuer_key_set_ref","issuer_key_set_version","issuer_key_id","holder_id","holder_key_id","audience","issued_at","not_before","expires_at","parent_grant","authority_scopes","primitive_capability_constraints","resources","attenuating_caveats","risk_restrictions","revocation_epoch","body_hash","signature_suite","signature_key_id","signature"],"properties":{"schema_version":{"const":"ioi.foundations.authority-grant-envelope.v2"},"envelope_type":{"const":"ioi.authority-grant"},"signature_domain":{"const":"ioi.authority-grant-envelope.v2"},"schema_hash":{"$ref":"#/$defs/sha256Hash"},"authority_grant_id":{"$ref":"#/$defs/grantRef"},"request_id":{"$ref":"#/$defs/authorityRequestRef"},"issuer_id":{"$ref":"#/$defs/issuerRef"},"issuer_key_set_ref":{"$ref":"#/$defs/keySetRef"},"issuer_key_set_version":{"type":"integer","minimum":1,"maximum":9007199254740991},"issuer_key_id":{"$ref":"#/$defs/keyRef"},"holder_id":{"$ref":"#/$defs/holderRef"},"holder_key_id":{"$ref":"#/$defs/keyRef"},"audience":{"$ref":"#/$defs/canonicalRef"},"issued_at":{"type":"integer","minimum":0,"maximum":9007199254740991},"not_before":{"type":"integer","minimum":0,"maximum":9007199254740991},"expires_at":{"type":"integer","minimum":0,"maximum":9007199254740991},"parent_grant":{"oneOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["grant_ref","body_hash","proof_ref"],"properties":{"grant_ref":{"$ref":"#/$defs/grantRef"},"body_hash":{"$ref":"#/$defs/sha256Hash"},"proof_ref":{"$ref":"#/$defs/proofRef"}}}]},"authority_scopes":{"type":"array","items":{"$ref":"#/$defs/authorityScope"},"uniqueItems":true},"primitive_capability_constraints":{"type":"array","items":{"$ref":"#/$defs/primitiveCapability"},"uniqueItems":true},"resources":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"minItems":1,"uniqueItems":true},"attenuating_caveats":{"type":"array","items":{"$ref":"#/$defs/caveatRef"},"uniqueItems":true},"risk_restrictions":{"type":"object","additionalProperties":false,"required":["allowed_risk_classes","max_budget_microusd","max_calls","approval_required_for"],"properties":{"allowed_risk_classes":{"type":"array","items":{"$ref":"#/$defs/riskClass"},"minItems":1,"uniqueItems":true},"max_budget_microusd":{"type":"integer","minimum":0,"maximum":9007199254740991},"max_calls":{"type":"integer","minimum":1,"maximum":9007199254740991},"approval_required_for":{"type":"array","items":{"type":"string","pattern":"^[a-z][a-z0-9._-]*$"},"uniqueItems":true}}},"revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"body_hash":{"$ref":"#/$defs/sha256Hash"},"signature_suite":{"const":"ed25519"},"signature_key_id":{"$ref":"#/$defs/keyRef"},"signature":{"$ref":"#/$defs/ed25519Signature"}},"$defs":{"grantRef":{"type":"string","pattern":"^grant://[^\\s]+$"},"authorityRequestRef":{"type":"string","pattern":"^authority-request://[^\\s]+$"},"issuerRef":{"type":"string","pattern":"^(?:system|wallet|org|policy)://[^\\s]+$"},"holderRef":{"type":"string","pattern":"^(?:system|agent|worker|runtime|wallet|org)://[^\\s]+$"},"keySetRef":{"type":"string","pattern":"^keyset://[^\\s]+$"},"keyRef":{"type":"string","pattern":"^key://[^\\s]+$"},"proofRef":{"type":"string","pattern":"^proof://[^\\s]+$"},"caveatRef":{"type":"string","pattern":"^caveat://[^\\s]+$"},"authorityScope":{"type":"string","pattern":"^scope:[a-z][a-z0-9._-]*$"},"primitiveCapability":{"type":"string","pattern":"^prim:[a-z][a-z0-9._-]*$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*://[^\\s]+$"},"sha256Hash":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},"ed25519Signature":{"type":"string","pattern":"^[A-Za-z0-9_-]{86}$"},"riskClass":{"enum":["read","draft","external_message","commerce","funds","trade","policy_widening","secret_export","declassification","identity_change","cloud_deploy","physical_action"]}}}"##),
+    ("schema://ioi/foundations/standing-authority-envelope/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/standing-authority-envelope/v1","title":"StandingAuthorityEnvelope","description":"Closed facet template and aggregate bounds for unattended draw-down under a separately signed portable authority grant.","x-ioi-schema-version":"ioi.foundations.standing-authority-envelope.v1","type":"object","additionalProperties":false,"required":["schema_version","standing_envelope_ref","owner_ref","bounded_system_ref","principal_ref","audience_ref","authority_scope","facet_template","aggregate_bounds","not_before_ms","expires_at_ms","revocation_epoch","trajectory_policy_ref","trajectory_policy_hash","approval_mode","recovery_posture","body_hash"],"properties":{"schema_version":{"const":"ioi.foundations.standing-authority-envelope.v1"},"standing_envelope_ref":{"type":"string","pattern":"^standing-envelope://[^\\s]{1,460}$"},"owner_ref":{"$ref":"#/$defs/ref"},"bounded_system_ref":{"$ref":"#/$defs/ref"},"principal_ref":{"$ref":"#/$defs/ref"},"audience_ref":{"$ref":"#/$defs/ref"},"authority_scope":{"const":"scope:hypervisor.live-route.hypervisor-provider-op"},"facet_template":{"type":"object","additionalProperties":false,"required":["provider_id","operations","provider_selector","per_operation_deposit_microusd","pricing_ceiling","sdl_hashes","image_digests","registry_hosts","result_destination_refs","auto_topup","teardown_policy","max_duration_seconds"],"properties":{"provider_id":{"type":"string","pattern":"^pacc_[0-9a-f]{16}$"},"operations":{"type":"array","minItems":1,"maxItems":8,"uniqueItems":true,"items":{"enum":["create","start","logs","delete","reconcile"]}},"provider_selector":{"type":"object","additionalProperties":false,"required":["mode","provider_addresses","selection"],"properties":{"mode":{"const":"exact"},"provider_addresses":{"type":"array","minItems":1,"maxItems":16,"uniqueItems":true,"items":{"type":"string","pattern":"^akash1[02-9ac-hj-np-z]{38}$"}},"selection":{"const":"only_qualified_bid_from_exact_provider"}}},"per_operation_deposit_microusd":{"$ref":"#/$defs/nonNegativeInteger"},"pricing_ceiling":{"type":"object","additionalProperties":false,"required":["amount","denom"],"properties":{"amount":{"type":"string","pattern":"^(?:0|[1-9][0-9]*)$"},"denom":{"const":"uact"}}},"sdl_hashes":{"$ref":"#/$defs/hashSet"},"image_digests":{"$ref":"#/$defs/hashSet"},"registry_hosts":{"type":"array","minItems":1,"maxItems":16,"uniqueItems":true,"items":{"type":"string","pattern":"^[A-Za-z0-9.-]+$"}},"result_destination_refs":{"$ref":"#/$defs/refSet"},"auto_topup":{"const":false},"teardown_policy":{"const":"always_teardown_required"},"max_duration_seconds":{"type":"integer","minimum":1,"maximum":604800}}},"aggregate_bounds":{"type":"object","additionalProperties":false,"required":["max_cumulative_deposit_microusd","max_cumulative_spend_microusd","max_usages","max_concurrent_resources","max_provider_fanout","max_failures"],"properties":{"max_cumulative_deposit_microusd":{"$ref":"#/$defs/nonNegativeInteger"},"max_cumulative_spend_microusd":{"$ref":"#/$defs/nonNegativeInteger"},"max_usages":{"type":"integer","minimum":1,"maximum":1000000},"max_concurrent_resources":{"type":"integer","minimum":1,"maximum":10000},"max_provider_fanout":{"type":"integer","minimum":1,"maximum":16},"max_failures":{"type":"integer","minimum":0,"maximum":1000000}}},"not_before_ms":{"$ref":"#/$defs/nonNegativeInteger"},"expires_at_ms":{"$ref":"#/$defs/nonNegativeInteger"},"revocation_epoch":{"$ref":"#/$defs/nonNegativeInteger"},"trajectory_policy_ref":{"$ref":"#/$defs/ref"},"trajectory_policy_hash":{"$ref":"#/$defs/hash"},"approval_mode":{"const":"standing_envelope"},"recovery_posture":{"const":"recovery_never_widens_or_resets_drawdown"},"body_hash":{"$ref":"#/$defs/hash"}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nonNegativeInteger":{"type":"integer","minimum":0,"maximum":9007199254740991},"hashSet":{"type":"array","minItems":1,"maxItems":128,"uniqueItems":true,"items":{"$ref":"#/$defs/hash"}},"refSet":{"type":"array","minItems":1,"maxItems":128,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}}}}"##),
     ("schema://ioi/foundations/authority-trajectory-state/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/authority-trajectory-state/v1","title":"AuthorityTrajectoryState","x-ioi-schema-version":"ioi.foundations.authority-trajectory-state.v1","type":"object","additionalProperties":false,"required":["schema_version","trajectory_state_ref","trajectory_state_hash","owner_ref","bounded_system_ref","principal_ref","envelope_ancestor_refs","revocation_epoch","window_started_at","window_ends_at","cumulative_spend_usd","cumulative_deposit_usd","active_resource_refs","provider_refs","destination_refs","data_class_refs","admitted_call_count","failed_call_count","admitted_events","derived_at"],"properties":{"schema_version":{"const":"ioi.foundations.authority-trajectory-state.v1"},"trajectory_state_ref":{"$ref":"#/$defs/ref"},"trajectory_state_hash":{"$ref":"#/$defs/hash"},"owner_ref":{"$ref":"#/$defs/ref"},"bounded_system_ref":{"$ref":"#/$defs/ref"},"principal_ref":{"$ref":"#/$defs/ref"},"envelope_ancestor_refs":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"window_started_at":{"$ref":"#/$defs/timestamp"},"window_ends_at":{"$ref":"#/$defs/timestamp"},"cumulative_spend_usd":{"type":"number","minimum":0},"cumulative_deposit_usd":{"type":"number","minimum":0},"active_resource_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"provider_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"destination_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"data_class_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"admitted_call_count":{"type":"integer","minimum":0,"maximum":9007199254740991},"failed_call_count":{"type":"integer","minimum":0,"maximum":9007199254740991},"admitted_events":{"type":"array","items":{"$ref":"#/$defs/refHash"}},"derived_at":{"$ref":"#/$defs/timestamp"}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"timestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"refHash":{"type":"object","additionalProperties":false,"required":["ref","hash"],"properties":{"ref":{"$ref":"#/$defs/ref"},"hash":{"$ref":"#/$defs/hash"}}}}}"##),
     ("schema://ioi/foundations/trajectory-admission-decision/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/trajectory-admission-decision/v1","title":"TrajectoryAdmissionDecision","x-ioi-schema-version":"ioi.foundations.trajectory-admission-decision.v1","type":"object","additionalProperties":false,"required":["schema_version","decision_ref","decision_hash","candidate_operation_ref","candidate_operation_hash","state_before_ref","state_before_hash","constraint_results","semantic_risk_evidence_refs","decision","reason_codes","step_up_requirement_refs","policy_ref","policy_hash","state_after_ref","state_after_hash","policy_epoch","decided_at"],"properties":{"schema_version":{"const":"ioi.foundations.trajectory-admission-decision.v1"},"decision_ref":{"$ref":"#/$defs/ref"},"decision_hash":{"$ref":"#/$defs/hash"},"candidate_operation_ref":{"$ref":"#/$defs/ref"},"candidate_operation_hash":{"$ref":"#/$defs/hash"},"state_before_ref":{"$ref":"#/$defs/ref"},"state_before_hash":{"$ref":"#/$defs/hash"},"constraint_results":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/constraintResult"}},"semantic_risk_evidence_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"decision":{"enum":["admit","step_up_required","deny"]},"reason_codes":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/name"}},"step_up_requirement_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"policy_ref":{"$ref":"#/$defs/ref"},"policy_hash":{"$ref":"#/$defs/hash"},"state_after_ref":{"$ref":"#/$defs/ref"},"state_after_hash":{"$ref":"#/$defs/hash"},"policy_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"decided_at":{"$ref":"#/$defs/timestamp"}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"name":{"type":"string","pattern":"^[a-z][a-z0-9._-]{0,127}$"},"timestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"constraintResult":{"type":"object","additionalProperties":false,"required":["constraint_id","satisfied","observed_value","limit_value","evidence_refs"],"properties":{"constraint_id":{"$ref":"#/$defs/name"},"satisfied":{"type":"boolean"},"observed_value":{"type":"string","maxLength":500},"limit_value":{"type":"string","maxLength":500},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/ref"}}}}}}"##),
     ("schema://ioi/foundations/authority-key-set/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/authority-key-set/v1","title":"AuthorityKeySet","description":"Versioned issuer key-discovery set used to verify portable authority objects.","x-ioi-schema-version":"ioi.foundations.authority-key-set.v1","type":"object","additionalProperties":false,"required":["schema_version","key_set_type","key_set_id","issuer_id","version","issued_at","expires_at","keys"],"properties":{"schema_version":{"const":"ioi.foundations.authority-key-set.v1"},"key_set_type":{"const":"ioi.authority-key-set"},"key_set_id":{"$ref":"#/$defs/keySetRef"},"issuer_id":{"$ref":"#/$defs/issuerRef"},"version":{"type":"integer","minimum":1,"maximum":9007199254740991},"issued_at":{"type":"integer","minimum":0,"maximum":9007199254740991},"expires_at":{"type":"integer","minimum":0,"maximum":9007199254740991},"keys":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["key_id","signature_suite","public_key","not_before","expires_at","status"],"properties":{"key_id":{"$ref":"#/$defs/keyRef"},"signature_suite":{"const":"ed25519"},"public_key":{"$ref":"#/$defs/ed25519PublicKey"},"not_before":{"type":"integer","minimum":0,"maximum":9007199254740991},"expires_at":{"type":"integer","minimum":0,"maximum":9007199254740991},"status":{"enum":["active","retired","revoked"]}}}}},"$defs":{"keySetRef":{"type":"string","pattern":"^keyset://[^\\s]+$"},"keyRef":{"type":"string","pattern":"^key://[^\\s]+$"},"issuerRef":{"type":"string","pattern":"^(?:system|wallet|org|policy)://[^\\s]+$"},"ed25519PublicKey":{"type":"string","pattern":"^[A-Za-z0-9_-]{43}$"}}}"##),
@@ -96069,6 +96629,7 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/active-skill-set-snapshot/v1", r#"[]"#),
     ("schema://ioi/foundations/authority-grant-envelope/v1", r#"[{"rule_id":"authority_grant.capability.required","description":"A grant must convey at least one authority scope or primitive capability constraint.","expression":{"operator":"any_non_empty","paths":["$.authority_scopes","$.primitive_capability_constraints"]}}]"#),
     ("schema://ioi/foundations/authority-grant-envelope/v2", r#"[{"rule_id":"authority_grant.capability.required","description":"A portable grant must convey at least one authority scope or primitive capability constraint.","expression":{"operator":"any_non_empty","paths":["$.authority_scopes","$.primitive_capability_constraints"]}},{"rule_id":"authority_grant.signature_key.matches_issuer_key","description":"The signature key must be the exact issuer key named by the signed grant body.","expression":{"operator":"fields_equal","paths":["$.signature_key_id","$.issuer_key_id"]}},{"rule_id":"authority_grant.schema_hash.matches_contract","description":"The signed schema hash must match the registered immutable v2 schema.","expression":{"operator":"matches_contract_schema_hash","path":"$.schema_hash"}},{"rule_id":"authority_grant.issued_at.not_after_not_before","description":"A grant cannot become valid before it is issued.","expression":{"operator":"numbers_lte","paths":["$.issued_at","$.not_before"]}},{"rule_id":"authority_grant.not_before.before_expiry","description":"A portable grant must have a non-empty validity interval.","expression":{"operator":"numbers_lt","paths":["$.not_before","$.expires_at"]}}]"#),
+    ("schema://ioi/foundations/standing-authority-envelope/v1", r#"[{"rule_id":"standing_authority_envelope.body_hash.recomputes","description":"The standing-envelope body hash commits the exact subject, facet template, aggregate bounds, validity, revocation and trajectory policy under a domain-separated JCS profile.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.standing-authority-envelope-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"standing_envelope_ref":{"path":"$.standing_envelope_ref"},"owner_ref":{"path":"$.owner_ref"},"bounded_system_ref":{"path":"$.bounded_system_ref"},"principal_ref":{"path":"$.principal_ref"},"audience_ref":{"path":"$.audience_ref"},"authority_scope":{"path":"$.authority_scope"},"facet_template":{"path":"$.facet_template"},"aggregate_bounds":{"path":"$.aggregate_bounds"},"not_before_ms":{"path":"$.not_before_ms"},"expires_at_ms":{"path":"$.expires_at_ms"},"revocation_epoch":{"path":"$.revocation_epoch"},"trajectory_policy_ref":{"path":"$.trajectory_policy_ref"},"trajectory_policy_hash":{"path":"$.trajectory_policy_hash"},"approval_mode":{"path":"$.approval_mode"},"recovery_posture":{"path":"$.recovery_posture"}},"expected_path":"$.body_hash","expected_encoding":"sha256_string"}},{"rule_id":"standing_authority_envelope.validity.non_empty","description":"A standing envelope has a non-empty validity interval.","expression":{"operator":"numbers_lt","paths":["$.not_before_ms","$.expires_at_ms"]}},{"rule_id":"standing_authority_envelope.per_operation_deposit.within_aggregate","description":"One operation cannot reserve more deposit than the whole envelope permits.","expression":{"operator":"numbers_lte","paths":["$.facet_template.per_operation_deposit_microusd","$.aggregate_bounds.max_cumulative_deposit_microusd"]}},{"rule_id":"standing_authority_envelope.spend.within_deposit","description":"The maximum reconciled spend cannot exceed the maximum deposit authority.","expression":{"operator":"numbers_lte","paths":["$.aggregate_bounds.max_cumulative_spend_microusd","$.aggregate_bounds.max_cumulative_deposit_microusd"]}}]"#),
     ("schema://ioi/foundations/authority-trajectory-state/v1", r#"[]"#),
     ("schema://ioi/foundations/trajectory-admission-decision/v1", r#"[]"#),
     ("schema://ioi/foundations/authority-key-set/v1", r#"[{"rule_id":"authority_key_set.issued_at.before_expiry","description":"A key-discovery set must have a non-empty validity interval.","expression":{"operator":"numbers_lt","paths":["$.issued_at","$.expires_at"]}}]"#),
@@ -96216,6 +96777,7 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:/sessions|/missions|/__ioi\S*)$"#,
         r#"^(?:/sessions|/missions|/__ioi[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]*)$"#,
     ),
+    (r#"^(?:0|[1-9][0-9]*)$"#, r#"^(?:0|[1-9][0-9]*)$"#),
     (
         r#"^(?:[a-z][a-z0-9+._-]*://[^\s]{1,500}|scope:[a-z0-9*._-]{1,200})$"#,
         r#"^(?:[a-z][a-z0-9+._-]*://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}|scope:[a-z0-9*._-]{1,200})$"#,
@@ -96973,6 +97535,7 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (r#"^[0-9a-f]{128}$"#, r#"^[0-9a-f]{128}$"#),
     (r#"^[0-9a-f]{64}$"#, r#"^[0-9a-f]{64}$"#),
     (r#"^[A-Z]{3}$"#, r#"^[A-Z]{3}$"#),
+    (r#"^[A-Za-z0-9.-]+$"#, r#"^[A-Za-z0-9.-]+$"#),
     (r#"^[A-Za-z0-9_-]+$"#, r#"^[A-Za-z0-9_-]+$"#),
     (r#"^[A-Za-z0-9_-]{43}$"#, r#"^[A-Za-z0-9_-]{43}$"#),
     (r#"^[A-Za-z0-9_-]{86}$"#, r#"^[A-Za-z0-9_-]{86}$"#),
@@ -97167,6 +97730,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^agentgres://trace/[^\s]{1,240}$"#,
         r#"^agentgres://trace/[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
+    ),
+    (
+        r#"^akash1[02-9ac-hj-np-z]{38}$"#,
+        r#"^akash1[02-9ac-hj-np-z]{38}$"#,
     ),
     (
         r#"^appraisal://[^\s]{1,248}$"#,
@@ -97874,6 +98441,7 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^outcome-room://[^\s]{1,500}$"#,
         r#"^outcome-room://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
+    (r#"^pacc_[0-9a-f]{16}$"#, r#"^pacc_[0-9a-f]{16}$"#),
     (
         r#"^package-binding://\S*$"#,
         r#"^package-binding://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]*$"#,
@@ -98274,6 +98842,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^staged-effect://[^\s]+$"#,
         r#"^staged-effect://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^standing-envelope://[^\s]{1,460}$"#,
+        r#"^standing-envelope://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,460}$"#,
     ),
     (
         r#"^state-root://sha256:[0-9a-f]{64}$"#,
@@ -100007,6 +100579,8 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-signature-key-mismatch.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-signature-key-mismatch.json"))),
     ("docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-stale-schema-hash.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-stale-schema-hash.json"))),
     ("docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-padded-signature.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-padded-signature.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/standing-authority-envelope-v1/positive-u1.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/standing-authority-envelope-v1/positive-u1.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/standing-authority-envelope-v1/negative-auto-topup.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/standing-authority-envelope-v1/negative-auto-topup.json"))),
     ("docs/architecture/_meta/schemas/fixtures/authority-trajectory-state-v1/positive-derived.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/authority-trajectory-state-v1/positive-derived.json"))),
     ("docs/architecture/_meta/schemas/fixtures/authority-trajectory-state-v1/negative-negative-spend.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/authority-trajectory-state-v1/negative-negative-spend.json"))),
     ("docs/architecture/_meta/schemas/fixtures/trajectory-admission-decision-v1/positive-deny.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/trajectory-admission-decision-v1/positive-deny.json"))),
@@ -100739,6 +101313,11 @@ mod tests {
         },
         "schema://ioi/foundations/authority-grant-envelope/v2" => {
             serde_json::from_value::<AuthorityGrantEnvelopeV2>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/standing-authority-envelope/v1" => {
+            serde_json::from_value::<StandingAuthorityEnvelopeV1>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -101658,6 +102237,11 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/foundations/standing-authority-envelope/v1" => {
+            let projection = serde_json::from_value::<StandingAuthorityEnvelopeV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
         "schema://ioi/foundations/authority-trajectory-state/v1" => {
             let projection = serde_json::from_value::<AuthorityTrajectoryStateV1>(value.clone())
                 .map_err(|error| error.to_string())?;
@@ -102274,8 +102858,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            650,
-            "the registered golden corpus must remain the explicit 650-fixture bar",
+            652,
+            "the registered golden corpus must remain the explicit 652-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -102517,7 +103101,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 615,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 620,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

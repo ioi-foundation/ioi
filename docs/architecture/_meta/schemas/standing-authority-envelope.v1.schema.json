@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/standing-authority-envelope/v1",
+  "title": "StandingAuthorityEnvelope",
+  "description": "Closed facet template and aggregate bounds for unattended draw-down under a separately signed portable authority grant.",
+  "x-ioi-schema-version": "ioi.foundations.standing-authority-envelope.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "standing_envelope_ref",
+    "owner_ref",
+    "bounded_system_ref",
+    "principal_ref",
+    "audience_ref",
+    "authority_scope",
+    "facet_template",
+    "aggregate_bounds",
+    "not_before_ms",
+    "expires_at_ms",
+    "revocation_epoch",
+    "trajectory_policy_ref",
+    "trajectory_policy_hash",
+    "approval_mode",
+    "recovery_posture",
+    "body_hash"
+  ],
+  "properties": {
+    "schema_version": { "const": "ioi.foundations.standing-authority-envelope.v1" },
+    "standing_envelope_ref": { "type": "string", "pattern": "^standing-envelope://[^\\s]{1,460}$" },
+    "owner_ref": { "$ref": "#/$defs/ref" },
+    "bounded_system_ref": { "$ref": "#/$defs/ref" },
+    "principal_ref": { "$ref": "#/$defs/ref" },
+    "audience_ref": { "$ref": "#/$defs/ref" },
+    "authority_scope": { "const": "scope:hypervisor.live-route.hypervisor-provider-op" },
+    "facet_template": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider_id",
+        "operations",
+        "provider_selector",
+        "per_operation_deposit_microusd",
+        "pricing_ceiling",
+        "sdl_hashes",
+        "image_digests",
+        "registry_hosts",
+        "result_destination_refs",
+        "auto_topup",
+        "teardown_policy",
+        "max_duration_seconds"
+      ],
+      "properties": {
+        "provider_id": { "type": "string", "pattern": "^pacc_[0-9a-f]{16}$" },
+        "operations": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": { "enum": ["create", "start", "logs", "delete", "reconcile"] }
+        },
+        "provider_selector": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "provider_addresses", "selection"],
+          "properties": {
+            "mode": { "const": "exact" },
+            "provider_addresses": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 16,
+              "uniqueItems": true,
+              "items": { "type": "string", "pattern": "^akash1[02-9ac-hj-np-z]{38}$" }
+            },
+            "selection": { "const": "only_qualified_bid_from_exact_provider" }
+          }
+        },
+        "per_operation_deposit_microusd": { "$ref": "#/$defs/nonNegativeInteger" },
+        "pricing_ceiling": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["amount", "denom"],
+          "properties": {
+            "amount": { "type": "string", "pattern": "^(?:0|[1-9][0-9]*)$" },
+            "denom": { "const": "uact" }
+          }
+        },
+        "sdl_hashes": { "$ref": "#/$defs/hashSet" },
+        "image_digests": { "$ref": "#/$defs/hashSet" },
+        "registry_hosts": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[A-Za-z0-9.-]+$" }
+        },
+        "result_destination_refs": { "$ref": "#/$defs/refSet" },
+        "auto_topup": { "const": false },
+        "teardown_policy": { "const": "always_teardown_required" },
+        "max_duration_seconds": { "type": "integer", "minimum": 1, "maximum": 604800 }
+      }
+    },
+    "aggregate_bounds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_cumulative_deposit_microusd",
+        "max_cumulative_spend_microusd",
+        "max_usages",
+        "max_concurrent_resources",
+        "max_provider_fanout",
+        "max_failures"
+      ],
+      "properties": {
+        "max_cumulative_deposit_microusd": { "$ref": "#/$defs/nonNegativeInteger" },
+        "max_cumulative_spend_microusd": { "$ref": "#/$defs/nonNegativeInteger" },
+        "max_usages": { "type": "integer", "minimum": 1, "maximum": 1000000 },
+        "max_concurrent_resources": { "type": "integer", "minimum": 1, "maximum": 10000 },
+        "max_provider_fanout": { "type": "integer", "minimum": 1, "maximum": 16 },
+        "max_failures": { "type": "integer", "minimum": 0, "maximum": 1000000 }
+      }
+    },
+    "not_before_ms": { "$ref": "#/$defs/nonNegativeInteger" },
+    "expires_at_ms": { "$ref": "#/$defs/nonNegativeInteger" },
+    "revocation_epoch": { "$ref": "#/$defs/nonNegativeInteger" },
+    "trajectory_policy_ref": { "$ref": "#/$defs/ref" },
+    "trajectory_policy_hash": { "$ref": "#/$defs/hash" },
+    "approval_mode": { "const": "standing_envelope" },
+    "recovery_posture": { "const": "recovery_never_widens_or_resets_drawdown" },
+    "body_hash": { "$ref": "#/$defs/hash" }
+  },
+  "$defs": {
+    "ref": { "type": "string", "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$" },
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "nonNegativeInteger": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+    "hashSet": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/hash" }
+    },
+    "refSet": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/ref" }
+    }
+  }
+}

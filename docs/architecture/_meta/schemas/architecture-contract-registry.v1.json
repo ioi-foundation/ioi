@@ -4514,6 +4514,54 @@
       ]
     },
     {
+      "contract_id": "schema://ioi/foundations/standing-authority-envelope/v1",
+      "canonical_name": "StandingAuthorityEnvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/authority-and-access.md#authoritygrantenvelope",
+      "schema_version": "ioi.foundations.standing-authority-envelope.v1",
+      "maturity": "target",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "standing-authority-envelope.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/standing-authority-envelope/containment/v1",
+          "path": "invariants/standing-authority-envelope.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "StandingAuthorityEnvelopeV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "StandingAuthorityEnvelopeV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/standing-authority-envelope-v1/positive-u1.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/standing-authority-envelope-v1/negative-auto-topup.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
       "contract_id": "schema://ioi/foundations/authority-trajectory-state/v1",
       "canonical_name": "AuthorityTrajectoryState",
       "canonical_owner_ref": "canon://docs/architecture/foundations/objects/authority-and-access.md#authority-trajectory-state-and-admission",

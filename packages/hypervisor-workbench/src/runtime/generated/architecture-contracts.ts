@@ -2877,6 +2877,53 @@ export type AuthorityGrantEnvelopeV2 = {
   signature: string;
 };
 
+export type StandingAuthorityEnvelopeV1 = {
+  schema_version: "ioi.foundations.standing-authority-envelope.v1";
+  standing_envelope_ref: string;
+  owner_ref: string;
+  bounded_system_ref: string;
+  principal_ref: string;
+  audience_ref: string;
+  authority_scope: "scope:hypervisor.live-route.hypervisor-provider-op";
+  facet_template: {
+      provider_id: string;
+      operations: Array<"create" | "start" | "logs" | "delete" | "reconcile">;
+      provider_selector: {
+            mode: "exact";
+            provider_addresses: Array<string>;
+            selection: "only_qualified_bid_from_exact_provider";
+          };
+      per_operation_deposit_microusd: number;
+      pricing_ceiling: {
+            amount: string;
+            denom: "uact";
+          };
+      sdl_hashes: Array<string>;
+      image_digests: Array<string>;
+      registry_hosts: Array<string>;
+      result_destination_refs: Array<string>;
+      auto_topup: false;
+      teardown_policy: "always_teardown_required";
+      max_duration_seconds: number;
+    };
+  aggregate_bounds: {
+      max_cumulative_deposit_microusd: number;
+      max_cumulative_spend_microusd: number;
+      max_usages: number;
+      max_concurrent_resources: number;
+      max_provider_fanout: number;
+      max_failures: number;
+    };
+  not_before_ms: number;
+  expires_at_ms: number;
+  revocation_epoch: number;
+  trajectory_policy_ref: string;
+  trajectory_policy_hash: string;
+  approval_mode: "standing_envelope";
+  recovery_posture: "recovery_never_widens_or_resets_drawdown";
+  body_hash: string;
+};
+
 export type AuthorityTrajectoryStateV1 = {
   schema_version: "ioi.foundations.authority-trajectory-state.v1";
   trajectory_state_ref: string;
@@ -10246,6 +10293,22 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
   {
     "contract_id": "schema://ioi/foundations/authority-grant-envelope/v2",
     "path": "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-padded-signature.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/standing-authority-envelope/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/standing-authority-envelope-v1/positive-u1.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/standing-authority-envelope/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/standing-authority-envelope-v1/negative-auto-topup.json",
     "expected": "reject",
     "expected_schema_accept": false,
     "expected_failure": "schema",
@@ -17685,6 +17748,20 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/standing-authority-envelope-v1/positive-u1.json",
+    "contract_id": "schema://ioi/foundations/standing-authority-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/standing-authority-envelope-v1/positive-u1.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/standing-authority-envelope-v1/negative-auto-topup.json",
+    "contract_id": "schema://ioi/foundations/standing-authority-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/standing-authority-envelope-v1/negative-auto-topup.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-trajectory-state-v1/positive-derived.json",
     "contract_id": "schema://ioi/foundations/authority-trajectory-state/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-trajectory-state-v1/positive-derived.json",
@@ -20659,6 +20736,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:(?:worker|service|org|domain)://|agentgres://domain/)[A-Za-z0-9](?:[A-Za-z0-9._~:@-]*[A-Za-z0-9]|)(?:/[A-Za-z0-9](?:[A-Za-z0-9._~:@-]*[A-Za-z0-9]|))*$",
   "^(?:(?:worker|service|org|domain|wallet|runtime)://|agentgres://domain/)[A-Za-z0-9](?:[A-Za-z0-9._~:@-]*[A-Za-z0-9]|)(?:/[A-Za-z0-9](?:[A-Za-z0-9._~:@-]*[A-Za-z0-9]|))*$",
   "^(?:/sessions|/missions|/__ioi\\S*)$",
+  "^(?:0|[1-9][0-9]*)$",
   "^(?:[a-z][a-z0-9+._-]*://[^\\s]{1,500}|scope:[a-z0-9*._-]{1,200})$",
   "^(?:acceptance|decision|receipt)://[^\\s]{1,500}$",
   "^(?:agentgres|decision)://[^\\s]{1,500}$",
@@ -20852,6 +20930,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^[0-9a-f]{128}$",
   "^[0-9a-f]{64}$",
   "^[A-Z]{3}$",
+  "^[A-Za-z0-9.-]+$",
   "^[A-Za-z0-9_-]+$",
   "^[A-Za-z0-9_-]{43}$",
   "^[A-Za-z0-9_-]{86}$",
@@ -20909,6 +20988,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^agentgres://state-root/goal-run/[^/\\s]{1,160}/sha256:[0-9a-f]{64}$",
   "^agentgres://storage-receipt/stc_[0-9a-f]+$",
   "^agentgres://trace/[^\\s]{1,240}$",
+  "^akash1[02-9ac-hj-np-z]{38}$",
   "^appraisal://[^\\s]{1,248}$",
   "^appraiser://[^\\s]{1,248}$",
   "^approval://[A-Za-z0-9._~:/-]+$",
@@ -21087,6 +21167,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^org://\\S+$",
   "^outcome-delta://[^\\s]{1,500}$",
   "^outcome-room://[^\\s]{1,500}$",
+  "^pacc_[0-9a-f]{16}$",
   "^package-binding://\\S*$",
   "^package://[^\\s?#\\\\]{1,160}/release/[^\\s?#\\\\]{1,160}$",
   "^package://[^\\s?#\\\\]{1,160}/release/sha256:[0-9a-f]{64}$",
@@ -21194,6 +21275,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^snapshot://[^\\s]+$",
   "^snapshot://[^\\s]{1,248}$",
   "^staged-effect://[^\\s]+$",
+  "^standing-envelope://[^\\s]{1,460}$",
   "^state-root://sha256:[0-9a-f]{64}$",
   "^storage-archive://[^\\s]+$",
   "^storage-archive://sao_[0-9a-f]+$",
@@ -21351,6 +21433,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/active-skill-set-snapshot/v1": "sha256:c62f6d794bf48172de77fa72cb71ea86dd1ed07944abf70d92aa8e82a97f87d6",
   "schema://ioi/foundations/authority-grant-envelope/v1": "sha256:9f8a2e183e7bb02cdb02274c59b06c0dda1abe293e4c377c80aaccbf9fee5796",
   "schema://ioi/foundations/authority-grant-envelope/v2": "sha256:5d702231006db3551371f3d5f581532292c6a616c30c314b331ae747adfc219e",
+  "schema://ioi/foundations/standing-authority-envelope/v1": "sha256:8b7076330ee412a05eadfa7cbe02fd9147aa136235fc823fe77a1caa50863410",
   "schema://ioi/foundations/authority-trajectory-state/v1": "sha256:b6699e24b52eb2d8e57fd086bee951e34d64b5d1a80d34c8ba47bfb77b6603f3",
   "schema://ioi/foundations/trajectory-admission-decision/v1": "sha256:3fdb69ca87b0946ba7f3644ee6197f0b47cda4c3f095864528973473cb9e6245",
   "schema://ioi/foundations/authority-key-set/v1": "sha256:ea66e12fa2584b1769d15c70f886a1e7b2c844a3220c13f8c3d6a0231969ec6c",
@@ -43447,6 +43530,271 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           "cloud_deploy",
           "physical_action"
         ]
+      }
+    }
+  },
+  "schema://ioi/foundations/standing-authority-envelope/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/standing-authority-envelope/v1",
+    "title": "StandingAuthorityEnvelope",
+    "description": "Closed facet template and aggregate bounds for unattended draw-down under a separately signed portable authority grant.",
+    "x-ioi-schema-version": "ioi.foundations.standing-authority-envelope.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "standing_envelope_ref",
+      "owner_ref",
+      "bounded_system_ref",
+      "principal_ref",
+      "audience_ref",
+      "authority_scope",
+      "facet_template",
+      "aggregate_bounds",
+      "not_before_ms",
+      "expires_at_ms",
+      "revocation_epoch",
+      "trajectory_policy_ref",
+      "trajectory_policy_hash",
+      "approval_mode",
+      "recovery_posture",
+      "body_hash"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.foundations.standing-authority-envelope.v1"
+      },
+      "standing_envelope_ref": {
+        "type": "string",
+        "pattern": "^standing-envelope://[^\\s]{1,460}$"
+      },
+      "owner_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "bounded_system_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "principal_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "audience_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "authority_scope": {
+        "const": "scope:hypervisor.live-route.hypervisor-provider-op"
+      },
+      "facet_template": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "provider_id",
+          "operations",
+          "provider_selector",
+          "per_operation_deposit_microusd",
+          "pricing_ceiling",
+          "sdl_hashes",
+          "image_digests",
+          "registry_hosts",
+          "result_destination_refs",
+          "auto_topup",
+          "teardown_policy",
+          "max_duration_seconds"
+        ],
+        "properties": {
+          "provider_id": {
+            "type": "string",
+            "pattern": "^pacc_[0-9a-f]{16}$"
+          },
+          "operations": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 8,
+            "uniqueItems": true,
+            "items": {
+              "enum": [
+                "create",
+                "start",
+                "logs",
+                "delete",
+                "reconcile"
+              ]
+            }
+          },
+          "provider_selector": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "mode",
+              "provider_addresses",
+              "selection"
+            ],
+            "properties": {
+              "mode": {
+                "const": "exact"
+              },
+              "provider_addresses": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 16,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "pattern": "^akash1[02-9ac-hj-np-z]{38}$"
+                }
+              },
+              "selection": {
+                "const": "only_qualified_bid_from_exact_provider"
+              }
+            }
+          },
+          "per_operation_deposit_microusd": {
+            "$ref": "#/$defs/nonNegativeInteger"
+          },
+          "pricing_ceiling": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "amount",
+              "denom"
+            ],
+            "properties": {
+              "amount": {
+                "type": "string",
+                "pattern": "^(?:0|[1-9][0-9]*)$"
+              },
+              "denom": {
+                "const": "uact"
+              }
+            }
+          },
+          "sdl_hashes": {
+            "$ref": "#/$defs/hashSet"
+          },
+          "image_digests": {
+            "$ref": "#/$defs/hashSet"
+          },
+          "registry_hosts": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 16,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9.-]+$"
+            }
+          },
+          "result_destination_refs": {
+            "$ref": "#/$defs/refSet"
+          },
+          "auto_topup": {
+            "const": false
+          },
+          "teardown_policy": {
+            "const": "always_teardown_required"
+          },
+          "max_duration_seconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 604800
+          }
+        }
+      },
+      "aggregate_bounds": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "max_cumulative_deposit_microusd",
+          "max_cumulative_spend_microusd",
+          "max_usages",
+          "max_concurrent_resources",
+          "max_provider_fanout",
+          "max_failures"
+        ],
+        "properties": {
+          "max_cumulative_deposit_microusd": {
+            "$ref": "#/$defs/nonNegativeInteger"
+          },
+          "max_cumulative_spend_microusd": {
+            "$ref": "#/$defs/nonNegativeInteger"
+          },
+          "max_usages": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000000
+          },
+          "max_concurrent_resources": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "max_provider_fanout": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 16
+          },
+          "max_failures": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000
+          }
+        }
+      },
+      "not_before_ms": {
+        "$ref": "#/$defs/nonNegativeInteger"
+      },
+      "expires_at_ms": {
+        "$ref": "#/$defs/nonNegativeInteger"
+      },
+      "revocation_epoch": {
+        "$ref": "#/$defs/nonNegativeInteger"
+      },
+      "trajectory_policy_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "trajectory_policy_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "approval_mode": {
+        "const": "standing_envelope"
+      },
+      "recovery_posture": {
+        "const": "recovery_never_widens_or_resets_drawdown"
+      },
+      "body_hash": {
+        "$ref": "#/$defs/hash"
+      }
+    },
+    "$defs": {
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+      },
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "nonNegativeInteger": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "hashSet": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 128,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/hash"
+        }
+      },
+      "refSet": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 128,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
       }
     }
   },
@@ -80264,6 +80612,104 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
       }
     }
   ],
+  "schema://ioi/foundations/standing-authority-envelope/v1": [
+    {
+      "rule_id": "standing_authority_envelope.body_hash.recomputes",
+      "description": "The standing-envelope body hash commits the exact subject, facet template, aggregate bounds, validity, revocation and trajectory policy under a domain-separated JCS profile.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.standing-authority-envelope-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "standing_envelope_ref": {
+            "path": "$.standing_envelope_ref"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "bounded_system_ref": {
+            "path": "$.bounded_system_ref"
+          },
+          "principal_ref": {
+            "path": "$.principal_ref"
+          },
+          "audience_ref": {
+            "path": "$.audience_ref"
+          },
+          "authority_scope": {
+            "path": "$.authority_scope"
+          },
+          "facet_template": {
+            "path": "$.facet_template"
+          },
+          "aggregate_bounds": {
+            "path": "$.aggregate_bounds"
+          },
+          "not_before_ms": {
+            "path": "$.not_before_ms"
+          },
+          "expires_at_ms": {
+            "path": "$.expires_at_ms"
+          },
+          "revocation_epoch": {
+            "path": "$.revocation_epoch"
+          },
+          "trajectory_policy_ref": {
+            "path": "$.trajectory_policy_ref"
+          },
+          "trajectory_policy_hash": {
+            "path": "$.trajectory_policy_hash"
+          },
+          "approval_mode": {
+            "path": "$.approval_mode"
+          },
+          "recovery_posture": {
+            "path": "$.recovery_posture"
+          }
+        },
+        "expected_path": "$.body_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "standing_authority_envelope.validity.non_empty",
+      "description": "A standing envelope has a non-empty validity interval.",
+      "expression": {
+        "operator": "numbers_lt",
+        "paths": [
+          "$.not_before_ms",
+          "$.expires_at_ms"
+        ]
+      }
+    },
+    {
+      "rule_id": "standing_authority_envelope.per_operation_deposit.within_aggregate",
+      "description": "One operation cannot reserve more deposit than the whole envelope permits.",
+      "expression": {
+        "operator": "numbers_lte",
+        "paths": [
+          "$.facet_template.per_operation_deposit_microusd",
+          "$.aggregate_bounds.max_cumulative_deposit_microusd"
+        ]
+      }
+    },
+    {
+      "rule_id": "standing_authority_envelope.spend.within_deposit",
+      "description": "The maximum reconciled spend cannot exceed the maximum deposit authority.",
+      "expression": {
+        "operator": "numbers_lte",
+        "paths": [
+          "$.aggregate_bounds.max_cumulative_spend_microusd",
+          "$.aggregate_bounds.max_cumulative_deposit_microusd"
+        ]
+      }
+    }
+  ],
   "schema://ioi/foundations/authority-trajectory-state/v1": [],
   "schema://ioi/foundations/trajectory-admission-decision/v1": [],
   "schema://ioi/foundations/authority-key-set/v1": [
@@ -87382,6 +87828,12 @@ export function validateAuthorityGrantEnvelopeV2(
   value: unknown,
 ): value is AuthorityGrantEnvelopeV2 {
   return validateArchitectureContract("schema://ioi/foundations/authority-grant-envelope/v2", value).ok;
+}
+
+export function validateStandingAuthorityEnvelopeV1(
+  value: unknown,
+): value is StandingAuthorityEnvelopeV1 {
+  return validateArchitectureContract("schema://ioi/foundations/standing-authority-envelope/v1", value).ok;
 }
 
 export function validateAuthorityTrajectoryStateV1(
