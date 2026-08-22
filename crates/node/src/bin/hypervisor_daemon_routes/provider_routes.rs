@@ -5812,6 +5812,9 @@ impl EnvironmentProvider for AkashProvider {
                                 "bytes": bytes.len(),
                                 "body_base64": base64::engine::general_purpose::STANDARD.encode(&bytes),
                             });
+                            if name == "status" {
+                                validate_akash_result_status(&dep, &value["value"])?;
+                            }
                             bundle.insert(name.into(), value);
                         }
                         Ok::<Value, &'static str>(Value::Object(bundle))
@@ -7897,6 +7900,20 @@ fn validate_akash_result_contract(plan: &Value, sdl: &str) -> Result<(), &'stati
     Ok(())
 }
 
+fn validate_akash_result_status(dep: &Value, status: &Value) -> Result<(), &'static str> {
+    if status.get("campaign_id").and_then(Value::as_str) != Some(text(dep, "campaign_id")) {
+        return Err("akash_result_campaign_identity_mismatch");
+    }
+    match status.get("state").and_then(Value::as_str) {
+        Some("complete") => Ok(()),
+        Some("failed") => Err("akash_workload_campaign_failed"),
+        Some("starting" | "warmup" | "measuring") => {
+            Err("akash_result_endpoint_not_complete")
+        }
+        _ => Err("akash_result_status_invalid"),
+    }
+}
+
 fn validate_akash_result_bundle(dep: &Value, bundle: &Value) -> Result<(), &'static str> {
     let expected_campaign = text(dep, "campaign_id");
     let expected_source_commit = text(dep, "benchmark_source_commit");
@@ -9873,6 +9890,48 @@ env:
         assert_eq!(
             validate_akash_result_bundle(&dep, &tampered),
             Err("akash_result_manifest_hash_mismatch")
+        );
+    }
+
+    #[test]
+    fn akash_result_status_distinguishes_incomplete_failed_and_complete_campaigns() {
+        let dep = json!({"campaign_id": "u1-campaign-a"});
+        for state in ["starting", "warmup", "measuring"] {
+            assert_eq!(
+                validate_akash_result_status(
+                    &dep,
+                    &json!({"campaign_id": "u1-campaign-a", "state": state}),
+                ),
+                Err("akash_result_endpoint_not_complete")
+            );
+        }
+        assert_eq!(
+            validate_akash_result_status(
+                &dep,
+                &json!({"campaign_id": "u1-campaign-a", "state": "failed"}),
+            ),
+            Err("akash_workload_campaign_failed")
+        );
+        assert_eq!(
+            validate_akash_result_status(
+                &dep,
+                &json!({"campaign_id": "u1-campaign-a", "state": "complete"}),
+            ),
+            Ok(())
+        );
+        assert_eq!(
+            validate_akash_result_status(
+                &dep,
+                &json!({"campaign_id": "u1-campaign-b", "state": "complete"}),
+            ),
+            Err("akash_result_campaign_identity_mismatch")
+        );
+        assert_eq!(
+            validate_akash_result_status(
+                &dep,
+                &json!({"campaign_id": "u1-campaign-a", "state": "unknown"}),
+            ),
+            Err("akash_result_status_invalid")
         );
     }
 
