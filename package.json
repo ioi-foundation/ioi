@@ -52,6 +52,7 @@
     "mutate:secret-custody-profile": "node scripts/check-secret-custody-profile.mjs --mutation",
     "check:standing-authority": "node scripts/check-standing-authority.mjs",
     "mutate:standing-authority": "node scripts/check-standing-authority.mjs --mutation",
+    "test:authority-trajectory-admission": "node --test apps/hypervisor/scripts/lib/authority-trajectory-admission.test.mjs",
     "check:ioi-ai-vendor": "node scripts/generate-ioi-ai-vendor-manifest.mjs --check",
     "smoke:implementation-daemon": "node scripts/smoke-implementation-daemon.mjs",
     "smoke:package-registry": "node scripts/smoke-package-registry.mjs",
