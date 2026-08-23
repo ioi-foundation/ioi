@@ -81,6 +81,7 @@ export function captureCertifiedDaemonSourceBasis({
     source_commit: sourceCommit,
     source_tree: sourceTree,
     source_dirty_state: "clean",
+    publication_eligible: true,
     clean_scope: "tracked_files_and_index_with_explicit_non_build_untracked_exclusions",
     excluded_untracked: excludedUntracked,
     build_command: buildCommand.join(" "),
@@ -88,4 +89,22 @@ export function captureCertifiedDaemonSourceBasis({
     daemon_binary_sha256: sha256(daemonBytes),
     daemon_binary_size_bytes: daemonBytes.length,
   };
+}
+
+export function normalizeCertifiedSourceBasisForLifecycle(document) {
+  const source = document?.schema_version === "ioi.hypervisor.certified-daemon-source-basis.v1"
+    ? {
+        commit: document.source_commit,
+        daemon_binary_sha256: document.daemon_binary_sha256,
+        dirty_state_declaration: document.source_dirty_state,
+        publication_eligible: document.publication_eligible,
+      }
+    : document?.source || null;
+  if (!source?.commit
+      || !source?.daemon_binary_sha256
+      || typeof source?.dirty_state_declaration !== "string"
+      || typeof source?.publication_eligible !== "boolean") {
+    throw new Error("source-basis certificate lacks commit, binary hash, dirty-state declaration, or publication posture");
+  }
+  return source;
 }

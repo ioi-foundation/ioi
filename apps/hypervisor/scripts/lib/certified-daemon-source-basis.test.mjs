@@ -6,7 +6,10 @@ import test from "node:test";
 import { tmpdir } from "node:os";
 import { mkdtempSync } from "node:fs";
 
-import { captureCertifiedDaemonSourceBasis } from "./certified-daemon-source-basis.mjs";
+import {
+  captureCertifiedDaemonSourceBasis,
+  normalizeCertifiedSourceBasisForLifecycle,
+} from "./certified-daemon-source-basis.mjs";
 
 const command = (cwd, executable, args) => {
   const result = spawnSync(executable, args, { cwd, encoding: "utf8" });
@@ -36,6 +39,7 @@ test("captures a committed tree and fingerprints the one explicit non-build excl
   assert.match(basis.source_commit, /^[0-9a-f]{40}$/u);
   assert.match(basis.source_tree, /^[0-9a-f]{40}$/u);
   assert.equal(basis.source_dirty_state, "clean");
+  assert.equal(basis.publication_eligible, true);
   assert.deepEqual(basis.excluded_untracked.map((entry) => entry.path), ["0"]);
   assert.equal(basis.excluded_untracked[0].size_bytes, 0);
   assert.match(basis.daemon_binary_sha256, /^sha256:[0-9a-f]{64}$/u);
@@ -54,5 +58,24 @@ test("refuses tracked mutations and unexpected untracked paths", () => {
   assert.throws(
     () => captureCertifiedDaemonSourceBasis({ repo: untracked.repo, binaryPath: untracked.binary, build: false }),
     /unexpected untracked paths/u,
+  );
+});
+
+test("maps only complete certified or legacy source evidence into lifecycle assembly", () => {
+  const certified = normalizeCertifiedSourceBasisForLifecycle({
+    schema_version: "ioi.hypervisor.certified-daemon-source-basis.v1",
+    source_commit: "a".repeat(40),
+    source_dirty_state: "clean",
+    publication_eligible: true,
+    daemon_binary_sha256: `sha256:${"b".repeat(64)}`,
+  });
+  assert.equal(certified.commit, "a".repeat(40));
+  assert.equal(certified.publication_eligible, true);
+
+  const legacy = normalizeCertifiedSourceBasisForLifecycle({ source: certified });
+  assert.deepEqual(legacy, certified);
+  assert.throws(
+    () => normalizeCertifiedSourceBasisForLifecycle({ source: { ...certified, publication_eligible: null } }),
+    /publication posture/u,
   );
 });

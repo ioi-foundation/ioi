@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
+import { normalizeCertifiedSourceBasisForLifecycle } from "./lib/certified-daemon-source-basis.mjs";
 
 const arg = (name) => { const i = process.argv.indexOf(name); return i >= 0 ? process.argv[i + 1] : null; };
 const artifacts = path.resolve(arg("--artifacts") || "");
@@ -75,16 +76,12 @@ const imageRef = sdlImageRef(rawSdl);
 const reviewedFacets = structuredClone(facets);
 delete reviewedFacets.sdl_yaml;
 const negativeReceipt = receipts.find((record) => record.receipt_ref === challenge.receipt_ref);
-const historicalSource = historicalSourcePath
-  ? JSON.parse(fs.readFileSync(path.resolve(historicalSourcePath), "utf8")).source
+const sourceBasisDocument = historicalSourcePath
+  ? JSON.parse(fs.readFileSync(path.resolve(historicalSourcePath), "utf8"))
   : null;
-if (historicalSourcePath && (
-  !historicalSource?.commit
-  || !historicalSource?.daemon_binary_sha256
-  || typeof historicalSource?.dirty_state_declaration !== "string"
-)) {
-  throw new Error("historical source-basis certificate lacks commit, binary hash, or dirty-state declaration");
-}
+const historicalSource = historicalSourcePath
+  ? normalizeCertifiedSourceBasisForLifecycle(sourceBasisDocument)
+  : null;
 const status = historicalSource
   ? historicalSource.dirty_state_declaration
   : execFileSync("git", ["status", "--short"], { cwd: repo, encoding: "utf8" }).trim();
@@ -111,7 +108,11 @@ if (workloadResultRetrieved && (
   throw new Error("workload-result outcome does not extend the exact create intent/outcome chain");
 }
 const immutableImage = /@sha256:[0-9a-f]{64}$/u.test(imageRef);
-const publicationEligible = historicalSource === null && (status || "clean") === "clean" && immutableImage;
+const publicationEligible = historicalSource
+  ? historicalSource.publication_eligible === true
+    && historicalSource.dirty_state_declaration === "clean"
+    && immutableImage
+  : (status || "clean") === "clean" && immutableImage;
 
 const evidence = {
   ok: cast.ok === true && start.ok === true && logs.ok === true && settlement.provider_terminal === true,
