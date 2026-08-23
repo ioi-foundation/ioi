@@ -732,6 +732,21 @@ export async function startRealWalletNetworkPrincipalAuthorityFixture({
     }
     return response;
   }
+
+  async function readChainTimestampMs() {
+    const response = await runCommand({
+      schema_version: 1,
+      operation: "read_chain_timestamp",
+      // Fixture commands retain one closed request schema. This read does not
+      // resolve or exercise principal authority, but the field remains
+      // explicit so a future schema split cannot accidentally infer one.
+      principal_ref: "fixture://wallet-network/chain-clock",
+    });
+    if (!Number.isSafeInteger(response.chain_timestamp_ms) || response.chain_timestamp_ms < 1) {
+      throw new Error("wallet.network fixture returned an invalid current chain timestamp");
+    }
+    return response.chain_timestamp_ms;
+  }
   return {
     resourceDir: fixtureDir,
     processGroupId,
@@ -805,6 +820,7 @@ export async function startRealWalletNetworkPrincipalAuthorityFixture({
     },
     recordApproval,
     recordStandingApprovalGrant,
+    readChainTimestampMs,
     revokeStandingApprovalGrant,
     revokePrincipalAuthority,
     stop({ preserveResourceDir = false } = {}) {

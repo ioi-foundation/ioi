@@ -22,7 +22,7 @@ const reviewReceiptHash = hash();
 let fixture;
 try {
   fixture = await startRealWalletNetworkPrincipalAuthorityFixture();
-  const now = fixture.chainTimestampMs;
+  const now = await fixture.readChainTimestampMs();
   const envelope = sealStandingAuthorityEnvelope({
     schema_version: "ioi.foundations.standing-authority-envelope.v1",
     standing_envelope_ref: `standing-envelope://wallet-broker/${marker}`,

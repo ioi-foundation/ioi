@@ -308,7 +308,12 @@ try {
     let admitted;
     if (config.standing_authority?.enabled === true) {
       const standing = config.standing_authority;
-      const now = Date.now();
+      // wallet.network validates portable authority against the committed
+      // chain timestamp, not the host wall clock. A debug AFT fixture may lag
+      // wall time by several seconds while it commits its setup blocks. Read
+      // the current chain clock immediately before the ceremony so a real
+      // WebAuthn receipt and the signed grant share the wallet's clock domain.
+      const now = await fixture.readChainTimestampMs();
       const envelope = sealStandingAuthorityEnvelope({
         schema_version: "ioi.foundations.standing-authority-envelope.v1",
         standing_envelope_ref: standing.standing_envelope_ref,

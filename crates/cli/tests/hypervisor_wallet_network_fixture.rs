@@ -195,6 +195,8 @@ struct FixtureCommandResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     standing_grant_status: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    chain_timestamp_ms: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     error: Option<String>,
 }
 
@@ -206,6 +208,7 @@ enum FixtureCommandResult {
         standing_envelope_hash: [u8; 32],
     },
     StandingRevoked([u8; 32]),
+    ChainTimestamp(u64),
 }
 
 fn keypair(seed: &[u8; 32]) -> Result<Ed25519KeyPair> {
@@ -1275,6 +1278,11 @@ async fn process_fixture_commands(
                             .await
                             .map(FixtureCommandResult::StandingRevoked)
                     }
+                    "read_chain_timestamp" => {
+                        get_chain_timestamp(rpc_addr).await.map(|timestamp| {
+                            FixtureCommandResult::ChainTimestamp(timestamp.saturating_mul(1_000))
+                        })
+                    }
                     operation => Err(anyhow!(
                         "unsupported fixture command operation '{operation}'"
                     )),
@@ -1289,6 +1297,7 @@ async fn process_fixture_commands(
             standing_grant_hash,
             standing_envelope_hash,
             standing_grant_status,
+            chain_timestamp_ms,
             error,
         ) = match result {
             Ok(FixtureCommandResult::Approval(request_hash)) => (
@@ -1299,9 +1308,10 @@ async fn process_fixture_commands(
                 None,
                 None,
                 None,
+                None,
             ),
             Ok(FixtureCommandResult::Revocation(binding_ref)) => {
-                (true, None, Some(binding_ref), None, None, None, None)
+                (true, None, Some(binding_ref), None, None, None, None, None)
             }
             Ok(FixtureCommandResult::StandingRecorded {
                 grant_hash,
@@ -1314,6 +1324,7 @@ async fn process_fixture_commands(
                 Some(hex::encode(standing_envelope_hash)),
                 Some("active".to_string()),
                 None,
+                None,
             ),
             Ok(FixtureCommandResult::StandingRevoked(grant_hash)) => (
                 true,
@@ -1323,11 +1334,16 @@ async fn process_fixture_commands(
                 None,
                 Some("revoked".to_string()),
                 None,
+                None,
             ),
+            Ok(FixtureCommandResult::ChainTimestamp(timestamp_ms)) => {
+                (true, None, None, None, None, None, Some(timestamp_ms), None)
+            }
             Err(error) => {
                 let text = format!("{error:#}");
                 (
                     false,
+                    None,
                     None,
                     None,
                     None,
@@ -1348,6 +1364,7 @@ async fn process_fixture_commands(
                 standing_grant_hash,
                 standing_envelope_hash,
                 standing_grant_status,
+                chain_timestamp_ms,
                 error,
             },
         )?;
