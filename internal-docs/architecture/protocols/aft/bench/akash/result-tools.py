@@ -191,25 +191,22 @@ def percentile(values: list[float], quantile: float) -> float:
     return ordered[lower] * (1 - fraction) + ordered[upper] * fraction
 
 
-def exact_bootstrap_median_interval(values: list[float]) -> dict[str, object] | None:
-    # The protocol fixes five measured passes. Enumerating 5^5 resamples makes
-    # this deterministic and avoids publishing a seed-dependent interval.
-    if len(values) < 5 or len(values) > 7:
-        return None
+def exact_bootstrap_median_interval(values: list[float]) -> list[float]:
+    # RES-P4.3 fixes five measured passes. Enumerating 5^5 resamples makes this
+    # deterministic and avoids publishing a seed-dependent interval. Keeping
+    # the small generic range makes direct aggregate tests schema-compatible.
+    if len(values) < 2 or len(values) > 7:
+        raise ValueError("exact bootstrap median requires between two and seven values")
     medians = [statistics.median(sample) for sample in itertools.product(values, repeat=len(values))]
-    return {
-        "confidence": 0.95,
-        "lower": percentile(medians, 0.025),
-        "upper": percentile(medians, 0.975),
-        "method": "exact_bootstrap_median",
-        "resamples": len(medians),
-    }
+    return [percentile(medians, 0.025), percentile(medians, 0.975)]
 
 
 def summarize_metric(values: list[float], threshold: float) -> dict[str, object]:
     median = statistics.median(values)
     mean = statistics.fmean(values)
     spread = relative_spread(values)
+    if not math.isfinite(spread):
+        raise ValueError("relative spread is undefined for a zero median with nonidentical values")
     mad = statistics.median(abs(value - median) for value in values)
     coefficient_of_variation = (
         statistics.stdev(values) / mean
@@ -217,7 +214,7 @@ def summarize_metric(values: list[float], threshold: float) -> dict[str, object]
         else (0.0 if max(values) == min(values) else math.inf)
     )
     return {
-        "count": len(values),
+        "values": values,
         "min": min(values),
         "median": median,
         "max": max(values),

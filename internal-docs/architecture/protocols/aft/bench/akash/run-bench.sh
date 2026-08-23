@@ -18,8 +18,8 @@ RESULT_TLS_KEY="${AFT_RESULT_TLS_KEY:-/etc/ioi-aft-result/tls.key}"
 case "$WARMUPS:$REPEATS" in
   *[!0-9:]*|:*|*:) echo "warmups and repeats must be integers" >&2; exit 2 ;;
 esac
-if (( WARMUPS < 1 || REPEATS < 2 )); then
-  echo "campaign requires at least one warmup and two measured passes" >&2
+if (( WARMUPS != 1 || REPEATS != 5 )); then
+  echo "RES-P4.3 v2 requires exactly one warmup and five measured passes" >&2
   exit 2
 fi
 

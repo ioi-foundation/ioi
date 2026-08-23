@@ -113,7 +113,7 @@ class ResultToolsTests(unittest.TestCase):
                 "AFT_TEST_RELEASE": str(root / "release"),
                 "AFT_TEST_STARTED": str(root / "started"),
                 "AFT_BENCH_WARMUPS": "1",
-                "AFT_BENCH_REPEATS": "2",
+                "AFT_BENCH_REPEATS": "5",
             }
             process = subprocess.Popen(
                 [str(RUNNER)],
@@ -318,10 +318,18 @@ class ResultToolsTests(unittest.TestCase):
             aggregate = self.write_campaign(root, "campaign-1", (1.0, 1.01, 1.02, 1.03, 1.04))
             self.assertEqual(aggregate["verdict"], "reproduced_within_threshold")
             metric = aggregate["summaries"][0]["metrics"]["sustained_tps"]
-            self.assertEqual(metric["count"], 5)
+            self.assertEqual(metric["values"], [900.0, 909.0, 918.0, 927.0, 936.0])
             self.assertIn("median_absolute_deviation", metric)
             self.assertIn("coefficient_of_variation", metric)
-            self.assertEqual(metric["bootstrap_median_95"]["resamples"], 3125)
+            self.assertEqual(len(metric["bootstrap_median_95"]), 2)
+            self.assertEqual(
+                set(metric),
+                {
+                    "values", "min", "median", "max", "median_absolute_deviation",
+                    "coefficient_of_variation", "bootstrap_median_95", "relative_spread",
+                    "threshold", "within_threshold",
+                },
+            )
 
     def test_aggregate_rejects_wrong_campaign_identity(self):
         with tempfile.TemporaryDirectory() as directory:
