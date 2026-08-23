@@ -23,6 +23,8 @@ function analyze(text, routerText) {
   requireText("provider_operation_proposal.consumed", "durable_consumption_absent");
   requireText("principal_ref", "principal_binding_absent");
   requireText("session_binding", "session_binding_absent");
+  requireText("proposal_idempotency_key", "proposal_idempotency_namespace_absent");
+  requireText("operation_idempotency_key", "approved_operation_binding_absent");
   requireText("request_hash", "request_binding_absent");
   requireText("resource_refs", "resource_binding_absent");
   requireText("expires_at_unix", "expiry_binding_absent");
@@ -62,6 +64,11 @@ assert(
   "unsafe_mutation_test_not_executed",
   "the inline/tamper/session refusal test did not run",
 );
+assert(
+  (tests.stdout || "").includes("fresh_proposal_admission_does_not_change_the_approved_operation_key"),
+  "proposal_operation_idempotency_separation_test_not_executed",
+  "the fresh proposal admission / stable approved operation key test did not run",
+);
 
 if (failures.length) {
   console.error(JSON.stringify({ ok: false, schema_version: "ioi.check.provider-proposal-provenance.v1", failures }, null, 2));
@@ -70,7 +77,7 @@ if (failures.length) {
 console.log(JSON.stringify({
   ok: true,
   schema_version: "ioi.check.provider-proposal-provenance.v1",
-  assertions: 19,
+  assertions: 22,
   mutation_probe: "old literal-only admission detected",
-  tests: "daemon-issued admission/consume, replay, inline, tamper and session substitution",
+  tests: "daemon-issued admission/consume, replay, inline, tamper, session substitution and proposal/operation idempotency separation",
 }, null, 2));

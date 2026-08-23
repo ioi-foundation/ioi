@@ -7050,6 +7050,9 @@ fn canonical_provider_proposal_request(body: &Value) -> Result<Value, (StatusCod
         ));
     };
     object.remove("operation_proposal_ref");
+    // Proposal admission has its own short-lived idempotency namespace. It is transport
+    // ceremony, not part of the owner-approved provider operation or its request hash.
+    object.remove("proposal_idempotency_key");
     Ok(canonical)
 }
 
@@ -7082,6 +7085,17 @@ fn issue_provider_operation_proposal(
     session_binding: &str,
     request: &Value,
 ) -> Result<Value, (StatusCode, Json<Value>)> {
+    let proposal_idempotency_key = text(request, "proposal_idempotency_key");
+    if proposal_idempotency_key.is_empty() || proposal_idempotency_key.len() > 256 {
+        return Err((
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(json!({
+                "ok": false,
+                "code": "provider_operation_proposal_idempotency_key_required",
+                "message": "proposal issuance requires a distinct non-empty proposal_idempotency_key"
+            })),
+        ));
+    }
     let canonical = canonical_provider_proposal_request(request)?;
     let op = text(&canonical, "op");
     let provider_id = text(&canonical, "provider_id");
@@ -7097,10 +7111,15 @@ fn issue_provider_operation_proposal(
             })),
         ));
     }
-    let proposal_ref = provider_proposal_ref(&caller.owner_ref, &caller.idempotency_key);
+    let proposal_caller = super::mutation_event_foundation::WriteCaller {
+        identity: caller.identity.clone(),
+        owner_ref: caller.owner_ref.clone(),
+        idempotency_key: proposal_idempotency_key.to_owned(),
+    };
+    let proposal_ref = provider_proposal_ref(&caller.owner_ref, proposal_idempotency_key);
     let history = super::mutation_event_foundation::admitted_history_for_caller(
         data_dir,
-        caller,
+        &proposal_caller,
         PROVIDER_PROPOSAL_NAMESPACE,
         PROVIDER_PROPOSAL_KIND,
         &proposal_ref,
@@ -7148,6 +7167,7 @@ fn issue_provider_operation_proposal(
         "principal_ref": caller.identity.principal_ref,
         "session_binding": session_binding,
         "owner_ref": caller.owner_ref,
+        "operation_idempotency_key": caller.idempotency_key,
         "request_hash": request_hash,
         "provider_id": provider_id,
         "operation_kind": op,
@@ -7160,7 +7180,7 @@ fn issue_provider_operation_proposal(
     });
     let commit = super::mutation_event_foundation::admit_owner_scoped_write(
         data_dir,
-        caller,
+        &proposal_caller,
         PROVIDER_PROPOSAL_NAMESPACE,
         PROVIDER_PROPOSAL_KIND,
         &proposal_ref,
@@ -7193,11 +7213,10 @@ fn consume_provider_operation_proposal(
             "a live provider effect requires an opaque daemon-issued operation_proposal_ref",
         ));
     }
-    let expected_ref = provider_proposal_ref(&caller.owner_ref, &caller.idempotency_key);
-    if supplied_ref != expected_ref {
+    if !supplied_ref.starts_with("provider-operation-proposal://") {
         return Err(provider_proposal_refusal(
             "provider_operation_proposal_ref_substitution",
-            "the proposal reference is not the one bound to this owner and idempotency key",
+            "the proposal reference is not a daemon-issued provider proposal reference",
         ));
     }
     let history = super::mutation_event_foundation::admitted_history_for_caller(
@@ -7224,6 +7243,12 @@ fn consume_provider_operation_proposal(
         return Err(provider_proposal_refusal(
             "provider_operation_proposal_principal_mismatch",
             "the proposal belongs to another authenticated principal",
+        ));
+    }
+    if text(proposal, "operation_idempotency_key") != caller.idempotency_key {
+        return Err(provider_proposal_refusal(
+            "provider_operation_proposal_ref_substitution",
+            "the proposal belongs to a different owner-approved provider operation",
         ));
     }
     if text(proposal, "session_binding") != session_binding {
@@ -10013,6 +10038,7 @@ mod containment_tests {
             "environment_ref": "env-one",
             "owner_ref": "org://one",
             "idempotency_key": "proposal-one",
+            "proposal_idempotency_key": "proposal-admission-one",
             "candidate_ref": "provider-candidate:akash/1",
             "max_hourly_usd": 0.4,
             "plan": { "deposit_usd": 1.0, "sdl_hash": "sha256:one" },
@@ -10422,6 +10448,9 @@ env:
         let issued = issue_provider_operation_proposal(data_dir, &caller, "session:one", &request)
             .expect("daemon issuance admits");
         let mut cast = request;
+        cast.as_object_mut()
+            .unwrap()
+            .remove("proposal_idempotency_key");
         cast["operation_proposal_ref"] = issued["proposal_ref"].clone();
         let consumed = consume_provider_operation_proposal(data_dir, &caller, "session:one", &cast)
             .expect("the exact request consumes once");
@@ -10459,6 +10488,9 @@ env:
         let issued = issue_provider_operation_proposal(data_dir, &caller, "session:one", &request)
             .expect("daemon issuance admits");
         let mut cast = request.clone();
+        cast.as_object_mut()
+            .unwrap()
+            .remove("proposal_idempotency_key");
         cast["operation_proposal_ref"] = issued["proposal_ref"].clone();
         let (_, Json(session_refusal)) =
             consume_provider_operation_proposal(data_dir, &caller, "session:other", &cast)
@@ -10476,6 +10508,37 @@ env:
             text(&tamper_refusal, "code"),
             "provider_operation_proposal_request_mismatch"
         );
+        super::super::substrate_store::reset_handle_for_test();
+    }
+
+    #[test]
+    fn fresh_proposal_admission_does_not_change_the_approved_operation_key() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        super::super::substrate_store::reset_handle_for_test();
+        let caller = provider_proposal_caller("user://proposal-three", "approved-operation-one");
+        let mut first = provider_proposal_request();
+        first["idempotency_key"] = json!("approved-operation-one");
+        first["proposal_idempotency_key"] = json!("proposal-attempt-one");
+        let first_issued =
+            issue_provider_operation_proposal(data_dir, &caller, "session:one", &first)
+                .expect("first proposal admits");
+
+        let mut second = first.clone();
+        second["proposal_idempotency_key"] = json!("proposal-attempt-two");
+        let second_issued =
+            issue_provider_operation_proposal(data_dir, &caller, "session:two", &second)
+                .expect("a separately prepared proposal admits under a fresh proposal key");
+        assert_ne!(first_issued["proposal_ref"], second_issued["proposal_ref"]);
+        assert_eq!(first_issued["request_hash"], second_issued["request_hash"]);
+
+        let mut cast = second;
+        cast.as_object_mut()
+            .unwrap()
+            .remove("proposal_idempotency_key");
+        cast["operation_proposal_ref"] = second_issued["proposal_ref"].clone();
+        consume_provider_operation_proposal(data_dir, &caller, "session:two", &cast)
+            .expect("fresh proposal remains bound to the unchanged approved operation key");
         super::super::substrate_store::reset_handle_for_test();
     }
 

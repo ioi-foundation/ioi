@@ -456,10 +456,17 @@ try {
       admitted = { ...request, wallet_approval_grant: grant };
     }
     save("grant.json", grant);
+    // Proposal admission is intentionally fresh and short-lived. Keep its idempotency identity
+    // separate from the durable, owner-approved provider operation key so a clean pre-effect
+    // refusal never poisons a later, separately prepared attempt.
+    const proposalRequest = {
+      ...admitted,
+      proposal_idempotency_key: `${config.idempotency_key}.proposal.${randomHex32()}`,
+    };
     const proposalResponse = await fetch(`${daemonUrl}/v1/hypervisor/provider-operation-proposals`, {
       method: "POST",
       headers: headers(session),
-      body: JSON.stringify(admitted),
+      body: JSON.stringify(proposalRequest),
     });
     const proposal = await proposalResponse.json();
     save("proposal.json", proposal);
