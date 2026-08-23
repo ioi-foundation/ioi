@@ -322,17 +322,75 @@ pub fn parse_pinned_qualified_bid(
     ceiling_denom: &str,
     ceiling_amount: f64,
 ) -> Option<AkashBid> {
-    let bids = bid_entries(resp)?;
+    let evidence = pinned_bid_qualification_evidence(resp, provider, ceiling_denom, ceiling_amount);
+    if evidence.get("status").and_then(Value::as_str) != Some("qualified") {
+        return None;
+    }
+    let bid = evidence.get("selected_bid")?;
+    Some(AkashBid {
+        gseq: bid.get("gseq").and_then(Value::as_i64)?,
+        oseq: bid.get("oseq").and_then(Value::as_i64)?,
+        provider: bid.get("provider").and_then(Value::as_str)?.to_string(),
+    })
+}
+
+/// Redacted provider-native evidence explaining why one exact provider bid did or did not satisfy
+/// the approved denomination and ceiling. The owner address and API credential are intentionally
+/// excluded; the caller may bind the raw response independently by hash.
+pub fn pinned_bid_qualification_evidence(
+    resp: &Value,
+    provider: &str,
+    ceiling_denom: &str,
+    ceiling_amount: f64,
+) -> Value {
+    let Some(bids) = bid_entries(resp) else {
+        return json!({
+            "schema_version": "ioi.akash.pinned-bid-qualification-evidence.v1",
+            "status": "response_shape_invalid",
+            "total_bid_count": 0,
+            "exact_provider_bid_count": 0,
+            "approved_ceiling": { "denom": ceiling_denom, "amount": ceiling_amount },
+        });
+    };
+    let mut exact_provider_bid_count = 0_u64;
     for entry in bids {
-        let id = entry.pointer("/bid/id")?;
+        let Some(id) = entry.pointer("/bid/id") else {
+            continue;
+        };
         if id.get("provider").and_then(Value::as_str) != Some(provider) {
             continue;
         }
-        let price = entry.pointer("/bid/price")?;
+        exact_provider_bid_count = exact_provider_bid_count.saturating_add(1);
+        let selected_bid = json!({
+            "gseq": id.get("gseq").cloned().unwrap_or(Value::Null),
+            "oseq": id.get("oseq").cloned().unwrap_or(Value::Null),
+            "provider": provider,
+            "state": entry.pointer("/bid/state").cloned().unwrap_or(Value::Null),
+        });
+        let Some(price) = entry.pointer("/bid/price") else {
+            return json!({
+                "schema_version": "ioi.akash.pinned-bid-qualification-evidence.v1",
+                "status": "price_missing",
+                "total_bid_count": bids.len(),
+                "exact_provider_bid_count": exact_provider_bid_count,
+                "selected_bid": selected_bid,
+                "approved_ceiling": { "denom": ceiling_denom, "amount": ceiling_amount },
+            });
+        };
+        let observed_denom = price.get("denom").and_then(Value::as_str);
+        let observed_amount_raw = price.get("amount").cloned().unwrap_or(Value::Null);
         if price.get("denom").and_then(Value::as_str) != Some(ceiling_denom) {
-            return None;
+            return json!({
+                "schema_version": "ioi.akash.pinned-bid-qualification-evidence.v1",
+                "status": "denomination_mismatch",
+                "total_bid_count": bids.len(),
+                "exact_provider_bid_count": exact_provider_bid_count,
+                "selected_bid": selected_bid,
+                "observed_price": { "denom": observed_denom, "amount": observed_amount_raw },
+                "approved_ceiling": { "denom": ceiling_denom, "amount": ceiling_amount },
+            });
         }
-        let amount = price
+        let Some(amount) = price
             .get("amount")
             .and_then(|value| {
                 value
@@ -340,17 +398,46 @@ pub fn parse_pinned_qualified_bid(
                     .and_then(|raw| raw.parse::<f64>().ok())
                     .or_else(|| value.as_f64())
             })
-            .filter(|amount| amount.is_finite() && *amount >= 0.0)?;
+            .filter(|amount| amount.is_finite() && *amount >= 0.0)
+        else {
+            return json!({
+                "schema_version": "ioi.akash.pinned-bid-qualification-evidence.v1",
+                "status": "price_invalid",
+                "total_bid_count": bids.len(),
+                "exact_provider_bid_count": exact_provider_bid_count,
+                "selected_bid": selected_bid,
+                "observed_price": { "denom": observed_denom, "amount": observed_amount_raw },
+                "approved_ceiling": { "denom": ceiling_denom, "amount": ceiling_amount },
+            });
+        };
         if amount > ceiling_amount {
-            return None;
+            return json!({
+                "schema_version": "ioi.akash.pinned-bid-qualification-evidence.v1",
+                "status": "above_ceiling",
+                "total_bid_count": bids.len(),
+                "exact_provider_bid_count": exact_provider_bid_count,
+                "selected_bid": selected_bid,
+                "observed_price": { "denom": observed_denom, "amount": observed_amount_raw },
+                "approved_ceiling": { "denom": ceiling_denom, "amount": ceiling_amount },
+            });
         }
-        return Some(AkashBid {
-            gseq: id.get("gseq").and_then(Value::as_i64)?,
-            oseq: id.get("oseq").and_then(Value::as_i64)?,
-            provider: provider.to_string(),
+        return json!({
+            "schema_version": "ioi.akash.pinned-bid-qualification-evidence.v1",
+            "status": "qualified",
+            "total_bid_count": bids.len(),
+            "exact_provider_bid_count": exact_provider_bid_count,
+            "selected_bid": selected_bid,
+            "observed_price": { "denom": observed_denom, "amount": observed_amount_raw },
+            "approved_ceiling": { "denom": ceiling_denom, "amount": ceiling_amount },
         });
     }
-    None
+    json!({
+        "schema_version": "ioi.akash.pinned-bid-qualification-evidence.v1",
+        "status": "exact_provider_absent",
+        "total_bid_count": bids.len(),
+        "exact_provider_bid_count": exact_provider_bid_count,
+        "approved_ceiling": { "denom": ceiling_denom, "amount": ceiling_amount },
+    })
 }
 
 /// The bid from a SPECIFIC provider address in a `getBids` response, or `None` if

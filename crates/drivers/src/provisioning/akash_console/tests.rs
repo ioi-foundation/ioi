@@ -252,6 +252,27 @@ fn pinned_qualified_bid_enforces_provider_denom_and_ceiling_together() {
 }
 
 #[test]
+fn pinned_bid_qualification_evidence_distinguishes_absent_price_and_ceiling_refusals() {
+    let bids = json!({ "data": [
+        { "bid": { "id": { "gseq": 1, "oseq": 1, "provider": "akash1other" }, "price": { "amount": "1", "denom": "uact" } } },
+        { "bid": { "id": { "gseq": 1, "oseq": 2, "provider": "akash1exact" }, "state": "open", "price": { "amount": "1001", "denom": "uact" } } }
+    ] });
+    let over = pinned_bid_qualification_evidence(&bids, "akash1exact", "uact", 1000.0);
+    assert_eq!(over["status"], "above_ceiling");
+    assert_eq!(over["total_bid_count"], 2);
+    assert_eq!(over["exact_provider_bid_count"], 1);
+    assert_eq!(over["observed_price"]["amount"], "1001");
+    assert!(over.get("owner").is_none());
+
+    let absent = pinned_bid_qualification_evidence(&bids, "akash1missing", "uact", 1000.0);
+    assert_eq!(absent["status"], "exact_provider_absent");
+    assert_eq!(absent["exact_provider_bid_count"], 0);
+
+    let wrong_denom = pinned_bid_qualification_evidence(&bids, "akash1exact", "uakt", 1001.0);
+    assert_eq!(wrong_denom["status"], "denomination_mismatch");
+}
+
+#[test]
 fn parse_deployment_state_reads_either_envelope() {
     assert_eq!(
         parse_deployment_state(&json!({ "data": { "deployment": { "state": "active" } } }))

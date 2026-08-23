@@ -5328,9 +5328,44 @@ impl AkashProvider {
                     // 2. poll bids (up to 10× at 6s). Pinned → select THAT provider's
                     //    bid (refuse if it never bids); unpinned → the cheapest.
                     let mut selected = None;
+                    let mut bid_poll_count = 0_u64;
+                    let mut last_bid_observation = json!({
+                        "schema_version": "ioi.akash.bid-poll-evidence.v1",
+                        "status": "not_polled"
+                    });
                     for _ in 0..10 {
                         let (bc, bl) = send(ac::list_bids(&api_key, &dseq)).await?;
+                        bid_poll_count = bid_poll_count.saturating_add(1);
                         if (200..300).contains(&bc) {
+                            let mut observation = if pinned_provider.is_empty() {
+                                json!({
+                                    "schema_version": "ioi.akash.marketplace-bid-observation.v1",
+                                    "status": "marketplace_polled"
+                                })
+                            } else if let Some((ceiling_amount, ceiling_denom)) = approved_ceiling {
+                                ac::pinned_bid_qualification_evidence(
+                                    &bl,
+                                    &pinned_provider,
+                                    ceiling_denom,
+                                    ceiling_amount,
+                                )
+                            } else {
+                                json!({
+                                    "schema_version": "ioi.akash.pinned-bid-qualification-evidence.v1",
+                                    "status": "approved_ceiling_absent"
+                                })
+                            };
+                            if let Some(object) = observation.as_object_mut() {
+                                object.insert("http_status".into(), json!(bc));
+                                object.insert(
+                                    "response_hash".into(),
+                                    json!(sha256_bytes(
+                                        &serde_jcs::to_vec(&bl).unwrap_or_default()
+                                    )),
+                                );
+                                object.insert("poll_index".into(), json!(bid_poll_count));
+                            }
+                            last_bid_observation = observation;
                             let picked = if pinned_provider.is_empty() {
                                 if let Some((ceiling_amount, ceiling_denom)) = approved_ceiling {
                                     ac::parse_cheapest_qualified_bid(
@@ -5355,6 +5390,16 @@ impl AkashProvider {
                                 selected = Some(b);
                                 break;
                             }
+                        } else {
+                            last_bid_observation = json!({
+                                "schema_version": "ioi.akash.bid-poll-evidence.v1",
+                                "status": "http_refused",
+                                "http_status": bc,
+                                "poll_index": bid_poll_count,
+                                "response_hash": sha256_bytes(
+                                    &serde_jcs::to_vec(&bl).unwrap_or_default()
+                                )
+                            });
                         }
                         tokio::time::sleep(std::time::Duration::from_secs(6)).await;
                     }
@@ -5365,8 +5410,18 @@ impl AkashProvider {
                             "akash_no_qualified_bid — no provider bid within the polling window"
                                 .to_string()
                         } else {
-                            format!("akash_pinned_provider_no_qualified_bid — the wallet-approved provider '{pinned_provider}' returned no bid in the exact approved denomination and ceiling within the polling window")
+                            match text(&last_bid_observation, "status") {
+                                "above_ceiling" => format!("akash_pinned_provider_bid_above_ceiling — the wallet-approved provider '{pinned_provider}' bid above the exact approved ceiling"),
+                                "denomination_mismatch" => format!("akash_pinned_provider_bid_denomination_mismatch — the wallet-approved provider '{pinned_provider}' bid in a denomination other than the exact approved denomination"),
+                                "price_missing" | "price_invalid" => format!("akash_pinned_provider_bid_price_invalid — the wallet-approved provider '{pinned_provider}' returned a bid without a valid provider-native price"),
+                                _ => format!("akash_pinned_provider_no_qualified_bid — the wallet-approved provider '{pinned_provider}' returned no bid in the exact approved denomination and ceiling within the polling window"),
+                            }
                         };
+                        intent["bid_poll_evidence"] = json!({
+                            "poll_count": bid_poll_count,
+                            "last_observation": last_bid_observation,
+                            "observed_at": iso_now(),
+                        });
                         let (close_http, close_body) =
                             send(ac::close_deployment(&api_key, &dseq)).await?;
                         intent["close_http"] = json!(close_http);
