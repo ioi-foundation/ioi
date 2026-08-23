@@ -67,9 +67,11 @@ run_campaign() (
       --output "$OUTDIR/run-${pass}.json" \
       --campaign "$CAMPAIGN" \
       --pass-number "$pass" \
-      --scenario "$SCENARIO"
+      --scenario "$SCENARIO" \
+      2>"$OUTDIR/collect-${pass}.stderr"
   done
 
+  set_status measuring "aggregating $REPEATS measured passes"
   (
     cd "$OUTDIR"
     "$TOOLS" aggregate \
@@ -77,9 +79,12 @@ run_campaign() (
       --repeats "$REPEATS" \
       --campaign "$CAMPAIGN" \
       --output-json result.json \
-      --output-markdown result.md
+      --output-markdown result.md \
+      2>aggregate.stderr
   )
+  set_status measuring "scanning campaign artifacts for secret canaries"
   "$TOOLS" scan --directory "$OUTDIR" --canaries "${IOI_SECRET_CANARIES:-}"
+  set_status measuring "sealing the campaign artifact manifest"
   "$TOOLS" manifest --directory "$OUTDIR"
   set_status complete "all measured passes validated and aggregated"
 )
@@ -114,7 +119,12 @@ set -e
 if (( code == 0 )); then
   echo "AFT campaign $CAMPAIGN completed and validated"
 else
-  set_status failed "campaign failed closed with exit code $code"
+  "$TOOLS" failure-status \
+    --directory "$OUTDIR" \
+    --campaign "$CAMPAIGN" \
+    --exit-code "$code" \
+    --canaries "${IOI_SECRET_CANARIES:-}" || \
+    set_status failed "campaign failed closed with exit code $code; bounded diagnostics unavailable"
   "$TOOLS" manifest --directory "$OUTDIR" || true
   echo "AFT campaign $CAMPAIGN failed closed; evidence remains retrievable" >&2
 fi

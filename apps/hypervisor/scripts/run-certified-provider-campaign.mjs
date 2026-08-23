@@ -595,8 +595,8 @@ try {
       proof = await postProvider(session, "logs", `logs.${attempt}`);
       save("c7-logs.json", proof.value);
       if (proof.value.ok === true && (!request.plan.result_credential_ref || proof.value.evidence?.workload_result?.retrieved_live === true)) break;
-      if (proof.value.reason === "akash_workload_campaign_failed") {
-        throw new Error("provider workload reported a terminal failed campaign");
+      if (String(proof.value.reason || "").startsWith("akash_workload_campaign_failed")) {
+        throw new Error(`provider workload reported a terminal failed campaign: ${proof.value.reason}`);
       }
       const delay = certifiedRemainingDelayMs(
         Date.now(),

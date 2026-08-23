@@ -6052,19 +6052,19 @@ impl EnvironmentProvider for AkashProvider {
                                 .bearer_auth(&token)
                                 .send()
                                 .await
-                                .map_err(|_| "akash_result_endpoint_fetch_failed")?;
+                                .map_err(|_| "akash_result_endpoint_fetch_failed".to_string())?;
                             if !response.status().is_success() {
-                                return Err("akash_result_endpoint_refused");
+                                return Err("akash_result_endpoint_refused".to_string());
                             }
                             let bytes = response
                                 .bytes()
                                 .await
-                                .map_err(|_| "akash_result_endpoint_body_failed")?;
+                                .map_err(|_| "akash_result_endpoint_body_failed".to_string())?;
                             if bytes.len() > 2 * 1024 * 1024 {
-                                return Err("akash_result_artifact_too_large");
+                                return Err("akash_result_artifact_too_large".to_string());
                             }
                             let value: Value = serde_json::from_slice(&bytes)
-                                .map_err(|_| "akash_result_artifact_invalid_json")?;
+                                .map_err(|_| "akash_result_artifact_invalid_json".to_string())?;
                             let value = json!({
                                 "value": value,
                                 "sha256": sha256_bytes(&bytes),
@@ -6076,10 +6076,9 @@ impl EnvironmentProvider for AkashProvider {
                             }
                             bundle.insert(name.into(), value);
                         }
-                        Ok::<Value, &'static str>(Value::Object(bundle))
+                        Ok::<Value, String>(Value::Object(bundle))
                     })
-                })
-                .map_err(str::to_string)?;
+                })?;
                 validate_akash_result_bundle(&dep, &bundle).map_err(str::to_string)?;
                 let result_id = format!(
                     "akresult_{}",
@@ -8210,15 +8209,34 @@ fn validate_akash_result_contract(plan: &Value, sdl: &str) -> Result<(), &'stati
     Ok(())
 }
 
-fn validate_akash_result_status(dep: &Value, status: &Value) -> Result<(), &'static str> {
+fn validate_akash_result_status(dep: &Value, status: &Value) -> Result<(), String> {
     if status.get("campaign_id").and_then(Value::as_str) != Some(text(dep, "campaign_id")) {
-        return Err("akash_result_campaign_identity_mismatch");
+        return Err("akash_result_campaign_identity_mismatch".into());
     }
     match status.get("state").and_then(Value::as_str) {
         Some("complete") => Ok(()),
-        Some("failed") => Err("akash_workload_campaign_failed"),
-        Some("starting" | "warmup" | "measuring") => Err("akash_result_endpoint_not_complete"),
-        _ => Err("akash_result_status_invalid"),
+        Some("failed") => {
+            let detail = status
+                .get("detail")
+                .and_then(Value::as_str)
+                .unwrap_or("bounded diagnostics unavailable");
+            let mut bounded = detail
+                .chars()
+                .map(|character| {
+                    if character.is_ascii_graphic() || character == ' ' {
+                        character
+                    } else {
+                        ' '
+                    }
+                })
+                .collect::<String>();
+            bounded.truncate(1_200);
+            Err(format!("akash_workload_campaign_failed: {bounded}"))
+        }
+        Some("starting" | "warmup" | "measuring") => {
+            Err("akash_result_endpoint_not_complete".into())
+        }
+        _ => Err("akash_result_status_invalid".into()),
     }
 }
 
@@ -10417,7 +10435,7 @@ env:
                     &dep,
                     &json!({"campaign_id": "u1-campaign-a", "state": state}),
                 ),
-                Err("akash_result_endpoint_not_complete")
+                Err("akash_result_endpoint_not_complete".into())
             );
         }
         assert_eq!(
@@ -10425,7 +10443,7 @@ env:
                 &dep,
                 &json!({"campaign_id": "u1-campaign-a", "state": "failed"}),
             ),
-            Err("akash_workload_campaign_failed")
+            Err("akash_workload_campaign_failed: bounded diagnostics unavailable".into())
         );
         assert_eq!(
             validate_akash_result_status(
@@ -10439,14 +10457,25 @@ env:
                 &dep,
                 &json!({"campaign_id": "u1-campaign-b", "state": "complete"}),
             ),
-            Err("akash_result_campaign_identity_mismatch")
+            Err("akash_result_campaign_identity_mismatch".into())
         );
         assert_eq!(
             validate_akash_result_status(
                 &dep,
                 &json!({"campaign_id": "u1-campaign-a", "state": "unknown"}),
             ),
-            Err("akash_result_status_invalid")
+            Err("akash_result_status_invalid".into())
+        );
+        assert_eq!(
+            validate_akash_result_status(
+                &dep,
+                &json!({
+                    "campaign_id": "u1-campaign-a",
+                    "state": "failed",
+                    "detail": "measured pass 3 of 5 failed with exit code 101: assertion failed"
+                }),
+            ),
+            Err("akash_workload_campaign_failed: measured pass 3 of 5 failed with exit code 101: assertion failed".into())
         );
     }
 

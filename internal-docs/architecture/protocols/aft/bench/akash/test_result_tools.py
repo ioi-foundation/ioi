@@ -91,6 +91,7 @@ class ResultToolsTests(unittest.TestCase):
                 "if [[ ${1:-} == --version ]]; then echo 'cargo 1.0.0-test'; exit 0; fi\n"
                 "touch \"$AFT_TEST_STARTED\"\n"
                 "while [[ ! -f \"$AFT_TEST_RELEASE\" ]]; do sleep 0.05; done\n"
+                "echo 'simulated benchmark failure after startup' >&2\n"
                 "exit 17\n"
             )
             cargo.chmod(0o755)
@@ -153,6 +154,28 @@ class ResultToolsTests(unittest.TestCase):
                         f"stdout={stdout!r}, stderr={stderr!r}"
                     )
                 self.assertEqual(status["campaign_id"], "campaign-progress")
+                Path(environment["AFT_TEST_RELEASE"]).touch()
+                deadline = time.monotonic() + 10
+                while time.monotonic() < deadline:
+                    try:
+                        request = urllib.request.Request(
+                            f"https://127.0.0.1:{port}/status",
+                            headers={"Authorization": f"Bearer {token}"},
+                        )
+                        with urllib.request.urlopen(request, timeout=1, context=context) as response:
+                            status = json.loads(response.read())
+                        if status.get("state") == "failed":
+                            break
+                    except (OSError, urllib.error.URLError):
+                        pass
+                    time.sleep(0.05)
+                self.assertEqual(status.get("state"), "failed")
+                self.assertIn("warmup 1 of 1 failed with exit code 17", status["detail"])
+                self.assertIn("simulated benchmark failure", status["detail"])
+                failure = json.loads((root / "output" / "failure.json").read_text())
+                self.assertEqual(failure["phase"], "warmup 1 of 1")
+                self.assertEqual(failure["exit_code"], 17)
+                self.assertEqual(failure["diagnostic_source"], "warmup-1.raw")
             finally:
                 Path(environment["AFT_TEST_RELEASE"]).touch()
                 time.sleep(0.2)
@@ -208,9 +231,9 @@ class ResultToolsTests(unittest.TestCase):
                 process.terminate()
                 process.wait(timeout=10)
 
-    def run_tool(self, *args, cwd=None):
+    def run_tool(self, *args, cwd=None, env=None):
         return subprocess.run(
-            [str(TOOL), *args], cwd=cwd, text=True, capture_output=True, check=False
+            [str(TOOL), *args], cwd=cwd, env=env, text=True, capture_output=True, check=False
         )
 
     def collect(self, root, raw_name, output_name, campaign, pass_number):
@@ -405,6 +428,63 @@ class ResultToolsTests(unittest.TestCase):
             )
             self.assertEqual(result.returncode, 2)
             self.assertIn("invalid campaign state", result.stderr)
+
+    def test_failure_status_names_phase_and_bounds_diagnostic(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "status.json").write_text(json.dumps({
+                "campaign_id": "campaign-1",
+                "state": "measuring",
+                "detail": "measured pass 3 of 5",
+            }))
+            (root / "run-3.raw").write_text("older\nprecise benchmark failure\n")
+            result = self.run_tool(
+                "failure-status", "--directory", str(root),
+                "--campaign", "campaign-1", "--exit-code", "101",
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            failure = json.loads((root / "failure.json").read_text())
+            status = json.loads((root / "status.json").read_text())
+            self.assertEqual(failure["phase"], "measured pass 3 of 5")
+            self.assertEqual(failure["exit_code"], 101)
+            self.assertIn("precise benchmark failure", failure["bounded_diagnostic"])
+            self.assertEqual(status["state"], "failed")
+            self.assertIn("measured pass 3 of 5 failed", status["detail"])
+
+    def test_failure_status_never_echoes_secret_canary(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "status.json").write_text(json.dumps({
+                "campaign_id": "campaign-1", "state": "warmup", "detail": "warmup 1 of 1",
+            }))
+            (root / "warmup-1.raw").write_text("seeded-secret-123\n")
+            result = self.run_tool(
+                "failure-status", "--directory", str(root),
+                "--campaign", "campaign-1", "--exit-code", "17",
+                "--canaries", "seeded-secret-123",
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            serialized = (root / "failure.json").read_text() + (root / "status.json").read_text()
+            self.assertNotIn("seeded-secret-123", serialized)
+            self.assertIn("credential-like material was detected", serialized)
+
+    def test_failure_status_never_echoes_result_bearer_token(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            token = "u1-result-secret-token-abcdefghijklmnopqrstuvwxyz"
+            (root / "status.json").write_text(json.dumps({
+                "campaign_id": "campaign-1", "state": "measuring", "detail": "measured pass 1 of 5",
+            }))
+            (root / "run-1.raw").write_text(f"request failed bearer={token}\n")
+            result = self.run_tool(
+                "failure-status", "--directory", str(root),
+                "--campaign", "campaign-1", "--exit-code", "17",
+                env={**os.environ, "AFT_RESULT_BEARER_TOKEN": token},
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            serialized = (root / "failure.json").read_text() + (root / "status.json").read_text()
+            self.assertNotIn(token, serialized)
+            self.assertIn("credential-like material was detected", serialized)
 
     def test_manifest_is_machine_readable_and_hashes_regular_artifacts(self):
         with tempfile.TemporaryDirectory() as directory:

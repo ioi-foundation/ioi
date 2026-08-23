@@ -467,6 +467,60 @@ def status(args: argparse.Namespace) -> None:
     )
 
 
+def failure_status(args: argparse.Namespace) -> None:
+    root = Path(args.directory)
+    status_path = root / "status.json"
+    current = json.loads(status_path.read_text())
+    if current.get("campaign_id") != args.campaign:
+        raise ValueError("failure status campaign identity mismatch")
+    phase = str(current.get("detail") or current.get("state") or "unknown phase")
+    candidates = sorted(
+        itertools.chain(root.glob("*.raw"), root.glob("*.stderr")),
+        key=lambda path: path.stat().st_mtime_ns,
+    )
+    source = candidates[-1] if candidates else None
+    diagnostic = "no bounded diagnostic artifact was available"
+    protected_values = [item for item in args.canaries.split(",") if item]
+    result_token = os.environ.get("AFT_RESULT_BEARER_TOKEN", "")
+    if result_token:
+        protected_values.append(result_token)
+    if source is not None:
+        with source.open("rb") as stream:
+            stream.seek(max(0, source.stat().st_size - 16_384))
+            raw = stream.read(16_384)
+        credential_assignment = re.compile(
+            rb"(?i)(authorization|bearer|password|passwd|secret|api[_-]?key|token)\s*[:=]\s*\S+"
+        )
+        if (any(value.encode() in raw for value in protected_values)
+                or credential_assignment.search(raw)):
+            diagnostic = "diagnostic omitted because credential-like material was detected"
+        else:
+            text = raw.decode("utf-8", errors="replace")
+            lines = [re.sub(r"[\x00-\x1f\x7f]+", " ", line).strip() for line in text.splitlines()]
+            diagnostic = " | ".join(line for line in lines[-12:] if line)[-1_024:]
+            if not diagnostic:
+                diagnostic = "diagnostic artifact was empty"
+    detail = f"{phase} failed with exit code {args.exit_code}: {diagnostic}"
+    failure = {
+        "schema_version": "ioi.aft.benchmark-failure.v1",
+        "campaign_id": args.campaign,
+        "phase": phase,
+        "exit_code": args.exit_code,
+        "diagnostic_source": source.name if source is not None else None,
+        "bounded_diagnostic": diagnostic,
+    }
+    write_json(root / args.output, failure)
+    write_json(
+        status_path,
+        {
+            "schema_version": "ioi.aft.benchmark-status.v1",
+            "campaign_id": args.campaign,
+            "state": "failed",
+            "detail": detail,
+        },
+    )
+
+
 def manifest(args: argparse.Namespace) -> None:
     root = Path(args.directory)
     excluded = {args.output, args.json_output, "status.json"}
@@ -621,6 +675,13 @@ def parser() -> argparse.ArgumentParser:
     for name in ("output", "campaign", "state", "detail"):
         status_parser.add_argument(f"--{name}", required=True)
     status_parser.set_defaults(function=status)
+    failure_parser = sub.add_parser("failure-status")
+    failure_parser.add_argument("--directory", required=True)
+    failure_parser.add_argument("--campaign", required=True)
+    failure_parser.add_argument("--exit-code", type=int, required=True)
+    failure_parser.add_argument("--canaries", default="")
+    failure_parser.add_argument("--output", default="failure.json")
+    failure_parser.set_defaults(function=failure_status)
     manifest_parser = sub.add_parser("manifest")
     manifest_parser.add_argument("--directory", required=True)
     manifest_parser.add_argument("--output", default="manifest.sha256")
