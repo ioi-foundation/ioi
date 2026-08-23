@@ -914,6 +914,14 @@ pub fn default_service_policies() -> BTreeMap<String, ServicePolicy> {
         "report_guardian_equivocation@v1".into(),
         MethodPermission::User,
     );
+    guardian_methods.insert(
+        "publish_aft_canonical_order_artifact_bundle@v1".into(),
+        MethodPermission::User,
+    );
+    guardian_methods.insert(
+        "publish_aft_canonical_collapse_object@v1".into(),
+        MethodPermission::User,
+    );
     map.insert(
         "guardian_registry".to_string(),
         ServicePolicy {

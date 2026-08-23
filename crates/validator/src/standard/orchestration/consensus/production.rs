@@ -102,6 +102,55 @@ fn parse_failed_tx_index(block_error: &str) -> Option<usize> {
     }
 }
 
+fn nonce_scope(tx: &ChainTransaction) -> Option<(AccountId, u64)> {
+    match tx {
+        ChainTransaction::System(tx) => Some((tx.header.account_id, tx.header.nonce)),
+        ChainTransaction::Settlement(tx) => Some((tx.header.account_id, tx.header.nonce)),
+        ChainTransaction::Application(tx) => match tx {
+            ioi_types::app::ApplicationTransaction::DeployContract { header, .. }
+            | ioi_types::app::ApplicationTransaction::CallContract { header, .. } => {
+                Some((header.account_id, header.nonce))
+            }
+        },
+        ChainTransaction::Semantic { .. } => None,
+    }
+}
+
+/// Selects at most the lowest-nonce transaction for each account before AFT's
+/// hash-ranked canonical ordering is applied. This keeps the canonical set
+/// nonce-independent; later transactions remain in the mempool for subsequent
+/// blocks instead of being reordered ahead of their state dependency.
+fn retain_nonce_heads_for_canonical_order(
+    transactions: &[ChainTransaction],
+) -> Vec<ChainTransaction> {
+    let mut account_heads = std::collections::BTreeMap::<AccountId, (u64, usize)>::new();
+    let mut retained_indices = std::collections::BTreeSet::new();
+
+    for (index, tx) in transactions.iter().enumerate() {
+        match nonce_scope(tx) {
+            Some((account_id, nonce)) => {
+                account_heads
+                    .entry(account_id)
+                    .and_modify(|head| {
+                        if nonce < head.0 {
+                            *head = (nonce, index);
+                        }
+                    })
+                    .or_insert((nonce, index));
+            }
+            None => {
+                retained_indices.insert(index);
+            }
+        }
+    }
+    retained_indices.extend(account_heads.into_values().map(|(_, index)| index));
+
+    retained_indices
+        .into_iter()
+        .map(|index| transactions[index].clone())
+        .collect()
+}
+
 pub(super) async fn emit_local_view_change<CE>(
     consensus_engine_ref: &Arc<Mutex<CE>>,
     swarm_commander: &tokio::sync::mpsc::Sender<SwarmCommand>,
@@ -1650,11 +1699,13 @@ where
                 timeout_certificate,
             };
             let ordered_txs = if matches!(aft_mode, AftSafetyMode::Asymptote) {
-                canonicalize_transactions_for_header(&header, &valid_txs)
+                let nonce_independent_txs = retain_nonce_heads_for_canonical_order(&valid_txs);
+                canonicalize_transactions_for_header(&header, &nonce_independent_txs)
                     .map_err(|e| anyhow!("failed to canonicalize AFT transaction order: {e}"))?
             } else {
                 valid_txs.clone()
             };
+            let attempted_txs = ordered_txs.clone();
             let new_block_template = Block {
                 header,
                 transactions: ordered_txs,
@@ -1791,7 +1842,7 @@ where
                     let block_error = e.to_string();
 
                     if let Some(tx_index) = parse_failed_tx_index(&block_error) {
-                        if let Some(tx) = valid_txs.get(tx_index) {
+                        if let Some(tx) = attempted_txs.get(tx_index) {
                             if let Ok(hash) = tx.hash() {
                                 let (tx_status_cache, receipt_map) = {
                                     let ctx = context_arc.lock().await;

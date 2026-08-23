@@ -50,6 +50,25 @@ fn wallet_network_policy_exposes_policy_rule_upsert() {
 }
 
 #[test]
+fn guardian_registry_policy_exposes_canonical_order_artifact_publication() {
+    let policies = default_service_policies();
+    let guardian_registry = policies
+        .get("guardian_registry")
+        .expect("guardian_registry service policy should exist");
+
+    for method in [
+        "publish_aft_canonical_order_artifact_bundle@v1",
+        "publish_aft_canonical_collapse_object@v1",
+    ] {
+        assert_eq!(
+            guardian_registry.methods.get(method),
+            Some(&MethodPermission::User),
+            "validator-signed canonical-order publication {method} must be admitted by the active service ABI",
+        );
+    }
+}
+
+#[test]
 fn stale_wallet_method_map_requires_standing_authority_migration() {
     for standing_method in [
         "record_standing_approval_grant@v1",
