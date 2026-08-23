@@ -4,6 +4,7 @@ import test from "node:test";
 import { stableStringify } from "./c7-c8-certificate.mjs";
 import { sealU1Certificate } from "./u1-campaign-certificate.mjs";
 import { validU1Fixture } from "./u1-campaign-certificate.test-fixture.mjs";
+import { qualifyU1Provider, sha256Bytes } from "./u1-provider-preflight.mjs";
 import {
   akashAddressFromPublicKey,
   cosmosAddressFromPublicKey,
@@ -60,6 +61,28 @@ function rebindMeasurementResponses(certificate) {
   certificate.lifecycle.result_binding.manifest_hash = responses.manifest.sha256;
 }
 
+function rebindProviderPreflight(certificate, providerAddress) {
+  const response = JSON.parse(
+    Buffer.from(certificate.provider_preflight_response.body_base64, "base64").toString("utf8"),
+  );
+  response.owner = providerAddress;
+  const raw = Buffer.from(JSON.stringify(response));
+  const preflight = {
+    schema_version: "ioi.aft.u1-provider-preflight.v1",
+    provider_response_sha256: sha256Bytes(raw),
+    ...qualifyU1Provider(response, providerAddress),
+  };
+  certificate.provider_preflight = preflight;
+  certificate.provider_preflight_response = {
+    bytes: raw.length,
+    sha256: preflight.provider_response_sha256,
+    body_base64: raw.toString("base64"),
+  };
+  certificate.authority.provider_preflight_sha256 = sha256Bytes(
+    Buffer.from(`${JSON.stringify(preflight, null, 2)}\n`),
+  );
+}
+
 function fixture() {
   const { publicKey, privateKey } = crypto.generateKeyPairSync("ec", { namedCurve: "secp256k1" });
   const providerAddress = akashAddressFromPublicKey(publicKey);
@@ -67,6 +90,7 @@ function fixture() {
   campaignA.authority.provider_address = providerAddress;
   campaignA.authority.provider_selector.provider_address = providerAddress;
   campaignA.provider.provider_address = providerAddress;
+  rebindProviderPreflight(campaignA, providerAddress);
   campaignA.certificate_hash = sealU1Certificate(campaignA).certificate_hash;
   const campaignB = structuredClone(campaignA);
   campaignB.authority.campaign_id = "u1-campaign-b";
