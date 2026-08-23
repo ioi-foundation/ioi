@@ -21,8 +21,9 @@ const reviewReceiptHash = hash();
 
 let fixture;
 try {
-  fixture = await startRealWalletNetworkPrincipalAuthorityFixture();
+  fixture = await startRealWalletNetworkPrincipalAuthorityFixture({ wallClockChain: true });
   const now = await fixture.readChainTimestampMs();
+  const factorWallClockMs = Date.now();
   const envelope = sealStandingAuthorityEnvelope({
     schema_version: "ioi.foundations.standing-authority-envelope.v1",
     standing_envelope_ref: `standing-envelope://wallet-broker/${marker}`,
@@ -127,7 +128,10 @@ try {
     authorization_subject: authorizationSubject,
     policy_hash: policyHash,
     effect_authority_created: false,
-    created_at: new Date(now).toISOString(),
+    // Deliberately use host wall time for the factor receipt. The wallet must
+    // validate this real ceremony clock against its independently committed
+    // chain clock without either plane weakening the freshness window.
+    created_at: new Date(factorWallClockMs).toISOString(),
   });
   const grant = fixture.mintStandingForCapability(principalRef, {
     standingEnvelopeHash: envelope.body_hash,
@@ -143,13 +147,33 @@ try {
     approvalCeremonyContextHash: contextHash,
     authFactorReceiptHash: factor.receipt_hash,
   });
-  const recorded = await fixture.recordStandingApprovalGrant(
-    principalRef,
-    grant,
-    envelope,
-    context,
-    factor,
-  );
+  let recorded;
+  try {
+    recorded = await fixture.recordStandingApprovalGrant(
+      principalRef,
+      grant,
+      envelope,
+      context,
+      factor,
+    );
+  } catch (error) {
+    const chainTimestampAfterRefusalMs = await fixture.readChainTimestampMs().catch(() => null);
+    console.error(JSON.stringify({
+      check: "check:standing-authority-broker-contract",
+      verdict: "FAIL",
+      temporal_diagnostic: {
+        chain_timestamp_before_ms: now,
+        chain_timestamp_after_refusal_ms: chainTimestampAfterRefusalMs,
+        factor_wall_clock_ms: factorWallClockMs,
+        context_issued_at: context.issued_at,
+        context_expires_at: context.expires_at,
+        grant_issued_at_ms: grant.issued_at_ms,
+        grant_expires_at_ms: grant.expires_at_ms,
+      },
+      error: String(error?.message || error).split("\n", 1)[0],
+    }, null, 2));
+    throw error;
+  }
   const revoked = await fixture.revokeStandingApprovalGrant(
     principalRef,
     recorded.standing_grant_hash,
@@ -158,6 +182,7 @@ try {
     check: "check:standing-authority-broker-contract",
     verdict: "PASS",
     factor_origin: "synthetic_contract_fixture_not_physical_passkey",
+    chain_wall_clock_skew_ms: factorWallClockMs - now,
     standing_envelope_hash: recorded.standing_envelope_hash,
     standing_grant_status: revoked.standing_grant_status,
   }, null, 2));

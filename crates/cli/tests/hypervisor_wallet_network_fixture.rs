@@ -23,7 +23,10 @@ use ioi_api::crypto::{SerializableKey, SigningKey, SigningKeyPair};
 use ioi_api::state::service_namespace_prefix;
 use ioi_cli::testing::{
     build_test_artifacts,
-    rpc::{get_chain_height, get_chain_timestamp, query_state_key},
+    rpc::{
+        get_block_by_height, get_chain_height, get_chain_timestamp, query_state_key,
+        tip_height_resilient,
+    },
     submit_transaction, wait_for_height, TestCluster,
 };
 use ioi_crypto::sign::eddsa::{Ed25519KeyPair, Ed25519PrivateKey};
@@ -44,8 +47,9 @@ use ioi_types::app::wallet_network::{
     PRINCIPAL_AUTHORITY_BINDING_SCHEMA_VERSION,
 };
 use ioi_types::app::{
-    account_id_from_key_material, AccountId, ActionTarget, ChainId, ChainTransaction, SignHeader,
-    SignatureProof, SignatureSuite, StateEntry, SystemPayload, SystemTransaction,
+    account_id_from_key_material, AccountId, ActionTarget, BlockTimingParams, BlockTimingRuntime,
+    ChainId, ChainTransaction, SignHeader, SignatureProof, SignatureSuite, StateEntry,
+    SystemPayload, SystemTransaction,
 };
 use ioi_types::codec;
 use ioi_types::config::ServicePolicy;
@@ -209,6 +213,23 @@ enum FixtureCommandResult {
     },
     StandingRevoked([u8; 32]),
     ChainTimestamp(u64),
+}
+
+async fn latest_committed_chain_timestamp_ms(rpc_addr: &str) -> Result<u64> {
+    // The compatibility status surface can retain both the synthetic parent
+    // timestamp and its height in this harness. Walk the committed block store
+    // instead; transaction execution consumes those exact headers.
+    let height = tip_height_resilient(rpc_addr).await?;
+    let block = get_block_by_height(rpc_addr, height)
+        .await?
+        .ok_or_else(|| anyhow!("wallet fixture latest committed block {height} is unavailable"))?;
+    let timestamp_ms = block.header.timestamp_ms_or_legacy();
+    if timestamp_ms == 0 {
+        return Err(anyhow!(
+            "wallet fixture latest committed block has a zero timestamp"
+        ));
+    }
+    Ok(timestamp_ms)
 }
 
 fn keypair(seed: &[u8; 32]) -> Result<Ed25519KeyPair> {
@@ -1278,11 +1299,9 @@ async fn process_fixture_commands(
                             .await
                             .map(FixtureCommandResult::StandingRevoked)
                     }
-                    "read_chain_timestamp" => {
-                        get_chain_timestamp(rpc_addr).await.map(|timestamp| {
-                            FixtureCommandResult::ChainTimestamp(timestamp.saturating_mul(1_000))
-                        })
-                    }
+                    "read_chain_timestamp" => latest_committed_chain_timestamp_ms(rpc_addr)
+                        .await
+                        .map(FixtureCommandResult::ChainTimestamp),
                     operation => Err(anyhow!(
                         "unsupported fixture command operation '{operation}'"
                     )),
@@ -1724,11 +1743,37 @@ async fn wallet_network_principal_authority_fixture() -> Result<()> {
             timestamp_ms.to_string(),
         );
     }
-    let cluster_builder = TestCluster::builder()
+    let mut cluster_builder = TestCluster::builder()
         .with_validators(1)
         .with_consensus_type("Aft")
         .with_state_tree("IAVL")
         .with_service_policy("wallet_network", wallet_policy());
+    if wall_clock_genesis_ms.is_some() {
+        // The real IAVL fixture commits a setup census before publishing
+        // readiness. Those blocks can take materially longer than the normal
+        // one-second test interval, causing deterministic chain time to fall
+        // minutes behind WebAuthn wall time. The explicit wall-clock profile
+        // therefore paces its blocks at a conservative deterministic interval
+        // instead of weakening wallet.network's 30-second freshness rule.
+        cluster_builder = cluster_builder.with_genesis_modifier(|builder, _keys| {
+            let timing_params = BlockTimingParams {
+                base_interval_secs: 15,
+                min_interval_secs: 15,
+                max_interval_secs: 15,
+                target_gas_per_block: 10_000_000,
+                base_interval_ms: 15_000,
+                min_interval_ms: 15_000,
+                max_interval_ms: 15_000,
+                ..Default::default()
+            };
+            let timing_runtime = BlockTimingRuntime {
+                effective_interval_secs: 15,
+                effective_interval_ms: 15_000,
+                ema_gas_used: 0,
+            };
+            builder.set_block_timing(&timing_params, &timing_runtime);
+        });
+    }
     let cluster = cluster_builder.build().await?;
 
     // This fixture normally stays quiet because its parent captures the cargo
@@ -1960,7 +2005,11 @@ async fn wallet_network_principal_authority_fixture() -> Result<()> {
         std::fs::create_dir_all(&commands_dir)?;
         let transaction_lock_path = fixture_dir.join("hypervisor-wallet-transactions.lock");
         std::fs::File::open(&fixture_dir)?.sync_all()?;
-        let chain_timestamp_ms = get_chain_timestamp(&rpc_addr).await?.saturating_mul(1_000);
+        // `GetStatus.latest_timestamp` is a legacy compatibility field and can
+        // remain at the synthetic parent timestamp in this harness. Bind the
+        // fixture manifest to the actual latest committed header—the clock
+        // TxContext exposes to wallet.network validity checks.
+        let chain_timestamp_ms = latest_committed_chain_timestamp_ms(&rpc_addr).await?;
         let manifest = serde_json::json!({
             "rpc_addr": rpc_addr,
             "chain_id": chain_id.0,
