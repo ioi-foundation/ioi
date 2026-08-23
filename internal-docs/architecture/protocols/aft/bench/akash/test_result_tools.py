@@ -245,6 +245,22 @@ class ResultToolsTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(json.loads((root / "run.json").read_text())["row_count"], 10)
 
+    def test_collect_accepts_and_normalizes_real_rust_mode_names(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            rust_output = table().replace(
+                "| guardian_majority |", "| GuardianMajority |"
+            ).replace("| asymptote |", "| Asymptote |")
+            (root / "run.raw").write_text(rust_output)
+            result = self.run_tool(
+                "collect", "--input", str(root / "run.raw"),
+                "--output", str(root / "run.json"), "--campaign", "campaign-real-output",
+                "--pass-number", "1",
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            modes = {row["mode"] for row in json.loads((root / "run.json").read_text())["rows"]}
+            self.assertEqual(modes, {"guardian_majority", "asymptote"})
+
     def test_collect_rejects_partial_matrix(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
