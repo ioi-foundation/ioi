@@ -1681,13 +1681,64 @@ async fn wallet_network_principal_authority_fixture() -> Result<()> {
     std::fs::create_dir_all(&fixture_dir)?;
     publish_verifier_owner_marker(&fixture_dir)?;
     build_test_artifacts();
-    let cluster = TestCluster::builder()
+    // A real daemon WebAuthn ceremony emits RFC3339 wall-clock evidence.  The
+    // deterministic AFT test chain intentionally starts at Unix second one,
+    // so standing-authority journeys explicitly seed AFT's height-zero parent
+    // clock and the validator harness's initial tip from one timestamp.  This
+    // leaves the normal genesis state root untouched; height one durably
+    // publishes the seeded clock through the ordinary ChainStatus transition.
+    // One-shot and other deterministic fixture consumers retain the default.
+    let wall_clock_genesis_ms = (std::env::var("IOI_HYPERVISOR_WALLET_FIXTURE_WALL_CLOCK")
+        .as_deref()
+        == Ok("1"))
+    .then(|| {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let now_ms: u64 = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("wallet fixture wall clock must follow the Unix epoch")
+            .as_millis()
+            .try_into()
+            .expect("wallet fixture wall clock must fit in u64");
+        now_ms.saturating_sub(1_000)
+    });
+    if let Some(timestamp_ms) = wall_clock_genesis_ms {
+        std::env::set_var(
+            "IOI_TESTING_INITIAL_TIP_TIMESTAMP_MS",
+            timestamp_ms.to_string(),
+        );
+    }
+    let cluster_builder = TestCluster::builder()
         .with_validators(1)
         .with_consensus_type("Aft")
         .with_state_tree("IAVL")
-        .with_service_policy("wallet_network", wallet_policy())
-        .build()
-        .await?;
+        .with_service_policy("wallet_network", wallet_policy());
+    let cluster = cluster_builder.build().await?;
+
+    // This fixture normally stays quiet because its parent captures the cargo
+    // process as one authority-plane log.  Clock-domain integration failures
+    // can occur before the first committed height, though, so expose all three
+    // child-node streams behind an explicit diagnostic switch.
+    if std::env::var("IOI_WALLET_FIXTURE_LIVE_LOGS").as_deref() == Ok("1") {
+        let (mut orchestration, mut workload, guardian) =
+            cluster.validators[0].validator().subscribe_logs();
+        tokio::spawn(async move {
+            while let Ok(line) = orchestration.recv().await {
+                println!("[WALLET-FIXTURE][orchestration] {line}");
+            }
+        });
+        tokio::spawn(async move {
+            while let Ok(line) = workload.recv().await {
+                println!("[WALLET-FIXTURE][workload] {line}");
+            }
+        });
+        if let Some(mut guardian) = guardian {
+            tokio::spawn(async move {
+                while let Ok(line) = guardian.recv().await {
+                    println!("[WALLET-FIXTURE][guardian] {line}");
+                }
+            });
+        }
+    }
 
     let setup: Result<()> = async {
         let node = cluster.validators[0].validator();

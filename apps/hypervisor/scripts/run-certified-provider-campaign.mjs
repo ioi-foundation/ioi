@@ -194,6 +194,7 @@ let whoamiPrincipal = null;
 try {
   if (!prepareOnly) {
     fixture = await startRealWalletNetworkPrincipalAuthorityFixture({
+      wallClockChain: config.standing_authority?.enabled === true,
       baseEnv: {
         ...process.env,
         IOI_WALLET_SECRET_PASS: walletPass,

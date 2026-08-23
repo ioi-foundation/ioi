@@ -253,6 +253,7 @@ export async function startRealWalletNetworkPrincipalAuthorityFixture({
   rootSeedHex,
   resumeResourceDir,
   persistChainState = false,
+  wallClockChain = false,
 } = {}) {
   const readyTimeoutMs = Number(
     baseEnv.IOI_WALLET_FIXTURE_READY_TIMEOUT_MS || "600000",
@@ -387,6 +388,9 @@ export async function startRealWalletNetworkPrincipalAuthorityFixture({
         RUST_MIN_STACK: String(WALLET_FIXTURE_MIN_STACK_BYTES),
         ...(normalizedRootSeed
           ? { IOI_HYPERVISOR_WALLET_FIXTURE_ROOT_SEED_HEX: normalizedRootSeed }
+          : {}),
+        ...(wallClockChain
+          ? { IOI_HYPERVISOR_WALLET_FIXTURE_WALL_CLOCK: "1" }
           : {}),
         IOI_GUARDIAN_KEY_PASS: "hypervisor-held-bar",
         // Deep-journey blocks commit slowly on the debug fixture; the

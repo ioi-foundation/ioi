@@ -555,6 +555,16 @@ where
 
         let tx_model = Arc::new(UnifiedTransactionModel::new(self.scheme.clone()));
         let (tx_ingest_tx, tx_ingest_rx) = mpsc::channel(50_000);
+        // Test-only clock bridge for externally composed fixtures whose
+        // evidence is emitted in wall-clock time. The AFT engine seeds the
+        // matching height-zero parent clock; seeding only one side would make
+        // first-height production compare two clock domains.
+        let testing_initial_tip_timestamp_ms =
+            std::env::var("IOI_TESTING_INITIAL_TIP_TIMESTAMP_MS")
+                .ok()
+                .and_then(|value| value.parse::<u64>().ok())
+                .filter(|value| *value > 0)
+                .unwrap_or(0);
 
         let initial_tip = if let Some(b) = &initial_block {
             ChainTipInfo {
@@ -569,8 +579,8 @@ where
         } else {
             ChainTipInfo {
                 height: 0,
-                timestamp: 0,
-                timestamp_ms: 0,
+                timestamp: testing_initial_tip_timestamp_ms / 1_000,
+                timestamp_ms: testing_initial_tip_timestamp_ms,
                 gas_used: 0,
                 state_root: vec![],
                 genesis_root: genesis_root.clone(),
