@@ -612,6 +612,7 @@ fn validate_campaign_result(result: &CampaignResult) -> Result<()> {
         if metrics.len() != metric_names.len() {
             bail!("campaign_metric_set_mismatch")
         }
+        let mut row_metrics_within = true;
         for name in metric_names {
             let metric_value = metrics
                 .get(name)
@@ -630,11 +631,73 @@ fn validate_campaign_result(result: &CampaignResult) -> Result<()> {
             {
                 bail!("campaign_metric_values_invalid:{name}")
             }
+            if metric.len() != 10 {
+                bail!("campaign_metric_set_invalid:{name}")
+            }
+            let samples: Vec<f64> = values.iter().filter_map(Value::as_f64).collect();
+            let observed_min = samples.iter().copied().fold(f64::INFINITY, f64::min);
+            let observed_max = samples.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+            let observed_median = median(&samples)?;
+            let mean = samples.iter().sum::<f64>() / samples.len() as f64;
+            let observed_mad = median(
+                &samples
+                    .iter()
+                    .map(|sample| (sample - observed_median).abs())
+                    .collect::<Vec<_>>(),
+            )?;
+            let sample_variance = samples
+                .iter()
+                .map(|sample| (sample - mean).powi(2))
+                .sum::<f64>()
+                / (samples.len() - 1) as f64;
+            let observed_cv = if mean == 0.0 {
+                if observed_max == observed_min {
+                    0.0
+                } else {
+                    f64::INFINITY
+                }
+            } else {
+                sample_variance.sqrt() / mean
+            };
+            let observed_spread = if observed_median == 0.0 {
+                if observed_max == observed_min {
+                    0.0
+                } else {
+                    f64::INFINITY
+                }
+            } else {
+                (observed_max - observed_min) / observed_median
+            };
+            let observed_bootstrap = exact_bootstrap_median_interval(&samples)?;
             let min = required_nonnegative_number(metric_value, "min")?;
             let median = required_nonnegative_number(metric_value, "median")?;
             let max = required_nonnegative_number(metric_value, "max")?;
-            if min > median || median > max {
-                bail!("campaign_metric_order_invalid:{name}")
+            let mad = required_nonnegative_number(metric_value, "median_absolute_deviation")?;
+            let cv = required_nonnegative_number(metric_value, "coefficient_of_variation")?;
+            let spread = required_nonnegative_number(metric_value, "relative_spread")?;
+            let bootstrap = metric
+                .get("bootstrap_median_95")
+                .and_then(Value::as_array)
+                .filter(|interval| interval.len() == 2)
+                .ok_or_else(|| anyhow!("campaign_metric_bootstrap_invalid:{name}"))?;
+            let bootstrap_low = bootstrap[0]
+                .as_f64()
+                .filter(|number| number.is_finite() && *number >= 0.0)
+                .ok_or_else(|| anyhow!("campaign_metric_bootstrap_invalid:{name}"))?;
+            let bootstrap_high = bootstrap[1]
+                .as_f64()
+                .filter(|number| number.is_finite() && *number >= 0.0)
+                .ok_or_else(|| anyhow!("campaign_metric_bootstrap_invalid:{name}"))?;
+            if !approximately_equal(min, observed_min)
+                || !approximately_equal(median, observed_median)
+                || !approximately_equal(max, observed_max)
+                || !approximately_equal(mad, observed_mad)
+                || !approximately_equal(cv, observed_cv)
+                || !approximately_equal(spread, observed_spread)
+                || !approximately_equal(bootstrap_low, observed_bootstrap.0)
+                || !approximately_equal(bootstrap_high, observed_bootstrap.1)
+            {
+                bail!("campaign_metric_summary_inconsistent:{name}")
             }
             let threshold = required_nonnegative_number(metric_value, "threshold")?;
             let declared_threshold = result
@@ -645,10 +708,19 @@ fn validate_campaign_result(result: &CampaignResult) -> Result<()> {
             if threshold != declared_threshold {
                 bail!("campaign_threshold_substitution:{name}")
             }
-            if metric.get("within_threshold").and_then(Value::as_bool) != Some(within) {
+            let metric_within = metric
+                .get("within_threshold")
+                .and_then(Value::as_bool)
+                .ok_or_else(|| anyhow!("campaign_metric_verdict_missing:{name}"))?;
+            if metric_within != (observed_spread <= threshold) {
                 bail!("campaign_metric_verdict_inconsistent:{name}")
             }
+            row_metrics_within &= metric_within;
         }
+        if within != row_metrics_within {
+            bail!("campaign_row_verdict_inconsistent")
+        }
+        every_row_within &= row_metrics_within;
     }
     if observed_rows != expected_rows {
         bail!("campaign_scenario_lane_matrix_mismatch")
@@ -669,6 +741,61 @@ fn validate_campaign_result(result: &CampaignResult) -> Result<()> {
         bail!("threshold_policy_invalid")
     }
     Ok(())
+}
+
+fn approximately_equal(left: f64, right: f64) -> bool {
+    left.is_finite()
+        && right.is_finite()
+        && (left - right).abs() <= 1e-12 * 1.0_f64.max(left.abs()).max(right.abs())
+}
+
+fn median(values: &[f64]) -> Result<f64> {
+    if values.is_empty() || values.iter().any(|value| !value.is_finite()) {
+        bail!("campaign_metric_values_invalid")
+    }
+    let mut ordered = values.to_vec();
+    ordered.sort_by(f64::total_cmp);
+    let middle = ordered.len() / 2;
+    Ok(if ordered.len() % 2 == 1 {
+        ordered[middle]
+    } else {
+        (ordered[middle - 1] + ordered[middle]) / 2.0
+    })
+}
+
+fn percentile(values: &[f64], quantile: f64) -> Result<f64> {
+    if values.is_empty() || !(0.0..=1.0).contains(&quantile) {
+        bail!("campaign_metric_percentile_invalid")
+    }
+    let mut ordered = values.to_vec();
+    ordered.sort_by(f64::total_cmp);
+    let position = quantile * (ordered.len() - 1) as f64;
+    let lower = position.floor() as usize;
+    let upper = position.ceil() as usize;
+    if lower == upper {
+        Ok(ordered[lower])
+    } else {
+        let fraction = position - lower as f64;
+        Ok(ordered[lower] * (1.0 - fraction) + ordered[upper] * fraction)
+    }
+}
+
+fn exact_bootstrap_median_interval(values: &[f64]) -> Result<(f64, f64)> {
+    if values.is_empty() || values.iter().any(|value| !value.is_finite()) {
+        bail!("campaign_metric_values_invalid")
+    }
+    let sample_count = values.len().pow(values.len() as u32);
+    let mut medians = Vec::with_capacity(sample_count);
+    for encoded in 0..sample_count {
+        let mut cursor = encoded;
+        let mut sample = Vec::with_capacity(values.len());
+        for _ in 0..values.len() {
+            sample.push(values[cursor % values.len()]);
+            cursor /= values.len();
+        }
+        medians.push(median(&sample)?);
+    }
+    Ok((percentile(&medians, 0.025)?, percentile(&medians, 0.975)?))
 }
 
 fn validate_semantic_chain(
@@ -1707,6 +1834,106 @@ fn failure_code(error: &anyhow::Error) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
+
+    fn metric_summary(values: &[f64], threshold: f64) -> Value {
+        let observed_median = median(values).unwrap();
+        let min = values.iter().copied().fold(f64::INFINITY, f64::min);
+        let max = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+        let mean = values.iter().sum::<f64>() / values.len() as f64;
+        let mad = median(
+            &values
+                .iter()
+                .map(|value| (value - observed_median).abs())
+                .collect::<Vec<_>>(),
+        )
+        .unwrap();
+        let variance = values
+            .iter()
+            .map(|value| (value - mean).powi(2))
+            .sum::<f64>()
+            / (values.len() - 1) as f64;
+        let cv = variance.sqrt() / mean;
+        let spread = (max - min) / observed_median;
+        let bootstrap = exact_bootstrap_median_interval(values).unwrap();
+        json!({
+            "bootstrap_median_95": [bootstrap.0, bootstrap.1],
+            "coefficient_of_variation": cv,
+            "max": max,
+            "median": observed_median,
+            "median_absolute_deviation": mad,
+            "min": min,
+            "relative_spread": spread,
+            "threshold": threshold,
+            "values": values,
+            "within_threshold": spread <= threshold,
+        })
+    }
+
+    fn mixed_campaign_result() -> CampaignResult {
+        let rows = [
+            ("paper_guardian_majority_4v", "base_final"),
+            ("paper_guardian_majority_7v", "base_final"),
+            ("paper_asymptote_4v", "base_final"),
+            ("paper_asymptote_4v", "canonical_ordering"),
+            ("paper_asymptote_4v", "durable_collapse"),
+            ("paper_asymptote_4v", "sealed_final"),
+            ("paper_asymptote_7v", "base_final"),
+            ("paper_asymptote_7v", "canonical_ordering"),
+            ("paper_asymptote_7v", "durable_collapse"),
+            ("paper_asymptote_7v", "sealed_final"),
+        ];
+        let metric_names = [
+            "injection_tps",
+            "sustained_tps",
+            "commit_p50_ms",
+            "commit_p95_ms",
+            "commit_p99_ms",
+            "commit_max_ms",
+        ];
+        let summaries = rows
+            .iter()
+            .enumerate()
+            .map(|(index, (scenario, lane))| {
+                let metrics = metric_names
+                    .iter()
+                    .map(|name| {
+                        let values = if index == 0 && *name == "injection_tps" {
+                            vec![80.0, 90.0, 100.0, 110.0, 120.0]
+                        } else {
+                            vec![98.0, 99.0, 100.0, 101.0, 102.0]
+                        };
+                        ((*name).to_string(), metric_summary(&values, 0.1))
+                    })
+                    .collect::<serde_json::Map<_, _>>();
+                json!({
+                    "scenario": scenario,
+                    "lane": lane,
+                    "within_threshold": index != 0,
+                    "metrics": metrics,
+                })
+            })
+            .collect();
+        CampaignResult {
+            schema_version: RESULT_V1.to_string(),
+            campaign_id: "test-campaign".to_string(),
+            measured_passes: 5,
+            row_count_per_pass: 10,
+            threshold_policy: json!({
+                "injection_tps": 0.1,
+                "sustained_tps": 0.1,
+                "commit_p50_ms": 0.1,
+                "commit_p95_ms": 0.1,
+                "commit_p99_ms": 0.1,
+                "commit_max_ms": 0.1,
+            }),
+            verdict: "variance_caveated".to_string(),
+            all_rows_within_threshold: false,
+            summaries,
+            pass_artifacts: (1..=5).map(|index| format!("pass-{index}.json")).collect(),
+        }
+    }
+
     #[test]
     fn canonical_hash_ignores_object_insertion_order() {
         let a: Value = serde_json::from_str(r#"{"b":2,"a":1}"#).unwrap();
@@ -1726,6 +1953,31 @@ mod tests {
         assert_eq!(
             hash_without(&value, "hash").unwrap(),
             hash_value(&serde_json::json!({"x":1})).unwrap()
+        );
+    }
+
+    #[test]
+    fn variance_caveated_campaign_accepts_mixed_metric_verdicts() {
+        assert!(validate_campaign_result(&mixed_campaign_result()).is_ok());
+    }
+
+    #[test]
+    fn campaign_rejects_row_verdict_that_ignores_a_failed_metric() {
+        let mut result = mixed_campaign_result();
+        result.summaries[0]["within_threshold"] = Value::Bool(true);
+        assert_eq!(
+            validate_campaign_result(&result).unwrap_err().to_string(),
+            "campaign_row_verdict_inconsistent"
+        );
+    }
+
+    #[test]
+    fn campaign_rejects_resealed_summary_not_derived_from_samples() {
+        let mut result = mixed_campaign_result();
+        result.summaries[0]["metrics"]["injection_tps"]["median"] = json!(99.0);
+        assert_eq!(
+            validate_campaign_result(&result).unwrap_err().to_string(),
+            "campaign_metric_summary_inconsistent:injection_tps"
         );
     }
 }

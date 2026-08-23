@@ -59,8 +59,14 @@ const logsOp = operations.find((record) => record.op === "logs" && Array.isArray
   || operations.find((record) => record.op === "logs");
 const deleteOp = operations.find((record) => record.op === "delete");
 const deployment = records("akash-deployments").find((record) => record.environment_ref === environment);
-const providerLease = records("akash-leases").find((record) => record.environment_ref === environment);
-const endpoint = records("akash-endpoints").find((record) => record.environment_ref === environment);
+const providerLeaseRecords = records("akash-leases");
+const providerLease = providerLeaseRecords.find((record) =>
+  record.environment_ref === environment && record.lease_ref === deployment?.lease_ref)
+  || providerLeaseRecords.find((record) => record.environment_ref === environment);
+const endpointRecords = records("akash-endpoints");
+const endpoint = endpointRecords.find((record) =>
+  record.environment_ref === environment && record.endpoint_ref === deployment?.endpoint_ref)
+  || endpointRecords.find((record) => record.environment_ref === environment);
 const capabilityLeaseId = cast.capability_lease?.lease_id;
 const capabilityLease = records("capability-leases").find((record) => record.lease_id === capabilityLeaseId);
 const proposal = required(createOp?.proposal_consumption, "durable create proposal consumption");

@@ -2947,14 +2947,50 @@ reproduced by the repository's nightly proof lane. GPU or prover-network
 backends would shift these by an order of magnitude and are out of scope
 for an in-repository measurement.
 
-\paragraph{Class C --- box-variable, deferred.} Boundary-close latency
-and sustained throughput at \(n \in \{4, 7\}\) come from the existing
-paper-benchmark harness; the instrument is built, and the figures await a
-pinned benchmark runner because a number measured on a variable
-development box would fail its own reproduce-within-variance gate
-(Section~\ref{sec:residuals}). The native measurements earlier in this
-section predate this discipline and are retained as architectural
-positioning only.
+\paragraph{Class C --- measured-container, variance-caveated.} Two separately
+authorized campaigns ran the complete \code{res-p4.3.v2} matrix on the same
+exact Akash provider and immutable image. Each discarded one full-matrix
+warmup and retained five measured passes with ten scenario/lane rows. Their
+environment manifests match: AMD EPYC 7352, 48 online CPUs, 131753256\,KiB
+memory, Linux 6.8.0-124-generic, \code{x86\_64}, and \code{schedutil}. The
+runtime supplied no provider host attestation, so the honesty class is a
+measured container on one exact audited provider allocation; physical-host
+placement is unproven.
+
+The table reports campaign-N / campaign-O medians. TPS columns are
+transactions per second and latency columns are milliseconds.
+
+\begin{center}
+\scriptsize
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lrrrrrrl}
+\toprule
+scenario / lane & inj. TPS & sust. TPS & p50 & p95 & p99 & max & verdict \\
+\midrule
+asymptote\_4v / base\_final & 23112.38 / 20072.61 & 321.83 / 322.81 & 1583.16 / 1556.07 & 1589.41 / 1583.42 & 1589.94 / 1585.05 & 1590.11 / 1585.07 & caveated \\
+asymptote\_4v / canonical\_ordering & 22156.16 / 17828.87 & 324.38 / 326.17 & 1555.21 / 1548.14 & 1576.13 / 1567.84 & 1577.47 / 1568.48 & 1577.70 / 1568.82 & caveated \\
+asymptote\_4v / durable\_collapse & 18596.36 / 21552.59 & 322.01 / 322.63 & 1540.99 / 1581.05 & 1583.51 / 1585.45 & 1589.04 / 1586.13 & 1589.50 / 1586.26 & caveated \\
+asymptote\_4v / sealed\_final & 20248.78 / 19319.42 & 325.75 / 315.97 & 1556.70 / 1561.24 & 1570.01 / 1618.40 & 1570.42 / 1619.53 & 1570.92 / 1619.82 & within \\
+asymptote\_7v / base\_final & 11799.95 / 26761.25 & 338.23 / 344.18 & 2241.47 / 2185.40 & 2266.60 / 2214.95 & 2268.63 / 2229.23 & 2269.23 / 2229.58 & caveated \\
+asymptote\_7v / canonical\_ordering & 11387.74 / 31215.72 & 342.15 / 341.02 & 2224.57 / 2238.23 & 2240.87 / 2248.16 & 2242.20 / 2249.77 & 2243.71 / 2250.00 & caveated \\
+asymptote\_7v / durable\_collapse & 25359.49 / 32596.58 & 343.97 / 342.35 & 2221.34 / 2211.22 & 2229.33 / 2239.72 & 2231.37 / 2241.34 & 2231.53 / 2241.73 & caveated \\
+asymptote\_7v / sealed\_final & 28148.01 / 32207.55 & 337.85 / 342.19 & 2212.87 / 2232.53 & 2269.57 / 2241.25 & 2271.57 / 2242.89 & 2272.29 / 2243.35 & caveated \\
+guardian\_majority\_4v / base\_final & 9119.25 / 9421.75 & 332.00 / 329.50 & 1536.53 / 1549.81 & 1540.12 / 1552.24 & 1541.05 / 1552.85 & 1541.35 / 1553.08 & within \\
+guardian\_majority\_7v / base\_final & 29314.23 / 30175.52 & 342.84 / 339.08 & 2194.89 / 2213.13 & 2201.76 / 2262.40 & 2238.58 / 2263.98 & 2239.15 / 2264.00 & within \\
+\bottomrule
+\end{tabular}%
+}
+\end{center}
+
+The predeclared thresholds were 10\% for injection TPS, sustained TPS, p50,
+and p95, and 15\% for p99 and max. Every sustained-TPS and commit-latency
+comparison passed. Injection TPS exceeded 10\% in seven rows, so the aggregate
+is variance-caveated; no row was discarded and no threshold was changed after
+measurement. Both leases closed and financially reconciled with zero
+campaign-scoped open or unknown exposure. The full per-pass values and variance
+envelopes remain bound in the campaign certificates. This closes the live
+RES-P4.3 measurement loop with an honest caveat, not a promoted
+reproduced-within-threshold claim and not a bare-metal claim.
 
 \section{Related Work}
 

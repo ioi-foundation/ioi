@@ -134,7 +134,17 @@ async function verifyDurable(certificate, dataDir, repo, daemon) {
   }
   const terminalReceipt = promotedReceipts.find((record) => record.receipt_ref === d.terminal_reconciliation_receipt_ref);
   if (!terminalReceipt) fail("durable_terminal_receipt_missing", "durable.terminal_reconciliation_receipt_ref", d.terminal_reconciliation_receipt_ref);
-  else if (terminalReceipt.environment_ref !== d.environment_ref || terminalReceipt.op !== "reconcile" || terminalReceipt.outcome !== "ok" || terminalReceipt.provider_native?.response_hash !== certificate.settlement.provider_response_hash) fail("durable_terminal_receipt_mismatch", "durable.terminal_reconciliation_receipt_ref", "terminal provider receipt differs from certificate");
+  else if (terminalReceipt.environment_ref !== d.environment_ref || !["delete", "reconcile"].includes(terminalReceipt.op) || terminalReceipt.outcome !== "ok") {
+    fail("durable_terminal_receipt_mismatch", "durable.terminal_reconciliation_receipt_ref", "terminal provider receipt differs from certificate");
+  } else if (terminalReceipt.op === "reconcile" && terminalReceipt.provider_native?.response_hash !== certificate.settlement.provider_response_hash) {
+    fail("durable_terminal_receipt_mismatch", "durable.terminal_reconciliation_receipt_ref", "terminal reconciliation receipt differs from certificate");
+  } else if (terminalReceipt.op === "delete" && (
+    deleted?.receipt_ref !== terminalReceipt.receipt_ref
+    || deleted?.evidence?.native_teardown?.provider_response_hash !== certificate.settlement.provider_response_hash
+    || deleted?.evidence?.settlement?.provider_terminal !== true
+  )) {
+    fail("durable_terminal_receipt_mismatch", "durable.terminal_reconciliation_receipt_ref", "terminal delete receipt is not backed by the durable provider settlement");
+  }
   const muxlogPath = path.join(dataDir, "substrate/muxlog.bin");
   if (!fs.existsSync(muxlogPath)) fail("substrate_log_missing", muxlogPath, "muxlog absent");
   else {
@@ -205,7 +215,10 @@ async function mutationTest(base, dataDir, repo, daemon) {
     ["provider_selector_changed", (c) => { c.authority.reviewed_facets.provider_selector.selection = "caller_selected"; }, false],
     ["redacted_sdl_invalid", (c) => { c.workload.redacted_sdl += "# mutation"; }, false],
     ["raw_sdl_retained", (c) => { c.authority.reviewed_facets.sdl_yaml = "api_key: sk-forbidden-canary"; }, false],
-    ["provider_readiness_inflated", (c) => { c.provider.workload_readiness_proven = true; c.claims.application_readiness_claimed = true; }, false],
+    ["provider_readiness_inflated", (c) => {
+      c.provider.workload_readiness_proven = !c.provider.workload_readiness_proven;
+      c.claims.application_readiness_claimed = c.provider.workload_readiness_proven;
+    }, false],
     ["exact_provider_mismatch", (c) => { c.provider.provider_address = "akash1different000000000000000000000000"; }, false],
     ["proposal_provenance_invalid", (c) => { c.proposal.source = "caller-asserted"; }, false],
     ["durable_proposal_mismatch", (c) => { c.proposal.request_hash = `sha256:${"0".repeat(64)}`; }, true],

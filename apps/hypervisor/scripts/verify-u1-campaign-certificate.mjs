@@ -31,12 +31,18 @@ export function mutationTest(base) {
     ["u1_aggregate_identity_mismatch", (c) => { c.measurement.aggregate.row_count_per_pass = 9; }],
     ["u1_threshold_policy_changed", (c) => { c.measurement.aggregate.threshold_policy.commit_max_ms = 0.5; }],
     ["u1_duplicate_summary_row", (c) => { c.measurement.aggregate.summaries[1] = structuredClone(c.measurement.aggregate.summaries[0]); }],
-    ["u1_metric_summary_invalid", (c) => { c.measurement.aggregate.summaries[0].metrics.commit_p99_ms.count = 4; }],
-    ["u1_row_verdict_mismatch", (c) => { c.measurement.aggregate.summaries[0].within_threshold = false; }],
+    ["u1_metric_summary_invalid", (c) => { c.measurement.aggregate.summaries[0].metrics.commit_p99_ms.values.pop(); }],
+    ["u1_row_verdict_mismatch", (c) => { c.measurement.aggregate.summaries[0].within_threshold = !c.measurement.aggregate.summaries[0].within_threshold; }],
     ["u1_matrix_incomplete", (c) => { c.measurement.aggregate.summaries.pop(); }],
-    ["u1_campaign_verdict_mismatch", (c) => { c.measurement.aggregate.verdict = "variance_caveated"; }],
+    ["u1_campaign_verdict_mismatch", (c) => {
+      c.measurement.aggregate.verdict = c.measurement.aggregate.verdict === "variance_caveated"
+        ? "reproduced_within_threshold"
+        : "variance_caveated";
+    }],
     ["u1_manifest_identity_mismatch", (c) => { c.measurement.manifest.campaign_id = "stale"; }],
-    ["u1_manifest_binding_mismatch", (c) => { c.measurement.manifest.artifacts[0].sha256 = `sha256:${"0".repeat(64)}`; }],
+    ["u1_manifest_binding_mismatch", (c) => {
+      c.measurement.manifest.artifacts.find((artifact) => artifact.name === "result.json").sha256 = `sha256:${"0".repeat(64)}`;
+    }],
     ["u1_response_hash_missing", (c) => { c.measurement.response_hashes.status.sha256 = null; }],
     ["u1_response_body_mismatch", (c) => { c.measurement.aggregate.summaries[0].metrics.commit_p50_ms.median = 100.5; }],
     ["u1_provider_lifecycle_mismatch", (c) => { c.provider.lease_state = "open"; }],

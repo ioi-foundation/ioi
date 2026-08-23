@@ -29,6 +29,77 @@ const hash = (value) => typeof value === "string" && /^sha256:[0-9a-f]{64}$/u.te
 const finite = (value) => typeof value === "number" && Number.isFinite(value);
 const same = (left, right) => stableStringify(left) === stableStringify(right);
 const sha256Buffer = (value) => `sha256:${crypto.createHash("sha256").update(value).digest("hex")}`;
+const median = (values) => {
+  const ordered = [...values].sort((left, right) => left - right);
+  const middle = Math.floor(ordered.length / 2);
+  return ordered.length % 2 === 1
+    ? ordered[middle]
+    : (ordered[middle - 1] + ordered[middle]) / 2;
+};
+const percentile = (values, quantile) => {
+  const ordered = [...values].sort((left, right) => left - right);
+  const position = quantile * (ordered.length - 1);
+  const lower = Math.floor(position);
+  const upper = Math.ceil(position);
+  if (lower === upper) return ordered[lower];
+  const fraction = position - lower;
+  return ordered[lower] * (1 - fraction) + ordered[upper] * fraction;
+};
+const exactBootstrapMedianInterval = (values) => {
+  const medians = [];
+  const sample = [];
+  const enumerate = (depth) => {
+    if (depth === values.length) {
+      medians.push(median(sample));
+      return;
+    }
+    for (const value of values) {
+      sample.push(value);
+      enumerate(depth + 1);
+      sample.pop();
+    }
+  };
+  enumerate(0);
+  return [percentile(medians, 0.025), percentile(medians, 0.975)];
+};
+const approximatelyEqual = (left, right) =>
+  finite(left) && finite(right) && Math.abs(left - right) <= 1e-12 * Math.max(1, Math.abs(left), Math.abs(right));
+const metricSummaryValid = (summary, threshold) => {
+  const expectedKeys = [
+    "bootstrap_median_95", "coefficient_of_variation", "max", "median",
+    "median_absolute_deviation", "min", "relative_spread", "threshold",
+    "values", "within_threshold",
+  ].sort();
+  if (!summary || !same(Object.keys(summary).sort(), expectedKeys)) return false;
+  const values = summary.values;
+  if (!Array.isArray(values) || values.length !== 5 || !values.every((value) => finite(value) && value >= 0)) return false;
+  const observedMedian = median(values);
+  const observedMin = Math.min(...values);
+  const observedMax = Math.max(...values);
+  const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
+  const observedMad = median(values.map((value) => Math.abs(value - observedMedian)));
+  const sampleVariance = values.reduce((sum, value) => sum + ((value - mean) ** 2), 0) / (values.length - 1);
+  const observedCv = mean === 0 ? (observedMax === observedMin ? 0 : Number.POSITIVE_INFINITY) : Math.sqrt(sampleVariance) / mean;
+  const observedSpread = observedMedian === 0
+    ? (observedMax === observedMin ? 0 : Number.POSITIVE_INFINITY)
+    : (observedMax - observedMin) / observedMedian;
+  const observedBootstrap = exactBootstrapMedianInterval(values);
+  return [summary.min, summary.median, summary.max, summary.median_absolute_deviation,
+    summary.coefficient_of_variation, summary.relative_spread, summary.threshold,
+    summary.bootstrap_median_95?.[0], summary.bootstrap_median_95?.[1]].every(finite)
+    && Array.isArray(summary.bootstrap_median_95)
+    && summary.bootstrap_median_95.length === 2
+    && approximatelyEqual(summary.min, observedMin)
+    && approximatelyEqual(summary.median, observedMedian)
+    && approximatelyEqual(summary.max, observedMax)
+    && approximatelyEqual(summary.median_absolute_deviation, observedMad)
+    && approximatelyEqual(summary.coefficient_of_variation, observedCv)
+    && approximatelyEqual(summary.relative_spread, observedSpread)
+    && approximatelyEqual(summary.threshold, threshold)
+    && approximatelyEqual(summary.bootstrap_median_95[0], observedBootstrap[0])
+    && approximatelyEqual(summary.bootstrap_median_95[1], observedBootstrap[1])
+    && summary.within_threshold === (observedSpread <= threshold);
+};
 
 export function u1CertificateHash(certificate) {
   const copy = structuredClone(certificate);
@@ -132,22 +203,7 @@ export function validateU1Certificate(certificate) {
     let rowWithin = true;
     for (const metric of U1_METRICS) {
       const summary = row?.metrics?.[metric];
-      if (summary?.count !== 5
-          || !["min", "median", "max", "median_absolute_deviation", "coefficient_of_variation", "relative_spread", "threshold"].every((field) => finite(summary?.[field]))
-          || summary.min > summary.median
-          || summary.median > summary.max
-          || summary.median_absolute_deviation < 0
-          || summary.coefficient_of_variation < 0
-          || summary.relative_spread < 0
-          || summary.threshold !== U1_THRESHOLDS[metric]
-          || summary.within_threshold !== (summary.relative_spread <= summary.threshold)
-          || summary?.bootstrap_median_95?.confidence !== 0.95
-          || summary?.bootstrap_median_95?.method !== "exact_bootstrap_median"
-          || summary?.bootstrap_median_95?.resamples !== 3125
-          || !finite(summary?.bootstrap_median_95?.lower)
-          || !finite(summary?.bootstrap_median_95?.upper)
-          || summary.bootstrap_median_95.lower > summary.median
-          || summary.bootstrap_median_95.upper < summary.median) {
+      if (!metricSummaryValid(summary, U1_THRESHOLDS[metric])) {
         fail("u1_metric_summary_invalid", `measurement.aggregate.${key}.${metric}`, "metric statistics or threshold verdict are malformed");
         rowWithin = false;
       } else {
