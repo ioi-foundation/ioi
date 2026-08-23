@@ -257,7 +257,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Run the baked full matrix without rebuilding node binaries
+      - name: Trace the baked Asymptote 4-validator scenario
         shell: bash
         env:
           IMAGE_DIGEST: ${{ inputs.source_ref }}
@@ -270,7 +270,8 @@ jobs:
             --env IOI_AFT_BENCH_REBUILD_NODE=0 \
             --env IOI_TEST_BUILD_PROFILE=release \
             --env IOI_AFT_BENCH_TRACE=1 \
-            --env IOI_AFT_BENCH_SCENARIO= \
+            --env IOI_AFT_BENCH_LIVE_LOGS=1 \
+            --env IOI_AFT_BENCH_SCENARIO=paper_asymptote_4v \
             "${image}" \
             test --locked --offline --release \
               -p ioi-cli \
