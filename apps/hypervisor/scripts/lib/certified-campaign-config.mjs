@@ -187,8 +187,11 @@ export function validateBenchmarkBuildIdentity(identity, config) {
   return identity;
 }
 
+export const U1_PROVIDER_PREFLIGHT_MAX_AGE_MS = 15 * 60 * 1_000;
+export const U1_PROVIDER_OBSERVATION_MAX_AGE_MS = 30 * 60 * 1_000;
+
 /** Refuse a stale, failed, or fallback provider qualification artifact. */
-export function validateProviderPreflight(preflight, config) {
+export function validateProviderPreflight(preflight, config, nowMs = Date.now()) {
   const expected = config?.plan?.provider_selector?.provider_address;
   if (preflight?.schema_version !== "ioi.aft.u1-provider-preflight.v1") {
     throw new Error("unsupported U1 provider preflight schema");
@@ -205,6 +208,24 @@ export function validateProviderPreflight(preflight, config) {
   }
   if (!/^sha256:[0-9a-f]{64}$/u.test(String(preflight.provider_response_sha256 || ""))) {
     throw new Error("U1 provider preflight lacks its raw response hash");
+  }
+  const capturedAtMs = Date.parse(String(preflight.captured_at || ""));
+  const providerCheckedAtMs = Date.parse(String(preflight.provider_last_checked_at || ""));
+  const expectedSourceUrl = `https://console-api.akash.network/v1/providers/${expected}`;
+  if (!Number.isFinite(nowMs)
+      || !Number.isFinite(capturedAtMs)
+      || !Number.isFinite(providerCheckedAtMs)
+      || preflight.source_url !== expectedSourceUrl) {
+    throw new Error("U1 provider preflight lacks valid freshness evidence");
+  }
+  const futureToleranceMs = 60_000;
+  if (capturedAtMs > nowMs + futureToleranceMs
+      || nowMs - capturedAtMs > U1_PROVIDER_PREFLIGHT_MAX_AGE_MS) {
+    throw new Error("U1 provider preflight capture is stale or future-dated");
+  }
+  if (providerCheckedAtMs > capturedAtMs + futureToleranceMs
+      || capturedAtMs - providerCheckedAtMs > U1_PROVIDER_OBSERVATION_MAX_AGE_MS) {
+    throw new Error("U1 provider observation is stale or future-dated");
   }
   return preflight;
 }

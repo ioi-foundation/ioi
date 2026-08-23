@@ -70,8 +70,11 @@ const validProviderResponse = Buffer.from(JSON.stringify({
     storage: { ephemeral: { available: 1024 ** 4 } },
   },
 }));
+const providerPreflightNowMs = Date.parse("2026-08-22T18:40:00Z");
 const validProviderPreflight = {
   schema_version: "ioi.aft.u1-provider-preflight.v1",
+  captured_at: "2026-08-22T18:39:00.000Z",
+  source_url: `https://console-api.akash.network/v1/providers/${valid.plan.provider_selector.provider_address}`,
   provider_response_sha256: sha256Bytes(validProviderResponse),
   ...qualifyU1Provider(JSON.parse(validProviderResponse), valid.plan.provider_selector.provider_address),
 };
@@ -170,7 +173,10 @@ test("binds the retained workflow build identity to the reviewed workload", () =
 });
 
 test("binds a passing non-bare-metal preflight to the exact provider", () => {
-  assert.equal(validateProviderPreflight(validProviderPreflight, valid), validProviderPreflight);
+  assert.equal(
+    validateProviderPreflight(validProviderPreflight, valid, providerPreflightNowMs),
+    validProviderPreflight,
+  );
   assert.deepEqual(
     validateProviderPreflightResponse(validProviderResponse, validProviderPreflight, valid),
     JSON.parse(validProviderResponse),
@@ -183,10 +189,35 @@ test("binds a passing non-bare-metal preflight to the exact provider", () => {
   );
   const fallback = structuredClone(validProviderPreflight);
   fallback.provider_address = "akash1aaul837r7en7hpk9wv2svg8u78fdq0t2j2e82z";
-  assert.throws(() => validateProviderPreflight(fallback, valid), /exact reviewed provider/u);
+  assert.throws(
+    () => validateProviderPreflight(fallback, valid, providerPreflightNowMs),
+    /exact reviewed provider/u,
+  );
   const inflated = structuredClone(validProviderPreflight);
   inflated.bare_metal_attested = true;
-  assert.throws(() => validateProviderPreflight(inflated, valid), /inflates/u);
+  assert.throws(
+    () => validateProviderPreflight(inflated, valid, providerPreflightNowMs),
+    /inflates/u,
+  );
+
+  const staleCapture = structuredClone(validProviderPreflight);
+  staleCapture.captured_at = "2026-08-22T18:24:59.999Z";
+  assert.throws(
+    () => validateProviderPreflight(staleCapture, valid, providerPreflightNowMs),
+    /capture is stale/u,
+  );
+  const staleObservation = structuredClone(validProviderPreflight);
+  staleObservation.provider_last_checked_at = "2026-08-22T18:08:59.999Z";
+  assert.throws(
+    () => validateProviderPreflight(staleObservation, valid, providerPreflightNowMs),
+    /observation is stale/u,
+  );
+  const wrongSource = structuredClone(validProviderPreflight);
+  wrongSource.source_url = "https://example.invalid/provider";
+  assert.throws(
+    () => validateProviderPreflight(wrongSource, valid, providerPreflightNowMs),
+    /freshness evidence/u,
+  );
 });
 
 test("starts the workload duration at readiness and never sleeps past its deadline", () => {
