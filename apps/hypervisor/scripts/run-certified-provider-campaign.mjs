@@ -28,6 +28,7 @@ import {
   validateProviderPreflight,
   validateProviderPreflightResponse,
 } from "./lib/certified-campaign-config.mjs";
+import { captureCertifiedDaemonSourceBasis } from "./lib/certified-daemon-source-basis.mjs";
 import { stableStringify } from "./lib/c7-c8-certificate.mjs";
 import {
   approvalCeremonyContextHash,
@@ -107,6 +108,8 @@ const request = {
   plan: { ...config.plan, sdl_yaml: materializeReviewedSdl(sdlTemplate, config) },
 };
 const expectedSdlHash = sha256(request.plan.sdl_yaml);
+const daemonSourceBasis = captureCertifiedDaemonSourceBasis({ repo });
+save("daemon-source-basis.json", daemonSourceBasis);
 save("image-build-identity.json", imageBuildIdentity);
 save("provider-preflight.json", providerPreflight);
 saveBytes("provider-response.json", providerResponseBytes);
