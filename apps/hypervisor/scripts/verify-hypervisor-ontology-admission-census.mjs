@@ -230,10 +230,10 @@ const RECORDED_TEST_WRITES = {
 const PINNED = {
   modules: 90,
   familyMentions: 300,
-  tokenMentions: 110458,
+  tokenMentions: 111419,
   judgedTokenPositions: 282,
-  productionWriterCalls: { family: 72, nonFamilyLiteral: 224, runtimeParameter: 294 },
-  productionFsCalls: 231,
+  productionWriterCalls: { family: 72, nonFamilyLiteral: 224, runtimeParameter: 296 },
+  productionFsCalls: 233,
   /**
    * THE NAMES THIS CENSUS CANNOT ADJUDICATE, by cause. Pinned exactly, both directions.
    *
@@ -251,9 +251,9 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 3602,
-    "opaque-initialiser": 1595,
-    "bare-undeclared": 522,
+    "foreign-qualified": 3629,
+    "opaque-initialiser": 1603,
+    "bare-undeclared": 524,
     "ambiguous-module": 0,
     "not-a-visible-const": 0,
     "resolution-cycle": 0,

@@ -141,14 +141,14 @@ const FIELD_SEMANTICS = {
  * everything" that survives an edit.
  */
 const PINNED = {
-  registeredRoutes: 753,
+  registeredRoutes: 765,
   atlasRouteMentions: { decided: 237, unchecked: 46, citedInNegative: 1 },
-  surfaceStringsNamingARoute: 7,
-  // 74 includes this gate's OWN two absence-worded labels. It walks every verifier in the estate and
+  surfaceStringsNamingARoute: 8,
+  // The pin includes this gate's OWN two absence-worded labels. It walks every verifier in the estate and
   // is one of them; excluding itself would be the first exemption, and exemptions are how a closed
   // world stops being one.
-  verifierAbsenceLabels: 75,
-  verifierAbsenceLabelsResolvingAUrl: 15,
+  verifierAbsenceLabels: 76,
+  verifierAbsenceLabelsResolvingAUrl: 16,
 };
 
 /**

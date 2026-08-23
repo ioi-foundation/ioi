@@ -137,9 +137,27 @@ async function run() {
   // work-new-session. They are removed rather than kept, because the assertion below rejects a
   // stale name: a list that can name a surface the registry lacks is a list that absorbs coverage.
   const REFERENCELESS_SURFACES = {
+    contour: { provenance_id: "studio", class: "post-atlas" },
+    devconsole: { provenance_id: "developer-console", class: "post-atlas" },
+    fusion: { provenance_id: "studio", class: "post-atlas" },
+    inference: { provenance_id: "data", class: "post-atlas" },
+    ingest: { provenance_id: "data", class: "post-atlas" },
+    insight: { provenance_id: "evaluations", class: "post-atlas" },
+    jobs: { provenance_id: "work", class: "post-atlas" },
+    logic: { provenance_id: "studio", class: "post-atlas" },
+    map: { provenance_id: "environments", class: "post-atlas" },
+    modelstudio: { provenance_id: "foundry", class: "post-atlas" },
+    notepad: { provenance_id: "developer-workspace", class: "post-atlas" },
     packages: { provenance_id: "packages", class: "post-atlas" },
     "packages-marketplace": { provenance_id: "packages", class: "post-atlas" },
+    quiver: { provenance_id: "evaluations", class: "post-atlas" },
+    registry: { provenance_id: "packages", class: "post-atlas" },
+    repositories: { provenance_id: "developer-workspace", class: "post-atlas" },
+    scheduler: { provenance_id: "operations", class: "post-atlas" },
     "studio-home": { provenance_id: "studio", class: "post-atlas" },
+    widgets: { provenance_id: "developer-console", class: "post-atlas" },
+    workshop: { provenance_id: "studio", class: "post-atlas" },
+    workspaces: { provenance_id: "developer-workspace", class: "post-atlas" },
   };
   const provenance = JSON.parse(readFileSync(join(APP, "seed-ux-provenance.v1.json"), "utf8"));
   const provenanceById = new Map((provenance.surfaces || []).map((record) => [record.id, record]));

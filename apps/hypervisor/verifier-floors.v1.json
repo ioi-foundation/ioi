@@ -59,14 +59,16 @@
       "npm_script": "check:studio-journey",
       "source": "apps/hypervisor/scripts/verify-hypervisor-studio-journey.mjs",
       "runtime_assertions": 33,
-      "assertion_names_sha256": "5b3dea7ec220bd2f80a7d236882902d0b071fa1353aac0d9b85b5e1574836fd2"
+      "assertion_names_sha256": "81a366ec57539e244108b450404aad5aa9a8dd2fc10a4b49cd48a59919a2b254",
+      "note": "Measured after the STU-3 canonical landing transfer: the runtime count remains 33, while landing/ownership assertion names now describe the shipped family landing rather than the predecessor wording."
     },
     {
       "id": "packages-journey",
       "npm_script": "check:packages-journey",
       "source": "apps/hypervisor/scripts/verify-hypervisor-packages-journey.mjs",
-      "runtime_assertions": 49,
-      "assertion_names_sha256": "3eecdd26d8887f94d85d75307f89572ec54626c67fc55e4366a821f357016b1f"
+      "runtime_assertions": 50,
+      "assertion_names_sha256": "58d10eb0f6f48fdad889f0c2679641488040a38779605b0ad56da249a5d0253b",
+      "note": "Measured after the recall successor and eligibility-cascade journey landed: 50 assertions exercise recall, replay, launcher-feed removal, restart survival, and terminal uninstall truth."
     },
     {
       "id": "automations-journey",
