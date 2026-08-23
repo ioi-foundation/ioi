@@ -421,7 +421,8 @@ fn standing_grant_draws_are_atomic_bounded_replay_safe_and_revocable() {
     let mut state = MockState::default();
     let approver = new_approval_signer();
     let policy_hash = [0xa2; 32];
-    let grant_fixture = signed_standing_approval_grant(
+    const OPERATOR_PRINCIPAL_REF: &str = "user://wallet-network/standing-operator";
+    let grant_fixture = signed_standing_approval_grant_for_principal(
         &approver,
         policy_hash,
         [7; 32],
@@ -431,6 +432,8 @@ fn standing_grant_draws_are_atomic_bounded_replay_safe_and_revocable() {
         600,
         100,
         0xa1,
+        EFFECT_PRINCIPAL_REF,
+        OPERATOR_PRINCIPAL_REF,
     );
     let grant = grant_fixture.grant.clone();
     let envelope_hash = grant.standing_envelope_hash;
@@ -525,6 +528,10 @@ fn standing_grant_draws_are_atomic_bounded_replay_safe_and_revocable() {
     assert_eq!(stored.cumulative_spend_reserved_microusd, 100);
     assert_eq!(stored.status, StandingApprovalGrantStatus::Exhausted);
     assert_eq!(stored.principal_ref, EFFECT_PRINCIPAL_REF);
+    assert_ne!(
+        stored.principal_ref, OPERATOR_PRINCIPAL_REF,
+        "the passkey-bound operator and independently resolved governing authority stay distinct"
+    );
     assert_eq!(
         stored.auth_factor_receipt_json,
         grant_fixture.auth_factor_receipt_json

@@ -263,7 +263,6 @@ fn validate_standing_evidence(
         || hash_value(&context, "/policy_hash", "approval context policy hash")? != policy_hash
         || context.pointer("/authorization_subject/subject_ref")
             != envelope.get("standing_envelope_ref")
-        || context.get("principal_ref") != envelope.get("principal_ref")
         || context
             .pointer("/authorization_subject/validation_profile_ref")
             .and_then(Value::as_str)
@@ -560,6 +559,9 @@ pub(crate) fn consume_standing_approval_grant_for_effect(
         ctx,
         &params.expected_principal_authority,
     )?;
+    // The envelope principal is the governing authority. The authenticated operator is bound
+    // separately by the ceremony context and factor receipt, both of which name the exact signed
+    // envelope as their authorization subject.
     if params.expected_principal_authority.principal_ref != grant_state.principal_ref
         || principal.authority_id != grant_state.grant.authority_id
         || principal.public_key != grant_state.grant.approver_public_key

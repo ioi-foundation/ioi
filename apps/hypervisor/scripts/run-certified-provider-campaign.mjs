@@ -314,7 +314,7 @@ try {
         standing_envelope_ref: standing.standing_envelope_ref,
         owner_ref: config.owner_ref,
         bounded_system_ref: standing.bounded_system_ref,
-        principal_ref: whoamiPrincipal.principal_ref,
+        principal_ref: config.authority_principal_ref,
         audience_ref: "wallet-client://hypervisor/provider-ops",
         authority_scope: "scope:hypervisor.live-route.hypervisor-provider-op",
         facet_template: {

@@ -290,6 +290,35 @@ fn signed_standing_approval_grant(
     max_cumulative_spend_microusd: u64,
     marker: u8,
 ) -> StandingGrantFixture {
+    signed_standing_approval_grant_for_principal(
+        signer,
+        policy_hash,
+        audience,
+        nonce,
+        counter,
+        max_usages,
+        max_cumulative_deposit_microusd,
+        max_cumulative_spend_microusd,
+        marker,
+        "org://wallet-network/effect-owner",
+        "org://wallet-network/effect-owner",
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn signed_standing_approval_grant_for_principal(
+    signer: &ApprovalSigner,
+    policy_hash: [u8; 32],
+    audience: [u8; 32],
+    nonce: [u8; 32],
+    counter: u64,
+    max_usages: u32,
+    max_cumulative_deposit_microusd: u64,
+    max_cumulative_spend_microusd: u64,
+    marker: u8,
+    envelope_principal_ref: &str,
+    operator_principal_ref: &str,
+) -> StandingGrantFixture {
     const NOW_MS: u64 = 1_750_000_000_000;
     let marker = format!("{marker:02x}");
     let mut envelope = json!({
@@ -297,7 +326,7 @@ fn signed_standing_approval_grant(
         "standing_envelope_ref": format!("standing-envelope://wallet-test/{marker}"),
         "owner_ref": "org://wallet-test",
         "bounded_system_ref": "system://wallet-test",
-        "principal_ref": "org://wallet-network/effect-owner",
+        "principal_ref": envelope_principal_ref,
         "audience_ref": "wallet-client://hypervisor/provider-ops",
         "authority_scope": "scope:hypervisor.live-route.hypervisor-provider-op",
         "facet_template": {
@@ -373,7 +402,7 @@ fn signed_standing_approval_grant(
         "predecessor_authority_review_receipt_ref": null,
         "predecessor_authority_review_receipt_hash": null,
         "reviewed_representation_hash": hash_ref([0x13; 32]),
-        "principal_ref": "org://wallet-network/effect-owner",
+        "principal_ref": operator_principal_ref,
         "acting_subject_ref": "runtime://wallet-test/operator",
         "product_session_ref": "session://wallet-test/operator",
         "origin_binding_ref": "origin://wallet-test/local",
@@ -409,7 +438,7 @@ fn signed_standing_approval_grant(
         "receipt_hash": hash_ref([1; 32]),
         "ceremony_id": format!("pkc_wallet{marker}"),
         "principal_id": "operator",
-        "principal_ref": "org://wallet-network/effect-owner",
+        "principal_ref": operator_principal_ref,
         "factor_kind": "passkey",
         "credential_id_hash": hash_ref([0x21; 32]),
         "user_verification": "required_and_verified",
