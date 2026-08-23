@@ -224,6 +224,26 @@ fn record_node_profile_source_revision(node_target_dir: &Path) -> Result<()> {
     Ok(())
 }
 
+fn refresh_fixture_wall_clock_after_node_build() -> Result<()> {
+    if std::env::var("IOI_HYPERVISOR_WALLET_FIXTURE_WALL_CLOCK").as_deref() != Ok("1") {
+        return Ok(());
+    }
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let now_ms: u64 = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|error| anyhow!("test fixture wall clock predates the Unix epoch: {error}"))?
+        .as_millis()
+        .try_into()
+        .map_err(|_| anyhow!("test fixture wall clock does not fit in u64"))?;
+    // Keep the first ordinary block strictly after its synthetic parent while remaining in the
+    // same clock domain as a WebAuthn ceremony emitted immediately after readiness.
+    std::env::set_var(
+        "IOI_TESTING_INITIAL_TIP_TIMESTAMP_MS",
+        now_ms.saturating_sub(1_000).to_string(),
+    );
+    Ok(())
+}
+
 fn node_profile_build_forbidden() -> bool {
     std::env::var("IOI_TEST_FORBID_NODE_BUILD")
         .ok()
@@ -529,6 +549,10 @@ impl TestValidator {
             }
             record_node_profile_source_revision(&node_target_dir)?;
         }
+        // A cold profile build can take minutes. Refresh only the explicit wallet-fixture clock
+        // after compilation and before spawning the validator so signed wall-clock evidence is
+        // never rejected merely because compilation aged the initial test seed.
+        refresh_fixture_wall_clock_after_node_build()?;
 
         let peer_id = keypair.public().to_peer_id();
         let state_dir = match stable_state_dir {
