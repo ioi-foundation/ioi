@@ -453,13 +453,29 @@ where
     )
     .map_err(|error| format!("workload_effect_crash_coordination_failed: {error}"))?;
 
-    match final_invoker(&record["exact_request"]) {
+    let invocation = final_invoker(&record["exact_request"]);
+    super::durable_fs::test_crash_pause_if_selected(
+        "IOI_TEST_CRASH_AT",
+        "workload_effect_invoked",
+        "IOI_TEST_CRASH_MARKER_PATH",
+        id,
+    )
+    .map_err(|error| format!("workload_effect_crash_coordination_failed: {error}"))?;
+
+    match invocation {
         Ok(effect_receipt) => {
             record["status"] = json!("consumed");
             record["final_invoker_calls"] = json!(1);
             record["effect_receipt_hash"] = json!(canonical_hash(&effect_receipt)?);
             record["settled_at_ms"] = json!(now_ms);
             persist(data_dir, id, &record)?;
+            super::durable_fs::test_crash_pause_if_selected(
+                "IOI_TEST_CRASH_AT",
+                "workload_effect_settled",
+                "IOI_TEST_CRASH_MARKER_PATH",
+                id,
+            )
+            .map_err(|error| format!("workload_effect_crash_coordination_failed: {error}"))?;
             let receipt = json!({
                 "schema_version": "ioi.components.hypervisor.workload-effect-consumption-receipt.v1",
                 "capability_ref": record["capability_ref"],
@@ -480,6 +496,13 @@ where
             record["refusal_reason"] = json!(reason.clone());
             record["settled_at_ms"] = json!(now_ms);
             persist(data_dir, id, &record)?;
+            super::durable_fs::test_crash_pause_if_selected(
+                "IOI_TEST_CRASH_AT",
+                "workload_effect_settled",
+                "IOI_TEST_CRASH_MARKER_PATH",
+                id,
+            )
+            .map_err(|error| format!("workload_effect_crash_coordination_failed: {error}"))?;
             Err(format!("workload_effect_final_invoker_refused: {reason}"))
         }
     }
@@ -530,13 +553,29 @@ where
     )
     .map_err(|error| format!("workload_effect_crash_coordination_failed: {error}"))?;
 
-    match final_invoker(record["exact_request"].clone()).await {
+    let invocation = final_invoker(record["exact_request"].clone()).await;
+    super::durable_fs::test_crash_pause_if_selected(
+        "IOI_TEST_CRASH_AT",
+        "workload_effect_invoked",
+        "IOI_TEST_CRASH_MARKER_PATH",
+        id,
+    )
+    .map_err(|error| format!("workload_effect_crash_coordination_failed: {error}"))?;
+
+    match invocation {
         Ok(effect_receipt) => {
             record["status"] = json!("consumed");
             record["final_invoker_calls"] = json!(1);
             record["effect_receipt_hash"] = json!(canonical_hash(&effect_receipt)?);
             record["settled_at_ms"] = json!(now_ms);
             persist(data_dir, id, &record)?;
+            super::durable_fs::test_crash_pause_if_selected(
+                "IOI_TEST_CRASH_AT",
+                "workload_effect_settled",
+                "IOI_TEST_CRASH_MARKER_PATH",
+                id,
+            )
+            .map_err(|error| format!("workload_effect_crash_coordination_failed: {error}"))?;
             let receipt = json!({
                 "schema_version": "ioi.components.hypervisor.workload-effect-consumption-receipt.v1",
                 "capability_ref": record["capability_ref"],
@@ -564,6 +603,13 @@ where
             }
             record["settled_at_ms"] = json!(now_ms);
             persist(data_dir, id, &record)?;
+            super::durable_fs::test_crash_pause_if_selected(
+                "IOI_TEST_CRASH_AT",
+                "workload_effect_settled",
+                "IOI_TEST_CRASH_MARKER_PATH",
+                id,
+            )
+            .map_err(|error| format!("workload_effect_crash_coordination_failed: {error}"))?;
             Err(GovernedEffectRefusal {
                 code: format!("workload_effect_final_invoker_refused: {}", refusal.code),
                 effect_receipt: refusal.effect_receipt,
@@ -1827,5 +1873,228 @@ mod tests {
         let operations = super::super::read_record_dir(data_dir, "provider-operations");
         assert_eq!(operations.len(), 1);
         assert_eq!(operations[0]["op"], "observe");
+    }
+
+    #[test]
+    #[ignore = "spawns and SIGKILLs a child after provider invocation but before durable settlement"]
+    fn daemon_kill_after_provider_invocation_reconciles_without_duplicate_create() {
+        const CHILD_ENV: &str = "IOI_T2_WORKLOAD_EFFECT_INVOKED_CRASH_CHILD";
+        const DATA_DIR_ENV: &str = "IOI_T2_WORKLOAD_EFFECT_INVOKED_DATA_DIR";
+        const PROPOSAL_PATH_ENV: &str = "IOI_T2_WORKLOAD_EFFECT_INVOKED_PROPOSAL_PATH";
+
+        if std::env::var(CHILD_ENV).ok().as_deref() == Some("1") {
+            let data_dir = std::env::var(DATA_DIR_ENV).unwrap();
+            let proposal_path = std::env::var(PROPOSAL_PATH_ENV).unwrap();
+            let proposal = std::fs::read(proposal_path).unwrap();
+            let _ = consume_guest_static_provider_operation_bytes(&data_dir, &proposal, 2_000);
+            panic!("crash child escaped the selected post-invocation pause");
+        }
+
+        let dir = fixture();
+        let data_dir = dir.path().to_str().unwrap();
+        let environment_ref = "env-t2-invoked-crash-window";
+        let request = json!({
+            "provider_id": "loopback-runner",
+            "op": "create",
+            "environment_ref": environment_ref,
+            "plan": {}
+        });
+        let proposal = mint_guest_effect_capability(
+            data_dir,
+            "workload-isolation-binding://run-invoked-crash-window",
+            "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "principal://worker-invoked-crash-window",
+            "nonce-invoked-crash-window",
+            "hypervisor-final-invoker",
+            &format!("provider-resource://loopback-runner/{environment_ref}"),
+            "result-destination://aft/u1",
+            &request,
+            1_000,
+            61_000,
+        )
+        .unwrap();
+        let proposal_bytes = serde_jcs::to_vec(&proposal).unwrap();
+        let proposal_path = dir.path().join("invoked-proposal.jcs.json");
+        let marker_path = dir.path().join("invoked.marker");
+        std::fs::write(&proposal_path, &proposal_bytes).unwrap();
+
+        let current_exe = std::env::current_exe().unwrap();
+        let mut child = std::process::Command::new(current_exe)
+            .arg("--exact")
+            .arg(
+                "workload_effect_boundary::tests::daemon_kill_after_provider_invocation_reconciles_without_duplicate_create",
+            )
+            .arg("--ignored")
+            .arg("--nocapture")
+            .env(CHILD_ENV, "1")
+            .env(DATA_DIR_ENV, data_dir)
+            .env(PROPOSAL_PATH_ENV, &proposal_path)
+            .env("IOI_TEST_CRASH_AT", "workload_effect_invoked")
+            .env("IOI_TEST_CRASH_MARKER_PATH", &marker_path)
+            .spawn()
+            .unwrap();
+
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        while !marker_path.exists() && std::time::Instant::now() < deadline {
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        assert!(
+            marker_path.exists(),
+            "child never reached post-invocation boundary"
+        );
+        child.kill().unwrap();
+        assert!(!child.wait().unwrap().success());
+
+        let operations = super::super::read_record_dir(data_dir, "provider-operations");
+        assert_eq!(
+            operations
+                .iter()
+                .filter(|operation| operation["op"] == "create")
+                .count(),
+            1
+        );
+        assert_eq!(
+            consume_guest_static_provider_operation_bytes(data_dir, &proposal_bytes, 3_000)
+                .unwrap_err(),
+            "workload_effect_prior_claim_requires_reconciliation"
+        );
+        let receipt = reconcile_guest_static_provider_operation(
+            data_dir,
+            proposal["capability_ref"].as_str().unwrap(),
+            4_000,
+        )
+        .unwrap();
+        assert_eq!(receipt["disposition"], "cleanup_succeeded");
+        assert_eq!(receipt["status"], "reconciled_cleanup_succeeded");
+        assert_eq!(receipt["original_effect_reinvoked"], false);
+        assert_eq!(receipt["provider_operations_before"], 1);
+        assert_eq!(receipt["provider_operations_after"], 3);
+        let operations = super::super::read_record_dir(data_dir, "provider-operations");
+        assert_eq!(
+            operations
+                .iter()
+                .filter(|operation| operation["op"] == "create")
+                .count(),
+            1
+        );
+        assert_eq!(
+            operations
+                .iter()
+                .filter(|operation| operation["op"] == "observe")
+                .count(),
+            1
+        );
+        assert_eq!(
+            operations
+                .iter()
+                .filter(|operation| operation["op"] == "delete")
+                .count(),
+            1
+        );
+    }
+
+    #[test]
+    #[ignore = "spawns and SIGKILLs a child after durable settlement but before response"]
+    fn daemon_kill_after_durable_settlement_preserves_terminal_replay_refusal() {
+        const CHILD_ENV: &str = "IOI_T2_WORKLOAD_EFFECT_SETTLED_CRASH_CHILD";
+        const DATA_DIR_ENV: &str = "IOI_T2_WORKLOAD_EFFECT_SETTLED_DATA_DIR";
+        const PROPOSAL_PATH_ENV: &str = "IOI_T2_WORKLOAD_EFFECT_SETTLED_PROPOSAL_PATH";
+
+        if std::env::var(CHILD_ENV).ok().as_deref() == Some("1") {
+            let data_dir = std::env::var(DATA_DIR_ENV).unwrap();
+            let proposal_path = std::env::var(PROPOSAL_PATH_ENV).unwrap();
+            let proposal = std::fs::read(proposal_path).unwrap();
+            let _ = consume_guest_static_provider_operation_bytes(&data_dir, &proposal, 2_000);
+            panic!("crash child escaped the selected post-settlement pause");
+        }
+
+        let dir = fixture();
+        let data_dir = dir.path().to_str().unwrap();
+        let environment_ref = "env-t2-settled-crash-window";
+        let request = json!({
+            "provider_id": "loopback-runner",
+            "op": "create",
+            "environment_ref": environment_ref,
+            "plan": {}
+        });
+        let proposal = mint_guest_effect_capability(
+            data_dir,
+            "workload-isolation-binding://run-settled-crash-window",
+            "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "principal://worker-settled-crash-window",
+            "nonce-settled-crash-window",
+            "hypervisor-final-invoker",
+            &format!("provider-resource://loopback-runner/{environment_ref}"),
+            "result-destination://aft/u1",
+            &request,
+            1_000,
+            61_000,
+        )
+        .unwrap();
+        let proposal_bytes = serde_jcs::to_vec(&proposal).unwrap();
+        let proposal_path = dir.path().join("settled-proposal.jcs.json");
+        let marker_path = dir.path().join("settled.marker");
+        std::fs::write(&proposal_path, &proposal_bytes).unwrap();
+
+        let current_exe = std::env::current_exe().unwrap();
+        let mut child = std::process::Command::new(current_exe)
+            .arg("--exact")
+            .arg(
+                "workload_effect_boundary::tests::daemon_kill_after_durable_settlement_preserves_terminal_replay_refusal",
+            )
+            .arg("--ignored")
+            .arg("--nocapture")
+            .env(CHILD_ENV, "1")
+            .env(DATA_DIR_ENV, data_dir)
+            .env(PROPOSAL_PATH_ENV, &proposal_path)
+            .env("IOI_TEST_CRASH_AT", "workload_effect_settled")
+            .env("IOI_TEST_CRASH_MARKER_PATH", &marker_path)
+            .spawn()
+            .unwrap();
+
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        while !marker_path.exists() && std::time::Instant::now() < deadline {
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        assert!(
+            marker_path.exists(),
+            "child never reached post-settlement boundary"
+        );
+        child.kill().unwrap();
+        assert!(!child.wait().unwrap().success());
+
+        let record = load(data_dir, record_id(&proposal).unwrap()).unwrap();
+        assert_eq!(record["status"], "consumed");
+        assert_eq!(record["final_invoker_calls"], 1);
+        assert!(record["effect_receipt_hash"]
+            .as_str()
+            .is_some_and(|value| value.starts_with("sha256:")));
+        assert_eq!(
+            consume_guest_static_provider_operation_bytes(data_dir, &proposal_bytes, 3_000)
+                .unwrap_err(),
+            "workload_effect_capability_already_consumed"
+        );
+        let operations = super::super::read_record_dir(data_dir, "provider-operations");
+        assert_eq!(
+            operations
+                .iter()
+                .filter(|operation| operation["op"] == "create")
+                .count(),
+            1
+        );
+
+        let delete = json!({
+            "provider_id": "loopback-runner",
+            "op": "delete",
+            "environment_ref": environment_ref,
+        });
+        let (status, axum::Json(reply)) =
+            super::super::provider_routes::invoke_static_provider_operation(data_dir, &delete);
+        assert!(status.is_success());
+        assert_eq!(reply["ok"], true);
+        assert_eq!(
+            reply.pointer("/evidence/cleanup_verified"),
+            Some(&json!(true))
+        );
     }
 }

@@ -1005,7 +1005,12 @@ fn tar_path(header: &[u8]) -> Result<PathBuf, String> {
 /// Validate an archive at the host trust boundary. Only regular files and directories with
 /// relative paths are admitted; links, devices, FIFOs, sparse/PAX/GNU extensions and traversal
 /// are refused. This intentionally accepts a smaller format than the system extractor.
-fn validate_tar_for_host_extract(tar: &[u8]) -> Result<(), String> {
+const MAX_HOST_EXTRACT_MEMBERS: usize = 100_000;
+
+fn validate_tar_for_host_extract_with_member_limit(
+    tar: &[u8],
+    max_members: usize,
+) -> Result<(), String> {
     if tar.len() % 512 != 0 {
         return Err("tar length is not block-aligned".into());
     }
@@ -1026,8 +1031,8 @@ fn validate_tar_for_host_extract(tar: &[u8]) -> Result<(), String> {
             return Ok(());
         }
         members += 1;
-        if members > 100_000 {
-            return Err("tar member count exceeds 100000".into());
+        if members > max_members {
+            return Err(format!("tar member count exceeds {max_members}"));
         }
         let path = tar_path(header)?;
         let kind = header[156];
@@ -1086,6 +1091,10 @@ fn validate_tar_for_host_extract(tar: &[u8]) -> Result<(), String> {
         offset = next as usize;
     }
     Ok(())
+}
+
+fn validate_tar_for_host_extract(tar: &[u8]) -> Result<(), String> {
+    validate_tar_for_host_extract_with_member_limit(tar, MAX_HOST_EXTRACT_MEMBERS)
 }
 
 fn extract_validated_tar_into_existing(dir: &Path, tar: &[u8]) -> Result<(), String> {
@@ -1364,6 +1373,7 @@ pub(crate) fn hostile_guest_proposal_roundtrip(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ioi_services::agentic::runtime::kernel::emergency_containment::GUEST_TRANSFER_MAX_BYTES;
     use std::net::TcpListener;
     use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -1441,6 +1451,21 @@ mod tests {
             ("./parent", b'0')
         ))
         .is_err());
+    }
+
+    #[test]
+    fn host_extract_refuses_archive_byte_member_and_compression_quota_abuse() {
+        assert!(admit_guest_transfer_len(GUEST_TRANSFER_MAX_BYTES + 1, None).is_err());
+        assert!(validate_tar_for_host_extract_with_member_limit(
+            &archive_with_two_members(("./first", b'0'), ("./second", b'0')),
+            1,
+        )
+        .is_err());
+
+        let mut compressed = vec![0u8; 512];
+        compressed[0] = 0x1f;
+        compressed[1] = 0x8b;
+        assert!(validate_tar_for_host_extract(&compressed).is_err());
     }
 
     #[test]

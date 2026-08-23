@@ -83,6 +83,10 @@ function inspect(microvm, brokerSource = broker, daemonSource = daemon) {
     "partial_quarantine_failure_regression_missing",
   );
   requireText(
+    "host_extract_refuses_archive_byte_member_and_compression_quota_abuse",
+    "archive_quota_regression_missing",
+  );
+  requireText(
     "hostile_guest_floor_refuses_each_planted_bypass_before_launch",
     "planted_bypass_regression_missing",
   );
@@ -201,6 +205,14 @@ function inspect(microvm, brokerSource = broker, daemonSource = daemon) {
     [
       "daemon_kill_after_durable_claim_never_duplicates_provider_effect",
       "durable_claim_sigkill_regression_missing",
+    ],
+    [
+      "daemon_kill_after_provider_invocation_reconciles_without_duplicate_create",
+      "post_invocation_sigkill_reconciliation_regression_missing",
+    ],
+    [
+      "daemon_kill_after_durable_settlement_preserves_terminal_replay_refusal",
+      "post_settlement_sigkill_replay_regression_missing",
     ],
   ]) {
     if (!brokerSource.includes(text)) findings.push(code);
@@ -384,6 +396,14 @@ runCargo("workload_effect_boundary::tests");
 runCargo("daemon_kill_after_durable_claim_never_duplicates_provider_effect", [
   "--ignored",
 ]);
+runCargo(
+  "daemon_kill_after_provider_invocation_reconciles_without_duplicate_create",
+  ["--ignored"],
+);
+runCargo(
+  "daemon_kill_after_durable_settlement_preserves_terminal_replay_refusal",
+  ["--ignored"],
+);
 runCargo("monitor_is_killed_when_its_daemon_parent_disappears", ["--ignored"]);
 if (process.argv.includes("--live")) {
   runCargo("killed_guest_monitor_reaches_terminal_cleanup", ["--ignored"]);
@@ -403,9 +423,28 @@ console.log(
       verdict: "PASS",
       live_kvm_probe: process.argv.includes("--live") ? "passed" : "not_run",
       floor_status:
-        "not_yet_in_global_verifier_floor_pending_live_c2_authority_composition_and_complete_failure_matrix",
+        "not_yet_in_global_verifier_floor_pending_integrated_live_external_provider_composition",
+      fault_matrix: {
+        always_run: [
+          "prelaunch_binding_and_planted_device_refusals",
+          "canonical_parser_and_oversized_ipc_refusals",
+          "archive_path_type_collision_compression_and_quota_refusals",
+          "late_extractor_failure_transactional_quarantine",
+          "crash_after_durable_claim_reconciles_no_effect",
+          "crash_after_provider_invocation_reconciles_cleanup_without_duplicate_create",
+          "crash_after_durable_settlement_preserves_terminal_replay_refusal",
+          "daemon_parent_death_terminates_monitor",
+        ],
+        live_kvm: process.argv.includes("--live")
+          ? [
+              "guest_crash_terminal_cleanup",
+              "root_guest_bypass_and_secret_nonpossession_probes",
+              "governed_proposal_exact_roundtrip_without_host_authority",
+            ]
+          : "not_run",
+      },
       claim_boundary:
-        "The local KVM/no-NIC guest launch, canonical output quarantine, exact authenticated proposal, durable one-use claim, host-only authority compartment, and shared full-provider final-invoker implementation are enforced and mutation-tested. The full-provider seam now reaches the wallet/proposal/C2/provider implementation without retaining a bearer operator session, but this check does not claim the live external-provider composition until the integrated paid capstone and complete T2 fault matrix pass.",
+        "The local KVM/no-NIC guest launch, canonical quota-bounded output quarantine, exact authenticated proposal, durable one-use claim, host-only authority compartment, shared full-provider final-invoker implementation, and pre-effect/post-effect/post-settlement crash behavior are enforced and mutation-tested. The full-provider seam reaches the wallet/proposal/C2/provider implementation without retaining a bearer operator session, but this check does not claim the live external-provider composition until the integrated paid capstone passes.",
     },
     null,
     2,
