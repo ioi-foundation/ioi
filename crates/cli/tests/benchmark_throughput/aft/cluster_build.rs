@@ -126,12 +126,12 @@ fn ensure_benchmark_node_built(state_tree: &str) -> Result<()> {
         .ok()
         .and_then(|path| std::fs::metadata(path).ok())
         .and_then(|metadata| metadata.modified().ok());
-    let binaries_present = ["orchestration", "workload", "guardian"]
+    let binaries_present = ["orchestration", "workload", "guardian", "ioi-signer"]
         .iter()
         .all(|bin| node_binary_dir.join(bin).exists());
     let stale_binaries = benchmark_exe_mtime
         .map(|benchmark_mtime| {
-            ["orchestration", "workload", "guardian"].iter().any(|bin| {
+            ["orchestration", "workload", "guardian", "ioi-signer"].iter().any(|bin| {
                 node_binary_dir
                     .join(bin)
                     .metadata()
@@ -176,6 +176,8 @@ fn ensure_benchmark_node_built(state_tree: &str) -> Result<()> {
         "workload",
         "--bin",
         "guardian",
+        "--bin",
+        "ioi-signer",
     ]);
     cmd.env("CARGO_TARGET_DIR", &node_target_dir);
     if build_profile.eq_ignore_ascii_case("release") {

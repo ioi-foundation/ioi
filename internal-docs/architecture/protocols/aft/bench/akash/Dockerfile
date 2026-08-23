@@ -63,11 +63,11 @@ RUN cargo test --locked --release --no-run \
 RUN CARGO_TARGET_DIR=/ioi/target/test-node-builds/release-0b7414797d7f2187 \
       cargo build --locked --release -p ioi-node --no-default-features \
         --features validator-bins,consensus-aft,state-iavl,commitment-hash,vm-wasm \
-        --bin orchestration --bin workload --bin guardian \
+        --bin orchestration --bin workload --bin guardian --bin ioi-signer \
     && CARGO_TARGET_DIR=/ioi/target/test-node-builds/release-6bdc4f43f691ae57 \
       cargo build --locked --release -p ioi-node --no-default-features \
         --features validator-bins,consensus-aft,state-jellyfish,commitment-hash,vm-wasm \
-        --bin orchestration --bin workload --bin guardian
+        --bin orchestration --bin workload --bin guardian --bin ioi-signer
 
 COPY internal-docs/architecture/protocols/aft/bench/akash/run-bench.sh /usr/local/bin/run-bench.sh
 COPY internal-docs/architecture/protocols/aft/bench/akash/result-tools.py /usr/local/bin/aft-result-tools.py
