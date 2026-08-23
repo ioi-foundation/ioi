@@ -184,8 +184,44 @@ fn append_benchmark_trace_line(path: &Path, line: &str) {
     }
 }
 
-fn node_profile_needs_build(binaries_present: bool) -> bool {
-    !binaries_present
+const NODE_PROFILE_SOURCE_REVISION_MARKER: &str = ".ioi-source-revision";
+
+fn checkout_source_revision() -> Option<String> {
+    let output = Command::new("git")
+        .args(["rev-parse", "HEAD"])
+        .current_dir(super::build::workspace_root())
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let revision = String::from_utf8(output.stdout).ok()?.trim().to_owned();
+    (revision.len() == 40 && revision.bytes().all(|byte| byte.is_ascii_hexdigit()))
+        .then_some(revision)
+}
+
+fn node_profile_needs_build(node_target_dir: &Path, binaries_present: bool) -> bool {
+    if !binaries_present {
+        return true;
+    }
+    let Some(revision) = checkout_source_revision() else {
+        // A binary with no resolvable source identity is not reusable evidence.
+        return true;
+    };
+    std::fs::read_to_string(node_target_dir.join(NODE_PROFILE_SOURCE_REVISION_MARKER))
+        .map(|recorded| recorded.trim() != revision)
+        .unwrap_or(true)
+}
+
+fn record_node_profile_source_revision(node_target_dir: &Path) -> Result<()> {
+    let revision = checkout_source_revision()
+        .ok_or_else(|| anyhow!("cannot resolve source revision for test-node build"))?;
+    std::fs::create_dir_all(node_target_dir)?;
+    std::fs::write(
+        node_target_dir.join(NODE_PROFILE_SOURCE_REVISION_MARKER),
+        format!("{revision}\n"),
+    )?;
+    Ok(())
 }
 
 fn node_profile_build_forbidden() -> bool {
@@ -445,7 +481,7 @@ impl TestValidator {
             .iter()
             .all(|bin| node_binary_dir.join(bin).exists());
 
-        let needs_build = node_profile_needs_build(binaries_present);
+        let needs_build = node_profile_needs_build(&node_target_dir, binaries_present);
         if needs_build {
             if node_profile_build_forbidden() {
                 return Err(anyhow!(
@@ -491,6 +527,7 @@ impl TestValidator {
             if !status_node.success() {
                 panic!("Node binary build failed for features: {}", features);
             }
+            record_node_profile_source_revision(&node_target_dir)?;
         }
 
         let peer_id = keypair.public().to_peer_id();
@@ -1087,15 +1124,31 @@ impl TestValidator {
 
 #[cfg(test)]
 mod node_profile_build_tests {
-    use super::node_profile_needs_build;
+    use super::{
+        checkout_source_revision, node_profile_needs_build, NODE_PROFILE_SOURCE_REVISION_MARKER,
+    };
 
     #[test]
-    fn a_prebuilt_profile_is_never_rebuilt_on_first_use() {
-        assert!(!node_profile_needs_build(true));
+    fn a_prebuilt_profile_without_source_identity_requires_a_build() {
+        let dir = tempfile::tempdir().expect("profile dir");
+        assert!(node_profile_needs_build(dir.path(), true));
+    }
+
+    #[test]
+    fn a_prebuilt_profile_from_the_current_revision_is_reused() {
+        let dir = tempfile::tempdir().expect("profile dir");
+        let revision = checkout_source_revision().expect("checkout revision");
+        std::fs::write(
+            dir.path().join(NODE_PROFILE_SOURCE_REVISION_MARKER),
+            format!("{revision}\n"),
+        )
+        .expect("source marker");
+        assert!(!node_profile_needs_build(dir.path(), true));
     }
 
     #[test]
     fn an_absent_profile_requires_a_build() {
-        assert!(node_profile_needs_build(false));
+        let dir = tempfile::tempdir().expect("profile dir");
+        assert!(node_profile_needs_build(dir.path(), false));
     }
 }
