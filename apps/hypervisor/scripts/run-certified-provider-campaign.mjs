@@ -374,7 +374,7 @@ try {
         presentation_evidence_profile_ref: "policy://presentation/software-passkey/v1",
         principal_authority_resolution_ref: null,
         principal_authority_resolution_hash: null,
-        required_auth_factor_posture_refs: ["auth-factor://software-passkey/trusted-host"],
+        required_auth_factor_posture_refs: ["auth_factor://passkey/software/trusted-host"],
         required_guardian_surface_refs: [],
         posture_satisfaction_profile_ref: "policy://auth-posture/step-up/v1",
         interaction_mode: "interactive",
