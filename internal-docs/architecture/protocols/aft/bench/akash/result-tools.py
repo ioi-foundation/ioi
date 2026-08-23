@@ -47,6 +47,12 @@ THRESHOLDS = {
     "commit_max_ms": 0.15,
 }
 ALLOWED_STATES = {"starting", "warmup", "measuring", "complete", "failed"}
+MODE_ALIASES = {
+    "GuardianMajority": "guardian_majority",
+    "guardian_majority": "guardian_majority",
+    "Asymptote": "asymptote",
+    "asymptote": "asymptote",
+}
 ENVIRONMENT_MATCH_FIELDS = (
     "source_commit",
     "image_digest",
@@ -100,6 +106,10 @@ def parse_markdown_table(raw: str, scenario_filter: str) -> list[dict[str, objec
         scenario = str(row["scenario"])
         if scenario not in SCENARIO_LANES:
             raise ValueError(f"unexpected scenario {scenario!r}")
+        mode = MODE_ALIASES.get(str(row["mode"]))
+        if mode is None:
+            raise ValueError(f"{scenario}/{row['lane']} has unsupported mode {row['mode']!r}")
+        row["mode"] = mode
         for metric in REQUIRED_METRICS:
             try:
                 number = float(str(row[metric]))
