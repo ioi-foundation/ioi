@@ -46,7 +46,9 @@ function inspect({ action, handler, wallet, auth, config, provider, governed, cl
   requireText(handler, "AUTH_FACTOR_RECEIPT_CONTRACT", "passkey_factor_contract_not_validated");
   requireText(handler, "factor_hash != grant.auth_factor_receipt_hash", "factor_receipt_not_bound_to_grant");
   requireText(handler, "context_hash != grant.approval_ceremony_context_hash", "approval_context_not_bound_to_grant");
-  requireText(handler, 'context.get("principal_ref") != envelope.get("principal_ref")', "consent_principal_not_bound_to_envelope");
+  requireText(handler, 'factor.get("principal_ref") != context.get("principal_ref")', "operator_factor_not_bound_to_consent_principal");
+  requireText(handler, 'context.pointer("/authorization_subject/subject_ref")', "consent_subject_ref_not_bound_to_envelope");
+  requireText(handler, '"authorization_subject.subject_hash"', "consent_subject_hash_not_bound_to_envelope");
   requireText(handler, "params.expected_principal_authority.principal_ref != grant_state.principal_ref", "draw_principal_not_bound_to_envelope");
   requireText(handler, "standing evidence does not bind the grant envelope and policy", "standing_envelope_evidence_not_bound");
   requireText(handler, "issued_revocation_epoch != load_revocation_epoch(state)?", "revocation_epoch_not_enforced");
@@ -75,6 +77,11 @@ function inspect({ action, handler, wallet, auth, config, provider, governed, cl
     tests,
     "standing_envelope_emits_two_hundred_silent_receipts_then_refuses_draw_201",
     "approval_habituation_regression_missing",
+  );
+  requireText(
+    tests,
+    "the passkey-bound operator and independently resolved governing authority stay distinct",
+    "operator_and_governing_authority_collapsed",
   );
   return [...new Set(findings)].sort();
 }
@@ -117,9 +124,14 @@ if (process.argv.includes("--mutation")) {
       sources: { ...sources, handler: sources.handler.replace("factor_hash != grant.auth_factor_receipt_hash", "false") },
     },
     {
-      name: "consent_principal_can_differ_from_envelope",
-      expected: "consent_principal_not_bound_to_envelope",
-      sources: { ...sources, handler: sources.handler.replace('context.get("principal_ref") != envelope.get("principal_ref")', "false") },
+      name: "operator_factor_can_differ_from_consent_principal",
+      expected: "operator_factor_not_bound_to_consent_principal",
+      sources: { ...sources, handler: sources.handler.replace('factor.get("principal_ref") != context.get("principal_ref")', "false") },
+    },
+    {
+      name: "consent_subject_ref_not_bound_to_governing_envelope",
+      expected: "consent_subject_ref_not_bound_to_envelope",
+      sources: { ...sources, handler: sources.handler.replace('context.pointer("/authorization_subject/subject_ref")', 'context.pointer("/unbound_subject/ref")') },
     },
     {
       name: "draw_principal_can_differ_from_envelope",
@@ -145,6 +157,11 @@ if (process.argv.includes("--mutation")) {
       name: "remove_two_hundred_draw_habituation_regression",
       expected: "approval_habituation_regression_missing",
       sources: { ...sources, tests: sources.tests.replace("standing_envelope_emits_two_hundred_silent_receipts_then_refuses_draw_201", "standing_envelope_habituation_regression_removed") },
+    },
+    {
+      name: "collapse_operator_and_governing_authority_regression",
+      expected: "operator_and_governing_authority_collapsed",
+      sources: { ...sources, tests: sources.tests.replace("the passkey-bound operator and independently resolved governing authority stay distinct", "operator_and_authority_are_same") },
     },
   ];
   const survived = mutations.filter(({ sources: mutated, expected }) => !inspect(mutated).includes(expected));
