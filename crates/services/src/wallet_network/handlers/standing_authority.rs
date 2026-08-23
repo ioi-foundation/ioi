@@ -254,45 +254,75 @@ fn validate_standing_evidence(
     context_material.extend_from_slice(APPROVAL_CONTEXT_DOMAIN);
     context_material.extend_from_slice(&context_json);
     let context_hash = digest32(&context_material)?;
-    if context_hash != grant.approval_ceremony_context_hash
-        || hash_value(
-            &context,
-            "/authorization_subject/subject_hash",
-            "approval subject hash",
-        )? != envelope_hash
-        || hash_value(&context, "/policy_hash", "approval context policy hash")? != policy_hash
-        || context.pointer("/authorization_subject/subject_ref")
-            != envelope.get("standing_envelope_ref")
-        || context
-            .pointer("/authorization_subject/validation_profile_ref")
-            .and_then(Value::as_str)
-            != Some(STANDING_ENVELOPE_CONTRACT)
-        || context.get("interaction_mode").and_then(Value::as_str) != Some("interactive")
-        || context
-            .get("authentication_posture")
-            .and_then(Value::as_str)
-            != Some("step_up")
-        || context.get("receipt_timing").and_then(Value::as_str) != Some("before_effect")
-        || !context
-            .get("required_auth_factor_posture_refs")
-            .and_then(Value::as_array)
-            .is_some_and(|refs| {
-                refs.iter().any(|value| {
-                    value
-                        .as_str()
-                        .is_some_and(|value| value.starts_with("auth_factor://passkey/"))
-                })
-            })
-        || context.get("revocation_epoch").and_then(Value::as_u64) != Some(current_epoch)
-        || hash_value(
-            &context,
-            "/policy_decision_receipt_hash",
-            "policy decision receipt hash",
-        )? != grant.review_receipt_hash
+    let context_refused = |detail: &str| {
+        TransactionError::Invalid(format!(
+            "approval ceremony context does not bind the standing grant: {detail}"
+        ))
+    };
+    if context_hash != grant.approval_ceremony_context_hash {
+        return Err(context_refused("context_hash"));
+    }
+    if hash_value(
+        &context,
+        "/authorization_subject/subject_hash",
+        "approval subject hash",
+    )? != envelope_hash
     {
-        return Err(TransactionError::Invalid(
-            "approval ceremony context does not bind the standing grant".into(),
+        return Err(context_refused("authorization_subject.subject_hash"));
+    }
+    if hash_value(&context, "/policy_hash", "approval context policy hash")? != policy_hash {
+        return Err(context_refused("policy_hash"));
+    }
+    if context.pointer("/authorization_subject/subject_ref")
+        != envelope.get("standing_envelope_ref")
+    {
+        return Err(context_refused("authorization_subject.subject_ref"));
+    }
+    if context
+        .pointer("/authorization_subject/validation_profile_ref")
+        .and_then(Value::as_str)
+        != Some(STANDING_ENVELOPE_CONTRACT)
+    {
+        return Err(context_refused(
+            "authorization_subject.validation_profile_ref",
         ));
+    }
+    if context.get("interaction_mode").and_then(Value::as_str) != Some("interactive") {
+        return Err(context_refused("interaction_mode"));
+    }
+    if context
+        .get("authentication_posture")
+        .and_then(Value::as_str)
+        != Some("step_up")
+    {
+        return Err(context_refused("authentication_posture"));
+    }
+    if context.get("receipt_timing").and_then(Value::as_str) != Some("before_effect") {
+        return Err(context_refused("receipt_timing"));
+    }
+    if !context
+        .get("required_auth_factor_posture_refs")
+        .and_then(Value::as_array)
+        .is_some_and(|refs| {
+            refs.iter().any(|value| {
+                value
+                    .as_str()
+                    .is_some_and(|value| value.starts_with("auth_factor://passkey/"))
+            })
+        })
+    {
+        return Err(context_refused("required_auth_factor_posture_refs"));
+    }
+    if context.get("revocation_epoch").and_then(Value::as_u64) != Some(current_epoch) {
+        return Err(context_refused("revocation_epoch"));
+    }
+    if hash_value(
+        &context,
+        "/policy_decision_receipt_hash",
+        "policy decision receipt hash",
+    )? != grant.review_receipt_hash
+    {
+        return Err(context_refused("policy_decision_receipt_hash"));
     }
     let context_issued_ms = rfc3339_ms(&context, "/issued_at", "context issued_at")?;
     let context_expires_ms = rfc3339_ms(&context, "/expires_at", "context expires_at")?;

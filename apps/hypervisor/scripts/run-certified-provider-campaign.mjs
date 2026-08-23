@@ -419,17 +419,12 @@ try {
         approvalCeremonyContextHash: contextHash,
         authFactorReceiptHash: factorReceipt.receipt_hash,
       });
-      const recorded = await fixture.recordStandingApprovalGrant(
-        config.authority_principal_ref,
-        grant,
-        envelope,
-        context,
-        factorReceipt,
-      );
+      // Retain the exact non-secret ceremony tuple even when wallet.network refuses it. A clean
+      // refusal must be reproducible without weakening the chain validator or recovering secrets.
       save("standing-authority-envelope.json", envelope);
       save("approval-ceremony-context.json", context);
       save("auth-factor-receipt.json", factorReceipt);
-      save("standing-authority-recording.json", recorded);
+      save("grant.json", grant);
       save("software-passkey-evidence.json", {
         profile: factor.profile,
         credential_ref: factor.credential_ref,
@@ -438,6 +433,14 @@ try {
         authority_receipt_hash: factor.authority_receipt_hash,
         hardware_backed: false,
       });
+      const recorded = await fixture.recordStandingApprovalGrant(
+        config.authority_principal_ref,
+        grant,
+        envelope,
+        context,
+        factorReceipt,
+      );
+      save("standing-authority-recording.json", recorded);
       admitted = {
         ...request,
         wallet_standing_approval_grant: grant,
