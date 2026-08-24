@@ -3876,7 +3876,7 @@ async fn async_main() -> anyhow::Result<()> {
             get(device_custody_routes::handle_passkey_list),
         )
         .route(
-            "/v1/hypervisor/auth/passkeys/{credential_ref_id}",
+            "/v1/hypervisor/auth/passkeys/:credential_ref_id",
             delete(device_custody_routes::handle_passkey_revoke),
         )
         .route(

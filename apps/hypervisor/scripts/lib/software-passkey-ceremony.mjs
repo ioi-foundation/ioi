@@ -62,15 +62,17 @@ const browserCredential = async (page, mode, publicKey) => page.evaluate(
 );
 
 /**
- * Exercise the daemon's real WebAuthn registration and exact-context authority ceremony with a
- * disposable CTAP2 software authenticator. This is evidence for a software-passkey trusted-host
- * profile only; it deliberately makes no hardware-backed or remote-host custody claim.
+ * Open one disposable CTAP2 software authenticator bound to a single browser
+ * context, so the SAME credential can register, log in, and authorise across
+ * several ceremonies. A fresh authenticator per call cannot do that: the
+ * credential would not survive to the next ceremony.
+ *
+ * This is evidence for a software-passkey trusted-host profile only; it makes no
+ * hardware-backed or remote-host custody claim.
  */
-export async function issueSoftwarePasskeyAuthorityFactor({
+export async function openSoftwarePasskeyDevice({
   daemonUrl,
   session,
-  approvalContext,
-  approvalContextHash,
   webauthnOrigin = "http://localhost:8766",
 }) {
   const origin = new URL(webauthnOrigin);
@@ -103,64 +105,116 @@ export async function issueSoftwarePasskeyAuthorityFactor({
         automaticPresenceSimulation: true,
       },
     });
+    // The session this device presents. `login` replaces it with the one the
+    // passkey itself mints, which is what lets a caller drop a password.
+    let current = session;
     const request = async (route, body) => {
       const response = await fetch(`${daemonUrl}${route}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          cookie: `ioi_session=${session}`,
+          ...(current ? { cookie: `ioi_session=${current}` } : {}),
         },
         body: body == null ? undefined : JSON.stringify(body),
       });
       return { status: response.status, value: await response.json() };
     };
 
-    const registration = await request("/v1/hypervisor/auth/passkeys/register/start", null);
-    if (registration.status !== 200 || registration.value.ok !== true) {
-      throw new Error(`software passkey registration start refused: ${registration.value.code || registration.status}`);
-    }
-    const registeredCredential = await browserCredential(
-      page,
-      "create",
-      normalizePublicKeyOptions(registration.value.public_key),
-    );
-    const registered = await request("/v1/hypervisor/auth/passkeys/register/finish", {
-      ceremony_id: registration.value.ceremony_id,
-      credential: registeredCredential,
-    });
-    if (registered.status !== 200 || registered.value.ok !== true) {
-      throw new Error(`software passkey registration finish refused: ${registered.value.code || registered.status}`);
-    }
-
-    const authority = await request("/v1/hypervisor/auth/passkeys/authority/start", {
-      approval_ceremony_context: approvalContext,
-      approval_ceremony_context_hash: approvalContextHash,
-    });
-    if (authority.status !== 200 || authority.value.ok !== true) {
-      throw new Error(`software passkey authority start refused: ${authority.value.code || authority.status}`);
-    }
-    const authorityCredential = await browserCredential(
-      page,
-      "get",
-      normalizePublicKeyOptions(authority.value.public_key),
-    );
-    const authorized = await request("/v1/hypervisor/auth/passkeys/authority/finish", {
-      ceremony_id: authority.value.ceremony_id,
-      credential: authorityCredential,
-    });
-    if (authorized.status !== 200 || authorized.value.ok !== true
-        || !String(authorized.value.receipt_ref || "").startsWith("receipt://auth-factor/")) {
-      throw new Error(`software passkey authority finish refused: ${authorized.value.code || authorized.status}`);
-    }
-    return {
-      profile: "software_passkey_trusted_host",
-      credential_ref: registered.value.credential_ref,
-      enrollment_receipt_ref: registered.value.receipt_ref,
-      authority_receipt_ref: authorized.value.receipt_ref,
-      authority_receipt_hash: authorized.value.receipt_hash,
+    const device = {
+      get session() { return current; },
+      async register() {
+        const start = await request("/v1/hypervisor/auth/passkeys/register/start", null);
+        if (start.status !== 200 || start.value.ok !== true) {
+          throw new Error(`software passkey registration start refused: ${start.value.code || start.status}`);
+        }
+        const credential = await browserCredential(page, "create", normalizePublicKeyOptions(start.value.public_key));
+        const finish = await request("/v1/hypervisor/auth/passkeys/register/finish", {
+          ceremony_id: start.value.ceremony_id,
+          credential,
+        });
+        if (finish.status !== 200 || finish.value.ok !== true) {
+          throw new Error(`software passkey registration finish refused: ${finish.value.code || finish.status}`);
+        }
+        return finish.value;
+      },
+      /** Mint a session from the passkey alone. Returns the raw reply so a
+       *  caller can assert a REFUSAL as easily as a success. */
+      async login({ adopt = true, email } = {}) {
+        // Login is email-hinted: the daemon resolves the principal from the
+        // address, then the passkey proves it. The address identifies; it does
+        // not authenticate, so presenting it is not presenting a credential.
+        const start = await request("/v1/hypervisor/auth/passkeys/login/start", { email });
+        if (start.status !== 200 || start.value.ok !== true) {
+          return { ok: false, stage: "start", status: start.status, code: start.value.code, value: start.value };
+        }
+        const credential = await browserCredential(page, "get", normalizePublicKeyOptions(start.value.public_key));
+        const finish = await request("/v1/hypervisor/auth/passkeys/login/finish", {
+          ceremony_id: start.value.ceremony_id,
+          credential,
+        });
+        if (finish.status !== 200 || finish.value.ok !== true) {
+          return { ok: false, stage: "finish", status: finish.status, code: finish.value.code, value: finish.value };
+        }
+        if (adopt && typeof finish.value.session_token === "string") current = finish.value.session_token;
+        return { ok: true, ...finish.value };
+      },
+      async authority(approvalContext, approvalContextHash) {
+        const start = await request("/v1/hypervisor/auth/passkeys/authority/start", {
+          approval_ceremony_context: approvalContext,
+          approval_ceremony_context_hash: approvalContextHash,
+        });
+        if (start.status !== 200 || start.value.ok !== true) {
+          throw new Error(`software passkey authority start refused: ${start.value.code || start.status}`);
+        }
+        const credential = await browserCredential(page, "get", normalizePublicKeyOptions(start.value.public_key));
+        const finish = await request("/v1/hypervisor/auth/passkeys/authority/finish", {
+          ceremony_id: start.value.ceremony_id,
+          credential,
+        });
+        if (finish.status !== 200 || finish.value.ok !== true
+            || !String(finish.value.receipt_ref || "").startsWith("receipt://auth-factor/")) {
+          throw new Error(`software passkey authority finish refused: ${finish.value.code || finish.status}`);
+        }
+        return finish.value;
+      },
+      async close() {
+        await browser?.close();
+        browser = null;
+        await new Promise((resolve) => originServer.close(resolve));
+      },
     };
-  } finally {
+    return device;
+  } catch (error) {
     await browser?.close();
     await new Promise((resolve) => originServer.close(resolve));
+    throw error;
+  }
+}
+
+/**
+ * Exercise the daemon's real WebAuthn registration and exact-context authority ceremony with a
+ * disposable CTAP2 software authenticator. This is evidence for a software-passkey trusted-host
+ * profile only; it deliberately makes no hardware-backed or remote-host custody claim.
+ */
+export async function issueSoftwarePasskeyAuthorityFactor({
+  daemonUrl,
+  session,
+  approvalContext,
+  approvalContextHash,
+  webauthnOrigin = "http://localhost:8766",
+}) {
+  const device = await openSoftwarePasskeyDevice({ daemonUrl, session, webauthnOrigin });
+  try {
+    const registered = await device.register();
+    const authorized = await device.authority(approvalContext, approvalContextHash);
+    return {
+      profile: "software_passkey_trusted_host",
+      credential_ref: registered.credential_ref,
+      enrollment_receipt_ref: registered.receipt_ref,
+      authority_receipt_ref: authorized.receipt_ref,
+      authority_receipt_hash: authorized.receipt_hash,
+    };
+  } finally {
+    await device.close();
   }
 }
