@@ -20835,7 +20835,10 @@ async fn mcp_request(
         .post(url)
         .header("Content-Type", "application/json")
         .header("Accept", "application/json, text/event-stream")
-        .header("MCP-Protocol-Version", "2025-06-18")
+        .header(
+            ioi_drivers::mcp::protocol::MCP_PROTOCOL_VERSION_HEADER,
+            ioi_drivers::mcp::protocol::MCP_PROTOCOL_VERSION,
+        )
         .timeout(std::time::Duration::from_secs(25))
         .json(&Value::Object(body));
     if !token.is_empty() {
@@ -20847,7 +20850,7 @@ async fn mcp_request(
     let resp = rb.send().await.map_err(|e| e.to_string())?;
     let new_session = resp
         .headers()
-        .get("mcp-session-id")
+        .get(ioi_drivers::mcp::protocol::MCP_SESSION_ID_HEADER)
         .and_then(|v| v.to_str().ok())
         .map(str::to_string)
         .or_else(|| session.clone());
@@ -20886,7 +20889,7 @@ async fn mcp_request(
 
 const MCP_CLIENT_INIT: fn() -> Value = || {
     json!({
-        "protocolVersion": "2025-06-18",
+        "protocolVersion": ioi_drivers::mcp::protocol::MCP_PROTOCOL_VERSION,
         "capabilities": {},
         "clientInfo": { "name": "ioi-hypervisor", "version": "1" },
     })
@@ -20898,7 +20901,7 @@ async fn mcp_handshake(
     url: &str,
     token: &str,
 ) -> Result<Option<String>, String> {
-    let (_init, session) = mcp_request(
+    let (init, session) = mcp_request(
         client,
         url,
         token,
@@ -20908,6 +20911,16 @@ async fn mcp_handshake(
         Some(1),
     )
     .await?;
+    let negotiated = init
+        .get("protocolVersion")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "MCP initialize response omitted protocolVersion".to_string())?;
+    if negotiated != ioi_drivers::mcp::protocol::MCP_PROTOCOL_VERSION {
+        return Err(format!(
+            "MCP initialize negotiated unsupported protocolVersion '{negotiated}'; expected '{}'",
+            ioi_drivers::mcp::protocol::MCP_PROTOCOL_VERSION
+        ));
+    }
     let _ = mcp_request(
         client,
         url,

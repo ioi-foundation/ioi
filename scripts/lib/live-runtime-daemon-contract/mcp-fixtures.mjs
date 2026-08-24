@@ -173,7 +173,7 @@ function mcpFixtureJsonRpcResponse(message, serverName, options = {}) {
       jsonrpc: "2.0",
       id: message.id,
       result: {
-        protocolVersion: "2024-11-05",
+        protocolVersion: "2025-06-18",
         capabilities: { tools: {}, resources: {}, prompts: {} },
         serverInfo: { name: serverName, version: "0.1.0" },
       },

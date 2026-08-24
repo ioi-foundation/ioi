@@ -11,6 +11,8 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command;
 use tokio::sync::{mpsc, oneshot, Mutex};
 
+use super::protocol::MCP_PROTOCOL_VERSION;
+
 #[derive(Debug, Clone)]
 pub struct McpSpawnPolicy {
     pub containment: McpContainmentConfig,
@@ -165,14 +167,26 @@ impl McpTransport {
 
     pub async fn initialize(&self) -> Result<()> {
         let params = json!({
-            "protocolVersion": "2024-11-05",
+            "protocolVersion": MCP_PROTOCOL_VERSION,
             "capabilities": { "roots": { "listChanged": true } },
             "clientInfo": { "name": "ioi-kernel", "version": "0.1.0" }
         });
 
         let init_fut = self.send_request("initialize", params);
         match tokio::time::timeout(std::time::Duration::from_secs(60), init_fut).await {
-            Ok(Ok(_)) => {}
+            Ok(Ok(result)) => {
+                let negotiated = result
+                    .get("protocolVersion")
+                    .and_then(Value::as_str)
+                    .ok_or_else(|| anyhow!("MCP Initialize response omitted protocolVersion"))?;
+                if negotiated != MCP_PROTOCOL_VERSION {
+                    return Err(anyhow!(
+                        "MCP Initialize negotiated unsupported protocolVersion '{}'; expected '{}'",
+                        negotiated,
+                        MCP_PROTOCOL_VERSION
+                    ));
+                }
+            }
             Ok(Err(e)) => return Err(anyhow!("MCP Initialize failed: {}", e)),
             Err(_) => return Err(anyhow!("MCP Initialize timed out (60s).")),
         }

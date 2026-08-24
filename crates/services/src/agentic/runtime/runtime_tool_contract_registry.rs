@@ -4,13 +4,15 @@ use std::collections::BTreeMap;
 use std::sync::OnceLock;
 
 use ioi_types::app::agentic::AgentTool;
+use ioi_types::app::agentic::LlmToolDefinition;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::tools::contracts::{
-    admitted_runtime_tool_contract_for_definition, admitted_runtime_tool_contract_for_native_name,
-    runtime_tool_contract_canonical_hash_material, runtime_tool_id_for_name,
-    validate_admitted_runtime_tool_contract, AdmittedRuntimeToolContract,
+    admitted_runtime_tool_contract_for_definition,
+    admitted_runtime_tool_contract_for_mcp_definition,
+    admitted_runtime_tool_contract_for_native_name, runtime_tool_contract_canonical_hash_material,
+    runtime_tool_id_for_name, validate_admitted_runtime_tool_contract, AdmittedRuntimeToolContract,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -242,6 +244,64 @@ impl RuntimeToolContractRegistry {
             contract,
             admission_receipt_ref,
         })
+    }
+
+    /// Atomically admit the namespaced tool descriptors exposed by one live MCP
+    /// server. Starting a transport only creates candidates; they remain hidden
+    /// from discovery and unusable by the final invoker until this owner records
+    /// their immutable RuntimeToolContract revisions.
+    pub fn admit_mcp_server_tools(
+        &mut self,
+        server_name: &str,
+        tools: &[LlmToolDefinition],
+        server_admission_receipt_ref: &str,
+    ) -> Result<Vec<ResolvedRegisteredRuntimeToolContract>, RuntimeToolContractRegistryError> {
+        let server_name = server_name.trim();
+        if server_name.is_empty() {
+            return Err(RuntimeToolContractRegistryError::new(
+                "runtime_tool_contract_mcp_server_invalid",
+                "MCP server name is empty",
+            ));
+        }
+        if !server_admission_receipt_ref.starts_with("receipt://") {
+            return Err(RuntimeToolContractRegistryError::new(
+                "runtime_tool_contract_receipt_ref_invalid",
+                "MCP server admission must bind an exact receipt:// reference",
+            ));
+        }
+
+        let required_prefix = format!("{server_name}__");
+        let mut candidate = self.clone();
+        let mut admitted = Vec::with_capacity(tools.len());
+        for tool in tools {
+            if !tool.name.starts_with(&required_prefix)
+                || tool.name.len() == required_prefix.len()
+                || AgentTool::is_reserved_tool_name(&tool.name)
+            {
+                return Err(RuntimeToolContractRegistryError::new(
+                    "runtime_tool_contract_mcp_name_invalid",
+                    format!(
+                        "MCP tool '{}' is not owned by namespaced server '{}'",
+                        tool.name, server_name
+                    ),
+                ));
+            }
+            let contract = admitted_runtime_tool_contract_for_mcp_definition(tool, server_name)
+                .map_err(|error| {
+                    RuntimeToolContractRegistryError::new(
+                        "runtime_tool_contract_mcp_descriptor_invalid",
+                        error,
+                    )
+                })?
+                .contract;
+            admitted.push(candidate.admit(
+                contract,
+                server_admission_receipt_ref.to_string(),
+                None,
+            )?);
+        }
+        *self = candidate;
+        Ok(admitted)
     }
 
     pub fn revoke(
@@ -560,5 +620,58 @@ mod tests {
             .unwrap();
         let retry = registry.admit(contract, receipt, None).unwrap();
         assert_eq!(first, retry);
+    }
+
+    #[test]
+    fn mcp_descriptors_are_admitted_atomically_under_the_server_receipt() {
+        let mut registry = RuntimeToolContractRegistry::seeded_native().unwrap();
+        let tools = vec![
+            LlmToolDefinition {
+                name: "calendar__list_events".to_string(),
+                description: "List calendar events".to_string(),
+                parameters: r#"{"type":"object","properties":{}}"#.to_string(),
+            },
+            LlmToolDefinition {
+                name: "calendar__create_event".to_string(),
+                description: "Create a calendar event".to_string(),
+                parameters: r#"{"type":"object","properties":{"title":{"type":"string"}}}"#
+                    .to_string(),
+            },
+        ];
+
+        let admitted = registry
+            .admit_mcp_server_tools("calendar", &tools, "receipt://mcp-server/calendar/fixture")
+            .unwrap();
+        assert_eq!(admitted.len(), 2);
+        for tool in tools {
+            let resolved = registry.resolve_current_for_name(&tool.name).unwrap();
+            assert_eq!(
+                resolved.admission_receipt_ref,
+                "receipt://mcp-server/calendar/fixture"
+            );
+            assert_eq!(resolved.contract.owner, "mcp-server://calendar");
+        }
+
+        let before = registry.export_snapshot().unwrap();
+        let invalid_batch = vec![
+            LlmToolDefinition {
+                name: "mail__send".to_string(),
+                description: "Wrong server namespace".to_string(),
+                parameters: r#"{"type":"object"}"#.to_string(),
+            },
+            LlmToolDefinition {
+                name: "calendar__delete_event".to_string(),
+                description: "Would otherwise be admitted".to_string(),
+                parameters: r#"{"type":"object"}"#.to_string(),
+            },
+        ];
+        assert!(registry
+            .admit_mcp_server_tools(
+                "calendar",
+                &invalid_batch,
+                "receipt://mcp-server/calendar/invalid",
+            )
+            .is_err());
+        assert_eq!(registry.export_snapshot().unwrap(), before);
     }
 }

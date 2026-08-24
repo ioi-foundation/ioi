@@ -48,6 +48,37 @@ pub async fn discover_tools(
     active_window_title: &str,
     resolved_intent: Option<&ResolvedIntentState>,
 ) -> Vec<LlmToolDefinition> {
+    discover_tools_with_registry(
+        state,
+        memory_runtime,
+        mcp,
+        None,
+        query,
+        runtime,
+        tier,
+        active_window_title,
+        resolved_intent,
+    )
+    .await
+}
+
+pub async fn discover_tools_with_registry(
+    state: &dyn StateAccess,
+    memory_runtime: Option<&MemoryRuntime>,
+    mcp: Option<&McpManager>,
+    runtime_tool_contract_registry: Option<
+        Arc<
+            std::sync::RwLock<
+                crate::agentic::runtime::runtime_tool_contract_registry::RuntimeToolContractRegistry,
+            >,
+        >,
+    >,
+    query: &str,
+    runtime: Arc<dyn InferenceRuntime>,
+    tier: ExecutionTier,
+    active_window_title: &str,
+    resolved_intent: Option<&ResolvedIntentState>,
+) -> Vec<LlmToolDefinition> {
     let mut tools = Vec::new();
     let mut mcp_tool_names: HashSet<String> = HashSet::new();
 
@@ -106,11 +137,25 @@ pub async fn discover_tools(
     // released registry heads are callable and therefore eligible for model
     // exposure. Installed service/MCP/skill descriptors remain hidden until
     // their owner admits an immutable RuntimeToolContract revision.
-    match crate::agentic::runtime::runtime_tool_contract_registry::default_seeded_registry() {
-        Ok(registry) => tools.retain(|tool| registry.resolve_current_for_name(&tool.name).is_ok()),
-        Err(error) => {
-            log::error!("RuntimeToolContract registry unavailable during discovery: {error}");
-            tools.clear();
+    if let Some(registry) = runtime_tool_contract_registry {
+        match registry.read() {
+            Ok(registry) => {
+                tools.retain(|tool| registry.resolve_current_for_name(&tool.name).is_ok())
+            }
+            Err(_) => {
+                log::error!("RuntimeToolContract registry lock poisoned during discovery");
+                tools.clear();
+            }
+        }
+    } else {
+        match crate::agentic::runtime::runtime_tool_contract_registry::default_seeded_registry() {
+            Ok(registry) => {
+                tools.retain(|tool| registry.resolve_current_for_name(&tool.name).is_ok())
+            }
+            Err(error) => {
+                log::error!("RuntimeToolContract registry unavailable during discovery: {error}");
+                tools.clear();
+            }
         }
     }
 

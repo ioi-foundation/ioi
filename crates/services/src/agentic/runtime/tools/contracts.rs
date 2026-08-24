@@ -331,6 +331,29 @@ pub fn admitted_runtime_tool_contract_for_definition(
     )
 }
 
+pub fn admitted_runtime_tool_contract_for_mcp_definition(
+    tool: &LlmToolDefinition,
+    server_name: &str,
+) -> Result<ResolvedRuntimeToolContract, String> {
+    let server_name = server_name.trim();
+    if server_name.is_empty() {
+        return Err("MCP RuntimeToolContract server name is empty".to_string());
+    }
+    let mut resolved = admitted_runtime_tool_contract_for_definition(
+        tool,
+        format!("mcp-server://{server_name}"),
+        format!("Custom(mcp-adapter:{server_name})"),
+    )?;
+    resolved.contract.egress_policy = RuntimeToolEgressPolicy {
+        default: "allow_declared".to_string(),
+        allowed_destination_patterns: vec![format!("mcp-server://{server_name}/*")],
+    };
+    resolved.contract.content_hash = sha256_prefixed(
+        &runtime_tool_contract_canonical_hash_material(&resolved.contract)?,
+    )?;
+    Ok(resolved)
+}
+
 pub fn validate_admitted_runtime_tool_contract(
     contract: &AdmittedRuntimeToolContract,
 ) -> Result<(), String> {
@@ -1032,7 +1055,7 @@ fn primitive_capabilities_for(policy_target: &str) -> Vec<String> {
         {
             Some("prim:model.registry")
         }
-        _ => None,
+        _ => Some("prim:extension.invoke"),
     };
     if let Some(primitive) = primitive {
         capabilities.push(primitive.to_string());

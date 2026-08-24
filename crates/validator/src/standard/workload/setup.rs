@@ -614,12 +614,17 @@ where
 
         // [NEW] Initialize MCP Manager and spawn servers
         let mcp_manager = Arc::new(McpManager::new());
+        let runtime_tool_contract_registry = Arc::new(std::sync::RwLock::new(
+            ioi_services::agentic::runtime::runtime_tool_contract_registry::RuntimeToolContractRegistry::seeded_native()
+                .map_err(|error| anyhow!("runtime tool-contract seed failed: {error}"))?,
+        ));
 
         if config.mcp_mode == McpMode::Disabled {
             tracing::info!(target: "mcp", "MCP is disabled (mcp_mode=disabled).");
         } else {
             for (name, server_cfg) in &config.mcp_servers {
                 let manager_clone = mcp_manager.clone();
+                let registry_clone = runtime_tool_contract_registry.clone();
                 let name_clone = name.clone();
 
                 let mut resolved_env = HashMap::new();
@@ -645,13 +650,59 @@ where
                 let mcp_mode = config.mcp_mode;
 
                 tokio::spawn(async move {
-                    if let Err(e) = manager_clone
+                    if let Err(error) = manager_clone
                         .start_server(&name_clone, mcp_mode, mcp_cfg)
                         .await
                     {
-                        tracing::error!(target: "mcp", "Failed to start MCP server '{}': {}", name_clone, e);
-                    } else {
-                        tracing::info!(target: "mcp", "MCP server '{}' started successfully", name_clone);
+                        tracing::error!(target: "mcp", "Failed to start MCP server '{}': {}", name_clone, error);
+                        return;
+                    }
+
+                    let definitions = match manager_clone
+                        .list_admitted_tools_for_server(&name_clone)
+                        .await
+                    {
+                        Ok(definitions) => definitions,
+                        Err(error) => {
+                            tracing::error!(target: "mcp", "MCP server '{}' started but its admitted descriptors could not be read: {}", name_clone, error);
+                            return;
+                        }
+                    };
+                    let receipt = manager_clone
+                        .get_server_receipts()
+                        .await
+                        .into_iter()
+                        .find(|receipt| receipt.server_name == name_clone);
+                    let Some(receipt) = receipt else {
+                        tracing::error!(target: "mcp", "MCP server '{}' started without an admission receipt; descriptors remain unusable", name_clone);
+                        return;
+                    };
+                    let receipt_ref = format!(
+                        "receipt://mcp-server/{}/{}/{}",
+                        name_clone, receipt.command_sha256, receipt.started_at_ms
+                    );
+                    let admission = registry_clone
+                        .write()
+                        .map_err(|_| "runtime tool-contract registry lock poisoned".to_string())
+                        .and_then(|mut registry| {
+                            registry
+                                .admit_mcp_server_tools(&name_clone, &definitions, &receipt_ref)
+                                .map_err(|error| error.to_string())
+                        });
+                    match admission {
+                        Ok(admitted) => tracing::info!(
+                            target: "mcp",
+                            server = name_clone,
+                            tool_count = admitted.len(),
+                            admission_receipt_ref = receipt_ref,
+                            "MCP server tools admitted into the final-invoker RuntimeToolContract registry"
+                        ),
+                        Err(error) => tracing::error!(
+                            target: "mcp",
+                            server = name_clone,
+                            "MCP server started but RuntimeToolContract admission failed; tools remain unusable: {}",
+                            error
+                        ),
                     }
                 });
             }
@@ -666,6 +717,7 @@ where
             reasoning_runtime,
         )
         .with_mcp_manager(mcp_manager)
+        .with_runtime_tool_contract_registry(runtime_tool_contract_registry)
         .with_memory_runtime(memory_runtime);
 
         if let Some(sender) = _event_sender {

@@ -5,7 +5,7 @@ mod mcp;
 pub(crate) mod services;
 pub(crate) mod skills;
 
-pub use discovery::discover_tools;
+pub use discovery::{discover_tools, discover_tools_with_registry};
 
 #[cfg(test)]
 pub(crate) use builtins::should_expose_headless_browser_followups;

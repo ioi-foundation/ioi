@@ -196,6 +196,14 @@ fn effective_destination(
     {
         return format!("connector://{}/*", tool_name.to_ascii_lowercase());
     }
+    if let Some(server_name) = contract
+        .contract
+        .owner
+        .strip_prefix("mcp-server://")
+        .filter(|value| !value.trim().is_empty())
+    {
+        return format!("mcp-server://{server_name}/{tool_name}");
+    }
     if contract.policy_target.starts_with("model::") {
         return "provider://model-runtime/bound".to_string();
     }

@@ -184,6 +184,21 @@ impl RuntimeAgentService {
         self
     }
 
+    /// Share the immutable tool-contract owner with MCP startup/admission.
+    /// This keeps dynamically admitted descriptors and the final-invoker gate
+    /// on one registry instead of cloning divergent per-service snapshots.
+    pub fn with_runtime_tool_contract_registry(
+        mut self,
+        registry: Arc<
+            std::sync::RwLock<
+                crate::agentic::runtime::runtime_tool_contract_registry::RuntimeToolContractRegistry,
+            >,
+        >,
+    ) -> Self {
+        self.runtime_tool_contract_registry = registry;
+        self
+    }
+
     pub fn with_zk_verifier(mut self, verifier: Arc<dyn AgentZkVerifier>) -> Self {
         self.zk_verifier = Some(verifier);
         self

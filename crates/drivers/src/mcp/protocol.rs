@@ -3,6 +3,13 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+/// The one MCP wire revision this runtime currently admits for both stdio and
+/// Streamable HTTP. Supporting another revision requires an explicit parser and
+/// conformance fixture; transports must not silently negotiate divergent shapes.
+pub const MCP_PROTOCOL_VERSION: &str = "2025-06-18";
+pub const MCP_PROTOCOL_VERSION_HEADER: &str = "MCP-Protocol-Version";
+pub const MCP_SESSION_ID_HEADER: &str = "Mcp-Session-Id";
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct JsonRpcRequest {
     pub jsonrpc: String,
