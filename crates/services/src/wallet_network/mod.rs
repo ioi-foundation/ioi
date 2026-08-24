@@ -35,6 +35,7 @@ mod handlers;
 mod keys;
 pub(crate) mod mail_ontology;
 mod mail_transport;
+pub mod portable_authority;
 mod support;
 mod validation;
 

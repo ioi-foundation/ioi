@@ -290,9 +290,11 @@ scopes, primitive capabilities, resources, risk classes, budget, calls, and
 validity while retaining or adding caveats and approval requirements.
 
 A conforming verifier operates over a caller-supplied locally trusted key set
-and bounded-freshness signed revocation snapshot. Current master registers the
-wire contract, invariants, fixtures, and generated projections but does not
-contain the portable Ed25519/JCS verifier or an offline CLI. The v3
+and bounded-freshness signed revocation snapshot. The Rust wallet service now
+contains a production, fully offline v3 Ed25519/JCS verifier over the exact raw
+closed JSON value. It validates the registered schema and invariants before
+hashing, so deserialized projections or reconstructed fields cannot bypass the
+cross-field contract. The v3
 acceptance bar, carried here since the separate conformance tree was retired
 (2026-08-12 owner ruling): a conforming verifier proves the complete ancestor
 chain with parent-holder issuance, strict narrowing on every axis at every
@@ -307,6 +309,25 @@ wrong audience or holder — must each produce its named typed refusal, with
 any either-outcome pass failing the whole bar. Network key
 discovery, trust-root acquisition, transparency infrastructure, and universal
 revocation distribution remain separate planned work.
+
+The v3 signature inherits the v2 construction with its successor domain:
+`IOI-AUTHORITY-GRANT-ENVELOPE-V3\0` followed by RFC 8785 JCS of the exact
+object `{body_hash, schema_hash, signature_domain}`. Its body hash uses the
+same v3 domain followed by JCS of the exact closed grant with only `body_hash`
+and `signature` removed.
+
+The registered v3 wire intentionally remains immutable, but it does not sign a
+delegation-depth ceiling, re-delegation right, or the complete sibling
+allocation set needed to prove cumulative descendant budgets. A root-only
+grant is self-contained. A delegated chain is therefore admissible only with a
+locally trusted, owner-scoped closed-world allocation closure that supplies
+`max_depth`, the exact grants allowed to re-delegate, and every strict
+descendant allocation for each ancestor. The verifier sums all listed strict
+descendant budget and call allocations against each ancestor's signed limits;
+missing closure, omitted ancestor entry, duplicate/ref-hash substitution, or
+excess refuses. Request-carried closure data is never trusted and would be an
+authority forgery. A future portable closure needs its own registered signed
+contract rather than an in-place v3 mutation.
 
 For consequential use, “locally trusted” does not mean caller-asserted
 current. The operation must also bind an admitted

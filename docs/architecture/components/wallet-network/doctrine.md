@@ -287,9 +287,15 @@ execution/effect receipts
 
 The closed ceremony context, `AuthorityReviewReceiptV1`, context-bound
 `AuthorityGrantEnvelope` v3, and `AuthorityEffectAdmissionReceiptV2` are
-registered successor contracts; `WalletReceipt` v2 remains a target. Current registered v1/v2 grants,
-the current WalletReceipt v1, and generic execution receipts remain unchanged
-and do not by themselves establish the end-to-end exact-action proof.
+registered successor contracts; `WalletReceipt` v2 remains a target. The Rust
+wallet service verifies exact raw v3 grants, issuer keys, signed
+bounded-freshness revocation snapshots, parent-holder issuance, attenuation,
+replay, and the complete offline ancestor chain. Delegated chains additionally
+require an owner-supplied trusted allocation closure because immutable v3 does
+not carry signed depth, re-delegation, or global sibling-allocation facts;
+request-carried closure assertions are inadmissible. Current registered v1/v2
+grants, the current WalletReceipt v1, and generic execution receipts remain
+unchanged and do not by themselves establish the end-to-end exact-action proof.
 
 A WebAuthn assertion can be evidence in an application consent or approval
 ceremony when its fresh server challenge is bound to
