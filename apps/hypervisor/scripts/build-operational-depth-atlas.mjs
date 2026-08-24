@@ -34,6 +34,29 @@ const APP = join(HERE, "..");
 const RAW = join(APP, ".artifacts", "opdepth", "rows.json");
 const ATLAS_PATH = join(APP, "application-operational-depth.json");
 
+// M03.3 — explicit method+route denials. Most missing-authority rows describe a capability for
+// which no route identity has been designed, so their `denies` list is honestly empty. These two
+// adjudicated rows deny methods on an existing path and therefore carry the three exact facts the
+// named-gap gate can compare to the router. This table is keyed by the immutable audit row rather
+// than inferred from its English claim.
+const DENIES_BY_MISSING_AUTHORITY_ROW = {
+  "sources:0": [
+    { method: "PATCH", route: "/v1/hypervisor/data-sources/:id" },
+    { method: "PUT", route: "/v1/hypervisor/data-sources/:id" },
+  ],
+  "sources:1": [
+    { method: "DELETE", route: "/v1/hypervisor/data-sources/:id" },
+  ],
+};
+
+export function missingAuthorityContract(slug, index, entry) {
+  if (entry && typeof entry === "object" && !Array.isArray(entry)) return entry;
+  return {
+    claim: String(entry),
+    denies: DENIES_BY_MISSING_AUTHORITY_ROW[`${slug}:${index}`] || [],
+  };
+}
+
 // The retired-queue → superseded-evidence ranking shape, shared by both modes: full scoring
 // evidence, an evidence-ranked order with NO PR-number assignments and NO estate-closure entry,
 // and the explicit supersession declaration.
@@ -173,7 +196,8 @@ function rebuildFromRaw() {
       reference_control_census: census,
       implemented_control_census: implemented,
       existing_daemon: r.existing_daemon || { routes: [], actions: [], receipts: [] },
-      missing_authority_contracts: r.missing_authority_contracts || [],
+      missing_authority_contracts: (r.missing_authority_contracts || [])
+        .map((entry, index) => missingAuthorityContract(s.slug, index, entry)),
       security_credential_implications: r.security_credential_implications || "",
       recommended_next_pr: r.recommended_next_pr || { title: "", scope: "", done_bar: [] },
       ranking_inputs: r.ranking_inputs,
@@ -217,7 +241,7 @@ function rebuildFromRaw() {
   }));
 
   const atlas = {
-    schema_version: "ioi.hypervisor.operational-depth-atlas.v1",
+    schema_version: "ioi.hypervisor.operational-depth-atlas.v2",
     generated_from: "operational-depth exploration workflow (ported product seed + IOI embedded route + daemon cross-check)",
     base_commit: "19d732ff2 (#67)",
     doctrine: "daemon_wired and shell-pixel certification prove the surface renders reference-faithfully over honest daemon truth — they DO NOT imply operational completeness. Operational depth is a separate axis: a surface is operational only when its PRIMARY reference workflow (intent → durable result) is reachable through real daemon authority, not merely when its landing shell is certified. This atlas audits that axis; a splash or empty-onboarding state is never the workflow.",

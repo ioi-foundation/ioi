@@ -47,36 +47,24 @@
 // both directions per scar 4, and A FIELD NAMING A ROUTE THAT IS NOT IN THE TABLE IS RED. That is the
 // scope ratchet: moving a claim out of a policed field no longer lowers a printed number, it fails.
 //
-// AND THE FIELD'S POLARITY IS NOT THE MENTION'S POLARITY. This is the narrowing the owner ruled, and
-// it is the difference between what this gate CHECKS and what it would like to claim. Knowing that
-// `missing_authority_contracts[]` is a field ABOUT absence does not make every route named inside one
-// of its ninety-two entries a route that entry DENIES. `models`' entry reads "Inference exists at
-// /v1/chat/completions but is not a governed catalog workflow" — true, precise, and naming a
-// registered route ON PURPOSE. Reading every mention in the field as a denial accused it, which was
-// the third time in this run that inferring intent from English produced a false accusation against a
-// true sentence. Three strikes made it structural, and the owner bound the rule:
+// AND THE FIELD'S POLARITY IS NOT THE MENTION'S POLARITY. Knowing that a claim is ABOUT missing
+// authority does not make every route cited in its prose a route the claim denies. `models` names
+// `/v1/chat/completions` as existing evidence. Reading that citation as a denial accused a true
+// sentence three times. Three strikes made the owner bind the rule:
 //
 //     A DENIAL IS METHOD-PRECISE. A MENTION WITH NO VERB IS A CITATION.
 //
-// XIII's class and the falsehood this gate found both name the verb they deny — "PATCH/PUT … is
-// GET-only", "DELETE … not yet contracted". So a clause naming a method is judged against that
-// method, and a mention with no method is COUNTED IN ITS OWN PINNED BUCKET and judged by nothing.
-// That bucket IS the residual, stated plainly: this gate does not decide what an absence entry
-// denies. It decides whether a method-precise denial is true.
-//
-// THE REAL FIX IS A SCHEMA, AND IT IS COMMISSIONED RATHER THAN IMPROVISED HERE. Recording what a
-// claim DENIES — a `denies` field carrying route and method per entry, across all ninety-two —
-// replaces inference with declaration and empties the citation bucket by construction. That is a
-// canon schema change over ninety-two tracked entries and it gets its own design-and-review cycle as
-// next-legs XV, beside the `connector_execution_routes` adjudication. A regex does not get to decide
-// what ninety-two canon entries mean, and no label below pretends it does.
+// M03.3 IMPLEMENTS THAT RULE STRUCTURALLY. All ninety-two entries are now
+// `{ claim, denies: [{method, route}] }`. Claim text is prose and every route inside it is a citation;
+// the gate judges only the exact method+route facts in `denies`. An empty list says the capability has
+// no designed route identity yet; it does not invite the gate to invent one from English. This
+// empties the former citation bucket by construction rather than narrowing the claim again.
 //
 // AND A GATE'S PARSER GETS A GATE'S ADVERSARIAL TREATMENT. This one's route matcher excluded `{}`
 // from a route token, so `{id}` truncated eighteen mentions to their parent collection and every
 // method check ran against the wrong path — a parser defect INSIDE A GATE re-points truth wholesale,
 // and this one hid two live falsehoods at 10/10 green. The matcher normalises `{id}` and `:id` to one
-// form, any `/v1/` prefix is in scope rather than `/v1/hypervisor/` alone, and a negative entry that
-// names no route at all is its own pinned population rather than a silent nothing.
+// form, and any `/v1/` prefix is in scope rather than `/v1/hypervisor/` alone.
 //
 // WHAT IT DOES NOT ENTAIL, so the label claims only what it checks. Within a POSITIVE field, prose
 // that asserts an absence about something OTHER than the route it cites is not decidable here — those
@@ -89,6 +77,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { emitVerifierCensus } from "./lib/verifier-census.mjs";
+import { missingAuthorityContract } from "./build-operational-depth-atlas.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = process.env.IOI_GAPTRUTH_ROOT || path.resolve(HERE, "..", "..", "..");
@@ -97,6 +86,7 @@ const DAEMON_MAIN = path.join(ROOT, "crates/node/src/bin/hypervisor-daemon.rs");
 const ATLAS = path.join(APP, "application-operational-depth.json");
 const SURFACES = path.join(APP, "surfaces");
 const SCRIPTS = path.join(APP, "scripts");
+const ATLAS_BUILDER = path.join(SCRIPTS, "build-operational-depth-atlas.mjs");
 
 const results = [];
 const ok = (name, cond, detail) => results.push({ name, pass: !!cond, detail: detail || "" });
@@ -108,8 +98,8 @@ const ok = (name, cond, detail) => results.push({ name, pass: !!cond, detail: de
  *              registered. `reference_control_census[].reason` is positive: a
  *              `disabled_missing_authority` row names the contract that EXISTS while the surface
  *              binding is what is missing, which the atlas's own taxonomy spells out.
- *   negative — the field declares authority ABSENT. Every route named must NOT be registered at the
- *              methods the clause names. This is the XIII class proper.
+ *   structured_denial — the route is inside a typed `{method, route}` denial and is checked by the
+ *              structural atlas pass, never by prose inference.
  *   forward  — a recommended PR: it names routes it intends to CREATE, so today's router says
  *              nothing about it. Counted, never checked, never treated as true.
  *   prose    — narrative. Route mentions carry no field-level polarity.
@@ -123,7 +113,8 @@ const FIELD_SEMANTICS = {
   "existing_daemon.receipts[]": "positive",
   "reference_control_census[].binding": "positive",
   "reference_control_census[].reason": "positive",
-  "missing_authority_contracts[]": "negative",
+  "missing_authority_contracts[].claim": "prose",
+  "missing_authority_contracts[].denies[].route": "structured_denial",
   "recommended_next_pr.done_bar[]": "forward",
   "recommended_next_pr.scope": "forward",
   "recommended_next_pr.title": "forward",
@@ -142,12 +133,14 @@ const FIELD_SEMANTICS = {
  */
 const PINNED = {
   registeredRoutes: 765,
-  atlasRouteMentions: { decided: 237, unchecked: 46, citedInNegative: 1 },
+  missingAuthorityContracts: 92,
+  explicitDenials: 3,
+  atlasRouteMentions: { decided: 235, unchecked: 49 },
   surfaceStringsNamingARoute: 8,
   // The pin includes this gate's OWN two absence-worded labels. It walks every verifier in the estate and
   // is one of them; excluding itself would be the first exemption, and exemptions are how a closed
   // world stops being one.
-  verifierAbsenceLabels: 76,
+  verifierAbsenceLabels: 78,
   verifierAbsenceLabelsResolvingAUrl: 16,
 };
 
@@ -215,24 +208,6 @@ export function routeExists(routes, candidate, method = null) {
     if (rp.every((seg, i) => seg.startsWith(":") || seg === parts[i])) return check(ms);
   }
   return false;
-}
-
-/**
- * The CLAUSE a route mention sits in — used ONLY to read the METHODS a negative claim is about, never
- * to infer polarity. Run over a whole 400-character note, the word "No" in `'No requests found.'` — a
- * quoted UI string about DATA — made an unrelated approvals route read as a falsified reason.
- */
-export function clauseAround(text, at) {
-  const before = Math.max(
-    text.lastIndexOf(". ", at), text.lastIndexOf("; ", at),
-    text.lastIndexOf(" — ", at), text.lastIndexOf("\n", at), -1,
-  );
-  let after = text.length;
-  for (const sep of [". ", "; ", " — ", "\n"]) {
-    const i = text.indexOf(sep, at);
-    if (i !== -1 && i < after) after = i;
-  }
-  return text.slice(before + 1, after);
 }
 
 const ABSENCE_LABEL = /\b(absent|does not exist|no .{0,24}(?:plane|family|route|contract))\b/iu;
@@ -317,11 +292,71 @@ function run() {
     emissions.length > 500,
     `${emissions.length} emissions across atlas, surfaces and verifiers`);
 
+  // ------------------------------------------------------------ M03.3 explicit denial schema
+  const gapEntries = [];
+  const invalidGapEntries = [];
+  const explicitDenials = [];
+  for (const [surface, row] of Object.entries(atlas.surfaces || {})) {
+    if (!Array.isArray(row.missing_authority_contracts)) {
+      invalidGapEntries.push(`${surface}: missing_authority_contracts is not an array`);
+      continue;
+    }
+    for (const [index, entry] of row.missing_authority_contracts.entries()) {
+      const at = `surfaces.${surface}.missing_authority_contracts[${index}]`;
+      gapEntries.push({ at, entry });
+      const keys = entry && typeof entry === "object" && !Array.isArray(entry)
+        ? Object.keys(entry).sort().join(",") : "";
+      if (keys !== "claim,denies" || typeof entry?.claim !== "string" || !entry.claim.trim() || !Array.isArray(entry?.denies)) {
+        invalidGapEntries.push(`${at}: expected exact {claim, denies[]} shape`);
+        continue;
+      }
+      const seen = new Set();
+      for (const [denialIndex, denial] of entry.denies.entries()) {
+        const denialAt = `${at}.denies[${denialIndex}]`;
+        const denialKeys = denial && typeof denial === "object" && !Array.isArray(denial)
+          ? Object.keys(denial).sort().join(",") : "";
+        const method = denial?.method;
+        const route = denial?.route;
+        const key = `${method} ${route}`;
+        const valid = denialKeys === "method,route"
+          && ["GET", "POST", "PATCH", "PUT", "DELETE"].includes(method)
+          && typeof route === "string" && /^\/v1\/[A-Za-z0-9/_:-]+$/u.test(route)
+          && normaliseRoute(route) === route && !seen.has(key);
+        if (!valid) invalidGapEntries.push(`${denialAt}: invalid or duplicate method+route denial`);
+        else { seen.add(key); explicitDenials.push({ at: denialAt, method, route }); }
+      }
+    }
+  }
+  ok("[M033_SCHEMA] M03.3 SCHEMA — every one of the 92 missing-authority entries is an exact `{claim, denies[]}` object, and every denial is a unique canonical method+route fact rather than an inference from English",
+    atlas.schema_version === "ioi.hypervisor.operational-depth-atlas.v2"
+      && gapEntries.length === PINNED.missingAuthorityContracts && invalidGapEntries.length === 0,
+    invalidGapEntries.length ? `INVALID: ${invalidGapEntries.slice(0, 6).join(" ; ")}`
+      : `${gapEntries.length}/${PINNED.missingAuthorityContracts} entries structurally declared`);
+
+  const servedDenials = explicitDenials.filter((denial) => routeExists(routes, denial.route, denial.method));
+  ok("[M033_EXPLICIT_DENIALS] NO EXPLICIT METHOD+ROUTE DENIAL NAMES AUTHORITY THIS DAEMON SERVES — claim prose is never parsed for polarity, so a citation cannot be mistaken for a denial and rewording cannot silently change the checked fact",
+    explicitDenials.length === PINNED.explicitDenials && servedDenials.length === 0,
+    servedDenials.length ? `FALSIFIED: ${servedDenials.map((d) => `${d.at}: ${d.method} ${d.route} IS registered`).join(" ; ")}`
+      : `${explicitDenials.length}/${PINNED.explicitDenials} explicit denials are absent from the router`);
+
+  const builderSource = fs.readFileSync(ATLAS_BUILDER, "utf8");
+  const rebuiltDenial = missingAuthorityContract("sources", 0, "source edit authority is absent");
+  const rebuiltCitation = missingAuthorityContract("models", 0, "GET /v1/models is cited evidence");
+  ok("[M033_BUILDER] THE CANONICAL ATLAS BUILDER RECONSTRUCTS THE V2 AUTHORITY-GAP SHAPE — a destructive rebuild cannot silently turn typed denials back into English strings",
+    builderSource.includes('schema_version: "ioi.hypervisor.operational-depth-atlas.v2"')
+      && Object.keys(rebuiltDenial).sort().join(",") === "claim,denies"
+      && rebuiltDenial.denies.length === 2
+      && rebuiltDenial.denies[0]?.method === "PATCH"
+      && rebuiltDenial.denies[0]?.route === "/v1/hypervisor/data-sources/:id"
+      && Object.keys(rebuiltCitation).sort().join(",") === "claim,denies"
+      && rebuiltCitation.denies.length === 0,
+    "builder executes the v2 row normalizer and preserves exact denial adjudications");
+
   // ------------------------------------------------------------ the field world is closed
   const unknownFields = new Set();
   const staleFields = new Set(Object.keys(FIELD_SEMANTICS));
-  const falseNegatives = [], falsePositives = [];
-  let decided = 0, unchecked = 0, citedInNegative = 0;
+  const falsePositives = [];
+  let decided = 0, unchecked = 0;
   for (const [at, text] of jsonStrings(atlas)) {
     ROUTE_IN_TEXT.lastIndex = 0;
     if (!ROUTE_IN_TEXT.test(text)) continue;
@@ -332,30 +367,10 @@ function run() {
     ROUTE_IN_TEXT.lastIndex = 0;
     for (const m of text.matchAll(ROUTE_IN_TEXT)) {
       const r = normaliseRoute(m[0]);
+      if (polarity === "structured_denial") continue;
       if (polarity === "prose" || polarity === "forward") { unchecked += 1; continue; }
-      const clause = clauseAround(text, m.index);
-      const methods = [...new Set([...clause.matchAll(/\b(GET|POST|PATCH|PUT|DELETE)\b/gu)].map((x) => x[1]))];
-      // THE TWO DIRECTIONS ASK DIFFERENT QUESTIONS. `existing_daemon.actions` writes the compact
-      // family form `POST/PATCH/DELETE /x`, meaning the FAMILY serves those verbs across `/x` and
-      // `/x/:id` — so the decidable claim there is that the family's path is served at all. A
-      // MISSING-authority claim is method-precise by nature ("PATCH/PUT /x — route is GET-only"), so
-      // that side keeps the method check.
-      // A NEGATIVE FIELD MAY CITE A ROUTE AS EVIDENCE RATHER THAN DENY IT. `models`'
-      // missing-authority row reads "Inference exists at /v1/chat/completions but is not a governed
-      // catalog workflow" — true, precise, and naming a registered route on purpose. Reading every
-      // mention in the field as a denial accused it, which is the third time in this run that
-      // inferring intent from prose produced a false accusation against a true sentence.
-      //
-      // The structural separator, and NOT an English one: a denial is METHOD-PRECISE. XIII's class
-      // and the falsehood this gate just found both name the verb they deny ("PATCH/PUT … is
-      // GET-only", "DELETE … not yet contracted"). A mention with no method token is a citation, and
-      // it is counted rather than judged.
-      if (polarity === "negative" && !methods.length) { citedInNegative += 1; continue; }
       decided += 1;
-      const exists = polarity === "positive"
-        ? (routeExists(routes, r) || routeExists(routes, `${r}/:id`))
-        : methods.some((mm) => routeExists(routes, r, mm));
-      if (polarity === "negative" && exists) falseNegatives.push(`${at}: declares MISSING authority, but ${methods.join("/") || "some method on"} ${r} IS registered`);
+      const exists = routeExists(routes, r) || routeExists(routes, `${r}/:id`);
       if (polarity === "positive" && !exists) falsePositives.push(`${at}: cites ${r} as daemon truth, which is NOT registered`);
     }
   }
@@ -368,17 +383,13 @@ function run() {
     staleFields.size === 0,
     staleFields.size ? `STALE: ${[...staleFields].join(", ")}` : "every enumerated field still names at least one route");
 
-  ok("NO METHOD-PRECISE DENIAL IN AN ABSENCE FIELD NAMES A METHOD THIS DAEMON SERVES — and that is the whole claim, deliberately narrower than the field it lives in: knowing `missing_authority_contracts[]` is a field ABOUT absence does not make every route named in one of its ninety-two entries a route that entry DENIES, and reading them that way accused a true sentence citing a registered route on purpose; a clause naming a verb is judged against that verb, and nothing else in the field is judged at all",
-    decided > 0 && falseNegatives.length === 0,
-    falseNegatives.length ? `FALSIFIED: ${falseNegatives.slice(0, 6).join(" ; ")}` : `${decided} route-naming claims checked`);
-
   ok("and NO FIELD CITING A ROUTE AS DAEMON TRUTH NAMES ONE THE ROUTER DOES NOT SERVE — a correction that overclaims is the same defect facing the other way, and this gate found four on its first run, credited at paths the router never had",
     falsePositives.length === 0,
     falsePositives.length ? `OVERCLAIMED: ${falsePositives.slice(0, 6).join(" ; ")}` : "no emission credits an unregistered route");
 
-  ok("THE CITATION BUCKET IS PINNED BESIDE THE DECIDED AND UNCHECKED ONES — a mention inside an absence field naming no method is a CITATION this gate refuses to read as a denial, and pinning what it refuses is what stops the refusal becoming a hiding place: a claim moved into a prose or forward-looking field, or a denial reworded to drop its verb, moves these numbers rather than lowering them quietly; emptying this bucket by construction is what the commissioned `denies` schema is for",
-    decided === PINNED.atlasRouteMentions.decided && unchecked === PINNED.atlasRouteMentions.unchecked && citedInNegative === PINNED.atlasRouteMentions.citedInNegative,
-    `${decided}/${PINNED.atlasRouteMentions.decided} decided, ${unchecked}/${PINNED.atlasRouteMentions.unchecked} prose or forward-looking, ${citedInNegative}/${PINNED.atlasRouteMentions.citedInNegative} cited as evidence inside an absence field without naming a method`);
+  ok("THE OLD CITATION BUCKET IS EMPTY BY CONSTRUCTION — every missing-authority claim is prose and every denial is a sibling typed fact; the positive and unchecked route-mention populations remain pinned so moving text cannot create silence",
+    decided === PINNED.atlasRouteMentions.decided && unchecked === PINNED.atlasRouteMentions.unchecked,
+    `${decided}/${PINNED.atlasRouteMentions.decided} positive claims decided, ${unchecked}/${PINNED.atlasRouteMentions.unchecked} prose or forward-looking citations counted, 0 inferred denials`);
 
   // ------------------------------------------------------------ the strings a user actually reads
   // THE SURFACE WALK IS LIVE. A previous cut collected these strings and then hardcoded their

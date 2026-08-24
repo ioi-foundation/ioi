@@ -1,5 +1,5 @@
 {
-  "schema_version": "ioi.hypervisor.operational-depth-atlas.v1",
+  "schema_version": "ioi.hypervisor.operational-depth-atlas.v2",
   "generated_from": "operational-depth exploration workflow (13 reference surfaces plus the contract-pulled Missions projection, local capture + IOI embedded + daemon cross-check)",
   "base_commit": "19d732ff2 (#67)",
   "doctrine": "daemon_wired and shell-pixel certification prove the surface renders reference-faithfully over honest daemon truth — they DO NOT imply operational completeness. Operational depth is a separate axis: a surface is operational only when its PRIMARY reference workflow (intent → durable result) is reachable through real daemon authority, not merely when its landing shell is certified. This atlas audits that axis; a splash or empty-onboarding state is never the workflow.",
@@ -165,10 +165,22 @@
         ]
       },
       "missing_authority_contracts": [
-        "acceptance and verdict authority",
-        "settlement authority",
-        "execution authority",
-        "federated room authority"
+        {
+          "claim": "acceptance and verdict authority",
+          "denies": []
+        },
+        {
+          "claim": "settlement authority",
+          "denies": []
+        },
+        {
+          "claim": "execution authority",
+          "denies": []
+        },
+        {
+          "claim": "federated room authority",
+          "denies": []
+        }
       ],
       "security_credential_implications": "Read-only daemon collection requests only. No wallet grant, signer, credential, action form, or mutation route is exposed by the surface.",
       "recommended_next_pr": null,
@@ -1075,17 +1087,50 @@
         ]
       },
       "missing_authority_contracts": [
-        "materialized-object-set RETIREMENT and re-materialization — a governed retire/reset that supersedes a set while keeping its lineage, backing 'Reset ontology changes' (out.more-options). No retire or re-materialize route is registered for this family. Corrected 2026-08-15 (XIV Leg 3b): this entry previously claimed the family \"exposes GET-only routes (list/overview/:id); no POST retire/delete exists\", and DELETE on :id has been served all along. The claim survived because it named no /v1/ token at all, so it fell into neither the decided nor the unchecked population and no pin could move",
-        "pipeline deploy plane — blocks cmd.deploy / hdr.deploy-icon / rail.deploy",
-        "pipeline scheduler plane — blocks cmd.schedule / rail.schedules",
-        "pipeline branching/proposal/version plane — blocks hdr.tabs-mode / branch-selector / branch-actions / propose / rail.changes",
-        "graph/node authoring authority — blocks node-context authoring / quick-strip / graph-remove / layout / grid-snap / text-box",
-        "transform authoring (TransformationRun authoring) — blocks tool.transform/join/union/split/edit",
-        "model application authority — blocks tool.import-model",
-        "pipeline unit-test/evaluation plane — blocks rail.unit-tests (eval suites live in Evaluations)",
-        "output declaration authoring plane — blocks out.add / out.gear beyond ODK navigation",
-        "build-settings / compute-profile plane — blocks hdr.build-settings-icon / rail.build-settings",
-        "peripheral chrome planes: favorites, organizations, color-grouping, canvas annotation persistence"
+        {
+          "claim": "materialized-object-set RETIREMENT and re-materialization — a governed retire/reset that supersedes a set while keeping its lineage, backing 'Reset ontology changes' (out.more-options). No retire or re-materialize route is registered for this family. Corrected 2026-08-15 (XIV Leg 3b): this entry previously claimed the family \"exposes GET-only routes (list/overview/:id); no POST retire/delete exists\", and DELETE on :id has been served all along. The claim survived because it named no /v1/ token at all, so it fell into neither the decided nor the unchecked population and no pin could move",
+          "denies": []
+        },
+        {
+          "claim": "pipeline deploy plane — blocks cmd.deploy / hdr.deploy-icon / rail.deploy",
+          "denies": []
+        },
+        {
+          "claim": "pipeline scheduler plane — blocks cmd.schedule / rail.schedules",
+          "denies": []
+        },
+        {
+          "claim": "pipeline branching/proposal/version plane — blocks hdr.tabs-mode / branch-selector / branch-actions / propose / rail.changes",
+          "denies": []
+        },
+        {
+          "claim": "graph/node authoring authority — blocks node-context authoring / quick-strip / graph-remove / layout / grid-snap / text-box",
+          "denies": []
+        },
+        {
+          "claim": "transform authoring (TransformationRun authoring) — blocks tool.transform/join/union/split/edit",
+          "denies": []
+        },
+        {
+          "claim": "model application authority — blocks tool.import-model",
+          "denies": []
+        },
+        {
+          "claim": "pipeline unit-test/evaluation plane — blocks rail.unit-tests (eval suites live in Evaluations)",
+          "denies": []
+        },
+        {
+          "claim": "output declaration authoring plane — blocks out.add / out.gear beyond ODK navigation",
+          "denies": []
+        },
+        {
+          "claim": "build-settings / compute-profile plane — blocks hdr.build-settings-icon / rail.build-settings",
+          "denies": []
+        },
+        {
+          "claim": "peripheral chrome planes: favorites, organizations, color-grouping, canvas annotation persistence",
+          "denies": []
+        }
       ],
       "security_credential_implications": "The Build workflow crosses REAL authority and is the estate's most credential-sensitive operational path — audited as correctly fail-closed. A wallet_approval_grant is pasted from an EXTERNAL wallet, parsed as bounded JSON, forwarded to the daemon exactly ONCE over a single opaque field (fieldMax 8192), and never persisted, logged, or echoed; the grant blob exists only for the one forward POST. A 403 challenge is returned as a typed refusal whose redirect carries ONLY the two public commitment hashes (policy_hash/request_hash, sha256:-shape validated) — the signed grant itself never appears in any URL. The sealed ConnectorSession resolves credential material SERVER-SIDE (plan boundary lease.credential_material=false; a 428 credential_unresolved refusal fires if no resolvable sealed credential exists). Credential material NEVER renders: datasource endpoints are reduced to origin with path redacted; the lease/session inspector shows status booleans + refs only. Confused-deputy is fail-closed: the daemon re-checks connector-covers-source-origin at every stage. Execute is exactly ONE bounded read (row limit clamped 1-500, redirects refused, all-or-nothing validation). The serve holds NO signer (a dev test signer exists only under an explicit flag). Success is refused if the daemon returns no receipt_ref (receipt_missing fail-closed). No new credential surface is introduced by this surface — it consumes existing sealed-credential + wallet-grant primitives.",
       "recommended_next_pr": {
@@ -1501,13 +1546,48 @@
         ]
       },
       "missing_authority_contracts": [
-        "PATCH/PUT /v1/hypervisor/data-sources/:id — edit a declared source (route :id is GET-only; no update authority)",
-        "DELETE /v1/hypervisor/data-sources/:id — remove/retire a declared source (route :id is GET-only; no delete authority)",
-        "Ingestion / live-connection / connection-test / extraction authority — the wired:false boundary; the daemon itself names this a 'future authority crossing' (no endpoint reads rows on this plane)",
-        "Sync-scheduling plane (Syncs tab), connection-agents plane (Agents), listeners plane (Listeners), external-stacks plane (External stacks) — none exist",
-        "Creator-principal / edit-principal / view-tracking / favorites fields on the data-source record — none exist (the row meta columns + Favorites pill are named-gap dashes)",
-        "Connector source-type catalog endpoint — the reference's ~219-connector gallery has no daemon analog; the daemon exposes a fixed small SOURCE_KINDS enum, no per-vendor adapter registry",
-        "Marketplace-example-install binding on this surface — owner is /__ioi/marketplace/listings"
+        {
+          "claim": "PATCH/PUT /v1/hypervisor/data-sources/:id — edit a declared source (route :id is GET-only; no update authority)",
+          "denies": [
+            {
+              "method": "PATCH",
+              "route": "/v1/hypervisor/data-sources/:id"
+            },
+            {
+              "method": "PUT",
+              "route": "/v1/hypervisor/data-sources/:id"
+            }
+          ]
+        },
+        {
+          "claim": "DELETE /v1/hypervisor/data-sources/:id — remove/retire a declared source (route :id is GET-only; no delete authority)",
+          "denies": [
+            {
+              "method": "DELETE",
+              "route": "/v1/hypervisor/data-sources/:id"
+            }
+          ]
+        },
+        {
+          "claim": "Ingestion / live-connection / connection-test / extraction authority — the wired:false boundary; the daemon itself names this a 'future authority crossing' (no endpoint reads rows on this plane)",
+          "denies": []
+        },
+        {
+          "claim": "Sync-scheduling plane (Syncs tab), connection-agents plane (Agents), listeners plane (Listeners), external-stacks plane (External stacks) — none exist",
+          "denies": []
+        },
+        {
+          "claim": "Creator-principal / edit-principal / view-tracking / favorites fields on the data-source record — none exist (the row meta columns + Favorites pill are named-gap dashes)",
+          "denies": []
+        },
+        {
+          "claim": "Connector source-type catalog endpoint — the reference's ~219-connector gallery has no daemon analog; the daemon exposes a fixed small SOURCE_KINDS enum, no per-vendor adapter registry",
+          "denies": []
+        },
+        {
+          "claim": "Marketplace-example-install binding on this surface — owner is /__ioi/marketplace/listings",
+          "denies": []
+        }
       ],
       "security_credential_implications": "The declare cut touches the credential boundary but NEVER a secret. POST /v1/hypervisor/data-sources is already fail-closed: it rejects plaintext-secret keys (data_source_plaintext_secret_rejected) and credential-bearing endpoints/userinfo/sensitive query params (data_source_endpoint_credentialed — verified in the daemon handler), and accepts only a declared credential_posture (a posture string from CREDENTIAL_POSTURES, never a value). The surface renders endpoints scheme+host+path only (userinfo/query/fragment stripped) and states that credential VALUES never appear in the surface, the records, or receipts. The durable result of the cut is a declared registry record + a dsr_ receipt — no wallet, no capability lease, no live connection, no extraction, no spend, so there is no irreversible or credential/wallet risk in scope. The only new obligations the PR must uphold: the declare FORM must expose NO free-text secret field (posture picker only), and the endpoint sanitization must be preserved on both submit and render. The genuinely credential/wallet-risky step — the extraction/live-connection authority crossing — stays OUT of scope, disabled with its named gap.",
       "recommended_next_pr": {
@@ -2206,16 +2286,46 @@
         ]
       },
       "missing_authority_contracts": [
-        "Delete-definition-in-COM authority — removing one object type / property / link type / action type from a canonical object model (backs Cleanup, node/row remove). No route contracts a definition-level delete; the only path is a full model PATCH. Corrected 2026-08-15 (XIV Leg 3b): this entry previously declared the record-level ontology delete uncontracted, which the router has served all along. The falsehood survived because the gate's route matcher excluded braces, so a brace-form path parameter truncated to the parent collection and the method check ran against the wrong route — eighteen brace-form mentions were being re-pointed that way. The old wording is not restated here: a correction that quotes its own falsehood verbatim inside a field that DECLARES ABSENCE is still a field declaring that absence, and this gate now says so",
-        "Action/function EXECUTION plane: TransformationRun/writeback authority binding a PolicyBoundDataView (backs Execute action / Evaluate function)",
-        "Object-instance graph plane: walk instances across a link type (backs relationship browsing)",
-        "Branch selector plane: a branch/alternate-timeline selector over an ontology (backs History-as-branch and the branch actions). No branching route is registered. The PROPOSAL half is no longer a missing contract — it landed in next-legs XIII and what remains there is a surface control, recorded in the Journey verification XIII block rather than named here, because this field declares MISSING authority and naming a route that exists inside it contradicts the field's own meaning.",
-        "Shared-property plane (New → Shared property)",
-        "Groups/taxonomy plane (New → Group)",
-        "Interfaces/abstract-type plane (New → Interface)",
-        "In-Manager datasource-backing / connector-mapping authoring (the create-wizard Datasource step; connector-mappings are read-only here)",
-        "Global search index + ctrl+K command palette (backs header Search resources)",
-        "Ontology-as-Code repository generation (New → OaC repo, Beta)"
+        {
+          "claim": "Delete-definition-in-COM authority — removing one object type / property / link type / action type from a canonical object model (backs Cleanup, node/row remove). No route contracts a definition-level delete; the only path is a full model PATCH. Corrected 2026-08-15 (XIV Leg 3b): this entry previously declared the record-level ontology delete uncontracted, which the router has served all along. The falsehood survived because the gate's route matcher excluded braces, so a brace-form path parameter truncated to the parent collection and the method check ran against the wrong route — eighteen brace-form mentions were being re-pointed that way. The old wording is not restated here: a correction that quotes its own falsehood verbatim inside a field that DECLARES ABSENCE is still a field declaring that absence, and this gate now says so",
+          "denies": []
+        },
+        {
+          "claim": "Action/function EXECUTION plane: TransformationRun/writeback authority binding a PolicyBoundDataView (backs Execute action / Evaluate function)",
+          "denies": []
+        },
+        {
+          "claim": "Object-instance graph plane: walk instances across a link type (backs relationship browsing)",
+          "denies": []
+        },
+        {
+          "claim": "Branch selector plane: a branch/alternate-timeline selector over an ontology (backs History-as-branch and the branch actions). No branching route is registered. The PROPOSAL half is no longer a missing contract — it landed in next-legs XIII and what remains there is a surface control, recorded in the Journey verification XIII block rather than named here, because this field declares MISSING authority and naming a route that exists inside it contradicts the field's own meaning.",
+          "denies": []
+        },
+        {
+          "claim": "Shared-property plane (New → Shared property)",
+          "denies": []
+        },
+        {
+          "claim": "Groups/taxonomy plane (New → Group)",
+          "denies": []
+        },
+        {
+          "claim": "Interfaces/abstract-type plane (New → Interface)",
+          "denies": []
+        },
+        {
+          "claim": "In-Manager datasource-backing / connector-mapping authoring (the create-wizard Datasource step; connector-mappings are read-only here)",
+          "denies": []
+        },
+        {
+          "claim": "Global search index + ctrl+K command palette (backs header Search resources)",
+          "denies": []
+        },
+        {
+          "claim": "Ontology-as-Code repository generation (New → OaC repo, Beta)",
+          "denies": []
+        }
       ],
       "security_credential_implications": "Schema authoring is already governed and LOW-risk: create/patch run server-side (browser never submits a canonical_object_model — the daemon clones the current COM and applies ONE bounded structured edit), guarded by optimistic concurrency (expected_revision → 409 refusal with state untouched), every success carries a durable ontology_receipt, and definition ids are immutable after create so edits are non-destructive-by-construction and reversible via new revisions. No credential/wallet/irreversible surface is crossed. The recommended cut reuses this exact upsert-* authority (create-on-new-id) so it inherits the same posture with ZERO new daemon contracts. The genuinely risky lanes are deliberately OUT of scope and stay disabled-with-reason: deletion (irreversible — needs its own governed DELETE contract) and action/function execution (would cross into data writeback — needs a PolicyBoundDataView + TransformationRun, a separate governed ladder).",
       "recommended_next_pr": {
@@ -2682,11 +2792,26 @@
         ]
       },
       "missing_authority_contracts": [
-        "Faceted narrowing over object INSTANCES — the reference 'Filter by...' facets. No faceting contract is registered. The instance-search control itself is no longer missing: XIV Leg 1 bound it to the query plane, and the surface renders its typed absence states",
-        "Per-user lanes over the MATERIALIZED set catalog — Recents/Favorites, 'Created by me'/'Shared with me' — which have no contract at all: those lanes render a different store, and nothing records per-user ownership of it. The saved-object-set control itself is no longer missing: XIV Leg 1 bound reading, filtering and creating to the per-principal family",
-        "action-type EXECUTION authority — object action_type DECLARATIONS exist in the COM but there is NO daemon route to execute an action against object instances (backs inspector 'Execute action')",
-        "SURFACE workspace bound to the object-instance planes — the reference /exploration?objectTypeRid workspace and its instance grid (dead-XHR in the mirror), plus per-object detail data beyond the rows the instance read returns. The instance READ contract is NOT missing as of next-legs XIII and is recorded in the XIII ledger block.",
-        "ontology-scoped catalog view param — minor: a per-view ontology-scope filter (reference ontology selector); the data exists (domain-ontologies) but no scoped catalog read is wired"
+        {
+          "claim": "Faceted narrowing over object INSTANCES — the reference 'Filter by...' facets. No faceting contract is registered. The instance-search control itself is no longer missing: XIV Leg 1 bound it to the query plane, and the surface renders its typed absence states",
+          "denies": []
+        },
+        {
+          "claim": "Per-user lanes over the MATERIALIZED set catalog — Recents/Favorites, 'Created by me'/'Shared with me' — which have no contract at all: those lanes render a different store, and nothing records per-user ownership of it. The saved-object-set control itself is no longer missing: XIV Leg 1 bound reading, filtering and creating to the per-principal family",
+          "denies": []
+        },
+        {
+          "claim": "action-type EXECUTION authority — object action_type DECLARATIONS exist in the COM but there is NO daemon route to execute an action against object instances (backs inspector 'Execute action')",
+          "denies": []
+        },
+        {
+          "claim": "SURFACE workspace bound to the object-instance planes — the reference /exploration?objectTypeRid workspace and its instance grid (dead-XHR in the mirror), plus per-object detail data beyond the rows the instance read returns. The instance READ contract is NOT missing as of next-legs XIII and is recorded in the XIII ledger block.",
+          "denies": []
+        },
+        {
+          "claim": "ontology-scoped catalog view param — minor: a per-view ontology-scope filter (reference ontology selector); the data exists (domain-ontologies) but no scoped catalog read is wired",
+          "denies": []
+        }
       ],
       "security_credential_implications": "Explorer is currently read-only, so it introduces no credential or wallet surface today; the set inspector already redacts source-contact to origin-only (path redacted) and shows provenance refs, never credential material. The ONE governed action reachable via existing authority — the MaterializingRun acquire-lease crossing — is wallet-gated (gateway returns a verbatim 403 challenge without a bound grant) and sealed (no backing credential resolved; any bearer token dropped, never stored/logged/returned) and lease-acquisition-only (object_instances stays 0; row extraction is the separate connector-session crossing owned by the ODK substrate/Pipeline). Any operational cut MUST route through that existing wallet-gated gateway and fail closed on a missing grant; reusing the ladder adds no new credential surface. By contrast, next-legs XIII BUILT the object-instance search and saved-object-set planes, so this risk is now live rather than deferred: search is authenticated and ontology-scoped and answers only over the materialized-set corpus, and its MATCHING, row provenance, truncation arithmetic and scope FILTER are proven NOWHERE — that residual is named in the XIII ledger. Binding a surface control to it is what would expose raw source rows broadly, and that is the gate to hold.",
       "recommended_next_pr": {
@@ -3194,16 +3319,46 @@
         ]
       },
       "missing_authority_contracts": [
-        "per-user creator/identity plane (approval_request records no creator principal) — blocks 'Created by you' + 'Created by' facets",
-        "request_kind filter/enum on the list endpoint (daemon ignores ?request_kind=, VERIFIED) — blocks 'Request type' facet",
-        "reviewer pre-assignment plane (reviewer_ref is decision-time only, not assignable) — blocks 'Assigned to you'",
-        "project scoping on approval_request — blocks 'Project requested to'",
-        "user/group membership modeling on approval_request — blocks 'Users or groups in request' + 'Groups requested to'",
-        "server-side sort param on the list endpoint — blocks Sort menu",
-        "full-text/query search param on the list endpoint — blocks request search",
-        "threaded-comment/discussion plane — blocks detail comments",
-        "SLA/escalation timer plane — blocks SLA/escalation",
-        "audit-export endpoint (work-ledger proof stream is the read-only substitute) — blocks audit exports"
+        {
+          "claim": "per-user creator/identity plane (approval_request records no creator principal) — blocks 'Created by you' + 'Created by' facets",
+          "denies": []
+        },
+        {
+          "claim": "request_kind filter/enum on the list endpoint (daemon ignores ?request_kind=, VERIFIED) — blocks 'Request type' facet",
+          "denies": []
+        },
+        {
+          "claim": "reviewer pre-assignment plane (reviewer_ref is decision-time only, not assignable) — blocks 'Assigned to you'",
+          "denies": []
+        },
+        {
+          "claim": "project scoping on approval_request — blocks 'Project requested to'",
+          "denies": []
+        },
+        {
+          "claim": "user/group membership modeling on approval_request — blocks 'Users or groups in request' + 'Groups requested to'",
+          "denies": []
+        },
+        {
+          "claim": "server-side sort param on the list endpoint — blocks Sort menu",
+          "denies": []
+        },
+        {
+          "claim": "full-text/query search param on the list endpoint — blocks request search",
+          "denies": []
+        },
+        {
+          "claim": "threaded-comment/discussion plane — blocks detail comments",
+          "denies": []
+        },
+        {
+          "claim": "SLA/escalation timer plane — blocks SLA/escalation",
+          "denies": []
+        },
+        {
+          "claim": "audit-export endpoint (work-ledger proof stream is the read-only substitute) — blocks audit exports",
+          "denies": []
+        }
       ],
       "security_credential_implications": "The act workflow crosses GOVERNANCE authority only — approve/reject/revoke are receipted state transitions; no credential, wallet, secret, or irreversible-deletion surface is involved. Safety properties already in place: (1) fail-closed receipts — a 200 without transition_receipt.receipt_ref matching schema_version ioi.hypervisor.governance.approval-transition-receipt.v1 is downgraded to a failure, so a mutation without proof is never trusted; (2) confirmation posture — reject/revoke require an explicit confirm checkbox that the SERVER re-enforces (confirmation_required typed refusal), approve submits directly; (3) no client field is forwarded — the action declares an EMPTY field allowlist, so the transition is the whole request; reviewer attribution is derived server-side from the authenticated caller and a body that names a reviewer_ref is refused with the typed governance_reviewer_ref_not_client_settable; (4) same-origin bounded return path (safeReturnPath) — the module never controls the raw redirect. Residual truthful gaps: revoke (approved->revoked) is the most consequential transition but is confirm-gated + receipted. No new credential/wallet exposure is introduced by the recommended cut.",
       "recommended_next_pr": {
@@ -3735,13 +3890,34 @@
         ]
       },
       "missing_authority_contracts": [
-        "Incident/Issue authoring plane — create/author an incident (New button + form): no daemon mutation family; incidents are DERIVED from run failures + blockers, so authoring needs a net-new IncidentRecord contract",
-        "Incident lifecycle transitions as first-class UI state (acknowledge / snooze / close independent of the underlying run's terminality) — no daemon contract",
-        "Assignees / reporters / mentions / priority / labels / support-types — no incident-attribute authoring planes",
-        "Saved filters / server-side search index / sort options — no incident query contract",
-        "SLA & escalation policy, comments/discussion, board/kanban view — no daemon planes",
-        "Custom workflow statuses ('in ▾' scope + '+ Add status') — IOI lanes are fixed open/closed/all derived from run terminality; custom statuses have no plane",
-        "Run-failure (ops.runs.failures) re-run contract — those rows have no direct re-run mutation; only goal-run-backed rows get reconcile/start"
+        {
+          "claim": "Incident/Issue authoring plane — create/author an incident (New button + form): no daemon mutation family; incidents are DERIVED from run failures + blockers, so authoring needs a net-new IncidentRecord contract",
+          "denies": []
+        },
+        {
+          "claim": "Incident lifecycle transitions as first-class UI state (acknowledge / snooze / close independent of the underlying run's terminality) — no daemon contract",
+          "denies": []
+        },
+        {
+          "claim": "Assignees / reporters / mentions / priority / labels / support-types — no incident-attribute authoring planes",
+          "denies": []
+        },
+        {
+          "claim": "Saved filters / server-side search index / sort options — no incident query contract",
+          "denies": []
+        },
+        {
+          "claim": "SLA & escalation policy, comments/discussion, board/kanban view — no daemon planes",
+          "denies": []
+        },
+        {
+          "claim": "Custom workflow statuses ('in ▾' scope + '+ Add status') — IOI lanes are fixed open/closed/all derived from run terminality; custom statuses have no plane",
+          "denies": []
+        },
+        {
+          "claim": "Run-failure (ops.runs.failures) re-run contract — those rows have no direct re-run mutation; only goal-run-backed rows get reconcile/start",
+          "denies": []
+        }
       ],
       "security_credential_implications": "The incidents surface itself is read-only and exposes no credential or wallet secret; the embed render is single-rail with the og-grail element structurally stripped (verified 0 elements). The only EXISTING mutations that could back an operational cut carry real authority: POST /goal-runs/:id/start is WALLET-GATED and launches real compute (spend, semi-irreversible resource consumption); POST /goal-runs/:id/reconcile ADMITS reconciliation into the session workspace (mutates run/admission state). Any action must route through the #62 handleAction governance path so the wallet gate + durable receipt are enforced by the daemon, never synthesized in the UI. No credential input or irreversible destructive delete is in scope. The higher-risk provider families — GET/POST around /v1/hypervisor/incidents (provider-failure), POST /artifact-availability-incidents, and failover/run (real provider failover, spend/irreversible) — must stay OUT of this Missions surface (they belong to Operations); pulling them in would raise authority_security_risk from 3 to 4-5.",
       "recommended_next_pr": {
@@ -4231,10 +4407,22 @@
         ]
       },
       "missing_authority_contracts": [
-        "Model comparison / catalog inference-playground authority — no governed \"pick two routes → run a prompt → compare outputs\" plane (reference Compare→Run). Inference exists at /v1/chat/completions but is not a governed catalog workflow.",
-        "External / function-backed model registration + import from Data Connection sources — the reference \"Registered models\" tab; daemon model-route create is provider-route creation, NOT Data-Connection-backed model import.",
-        "Client-side facet + name search over the catalog — a VIEW-ONLY gap (needs no daemon contract; simply un-wired; the reference filters work client-side).",
-        "Fine-tuning, prompt playground, live inference evals, deployment automation, training runs, and provider-authored model cards — named gaps per the surface footer (no authority contract yet)."
+        {
+          "claim": "Model comparison / catalog inference-playground authority — no governed \"pick two routes → run a prompt → compare outputs\" plane (reference Compare→Run). Inference exists at /v1/chat/completions but is not a governed catalog workflow.",
+          "denies": []
+        },
+        {
+          "claim": "External / function-backed model registration + import from Data Connection sources — the reference \"Registered models\" tab; daemon model-route create is provider-route creation, NOT Data-Connection-backed model import.",
+          "denies": []
+        },
+        {
+          "claim": "Client-side facet + name search over the catalog — a VIEW-ONLY gap (needs no daemon contract; simply un-wired; the reference filters work client-side).",
+          "denies": []
+        },
+        {
+          "claim": "Fine-tuning, prompt playground, live inference evals, deployment automation, training runs, and provider-authored model cards — named gaps per the surface footer (no authority contract yet).",
+          "denies": []
+        }
       ],
       "security_credential_implications": "Low risk for the recommended cut because it introduces NO new authority — it re-hosts existing daemon mutations. probe performs a live upstream availability call (host_presence / ollama_tags) — read-side, no state mutation beyond persisting the probe result + receipt. enable/disable are reversible lifecycle transitions on a relaxed/admitted lane. select-default carries an exactly-one-default invariant that the daemon guards against concurrent winners. All four are planner-admitted (model-route-mutation-admission) and mint durable agentgres://model-route-receipt/* receipts with an op-transcript state_root. NO wallet signature, NO credential sealing, NO irreversible action is required for the seeded route (credential_posture=no_credentials_required). Credential custody stays untouched: the daemon rejects plaintext secrets (model_route_plaintext_secret_rejected) and only supports env-key posture, so BYOK/credentialed routes are out of scope of the cut. If create/patch/delete were later added to the surface, delete becomes the only semi-destructive lane and would warrant a confirm + receipt gate.",
       "recommended_next_pr": {
@@ -4655,10 +4843,22 @@
         ]
       },
       "missing_authority_contracts": [
-        "marketplace install plane: install/draft/job daemon routes (install a published product into a workspace) — backs the reference's PRIMARY Install action + the Installations Drafts/Installed/Jobs plane",
-        "product-package (.zip) upload/ingest route — backs the reference Upload CTA (serve currently pins isUploadFromMarketplaceEnabled=false)",
-        "remote-marketplace federation: a remote-store connector/registry — backs the reference's 8 remote stores (RemoteMarketplacesQuery currently answered with [])",
-        "cross-store full-text product-search route — backs the reference's Search products / Search-in-store inputs (only local-plane GET /marketplace/listings exists)"
+        {
+          "claim": "marketplace install plane: install/draft/job daemon routes (install a published product into a workspace) — backs the reference's PRIMARY Install action + the Installations Drafts/Installed/Jobs plane",
+          "denies": []
+        },
+        {
+          "claim": "product-package (.zip) upload/ingest route — backs the reference Upload CTA (serve currently pins isUploadFromMarketplaceEnabled=false)",
+          "denies": []
+        },
+        {
+          "claim": "remote-marketplace federation: a remote-store connector/registry — backs the reference's 8 remote stores (RemoteMarketplacesQuery currently answered with [])",
+          "denies": []
+        },
+        {
+          "claim": "cross-store full-text product-search route — backs the reference's Search products / Search-in-store inputs (only local-plane GET /marketplace/listings exists)",
+          "denies": []
+        }
       ],
       "security_credential_implications": "The recommended next cut (render published listings as a real product catalog + client-side search over the loaded set) is READ-ONLY over already-governed data (GET /marketplace/listings, filtered public_state=published) — no credential, wallet, or irreversible authority is touched, and drafts stay unlisted. Risk is confined to the DEFERRED reference parity: (1) the product-package UPLOAD lane ingests external artifacts/code -> supply-chain / code-execution exposure, must be sealed + governed + wallet-gated; (2) the INSTALL lane instantiates a product into a live workspace -> irreversible-ish runtime side effects, needs the governance ladder; (3) remote-marketplace federation introduces external trust boundaries. Publish itself is already fail-closed and receipted (requires admitted review + open ReleaseControl + mounted&serving runtime; emits marketplace-publish-receipt). So the operational-depth cut adds zero new credential exposure; the costly/risky lanes are explicitly named gaps, not built.",
       "recommended_next_pr": {
@@ -5218,11 +5418,26 @@
         ]
       },
       "missing_authority_contracts": [
-        "Solution-design DIAGRAM PERSISTENCE plane — no daemon route persists a freeform concept/component/resource graph + node layout (the reference 'Save'); the ODK plane persists ontologies + typed definitions, not diagram positions. This is the core gap behind New Diagram / Open Diagram / Save / Group / Add Text / diagram title.",
-        "AIP Architect / NL planning-assistant authority — no LLM planning daemon contract (Start planning, in-canvas AIP Architect, AIP Critic).",
-        "Favorites plane on the ODK object plane — Favorites pill + per-row star have nothing to record against.",
-        "Principal + view-tracking on the ODK object plane — Creator / Last edited by / Last viewed columns render honest em-dashes because no principal and no view events are recorded.",
-        "Template-library plane — Browse all / Reference Diagrams / per-template Preview are vendor reference example content (reference_data_only), not a contract to be built."
+        {
+          "claim": "Solution-design DIAGRAM PERSISTENCE plane — no daemon route persists a freeform concept/component/resource graph + node layout (the reference 'Save'); the ODK plane persists ontologies + typed definitions, not diagram positions. This is the core gap behind New Diagram / Open Diagram / Save / Group / Add Text / diagram title.",
+          "denies": []
+        },
+        {
+          "claim": "AIP Architect / NL planning-assistant authority — no LLM planning daemon contract (Start planning, in-canvas AIP Architect, AIP Critic).",
+          "denies": []
+        },
+        {
+          "claim": "Favorites plane on the ODK object plane — Favorites pill + per-row star have nothing to record against.",
+          "denies": []
+        },
+        {
+          "claim": "Principal + view-tracking on the ODK object plane — Creator / Last edited by / Last viewed columns render honest em-dashes because no principal and no view events are recorded.",
+          "denies": []
+        },
+        {
+          "claim": "Template-library plane — Browse all / Reference Diagrams / per-template Preview are vendor reference example content (reference_data_only), not a contract to be built.",
+          "denies": []
+        }
       ],
       "security_credential_implications": "The recommended 'Create Solution Design' cut crosses NO credential/wallet/irreversible authority: POST /v1/hypervisor/odk/domain-ontologies creates an INERT DomainOntology DRAFT (fail-closed, receipted, reversible), holds no secrets, and requires no wallet grant — identical safety posture to the already-shipped Ontology Manager (act) create. This is deliberately the LEFT end of the authority ladder. The Designer does NOT need the Pipeline's wallet-gated Build ladder (MaterializingRun → externally-signed CapabilityLease grant → sealed ConnectorSession → bounded execute) — that risk stays on the Pipeline surface. Credential/irreversibility risk would only enter this surface if a later cut wired domain-app serve (effectful serving) or materializing execute; both are explicitly OUT of the recommended scope. Serve holds no signer (dev test signer only under its explicit flag), so no signing authority is exposed by a create-draft cut.",
       "recommended_next_pr": {
@@ -5594,15 +5809,42 @@
         ]
       },
       "missing_authority_contracts": [
-        "State-machine RUN/STEP/EXECUTE engine — the daemon has NO run/step/execute (definitions only, by explicit design); the reference 'build, manage and MONITOR your business processes' promise requires a new authority-crossing execution contract (a running instance + current_state + step semantics)",
-        "State-machine SCHEDULING plane (no scheduler exists)",
-        "Automations/Missions/ODK BINDING — bind a definition to a running automation/mission or ODK substrate (no binding plane)",
-        "SIMULATION / what-if replay of a definition (no simulation authority)",
-        "VERSIONING beyond the flat history[] (no branch/proposal/version plane)",
-        "Favorites plane (view-row Favorites pill + per-row star)",
-        "Marketplace install lane (Recent-installations store dropdown + example-card install overlays)",
-        "Visual graph-authoring canvas (the reference 'New graph' node editor) — NOTE: structured/form-based authoring needs NO new contract (daemon CRUD exists); only the VISUAL canvas is a genuine gap",
-        "Principal-on-history + view-tracking (CREATOR renders owner_refs[0] but LAST EDITED BY / LAST VIEWED have no principal/view plane → em-dashes)"
+        {
+          "claim": "State-machine RUN/STEP/EXECUTE engine — the daemon has NO run/step/execute (definitions only, by explicit design); the reference 'build, manage and MONITOR your business processes' promise requires a new authority-crossing execution contract (a running instance + current_state + step semantics)",
+          "denies": []
+        },
+        {
+          "claim": "State-machine SCHEDULING plane (no scheduler exists)",
+          "denies": []
+        },
+        {
+          "claim": "Automations/Missions/ODK BINDING — bind a definition to a running automation/mission or ODK substrate (no binding plane)",
+          "denies": []
+        },
+        {
+          "claim": "SIMULATION / what-if replay of a definition (no simulation authority)",
+          "denies": []
+        },
+        {
+          "claim": "VERSIONING beyond the flat history[] (no branch/proposal/version plane)",
+          "denies": []
+        },
+        {
+          "claim": "Favorites plane (view-row Favorites pill + per-row star)",
+          "denies": []
+        },
+        {
+          "claim": "Marketplace install lane (Recent-installations store dropdown + example-card install overlays)",
+          "denies": []
+        },
+        {
+          "claim": "Visual graph-authoring canvas (the reference 'New graph' node editor) — NOTE: structured/form-based authoring needs NO new contract (daemon CRUD exists); only the VISUAL canvas is a genuine gap",
+          "denies": []
+        },
+        {
+          "claim": "Principal-on-history + view-tracking (CREATOR renders owner_refs[0] but LAST EDITED BY / LAST VIEWED have no principal/view plane → em-dashes)",
+          "denies": []
+        }
       ],
       "security_credential_implications": "The recommended operational cut (structured definition authoring: create/edit/delete) crosses NO credential/wallet/external-authority boundary. State-machine records are inert LOCAL definitions guarded by typed server-side validation (17+ fail-closed codes); nothing seals a credential, acquires a capability lease, or contacts an external provider. The only irreversible op is DELETE, mitigated by a confirm gate + the durable history[] chain on siblings. This is the LOW-risk end of the estate — sharply unlike pipeline's Build ladder (wallet-approved lease → sealed ConnectorSession → bounded execute) or any provider/connector cut. Risk would rise ONLY if the (out-of-scope, missing) run/step/execute engine were built, since executing a process could carry real side effects — but that is a separate future contract, not this cut.",
       "recommended_next_pr": {
@@ -5983,11 +6225,26 @@
         ]
       },
       "missing_authority_contracts": [
-        "Ontology-object-change trigger authority — the reference condition catalog (Objects added/removed/modified in a set, Threshold crossed, Metric changed, Time series alert, Stream, Run-on-all); IOI automation triggers are manual/schedule/webhook only",
-        "Effect-library authority — the reference effect catalog (notifications, AIP Logic effects); IOI steps are agent/command/proposal",
-        "Notification-subscription plane — the 'For you' tile and 'Receiving notifications' filter (honest 0 today)",
-        "Marketplace install/admission binding to this surface — the Recent-installations store menu + example installs",
-        "Monitor settings — expiration date, permission-scoped event visibility ('Only showing events with permissions to view')"
+        {
+          "claim": "Ontology-object-change trigger authority — the reference condition catalog (Objects added/removed/modified in a set, Threshold crossed, Metric changed, Time series alert, Stream, Run-on-all); IOI automation triggers are manual/schedule/webhook only",
+          "denies": []
+        },
+        {
+          "claim": "Effect-library authority — the reference effect catalog (notifications, AIP Logic effects); IOI steps are agent/command/proposal",
+          "denies": []
+        },
+        {
+          "claim": "Notification-subscription plane — the 'For you' tile and 'Receiving notifications' filter (honest 0 today)",
+          "denies": []
+        },
+        {
+          "claim": "Marketplace install/admission binding to this surface — the Recent-installations store menu + example installs",
+          "denies": []
+        },
+        {
+          "claim": "Monitor settings — expiration date, permission-scoped event visibility ('Only showing events with permissions to view')",
+          "denies": []
+        }
       ],
       "security_credential_implications": "Moderate, no wallet/credential crossing for the recommended cut. Manual run (POST /automations/{id}/runs) is genuinely side-effecting — it executes the automation's declared command/agent steps over a real environment — but it is already bounded by the record's declared executor_identity + limits (per_exec_seconds 600, max_total 100) and produces a tamper-evident execution transcript, so it is a governed, receipted, replayable action rather than an opaque one. Pause/resume (PATCH enabled) is fully reversible and low risk. No secret is minted or exposed by run/pause. Credential-adjacent lanes exist but are OUT of the recommended scope: webhook-rotate touches webhook_token_hash, and DELETE is irreversible destruction. Keep those two off the monitors surface (they live on the substrate). Net: binding run + pause/resume adds real authority to a browse surface but stays inside existing, bounded, reversible, receipted contracts.",
       "recommended_next_pr": {
@@ -6574,12 +6831,30 @@
         ]
       },
       "missing_authority_contracts": [
-        "None required for the core approve/reject/apply/simulate cut — every route + receipt already exists (405-confirmed present; used today by Agent Studio).",
-        "Principal-assignment plane (assignee_ref on improvement-proposal) — needed to honestly port the reference's Admin/Assignee view + 'requiring MY action' scoping. Named gap, out of scope.",
-        "Organization plane — needed for the '1 organization' scoping selector. Named gap (single-deployment estate), out of scope.",
-        "Due-date field on improvement-proposal — needed for the Past-due lane, Due-date column sort, and Soonest/Latest sort. Absent concept, named gap.",
-        "Remaining-actions count concept — needed for the Least/Most-remaining-actions sort. Absent, named gap.",
-        "(Optional extension only) the high-impact gate composite (request-approval / open-release / attach) is serve-orchestrated over the EXISTING POST governance/approval-requests + POST governance/release-controls + PATCH proposal primitives — no NEW daemon contract, but more surface work than the base cut."
+        {
+          "claim": "None required for the core approve/reject/apply/simulate cut — every route + receipt already exists (405-confirmed present; used today by Agent Studio).",
+          "denies": []
+        },
+        {
+          "claim": "Principal-assignment plane (assignee_ref on improvement-proposal) — needed to honestly port the reference's Admin/Assignee view + 'requiring MY action' scoping. Named gap, out of scope.",
+          "denies": []
+        },
+        {
+          "claim": "Organization plane — needed for the '1 organization' scoping selector. Named gap (single-deployment estate), out of scope.",
+          "denies": []
+        },
+        {
+          "claim": "Due-date field on improvement-proposal — needed for the Past-due lane, Due-date column sort, and Soonest/Latest sort. Absent concept, named gap.",
+          "denies": []
+        },
+        {
+          "claim": "Remaining-actions count concept — needed for the Least/Most-remaining-actions sort. Absent, named gap.",
+          "denies": []
+        },
+        {
+          "claim": "(Optional extension only) the high-impact gate composite (request-approval / open-release / attach) is serve-orchestrated over the EXISTING POST governance/approval-requests + POST governance/release-controls + PATCH proposal primitives — no NEW daemon contract, but more surface work than the base cut.",
+          "denies": []
+        }
       ],
       "security_credential_implications": "Low-to-moderate. The core review transitions (approve / reject / simulate) only advance proposal state and mint receipts — no credentials, wallet, or capability leases are involved (the improvement plane carries none). Apply is the sole act that mutates the live estate policy plane (writes launch-policy / skill-entry records via applied_ref) and is ALREADY daemon-gated behind fresh-simulation + approval + release: proposal.gate.block_code (e.g. approval_required, simulation_stale) fails the apply closed. The surface must render Apply disabled with that exact block_code named (data-ioi-disabled-reason) and never bypass the gate — parity with the read-only projection's current honesty. No secret/credential/wallet exposure; receipts (receipt://hypervisor/improvement/…) plus work-ledger entries are the durable, reversible-audit trail. Because two surfaces (changes + Agent Studio) would now write the same records, the cut must be idempotent/state-guarded (transition legality checked from live record state, optimistic-concurrency friendly) to avoid double-apply.",
       "recommended_next_pr": {
@@ -6983,11 +7258,26 @@
         ]
       },
       "missing_authority_contracts": [
-        "Formal eval-suite mutation RECEIPT family (e.g. ioi.hypervisor.eval-suite.create/patch/delete-receipt) — daemon mutations return the durable record (eval-suite://{id}) but emit no work-ledger receipt like the approvals pilot; a small daemon addition needed to reach full act-discipline (handleAction that fails closed without a receipt)",
-        "Principal attribution + view tracking on the eval-suite plane (created_by / edited_by / last_viewed) — the Recents Creator/Last-edited/Last-viewed columns render gap-dashes because the records carry no principal/view metadata",
-        "EvalRun execution + scoring + verdicts + judge/model evaluation + scorecards + auto-mining failed runs + promotion — the reference's 'test a Logic/Function' target implies execution; entirely absent (the LARGE downstream authority gap, deliberately out of the recommended cut)",
-        "AIP Logic / published Function target object plane — the reference create modal selects a Logic/Function to evaluate; IOI has no Logic/Function plane (subject_scope over real estate objects is the IOI equivalent, a semantic divergence)",
-        "Favorites plane, organizations/installations plane, notifications plane, AIP-assistant plane — reference session/platform machinery with no IOI plane behind them"
+        {
+          "claim": "Formal eval-suite mutation RECEIPT family (e.g. ioi.hypervisor.eval-suite.create/patch/delete-receipt) — daemon mutations return the durable record (eval-suite://{id}) but emit no work-ledger receipt like the approvals pilot; a small daemon addition needed to reach full act-discipline (handleAction that fails closed without a receipt)",
+          "denies": []
+        },
+        {
+          "claim": "Principal attribution + view tracking on the eval-suite plane (created_by / edited_by / last_viewed) — the Recents Creator/Last-edited/Last-viewed columns render gap-dashes because the records carry no principal/view metadata",
+          "denies": []
+        },
+        {
+          "claim": "EvalRun execution + scoring + verdicts + judge/model evaluation + scorecards + auto-mining failed runs + promotion — the reference's 'test a Logic/Function' target implies execution; entirely absent (the LARGE downstream authority gap, deliberately out of the recommended cut)",
+          "denies": []
+        },
+        {
+          "claim": "AIP Logic / published Function target object plane — the reference create modal selects a Logic/Function to evaluate; IOI has no Logic/Function plane (subject_scope over real estate objects is the IOI equivalent, a semantic divergence)",
+          "denies": []
+        },
+        {
+          "claim": "Favorites plane, organizations/installations plane, notifications plane, AIP-assistant plane — reference session/platform machinery with no IOI plane behind them",
+          "denies": []
+        }
       ],
       "security_credential_implications": "The recommended create/patch/delete cut touches NO credentials, wallet, or irreversible external effects — eval-suite records are local, INERT declarations (nothing runs, scores, or judges). Two daemon-side guardrails already fail-closed and MUST be surfaced as typed daemon errors (never bypassed client-side): (1) consent_requirements is a gate — a suite requiring only never_train evidence is rejected (eval_suite_consent_requirement_unusable), so the create authority cannot mint a suite that would assess unconsented data; (2) candidate_refs are allowlisted local schemes only (eval://, feedback://, training-candidate://) — external URLs are rejected (eval_suite_candidate_ref_invalid), closing a data-exfiltration/SSRF vector. DELETE is a local record removal (no cascade, no external side effect). The one authority-honesty risk to hold: wiring create/edit must NOT imply or enable EvalRun/scoring/judging — the assessment boundary must stay hard, or the surface would over-claim authority it does not have. Overall risk: LOW (durable local state mutation, no secrets/wallet/irreversibility).",
       "recommended_next_pr": {

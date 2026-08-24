@@ -1,0 +1,27 @@
+{
+  "schema_version": "ioi.hypervisor.named-gap-truth-mutants.v1",
+  "expected_mutations": 3,
+  "anchors": [
+    {
+      "id": "m033-entry-loses-denies-field",
+      "anchor_file": "apps/hypervisor/application-operational-depth.json",
+      "find": "\"denies\": []",
+      "replace": "\"citations\": []",
+      "red_on": "M033_SCHEMA"
+    },
+    {
+      "id": "m033-denial-names-served-method",
+      "anchor_file": "apps/hypervisor/application-operational-depth.json",
+      "find": "\"method\": \"PATCH\"",
+      "replace": "\"method\": \"GET\"",
+      "red_on": "M033_EXPLICIT_DENIALS"
+    },
+    {
+      "id": "m033-rebuild-drops-authority-normalizer",
+      "anchor_file": "apps/hypervisor/scripts/build-operational-depth-atlas.mjs",
+      "find": "denies: DENIES_BY_MISSING_AUTHORITY_ROW[`${slug}:${index}`] || []",
+      "replace": "citations: DENIES_BY_MISSING_AUTHORITY_ROW[`${slug}:${index}`] || []",
+      "red_on": "M033_BUILDER"
+    }
+  ]
+}

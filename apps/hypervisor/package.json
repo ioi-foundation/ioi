@@ -30,7 +30,7 @@
     "check:ontology-backend-families": "node scripts/verify-hypervisor-ontology-backend-families.mjs",
     "check:ontology-admission-census": "node scripts/verify-hypervisor-ontology-admission-census.mjs",
     "mutate:ontology-admission-census": "node scripts/mutate-ontology-admission-census.mjs",
-    "check:named-gap-truth": "node scripts/verify-hypervisor-named-gap-truth.mjs",
+    "check:named-gap-truth": "node scripts/verify-hypervisor-named-gap-truth.mjs && node scripts/mutate-hypervisor-named-gap-truth.mjs",
     "check:provider-transport": "node scripts/verify-hypervisor-provider-transport.mjs",
     "check:provider-transport:live": "node scripts/verify-hypervisor-provider-transport.mjs --live",
     "check:provider-proposal-provenance": "node scripts/verify-provider-proposal-provenance.mjs",
