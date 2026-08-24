@@ -1472,6 +1472,27 @@ pub(crate) fn resolve_portable_admission_evidence(
         );
     }
 
+    find_portable_admission_evidence(
+        data_dir,
+        expected_effect_ref,
+        expected_effect_hash,
+        expected_grant_hash,
+    )?
+    .ok_or_else(|| {
+        "exact grant/effect coordinates resolve no portable authority admission slot".to_string()
+    })
+}
+
+/// Find an already-consumed portable admission without treating its absence as
+/// an error. Native routes use this before a replayed authorization attempt so
+/// they can close a claim that is provably earlier than their own durable
+/// Prepared boundary. More than one exact slot is always corrupt/ambiguous.
+pub(crate) fn find_portable_admission_evidence(
+    data_dir: &str,
+    expected_effect_ref: &str,
+    expected_effect_hash: &str,
+    expected_grant_hash: &str,
+) -> Result<Option<PortableAdmissionEvidence>, String> {
     let records = super::system_activation_routes::enumerate_family(
         data_dir,
         AUTHORITY_ADMISSION_INTENT_FAMILY,
@@ -1496,13 +1517,15 @@ pub(crate) fn resolve_portable_admission_evidence(
             matches.push((tail, record));
         }
     }
-    if matches.len() != 1 {
+    if matches.len() > 1 {
         return Err(format!(
             "exact grant/effect coordinates resolve {} portable authority admission slots",
             matches.len()
         ));
     }
-    let (tail, record) = matches.pop().expect("one portable admission");
+    let Some((tail, record)) = matches.pop() else {
+        return Ok(None);
+    };
     portable_admission_evidence_from_record(
         &format!("{AUTHORITY_ADMISSION_INTENT_FAMILY}/{tail}"),
         &record,
@@ -1510,6 +1533,114 @@ pub(crate) fn resolve_portable_admission_evidence(
         expected_effect_hash,
         expected_grant_hash,
     )
+    .map(Some)
+}
+
+const PRE_NATIVE_PREPARED_ABSENT_OUTCOME: &str =
+    "claim_owner_process_did_not_enter_native_prepared";
+
+/// Close the only recoverable claim-before-dispatch crash window.
+///
+/// The caller MUST already hold its native operation lock and prove that no
+/// native Prepared or terminal record exists for the exact operation. Under
+/// that ordering proof, a claim owned by a previous daemon incarnation cannot
+/// have entered the native invoker and may be settled as an explicit refusal.
+/// A live claim, an invoked claim, or Unknown is never rewritten.
+pub(crate) async fn refuse_orphaned_claim_before_native_prepared(
+    data_dir: &str,
+    evidence: &PortableAdmissionEvidence,
+    invoker_label: &str,
+) -> Result<bool, String> {
+    let _guard = AUTHORITY_ADMISSION_LOCK.lock().await;
+    let tail = admission_intent_tail(&evidence.admission_intent_ref)?;
+    let mut record =
+        super::durable_fs::read_record_durable(data_dir, AUTHORITY_ADMISSION_INTENT_FAMILY, tail)?
+            .ok_or_else(|| "authority admission receipt is absent".to_string())?;
+    revalidate_admission_record(&record, &evidence.effect_hash)?;
+    if record
+        .pointer("/commitment/effect_ref")
+        .and_then(Value::as_str)
+        != Some(evidence.effect_ref.as_str())
+    {
+        return Err("portable authority admission changed effect identity".to_string());
+    }
+    let current = FinalInvocationDisposition::parse(
+        record.get("final_invoker_status").and_then(Value::as_str),
+    )
+    .ok_or_else(|| {
+        "authority admission receipt carries no final-invoker disposition".to_string()
+    })?;
+    if current == FinalInvocationDisposition::Admitted {
+        return Ok(false);
+    }
+    if current == FinalInvocationDisposition::Refused {
+        if record
+            .pointer("/final_invoker_settlement/outcome")
+            .and_then(Value::as_str)
+            == Some(PRE_NATIVE_PREPARED_ABSENT_OUTCOME)
+        {
+            return Ok(true);
+        }
+        return Err("the exact portable admission was refused for a different reason".to_string());
+    }
+    if current != FinalInvocationDisposition::Claimed {
+        return Err(format!(
+            "a {} portable admission cannot be recovered as pre-native refusal",
+            current.label()
+        ));
+    }
+    let claim = record
+        .get("final_invoker_claim")
+        .cloned()
+        .ok_or_else(|| "claimed portable admission has no claim coordinates".to_string())?;
+    if claim.get("effect_hash").and_then(Value::as_str) != Some(evidence.effect_hash.as_str())
+        || claim.get("invoker_label").and_then(Value::as_str) != Some(invoker_label)
+    {
+        return Err("claimed portable admission differs from the exact native invoker".to_string());
+    }
+    let owner_incarnation = claim
+        .get("incarnation_id")
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| "claimed portable admission has no process incarnation".to_string())?;
+    if owner_incarnation == process_incarnation_id() {
+        return Err(
+            "the exact native invocation is still claimed by this daemon process".to_string(),
+        );
+    }
+    let claim_id = claim
+        .get("claim_id")
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| "claimed portable admission has no claim id".to_string())?;
+    record["final_invoker_status"] = json!(FinalInvocationDisposition::Refused.label());
+    record["final_invoker_settlement"] = json!({
+        "claim_id": claim_id,
+        "invoker_label": invoker_label,
+        "effect_hash": evidence.effect_hash,
+        "outcome": PRE_NATIVE_PREPARED_ABSENT_OUTCOME,
+        "settled_at_ms": local_now_ms(),
+        "reconciled_from_absent_native_prepared": true,
+    });
+    super::durable_fs::persist_record_durable(
+        data_dir,
+        AUTHORITY_ADMISSION_INTENT_FAMILY,
+        tail,
+        &record,
+    )
+    .map_err(|error| format!("pre-native refusal was not durably recorded: {error:?}"))?;
+    let readback =
+        super::durable_fs::read_record_durable(data_dir, AUTHORITY_ADMISSION_INTENT_FAMILY, tail)?
+            .ok_or_else(|| "pre-native refusal disappeared after durable write".to_string())?;
+    if readback.get("final_invoker_status").and_then(Value::as_str) != Some("refused")
+        || readback
+            .pointer("/final_invoker_settlement/outcome")
+            .and_then(Value::as_str)
+            != Some(PRE_NATIVE_PREPARED_ABSENT_OUTCOME)
+    {
+        return Err("pre-native refusal failed durable read-back verification".to_string());
+    }
+    Ok(true)
 }
 
 async fn revalidate_authoritative_admission(
@@ -4201,6 +4332,130 @@ mod portable_authority_intent_tests {
             grant_hash,
         )
         .is_err());
+    }
+
+    #[tokio::test]
+    async fn absent_native_prepared_settles_only_a_dead_process_claim_as_refused() {
+        let data_dir = std::env::temp_dir().join(format!(
+            "ioi-portable-pre-native-refusal-{:032x}",
+            nonce_nanos()
+        ));
+        let data_dir_text = data_dir.to_string_lossy().to_string();
+        let effect_ref = "effect://hypervisor/tests/pre-native";
+        let effect_hash = format!("sha256:{}", hex::encode([0x44; 32]));
+        let grant_hash = format!("sha256:{}", hex::encode([0x22; 32]));
+        let commitment = json!({
+            "domain":"ioi.hypervisor.portable-authority-consumption.v1",
+            "effect_ref":effect_ref,
+            "effect_hash":effect_hash,
+            "grant_hash":grant_hash,
+        });
+        let mut record = portable_consumed_record("pai_pre_native", &commitment, &owner_pair());
+        record["final_invoker_status"] = json!("claimed");
+        record["final_invoker_claim"] = json!({
+            "claim_id":"fic_previous",
+            "invoker_label":"scm.publication.advance-target-ref",
+            "incarnation_id":"inc_previous_boot",
+            "effect_hash":effect_hash,
+        });
+        super::super::durable_fs::persist_record_durable(
+            &data_dir_text,
+            AUTHORITY_ADMISSION_INTENT_FAMILY,
+            "pai_pre_native",
+            &record,
+        )
+        .expect("claimed admission persisted");
+        let evidence = PortableAdmissionEvidence {
+            admission_intent_ref: "authority-admission-intents/pai_pre_native".to_string(),
+            receipt_ref: "receipt://tests/admission".to_string(),
+            receipt_hash: format!("sha256:{}", hex::encode([0x55; 32])),
+            effect_ref: effect_ref.to_string(),
+            effect_hash: effect_hash.clone(),
+            final_invoker_status: "claimed".to_string(),
+        };
+
+        assert!(refuse_orphaned_claim_before_native_prepared(
+            &data_dir_text,
+            &evidence,
+            "scm.publication.advance-target-ref",
+        )
+        .await
+        .expect("dead claim is proven pre-native"));
+        assert!(refuse_orphaned_claim_before_native_prepared(
+            &data_dir_text,
+            &evidence,
+            "scm.publication.advance-target-ref",
+        )
+        .await
+        .expect("retry converges on the same refusal"));
+        let settled = super::super::durable_fs::read_record_durable(
+            &data_dir_text,
+            AUTHORITY_ADMISSION_INTENT_FAMILY,
+            "pai_pre_native",
+        )
+        .expect("readback")
+        .expect("settled record");
+        assert_eq!(settled["final_invoker_status"], "refused");
+        assert_eq!(
+            settled["final_invoker_settlement"]["outcome"],
+            PRE_NATIVE_PREPARED_ABSENT_OUTCOME
+        );
+        std::fs::remove_dir_all(&data_dir).expect("test cleanup");
+    }
+
+    #[tokio::test]
+    async fn absent_native_prepared_never_settles_a_live_process_claim() {
+        let data_dir =
+            std::env::temp_dir().join(format!("ioi-portable-live-claim-{:032x}", nonce_nanos()));
+        let data_dir_text = data_dir.to_string_lossy().to_string();
+        let effect_ref = "effect://hypervisor/tests/live-claim";
+        let effect_hash = format!("sha256:{}", hex::encode([0x44; 32]));
+        let commitment = json!({
+            "domain":"ioi.hypervisor.portable-authority-consumption.v1",
+            "effect_ref":effect_ref,
+            "effect_hash":effect_hash,
+            "grant_hash":format!("sha256:{}", hex::encode([0x22; 32])),
+        });
+        let mut record = portable_consumed_record("pai_live_claim", &commitment, &owner_pair());
+        record["final_invoker_status"] = json!("claimed");
+        record["final_invoker_claim"] = json!({
+            "claim_id":"fic_live",
+            "invoker_label":"scm.publication.advance-target-ref",
+            "incarnation_id":process_incarnation_id(),
+            "effect_hash":effect_hash,
+        });
+        super::super::durable_fs::persist_record_durable(
+            &data_dir_text,
+            AUTHORITY_ADMISSION_INTENT_FAMILY,
+            "pai_live_claim",
+            &record,
+        )
+        .expect("claimed admission persisted");
+        let evidence = PortableAdmissionEvidence {
+            admission_intent_ref: "authority-admission-intents/pai_live_claim".to_string(),
+            receipt_ref: "receipt://tests/admission".to_string(),
+            receipt_hash: format!("sha256:{}", hex::encode([0x55; 32])),
+            effect_ref: effect_ref.to_string(),
+            effect_hash,
+            final_invoker_status: "claimed".to_string(),
+        };
+
+        assert!(refuse_orphaned_claim_before_native_prepared(
+            &data_dir_text,
+            &evidence,
+            "scm.publication.advance-target-ref",
+        )
+        .await
+        .is_err());
+        let unchanged = super::super::durable_fs::read_record_durable(
+            &data_dir_text,
+            AUTHORITY_ADMISSION_INTENT_FAMILY,
+            "pai_live_claim",
+        )
+        .expect("readback")
+        .expect("claimed record");
+        assert_eq!(unchanged["final_invoker_status"], "claimed");
+        std::fs::remove_dir_all(&data_dir).expect("test cleanup");
     }
 
     #[test]

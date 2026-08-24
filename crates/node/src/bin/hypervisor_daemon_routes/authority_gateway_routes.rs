@@ -1,9 +1,9 @@
-//! Authority Gateway attach-lane admission.
+//! Authority Gateway attach-lane admission and native execution bridge.
 //!
-//! This module owns no authority and invokes nothing. It registers immutable adapter profiles and
-//! admits exact `ActionRequestEnvelope` proposals only after resolving one current profile and its
-//! current verified `EnforcementCoverageDeclaration` set. The resulting decision receipt is
-//! durable before any later execution route can re-enter an existing native PEP/final invoker.
+//! This module owns no authority and contains no final invoker. It registers immutable adapter
+//! profiles, admits exact `ActionRequestEnvelope` proposals after resolving current coverage, and
+//! durably prepares execution before delegating to the selected native route. That route remains
+//! the single PEP/final invoker; this bridge only binds its exact effect and seals gateway receipts.
 
 use std::collections::BTreeSet;
 use std::sync::Arc;
@@ -19,7 +19,7 @@ use ioi_types::app::generated::architecture_contracts::validate_architecture_con
 
 use super::mutation_event_foundation::{
     admit_owner_scoped_write, prior_admission_for_key, require_write_caller, scope_refusal_reply,
-    stream_tail,
+    stream_tail, WriteCaller,
 };
 use super::{persist_record, read_record_dir, DaemonState};
 
@@ -28,6 +28,10 @@ const PROFILE_CONTRACT: &str =
 const REQUEST_CONTRACT: &str = "schema://ioi/components/daemon-runtime/action-request-envelope/v1";
 const DECISION_RECEIPT_CONTRACT: &str =
     "schema://ioi/components/daemon-runtime/gateway-decision-receipt/v1";
+const EXECUTION_RECEIPT_CONTRACT: &str =
+    "schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1";
+const ARTIFACT_RECEIPT_CONTRACT: &str =
+    "schema://ioi/components/daemon-runtime/gateway-artifact-receipt/v1";
 const COVERAGE_CONTRACT: &str =
     "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1";
 const PROFILE_SCHEMA: &str = "ioi.components.daemon-runtime.authority-gateway-profile.v1";
@@ -36,6 +40,9 @@ const PROFILE_DIR: &str = "authority-gateway-profiles";
 const ACTION_DIR: &str = "authority-gateway-action-requests";
 const COVERAGE_DIR: &str = "hypervisoros-node-evidence";
 const OWNER_NAMESPACE: &str = "hypervisor-authority-gateway";
+const ACTION_RESOURCE_KIND: &str = "authority-gateway-action-request";
+const SCM_ADVANCE_SCOPE: &str = "scope:scm.publication.advance-target-ref";
+const SCM_REVIEW_SCOPE: &str = "scope:scm.publication.open-review-request";
 
 type Reply = (StatusCode, Json<Value>);
 
@@ -151,6 +158,42 @@ fn current_profile<'a>(
         return Err("the current gateway profile is outside its validity interval".into());
     }
     Ok(profile)
+}
+
+fn bound_profile<'a>(
+    records: &'a [Value],
+    requested: &Value,
+    owner_ref: &str,
+) -> Result<&'a Value, String> {
+    let requested_ref = requested
+        .get("authority_gateway_profile_ref")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let requested_hash = requested
+        .get("authority_gateway_profile_hash")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let mut matches = Vec::new();
+    for record in records {
+        if record.get("owner_ref").and_then(Value::as_str) != Some(owner_ref) {
+            continue;
+        }
+        let Some(profile) = profile_from_record(record) else {
+            continue;
+        };
+        if profile.get("profile_ref").and_then(Value::as_str) == Some(requested_ref)
+            && profile.get("profile_hash").and_then(Value::as_str) == Some(requested_hash)
+        {
+            validate_architecture_contract(PROFILE_CONTRACT, profile)
+                .map_err(|reason| format!("bound gateway profile is invalid: {reason}"))?;
+            matches.push(profile);
+        }
+    }
+    match matches.as_slice() {
+        [profile] => Ok(*profile),
+        [] => Err("the action request's exact gateway profile is absent".into()),
+        _ => Err("the action request's exact gateway profile resolves ambiguously".into()),
+    }
 }
 
 fn exact_adapter_binding(profile: &Value, request: &Value) -> Result<(), String> {
@@ -506,22 +549,351 @@ fn build_decision_receipt(
     Ok(receipt)
 }
 
-fn record_id_from_hash(prefix: &str, hash: &str) -> String {
-    let hex = hash.trim_start_matches("sha256:");
+fn record_id_from_hash(prefix: &str, owner_ref: &str, hash: &str) -> String {
+    let scoped = canonical_hash(&json!({
+        "domain":"ioi.authority-gateway-owner-record-id-jcs-sha256.v1",
+        "owner_ref":owner_ref,
+        "object_hash":hash,
+    }))
+    .unwrap_or_default();
+    let hex = scoped.trim_start_matches("sha256:");
     format!("{prefix}_{}", &hex[..hex.len().min(24)])
 }
 
-fn owner_record(records: &[Value], id_or_ref: &str) -> Option<Value> {
+fn record_matches_id(record: &Value, id_or_ref: &str) -> bool {
+    record.get("record_id").and_then(Value::as_str) == Some(id_or_ref)
+        || record
+            .pointer("/action_request/action_request_ref")
+            .and_then(Value::as_str)
+            == Some(id_or_ref)
+}
+
+fn owner_record(records: &[Value], id_or_ref: &str, owner_ref: &str) -> Option<Value> {
     records
         .iter()
         .find(|record| {
-            record.get("record_id").and_then(Value::as_str) == Some(id_or_ref)
-                || record
-                    .pointer("/action_request/action_request_ref")
-                    .and_then(Value::as_str)
-                    == Some(id_or_ref)
+            record.get("owner_ref").and_then(Value::as_str) == Some(owner_ref)
+                && record_matches_id(record, id_or_ref)
         })
         .cloned()
+}
+
+fn invocation_payload_commitment(payload: &Value) -> Result<String, String> {
+    canonical_hash(&json!({
+        "domain":"ioi.authority-gateway-invocation-payload-jcs-sha256.v1",
+        "payload":payload,
+    }))
+}
+
+fn stable_native_scm_idempotency_key(request: &Value) -> String {
+    let identity = canonical_hash(&json!({
+        "domain":"ioi.authority-gateway-native-scm-idempotency-jcs-sha256.v1",
+        "action_request_ref":request["action_request_ref"],
+        "request_revision":request["request_revision"],
+    }))
+    .unwrap_or_default();
+    format!(
+        "gateway-scm-{}",
+        identity
+            .trim_start_matches("sha256:")
+            .chars()
+            .take(48)
+            .collect::<String>()
+    )
+}
+
+fn phase_caller(caller: &WriteCaller, request_hash: &str, phase: &str) -> WriteCaller {
+    let key = canonical_hash(&json!({
+        "domain":"ioi.authority-gateway-execution-phase-idempotency-jcs-sha256.v1",
+        "principal_ref":caller.identity.principal_ref,
+        "owner_ref":caller.owner_ref,
+        "request_hash":request_hash,
+        "phase":phase,
+        "caller_idempotency_key":caller.idempotency_key,
+    }))
+    .unwrap_or_else(|_| format!("gateway-{phase}-{request_hash}"));
+    WriteCaller {
+        identity: caller.identity.clone(),
+        owner_ref: caller.owner_ref.clone(),
+        idempotency_key: key,
+    }
+}
+
+fn validate_scm_invocation_payload(request: &Value, payload: &Value) -> Result<String, String> {
+    if request
+        .pointer("/proposed_action/action_class")
+        .and_then(Value::as_str)
+        != Some("git")
+        || request
+            .pointer("/proposed_action/operation")
+            .and_then(Value::as_str)
+            != Some("advance_target_ref")
+        || request
+            .pointer("/proposed_action/external_effect")
+            .and_then(Value::as_bool)
+            != Some(true)
+    {
+        return Err(
+            "the first gateway execution adapter admits only external git advance_target_ref actions"
+                .into(),
+        );
+    }
+    let environment_id = payload
+        .get("environment_id")
+        .and_then(Value::as_str)
+        .filter(|value| {
+            !value.is_empty()
+                && value.len() <= 240
+                && !value.chars().any(|character| {
+                    character.is_whitespace() || character.is_control() || character == '/'
+                })
+        })
+        .ok_or_else(|| "SCM gateway invocation requires one bounded environment_id".to_string())?;
+    let proposal_ref = payload
+        .get("proposal_ref")
+        .and_then(Value::as_str)
+        .filter(|value| value.starts_with("proposal://"))
+        .ok_or_else(|| "SCM gateway invocation requires one proposal:// ref".to_string())?;
+    let binding_ref = payload
+        .get("destination_binding_ref")
+        .and_then(Value::as_str)
+        .filter(|value| value.starts_with("scm-destination-binding://"))
+        .ok_or_else(|| {
+            "SCM gateway invocation requires one scm-destination-binding:// ref".to_string()
+        })?;
+    let targets: BTreeSet<&str> = request
+        .pointer("/proposed_action/target_refs")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .collect();
+    let environment_ref = format!("environment://{environment_id}");
+    if !targets.contains(proposal_ref)
+        || !targets.contains(binding_ref)
+        || !targets.contains(environment_ref.as_str())
+    {
+        return Err(
+            "action target refs do not bind the native environment, proposal, and destination"
+                .into(),
+        );
+    }
+    let mut exact_scopes = BTreeSet::from([SCM_ADVANCE_SCOPE]);
+    if payload
+        .get("open_review_request")
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+    {
+        exact_scopes.insert(SCM_REVIEW_SCOPE);
+    }
+    let requested_scopes: BTreeSet<&str> = request
+        .get("authority_scopes_required")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .collect();
+    if requested_scopes != exact_scopes {
+        return Err("action authority scopes differ from the native SCM sub-effects".into());
+    }
+    let requested_primitives: BTreeSet<&str> = request
+        .get("primitive_capabilities_required")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .collect();
+    if requested_primitives != BTreeSet::from(["prim:net.request", "prim:sys.exec"]) {
+        return Err("SCM gateway execution requires exact process and network primitives".into());
+    }
+    let grant_hash = payload
+        .get("wallet_portable_authority_grant_hash")
+        .and_then(Value::as_str)
+        .filter(|value| {
+            value.len() == 71
+                && value.starts_with("sha256:")
+                && value[7..]
+                    .chars()
+                    .all(|character| character.is_ascii_digit() || ('a'..='f').contains(&character))
+                && value[7..].chars().any(|character| character != '0')
+        })
+        .ok_or_else(|| {
+            "gateway SCM execution requires one nonzero portable v3 grant-hash locator".to_string()
+        })?;
+    if payload
+        .get("wallet_approval_grant")
+        .is_some_and(|value| !value.is_null())
+        || payload
+            .get("gateway_expected_authority_effect_ref")
+            .is_some()
+        || payload
+            .get("gateway_expected_authority_effect_hash")
+            .is_some()
+        || payload.get("gateway_action_expires_at").is_some()
+    {
+        return Err(
+            "the committed invocation payload may not select legacy authority or inject gateway-owned bindings"
+                .into(),
+        );
+    }
+    let stable_key = stable_native_scm_idempotency_key(request);
+    if payload.get("idempotency_key").and_then(Value::as_str) != Some(stable_key.as_str()) {
+        return Err(
+            "native SCM idempotency key is not derived from the immutable request hash".into(),
+        );
+    }
+    let commitment = invocation_payload_commitment(payload)?;
+    if request
+        .pointer("/proposed_action/input_commitment")
+        .and_then(Value::as_str)
+        != Some(commitment.as_str())
+    {
+        return Err("invocation payload differs from the action input commitment".into());
+    }
+    Ok(grant_hash.to_string())
+}
+
+fn execution_outcome(
+    status: StatusCode,
+    native_result: &Value,
+    authority_found: bool,
+) -> &'static str {
+    if native_result.get("ok").and_then(Value::as_bool) == Some(true) && status.is_success() {
+        return "succeeded";
+    }
+    let overall = native_result
+        .get("overall_outcome")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    if overall == "refused_before_native_prepared" {
+        return "refused";
+    }
+    if overall == "reconciliation_required"
+        || native_result
+            .get("authority_usage_disposition")
+            .and_then(Value::as_str)
+            == Some("spent_not_refunded")
+            && native_result.get("publication_effect").is_none()
+    {
+        return "reconciliation_required";
+    }
+    if !authority_found
+        || native_result
+            .pointer("/publication_effect/effects/publication/outcome")
+            .and_then(Value::as_str)
+            == Some("refused")
+            && native_result
+                .pointer("/publication_effect/recovery/remote_effect_invoked")
+                .and_then(Value::as_bool)
+                == Some(false)
+    {
+        return "refused";
+    }
+    "failed"
+}
+
+fn build_execution_receipts(
+    request: &Value,
+    decision: &Value,
+    surface: &Value,
+    native_status: StatusCode,
+    native_result: &Value,
+    admission: Option<&super::governed_authority::PortableAdmissionEvidence>,
+    started_at: &str,
+    completed_at: &str,
+) -> Result<(Value, Value), String> {
+    let request_hash = request["request_hash"].as_str().unwrap_or_default();
+    let tag = request_hash.trim_start_matches("sha256:");
+    let outcome = execution_outcome(native_status, native_result, admission.is_some());
+    if matches!(
+        outcome,
+        "succeeded" | "failed" | "unknown" | "reconciliation_required"
+    ) && admission.is_none()
+    {
+        return Err(
+            "a non-refusal external result lacks its registered authority admission receipt".into(),
+        );
+    }
+    let result_hash = canonical_hash(&json!({
+        "domain":"ioi.authority-gateway-native-result-jcs-sha256.v1",
+        "status":native_status.as_u16(),
+        "result":native_result,
+    }))?;
+    let native_key = stable_native_scm_idempotency_key(request);
+    let idempotency_hash = canonical_hash(&json!({
+        "domain":"ioi.authority-gateway-native-idempotency-jcs-sha256.v1",
+        "key":native_key,
+    }))?;
+    let mut execution = json!({
+        "schema_version":"ioi.components.daemon-runtime.gateway-execution-receipt.v1",
+        "receipt_ref":format!("receipt://ioi/authority-gateway/execution/{tag}"),
+        "receipt_type":"gateway_execution",
+        "action_request_ref":request["action_request_ref"],
+        "action_request_hash":request["request_hash"],
+        "authority_gateway_profile_ref":request["authority_gateway_profile_ref"],
+        "authority_gateway_profile_hash":request["authority_gateway_profile_hash"],
+        "gateway_decision_receipt_ref":decision["receipt_ref"],
+        "gateway_decision_receipt_hash":decision["receipt_hash"],
+        "policy_enforcement_point_ref":decision["policy_enforcement_point_ref"],
+        "external_effect":true,
+        "authority_effect_admission_receipt_ref":admission.map(|value| json!(value.receipt_ref)).unwrap_or(Value::Null),
+        "authority_effect_admission_receipt_hash":admission.map(|value| json!(value.receipt_hash)).unwrap_or(Value::Null),
+        "final_invoker_ref":surface["final_invoker_ref"],
+        "invocation_id":format!("gateway-scm-{}", tag.chars().take(24).collect::<String>()),
+        "idempotency_key":idempotency_hash,
+        "actual_effect_ref":request["proposed_action"]["proposed_effect_ref"],
+        "actual_effect_hash":request["proposed_action"]["proposed_effect_hash"],
+        "outcome":outcome,
+        "result_hash":result_hash,
+        "effect_receipt_ref":native_result.pointer("/publication_effect/effects/publication/receipt_ref").cloned().unwrap_or(Value::Null),
+        "started_at":started_at,
+        "completed_at":completed_at,
+        "receipt_hash":Value::Null,
+    });
+    execution["receipt_hash"] = json!(canonical_hash(&json!({
+        "domain":"ioi.gateway-execution-receipt-hash-jcs-sha256.v1",
+        "schema_version":execution["schema_version"], "receipt_ref":execution["receipt_ref"],
+        "receipt_type":execution["receipt_type"], "action_request_ref":execution["action_request_ref"],
+        "action_request_hash":execution["action_request_hash"], "authority_gateway_profile_ref":execution["authority_gateway_profile_ref"],
+        "authority_gateway_profile_hash":execution["authority_gateway_profile_hash"], "gateway_decision_receipt_ref":execution["gateway_decision_receipt_ref"],
+        "gateway_decision_receipt_hash":execution["gateway_decision_receipt_hash"], "policy_enforcement_point_ref":execution["policy_enforcement_point_ref"],
+        "external_effect":execution["external_effect"], "authority_effect_admission_receipt_ref":execution["authority_effect_admission_receipt_ref"],
+        "authority_effect_admission_receipt_hash":execution["authority_effect_admission_receipt_hash"], "final_invoker_ref":execution["final_invoker_ref"],
+        "invocation_id":execution["invocation_id"], "idempotency_key":execution["idempotency_key"], "actual_effect_ref":execution["actual_effect_ref"],
+        "actual_effect_hash":execution["actual_effect_hash"], "outcome":execution["outcome"], "result_hash":execution["result_hash"],
+        "effect_receipt_ref":execution["effect_receipt_ref"], "started_at":execution["started_at"], "completed_at":execution["completed_at"],
+    }))?);
+    validate_architecture_contract(EXECUTION_RECEIPT_CONTRACT, &execution)
+        .map_err(|reason| format!("gateway execution receipt failed its contract: {reason}"))?;
+
+    let mut artifact = json!({
+        "schema_version":"ioi.components.daemon-runtime.gateway-artifact-receipt.v1",
+        "receipt_ref":format!("receipt://ioi/authority-gateway/artifact/{tag}"),
+        "receipt_type":"gateway_artifact",
+        "action_request_ref":request["action_request_ref"],
+        "action_request_hash":request["request_hash"],
+        "gateway_execution_receipt_ref":execution["receipt_ref"],
+        "gateway_execution_receipt_hash":execution["receipt_hash"],
+        "evidence_kind":"none",
+        "artifacts":[],
+        "diff_artifact_ref":Value::Null,
+        "diff_hash":Value::Null,
+        "no_artifact_reason":"The native SCM target-ref crossing emitted effect receipts but retained no gateway-owned artifact or diff.",
+        "captured_at":completed_at,
+        "receipt_hash":Value::Null,
+    });
+    artifact["receipt_hash"] = json!(canonical_hash(&json!({
+        "domain":"ioi.gateway-artifact-receipt-hash-jcs-sha256.v1",
+        "schema_version":artifact["schema_version"], "receipt_ref":artifact["receipt_ref"],
+        "receipt_type":artifact["receipt_type"], "action_request_ref":artifact["action_request_ref"],
+        "action_request_hash":artifact["action_request_hash"], "gateway_execution_receipt_ref":artifact["gateway_execution_receipt_ref"],
+        "gateway_execution_receipt_hash":artifact["gateway_execution_receipt_hash"], "evidence_kind":artifact["evidence_kind"],
+        "artifacts":artifact["artifacts"], "diff_artifact_ref":artifact["diff_artifact_ref"], "diff_hash":artifact["diff_hash"],
+        "no_artifact_reason":artifact["no_artifact_reason"], "captured_at":artifact["captured_at"],
+    }))?);
+    validate_architecture_contract(ARTIFACT_RECEIPT_CONTRACT, &artifact)
+        .map_err(|reason| format!("gateway artifact receipt failed its contract: {reason}"))?;
+    Ok((execution, artifact))
 }
 
 /// POST /v1/authority-gateway/profiles
@@ -560,7 +932,7 @@ pub(crate) async fn handle_profile_register(
                 "the idempotency key already admitted different gateway profile bytes",
             );
         }
-        let record_id = record_id_from_hash("agp", profile_hash);
+        let record_id = record_id_from_hash("agp", &caller.owner_ref, profile_hash);
         let receipt_ref = agentgres::refs::event_stream_receipt_ref(
             OWNER_NAMESPACE,
             &stream_tail("authority-gateway-profile", profile_ref),
@@ -686,7 +1058,7 @@ pub(crate) async fn handle_profile_register(
         Ok(commit) => commit,
         Err(reply) => return reply,
     };
-    let record_id = record_id_from_hash("agp", profile_hash);
+    let record_id = record_id_from_hash("agp", &caller.owner_ref, profile_hash);
     let record = json!({
         "record_id":record_id, "owner_ref":caller.owner_ref, "profile":profile,
         "admitted_head":commit.projection.head, "admission_receipt_ref":commit.receipt_ref,
@@ -759,7 +1131,7 @@ pub(crate) async fn handle_action_request_create(
                 "the admitted action-request decision receipt is not registered-valid",
             );
         }
-        let record_id = record_id_from_hash("gar", request_hash);
+        let record_id = record_id_from_hash("gar", &caller.owner_ref, request_hash);
         let receipt_ref = agentgres::refs::event_stream_receipt_ref(
             OWNER_NAMESPACE,
             &stream_tail("authority-gateway-action-request", action_ref),
@@ -850,7 +1222,7 @@ pub(crate) async fn handle_action_request_create(
         Ok(commit) => commit,
         Err(reply) => return reply,
     };
-    let record_id = record_id_from_hash("gar", request_hash);
+    let record_id = record_id_from_hash("gar", &caller.owner_ref, request_hash);
     let record = json!({
         "record_id":record_id, "owner_ref":caller.owner_ref,
         "action_request":payload["action_request"], "gateway_decision_receipt":payload["gateway_decision_receipt"],
@@ -870,6 +1242,396 @@ pub(crate) async fn handle_action_request_create(
     )
 }
 
+/// POST /v1/action-requests/:id/execute
+pub(crate) async fn handle_action_request_execute(
+    State(state): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Reply {
+    let caller = match require_write_caller(&state.data_dir, &headers, &body) {
+        Ok(caller) => caller,
+        Err(reply) => return reply,
+    };
+    let records = read_record_dir(&state.data_dir, ACTION_DIR);
+    let Some(mut record) = owner_record(&records, &id, &caller.owner_ref) else {
+        if records.iter().any(|record| record_matches_id(record, &id)) {
+            return error(
+                StatusCode::FORBIDDEN,
+                "gateway_action_request_owner_mismatch",
+                "action request belongs to another owner",
+            );
+        }
+        return error(
+            StatusCode::NOT_FOUND,
+            "gateway_action_request_not_found",
+            "action request not found",
+        );
+    };
+    let request = record.get("action_request").cloned().unwrap_or(Value::Null);
+    let decision = record
+        .get("gateway_decision_receipt")
+        .cloned()
+        .unwrap_or(Value::Null);
+    if let Err(reason) = validate_architecture_contract(REQUEST_CONTRACT, &request) {
+        return error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "gateway_action_request_corrupt",
+            reason,
+        );
+    }
+    if let Err(reason) = validate_architecture_contract(DECISION_RECEIPT_CONTRACT, &decision) {
+        return error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "gateway_decision_receipt_corrupt",
+            reason,
+        );
+    }
+    let invocation_payload = body
+        .get("invocation_payload")
+        .cloned()
+        .unwrap_or(Value::Null);
+    let grant_hash = match validate_scm_invocation_payload(&request, &invocation_payload) {
+        Ok(hash) => hash,
+        Err(reason) => {
+            return error(
+                StatusCode::BAD_REQUEST,
+                "gateway_scm_invocation_invalid",
+                reason,
+            )
+        }
+    };
+    let action_ref = request["action_request_ref"].as_str().unwrap_or_default();
+    let request_hash = request["request_hash"].as_str().unwrap_or_default();
+    let prepare_caller = phase_caller(&caller, request_hash, "prepare");
+    let final_caller = phase_caller(&caller, request_hash, "final");
+
+    let final_prior = match prior_admission_for_key(
+        &state.data_dir,
+        &final_caller,
+        OWNER_NAMESPACE,
+        ACTION_RESOURCE_KIND,
+        action_ref,
+    ) {
+        Ok(prior) => prior,
+        Err(reply) => return reply,
+    };
+    if let Some(prior) = final_prior {
+        let terminal = prior.operation.payload;
+        if prior.operation.op_kind != "authority_gateway.action_request.execution.finalize"
+            || terminal.get("request_hash").and_then(Value::as_str) != Some(request_hash)
+            || terminal.get("invocation_payload") != Some(&invocation_payload)
+        {
+            return error(
+                StatusCode::CONFLICT,
+                "gateway_execution_idempotency_conflict",
+                "the finalization key already admitted different gateway execution bytes",
+            );
+        }
+        record["execution_status"] = terminal["execution_status"].clone();
+        record["gateway_execution_receipt"] = terminal["gateway_execution_receipt"].clone();
+        record["gateway_artifact_receipt"] = terminal["gateway_artifact_receipt"].clone();
+        record["native_result"] = terminal["native_result"].clone();
+        record["execution_head"] = json!(prior.head);
+        let record_id = record["record_id"].as_str().unwrap_or_default();
+        if let Err(reason) = persist_record(&state.data_dir, ACTION_DIR, record_id, &record) {
+            return error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "gateway_execution_persistence_failed",
+                reason.to_string(),
+            );
+        }
+        let response_status = terminal
+            .get("response_status")
+            .and_then(Value::as_u64)
+            .and_then(|value| u16::try_from(value).ok())
+            .and_then(|value| StatusCode::from_u16(value).ok())
+            .unwrap_or(StatusCode::OK);
+        return (
+            response_status,
+            Json(terminal.get("response").cloned().unwrap_or_else(
+                || json!({"ok":false,"error":{"code":"gateway_execution_replay_corrupt"}}),
+            )),
+        );
+    }
+
+    let intent = json!({
+        "schema_version":"ioi.hypervisor.authority-gateway-execution-intent.v1",
+        "state":"prepared",
+        "request_ref":action_ref,
+        "request_hash":request_hash,
+        "decision_receipt_ref":decision["receipt_ref"],
+        "decision_receipt_hash":decision["receipt_hash"],
+        "invocation_payload":invocation_payload,
+        "invocation_payload_hash":invocation_payload_commitment(&invocation_payload).unwrap_or_default(),
+        "native_route_kind":"scm_publication",
+        "native_idempotency_key":stable_native_scm_idempotency_key(&request),
+        "expected_effect_ref":request["proposed_action"]["proposed_effect_ref"],
+        "expected_effect_hash":request["proposed_action"]["proposed_effect_hash"],
+        "portable_grant_hash":grant_hash,
+    });
+    let prepare_prior = match prior_admission_for_key(
+        &state.data_dir,
+        &prepare_caller,
+        OWNER_NAMESPACE,
+        ACTION_RESOURCE_KIND,
+        action_ref,
+    ) {
+        Ok(prior) => prior,
+        Err(reply) => return reply,
+    };
+    let (prepared_head, recovering) = if let Some(prior) = prepare_prior {
+        if prior.operation.op_kind != "authority_gateway.action_request.execution.prepare"
+            || prior.operation.payload != intent
+        {
+            return error(
+                StatusCode::CONFLICT,
+                "gateway_execution_idempotency_conflict",
+                "the preparation key already admitted different gateway execution bytes",
+            );
+        }
+        (prior.head, true)
+    } else {
+        let now = super::iso_now();
+        if let Err(reason) = validate_request_window(&request, &now) {
+            return error(
+                StatusCode::CONFLICT,
+                "gateway_action_request_not_current",
+                reason,
+            );
+        }
+        let profiles = read_record_dir(&state.data_dir, PROFILE_DIR);
+        let profile = match current_profile(&profiles, &request, &now, &caller.owner_ref) {
+            Ok(profile) => profile,
+            Err(reason) => {
+                return error(
+                    StatusCode::CONFLICT,
+                    "gateway_profile_resolution_failed",
+                    reason,
+                )
+            }
+        };
+        if let Err(reason) = exact_adapter_binding(profile, &request) {
+            return error(
+                StatusCode::FORBIDDEN,
+                "gateway_adapter_binding_mismatch",
+                reason,
+            );
+        }
+        let surface = match supporting_surface(profile, &request) {
+            Ok(surface) => surface,
+            Err(reason) => {
+                return error(
+                    StatusCode::FORBIDDEN,
+                    "gateway_surface_not_admitted",
+                    reason,
+                )
+            }
+        };
+        let coverage = read_record_dir(&state.data_dir, COVERAGE_DIR);
+        if let Err(reason) = verify_coverage(&coverage, profile, surface, &request, &now) {
+            return error(StatusCode::CONFLICT, "gateway_coverage_unverified", reason);
+        }
+        let expected_head = record
+            .get("admitted_head")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        if expected_head.is_empty() {
+            return error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "gateway_action_request_corrupt",
+                "action request has no admitted Agentgres head",
+            );
+        }
+        let commit = match admit_owner_scoped_write(
+            &state.data_dir,
+            &prepare_caller,
+            OWNER_NAMESPACE,
+            ACTION_RESOURCE_KIND,
+            action_ref,
+            "authority_gateway.action_request.execution.prepare",
+            Some(expected_head),
+            &intent,
+        ) {
+            Ok(commit) => commit,
+            Err(reply) => return reply,
+        };
+        (commit.projection.head, false)
+    };
+
+    record["execution_status"] = json!("prepared");
+    record["execution_intent"] = intent.clone();
+    record["execution_head"] = json!(prepared_head);
+    let record_id = record["record_id"].as_str().unwrap_or_default().to_string();
+    if let Err(reason) = persist_record(&state.data_dir, ACTION_DIR, &record_id, &record) {
+        return error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "gateway_execution_persistence_failed",
+            reason.to_string(),
+        );
+    }
+
+    let profiles = read_record_dir(&state.data_dir, PROFILE_DIR);
+    let profile = match bound_profile(&profiles, &request, &caller.owner_ref) {
+        Ok(profile) => profile,
+        Err(reason) => {
+            return error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "gateway_profile_resolution_failed",
+                reason,
+            )
+        }
+    };
+    let surface = match supporting_surface(profile, &request) {
+        Ok(surface) => surface,
+        Err(reason) => {
+            return error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "gateway_surface_not_admitted",
+                reason,
+            )
+        }
+    };
+    let mut native_body = invocation_payload.clone();
+    native_body["gateway_expected_authority_effect_ref"] =
+        request["proposed_action"]["proposed_effect_ref"].clone();
+    native_body["gateway_expected_authority_effect_hash"] =
+        request["proposed_action"]["proposed_effect_hash"].clone();
+    native_body["gateway_action_expires_at"] = request["expires_at"].clone();
+    let environment_id = invocation_payload["environment_id"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
+    let (native_status, Json(native_result)) = super::scm_publication_routes::handle_scm_publish(
+        State(state.clone()),
+        AxumPath(environment_id),
+        headers,
+        Json(native_body),
+    )
+    .await;
+    let locator = native_result
+        .pointer("/publication_effect/authority/admission_receipt_ref")
+        .and_then(Value::as_str)
+        .or_else(|| {
+            native_result
+                .get("authority_admission_receipt_ref")
+                .and_then(Value::as_str)
+        });
+    let expected_effect_ref = request["proposed_action"]["proposed_effect_ref"]
+        .as_str()
+        .unwrap_or_default();
+    let expected_effect_hash = request["proposed_action"]["proposed_effect_hash"]
+        .as_str()
+        .unwrap_or_default();
+    let admission = super::governed_authority::resolve_portable_admission_evidence(
+        &state.data_dir,
+        locator,
+        expected_effect_ref,
+        expected_effect_hash,
+        &grant_hash,
+    );
+    let authority_must_exist = native_result.get("publication_effect").is_some()
+        || native_result
+            .get("authority_usage_disposition")
+            .and_then(Value::as_str)
+            == Some("spent_not_refunded");
+    let admission = match admission {
+        Ok(evidence) => Some(evidence),
+        Err(reason) if !authority_must_exist => None,
+        Err(reason) => {
+            record["execution_status"] = json!("reconciliation_required");
+            record["native_result"] = native_result;
+            record["authority_evidence_error"] = json!(reason);
+            let _ = persist_record(&state.data_dir, ACTION_DIR, &record_id, &record);
+            return error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "gateway_authority_evidence_unavailable",
+                "native SCM reached an authority-bearing disposition but its exact registered v2 admission evidence is unavailable; retry converges the same native idempotency key",
+            );
+        }
+    };
+    let now = super::iso_now();
+    let started_at = native_result
+        .pointer("/publication_effect/preparation/prepared_persisted_at")
+        .and_then(Value::as_str)
+        .unwrap_or(&now);
+    let completed_at = native_result
+        .pointer("/publication_effect/committed_at")
+        .and_then(Value::as_str)
+        .unwrap_or(&now);
+    let (execution_receipt, artifact_receipt) = match build_execution_receipts(
+        &request,
+        &decision,
+        surface,
+        native_status,
+        &native_result,
+        admission.as_ref(),
+        started_at,
+        completed_at,
+    ) {
+        Ok(receipts) => receipts,
+        Err(reason) => {
+            return error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "gateway_execution_receipt_invalid",
+                reason,
+            )
+        }
+    };
+    let execution_status = execution_receipt["outcome"].as_str().unwrap_or("unknown");
+    let response_status = if execution_status == "succeeded" {
+        StatusCode::OK
+    } else if native_status.is_server_error() {
+        native_status
+    } else {
+        StatusCode::CONFLICT
+    };
+    let response = json!({
+        "ok":execution_status == "succeeded",
+        "replayed_preparation":recovering,
+        "gateway_execution_receipt":execution_receipt,
+        "gateway_artifact_receipt":artifact_receipt,
+        "native_result":native_result,
+    });
+    let terminal = json!({
+        "schema_version":"ioi.hypervisor.authority-gateway-execution-result.v1",
+        "request_hash":request_hash,
+        "invocation_payload":invocation_payload,
+        "execution_status":execution_status,
+        "gateway_execution_receipt":response["gateway_execution_receipt"],
+        "gateway_artifact_receipt":response["gateway_artifact_receipt"],
+        "native_result":response["native_result"],
+        "response_status":response_status.as_u16(),
+        "response":response,
+    });
+    let final_commit = match admit_owner_scoped_write(
+        &state.data_dir,
+        &final_caller,
+        OWNER_NAMESPACE,
+        ACTION_RESOURCE_KIND,
+        action_ref,
+        "authority_gateway.action_request.execution.finalize",
+        Some(&prepared_head),
+        &terminal,
+    ) {
+        Ok(commit) => commit,
+        Err(reply) => return reply,
+    };
+    record["execution_status"] = terminal["execution_status"].clone();
+    record["gateway_execution_receipt"] = terminal["gateway_execution_receipt"].clone();
+    record["gateway_artifact_receipt"] = terminal["gateway_artifact_receipt"].clone();
+    record["native_result"] = terminal["native_result"].clone();
+    record["execution_head"] = json!(final_commit.projection.head);
+    if let Err(reason) = persist_record(&state.data_dir, ACTION_DIR, &record_id, &record) {
+        return error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "gateway_execution_persistence_failed",
+            reason.to_string(),
+        );
+    }
+    (response_status, Json(terminal["response"].clone()))
+}
+
 /// GET /v1/action-requests/:id
 pub(crate) async fn handle_action_request_get(
     State(state): State<Arc<DaemonState>>,
@@ -882,24 +1644,30 @@ pub(crate) async fn handle_action_request_get(
         Err(reason) => return scope_refusal_reply(reason),
     };
     let records = read_record_dir(&state.data_dir, ACTION_DIR);
-    let Some(record) = owner_record(&records, &id) else {
+    let record = records
+        .iter()
+        .find(|record| {
+            record_matches_id(record, &id)
+                && record
+                    .get("owner_ref")
+                    .and_then(Value::as_str)
+                    .is_some_and(|owner| identity.authorizes_tenant(owner))
+        })
+        .cloned();
+    let Some(record) = record else {
+        if records.iter().any(|record| record_matches_id(record, &id)) {
+            return error(
+                StatusCode::FORBIDDEN,
+                "gateway_action_request_owner_mismatch",
+                "action request belongs to another owner",
+            );
+        }
         return error(
             StatusCode::NOT_FOUND,
             "gateway_action_request_not_found",
             "action request not found",
         );
     };
-    let owner = record
-        .get("owner_ref")
-        .and_then(Value::as_str)
-        .unwrap_or_default();
-    if !identity.authorizes_tenant(owner) {
-        return error(
-            StatusCode::FORBIDDEN,
-            "gateway_action_request_owner_mismatch",
-            "action request belongs to another owner",
-        );
-    }
     (
         StatusCode::OK,
         Json(json!({"ok":true,"action_request":record})),
@@ -958,6 +1726,51 @@ mod tests {
         coverage["verification"]["evaluated_at"] = json!("2026-08-24T15:00:00Z");
         coverage["verification"]["valid_until"] = json!("2026-09-24T15:00:00Z");
         (profile, request, coverage, "2026-08-24T16:05:00Z")
+    }
+
+    fn scm_execution_request() -> (Value, Value, Value) {
+        let (profile, mut request, _, _) = current_records();
+        let payload = json!({
+            "environment_id":"env-1",
+            "proposal_ref":"proposal://acme/ioi/change/1",
+            "destination_binding_ref":"scm-destination-binding://acme/ioi/revision/1",
+            "target_ref_name":"main",
+            "open_review_request":false,
+            "idempotency_key":stable_native_scm_idempotency_key(&request),
+            "wallet_portable_authority_grant_hash":format!("sha256:{}", "ab".repeat(32)),
+        });
+        request["proposed_action"]["target_refs"] = json!([
+            "environment://env-1",
+            "proposal://acme/ioi/change/1",
+            "scm-destination-binding://acme/ioi/revision/1"
+        ]);
+        request["proposed_action"]["input_commitment"] =
+            json!(invocation_payload_commitment(&payload).unwrap());
+        request["primitive_capabilities_required"] = json!(["prim:net.request", "prim:sys.exec"]);
+        request["authority_scopes_required"] = json!([SCM_ADVANCE_SCOPE]);
+        request["request_hash"] = json!(canonical_hash(&json!({
+            "domain":"ioi.action-request-envelope-hash-jcs-sha256.v1",
+            "action_request_ref":request["action_request_ref"], "request_revision":request["request_revision"],
+            "authority_gateway_profile_ref":request["authority_gateway_profile_ref"], "authority_gateway_profile_hash":request["authority_gateway_profile_hash"],
+            "source_adapter":request["source_adapter"], "proposed_action":request["proposed_action"], "risk_class":request["risk_class"],
+            "primitive_capabilities_required":request["primitive_capabilities_required"], "authority_scopes_required":request["authority_scopes_required"],
+            "policy_decision":request["policy_decision"], "subject_refs":request["subject_refs"], "receipt_obligations":request["receipt_obligations"],
+            "created_at":request["created_at"], "expires_at":request["expires_at"],
+        })).unwrap());
+        let mut payload = payload;
+        payload["idempotency_key"] = json!(stable_native_scm_idempotency_key(&request));
+        request["proposed_action"]["input_commitment"] =
+            json!(invocation_payload_commitment(&payload).unwrap());
+        request["request_hash"] = json!(canonical_hash(&json!({
+            "domain":"ioi.action-request-envelope-hash-jcs-sha256.v1",
+            "action_request_ref":request["action_request_ref"], "request_revision":request["request_revision"],
+            "authority_gateway_profile_ref":request["authority_gateway_profile_ref"], "authority_gateway_profile_hash":request["authority_gateway_profile_hash"],
+            "source_adapter":request["source_adapter"], "proposed_action":request["proposed_action"], "risk_class":request["risk_class"],
+            "primitive_capabilities_required":request["primitive_capabilities_required"], "authority_scopes_required":request["authority_scopes_required"],
+            "policy_decision":request["policy_decision"], "subject_refs":request["subject_refs"], "receipt_obligations":request["receipt_obligations"],
+            "created_at":request["created_at"], "expires_at":request["expires_at"],
+        })).unwrap());
+        (profile, request, payload)
     }
 
     #[test]
@@ -1022,6 +1835,124 @@ mod tests {
         assert_eq!(
             current_profile(&records, &request, now, "org://acme").unwrap()["profile_revision"],
             2
+        );
+    }
+
+    #[test]
+    fn local_projection_ids_and_lookups_are_owner_scoped() {
+        let object_hash = format!("sha256:{}", "ab".repeat(32));
+        let first_id = record_id_from_hash("gar", "org://first", &object_hash);
+        let second_id = record_id_from_hash("gar", "org://second", &object_hash);
+        assert_ne!(first_id, second_id);
+        let action_ref = "action-request://shared/ref";
+        let records = vec![
+            json!({
+                "record_id":first_id,
+                "owner_ref":"org://first",
+                "action_request":{"action_request_ref":action_ref},
+            }),
+            json!({
+                "record_id":second_id,
+                "owner_ref":"org://second",
+                "action_request":{"action_request_ref":action_ref},
+            }),
+        ];
+        assert_eq!(
+            owner_record(&records, action_ref, "org://second").unwrap()["owner_ref"],
+            "org://second"
+        );
+    }
+
+    #[test]
+    fn scm_execution_payload_is_exactly_bound_and_cannot_widen_review_scope() {
+        let (_, request, mut payload) = scm_execution_request();
+        validate_architecture_contract(REQUEST_CONTRACT, &request).unwrap();
+        assert!(validate_scm_invocation_payload(&request, &payload).is_ok());
+
+        payload["open_review_request"] = json!(true);
+        assert!(validate_scm_invocation_payload(&request, &payload).is_err());
+        payload["open_review_request"] = json!(false);
+        payload["idempotency_key"] = json!("different-native-key");
+        assert!(validate_scm_invocation_payload(&request, &payload).is_err());
+    }
+
+    #[test]
+    fn execution_and_explicit_no_artifact_receipts_validate_for_native_success_and_refusal() {
+        let (profile, request, _) = scm_execution_request();
+        let surface = &profile["declaration"]["action_surfaces"][0];
+        let decision = build_decision_receipt(&request, vec![], "2026-08-24T16:05:00Z")
+            .expect("decision receipt");
+        let admission = super::super::governed_authority::PortableAdmissionEvidence {
+            admission_intent_ref: "authority-admission-intents/pai_test".into(),
+            receipt_ref: "receipt://wallet/acme/admission/1".into(),
+            receipt_hash: format!("sha256:{}", "44".repeat(32)),
+            effect_ref: request["proposed_action"]["proposed_effect_ref"]
+                .as_str()
+                .unwrap()
+                .into(),
+            effect_hash: request["proposed_action"]["proposed_effect_hash"]
+                .as_str()
+                .unwrap()
+                .into(),
+            final_invoker_status: "invoked".into(),
+        };
+        let native = json!({
+            "ok":true,
+            "overall_outcome":"published_review_request_not_requested",
+            "publication_effect":{
+                "preparation":{"prepared_persisted_at":"2026-08-24T16:05:00Z"},
+                "committed_at":"2026-08-24T16:05:01Z",
+                "effects":{"publication":{"receipt_ref":"receipt://ioi/scm/publication/1"}}
+            }
+        });
+        let (execution, artifact) = build_execution_receipts(
+            &request,
+            &decision,
+            surface,
+            StatusCode::OK,
+            &native,
+            Some(&admission),
+            "2026-08-24T16:05:00Z",
+            "2026-08-24T16:05:01Z",
+        )
+        .unwrap();
+        assert_eq!(execution["outcome"], "succeeded");
+        assert_eq!(artifact["evidence_kind"], "none");
+
+        let (refused, _) = build_execution_receipts(
+            &request,
+            &decision,
+            surface,
+            StatusCode::PRECONDITION_REQUIRED,
+            &json!({"ok":false,"reason":"authority_required"}),
+            None,
+            "2026-08-24T16:05:00Z",
+            "2026-08-24T16:05:00Z",
+        )
+        .unwrap();
+        assert_eq!(refused["outcome"], "refused");
+        assert!(refused["authority_effect_admission_receipt_ref"].is_null());
+
+        let (pre_native_refused, _) = build_execution_receipts(
+            &request,
+            &decision,
+            surface,
+            StatusCode::CONFLICT,
+            &json!({
+                "ok":false,
+                "overall_outcome":"refused_before_native_prepared",
+                "authority_usage_disposition":"spent_not_refunded",
+                "remote_effect_invoked":false,
+            }),
+            Some(&admission),
+            "2026-08-24T16:05:00Z",
+            "2026-08-24T16:05:00Z",
+        )
+        .unwrap();
+        assert_eq!(pre_native_refused["outcome"], "refused");
+        assert_eq!(
+            pre_native_refused["authority_effect_admission_receipt_ref"],
+            admission.receipt_ref
         );
     }
 }

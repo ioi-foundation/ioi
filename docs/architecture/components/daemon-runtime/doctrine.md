@@ -430,7 +430,11 @@ debts, each a named target (none is claimed built; see
   `work_item://`). The authenticated live attach route admits the immutable
   request only after resolving one current owner profile, its exact active
   surface, and current verified coverage for every declared scope. It emits a
-  pre-dispatch `requires_approval` decision and invokes nothing. The API sketch
+  pre-dispatch `requires_approval` decision and invokes nothing. The first live
+  execution adapter accepts only an exact, commitment-bound SCM publication
+  payload plus a portable-v3 grant-hash locator. It prepares the gateway
+  intent durably, then delegates to the existing native SCM PEP/final invoker;
+  the gateway does not consume, claim, or invoke authority itself. The API sketch
   in [`api.md`](./api.md) carrying only legacy `run_id`/`thread_id` identities
   is wire compatibility, not the contract.
 - **Receipts.** Each `receipt_obligations` entry on an action request uses the
@@ -439,8 +443,12 @@ debts, each a named target (none is claimed built; see
   and the gateway decision/execution/artifact receipt types must be registered
   in [`events-receipts-delivery-bundles.md`](./events-receipts-delivery-bundles.md)
   before any adapter claims receipted mediation. All three v1 receipt types are
-  registered. The decision receipt has a live producer; the execution and
-  artifact receipts do not yet, so no end-to-end mediation claim is made.
+  registered. All three have live producers for the bounded SCM publication
+  adapter. Execution binds the independently derived native authority-effect
+  coordinates and registered v2 admission receipt; artifact evidence is
+  explicitly `none` when publication creates no captured artifact. Both
+  receipts are sealed once in the owner-scoped Agentgres successor and replayed
+  verbatim.
 - **Evidence.** `AuthorityGatewayProfile` is the canonical target object that
   declares one adapter deployment's action surfaces, scopes, and posture — the
   subject its `EnforcementCoverageDeclaration` evidence describes. Canon has
@@ -509,6 +517,17 @@ link attached work to the work spine; they do not create those subjects. A
 pending policy decision has no decision receipt or decision time, and a later
 decision creates a new envelope revision. No request field grants a capability,
 scope, approval, lease, credential, admission, or invocation.
+
+For the live SCM adapter, `proposed_effect_ref/hash` are the native portable
+authority-effect coordinates, not an adapter-defined summary hash. The daemon
+reconstructs the capability-lease effect from the exact environment, proposal,
+destination, sub-effect flags, caller, scopes, and stable request-derived native
+idempotency key, then compares the derived pair before wallet consumption. The
+committed invocation payload cannot inject gateway effect fields or legacy
+approval material. A process death after the portable claim but before native
+Prepared is recoverable only because the absent Prepared record proves the
+invoker was not entered; the spent claim settles as an explicit refusal and is
+never refunded or invoked on retry.
 
 #### AuthorityGatewayProfile
 

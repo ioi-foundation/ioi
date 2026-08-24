@@ -39,6 +39,7 @@ use axum::http::{HeaderMap, StatusCode};
 use axum::Json;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
+use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
 use ioi_types::app::scm_publication::{
     build_converged_replay_effect, build_scm_publication_effect, build_scm_publication_receipt,
@@ -2902,11 +2903,31 @@ pub(crate) async fn handle_scm_publish(
         Ok(None) => {}
         Err(error) => return fail(error),
     }
+    if let Some(expires_at) = body
+        .get("gateway_action_expires_at")
+        .and_then(Value::as_str)
+    {
+        let expires_at = match OffsetDateTime::parse(expires_at, &Rfc3339) {
+            Ok(value) => value,
+            Err(reason) => {
+                return fail(verr(
+                    "scm_publication_gateway_effect_binding_mismatch",
+                    format!("authority-gateway expiry is invalid: {reason}"),
+                ))
+            }
+        };
+        if OffsetDateTime::now_utc() > expires_at {
+            return fail(verr(
+                "scm_publication_gateway_effect_binding_mismatch",
+                "the authority-gateway action expired before native authority consumption",
+            ));
+        }
+    }
     let requires_credential = remote_url.starts_with("https://");
-    let scopes = vec![
-        SCM_PUBLICATION_ADVANCE_TARGET_REF_SCOPE.to_owned(),
-        SCM_PUBLICATION_OPEN_REVIEW_REQUEST_SCOPE.to_owned(),
-    ];
+    let mut scopes = vec![SCM_PUBLICATION_ADVANCE_TARGET_REF_SCOPE.to_owned()];
+    if submission.review_request_requested {
+        scopes.push(SCM_PUBLICATION_OPEN_REVIEW_REQUEST_SCOPE.to_owned());
+    }
     let lease_request = CapabilityLeaseRequest {
         authority_provider_ref: "wallet.network".to_owned(),
         backing_provider: if requires_credential {
@@ -2961,6 +2982,78 @@ pub(crate) async fn handle_scm_publish(
     // or a final-invoker claim. Supplying only half a pair also fails closed.
     if let Err(error) = verify_gateway_effect_binding(&body, &lease_request) {
         return fail(error);
+    }
+    // A daemon can die after the portable admission's durable final-invoker
+    // claim but before this route persists native Prepared. The operation lock
+    // and the replay checks above prove that exact native boundary absent. In
+    // that one ordering, settle the spent claim as a proven pre-native refusal
+    // instead of asking authorization to claim it again (which would strand
+    // the action forever). No other claimed/terminal disposition is rewritten.
+    if let Some(grant_hash) = body
+        .get("wallet_portable_authority_grant_hash")
+        .and_then(Value::as_str)
+    {
+        let effect = super::lifecycle_routes::capability_lease_effect(&lease_request);
+        let effect_hash = match super::governed_authority::live_effect_hash(&effect) {
+            Ok(value) => value,
+            Err(reason) => return fail(verr("scm_publication_authority_recovery_invalid", reason)),
+        };
+        let effect_ref = match super::governed_authority::portable_effect_ref(&effect_hash) {
+            Ok(value) => value,
+            Err(reason) => return fail(verr("scm_publication_authority_recovery_invalid", reason)),
+        };
+        let existing = match super::governed_authority::find_portable_admission_evidence(
+            &state.data_dir,
+            &effect_ref,
+            &effect_hash,
+            grant_hash,
+        ) {
+            Ok(value) => value,
+            Err(reason) => return fail(verr("scm_publication_authority_recovery_invalid", reason)),
+        };
+        if let Some(evidence) = existing {
+            match super::governed_authority::refuse_orphaned_claim_before_native_prepared(
+                &state.data_dir,
+                &evidence,
+                "scm.publication.advance-target-ref",
+            )
+            .await
+            {
+                Ok(false) => {}
+                Ok(true) => {
+                    return (
+                        StatusCode::CONFLICT,
+                        Json(json!({
+                            "ok": false,
+                            "overall_outcome": "refused_before_native_prepared",
+                            "converged": true,
+                            "reason": "a prior daemon spent and claimed this exact authority, but the native Prepared boundary proves its invoker was never entered",
+                            "authority_usage_disposition": "spent_not_refunded",
+                            "authority_admission_receipt_ref": format!("receipt://{}", evidence.admission_intent_ref),
+                            "authority_effect_ref": effect_ref,
+                            "authority_effect_hash": effect_hash,
+                            "remote_effect_invoked": false,
+                        })),
+                    );
+                }
+                Err(reason) => {
+                    return (
+                        StatusCode::CONFLICT,
+                        Json(json!({
+                            "ok": false,
+                            "overall_outcome": "reconciliation_required",
+                            "converged": false,
+                            "reason": reason,
+                            "authority_usage_disposition": "spent_not_refunded",
+                            "authority_admission_receipt_ref": format!("receipt://{}", evidence.admission_intent_ref),
+                            "authority_effect_ref": effect_ref,
+                            "authority_effect_hash": effect_hash,
+                            "remote_effect_invoked": Value::Null,
+                        })),
+                    );
+                }
+            }
+        }
     }
     let lease = match authorize_capability_lease(&state, &lease_request).await {
         Ok(lease) => lease,
@@ -3031,6 +3124,9 @@ pub(crate) async fn handle_scm_publish(
     let claim = match claim_result {
         Ok(claim) => claim,
         Err(reason) => {
+            let effect_ref =
+                super::governed_authority::portable_effect_ref(&authority.admission_effect_hash)
+                    .unwrap_or_default();
             return (
                 StatusCode::CONFLICT,
                 Json(json!({
@@ -3039,6 +3135,10 @@ pub(crate) async fn handle_scm_publish(
                     "converged": false,
                     "reason": reason,
                     "authority_usage_disposition": "spent_not_refunded",
+                    "authority_admission_receipt_ref": authority.admission_receipt_ref,
+                    "authority_effect_ref": effect_ref,
+                    "authority_effect_hash": authority.admission_effect_hash,
+                    "remote_effect_invoked": Value::Null,
                 })),
             );
         }

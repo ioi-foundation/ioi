@@ -2575,6 +2575,20 @@ GET  /v1/threads/{thread_id}/action-requests
 POST /v1/threads/{thread_id}/action-requests
 ```
 
+The live bounded subset is `POST /v1/authority-gateway/profiles`,
+`POST /v1/action-requests`, `GET /v1/action-requests/{id}`, and
+`POST /v1/action-requests/{id}/execute`. Execution currently supports the SCM
+`advance_target_ref` adapter only. Its body contains one `invocation_payload`
+whose JCS commitment equals `proposed_action.input_commitment`; it binds the
+exact environment, admitted proposal and destination binding, review-request
+choice, portable-v3 grant-hash locator, native scopes, and request-derived
+idempotency key. The daemon persists a prepared Agentgres successor before
+delegating to the existing SCM route, which independently derives and compares
+the portable authority effect before consumption. Terminal gateway execution
+and explicit no-artifact receipts are persisted once and replayed verbatim.
+The listed approve, deny, receipts, and thread projections remain target API
+surface rather than implemented routes.
+
 Action request shape:
 
 ```json

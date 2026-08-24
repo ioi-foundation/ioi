@@ -1472,6 +1472,19 @@ and either one or more immutable artifacts, a diff artifact/hash pair, or an
 explicit reason that no artifact exists. Attach-lane receipts remain immutable
 and linkable after graduation; they are never re-minted as run-on receipts.
 
+The first live producer is the Authority Gateway SCM execution bridge. It
+persists an owner-scoped prepared successor, delegates to the existing native
+SCM PEP/final invoker with one stable request-derived idempotency key, resolves
+the wallet-owned registered v2 admission receipt, and persists the execution
+and artifact pair in one terminal successor. The gateway owns no authority
+consume or final-invoker claim. A pre-authority challenge is a `refused`
+execution with null admission binding. A spent claim proven earlier than the
+native Prepared boundary is also `refused`, but retains its exact admission
+binding and `spent_not_refunded` evidence; indeterminate post-Prepared state is
+`reconciliation_required`. An SCM ref advance is not fabricated into an
+artifact: absent a separately captured immutable artifact, the artifact receipt
+uses `evidence_kind: none` and a specific no-artifact reason.
+
 ## Information-Flow Decision Receipts
 
 `InformationFlowDecisionReceipt` is the receipt profile for the daemon's

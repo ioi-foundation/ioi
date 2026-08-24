@@ -687,6 +687,10 @@ async fn async_main() -> anyhow::Result<()> {
             get(authority_gateway_routes::handle_action_request_get),
         )
         .route(
+            "/v1/action-requests/:id/execute",
+            post(authority_gateway_routes::handle_action_request_execute),
+        )
+        .route(
             "/v1/workflow-capability-preflights",
             get(lifecycle_routes::handle_authority_evidence),
         )
