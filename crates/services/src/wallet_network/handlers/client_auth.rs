@@ -199,6 +199,8 @@ pub(crate) fn authorize_wallet_method(
         | "revoke_approval_authority@v1"
         | "record_standing_approval_grant@v1"
         | "record_portable_authority_grant_v3@v1"
+        | "refresh_portable_authority_grant_v3_evidence@v1"
+        | "revoke_portable_authority_grant_v3@v1"
         | "revoke_standing_approval_grant@v1"
         | "panic_stop@v1" => ensure_wallet_client_role(state, ctx, WalletAuthRole::ControlPlane),
         "mail_connector_ensure_binding@v1"

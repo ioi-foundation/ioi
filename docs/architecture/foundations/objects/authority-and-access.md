@@ -469,7 +469,10 @@ atomically meters an exact-effect use into an immutable idempotency receipt.
 Registration and every consumption independently resolve the issuer's current
 principal authority; request-carried key material cannot replace it. The daemon
 PEP still has to persist the registered v2 admission and revalidate it before
-the final invoker, so this is not yet a served portable effect path.
+the final invoker, so this is not yet a served portable effect path. A
+control-plane refresh replaces only key-set, revocation-snapshot, local closure,
+and current-owner evidence after re-verifying the immutable bundle; explicit
+revocation is durable and idempotent, and neither transition can restore uses.
 
 The same path now verifies a production issuance bundle before owner-side
 persistence. It recomputes the domain-separated request body,

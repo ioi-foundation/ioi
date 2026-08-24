@@ -394,3 +394,154 @@ fn portable_registration_rejects_request_carried_key_substitution_without_state(
         "failed owner-authority validation must not consume the ceremony"
     );
 }
+
+#[test]
+fn portable_evidence_refresh_and_revocation_fail_closed_without_counter_mutation() {
+    let service = WalletNetworkService;
+    let mut state = MockState::default();
+    let (request, context, review, grant, key_set, snapshot) =
+        crate::wallet_network::portable_authority::tests::issuance_fixture();
+    let public_key = URL_SAFE_NO_PAD
+        .decode(key_set["keys"][0]["public_key"].as_str().unwrap())
+        .expect("issuer public key");
+    let binding = install_portable_issuer(
+        &service,
+        &mut state,
+        "org://wallet-network/portable-issuer",
+        public_key,
+    );
+    let record = record_params(
+        &request,
+        &context,
+        &review,
+        &grant,
+        &key_set,
+        &snapshot,
+        binding.clone(),
+    );
+    with_portable_ctx([7; 32], |ctx| {
+        run_async(service.handle_service_call(
+            &mut state,
+            "record_portable_authority_grant_v3@v1",
+            &codec::to_bytes_canonical(&record).expect("record bytes"),
+            ctx,
+        ))
+        .expect("record portable grant");
+    });
+
+    let grant_hash = ref_hash(&grant, "/body_hash");
+    let state_key = portable_authority_grant_v3_state_key(&grant_hash);
+    let before: PortableAuthorityGrantV3State = load_typed(&state, &state_key)
+        .expect("load state")
+        .expect("portable state");
+    let issuer_authorities = vec![PortableAuthorityIssuerBindingV1 {
+        issuer_id: grant["issuer_id"].as_str().unwrap().to_owned(),
+        current_authority: binding,
+    }];
+    let mut forged_snapshot = snapshot.clone();
+    forged_snapshot["signature"] = serde_json::json!("A".repeat(86));
+    let forged_refresh = RefreshPortableAuthorityGrantV3EvidenceParams {
+        grant_hash,
+        trusted_key_sets_json: vec![canonical(&key_set)],
+        revocation_snapshots_json: vec![canonical(&forged_snapshot)],
+        delegation_closure_json: None,
+        issuer_authorities: issuer_authorities.clone(),
+    };
+    with_portable_ctx([7; 32], |ctx| {
+        let error = run_async(service.handle_service_call(
+            &mut state,
+            "refresh_portable_authority_grant_v3_evidence@v1",
+            &codec::to_bytes_canonical(&forged_refresh).expect("forged refresh bytes"),
+            ctx,
+        ))
+        .expect_err("forged refreshed snapshot must be rejected");
+        assert!(error.to_string().contains("snapshot"), "{error}");
+    });
+    let after_failed_refresh: PortableAuthorityGrantV3State = load_typed(&state, &state_key)
+        .expect("load state")
+        .expect("portable state");
+    assert_eq!(after_failed_refresh, before);
+
+    let refresh = RefreshPortableAuthorityGrantV3EvidenceParams {
+        grant_hash,
+        trusted_key_sets_json: vec![canonical(&key_set)],
+        revocation_snapshots_json: vec![canonical(&snapshot)],
+        delegation_closure_json: None,
+        issuer_authorities,
+    };
+    with_portable_ctx([7; 32], |ctx| {
+        let bytes = codec::to_bytes_canonical(&refresh).expect("refresh bytes");
+        run_async(service.handle_service_call(
+            &mut state,
+            "refresh_portable_authority_grant_v3_evidence@v1",
+            &bytes,
+            ctx,
+        ))
+        .expect("refresh portable evidence");
+        run_async(service.handle_service_call(
+            &mut state,
+            "refresh_portable_authority_grant_v3_evidence@v1",
+            &bytes,
+            ctx,
+        ))
+        .expect("evidence refresh replay remains valid");
+
+        let revoke =
+            codec::to_bytes_canonical(&RevokePortableAuthorityGrantV3Params { grant_hash })
+                .expect("revoke bytes");
+        run_async(service.handle_service_call(
+            &mut state,
+            "revoke_portable_authority_grant_v3@v1",
+            &revoke,
+            ctx,
+        ))
+        .expect("revoke portable grant");
+        run_async(service.handle_service_call(
+            &mut state,
+            "revoke_portable_authority_grant_v3@v1",
+            &revoke,
+            ctx,
+        ))
+        .expect("revocation replay is idempotent");
+    });
+
+    let effect_hash = ref_hash(
+        &grant,
+        "/request_commitment/authorization_subject/subject_hash",
+    );
+    let consume = ConsumePortableAuthorityGrantV3ForEffectParams {
+        grant_hash,
+        consumption_id: [0x93; 32],
+        expected_audience: grant["audience"].as_str().unwrap().to_owned(),
+        expected_holder_id: grant["holder_id"].as_str().unwrap().to_owned(),
+        expected_holder_key_id: grant["holder_key_id"].as_str().unwrap().to_owned(),
+        actual_effect_ref: grant
+            .pointer("/request_commitment/authorization_subject/subject_ref")
+            .and_then(Value::as_str)
+            .unwrap()
+            .to_owned(),
+        actual_effect_hash: effect_hash,
+    };
+    with_portable_ctx([7; 32], |ctx| {
+        let error = run_async(service.handle_service_call(
+            &mut state,
+            "consume_portable_authority_grant_v3_for_effect@v1",
+            &codec::to_bytes_canonical(&consume).expect("consume bytes"),
+            ctx,
+        ))
+        .expect_err("revoked grant must not consume");
+        assert!(error.to_string().contains("revoked"), "{error}");
+    });
+    let revoked: PortableAuthorityGrantV3State = load_typed(&state, &state_key)
+        .expect("load state")
+        .expect("portable state");
+    assert_eq!(revoked.status, PortableAuthorityGrantV3Status::Revoked);
+    assert_eq!(revoked.uses_consumed, 0);
+    assert_eq!(revoked.remaining_calls, revoked.max_calls);
+    assert!(load_typed::<PortableAuthorityGrantV3ConsumptionReceipt>(
+        &state,
+        &portable_authority_effect_consumption_receipt_key(&consume.consumption_id)
+    )
+    .expect("load receipt")
+    .is_none());
+}

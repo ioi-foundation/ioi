@@ -161,6 +161,22 @@ pub struct RecordPortableAuthorityGrantV3Params {
     pub issuer_authorities: Vec<PortableAuthorityIssuerBindingV1>,
 }
 
+/// Control-plane replacement of short-lived verification evidence for one registered grant.
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+pub struct RefreshPortableAuthorityGrantV3EvidenceParams {
+    pub grant_hash: [u8; 32],
+    pub trusted_key_sets_json: Vec<Vec<u8>>,
+    pub revocation_snapshots_json: Vec<Vec<u8>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub delegation_closure_json: Option<Vec<u8>>,
+    pub issuer_authorities: Vec<PortableAuthorityIssuerBindingV1>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+pub struct RevokePortableAuthorityGrantV3Params {
+    pub grant_hash: [u8; 32],
+}
+
 /// Explicit owner mapping for issuer schemes that are not themselves portable-principal refs.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
 pub struct PortableAuthorityIssuerBindingV1 {
@@ -735,6 +751,20 @@ impl BlockchainService for WalletNetworkService {
                 let request: ConsumePortableAuthorityGrantV3ForEffectParams =
                     codec::from_bytes_canonical(params)?;
                 handlers::portable_authority::consume_portable_authority_grant_v3_for_effect(
+                    state, ctx, request,
+                )
+            }
+            "refresh_portable_authority_grant_v3_evidence@v1" => {
+                let request: RefreshPortableAuthorityGrantV3EvidenceParams =
+                    codec::from_bytes_canonical(params)?;
+                handlers::portable_authority::refresh_portable_authority_grant_v3_evidence(
+                    state, ctx, request,
+                )
+            }
+            "revoke_portable_authority_grant_v3@v1" => {
+                let request: RevokePortableAuthorityGrantV3Params =
+                    codec::from_bytes_canonical(params)?;
+                handlers::portable_authority::revoke_portable_authority_grant_v3(
                     state, ctx, request,
                 )
             }

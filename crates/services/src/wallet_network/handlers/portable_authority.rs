@@ -26,7 +26,8 @@ use crate::wallet_network::{
     ConsumePortableAuthorityGrantV3ForEffectParams, PortableAuthorityCeremonyConsumptionV1,
     PortableAuthorityGrantV3ConsumptionReceipt, PortableAuthorityGrantV3State,
     PortableAuthorityGrantV3Status, PortableAuthorityIssuerBindingV1,
-    RecordPortableAuthorityGrantV3Params,
+    RecordPortableAuthorityGrantV3Params, RefreshPortableAuthorityGrantV3EvidenceParams,
+    RevokePortableAuthorityGrantV3Params,
 };
 
 const PORTABLE_ISSUER_SCOPE: &str = "scope:wallet.authority.portable.issue";
@@ -459,6 +460,173 @@ pub(crate) fn record_portable_authority_grant_v3(
                     ioi_types::codec::to_bytes_canonical(&ceremony)?,
                 ),
             ])
+        },
+    )
+    .map(|_| ())
+}
+
+pub(crate) fn refresh_portable_authority_grant_v3_evidence(
+    state: &mut dyn StateAccess,
+    ctx: &TxContext<'_>,
+    params: RefreshPortableAuthorityGrantV3EvidenceParams,
+) -> Result<(), TransactionError> {
+    if params.grant_hash == [0; 32] {
+        return Err(invalid("grant hash must not be zero"));
+    }
+    let state_key = portable_authority_grant_v3_state_key(&params.grant_hash);
+    let mut record: PortableAuthorityGrantV3State = load_typed(state, &state_key)?
+        .ok_or_else(|| invalid("portable grant is not registered"))?;
+    if record.schema_version != 1
+        || record.grant_hash != params.grant_hash
+        || record.status != PortableAuthorityGrantV3Status::Active
+        || record.remaining_calls == 0
+        || record.uses_consumed.saturating_add(record.remaining_calls) != record.max_calls
+    {
+        return Err(invalid(
+            "only an active, internally consistent portable grant can refresh evidence",
+        ));
+    }
+
+    let (grants, _) = parse_json_set(&record.grant_chain_json, "grant_chain", MAX_CHAIN_DEPTH)?;
+    let (key_sets, trusted_key_sets_json) = parse_json_set(
+        &params.trusted_key_sets_json,
+        "trusted_key_sets",
+        MAX_ISSUERS,
+    )?;
+    let (snapshots, revocation_snapshots_json) = parse_json_set(
+        &params.revocation_snapshots_json,
+        "revocation_snapshots",
+        MAX_ISSUERS,
+    )?;
+    let (closure, delegation_closure_json) = params
+        .delegation_closure_json
+        .as_ref()
+        .map(|bytes| {
+            let (value, canonical) = parse_canonical_json(bytes, "delegation_closure")?;
+            let closure = serde_json::from_value(value)
+                .map_err(|error| invalid(format!("delegation closure is malformed: {error}")))?;
+            Ok::<_, TransactionError>((Some(closure), Some(canonical)))
+        })
+        .transpose()?
+        .unwrap_or((None, None));
+    validate_issuer_authorities(
+        state,
+        ctx,
+        &grants,
+        &key_sets,
+        &snapshots,
+        &params.issuer_authorities,
+    )?;
+    let leaf = grants
+        .last()
+        .ok_or_else(|| invalid("stored grant chain is empty"))?;
+    let expected_audience = leaf
+        .get("audience")
+        .and_then(Value::as_str)
+        .ok_or_else(|| invalid("leaf audience is absent"))?;
+    let expected_holder_id = leaf
+        .get("holder_id")
+        .and_then(Value::as_str)
+        .ok_or_else(|| invalid("leaf holder_id is absent"))?;
+    let expected_holder_key_id = leaf
+        .get("holder_key_id")
+        .and_then(Value::as_str)
+        .ok_or_else(|| invalid("leaf holder_key_id is absent"))?;
+    let verified = verify_portable_authority_v3(PortableAuthorityVerificationInput {
+        grant_chain: &grants,
+        trusted_key_sets: &key_sets,
+        revocation_snapshots: &snapshots,
+        now: block_timestamp_ms(ctx) / 1_000,
+        max_snapshot_age_seconds: 300,
+        expected_audience,
+        expected_holder_id,
+        expected_holder_key_id,
+        consumed_grant_refs: &BTreeSet::new(),
+        delegation_closure: closure.as_ref(),
+    })
+    .map_err(|error| invalid(error.to_string()))?;
+    let request = parse_canonical_json(&record.authority_request_json, "authority_request")?.0;
+    let context = parse_canonical_json(
+        &record.approval_ceremony_context_json,
+        "approval_ceremony_context",
+    )?
+    .0;
+    let review = parse_canonical_json(
+        &record.authority_review_receipt_json,
+        "authority_review_receipt",
+    )?
+    .0;
+    let issuance =
+        verify_portable_authority_issuance_bundle_v3(PortableAuthorityIssuanceBundleV3Input {
+            verified_grant: &verified,
+            leaf_grant: leaf,
+            authority_request: &request,
+            approval_ceremony_context: &context,
+            authority_review_receipt: &review,
+        })
+        .map_err(|error| invalid(error.to_string()))?;
+    if hash32(&issuance.authority_grant_hash, "grant body hash")? != params.grant_hash
+        || issuance.authority_grant_ref != record.authority_grant_ref
+        || verified.max_calls != record.max_calls
+    {
+        return Err(invalid(
+            "refreshed evidence does not verify the registered immutable grant",
+        ));
+    }
+
+    record.trusted_key_sets_json = trusted_key_sets_json;
+    record.revocation_snapshots_json = revocation_snapshots_json;
+    record.delegation_closure_json = delegation_closure_json;
+    record.issuer_authorities = params.issuer_authorities;
+    let mut metadata = base_audit_metadata(ctx);
+    metadata.insert("portable_grant_hash".into(), hex::encode(params.grant_hash));
+    metadata.insert("portable_evidence_status".into(), "refreshed".into());
+    append_audit_event_with_records(
+        state,
+        ctx,
+        VaultAuditEventKind::ApprovalDecided,
+        metadata,
+        |_| {
+            Ok(vec![(
+                state_key,
+                ioi_types::codec::to_bytes_canonical(&record)?,
+            )])
+        },
+    )
+    .map(|_| ())
+}
+
+pub(crate) fn revoke_portable_authority_grant_v3(
+    state: &mut dyn StateAccess,
+    ctx: &TxContext<'_>,
+    params: RevokePortableAuthorityGrantV3Params,
+) -> Result<(), TransactionError> {
+    if params.grant_hash == [0; 32] {
+        return Err(invalid("grant hash must not be zero"));
+    }
+    let state_key = portable_authority_grant_v3_state_key(&params.grant_hash);
+    let mut record: PortableAuthorityGrantV3State = load_typed(state, &state_key)?
+        .ok_or_else(|| invalid("portable grant is not registered"))?;
+    if record.schema_version != 1 || record.grant_hash != params.grant_hash {
+        return Err(invalid("portable grant owner state is inconsistent"));
+    }
+    if record.status == PortableAuthorityGrantV3Status::Revoked {
+        return Ok(());
+    }
+    record.status = PortableAuthorityGrantV3Status::Revoked;
+    let mut metadata = base_audit_metadata(ctx);
+    metadata.insert("portable_grant_hash".into(), hex::encode(params.grant_hash));
+    metadata.insert("portable_grant_status".into(), "revoked".into());
+    append_audit_event_with_records(
+        state,
+        ctx,
+        VaultAuditEventKind::ApprovalDecided,
+        metadata,
+        |_| {
+            Ok(vec![(
+                state_key,
+                ioi_types::codec::to_bytes_canonical(&record)?,
+            )])
         },
     )
     .map(|_| ())

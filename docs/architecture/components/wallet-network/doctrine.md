@@ -1047,7 +1047,8 @@ crates/types/src/app/wallet_network/
 crates/services/src/wallet_network/
   Native wallet.network service transition logic and validation, including
   offline portable-v3 verification plus atomic owner registration, ceremony
-  consumption, exact-effect metering, and idempotent consumption receipts.
+  consumption, evidence refresh, revocation, exact-effect metering, and
+  idempotent consumption receipts.
 
 crates/services/src/wallet_network/tests/
   Service-level wallet authority, lease, connector, receipt, replay, and
