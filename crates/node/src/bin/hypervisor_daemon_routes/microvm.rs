@@ -1628,6 +1628,178 @@ mod tests {
         );
     }
 
+    /// Real-host T3 probe. The T2 probe above establishes that the hostile guest reaches no
+    /// protected provider effect, but it runs with no authority broker present at all — so it
+    /// cannot say anything about a broker that is actually holding authority. This probe runs the
+    /// same UID-0 guest while a REAL wallet.network authority broker is live on the host, with a
+    /// canary token seeded inside the broker's own protection domain. Its coordinates arrive from
+    /// the harness that started the broker; without them the probe refuses rather than passing
+    /// vacuously against a broker that was never running.
+    #[test]
+    #[ignore = "requires /dev/kvm, the checksum-pinned ~/.ioi/vm-toolchain, and a live authority broker"]
+    fn root_guest_cannot_reach_a_live_authority_broker_or_its_material() {
+        let home = std::env::var("HOME").expect("HOME selects the local pinned toolchain");
+        let broker_port = std::env::var("IOI_T3_BROKER_RPC_PORT")
+            .expect("the live authority broker's RPC port is required; a probe with no broker proves nothing");
+        let broker_dir = std::env::var("IOI_T3_BROKER_DIR")
+            .expect("the live authority broker's protection-domain directory is required");
+        let broker_canary = std::env::var("IOI_T3_BROKER_CANARY")
+            .expect("a canary seeded inside the broker protection domain is required");
+        assert!(
+            broker_canary.len() >= 32,
+            "the broker canary must be long enough that an accidental match is not plausible"
+        );
+        // The canary must actually be reachable on the host, or a guest that cannot find it
+        // proves nothing about isolation.
+        let seeded = std::fs::read_to_string(format!("{broker_dir}/ioi-t3-broker-canary.txt"))
+            .expect("the seeded broker canary must exist on the host before the guest starts");
+        assert!(
+            seeded.contains(&broker_canary),
+            "the seeded broker canary file must contain the exact canary"
+        );
+
+        let run = tempfile::tempdir().expect("probe run dir");
+        let mut spec = build_vm_spec(&home, "cloud-hypervisor", run.path().join("vm"), 1, 384)
+            .expect("verified VM spec");
+        spec.bind_workload(
+            "workrun://t3-broker-live",
+            "workload-isolation-binding://t3-broker-live",
+            "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "principal://hostile-root-guest",
+        )
+        .expect("exact workload VM binding");
+        spec.sock_path = short_sock_path(&format!("t3-broker-{}", std::process::id()))
+            .expect("private short socket");
+        let declaration = spec
+            .workload_bound_enforcement_declaration("cloud-hypervisor")
+            .expect("hostile guest floor");
+        let monitor = CloudHypervisorMonitor;
+        let mut vm = monitor.start(&spec).expect("real KVM guest boot");
+
+        let root = monitor.exec(&vm, "id -u").expect("root probe");
+        let reach = monitor
+            .exec(
+                &vm,
+                &format!(
+                    "set +e; \
+                     /bin/busybox wget -T 1 --no-check-certificate -qO- https://10.0.2.2:{broker_port}/ >/tmp/b1 2>&1; echo broker_gateway=$?; \
+                     /bin/busybox wget -T 1 --no-check-certificate -qO- https://127.0.0.1:{broker_port}/ >/tmp/b2 2>&1; echo broker_loopback=$?; \
+                     /bin/busybox nc -w 1 10.0.2.2 {broker_port} </dev/null >/tmp/b3 2>&1; echo broker_tcp=$?; \
+                     [ -e '{broker_dir}' ] && echo broker_dir_visible=yes || echo broker_dir_absent=yes; \
+                     [ -e '{broker_dir}/ioi-t3-broker-canary.txt' ] && echo broker_canary_file_visible=yes || echo broker_canary_file_absent=yes; \
+                     [ -e '{broker_dir}/commands' ] && echo broker_command_plane_visible=yes || echo broker_command_plane_absent=yes"
+                ),
+            )
+            .expect("broker reachability probes");
+        // A UID-0 guest search of every readable byte it has: filesystem, its own
+        // process environment, and the init process it shares the boundary with.
+        // The guest first writes a CONTROL token into its own writable tmpfs. The
+        // scan must find that control, or the walk is blind and its silence about
+        // the broker canary means nothing — a scan that cannot find a string it
+        // was just handed is not evidence of absence.
+        let control = format!("ioi-t3-guest-scan-control-{}", &broker_canary[..16]);
+        monitor
+            .exec(
+                &vm,
+                &format!("printf '%s' '{control}' > /tmp/ioi-t3-scan-control"),
+            )
+            .expect("seed the guest-side scan control");
+        let scan = monitor
+            .exec(
+                &vm,
+                &format!(
+                    // A bounded walk of every filesystem the guest can read, minus
+                    // the synthetic trees scanned explicitly below. It must NOT use
+                    // `-xdev`: the guest's writable tmpfs is a separate device, and
+                    // that is exactly where planted material lands.
+                    "set +e; \
+                     /bin/busybox find / -type f -size -4096k -not -path '/proc/*' -not -path '/sys/*' 2>/dev/null \
+                       | while read -r f; do \
+                           /bin/busybox grep -q -- '{control}' \"$f\" 2>/dev/null && echo control_found=$f; \
+                           /bin/busybox grep -q -- '{broker_canary}' \"$f\" 2>/dev/null && echo canary_found=$f; \
+                         done; \
+                     tr '\\000' '\\n' </proc/1/environ | /bin/busybox grep -q -- '{broker_canary}' && echo canary_found=init_environ; \
+                     tr '\\000' '\\n' </proc/self/environ | /bin/busybox grep -q -- '{broker_canary}' && echo canary_found=self_environ; \
+                     for f in /proc/1/fd/*; do /bin/busybox readlink \"$f\"; done | /bin/busybox grep -q -- '{broker_canary}' && echo canary_found=init_fd; \
+                     /bin/busybox env | /bin/busybox grep -q -- '{broker_canary}' && echo canary_found=env; \
+                     echo canary_scan_complete"
+                ),
+            )
+            .expect("broker canary scan");
+
+        monitor.stop(&mut vm).expect("guest teardown request");
+        let terminal = vm
+            .child
+            .try_wait()
+            .expect("observe monitor process")
+            .is_some();
+
+        assert_eq!(root.output.trim(), "0", "probe must actually have guest root");
+        for probe in ["broker_gateway", "broker_loopback", "broker_tcp"] {
+            assert!(
+                !reach.output.contains(&format!("{probe}=0")),
+                "{probe} reached the live authority broker: {}",
+                reach.output
+            );
+        }
+        for visible in [
+            "broker_dir_visible=yes",
+            "broker_canary_file_visible=yes",
+            "broker_command_plane_visible=yes",
+        ] {
+            assert!(
+                !reach.output.contains(visible),
+                "the authority protection domain crossed into the guest: {}",
+                reach.output
+            );
+        }
+        assert!(
+            reach.output.contains("broker_dir_absent=yes")
+                && reach.output.contains("broker_canary_file_absent=yes")
+                && reach.output.contains("broker_command_plane_absent=yes"),
+            "the broker-absence probes did not run: {}",
+            reach.output
+        );
+        assert!(
+            scan.output.contains("canary_scan_complete"),
+            "the canary scan did not run to completion: {}",
+            scan.output
+        );
+        assert!(
+            scan.output.contains("control_found=/tmp/ioi-t3-scan-control"),
+            "the guest-side scan never found its own control token, so its silence \
+             about the broker canary is not evidence of absence: {}",
+            scan.output
+        );
+        assert!(
+            !scan.output.contains("canary_found="),
+            "a broker-domain canary was readable inside the guest: {}",
+            scan.output
+        );
+        assert!(terminal, "the monitor must be observably terminal after teardown");
+
+        eprintln!(
+            "{}",
+            serde_json::to_string_pretty(&serde_json::json!({
+                "schema_version": "ioi.hypervisor.live-authority-broker-non-possession-probe.v1",
+                "guest_uid": 0,
+                "enforcement_declaration": declaration,
+                "broker_present_during_probe": true,
+                "attempted_broker_paths": [
+                    "broker_gateway_https", "broker_loopback_https", "broker_tcp",
+                    "broker_protection_domain_directory", "broker_canary_file",
+                    "broker_command_plane", "guest_filesystem_canary_scan",
+                    "guest_environment_canary_scan", "init_environment_canary_scan"
+                ],
+                "broker_domain_canary_findings": 0,
+                "guest_scan_control_found": true,
+                "monitor_terminal": terminal,
+                "claim_boundary": "The worker held no broker material and reached no live broker endpoint under the named local KVM/no-NIC hostile-guest profile. It does not establish resistance to a compromised host kernel, VMM, daemon, or broker process."
+            }))
+            .unwrap()
+        );
+    }
+
     /// Real-host T2 probe. This is ignored in generic CI because it needs KVM and the pinned VM
     /// toolchain, but `check:workload-bound-effect-boundary -- --live` invokes it explicitly.
     /// The guest agent is PID 1/root, so these probes execute with the strongest guest-local

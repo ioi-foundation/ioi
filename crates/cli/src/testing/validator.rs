@@ -186,18 +186,43 @@ fn append_benchmark_trace_line(path: &Path, line: &str) {
 
 const NODE_PROFILE_SOURCE_REVISION_MARKER: &str = ".ioi-source-revision";
 
-fn checkout_source_revision() -> Option<String> {
+fn git_stdout(args: &[&str]) -> Option<Vec<u8>> {
     let output = Command::new("git")
-        .args(["rev-parse", "HEAD"])
+        .args(args)
         .current_dir(super::build::workspace_root())
         .output()
         .ok()?;
-    if !output.status.success() {
+    output.status.success().then_some(output.stdout)
+}
+
+/// The identity of the SOURCE these cached node binaries were built from — not
+/// merely the commit they were built at. A commit-only marker silently reuses
+/// binaries built before an uncommitted change to the very services under test,
+/// so a green chain gate on a dirty tree would be evidence about the previous
+/// commit. An uncommitted change therefore yields a distinct revision, which
+/// forces one rebuild per distinct working tree and still reuses across repeated
+/// runs of the same tree.
+fn checkout_source_revision() -> Option<String> {
+    let head = String::from_utf8(git_stdout(&["rev-parse", "HEAD"])?)
+        .ok()?
+        .trim()
+        .to_owned();
+    if head.len() != 40 || !head.bytes().all(|byte| byte.is_ascii_hexdigit()) {
         return None;
     }
-    let revision = String::from_utf8(output.stdout).ok()?.trim().to_owned();
-    (revision.len() == 40 && revision.bytes().all(|byte| byte.is_ascii_hexdigit()))
-        .then_some(revision)
+    let mut worktree = git_stdout(&["diff", "HEAD", "--binary"])?;
+    // Untracked files can carry a whole module; `--porcelain` names them, and
+    // naming them is enough to invalidate a reused binary set.
+    worktree.extend_from_slice(&git_stdout(&["status", "--porcelain"])?);
+    if worktree.is_empty() {
+        return Some(head);
+    }
+    let digest =
+        <dcrypt::algorithms::hash::Sha256 as dcrypt::algorithms::hash::HashFunction>::digest(
+            &worktree,
+        )
+        .ok()?;
+    Some(format!("{head}-worktree:{}", hex::encode(digest.as_ref())))
 }
 
 fn node_profile_needs_build(node_target_dir: &Path, binaries_present: bool) -> bool {

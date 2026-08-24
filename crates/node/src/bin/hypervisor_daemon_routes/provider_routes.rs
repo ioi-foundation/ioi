@@ -10170,11 +10170,41 @@ mod containment_tests {
 
     #[test]
     fn standing_provider_facets_are_closed_over_daemon_derived_values() {
-        let envelope: Value = serde_json::from_str(include_str!(concat!(
+        let fixture: Value = serde_json::from_str(include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/../../docs/architecture/_meta/schemas/fixtures/standing-authority-envelope-v1/positive-u1.json"
         )))
         .expect("standing envelope fixture");
+        // The registered fixture pins a fixed validity window, so reading it
+        // directly made this test pass or fail by calendar rather than by the
+        // property it names — it began refusing every run after the fixture's
+        // window closed. Hold the window as its own assertion and re-anchor the
+        // facet-closure assertions to now, so neither can expire.
+        let now_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|duration| duration.as_millis() as u64)
+            .expect("host clock is after the Unix epoch");
+        // Re-anchoring the window changes the envelope body, so its self-hash
+        // must be recomputed over the same domain the contract checks — an
+        // envelope whose body_hash no longer recomputes is refused before any
+        // facet is looked at, which would silently make this a hashing test.
+        let with_window = |not_before_ms: u64, expires_at_ms: u64| {
+            let mut value = fixture.clone();
+            value["not_before_ms"] = json!(not_before_ms);
+            value["expires_at_ms"] = json!(expires_at_ms);
+            let mut material = value.clone();
+            let object = material.as_object_mut().expect("envelope object");
+            object.remove("body_hash");
+            object.insert(
+                "domain".into(),
+                json!("ioi.standing-authority-envelope-jcs-sha256.v1"),
+            );
+            value["body_hash"] = json!(sha256_bytes(
+                &serde_jcs::to_vec(&material).expect("canonical envelope material")
+            ));
+            value
+        };
+        let envelope = with_window(now_ms.saturating_sub(60_000), now_ms + 3_600_000);
         let facets = json!({
             "provider_selector": {
                 "mode": "exact",
@@ -10203,6 +10233,18 @@ mod containment_tests {
         .expect("exact subset");
         assert_eq!(bounds.deposit_microusd, 1_000_000);
         assert_eq!(bounds.spend_reservation_microusd, 1_000_000);
+
+        // The validity window is a bound in its own right, in both directions.
+        for (label, expired) in [
+            ("already expired", with_window(now_ms.saturating_sub(120_000), now_ms.saturating_sub(60_000))),
+            ("not yet valid", with_window(now_ms + 60_000, now_ms + 3_600_000)),
+        ] {
+            assert_eq!(
+                validate_standing_provider_facets(&expired, "pacc_18cd245812ad55b9", "create", &facets),
+                Err("standing_envelope_outside_validity_window".to_string()),
+                "{label} envelope must refuse"
+            );
+        }
 
         let mut widened = facets.clone();
         widened["result_credential_ref"] = json!("connector://attacker");

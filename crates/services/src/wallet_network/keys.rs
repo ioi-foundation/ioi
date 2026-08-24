@@ -27,6 +27,8 @@ pub(super) const APPROVAL_GRANT_STATE_PREFIX: &[u8] = b"approval_grant_state::";
 pub(super) const APPROVAL_EFFECT_CONSUMPTION_RECEIPT_PREFIX: &[u8] =
     b"approval_effect_consumption_receipt::";
 pub(super) const STANDING_APPROVAL_GRANT_STATE_PREFIX: &[u8] = b"standing_approval_grant_state::";
+pub(super) const STANDING_APPROVAL_CONTEXT_CONSUMPTION_PREFIX: &[u8] =
+    b"standing_approval_context_consumption::";
 pub(super) const STANDING_APPROVAL_CONSUMPTION_RECEIPT_PREFIX: &[u8] =
     b"standing_approval_consumption_receipt::";
 pub(super) const STANDING_APPROVAL_SETTLEMENT_RECEIPT_PREFIX: &[u8] =
@@ -158,6 +160,16 @@ pub(super) fn approval_grant_state_key(grant_hash: &[u8; 32]) -> Vec<u8> {
 
 pub(super) fn standing_approval_grant_state_key(grant_hash: &[u8; 32]) -> Vec<u8> {
     [STANDING_APPROVAL_GRANT_STATE_PREFIX, grant_hash.as_slice()].concat()
+}
+
+/// One single-use approval ceremony authorises one standing recording. The
+/// context hash is the durable identity of that ceremony.
+pub(super) fn standing_approval_context_consumption_key(context_hash: &[u8; 32]) -> Vec<u8> {
+    [
+        STANDING_APPROVAL_CONTEXT_CONSUMPTION_PREFIX,
+        context_hash.as_slice(),
+    ]
+    .concat()
 }
 
 pub(super) fn standing_approval_consumption_receipt_key(consumption_id: &[u8; 32]) -> Vec<u8> {

@@ -1,6 +1,7 @@
 use crate::wallet_network::handlers::principal_authority::validate_expected_principal_authority_binding;
 use crate::wallet_network::keys::{
-    standing_approval_consumption_receipt_key, standing_approval_grant_state_key,
+    standing_approval_consumption_receipt_key, standing_approval_context_consumption_key,
+    standing_approval_grant_state_key,
     standing_approval_settlement_receipt_key,
 };
 use crate::wallet_network::support::{
@@ -11,6 +12,7 @@ use crate::wallet_network::validation::load_registered_approval_authority;
 use crate::wallet_network::{
     ConsumeStandingApprovalGrantForEffectParams, RecordStandingApprovalGrantParams,
     RevokeStandingApprovalGrantParams, SettleStandingApprovalGrantConsumptionParams,
+    StandingApprovalContextConsumption,
     StandingApprovalGrantConsumptionReceipt, StandingApprovalGrantSettlementReceipt,
     StandingApprovalGrantState, StandingApprovalGrantStatus, StandingApprovalMode,
 };
@@ -176,7 +178,7 @@ fn validate_standing_evidence(
     grant: &StandingApprovalGrant,
     params: &RecordStandingApprovalGrantParams,
     now_ms: u64,
-) -> Result<(String, Vec<u8>, Vec<u8>, Vec<u8>), TransactionError> {
+) -> Result<(String, Vec<u8>, Vec<u8>, Vec<u8>, [u8; 32], bool), TransactionError> {
     let (envelope, envelope_json) = parse_registered_evidence(
         &params.standing_envelope_json,
         STANDING_ENVELOPE_CONTRACT,
@@ -383,7 +385,21 @@ fn validate_standing_evidence(
         .and_then(Value::as_str)
         .ok_or_else(|| TransactionError::Invalid("standing envelope principal is invalid".into()))?
         .to_string();
-    Ok((principal_ref, envelope_json, context_json, factor_json))
+    // `single_use` is a posture the ceremony asserts about itself. Read it as a
+    // strict boolean: a context that does not state it is not a single-use
+    // ceremony and gets no single-use protection silently.
+    let context_single_use = context
+        .get("single_use")
+        .and_then(Value::as_bool)
+        .ok_or_else(|| context_refused("single_use"))?;
+    Ok((
+        principal_ref,
+        envelope_json,
+        context_json,
+        factor_json,
+        context_hash,
+        context_single_use,
+    ))
 }
 
 pub(crate) fn record_standing_approval_grant(
@@ -398,6 +414,8 @@ pub(crate) fn record_standing_approval_grant(
         standing_envelope_json,
         approval_ceremony_context_json,
         auth_factor_receipt_json,
+        approval_ceremony_context_hash,
+        context_single_use,
     ) = validate_standing_evidence(state, &params.grant, &params, now_ms)?;
     let grant_hash = params.grant.artifact_hash().map_err(|error| {
         TransactionError::Invalid(format!("standing approval grant hash failed: {error}"))
@@ -417,6 +435,29 @@ pub(crate) fn record_standing_approval_grant(
             "standing approval grant hash is bound to different state".into(),
         ));
     }
+    // A single-use ceremony authorises ONE standing recording. This is checked
+    // after the byte-identical idempotent replay above, so a retried record of the
+    // same grant still succeeds while a second, different grant under the same
+    // consent is refused — including after the first grant was revoked.
+    let context_key = standing_approval_context_consumption_key(&approval_ceremony_context_hash);
+    if context_single_use {
+        if let Some(consumed) =
+            load_typed::<StandingApprovalContextConsumption>(state, &context_key)?
+        {
+            if consumed.standing_grant_hash != grant_hash {
+                return Err(TransactionError::Invalid(
+                    "approval ceremony context is single use and already authorised a standing grant"
+                        .into(),
+                ));
+            }
+        }
+    }
+    let context_consumption = StandingApprovalContextConsumption {
+        schema_version: 1,
+        approval_ceremony_context_hash,
+        standing_grant_hash: grant_hash,
+        consumed_at_ms: now_ms,
+    };
     let record = StandingApprovalGrantState {
         schema_version: 1,
         grant_hash,
@@ -445,7 +486,15 @@ pub(crate) fn record_standing_approval_grant(
         ctx,
         VaultAuditEventKind::ApprovalDecided,
         metadata,
-        |_| Ok(vec![(key, ioi_types::codec::to_bytes_canonical(&record)?)]),
+        |_| {
+            Ok(vec![
+                (key, ioi_types::codec::to_bytes_canonical(&record)?),
+                (
+                    context_key,
+                    ioi_types::codec::to_bytes_canonical(&context_consumption)?,
+                ),
+            ])
+        },
     )
     .map(|_| ())
 }

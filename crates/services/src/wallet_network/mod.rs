@@ -181,6 +181,18 @@ pub struct StandingApprovalGrantState {
     pub status: StandingApprovalGrantStatus,
 }
 
+/// Durable record that one single-use approval ceremony has already authorised a
+/// standing recording. A ceremony that declares `single_use` is consent to create
+/// authority once; without this, revoking the grant it created left the same
+/// ceremony free to authorise another.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub struct StandingApprovalContextConsumption {
+    pub schema_version: u16,
+    pub approval_ceremony_context_hash: [u8; 32],
+    pub standing_grant_hash: [u8; 32],
+    pub consumed_at_ms: u64,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
 pub enum StandingApprovalGrantStatus {
     Active,

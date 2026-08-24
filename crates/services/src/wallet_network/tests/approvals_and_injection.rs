@@ -660,6 +660,91 @@ fn standing_grant_draws_are_atomic_bounded_replay_safe_and_revocable() {
 }
 
 #[test]
+fn one_single_use_ceremony_authorises_exactly_one_standing_recording() {
+    let service = WalletNetworkService;
+    let mut state = MockState::default();
+    let approver = new_approval_signer();
+    let policy_hash = [0xa2; 32];
+    // Same marker => the SAME single-use approval ceremony context. Only the
+    // grant nonce and counter differ, so these are two distinct grants asking
+    // one consent event to authorise both.
+    let first = signed_standing_approval_grant(
+        &approver, policy_hash, [7; 32], [0xa3; 32], 1, 2, 600, 100, 0xa1,
+    );
+    let second = signed_standing_approval_grant(
+        &approver, policy_hash, [7; 32], [0xa4; 32], 2, 2, 600, 100, 0xa1,
+    );
+    assert_eq!(
+        first.approval_ceremony_context_json, second.approval_ceremony_context_json,
+        "the two grants must share one ceremony context for this test to mean anything"
+    );
+    assert_ne!(
+        first.grant.artifact_hash().expect("first hash"),
+        second.grant.artifact_hash().expect("second hash"),
+        "the two grants must be distinct"
+    );
+    let record = |state: &mut MockState,
+                  fixture: &StandingGrantFixture|
+     -> Result<(), ioi_types::error::TransactionError> {
+        let mut output = None;
+        with_ctx(|ctx| {
+            output = Some(run_async(service.handle_service_call(
+                state,
+                "record_standing_approval_grant@v1",
+                &codec::to_bytes_canonical(&fixture.record_params()).expect("encode grant"),
+                ctx,
+            )));
+        });
+        output.expect("record result")
+    };
+    with_ctx(|ctx| {
+        run_async(
+            service.handle_service_call(
+                &mut state,
+                "register_approval_authority@v1",
+                &codec::to_bytes_canonical(&RegisterApprovalAuthorityParams {
+                    authority: approver.authority.clone(),
+                })
+                .expect("encode authority"),
+                ctx,
+            ),
+        )
+        .expect("register authority");
+    });
+    record(&mut state, &first).expect("the ceremony authorises its first standing grant");
+    record(&mut state, &first).expect("an exact replay of that recording stays idempotent");
+    let refused = record(&mut state, &second)
+        .expect_err("a second grant under one single-use ceremony must be refused");
+    assert!(
+        refused.to_string().contains("single use"),
+        "unexpected refusal: {refused}"
+    );
+
+    // Revocation must not free the ceremony to authorise a replacement: consent
+    // to create authority once has been spent, whatever became of the authority.
+    with_ctx(|ctx| {
+        run_async(
+            service.handle_service_call(
+                &mut state,
+                "revoke_standing_approval_grant@v1",
+                &codec::to_bytes_canonical(&RevokeStandingApprovalGrantParams {
+                    grant_hash: first.grant.artifact_hash().expect("first hash"),
+                })
+                .expect("encode revoke"),
+                ctx,
+            ),
+        )
+        .expect("revoke the first grant");
+    });
+    let after_revocation = record(&mut state, &second)
+        .expect_err("a revoked grant does not resurrect its single-use ceremony");
+    assert!(
+        after_revocation.to_string().contains("single use"),
+        "unexpected refusal: {after_revocation}"
+    );
+}
+
+#[test]
 fn standing_envelope_emits_two_hundred_silent_receipts_then_refuses_draw_201() {
     let service = WalletNetworkService;
     let mut state = MockState::default();
