@@ -7,8 +7,10 @@ use super::keys::{
     lease_counter_window_key, lease_key, lease_replay_key, mail_connector_binding_receipt_key,
     mail_connector_get_receipt_key, mail_connector_key, mail_count_receipt_key,
     mail_delete_receipt_key, mail_list_receipt_key, mail_read_receipt_key, mail_reply_receipt_key,
-    policy_key, receipt_window_key, secret_alias_key, secret_key, session_delegation_key,
-    session_key, standing_approval_consumption_receipt_key, standing_approval_grant_state_key,
+    policy_key, portable_authority_ceremony_consumption_key,
+    portable_authority_effect_consumption_receipt_key, portable_authority_grant_v3_state_key,
+    receipt_window_key, secret_alias_key, secret_key, session_delegation_key, session_key,
+    standing_approval_consumption_receipt_key, standing_approval_grant_state_key,
     standing_approval_settlement_receipt_key, PANIC_FLAG_KEY, REVOCATION_EPOCH_KEY,
 };
 use super::support::load_typed;
@@ -741,5 +743,6 @@ mod connector_config;
 mod delegation;
 mod identity_owner_link;
 mod mail_operations;
+mod portable_authority_state;
 mod principal_authority;
 mod replay_and_receipts;

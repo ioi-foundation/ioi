@@ -1045,10 +1045,13 @@ crates/types/src/app/wallet_network/
   Rust authority/session/connector/secret/receipt object types.
 
 crates/services/src/wallet_network/
-  Native wallet.network service transition logic and validation.
+  Native wallet.network service transition logic and validation, including
+  offline portable-v3 verification plus atomic owner registration, ceremony
+  consumption, exact-effect metering, and idempotent consumption receipts.
 
 crates/services/src/wallet_network/tests/
-  Service-level wallet authority, lease, connector, receipt, and replay tests.
+  Service-level wallet authority, lease, connector, receipt, replay, and
+  request-carried portable-key substitution tests.
 
 crates/cli/tests/wallet_network_session_channel_e2e/
   End-to-end session channel, lease, approval, secret injection, and mail

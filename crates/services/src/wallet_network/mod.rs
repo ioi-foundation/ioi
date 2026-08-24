@@ -146,6 +146,93 @@ pub struct ApprovalGrantConsumptionReceipt {
     pub remaining_usages: u32,
 }
 
+/// Control-plane registration of one cryptographically verified portable v3 issuance graph.
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+pub struct RecordPortableAuthorityGrantV3Params {
+    pub grant_chain_json: Vec<Vec<u8>>,
+    pub trusted_key_sets_json: Vec<Vec<u8>>,
+    pub revocation_snapshots_json: Vec<Vec<u8>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub delegation_closure_json: Option<Vec<u8>>,
+    pub authority_request_json: Vec<u8>,
+    pub approval_ceremony_context_json: Vec<u8>,
+    pub authority_review_receipt_json: Vec<u8>,
+    /// Independently resolved current authority for every issuer in the chain.
+    pub issuer_authorities: Vec<PortableAuthorityIssuerBindingV1>,
+}
+
+/// Explicit owner mapping for issuer schemes that are not themselves portable-principal refs.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub struct PortableAuthorityIssuerBindingV1 {
+    pub issuer_id: String,
+    pub current_authority: ExpectedPrincipalAuthorityBinding,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub enum PortableAuthorityGrantV3Status {
+    Active,
+    Revoked,
+    Exhausted,
+}
+
+/// Wallet-owned evidence and mutable use state for one exact portable v3 leaf.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub struct PortableAuthorityGrantV3State {
+    pub schema_version: u16,
+    pub authority_grant_ref: String,
+    pub grant_hash: [u8; 32],
+    pub grant_chain_json: Vec<Vec<u8>>,
+    pub trusted_key_sets_json: Vec<Vec<u8>>,
+    pub revocation_snapshots_json: Vec<Vec<u8>>,
+    pub delegation_closure_json: Option<Vec<u8>>,
+    pub authority_request_json: Vec<u8>,
+    pub approval_ceremony_context_json: Vec<u8>,
+    pub authority_review_receipt_json: Vec<u8>,
+    pub issuer_authorities: Vec<PortableAuthorityIssuerBindingV1>,
+    pub max_calls: u64,
+    pub uses_consumed: u64,
+    pub remaining_calls: u64,
+    pub last_consumed_at_ms: Option<u64>,
+    pub status: PortableAuthorityGrantV3Status,
+}
+
+/// Durable single-use lock for the exact approval ceremony that minted one portable grant.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub struct PortableAuthorityCeremonyConsumptionV1 {
+    pub schema_version: u16,
+    pub approval_ceremony_context_hash: [u8; 32],
+    pub grant_hash: [u8; 32],
+    pub consumed_at_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+pub struct ConsumePortableAuthorityGrantV3ForEffectParams {
+    pub grant_hash: [u8; 32],
+    pub consumption_id: [u8; 32],
+    pub expected_audience: String,
+    pub expected_holder_id: String,
+    pub expected_holder_key_id: String,
+    pub actual_effect_ref: String,
+    pub actual_effect_hash: [u8; 32],
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub struct PortableAuthorityGrantV3ConsumptionReceipt {
+    pub schema_version: u16,
+    pub receipt_hash: [u8; 32],
+    pub grant_hash: [u8; 32],
+    pub consumption_id: [u8; 32],
+    pub authority_grant_ref: String,
+    pub actual_effect_ref: String,
+    pub actual_effect_hash: [u8; 32],
+    pub audience: String,
+    pub holder_id: String,
+    pub holder_key_id: String,
+    pub consumed_at_ms: u64,
+    pub usage_ordinal: u64,
+    pub remaining_calls: u64,
+}
+
 /// Exact signed approval snapshot and mutable use counter, owned by the grant hash.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
 pub struct ApprovalGrantState {
@@ -636,6 +723,20 @@ impl BlockchainService for WalletNetworkService {
                 let consume: ConsumeApprovalGrantForEffectV2Params =
                     codec::from_bytes_canonical(params)?;
                 handlers::approval::consume_approval_grant_for_effect_v2(state, ctx, consume)
+            }
+            "record_portable_authority_grant_v3@v1" => {
+                let request: RecordPortableAuthorityGrantV3Params =
+                    codec::from_bytes_canonical(params)?;
+                handlers::portable_authority::record_portable_authority_grant_v3(
+                    state, ctx, request,
+                )
+            }
+            "consume_portable_authority_grant_v3_for_effect@v1" => {
+                let request: ConsumePortableAuthorityGrantV3ForEffectParams =
+                    codec::from_bytes_canonical(params)?;
+                handlers::portable_authority::consume_portable_authority_grant_v3_for_effect(
+                    state, ctx, request,
+                )
             }
             "record_standing_approval_grant@v1" => {
                 let request: RecordStandingApprovalGrantParams =

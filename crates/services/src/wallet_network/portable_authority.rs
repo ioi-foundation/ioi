@@ -2448,7 +2448,7 @@ pub fn build_authority_effect_admission_receipt_v2(
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use ioi_api::crypto::SigningKeyPair;
     use ioi_crypto::sign::eddsa::{Ed25519KeyPair, Ed25519PrivateKey};
@@ -2568,7 +2568,7 @@ mod tests {
         (grant, key_set, snapshot)
     }
 
-    fn issuance_fixture() -> (Value, Value, Value, Value, Value, Value) {
+    pub(crate) fn issuance_fixture() -> (Value, Value, Value, Value, Value, Value) {
         let (mut grant, key_set, snapshot) = root_fixture();
         let mut request = fixture("authority-scope-request-envelope-v2/positive-exact-effect.json");
         request["authorization_subject"] =

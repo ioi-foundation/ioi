@@ -463,9 +463,13 @@ equality/membership/standing proof matrix, copies capabilities and scopes only
 from the verified leaf, binds the verified leaf revocation snapshot, computes
 both domain-separated canonical hashes, revalidates the completed raw receipt,
 and fixes every admitted artifact to the pre-invocation posture
-`invoker_called: false`. Durable owner-side single-use consumption and daemon
-PEP persistence remain required before this constructor is a served effect
-path.
+`invoker_called: false`. The wallet owner now durably registers a fully verified
+issuance bundle, consumes the single-use ceremony in the same transaction, and
+atomically meters an exact-effect use into an immutable idempotency receipt.
+Registration and every consumption independently resolve the issuer's current
+principal authority; request-carried key material cannot replace it. The daemon
+PEP still has to persist the registered v2 admission and revalidate it before
+the final invoker, so this is not yet a served portable effect path.
 
 The same path now verifies a production issuance bundle before owner-side
 persistence. It recomputes the domain-separated request body,
@@ -478,8 +482,9 @@ contains issuance; and proves that the signed grant does not widen the
 request's capabilities, scopes, resources, risk classes, approval
 requirements, budget, or expiry. The verified issuance bundle is sealed
 in-process like the grant and admission results, so public construction or
-deserialization cannot manufacture verification. Durable wallet registration
-and ceremony consumption remain the next owner crossing.
+deserialization cannot manufacture verification. Wallet registration retains
+the canonical evidence and exact owner bindings only after this sealed check,
+and one ceremony hash cannot mint two different grants.
 
 The `standing_envelope` authorization subject resolves the registered
 `StandingAuthorityEnvelope` v1 object. That object closes the unattended class
