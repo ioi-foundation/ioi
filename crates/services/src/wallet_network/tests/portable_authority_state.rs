@@ -1,5 +1,7 @@
 use super::*;
-use crate::wallet_network::keys::registered_client_key;
+use crate::wallet_network::keys::{
+    portable_authority_effect_admission_receipt_v2_key, registered_client_key,
+};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use ioi_api::services::BlockchainService;
 use ioi_types::app::wallet_network::{
@@ -171,6 +173,21 @@ fn ref_hash(value: &Value, pointer: &str) -> [u8; 32] {
     decoded.try_into().expect("32-byte hash")
 }
 
+fn admission_context() -> PortableAuthorityEffectAdmissionContextV1 {
+    PortableAuthorityEffectAdmissionContextV1 {
+        decision_profile_ref: "policy://tests/portable-effect-admission/v1".to_owned(),
+        policy_hash: [0x41; 32],
+        temporal_verification_profile_ref: "policy://tests/temporal/portable/v1".to_owned(),
+        temporal_verification_profile_hash: [0x42; 32],
+        temporal_validity_evaluation_ref: "evidence://tests/temporal/portable/1".to_owned(),
+        temporal_validity_evaluation_hash: [0x43; 32],
+        temporal_posture: PortableAuthorityTemporalPostureV1::OnlineFresh,
+        continuity_floor_evidence_refs: vec!["evidence://tests/continuity/portable/1".to_owned()],
+        principal_authority_revalidation_receipt_ref: None,
+        principal_authority_revalidation_receipt_hash: None,
+    }
+}
+
 fn record_params(
     request: &Value,
     context: &Value,
@@ -269,6 +286,7 @@ fn portable_registration_consumes_ceremony_and_effect_atomically_and_idempotentl
             .unwrap()
             .to_owned(),
         actual_effect_hash: effect_hash,
+        admission: admission_context(),
     };
     let foreign_client = WalletRegisteredClientRecord {
         client_id: [8; 32],
@@ -353,7 +371,21 @@ fn portable_registration_consumes_ceremony_and_effect_atomically_and_idempotentl
         ))
         .expect_err("one consumption id cannot be rebound to a different intent");
         assert!(
-            error.to_string().contains("bound to a different grant"),
+            error.to_string().contains("different effect ref"),
+            "{error}"
+        );
+
+        let mut policy_conflict = consume.clone();
+        policy_conflict.admission.policy_hash = [0x44; 32];
+        let error = run_async(service.handle_service_call(
+            &mut state,
+            "consume_portable_authority_grant_v3_for_effect@v1",
+            &codec::to_bytes_canonical(&policy_conflict).expect("policy conflict bytes"),
+            ctx,
+        ))
+        .expect_err("one consumption id cannot be rebound to different policy evidence");
+        assert!(
+            error.to_string().contains("different policy hash"),
             "{error}"
         );
     });
@@ -375,6 +407,24 @@ fn portable_registration_consumes_ceremony_and_effect_atomically_and_idempotentl
     assert_eq!(receipt.usage_ordinal, 1);
     assert_eq!(receipt.remaining_calls, 0);
     assert_ne!(receipt.receipt_hash, [0; 32]);
+    assert_ne!(receipt.admission_receipt_hash, [0; 32]);
+    let admission: PortableAuthorityEffectAdmissionReceiptV2Record = load_typed(
+        &state,
+        &portable_authority_effect_admission_receipt_v2_key(&consume.consumption_id),
+    )
+    .expect("load admission")
+    .expect("portable admission receipt");
+    assert_eq!(admission.receipt_hash, receipt.admission_receipt_hash);
+    let admission_json: Value =
+        serde_json::from_slice(&admission.receipt_json).expect("admission JSON");
+    crate::wallet_network::portable_authority::verify_authority_effect_admission_receipt_v2(
+        &admission_json,
+    )
+    .expect("registered admission receipt revalidates");
+    assert_eq!(
+        admission_json["body"]["actual_effect_hash"],
+        format!("sha256:{}", hex::encode(effect_hash))
+    );
 }
 
 #[test]
@@ -567,6 +617,7 @@ fn portable_evidence_refresh_and_revocation_fail_closed_without_counter_mutation
             .unwrap()
             .to_owned(),
         actual_effect_hash: effect_hash,
+        admission: admission_context(),
     };
     with_portable_ctx([7; 32], |ctx| {
         let error = run_async(service.handle_service_call(

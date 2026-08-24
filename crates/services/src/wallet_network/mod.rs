@@ -233,6 +233,29 @@ pub struct ConsumePortableAuthorityGrantV3ForEffectParams {
     pub expected_holder_key_id: String,
     pub actual_effect_ref: String,
     pub actual_effect_hash: [u8; 32],
+    /// Daemon-owned policy and temporal evidence bound into the registered pre-invocation receipt.
+    pub admission: PortableAuthorityEffectAdmissionContextV1,
+}
+
+/// PEP-owned, non-authority decision context supplied to the wallet's sealed receipt builder.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub struct PortableAuthorityEffectAdmissionContextV1 {
+    pub decision_profile_ref: String,
+    pub policy_hash: [u8; 32],
+    pub temporal_verification_profile_ref: String,
+    pub temporal_verification_profile_hash: [u8; 32],
+    pub temporal_validity_evaluation_ref: String,
+    pub temporal_validity_evaluation_hash: [u8; 32],
+    pub temporal_posture: PortableAuthorityTemporalPostureV1,
+    pub continuity_floor_evidence_refs: Vec<String>,
+    pub principal_authority_revalidation_receipt_ref: Option<String>,
+    pub principal_authority_revalidation_receipt_hash: Option<[u8; 32]>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub enum PortableAuthorityTemporalPostureV1 {
+    OnlineFresh,
+    BoundedOffline,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
@@ -247,9 +270,21 @@ pub struct PortableAuthorityGrantV3ConsumptionReceipt {
     pub audience: String,
     pub holder_id: String,
     pub holder_key_id: String,
+    pub admission_receipt_hash: [u8; 32],
     pub consumed_at_ms: u64,
     pub usage_ordinal: u64,
     pub remaining_calls: u64,
+}
+
+/// Wallet-owned recoverable copy of the registered daemon admission receipt.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub struct PortableAuthorityEffectAdmissionReceiptV2Record {
+    pub schema_version: u16,
+    pub grant_hash: [u8; 32],
+    pub consumption_id: [u8; 32],
+    pub receipt_hash: [u8; 32],
+    /// Canonical JCS bytes of `AuthorityEffectAdmissionReceiptV2`.
+    pub receipt_json: Vec<u8>,
 }
 
 /// Exact signed approval snapshot and mutable use counter, owned by the grant hash.

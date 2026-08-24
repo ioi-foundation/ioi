@@ -11,6 +11,7 @@
 //! deployment-pinned wallet.network TLS endpoint and its consensus state. Binding contents do not:
 //! they are independently checked against the separately pinned wallet control root.
 
+use std::collections::BTreeSet;
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -25,13 +26,16 @@ use ioi_ipc::public::public_api_client::PublicApiClient;
 use ioi_ipc::public::{
     GetTransactionStatusRequest, SubmissionStatus, SubmitTransactionRequest, TxStatus,
 };
+use ioi_services::wallet_network::portable_authority::verify_authority_effect_admission_receipt_v2;
 use ioi_services::wallet_network::{
     verify_wallet_signature_proof, ApprovalGrantConsumptionReceipt, ApprovalGrantState,
     ConsumeApprovalGrantForEffectParams, ConsumeApprovalGrantForEffectV2Params,
     ConsumePortableAuthorityGrantV3ForEffectParams, ConsumeStandingApprovalGrantForEffectParams,
-    PortableAuthorityGrantV3ConsumptionReceipt, PortableAuthorityGrantV3State,
-    PortableAuthorityGrantV3Status, SettleStandingApprovalGrantConsumptionParams,
-    StandingApprovalGrantConsumptionReceipt, StandingApprovalGrantSettlementReceipt,
+    PortableAuthorityEffectAdmissionReceiptV2Record, PortableAuthorityGrantV3ConsumptionReceipt,
+    PortableAuthorityGrantV3State,
+    PortableAuthorityGrantV3Status, PortableAuthorityTemporalPostureV1,
+    SettleStandingApprovalGrantConsumptionParams, StandingApprovalGrantConsumptionReceipt,
+    StandingApprovalGrantSettlementReceipt,
 };
 use ioi_types::app::wallet_network::{WalletApprovalDecision, WalletApprovalDecisionKind};
 use ioi_types::app::{
@@ -57,6 +61,8 @@ const STANDING_EFFECT_SETTLEMENT_RECEIPT_PREFIX: &[u8] = b"standing_approval_set
 const PORTABLE_AUTHORITY_GRANT_V3_STATE_PREFIX: &[u8] = b"portable_authority_grant_v3_state::";
 const PORTABLE_AUTHORITY_EFFECT_CONSUMPTION_RECEIPT_PREFIX: &[u8] =
     b"portable_authority_effect_consumption_receipt::";
+const PORTABLE_AUTHORITY_EFFECT_ADMISSION_RECEIPT_V2_PREFIX: &[u8] =
+    b"portable_authority_effect_admission_receipt_v2::";
 const REVOCATION_EPOCH_KEY: &[u8] = b"revocation_epoch";
 const PANIC_FLAG_KEY: &[u8] = b"panic";
 const DEFAULT_TIMEOUT_MS: u64 = 5_000;
@@ -986,6 +992,7 @@ fn validate_portable_effect_consumption_receipt(
         && receipt.audience == params.expected_audience
         && receipt.holder_id == params.expected_holder_id
         && receipt.holder_key_id == params.expected_holder_key_id
+        && receipt.admission_receipt_hash != [0; 32]
     {
         Ok(receipt)
     } else {
@@ -996,10 +1003,181 @@ fn validate_portable_effect_consumption_receipt(
     }
 }
 
+#[derive(Clone, Debug)]
+pub(crate) struct PortableAuthorityConsumptionAdmission {
+    pub(crate) consumption_receipt: PortableAuthorityGrantV3ConsumptionReceipt,
+    pub(crate) admission_receipt: PortableAuthorityEffectAdmissionReceiptV2Record,
+}
+
+fn sha256_ref_bytes(value: &[u8; 32]) -> String {
+    format!("sha256:{}", hex::encode(value))
+}
+
+fn admission_receipt_id(consumption_id: &[u8; 32]) -> String {
+    format!(
+        "receipt://wallet.network/portable-authority-admission/{}",
+        hex::encode(consumption_id)
+    )
+}
+
+fn portable_temporal_posture(posture: PortableAuthorityTemporalPostureV1) -> &'static str {
+    match posture {
+        PortableAuthorityTemporalPostureV1::OnlineFresh => "online_fresh",
+        PortableAuthorityTemporalPostureV1::BoundedOffline => "bounded_offline",
+    }
+}
+
+fn validate_portable_effect_admission_receipt(
+    params: &ConsumePortableAuthorityGrantV3ForEffectParams,
+    consumption: &PortableAuthorityGrantV3ConsumptionReceipt,
+    record: PortableAuthorityEffectAdmissionReceiptV2Record,
+) -> Result<PortableAuthorityEffectAdmissionReceiptV2Record, ResolveError> {
+    if record.schema_version != 1
+        || record.grant_hash != params.grant_hash
+        || record.consumption_id != params.consumption_id
+        || record.receipt_hash == [0; 32]
+        || record.receipt_hash != consumption.admission_receipt_hash
+    {
+        return Err(ResolveError::Invalid(
+            "wallet.network returned a foreign portable admission record".to_string(),
+        ));
+    }
+    let receipt: serde_json::Value =
+        serde_json::from_slice(&record.receipt_json).map_err(|error| {
+            ResolveError::Invalid(format!(
+                "portable admission receipt is invalid JSON: {error}"
+            ))
+        })?;
+    let canonical = serde_jcs::to_vec(&receipt).map_err(|error| {
+        ResolveError::Invalid(format!(
+            "portable admission receipt cannot be canonicalized: {error}"
+        ))
+    })?;
+    if canonical != record.receipt_json {
+        return Err(ResolveError::Invalid(
+            "portable admission receipt is not canonical JCS".to_string(),
+        ));
+    }
+    let verified = verify_authority_effect_admission_receipt_v2(&receipt)
+        .map_err(|error| ResolveError::Invalid(error.to_string()))?;
+    if verified.receipt_hash() != sha256_ref_bytes(&record.receipt_hash) {
+        return Err(ResolveError::Invalid(
+            "portable admission receipt hash differs from its wallet record".to_string(),
+        ));
+    }
+    let body = &receipt["body"];
+    let expected_continuity: BTreeSet<_> = params
+        .admission
+        .continuity_floor_evidence_refs
+        .iter()
+        .map(String::as_str)
+        .collect();
+    let stored_continuity: BTreeSet<_> = body
+        .get("continuity_floor_evidence_refs")
+        .and_then(serde_json::Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(serde_json::Value::as_str)
+        .collect();
+    let principal_hash = params
+        .admission
+        .principal_authority_revalidation_receipt_hash
+        .as_ref()
+        .map(sha256_ref_bytes);
+    let expected_pairs = [
+        (
+            receipt
+                .pointer("/receipt_envelope/receipt_id")
+                .and_then(serde_json::Value::as_str),
+            Some(admission_receipt_id(&params.consumption_id)),
+        ),
+        (
+            body.get("policy_enforcement_point_ref")
+                .and_then(serde_json::Value::as_str),
+            Some(params.expected_audience.clone()),
+        ),
+        (
+            body.get("actual_effect_ref")
+                .and_then(serde_json::Value::as_str),
+            Some(params.actual_effect_ref.clone()),
+        ),
+        (
+            body.get("actual_effect_hash")
+                .and_then(serde_json::Value::as_str),
+            Some(sha256_ref_bytes(&params.actual_effect_hash)),
+        ),
+        (
+            body.get("decision_profile_ref")
+                .and_then(serde_json::Value::as_str),
+            Some(params.admission.decision_profile_ref.clone()),
+        ),
+        (
+            body.get("policy_hash").and_then(serde_json::Value::as_str),
+            Some(sha256_ref_bytes(&params.admission.policy_hash)),
+        ),
+        (
+            body.get("temporal_verification_profile_ref")
+                .and_then(serde_json::Value::as_str),
+            Some(params.admission.temporal_verification_profile_ref.clone()),
+        ),
+        (
+            body.get("temporal_verification_profile_hash")
+                .and_then(serde_json::Value::as_str),
+            Some(sha256_ref_bytes(
+                &params.admission.temporal_verification_profile_hash,
+            )),
+        ),
+        (
+            body.get("temporal_validity_evaluation_ref")
+                .and_then(serde_json::Value::as_str),
+            Some(params.admission.temporal_validity_evaluation_ref.clone()),
+        ),
+        (
+            body.get("temporal_validity_evaluation_hash")
+                .and_then(serde_json::Value::as_str),
+            Some(sha256_ref_bytes(
+                &params.admission.temporal_validity_evaluation_hash,
+            )),
+        ),
+        (
+            body.get("temporal_posture")
+                .and_then(serde_json::Value::as_str),
+            Some(portable_temporal_posture(params.admission.temporal_posture).to_string()),
+        ),
+        (
+            body.get("principal_authority_revalidation_receipt_ref")
+                .and_then(serde_json::Value::as_str),
+            params
+                .admission
+                .principal_authority_revalidation_receipt_ref
+                .clone(),
+        ),
+        (
+            body.get("principal_authority_revalidation_receipt_hash")
+                .and_then(serde_json::Value::as_str),
+            principal_hash,
+        ),
+        (
+            body.get("proof_kind").and_then(serde_json::Value::as_str),
+            Some("exact_equality".to_string()),
+        ),
+    ];
+    if expected_pairs
+        .iter()
+        .any(|(actual, expected)| *actual != expected.as_deref())
+        || stored_continuity != expected_continuity
+    {
+        return Err(ResolveError::Invalid(
+            "portable admission receipt differs from the exact PEP context".to_string(),
+        ));
+    }
+    Ok(record)
+}
+
 /// Atomically consume one exact effect from a previously registered portable v3 grant.
 pub(crate) async fn consume_portable_authority_grant_v3_for_effect(
     params: ConsumePortableAuthorityGrantV3ForEffectParams,
-) -> Result<PortableAuthorityGrantV3ConsumptionReceipt, ResolveError> {
+) -> Result<PortableAuthorityConsumptionAdmission, ResolveError> {
     let config = load_config()?;
     let timeout = config.timeout;
     tokio::time::timeout(timeout, async {
@@ -1030,7 +1208,26 @@ pub(crate) async fn consume_portable_authority_grant_v3_for_effect(
             )
         })?;
         let receipt: PortableAuthorityGrantV3ConsumptionReceipt = decode_state_value(&bytes)?;
-        validate_portable_effect_consumption_receipt(&params, receipt)
+        let receipt = validate_portable_effect_consumption_receipt(&params, receipt)?;
+        let admission_key = namespaced_key(
+            PORTABLE_AUTHORITY_EFFECT_ADMISSION_RECEIPT_V2_PREFIX,
+            &params.consumption_id,
+        );
+        let admission_bytes = query_raw(&mut client, admission_key)
+            .await?
+            .ok_or_else(|| {
+                ResolveError::Invalid(
+                    "committed wallet.network portable consumption emitted no admission receipt"
+                        .to_string(),
+                )
+            })?;
+        let admission: PortableAuthorityEffectAdmissionReceiptV2Record =
+            decode_state_value(&admission_bytes)?;
+        let admission = validate_portable_effect_admission_receipt(&params, &receipt, admission)?;
+        Ok(PortableAuthorityConsumptionAdmission {
+            consumption_receipt: receipt,
+            admission_receipt: admission,
+        })
     })
     .await
     .map_err(|_| {
@@ -1044,7 +1241,7 @@ pub(crate) async fn consume_portable_authority_grant_v3_for_effect(
 /// Recover an immutable portable receipt after wallet commit without consuming another call.
 pub(crate) async fn recover_portable_authority_grant_v3_consumption_for_effect(
     params: &ConsumePortableAuthorityGrantV3ForEffectParams,
-) -> Result<Option<PortableAuthorityGrantV3ConsumptionReceipt>, ResolveError> {
+) -> Result<Option<PortableAuthorityConsumptionAdmission>, ResolveError> {
     let config = load_config()?;
     let timeout = config.timeout;
     tokio::time::timeout(timeout, async {
@@ -1054,14 +1251,31 @@ pub(crate) async fn recover_portable_authority_grant_v3_consumption_for_effect(
             PORTABLE_AUTHORITY_EFFECT_CONSUMPTION_RECEIPT_PREFIX,
             &params.consumption_id,
         );
-        query_raw(&mut client, receipt_key)
+        let Some(receipt_bytes) = query_raw(&mut client, receipt_key).await? else {
+            return Ok(None);
+        };
+        let receipt: PortableAuthorityGrantV3ConsumptionReceipt =
+            decode_state_value(&receipt_bytes)?;
+        let receipt = validate_portable_effect_consumption_receipt(params, receipt)?;
+        let admission_key = namespaced_key(
+            PORTABLE_AUTHORITY_EFFECT_ADMISSION_RECEIPT_V2_PREFIX,
+            &params.consumption_id,
+        );
+        let admission_bytes = query_raw(&mut client, admission_key)
             .await?
-            .map(|bytes| {
-                decode_state_value::<PortableAuthorityGrantV3ConsumptionReceipt>(&bytes).and_then(
-                    |receipt| validate_portable_effect_consumption_receipt(params, receipt),
+            .ok_or_else(|| {
+                ResolveError::Invalid(
+                    "wallet.network portable recovery found consumption without admission"
+                        .to_string(),
                 )
-            })
-            .transpose()
+            })?;
+        let admission: PortableAuthorityEffectAdmissionReceiptV2Record =
+            decode_state_value(&admission_bytes)?;
+        let admission = validate_portable_effect_admission_receipt(params, &receipt, admission)?;
+        Ok(Some(PortableAuthorityConsumptionAdmission {
+            consumption_receipt: receipt,
+            admission_receipt: admission,
+        }))
     })
     .await
     .map_err(|_| {
@@ -1161,7 +1375,23 @@ pub(crate) async fn preflight_portable_authority_grant_v3_for_effect(
         .await?
         {
             let receipt: PortableAuthorityGrantV3ConsumptionReceipt = decode_state_value(&bytes)?;
-            validate_portable_effect_consumption_receipt(params, receipt)?;
+            let receipt = validate_portable_effect_consumption_receipt(params, receipt)?;
+            let admission_bytes = query_raw(
+                &mut client,
+                namespaced_key(
+                    PORTABLE_AUTHORITY_EFFECT_ADMISSION_RECEIPT_V2_PREFIX,
+                    &params.consumption_id,
+                ),
+            )
+            .await?
+            .ok_or_else(|| {
+                ResolveError::Invalid(
+                    "wallet.network preflight found consumption without admission".to_string(),
+                )
+            })?;
+            let admission: PortableAuthorityEffectAdmissionReceiptV2Record =
+                decode_state_value(&admission_bytes)?;
+            validate_portable_effect_admission_receipt(params, &receipt, admission)?;
             true
         } else {
             false
@@ -1297,6 +1527,7 @@ pub(crate) async fn preflight_approval_grant_for_effect_v2(
 #[cfg(test)]
 mod portable_authority_client_tests {
     use super::*;
+    use ioi_services::wallet_network::PortableAuthorityEffectAdmissionContextV1;
 
     fn params() -> ConsumePortableAuthorityGrantV3ForEffectParams {
         ConsumePortableAuthorityGrantV3ForEffectParams {
@@ -1307,6 +1538,18 @@ mod portable_authority_client_tests {
             expected_holder_key_id: "key://tests/holder/1".to_string(),
             actual_effect_ref: "effect://tests/1".to_string(),
             actual_effect_hash: [0x33; 32],
+            admission: PortableAuthorityEffectAdmissionContextV1 {
+                decision_profile_ref: "policy://tests/portable-admission/v1".to_string(),
+                policy_hash: [0x34; 32],
+                temporal_verification_profile_ref: "policy://tests/temporal/v1".to_string(),
+                temporal_verification_profile_hash: [0x35; 32],
+                temporal_validity_evaluation_ref: "evidence://tests/temporal/1".to_string(),
+                temporal_validity_evaluation_hash: [0x36; 32],
+                temporal_posture: PortableAuthorityTemporalPostureV1::OnlineFresh,
+                continuity_floor_evidence_refs: vec!["evidence://tests/continuity/1".to_string()],
+                principal_authority_revalidation_receipt_ref: None,
+                principal_authority_revalidation_receipt_hash: None,
+            },
         }
     }
 
@@ -1324,6 +1567,7 @@ mod portable_authority_client_tests {
             audience: params.expected_audience.clone(),
             holder_id: params.expected_holder_id.clone(),
             holder_key_id: params.expected_holder_key_id.clone(),
+            admission_receipt_hash: [0x37; 32],
             consumed_at_ms: 1_787_587_300_000,
             usage_ordinal: 1,
             remaining_calls: 0,

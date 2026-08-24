@@ -39,6 +39,8 @@ pub(super) const PORTABLE_AUTHORITY_CEREMONY_CONSUMPTION_PREFIX: &[u8] =
     b"portable_authority_ceremony_consumption::";
 pub(super) const PORTABLE_AUTHORITY_EFFECT_CONSUMPTION_RECEIPT_PREFIX: &[u8] =
     b"portable_authority_effect_consumption_receipt::";
+pub(super) const PORTABLE_AUTHORITY_EFFECT_ADMISSION_RECEIPT_V2_PREFIX: &[u8] =
+    b"portable_authority_effect_admission_receipt_v2::";
 pub(super) const APPROVAL_AUTHORITY_PREFIX: &[u8] = b"approval_authority::";
 pub(super) const PRINCIPAL_AUTHORITY_BINDING_PREFIX: &[u8] = b"principal_authority_binding::";
 pub(super) const PRINCIPAL_AUTHORITY_BINDING_HEAD_PREFIX: &[u8] =
@@ -215,6 +217,16 @@ pub(super) fn portable_authority_effect_consumption_receipt_key(
 ) -> Vec<u8> {
     [
         PORTABLE_AUTHORITY_EFFECT_CONSUMPTION_RECEIPT_PREFIX,
+        consumption_id.as_slice(),
+    ]
+    .concat()
+}
+
+pub(super) fn portable_authority_effect_admission_receipt_v2_key(
+    consumption_id: &[u8; 32],
+) -> Vec<u8> {
+    [
+        PORTABLE_AUTHORITY_EFFECT_ADMISSION_RECEIPT_V2_PREFIX,
         consumption_id.as_slice(),
     ]
     .concat()

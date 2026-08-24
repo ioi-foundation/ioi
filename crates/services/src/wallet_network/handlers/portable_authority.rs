@@ -9,15 +9,19 @@ use ioi_types::app::SignatureSuite;
 use ioi_types::error::TransactionError;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
+use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
 use crate::wallet_network::handlers::client_auth::load_registered_client;
 use crate::wallet_network::handlers::principal_authority::validate_expected_principal_authority_binding;
 use crate::wallet_network::keys::{
-    portable_authority_ceremony_consumption_key, portable_authority_effect_consumption_receipt_key,
-    portable_authority_grant_v3_state_key,
+    portable_authority_ceremony_consumption_key,
+    portable_authority_effect_admission_receipt_v2_key,
+    portable_authority_effect_consumption_receipt_key, portable_authority_grant_v3_state_key,
 };
 use crate::wallet_network::portable_authority::{
+    build_authority_effect_admission_receipt_v2, verify_authority_effect_admission_receipt_v2,
     verify_portable_authority_issuance_bundle_v3, verify_portable_authority_v3,
+    AuthorityEffectAdmissionProof, AuthorityEffectAdmissionReceiptV2Input,
     PortableAuthorityIssuanceBundleV3Input, PortableAuthorityVerificationInput,
     TrustedPortableAuthorityDelegationClosure,
 };
@@ -26,8 +30,9 @@ use crate::wallet_network::support::{
 };
 use crate::wallet_network::{
     ConsumePortableAuthorityGrantV3ForEffectParams, PortableAuthorityCeremonyConsumptionV1,
-    PortableAuthorityGrantV3ConsumptionReceipt, PortableAuthorityGrantV3State,
-    PortableAuthorityGrantV3Status, PortableAuthorityIssuerBindingV1,
+    PortableAuthorityEffectAdmissionReceiptV2Record, PortableAuthorityGrantV3ConsumptionReceipt,
+    PortableAuthorityGrantV3State, PortableAuthorityGrantV3Status,
+    PortableAuthorityIssuerBindingV1, PortableAuthorityTemporalPostureV1,
     RecordPortableAuthorityGrantV3Params, RefreshPortableAuthorityGrantV3EvidenceParams,
     RevokePortableAuthorityGrantV3Params,
 };
@@ -91,6 +96,17 @@ fn hash32(value: &str, label: &str) -> Result<[u8; 32], TransactionError> {
         return Err(invalid(format!("{label} must not be zero")));
     }
     Ok(output)
+}
+
+fn sha256_ref_bytes(value: &[u8; 32]) -> String {
+    format!("sha256:{}", hex::encode(value))
+}
+
+fn timestamp_rfc3339(timestamp_ms: u64) -> Result<String, TransactionError> {
+    OffsetDateTime::from_unix_timestamp_nanos(i128::from(timestamp_ms) * 1_000_000)
+        .map_err(|error| invalid(format!("block timestamp is out of range: {error}")))?
+        .format(&Rfc3339)
+        .map_err(|error| invalid(format!("block timestamp cannot be formatted: {error}")))
 }
 
 fn validate_issuer_authorities(
@@ -662,6 +678,7 @@ fn receipt_hash(
 fn validate_receipt(
     receipt: &PortableAuthorityGrantV3ConsumptionReceipt,
     params: &ConsumePortableAuthorityGrantV3ForEffectParams,
+    admission_receipt_hash: [u8; 32],
 ) -> Result<(), TransactionError> {
     if receipt.schema_version != 1
         || receipt.receipt_hash != receipt_hash(receipt)?
@@ -672,12 +689,187 @@ fn validate_receipt(
         || receipt.audience != params.expected_audience
         || receipt.holder_id != params.expected_holder_id
         || receipt.holder_key_id != params.expected_holder_key_id
+        || receipt.admission_receipt_hash != admission_receipt_hash
     {
         return Err(invalid(
             "consumption id is bound to a different grant, effect, audience, or holder",
         ));
     }
     Ok(())
+}
+
+fn admission_receipt_id(consumption_id: &[u8; 32]) -> String {
+    format!(
+        "receipt://wallet.network/portable-authority-admission/{}",
+        hex::encode(consumption_id)
+    )
+}
+
+fn temporal_posture(posture: PortableAuthorityTemporalPostureV1) -> &'static str {
+    match posture {
+        PortableAuthorityTemporalPostureV1::OnlineFresh => "online_fresh",
+        PortableAuthorityTemporalPostureV1::BoundedOffline => "bounded_offline",
+    }
+}
+
+fn validate_admission_record(
+    record: &PortableAuthorityEffectAdmissionReceiptV2Record,
+    params: &ConsumePortableAuthorityGrantV3ForEffectParams,
+) -> Result<Value, TransactionError> {
+    if record.schema_version != 1
+        || record.grant_hash != params.grant_hash
+        || record.consumption_id != params.consumption_id
+        || record.receipt_hash == [0; 32]
+    {
+        return Err(invalid(
+            "portable admission record is bound to a different grant or consumption",
+        ));
+    }
+    let receipt: Value = serde_json::from_slice(&record.receipt_json).map_err(|error| {
+        invalid(format!(
+            "portable admission receipt is invalid JSON: {error}"
+        ))
+    })?;
+    let canonical = serde_jcs::to_vec(&receipt).map_err(|error| {
+        invalid(format!(
+            "portable admission receipt is not canonical: {error}"
+        ))
+    })?;
+    if canonical != record.receipt_json {
+        return Err(invalid(
+            "portable admission receipt bytes are not canonical JCS",
+        ));
+    }
+    let verified = verify_authority_effect_admission_receipt_v2(&receipt)
+        .map_err(|error| invalid(error.to_string()))?;
+    if hash32(verified.receipt_hash(), "portable admission receipt hash")? != record.receipt_hash {
+        return Err(invalid(
+            "portable admission record hash differs from the registered receipt",
+        ));
+    }
+    let body = &receipt["body"];
+    let expected_continuity: BTreeSet<_> = params
+        .admission
+        .continuity_floor_evidence_refs
+        .iter()
+        .map(String::as_str)
+        .collect();
+    let stored_continuity: BTreeSet<_> = body
+        .get("continuity_floor_evidence_refs")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .collect();
+    let principal_ref = params
+        .admission
+        .principal_authority_revalidation_receipt_ref
+        .as_deref();
+    let principal_hash = params
+        .admission
+        .principal_authority_revalidation_receipt_hash
+        .as_ref()
+        .map(sha256_ref_bytes);
+    let expected_receipt_id = admission_receipt_id(&params.consumption_id);
+    let effect_hash = sha256_ref_bytes(&params.actual_effect_hash);
+    let policy_hash = sha256_ref_bytes(&params.admission.policy_hash);
+    let temporal_profile_hash =
+        sha256_ref_bytes(&params.admission.temporal_verification_profile_hash);
+    let temporal_evaluation_hash =
+        sha256_ref_bytes(&params.admission.temporal_validity_evaluation_hash);
+    for (actual, expected, label) in [
+        (
+            receipt
+                .pointer("/receipt_envelope/receipt_id")
+                .and_then(Value::as_str),
+            Some(expected_receipt_id.as_str()),
+            "receipt id",
+        ),
+        (
+            body.get("policy_enforcement_point_ref")
+                .and_then(Value::as_str),
+            Some(params.expected_audience.as_str()),
+            "policy-enforcement point",
+        ),
+        (
+            body.get("actual_effect_ref").and_then(Value::as_str),
+            Some(params.actual_effect_ref.as_str()),
+            "effect ref",
+        ),
+        (
+            body.get("actual_effect_hash").and_then(Value::as_str),
+            Some(effect_hash.as_str()),
+            "effect hash",
+        ),
+        (
+            body.get("decision_profile_ref").and_then(Value::as_str),
+            Some(params.admission.decision_profile_ref.as_str()),
+            "decision profile",
+        ),
+        (
+            body.get("policy_hash").and_then(Value::as_str),
+            Some(policy_hash.as_str()),
+            "policy hash",
+        ),
+        (
+            body.get("temporal_verification_profile_ref")
+                .and_then(Value::as_str),
+            Some(params.admission.temporal_verification_profile_ref.as_str()),
+            "temporal profile ref",
+        ),
+        (
+            body.get("temporal_verification_profile_hash")
+                .and_then(Value::as_str),
+            Some(temporal_profile_hash.as_str()),
+            "temporal profile hash",
+        ),
+        (
+            body.get("temporal_validity_evaluation_ref")
+                .and_then(Value::as_str),
+            Some(params.admission.temporal_validity_evaluation_ref.as_str()),
+            "temporal evaluation ref",
+        ),
+        (
+            body.get("temporal_validity_evaluation_hash")
+                .and_then(Value::as_str),
+            Some(temporal_evaluation_hash.as_str()),
+            "temporal evaluation hash",
+        ),
+        (
+            body.get("temporal_posture").and_then(Value::as_str),
+            Some(temporal_posture(params.admission.temporal_posture)),
+            "temporal posture",
+        ),
+        (
+            body.get("principal_authority_revalidation_receipt_ref")
+                .and_then(Value::as_str),
+            principal_ref,
+            "principal revalidation ref",
+        ),
+        (
+            body.get("principal_authority_revalidation_receipt_hash")
+                .and_then(Value::as_str),
+            principal_hash.as_deref(),
+            "principal revalidation hash",
+        ),
+        (
+            body.get("proof_kind").and_then(Value::as_str),
+            Some("exact_equality"),
+            "proof kind",
+        ),
+    ] {
+        if actual != expected {
+            return Err(invalid(format!(
+                "portable admission receipt has a different {label}: stored={actual:?}, expected={expected:?}"
+            )));
+        }
+    }
+    if stored_continuity != expected_continuity {
+        return Err(invalid(
+            "portable admission receipt has different continuity evidence",
+        ));
+    }
+    Ok(receipt)
 }
 
 pub(crate) fn consume_portable_authority_grant_v3_for_effect(
@@ -692,17 +884,47 @@ pub(crate) fn consume_portable_authority_grant_v3_for_effect(
         || params.expected_holder_id.is_empty()
         || params.expected_holder_key_id.is_empty()
         || params.actual_effect_ref.is_empty()
+        || params.admission.decision_profile_ref.is_empty()
+        || params.admission.policy_hash == [0; 32]
+        || params
+            .admission
+            .temporal_verification_profile_ref
+            .is_empty()
+        || params.admission.temporal_verification_profile_hash == [0; 32]
+        || params.admission.temporal_validity_evaluation_ref.is_empty()
+        || params.admission.temporal_validity_evaluation_hash == [0; 32]
+        || params.admission.continuity_floor_evidence_refs.len() > 64
+        || params
+            .admission
+            .principal_authority_revalidation_receipt_ref
+            .is_some()
+            != params
+                .admission
+                .principal_authority_revalidation_receipt_hash
+                .is_some()
     {
         return Err(invalid(
             "consumption parameters contain an empty identity or hash",
         ));
     }
     let receipt_key = portable_authority_effect_consumption_receipt_key(&params.consumption_id);
+    let admission_key = portable_authority_effect_admission_receipt_v2_key(&params.consumption_id);
     if let Some(existing) =
         load_typed::<PortableAuthorityGrantV3ConsumptionReceipt>(state, &receipt_key)?
     {
-        validate_receipt(&existing, &params)?;
+        let admission =
+            load_typed::<PortableAuthorityEffectAdmissionReceiptV2Record>(state, &admission_key)?
+                .ok_or_else(|| invalid("portable consumption is missing its admission receipt"))?;
+        validate_admission_record(&admission, &params)?;
+        validate_receipt(&existing, &params, admission.receipt_hash)?;
         return Ok(());
+    }
+    if load_typed::<PortableAuthorityEffectAdmissionReceiptV2Record>(state, &admission_key)?
+        .is_some()
+    {
+        return Err(invalid(
+            "portable admission receipt exists without its atomic consumption receipt",
+        ));
     }
     let state_key = portable_authority_grant_v3_state_key(&params.grant_hash);
     let mut record: PortableAuthorityGrantV3State = load_typed(state, &state_key)?
@@ -753,30 +975,87 @@ pub(crate) fn consume_portable_authority_grant_v3_for_effect(
     })
     .map_err(|error| invalid(error.to_string()))?;
     let effect_hash_ref = format!("sha256:{}", hex::encode(params.actual_effect_hash));
-    if leaf
+    let subject_kind = leaf
         .pointer("/request_commitment/authorization_subject/kind")
+        .and_then(Value::as_str);
+    if subject_kind != Some("exact_effect") {
+        return Err(invalid(
+            "exact-effect consumption refuses batch or standing authorization without its proof",
+        ));
+    }
+    if leaf
+        .pointer("/request_commitment/authorization_subject/subject_ref")
         .and_then(Value::as_str)
-        == Some("exact_effect")
-        && (leaf
-            .pointer("/request_commitment/authorization_subject/subject_ref")
+        != Some(params.actual_effect_ref.as_str())
+        || leaf
+            .pointer("/request_commitment/authorization_subject/subject_hash")
             .and_then(Value::as_str)
-            != Some(params.actual_effect_ref.as_str())
-            || leaf
-                .pointer("/request_commitment/authorization_subject/subject_hash")
-                .and_then(Value::as_str)
-                != Some(effect_hash_ref.as_str()))
+            != Some(effect_hash_ref.as_str())
     {
         return Err(invalid(
             "daemon-derived exact effect differs from the portable authorization subject",
         ));
     }
 
+    let now_ms = block_timestamp_ms(ctx);
+    let decided_at = timestamp_rfc3339(now_ms)?;
+    let admission_receipt_id = admission_receipt_id(&params.consumption_id);
+    let policy_hash = sha256_ref_bytes(&params.admission.policy_hash);
+    let temporal_profile_hash =
+        sha256_ref_bytes(&params.admission.temporal_verification_profile_hash);
+    let temporal_evaluation_hash =
+        sha256_ref_bytes(&params.admission.temporal_validity_evaluation_hash);
+    let principal_revalidation_hash = params
+        .admission
+        .principal_authority_revalidation_receipt_hash
+        .as_ref()
+        .map(sha256_ref_bytes);
+    let admission =
+        build_authority_effect_admission_receipt_v2(AuthorityEffectAdmissionReceiptV2Input {
+            receipt_id: &admission_receipt_id,
+            policy_enforcement_point_ref: &params.expected_audience,
+            verified_grant: &verified,
+            leaf_grant: leaf,
+            actual_effect_ref: &params.actual_effect_ref,
+            actual_effect_hash: &effect_hash_ref,
+            decision_profile_ref: &params.admission.decision_profile_ref,
+            policy_hash: &policy_hash,
+            temporal_verification_profile_ref: &params.admission.temporal_verification_profile_ref,
+            temporal_verification_profile_hash: &temporal_profile_hash,
+            temporal_validity_evaluation_ref: &params.admission.temporal_validity_evaluation_ref,
+            temporal_validity_evaluation_hash: &temporal_evaluation_hash,
+            temporal_posture: temporal_posture(params.admission.temporal_posture),
+            continuity_floor_evidence_refs: &params.admission.continuity_floor_evidence_refs,
+            principal_authority_revalidation_receipt_ref: params
+                .admission
+                .principal_authority_revalidation_receipt_ref
+                .as_deref(),
+            principal_authority_revalidation_receipt_hash: principal_revalidation_hash.as_deref(),
+            proof: AuthorityEffectAdmissionProof::ExactEquality,
+            decided_at: &decided_at,
+        })
+        .map_err(|error| invalid(error.to_string()))?;
+    let admission_receipt_hash = hash32(admission.receipt_hash(), "admission receipt hash")?;
+    let admission_receipt_json = serde_jcs::to_vec(admission.as_value()).map_err(|error| {
+        invalid(format!(
+            "admission receipt cannot be canonicalized: {error}"
+        ))
+    })?;
+    let admission_record = PortableAuthorityEffectAdmissionReceiptV2Record {
+        schema_version: 1,
+        grant_hash: params.grant_hash,
+        consumption_id: params.consumption_id,
+        receipt_hash: admission_receipt_hash,
+        receipt_json: admission_receipt_json,
+    };
+    validate_admission_record(&admission_record, &params)?;
+
     record.uses_consumed = record
         .uses_consumed
         .checked_add(1)
         .ok_or_else(|| invalid("portable usage counter overflow"))?;
     record.remaining_calls = record.remaining_calls.saturating_sub(1);
-    record.last_consumed_at_ms = Some(block_timestamp_ms(ctx));
+    record.last_consumed_at_ms = Some(now_ms);
     if record.remaining_calls == 0 {
         record.status = PortableAuthorityGrantV3Status::Exhausted;
     }
@@ -791,7 +1070,8 @@ pub(crate) fn consume_portable_authority_grant_v3_for_effect(
         audience: params.expected_audience,
         holder_id: params.expected_holder_id,
         holder_key_id: params.expected_holder_key_id,
-        consumed_at_ms: block_timestamp_ms(ctx),
+        admission_receipt_hash,
+        consumed_at_ms: now_ms,
         usage_ordinal: record.uses_consumed,
         remaining_calls: record.remaining_calls,
     };
@@ -809,6 +1089,10 @@ pub(crate) fn consume_portable_authority_grant_v3_for_effect(
             Ok(vec![
                 (state_key, ioi_types::codec::to_bytes_canonical(&record)?),
                 (receipt_key, ioi_types::codec::to_bytes_canonical(&receipt)?),
+                (
+                    admission_key,
+                    ioi_types::codec::to_bytes_canonical(&admission_record)?,
+                ),
             ])
         },
     )

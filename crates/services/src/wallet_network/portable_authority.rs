@@ -2133,6 +2133,107 @@ pub fn authority_effect_admission_receipt_v2_hash(
     Ok(sha256_ref(&material))
 }
 
+/// Revalidate a persisted registered admission receipt without trusting its stored hashes.
+pub fn verify_authority_effect_admission_receipt_v2(
+    receipt: &Value,
+) -> Result<VerifiedAuthorityEffectAdmissionReceiptV2, PortableAuthorityRefusal> {
+    validate_registered(
+        AUTHORITY_EFFECT_ADMISSION_RECEIPT_V2_CONTRACT,
+        receipt,
+        PortableAuthorityRefusalCode::AdmissionReceiptInvalid,
+    )?;
+    let schema_version = required_str(
+        receipt,
+        "/schema_version",
+        PortableAuthorityRefusalCode::AdmissionReceiptInvalid,
+    )?;
+    let envelope = receipt
+        .get("receipt_envelope")
+        .filter(|value| value.is_object())
+        .ok_or_else(|| {
+            refuse(
+                PortableAuthorityRefusalCode::AdmissionReceiptInvalid,
+                "admission receipt lacks its receipt envelope",
+            )
+        })?;
+    let body = receipt
+        .get("body")
+        .filter(|value| value.is_object())
+        .ok_or_else(|| {
+            refuse(
+                PortableAuthorityRefusalCode::AdmissionReceiptInvalid,
+                "admission receipt lacks its body",
+            )
+        })?;
+    let body_hash = required_str(
+        receipt,
+        "/body_hash",
+        PortableAuthorityRefusalCode::AdmissionReceiptInvalid,
+    )?;
+    if authority_effect_admission_body_v2_hash(body)? != body_hash {
+        return Err(refuse(
+            PortableAuthorityRefusalCode::AdmissionReceiptInvalid,
+            "admission receipt body hash does not recompute",
+        ));
+    }
+    let receipt_hash = required_str(
+        receipt,
+        "/receipt_hash",
+        PortableAuthorityRefusalCode::AdmissionReceiptInvalid,
+    )?;
+    if authority_effect_admission_receipt_v2_hash(schema_version, envelope, body_hash)?
+        != receipt_hash
+    {
+        return Err(refuse(
+            PortableAuthorityRefusalCode::AdmissionReceiptInvalid,
+            "admission receipt hash does not recompute",
+        ));
+    }
+    if envelope.pointer("/output_hash").and_then(Value::as_str) != Some(body_hash) {
+        return Err(refuse(
+            PortableAuthorityRefusalCode::AdmissionReceiptInvalid,
+            "admission receipt output/body hash cross-binding differs",
+        ));
+    }
+    for (envelope_pointer, body_pointer, label) in [
+        ("/input_hash", "/authority_grant_hash", "input/grant hash"),
+        (
+            "/authority_grant_id",
+            "/authority_grant_ref",
+            "grant reference",
+        ),
+        (
+            "/actor_id",
+            "/policy_enforcement_point_ref",
+            "policy-enforcement point",
+        ),
+        ("/policy_hash", "/policy_hash", "policy hash"),
+        ("/timestamp", "/decided_at", "decision timestamp"),
+    ] {
+        if envelope.pointer(envelope_pointer) != body.pointer(body_pointer) {
+            return Err(refuse(
+                PortableAuthorityRefusalCode::AdmissionReceiptInvalid,
+                format!("admission receipt {label} cross-binding differs"),
+            ));
+        }
+    }
+    if body.get("decision").and_then(Value::as_str) != Some("admitted")
+        || body.get("refusal_code") != Some(&Value::Null)
+        || body.get("invoker_called").and_then(Value::as_bool) != Some(false)
+        || body.get("invoker_receipt_ref") != Some(&Value::Null)
+        || body.get("effect_receipt_ref") != Some(&Value::Null)
+    {
+        return Err(refuse(
+            PortableAuthorityRefusalCode::AdmissionReceiptInvalid,
+            "persisted pre-invocation receipt does not encode an uninvoked admission",
+        ));
+    }
+    Ok(VerifiedAuthorityEffectAdmissionReceiptV2 {
+        receipt: receipt.clone(),
+        verification_seal: PortableAuthorityVerificationSeal,
+    })
+}
+
 /// Construct the immutable v2 admission receipt after portable verification and before invocation.
 ///
 /// This constructor emits admitted receipts only. A refusal is returned as a typed verifier error,
@@ -3015,6 +3116,21 @@ pub(crate) mod tests {
             )
             .unwrap(),
             receipt["receipt_hash"]
+        );
+        assert_eq!(
+            verify_authority_effect_admission_receipt_v2(receipt)
+                .expect("persisted receipt revalidates")
+                .receipt_hash(),
+            sealed_receipt.receipt_hash()
+        );
+
+        let mut tampered = receipt.clone();
+        tampered["body"]["actual_effect_ref"] = json!("effect://tests/substituted");
+        assert_eq!(
+            verify_authority_effect_admission_receipt_v2(&tampered)
+                .expect_err("body substitution must invalidate the stored receipt")
+                .code,
+            PortableAuthorityRefusalCode::AdmissionReceiptInvalid
         );
     }
 
