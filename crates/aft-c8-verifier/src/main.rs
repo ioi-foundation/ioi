@@ -375,8 +375,8 @@ fn verify_bundle(bundle_dir: &Path, policy_path: &Path, now: OffsetDateTime) -> 
 
     for binding in certificate_bindings(&certificate)? {
         let (entry, _) = all
-            .get(&binding.r#ref)
-            .ok_or_else(|| anyhow!("bound_object_missing:{}", binding.r#ref))?;
+            .get(&object_binding_key(&binding.r#ref, &binding.hash))
+            .ok_or_else(|| anyhow!("bound_object_missing:{}:{}", binding.r#ref, binding.hash))?;
         ensure_eq(&entry.hash, &binding.hash, "bound_object_hash")?;
     }
 
@@ -441,7 +441,10 @@ fn verify_bundle(bundle_dir: &Path, policy_path: &Path, now: OffsetDateTime) -> 
 
     let result_ref = required_str(&certificate, "result_ref")?;
     let result_entry = all
-        .get(result_ref)
+        .get(&object_binding_key(
+            result_ref,
+            required_str(&certificate, "result_hash")?,
+        ))
         .ok_or_else(|| anyhow!("result_missing"))?;
     if !policy
         .accepted_result_schema_refs
@@ -491,7 +494,10 @@ fn verify_bundle(bundle_dir: &Path, policy_path: &Path, now: OffsetDateTime) -> 
     validate_semantic_chain(&certificate, &all, &result)?;
 
     let profile_entry = all
-        .get(&policy.verifier_profile_ref)
+        .get(&object_binding_key(
+            &policy.verifier_profile_ref,
+            &policy.verifier_profile_hash,
+        ))
         .ok_or_else(|| anyhow!("verifier_profile_missing"))?;
     ensure_eq(
         &profile_entry.0.hash,
@@ -540,7 +546,7 @@ fn verify_bundle(bundle_dir: &Path, policy_path: &Path, now: OffsetDateTime) -> 
 
     for root in &policy.trust_roots {
         let (entry, _) = all
-            .get(&root.r#ref)
+            .get(&object_binding_key(&root.r#ref, &root.hash))
             .ok_or_else(|| anyhow!("trust_root_missing:{}", root.r#ref))?;
         ensure_eq(&entry.hash, &root.hash, "trust_root_hash")?;
     }
@@ -808,7 +814,43 @@ fn validate_semantic_chain(
     let image_digest = required_str(cert, "workload_image_digest")?;
     let request_ref = required_str(cert, "governed_request_ref")?;
     let request_hash = required_str(cert, "governed_request_hash")?;
-    let request = object_value(all, request_ref, "governed_request_missing")?;
+    let request_object = object_value(all, request_ref, "governed_request_missing")?;
+    let request = if request_object.get("schema_version").and_then(Value::as_str)
+        == Some("ioi.foundations.canonical-json-preimage.v1")
+    {
+        let canonical: Value =
+            serde_json::from_str(required_str(request_object, "canonical_json")?)
+                .context("governed_request_canonical_json")?;
+        let facets = canonical
+            .get("facets")
+            .ok_or_else(|| anyhow!("governed_request_facets_missing"))?;
+        let projection = request_object
+            .get("projection")
+            .ok_or_else(|| anyhow!("governed_request_projection_missing"))?;
+        for (projected, native) in [
+            ("operation", "op"),
+            ("campaign_id", "campaign_id"),
+            ("benchmark_source_commit", "benchmark_source_commit"),
+            ("image_digest", "image_digest"),
+            ("provider_address", "provider_address"),
+        ] {
+            if projection.get(projected) != facets.get(native) {
+                bail!("governed_request_projection_mismatch:{projected}")
+            }
+        }
+        let provider_address = required_str(projection, "provider_address")?;
+        ensure_value_str(
+            projection,
+            "provider_ref",
+            &format!("provider://akash/{provider_address}"),
+        )?;
+        if projection.get("result_destination_ref") != facets.get("result_credential_ref") {
+            bail!("governed_request_projection_mismatch:result_destination_ref")
+        }
+        projection
+    } else {
+        request_object
+    };
     ensure_value_str(request, "campaign_id", campaign_id)?;
     ensure_value_str(request, "benchmark_source_commit", source_commit)?;
     ensure_value_str(request, "image_digest", image_digest)?;
@@ -847,11 +889,15 @@ fn validate_semantic_chain(
         .and_then(Value::as_array)
         .ok_or_else(|| anyhow!("source_basis_refs_missing"))?;
     let source_matches = source_refs.iter().any(|entry| {
-        entry
-            .get("ref")
-            .and_then(Value::as_str)
-            .and_then(|reference| all.get(reference))
-            .and_then(|(_, value)| value.get("commit"))
+        let Some(reference) = entry.get("ref").and_then(Value::as_str) else {
+            return false;
+        };
+        let Some(hash) = entry.get("hash").and_then(Value::as_str) else {
+            return false;
+        };
+        object_value_bound(all, reference, hash, "source_basis_missing")
+            .ok()
+            .and_then(|value| value.get("commit"))
             .and_then(Value::as_str)
             == Some(source_commit)
     });
@@ -1055,6 +1101,32 @@ fn validate_semantic_chain(
         {
             bail!("isolation_boundary_not_demonstrated")
         }
+        if let (Some(source_ref), Some(source_hash)) = (
+            evidence
+                .get("source_consumption_ref")
+                .and_then(Value::as_str),
+            evidence
+                .get("source_consumption_hash")
+                .and_then(Value::as_str),
+        ) {
+            let source = object_value_bound(
+                all,
+                source_ref,
+                source_hash,
+                "isolation_consumption_source_missing",
+            )?;
+            if source
+                .pointer("/receipts/consumption_receipt/final_invoker_calls")
+                .and_then(Value::as_u64)
+                != Some(1)
+                || source
+                    .pointer("/receipts/consumption_receipt/status")
+                    .and_then(Value::as_str)
+                    != Some("consumed")
+            {
+                bail!("isolation_consumption_source_invalid")
+            }
+        }
     }
 
     if required_str(cert, "brokered_secret_use_posture")? != "opaque_handle_final_invoker" {
@@ -1070,8 +1142,71 @@ fn validate_semantic_chain(
             required_str(binding, "ref")?,
             "secret_use_evidence_object_missing",
         )?;
+        let seeded_probe = evidence
+            .get("seeded_canary_count")
+            .and_then(Value::as_u64)
+            .is_some_and(|count| count > 0);
+        let enumerated_boundary_probe = evidence.get("probe_profile").and_then(Value::as_str)
+            == Some("enumerated_host_material_channels")
+            && evidence
+                .get("tested_channel_count")
+                .and_then(Value::as_u64)
+                .is_some_and(|count| count >= 14)
+            && evidence.get("network_device_count").and_then(Value::as_u64) == Some(0)
+            && evidence.get("host_mount_count").and_then(Value::as_u64) == Some(0)
+            && evidence
+                .get("host_control_socket_count")
+                .and_then(Value::as_u64)
+                == Some(0);
+        if enumerated_boundary_probe {
+            let source = object_value_bound(
+                all,
+                required_str(evidence, "source_probe_ref")?,
+                required_str(evidence, "source_probe_hash")?,
+                "secret_probe_source_missing",
+            )?;
+            let attempted = source
+                .get("attempted_paths")
+                .and_then(Value::as_array)
+                .ok_or_else(|| anyhow!("secret_probe_paths_missing"))?;
+            for required in [
+                "raw_ip",
+                "loopback",
+                "ipv6",
+                "metadata",
+                "provider",
+                "udp",
+                "proxy",
+                "tunnel",
+                "dns_exfil",
+                "package_fetch",
+                "host_device",
+                "host_socket",
+                "inherited_fd",
+                "environment",
+            ] {
+                if !attempted.iter().any(|item| item.as_str() == Some(required)) {
+                    bail!("secret_probe_path_missing:{required}")
+                }
+            }
+            if source.get("guest_uid") != evidence.get("guest_uid")
+                || source.get("secret_findings") != evidence.get("secret_findings")
+                || source
+                    .get("direct_protected_provider_invocations")
+                    .and_then(Value::as_u64)
+                    != Some(0)
+                || source.pointer("/enforcement_declaration/network_device_count")
+                    != evidence.get("network_device_count")
+                || source.pointer("/enforcement_declaration/host_mount_count")
+                    != evidence.get("host_mount_count")
+                || source.pointer("/enforcement_declaration/host_control_socket_count")
+                    != evidence.get("host_control_socket_count")
+            {
+                bail!("secret_probe_projection_mismatch")
+            }
+        }
         if evidence.get("guest_uid").and_then(Value::as_u64) != Some(0)
-            || evidence.get("seeded_canary_count").and_then(Value::as_u64) == Some(0)
+            || (!seeded_probe && !enumerated_boundary_probe)
             || evidence.get("secret_findings").and_then(Value::as_u64) != Some(0)
             || evidence
                 .get("provider_credential_observed")
@@ -1202,9 +1337,10 @@ fn validate_authority_and_trajectory(
     let trajectory = cert
         .get("trajectory_binding")
         .ok_or_else(|| anyhow!("trajectory_binding_missing"))?;
-    let before = object_value(
+    let before = object_value_bound(
         all,
         required_str(trajectory, "state_before_ref")?,
+        required_str(trajectory, "state_before_hash")?,
         "trajectory_before_missing",
     )?;
     let decision = object_value(
@@ -1212,9 +1348,10 @@ fn validate_authority_and_trajectory(
         required_str(trajectory, "decision_ref")?,
         "trajectory_decision_missing",
     )?;
-    let after = object_value(
+    let after = object_value_bound(
         all,
         required_str(trajectory, "state_after_ref")?,
+        required_str(trajectory, "state_after_hash")?,
         "trajectory_after_missing",
     )?;
     ensure_value_str(decision, "decision", "admit")?;
@@ -1295,7 +1432,24 @@ fn object_value<'a>(
     reference: &str,
     code: &str,
 ) -> Result<&'a Value> {
-    all.get(reference)
+    let mut candidates = all.values().filter(|(entry, _)| entry.r#ref == reference);
+    let value = candidates
+        .next()
+        .map(|(_, value)| value)
+        .ok_or_else(|| anyhow!(code.to_string()))?;
+    if candidates.next().is_some() {
+        bail!("ambiguous_object_ref:{reference}")
+    }
+    Ok(value)
+}
+
+fn object_value_bound<'a>(
+    all: &'a BTreeMap<String, (BundleObject, Value)>,
+    reference: &str,
+    hash: &str,
+    code: &str,
+) -> Result<&'a Value> {
+    all.get(&object_binding_key(reference, hash))
         .map(|(_, value)| value)
         .ok_or_else(|| anyhow!(code.to_string()))
 }
@@ -1434,8 +1588,9 @@ fn index_objects<'a>(
     let mut out = BTreeMap::new();
     for entry in objects {
         validate_file_name(&entry.file)?;
-        if out.contains_key(&entry.r#ref) {
-            bail!("duplicate_object_ref")
+        let key = object_binding_key(&entry.r#ref, &entry.hash);
+        if out.contains_key(&key) {
+            bail!("duplicate_object_binding")
         }
         let path = bundle_dir.join(&entry.file);
         let metadata = fs::symlink_metadata(&path)?;
@@ -1450,10 +1605,16 @@ fn index_objects<'a>(
             bail!("bundle_path_escape")
         }
         let value = read_json(&path)?;
-        ensure_eq(&content_hash(&value)?, &entry.hash, "bundle_object_hash")?;
-        out.insert(entry.r#ref.clone(), (entry.clone(), value));
+        if content_hash(&value)? != entry.hash {
+            bail!("bundle_object_hash:{}", entry.r#ref)
+        }
+        out.insert(key, (entry.clone(), value));
     }
     Ok(out)
+}
+
+fn object_binding_key(reference: &str, hash: &str) -> String {
+    format!("{reference}\0{hash}")
 }
 
 fn certificate_bindings(cert: &Value) -> Result<Vec<RefHash>> {
@@ -1531,11 +1692,13 @@ fn derive_provider_ref(
     cert: &Value,
     all: &BTreeMap<String, (BundleObject, Value)>,
 ) -> Result<String> {
-    let settlement = all
-        .get(required_str(cert, "terminal_settlement_ref")?)
-        .ok_or_else(|| anyhow!("settlement_missing"))?;
+    let settlement = object_value(
+        all,
+        required_str(cert, "terminal_settlement_ref")?,
+        "settlement_missing",
+    )?;
     for key in ["provider_ref", "selected_provider_ref", "provider"] {
-        if let Some(value) = settlement.1.get(key).and_then(Value::as_str) {
+        if let Some(value) = settlement.get(key).and_then(Value::as_str) {
             return Ok(value.into());
         }
     }
@@ -1547,13 +1710,8 @@ fn object_as<T: for<'de> Deserialize<'de>>(
     r: &str,
     label: &str,
 ) -> Result<T> {
-    serde_json::from_value(
-        all.get(r)
-            .ok_or_else(|| anyhow!("{label}_missing"))?
-            .1
-            .clone(),
-    )
-    .with_context(|| label.to_string())
+    serde_json::from_value(object_value(all, r, &format!("{label}_missing"))?.clone())
+        .with_context(|| label.to_string())
 }
 
 fn rejected_receipt(
@@ -1727,6 +1885,14 @@ fn content_hash(value: &Value) -> Result<String> {
         .get("schema_version")
         .and_then(Value::as_str)
         .unwrap_or_default();
+    if schema == "ioi.foundations.canonical-json-preimage.v1" {
+        let canonical_json = required_str(value, "canonical_json")?;
+        let _: Value = serde_json::from_str(canonical_json).context("canonical_json_invalid")?;
+        return Ok(format!(
+            "sha256:{}",
+            hex::encode(Sha256::digest(canonical_json.as_bytes()))
+        ));
+    }
     let self_hash_field = match schema {
         C8_V3 => Some("certificate_hash"),
         BUNDLE_V1 => Some("bundle_hash"),
@@ -1741,6 +1907,7 @@ fn content_hash(value: &Value) -> Result<String> {
         "ioi.foundations.standing-authority-envelope.v1" => Some("body_hash"),
         "ioi.foundations.authority-trajectory-state.v1" => Some("trajectory_state_hash"),
         "ioi.foundations.trajectory-admission-decision.v1" => Some("decision_hash"),
+        "ioi.hypervisor.auth-factor-receipt.v1" => Some("receipt_hash"),
         _ => None,
     };
     match self_hash_field {
@@ -1979,5 +2146,53 @@ mod tests {
             validate_campaign_result(&result).unwrap_err().to_string(),
             "campaign_metric_summary_inconsistent:injection_tps"
         );
+    }
+
+    #[test]
+    fn versioned_objects_resolve_same_ref_by_hash() {
+        let directory = tempfile::tempdir().unwrap();
+        let before = json!({"schema_version": "test.state.v1", "revision": 0});
+        let after = json!({"schema_version": "test.state.v1", "revision": 1});
+        fs::write(
+            directory.path().join("before.json"),
+            serde_json::to_vec(&before).unwrap(),
+        )
+        .unwrap();
+        fs::write(
+            directory.path().join("after.json"),
+            serde_json::to_vec(&after).unwrap(),
+        )
+        .unwrap();
+        let reference = "trajectory-state://aft/test".to_string();
+        let before_hash = content_hash(&before).unwrap();
+        let after_hash = content_hash(&after).unwrap();
+        let objects = vec![
+            BundleObject {
+                r#ref: reference.clone(),
+                hash: before_hash.clone(),
+                schema_ref: "schema://test/state/v1".to_string(),
+                file: "before.json".to_string(),
+            },
+            BundleObject {
+                r#ref: reference.clone(),
+                hash: after_hash.clone(),
+                schema_ref: "schema://test/state/v1".to_string(),
+                file: "after.json".to_string(),
+            },
+        ];
+        let index = index_objects(directory.path(), objects.iter()).unwrap();
+        assert_eq!(index.len(), 2);
+        assert_eq!(
+            object_value_bound(&index, &reference, &before_hash, "missing").unwrap(),
+            &before
+        );
+        assert_eq!(
+            object_value_bound(&index, &reference, &after_hash, "missing").unwrap(),
+            &after
+        );
+        assert!(object_value(&index, &reference, "missing")
+            .unwrap_err()
+            .to_string()
+            .starts_with("ambiguous_object_ref"));
     }
 }

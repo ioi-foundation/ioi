@@ -28,6 +28,8 @@ const clone = (value) => structuredClone(value);
 const hashPattern = /^sha256:[0-9a-f]{64}$/u;
 const refPattern = /^[a-z][a-z0-9+.-]*:\/\/\S{1,500}$/u;
 const filePattern = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}[.]json$/u;
+const bindingKey = (ref, hash) => `${ref}\u0000${hash}`;
+const CANONICAL_JSON_PREIMAGE_V1 = "ioi.foundations.canonical-json-preimage.v1";
 
 export function hashWithout(value, field) {
   const copy = clone(value);
@@ -36,6 +38,11 @@ export function hashWithout(value, field) {
 }
 
 export function contentHash(value) {
+  if (value?.schema_version === CANONICAL_JSON_PREIMAGE_V1) {
+    if (typeof value.canonical_json !== "string") throw new Error("canonical JSON preimage is missing canonical_json");
+    JSON.parse(value.canonical_json);
+    return sha256(value.canonical_json);
+  }
   const field = SELF_HASH_FIELDS.get(value?.schema_version);
   return field ? hashWithout(value, field) : sha256(stableStringify(value));
 }
@@ -52,32 +59,56 @@ const requireRef = (value, label) => {
   if (!refPattern.test(value || "")) throw new Error(`${label} is not a canonical ref`);
 };
 
-const bind = (certificate, objectMap, refField, hashField) => {
+export function indexPortableArtifacts(entries) {
+  const byBinding = new Map();
+  const byRef = new Map();
+  for (const entry of entries) {
+    const key = bindingKey(entry.ref, entry.hash);
+    if (byBinding.has(key)) throw new Error(`duplicate portable object binding: ${entry.ref} ${entry.hash}`);
+    byBinding.set(key, entry);
+    const candidates = byRef.get(entry.ref) || [];
+    candidates.push(entry);
+    byRef.set(entry.ref, candidates);
+  }
+  return { byBinding, byRef };
+}
+
+export function resolvePortableArtifact(index, ref, preferredHash = null) {
+  const candidates = index.byRef.get(ref) || [];
+  if (hashPattern.test(preferredHash || "")) {
+    const exact = index.byBinding.get(bindingKey(ref, preferredHash));
+    if (!exact) throw new Error(`portable object binding is missing: ${ref} ${preferredHash}`);
+    return exact;
+  }
+  if (candidates.length === 1) return candidates[0];
+  if (candidates.length === 0) throw new Error(`portable object is missing: ${ref}`);
+  throw new Error(`portable object ref is version-ambiguous without a hash: ${ref}`);
+}
+
+const bind = (certificate, objectIndex, refField, hashField) => {
   const ref = certificate[refField];
   requireRef(ref, refField);
-  const entry = objectMap.get(ref);
-  if (!entry) throw new Error(`${refField} has no portable object: ${ref}`);
+  const entry = resolvePortableArtifact(objectIndex, ref, certificate[hashField]);
   certificate[hashField] = entry.hash;
 };
 
-const bindNested = (certificate, objectMap, objectField, pairs) => {
+const bindNested = (certificate, objectIndex, objectField, pairs) => {
   const object = certificate[objectField];
   if (!object || typeof object !== "object") throw new Error(`${objectField} is missing`);
-  for (const [refField, hashField] of pairs) bind(object, objectMap, refField, hashField);
+  for (const [refField, hashField] of pairs) bind(object, objectIndex, refField, hashField);
 };
 
-const bindList = (certificate, objectMap, field) => {
+const bindList = (certificate, objectIndex, field) => {
   if (!Array.isArray(certificate[field]) || certificate[field].length === 0) throw new Error(`${field} must be a non-empty array`);
   certificate[field] = certificate[field].map((value) => {
     const ref = typeof value === "string" ? value : value?.ref;
     requireRef(ref, `${field}.ref`);
-    const entry = objectMap.get(ref);
-    if (!entry) throw new Error(`${field} has no portable object: ${ref}`);
+    const entry = resolvePortableArtifact(objectIndex, ref, typeof value === "string" ? null : value?.hash);
     return { ref, hash: entry.hash };
   });
 };
 
-export function bindAndSealC8V3(draft, objectMap) {
+export function bindAndSealC8V3(draft, objectIndex) {
   const certificate = clone(draft);
   certificate.schema_version = C8_V3_SCHEMA;
   for (const [refField, hashField] of [
@@ -92,16 +123,16 @@ export function bindAndSealC8V3(draft, objectMap) {
     ["environment_ref", "environment_hash"],
     ["variance_evidence_ref", "variance_evidence_hash"],
     ["terminal_settlement_ref", "terminal_settlement_hash"],
-  ]) bind(certificate, objectMap, refField, hashField);
+  ]) bind(certificate, objectIndex, refField, hashField);
   for (const field of ["source_basis_refs", "workload_readiness_evidence", "secret_use_evidence", "terminal_acceptance_prerequisites"]) {
-    bindList(certificate, objectMap, field);
+    bindList(certificate, objectIndex, field);
   }
-  bindNested(certificate, objectMap, "authority_draw", [
+  bindNested(certificate, objectIndex, "authority_draw", [
     ["standing_envelope_ref", "standing_envelope_hash"],
     ["draw_request_ref", "draw_request_hash"],
     ["draw_receipt_ref", "draw_receipt_hash"],
   ]);
-  bindNested(certificate, objectMap, "trajectory_binding", [
+  bindNested(certificate, objectIndex, "trajectory_binding", [
     ["state_before_ref", "state_before_hash"],
     ["decision_ref", "decision_hash"],
     ["state_after_ref", "state_after_hash"],
@@ -138,19 +169,20 @@ export function assemblePortableBundle(spec, outputDirectory) {
   const objects = (spec.objects || []).map((entry) => safeArtifact(entry, "object"));
   const trustInputs = (spec.trust_inputs || []).map((entry) => safeArtifact(entry, "trust_input"));
   const names = new Set();
-  const refs = new Set();
+  const bindings = new Set();
   for (const entry of [...objects, ...trustInputs]) {
-    if (names.has(entry.file) || refs.has(entry.ref)) throw new Error("duplicate portable filename or ref");
+    const key = bindingKey(entry.ref, entry.hash);
+    if (names.has(entry.file) || bindings.has(key)) throw new Error("duplicate portable filename or ref/hash binding");
     names.add(entry.file);
-    refs.add(entry.ref);
+    bindings.add(key);
   }
-  const objectMap = new Map([...objects, ...trustInputs].map((entry) => [entry.ref, entry]));
+  const objectIndex = indexPortableArtifacts([...objects, ...trustInputs]);
   const claimEntry = objects.find((entry) => entry.schema_ref === "schema://ioi/components/hypervisor/governed-effect-claim-manifest/v1");
   if (!claimEntry) throw new Error("claim manifest object is required");
-  const governedRequest = objectMap.get(claimEntry.value?.subject_ref);
+  const governedRequest = resolvePortableArtifact(objectIndex, claimEntry.value?.subject_ref, claimEntry.value?.subject_hash);
   if (!governedRequest || claimEntry.value?.subject_hash !== governedRequest.hash) throw new Error("claim manifest subject must bind the governed request object");
   const draft = JSON.parse(fs.readFileSync(path.resolve(spec.certificate_draft_path), "utf8"));
-  const certificate = bindAndSealC8V3(draft, objectMap);
+  const certificate = bindAndSealC8V3(draft, objectIndex);
   requireRef(spec.bundle_ref, "bundle_ref");
   requireRef(certificate.certificate_ref, "certificate_ref");
   const certificateFile = spec.certificate_file || "certificate.json";

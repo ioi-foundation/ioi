@@ -532,6 +532,9 @@ first-party AFT verifier may claim `separate_binary`, `separate_codegen`, and
 and maintains an implementation. `C8PortableEvidenceBundle` is the filesystem
 framing used by that verifier: every JSON object and trust input is named by a
 safe relative filename plus its schema ref, object ref, and canonical hash.
+The canonical portable identity is the object-ref/object-hash pair. This permits
+one logical state ref to carry distinct before and after versions while refusing
+duplicate pairs and any ambiguous ref-only lookup.
 
 The registered contracts are:
 

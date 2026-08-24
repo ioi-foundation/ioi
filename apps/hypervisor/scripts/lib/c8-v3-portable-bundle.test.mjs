@@ -3,7 +3,14 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { contentHash, hashWithout, sealSelfHash, validatePortableBundleShape } from "./c8-v3-portable-bundle.mjs";
+import {
+  contentHash,
+  hashWithout,
+  indexPortableArtifacts,
+  resolvePortableArtifact,
+  sealSelfHash,
+  validatePortableBundleShape,
+} from "./c8-v3-portable-bundle.mjs";
 
 test("canonical content hash ignores object insertion order", () => {
   assert.equal(contentHash({ b: 2, a: 1 }), contentHash({ a: 1, b: 2 }));
@@ -33,4 +40,29 @@ test("assembler output creation is exclusive", () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "c8-v3-exclusive-"));
   assert.equal(fs.existsSync(directory), true);
   fs.rmSync(directory, { recursive: true });
+});
+
+test("versioned object identity resolves the same ref by its committed hash", () => {
+  const ref = "trajectory-state://aft/test";
+  const before = { ref, hash: `sha256:${"1".repeat(64)}`, file: "before.json" };
+  const after = { ref, hash: `sha256:${"2".repeat(64)}`, file: "after.json" };
+  const index = indexPortableArtifacts([before, after]);
+  assert.equal(resolvePortableArtifact(index, ref, before.hash), before);
+  assert.equal(resolvePortableArtifact(index, ref, after.hash), after);
+  assert.throws(
+    () => resolvePortableArtifact(index, ref),
+    /version-ambiguous/u,
+  );
+});
+
+test("duplicate ref and hash binding remains forbidden", () => {
+  const artifact = {
+    ref: "trajectory-state://aft/test",
+    hash: `sha256:${"1".repeat(64)}`,
+    file: "state.json",
+  };
+  assert.throws(
+    () => indexPortableArtifacts([artifact, { ...artifact, file: "duplicate.json" }]),
+    /duplicate portable object binding/u,
+  );
 });

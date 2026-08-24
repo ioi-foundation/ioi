@@ -1437,6 +1437,13 @@ schema ref, object ref, and canonical hash. The bundle manifest hash excludes
 only its own `bundle_hash` field; the certificate hash analogously excludes
 only `certificate_hash`. All other fields participate in JCS SHA-256.
 
+Portable object identity is the pair `(ref, hash)`, not `ref` alone. A
+logical state reference may therefore appear more than once when one
+certificate binds distinct committed versions, such as the before and after
+images of a trajectory state. Filenames and exact ref/hash pairs remain unique;
+a reference without its hash is rejected as ambiguous whenever multiple
+versions are present.
+
 ### Typed virtual-machine target and observation payloads
 
 The existing `VirtualMachineWorkload`, `HypervisorTargetState`, and
