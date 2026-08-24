@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/daemon-runtime/gateway-decision-receipt/v1",
+  "title": "GatewayDecisionReceipt",
+  "description": "Immutable daemon PEP decision over one exact Authority Gateway action request. It records admission posture but is not effect authority.",
+  "x-ioi-schema-version": "ioi.components.daemon-runtime.gateway-decision-receipt.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "receipt_ref", "receipt_type", "action_request_ref", "action_request_hash", "authority_gateway_profile_ref", "authority_gateway_profile_hash", "policy_enforcement_point_ref", "decision", "policy_ref", "policy_hash", "authority_status", "authority_evidence_refs", "approval_receipt_ref", "admitted_action_hash", "decided_at", "receipt_hash"],
+  "properties": {
+    "schema_version": { "const": "ioi.components.daemon-runtime.gateway-decision-receipt.v1" },
+    "receipt_ref": { "$ref": "#/$defs/receiptRef" },
+    "receipt_type": { "const": "gateway_decision" },
+    "action_request_ref": { "$ref": "#/$defs/actionRequestRef" },
+    "action_request_hash": { "$ref": "#/$defs/hash" },
+    "authority_gateway_profile_ref": { "$ref": "#/$defs/gatewayProfileRef" },
+    "authority_gateway_profile_hash": { "$ref": "#/$defs/hash" },
+    "policy_enforcement_point_ref": { "type": "string", "pattern": "^runtime://[^\\s]{1,500}$" },
+    "decision": { "enum": ["allowed", "denied", "requires_approval", "transform_required"] },
+    "policy_ref": { "type": "string", "pattern": "^policy://[^\\s]{1,500}$" },
+    "policy_hash": { "$ref": "#/$defs/hash" },
+    "authority_status": { "enum": ["not_required", "required_unresolved", "verified", "refused"] },
+    "authority_evidence_refs": { "type": "array", "items": { "$ref": "#/$defs/canonicalRef" }, "maxItems": 32, "uniqueItems": true },
+    "approval_receipt_ref": { "oneOf": [{ "$ref": "#/$defs/receiptRef" }, { "type": "null" }] },
+    "admitted_action_hash": { "oneOf": [{ "$ref": "#/$defs/hash" }, { "type": "null" }] },
+    "decided_at": { "$ref": "#/$defs/dateTime" },
+    "receipt_hash": { "$ref": "#/$defs/hash" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "decision": { "const": "allowed" } }, "required": ["decision"] },
+      "then": { "properties": { "authority_status": { "enum": ["not_required", "verified"] }, "admitted_action_hash": { "$ref": "#/$defs/hash" } } }
+    },
+    {
+      "if": { "properties": { "decision": { "const": "denied" } }, "required": ["decision"] },
+      "then": { "properties": { "admitted_action_hash": { "type": "null" } } }
+    }
+  ],
+  "$defs": {
+    "receiptRef": { "type": "string", "pattern": "^receipt://[^\\s]{1,500}$" },
+    "actionRequestRef": { "type": "string", "pattern": "^action-request://[^\\s]{1,500}$" },
+    "gatewayProfileRef": { "type": "string", "pattern": "^authority-gateway://[^\\s]{1,500}$" },
+    "canonicalRef": { "type": "string", "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$" },
+    "hash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "dateTime": { "type": "string", "format": "date-time", "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$" }
+  }
+}

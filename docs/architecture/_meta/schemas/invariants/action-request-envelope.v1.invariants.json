@@ -1,0 +1,34 @@
+{
+  "$id": "invariant://ioi/components/daemon-runtime/action-request-envelope/immutable-request/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/components/daemon-runtime/action-request-envelope/v1",
+  "rules": [
+    {
+      "rule_id": "action_request.request_hash.recomputes",
+      "description": "The request hash binds the profile, adapter, exact proposal, declared requirements, policy posture, subjects, obligations, and validity window.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": { "value": "ioi.action-request-envelope-hash-jcs-sha256.v1" },
+          "action_request_ref": { "path": "$.action_request_ref" },
+          "request_revision": { "path": "$.request_revision" },
+          "authority_gateway_profile_ref": { "path": "$.authority_gateway_profile_ref" },
+          "authority_gateway_profile_hash": { "path": "$.authority_gateway_profile_hash" },
+          "source_adapter": { "path": "$.source_adapter" },
+          "proposed_action": { "path": "$.proposed_action" },
+          "risk_class": { "path": "$.risk_class" },
+          "primitive_capabilities_required": { "path": "$.primitive_capabilities_required" },
+          "authority_scopes_required": { "path": "$.authority_scopes_required" },
+          "policy_decision": { "path": "$.policy_decision" },
+          "subject_refs": { "path": "$.subject_refs" },
+          "receipt_obligations": { "path": "$.receipt_obligations" },
+          "created_at": { "path": "$.created_at" },
+          "expires_at": { "path": "$.expires_at" }
+        },
+        "expected_path": "$.request_hash",
+        "expected_encoding": "sha256_string"
+      }
+    }
+  ]
+}

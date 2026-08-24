@@ -758,6 +758,9 @@ PolicyDecisionReceipt
 ApprovalReceipt
 AuthorityReviewReceipt
 AuthorityEffectAdmissionReceipt
+GatewayDecisionReceipt
+GatewayExecutionReceipt
+GatewayArtifactReceipt
 ModelInvocationReceipt
 LearningEgressReceipt
 InformationFlowDecisionReceipt
@@ -1389,6 +1392,85 @@ nonportable account-local principals. Every refused or unknown result is
 durable before the invoker boundary; failure to obtain or validate any required
 evidence fails closed with `invoker_called: false` and the corresponding
 evidence status.
+
+## Authority Gateway Receipts
+
+The attach lane registers three distinct receipts. They are not interchangeable
+with generic policy, tool, artifact, or authority receipts, and no one receipt
+may discharge another receipt type's obligation.
+
+```yaml
+GatewayDecisionReceipt:
+  receipt_type: gateway_decision
+  action_request_ref: action-request://...
+  action_request_hash: sha256:...
+  authority_gateway_profile_ref: authority-gateway://...
+  authority_gateway_profile_hash: sha256:...
+  policy_enforcement_point_ref: runtime://...
+  decision: allowed | denied | requires_approval | transform_required
+  policy_ref: policy://...
+  policy_hash: sha256:...
+  authority_status: not_required | required_unresolved | verified | refused
+  authority_evidence_refs: [canonical ref]
+  approval_receipt_ref: receipt://... | null
+  admitted_action_hash: sha256:... | null
+  decided_at: timestamp
+  receipt_hash: sha256:...
+
+GatewayExecutionReceipt:
+  receipt_type: gateway_execution
+  action_request_ref: action-request://...
+  action_request_hash: sha256:...
+  authority_gateway_profile_ref: authority-gateway://...
+  authority_gateway_profile_hash: sha256:...
+  gateway_decision_receipt_ref: receipt://...
+  gateway_decision_receipt_hash: sha256:...
+  policy_enforcement_point_ref: runtime://...
+  external_effect: boolean
+  authority_effect_admission_receipt_ref: receipt://... | null
+  authority_effect_admission_receipt_hash: sha256:... | null
+  final_invoker_ref: runtime://...
+  invocation_id: string
+  idempotency_key: sha256:...
+  actual_effect_ref: effect://... | null
+  actual_effect_hash: sha256:... | null
+  outcome: succeeded | failed | refused | unknown | reconciliation_required
+  result_hash: sha256:... | null
+  effect_receipt_ref: receipt://... | null
+  started_at: timestamp
+  completed_at: timestamp
+  receipt_hash: sha256:...
+
+GatewayArtifactReceipt:
+  receipt_type: gateway_artifact
+  action_request_ref: action-request://...
+  action_request_hash: sha256:...
+  gateway_execution_receipt_ref: receipt://...
+  gateway_execution_receipt_hash: sha256:...
+  evidence_kind: artifacts | diff | none
+  artifacts: [{ artifact_ref, content_hash, media_type, size_bytes }]
+  diff_artifact_ref: artifact://... | null
+  diff_hash: sha256:... | null
+  no_artifact_reason: string | null
+  captured_at: timestamp
+  receipt_hash: sha256:...
+```
+
+The registered profiles are respectively
+`schema://ioi/components/daemon-runtime/gateway-decision-receipt/v1`,
+`schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1`, and
+`schema://ioi/components/daemon-runtime/gateway-artifact-receipt/v1`. Each
+receipt hash is the domain-separated JCS commitment over every other field.
+
+An allowed decision binds the exact admitted action hash and has authority
+status `not_required` or `verified`; it still grants no authority. An external
+execution must bind the current v2 `AuthorityEffectAdmissionReceipt`, the exact
+effect, and the daemon-owned final invoker. The execution result is honest:
+crash-window ambiguity becomes `unknown` or `reconciliation_required`, never a
+retry or fabricated success. The artifact receipt binds the execution receipt
+and either one or more immutable artifacts, a diff artifact/hash pair, or an
+explicit reason that no artifact exists. Attach-lane receipts remain immutable
+and linkable after graduation; they are never re-minted as run-on receipts.
 
 ## Information-Flow Decision Receipts
 

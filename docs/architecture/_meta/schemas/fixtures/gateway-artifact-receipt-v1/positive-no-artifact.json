@@ -1,0 +1,16 @@
+{
+  "schema_version": "ioi.components.daemon-runtime.gateway-artifact-receipt.v1",
+  "receipt_ref": "receipt://acme/gateway-artifact/001",
+  "receipt_type": "gateway_artifact",
+  "action_request_ref": "action-request://acme/gateway/req-001",
+  "action_request_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "gateway_execution_receipt_ref": "receipt://acme/gateway-execution/001",
+  "gateway_execution_receipt_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "evidence_kind": "none",
+  "artifacts": [],
+  "diff_artifact_ref": null,
+  "diff_hash": null,
+  "no_artifact_reason": "The remote-ref effect produced no captured file artifact.",
+  "captured_at": "2026-08-24T16:02:02Z",
+  "receipt_hash": "sha256:745a2e1389f8ccbc674414881ddb34364dd9fa165d1426e6f54a850400ec0e3b"
+}

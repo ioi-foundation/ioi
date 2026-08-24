@@ -76,11 +76,16 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/components/connectors-tools/runtime-tool-contract/v1", "sha256:ac6c0e6bb9b6ec06a1162e4d84b676b2c96bbc9527e50836c04162d788b5f924"),
     ("schema://ioi/components/connectors-tools/scm-publication-effect/v1", "sha256:00f65134dab87fe98063d3cc720268553cd1cd96862df5dfe7ec00041de0abff"),
     ("schema://ioi/components/connectors-tools/scm-publication-effect/v2", "sha256:acc0b12e275584302f9fa0d30937e7439bdb8bf9af7805edcba0b861e24e3ae5"),
+    ("schema://ioi/components/daemon-runtime/action-request-envelope/v1", "sha256:7187aa163181dc69f8c40b219307ea6bd23b74cb7b246602032bc1b78688c4ad"),
     ("schema://ioi/components/daemon-runtime/agent-harness-adapter/v1", "sha256:9243ba237b4624997f35edddfba804e2f30f8f1a3217d283cec4f19ff1ee65ec"),
     ("schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v1", "sha256:6af61ba9d156c2e04c5641dbf78324ccc719d9da10d6269c87e358802d49feff"),
     ("schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2", "sha256:3c85c272d8f2901b66eb4e922accff02315ac0ee5d15803c7fd0e1e24f69a2bd"),
+    ("schema://ioi/components/daemon-runtime/authority-gateway-profile/v1", "sha256:411cd31cb61eb7599dc4b99fd386142541503a3d53af038e1d2cc7f27c207da3"),
     ("schema://ioi/components/daemon-runtime/declassification-receipt/v1", "sha256:3bd20027d03dcc1c41f63ffb4d886397ee85760e803138fa483d8bef7501ec7c"),
     ("schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1", "sha256:53482584c42ada4e9b6eed4ad5f15dab0a83afcddad60276999f161eed1de21c"),
+    ("schema://ioi/components/daemon-runtime/gateway-artifact-receipt/v1", "sha256:99085cc128366a4ea81fda228061df69b2143aed1f9df299b84e7ca6f7a5e6fa"),
+    ("schema://ioi/components/daemon-runtime/gateway-decision-receipt/v1", "sha256:fec252ed291f7f244d5802da4bf9e3e85fa8a20865c44edd6fadf54e7d9c2ff1"),
+    ("schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1", "sha256:6460c1e31813b8979662dd0817d7e15a2c1b6e37be6e9de88239f7cc754876bc"),
     ("schema://ioi/components/daemon-runtime/harness-profile/v1", "sha256:755016efbf5fb6e51f010dac5431b1bc2ac25eff5a0670f03646cb388305e6ad"),
     ("schema://ioi/components/daemon-runtime/hypervisoros-boot-profile/v1", "sha256:daa7cb792f264a6897511d2f9a9e5f41c42d3aec64e020903fbf5e242c5f92b0"),
     ("schema://ioi/components/daemon-runtime/hypervisoros-boot-receipt/v1", "sha256:f1d287f6f041a84b845de4bd0fd12faaf9157e0195d1f89200ed0dac8bce7335"),
@@ -12974,6 +12979,627 @@ pub enum ScmPublicationEffectV2NonclaimsItem {
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ActionRequestEnvelopeV1 {
+    pub schema_version: ActionRequestEnvelopeV1SchemaVersion,
+    pub action_request_ref: String,
+    pub request_revision: ArchitectureContractInteger,
+    pub request_hash: String,
+    pub authority_gateway_profile_ref: String,
+    pub authority_gateway_profile_hash: String,
+    pub source_adapter: ActionRequestEnvelopeV1SourceAdapter,
+    pub proposed_action: ActionRequestEnvelopeV1ProposedAction,
+    pub risk_class: ActionRequestEnvelopeV1RiskClass,
+    pub primitive_capabilities_required: Vec<String>,
+    pub authority_scopes_required: Vec<String>,
+    pub policy_decision: ActionRequestEnvelopeV1PolicyDecision,
+    pub subject_refs: ActionRequestEnvelopeV1SubjectRefs,
+    pub receipt_obligations: Vec<ActionRequestEnvelopeV1ReceiptObligationsItem>,
+    pub created_at: String,
+    pub expires_at: String,
+}
+
+impl<'de> serde::Deserialize<'de> for ActionRequestEnvelopeV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/action-request-envelope/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/action-request-envelope/v1","title":"ActionRequestEnvelope","description":"Immutable proposal envelope for one Authority Gateway mediated action. It declares requirements and evidence obligations but grants no authority and invokes nothing.","x-ioi-schema-version":"ioi.components.daemon-runtime.action-request-envelope.v1","type":"object","additionalProperties":false,"required":["schema_version","action_request_ref","request_revision","request_hash","authority_gateway_profile_ref","authority_gateway_profile_hash","source_adapter","proposed_action","risk_class","primitive_capabilities_required","authority_scopes_required","policy_decision","subject_refs","receipt_obligations","created_at","expires_at"],"properties":{"schema_version":{"const":"ioi.components.daemon-runtime.action-request-envelope.v1"},"action_request_ref":{"$ref":"#/$defs/actionRequestRef"},"request_revision":{"$ref":"#/$defs/positiveInteger"},"request_hash":{"$ref":"#/$defs/hash"},"authority_gateway_profile_ref":{"$ref":"#/$defs/gatewayProfileRef"},"authority_gateway_profile_hash":{"$ref":"#/$defs/hash"},"source_adapter":{"$ref":"#/$defs/sourceAdapter"},"proposed_action":{"$ref":"#/$defs/proposedAction"},"risk_class":{"enum":["informational","local_mutation","external_effect","system_destructive","secret_access","financial"]},"primitive_capabilities_required":{"type":"array","items":{"$ref":"#/$defs/primitiveCapability"},"maxItems":32,"uniqueItems":true},"authority_scopes_required":{"type":"array","items":{"$ref":"#/$defs/authorityScope"},"maxItems":32,"uniqueItems":true},"policy_decision":{"$ref":"#/$defs/policyDecision"},"subject_refs":{"$ref":"#/$defs/subjectRefs"},"receipt_obligations":{"type":"array","items":{"$ref":"#/$defs/receiptObligation"},"minItems":3,"maxItems":16,"allOf":[{"contains":{"type":"object","properties":{"receipt_type":{"const":"gateway_decision"}},"required":["receipt_type"]}},{"contains":{"type":"object","properties":{"receipt_type":{"const":"gateway_execution"}},"required":["receipt_type"]}},{"contains":{"type":"object","properties":{"receipt_type":{"const":"gateway_artifact"}},"required":["receipt_type"]}}]},"created_at":{"$ref":"#/$defs/dateTime"},"expires_at":{"$ref":"#/$defs/dateTime"}},"$defs":{"sourceAdapter":{"type":"object","additionalProperties":false,"required":["adapter_ref","adapter_revision","adapter_kind","implementation_ref","deployment_profile_ref"],"properties":{"adapter_ref":{"type":"string","pattern":"^adapter://[^\\s]{1,500}$"},"adapter_revision":{"type":"string","minLength":1,"maxLength":128},"adapter_kind":{"enum":["ide_extension","cli_wrapper","mcp_gateway","shell_wrapper","git_hook","workspace_watcher","api_proxy","browser_adapter","hosted_agent_gateway","ci_gate"]},"implementation_ref":{"$ref":"#/$defs/artifactRef"},"deployment_profile_ref":{"type":"string","pattern":"^deployment-profile://[^\\s]{1,500}$"}}},"proposedAction":{"type":"object","additionalProperties":false,"required":["action_class","operation","summary","input_commitment","target_refs","external_effect","proposed_effect_ref","proposed_effect_hash"],"properties":{"action_class":{"enum":["shell","file","git","mcp_tool","api","browser","deploy","secret","connector","provider"]},"operation":{"type":"string","pattern":"^[a-z][a-z0-9._-]{0,127}$"},"summary":{"type":"string","minLength":1,"maxLength":2048},"input_commitment":{"$ref":"#/$defs/hash"},"target_refs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"minItems":1,"maxItems":32,"uniqueItems":true},"external_effect":{"type":"boolean"},"proposed_effect_ref":{"oneOf":[{"type":"string","pattern":"^effect://[^\\s]{1,500}$"},{"type":"null"}]},"proposed_effect_hash":{"oneOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]}},"allOf":[{"if":{"properties":{"external_effect":{"const":true}},"required":["external_effect"]},"then":{"properties":{"proposed_effect_ref":{"type":"string","pattern":"^effect://[^\\s]{1,500}$"},"proposed_effect_hash":{"$ref":"#/$defs/hash"}}},"else":{"properties":{"proposed_effect_ref":{"type":"null"},"proposed_effect_hash":{"type":"null"}}}}]},"policyDecision":{"type":"object","additionalProperties":false,"required":["status","decision_receipt_ref","policy_ref","policy_hash","decided_at"],"properties":{"status":{"enum":["pending","allowed","denied","requires_approval","transform_required"]},"decision_receipt_ref":{"oneOf":[{"$ref":"#/$defs/receiptRef"},{"type":"null"}]},"policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"policy_hash":{"$ref":"#/$defs/hash"},"decided_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}},"allOf":[{"if":{"properties":{"status":{"const":"pending"}},"required":["status"]},"then":{"properties":{"decision_receipt_ref":{"type":"null"},"decided_at":{"type":"null"}}},"else":{"properties":{"decision_receipt_ref":{"$ref":"#/$defs/receiptRef"},"decided_at":{"$ref":"#/$defs/dateTime"}}}}]},"subjectRefs":{"type":"object","additionalProperties":false,"required":["session_ref","goal_ref","work_run_ref","work_item_ref"],"properties":{"session_ref":{"oneOf":[{"type":"string","pattern":"^session://[^\\s]{1,500}$"},{"type":"null"}]},"goal_ref":{"oneOf":[{"type":"string","pattern":"^goal://[^\\s]{1,500}$"},{"type":"null"}]},"work_run_ref":{"oneOf":[{"type":"string","pattern":"^work_run://[^\\s]{1,500}$"},{"type":"null"}]},"work_item_ref":{"oneOf":[{"type":"string","pattern":"^work_item://[^\\s]{1,500}$"},{"type":"null"}]}}},"receiptObligation":{"type":"object","additionalProperties":false,"required":["obligation_id","boundary_event","receipt_type","receipt_profile_ref","bound_fact_requirement_refs","required"],"properties":{"obligation_id":{"type":"string","pattern":"^[a-z][a-z0-9._-]{0,127}$"},"boundary_event":{"enum":["decision","execution","artifact"]},"receipt_type":{"enum":["gateway_decision","gateway_execution","gateway_artifact"]},"receipt_profile_ref":{"enum":["schema://ioi/components/daemon-runtime/gateway-decision-receipt/v1","schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1","schema://ioi/components/daemon-runtime/gateway-artifact-receipt/v1"]},"bound_fact_requirement_refs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"maxItems":32,"uniqueItems":true},"required":{"const":true}}},"positiveInteger":{"type":"integer","minimum":1,"maximum":9007199254740991},"actionRequestRef":{"type":"string","pattern":"^action-request://[^\\s]{1,500}$"},"gatewayProfileRef":{"type":"string","pattern":"^authority-gateway://[^\\s]{1,500}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,500}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"primitiveCapability":{"type":"string","pattern":"^prim:[a-z][a-z0-9._-]*$"},"authorityScope":{"type":"string","pattern":"^scope:[a-z][a-z0-9._-]*$"},"hash":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},"dateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<ActionRequestEnvelopeV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            action_request_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"action_request_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"action_request_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            request_revision: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"request_revision"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"request_revision"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            request_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"request_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"request_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_gateway_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"authority_gateway_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"authority_gateway_profile_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_gateway_profile_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"authority_gateway_profile_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"authority_gateway_profile_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_adapter: serde_json::from_value::<ActionRequestEnvelopeV1SourceAdapter>(
+                object
+                    .remove(r#"source_adapter"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_adapter"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposed_action: serde_json::from_value::<ActionRequestEnvelopeV1ProposedAction>(
+                object
+                    .remove(r#"proposed_action"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"proposed_action"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            risk_class: serde_json::from_value::<ActionRequestEnvelopeV1RiskClass>(
+                object
+                    .remove(r#"risk_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"risk_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            primitive_capabilities_required: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"primitive_capabilities_required"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"primitive_capabilities_required"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_scopes_required: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"authority_scopes_required"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"authority_scopes_required"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_decision: serde_json::from_value::<ActionRequestEnvelopeV1PolicyDecision>(
+                object
+                    .remove(r#"policy_decision"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_decision"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            subject_refs: serde_json::from_value::<ActionRequestEnvelopeV1SubjectRefs>(
+                object
+                    .remove(r#"subject_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"subject_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_obligations: serde_json::from_value::<
+                Vec<ActionRequestEnvelopeV1ReceiptObligationsItem>,
+            >(
+                object
+                    .remove(r#"receipt_obligations"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_obligations"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"created_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"created_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            expires_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"expires_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"expires_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ActionRequestEnvelopeV1SchemaVersion {
+    #[serde(rename = r#"ioi.components.daemon-runtime.action-request-envelope.v1"#)]
+    IoiComponentsDaemonRuntimeActionRequestEnvelopeV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ActionRequestEnvelopeV1SourceAdapter {
+    pub adapter_ref: String,
+    pub adapter_revision: String,
+    pub adapter_kind: ActionRequestEnvelopeV1SourceAdapterAdapterKind,
+    pub implementation_ref: String,
+    pub deployment_profile_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for ActionRequestEnvelopeV1SourceAdapter {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/action-request-envelope/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["adapter_ref","adapter_revision","adapter_kind","implementation_ref","deployment_profile_ref"],"properties":{"adapter_ref":{"type":"string","pattern":"^adapter://[^\\s]{1,500}$"},"adapter_revision":{"type":"string","minLength":1,"maxLength":128},"adapter_kind":{"enum":["ide_extension","cli_wrapper","mcp_gateway","shell_wrapper","git_hook","workspace_watcher","api_proxy","browser_adapter","hosted_agent_gateway","ci_gate"]},"implementation_ref":{"$ref":"#/$defs/artifactRef"},"deployment_profile_ref":{"type":"string","pattern":"^deployment-profile://[^\\s]{1,500}$"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            adapter_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"adapter_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"adapter_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            adapter_revision: serde_json::from_value::<String>(
+                object
+                    .remove(r#"adapter_revision"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"adapter_revision"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            adapter_kind:
+                serde_json::from_value::<ActionRequestEnvelopeV1SourceAdapterAdapterKind>(
+                    object
+                        .remove(r#"adapter_kind"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"adapter_kind"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            implementation_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"implementation_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"implementation_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            deployment_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"deployment_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"deployment_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ActionRequestEnvelopeV1SourceAdapterAdapterKind {
+    #[serde(rename = r#"ide_extension"#)]
+    IdeExtension,
+    #[serde(rename = r#"cli_wrapper"#)]
+    CliWrapper,
+    #[serde(rename = r#"mcp_gateway"#)]
+    McpGateway,
+    #[serde(rename = r#"shell_wrapper"#)]
+    ShellWrapper,
+    #[serde(rename = r#"git_hook"#)]
+    GitHook,
+    #[serde(rename = r#"workspace_watcher"#)]
+    WorkspaceWatcher,
+    #[serde(rename = r#"api_proxy"#)]
+    ApiProxy,
+    #[serde(rename = r#"browser_adapter"#)]
+    BrowserAdapter,
+    #[serde(rename = r#"hosted_agent_gateway"#)]
+    HostedAgentGateway,
+    #[serde(rename = r#"ci_gate"#)]
+    CiGate,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ActionRequestEnvelopeV1ProposedAction {
+    pub action_class: ActionRequestEnvelopeV1ProposedActionActionClass,
+    pub operation: String,
+    pub summary: String,
+    pub input_commitment: String,
+    pub target_refs: Vec<String>,
+    pub external_effect: bool,
+    pub proposed_effect_ref: Option<String>,
+    pub proposed_effect_hash: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for ActionRequestEnvelopeV1ProposedAction {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/action-request-envelope/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["action_class","operation","summary","input_commitment","target_refs","external_effect","proposed_effect_ref","proposed_effect_hash"],"properties":{"action_class":{"enum":["shell","file","git","mcp_tool","api","browser","deploy","secret","connector","provider"]},"operation":{"type":"string","pattern":"^[a-z][a-z0-9._-]{0,127}$"},"summary":{"type":"string","minLength":1,"maxLength":2048},"input_commitment":{"$ref":"#/$defs/hash"},"target_refs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"minItems":1,"maxItems":32,"uniqueItems":true},"external_effect":{"type":"boolean"},"proposed_effect_ref":{"oneOf":[{"type":"string","pattern":"^effect://[^\\s]{1,500}$"},{"type":"null"}]},"proposed_effect_hash":{"oneOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]}},"allOf":[{"if":{"properties":{"external_effect":{"const":true}},"required":["external_effect"]},"then":{"properties":{"proposed_effect_ref":{"type":"string","pattern":"^effect://[^\\s]{1,500}$"},"proposed_effect_hash":{"$ref":"#/$defs/hash"}}},"else":{"properties":{"proposed_effect_ref":{"type":"null"},"proposed_effect_hash":{"type":"null"}}}}]}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            action_class:
+                serde_json::from_value::<ActionRequestEnvelopeV1ProposedActionActionClass>(
+                    object
+                        .remove(r#"action_class"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"action_class"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            operation: serde_json::from_value::<String>(
+                object
+                    .remove(r#"operation"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"operation"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            summary: serde_json::from_value::<String>(
+                object
+                    .remove(r#"summary"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"summary"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            input_commitment: serde_json::from_value::<String>(
+                object
+                    .remove(r#"input_commitment"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"input_commitment"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            target_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"target_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"target_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            external_effect: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"external_effect"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"external_effect"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposed_effect_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"proposed_effect_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"proposed_effect_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposed_effect_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"proposed_effect_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"proposed_effect_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ActionRequestEnvelopeV1ProposedActionActionClass {
+    #[serde(rename = r#"shell"#)]
+    Shell,
+    #[serde(rename = r#"file"#)]
+    File,
+    #[serde(rename = r#"git"#)]
+    Git,
+    #[serde(rename = r#"mcp_tool"#)]
+    McpTool,
+    #[serde(rename = r#"api"#)]
+    Api,
+    #[serde(rename = r#"browser"#)]
+    Browser,
+    #[serde(rename = r#"deploy"#)]
+    Deploy,
+    #[serde(rename = r#"secret"#)]
+    Secret,
+    #[serde(rename = r#"connector"#)]
+    Connector,
+    #[serde(rename = r#"provider"#)]
+    Provider,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ActionRequestEnvelopeV1RiskClass {
+    #[serde(rename = r#"informational"#)]
+    Informational,
+    #[serde(rename = r#"local_mutation"#)]
+    LocalMutation,
+    #[serde(rename = r#"external_effect"#)]
+    ExternalEffect,
+    #[serde(rename = r#"system_destructive"#)]
+    SystemDestructive,
+    #[serde(rename = r#"secret_access"#)]
+    SecretAccess,
+    #[serde(rename = r#"financial"#)]
+    Financial,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ActionRequestEnvelopeV1PolicyDecision {
+    pub status: ActionRequestEnvelopeV1PolicyDecisionStatus,
+    pub decision_receipt_ref: Option<String>,
+    pub policy_ref: String,
+    pub policy_hash: String,
+    pub decided_at: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for ActionRequestEnvelopeV1PolicyDecision {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/action-request-envelope/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["status","decision_receipt_ref","policy_ref","policy_hash","decided_at"],"properties":{"status":{"enum":["pending","allowed","denied","requires_approval","transform_required"]},"decision_receipt_ref":{"oneOf":[{"$ref":"#/$defs/receiptRef"},{"type":"null"}]},"policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"policy_hash":{"$ref":"#/$defs/hash"},"decided_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}},"allOf":[{"if":{"properties":{"status":{"const":"pending"}},"required":["status"]},"then":{"properties":{"decision_receipt_ref":{"type":"null"},"decided_at":{"type":"null"}}},"else":{"properties":{"decision_receipt_ref":{"$ref":"#/$defs/receiptRef"},"decided_at":{"$ref":"#/$defs/dateTime"}}}}]}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            status: serde_json::from_value::<ActionRequestEnvelopeV1PolicyDecisionStatus>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decision_receipt_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"decision_receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decision_receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"policy_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decided_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"decided_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decided_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ActionRequestEnvelopeV1PolicyDecisionStatus {
+    #[serde(rename = r#"pending"#)]
+    Pending,
+    #[serde(rename = r#"allowed"#)]
+    Allowed,
+    #[serde(rename = r#"denied"#)]
+    Denied,
+    #[serde(rename = r#"requires_approval"#)]
+    RequiresApproval,
+    #[serde(rename = r#"transform_required"#)]
+    TransformRequired,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ActionRequestEnvelopeV1SubjectRefs {
+    pub session_ref: Option<String>,
+    pub goal_ref: Option<String>,
+    pub work_run_ref: Option<String>,
+    pub work_item_ref: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for ActionRequestEnvelopeV1SubjectRefs {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/action-request-envelope/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["session_ref","goal_ref","work_run_ref","work_item_ref"],"properties":{"session_ref":{"oneOf":[{"type":"string","pattern":"^session://[^\\s]{1,500}$"},{"type":"null"}]},"goal_ref":{"oneOf":[{"type":"string","pattern":"^goal://[^\\s]{1,500}$"},{"type":"null"}]},"work_run_ref":{"oneOf":[{"type":"string","pattern":"^work_run://[^\\s]{1,500}$"},{"type":"null"}]},"work_item_ref":{"oneOf":[{"type":"string","pattern":"^work_item://[^\\s]{1,500}$"},{"type":"null"}]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            session_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"session_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"session_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            goal_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"goal_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"goal_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            work_run_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"work_run_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"work_run_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            work_item_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"work_item_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"work_item_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ActionRequestEnvelopeV1ReceiptObligationsItem {
+    pub obligation_id: String,
+    pub boundary_event: ActionRequestEnvelopeV1ReceiptObligationsItemBoundaryEvent,
+    pub receipt_type: ActionRequestEnvelopeV1ReceiptObligationsItemReceiptType,
+    pub receipt_profile_ref: ActionRequestEnvelopeV1ReceiptObligationsItemReceiptProfileRef,
+    pub bound_fact_requirement_refs: Vec<String>,
+    pub required: ActionRequestEnvelopeV1ReceiptObligationsItemRequired,
+}
+
+impl<'de> serde::Deserialize<'de> for ActionRequestEnvelopeV1ReceiptObligationsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/action-request-envelope/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["obligation_id","boundary_event","receipt_type","receipt_profile_ref","bound_fact_requirement_refs","required"],"properties":{"obligation_id":{"type":"string","pattern":"^[a-z][a-z0-9._-]{0,127}$"},"boundary_event":{"enum":["decision","execution","artifact"]},"receipt_type":{"enum":["gateway_decision","gateway_execution","gateway_artifact"]},"receipt_profile_ref":{"enum":["schema://ioi/components/daemon-runtime/gateway-decision-receipt/v1","schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1","schema://ioi/components/daemon-runtime/gateway-artifact-receipt/v1"]},"bound_fact_requirement_refs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"maxItems":32,"uniqueItems":true},"required":{"const":true}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            obligation_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"obligation_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"obligation_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            boundary_event: serde_json::from_value::<
+                ActionRequestEnvelopeV1ReceiptObligationsItemBoundaryEvent,
+            >(
+                object
+                    .remove(r#"boundary_event"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"boundary_event"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_type: serde_json::from_value::<
+                ActionRequestEnvelopeV1ReceiptObligationsItemReceiptType,
+            >(
+                object
+                    .remove(r#"receipt_type"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_type"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_profile_ref: serde_json::from_value::<
+                ActionRequestEnvelopeV1ReceiptObligationsItemReceiptProfileRef,
+            >(
+                object
+                    .remove(r#"receipt_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            bound_fact_requirement_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"bound_fact_requirement_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"bound_fact_requirement_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            required:
+                serde_json::from_value::<ActionRequestEnvelopeV1ReceiptObligationsItemRequired>(
+                    object
+                        .remove(r#"required"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"required"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ActionRequestEnvelopeV1ReceiptObligationsItemBoundaryEvent {
+    #[serde(rename = r#"decision"#)]
+    Decision,
+    #[serde(rename = r#"execution"#)]
+    Execution,
+    #[serde(rename = r#"artifact"#)]
+    Artifact,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ActionRequestEnvelopeV1ReceiptObligationsItemReceiptType {
+    #[serde(rename = r#"gateway_decision"#)]
+    GatewayDecision,
+    #[serde(rename = r#"gateway_execution"#)]
+    GatewayExecution,
+    #[serde(rename = r#"gateway_artifact"#)]
+    GatewayArtifact,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ActionRequestEnvelopeV1ReceiptObligationsItemReceiptProfileRef {
+    #[serde(rename = r#"schema://ioi/components/daemon-runtime/gateway-decision-receipt/v1"#)]
+    SchemaIoiComponentsDaemonRuntimeGatewayDecisionReceiptV1,
+    #[serde(rename = r#"schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1"#)]
+    SchemaIoiComponentsDaemonRuntimeGatewayExecutionReceiptV1,
+    #[serde(rename = r#"schema://ioi/components/daemon-runtime/gateway-artifact-receipt/v1"#)]
+    SchemaIoiComponentsDaemonRuntimeGatewayArtifactReceiptV1,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ActionRequestEnvelopeV1ReceiptObligationsItemRequired {
+    True,
+}
+
+impl serde::Serialize for ActionRequestEnvelopeV1ReceiptObligationsItemRequired {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for ActionRequestEnvelopeV1ReceiptObligationsItemRequired {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct AgentHarnessAdapterV1 {
     pub schema_version: AgentHarnessAdapterV1SchemaVersion,
     pub adapter_id: String,
@@ -14316,6 +14942,606 @@ impl<'de> serde::Deserialize<'de> for AuthorityEffectAdmissionReceiptV2BodyInvok
             ))
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AuthorityGatewayProfileV1 {
+    pub schema_version: AuthorityGatewayProfileV1SchemaVersion,
+    pub profile_ref: String,
+    pub profile_revision: ArchitectureContractInteger,
+    pub profile_hash: String,
+    pub predecessor_profile_hash: Option<String>,
+    pub declaration: AuthorityGatewayProfileV1Declaration,
+    pub grants_authority: AuthorityGatewayProfileV1GrantsAuthority,
+    pub status: AuthorityGatewayProfileV1Status,
+    pub created_at: String,
+    pub valid_until: String,
+}
+
+impl<'de> serde::Deserialize<'de> for AuthorityGatewayProfileV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/authority-gateway-profile/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/authority-gateway-profile/v1","title":"AuthorityGatewayProfile","description":"Immutable compatibility-adapter profile for one Authority Gateway deployment. The profile declares mediation posture and requirements but grants no authority, admission, execution, or truth.","x-ioi-schema-version":"ioi.components.daemon-runtime.authority-gateway-profile.v1","type":"object","additionalProperties":false,"required":["schema_version","profile_ref","profile_revision","profile_hash","predecessor_profile_hash","declaration","grants_authority","status","created_at","valid_until"],"properties":{"schema_version":{"const":"ioi.components.daemon-runtime.authority-gateway-profile.v1"},"profile_ref":{"$ref":"#/$defs/gatewayProfileRef"},"profile_revision":{"$ref":"#/$defs/positiveInteger"},"profile_hash":{"$ref":"#/$defs/hash"},"predecessor_profile_hash":{"oneOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"declaration":{"$ref":"#/$defs/declaration"},"grants_authority":{"const":false},"status":{"enum":["declared","superseded","quarantined","revoked","expired"]},"created_at":{"$ref":"#/$defs/dateTime"},"valid_until":{"$ref":"#/$defs/dateTime"}},"$defs":{"declaration":{"type":"object","additionalProperties":false,"required":["adapter","action_surfaces","subject_kinds","policy_enforcement_point_ref","authority_provider_ref","failure_posture","required_enforcement_scope_refs","run_on_graduation"],"properties":{"adapter":{"$ref":"#/$defs/adapter"},"action_surfaces":{"type":"array","items":{"$ref":"#/$defs/actionSurface"},"minItems":1,"maxItems":32},"subject_kinds":{"type":"array","items":{"enum":["unattached","session","goal","work_run","work_item"]},"minItems":1,"maxItems":5,"uniqueItems":true},"policy_enforcement_point_ref":{"type":"string","pattern":"^runtime://[^\\s]{1,500}$"},"authority_provider_ref":{"type":"string","pattern":"^authority-provider://[^\\s]{1,500}$"},"failure_posture":{"enum":["fail_closed","audit_only","queue_without_authority"]},"required_enforcement_scope_refs":{"type":"array","items":{"type":"string","pattern":"^enforcement-scope://[^\\s]{1,500}$"},"minItems":1,"maxItems":64,"uniqueItems":true},"run_on_graduation":{"$ref":"#/$defs/runOnGraduation"}}},"adapter":{"type":"object","additionalProperties":false,"required":["adapter_ref","adapter_revision","adapter_kind","implementation_ref","deployment_profile_ref"],"properties":{"adapter_ref":{"type":"string","pattern":"^adapter://[^\\s]{1,500}$"},"adapter_revision":{"type":"string","minLength":1,"maxLength":128},"adapter_kind":{"enum":["ide_extension","cli_wrapper","mcp_gateway","shell_wrapper","git_hook","workspace_watcher","api_proxy","browser_adapter","hosted_agent_gateway","ci_gate"]},"implementation_ref":{"$ref":"#/$defs/artifactRef"},"deployment_profile_ref":{"type":"string","pattern":"^deployment-profile://[^\\s]{1,500}$"}}},"actionSurface":{"type":"object","additionalProperties":false,"required":["surface","action_classes","mediation_mode","primitive_capabilities","authority_scopes","final_invoker_ref","receipt_profile_refs"],"properties":{"surface":{"enum":["ide","cli","mcp","shell","git","workspace","api","browser","hosted_agent","ci"]},"action_classes":{"type":"array","items":{"enum":["shell","file","git","mcp_tool","api","browser","deploy","secret","connector","provider"]},"minItems":1,"maxItems":10,"uniqueItems":true},"mediation_mode":{"enum":["active_pre_effect","audit_only","receipt_ingestion_only","uncovered"]},"primitive_capabilities":{"type":"array","items":{"$ref":"#/$defs/primitiveCapability"},"maxItems":32,"uniqueItems":true},"authority_scopes":{"type":"array","items":{"$ref":"#/$defs/authorityScope"},"maxItems":32,"uniqueItems":true},"final_invoker_ref":{"type":"string","pattern":"^(?:runtime|application|adapter)://[^\\s]{1,500}$"},"receipt_profile_refs":{"type":"array","items":{"enum":["schema://ioi/components/daemon-runtime/gateway-decision-receipt/v1","schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1","schema://ioi/components/daemon-runtime/gateway-artifact-receipt/v1"]},"minItems":1,"maxItems":3,"uniqueItems":true}},"allOf":[{"if":{"properties":{"mediation_mode":{"const":"active_pre_effect"}},"required":["mediation_mode"]},"then":{"properties":{"final_invoker_ref":{"type":"string","pattern":"^runtime://[^\\s]{1,500}$"},"receipt_profile_refs":{"type":"array","allOf":[{"contains":{"const":"schema://ioi/components/daemon-runtime/gateway-decision-receipt/v1"}},{"contains":{"const":"schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1"}}]}}}},{"if":{"properties":{"mediation_mode":{"enum":["audit_only","receipt_ingestion_only","uncovered"]}},"required":["mediation_mode"]},"then":{"properties":{"authority_scopes":{"type":"array","maxItems":0}}}}]},"runOnGraduation":{"type":"object","additionalProperties":false,"required":["agent_harness_adapter_ref","activation_source_kind","implicit_scope_carryover"],"properties":{"agent_harness_adapter_ref":{"oneOf":[{"type":"string","pattern":"^adapter://[^\\s]{1,500}$"},{"type":"null"}]},"activation_source_kind":{"const":"gateway_adapter_context"},"implicit_scope_carryover":{"const":false}}},"positiveInteger":{"type":"integer","minimum":1,"maximum":9007199254740991},"gatewayProfileRef":{"type":"string","pattern":"^authority-gateway://[^\\s]{1,500}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,500}$"},"primitiveCapability":{"type":"string","pattern":"^prim:[a-z][a-z0-9._-]*$"},"authorityScope":{"type":"string","pattern":"^scope:[a-z][a-z0-9._-]*$"},"hash":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},"dateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<AuthorityGatewayProfileV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            profile_revision: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"profile_revision"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"profile_revision"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            profile_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"profile_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"profile_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_profile_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_profile_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_profile_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            declaration: serde_json::from_value::<AuthorityGatewayProfileV1Declaration>(
+                object
+                    .remove(r#"declaration"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"declaration"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            grants_authority: serde_json::from_value::<AuthorityGatewayProfileV1GrantsAuthority>(
+                object
+                    .remove(r#"grants_authority"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"grants_authority"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<AuthorityGatewayProfileV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"created_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"created_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            valid_until: serde_json::from_value::<String>(
+                object
+                    .remove(r#"valid_until"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"valid_until"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityGatewayProfileV1SchemaVersion {
+    #[serde(rename = r#"ioi.components.daemon-runtime.authority-gateway-profile.v1"#)]
+    IoiComponentsDaemonRuntimeAuthorityGatewayProfileV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AuthorityGatewayProfileV1Declaration {
+    pub adapter: AuthorityGatewayProfileV1DeclarationAdapter,
+    pub action_surfaces: Vec<AuthorityGatewayProfileV1DeclarationActionSurfacesItem>,
+    pub subject_kinds: Vec<AuthorityGatewayProfileV1DeclarationSubjectKindsItem>,
+    pub policy_enforcement_point_ref: String,
+    pub authority_provider_ref: String,
+    pub failure_posture: AuthorityGatewayProfileV1DeclarationFailurePosture,
+    pub required_enforcement_scope_refs: Vec<String>,
+    pub run_on_graduation: AuthorityGatewayProfileV1DeclarationRunOnGraduation,
+}
+
+impl<'de> serde::Deserialize<'de> for AuthorityGatewayProfileV1Declaration {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/authority-gateway-profile/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["adapter","action_surfaces","subject_kinds","policy_enforcement_point_ref","authority_provider_ref","failure_posture","required_enforcement_scope_refs","run_on_graduation"],"properties":{"adapter":{"$ref":"#/$defs/adapter"},"action_surfaces":{"type":"array","items":{"$ref":"#/$defs/actionSurface"},"minItems":1,"maxItems":32},"subject_kinds":{"type":"array","items":{"enum":["unattached","session","goal","work_run","work_item"]},"minItems":1,"maxItems":5,"uniqueItems":true},"policy_enforcement_point_ref":{"type":"string","pattern":"^runtime://[^\\s]{1,500}$"},"authority_provider_ref":{"type":"string","pattern":"^authority-provider://[^\\s]{1,500}$"},"failure_posture":{"enum":["fail_closed","audit_only","queue_without_authority"]},"required_enforcement_scope_refs":{"type":"array","items":{"type":"string","pattern":"^enforcement-scope://[^\\s]{1,500}$"},"minItems":1,"maxItems":64,"uniqueItems":true},"run_on_graduation":{"$ref":"#/$defs/runOnGraduation"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            adapter: serde_json::from_value::<AuthorityGatewayProfileV1DeclarationAdapter>(
+                object
+                    .remove(r#"adapter"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"adapter"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            action_surfaces: serde_json::from_value::<
+                Vec<AuthorityGatewayProfileV1DeclarationActionSurfacesItem>,
+            >(
+                object
+                    .remove(r#"action_surfaces"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"action_surfaces"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            subject_kinds: serde_json::from_value::<
+                Vec<AuthorityGatewayProfileV1DeclarationSubjectKindsItem>,
+            >(
+                object
+                    .remove(r#"subject_kinds"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"subject_kinds"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_enforcement_point_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"policy_enforcement_point_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"policy_enforcement_point_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_provider_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"authority_provider_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_provider_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            failure_posture: serde_json::from_value::<
+                AuthorityGatewayProfileV1DeclarationFailurePosture,
+            >(
+                object
+                    .remove(r#"failure_posture"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"failure_posture"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            required_enforcement_scope_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"required_enforcement_scope_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"required_enforcement_scope_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            run_on_graduation: serde_json::from_value::<
+                AuthorityGatewayProfileV1DeclarationRunOnGraduation,
+            >(
+                object
+                    .remove(r#"run_on_graduation"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"run_on_graduation"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AuthorityGatewayProfileV1DeclarationAdapter {
+    pub adapter_ref: String,
+    pub adapter_revision: String,
+    pub adapter_kind: AuthorityGatewayProfileV1DeclarationAdapterAdapterKind,
+    pub implementation_ref: String,
+    pub deployment_profile_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for AuthorityGatewayProfileV1DeclarationAdapter {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/authority-gateway-profile/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["adapter_ref","adapter_revision","adapter_kind","implementation_ref","deployment_profile_ref"],"properties":{"adapter_ref":{"type":"string","pattern":"^adapter://[^\\s]{1,500}$"},"adapter_revision":{"type":"string","minLength":1,"maxLength":128},"adapter_kind":{"enum":["ide_extension","cli_wrapper","mcp_gateway","shell_wrapper","git_hook","workspace_watcher","api_proxy","browser_adapter","hosted_agent_gateway","ci_gate"]},"implementation_ref":{"$ref":"#/$defs/artifactRef"},"deployment_profile_ref":{"type":"string","pattern":"^deployment-profile://[^\\s]{1,500}$"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            adapter_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"adapter_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"adapter_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            adapter_revision: serde_json::from_value::<String>(
+                object
+                    .remove(r#"adapter_revision"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"adapter_revision"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            adapter_kind: serde_json::from_value::<
+                AuthorityGatewayProfileV1DeclarationAdapterAdapterKind,
+            >(
+                object
+                    .remove(r#"adapter_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"adapter_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            implementation_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"implementation_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"implementation_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            deployment_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"deployment_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"deployment_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityGatewayProfileV1DeclarationAdapterAdapterKind {
+    #[serde(rename = r#"ide_extension"#)]
+    IdeExtension,
+    #[serde(rename = r#"cli_wrapper"#)]
+    CliWrapper,
+    #[serde(rename = r#"mcp_gateway"#)]
+    McpGateway,
+    #[serde(rename = r#"shell_wrapper"#)]
+    ShellWrapper,
+    #[serde(rename = r#"git_hook"#)]
+    GitHook,
+    #[serde(rename = r#"workspace_watcher"#)]
+    WorkspaceWatcher,
+    #[serde(rename = r#"api_proxy"#)]
+    ApiProxy,
+    #[serde(rename = r#"browser_adapter"#)]
+    BrowserAdapter,
+    #[serde(rename = r#"hosted_agent_gateway"#)]
+    HostedAgentGateway,
+    #[serde(rename = r#"ci_gate"#)]
+    CiGate,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AuthorityGatewayProfileV1DeclarationActionSurfacesItem {
+    pub surface: AuthorityGatewayProfileV1DeclarationActionSurfacesItemSurface,
+    pub action_classes:
+        Vec<AuthorityGatewayProfileV1DeclarationActionSurfacesItemActionClassesItem>,
+    pub mediation_mode: AuthorityGatewayProfileV1DeclarationActionSurfacesItemMediationMode,
+    pub primitive_capabilities: Vec<String>,
+    pub authority_scopes: Vec<String>,
+    pub final_invoker_ref: String,
+    pub receipt_profile_refs:
+        Vec<AuthorityGatewayProfileV1DeclarationActionSurfacesItemReceiptProfileRefsItem>,
+}
+
+impl<'de> serde::Deserialize<'de> for AuthorityGatewayProfileV1DeclarationActionSurfacesItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/authority-gateway-profile/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["surface","action_classes","mediation_mode","primitive_capabilities","authority_scopes","final_invoker_ref","receipt_profile_refs"],"properties":{"surface":{"enum":["ide","cli","mcp","shell","git","workspace","api","browser","hosted_agent","ci"]},"action_classes":{"type":"array","items":{"enum":["shell","file","git","mcp_tool","api","browser","deploy","secret","connector","provider"]},"minItems":1,"maxItems":10,"uniqueItems":true},"mediation_mode":{"enum":["active_pre_effect","audit_only","receipt_ingestion_only","uncovered"]},"primitive_capabilities":{"type":"array","items":{"$ref":"#/$defs/primitiveCapability"},"maxItems":32,"uniqueItems":true},"authority_scopes":{"type":"array","items":{"$ref":"#/$defs/authorityScope"},"maxItems":32,"uniqueItems":true},"final_invoker_ref":{"type":"string","pattern":"^(?:runtime|application|adapter)://[^\\s]{1,500}$"},"receipt_profile_refs":{"type":"array","items":{"enum":["schema://ioi/components/daemon-runtime/gateway-decision-receipt/v1","schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1","schema://ioi/components/daemon-runtime/gateway-artifact-receipt/v1"]},"minItems":1,"maxItems":3,"uniqueItems":true}},"allOf":[{"if":{"properties":{"mediation_mode":{"const":"active_pre_effect"}},"required":["mediation_mode"]},"then":{"properties":{"final_invoker_ref":{"type":"string","pattern":"^runtime://[^\\s]{1,500}$"},"receipt_profile_refs":{"type":"array","allOf":[{"contains":{"const":"schema://ioi/components/daemon-runtime/gateway-decision-receipt/v1"}},{"contains":{"const":"schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1"}}]}}}},{"if":{"properties":{"mediation_mode":{"enum":["audit_only","receipt_ingestion_only","uncovered"]}},"required":["mediation_mode"]},"then":{"properties":{"authority_scopes":{"type":"array","maxItems":0}}}}]}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            surface: serde_json::from_value::<
+                AuthorityGatewayProfileV1DeclarationActionSurfacesItemSurface,
+            >(
+                object
+                    .remove(r#"surface"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"surface"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            action_classes: serde_json::from_value::<
+                Vec<AuthorityGatewayProfileV1DeclarationActionSurfacesItemActionClassesItem>,
+            >(
+                object
+                    .remove(r#"action_classes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"action_classes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            mediation_mode: serde_json::from_value::<
+                AuthorityGatewayProfileV1DeclarationActionSurfacesItemMediationMode,
+            >(
+                object
+                    .remove(r#"mediation_mode"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"mediation_mode"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            primitive_capabilities: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"primitive_capabilities"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"primitive_capabilities"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_scopes: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"authority_scopes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_scopes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            final_invoker_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"final_invoker_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"final_invoker_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_profile_refs: serde_json::from_value::<
+                Vec<AuthorityGatewayProfileV1DeclarationActionSurfacesItemReceiptProfileRefsItem>,
+            >(
+                object
+                    .remove(r#"receipt_profile_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_profile_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityGatewayProfileV1DeclarationActionSurfacesItemSurface {
+    #[serde(rename = r#"ide"#)]
+    Ide,
+    #[serde(rename = r#"cli"#)]
+    Cli,
+    #[serde(rename = r#"mcp"#)]
+    Mcp,
+    #[serde(rename = r#"shell"#)]
+    Shell,
+    #[serde(rename = r#"git"#)]
+    Git,
+    #[serde(rename = r#"workspace"#)]
+    Workspace,
+    #[serde(rename = r#"api"#)]
+    Api,
+    #[serde(rename = r#"browser"#)]
+    Browser,
+    #[serde(rename = r#"hosted_agent"#)]
+    HostedAgent,
+    #[serde(rename = r#"ci"#)]
+    Ci,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityGatewayProfileV1DeclarationActionSurfacesItemActionClassesItem {
+    #[serde(rename = r#"shell"#)]
+    Shell,
+    #[serde(rename = r#"file"#)]
+    File,
+    #[serde(rename = r#"git"#)]
+    Git,
+    #[serde(rename = r#"mcp_tool"#)]
+    McpTool,
+    #[serde(rename = r#"api"#)]
+    Api,
+    #[serde(rename = r#"browser"#)]
+    Browser,
+    #[serde(rename = r#"deploy"#)]
+    Deploy,
+    #[serde(rename = r#"secret"#)]
+    Secret,
+    #[serde(rename = r#"connector"#)]
+    Connector,
+    #[serde(rename = r#"provider"#)]
+    Provider,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityGatewayProfileV1DeclarationActionSurfacesItemMediationMode {
+    #[serde(rename = r#"active_pre_effect"#)]
+    ActivePreEffect,
+    #[serde(rename = r#"audit_only"#)]
+    AuditOnly,
+    #[serde(rename = r#"receipt_ingestion_only"#)]
+    ReceiptIngestionOnly,
+    #[serde(rename = r#"uncovered"#)]
+    Uncovered,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityGatewayProfileV1DeclarationActionSurfacesItemReceiptProfileRefsItem {
+    #[serde(rename = r#"schema://ioi/components/daemon-runtime/gateway-decision-receipt/v1"#)]
+    SchemaIoiComponentsDaemonRuntimeGatewayDecisionReceiptV1,
+    #[serde(rename = r#"schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1"#)]
+    SchemaIoiComponentsDaemonRuntimeGatewayExecutionReceiptV1,
+    #[serde(rename = r#"schema://ioi/components/daemon-runtime/gateway-artifact-receipt/v1"#)]
+    SchemaIoiComponentsDaemonRuntimeGatewayArtifactReceiptV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityGatewayProfileV1DeclarationSubjectKindsItem {
+    #[serde(rename = r#"unattached"#)]
+    Unattached,
+    #[serde(rename = r#"session"#)]
+    Session,
+    #[serde(rename = r#"goal"#)]
+    Goal,
+    #[serde(rename = r#"work_run"#)]
+    WorkRun,
+    #[serde(rename = r#"work_item"#)]
+    WorkItem,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityGatewayProfileV1DeclarationFailurePosture {
+    #[serde(rename = r#"fail_closed"#)]
+    FailClosed,
+    #[serde(rename = r#"audit_only"#)]
+    AuditOnly,
+    #[serde(rename = r#"queue_without_authority"#)]
+    QueueWithoutAuthority,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AuthorityGatewayProfileV1DeclarationRunOnGraduation {
+    pub agent_harness_adapter_ref: Option<String>,
+    pub activation_source_kind:
+        AuthorityGatewayProfileV1DeclarationRunOnGraduationActivationSourceKind,
+    pub implicit_scope_carryover:
+        AuthorityGatewayProfileV1DeclarationRunOnGraduationImplicitScopeCarryover,
+}
+
+impl<'de> serde::Deserialize<'de> for AuthorityGatewayProfileV1DeclarationRunOnGraduation {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/authority-gateway-profile/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["agent_harness_adapter_ref","activation_source_kind","implicit_scope_carryover"],"properties":{"agent_harness_adapter_ref":{"oneOf":[{"type":"string","pattern":"^adapter://[^\\s]{1,500}$"},{"type":"null"}]},"activation_source_kind":{"const":"gateway_adapter_context"},"implicit_scope_carryover":{"const":false}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            agent_harness_adapter_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"agent_harness_adapter_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"agent_harness_adapter_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            activation_source_kind: serde_json::from_value::<
+                AuthorityGatewayProfileV1DeclarationRunOnGraduationActivationSourceKind,
+            >(
+                object
+                    .remove(r#"activation_source_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"activation_source_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            implicit_scope_carryover: serde_json::from_value::<
+                AuthorityGatewayProfileV1DeclarationRunOnGraduationImplicitScopeCarryover,
+            >(
+                object
+                    .remove(r#"implicit_scope_carryover"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"implicit_scope_carryover"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityGatewayProfileV1DeclarationRunOnGraduationActivationSourceKind {
+    #[serde(rename = r#"gateway_adapter_context"#)]
+    GatewayAdapterContext,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AuthorityGatewayProfileV1DeclarationRunOnGraduationImplicitScopeCarryover {
+    False,
+}
+
+impl serde::Serialize
+    for AuthorityGatewayProfileV1DeclarationRunOnGraduationImplicitScopeCarryover
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AuthorityGatewayProfileV1DeclarationRunOnGraduationImplicitScopeCarryover
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AuthorityGatewayProfileV1GrantsAuthority {
+    False,
+}
+
+impl serde::Serialize for AuthorityGatewayProfileV1GrantsAuthority {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for AuthorityGatewayProfileV1GrantsAuthority {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityGatewayProfileV1Status {
+    #[serde(rename = r#"declared"#)]
+    Declared,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+    #[serde(rename = r#"quarantined"#)]
+    Quarantined,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+    #[serde(rename = r#"expired"#)]
+    Expired,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
@@ -15753,6 +16979,629 @@ pub enum EnforcementCoverageDeclarationV1Status {
     Stale,
     #[serde(rename = r#"revoked"#)]
     Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct GatewayArtifactReceiptV1 {
+    pub schema_version: GatewayArtifactReceiptV1SchemaVersion,
+    pub receipt_ref: String,
+    pub receipt_type: GatewayArtifactReceiptV1ReceiptType,
+    pub action_request_ref: String,
+    pub action_request_hash: String,
+    pub gateway_execution_receipt_ref: String,
+    pub gateway_execution_receipt_hash: String,
+    pub evidence_kind: GatewayArtifactReceiptV1EvidenceKind,
+    pub artifacts: Vec<GatewayArtifactReceiptV1ArtifactsItem>,
+    pub diff_artifact_ref: Option<String>,
+    pub diff_hash: Option<String>,
+    pub no_artifact_reason: Option<String>,
+    pub captured_at: String,
+    pub receipt_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for GatewayArtifactReceiptV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/gateway-artifact-receipt/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/gateway-artifact-receipt/v1","title":"GatewayArtifactReceipt","description":"Immutable artifact and diff custody receipt bound to one gateway execution receipt; it may explicitly attest that the action produced no artifact.","x-ioi-schema-version":"ioi.components.daemon-runtime.gateway-artifact-receipt.v1","type":"object","additionalProperties":false,"required":["schema_version","receipt_ref","receipt_type","action_request_ref","action_request_hash","gateway_execution_receipt_ref","gateway_execution_receipt_hash","evidence_kind","artifacts","diff_artifact_ref","diff_hash","no_artifact_reason","captured_at","receipt_hash"],"properties":{"schema_version":{"const":"ioi.components.daemon-runtime.gateway-artifact-receipt.v1"},"receipt_ref":{"$ref":"#/$defs/receiptRef"},"receipt_type":{"const":"gateway_artifact"},"action_request_ref":{"$ref":"#/$defs/actionRequestRef"},"action_request_hash":{"$ref":"#/$defs/hash"},"gateway_execution_receipt_ref":{"$ref":"#/$defs/receiptRef"},"gateway_execution_receipt_hash":{"$ref":"#/$defs/hash"},"evidence_kind":{"enum":["artifacts","diff","none"]},"artifacts":{"type":"array","items":{"$ref":"#/$defs/artifactBinding"},"maxItems":128},"diff_artifact_ref":{"oneOf":[{"$ref":"#/$defs/artifactRef"},{"type":"null"}]},"diff_hash":{"oneOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"no_artifact_reason":{"oneOf":[{"type":"string","minLength":1,"maxLength":512},{"type":"null"}]},"captured_at":{"$ref":"#/$defs/dateTime"},"receipt_hash":{"$ref":"#/$defs/hash"}},"allOf":[{"if":{"properties":{"evidence_kind":{"const":"artifacts"}},"required":["evidence_kind"]},"then":{"properties":{"artifacts":{"type":"array","minItems":1},"diff_artifact_ref":{"type":"null"},"diff_hash":{"type":"null"},"no_artifact_reason":{"type":"null"}}}},{"if":{"properties":{"evidence_kind":{"const":"diff"}},"required":["evidence_kind"]},"then":{"properties":{"artifacts":{"type":"array","maxItems":0},"diff_artifact_ref":{"$ref":"#/$defs/artifactRef"},"diff_hash":{"$ref":"#/$defs/hash"},"no_artifact_reason":{"type":"null"}}}},{"if":{"properties":{"evidence_kind":{"const":"none"}},"required":["evidence_kind"]},"then":{"properties":{"artifacts":{"type":"array","maxItems":0},"diff_artifact_ref":{"type":"null"},"diff_hash":{"type":"null"},"no_artifact_reason":{"type":"string","minLength":1,"maxLength":512}}}}],"$defs":{"artifactBinding":{"type":"object","additionalProperties":false,"required":["artifact_ref","content_hash","media_type","size_bytes"],"properties":{"artifact_ref":{"$ref":"#/$defs/artifactRef"},"content_hash":{"$ref":"#/$defs/hash"},"media_type":{"type":"string","minLength":1,"maxLength":255},"size_bytes":{"type":"integer","minimum":0,"maximum":9007199254740991}}},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"},"actionRequestRef":{"type":"string","pattern":"^action-request://[^\\s]{1,500}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,500}$"},"hash":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},"dateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<GatewayArtifactReceiptV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_type: serde_json::from_value::<GatewayArtifactReceiptV1ReceiptType>(
+                object
+                    .remove(r#"receipt_type"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_type"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            action_request_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"action_request_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"action_request_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            action_request_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"action_request_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"action_request_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            gateway_execution_receipt_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"gateway_execution_receipt_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"gateway_execution_receipt_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            gateway_execution_receipt_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"gateway_execution_receipt_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"gateway_execution_receipt_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_kind: serde_json::from_value::<GatewayArtifactReceiptV1EvidenceKind>(
+                object
+                    .remove(r#"evidence_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            artifacts: serde_json::from_value::<Vec<GatewayArtifactReceiptV1ArtifactsItem>>(
+                object
+                    .remove(r#"artifacts"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"artifacts"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            diff_artifact_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"diff_artifact_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"diff_artifact_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            diff_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"diff_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"diff_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            no_artifact_reason: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"no_artifact_reason"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"no_artifact_reason"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            captured_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"captured_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"captured_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"receipt_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum GatewayArtifactReceiptV1SchemaVersion {
+    #[serde(rename = r#"ioi.components.daemon-runtime.gateway-artifact-receipt.v1"#)]
+    IoiComponentsDaemonRuntimeGatewayArtifactReceiptV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum GatewayArtifactReceiptV1ReceiptType {
+    #[serde(rename = r#"gateway_artifact"#)]
+    GatewayArtifact,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum GatewayArtifactReceiptV1EvidenceKind {
+    #[serde(rename = r#"artifacts"#)]
+    Artifacts,
+    #[serde(rename = r#"diff"#)]
+    Diff,
+    #[serde(rename = r#"none"#)]
+    None,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct GatewayArtifactReceiptV1ArtifactsItem {
+    pub artifact_ref: String,
+    pub content_hash: String,
+    pub media_type: String,
+    pub size_bytes: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de> for GatewayArtifactReceiptV1ArtifactsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/gateway-artifact-receipt/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["artifact_ref","content_hash","media_type","size_bytes"],"properties":{"artifact_ref":{"$ref":"#/$defs/artifactRef"},"content_hash":{"$ref":"#/$defs/hash"},"media_type":{"type":"string","minLength":1,"maxLength":255},"size_bytes":{"type":"integer","minimum":0,"maximum":9007199254740991}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            artifact_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"artifact_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"artifact_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            media_type: serde_json::from_value::<String>(
+                object
+                    .remove(r#"media_type"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"media_type"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            size_bytes: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"size_bytes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"size_bytes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct GatewayDecisionReceiptV1 {
+    pub schema_version: GatewayDecisionReceiptV1SchemaVersion,
+    pub receipt_ref: String,
+    pub receipt_type: GatewayDecisionReceiptV1ReceiptType,
+    pub action_request_ref: String,
+    pub action_request_hash: String,
+    pub authority_gateway_profile_ref: String,
+    pub authority_gateway_profile_hash: String,
+    pub policy_enforcement_point_ref: String,
+    pub decision: GatewayDecisionReceiptV1Decision,
+    pub policy_ref: String,
+    pub policy_hash: String,
+    pub authority_status: GatewayDecisionReceiptV1AuthorityStatus,
+    pub authority_evidence_refs: Vec<String>,
+    pub approval_receipt_ref: Option<String>,
+    pub admitted_action_hash: Option<String>,
+    pub decided_at: String,
+    pub receipt_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for GatewayDecisionReceiptV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/gateway-decision-receipt/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/gateway-decision-receipt/v1","title":"GatewayDecisionReceipt","description":"Immutable daemon PEP decision over one exact Authority Gateway action request. It records admission posture but is not effect authority.","x-ioi-schema-version":"ioi.components.daemon-runtime.gateway-decision-receipt.v1","type":"object","additionalProperties":false,"required":["schema_version","receipt_ref","receipt_type","action_request_ref","action_request_hash","authority_gateway_profile_ref","authority_gateway_profile_hash","policy_enforcement_point_ref","decision","policy_ref","policy_hash","authority_status","authority_evidence_refs","approval_receipt_ref","admitted_action_hash","decided_at","receipt_hash"],"properties":{"schema_version":{"const":"ioi.components.daemon-runtime.gateway-decision-receipt.v1"},"receipt_ref":{"$ref":"#/$defs/receiptRef"},"receipt_type":{"const":"gateway_decision"},"action_request_ref":{"$ref":"#/$defs/actionRequestRef"},"action_request_hash":{"$ref":"#/$defs/hash"},"authority_gateway_profile_ref":{"$ref":"#/$defs/gatewayProfileRef"},"authority_gateway_profile_hash":{"$ref":"#/$defs/hash"},"policy_enforcement_point_ref":{"type":"string","pattern":"^runtime://[^\\s]{1,500}$"},"decision":{"enum":["allowed","denied","requires_approval","transform_required"]},"policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"policy_hash":{"$ref":"#/$defs/hash"},"authority_status":{"enum":["not_required","required_unresolved","verified","refused"]},"authority_evidence_refs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"maxItems":32,"uniqueItems":true},"approval_receipt_ref":{"oneOf":[{"$ref":"#/$defs/receiptRef"},{"type":"null"}]},"admitted_action_hash":{"oneOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"decided_at":{"$ref":"#/$defs/dateTime"},"receipt_hash":{"$ref":"#/$defs/hash"}},"allOf":[{"if":{"properties":{"decision":{"const":"allowed"}},"required":["decision"]},"then":{"properties":{"authority_status":{"enum":["not_required","verified"]},"admitted_action_hash":{"$ref":"#/$defs/hash"}}}},{"if":{"properties":{"decision":{"const":"denied"}},"required":["decision"]},"then":{"properties":{"admitted_action_hash":{"type":"null"}}}}],"$defs":{"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"},"actionRequestRef":{"type":"string","pattern":"^action-request://[^\\s]{1,500}$"},"gatewayProfileRef":{"type":"string","pattern":"^authority-gateway://[^\\s]{1,500}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"hash":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},"dateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<GatewayDecisionReceiptV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_type: serde_json::from_value::<GatewayDecisionReceiptV1ReceiptType>(
+                object
+                    .remove(r#"receipt_type"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_type"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            action_request_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"action_request_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"action_request_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            action_request_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"action_request_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"action_request_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_gateway_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"authority_gateway_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"authority_gateway_profile_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_gateway_profile_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"authority_gateway_profile_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"authority_gateway_profile_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_enforcement_point_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"policy_enforcement_point_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"policy_enforcement_point_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decision: serde_json::from_value::<GatewayDecisionReceiptV1Decision>(
+                object
+                    .remove(r#"decision"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decision"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"policy_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_status: serde_json::from_value::<GatewayDecisionReceiptV1AuthorityStatus>(
+                object
+                    .remove(r#"authority_status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"authority_evidence_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_evidence_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            approval_receipt_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"approval_receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"approval_receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admitted_action_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"admitted_action_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admitted_action_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decided_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"decided_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decided_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"receipt_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum GatewayDecisionReceiptV1SchemaVersion {
+    #[serde(rename = r#"ioi.components.daemon-runtime.gateway-decision-receipt.v1"#)]
+    IoiComponentsDaemonRuntimeGatewayDecisionReceiptV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum GatewayDecisionReceiptV1ReceiptType {
+    #[serde(rename = r#"gateway_decision"#)]
+    GatewayDecision,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum GatewayDecisionReceiptV1Decision {
+    #[serde(rename = r#"allowed"#)]
+    Allowed,
+    #[serde(rename = r#"denied"#)]
+    Denied,
+    #[serde(rename = r#"requires_approval"#)]
+    RequiresApproval,
+    #[serde(rename = r#"transform_required"#)]
+    TransformRequired,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum GatewayDecisionReceiptV1AuthorityStatus {
+    #[serde(rename = r#"not_required"#)]
+    NotRequired,
+    #[serde(rename = r#"required_unresolved"#)]
+    RequiredUnresolved,
+    #[serde(rename = r#"verified"#)]
+    Verified,
+    #[serde(rename = r#"refused"#)]
+    Refused,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct GatewayExecutionReceiptV1 {
+    pub schema_version: GatewayExecutionReceiptV1SchemaVersion,
+    pub receipt_ref: String,
+    pub receipt_type: GatewayExecutionReceiptV1ReceiptType,
+    pub action_request_ref: String,
+    pub action_request_hash: String,
+    pub authority_gateway_profile_ref: String,
+    pub authority_gateway_profile_hash: String,
+    pub gateway_decision_receipt_ref: String,
+    pub gateway_decision_receipt_hash: String,
+    pub policy_enforcement_point_ref: String,
+    pub external_effect: bool,
+    pub authority_effect_admission_receipt_ref: Option<String>,
+    pub authority_effect_admission_receipt_hash: Option<String>,
+    pub final_invoker_ref: String,
+    pub invocation_id: String,
+    pub idempotency_key: String,
+    pub actual_effect_ref: Option<String>,
+    pub actual_effect_hash: Option<String>,
+    pub outcome: GatewayExecutionReceiptV1Outcome,
+    pub result_hash: Option<String>,
+    pub effect_receipt_ref: Option<String>,
+    pub started_at: String,
+    pub completed_at: String,
+    pub receipt_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for GatewayExecutionReceiptV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1","title":"GatewayExecutionReceipt","description":"Immutable record of the single daemon-owned final invocation or explicit non-invocation for one admitted gateway action.","x-ioi-schema-version":"ioi.components.daemon-runtime.gateway-execution-receipt.v1","type":"object","additionalProperties":false,"required":["schema_version","receipt_ref","receipt_type","action_request_ref","action_request_hash","authority_gateway_profile_ref","authority_gateway_profile_hash","gateway_decision_receipt_ref","gateway_decision_receipt_hash","policy_enforcement_point_ref","external_effect","authority_effect_admission_receipt_ref","authority_effect_admission_receipt_hash","final_invoker_ref","invocation_id","idempotency_key","actual_effect_ref","actual_effect_hash","outcome","result_hash","effect_receipt_ref","started_at","completed_at","receipt_hash"],"properties":{"schema_version":{"const":"ioi.components.daemon-runtime.gateway-execution-receipt.v1"},"receipt_ref":{"$ref":"#/$defs/receiptRef"},"receipt_type":{"const":"gateway_execution"},"action_request_ref":{"$ref":"#/$defs/actionRequestRef"},"action_request_hash":{"$ref":"#/$defs/hash"},"authority_gateway_profile_ref":{"$ref":"#/$defs/gatewayProfileRef"},"authority_gateway_profile_hash":{"$ref":"#/$defs/hash"},"gateway_decision_receipt_ref":{"$ref":"#/$defs/receiptRef"},"gateway_decision_receipt_hash":{"$ref":"#/$defs/hash"},"policy_enforcement_point_ref":{"type":"string","pattern":"^runtime://[^\\s]{1,500}$"},"external_effect":{"type":"boolean"},"authority_effect_admission_receipt_ref":{"oneOf":[{"$ref":"#/$defs/receiptRef"},{"type":"null"}]},"authority_effect_admission_receipt_hash":{"oneOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"final_invoker_ref":{"type":"string","pattern":"^runtime://[^\\s]{1,500}$"},"invocation_id":{"type":"string","pattern":"^[a-z][a-z0-9._-]{0,127}$"},"idempotency_key":{"$ref":"#/$defs/hash"},"actual_effect_ref":{"oneOf":[{"type":"string","pattern":"^effect://[^\\s]{1,500}$"},{"type":"null"}]},"actual_effect_hash":{"oneOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"outcome":{"enum":["succeeded","failed","refused","unknown","reconciliation_required"]},"result_hash":{"oneOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"effect_receipt_ref":{"oneOf":[{"$ref":"#/$defs/receiptRef"},{"type":"null"}]},"started_at":{"$ref":"#/$defs/dateTime"},"completed_at":{"$ref":"#/$defs/dateTime"},"receipt_hash":{"$ref":"#/$defs/hash"}},"allOf":[{"if":{"properties":{"external_effect":{"const":true}},"required":["external_effect"]},"then":{"properties":{"authority_effect_admission_receipt_ref":{"$ref":"#/$defs/receiptRef"},"authority_effect_admission_receipt_hash":{"$ref":"#/$defs/hash"},"actual_effect_ref":{"type":"string","pattern":"^effect://[^\\s]{1,500}$"},"actual_effect_hash":{"$ref":"#/$defs/hash"}}},"else":{"properties":{"authority_effect_admission_receipt_ref":{"type":"null"},"authority_effect_admission_receipt_hash":{"type":"null"},"actual_effect_ref":{"type":"null"},"actual_effect_hash":{"type":"null"}}}}],"$defs":{"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"},"actionRequestRef":{"type":"string","pattern":"^action-request://[^\\s]{1,500}$"},"gatewayProfileRef":{"type":"string","pattern":"^authority-gateway://[^\\s]{1,500}$"},"hash":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},"dateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<GatewayExecutionReceiptV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_type: serde_json::from_value::<GatewayExecutionReceiptV1ReceiptType>(
+                object
+                    .remove(r#"receipt_type"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_type"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            action_request_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"action_request_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"action_request_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            action_request_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"action_request_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"action_request_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_gateway_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"authority_gateway_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"authority_gateway_profile_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_gateway_profile_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"authority_gateway_profile_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"authority_gateway_profile_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            gateway_decision_receipt_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"gateway_decision_receipt_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"gateway_decision_receipt_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            gateway_decision_receipt_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"gateway_decision_receipt_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"gateway_decision_receipt_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_enforcement_point_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"policy_enforcement_point_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"policy_enforcement_point_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            external_effect: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"external_effect"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"external_effect"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_effect_admission_receipt_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"authority_effect_admission_receipt_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"authority_effect_admission_receipt_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_effect_admission_receipt_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"authority_effect_admission_receipt_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"authority_effect_admission_receipt_hash"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            final_invoker_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"final_invoker_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"final_invoker_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            invocation_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"invocation_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"invocation_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            idempotency_key: serde_json::from_value::<String>(
+                object
+                    .remove(r#"idempotency_key"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"idempotency_key"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            actual_effect_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"actual_effect_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"actual_effect_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            actual_effect_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"actual_effect_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"actual_effect_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome: serde_json::from_value::<GatewayExecutionReceiptV1Outcome>(
+                object
+                    .remove(r#"outcome"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            result_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"result_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"result_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            effect_receipt_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"effect_receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"effect_receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            started_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"started_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"started_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            completed_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"completed_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"completed_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"receipt_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum GatewayExecutionReceiptV1SchemaVersion {
+    #[serde(rename = r#"ioi.components.daemon-runtime.gateway-execution-receipt.v1"#)]
+    IoiComponentsDaemonRuntimeGatewayExecutionReceiptV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum GatewayExecutionReceiptV1ReceiptType {
+    #[serde(rename = r#"gateway_execution"#)]
+    GatewayExecution,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum GatewayExecutionReceiptV1Outcome {
+    #[serde(rename = r#"succeeded"#)]
+    Succeeded,
+    #[serde(rename = r#"failed"#)]
+    Failed,
+    #[serde(rename = r#"refused"#)]
+    Refused,
+    #[serde(rename = r#"unknown"#)]
+    Unknown,
+    #[serde(rename = r#"reconciliation_required"#)]
+    ReconciliationRequired,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
@@ -88184,6 +90033,22 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_rule_id: None,
     },
     GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/action-request-envelope/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/action-request-envelope-v1/positive-external-effect.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/action-request-envelope/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/action-request-envelope-v1/negative-missing-execution-obligation.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
         contract_id: "schema://ioi/components/daemon-runtime/agent-harness-adapter/v1",
         path: "docs/architecture/_meta/schemas/fixtures/agent-harness-adapter-v1/positive-minimal.json",
         expected_accept: true,
@@ -88221,6 +90086,22 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_accept: true,
         expected_schema_accept: true,
         expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/authority-gateway-profile/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/authority-gateway-profile-v1/positive-active-pre-effect.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/authority-gateway-profile/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/authority-gateway-profile-v1/negative-active-application-invoker.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
         expected_rule_id: None,
     },
     GoldenFixture {
@@ -88402,6 +90283,38 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
     GoldenFixture {
         contract_id: "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
         path: "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-verified-stale-evidence.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/gateway-artifact-receipt/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/gateway-artifact-receipt-v1/positive-no-artifact.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/gateway-decision-receipt/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/gateway-decision-receipt-v1/positive-allowed.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/gateway-execution-receipt-v1/positive-external-effect.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/gateway-execution-receipt-v1/negative-external-effect-without-authority.json",
         expected_accept: false,
         expected_schema_accept: false,
         expected_failure: Some("schema"),
@@ -95630,6 +97543,28 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/action-request-envelope-v1/positive-external-effect.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/action-request-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/action-request-envelope-v1/positive-external-effect.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/action-request-envelope-v1/negative-missing-execution-obligation.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/action-request-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/action-request-envelope-v1/negative-missing-execution-obligation.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"fixture:docs/architecture/_meta/schemas/fixtures/agent-harness-adapter-v1/positive-minimal.json"#,
         contract_id: r#"schema://ioi/components/daemon-runtime/agent-harness-adapter/v1"#,
         source_fixture_path: Some(
@@ -95683,6 +97618,28 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         value_json: None,
         ajv_schema_accept: true,
         oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/authority-gateway-profile-v1/positive-active-pre-effect.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/authority-gateway-profile/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/authority-gateway-profile-v1/positive-active-pre-effect.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/authority-gateway-profile-v1/negative-active-application-invoker.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/authority-gateway-profile/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/authority-gateway-profile-v1/negative-active-application-invoker.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
         id: r#"fixture:docs/architecture/_meta/schemas/fixtures/declassification-receipt-v1/positive-minimal.json"#,
@@ -95931,6 +97888,50 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         contract_id: r#"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1"#,
         source_fixture_path: Some(
             r#"docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-verified-stale-evidence.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/gateway-artifact-receipt-v1/positive-no-artifact.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/gateway-artifact-receipt/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/gateway-artifact-receipt-v1/positive-no-artifact.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/gateway-decision-receipt-v1/positive-allowed.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/gateway-decision-receipt/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/gateway-decision-receipt-v1/positive-allowed.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/gateway-execution-receipt-v1/positive-external-effect.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/gateway-execution-receipt-v1/positive-external-effect.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/gateway-execution-receipt-v1/negative-external-effect-without-authority.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/gateway-execution-receipt-v1/negative-external-effect-without-authority.json"#,
         ),
         mutation_id: None,
         value_json: None,
@@ -102755,11 +104756,16 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/components/connectors-tools/runtime-tool-contract/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/connectors-tools/runtime-tool-contract/v1","title":"RuntimeToolContract","description":"Immutable callable capability contract including data-class and destination-specific egress ceilings.","x-ioi-schema-version":"ioi.components.connectors-tools.runtime-tool-contract.v1","type":"object","additionalProperties":false,"required":["schema_version","tool_id","revision_ref","content_hash","namespace","display_name","version","risk_class","effect_class","primitive_capabilities_required","authority_scopes_required","approval_required","evidence_required","owner","data_class_allowlist","egress_policy"],"properties":{"schema_version":{"const":"ioi.components.connectors-tools.runtime-tool-contract.v1"},"tool_id":{"type":"string","pattern":"^tool://[A-Za-z0-9._~:/-]+$"},"revision_ref":{"type":"string","pattern":"^tool://[A-Za-z0-9._~:/-]+/revision/[A-Za-z0-9._~-]+$"},"predecessor_revision_ref":{"anyOf":[{"type":"string","pattern":"^tool://[A-Za-z0-9._~:/-]+/revision/[A-Za-z0-9._~-]+$"},{"type":"null"}]},"content_hash":{"$ref":"#/$defs/hash"},"namespace":{"type":"string","minLength":1},"display_name":{"type":"string","minLength":1},"version":{"type":"string","minLength":1},"input_schema":{"type":"object"},"output_schema":{"type":"object"},"risk_class":{"type":"string","minLength":1},"effect_class":{"type":"string","minLength":1},"concurrency_class":{"enum":["safe_parallel","resource_scoped","exclusive","serialized"]},"timeout":{"type":"object","additionalProperties":false,"required":["default_ms","max_ms"],"properties":{"default_ms":{"type":"integer","minimum":1,"maximum":9007199254740991},"max_ms":{"type":"integer","minimum":1,"maximum":9007199254740991}}},"primitive_capabilities_required":{"type":"array","items":{"type":"string","pattern":"^prim:[a-z0-9._-]+$"},"uniqueItems":true},"authority_scopes_required":{"type":"array","items":{"type":"string","pattern":"^scope:[a-z0-9._-]+$"},"uniqueItems":true},"approval_required":{"type":"boolean"},"evidence_required":{"type":"array","items":{"type":"string","minLength":1},"uniqueItems":true},"redaction_policy":{"enum":["redact_body","hash_only","full_private"]},"owner":{"type":"string","minLength":1},"data_class_allowlist":{"type":"array","items":{"enum":["public","internal","confidential","private","restricted"]},"minItems":1,"uniqueItems":true},"egress_policy":{"type":"object","additionalProperties":false,"required":["default","allowed_destination_patterns"],"properties":{"default":{"enum":["deny","allow_declared"]},"allowed_destination_patterns":{"type":"array","items":{"type":"string","minLength":1},"minItems":1,"uniqueItems":true}}},"registry_lifecycle_ref":{"anyOf":[{"type":"string","minLength":1},{"type":"null"}]},"registry_status":{"enum":["draft","released","deprecated","revoked"]}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"##),
     ("schema://ioi/components/connectors-tools/scm-publication-effect/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/connectors-tools/scm-publication-effect/v1","title":"ScmPublicationEffect","description":"One immutable, receipted source-control publication effect. It binds an enumerated proposal-bound file set to an admitted remote destination, advances the target ref only under an expected-head compare-and-swap, and carries the publication and the review-request as separately receipted sub-effects with their own honest outcomes. No representable field can request an overwrite of the remote head, express a whole-workspace change set, name a destination outside the admitted binding, or report success over a failed sub-effect.","x-ioi-schema-version":"ioi.scm-publication-effect.v1","type":"object","additionalProperties":false,"required":["schema_version","publication_effect_id","publication_effect_hash","work_subject","authority","destination","change_set","remote_cas","idempotency","effects","overall_outcome","nonclaims","committed_at"],"properties":{"schema_version":{"const":"ioi.scm-publication-effect.v1"},"publication_effect_id":{"$ref":"#/$defs/publicationEffectRef"},"publication_effect_hash":{"$ref":"#/$defs/hash"},"work_subject":{"type":"object","additionalProperties":false,"required":["proposal_ref","proposal_hash","work_run_ref"],"properties":{"proposal_ref":{"$ref":"#/$defs/proposalRef"},"proposal_hash":{"$ref":"#/$defs/hash"},"work_run_ref":{"type":"string","pattern":"^work-run://[^\\s]{1,248}$"}}},"authority":{"type":"object","additionalProperties":false,"required":["authority_grant_refs","authority_scope_refs","capability_lease_ref","admission_receipt_ref"],"properties":{"authority_grant_refs":{"type":"array","items":{"type":"string","pattern":"^grant://[^\\s]{1,248}$"},"minItems":1,"maxItems":8,"uniqueItems":true},"authority_scope_refs":{"type":"array","items":{"$ref":"#/$defs/scopeRef"},"minItems":1,"maxItems":8,"uniqueItems":true},"capability_lease_ref":{"type":"string","pattern":"^lease://[^\\s]{1,248}$"},"admission_receipt_ref":{"$ref":"#/$defs/receiptRef"}}},"destination":{"type":"object","additionalProperties":false,"required":["resolution","connector_ref","connector_revision_hash","destination_binding_ref","destination_binding_hash","repository_ref","target_ref","base_ref"],"properties":{"resolution":{"const":"admitted_connector_binding"},"connector_ref":{"type":"string","pattern":"^connector://[^\\s]{1,248}$"},"connector_revision_hash":{"$ref":"#/$defs/hash"},"destination_binding_ref":{"type":"string","pattern":"^scm-destination-binding://[^\\s]{1,248}$"},"destination_binding_hash":{"$ref":"#/$defs/hash"},"repository_ref":{"type":"string","pattern":"^repository://[^\\s]{1,224}$"},"target_ref":{"type":"string","pattern":"^scm-ref://[^\\s]{1,248}$"},"base_ref":{"type":"string","pattern":"^scm-ref://[^\\s]{1,248}$"}}},"change_set":{"type":"object","additionalProperties":false,"required":["change_set_kind","proposal_content_commitment","base_revision_id","files","file_set_digest","resulting_revision_id"],"properties":{"change_set_kind":{"const":"proposal_bound_file_set"},"proposal_content_commitment":{"$ref":"#/$defs/hash"},"base_revision_id":{"$ref":"#/$defs/revisionId"},"files":{"type":"array","items":{"$ref":"#/$defs/changeSetFile"},"minItems":1,"maxItems":512,"uniqueItems":true},"file_set_digest":{"$ref":"#/$defs/hash"},"resulting_revision_id":{"$ref":"#/$defs/nullableRevisionId"}}},"remote_cas":{"type":"object","additionalProperties":false,"required":["mechanism","remote_update_mode","stale_head_disposition","target_ref_precondition","expected_target_head","expected_base_head","observed_at","observation_evidence_ref","resulting_target_head","proof_ref"],"properties":{"mechanism":{"const":"expected_head_compare_and_swap"},"remote_update_mode":{"const":"expected_head_advance_or_refuse"},"stale_head_disposition":{"const":"refuse_never_overwrite"},"target_ref_precondition":{"enum":["expected_head","must_not_exist"]},"expected_target_head":{"$ref":"#/$defs/nullableRevisionId"},"expected_base_head":{"$ref":"#/$defs/revisionId"},"observed_at":{"$ref":"#/$defs/dateTime"},"observation_evidence_ref":{"$ref":"#/$defs/evidenceRef"},"resulting_target_head":{"$ref":"#/$defs/nullableRevisionId"},"proof_ref":{"$ref":"#/$defs/evidenceRef"}}},"idempotency":{"type":"object","additionalProperties":false,"required":["idempotency_key","submission_disposition","prior_effect_ref","prior_effect_hash"],"properties":{"idempotency_key":{"$ref":"#/$defs/hash"},"submission_disposition":{"enum":["first_admission","converged_replay","refused_conflicting_replay"]},"prior_effect_ref":{"anyOf":[{"$ref":"#/$defs/publicationEffectRef"},{"type":"null"}]},"prior_effect_hash":{"$ref":"#/$defs/nullableHash"}}},"effects":{"type":"object","additionalProperties":false,"required":["publication","review_request"],"properties":{"publication":{"type":"object","additionalProperties":false,"required":["effect_kind","outcome","receipt_ref","refusal_code","evidence_refs"],"properties":{"effect_kind":{"const":"scm_publication"},"outcome":{"enum":["published","partially_applied","refused"]},"receipt_ref":{"$ref":"#/$defs/receiptRef"},"refusal_code":{"$ref":"#/$defs/nullableShortToken"},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"minItems":1,"maxItems":16,"uniqueItems":true}}},"review_request":{"type":"object","additionalProperties":false,"required":["effect_kind","outcome","receipt_ref","refusal_code","evidence_refs"],"properties":{"effect_kind":{"const":"scm_review_request"},"outcome":{"enum":["opened","failed","refused","not_requested","not_attempted"]},"receipt_ref":{"anyOf":[{"$ref":"#/$defs/receiptRef"},{"type":"null"}]},"refusal_code":{"$ref":"#/$defs/nullableShortToken"},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"maxItems":16,"uniqueItems":true}}}}},"overall_outcome":{"enum":["published_with_review_request","published_review_request_not_requested","review_request_failed","partially_applied","refused"]},"nonclaims":{"type":"array","items":{"enum":["grants_no_authority","no_remote_acceptance_beyond_receipt_evidence","asserts_no_review_approval"]},"minItems":3,"maxItems":3,"uniqueItems":true},"committed_at":{"$ref":"#/$defs/dateTime"}},"allOf":[{"type":"object","if":{"type":"object","properties":{"overall_outcome":{"const":"published_with_review_request"}},"required":["overall_outcome"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"publication":{"type":"object","properties":{"outcome":{"const":"published"}}},"review_request":{"type":"object","properties":{"outcome":{"const":"opened"}}}}}}}},{"type":"object","if":{"type":"object","properties":{"overall_outcome":{"const":"published_review_request_not_requested"}},"required":["overall_outcome"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"publication":{"type":"object","properties":{"outcome":{"const":"published"}}},"review_request":{"type":"object","properties":{"outcome":{"const":"not_requested"}}}}}}}},{"type":"object","if":{"type":"object","properties":{"overall_outcome":{"const":"review_request_failed"}},"required":["overall_outcome"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"publication":{"type":"object","properties":{"outcome":{"const":"published"}}},"review_request":{"type":"object","properties":{"outcome":{"const":"failed"}}}}}}}},{"type":"object","if":{"type":"object","properties":{"overall_outcome":{"const":"partially_applied"}},"required":["overall_outcome"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"publication":{"type":"object","properties":{"outcome":{"const":"partially_applied"}}},"review_request":{"type":"object","properties":{"outcome":{"const":"not_attempted"}}}}}}}},{"type":"object","if":{"type":"object","properties":{"overall_outcome":{"const":"refused"}},"required":["overall_outcome"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"publication":{"type":"object","properties":{"outcome":{"const":"refused"}}},"review_request":{"type":"object","properties":{"outcome":{"enum":["refused","not_attempted"]}}}}},"change_set":{"type":"object","properties":{"resulting_revision_id":{"type":"null"}}},"remote_cas":{"type":"object","properties":{"resulting_target_head":{"type":"null"}}}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nullableHash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"revisionId":{"type":"string","pattern":"^scm-revision:[0-9a-f]{40,64}$"},"nullableRevisionId":{"anyOf":[{"$ref":"#/$defs/revisionId"},{"type":"null"}]},"dateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"publicationEffectRef":{"type":"string","pattern":"^scm-publication-effect://[^\\s]{1,248}$"},"proposalRef":{"type":"string","pattern":"^proposal://[^\\s]{1,248}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"evidenceRef":{"type":"string","pattern":"^(?:evidence|receipt|artifact|attestation)://[^\\s]{1,248}$"},"scopeRef":{"type":"string","pattern":"^scope:[a-z0-9][a-z0-9._:/-]{0,127}$"},"shortToken":{"type":"string","pattern":"^[a-z0-9][a-z0-9._:/-]{0,127}$"},"nullableShortToken":{"anyOf":[{"$ref":"#/$defs/shortToken"},{"type":"null"}]},"changeSetFile":{"type":"object","additionalProperties":false,"required":["path","change_kind","content_digest","proposal_ref"],"properties":{"path":{"type":"string","minLength":1,"maxLength":256,"pattern":"^[A-Za-z0-9_][A-Za-z0-9._/-]{0,255}$"},"change_kind":{"enum":["added","modified","removed"]},"content_digest":{"$ref":"#/$defs/nullableHash"},"proposal_ref":{"$ref":"#/$defs/proposalRef"}}}}}"##),
     ("schema://ioi/components/connectors-tools/scm-publication-effect/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/connectors-tools/scm-publication-effect/v2","title":"ScmPublicationEffect","description":"One immutable, receipted source-control publication crossing carried as one durable logical operation. The ScmPublicationOperation identity is observation-independent: it covers the work run, the proposal, the admitted destination binding, the target ref, the enumerated file set, the review intent, and frozen commit metadata, and it never contains an observed remote head. The observed head lives only in the per-attempt compare-and-swap fingerprint. A Prepared record is persisted before any remote effect is invoked, and a re-entry resolves by replaying an existing terminal result, recovering an already-converged remote revision, retrying the same frozen compare-and-swap when dispatch is proven absent and the original precondition still holds, or refusing as reconciliation_required. This contract states at-most-once execution plus reconciliation; it is not an exactly-once claim, and no representable field can advance a fresh child commit, request an overwrite of the remote head, express a whole-workspace change set, name a destination outside the admitted binding, absorb a review-request reconciliation into the publication, or report success over a failed or unresolved sub-effect.","x-ioi-schema-version":"ioi.scm-publication-effect.v2","type":"object","additionalProperties":false,"required":["schema_version","publication_effect_id","publication_effect_hash","execution_semantics","operation","authority","preparation","attempt","recovery","outcome","effects","overall_outcome","nonclaims","committed_at"],"properties":{"schema_version":{"const":"ioi.scm-publication-effect.v2"},"publication_effect_id":{"$ref":"#/$defs/publicationEffectRef"},"publication_effect_hash":{"$ref":"#/$defs/hash"},"execution_semantics":{"const":"at_most_once_execution_plus_reconciliation"},"operation":{"type":"object","additionalProperties":false,"required":["operation_ref","operation_key","operation_key_domain","identity"],"properties":{"operation_ref":{"$ref":"#/$defs/operationRef"},"operation_key":{"$ref":"#/$defs/hash"},"operation_key_domain":{"const":"excludes_observed_remote_state"},"identity":{"type":"object","additionalProperties":false,"required":["work_run_ref","proposal_ref","proposal_hash","connector_ref","connector_revision_hash","destination_binding_ref","destination_binding_hash","repository_ref","target_ref","base_ref","base_revision_id","change_set_kind","files","file_set_digest","review_intent","frozen_commit_metadata","intended_revision_id"],"properties":{"work_run_ref":{"type":"string","pattern":"^work-run://[^\\s]{1,248}$"},"proposal_ref":{"$ref":"#/$defs/proposalRef"},"proposal_hash":{"$ref":"#/$defs/hash"},"connector_ref":{"type":"string","pattern":"^connector://[^\\s]{1,248}$"},"connector_revision_hash":{"$ref":"#/$defs/hash"},"destination_binding_ref":{"type":"string","pattern":"^scm-destination-binding://[^\\s]{1,248}$"},"destination_binding_hash":{"$ref":"#/$defs/hash"},"repository_ref":{"type":"string","pattern":"^repository://[^\\s]{1,224}$"},"target_ref":{"type":"string","pattern":"^scm-ref://[^\\s]{1,248}$"},"base_ref":{"type":"string","pattern":"^scm-ref://[^\\s]{1,248}$"},"base_revision_id":{"$ref":"#/$defs/revisionId"},"change_set_kind":{"const":"proposal_bound_file_set"},"files":{"type":"array","items":{"$ref":"#/$defs/changeSetFile"},"minItems":1,"maxItems":512,"uniqueItems":true},"file_set_digest":{"$ref":"#/$defs/hash"},"review_intent":{"enum":["requested","not_requested"]},"frozen_commit_metadata":{"type":"object","additionalProperties":false,"required":["commit_message_digest","authorship_commitment","authored_at","commit_timestamp","metadata_digest"],"properties":{"commit_message_digest":{"$ref":"#/$defs/hash"},"authorship_commitment":{"$ref":"#/$defs/hash"},"authored_at":{"$ref":"#/$defs/dateTime"},"commit_timestamp":{"$ref":"#/$defs/dateTime"},"metadata_digest":{"$ref":"#/$defs/hash"}}},"intended_revision_id":{"$ref":"#/$defs/revisionId"}}}}},"authority":{"type":"object","additionalProperties":false,"required":["authority_grant_refs","authority_scope_refs","capability_lease_ref","admission_receipt_ref"],"properties":{"authority_grant_refs":{"type":"array","items":{"type":"string","pattern":"^grant://[^\\s]{1,248}$"},"minItems":1,"maxItems":8,"uniqueItems":true},"authority_scope_refs":{"type":"array","items":{"$ref":"#/$defs/scopeRef"},"minItems":1,"maxItems":8,"uniqueItems":true},"capability_lease_ref":{"type":"string","pattern":"^lease://[^\\s]{1,248}$"},"admission_receipt_ref":{"$ref":"#/$defs/receiptRef"}}},"preparation":{"type":"object","additionalProperties":false,"required":["prepared_record_ref","prepared_record_hash","prepared_persisted_at","persistence_order","prepared_persistence_evidence_ref"],"properties":{"prepared_record_ref":{"$ref":"#/$defs/preparedRef"},"prepared_record_hash":{"$ref":"#/$defs/hash"},"prepared_persisted_at":{"$ref":"#/$defs/dateTime"},"persistence_order":{"const":"prepared_persisted_before_remote_effect"},"prepared_persistence_evidence_ref":{"$ref":"#/$defs/evidenceRef"}}},"attempt":{"type":"object","additionalProperties":false,"required":["publication_attempt_ref","attempt_number","cas","cas_fingerprint","frozen_cas_fingerprint","dispatch"],"properties":{"publication_attempt_ref":{"$ref":"#/$defs/attemptRef"},"attempt_number":{"type":"integer","minimum":1,"maximum":64},"cas":{"type":"object","additionalProperties":false,"required":["mechanism","remote_update_mode","stale_head_disposition","target_ref_precondition","expected_target_head","observed_at","observation_evidence_ref"],"properties":{"mechanism":{"const":"expected_head_compare_and_swap"},"remote_update_mode":{"const":"expected_head_advance_or_refuse"},"stale_head_disposition":{"const":"refuse_never_overwrite"},"target_ref_precondition":{"enum":["expected_head","must_not_exist"]},"expected_target_head":{"$ref":"#/$defs/nullableRevisionId"},"observed_at":{"$ref":"#/$defs/dateTime"},"observation_evidence_ref":{"$ref":"#/$defs/evidenceRef"}}},"cas_fingerprint":{"$ref":"#/$defs/hash"},"frozen_cas_fingerprint":{"$ref":"#/$defs/hash"},"dispatch":{"type":"object","additionalProperties":false,"required":["prepared_record_hash","dispatch_observation","dispatch_evidence_refs"],"properties":{"prepared_record_hash":{"$ref":"#/$defs/hash"},"dispatch_observation":{"enum":["proven_absent","proven_present","indeterminate"]},"dispatch_evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"minItems":1,"maxItems":8,"uniqueItems":true}}}}},"recovery":{"type":"object","additionalProperties":false,"required":["resolution_disposition","remote_effect_invoked","remote_convergence","precondition_recheck","prior_terminal_effect_ref","prior_terminal_effect_hash","reconciliation_code","recovery_evidence_refs"],"properties":{"resolution_disposition":{"$ref":"#/$defs/resolutionDisposition"},"remote_effect_invoked":{"type":"boolean"},"remote_convergence":{"enum":["matches_intended_revision","diverged","unobserved"]},"precondition_recheck":{"enum":["holds","moved","unobserved"]},"prior_terminal_effect_ref":{"anyOf":[{"$ref":"#/$defs/publicationEffectRef"},{"type":"null"}]},"prior_terminal_effect_hash":{"$ref":"#/$defs/nullableHash"},"reconciliation_code":{"$ref":"#/$defs/nullableShortToken"},"recovery_evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"minItems":1,"maxItems":16,"uniqueItems":true}}},"outcome":{"type":"object","additionalProperties":false,"required":["resulting_revision","proof_ref"],"properties":{"resulting_revision":{"anyOf":[{"$ref":"#/$defs/resultingRevision"},{"type":"null"}]},"proof_ref":{"$ref":"#/$defs/evidenceRef"}}},"effects":{"type":"object","additionalProperties":false,"required":["publication","review_request"],"properties":{"publication":{"type":"object","additionalProperties":false,"required":["effect_kind","outcome","receipt_ref","refusal_code","evidence_refs"],"properties":{"effect_kind":{"const":"scm_publication"},"outcome":{"enum":["published","partially_applied","refused","reconciliation_required"]},"receipt_ref":{"$ref":"#/$defs/receiptRef"},"refusal_code":{"$ref":"#/$defs/nullableShortToken"},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"minItems":1,"maxItems":16,"uniqueItems":true}}},"review_request":{"type":"object","additionalProperties":false,"required":["effect_kind","outcome","receipt_ref","refusal_code","evidence_refs","reconciliation"],"properties":{"effect_kind":{"const":"scm_review_request"},"outcome":{"enum":["opened","failed","refused","not_requested","not_attempted","reconciliation_required"]},"receipt_ref":{"anyOf":[{"$ref":"#/$defs/receiptRef"},{"type":"null"}]},"refusal_code":{"$ref":"#/$defs/nullableShortToken"},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"maxItems":16,"uniqueItems":true},"reconciliation":{"type":"object","additionalProperties":false,"required":["operation_key","resolution_disposition","remote_effect_invoked","reconciliation_code"],"properties":{"operation_key":{"$ref":"#/$defs/hash"},"resolution_disposition":{"$ref":"#/$defs/reviewResolutionDisposition"},"remote_effect_invoked":{"type":"boolean"},"reconciliation_code":{"$ref":"#/$defs/nullableShortToken"}}}}}}},"overall_outcome":{"enum":["published_with_review_request","published_review_request_not_requested","review_request_failed","published_review_request_reconciliation_required","partially_applied","refused","reconciliation_required"]},"nonclaims":{"type":"array","items":{"enum":["grants_no_authority","no_remote_acceptance_beyond_receipt_evidence","asserts_no_review_approval","asserts_no_exactly_once_execution"]},"minItems":4,"maxItems":4,"uniqueItems":true},"committed_at":{"$ref":"#/$defs/dateTime"}},"allOf":[{"type":"object","if":{"type":"object","properties":{"overall_outcome":{"const":"published_with_review_request"}},"required":["overall_outcome"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"publication":{"type":"object","properties":{"outcome":{"const":"published"}}},"review_request":{"type":"object","properties":{"outcome":{"const":"opened"}}}}},"outcome":{"type":"object","properties":{"resulting_revision":{"type":"object"}}}}}},{"type":"object","if":{"type":"object","properties":{"overall_outcome":{"const":"published_review_request_not_requested"}},"required":["overall_outcome"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"publication":{"type":"object","properties":{"outcome":{"const":"published"}}},"review_request":{"type":"object","properties":{"outcome":{"const":"not_requested"}}}}},"outcome":{"type":"object","properties":{"resulting_revision":{"type":"object"}}}}}},{"type":"object","if":{"type":"object","properties":{"overall_outcome":{"const":"review_request_failed"}},"required":["overall_outcome"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"publication":{"type":"object","properties":{"outcome":{"const":"published"}}},"review_request":{"type":"object","properties":{"outcome":{"const":"failed"}}}}}}}},{"type":"object","if":{"type":"object","properties":{"overall_outcome":{"const":"published_review_request_reconciliation_required"}},"required":["overall_outcome"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"publication":{"type":"object","properties":{"outcome":{"const":"published"}}},"review_request":{"type":"object","properties":{"outcome":{"const":"reconciliation_required"}}}}}}}},{"type":"object","if":{"type":"object","properties":{"overall_outcome":{"const":"partially_applied"}},"required":["overall_outcome"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"publication":{"type":"object","properties":{"outcome":{"const":"partially_applied"}}},"review_request":{"type":"object","properties":{"outcome":{"const":"not_attempted"}}}}}}}},{"type":"object","if":{"type":"object","properties":{"overall_outcome":{"const":"refused"}},"required":["overall_outcome"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"publication":{"type":"object","properties":{"outcome":{"const":"refused"}}},"review_request":{"type":"object","properties":{"outcome":{"enum":["refused","not_attempted"]}}}}},"outcome":{"type":"object","properties":{"resulting_revision":{"type":"null"}}}}}},{"type":"object","if":{"type":"object","properties":{"overall_outcome":{"const":"reconciliation_required"}},"required":["overall_outcome"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"publication":{"type":"object","properties":{"outcome":{"const":"reconciliation_required"}}},"review_request":{"type":"object","properties":{"outcome":{"enum":["not_attempted","reconciliation_required"]}}}}},"recovery":{"type":"object","properties":{"resolution_disposition":{"const":"reconciliation_required"}}},"outcome":{"type":"object","properties":{"resulting_revision":{"type":"null"}}}}}},{"type":"object","if":{"type":"object","properties":{"recovery":{"type":"object","properties":{"resolution_disposition":{"const":"replayed_terminal_result"}},"required":["resolution_disposition"]}},"required":["recovery"]},"then":{"type":"object","properties":{"recovery":{"type":"object","properties":{"remote_effect_invoked":{"const":false}}}}}},{"type":"object","if":{"type":"object","properties":{"recovery":{"type":"object","properties":{"resolution_disposition":{"const":"recovered_converged_remote"}},"required":["resolution_disposition"]}},"required":["recovery"]},"then":{"type":"object","properties":{"recovery":{"type":"object","properties":{"remote_effect_invoked":{"const":false},"remote_convergence":{"const":"matches_intended_revision"}}}}}},{"type":"object","if":{"type":"object","properties":{"recovery":{"type":"object","properties":{"resolution_disposition":{"const":"retried_frozen_cas"}},"required":["resolution_disposition"]}},"required":["recovery"]},"then":{"type":"object","properties":{"recovery":{"type":"object","properties":{"remote_effect_invoked":{"const":true},"precondition_recheck":{"const":"holds"}}},"attempt":{"type":"object","properties":{"dispatch":{"type":"object","properties":{"dispatch_observation":{"const":"proven_absent"}}}}}}}},{"type":"object","if":{"type":"object","properties":{"recovery":{"type":"object","properties":{"resolution_disposition":{"const":"reconciliation_required"}},"required":["resolution_disposition"]}},"required":["recovery"]},"then":{"type":"object","properties":{"recovery":{"type":"object","properties":{"remote_effect_invoked":{"const":false}}},"outcome":{"type":"object","properties":{"resulting_revision":{"type":"null"}}}}}},{"type":"object","if":{"type":"object","properties":{"attempt":{"type":"object","properties":{"cas":{"type":"object","properties":{"target_ref_precondition":{"const":"must_not_exist"}},"required":["target_ref_precondition"]}},"required":["cas"]}},"required":["attempt"]},"then":{"type":"object","properties":{"attempt":{"type":"object","properties":{"cas":{"type":"object","properties":{"expected_target_head":{"type":"null"}}}}}}}},{"type":"object","if":{"type":"object","properties":{"operation":{"type":"object","properties":{"identity":{"type":"object","properties":{"review_intent":{"const":"not_requested"}},"required":["review_intent"]}},"required":["identity"]}},"required":["operation"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"review_request":{"type":"object","properties":{"outcome":{"enum":["not_requested","not_attempted"]},"reconciliation":{"type":"object","properties":{"resolution_disposition":{"const":"not_engaged"}}}}}}}}}},{"type":"object","if":{"type":"object","properties":{"operation":{"type":"object","properties":{"identity":{"type":"object","properties":{"review_intent":{"const":"requested"}},"required":["review_intent"]}},"required":["identity"]}},"required":["operation"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"review_request":{"type":"object","properties":{"outcome":{"enum":["opened","failed","refused","not_attempted","reconciliation_required"]}}}}}}}},{"type":"object","if":{"type":"object","properties":{"effects":{"type":"object","properties":{"review_request":{"type":"object","properties":{"outcome":{"const":"opened"}},"required":["outcome"]}},"required":["review_request"]}},"required":["effects"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"review_request":{"type":"object","properties":{"reconciliation":{"type":"object","properties":{"resolution_disposition":{"enum":["first_dispatch","replayed_terminal_result","recovered_converged_remote","retried_frozen_cas"]}}}}}}}}}},{"type":"object","if":{"type":"object","properties":{"effects":{"type":"object","properties":{"review_request":{"type":"object","properties":{"outcome":{"const":"reconciliation_required"}},"required":["outcome"]}},"required":["review_request"]}},"required":["effects"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"review_request":{"type":"object","properties":{"reconciliation":{"type":"object","properties":{"resolution_disposition":{"const":"reconciliation_required"},"remote_effect_invoked":{"const":false}}}}}}}}}},{"type":"object","if":{"type":"object","properties":{"effects":{"type":"object","properties":{"review_request":{"type":"object","properties":{"reconciliation":{"type":"object","properties":{"resolution_disposition":{"const":"not_engaged"}},"required":["resolution_disposition"]}},"required":["reconciliation"]}},"required":["review_request"]}},"required":["effects"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"review_request":{"type":"object","properties":{"outcome":{"enum":["not_requested","not_attempted"]},"reconciliation":{"type":"object","properties":{"remote_effect_invoked":{"const":false}}}}}}}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nullableHash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"revisionId":{"type":"string","pattern":"^scm-revision:[0-9a-f]{40,64}$"},"nullableRevisionId":{"anyOf":[{"$ref":"#/$defs/revisionId"},{"type":"null"}]},"dateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"publicationEffectRef":{"type":"string","pattern":"^scm-publication-effect://[^\\s]{1,248}$"},"operationRef":{"type":"string","pattern":"^scm-publication-operation://[^\\s]{1,248}$"},"attemptRef":{"type":"string","pattern":"^scm-publication-attempt://[^\\s]{1,248}$"},"preparedRef":{"type":"string","pattern":"^scm-publication-prepared://[^\\s]{1,248}$"},"proposalRef":{"type":"string","pattern":"^proposal://[^\\s]{1,248}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"evidenceRef":{"type":"string","pattern":"^(?:evidence|receipt|artifact|attestation)://[^\\s]{1,248}$"},"scopeRef":{"type":"string","pattern":"^scope:[a-z0-9][a-z0-9._:/-]{0,127}$"},"shortToken":{"type":"string","pattern":"^[a-z0-9][a-z0-9._:/-]{0,127}$"},"nullableShortToken":{"anyOf":[{"$ref":"#/$defs/shortToken"},{"type":"null"}]},"resolutionDisposition":{"enum":["first_dispatch","replayed_terminal_result","recovered_converged_remote","retried_frozen_cas","reconciliation_required"]},"reviewResolutionDisposition":{"enum":["first_dispatch","replayed_terminal_result","recovered_converged_remote","retried_frozen_cas","reconciliation_required","not_engaged"]},"resultingRevision":{"type":"object","additionalProperties":false,"required":["revision_id","target_head"],"properties":{"revision_id":{"$ref":"#/$defs/revisionId"},"target_head":{"$ref":"#/$defs/revisionId"}}},"changeSetFile":{"type":"object","additionalProperties":false,"required":["path","change_kind","content_digest","proposal_ref"],"properties":{"path":{"type":"string","minLength":1,"maxLength":256,"pattern":"^[A-Za-z0-9_][A-Za-z0-9._/-]{0,255}$"},"change_kind":{"enum":["added","modified","removed"]},"content_digest":{"$ref":"#/$defs/nullableHash"},"proposal_ref":{"$ref":"#/$defs/proposalRef"}}}}}"##),
+    ("schema://ioi/components/daemon-runtime/action-request-envelope/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/action-request-envelope/v1","title":"ActionRequestEnvelope","description":"Immutable proposal envelope for one Authority Gateway mediated action. It declares requirements and evidence obligations but grants no authority and invokes nothing.","x-ioi-schema-version":"ioi.components.daemon-runtime.action-request-envelope.v1","type":"object","additionalProperties":false,"required":["schema_version","action_request_ref","request_revision","request_hash","authority_gateway_profile_ref","authority_gateway_profile_hash","source_adapter","proposed_action","risk_class","primitive_capabilities_required","authority_scopes_required","policy_decision","subject_refs","receipt_obligations","created_at","expires_at"],"properties":{"schema_version":{"const":"ioi.components.daemon-runtime.action-request-envelope.v1"},"action_request_ref":{"$ref":"#/$defs/actionRequestRef"},"request_revision":{"$ref":"#/$defs/positiveInteger"},"request_hash":{"$ref":"#/$defs/hash"},"authority_gateway_profile_ref":{"$ref":"#/$defs/gatewayProfileRef"},"authority_gateway_profile_hash":{"$ref":"#/$defs/hash"},"source_adapter":{"$ref":"#/$defs/sourceAdapter"},"proposed_action":{"$ref":"#/$defs/proposedAction"},"risk_class":{"enum":["informational","local_mutation","external_effect","system_destructive","secret_access","financial"]},"primitive_capabilities_required":{"type":"array","items":{"$ref":"#/$defs/primitiveCapability"},"maxItems":32,"uniqueItems":true},"authority_scopes_required":{"type":"array","items":{"$ref":"#/$defs/authorityScope"},"maxItems":32,"uniqueItems":true},"policy_decision":{"$ref":"#/$defs/policyDecision"},"subject_refs":{"$ref":"#/$defs/subjectRefs"},"receipt_obligations":{"type":"array","items":{"$ref":"#/$defs/receiptObligation"},"minItems":3,"maxItems":16,"allOf":[{"contains":{"type":"object","properties":{"receipt_type":{"const":"gateway_decision"}},"required":["receipt_type"]}},{"contains":{"type":"object","properties":{"receipt_type":{"const":"gateway_execution"}},"required":["receipt_type"]}},{"contains":{"type":"object","properties":{"receipt_type":{"const":"gateway_artifact"}},"required":["receipt_type"]}}]},"created_at":{"$ref":"#/$defs/dateTime"},"expires_at":{"$ref":"#/$defs/dateTime"}},"$defs":{"sourceAdapter":{"type":"object","additionalProperties":false,"required":["adapter_ref","adapter_revision","adapter_kind","implementation_ref","deployment_profile_ref"],"properties":{"adapter_ref":{"type":"string","pattern":"^adapter://[^\\s]{1,500}$"},"adapter_revision":{"type":"string","minLength":1,"maxLength":128},"adapter_kind":{"enum":["ide_extension","cli_wrapper","mcp_gateway","shell_wrapper","git_hook","workspace_watcher","api_proxy","browser_adapter","hosted_agent_gateway","ci_gate"]},"implementation_ref":{"$ref":"#/$defs/artifactRef"},"deployment_profile_ref":{"type":"string","pattern":"^deployment-profile://[^\\s]{1,500}$"}}},"proposedAction":{"type":"object","additionalProperties":false,"required":["action_class","operation","summary","input_commitment","target_refs","external_effect","proposed_effect_ref","proposed_effect_hash"],"properties":{"action_class":{"enum":["shell","file","git","mcp_tool","api","browser","deploy","secret","connector","provider"]},"operation":{"type":"string","pattern":"^[a-z][a-z0-9._-]{0,127}$"},"summary":{"type":"string","minLength":1,"maxLength":2048},"input_commitment":{"$ref":"#/$defs/hash"},"target_refs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"minItems":1,"maxItems":32,"uniqueItems":true},"external_effect":{"type":"boolean"},"proposed_effect_ref":{"oneOf":[{"type":"string","pattern":"^effect://[^\\s]{1,500}$"},{"type":"null"}]},"proposed_effect_hash":{"oneOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]}},"allOf":[{"if":{"properties":{"external_effect":{"const":true}},"required":["external_effect"]},"then":{"properties":{"proposed_effect_ref":{"type":"string","pattern":"^effect://[^\\s]{1,500}$"},"proposed_effect_hash":{"$ref":"#/$defs/hash"}}},"else":{"properties":{"proposed_effect_ref":{"type":"null"},"proposed_effect_hash":{"type":"null"}}}}]},"policyDecision":{"type":"object","additionalProperties":false,"required":["status","decision_receipt_ref","policy_ref","policy_hash","decided_at"],"properties":{"status":{"enum":["pending","allowed","denied","requires_approval","transform_required"]},"decision_receipt_ref":{"oneOf":[{"$ref":"#/$defs/receiptRef"},{"type":"null"}]},"policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"policy_hash":{"$ref":"#/$defs/hash"},"decided_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}},"allOf":[{"if":{"properties":{"status":{"const":"pending"}},"required":["status"]},"then":{"properties":{"decision_receipt_ref":{"type":"null"},"decided_at":{"type":"null"}}},"else":{"properties":{"decision_receipt_ref":{"$ref":"#/$defs/receiptRef"},"decided_at":{"$ref":"#/$defs/dateTime"}}}}]},"subjectRefs":{"type":"object","additionalProperties":false,"required":["session_ref","goal_ref","work_run_ref","work_item_ref"],"properties":{"session_ref":{"oneOf":[{"type":"string","pattern":"^session://[^\\s]{1,500}$"},{"type":"null"}]},"goal_ref":{"oneOf":[{"type":"string","pattern":"^goal://[^\\s]{1,500}$"},{"type":"null"}]},"work_run_ref":{"oneOf":[{"type":"string","pattern":"^work_run://[^\\s]{1,500}$"},{"type":"null"}]},"work_item_ref":{"oneOf":[{"type":"string","pattern":"^work_item://[^\\s]{1,500}$"},{"type":"null"}]}}},"receiptObligation":{"type":"object","additionalProperties":false,"required":["obligation_id","boundary_event","receipt_type","receipt_profile_ref","bound_fact_requirement_refs","required"],"properties":{"obligation_id":{"type":"string","pattern":"^[a-z][a-z0-9._-]{0,127}$"},"boundary_event":{"enum":["decision","execution","artifact"]},"receipt_type":{"enum":["gateway_decision","gateway_execution","gateway_artifact"]},"receipt_profile_ref":{"enum":["schema://ioi/components/daemon-runtime/gateway-decision-receipt/v1","schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1","schema://ioi/components/daemon-runtime/gateway-artifact-receipt/v1"]},"bound_fact_requirement_refs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"maxItems":32,"uniqueItems":true},"required":{"const":true}}},"positiveInteger":{"type":"integer","minimum":1,"maximum":9007199254740991},"actionRequestRef":{"type":"string","pattern":"^action-request://[^\\s]{1,500}$"},"gatewayProfileRef":{"type":"string","pattern":"^authority-gateway://[^\\s]{1,500}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,500}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"primitiveCapability":{"type":"string","pattern":"^prim:[a-z][a-z0-9._-]*$"},"authorityScope":{"type":"string","pattern":"^scope:[a-z][a-z0-9._-]*$"},"hash":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},"dateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##),
     ("schema://ioi/components/daemon-runtime/agent-harness-adapter/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/agent-harness-adapter/v1","title":"AgentHarnessAdapter","x-ioi-schema-version":"ioi.agent-harness-adapter.v1","type":"object","additionalProperties":false,"required":["schema_version","adapter_id","revision_ref","content_hash","owner_ref","adapter_family","transport_kind","compatible_harness_profile_revision_refs","registry_status"],"properties":{"schema_version":{"const":"ioi.agent-harness-adapter.v1"},"adapter_id":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"revision_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"predecessor_revision_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"owner_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"adapter_family":{"enum":["codex_cli","claude_code","openhands","hermes","deepseek_tui","local_agent","remote_agent_api","custom"]},"transport_kind":{"enum":["local_process","daemon_plugin","remote_api","aiip","mcp","custom"]},"compatible_harness_profile_revision_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"supported_task_brief_schema_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"supported_event_and_result_schema_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"supported_runtime_and_model_route_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"rendering_and_normalization_contract_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"required_runtime_tool_contract_revision_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"capability_and_context_requirement_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"provenance_evaluation_and_conformance_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"registry_lifecycle_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"registry_status":{"enum":["draft","evaluable","released","deprecated","revoked"]}}}"#),
     ("schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v1","title":"AuthorityEffectAdmissionReceipt","x-ioi-schema-version":"ioi.components.daemon-runtime.authority-effect-admission-receipt.v1","type":"object","additionalProperties":false,"required":["schema_version","receipt_id","policy_enforcement_point_ref","authorization_subject","authority_grant_ref","authority_grant_hash","actual_effect_ref","actual_effect_hash","decision_profile_ref","policy_hash","proof_kind","decision","invoker_called","decided_at","body_hash","receipt_hash"],"properties":{"schema_version":{"const":"ioi.components.daemon-runtime.authority-effect-admission-receipt.v1"},"receipt_id":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"policy_enforcement_point_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"authorization_subject":{"type":"object","additionalProperties":false,"required":["kind","subject_ref","subject_hash","validation_profile_ref"],"properties":{"kind":{"enum":["exact_effect","batch_manifest","standing_envelope"]},"subject_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"subject_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"validation_profile_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}}},"authority_grant_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"authority_grant_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"authority_review_receipt_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"authority_review_receipt_hash":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"approval_ceremony_context_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"approval_ceremony_context_hash":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"temporal_verification_profile_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"temporal_verification_profile_hash":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"temporal_validity_evaluation_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"temporal_validity_evaluation_hash":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"temporal_posture":{"enum":["online_fresh","bounded_offline","historical_only","insufficient"]},"revocation_evidence_status":{"enum":["verified","not_evaluated","unavailable","invalid","stale"]},"actual_effect_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"actual_effect_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"decision_profile_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"policy_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"proof_kind":{"enum":["exact_equality","batch_membership","standing_constraint"]},"decision":{"enum":["admitted","refused","unknown"]},"refusal_code":{"anyOf":[{"type":"string"},{"type":"null"}]},"invoker_called":{"type":"boolean"},"invoker_receipt_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"effect_receipt_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"decided_at":{"type":"string","pattern":"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[^\\s]+Z$"},"body_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"receipt_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"#),
     ("schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2","title":"AuthorityEffectAdmissionReceipt","description":"Immutable pre-invocation PEP receipt over one v3 grant, exact effect, current authority, temporal, continuity, and revocation evidence.","x-ioi-schema-version":"ioi.components.daemon-runtime.authority-effect-admission-receipt.v2","type":"object","additionalProperties":false,"required":["schema_version","receipt_envelope","body","body_hash","receipt_hash"],"properties":{"schema_version":{"const":"ioi.components.daemon-runtime.authority-effect-admission-receipt.v2"},"receipt_envelope":{"$ref":"#/$defs/receiptEnvelope"},"body":{"$ref":"#/$defs/admissionBody"},"body_hash":{"$ref":"#/$defs/sha256Hash"},"receipt_hash":{"$ref":"#/$defs/sha256Hash"}},"$defs":{"receiptEnvelope":{"type":"object","additionalProperties":false,"required":["receipt_id","receipt_type","receipt_profile_ref","attested_boundary_fact_refs","claim_scope_ref","run_id","task_id","actor_id","input_hash","output_hash","policy_hash","authority_grant_id","primitive_capabilities","authority_scopes","artifact_refs","evidence_bundle_refs","verification_ref","acceptance_ref","adjudication_ref","settlement_ref","timestamp","signature","public_commitment_ref"],"properties":{"receipt_id":{"$ref":"#/$defs/receiptRef"},"receipt_type":{"const":"authority_effect_admission"},"receipt_profile_ref":{"const":"schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2"},"attested_boundary_fact_refs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"minItems":1,"uniqueItems":true},"claim_scope_ref":{"const":"schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2"},"run_id":{"type":"null"},"task_id":{"type":"null"},"actor_id":{"type":"string","pattern":"^runtime://[^\\s]{1,500}$"},"input_hash":{"$ref":"#/$defs/sha256Hash"},"output_hash":{"$ref":"#/$defs/sha256Hash"},"policy_hash":{"$ref":"#/$defs/sha256Hash"},"authority_grant_id":{"$ref":"#/$defs/grantRef"},"primitive_capabilities":{"type":"array","items":{"$ref":"#/$defs/primitiveCapability"},"uniqueItems":true},"authority_scopes":{"type":"array","items":{"$ref":"#/$defs/authorityScope"},"uniqueItems":true},"artifact_refs":{"type":"array","items":{"$ref":"#/$defs/artifactRef"},"uniqueItems":true},"evidence_bundle_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceBundleRef"},"uniqueItems":true},"verification_ref":{"$ref":"#/$defs/receiptRef"},"acceptance_ref":{"type":"null"},"adjudication_ref":{"type":"null"},"settlement_ref":{"type":"null"},"timestamp":{"$ref":"#/$defs/canonicalDateTime"},"signature":{"type":"null"},"public_commitment_ref":{"type":"null"}}},"admissionBody":{"type":"object","additionalProperties":false,"required":["policy_enforcement_point_ref","authorization_subject","authority_grant_ref","authority_grant_hash","authority_review_receipt_ref","authority_review_receipt_hash","approval_ceremony_context_ref","approval_ceremony_context_hash","principal_authority_resolution_ref","principal_authority_resolution_hash","principal_authority_revalidation_receipt_ref","principal_authority_revalidation_receipt_hash","temporal_verification_profile_ref","temporal_verification_profile_hash","temporal_validity_evaluation_ref","temporal_validity_evaluation_hash","temporal_posture","continuity_floor_evidence_refs","revocation_evidence_status","revocation_snapshot_ref","revocation_snapshot_hash","revocation_epoch","actual_effect_ref","actual_effect_hash","decision_profile_ref","policy_hash","proof_kind","membership_proof_ref","membership_proof_hash","standing_evaluation_ref","standing_evaluation_hash","decision","refusal_code","invoker_called","invoker_receipt_ref","effect_receipt_ref","decided_at"],"properties":{"policy_enforcement_point_ref":{"type":"string","pattern":"^runtime://[^\\s]{1,500}$"},"authorization_subject":{"$ref":"#/$defs/authorizationSubject"},"authority_grant_ref":{"$ref":"#/$defs/grantRef"},"authority_grant_hash":{"$ref":"#/$defs/sha256Hash"},"authority_review_receipt_ref":{"$ref":"#/$defs/receiptRef"},"authority_review_receipt_hash":{"$ref":"#/$defs/sha256Hash"},"approval_ceremony_context_ref":{"type":"string","pattern":"^approval-ceremony-context://[^\\s]{1,500}$"},"approval_ceremony_context_hash":{"$ref":"#/$defs/sha256Hash"},"principal_authority_resolution_ref":{"oneOf":[{"$ref":"#/$defs/artifactRef"},{"type":"null"}]},"principal_authority_resolution_hash":{"oneOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"principal_authority_revalidation_receipt_ref":{"oneOf":[{"$ref":"#/$defs/receiptRef"},{"type":"null"}]},"principal_authority_revalidation_receipt_hash":{"oneOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"temporal_verification_profile_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"temporal_verification_profile_hash":{"$ref":"#/$defs/sha256Hash"},"temporal_validity_evaluation_ref":{"type":"string","pattern":"^(?:evidence|receipt)://[^\\s]{1,500}$"},"temporal_validity_evaluation_hash":{"$ref":"#/$defs/sha256Hash"},"temporal_posture":{"enum":["online_fresh","bounded_offline","historical_only","insufficient"]},"continuity_floor_evidence_refs":{"type":"array","items":{"type":"string","pattern":"^(?:evidence|receipt)://[^\\s]{1,500}$"},"uniqueItems":true},"revocation_evidence_status":{"enum":["verified","not_evaluated","unavailable","invalid","stale"]},"revocation_snapshot_ref":{"oneOf":[{"type":"string","pattern":"^snapshot://[^\\s]{1,500}$"},{"type":"null"}]},"revocation_snapshot_hash":{"oneOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"revocation_epoch":{"oneOf":[{"$ref":"#/$defs/safeNonNegativeInteger"},{"type":"null"}]},"actual_effect_ref":{"type":"string","pattern":"^effect://[^\\s]{1,500}$"},"actual_effect_hash":{"$ref":"#/$defs/sha256Hash"},"decision_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"},"policy_hash":{"$ref":"#/$defs/sha256Hash"},"proof_kind":{"enum":["exact_equality","batch_membership","standing_constraint"]},"membership_proof_ref":{"oneOf":[{"$ref":"#/$defs/evidenceOrReceiptRef"},{"type":"null"}]},"membership_proof_hash":{"oneOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"standing_evaluation_ref":{"oneOf":[{"$ref":"#/$defs/evidenceOrReceiptRef"},{"type":"null"}]},"standing_evaluation_hash":{"oneOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"decision":{"enum":["admitted","refused","unknown"]},"refusal_code":{"oneOf":[{"type":"string","minLength":1,"maxLength":256,"pattern":"^[a-z][a-z0-9._-]*$"},{"type":"null"}]},"invoker_called":{"const":false},"invoker_receipt_ref":{"type":"null"},"effect_receipt_ref":{"type":"null"},"decided_at":{"$ref":"#/$defs/canonicalDateTime"}},"allOf":[{"if":{"properties":{"authorization_subject":{"type":"object","properties":{"kind":{"const":"exact_effect"}}}}},"then":{"properties":{"proof_kind":{"const":"exact_equality"},"membership_proof_ref":{"type":"null"},"membership_proof_hash":{"type":"null"},"standing_evaluation_ref":{"type":"null"},"standing_evaluation_hash":{"type":"null"}}}},{"if":{"properties":{"authorization_subject":{"type":"object","properties":{"kind":{"const":"batch_manifest"}}}}},"then":{"properties":{"proof_kind":{"const":"batch_membership"},"membership_proof_ref":{"$ref":"#/$defs/evidenceOrReceiptRef"},"membership_proof_hash":{"$ref":"#/$defs/sha256Hash"},"standing_evaluation_ref":{"type":"null"},"standing_evaluation_hash":{"type":"null"}}}},{"if":{"properties":{"authorization_subject":{"type":"object","properties":{"kind":{"const":"standing_envelope"}}}}},"then":{"properties":{"proof_kind":{"const":"standing_constraint"},"membership_proof_ref":{"type":"null"},"membership_proof_hash":{"type":"null"},"standing_evaluation_ref":{"$ref":"#/$defs/evidenceOrReceiptRef"},"standing_evaluation_hash":{"$ref":"#/$defs/sha256Hash"}}}},{"if":{"properties":{"decision":{"const":"admitted"}}},"then":{"properties":{"refusal_code":{"type":"null"},"revocation_evidence_status":{"const":"verified"},"revocation_snapshot_ref":{"type":"string","pattern":"^snapshot://[^\\s]{1,500}$"},"revocation_snapshot_hash":{"$ref":"#/$defs/sha256Hash"},"revocation_epoch":{"$ref":"#/$defs/safeNonNegativeInteger"},"temporal_posture":{"enum":["online_fresh","bounded_offline"]}}},"else":{"properties":{"refusal_code":{"type":"string","minLength":1,"maxLength":256,"pattern":"^[a-z][a-z0-9._-]*$"}}}},{"if":{"properties":{"revocation_evidence_status":{"const":"verified"}}},"then":{"properties":{"revocation_snapshot_ref":{"type":"string","pattern":"^snapshot://[^\\s]{1,500}$"},"revocation_snapshot_hash":{"$ref":"#/$defs/sha256Hash"},"revocation_epoch":{"$ref":"#/$defs/safeNonNegativeInteger"}}}},{"if":{"properties":{"revocation_evidence_status":{"enum":["not_evaluated","unavailable"]}}},"then":{"properties":{"revocation_snapshot_ref":{"type":"null"},"revocation_snapshot_hash":{"type":"null"},"revocation_epoch":{"type":"null"},"decision":{"enum":["refused","unknown"]}}}},{"if":{"properties":{"revocation_evidence_status":{"const":"stale"}}},"then":{"properties":{"revocation_snapshot_ref":{"type":"string","pattern":"^snapshot://[^\\s]{1,500}$"},"revocation_snapshot_hash":{"$ref":"#/$defs/sha256Hash"},"revocation_epoch":{"$ref":"#/$defs/safeNonNegativeInteger"},"decision":{"enum":["refused","unknown"]}}}},{"if":{"properties":{"revocation_evidence_status":{"const":"invalid"}}},"then":{"properties":{"revocation_snapshot_ref":{"type":"string","pattern":"^snapshot://[^\\s]{1,500}$"},"revocation_snapshot_hash":{"$ref":"#/$defs/sha256Hash"},"decision":{"enum":["refused","unknown"]}}}}]},"authorizationSubject":{"type":"object","additionalProperties":false,"required":["kind","subject_ref","subject_hash","validation_profile_ref"],"properties":{"kind":{"enum":["exact_effect","batch_manifest","standing_envelope"]},"subject_ref":{"$ref":"#/$defs/canonicalRef"},"subject_hash":{"$ref":"#/$defs/sha256Hash"},"validation_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"}},"allOf":[{"if":{"properties":{"kind":{"const":"exact_effect"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^effect://[^\\s]{1,500}$"}}}},{"if":{"properties":{"kind":{"const":"batch_manifest"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^artifact://[^\\s]{1,500}$"}}}},{"if":{"properties":{"kind":{"const":"standing_envelope"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"}}}}]},"canonicalDateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"safeNonNegativeInteger":{"type":"integer","minimum":0,"maximum":9007199254740991},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"},"grantRef":{"type":"string","pattern":"^grant://[^\\s]{1,500}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,500}$"},"schemaOrPolicyRef":{"type":"string","pattern":"^(?:schema|policy)://[^\\s]{1,500}$"},"evidenceOrReceiptRef":{"type":"string","pattern":"^(?:evidence|receipt)://[^\\s]{1,500}$"},"evidenceBundleRef":{"type":"string","pattern":"^(?:evidence|assurance-evidence|artifact)://[^\\s]{1,500}$"},"primitiveCapability":{"type":"string","pattern":"^prim:[a-z][a-z0-9._-]*$"},"authorityScope":{"type":"string","pattern":"^scope:[a-z][a-z0-9._-]*$"},"sha256Hash":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"}}}"##),
+    ("schema://ioi/components/daemon-runtime/authority-gateway-profile/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/authority-gateway-profile/v1","title":"AuthorityGatewayProfile","description":"Immutable compatibility-adapter profile for one Authority Gateway deployment. The profile declares mediation posture and requirements but grants no authority, admission, execution, or truth.","x-ioi-schema-version":"ioi.components.daemon-runtime.authority-gateway-profile.v1","type":"object","additionalProperties":false,"required":["schema_version","profile_ref","profile_revision","profile_hash","predecessor_profile_hash","declaration","grants_authority","status","created_at","valid_until"],"properties":{"schema_version":{"const":"ioi.components.daemon-runtime.authority-gateway-profile.v1"},"profile_ref":{"$ref":"#/$defs/gatewayProfileRef"},"profile_revision":{"$ref":"#/$defs/positiveInteger"},"profile_hash":{"$ref":"#/$defs/hash"},"predecessor_profile_hash":{"oneOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"declaration":{"$ref":"#/$defs/declaration"},"grants_authority":{"const":false},"status":{"enum":["declared","superseded","quarantined","revoked","expired"]},"created_at":{"$ref":"#/$defs/dateTime"},"valid_until":{"$ref":"#/$defs/dateTime"}},"$defs":{"declaration":{"type":"object","additionalProperties":false,"required":["adapter","action_surfaces","subject_kinds","policy_enforcement_point_ref","authority_provider_ref","failure_posture","required_enforcement_scope_refs","run_on_graduation"],"properties":{"adapter":{"$ref":"#/$defs/adapter"},"action_surfaces":{"type":"array","items":{"$ref":"#/$defs/actionSurface"},"minItems":1,"maxItems":32},"subject_kinds":{"type":"array","items":{"enum":["unattached","session","goal","work_run","work_item"]},"minItems":1,"maxItems":5,"uniqueItems":true},"policy_enforcement_point_ref":{"type":"string","pattern":"^runtime://[^\\s]{1,500}$"},"authority_provider_ref":{"type":"string","pattern":"^authority-provider://[^\\s]{1,500}$"},"failure_posture":{"enum":["fail_closed","audit_only","queue_without_authority"]},"required_enforcement_scope_refs":{"type":"array","items":{"type":"string","pattern":"^enforcement-scope://[^\\s]{1,500}$"},"minItems":1,"maxItems":64,"uniqueItems":true},"run_on_graduation":{"$ref":"#/$defs/runOnGraduation"}}},"adapter":{"type":"object","additionalProperties":false,"required":["adapter_ref","adapter_revision","adapter_kind","implementation_ref","deployment_profile_ref"],"properties":{"adapter_ref":{"type":"string","pattern":"^adapter://[^\\s]{1,500}$"},"adapter_revision":{"type":"string","minLength":1,"maxLength":128},"adapter_kind":{"enum":["ide_extension","cli_wrapper","mcp_gateway","shell_wrapper","git_hook","workspace_watcher","api_proxy","browser_adapter","hosted_agent_gateway","ci_gate"]},"implementation_ref":{"$ref":"#/$defs/artifactRef"},"deployment_profile_ref":{"type":"string","pattern":"^deployment-profile://[^\\s]{1,500}$"}}},"actionSurface":{"type":"object","additionalProperties":false,"required":["surface","action_classes","mediation_mode","primitive_capabilities","authority_scopes","final_invoker_ref","receipt_profile_refs"],"properties":{"surface":{"enum":["ide","cli","mcp","shell","git","workspace","api","browser","hosted_agent","ci"]},"action_classes":{"type":"array","items":{"enum":["shell","file","git","mcp_tool","api","browser","deploy","secret","connector","provider"]},"minItems":1,"maxItems":10,"uniqueItems":true},"mediation_mode":{"enum":["active_pre_effect","audit_only","receipt_ingestion_only","uncovered"]},"primitive_capabilities":{"type":"array","items":{"$ref":"#/$defs/primitiveCapability"},"maxItems":32,"uniqueItems":true},"authority_scopes":{"type":"array","items":{"$ref":"#/$defs/authorityScope"},"maxItems":32,"uniqueItems":true},"final_invoker_ref":{"type":"string","pattern":"^(?:runtime|application|adapter)://[^\\s]{1,500}$"},"receipt_profile_refs":{"type":"array","items":{"enum":["schema://ioi/components/daemon-runtime/gateway-decision-receipt/v1","schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1","schema://ioi/components/daemon-runtime/gateway-artifact-receipt/v1"]},"minItems":1,"maxItems":3,"uniqueItems":true}},"allOf":[{"if":{"properties":{"mediation_mode":{"const":"active_pre_effect"}},"required":["mediation_mode"]},"then":{"properties":{"final_invoker_ref":{"type":"string","pattern":"^runtime://[^\\s]{1,500}$"},"receipt_profile_refs":{"type":"array","allOf":[{"contains":{"const":"schema://ioi/components/daemon-runtime/gateway-decision-receipt/v1"}},{"contains":{"const":"schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1"}}]}}}},{"if":{"properties":{"mediation_mode":{"enum":["audit_only","receipt_ingestion_only","uncovered"]}},"required":["mediation_mode"]},"then":{"properties":{"authority_scopes":{"type":"array","maxItems":0}}}}]},"runOnGraduation":{"type":"object","additionalProperties":false,"required":["agent_harness_adapter_ref","activation_source_kind","implicit_scope_carryover"],"properties":{"agent_harness_adapter_ref":{"oneOf":[{"type":"string","pattern":"^adapter://[^\\s]{1,500}$"},{"type":"null"}]},"activation_source_kind":{"const":"gateway_adapter_context"},"implicit_scope_carryover":{"const":false}}},"positiveInteger":{"type":"integer","minimum":1,"maximum":9007199254740991},"gatewayProfileRef":{"type":"string","pattern":"^authority-gateway://[^\\s]{1,500}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,500}$"},"primitiveCapability":{"type":"string","pattern":"^prim:[a-z][a-z0-9._-]*$"},"authorityScope":{"type":"string","pattern":"^scope:[a-z][a-z0-9._-]*$"},"hash":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},"dateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##),
     ("schema://ioi/components/daemon-runtime/declassification-receipt/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/declassification-receipt/v1","title":"DeclassificationReceipt","x-ioi-schema-version":"ioi.components.daemon-runtime.declassification-receipt.v1","type":"object","additionalProperties":false,"required":["schema_version","receipt_id","approval_ref","information_flow_label_refs","effect_ref","effect_hash","destination","authority_grant_ref","status_at_use","resulting_data_class","decided_at"],"properties":{"schema_version":{"const":"ioi.components.daemon-runtime.declassification-receipt.v1"},"receipt_id":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"approval_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"information_flow_label_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"runtime_tool_contract_revision_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"effect_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"effect_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"request_hash":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"reviewed_representation_hash":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"destination":{"type":"string","minLength":1},"resulting_data_class":{"enum":["public","internal","confidential","restricted","regulated","safety_critical"]},"authority_grant_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"status_at_use":{"enum":["valid","expired","revoked","scope_mismatch","invalid"]},"decided_at":{"type":"string","pattern":"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[^\\s]+Z$"}}}"#),
     ("schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1","title":"EnforcementCoverageDeclaration","description":"One evidence-backed enforcement coverage declaration for an exact profile or adapter revision, platform, surface, action class, and scope. The declaration reports coverage facts without owning policy, authority, execution, or durable runtime truth. declaration_id is not self-authenticating: the consuming deployment evidence or operability index must bind the exact declaration artifact reference and content hash. Any change to claims, status, freshness, evidence, or other declaration bytes produces a new content-bound snapshot rather than mutating an accepted snapshot.","x-ioi-schema-version":"ioi.components.daemon-runtime.enforcement-coverage-declaration.v1","type":"object","additionalProperties":false,"required":["schema_version","declaration_id","subject","scope","claims","mechanisms","platform","required_privilege","custom_os_kernel_module_required_for_claim","bypass","operating_mode","decision_source","final_invoker","availability","receipt","verification","known_gaps","limitations","status"],"properties":{"schema_version":{"const":"ioi.components.daemon-runtime.enforcement-coverage-declaration.v1"},"declaration_id":{"type":"string","pattern":"^enforcement-coverage://[^\\s]{1,248}$","description":"Stable logical identifier only; consumers must separately verify the exact declaration artifact reference and content hash."},"subject":{"type":"object","additionalProperties":false,"required":["kind","profile_or_adapter_ref","version","content_hash","implementation_ref","deployment_profile_ref"],"properties":{"kind":{"enum":["node_enforcement_profile","authority_gateway_profile"]},"profile_or_adapter_ref":{"$ref":"#/$defs/canonicalRef"},"version":{"type":"string","pattern":"^[0-9]+[.][0-9]+[.][0-9]+[-+A-Za-z0-9.]{0,128}$","maxLength":256},"content_hash":{"$ref":"#/$defs/hash"},"implementation_ref":{"$ref":"#/$defs/canonicalRef"},"deployment_profile_ref":{"$ref":"#/$defs/canonicalRef"}}},"scope":{"type":"object","additionalProperties":false,"required":["surface","action_class","boundary","scope_ref"],"properties":{"surface":{"$ref":"#/$defs/canonicalName"},"action_class":{"$ref":"#/$defs/canonicalName"},"boundary":{"enum":["managed_workload","host","application","adapter","external_service","physical_unit","other_declared"]},"scope_ref":{"$ref":"#/$defs/canonicalRef"}}},"claims":{"type":"object","additionalProperties":false,"required":["discovered","observable","attributable","mediated","preventable","receipted","uncovered"],"properties":{"discovered":{"$ref":"#/$defs/claimState"},"observable":{"$ref":"#/$defs/claimState"},"attributable":{"$ref":"#/$defs/claimState"},"mediated":{"$ref":"#/$defs/claimState"},"preventable":{"$ref":"#/$defs/claimState"},"receipted":{"$ref":"#/$defs/claimState"},"uncovered":{"$ref":"#/$defs/claimState"}}},"mechanisms":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["mechanism_id","kind","implementation_ref","version","roles"],"properties":{"mechanism_id":{"type":"string","pattern":"^[a-z][a-z0-9._-]{0,127}$"},"kind":{"enum":["daemon_gate","sandbox","seccomp","ebpf","lsm","network_proxy","datawall","ctee_policy","tee_attestation","platform_native_user_space","platform_native_privileged","application_adapter","harness_adapter","mcp_gateway","shell_wrapper","filesystem_watcher","browser_extension","api_gateway","ci_gate","webhook_gate","receipt_ingestion","custom_os_kernel_module","other_declared"]},"implementation_ref":{"$ref":"#/$defs/canonicalRef"},"version":{"type":"string","minLength":1,"maxLength":128},"roles":{"type":"array","items":{"enum":["discovery","observation","attribution","mediation","prevention","receipt_emission"]},"minItems":1,"maxItems":6,"uniqueItems":true}}},"maxItems":32,"uniqueItems":true},"platform":{"type":"object","additionalProperties":false,"required":["family","version","architecture","execution_context","native_security_facility_refs"],"properties":{"family":{"enum":["linux","macos","windows","portable","other_declared"]},"version":{"type":"string","minLength":1,"maxLength":128},"architecture":{"enum":["x86_64","aarch64","portable","other_declared"]},"execution_context":{"enum":["user_session","managed_host","container","vm","microvm","bare_metal","hosted_service","other_declared"]},"native_security_facility_refs":{"$ref":"#/$defs/canonicalRefs"}}},"required_privilege":{"enum":["user","elevated","os_privileged","kernel","hardware_backed"]},"custom_os_kernel_module_required_for_claim":{"type":"boolean"},"bypass":{"type":"object","additionalProperties":false,"required":["resistance","assumptions","known_bypass_refs"],"properties":{"resistance":{"enum":["none","cooperative","best_effort","managed_host","measured_host"]},"assumptions":{"type":"array","items":{"type":"string","minLength":1,"maxLength":512},"maxItems":32,"uniqueItems":true},"known_bypass_refs":{"$ref":"#/$defs/canonicalRefs"}}},"operating_mode":{"enum":["active_enforcement","audit_only","passive_observation","receipt_ingestion_only","uncovered"]},"decision_source":{"type":"object","additionalProperties":false,"required":["kind","decision_source_ref","policy_ref","authority_provider_ref"],"properties":{"kind":{"enum":["daemon_policy_engine","owner_policy_service","adapter_local_policy","human_approval","none","unknown"]},"decision_source_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"policy_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"authority_provider_ref":{"$ref":"#/$defs/nullableCanonicalRef"}}},"final_invoker":{"type":"object","additionalProperties":false,"required":["kind","invoker_ref"],"properties":{"kind":{"enum":["daemon","workload_broker","adapter","application","external_service","human","none","unknown"]},"invoker_ref":{"$ref":"#/$defs/nullableCanonicalRef"}}},"availability":{"type":"object","additionalProperties":false,"required":["online_behavior","offline_behavior","failure_posture"],"properties":{"online_behavior":{"$ref":"#/$defs/availabilityBehavior"},"offline_behavior":{"$ref":"#/$defs/availabilityBehavior"},"failure_posture":{"enum":["fail_closed","fail_open","audit_only","quarantine","not_applicable","unknown"]}}},"receipt":{"type":"object","additionalProperties":false,"required":["scope","contract_refs","evidence_refs"],"properties":{"scope":{"enum":["none","observation","decision","effect","observation_and_decision","observation_and_effect","decision_and_effect","observation_decision_and_effect"]},"contract_refs":{"$ref":"#/$defs/canonicalRefs"},"evidence_refs":{"$ref":"#/$defs/evidenceRefs"}}},"verification":{"type":"object","additionalProperties":false,"required":["verifier_ref","verification_method_ref","evidence_refs","evaluated_at","freshness_status","valid_until","freshness_policy_ref"],"properties":{"verifier_ref":{"$ref":"#/$defs/canonicalRef"},"verification_method_ref":{"$ref":"#/$defs/canonicalRef"},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"minItems":1,"maxItems":128,"uniqueItems":true},"evaluated_at":{"$ref":"#/$defs/dateTime"},"freshness_status":{"enum":["current","stale","expired","unverified"]},"valid_until":{"anyOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]},"freshness_policy_ref":{"$ref":"#/$defs/nullableCanonicalRef"}}},"known_gaps":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["gap_id","description","affected_path","mitigation_ref"],"properties":{"gap_id":{"type":"string","pattern":"^[a-z][a-z0-9._-]{0,127}$"},"description":{"type":"string","minLength":1,"maxLength":1024},"affected_path":{"type":"string","minLength":1,"maxLength":512},"mitigation_ref":{"$ref":"#/$defs/nullableCanonicalRef"}}},"maxItems":64,"uniqueItems":true},"limitations":{"type":"array","items":{"type":"string","minLength":1,"maxLength":1024},"maxItems":64,"uniqueItems":true},"status":{"enum":["draft","verified","stale","revoked"]}},"allOf":[{"if":{"properties":{"claims":{"type":"object","properties":{"uncovered":{"const":true}},"required":["uncovered"]}},"required":["claims"]},"then":{"properties":{"claims":{"type":"object","properties":{"discovered":{"$ref":"#/$defs/notTrueClaimState"},"observable":{"$ref":"#/$defs/notTrueClaimState"},"attributable":{"$ref":"#/$defs/notTrueClaimState"},"mediated":{"$ref":"#/$defs/notTrueClaimState"},"preventable":{"$ref":"#/$defs/notTrueClaimState"},"receipted":{"$ref":"#/$defs/notTrueClaimState"}}},"operating_mode":{"const":"uncovered"}}}},{"if":{"properties":{"operating_mode":{"const":"uncovered"}},"required":["operating_mode"]},"then":{"properties":{"claims":{"type":"object","properties":{"uncovered":{"const":true}}}}}},{"if":{"properties":{"status":{"const":"verified"}},"required":["status"]},"then":{"properties":{"verification":{"type":"object","properties":{"freshness_status":{"const":"current"}}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"mediated":{"const":true}},"required":["mediated"]}},"required":["claims"]},"then":{"properties":{"decision_source":{"type":"object","properties":{"kind":{"enum":["daemon_policy_engine","owner_policy_service","adapter_local_policy","human_approval"]},"decision_source_ref":{"$ref":"#/$defs/canonicalRef"}}},"final_invoker":{"type":"object","properties":{"kind":{"enum":["daemon","workload_broker","adapter","application","external_service","human"]},"invoker_ref":{"$ref":"#/$defs/canonicalRef"}}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"preventable":{"const":true}},"required":["preventable"]}},"required":["claims"]},"then":{"properties":{"claims":{"type":"object","properties":{"mediated":{"const":true}}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"attributable":{"const":true}},"required":["attributable"]}},"required":["claims"]},"then":{"properties":{"claims":{"type":"object","properties":{"observable":{"const":true}}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"receipted":{"const":true}},"required":["receipted"]}},"required":["claims"]},"then":{"properties":{"receipt":{"type":"object","properties":{"scope":{"enum":["observation","decision","effect","observation_and_decision","observation_and_effect","decision_and_effect","observation_decision_and_effect"]},"contract_refs":{"type":"array","minItems":1}}}}}},{"if":{"properties":{"operating_mode":{"enum":["audit_only","passive_observation","receipt_ingestion_only"]}},"required":["operating_mode"]},"then":{"properties":{"claims":{"type":"object","properties":{"mediated":{"$ref":"#/$defs/notTrueClaimState"},"preventable":{"$ref":"#/$defs/notTrueClaimState"}}}}}},{"if":{"properties":{"availability":{"type":"object","properties":{"failure_posture":{"const":"audit_only"}},"required":["failure_posture"]}},"required":["availability"]},"then":{"properties":{"claims":{"type":"object","properties":{"preventable":{"$ref":"#/$defs/notTrueClaimState"}}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"discovered":{"const":true}},"required":["discovered"]}},"required":["claims"]},"then":{"properties":{"mechanisms":{"type":"array","minItems":1,"contains":{"$ref":"#/$defs/mechanismWithDiscoveryRole"}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"observable":{"const":true}},"required":["observable"]}},"required":["claims"]},"then":{"properties":{"mechanisms":{"type":"array","minItems":1,"contains":{"$ref":"#/$defs/mechanismWithObservationRole"}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"attributable":{"const":true}},"required":["attributable"]}},"required":["claims"]},"then":{"properties":{"mechanisms":{"type":"array","minItems":1,"contains":{"$ref":"#/$defs/mechanismWithAttributionRole"}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"mediated":{"const":true}},"required":["mediated"]}},"required":["claims"]},"then":{"properties":{"mechanisms":{"type":"array","minItems":1,"contains":{"$ref":"#/$defs/mechanismWithMediationRole"}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"preventable":{"const":true}},"required":["preventable"]}},"required":["claims"]},"then":{"properties":{"mechanisms":{"type":"array","minItems":1,"contains":{"$ref":"#/$defs/mechanismWithPreventionRole"}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"receipted":{"const":true}},"required":["receipted"]}},"required":["claims"]},"then":{"properties":{"mechanisms":{"type":"array","minItems":1,"contains":{"$ref":"#/$defs/mechanismWithReceiptEmissionRole"}}}}},{"if":{"properties":{"custom_os_kernel_module_required_for_claim":{"const":true}},"required":["custom_os_kernel_module_required_for_claim"]},"then":{"properties":{"required_privilege":{"const":"kernel"},"mechanisms":{"type":"array","minItems":1,"contains":{"$ref":"#/$defs/customOsKernelModuleMechanism"}}}}}],"$defs":{"claimState":{"anyOf":[{"type":"boolean"},{"const":"unknown"}]},"notTrueClaimState":{"anyOf":[{"const":false},{"const":"unknown"}]},"mechanismWithDiscoveryRole":{"$ref":"#/$defs/mechanismRoleDiscovery"},"mechanismWithObservationRole":{"$ref":"#/$defs/mechanismRoleObservation"},"mechanismWithAttributionRole":{"$ref":"#/$defs/mechanismRoleAttribution"},"mechanismWithMediationRole":{"$ref":"#/$defs/mechanismRoleMediation"},"mechanismWithPreventionRole":{"$ref":"#/$defs/mechanismRolePrevention"},"mechanismWithReceiptEmissionRole":{"$ref":"#/$defs/mechanismRoleReceiptEmission"},"mechanismRoleDiscovery":{"type":"object","properties":{"roles":{"type":"array","contains":{"const":"discovery"}}},"required":["roles"]},"mechanismRoleObservation":{"type":"object","properties":{"roles":{"type":"array","contains":{"const":"observation"}}},"required":["roles"]},"mechanismRoleAttribution":{"type":"object","properties":{"roles":{"type":"array","contains":{"const":"attribution"}}},"required":["roles"]},"mechanismRoleMediation":{"type":"object","properties":{"roles":{"type":"array","contains":{"const":"mediation"}}},"required":["roles"]},"mechanismRolePrevention":{"type":"object","properties":{"roles":{"type":"array","contains":{"const":"prevention"}}},"required":["roles"]},"mechanismRoleReceiptEmission":{"type":"object","properties":{"roles":{"type":"array","contains":{"const":"receipt_emission"}}},"required":["roles"]},"customOsKernelModuleMechanism":{"type":"object","properties":{"kind":{"const":"custom_os_kernel_module"}},"required":["kind"]},"canonicalName":{"type":"string","pattern":"^[a-z][a-z0-9._-]{0,127}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,248}$"},"nullableCanonicalRef":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"canonicalRefs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"maxItems":128,"uniqueItems":true},"evidenceRef":{"type":"string","pattern":"^(?:evidence|receipt|artifact)://[^\\s]{1,248}$"},"evidenceRefs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"maxItems":128,"uniqueItems":true},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"dateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"availabilityBehavior":{"enum":["enforce","audit","deny","queue","allow","quarantine","not_applicable","unknown"]}}}"##),
+    ("schema://ioi/components/daemon-runtime/gateway-artifact-receipt/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/gateway-artifact-receipt/v1","title":"GatewayArtifactReceipt","description":"Immutable artifact and diff custody receipt bound to one gateway execution receipt; it may explicitly attest that the action produced no artifact.","x-ioi-schema-version":"ioi.components.daemon-runtime.gateway-artifact-receipt.v1","type":"object","additionalProperties":false,"required":["schema_version","receipt_ref","receipt_type","action_request_ref","action_request_hash","gateway_execution_receipt_ref","gateway_execution_receipt_hash","evidence_kind","artifacts","diff_artifact_ref","diff_hash","no_artifact_reason","captured_at","receipt_hash"],"properties":{"schema_version":{"const":"ioi.components.daemon-runtime.gateway-artifact-receipt.v1"},"receipt_ref":{"$ref":"#/$defs/receiptRef"},"receipt_type":{"const":"gateway_artifact"},"action_request_ref":{"$ref":"#/$defs/actionRequestRef"},"action_request_hash":{"$ref":"#/$defs/hash"},"gateway_execution_receipt_ref":{"$ref":"#/$defs/receiptRef"},"gateway_execution_receipt_hash":{"$ref":"#/$defs/hash"},"evidence_kind":{"enum":["artifacts","diff","none"]},"artifacts":{"type":"array","items":{"$ref":"#/$defs/artifactBinding"},"maxItems":128},"diff_artifact_ref":{"oneOf":[{"$ref":"#/$defs/artifactRef"},{"type":"null"}]},"diff_hash":{"oneOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"no_artifact_reason":{"oneOf":[{"type":"string","minLength":1,"maxLength":512},{"type":"null"}]},"captured_at":{"$ref":"#/$defs/dateTime"},"receipt_hash":{"$ref":"#/$defs/hash"}},"allOf":[{"if":{"properties":{"evidence_kind":{"const":"artifacts"}},"required":["evidence_kind"]},"then":{"properties":{"artifacts":{"type":"array","minItems":1},"diff_artifact_ref":{"type":"null"},"diff_hash":{"type":"null"},"no_artifact_reason":{"type":"null"}}}},{"if":{"properties":{"evidence_kind":{"const":"diff"}},"required":["evidence_kind"]},"then":{"properties":{"artifacts":{"type":"array","maxItems":0},"diff_artifact_ref":{"$ref":"#/$defs/artifactRef"},"diff_hash":{"$ref":"#/$defs/hash"},"no_artifact_reason":{"type":"null"}}}},{"if":{"properties":{"evidence_kind":{"const":"none"}},"required":["evidence_kind"]},"then":{"properties":{"artifacts":{"type":"array","maxItems":0},"diff_artifact_ref":{"type":"null"},"diff_hash":{"type":"null"},"no_artifact_reason":{"type":"string","minLength":1,"maxLength":512}}}}],"$defs":{"artifactBinding":{"type":"object","additionalProperties":false,"required":["artifact_ref","content_hash","media_type","size_bytes"],"properties":{"artifact_ref":{"$ref":"#/$defs/artifactRef"},"content_hash":{"$ref":"#/$defs/hash"},"media_type":{"type":"string","minLength":1,"maxLength":255},"size_bytes":{"type":"integer","minimum":0,"maximum":9007199254740991}}},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"},"actionRequestRef":{"type":"string","pattern":"^action-request://[^\\s]{1,500}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,500}$"},"hash":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},"dateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##),
+    ("schema://ioi/components/daemon-runtime/gateway-decision-receipt/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/gateway-decision-receipt/v1","title":"GatewayDecisionReceipt","description":"Immutable daemon PEP decision over one exact Authority Gateway action request. It records admission posture but is not effect authority.","x-ioi-schema-version":"ioi.components.daemon-runtime.gateway-decision-receipt.v1","type":"object","additionalProperties":false,"required":["schema_version","receipt_ref","receipt_type","action_request_ref","action_request_hash","authority_gateway_profile_ref","authority_gateway_profile_hash","policy_enforcement_point_ref","decision","policy_ref","policy_hash","authority_status","authority_evidence_refs","approval_receipt_ref","admitted_action_hash","decided_at","receipt_hash"],"properties":{"schema_version":{"const":"ioi.components.daemon-runtime.gateway-decision-receipt.v1"},"receipt_ref":{"$ref":"#/$defs/receiptRef"},"receipt_type":{"const":"gateway_decision"},"action_request_ref":{"$ref":"#/$defs/actionRequestRef"},"action_request_hash":{"$ref":"#/$defs/hash"},"authority_gateway_profile_ref":{"$ref":"#/$defs/gatewayProfileRef"},"authority_gateway_profile_hash":{"$ref":"#/$defs/hash"},"policy_enforcement_point_ref":{"type":"string","pattern":"^runtime://[^\\s]{1,500}$"},"decision":{"enum":["allowed","denied","requires_approval","transform_required"]},"policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"policy_hash":{"$ref":"#/$defs/hash"},"authority_status":{"enum":["not_required","required_unresolved","verified","refused"]},"authority_evidence_refs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"maxItems":32,"uniqueItems":true},"approval_receipt_ref":{"oneOf":[{"$ref":"#/$defs/receiptRef"},{"type":"null"}]},"admitted_action_hash":{"oneOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"decided_at":{"$ref":"#/$defs/dateTime"},"receipt_hash":{"$ref":"#/$defs/hash"}},"allOf":[{"if":{"properties":{"decision":{"const":"allowed"}},"required":["decision"]},"then":{"properties":{"authority_status":{"enum":["not_required","verified"]},"admitted_action_hash":{"$ref":"#/$defs/hash"}}}},{"if":{"properties":{"decision":{"const":"denied"}},"required":["decision"]},"then":{"properties":{"admitted_action_hash":{"type":"null"}}}}],"$defs":{"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"},"actionRequestRef":{"type":"string","pattern":"^action-request://[^\\s]{1,500}$"},"gatewayProfileRef":{"type":"string","pattern":"^authority-gateway://[^\\s]{1,500}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"hash":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},"dateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##),
+    ("schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1","title":"GatewayExecutionReceipt","description":"Immutable record of the single daemon-owned final invocation or explicit non-invocation for one admitted gateway action.","x-ioi-schema-version":"ioi.components.daemon-runtime.gateway-execution-receipt.v1","type":"object","additionalProperties":false,"required":["schema_version","receipt_ref","receipt_type","action_request_ref","action_request_hash","authority_gateway_profile_ref","authority_gateway_profile_hash","gateway_decision_receipt_ref","gateway_decision_receipt_hash","policy_enforcement_point_ref","external_effect","authority_effect_admission_receipt_ref","authority_effect_admission_receipt_hash","final_invoker_ref","invocation_id","idempotency_key","actual_effect_ref","actual_effect_hash","outcome","result_hash","effect_receipt_ref","started_at","completed_at","receipt_hash"],"properties":{"schema_version":{"const":"ioi.components.daemon-runtime.gateway-execution-receipt.v1"},"receipt_ref":{"$ref":"#/$defs/receiptRef"},"receipt_type":{"const":"gateway_execution"},"action_request_ref":{"$ref":"#/$defs/actionRequestRef"},"action_request_hash":{"$ref":"#/$defs/hash"},"authority_gateway_profile_ref":{"$ref":"#/$defs/gatewayProfileRef"},"authority_gateway_profile_hash":{"$ref":"#/$defs/hash"},"gateway_decision_receipt_ref":{"$ref":"#/$defs/receiptRef"},"gateway_decision_receipt_hash":{"$ref":"#/$defs/hash"},"policy_enforcement_point_ref":{"type":"string","pattern":"^runtime://[^\\s]{1,500}$"},"external_effect":{"type":"boolean"},"authority_effect_admission_receipt_ref":{"oneOf":[{"$ref":"#/$defs/receiptRef"},{"type":"null"}]},"authority_effect_admission_receipt_hash":{"oneOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"final_invoker_ref":{"type":"string","pattern":"^runtime://[^\\s]{1,500}$"},"invocation_id":{"type":"string","pattern":"^[a-z][a-z0-9._-]{0,127}$"},"idempotency_key":{"$ref":"#/$defs/hash"},"actual_effect_ref":{"oneOf":[{"type":"string","pattern":"^effect://[^\\s]{1,500}$"},{"type":"null"}]},"actual_effect_hash":{"oneOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"outcome":{"enum":["succeeded","failed","refused","unknown","reconciliation_required"]},"result_hash":{"oneOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"effect_receipt_ref":{"oneOf":[{"$ref":"#/$defs/receiptRef"},{"type":"null"}]},"started_at":{"$ref":"#/$defs/dateTime"},"completed_at":{"$ref":"#/$defs/dateTime"},"receipt_hash":{"$ref":"#/$defs/hash"}},"allOf":[{"if":{"properties":{"external_effect":{"const":true}},"required":["external_effect"]},"then":{"properties":{"authority_effect_admission_receipt_ref":{"$ref":"#/$defs/receiptRef"},"authority_effect_admission_receipt_hash":{"$ref":"#/$defs/hash"},"actual_effect_ref":{"type":"string","pattern":"^effect://[^\\s]{1,500}$"},"actual_effect_hash":{"$ref":"#/$defs/hash"}}},"else":{"properties":{"authority_effect_admission_receipt_ref":{"type":"null"},"authority_effect_admission_receipt_hash":{"type":"null"},"actual_effect_ref":{"type":"null"},"actual_effect_hash":{"type":"null"}}}}],"$defs":{"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"},"actionRequestRef":{"type":"string","pattern":"^action-request://[^\\s]{1,500}$"},"gatewayProfileRef":{"type":"string","pattern":"^authority-gateway://[^\\s]{1,500}$"},"hash":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},"dateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##),
     ("schema://ioi/components/daemon-runtime/harness-profile/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/harness-profile/v1","title":"HarnessProfile","x-ioi-schema-version":"ioi.harness-profile.v1","type":"object","additionalProperties":false,"required":["schema_version","profile_id","revision_ref","content_hash","profile_family","profile_version","daemon_executed_or_mediated","step_resolution_contract_required","supported_normalized_boundary_contracts","completed_invocation_terminal_minimum","authority_model","state_substrate","registry_status"],"properties":{"schema_version":{"const":"ioi.harness-profile.v1"},"profile_id":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"revision_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"predecessor_revision_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"profile_family":{"enum":["default_ioi","coding_step","research_step","browser_step","review_step","operator_step","custom"]},"profile_version":{"type":"string","minLength":1},"daemon_executed_or_mediated":{"const":true},"step_resolution_contract_required":{"const":true},"supported_normalized_boundary_contracts":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":500}},"completed_invocation_terminal_minimum":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":500}},"conditional_contracts_follow_task_brief":{"type":"boolean"},"authority_model":{"const":"wallet.network"},"state_substrate":{"const":"Agentgres"},"persistent_workspace_intelligence":{"type":"object"},"workflow_compositor_role":{"type":"object"},"registry_lifecycle_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"registry_status":{"enum":["draft","evaluable","released","deprecated","revoked"]}}}"#),
     ("schema://ioi/components/daemon-runtime/hypervisoros-boot-profile/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/hypervisoros-boot-profile/v1","title":"HypervisorOSBootProfile","description":"DESIRED boot posture for HypervisorOS nodes of one estate: exact measurement floors, minimum admissible attestation posture, a monotonic rollback version floor, and the exact TemporalVerificationProfile binding that qualifies boot-receipt freshness. This is an owner-authorized desired record; it never asserts an observed measurement.","x-ioi-schema-version":"ioi.components.daemon-runtime.hypervisoros-boot-profile.v1","type":"object","additionalProperties":false,"required":["schema_version","boot_profile_id","owner_ref","image_hash","kernel_hash","initrd_hash","daemon_binary_hash","package_manifest_hash","driver_manifest_hash","gpu_profile","secure_boot","tpm_measurement","attestation_assurance","update_policy","temporal_verification_profile_ref","temporal_verification_profile_hash","asserts_observed_measurement","predecessor_boot_profile_root","status","created_at"],"properties":{"schema_version":{"const":"ioi.components.daemon-runtime.hypervisoros-boot-profile.v1"},"boot_profile_id":{"type":"string","pattern":"^boot-profile://[^\\s]{1,248}$"},"owner_ref":{"type":"string","pattern":"^(?:wallet|provider|org)://[^\\s]{1,248}$"},"image_hash":{"$ref":"#/$defs/hash"},"kernel_hash":{"$ref":"#/$defs/hash"},"initrd_hash":{"$ref":"#/$defs/hash"},"daemon_binary_hash":{"$ref":"#/$defs/hash"},"package_manifest_hash":{"$ref":"#/$defs/hash"},"driver_manifest_hash":{"$ref":"#/$defs/hash"},"gpu_profile":{"type":"object","additionalProperties":false,"required":["class","model_hint"],"properties":{"class":{"enum":["consumer","datacenter","confidential_capable"]},"model_hint":{"type":"string","minLength":1,"maxLength":64}}},"secure_boot":{"enum":["enabled","disabled","policy_declared"]},"tpm_measurement":{"enum":["enabled","disabled","unavailable"]},"attestation_assurance":{"type":"object","additionalProperties":false,"required":["appraisal_policy_ref","required_posture","trusted_endorsement_refs","trusted_reference_value_refs","maximum_appraisal_age_ms","maximum_reattestation_interval_ms"],"properties":{"appraisal_policy_ref":{"$ref":"#/$defs/policyRef"},"required_posture":{"$ref":"#/$defs/posture"},"trusted_endorsement_refs":{"type":"array","items":{"type":"string","pattern":"^endorsement://[^\\s]{1,248}$"},"maxItems":32,"uniqueItems":true},"trusted_reference_value_refs":{"type":"array","items":{"type":"string","pattern":"^reference://[^\\s]{1,248}$"},"maxItems":32,"uniqueItems":true},"maximum_appraisal_age_ms":{"type":"integer","minimum":1,"maximum":9007199254740991},"maximum_reattestation_interval_ms":{"type":"integer","minimum":1,"maximum":9007199254740991}}},"update_policy":{"type":"object","additionalProperties":false,"required":["signed_updates_required","rollback_protection_profile_ref","rollback_domain_ref","protected_namespace_floor_kind","rollback_floor","reanchor_after_boot_restore_or_replacement"],"properties":{"signed_updates_required":{"const":true},"rollback_protection_profile_ref":{"$ref":"#/$defs/policyRef"},"rollback_domain_ref":{"type":"string","pattern":"^failure-domain://[^\\s]{1,248}$"},"protected_namespace_floor_kind":{"const":"signed_update_version_and_image_head"},"rollback_floor":{"type":"object","additionalProperties":false,"required":["minimum_version_counter","floor_image_head_hash"],"properties":{"minimum_version_counter":{"type":"integer","minimum":0,"maximum":9007199254740991},"floor_image_head_hash":{"$ref":"#/$defs/nullableHash"}}},"reanchor_after_boot_restore_or_replacement":{"enum":["required","policy_bounded"]}}},"temporal_verification_profile_ref":{"$ref":"#/$defs/policyRef"},"temporal_verification_profile_hash":{"$ref":"#/$defs/hash"},"asserts_observed_measurement":{"const":false},"predecessor_boot_profile_root":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"status":{"enum":["declared","superseded"]},"created_at":{"$ref":"#/$defs/dateTime"}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nullableHash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"posture":{"enum":["trusted_operator","software_only","measured_boot","secure_element","cpu_tee","gpu_confidential_compute","cpu_tee_and_gpu_confidential_compute"]},"dateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##),
     ("schema://ioi/components/daemon-runtime/hypervisoros-boot-receipt/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/hypervisoros-boot-receipt/v1","title":"HypervisorOSBootReceipt","description":"OBSERVED measured boot of one HypervisorOS node, split into the node-produced observation (measurements, assurance block, quote evidence refs, rollback counter, temporal state), the daemon-derived verified-against-profile verdict material, and the node identity signature over the observation only. The node never signs its own verdict; boot measurement is an integrity receipt, not a plaintext privacy guarantee.","x-ioi-schema-version":"ioi.components.daemon-runtime.hypervisoros-boot-receipt.v1","type":"object","additionalProperties":false,"required":["schema_version","receipt_id","node_id","node_record_ref","observation","verification","signature","note"],"properties":{"schema_version":{"const":"ioi.components.daemon-runtime.hypervisoros-boot-receipt.v1"},"receipt_id":{"$ref":"#/$defs/receiptRef"},"node_id":{"$ref":"#/$defs/runtimeRef"},"node_record_ref":{"type":"string","pattern":"^hypervisoros-node://[^\\s]{1,248}$"},"observation":{"type":"object","additionalProperties":false,"required":["boot_epoch","boot_profile_ref","boot_profile_root","workload_identity","image_hash","daemon_binary_hash","policy_build_hash","package_manifest_hash","driver_manifest_hash","measurement_method","privacy_claim","quote_evidence_refs","attestation_assurance","rollback_state","temporal_state"],"properties":{"boot_epoch":{"type":"integer","minimum":1,"maximum":9007199254740991},"boot_profile_ref":{"type":"string","pattern":"^boot-profile://[^\\s]{1,248}$"},"boot_profile_root":{"$ref":"#/$defs/hash"},"workload_identity":{"type":"string","pattern":"^workload://[^\\s]{1,248}$"},"image_hash":{"$ref":"#/$defs/hash"},"daemon_binary_hash":{"$ref":"#/$defs/hash"},"policy_build_hash":{"$ref":"#/$defs/hash"},"package_manifest_hash":{"$ref":"#/$defs/hash"},"driver_manifest_hash":{"$ref":"#/$defs/hash"},"measurement_method":{"enum":["secure_boot","tpm_quote","reproducible_image","provider_attestation","policy_declared"]},"privacy_claim":{"enum":["none","no_plaintext_custody","tee_attested"]},"quote_evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"minItems":1,"maxItems":64,"uniqueItems":true},"attestation_assurance":{"type":"object","additionalProperties":false,"required":["attester_ref","verifier_ref","appraiser_ref","relying_party_ref","nonce","nonce_single_use_status","nonce_consumption_receipt_ref","endorsement_refs","reference_value_refs","appraisal_policy_ref","appraisal_result_ref","appraisal_status","appraised_at","appraisal_expires_at","effective_posture","hardware_or_measured_attested","lease_ref","lease_expires_at","revocation_epoch","revocation_status","revocation_check_receipt_ref","reattest_by"],"properties":{"attester_ref":{"$ref":"#/$defs/runtimeRef"},"verifier_ref":{"type":"string","pattern":"^verifier://[^\\s]{1,248}$"},"appraiser_ref":{"type":"string","pattern":"^appraiser://[^\\s]{1,248}$"},"relying_party_ref":{"type":"string","pattern":"^(?:runtime|authority)://[^\\s]{1,248}$"},"nonce":{"type":"string","minLength":16,"maxLength":128},"nonce_single_use_status":{"enum":["consumed_for_this_appraisal","already_consumed","unverified"]},"nonce_consumption_receipt_ref":{"$ref":"#/$defs/nullableReceiptRef"},"endorsement_refs":{"type":"array","items":{"type":"string","pattern":"^endorsement://[^\\s]{1,248}$"},"maxItems":32,"uniqueItems":true},"reference_value_refs":{"type":"array","items":{"type":"string","pattern":"^reference://[^\\s]{1,248}$"},"maxItems":32,"uniqueItems":true},"appraisal_policy_ref":{"$ref":"#/$defs/policyRef"},"appraisal_result_ref":{"anyOf":[{"type":"string","pattern":"^appraisal://[^\\s]{1,248}$"},{"type":"null"}]},"appraisal_status":{"enum":["pass","fail","indeterminate"]},"appraised_at":{"$ref":"#/$defs/dateTime"},"appraisal_expires_at":{"$ref":"#/$defs/dateTime"},"effective_posture":{"enum":["unverified","trusted_operator","software_only","measured_boot","secure_element","cpu_tee","gpu_confidential_compute","cpu_tee_and_gpu_confidential_compute"]},"hardware_or_measured_attested":{"type":"boolean"},"lease_ref":{"anyOf":[{"type":"string","pattern":"^lease://[^\\s]{1,248}$"},{"type":"null"}]},"lease_expires_at":{"$ref":"#/$defs/nullableDateTime"},"revocation_epoch":{"$ref":"#/$defs/nullableCounter"},"revocation_status":{"enum":["current","revoked","unverified"]},"revocation_check_receipt_ref":{"$ref":"#/$defs/nullableReceiptRef"},"reattest_by":{"$ref":"#/$defs/dateTime"}}},"rollback_state":{"type":"object","additionalProperties":false,"required":["observed_version_counter","observed_image_head_hash"],"properties":{"observed_version_counter":{"type":"integer","minimum":0,"maximum":9007199254740991},"observed_image_head_hash":{"$ref":"#/$defs/nullableHash"}}},"temporal_state":{"type":"object","additionalProperties":false,"required":["temporal_verification_profile_ref","temporal_verification_profile_hash","rollback_domain_ref","continuity_floor_evidence_refs"],"properties":{"temporal_verification_profile_ref":{"$ref":"#/$defs/policyRef"},"temporal_verification_profile_hash":{"$ref":"#/$defs/hash"},"rollback_domain_ref":{"type":"string","pattern":"^failure-domain://[^\\s]{1,248}$"},"continuity_floor_evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"maxItems":32,"uniqueItems":true}}}}},"verification":{"type":"object","additionalProperties":false,"required":["verdict","verified_against_boot_profile_root","temporal_validity_evaluation_ref","temporal_validity_evaluation_hash","evaluated_temporal_posture","refusal_codes","verified_at"],"properties":{"verdict":{"enum":["verified","refused","unverified"]},"verified_against_boot_profile_root":{"$ref":"#/$defs/hash"},"temporal_validity_evaluation_ref":{"anyOf":[{"$ref":"#/$defs/evaluationRef"},{"type":"null"}]},"temporal_validity_evaluation_hash":{"$ref":"#/$defs/nullableHash"},"evaluated_temporal_posture":{"anyOf":[{"enum":["online_fresh","bounded_offline","historical_only","insufficient"]},{"type":"null"}]},"refusal_codes":{"type":"array","items":{"type":"string","minLength":1,"maxLength":128},"maxItems":32,"uniqueItems":true},"verified_at":{"$ref":"#/$defs/nullableDateTime"}}},"signature":{"type":"object","additionalProperties":false,"required":["key_suite","signer_public_key","signed_material_hash","signature"],"properties":{"key_suite":{"enum":["ed25519"]},"signer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"signed_material_hash":{"$ref":"#/$defs/hash"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}},"note":{"type":"string","minLength":1,"maxLength":512}},"allOf":[{"if":{"type":"object","properties":{"verification":{"type":"object","properties":{"verdict":{"const":"verified"}},"required":["verdict"]}},"required":["verification"]},"then":{"type":"object","properties":{"observation":{"type":"object","properties":{"attestation_assurance":{"type":"object","properties":{"appraisal_status":{"const":"pass"},"nonce_single_use_status":{"const":"consumed_for_this_appraisal"},"revocation_status":{"const":"current"}},"required":["appraisal_status","nonce_single_use_status","revocation_status"]}},"required":["attestation_assurance"]},"verification":{"type":"object","properties":{"temporal_validity_evaluation_ref":{"type":"string"},"temporal_validity_evaluation_hash":{"type":"string"},"evaluated_temporal_posture":{"const":"online_fresh"}},"required":["temporal_validity_evaluation_ref","temporal_validity_evaluation_hash","evaluated_temporal_posture"]}},"required":["observation","verification"]}},{"if":{"type":"object","properties":{"observation":{"type":"object","properties":{"privacy_claim":{"const":"tee_attested"}},"required":["privacy_claim"]}},"required":["observation"]},"then":{"type":"object","properties":{"observation":{"type":"object","properties":{"attestation_assurance":{"type":"object","properties":{"effective_posture":{"enum":["cpu_tee","gpu_confidential_compute","cpu_tee_and_gpu_confidential_compute"]}},"required":["effective_posture"]}},"required":["attestation_assurance"]}},"required":["observation"]}},{"if":{"type":"object","properties":{"observation":{"type":"object","properties":{"attestation_assurance":{"type":"object","properties":{"effective_posture":{"enum":["unverified","trusted_operator","software_only"]}},"required":["effective_posture"]}},"required":["attestation_assurance"]}},"required":["observation"]},"then":{"type":"object","properties":{"observation":{"type":"object","properties":{"attestation_assurance":{"type":"object","properties":{"hardware_or_measured_attested":{"const":false}},"required":["hardware_or_measured_attested"]}},"required":["attestation_assurance"]}},"required":["observation"]}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nullableHash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"runtimeRef":{"type":"string","pattern":"^runtime://[^\\s]{1,248}$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"nullableReceiptRef":{"anyOf":[{"$ref":"#/$defs/receiptRef"},{"type":"null"}]},"evidenceRef":{"type":"string","pattern":"^(?:evidence|receipt|artifact|attestation)://[^\\s]{1,248}$"},"evaluationRef":{"type":"string","pattern":"^(?:temporal-evaluation|evidence|receipt)://[^\\s]{1,248}$"},"nullableCounter":{"anyOf":[{"type":"integer","minimum":0,"maximum":9007199254740991},{"type":"null"}]},"dateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"nullableDateTime":{"anyOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}}"##),
@@ -102952,11 +104958,16 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/components/connectors-tools/runtime-tool-contract/v1", r#"[{"rule_id":"runtime_tool_contract.data_class_allowlist.required","description":"A tool declares the information classes it may receive.","expression":{"operator":"non_empty","path":"$.data_class_allowlist"}},{"rule_id":"runtime_tool_contract.destination_allowlist.required","description":"A tool declares at least one destination pattern; ambient network is forbidden.","expression":{"operator":"non_empty","path":"$.egress_policy.allowed_destination_patterns"}}]"#),
     ("schema://ioi/components/connectors-tools/scm-publication-effect/v1", r#"[{"rule_id":"scm_publication_effect.content_commitment.recomputes","description":"The publication effect hash recomputes over every field except publication_effect_hash, so the declared destination, change set, compare-and-swap, idempotency material, and per-effect outcomes are all committed material.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.scm-publication-effect-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"publication_effect_id":{"path":"$.publication_effect_id"},"work_subject":{"path":"$.work_subject"},"authority":{"path":"$.authority"},"destination":{"path":"$.destination"},"change_set":{"path":"$.change_set"},"remote_cas":{"path":"$.remote_cas"},"idempotency":{"path":"$.idempotency"},"effects":{"path":"$.effects"},"overall_outcome":{"path":"$.overall_outcome"},"nonclaims":{"path":"$.nonclaims"},"committed_at":{"path":"$.committed_at"}},"expected_path":"$.publication_effect_hash","expected_encoding":"sha256_string"}},{"rule_id":"scm_publication_effect.change_set.file_set_digest.recomputes","description":"The file-set digest recomputes over the bound proposal, the base revision, and the exact enumerated file rows, so the published change set is the declared set and nothing else.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.scm-publication-effect-file-set-jcs-sha256.v1"},"proposal_ref":{"path":"$.work_subject.proposal_ref"},"proposal_content_commitment":{"path":"$.change_set.proposal_content_commitment"},"base_revision_id":{"path":"$.change_set.base_revision_id"},"files":{"path":"$.change_set.files"}},"expected_path":"$.change_set.file_set_digest","expected_encoding":"sha256_string"}},{"rule_id":"scm_publication_effect.change_set.binds_proposal_commitment","description":"The change set carries the exact content commitment of the proposal it was computed from, and that commitment equals the bound work subject proposal hash.","expression":{"operator":"fields_equal","paths":["$.change_set.proposal_content_commitment","$.work_subject.proposal_hash"]}},{"rule_id":"scm_publication_effect.change_set.files.bind_proposal","description":"Every published file row is attributed to the one bound proposal; an unattributed or foreign file cannot ride along.","expression":{"operator":"array_field_equals","array_path":"$.change_set.files","field":"proposal_ref","expected_path":"$.work_subject.proposal_ref"}},{"rule_id":"scm_publication_effect.change_set.files.unique_paths","description":"Each repository-relative path appears at most once in the published change set.","expression":{"operator":"array_unique_by_fields","array_path":"$.change_set.files","fields":["path"]}},{"rule_id":"scm_publication_effect.destination.binding_covers_repository","description":"The repository the effect names is the repository the admitted destination binding covers; the destination never resolves from free caller text.","expression":{"operator":"field_starts_with_path","path":"$.destination.destination_binding_ref","expected_path":"$.destination.repository_ref","prefix":"scm-destination-binding://","strip_prefix":"repository://","suffix":"/"}},{"rule_id":"scm_publication_effect.remote_cas.expected_target_head.declared","description":"When the target ref is expected to exist, the effect declares the exact remote head it was computed against; an absent expected head is a refusal, never an unconditional advance.","expression":{"operator":"non_empty_when_in","path":"$.remote_cas.expected_target_head","when_path":"$.remote_cas.target_ref_precondition","values":["expected_head"]}},{"rule_id":"scm_publication_effect.remote_cas.expected_base_head.binds_change_set_base","description":"The expected base head is the exact revision the change set was computed onto; a declared head detached from the change-set base is a stale compare-and-swap and is refused.","expression":{"operator":"fields_equal","paths":["$.remote_cas.expected_base_head","$.change_set.base_revision_id"]}},{"rule_id":"scm_publication_effect.remote_cas.resulting_target_head.binds_resulting_revision","description":"The resulting remote head equals the resulting revision of the published change set, so a remote advance can never be reported for material the effect did not commit.","expression":{"operator":"fields_equal","paths":["$.remote_cas.resulting_target_head","$.change_set.resulting_revision_id"]}},{"rule_id":"scm_publication_effect.idempotency.key.recomputes","description":"The idempotency key recomputes over the bound proposal, the admitted destination binding, the target ref precondition and expected head, and the file-set digest, so an exact resubmission converges and any changed material is a different submission.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.scm-publication-effect-idempotency-jcs-sha256.v1"},"proposal_ref":{"path":"$.work_subject.proposal_ref"},"proposal_hash":{"path":"$.work_subject.proposal_hash"},"destination_binding_ref":{"path":"$.destination.destination_binding_ref"},"destination_binding_hash":{"path":"$.destination.destination_binding_hash"},"repository_ref":{"path":"$.destination.repository_ref"},"target_ref":{"path":"$.destination.target_ref"},"target_ref_precondition":{"path":"$.remote_cas.target_ref_precondition"},"expected_target_head":{"path":"$.remote_cas.expected_target_head"},"file_set_digest":{"path":"$.change_set.file_set_digest"}},"expected_path":"$.idempotency.idempotency_key","expected_encoding":"sha256_string"}},{"rule_id":"scm_publication_effect.idempotency.replay.binds_prior_effect","description":"A converged or conflicting replay names the prior publication effect it converged against; a replay disposition without a prior effect is unrepresentable.","expression":{"operator":"non_empty_when_in","path":"$.idempotency.prior_effect_ref","when_path":"$.idempotency.submission_disposition","values":["converged_replay","refused_conflicting_replay"]}},{"rule_id":"scm_publication_effect.idempotency.replay.binds_prior_hash","description":"A replay also carries the prior effect content commitment, so convergence is asserted against exact material rather than an identifier alone.","expression":{"operator":"non_empty_when_in","path":"$.idempotency.prior_effect_hash","when_path":"$.idempotency.submission_disposition","values":["converged_replay","refused_conflicting_replay"]}},{"rule_id":"scm_publication_effect.effects.receipts.distinct","description":"The publication and the review request are separately receipted; one receipt can never stand for both sub-effects.","expression":{"operator":"fields_not_equal","paths":["$.effects.publication.receipt_ref","$.effects.review_request.receipt_ref"]}},{"rule_id":"scm_publication_effect.effects.review_request.receipt_declared","description":"An opened or failed review request carries its own receipt; a failed review request is receipted as its own honest outcome rather than absorbed into the publication receipt.","expression":{"operator":"non_empty_when_in","path":"$.effects.review_request.receipt_ref","when_path":"$.effects.review_request.outcome","values":["opened","failed"]}},{"rule_id":"scm_publication_effect.effects.publication.refusal_code_declared","description":"A refused or partially applied publication declares the exact refusal code it failed closed on.","expression":{"operator":"non_empty_when_in","path":"$.effects.publication.refusal_code","when_path":"$.effects.publication.outcome","values":["refused","partially_applied"]}},{"rule_id":"scm_publication_effect.effects.review_request.refusal_code_declared","description":"A failed or refused review request declares the exact refusal code, so a review-request failure is never reported as an empty success.","expression":{"operator":"non_empty_when_in","path":"$.effects.review_request.refusal_code","when_path":"$.effects.review_request.outcome","values":["failed","refused"]}}]"#),
     ("schema://ioi/components/connectors-tools/scm-publication-effect/v2", r#"[{"rule_id":"scm_publication_effect_v2.content_commitment.recomputes","description":"The publication effect hash recomputes over every field except publication_effect_hash, so the operation identity, the preparation record, the attempt fingerprint, the recovery disposition, the outcome, and both sub-effect outcomes are all committed material.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.scm-publication-effect-commitment-jcs-sha256.v2"},"schema_version":{"path":"$.schema_version"},"publication_effect_id":{"path":"$.publication_effect_id"},"execution_semantics":{"path":"$.execution_semantics"},"operation":{"path":"$.operation"},"authority":{"path":"$.authority"},"preparation":{"path":"$.preparation"},"attempt":{"path":"$.attempt"},"recovery":{"path":"$.recovery"},"outcome":{"path":"$.outcome"},"effects":{"path":"$.effects"},"overall_outcome":{"path":"$.overall_outcome"},"nonclaims":{"path":"$.nonclaims"},"committed_at":{"path":"$.committed_at"}},"expected_path":"$.publication_effect_hash","expected_encoding":"sha256_string"}},{"rule_id":"scm_publication_effect_v2.operation.key.recomputes","description":"The operation key recomputes over the operation identity and NOTHING else. The identity is a closed object carrying the work run, the proposal, the admitted destination binding, the target and base refs, the enumerated file set, the review intent, the frozen commit metadata, and the intended revision; it has no field for an observed remote head. An implementation that folded a head observation into the key therefore cannot produce a key that recomputes, which is what makes the operation identity observation-independent and a retry the same logical operation.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.scm-publication-operation-identity-jcs-sha256.v2"},"identity":{"path":"$.operation.identity"}},"expected_path":"$.operation.operation_key","expected_encoding":"sha256_string"}},{"rule_id":"scm_publication_effect_v2.operation.identity.file_set_digest.recomputes","description":"The file-set digest recomputes over the bound proposal, the frozen base revision, and the exact enumerated file rows, so the file set inside the operation identity is the declared set and nothing else.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.scm-publication-operation-file-set-jcs-sha256.v2"},"proposal_ref":{"path":"$.operation.identity.proposal_ref"},"proposal_hash":{"path":"$.operation.identity.proposal_hash"},"base_revision_id":{"path":"$.operation.identity.base_revision_id"},"files":{"path":"$.operation.identity.files"}},"expected_path":"$.operation.identity.file_set_digest","expected_encoding":"sha256_string"}},{"rule_id":"scm_publication_effect_v2.operation.identity.commit_metadata.frozen","description":"The commit metadata digest recomputes over the message commitment, the authorship commitment, and both declared timestamps, so the commit the operation intends is frozen at preparation and cannot be re-derived on a later attempt.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.scm-publication-frozen-commit-metadata-jcs-sha256.v2"},"commit_message_digest":{"path":"$.operation.identity.frozen_commit_metadata.commit_message_digest"},"authorship_commitment":{"path":"$.operation.identity.frozen_commit_metadata.authorship_commitment"},"authored_at":{"path":"$.operation.identity.frozen_commit_metadata.authored_at"},"commit_timestamp":{"path":"$.operation.identity.frozen_commit_metadata.commit_timestamp"}},"expected_path":"$.operation.identity.frozen_commit_metadata.metadata_digest","expected_encoding":"sha256_string"}},{"rule_id":"scm_publication_effect_v2.operation.identity.files.bind_proposal","description":"Every file row inside the operation identity is attributed to the one bound proposal; an unattributed or foreign file cannot ride along.","expression":{"operator":"array_field_equals","array_path":"$.operation.identity.files","field":"proposal_ref","expected_path":"$.operation.identity.proposal_ref"}},{"rule_id":"scm_publication_effect_v2.operation.identity.files.unique_paths","description":"Each repository-relative path appears at most once in the operation's frozen file set.","expression":{"operator":"array_unique_by_fields","array_path":"$.operation.identity.files","fields":["path"]}},{"rule_id":"scm_publication_effect_v2.destination.binding_covers_repository","description":"The repository the operation names is the repository the admitted destination binding covers; the destination never resolves from free caller text.","expression":{"operator":"field_starts_with_path","path":"$.operation.identity.destination_binding_ref","expected_path":"$.operation.identity.repository_ref","prefix":"scm-destination-binding://","strip_prefix":"repository://","suffix":"/"}},{"rule_id":"scm_publication_effect_v2.preparation.precedes_remote_effect","description":"A dispatch is only describable against the Prepared record that was persisted before it: the dispatch carries the Prepared content commitment, and it must equal the persisted preparation commitment. A remote effect invoked before Prepared was persisted has no commitment to name.","expression":{"operator":"fields_equal","paths":["$.attempt.dispatch.prepared_record_hash","$.preparation.prepared_record_hash"]}},{"rule_id":"scm_publication_effect_v2.attempt.cas_fingerprint.recomputes","description":"The attempt fingerprint recomputes over the operation key, the target ref precondition, the observed expected head, and the frozen base revision. This is the only place the observed remote head is committed, which is what keeps it out of the operation identity.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.scm-publication-attempt-cas-jcs-sha256.v2"},"operation_key":{"path":"$.operation.operation_key"},"target_ref_precondition":{"path":"$.attempt.cas.target_ref_precondition"},"expected_target_head":{"path":"$.attempt.cas.expected_target_head"},"base_revision_id":{"path":"$.operation.identity.base_revision_id"}},"expected_path":"$.attempt.cas_fingerprint","expected_encoding":"sha256_string"}},{"rule_id":"scm_publication_effect_v2.attempt.cas.frozen","description":"Every attempt of one operation carries the frozen compare-and-swap: this attempt's fingerprint must equal the fingerprint frozen at preparation. A retry that re-observed the remote head and recomputed a different precondition is not an attempt of this operation and is unrepresentable; a moved head must be refused as reconciliation_required instead.","expression":{"operator":"fields_equal","paths":["$.attempt.cas_fingerprint","$.attempt.frozen_cas_fingerprint"]}},{"rule_id":"scm_publication_effect_v2.attempt.cas.expected_target_head.declared","description":"When the target ref is expected to exist, the attempt declares the exact remote head it was computed against; an absent expected head is a refusal, never an unconditional advance.","expression":{"operator":"non_empty_when_in","path":"$.attempt.cas.expected_target_head","when_path":"$.attempt.cas.target_ref_precondition","values":["expected_head"]}},{"rule_id":"scm_publication_effect_v2.recovery.replay.binds_prior_terminal","description":"A replayed terminal result names the prior terminal publication effect it replayed; a replay disposition without a prior terminal effect is unrepresentable, so a replay can never be manufactured to skip a remote effect that never happened.","expression":{"operator":"non_empty_when_in","path":"$.recovery.prior_terminal_effect_ref","when_path":"$.recovery.resolution_disposition","values":["replayed_terminal_result"]}},{"rule_id":"scm_publication_effect_v2.recovery.replay.binds_prior_hash","description":"A replay also carries the prior terminal effect's content commitment, so the replayed result is asserted against exact material rather than an identifier alone.","expression":{"operator":"non_empty_when_in","path":"$.recovery.prior_terminal_effect_hash","when_path":"$.recovery.resolution_disposition","values":["replayed_terminal_result"]}},{"rule_id":"scm_publication_effect_v2.recovery.reconciliation.code_declared","description":"A reconciliation_required resolution declares the exact reconciliation code an operator must act on; an unresolved operation is never an empty refusal.","expression":{"operator":"non_empty_when_in","path":"$.recovery.reconciliation_code","when_path":"$.recovery.resolution_disposition","values":["reconciliation_required"]}},{"rule_id":"scm_publication_effect_v2.outcome.never_fresh_child_commit","description":"Either no revision was created, or the created revision is exactly the revision the operation froze. A resulting revision that differs from intended_revision_id would be a second commit produced by a retry, and it has no representation.","expression":{"operator":"optional_field_equals","optional_object_path":"$.outcome.resulting_revision","field":"revision_id","expected_path":"$.operation.identity.intended_revision_id"}},{"rule_id":"scm_publication_effect_v2.outcome.head_binds_intended_revision","description":"When a revision exists, the remote head reported for the target ref equals that same frozen intended revision, so a remote advance can never be reported for material this operation did not freeze.","expression":{"operator":"optional_field_equals","optional_object_path":"$.outcome.resulting_revision","field":"target_head","expected_path":"$.operation.identity.intended_revision_id"}},{"rule_id":"scm_publication_effect_v2.effects.receipts.distinct","description":"The publication and the review request are separately receipted; one receipt can never stand for both sub-effects.","expression":{"operator":"fields_not_equal","paths":["$.effects.publication.receipt_ref","$.effects.review_request.receipt_ref"]}},{"rule_id":"scm_publication_effect_v2.effects.review_request.reconciles_independently","description":"The review request reconciles as its own logical operation: its reconciliation key is derived from, and must differ from, the publication operation key. A review-request ambiguity therefore cannot be absorbed into the publication operation, and resolving one never resolves the other.","expression":{"operator":"fields_not_equal","paths":["$.effects.review_request.reconciliation.operation_key","$.operation.operation_key"]}},{"rule_id":"scm_publication_effect_v2.effects.review_request.reconciliation.key_recomputes","description":"The review-request reconciliation key recomputes over the publication operation key, the frozen review intent, and the target ref, so the review sub-effect is bound to the same publication without sharing its identity.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.scm-review-request-operation-jcs-sha256.v2"},"publication_operation_key":{"path":"$.operation.operation_key"},"review_intent":{"path":"$.operation.identity.review_intent"},"target_ref":{"path":"$.operation.identity.target_ref"}},"expected_path":"$.effects.review_request.reconciliation.operation_key","expected_encoding":"sha256_string"}},{"rule_id":"scm_publication_effect_v2.effects.review_request.receipt_declared","description":"An opened or failed review request carries its own receipt; a failed review request is receipted as its own honest outcome rather than absorbed into the publication receipt.","expression":{"operator":"non_empty_when_in","path":"$.effects.review_request.receipt_ref","when_path":"$.effects.review_request.outcome","values":["opened","failed"]}},{"rule_id":"scm_publication_effect_v2.effects.publication.refusal_code_declared","description":"A refused, partially applied, or unresolved publication declares the exact code it failed closed on.","expression":{"operator":"non_empty_when_in","path":"$.effects.publication.refusal_code","when_path":"$.effects.publication.outcome","values":["refused","partially_applied","reconciliation_required"]}},{"rule_id":"scm_publication_effect_v2.effects.review_request.refusal_code_declared","description":"A failed, refused, or unresolved review request declares its exact code, so a review-request failure or ambiguity is never reported as an empty success.","expression":{"operator":"non_empty_when_in","path":"$.effects.review_request.refusal_code","when_path":"$.effects.review_request.outcome","values":["failed","refused","reconciliation_required"]}}]"#),
+    ("schema://ioi/components/daemon-runtime/action-request-envelope/v1", r#"[{"rule_id":"action_request.request_hash.recomputes","description":"The request hash binds the profile, adapter, exact proposal, declared requirements, policy posture, subjects, obligations, and validity window.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.action-request-envelope-hash-jcs-sha256.v1"},"action_request_ref":{"path":"$.action_request_ref"},"request_revision":{"path":"$.request_revision"},"authority_gateway_profile_ref":{"path":"$.authority_gateway_profile_ref"},"authority_gateway_profile_hash":{"path":"$.authority_gateway_profile_hash"},"source_adapter":{"path":"$.source_adapter"},"proposed_action":{"path":"$.proposed_action"},"risk_class":{"path":"$.risk_class"},"primitive_capabilities_required":{"path":"$.primitive_capabilities_required"},"authority_scopes_required":{"path":"$.authority_scopes_required"},"policy_decision":{"path":"$.policy_decision"},"subject_refs":{"path":"$.subject_refs"},"receipt_obligations":{"path":"$.receipt_obligations"},"created_at":{"path":"$.created_at"},"expires_at":{"path":"$.expires_at"}},"expected_path":"$.request_hash","expected_encoding":"sha256_string"}}]"#),
     ("schema://ioi/components/daemon-runtime/agent-harness-adapter/v1", r#"[]"#),
     ("schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v1", r#"[]"#),
     ("schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2", r#"[{"rule_id":"authority_effect_admission.grant_hash.matches_envelope","description":"The receipt envelope input is the exact v3 authority grant body hash.","expression":{"operator":"fields_equal","paths":["$.receipt_envelope.input_hash","$.body.authority_grant_hash"]}},{"rule_id":"authority_effect_admission.body_hash.matches_envelope","description":"The receipt envelope output binds the immutable admission body.","expression":{"operator":"fields_equal","paths":["$.receipt_envelope.output_hash","$.body_hash"]}},{"rule_id":"authority_effect_admission.grant_ref.matches_envelope","description":"The generic receipt envelope and admission body name the same grant.","expression":{"operator":"fields_equal","paths":["$.receipt_envelope.authority_grant_id","$.body.authority_grant_ref"]}},{"rule_id":"authority_effect_admission.policy_hash.matches_envelope","description":"The body and generic receipt envelope bind the same policy.","expression":{"operator":"fields_equal","paths":["$.receipt_envelope.policy_hash","$.body.policy_hash"]}},{"rule_id":"authority_effect_admission.pep.matches_envelope","description":"The generic receipt actor is the PEP that made the admission decision.","expression":{"operator":"fields_equal","paths":["$.receipt_envelope.actor_id","$.body.policy_enforcement_point_ref"]}},{"rule_id":"authority_effect_admission.timestamp.matches_envelope","description":"The generic receipt timestamp is the pre-invocation decision time.","expression":{"operator":"fields_equal","paths":["$.receipt_envelope.timestamp","$.body.decided_at"]}}]"#),
+    ("schema://ioi/components/daemon-runtime/authority-gateway-profile/v1", r#"[{"rule_id":"authority_gateway_profile.profile_hash.recomputes","description":"The profile hash binds the exact immutable adapter deployment declaration and validity window.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.authority-gateway-profile-hash-jcs-sha256.v1"},"profile_ref":{"path":"$.profile_ref"},"profile_revision":{"path":"$.profile_revision"},"predecessor_profile_hash":{"path":"$.predecessor_profile_hash"},"declaration":{"path":"$.declaration"},"created_at":{"path":"$.created_at"},"valid_until":{"path":"$.valid_until"}},"expected_path":"$.profile_hash","expected_encoding":"sha256_string"}}]"#),
     ("schema://ioi/components/daemon-runtime/declassification-receipt/v1", r#"[]"#),
     ("schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1", r#"[{"rule_id":"enforcement_coverage.receipt.evidence.required_when_receipted","description":"A positive receipted claim binds at least one receipt evidence reference in addition to a non-none receipt scope.","expression":{"operator":"non_empty_when_in","path":"$.receipt.evidence_refs","when_path":"$.claims.receipted","values":[true]}},{"rule_id":"enforcement_coverage.gap.required_when_uncovered","description":"An uncovered claim identifies at least one exact known gap rather than relying on a node-wide label.","expression":{"operator":"non_empty_when_in","path":"$.known_gaps","when_path":"$.claims.uncovered","values":[true]}}]"#),
+    ("schema://ioi/components/daemon-runtime/gateway-artifact-receipt/v1", r#"[{"rule_id":"gateway_artifact.receipt_hash.recomputes","description":"The receipt hash binds the exact execution receipt and artifact, diff, or explicit no-artifact facts.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.gateway-artifact-receipt-hash-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"receipt_ref":{"path":"$.receipt_ref"},"receipt_type":{"path":"$.receipt_type"},"action_request_ref":{"path":"$.action_request_ref"},"action_request_hash":{"path":"$.action_request_hash"},"gateway_execution_receipt_ref":{"path":"$.gateway_execution_receipt_ref"},"gateway_execution_receipt_hash":{"path":"$.gateway_execution_receipt_hash"},"evidence_kind":{"path":"$.evidence_kind"},"artifacts":{"path":"$.artifacts"},"diff_artifact_ref":{"path":"$.diff_artifact_ref"},"diff_hash":{"path":"$.diff_hash"},"no_artifact_reason":{"path":"$.no_artifact_reason"},"captured_at":{"path":"$.captured_at"}},"expected_path":"$.receipt_hash","expected_encoding":"sha256_string"}}]"#),
+    ("schema://ioi/components/daemon-runtime/gateway-decision-receipt/v1", r#"[{"rule_id":"gateway_decision.receipt_hash.recomputes","description":"The receipt hash binds every decision fact except itself.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.gateway-decision-receipt-hash-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"receipt_ref":{"path":"$.receipt_ref"},"receipt_type":{"path":"$.receipt_type"},"action_request_ref":{"path":"$.action_request_ref"},"action_request_hash":{"path":"$.action_request_hash"},"authority_gateway_profile_ref":{"path":"$.authority_gateway_profile_ref"},"authority_gateway_profile_hash":{"path":"$.authority_gateway_profile_hash"},"policy_enforcement_point_ref":{"path":"$.policy_enforcement_point_ref"},"decision":{"path":"$.decision"},"policy_ref":{"path":"$.policy_ref"},"policy_hash":{"path":"$.policy_hash"},"authority_status":{"path":"$.authority_status"},"authority_evidence_refs":{"path":"$.authority_evidence_refs"},"approval_receipt_ref":{"path":"$.approval_receipt_ref"},"admitted_action_hash":{"path":"$.admitted_action_hash"},"decided_at":{"path":"$.decided_at"}},"expected_path":"$.receipt_hash","expected_encoding":"sha256_string"}}]"#),
+    ("schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1", r#"[{"rule_id":"gateway_execution.receipt_hash.recomputes","description":"The receipt hash binds the exact decision, authority admission, final invoker, effect, outcome, and times.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.gateway-execution-receipt-hash-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"receipt_ref":{"path":"$.receipt_ref"},"receipt_type":{"path":"$.receipt_type"},"action_request_ref":{"path":"$.action_request_ref"},"action_request_hash":{"path":"$.action_request_hash"},"authority_gateway_profile_ref":{"path":"$.authority_gateway_profile_ref"},"authority_gateway_profile_hash":{"path":"$.authority_gateway_profile_hash"},"gateway_decision_receipt_ref":{"path":"$.gateway_decision_receipt_ref"},"gateway_decision_receipt_hash":{"path":"$.gateway_decision_receipt_hash"},"policy_enforcement_point_ref":{"path":"$.policy_enforcement_point_ref"},"external_effect":{"path":"$.external_effect"},"authority_effect_admission_receipt_ref":{"path":"$.authority_effect_admission_receipt_ref"},"authority_effect_admission_receipt_hash":{"path":"$.authority_effect_admission_receipt_hash"},"final_invoker_ref":{"path":"$.final_invoker_ref"},"invocation_id":{"path":"$.invocation_id"},"idempotency_key":{"path":"$.idempotency_key"},"actual_effect_ref":{"path":"$.actual_effect_ref"},"actual_effect_hash":{"path":"$.actual_effect_hash"},"outcome":{"path":"$.outcome"},"result_hash":{"path":"$.result_hash"},"effect_receipt_ref":{"path":"$.effect_receipt_ref"},"started_at":{"path":"$.started_at"},"completed_at":{"path":"$.completed_at"}},"expected_path":"$.receipt_hash","expected_encoding":"sha256_string"}}]"#),
     ("schema://ioi/components/daemon-runtime/harness-profile/v1", r#"[]"#),
     ("schema://ioi/components/daemon-runtime/hypervisoros-boot-profile/v1", r#"[{"rule_id":"hypervisoros_boot_profile.measured_posture.requires_reference_values","description":"A required posture at or above measured boot must name the trusted reference values receipts are appraised against.","expression":{"operator":"non_empty_when_in","path":"$.attestation_assurance.trusted_reference_value_refs","when_path":"$.attestation_assurance.required_posture","values":["measured_boot","secure_element","cpu_tee","gpu_confidential_compute","cpu_tee_and_gpu_confidential_compute"]}},{"rule_id":"hypervisoros_boot_profile.tee_posture.requires_endorsements","description":"A TEE or confidential-compute posture must name trusted endorsements; a posture claim without an endorsement path is not appraisable.","expression":{"operator":"non_empty_when_in","path":"$.attestation_assurance.trusted_endorsement_refs","when_path":"$.attestation_assurance.required_posture","values":["cpu_tee","gpu_confidential_compute","cpu_tee_and_gpu_confidential_compute"]}}]"#),
     ("schema://ioi/components/daemon-runtime/hypervisoros-boot-receipt/v1", r#"[{"rule_id":"hypervisoros_boot_receipt.signed_material.recomputes","description":"The signed material hash recomputes from the receipt identity plus the complete observation; the verdict and signature are outside the signed material, so the node never signs its own verdict.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.hypervisoros-boot-receipt-signed-material-jcs-sha256.v1"},"receipt_id":{"path":"$.receipt_id"},"node_id":{"path":"$.node_id"},"node_record_ref":{"path":"$.node_record_ref"},"observation":{"path":"$.observation"}},"expected_path":"$.signature.signed_material_hash","expected_encoding":"sha256_string"}},{"rule_id":"hypervisoros_boot_receipt.verdict.binds_observed_profile_root","description":"The verdict material names exactly the boot-profile root the observation cited; a verdict against any other profile revision is not representable.","expression":{"operator":"fields_equal","paths":["$.verification.verified_against_boot_profile_root","$.observation.boot_profile_root"]}},{"rule_id":"hypervisoros_boot_receipt.attester.is_the_subject_node","description":"The assurance attester is the receipt's subject node; a receipt attested by another runtime is a foreign chain.","expression":{"operator":"fields_equal","paths":["$.observation.attestation_assurance.attester_ref","$.node_id"]}}]"#),
@@ -103706,6 +105717,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:rubric|verifier_path)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^(?:runtime|application|adapter)://[^\s]{1,500}$"#,
+        r#"^(?:runtime|application|adapter)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
         r#"^(?:runtime|authority)://[^\s]{1,248}$"#,
         r#"^(?:runtime|authority)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
@@ -104085,6 +106100,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^acceptance://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
+        r#"^action-request://[^\s]{1,500}$"#,
+        r#"^action-request://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
         r#"^action-schema://[^\s]+$"#,
         r#"^action-schema://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
@@ -104273,6 +106292,14 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^auth_factor://[^\s]{1,500}$"#,
         r#"^auth_factor://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^authority-gateway://[^\s]{1,500}$"#,
+        r#"^authority-gateway://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^authority-provider://[^\s]{1,500}$"#,
+        r#"^authority-provider://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
         r#"^authority-request://[^\s]+$"#,
@@ -104549,6 +106576,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^enforcement-coverage://[^\s]{1,248}$"#,
         r#"^enforcement-coverage://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^enforcement-scope://[^\s]{1,500}$"#,
+        r#"^enforcement-scope://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
         r#"^environment-backup://[^\s]{1,240}$"#,
@@ -105598,6 +107629,14 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^work-run://[^\s]{1,248}$"#,
         r#"^work-run://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^work_item://[^\s]{1,500}$"#,
+        r#"^work_item://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^work_run://[^\s]{1,500}$"#,
+        r#"^work_run://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
         r#"^worker://[^\s?#\\]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
@@ -106891,11 +108930,15 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-review-request-failure-reported-as-success.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-review-request-failure-reported-as-success.json"))),
     ("docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-reconciliation-reported-as-published.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-reconciliation-reported-as-published.json"))),
     ("docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-must-not-exist-with-expected-head.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-must-not-exist-with-expected-head.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/action-request-envelope-v1/positive-external-effect.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/action-request-envelope-v1/positive-external-effect.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/action-request-envelope-v1/negative-missing-execution-obligation.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/action-request-envelope-v1/negative-missing-execution-obligation.json"))),
     ("docs/architecture/_meta/schemas/fixtures/agent-harness-adapter-v1/positive-minimal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/agent-harness-adapter-v1/positive-minimal.json"))),
     ("docs/architecture/_meta/schemas/fixtures/agent-harness-adapter-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/agent-harness-adapter-v1/negative-unknown-field.json"))),
     ("docs/architecture/_meta/schemas/fixtures/authority-effect-admission-receipt-v1/positive-minimal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/authority-effect-admission-receipt-v1/positive-minimal.json"))),
     ("docs/architecture/_meta/schemas/fixtures/authority-effect-admission-receipt-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/authority-effect-admission-receipt-v1/negative-unknown-field.json"))),
     ("docs/architecture/_meta/schemas/fixtures/authority-effect-admission-receipt-v2/positive-exact-effect.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/authority-effect-admission-receipt-v2/positive-exact-effect.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/authority-gateway-profile-v1/positive-active-pre-effect.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/authority-gateway-profile-v1/positive-active-pre-effect.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/authority-gateway-profile-v1/negative-active-application-invoker.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/authority-gateway-profile-v1/negative-active-application-invoker.json"))),
     ("docs/architecture/_meta/schemas/fixtures/declassification-receipt-v1/positive-minimal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/declassification-receipt-v1/positive-minimal.json"))),
     ("docs/architecture/_meta/schemas/fixtures/declassification-receipt-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/declassification-receipt-v1/negative-unknown-field.json"))),
     ("docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-active-enforcement.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-active-enforcement.json"))),
@@ -106919,6 +108962,10 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-uncovered-mode-without-uncovered-claim.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-uncovered-mode-without-uncovered-claim.json"))),
     ("docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-uncovered-positive-claim.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-uncovered-positive-claim.json"))),
     ("docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-verified-stale-evidence.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-verified-stale-evidence.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/gateway-artifact-receipt-v1/positive-no-artifact.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/gateway-artifact-receipt-v1/positive-no-artifact.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/gateway-decision-receipt-v1/positive-allowed.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/gateway-decision-receipt-v1/positive-allowed.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/gateway-execution-receipt-v1/positive-external-effect.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/gateway-execution-receipt-v1/positive-external-effect.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/gateway-execution-receipt-v1/negative-external-effect-without-authority.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/gateway-execution-receipt-v1/negative-external-effect-without-authority.json"))),
     ("docs/architecture/_meta/schemas/fixtures/harness-profile-v1/positive-minimal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/harness-profile-v1/positive-minimal.json"))),
     ("docs/architecture/_meta/schemas/fixtures/harness-profile-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/harness-profile-v1/negative-unknown-field.json"))),
     ("docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-profile-v1/positive-declared.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-profile-v1/positive-declared.json"))),
@@ -107580,6 +109627,11 @@ mod tests {
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
+        "schema://ioi/components/daemon-runtime/action-request-envelope/v1" => {
+            serde_json::from_value::<ActionRequestEnvelopeV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
         "schema://ioi/components/daemon-runtime/agent-harness-adapter/v1" => {
             serde_json::from_value::<AgentHarnessAdapterV1>(value.clone())
                 .map(|_| ())
@@ -107595,6 +109647,11 @@ mod tests {
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
+        "schema://ioi/components/daemon-runtime/authority-gateway-profile/v1" => {
+            serde_json::from_value::<AuthorityGatewayProfileV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
         "schema://ioi/components/daemon-runtime/declassification-receipt/v1" => {
             serde_json::from_value::<DeclassificationReceiptV1>(value.clone())
                 .map(|_| ())
@@ -107602,6 +109659,21 @@ mod tests {
         },
         "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1" => {
             serde_json::from_value::<EnforcementCoverageDeclarationV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/daemon-runtime/gateway-artifact-receipt/v1" => {
+            serde_json::from_value::<GatewayArtifactReceiptV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/daemon-runtime/gateway-decision-receipt/v1" => {
+            serde_json::from_value::<GatewayDecisionReceiptV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1" => {
+            serde_json::from_value::<GatewayExecutionReceiptV1>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -108556,6 +110628,11 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/components/daemon-runtime/action-request-envelope/v1" => {
+            let projection = serde_json::from_value::<ActionRequestEnvelopeV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
         "schema://ioi/components/daemon-runtime/agent-harness-adapter/v1" => {
             let projection = serde_json::from_value::<AgentHarnessAdapterV1>(value.clone())
                 .map_err(|error| error.to_string())?;
@@ -108571,6 +110648,11 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/components/daemon-runtime/authority-gateway-profile/v1" => {
+            let projection = serde_json::from_value::<AuthorityGatewayProfileV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
         "schema://ioi/components/daemon-runtime/declassification-receipt/v1" => {
             let projection = serde_json::from_value::<DeclassificationReceiptV1>(value.clone())
                 .map_err(|error| error.to_string())?;
@@ -108578,6 +110660,21 @@ mod tests {
         },
         "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1" => {
             let projection = serde_json::from_value::<EnforcementCoverageDeclarationV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/daemon-runtime/gateway-artifact-receipt/v1" => {
+            let projection = serde_json::from_value::<GatewayArtifactReceiptV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/daemon-runtime/gateway-decision-receipt/v1" => {
+            let projection = serde_json::from_value::<GatewayDecisionReceiptV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1" => {
+            let projection = serde_json::from_value::<GatewayExecutionReceiptV1>(value.clone())
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
@@ -109497,8 +111594,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            674,
-            "the registered golden corpus must remain the explicit 674-fixture bar",
+            682,
+            "the registered golden corpus must remain the explicit 682-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -109740,7 +111837,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 653,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 660,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

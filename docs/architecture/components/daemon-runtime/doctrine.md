@@ -456,6 +456,102 @@ debts, each a named target (none is claimed built; see
   surface named in
   [`economic-flywheel-and-pricing-boundaries.md`](../../foundations/economic-flywheel-and-pricing-boundaries.md).
 
+#### ActionRequestEnvelope
+
+`ActionRequestEnvelope` v1 is the immutable attach-lane proposal crossing. Its
+registered wire contract is
+`schema://ioi/components/daemon-runtime/action-request-envelope/v1`.
+
+```yaml
+ActionRequestEnvelope:
+  action_request_ref: action-request://...
+  request_revision: integer
+  request_hash: sha256:...
+  authority_gateway_profile_ref: authority-gateway://...
+  authority_gateway_profile_hash: sha256:...
+  source_adapter:
+    adapter_ref: adapter://...
+    adapter_revision: string
+    adapter_kind: ide_extension | cli_wrapper | mcp_gateway | shell_wrapper | git_hook | workspace_watcher | api_proxy | browser_adapter | hosted_agent_gateway | ci_gate
+    implementation_ref: artifact://...
+    deployment_profile_ref: deployment-profile://...
+  proposed_action:
+    action_class: shell | file | git | mcp_tool | api | browser | deploy | secret | connector | provider
+    operation: string
+    summary: string
+    input_commitment: sha256:...
+    target_refs: [canonical ref]
+    external_effect: boolean
+    proposed_effect_ref: effect://... | null
+    proposed_effect_hash: sha256:... | null
+  risk_class: informational | local_mutation | external_effect | system_destructive | secret_access | financial
+  primitive_capabilities_required: [prim:...]
+  authority_scopes_required: [scope:...]
+  policy_decision: { status, decision_receipt_ref, policy_ref, policy_hash, decided_at }
+  subject_refs: { session_ref, goal_ref, work_run_ref, work_item_ref }
+  receipt_obligations: [ReceiptObligation]
+  created_at: timestamp
+  expires_at: timestamp
+```
+
+The request hash is the domain-separated JCS commitment over every field above
+except `schema_version` and `request_hash`. An external-effect proposal must
+bind its proposed `effect://` ref and exact effect hash. Every request carries
+required `gateway_decision`, `gateway_execution`, and `gateway_artifact`
+obligations using the shared `ReceiptObligation` shape. Optional subject refs
+link attached work to the work spine; they do not create those subjects. A
+pending policy decision has no decision receipt or decision time, and a later
+decision creates a new envelope revision. No request field grants a capability,
+scope, approval, lease, credential, admission, or invocation.
+
+#### AuthorityGatewayProfile
+
+`AuthorityGatewayProfile` v1 is the immutable declaration for one adapter
+deployment. Its registered wire contract is
+`schema://ioi/components/daemon-runtime/authority-gateway-profile/v1`.
+
+```yaml
+AuthorityGatewayProfile:
+  profile_ref: authority-gateway://...
+  profile_revision: integer
+  profile_hash: sha256:...
+  predecessor_profile_hash: sha256:... | null
+  declaration:
+    adapter: { adapter_ref, adapter_revision, adapter_kind, implementation_ref, deployment_profile_ref }
+    action_surfaces:
+      - surface: ide | cli | mcp | shell | git | workspace | api | browser | hosted_agent | ci
+        action_classes: [string]
+        mediation_mode: active_pre_effect | audit_only | receipt_ingestion_only | uncovered
+        primitive_capabilities: [prim:...]
+        authority_scopes: [scope:...]
+        final_invoker_ref: runtime://... | application://... | adapter://...
+        receipt_profile_refs: [schema://...]
+    subject_kinds: [unattached | session | goal | work_run | work_item]
+    policy_enforcement_point_ref: runtime://...
+    authority_provider_ref: authority-provider://...
+    failure_posture: fail_closed | audit_only | queue_without_authority
+    required_enforcement_scope_refs: [enforcement-scope://...]
+    run_on_graduation:
+      agent_harness_adapter_ref: adapter://... | null
+      activation_source_kind: gateway_adapter_context
+      implicit_scope_carryover: false
+  grants_authority: false
+  status: declared | superseded | quarantined | revoked | expired
+  created_at: timestamp
+  valid_until: timestamp
+```
+
+The profile hash binds the complete declaration and validity window. Active
+pre-effect surfaces name a daemon `runtime://` final invoker and both decision
+and execution receipt profiles. Audit, receipt-ingestion, and uncovered modes
+cannot declare authority scopes. Before accepting a request, the daemon resolves
+exactly one current declared profile, byte-binds the request adapter coordinates,
+requires current verified `EnforcementCoverageDeclaration` evidence for every
+declared required scope, and refuses expired, superseded, quarantined, revoked,
+ambiguous, stale, or overclaiming profiles. A successor is a new revision; no
+profile mutation, coverage assertion, or attach-lane approval carries scopes
+into a graduated GoalRun.
+
 ## Runtime Role
 
 The daemon executes work. It does not own root authority or global marketplace state.

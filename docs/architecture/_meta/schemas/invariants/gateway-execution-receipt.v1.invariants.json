@@ -1,0 +1,25 @@
+{
+  "$id": "invariant://ioi/components/daemon-runtime/gateway-execution-receipt/content-root/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1",
+  "rules": [{
+    "rule_id": "gateway_execution.receipt_hash.recomputes",
+    "description": "The receipt hash binds the exact decision, authority admission, final invoker, effect, outcome, and times.",
+    "expression": {
+      "operator": "jcs_sha256_equals", "algorithm": "jcs_sha256",
+      "material_fields": {
+        "domain": { "value": "ioi.gateway-execution-receipt-hash-jcs-sha256.v1" },
+        "schema_version": { "path": "$.schema_version" }, "receipt_ref": { "path": "$.receipt_ref" }, "receipt_type": { "path": "$.receipt_type" },
+        "action_request_ref": { "path": "$.action_request_ref" }, "action_request_hash": { "path": "$.action_request_hash" },
+        "authority_gateway_profile_ref": { "path": "$.authority_gateway_profile_ref" }, "authority_gateway_profile_hash": { "path": "$.authority_gateway_profile_hash" },
+        "gateway_decision_receipt_ref": { "path": "$.gateway_decision_receipt_ref" }, "gateway_decision_receipt_hash": { "path": "$.gateway_decision_receipt_hash" },
+        "policy_enforcement_point_ref": { "path": "$.policy_enforcement_point_ref" }, "external_effect": { "path": "$.external_effect" },
+        "authority_effect_admission_receipt_ref": { "path": "$.authority_effect_admission_receipt_ref" }, "authority_effect_admission_receipt_hash": { "path": "$.authority_effect_admission_receipt_hash" },
+        "final_invoker_ref": { "path": "$.final_invoker_ref" }, "invocation_id": { "path": "$.invocation_id" }, "idempotency_key": { "path": "$.idempotency_key" },
+        "actual_effect_ref": { "path": "$.actual_effect_ref" }, "actual_effect_hash": { "path": "$.actual_effect_hash" }, "outcome": { "path": "$.outcome" },
+        "result_hash": { "path": "$.result_hash" }, "effect_receipt_ref": { "path": "$.effect_receipt_ref" }, "started_at": { "path": "$.started_at" }, "completed_at": { "path": "$.completed_at" }
+      },
+      "expected_path": "$.receipt_hash", "expected_encoding": "sha256_string"
+    }
+  }]
+}

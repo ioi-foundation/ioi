@@ -1238,6 +1238,58 @@ export type ScmPublicationEffectV2 = {
   committed_at: string;
 };
 
+export type ActionRequestEnvelopeV1 = {
+  schema_version: "ioi.components.daemon-runtime.action-request-envelope.v1";
+  action_request_ref: string;
+  request_revision: number;
+  request_hash: string;
+  authority_gateway_profile_ref: string;
+  authority_gateway_profile_hash: string;
+  source_adapter: {
+      adapter_ref: string;
+      adapter_revision: string;
+      adapter_kind: "ide_extension" | "cli_wrapper" | "mcp_gateway" | "shell_wrapper" | "git_hook" | "workspace_watcher" | "api_proxy" | "browser_adapter" | "hosted_agent_gateway" | "ci_gate";
+      implementation_ref: string;
+      deployment_profile_ref: string;
+    };
+  proposed_action: {
+      action_class: "shell" | "file" | "git" | "mcp_tool" | "api" | "browser" | "deploy" | "secret" | "connector" | "provider";
+      operation: string;
+      summary: string;
+      input_commitment: string;
+      target_refs: Array<string>;
+      external_effect: boolean;
+      proposed_effect_ref: string | null;
+      proposed_effect_hash: string | null;
+    };
+  risk_class: "informational" | "local_mutation" | "external_effect" | "system_destructive" | "secret_access" | "financial";
+  primitive_capabilities_required: Array<string>;
+  authority_scopes_required: Array<string>;
+  policy_decision: {
+      status: "pending" | "allowed" | "denied" | "requires_approval" | "transform_required";
+      decision_receipt_ref: string | null;
+      policy_ref: string;
+      policy_hash: string;
+      decided_at: string | null;
+    };
+  subject_refs: {
+      session_ref: string | null;
+      goal_ref: string | null;
+      work_run_ref: string | null;
+      work_item_ref: string | null;
+    };
+  receipt_obligations: Array<{
+        obligation_id: string;
+        boundary_event: "decision" | "execution" | "artifact";
+        receipt_type: "gateway_decision" | "gateway_execution" | "gateway_artifact";
+        receipt_profile_ref: "schema://ioi/components/daemon-runtime/gateway-decision-receipt/v1" | "schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1" | "schema://ioi/components/daemon-runtime/gateway-artifact-receipt/v1";
+        bound_fact_requirement_refs: Array<string>;
+        required: true;
+      }>;
+  created_at: string;
+  expires_at: string;
+};
+
 export type AgentHarnessAdapterV1 = {
   schema_version: "ioi.agent-harness-adapter.v1";
   adapter_id: string;
@@ -1371,6 +1423,46 @@ export type AuthorityEffectAdmissionReceiptV2 = {
   receipt_hash: string;
 };
 
+export type AuthorityGatewayProfileV1 = {
+  schema_version: "ioi.components.daemon-runtime.authority-gateway-profile.v1";
+  profile_ref: string;
+  profile_revision: number;
+  profile_hash: string;
+  predecessor_profile_hash: string | null;
+  declaration: {
+      adapter: {
+            adapter_ref: string;
+            adapter_revision: string;
+            adapter_kind: "ide_extension" | "cli_wrapper" | "mcp_gateway" | "shell_wrapper" | "git_hook" | "workspace_watcher" | "api_proxy" | "browser_adapter" | "hosted_agent_gateway" | "ci_gate";
+            implementation_ref: string;
+            deployment_profile_ref: string;
+          };
+      action_surfaces: Array<{
+              surface: "ide" | "cli" | "mcp" | "shell" | "git" | "workspace" | "api" | "browser" | "hosted_agent" | "ci";
+              action_classes: Array<"shell" | "file" | "git" | "mcp_tool" | "api" | "browser" | "deploy" | "secret" | "connector" | "provider">;
+              mediation_mode: "active_pre_effect" | "audit_only" | "receipt_ingestion_only" | "uncovered";
+              primitive_capabilities: Array<string>;
+              authority_scopes: Array<string>;
+              final_invoker_ref: string;
+              receipt_profile_refs: Array<"schema://ioi/components/daemon-runtime/gateway-decision-receipt/v1" | "schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1" | "schema://ioi/components/daemon-runtime/gateway-artifact-receipt/v1">;
+            }>;
+      subject_kinds: Array<"unattached" | "session" | "goal" | "work_run" | "work_item">;
+      policy_enforcement_point_ref: string;
+      authority_provider_ref: string;
+      failure_posture: "fail_closed" | "audit_only" | "queue_without_authority";
+      required_enforcement_scope_refs: Array<string>;
+      run_on_graduation: {
+            agent_harness_adapter_ref: string | null;
+            activation_source_kind: "gateway_adapter_context";
+            implicit_scope_carryover: false;
+          };
+    };
+  grants_authority: false;
+  status: "declared" | "superseded" | "quarantined" | "revoked" | "expired";
+  created_at: string;
+  valid_until: string;
+};
+
 export type DeclassificationReceiptV1 = {
   schema_version: "ioi.components.daemon-runtime.declassification-receipt.v1";
   receipt_id: string;
@@ -1473,6 +1565,75 @@ export type EnforcementCoverageDeclarationV1 = {
       }>;
   limitations: Array<string>;
   status: "draft" | "verified" | "stale" | "revoked";
+};
+
+export type GatewayArtifactReceiptV1 = {
+  schema_version: "ioi.components.daemon-runtime.gateway-artifact-receipt.v1";
+  receipt_ref: string;
+  receipt_type: "gateway_artifact";
+  action_request_ref: string;
+  action_request_hash: string;
+  gateway_execution_receipt_ref: string;
+  gateway_execution_receipt_hash: string;
+  evidence_kind: "artifacts" | "diff" | "none";
+  artifacts: Array<{
+        artifact_ref: string;
+        content_hash: string;
+        media_type: string;
+        size_bytes: number;
+      }>;
+  diff_artifact_ref: string | null;
+  diff_hash: string | null;
+  no_artifact_reason: string | null;
+  captured_at: string;
+  receipt_hash: string;
+};
+
+export type GatewayDecisionReceiptV1 = {
+  schema_version: "ioi.components.daemon-runtime.gateway-decision-receipt.v1";
+  receipt_ref: string;
+  receipt_type: "gateway_decision";
+  action_request_ref: string;
+  action_request_hash: string;
+  authority_gateway_profile_ref: string;
+  authority_gateway_profile_hash: string;
+  policy_enforcement_point_ref: string;
+  decision: "allowed" | "denied" | "requires_approval" | "transform_required";
+  policy_ref: string;
+  policy_hash: string;
+  authority_status: "not_required" | "required_unresolved" | "verified" | "refused";
+  authority_evidence_refs: Array<string>;
+  approval_receipt_ref: string | null;
+  admitted_action_hash: string | null;
+  decided_at: string;
+  receipt_hash: string;
+};
+
+export type GatewayExecutionReceiptV1 = {
+  schema_version: "ioi.components.daemon-runtime.gateway-execution-receipt.v1";
+  receipt_ref: string;
+  receipt_type: "gateway_execution";
+  action_request_ref: string;
+  action_request_hash: string;
+  authority_gateway_profile_ref: string;
+  authority_gateway_profile_hash: string;
+  gateway_decision_receipt_ref: string;
+  gateway_decision_receipt_hash: string;
+  policy_enforcement_point_ref: string;
+  external_effect: boolean;
+  authority_effect_admission_receipt_ref: string | null;
+  authority_effect_admission_receipt_hash: string | null;
+  final_invoker_ref: string;
+  invocation_id: string;
+  idempotency_key: string;
+  actual_effect_ref: string | null;
+  actual_effect_hash: string | null;
+  outcome: "succeeded" | "failed" | "refused" | "unknown" | "reconciliation_required";
+  result_hash: string | null;
+  effect_receipt_ref: string | null;
+  started_at: string;
+  completed_at: string;
+  receipt_hash: string;
 };
 
 export type HarnessProfileV1 = {
@@ -9319,6 +9480,22 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
+    "contract_id": "schema://ioi/components/daemon-runtime/action-request-envelope/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/action-request-envelope-v1/positive-external-effect.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/action-request-envelope/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/action-request-envelope-v1/negative-missing-execution-obligation.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
     "contract_id": "schema://ioi/components/daemon-runtime/agent-harness-adapter/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/agent-harness-adapter-v1/positive-minimal.json",
     "expected": "accept",
@@ -9356,6 +9533,22 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected": "accept",
     "expected_schema_accept": true,
     "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/authority-gateway-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/authority-gateway-profile-v1/positive-active-pre-effect.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/authority-gateway-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/authority-gateway-profile-v1/negative-active-application-invoker.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
     "expected_rule_id": null
   },
   {
@@ -9537,6 +9730,38 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
   {
     "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-verified-stale-evidence.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/gateway-artifact-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/gateway-artifact-receipt-v1/positive-no-artifact.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/gateway-decision-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/gateway-decision-receipt-v1/positive-allowed.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/gateway-execution-receipt-v1/positive-external-effect.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/gateway-execution-receipt-v1/negative-external-effect-without-authority.json",
     "expected": "reject",
     "expected_schema_accept": false,
     "expected_failure": "schema",
@@ -17139,6 +17364,20 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/action-request-envelope-v1/positive-external-effect.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/action-request-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/action-request-envelope-v1/positive-external-effect.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/action-request-envelope-v1/negative-missing-execution-obligation.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/action-request-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/action-request-envelope-v1/negative-missing-execution-obligation.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/agent-harness-adapter-v1/positive-minimal.json",
     "contract_id": "schema://ioi/components/daemon-runtime/agent-harness-adapter/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/agent-harness-adapter-v1/positive-minimal.json",
@@ -17170,6 +17409,20 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-effect-admission-receipt-v2/positive-exact-effect.json",
     "contract_id": "schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-effect-admission-receipt-v2/positive-exact-effect.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-gateway-profile-v1/positive-active-pre-effect.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/authority-gateway-profile/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-gateway-profile-v1/positive-active-pre-effect.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-gateway-profile-v1/negative-active-application-invoker.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/authority-gateway-profile/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-gateway-profile-v1/negative-active-application-invoker.json",
     "mutation_id": null,
     "value_json": null
   },
@@ -17331,6 +17584,34 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-verified-stale-evidence.json",
     "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-verified-stale-evidence.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/gateway-artifact-receipt-v1/positive-no-artifact.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/gateway-artifact-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/gateway-artifact-receipt-v1/positive-no-artifact.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/gateway-decision-receipt-v1/positive-allowed.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/gateway-decision-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/gateway-decision-receipt-v1/positive-allowed.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/gateway-execution-receipt-v1/positive-external-effect.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/gateway-execution-receipt-v1/positive-external-effect.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/gateway-execution-receipt-v1/negative-external-effect-without-authority.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/gateway-execution-receipt-v1/negative-external-effect-without-authority.json",
     "mutation_id": null,
     "value_json": null
   },
@@ -21782,6 +22063,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:rubric|gate|policy)://[^\\s]{1,500}$",
   "^(?:rubric|verifier-path)://[^\\s]{1,500}$",
   "^(?:rubric|verifier_path)://[^\\s]{1,500}$",
+  "^(?:runtime|application|adapter)://[^\\s]{1,500}$",
   "^(?:runtime|authority)://[^\\s]{1,248}$",
   "^(?:runtime|environment|provider|provider-account)://[^\\s]{1,240}$",
   "^(?:schedule|change-plan|event)://[^\\s]{1,240}$",
@@ -21891,6 +22173,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^[a-z][a-z0-9_]{1,80}$",
   "^aai_[0-9a-f]+$",
   "^acceptance://[^\\s]+$",
+  "^action-request://[^\\s]{1,500}$",
   "^action-schema://[^\\s]+$",
   "^action://goal-run/activate/[^\\s]{1,500}$",
   "^active-profile-set://[A-Za-z0-9._:/-]+$",
@@ -21940,6 +22223,8 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^attempt://[^\\s]{1,240}$",
   "^attempt://[^\\s]{1,500}$",
   "^auth_factor://[^\\s]{1,500}$",
+  "^authority-gateway://[^\\s]{1,500}$",
+  "^authority-provider://[^\\s]{1,500}$",
   "^authority-request://[^\\s]+$",
   "^authority-request://[^\\s]{1,500}$",
   "^automation://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
@@ -22009,6 +22294,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^endorsement://[^\\s]{1,248}$",
   "^endpoint://[^\\s]{1,240}$",
   "^enforcement-coverage://[^\\s]{1,248}$",
+  "^enforcement-scope://[^\\s]{1,500}$",
   "^environment-backup://[^\\s]{1,240}$",
   "^environment-backup://[^\\s]{1,500}$",
   "^environment-port://[^\\s]{1,240}$",
@@ -22281,6 +22567,8 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^work-lifecycle://[^\\s]+$",
   "^work-result://[^\\s]{1,500}$",
   "^work-run://[^\\s]{1,248}$",
+  "^work_item://[^\\s]{1,500}$",
+  "^work_run://[^\\s]{1,500}$",
   "^worker://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^workflow-template://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^workload://[^\\s]{1,248}$",
@@ -22323,11 +22611,16 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/connectors-tools/runtime-tool-contract/v1": "sha256:ac6c0e6bb9b6ec06a1162e4d84b676b2c96bbc9527e50836c04162d788b5f924",
   "schema://ioi/components/connectors-tools/scm-publication-effect/v1": "sha256:00f65134dab87fe98063d3cc720268553cd1cd96862df5dfe7ec00041de0abff",
   "schema://ioi/components/connectors-tools/scm-publication-effect/v2": "sha256:acc0b12e275584302f9fa0d30937e7439bdb8bf9af7805edcba0b861e24e3ae5",
+  "schema://ioi/components/daemon-runtime/action-request-envelope/v1": "sha256:7187aa163181dc69f8c40b219307ea6bd23b74cb7b246602032bc1b78688c4ad",
   "schema://ioi/components/daemon-runtime/agent-harness-adapter/v1": "sha256:9243ba237b4624997f35edddfba804e2f30f8f1a3217d283cec4f19ff1ee65ec",
   "schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v1": "sha256:6af61ba9d156c2e04c5641dbf78324ccc719d9da10d6269c87e358802d49feff",
   "schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2": "sha256:3c85c272d8f2901b66eb4e922accff02315ac0ee5d15803c7fd0e1e24f69a2bd",
+  "schema://ioi/components/daemon-runtime/authority-gateway-profile/v1": "sha256:411cd31cb61eb7599dc4b99fd386142541503a3d53af038e1d2cc7f27c207da3",
   "schema://ioi/components/daemon-runtime/declassification-receipt/v1": "sha256:3bd20027d03dcc1c41f63ffb4d886397ee85760e803138fa483d8bef7501ec7c",
   "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1": "sha256:53482584c42ada4e9b6eed4ad5f15dab0a83afcddad60276999f161eed1de21c",
+  "schema://ioi/components/daemon-runtime/gateway-artifact-receipt/v1": "sha256:99085cc128366a4ea81fda228061df69b2143aed1f9df299b84e7ca6f7a5e6fa",
+  "schema://ioi/components/daemon-runtime/gateway-decision-receipt/v1": "sha256:fec252ed291f7f244d5802da4bf9e3e85fa8a20865c44edd6fadf54e7d9c2ff1",
+  "schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1": "sha256:6460c1e31813b8979662dd0817d7e15a2c1b6e37be6e9de88239f7cc754876bc",
   "schema://ioi/components/daemon-runtime/harness-profile/v1": "sha256:755016efbf5fb6e51f010dac5431b1bc2ac25eff5a0670f03646cb388305e6ad",
   "schema://ioi/components/daemon-runtime/hypervisoros-boot-profile/v1": "sha256:daa7cb792f264a6897511d2f9a9e5f41c42d3aec64e020903fbf5e242c5f92b0",
   "schema://ioi/components/daemon-runtime/hypervisoros-boot-receipt/v1": "sha256:f1d287f6f041a84b845de4bd0fd12faaf9157e0195d1f89200ed0dac8bce7335",
@@ -32530,6 +32823,532 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     }
   },
+  "schema://ioi/components/daemon-runtime/action-request-envelope/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/daemon-runtime/action-request-envelope/v1",
+    "title": "ActionRequestEnvelope",
+    "description": "Immutable proposal envelope for one Authority Gateway mediated action. It declares requirements and evidence obligations but grants no authority and invokes nothing.",
+    "x-ioi-schema-version": "ioi.components.daemon-runtime.action-request-envelope.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "action_request_ref",
+      "request_revision",
+      "request_hash",
+      "authority_gateway_profile_ref",
+      "authority_gateway_profile_hash",
+      "source_adapter",
+      "proposed_action",
+      "risk_class",
+      "primitive_capabilities_required",
+      "authority_scopes_required",
+      "policy_decision",
+      "subject_refs",
+      "receipt_obligations",
+      "created_at",
+      "expires_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.components.daemon-runtime.action-request-envelope.v1"
+      },
+      "action_request_ref": {
+        "$ref": "#/$defs/actionRequestRef"
+      },
+      "request_revision": {
+        "$ref": "#/$defs/positiveInteger"
+      },
+      "request_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "authority_gateway_profile_ref": {
+        "$ref": "#/$defs/gatewayProfileRef"
+      },
+      "authority_gateway_profile_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "source_adapter": {
+        "$ref": "#/$defs/sourceAdapter"
+      },
+      "proposed_action": {
+        "$ref": "#/$defs/proposedAction"
+      },
+      "risk_class": {
+        "enum": [
+          "informational",
+          "local_mutation",
+          "external_effect",
+          "system_destructive",
+          "secret_access",
+          "financial"
+        ]
+      },
+      "primitive_capabilities_required": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/primitiveCapability"
+        },
+        "maxItems": 32,
+        "uniqueItems": true
+      },
+      "authority_scopes_required": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/authorityScope"
+        },
+        "maxItems": 32,
+        "uniqueItems": true
+      },
+      "policy_decision": {
+        "$ref": "#/$defs/policyDecision"
+      },
+      "subject_refs": {
+        "$ref": "#/$defs/subjectRefs"
+      },
+      "receipt_obligations": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/receiptObligation"
+        },
+        "minItems": 3,
+        "maxItems": 16,
+        "allOf": [
+          {
+            "contains": {
+              "type": "object",
+              "properties": {
+                "receipt_type": {
+                  "const": "gateway_decision"
+                }
+              },
+              "required": [
+                "receipt_type"
+              ]
+            }
+          },
+          {
+            "contains": {
+              "type": "object",
+              "properties": {
+                "receipt_type": {
+                  "const": "gateway_execution"
+                }
+              },
+              "required": [
+                "receipt_type"
+              ]
+            }
+          },
+          {
+            "contains": {
+              "type": "object",
+              "properties": {
+                "receipt_type": {
+                  "const": "gateway_artifact"
+                }
+              },
+              "required": [
+                "receipt_type"
+              ]
+            }
+          }
+        ]
+      },
+      "created_at": {
+        "$ref": "#/$defs/dateTime"
+      },
+      "expires_at": {
+        "$ref": "#/$defs/dateTime"
+      }
+    },
+    "$defs": {
+      "sourceAdapter": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "adapter_ref",
+          "adapter_revision",
+          "adapter_kind",
+          "implementation_ref",
+          "deployment_profile_ref"
+        ],
+        "properties": {
+          "adapter_ref": {
+            "type": "string",
+            "pattern": "^adapter://[^\\s]{1,500}$"
+          },
+          "adapter_revision": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "adapter_kind": {
+            "enum": [
+              "ide_extension",
+              "cli_wrapper",
+              "mcp_gateway",
+              "shell_wrapper",
+              "git_hook",
+              "workspace_watcher",
+              "api_proxy",
+              "browser_adapter",
+              "hosted_agent_gateway",
+              "ci_gate"
+            ]
+          },
+          "implementation_ref": {
+            "$ref": "#/$defs/artifactRef"
+          },
+          "deployment_profile_ref": {
+            "type": "string",
+            "pattern": "^deployment-profile://[^\\s]{1,500}$"
+          }
+        }
+      },
+      "proposedAction": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "action_class",
+          "operation",
+          "summary",
+          "input_commitment",
+          "target_refs",
+          "external_effect",
+          "proposed_effect_ref",
+          "proposed_effect_hash"
+        ],
+        "properties": {
+          "action_class": {
+            "enum": [
+              "shell",
+              "file",
+              "git",
+              "mcp_tool",
+              "api",
+              "browser",
+              "deploy",
+              "secret",
+              "connector",
+              "provider"
+            ]
+          },
+          "operation": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9._-]{0,127}$"
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          },
+          "input_commitment": {
+            "$ref": "#/$defs/hash"
+          },
+          "target_refs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/canonicalRef"
+            },
+            "minItems": 1,
+            "maxItems": 32,
+            "uniqueItems": true
+          },
+          "external_effect": {
+            "type": "boolean"
+          },
+          "proposed_effect_ref": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^effect://[^\\s]{1,500}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "proposed_effect_hash": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/hash"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "external_effect": {
+                  "const": true
+                }
+              },
+              "required": [
+                "external_effect"
+              ]
+            },
+            "then": {
+              "properties": {
+                "proposed_effect_ref": {
+                  "type": "string",
+                  "pattern": "^effect://[^\\s]{1,500}$"
+                },
+                "proposed_effect_hash": {
+                  "$ref": "#/$defs/hash"
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "proposed_effect_ref": {
+                  "type": "null"
+                },
+                "proposed_effect_hash": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "policyDecision": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "decision_receipt_ref",
+          "policy_ref",
+          "policy_hash",
+          "decided_at"
+        ],
+        "properties": {
+          "status": {
+            "enum": [
+              "pending",
+              "allowed",
+              "denied",
+              "requires_approval",
+              "transform_required"
+            ]
+          },
+          "decision_receipt_ref": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/receiptRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "policy_ref": {
+            "type": "string",
+            "pattern": "^policy://[^\\s]{1,500}$"
+          },
+          "policy_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "decided_at": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/dateTime"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "pending"
+                }
+              },
+              "required": [
+                "status"
+              ]
+            },
+            "then": {
+              "properties": {
+                "decision_receipt_ref": {
+                  "type": "null"
+                },
+                "decided_at": {
+                  "type": "null"
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "decision_receipt_ref": {
+                  "$ref": "#/$defs/receiptRef"
+                },
+                "decided_at": {
+                  "$ref": "#/$defs/dateTime"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "subjectRefs": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "session_ref",
+          "goal_ref",
+          "work_run_ref",
+          "work_item_ref"
+        ],
+        "properties": {
+          "session_ref": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^session://[^\\s]{1,500}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "goal_ref": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^goal://[^\\s]{1,500}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "work_run_ref": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^work_run://[^\\s]{1,500}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "work_item_ref": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^work_item://[^\\s]{1,500}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "receiptObligation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "obligation_id",
+          "boundary_event",
+          "receipt_type",
+          "receipt_profile_ref",
+          "bound_fact_requirement_refs",
+          "required"
+        ],
+        "properties": {
+          "obligation_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9._-]{0,127}$"
+          },
+          "boundary_event": {
+            "enum": [
+              "decision",
+              "execution",
+              "artifact"
+            ]
+          },
+          "receipt_type": {
+            "enum": [
+              "gateway_decision",
+              "gateway_execution",
+              "gateway_artifact"
+            ]
+          },
+          "receipt_profile_ref": {
+            "enum": [
+              "schema://ioi/components/daemon-runtime/gateway-decision-receipt/v1",
+              "schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1",
+              "schema://ioi/components/daemon-runtime/gateway-artifact-receipt/v1"
+            ]
+          },
+          "bound_fact_requirement_refs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/canonicalRef"
+            },
+            "maxItems": 32,
+            "uniqueItems": true
+          },
+          "required": {
+            "const": true
+          }
+        }
+      },
+      "positiveInteger": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 9007199254740991
+      },
+      "actionRequestRef": {
+        "type": "string",
+        "pattern": "^action-request://[^\\s]{1,500}$"
+      },
+      "gatewayProfileRef": {
+        "type": "string",
+        "pattern": "^authority-gateway://[^\\s]{1,500}$"
+      },
+      "receiptRef": {
+        "type": "string",
+        "pattern": "^receipt://[^\\s]{1,500}$"
+      },
+      "artifactRef": {
+        "type": "string",
+        "pattern": "^artifact://[^\\s]{1,500}$"
+      },
+      "canonicalRef": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      },
+      "primitiveCapability": {
+        "type": "string",
+        "pattern": "^prim:[a-z][a-z0-9._-]*$"
+      },
+      "authorityScope": {
+        "type": "string",
+        "pattern": "^scope:[a-z][a-z0-9._-]*$"
+      },
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      "dateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    }
+  },
   "schema://ioi/components/daemon-runtime/agent-harness-adapter/v1": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "schema://ioi/components/daemon-runtime/agent-harness-adapter/v1",
@@ -33760,6 +34579,396 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "sha256Hash": {
         "type": "string",
         "pattern": "^sha256:[a-f0-9]{64}$"
+      }
+    }
+  },
+  "schema://ioi/components/daemon-runtime/authority-gateway-profile/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/daemon-runtime/authority-gateway-profile/v1",
+    "title": "AuthorityGatewayProfile",
+    "description": "Immutable compatibility-adapter profile for one Authority Gateway deployment. The profile declares mediation posture and requirements but grants no authority, admission, execution, or truth.",
+    "x-ioi-schema-version": "ioi.components.daemon-runtime.authority-gateway-profile.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "profile_ref",
+      "profile_revision",
+      "profile_hash",
+      "predecessor_profile_hash",
+      "declaration",
+      "grants_authority",
+      "status",
+      "created_at",
+      "valid_until"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.components.daemon-runtime.authority-gateway-profile.v1"
+      },
+      "profile_ref": {
+        "$ref": "#/$defs/gatewayProfileRef"
+      },
+      "profile_revision": {
+        "$ref": "#/$defs/positiveInteger"
+      },
+      "profile_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "predecessor_profile_hash": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/hash"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "declaration": {
+        "$ref": "#/$defs/declaration"
+      },
+      "grants_authority": {
+        "const": false
+      },
+      "status": {
+        "enum": [
+          "declared",
+          "superseded",
+          "quarantined",
+          "revoked",
+          "expired"
+        ]
+      },
+      "created_at": {
+        "$ref": "#/$defs/dateTime"
+      },
+      "valid_until": {
+        "$ref": "#/$defs/dateTime"
+      }
+    },
+    "$defs": {
+      "declaration": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "adapter",
+          "action_surfaces",
+          "subject_kinds",
+          "policy_enforcement_point_ref",
+          "authority_provider_ref",
+          "failure_posture",
+          "required_enforcement_scope_refs",
+          "run_on_graduation"
+        ],
+        "properties": {
+          "adapter": {
+            "$ref": "#/$defs/adapter"
+          },
+          "action_surfaces": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/actionSurface"
+            },
+            "minItems": 1,
+            "maxItems": 32
+          },
+          "subject_kinds": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "unattached",
+                "session",
+                "goal",
+                "work_run",
+                "work_item"
+              ]
+            },
+            "minItems": 1,
+            "maxItems": 5,
+            "uniqueItems": true
+          },
+          "policy_enforcement_point_ref": {
+            "type": "string",
+            "pattern": "^runtime://[^\\s]{1,500}$"
+          },
+          "authority_provider_ref": {
+            "type": "string",
+            "pattern": "^authority-provider://[^\\s]{1,500}$"
+          },
+          "failure_posture": {
+            "enum": [
+              "fail_closed",
+              "audit_only",
+              "queue_without_authority"
+            ]
+          },
+          "required_enforcement_scope_refs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^enforcement-scope://[^\\s]{1,500}$"
+            },
+            "minItems": 1,
+            "maxItems": 64,
+            "uniqueItems": true
+          },
+          "run_on_graduation": {
+            "$ref": "#/$defs/runOnGraduation"
+          }
+        }
+      },
+      "adapter": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "adapter_ref",
+          "adapter_revision",
+          "adapter_kind",
+          "implementation_ref",
+          "deployment_profile_ref"
+        ],
+        "properties": {
+          "adapter_ref": {
+            "type": "string",
+            "pattern": "^adapter://[^\\s]{1,500}$"
+          },
+          "adapter_revision": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "adapter_kind": {
+            "enum": [
+              "ide_extension",
+              "cli_wrapper",
+              "mcp_gateway",
+              "shell_wrapper",
+              "git_hook",
+              "workspace_watcher",
+              "api_proxy",
+              "browser_adapter",
+              "hosted_agent_gateway",
+              "ci_gate"
+            ]
+          },
+          "implementation_ref": {
+            "$ref": "#/$defs/artifactRef"
+          },
+          "deployment_profile_ref": {
+            "type": "string",
+            "pattern": "^deployment-profile://[^\\s]{1,500}$"
+          }
+        }
+      },
+      "actionSurface": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "surface",
+          "action_classes",
+          "mediation_mode",
+          "primitive_capabilities",
+          "authority_scopes",
+          "final_invoker_ref",
+          "receipt_profile_refs"
+        ],
+        "properties": {
+          "surface": {
+            "enum": [
+              "ide",
+              "cli",
+              "mcp",
+              "shell",
+              "git",
+              "workspace",
+              "api",
+              "browser",
+              "hosted_agent",
+              "ci"
+            ]
+          },
+          "action_classes": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "shell",
+                "file",
+                "git",
+                "mcp_tool",
+                "api",
+                "browser",
+                "deploy",
+                "secret",
+                "connector",
+                "provider"
+              ]
+            },
+            "minItems": 1,
+            "maxItems": 10,
+            "uniqueItems": true
+          },
+          "mediation_mode": {
+            "enum": [
+              "active_pre_effect",
+              "audit_only",
+              "receipt_ingestion_only",
+              "uncovered"
+            ]
+          },
+          "primitive_capabilities": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/primitiveCapability"
+            },
+            "maxItems": 32,
+            "uniqueItems": true
+          },
+          "authority_scopes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/authorityScope"
+            },
+            "maxItems": 32,
+            "uniqueItems": true
+          },
+          "final_invoker_ref": {
+            "type": "string",
+            "pattern": "^(?:runtime|application|adapter)://[^\\s]{1,500}$"
+          },
+          "receipt_profile_refs": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "schema://ioi/components/daemon-runtime/gateway-decision-receipt/v1",
+                "schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1",
+                "schema://ioi/components/daemon-runtime/gateway-artifact-receipt/v1"
+              ]
+            },
+            "minItems": 1,
+            "maxItems": 3,
+            "uniqueItems": true
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "mediation_mode": {
+                  "const": "active_pre_effect"
+                }
+              },
+              "required": [
+                "mediation_mode"
+              ]
+            },
+            "then": {
+              "properties": {
+                "final_invoker_ref": {
+                  "type": "string",
+                  "pattern": "^runtime://[^\\s]{1,500}$"
+                },
+                "receipt_profile_refs": {
+                  "type": "array",
+                  "allOf": [
+                    {
+                      "contains": {
+                        "const": "schema://ioi/components/daemon-runtime/gateway-decision-receipt/v1"
+                      }
+                    },
+                    {
+                      "contains": {
+                        "const": "schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "mediation_mode": {
+                  "enum": [
+                    "audit_only",
+                    "receipt_ingestion_only",
+                    "uncovered"
+                  ]
+                }
+              },
+              "required": [
+                "mediation_mode"
+              ]
+            },
+            "then": {
+              "properties": {
+                "authority_scopes": {
+                  "type": "array",
+                  "maxItems": 0
+                }
+              }
+            }
+          }
+        ]
+      },
+      "runOnGraduation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "agent_harness_adapter_ref",
+          "activation_source_kind",
+          "implicit_scope_carryover"
+        ],
+        "properties": {
+          "agent_harness_adapter_ref": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^adapter://[^\\s]{1,500}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "activation_source_kind": {
+            "const": "gateway_adapter_context"
+          },
+          "implicit_scope_carryover": {
+            "const": false
+          }
+        }
+      },
+      "positiveInteger": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 9007199254740991
+      },
+      "gatewayProfileRef": {
+        "type": "string",
+        "pattern": "^authority-gateway://[^\\s]{1,500}$"
+      },
+      "artifactRef": {
+        "type": "string",
+        "pattern": "^artifact://[^\\s]{1,500}$"
+      },
+      "primitiveCapability": {
+        "type": "string",
+        "pattern": "^prim:[a-z][a-z0-9._-]*$"
+      },
+      "authorityScope": {
+        "type": "string",
+        "pattern": "^scope:[a-z][a-z0-9._-]*$"
+      },
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      "dateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
       }
     }
   },
@@ -35149,6 +36358,664 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           "not_applicable",
           "unknown"
         ]
+      }
+    }
+  },
+  "schema://ioi/components/daemon-runtime/gateway-artifact-receipt/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/daemon-runtime/gateway-artifact-receipt/v1",
+    "title": "GatewayArtifactReceipt",
+    "description": "Immutable artifact and diff custody receipt bound to one gateway execution receipt; it may explicitly attest that the action produced no artifact.",
+    "x-ioi-schema-version": "ioi.components.daemon-runtime.gateway-artifact-receipt.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "receipt_ref",
+      "receipt_type",
+      "action_request_ref",
+      "action_request_hash",
+      "gateway_execution_receipt_ref",
+      "gateway_execution_receipt_hash",
+      "evidence_kind",
+      "artifacts",
+      "diff_artifact_ref",
+      "diff_hash",
+      "no_artifact_reason",
+      "captured_at",
+      "receipt_hash"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.components.daemon-runtime.gateway-artifact-receipt.v1"
+      },
+      "receipt_ref": {
+        "$ref": "#/$defs/receiptRef"
+      },
+      "receipt_type": {
+        "const": "gateway_artifact"
+      },
+      "action_request_ref": {
+        "$ref": "#/$defs/actionRequestRef"
+      },
+      "action_request_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "gateway_execution_receipt_ref": {
+        "$ref": "#/$defs/receiptRef"
+      },
+      "gateway_execution_receipt_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "evidence_kind": {
+        "enum": [
+          "artifacts",
+          "diff",
+          "none"
+        ]
+      },
+      "artifacts": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/artifactBinding"
+        },
+        "maxItems": 128
+      },
+      "diff_artifact_ref": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/artifactRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "diff_hash": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/hash"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "no_artifact_reason": {
+        "oneOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "captured_at": {
+        "$ref": "#/$defs/dateTime"
+      },
+      "receipt_hash": {
+        "$ref": "#/$defs/hash"
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "evidence_kind": {
+              "const": "artifacts"
+            }
+          },
+          "required": [
+            "evidence_kind"
+          ]
+        },
+        "then": {
+          "properties": {
+            "artifacts": {
+              "type": "array",
+              "minItems": 1
+            },
+            "diff_artifact_ref": {
+              "type": "null"
+            },
+            "diff_hash": {
+              "type": "null"
+            },
+            "no_artifact_reason": {
+              "type": "null"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "evidence_kind": {
+              "const": "diff"
+            }
+          },
+          "required": [
+            "evidence_kind"
+          ]
+        },
+        "then": {
+          "properties": {
+            "artifacts": {
+              "type": "array",
+              "maxItems": 0
+            },
+            "diff_artifact_ref": {
+              "$ref": "#/$defs/artifactRef"
+            },
+            "diff_hash": {
+              "$ref": "#/$defs/hash"
+            },
+            "no_artifact_reason": {
+              "type": "null"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "evidence_kind": {
+              "const": "none"
+            }
+          },
+          "required": [
+            "evidence_kind"
+          ]
+        },
+        "then": {
+          "properties": {
+            "artifacts": {
+              "type": "array",
+              "maxItems": 0
+            },
+            "diff_artifact_ref": {
+              "type": "null"
+            },
+            "diff_hash": {
+              "type": "null"
+            },
+            "no_artifact_reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          }
+        }
+      }
+    ],
+    "$defs": {
+      "artifactBinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "artifact_ref",
+          "content_hash",
+          "media_type",
+          "size_bytes"
+        ],
+        "properties": {
+          "artifact_ref": {
+            "$ref": "#/$defs/artifactRef"
+          },
+          "content_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "media_type": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        }
+      },
+      "receiptRef": {
+        "type": "string",
+        "pattern": "^receipt://[^\\s]{1,500}$"
+      },
+      "actionRequestRef": {
+        "type": "string",
+        "pattern": "^action-request://[^\\s]{1,500}$"
+      },
+      "artifactRef": {
+        "type": "string",
+        "pattern": "^artifact://[^\\s]{1,500}$"
+      },
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      "dateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    }
+  },
+  "schema://ioi/components/daemon-runtime/gateway-decision-receipt/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/daemon-runtime/gateway-decision-receipt/v1",
+    "title": "GatewayDecisionReceipt",
+    "description": "Immutable daemon PEP decision over one exact Authority Gateway action request. It records admission posture but is not effect authority.",
+    "x-ioi-schema-version": "ioi.components.daemon-runtime.gateway-decision-receipt.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "receipt_ref",
+      "receipt_type",
+      "action_request_ref",
+      "action_request_hash",
+      "authority_gateway_profile_ref",
+      "authority_gateway_profile_hash",
+      "policy_enforcement_point_ref",
+      "decision",
+      "policy_ref",
+      "policy_hash",
+      "authority_status",
+      "authority_evidence_refs",
+      "approval_receipt_ref",
+      "admitted_action_hash",
+      "decided_at",
+      "receipt_hash"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.components.daemon-runtime.gateway-decision-receipt.v1"
+      },
+      "receipt_ref": {
+        "$ref": "#/$defs/receiptRef"
+      },
+      "receipt_type": {
+        "const": "gateway_decision"
+      },
+      "action_request_ref": {
+        "$ref": "#/$defs/actionRequestRef"
+      },
+      "action_request_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "authority_gateway_profile_ref": {
+        "$ref": "#/$defs/gatewayProfileRef"
+      },
+      "authority_gateway_profile_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "policy_enforcement_point_ref": {
+        "type": "string",
+        "pattern": "^runtime://[^\\s]{1,500}$"
+      },
+      "decision": {
+        "enum": [
+          "allowed",
+          "denied",
+          "requires_approval",
+          "transform_required"
+        ]
+      },
+      "policy_ref": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,500}$"
+      },
+      "policy_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "authority_status": {
+        "enum": [
+          "not_required",
+          "required_unresolved",
+          "verified",
+          "refused"
+        ]
+      },
+      "authority_evidence_refs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/canonicalRef"
+        },
+        "maxItems": 32,
+        "uniqueItems": true
+      },
+      "approval_receipt_ref": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/receiptRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "admitted_action_hash": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/hash"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "decided_at": {
+        "$ref": "#/$defs/dateTime"
+      },
+      "receipt_hash": {
+        "$ref": "#/$defs/hash"
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "decision": {
+              "const": "allowed"
+            }
+          },
+          "required": [
+            "decision"
+          ]
+        },
+        "then": {
+          "properties": {
+            "authority_status": {
+              "enum": [
+                "not_required",
+                "verified"
+              ]
+            },
+            "admitted_action_hash": {
+              "$ref": "#/$defs/hash"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "decision": {
+              "const": "denied"
+            }
+          },
+          "required": [
+            "decision"
+          ]
+        },
+        "then": {
+          "properties": {
+            "admitted_action_hash": {
+              "type": "null"
+            }
+          }
+        }
+      }
+    ],
+    "$defs": {
+      "receiptRef": {
+        "type": "string",
+        "pattern": "^receipt://[^\\s]{1,500}$"
+      },
+      "actionRequestRef": {
+        "type": "string",
+        "pattern": "^action-request://[^\\s]{1,500}$"
+      },
+      "gatewayProfileRef": {
+        "type": "string",
+        "pattern": "^authority-gateway://[^\\s]{1,500}$"
+      },
+      "canonicalRef": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      },
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      "dateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    }
+  },
+  "schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1",
+    "title": "GatewayExecutionReceipt",
+    "description": "Immutable record of the single daemon-owned final invocation or explicit non-invocation for one admitted gateway action.",
+    "x-ioi-schema-version": "ioi.components.daemon-runtime.gateway-execution-receipt.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "receipt_ref",
+      "receipt_type",
+      "action_request_ref",
+      "action_request_hash",
+      "authority_gateway_profile_ref",
+      "authority_gateway_profile_hash",
+      "gateway_decision_receipt_ref",
+      "gateway_decision_receipt_hash",
+      "policy_enforcement_point_ref",
+      "external_effect",
+      "authority_effect_admission_receipt_ref",
+      "authority_effect_admission_receipt_hash",
+      "final_invoker_ref",
+      "invocation_id",
+      "idempotency_key",
+      "actual_effect_ref",
+      "actual_effect_hash",
+      "outcome",
+      "result_hash",
+      "effect_receipt_ref",
+      "started_at",
+      "completed_at",
+      "receipt_hash"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.components.daemon-runtime.gateway-execution-receipt.v1"
+      },
+      "receipt_ref": {
+        "$ref": "#/$defs/receiptRef"
+      },
+      "receipt_type": {
+        "const": "gateway_execution"
+      },
+      "action_request_ref": {
+        "$ref": "#/$defs/actionRequestRef"
+      },
+      "action_request_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "authority_gateway_profile_ref": {
+        "$ref": "#/$defs/gatewayProfileRef"
+      },
+      "authority_gateway_profile_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "gateway_decision_receipt_ref": {
+        "$ref": "#/$defs/receiptRef"
+      },
+      "gateway_decision_receipt_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "policy_enforcement_point_ref": {
+        "type": "string",
+        "pattern": "^runtime://[^\\s]{1,500}$"
+      },
+      "external_effect": {
+        "type": "boolean"
+      },
+      "authority_effect_admission_receipt_ref": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/receiptRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "authority_effect_admission_receipt_hash": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/hash"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "final_invoker_ref": {
+        "type": "string",
+        "pattern": "^runtime://[^\\s]{1,500}$"
+      },
+      "invocation_id": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9._-]{0,127}$"
+      },
+      "idempotency_key": {
+        "$ref": "#/$defs/hash"
+      },
+      "actual_effect_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^effect://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "actual_effect_hash": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/hash"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "outcome": {
+        "enum": [
+          "succeeded",
+          "failed",
+          "refused",
+          "unknown",
+          "reconciliation_required"
+        ]
+      },
+      "result_hash": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/hash"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "effect_receipt_ref": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/receiptRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "started_at": {
+        "$ref": "#/$defs/dateTime"
+      },
+      "completed_at": {
+        "$ref": "#/$defs/dateTime"
+      },
+      "receipt_hash": {
+        "$ref": "#/$defs/hash"
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "external_effect": {
+              "const": true
+            }
+          },
+          "required": [
+            "external_effect"
+          ]
+        },
+        "then": {
+          "properties": {
+            "authority_effect_admission_receipt_ref": {
+              "$ref": "#/$defs/receiptRef"
+            },
+            "authority_effect_admission_receipt_hash": {
+              "$ref": "#/$defs/hash"
+            },
+            "actual_effect_ref": {
+              "type": "string",
+              "pattern": "^effect://[^\\s]{1,500}$"
+            },
+            "actual_effect_hash": {
+              "$ref": "#/$defs/hash"
+            }
+          }
+        },
+        "else": {
+          "properties": {
+            "authority_effect_admission_receipt_ref": {
+              "type": "null"
+            },
+            "authority_effect_admission_receipt_hash": {
+              "type": "null"
+            },
+            "actual_effect_ref": {
+              "type": "null"
+            },
+            "actual_effect_hash": {
+              "type": "null"
+            }
+          }
+        }
+      }
+    ],
+    "$defs": {
+      "receiptRef": {
+        "type": "string",
+        "pattern": "^receipt://[^\\s]{1,500}$"
+      },
+      "actionRequestRef": {
+        "type": "string",
+        "pattern": "^action-request://[^\\s]{1,500}$"
+      },
+      "gatewayProfileRef": {
+        "type": "string",
+        "pattern": "^authority-gateway://[^\\s]{1,500}$"
+      },
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      "dateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
       }
     }
   },
@@ -84605,6 +86472,65 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
       }
     }
   ],
+  "schema://ioi/components/daemon-runtime/action-request-envelope/v1": [
+    {
+      "rule_id": "action_request.request_hash.recomputes",
+      "description": "The request hash binds the profile, adapter, exact proposal, declared requirements, policy posture, subjects, obligations, and validity window.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.action-request-envelope-hash-jcs-sha256.v1"
+          },
+          "action_request_ref": {
+            "path": "$.action_request_ref"
+          },
+          "request_revision": {
+            "path": "$.request_revision"
+          },
+          "authority_gateway_profile_ref": {
+            "path": "$.authority_gateway_profile_ref"
+          },
+          "authority_gateway_profile_hash": {
+            "path": "$.authority_gateway_profile_hash"
+          },
+          "source_adapter": {
+            "path": "$.source_adapter"
+          },
+          "proposed_action": {
+            "path": "$.proposed_action"
+          },
+          "risk_class": {
+            "path": "$.risk_class"
+          },
+          "primitive_capabilities_required": {
+            "path": "$.primitive_capabilities_required"
+          },
+          "authority_scopes_required": {
+            "path": "$.authority_scopes_required"
+          },
+          "policy_decision": {
+            "path": "$.policy_decision"
+          },
+          "subject_refs": {
+            "path": "$.subject_refs"
+          },
+          "receipt_obligations": {
+            "path": "$.receipt_obligations"
+          },
+          "created_at": {
+            "path": "$.created_at"
+          },
+          "expires_at": {
+            "path": "$.expires_at"
+          }
+        },
+        "expected_path": "$.request_hash",
+        "expected_encoding": "sha256_string"
+      }
+    }
+  ],
   "schema://ioi/components/daemon-runtime/agent-harness-adapter/v1": [],
   "schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v1": [],
   "schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2": [
@@ -84675,6 +86601,41 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
       }
     }
   ],
+  "schema://ioi/components/daemon-runtime/authority-gateway-profile/v1": [
+    {
+      "rule_id": "authority_gateway_profile.profile_hash.recomputes",
+      "description": "The profile hash binds the exact immutable adapter deployment declaration and validity window.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.authority-gateway-profile-hash-jcs-sha256.v1"
+          },
+          "profile_ref": {
+            "path": "$.profile_ref"
+          },
+          "profile_revision": {
+            "path": "$.profile_revision"
+          },
+          "predecessor_profile_hash": {
+            "path": "$.predecessor_profile_hash"
+          },
+          "declaration": {
+            "path": "$.declaration"
+          },
+          "created_at": {
+            "path": "$.created_at"
+          },
+          "valid_until": {
+            "path": "$.valid_until"
+          }
+        },
+        "expected_path": "$.profile_hash",
+        "expected_encoding": "sha256_string"
+      }
+    }
+  ],
   "schema://ioi/components/daemon-runtime/declassification-receipt/v1": [],
   "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1": [
     {
@@ -84699,6 +86660,213 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
         "values": [
           true
         ]
+      }
+    }
+  ],
+  "schema://ioi/components/daemon-runtime/gateway-artifact-receipt/v1": [
+    {
+      "rule_id": "gateway_artifact.receipt_hash.recomputes",
+      "description": "The receipt hash binds the exact execution receipt and artifact, diff, or explicit no-artifact facts.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.gateway-artifact-receipt-hash-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "receipt_ref": {
+            "path": "$.receipt_ref"
+          },
+          "receipt_type": {
+            "path": "$.receipt_type"
+          },
+          "action_request_ref": {
+            "path": "$.action_request_ref"
+          },
+          "action_request_hash": {
+            "path": "$.action_request_hash"
+          },
+          "gateway_execution_receipt_ref": {
+            "path": "$.gateway_execution_receipt_ref"
+          },
+          "gateway_execution_receipt_hash": {
+            "path": "$.gateway_execution_receipt_hash"
+          },
+          "evidence_kind": {
+            "path": "$.evidence_kind"
+          },
+          "artifacts": {
+            "path": "$.artifacts"
+          },
+          "diff_artifact_ref": {
+            "path": "$.diff_artifact_ref"
+          },
+          "diff_hash": {
+            "path": "$.diff_hash"
+          },
+          "no_artifact_reason": {
+            "path": "$.no_artifact_reason"
+          },
+          "captured_at": {
+            "path": "$.captured_at"
+          }
+        },
+        "expected_path": "$.receipt_hash",
+        "expected_encoding": "sha256_string"
+      }
+    }
+  ],
+  "schema://ioi/components/daemon-runtime/gateway-decision-receipt/v1": [
+    {
+      "rule_id": "gateway_decision.receipt_hash.recomputes",
+      "description": "The receipt hash binds every decision fact except itself.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.gateway-decision-receipt-hash-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "receipt_ref": {
+            "path": "$.receipt_ref"
+          },
+          "receipt_type": {
+            "path": "$.receipt_type"
+          },
+          "action_request_ref": {
+            "path": "$.action_request_ref"
+          },
+          "action_request_hash": {
+            "path": "$.action_request_hash"
+          },
+          "authority_gateway_profile_ref": {
+            "path": "$.authority_gateway_profile_ref"
+          },
+          "authority_gateway_profile_hash": {
+            "path": "$.authority_gateway_profile_hash"
+          },
+          "policy_enforcement_point_ref": {
+            "path": "$.policy_enforcement_point_ref"
+          },
+          "decision": {
+            "path": "$.decision"
+          },
+          "policy_ref": {
+            "path": "$.policy_ref"
+          },
+          "policy_hash": {
+            "path": "$.policy_hash"
+          },
+          "authority_status": {
+            "path": "$.authority_status"
+          },
+          "authority_evidence_refs": {
+            "path": "$.authority_evidence_refs"
+          },
+          "approval_receipt_ref": {
+            "path": "$.approval_receipt_ref"
+          },
+          "admitted_action_hash": {
+            "path": "$.admitted_action_hash"
+          },
+          "decided_at": {
+            "path": "$.decided_at"
+          }
+        },
+        "expected_path": "$.receipt_hash",
+        "expected_encoding": "sha256_string"
+      }
+    }
+  ],
+  "schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1": [
+    {
+      "rule_id": "gateway_execution.receipt_hash.recomputes",
+      "description": "The receipt hash binds the exact decision, authority admission, final invoker, effect, outcome, and times.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.gateway-execution-receipt-hash-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "receipt_ref": {
+            "path": "$.receipt_ref"
+          },
+          "receipt_type": {
+            "path": "$.receipt_type"
+          },
+          "action_request_ref": {
+            "path": "$.action_request_ref"
+          },
+          "action_request_hash": {
+            "path": "$.action_request_hash"
+          },
+          "authority_gateway_profile_ref": {
+            "path": "$.authority_gateway_profile_ref"
+          },
+          "authority_gateway_profile_hash": {
+            "path": "$.authority_gateway_profile_hash"
+          },
+          "gateway_decision_receipt_ref": {
+            "path": "$.gateway_decision_receipt_ref"
+          },
+          "gateway_decision_receipt_hash": {
+            "path": "$.gateway_decision_receipt_hash"
+          },
+          "policy_enforcement_point_ref": {
+            "path": "$.policy_enforcement_point_ref"
+          },
+          "external_effect": {
+            "path": "$.external_effect"
+          },
+          "authority_effect_admission_receipt_ref": {
+            "path": "$.authority_effect_admission_receipt_ref"
+          },
+          "authority_effect_admission_receipt_hash": {
+            "path": "$.authority_effect_admission_receipt_hash"
+          },
+          "final_invoker_ref": {
+            "path": "$.final_invoker_ref"
+          },
+          "invocation_id": {
+            "path": "$.invocation_id"
+          },
+          "idempotency_key": {
+            "path": "$.idempotency_key"
+          },
+          "actual_effect_ref": {
+            "path": "$.actual_effect_ref"
+          },
+          "actual_effect_hash": {
+            "path": "$.actual_effect_hash"
+          },
+          "outcome": {
+            "path": "$.outcome"
+          },
+          "result_hash": {
+            "path": "$.result_hash"
+          },
+          "effect_receipt_ref": {
+            "path": "$.effect_receipt_ref"
+          },
+          "started_at": {
+            "path": "$.started_at"
+          },
+          "completed_at": {
+            "path": "$.completed_at"
+          }
+        },
+        "expected_path": "$.receipt_hash",
+        "expected_encoding": "sha256_string"
       }
     }
   ],
@@ -92593,6 +94761,12 @@ export function validateScmPublicationEffectV2(
   return validateArchitectureContract("schema://ioi/components/connectors-tools/scm-publication-effect/v2", value).ok;
 }
 
+export function validateActionRequestEnvelopeV1(
+  value: unknown,
+): value is ActionRequestEnvelopeV1 {
+  return validateArchitectureContract("schema://ioi/components/daemon-runtime/action-request-envelope/v1", value).ok;
+}
+
 export function validateAgentHarnessAdapterV1(
   value: unknown,
 ): value is AgentHarnessAdapterV1 {
@@ -92611,6 +94785,12 @@ export function validateAuthorityEffectAdmissionReceiptV2(
   return validateArchitectureContract("schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2", value).ok;
 }
 
+export function validateAuthorityGatewayProfileV1(
+  value: unknown,
+): value is AuthorityGatewayProfileV1 {
+  return validateArchitectureContract("schema://ioi/components/daemon-runtime/authority-gateway-profile/v1", value).ok;
+}
+
 export function validateDeclassificationReceiptV1(
   value: unknown,
 ): value is DeclassificationReceiptV1 {
@@ -92621,6 +94801,24 @@ export function validateEnforcementCoverageDeclarationV1(
   value: unknown,
 ): value is EnforcementCoverageDeclarationV1 {
   return validateArchitectureContract("schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1", value).ok;
+}
+
+export function validateGatewayArtifactReceiptV1(
+  value: unknown,
+): value is GatewayArtifactReceiptV1 {
+  return validateArchitectureContract("schema://ioi/components/daemon-runtime/gateway-artifact-receipt/v1", value).ok;
+}
+
+export function validateGatewayDecisionReceiptV1(
+  value: unknown,
+): value is GatewayDecisionReceiptV1 {
+  return validateArchitectureContract("schema://ioi/components/daemon-runtime/gateway-decision-receipt/v1", value).ok;
+}
+
+export function validateGatewayExecutionReceiptV1(
+  value: unknown,
+): value is GatewayExecutionReceiptV1 {
+  return validateArchitectureContract("schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1", value).ok;
 }
 
 export function validateHarnessProfileV1(

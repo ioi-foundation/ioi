@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1",
+  "title": "GatewayExecutionReceipt",
+  "description": "Immutable record of the single daemon-owned final invocation or explicit non-invocation for one admitted gateway action.",
+  "x-ioi-schema-version": "ioi.components.daemon-runtime.gateway-execution-receipt.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "receipt_ref", "receipt_type", "action_request_ref", "action_request_hash", "authority_gateway_profile_ref", "authority_gateway_profile_hash", "gateway_decision_receipt_ref", "gateway_decision_receipt_hash", "policy_enforcement_point_ref", "external_effect", "authority_effect_admission_receipt_ref", "authority_effect_admission_receipt_hash", "final_invoker_ref", "invocation_id", "idempotency_key", "actual_effect_ref", "actual_effect_hash", "outcome", "result_hash", "effect_receipt_ref", "started_at", "completed_at", "receipt_hash"],
+  "properties": {
+    "schema_version": { "const": "ioi.components.daemon-runtime.gateway-execution-receipt.v1" },
+    "receipt_ref": { "$ref": "#/$defs/receiptRef" },
+    "receipt_type": { "const": "gateway_execution" },
+    "action_request_ref": { "$ref": "#/$defs/actionRequestRef" },
+    "action_request_hash": { "$ref": "#/$defs/hash" },
+    "authority_gateway_profile_ref": { "$ref": "#/$defs/gatewayProfileRef" },
+    "authority_gateway_profile_hash": { "$ref": "#/$defs/hash" },
+    "gateway_decision_receipt_ref": { "$ref": "#/$defs/receiptRef" },
+    "gateway_decision_receipt_hash": { "$ref": "#/$defs/hash" },
+    "policy_enforcement_point_ref": { "type": "string", "pattern": "^runtime://[^\\s]{1,500}$" },
+    "external_effect": { "type": "boolean" },
+    "authority_effect_admission_receipt_ref": { "oneOf": [{ "$ref": "#/$defs/receiptRef" }, { "type": "null" }] },
+    "authority_effect_admission_receipt_hash": { "oneOf": [{ "$ref": "#/$defs/hash" }, { "type": "null" }] },
+    "final_invoker_ref": { "type": "string", "pattern": "^runtime://[^\\s]{1,500}$" },
+    "invocation_id": { "type": "string", "pattern": "^[a-z][a-z0-9._-]{0,127}$" },
+    "idempotency_key": { "$ref": "#/$defs/hash" },
+    "actual_effect_ref": { "oneOf": [{ "type": "string", "pattern": "^effect://[^\\s]{1,500}$" }, { "type": "null" }] },
+    "actual_effect_hash": { "oneOf": [{ "$ref": "#/$defs/hash" }, { "type": "null" }] },
+    "outcome": { "enum": ["succeeded", "failed", "refused", "unknown", "reconciliation_required"] },
+    "result_hash": { "oneOf": [{ "$ref": "#/$defs/hash" }, { "type": "null" }] },
+    "effect_receipt_ref": { "oneOf": [{ "$ref": "#/$defs/receiptRef" }, { "type": "null" }] },
+    "started_at": { "$ref": "#/$defs/dateTime" },
+    "completed_at": { "$ref": "#/$defs/dateTime" },
+    "receipt_hash": { "$ref": "#/$defs/hash" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "external_effect": { "const": true } }, "required": ["external_effect"] },
+      "then": {
+        "properties": {
+          "authority_effect_admission_receipt_ref": { "$ref": "#/$defs/receiptRef" },
+          "authority_effect_admission_receipt_hash": { "$ref": "#/$defs/hash" },
+          "actual_effect_ref": { "type": "string", "pattern": "^effect://[^\\s]{1,500}$" },
+          "actual_effect_hash": { "$ref": "#/$defs/hash" }
+        }
+      },
+      "else": {
+        "properties": {
+          "authority_effect_admission_receipt_ref": { "type": "null" },
+          "authority_effect_admission_receipt_hash": { "type": "null" },
+          "actual_effect_ref": { "type": "null" },
+          "actual_effect_hash": { "type": "null" }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "receiptRef": { "type": "string", "pattern": "^receipt://[^\\s]{1,500}$" },
+    "actionRequestRef": { "type": "string", "pattern": "^action-request://[^\\s]{1,500}$" },
+    "gatewayProfileRef": { "type": "string", "pattern": "^authority-gateway://[^\\s]{1,500}$" },
+    "hash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "dateTime": { "type": "string", "format": "date-time", "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$" }
+  }
+}
