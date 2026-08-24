@@ -461,10 +461,21 @@ fn verify_bundle(bundle_dir: &Path, policy_path: &Path, now: OffsetDateTime) -> 
         }
     }
     for claim in &manifest.claims {
-        if claim.status != "demonstrated"
-            && !policy.tolerated_nonclaim_ids.contains(&claim.claim_id)
-        {
+        let required = policy.required_claim_ids.contains(&claim.claim_id);
+        let tolerated = policy.tolerated_nonclaim_ids.contains(&claim.claim_id);
+        // Allowlist, never denylist: a claim this policy has never heard of is
+        // not evidence the policy can weigh.
+        if !required && !tolerated {
+            bail!("unsupported_claim_id:{}", claim.claim_id)
+        }
+        if claim.status != "demonstrated" && !tolerated {
             bail!("untolerated_nonclaim:{}", claim.claim_id)
+        }
+        // A claim appears among the tolerated nonclaims because this relying
+        // party does not accept it. Promoting it is a policy change, never a
+        // manifest edit.
+        if tolerated && claim.status == "demonstrated" {
+            bail!("nonclaim_inflated_to_claim:{}", claim.claim_id)
         }
     }
 
@@ -1458,6 +1469,28 @@ fn validate_authority_and_trajectory(
         .get("admitted_call_count")
         .and_then(Value::as_u64)
         .ok_or_else(|| anyhow!("trajectory_before_count_missing"))?;
+    // This certificate binds exactly one governed operation and carries no chain
+    // to a previously accepted decision, so the only predecessor state it can
+    // anchor is the genesis one. A non-genesis predecessor is refused rather
+    // than trusted: nothing in the bundle would independently establish it.
+    if before_calls != 0
+        || required_nonnegative_number(before, "cumulative_spend_usd")? != 0.0
+        || required_nonnegative_number(before, "cumulative_deposit_usd")? != 0.0
+        || !before
+            .get("admitted_events")
+            .and_then(Value::as_array)
+            .is_some_and(|events| events.is_empty())
+        || ["active_resource_refs", "provider_refs", "destination_refs", "data_class_refs"]
+            .iter()
+            .any(|field| {
+                !before
+                    .get(*field)
+                    .and_then(Value::as_array)
+                    .is_some_and(|entries| entries.is_empty())
+            })
+    {
+        bail!("trajectory_predecessor_not_anchored")
+    }
     if after.get("admitted_call_count").and_then(Value::as_u64) != Some(before_calls + 1)
         || required_nonnegative_number(after, "cumulative_spend_usd")?
             < required_nonnegative_number(before, "cumulative_spend_usd")?
@@ -1554,6 +1587,16 @@ fn accept(
         }
     };
     if registry.registry_ref != verified.policy.target_transition.target_registry_ref {
+        write_receipt(
+            rejection(
+                &verified,
+                &before_hash,
+                registry.revision,
+                now,
+                "registry_ref_mismatch",
+            ),
+            receipt_path,
+        )?;
         bail!("registry_ref_mismatch")
     }
     if registry.revision != expected_revision {
@@ -1575,6 +1618,16 @@ fn accept(
         required_str(&verified.certificate, "campaign_id")?
     );
     if registry.entries.iter().any(|e| e.row_ref == row_ref) {
+        write_receipt(
+            rejection(
+                &verified,
+                &before_hash,
+                registry.revision,
+                now,
+                "registry_duplicate_row",
+            ),
+            receipt_path,
+        )?;
         bail!("registry_duplicate_row")
     }
     let mut row = MeasuredRow {

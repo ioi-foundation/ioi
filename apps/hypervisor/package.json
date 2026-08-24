@@ -38,6 +38,7 @@
     "check:c8-v3-portable-bundle": "node --test scripts/lib/c8-v3-portable-bundle.test.mjs",
     "check:c8-v3-relying-party": "cargo build -p aft-c8-verifier && node scripts/verify-c8-v3-relying-party.mjs",
     "check:c8-v3-canonical-bundle": "node scripts/verify-c8-v3-canonical-bundle.mjs",
+    "check:u1-real-campaign-relying-party": "node scripts/verify-u1-real-campaign-relying-party.mjs --self-test",
     "capture:u1-provider-preflight": "node scripts/capture-u1-provider-preflight.mjs",
     "check:standing-authority-broker-contract": "node scripts/verify-standing-authority-broker-contract.mjs",
     "assemble:c8-v3-portable-bundle": "node scripts/assemble-c8-v3-portable-bundle.mjs",

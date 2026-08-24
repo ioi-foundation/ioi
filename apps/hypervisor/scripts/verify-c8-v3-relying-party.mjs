@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { assemblePortableBundle, contentHash, sealSelfHash } from "./lib/c8-v3-portable-bundle.mjs";
+import { fullyResealBundle } from "./lib/c8-v3-bundle-reseal.mjs";
 
 const repo = path.resolve(import.meta.dirname, "../../..");
 const verifier = process.env.IOI_AFT_C8_VERIFIER || path.join(repo, "target/debug/aft-c8-verifier");
@@ -295,83 +296,8 @@ try {
   const acceptedReceipt = JSON.parse(fs.readFileSync(path.join(temp, "accepted-receipt.json"), "utf8"));
   if (after.revision !== 1 || after.entries.length !== 1 || acceptedReceipt.decision !== "accepted" || acceptedReceipt.mutation_applied !== true) throw new Error("positive acceptance did not atomically promote one row");
 
-  const readBundleObject = (directory, bundle, reference) => {
-    const descriptor = [...bundle.objects, ...bundle.trust_inputs].find((entry) => entry.ref === reference);
-    if (!descriptor) throw new Error(`portable descriptor missing: ${reference}`);
-    return [descriptor, JSON.parse(fs.readFileSync(path.join(directory, descriptor.file), "utf8"))];
-  };
-  const replaceCertificateBinding = (value, reference, hash) => {
-    if (Array.isArray(value)) {
-      for (const item of value) replaceCertificateBinding(item, reference, hash);
-      return;
-    }
-    if (!value || typeof value !== "object") return;
-    if (value.ref === reference && typeof value.hash === "string") value.hash = hash;
-    for (const [key, child] of Object.entries(value)) {
-      if (key.endsWith("_ref") && child === reference) {
-        const hashKey = `${key.slice(0, -4)}_hash`;
-        if (Object.hasOwn(value, hashKey)) value[hashKey] = hash;
-      }
-      replaceCertificateBinding(child, reference, hash);
-    }
-  };
-  const fullyReseal = (directory, objectRef, mutate, mutateCertificate) => {
-    let bundle = JSON.parse(fs.readFileSync(path.join(directory, "bundle.json"), "utf8"));
-    let certificate = JSON.parse(fs.readFileSync(path.join(directory, "certificate.json"), "utf8"));
-    const writeBoundObject = (reference, value) => {
-      const [descriptor] = readBundleObject(directory, bundle, reference);
-      try { value = sealSelfHash(value); } catch { /* objects without self-hash contracts use their full JCS hash */ }
-      fs.writeFileSync(path.join(directory, descriptor.file), `${JSON.stringify(value, null, 2)}\n`);
-      descriptor.hash = contentHash(value);
-      replaceCertificateBinding(certificate, reference, descriptor.hash);
-      return descriptor.hash;
-    };
-    if (objectRef) {
-      const [, value] = readBundleObject(directory, bundle, objectRef);
-      mutate(value);
-      const changedHash = writeBoundObject(objectRef, value);
-      if (objectRef === refs.request) {
-        const [, claims] = readBundleObject(directory, bundle, refs.claims);
-        claims.subject_hash = changedHash;
-        writeBoundObject(refs.claims, claims);
-        for (const dependentRef of [refs.drawRequest, refs.drawReceipt, refs.decision]) {
-          const [, dependent] = readBundleObject(directory, bundle, dependentRef);
-          dependent.candidate_operation_hash = changedHash;
-          writeBoundObject(dependentRef, dependent);
-        }
-      }
-      if (objectRef === refs.result || objectRef === refs.environment) {
-        const hashField = objectRef === refs.result ? "result_hash" : "environment_hash";
-        for (const dependentRef of [refs.retrieval, refs.campaign]) {
-          const [, dependent] = readBundleObject(directory, bundle, dependentRef);
-          dependent[hashField] = changedHash;
-          writeBoundObject(dependentRef, dependent);
-        }
-      }
-      if (objectRef === refs.settlement) {
-        const [, campaignObject] = readBundleObject(directory, bundle, refs.campaign);
-        campaignObject.terminal_settlement_hash = changedHash;
-        writeBoundObject(refs.campaign, campaignObject);
-      }
-      if (objectRef === refs.before || objectRef === refs.after) {
-        const [, decisionObject] = readBundleObject(directory, bundle, refs.decision);
-        decisionObject[objectRef === refs.before ? "state_before_hash" : "state_after_hash"] = changedHash;
-        writeBoundObject(refs.decision, decisionObject);
-      }
-      if (objectRef === refs.isolationRequirements || objectRef === refs.isolationEvidence) {
-        const [, isolationObject] = readBundleObject(directory, bundle, refs.isolation);
-        if (objectRef === refs.isolationRequirements) isolationObject.requirements_hash = changedHash;
-        else isolationObject.enforcement_coverage_refs_and_hashes.find((entry) => entry.ref === objectRef).hash = changedHash;
-        writeBoundObject(refs.isolation, isolationObject);
-      }
-    }
-    if (mutateCertificate) mutateCertificate(certificate);
-    certificate = sealSelfHash(certificate);
-    fs.writeFileSync(path.join(directory, "certificate.json"), `${JSON.stringify(certificate, null, 2)}\n`);
-    bundle.certificate_hash = certificate.certificate_hash;
-    bundle = sealSelfHash(bundle);
-    fs.writeFileSync(path.join(directory, "bundle.json"), `${JSON.stringify(bundle, null, 2)}\n`);
-  };
+  const fullyReseal = (directory, objectRef, mutate, mutateCertificate) =>
+    fullyResealBundle({ directory, refs, objectRef, mutate, mutateCertificate });
   const mutations = [
     ["result-verdict", refs.result, (v) => { v.all_rows_within_threshold = false; }],
     ["result-scenario", refs.result, (v) => { v.summaries[0].scenario = "paper_unknown_4v"; }],

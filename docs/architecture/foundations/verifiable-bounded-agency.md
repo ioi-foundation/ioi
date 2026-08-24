@@ -506,6 +506,18 @@ tolerated nonclaims, environment/honesty classes, verifier profile, and the
 single durable transition that acceptance may perform. Unknown schemas,
 claims, trust roots, audiences, verifier profiles, or stale inputs fail closed.
 
+A claim identifier the policy does not enumerate is unsupported, not tolerated:
+the relying party MUST refuse a manifest carrying one. A claim the policy lists
+as a tolerated nonclaim is listed there because that audience does not accept
+it, so the relying party MUST refuse a manifest that marks it `demonstrated`.
+Promoting a nonclaim is a policy change, never a manifest edit.
+
+A certificate that binds a single governed operation carries no chain to a
+previously accepted decision, so the only authority-trajectory predecessor it
+can anchor is the genesis state. A relying party MUST refuse a non-genesis
+predecessor on such a certificate rather than trust a producer-supplied prior
+balance that nothing in the bundle independently establishes.
+
 The first relying party is the AFT measured-results registry. Its only admitted
 transition promotes one verified U1 measurement row into the measured-cost
 registry. Verification failure or policy mismatch writes a
