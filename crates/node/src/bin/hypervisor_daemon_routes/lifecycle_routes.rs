@@ -12600,6 +12600,23 @@ fn capability_lease_request_hash(req: &CapabilityLeaseRequest) -> String {
     }))
 }
 
+/// Exact effect material consumed by the shared live-route authority PEP.
+/// Callers that must bind an outer immutable request to this crossing use this
+/// same constructor before authority consumption; a second reconstruction
+/// would let the preflight and the PEP drift apart.
+pub(crate) fn capability_lease_effect(req: &CapabilityLeaseRequest) -> Value {
+    json!({
+        "authority_provider_ref": req.authority_provider_ref,
+        "backing_provider": req.backing_provider,
+        "allowed_tools": req.allowed_tools,
+        "resource_refs": req.resource_refs,
+        "scopes": req.scopes,
+        "request_facets": req.request_facets,
+        "receipt_required": req.receipt_required,
+        "revocation_ref": req.revocation_ref,
+    })
+}
+
 fn portable_grant_locator(value: &Value) -> Result<Option<[u8; 32]>, String> {
     let Some(reference) = value.as_str() else {
         return Ok(None);
@@ -12839,16 +12856,7 @@ pub(crate) async fn authorize_capability_lease(
         .replace(['.', ':', '/'], "-");
     let required_scope = format!("scope:hypervisor.live-route.{operation}");
     let subject_ref = format!("capability-lease:{policy_hash}:{request_hash}");
-    let effect = json!({
-        "authority_provider_ref": req.authority_provider_ref,
-        "backing_provider": req.backing_provider,
-        "allowed_tools": req.allowed_tools,
-        "resource_refs": req.resource_refs,
-        "scopes": req.scopes,
-        "request_facets": req.request_facets,
-        "receipt_required": req.receipt_required,
-        "revocation_ref": req.revocation_ref,
-    });
+    let effect = capability_lease_effect(req);
     let portable_locator = portable_grant_locator(&req.grant_value).map_err(|message| {
         (
             StatusCode::BAD_REQUEST,

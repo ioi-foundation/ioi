@@ -2056,7 +2056,8 @@ fn status_for(code: &str) -> StatusCode {
         | "scm_publication_refused"
         | "scm_publication_artifact_invalid"
         | "scm_publication_artifact_ref_conflict"
-        | "scm_publication_idempotency_body_conflict" => StatusCode::CONFLICT,
+        | "scm_publication_idempotency_body_conflict"
+        | "scm_publication_gateway_effect_binding_mismatch" => StatusCode::CONFLICT,
         "scm_publication_idempotency_key_invalid" => StatusCode::BAD_REQUEST,
         "scm_publication_remote_unobservable" => StatusCode::BAD_GATEWAY,
         _ => StatusCode::INTERNAL_SERVER_ERROR,
@@ -2626,6 +2627,43 @@ fn submission_from_body(body: &Value) -> ScmPublicationSubmission {
     }
 }
 
+fn verify_gateway_effect_binding(
+    body: &Value,
+    lease_request: &CapabilityLeaseRequest,
+) -> Result<(), VErr> {
+    let expected_ref = body
+        .get("gateway_expected_authority_effect_ref")
+        .and_then(Value::as_str);
+    let expected_hash = body
+        .get("gateway_expected_authority_effect_hash")
+        .and_then(Value::as_str);
+    match (expected_ref, expected_hash) {
+        (None, None) => Ok(()),
+        (Some(expected_ref), Some(expected_hash)) => {
+            let effect = super::lifecycle_routes::capability_lease_effect(lease_request);
+            let derived_hash =
+                super::governed_authority::live_effect_hash(&effect).map_err(|reason| {
+                    verr("scm_publication_gateway_effect_binding_mismatch", reason)
+                })?;
+            let derived_ref = super::governed_authority::portable_effect_ref(&derived_hash)
+                .map_err(|reason| {
+                    verr("scm_publication_gateway_effect_binding_mismatch", reason)
+                })?;
+            if expected_ref != derived_ref || expected_hash != derived_hash {
+                return Err(verr(
+                    "scm_publication_gateway_effect_binding_mismatch",
+                    "the authority-gateway request does not bind the exact native SCM authority effect",
+                ));
+            }
+            Ok(())
+        }
+        _ => Err(verr(
+            "scm_publication_gateway_effect_binding_mismatch",
+            "authority-gateway effect expectations require both the exact effect ref and hash",
+        )),
+    }
+}
+
 /// POST /v1/hypervisor/environments/:id/scm/publish — the wallet-authorized
 /// publication crossing, rebuilt against the registered contract.
 pub(crate) async fn handle_scm_publish(
@@ -2916,6 +2954,14 @@ pub(crate) async fn handle_scm_publish(
             .unwrap_or(Value::Null),
         standing_draw: None,
     };
+    // An outer authority-gateway request may bind this native crossing, but it
+    // may never supply the effect the PEP consumes. Compare its immutable
+    // expectation to the effect coordinates derived here from the exact same
+    // constructor `authorize_capability_lease` uses, before wallet consumption
+    // or a final-invoker claim. Supplying only half a pair also fails closed.
+    if let Err(error) = verify_gateway_effect_binding(&body, &lease_request) {
+        return fail(error);
+    }
     let lease = match authorize_capability_lease(&state, &lease_request).await {
         Ok(lease) => lease,
         Err((code, challenge)) => return (code, Json(challenge)),
@@ -3307,6 +3353,54 @@ mod tests {
             final_invocation_claim_ref: None,
             final_invocation_claim_id: None,
         }
+    }
+
+    #[test]
+    fn gateway_effect_binding_is_checked_against_the_native_pep_effect_constructor() {
+        let request = CapabilityLeaseRequest {
+            authority_provider_ref: "wallet.network".into(),
+            backing_provider: "none".into(),
+            allowed_tools: vec!["scm.publish".into()],
+            resource_refs: vec!["binding://one".into(), "environment_1".into()],
+            scopes: vec![SCM_PUBLICATION_ADVANCE_TARGET_REF_SCOPE.into()],
+            policy_domain: "hypervisor.scm.publication.policy.v1".into(),
+            request_domain: "hypervisor.scm.publication.request.v1".into(),
+            request_facets: json!({"operation_key": digest(0x44)}),
+            credential_connector_id: None,
+            credential_store: "scm-credentials".into(),
+            credential_required: false,
+            github_host_fallback: false,
+            receipt_required: true,
+            revocation_ref: "scm-connectors/none/credential".into(),
+            authority_reason: "scm_publish_authority_required".into(),
+            grant_value: json!(digest(0x55)),
+            standing_draw: None,
+        };
+        let effect = super::super::lifecycle_routes::capability_lease_effect(&request);
+        let hash = super::super::governed_authority::live_effect_hash(&effect).unwrap();
+        let reference = super::super::governed_authority::portable_effect_ref(&hash).unwrap();
+        verify_gateway_effect_binding(
+            &json!({
+                "gateway_expected_authority_effect_ref":reference,
+                "gateway_expected_authority_effect_hash":hash,
+            }),
+            &request,
+        )
+        .unwrap();
+
+        assert!(verify_gateway_effect_binding(
+            &json!({
+                "gateway_expected_authority_effect_ref":reference,
+                "gateway_expected_authority_effect_hash":digest(0x99),
+            }),
+            &request,
+        )
+        .is_err());
+        assert!(verify_gateway_effect_binding(
+            &json!({"gateway_expected_authority_effect_ref":reference}),
+            &request,
+        )
+        .is_err());
     }
 
     fn run(
