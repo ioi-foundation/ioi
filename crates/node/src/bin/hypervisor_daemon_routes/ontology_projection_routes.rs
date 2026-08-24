@@ -484,6 +484,17 @@ fn push_history(record: &mut Value, op: &str, summary: &str, receipt_ref: Value)
     refs.push(receipt_ref);
     record["receipt_refs"] = json!(refs);
 }
+
+/// The sole persistence seam for materialization-owned projection state. Connector execution may
+/// request the tied projection's materialized flip or rollback, but cannot write this family beside
+/// its canonical owner module.
+pub(crate) fn persist_materialized_state(
+    data_dir: &str,
+    id: &str,
+    record: &Value,
+) -> std::io::Result<()> {
+    persist_record(data_dir, RECORD_DIR, id, record)
+}
 /// Merge validated inputs onto a record (shared by create + patch + recheck).
 fn apply_inputs(record: &mut Value, inputs: &ProjInputs) {
     let mut health = project_health(inputs);

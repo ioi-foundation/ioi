@@ -161,7 +161,7 @@
         "let _ = persist_record(",
         "let _ = super::persist_record("
       ],
-      "gap": "67 direct persist_record results remain explicitly discarded across 25 daemon source files (was 269/40, and 304/41 before that). This remains a SOURCE INDICATOR, not a defect count: W1.2 classified the entire both-tests candidate set (every discarded write reaching a read-back success) to zero, so each remaining occurrence is a checked-elsewhere, rollback/cleanup, bootstrap-seed, or best-effort-telemetry write recorded at its own site.",
+      "gap": "54 direct persist_record results remain explicitly discarded across 23 daemon source files (was 67/25, 269/40, and 304/41 before that). M03.4 removed thirteen indicators: twelve connector-execution writes now cross the MaterializingRun/OntologyProjection owner seams, and the MaterializingRun receipt owner now exposes a checked writer for success paths instead of discarding its own persistence result. This remains a SOURCE INDICATOR, not a defect count: W1.2 classified the entire both-tests candidate set (every discarded write reaching a read-back success) to zero, so each remaining occurrence is a checked-elsewhere, rollback/cleanup, bootstrap-seed, or best-effort-telemetry write recorded at its own site.",
       "acceptance": [
         "classify every indicator as canonical mutation, derived projection, rollback cleanup, or intentionally best-effort telemetry",
         "migrate canonical mutations to the shared admission boundary or record an owner-approved equivalent",
@@ -388,8 +388,8 @@
   ],
   "direct_persistence_indicator_census": {
     "indicator": "explicitly discarded direct persist_record result",
-    "total_occurrences": 67,
-    "source_files": 25,
+    "total_occurrences": 54,
+    "source_files": 23,
     "classification": "audit indicator only; includes possible projections, cleanup, fixtures, and compatibility paths until individually classified",
     "regenerator": "node scripts/audit-daemon-mutation-foundation.mjs",
     "by_source": {
@@ -398,7 +398,6 @@
       "crates/node/src/bin/hypervisor_daemon_routes/aws_candidate_source.rs": 1,
       "crates/node/src/bin/hypervisor_daemon_routes/azure_candidate_source.rs": 1,
       "crates/node/src/bin/hypervisor_daemon_routes/binding_routes.rs": 1,
-      "crates/node/src/bin/hypervisor_daemon_routes/connector_execution_routes.rs": 12,
       "crates/node/src/bin/hypervisor_daemon_routes/connector_mapping_routes.rs": 1,
       "crates/node/src/bin/hypervisor_daemon_routes/connector_session_routes.rs": 1,
       "crates/node/src/bin/hypervisor_daemon_routes/decentralized_cloud_routes.rs": 1,
@@ -412,7 +411,6 @@
       "crates/node/src/bin/hypervisor_daemon_routes/ioi_intelligence_routes.rs": 1,
       "crates/node/src/bin/hypervisor_daemon_routes/k8s_candidate_source.rs": 1,
       "crates/node/src/bin/hypervisor_daemon_routes/lambda_candidate_source.rs": 1,
-      "crates/node/src/bin/hypervisor_daemon_routes/materializing_run_routes.rs": 1,
       "crates/node/src/bin/hypervisor_daemon_routes/model_routes.rs": 1,
       "crates/node/src/bin/hypervisor_daemon_routes/orchestration_routes.rs": 3,
       "crates/node/src/bin/hypervisor_daemon_routes/runpod_candidate_source.rs": 1,

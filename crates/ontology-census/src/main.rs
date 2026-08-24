@@ -152,6 +152,15 @@ struct CallSite {
     in_test: bool,
 }
 
+/// Every syntactically direct free-function call. M03.4 uses this population to resolve owner-seam
+/// calls after the complete module (including all `use` aliases) has been visited.
+#[derive(Serialize)]
+struct NamedCall {
+    callee: String,
+    in_fn: String,
+    in_test: bool,
+}
+
 #[derive(Serialize)]
 struct FsCall {
     callee: String,
@@ -244,6 +253,7 @@ struct ModuleFacts {
     imports: Vec<Import>,
     child_mods: Vec<ChildMod>,
     calls: Vec<CallSite>,
+    named_calls: Vec<NamedCall>,
     fs_calls: Vec<FsCall>,
     mentions: Vec<Mention>,
     token_mentions: Vec<TokenMention>,
@@ -486,6 +496,15 @@ const WRITERS: &[&str] = &[
     "admit_required",
 ];
 const READERS: &[&str] = &["load", "read_record_dir", "json_get", "load_record"];
+/// Cross-module owner seams introduced by M03.4. They are not record writers themselves at the
+/// call site, but every production caller is part of the authority boundary and must be surfaced
+/// to the verifier. Otherwise moving a literal write behind a `pub(crate)` function merely moves
+/// the census blind spot one call outward.
+const OWNER_SEAMS: &[&str] = &[
+    "persist_execution_state",
+    "persist_materialized_state",
+    "run_receipt_checked",
+];
 /// Filesystem entry points a lane could use to put bytes in a family directory without a writer.
 const FS_CALLS: &[&str] = &[
     "write",
@@ -911,7 +930,15 @@ impl<'ast> Visit<'ast> for Collector {
         }
         let opened = match e {
             Expr::Call(c) => match &*c.func {
-                Expr::Path(p) => self.open_call(&path_segments(&p.path), false),
+                Expr::Path(p) => {
+                    let segs = path_segments(&p.path);
+                    self.facts.named_calls.push(NamedCall {
+                        callee: segs.join("::"),
+                        in_fn: self.cur_fn(),
+                        in_test: self.in_test(),
+                    });
+                    self.open_call(&segs, false)
+                }
                 _ => (false, false, false),
             },
             Expr::MethodCall(m) => self.open_call(&[m.method.to_string()], true),
@@ -1519,6 +1546,7 @@ fn main() {
         "interests": interests,
         "writers": WRITERS,
         "readers": READERS,
+        "owner_seams": OWNER_SEAMS,
         "fs_calls": FS_CALLS,
         "compile_assembly": COMPILE_ASSEMBLY,
         "assembly_macros": ASSEMBLY_MACROS,

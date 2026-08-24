@@ -337,17 +337,39 @@ fn validate_inputs(data_dir: &str, body: &Value) -> Result<RunInputs, VErr> {
     })
 }
 
-fn run_receipt(data_dir: &str, run_ref: &str, op: &str, outcome: &str, summary: &str) -> Value {
+/// The sole writer for the materializing-run receipt family. Execution is a caller of this owner
+/// seam; it must not duplicate the schema or persist into the receipt directory itself.
+pub(crate) fn run_receipt_checked(
+    data_dir: &str,
+    run_ref: &str,
+    op: &str,
+    outcome: &str,
+    summary: &str,
+) -> Result<Value, String> {
     let id = format!("mrr_{:x}", nanos());
     let receipt_ref = format!("agentgres://materializing-run-receipt/{id}");
     let rec = json!({
         "schema_version": RECEIPT_SCHEMA, "receipt_id": id, "receipt_ref": receipt_ref,
         "materializing_run_ref": run_ref, "op": op, "outcome": outcome, "summary": summary, "at": iso_now()
     });
-    // CLASSIFIED — best-effort telemetry/receipt mirror: read back only by the history
-    // listing as an audit trail; the run record carries the authoritative history entries.
-    let _ = persist_record(data_dir, RECEIPT_DIR, &id, &rec);
-    rec
+    persist_record(data_dir, RECEIPT_DIR, &id, &rec).map_err(|e| e.to_string())?;
+    Ok(rec)
+}
+
+/// Best-effort audit color for refusal/progress paths. A failed receipt write yields null, never a
+/// reference to bytes that did not land. Success-path callers use `run_receipt_checked` directly.
+fn run_receipt(data_dir: &str, run_ref: &str, op: &str, outcome: &str, summary: &str) -> Value {
+    run_receipt_checked(data_dir, run_ref, op, outcome, summary).unwrap_or(Value::Null)
+}
+
+/// The sole persistence seam for execution-owned transitions of a MaterializingRun. The execution
+/// handler owns the network crossing; this module retains custody of its record family.
+pub(crate) fn persist_execution_state(
+    data_dir: &str,
+    id: &str,
+    record: &Value,
+) -> std::io::Result<()> {
+    persist_record(data_dir, RECORD_DIR, id, record)
 }
 fn push_history(record: &mut Value, op: &str, summary: &str, receipt_ref: Value) {
     let rev = record.get("revision").and_then(|v| v.as_u64()).unwrap_or(1);

@@ -37,8 +37,8 @@
       "id": "ontology-admission-census",
       "npm_script": "check:ontology-admission-census",
       "source": "apps/hypervisor/scripts/verify-hypervisor-ontology-admission-census.mjs",
-      "runtime_assertions": 25,
-      "assertion_names_sha256": "e997ce110b97489ce17d1776658ea99ac71987322cfa442dae4ccdcbd88a1eeb"
+      "runtime_assertions": 27,
+      "assertion_names_sha256": "c618843e8612785cbb31cb49efc65d56a4a7e6f32473ecfb1aaa35e25380f60d"
     },
     {
       "id": "named-gap-truth",

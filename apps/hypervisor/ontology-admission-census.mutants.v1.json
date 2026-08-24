@@ -308,6 +308,41 @@
       "expect": "survives",
       "note": "THE NAMED RESIDUAL, asserted in both directions. A family name assembled at RUNTIME from pieces that are each innocent, bound to a local, then passed to a writer. Closing it needs dataflow this census does not do: the conservative function-scope rule that would catch it fires on 198 of this daemon's production writer functions, which is a pinned exception list, not a gate. The call lands in the pinned runtime-parameter bucket, so it is COUNTED — a named absence, not a silence. If this anchor ever goes RED, the gate's stated limits are stale and its header must be re-derived.",
       "insert": "fn shadow_r1(data_dir: &str, id: &str, rec: &Value) {\n    let head = \"od\".to_string();\n    let fam = head + \"k-domain-ontologies\";\n    let _ = persist_record(data_dir, &fam, id, rec);\n}\n"
+    },
+    {
+      "id": "M034-restore-projection-hand-minter",
+      "class": "m034-second-spine",
+      "note": "Restores the direct projection-family writer M03.4 removed from connector execution, in a foreign production module so the single-writer property must catch it after population pins are re-derived.",
+      "insert": "fn shadow_m034_projection(data_dir: &str, id: &str, rec: &Value) {\n    let _ = persist_record(data_dir, \"odk-ontology-projections\", id, rec);\n}\n",
+      "red_on": "M034_SINGLE_WRITER"
+    },
+    {
+      "id": "M034-restore-run-hand-minter",
+      "class": "m034-second-spine",
+      "note": "Restores the direct MaterializingRun-family writer M03.4 removed.",
+      "insert": "fn shadow_m034_run(data_dir: &str, id: &str, rec: &Value) {\n    let _ = persist_record(data_dir, \"odk-materializing-runs\", id, rec);\n}\n",
+      "red_on": "M034_SINGLE_WRITER"
+    },
+    {
+      "id": "M034-restore-run-receipt-hand-minter",
+      "class": "m034-second-spine",
+      "note": "Restores the independent materializing-run receipt-family writer M03.4 removed.",
+      "insert": "fn shadow_m034_receipt(data_dir: &str, id: &str, rec: &Value) {\n    let _ = persist_record(data_dir, \"odk-materializing-run-receipts\", id, rec);\n}\n",
+      "red_on": "M034_SINGLE_WRITER"
+    },
+    {
+      "id": "M034-foreign-owner-seam-caller",
+      "class": "m034-second-spine",
+      "note": "Calls the new crate-visible MaterializingRun persistence seam from an unrelated production module. Literal-writer census attribution alone cannot see this authority expansion, so the exact owner-seam caller fence must catch it.",
+      "insert": "fn shadow_m034_owner_seam(data_dir: &str, id: &str, rec: &Value) {\n    let _ = crate::materializing_run_routes::persist_execution_state(data_dir, id, rec);\n}\n",
+      "red_on": "M034_OWNER_SEAM_CALLERS"
+    },
+    {
+      "id": "M034-renamed-owner-seam-caller",
+      "class": "m034-second-spine",
+      "note": "Imports the MaterializingRun persistence seam under an innocent local name before calling it from an unrelated production module. The gate resolves the complete module's use table instead of matching only the call's final token.",
+      "insert": "use crate::materializing_run_routes::persist_execution_state as shadow_m034_write;\nfn shadow_m034_aliased_owner_seam(data_dir: &str, id: &str, rec: &Value) {\n    let _ = shadow_m034_write(data_dir, id, rec);\n}\n",
+      "red_on": "M034_OWNER_SEAM_CALLERS"
     }
   ]
 }
