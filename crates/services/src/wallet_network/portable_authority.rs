@@ -23,9 +23,13 @@ pub const AUTHORITY_GRANT_V3_CONTRACT: &str =
 pub const AUTHORITY_KEY_SET_V1_CONTRACT: &str = "schema://ioi/foundations/authority-key-set/v1";
 pub const AUTHORITY_REVOCATION_SNAPSHOT_V1_CONTRACT: &str =
     "schema://ioi/foundations/authority-revocation-snapshot/v1";
+pub const AUTHORITY_EFFECT_ADMISSION_RECEIPT_V2_CONTRACT: &str =
+    "schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2";
 
 const GRANT_V3_DOMAIN: &[u8] = b"IOI-AUTHORITY-GRANT-ENVELOPE-V3\0";
 const REVOCATION_SNAPSHOT_V1_DOMAIN: &[u8] = b"IOI-AUTHORITY-REVOCATION-SNAPSHOT-V1\0";
+const EFFECT_ADMISSION_BODY_V2_DOMAIN: &[u8] = b"IOI-AUTHORITY-EFFECT-ADMISSION-BODY-V2\0";
+const EFFECT_ADMISSION_RECEIPT_V2_DOMAIN: &[u8] = b"IOI-AUTHORITY-EFFECT-ADMISSION-RECEIPT-V2\0";
 
 /// Stable machine refusal names required by the portable-authority negative corpus.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -59,6 +63,9 @@ pub enum PortableAuthorityRefusalCode {
     DepthExhausted,
     BudgetExhausted,
     CallsExhausted,
+    EffectMismatch,
+    ProofMismatch,
+    AdmissionReceiptInvalid,
 }
 
 impl PortableAuthorityRefusalCode {
@@ -92,6 +99,9 @@ impl PortableAuthorityRefusalCode {
             Self::DepthExhausted => "depth_exhausted",
             Self::BudgetExhausted => "budget_exhausted",
             Self::CallsExhausted => "calls_exhausted",
+            Self::EffectMismatch => "effect_mismatch",
+            Self::ProofMismatch => "proof_mismatch",
+            Self::AdmissionReceiptInvalid => "admission_receipt_invalid",
         }
     }
 }
@@ -158,7 +168,7 @@ pub struct PortableAuthorityVerificationInput<'a> {
     pub delegation_closure: Option<&'a TrustedPortableAuthorityDelegationClosure>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct VerifiedPortableAuthorityV3 {
     pub authority_grant_ref: String,
     pub authority_grant_hash: String,
@@ -172,6 +182,79 @@ pub struct VerifiedPortableAuthorityV3 {
     pub max_calls: u64,
     pub ancestor_grant_refs: Vec<String>,
     pub revocation_snapshot_refs: Vec<String>,
+    pub revocation_snapshots: Vec<VerifiedAuthorityRevocationSnapshotV1>,
+    /// Private construction seal: only this module's cryptographic verifier can mint the token.
+    verification_seal: PortableAuthorityVerificationSeal,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+struct PortableAuthorityVerificationSeal;
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct VerifiedAuthorityRevocationSnapshotV1 {
+    pub snapshot_ref: String,
+    pub body_hash: String,
+    pub epoch: u64,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AuthorityEffectAdmissionProof<'a> {
+    ExactEquality,
+    BatchMembership {
+        proof_ref: &'a str,
+        proof_hash: &'a str,
+    },
+    StandingConstraint {
+        evaluation_ref: &'a str,
+        evaluation_hash: &'a str,
+    },
+}
+
+/// Exact admitted inputs the daemon PEP uses to mint one immutable pre-invocation receipt.
+pub struct AuthorityEffectAdmissionReceiptV2Input<'a> {
+    pub receipt_id: &'a str,
+    pub policy_enforcement_point_ref: &'a str,
+    pub verified_grant: &'a VerifiedPortableAuthorityV3,
+    /// The exact raw leaf value that produced `verified_grant`.
+    pub leaf_grant: &'a Value,
+    pub actual_effect_ref: &'a str,
+    pub actual_effect_hash: &'a str,
+    pub decision_profile_ref: &'a str,
+    pub policy_hash: &'a str,
+    pub temporal_verification_profile_ref: &'a str,
+    pub temporal_verification_profile_hash: &'a str,
+    pub temporal_validity_evaluation_ref: &'a str,
+    pub temporal_validity_evaluation_hash: &'a str,
+    /// `online_fresh` or `bounded_offline`; admitted receipts cannot claim weaker posture.
+    pub temporal_posture: &'a str,
+    pub continuity_floor_evidence_refs: &'a [String],
+    pub principal_authority_revalidation_receipt_ref: Option<&'a str>,
+    pub principal_authority_revalidation_receipt_hash: Option<&'a str>,
+    pub proof: AuthorityEffectAdmissionProof<'a>,
+    pub decided_at: &'a str,
+}
+
+/// Sealed pre-invocation receipt produced only from a cryptographically verified v3 leaf.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct VerifiedAuthorityEffectAdmissionReceiptV2 {
+    receipt: Value,
+    verification_seal: PortableAuthorityVerificationSeal,
+}
+
+impl VerifiedAuthorityEffectAdmissionReceiptV2 {
+    pub fn as_value(&self) -> &Value {
+        &self.receipt
+    }
+
+    pub fn into_value(self) -> Value {
+        self.receipt
+    }
+
+    pub fn receipt_hash(&self) -> &str {
+        self.receipt["receipt_hash"]
+            .as_str()
+            .expect("sealed admission receipt has a registered receipt_hash")
+    }
 }
 
 fn required_str<'a>(
@@ -432,7 +515,7 @@ fn verify_revocation_snapshot(
     now: u64,
     max_age: u64,
     ancestor: bool,
-) -> Result<String, PortableAuthorityRefusal> {
+) -> Result<VerifiedAuthorityRevocationSnapshotV1, PortableAuthorityRefusal> {
     let issuer = required_str(
         grant,
         "/issuer_id",
@@ -613,12 +696,16 @@ fn verify_revocation_snapshot(
             format!("issuer key {issuer_key_id} is revoked"),
         ));
     }
-    Ok(required_str(
-        snapshot,
-        "/snapshot_id",
-        PortableAuthorityRefusalCode::MalformedRevocationSnapshot,
-    )?
-    .to_owned())
+    Ok(VerifiedAuthorityRevocationSnapshotV1 {
+        snapshot_ref: required_str(
+            snapshot,
+            "/snapshot_id",
+            PortableAuthorityRefusalCode::MalformedRevocationSnapshot,
+        )?
+        .to_owned(),
+        body_hash: claimed_hash.to_owned(),
+        epoch,
+    })
 }
 
 fn subset(child: &BTreeSet<String>, parent: &BTreeSet<String>) -> bool {
@@ -922,7 +1009,7 @@ pub fn verify_portable_authority_v3(
         })?;
     let mut grant_refs = BTreeSet::new();
     let mut body_hashes = BTreeSet::new();
-    let mut snapshot_refs = Vec::with_capacity(input.grant_chain.len());
+    let mut verified_snapshots = Vec::with_capacity(input.grant_chain.len());
     for (index, grant) in input.grant_chain.iter().enumerate() {
         validate_registered(
             AUTHORITY_GRANT_V3_CONTRACT,
@@ -997,7 +1084,7 @@ pub fn verify_portable_authority_v3(
             &authority_grant_v3_signature_preimage(grant)?,
             PortableAuthorityRefusalCode::SignatureMismatch,
         )?;
-        snapshot_refs.push(verify_revocation_snapshot(
+        verified_snapshots.push(verify_revocation_snapshot(
             grant,
             key_set,
             issuer_key,
@@ -1160,7 +1247,355 @@ pub fn verify_portable_authority_v3(
                 .map(str::to_owned)
             })
             .collect::<Result<_, _>>()?,
-        revocation_snapshot_refs: snapshot_refs,
+        revocation_snapshot_refs: verified_snapshots
+            .iter()
+            .map(|snapshot| snapshot.snapshot_ref.clone())
+            .collect(),
+        revocation_snapshots: verified_snapshots,
+        verification_seal: PortableAuthorityVerificationSeal,
+    })
+}
+
+pub fn authority_effect_admission_body_v2_hash(
+    body: &Value,
+) -> Result<String, PortableAuthorityRefusal> {
+    let mut material = EFFECT_ADMISSION_BODY_V2_DOMAIN.to_vec();
+    material.extend(jcs(
+        body,
+        PortableAuthorityRefusalCode::AdmissionReceiptInvalid,
+    )?);
+    Ok(sha256_ref(&material))
+}
+
+pub fn authority_effect_admission_receipt_v2_hash(
+    schema_version: &str,
+    receipt_envelope: &Value,
+    body_hash: &str,
+) -> Result<String, PortableAuthorityRefusal> {
+    let material_value = json!({
+        "schema_version": schema_version,
+        "receipt_envelope": receipt_envelope,
+        "body_hash": body_hash,
+    });
+    let mut material = EFFECT_ADMISSION_RECEIPT_V2_DOMAIN.to_vec();
+    material.extend(jcs(
+        &material_value,
+        PortableAuthorityRefusalCode::AdmissionReceiptInvalid,
+    )?);
+    Ok(sha256_ref(&material))
+}
+
+/// Construct the immutable v2 admission receipt after portable verification and before invocation.
+///
+/// This constructor emits admitted receipts only. A refusal is returned as a typed verifier error,
+/// and no caller may interpret that error as an admission artifact.
+pub fn build_authority_effect_admission_receipt_v2(
+    input: AuthorityEffectAdmissionReceiptV2Input<'_>,
+) -> Result<VerifiedAuthorityEffectAdmissionReceiptV2, PortableAuthorityRefusal> {
+    validate_registered(
+        AUTHORITY_GRANT_V3_CONTRACT,
+        input.leaf_grant,
+        PortableAuthorityRefusalCode::MalformedGrant,
+    )?;
+    let grant_ref = required_str(
+        input.leaf_grant,
+        "/authority_grant_id",
+        PortableAuthorityRefusalCode::MalformedGrant,
+    )?;
+    let grant_hash = required_str(
+        input.leaf_grant,
+        "/body_hash",
+        PortableAuthorityRefusalCode::MalformedGrant,
+    )?;
+    if grant_ref != input.verified_grant.authority_grant_ref
+        || grant_hash != input.verified_grant.authority_grant_hash
+        || authority_grant_v3_body_hash(input.leaf_grant)? != grant_hash
+    {
+        return Err(refuse(
+            PortableAuthorityRefusalCode::AdmissionReceiptInvalid,
+            "leaf grant does not match the exact verified v3 result",
+        ));
+    }
+    if input.verified_grant.audience != input.policy_enforcement_point_ref {
+        return Err(refuse(
+            PortableAuthorityRefusalCode::WrongAudience,
+            "verified grant audience is not the receipt policy-enforcement point",
+        ));
+    }
+    let leaf_scopes = string_set(
+        input.leaf_grant,
+        "/authority_scopes",
+        PortableAuthorityRefusalCode::MalformedGrant,
+    )?;
+    let leaf_capabilities = string_set(
+        input.leaf_grant,
+        "/primitive_capability_constraints",
+        PortableAuthorityRefusalCode::MalformedGrant,
+    )?;
+    if leaf_scopes.iter().cloned().collect::<Vec<_>>() != input.verified_grant.authority_scopes
+        || leaf_capabilities.iter().cloned().collect::<Vec<_>>()
+            != input.verified_grant.primitive_capability_constraints
+    {
+        return Err(refuse(
+            PortableAuthorityRefusalCode::AdmissionReceiptInvalid,
+            "receipt capabilities or scopes differ from the verified leaf",
+        ));
+    }
+
+    let commitment = input
+        .leaf_grant
+        .get("request_commitment")
+        .filter(|value| value.is_object())
+        .ok_or_else(|| {
+            refuse(
+                PortableAuthorityRefusalCode::MalformedGrant,
+                "v3 grant lacks request commitment",
+            )
+        })?;
+    let subject = commitment
+        .get("authorization_subject")
+        .filter(|value| value.is_object())
+        .cloned()
+        .ok_or_else(|| {
+            refuse(
+                PortableAuthorityRefusalCode::MalformedGrant,
+                "v3 grant lacks authorization subject",
+            )
+        })?;
+    let subject_kind = required_str(
+        commitment,
+        "/authorization_subject/kind",
+        PortableAuthorityRefusalCode::MalformedGrant,
+    )?;
+    let subject_ref = required_str(
+        commitment,
+        "/authorization_subject/subject_ref",
+        PortableAuthorityRefusalCode::MalformedGrant,
+    )?;
+    let subject_hash = required_str(
+        commitment,
+        "/authorization_subject/subject_hash",
+        PortableAuthorityRefusalCode::MalformedGrant,
+    )?;
+    let (
+        proof_kind,
+        membership_proof_ref,
+        membership_proof_hash,
+        standing_evaluation_ref,
+        standing_evaluation_hash,
+    ) = match (subject_kind, input.proof) {
+        ("exact_effect", AuthorityEffectAdmissionProof::ExactEquality) => {
+            if subject_ref != input.actual_effect_ref || subject_hash != input.actual_effect_hash {
+                return Err(refuse(
+                    PortableAuthorityRefusalCode::EffectMismatch,
+                    "daemon-derived exact effect differs from the signed authorization subject",
+                ));
+            }
+            (
+                "exact_equality",
+                Value::Null,
+                Value::Null,
+                Value::Null,
+                Value::Null,
+            )
+        }
+        (
+            "batch_manifest",
+            AuthorityEffectAdmissionProof::BatchMembership {
+                proof_ref,
+                proof_hash,
+            },
+        ) => (
+            "batch_membership",
+            json!(proof_ref),
+            json!(proof_hash),
+            Value::Null,
+            Value::Null,
+        ),
+        (
+            "standing_envelope",
+            AuthorityEffectAdmissionProof::StandingConstraint {
+                evaluation_ref,
+                evaluation_hash,
+            },
+        ) => (
+            "standing_constraint",
+            Value::Null,
+            Value::Null,
+            json!(evaluation_ref),
+            json!(evaluation_hash),
+        ),
+        _ => {
+            return Err(refuse(
+                PortableAuthorityRefusalCode::ProofMismatch,
+                "authorization subject kind and effect proof do not match",
+            ))
+        }
+    };
+    if !matches!(input.temporal_posture, "online_fresh" | "bounded_offline") {
+        return Err(refuse(
+            PortableAuthorityRefusalCode::AdmissionReceiptInvalid,
+            "an admitted receipt requires online_fresh or bounded_offline temporal posture",
+        ));
+    }
+    if input.principal_authority_revalidation_receipt_ref.is_some()
+        != input
+            .principal_authority_revalidation_receipt_hash
+            .is_some()
+    {
+        return Err(refuse(
+            PortableAuthorityRefusalCode::AdmissionReceiptInvalid,
+            "principal-authority revalidation ref/hash must be both present or both absent",
+        ));
+    }
+    let snapshot = input
+        .verified_grant
+        .revocation_snapshots
+        .last()
+        .ok_or_else(|| {
+            refuse(
+                PortableAuthorityRefusalCode::MissingRevocationSnapshot,
+                "verified grant result lacks its leaf revocation snapshot",
+            )
+        })?;
+    let mut continuity_refs = input.continuity_floor_evidence_refs.to_vec();
+    continuity_refs.sort();
+    continuity_refs.dedup();
+    let body = json!({
+        "policy_enforcement_point_ref": input.policy_enforcement_point_ref,
+        "authorization_subject": subject,
+        "authority_grant_ref": grant_ref,
+        "authority_grant_hash": grant_hash,
+        "authority_review_receipt_ref": required_str(commitment, "/authority_review_receipt_ref", PortableAuthorityRefusalCode::MalformedGrant)?,
+        "authority_review_receipt_hash": required_str(commitment, "/authority_review_receipt_hash", PortableAuthorityRefusalCode::MalformedGrant)?,
+        "approval_ceremony_context_ref": required_str(commitment, "/approval_ceremony_context_ref", PortableAuthorityRefusalCode::MalformedGrant)?,
+        "approval_ceremony_context_hash": required_str(commitment, "/approval_ceremony_context_hash", PortableAuthorityRefusalCode::MalformedGrant)?,
+        "principal_authority_resolution_ref": commitment.get("principal_authority_resolution_ref").cloned().unwrap_or(Value::Null),
+        "principal_authority_resolution_hash": commitment.get("principal_authority_resolution_hash").cloned().unwrap_or(Value::Null),
+        "principal_authority_revalidation_receipt_ref": input.principal_authority_revalidation_receipt_ref,
+        "principal_authority_revalidation_receipt_hash": input.principal_authority_revalidation_receipt_hash,
+        "temporal_verification_profile_ref": input.temporal_verification_profile_ref,
+        "temporal_verification_profile_hash": input.temporal_verification_profile_hash,
+        "temporal_validity_evaluation_ref": input.temporal_validity_evaluation_ref,
+        "temporal_validity_evaluation_hash": input.temporal_validity_evaluation_hash,
+        "temporal_posture": input.temporal_posture,
+        "continuity_floor_evidence_refs": continuity_refs,
+        "revocation_evidence_status": "verified",
+        "revocation_snapshot_ref": snapshot.snapshot_ref,
+        "revocation_snapshot_hash": snapshot.body_hash,
+        "revocation_epoch": snapshot.epoch,
+        "actual_effect_ref": input.actual_effect_ref,
+        "actual_effect_hash": input.actual_effect_hash,
+        "decision_profile_ref": input.decision_profile_ref,
+        "policy_hash": input.policy_hash,
+        "proof_kind": proof_kind,
+        "membership_proof_ref": membership_proof_ref,
+        "membership_proof_hash": membership_proof_hash,
+        "standing_evaluation_ref": standing_evaluation_ref,
+        "standing_evaluation_hash": standing_evaluation_hash,
+        "decision": "admitted",
+        "refusal_code": Value::Null,
+        "invoker_called": false,
+        "invoker_receipt_ref": Value::Null,
+        "effect_receipt_ref": Value::Null,
+        "decided_at": input.decided_at,
+    });
+    let body_hash = authority_effect_admission_body_v2_hash(&body)?;
+
+    let mut boundary_refs = BTreeSet::new();
+    for pointer in [
+        "/policy_enforcement_point_ref",
+        "/authorization_subject/subject_ref",
+        "/authority_grant_ref",
+        "/authority_review_receipt_ref",
+        "/approval_ceremony_context_ref",
+        "/principal_authority_resolution_ref",
+        "/principal_authority_revalidation_receipt_ref",
+        "/temporal_validity_evaluation_ref",
+        "/revocation_snapshot_ref",
+        "/actual_effect_ref",
+        "/membership_proof_ref",
+        "/standing_evaluation_ref",
+    ] {
+        if let Some(reference) = body.pointer(pointer).and_then(Value::as_str) {
+            boundary_refs.insert(reference.to_owned());
+        }
+    }
+    for reference in body
+        .get("continuity_floor_evidence_refs")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+    {
+        boundary_refs.insert(reference.to_owned());
+    }
+    let artifact_refs: Vec<String> = boundary_refs
+        .iter()
+        .filter(|reference| reference.starts_with("artifact://"))
+        .cloned()
+        .collect();
+    let evidence_bundle_refs: Vec<String> = boundary_refs
+        .iter()
+        .filter(|reference| {
+            reference.starts_with("evidence://")
+                || reference.starts_with("assurance-evidence://")
+                || reference.starts_with("artifact://")
+        })
+        .cloned()
+        .collect();
+    let verification_ref = input
+        .principal_authority_revalidation_receipt_ref
+        .unwrap_or(required_str(
+            commitment,
+            "/authority_review_receipt_ref",
+            PortableAuthorityRefusalCode::MalformedGrant,
+        )?);
+    let receipt_envelope = json!({
+        "receipt_id": input.receipt_id,
+        "receipt_type": "authority_effect_admission",
+        "receipt_profile_ref": AUTHORITY_EFFECT_ADMISSION_RECEIPT_V2_CONTRACT,
+        "attested_boundary_fact_refs": boundary_refs.into_iter().collect::<Vec<_>>(),
+        "claim_scope_ref": AUTHORITY_EFFECT_ADMISSION_RECEIPT_V2_CONTRACT,
+        "run_id": Value::Null,
+        "task_id": Value::Null,
+        "actor_id": input.policy_enforcement_point_ref,
+        "input_hash": grant_hash,
+        "output_hash": body_hash,
+        "policy_hash": input.policy_hash,
+        "authority_grant_id": grant_ref,
+        "primitive_capabilities": input.verified_grant.primitive_capability_constraints,
+        "authority_scopes": input.verified_grant.authority_scopes,
+        "artifact_refs": artifact_refs,
+        "evidence_bundle_refs": evidence_bundle_refs,
+        "verification_ref": verification_ref,
+        "acceptance_ref": Value::Null,
+        "adjudication_ref": Value::Null,
+        "settlement_ref": Value::Null,
+        "timestamp": input.decided_at,
+        "signature": Value::Null,
+        "public_commitment_ref": Value::Null,
+    });
+    let receipt_hash = authority_effect_admission_receipt_v2_hash(
+        "ioi.components.daemon-runtime.authority-effect-admission-receipt.v2",
+        &receipt_envelope,
+        &body_hash,
+    )?;
+    let receipt = json!({
+        "schema_version": "ioi.components.daemon-runtime.authority-effect-admission-receipt.v2",
+        "receipt_envelope": receipt_envelope,
+        "body": body,
+        "body_hash": body_hash,
+        "receipt_hash": receipt_hash,
+    });
+    validate_registered(
+        AUTHORITY_EFFECT_ADMISSION_RECEIPT_V2_CONTRACT,
+        &receipt,
+        PortableAuthorityRefusalCode::AdmissionReceiptInvalid,
+    )?;
+    Ok(VerifiedAuthorityEffectAdmissionReceiptV2 {
+        receipt,
+        verification_seal: PortableAuthorityVerificationSeal,
     })
 }
 
@@ -1306,6 +1741,37 @@ mod tests {
         })
     }
 
+    fn build_receipt(
+        grant: &Value,
+        verified: &VerifiedPortableAuthorityV3,
+        proof: AuthorityEffectAdmissionProof<'_>,
+        actual_effect_ref: &str,
+        actual_effect_hash: &str,
+    ) -> Result<VerifiedAuthorityEffectAdmissionReceiptV2, PortableAuthorityRefusal> {
+        build_authority_effect_admission_receipt_v2(AuthorityEffectAdmissionReceiptV2Input {
+            receipt_id: "receipt://tests/portable-admission-1",
+            policy_enforcement_point_ref: grant["audience"].as_str().unwrap(),
+            verified_grant: verified,
+            leaf_grant: grant,
+            actual_effect_ref,
+            actual_effect_hash,
+            decision_profile_ref: "policy://tests/effect-admission/v1",
+            policy_hash: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            temporal_verification_profile_ref: "policy://tests/time/v1",
+            temporal_verification_profile_hash:
+                "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            temporal_validity_evaluation_ref: "evidence://tests/time-evaluation-1",
+            temporal_validity_evaluation_hash:
+                "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            temporal_posture: "bounded_offline",
+            continuity_floor_evidence_refs: &["evidence://tests/continuity-floor-1".to_owned()],
+            principal_authority_revalidation_receipt_ref: None,
+            principal_authority_revalidation_receipt_hash: None,
+            proof,
+            decided_at: "2026-08-24T15:02:00Z",
+        })
+    }
+
     fn assert_code(
         result: Result<VerifiedPortableAuthorityV3, PortableAuthorityRefusal>,
         code: PortableAuthorityRefusalCode,
@@ -1328,6 +1794,160 @@ mod tests {
         assert_eq!(verified.authority_grant_hash, grant["body_hash"]);
         assert!(verified.ancestor_grant_refs.is_empty());
         assert_eq!(verified.revocation_snapshot_refs.len(), 1);
+    }
+
+    #[test]
+    fn admitted_exact_effect_receipt_is_registered_hashed_and_pre_invocation() {
+        let (grant, key_set, snapshot) = root_fixture();
+        let verified = verify_root(
+            &grant,
+            &key_set,
+            &snapshot,
+            grant["audience"].as_str().unwrap(),
+            &BTreeSet::new(),
+        )
+        .expect("verified grant");
+        let effect_ref = grant
+            .pointer("/request_commitment/authorization_subject/subject_ref")
+            .and_then(Value::as_str)
+            .unwrap();
+        let effect_hash = grant
+            .pointer("/request_commitment/authorization_subject/subject_hash")
+            .and_then(Value::as_str)
+            .unwrap();
+        let sealed_receipt = build_receipt(
+            &grant,
+            &verified,
+            AuthorityEffectAdmissionProof::ExactEquality,
+            effect_ref,
+            effect_hash,
+        )
+        .expect("admission receipt");
+        let receipt = sealed_receipt.as_value();
+
+        validate_architecture_contract(AUTHORITY_EFFECT_ADMISSION_RECEIPT_V2_CONTRACT, &receipt)
+            .expect("registered receipt");
+        assert_eq!(receipt.pointer("/body/invoker_called"), Some(&json!(false)));
+        assert_eq!(
+            receipt.pointer("/body/revocation_snapshot_hash"),
+            Some(&json!(verified.revocation_snapshots[0].body_hash))
+        );
+        assert_eq!(
+            authority_effect_admission_body_v2_hash(&receipt["body"]).unwrap(),
+            receipt["body_hash"]
+        );
+        assert_eq!(
+            authority_effect_admission_receipt_v2_hash(
+                receipt["schema_version"].as_str().unwrap(),
+                &receipt["receipt_envelope"],
+                receipt["body_hash"].as_str().unwrap(),
+            )
+            .unwrap(),
+            receipt["receipt_hash"]
+        );
+    }
+
+    #[test]
+    fn exact_effect_and_subject_proof_substitutions_refuse_before_receipt() {
+        let (grant, key_set, snapshot) = root_fixture();
+        let verified = verify_root(
+            &grant,
+            &key_set,
+            &snapshot,
+            grant["audience"].as_str().unwrap(),
+            &BTreeSet::new(),
+        )
+        .expect("verified grant");
+        let effect_ref = grant
+            .pointer("/request_commitment/authorization_subject/subject_ref")
+            .and_then(Value::as_str)
+            .unwrap();
+        let effect_hash = grant
+            .pointer("/request_commitment/authorization_subject/subject_hash")
+            .and_then(Value::as_str)
+            .unwrap();
+        assert_eq!(
+            build_receipt(
+                &grant,
+                &verified,
+                AuthorityEffectAdmissionProof::ExactEquality,
+                effect_ref,
+                "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+            )
+            .expect_err("effect substitution")
+            .code,
+            PortableAuthorityRefusalCode::EffectMismatch
+        );
+        assert_eq!(
+            build_receipt(
+                &grant,
+                &verified,
+                AuthorityEffectAdmissionProof::BatchMembership {
+                    proof_ref: "evidence://tests/membership-1",
+                    proof_hash:
+                        "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+                },
+                effect_ref,
+                effect_hash,
+            )
+            .expect_err("proof substitution")
+            .code,
+            PortableAuthorityRefusalCode::ProofMismatch
+        );
+    }
+
+    #[test]
+    fn batch_and_standing_subjects_emit_only_their_typed_proof() {
+        for (kind, subject_ref, proof, expected_kind) in [
+            (
+                "batch_manifest",
+                "artifact://tests/batch-1",
+                AuthorityEffectAdmissionProof::BatchMembership {
+                    proof_ref: "evidence://tests/membership-1",
+                    proof_hash:
+                        "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+                },
+                "batch_membership",
+            ),
+            (
+                "standing_envelope",
+                "policy://tests/standing-1",
+                AuthorityEffectAdmissionProof::StandingConstraint {
+                    evaluation_ref: "receipt://tests/standing-evaluation-1",
+                    evaluation_hash:
+                        "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+                },
+                "standing_constraint",
+            ),
+        ] {
+            let (mut grant, key_set, snapshot) = root_fixture();
+            grant["request_commitment"]["authorization_subject"]["kind"] = json!(kind);
+            grant["request_commitment"]["authorization_subject"]["subject_ref"] =
+                json!(subject_ref);
+            sign_grant(&mut grant, &keypair(7));
+            let verified = verify_root(
+                &grant,
+                &key_set,
+                &snapshot,
+                grant["audience"].as_str().unwrap(),
+                &BTreeSet::new(),
+            )
+            .expect("verified typed subject");
+            let sealed_receipt = build_receipt(
+                &grant,
+                &verified,
+                proof,
+                "effect://tests/actual-1",
+                "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+            )
+            .expect("typed admission receipt");
+            let receipt = sealed_receipt.as_value();
+            assert_eq!(
+                receipt.pointer("/body/proof_kind").and_then(Value::as_str),
+                Some(expected_kind)
+            );
+            assert_eq!(receipt.pointer("/body/invoker_called"), Some(&json!(false)));
+        }
     }
 
     #[test]

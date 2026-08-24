@@ -456,6 +456,17 @@ and v3 remain immutable compatibility contracts. V3 production use requires
 the complete registered verifier path; projections or copied fields do not
 substitute for exact grant verification.
 
+The Rust verifier path also constructs the registered
+`AuthorityEffectAdmissionReceiptV2` directly from its verified leaf result and
+the daemon-derived effect. The constructor enforces the exact
+equality/membership/standing proof matrix, copies capabilities and scopes only
+from the verified leaf, binds the verified leaf revocation snapshot, computes
+both domain-separated canonical hashes, revalidates the completed raw receipt,
+and fixes every admitted artifact to the pre-invocation posture
+`invoker_called: false`. Durable owner-side single-use consumption and daemon
+PEP persistence remain required before this constructor is a served effect
+path.
+
 The `standing_envelope` authorization subject resolves the registered
 `StandingAuthorityEnvelope` v1 object. That object closes the unattended class
 over exact provider-operation facets (provider, exact selector set, deposit,
