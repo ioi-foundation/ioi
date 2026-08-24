@@ -32,10 +32,9 @@ use ioi_services::wallet_network::{
     ConsumeApprovalGrantForEffectParams, ConsumeApprovalGrantForEffectV2Params,
     ConsumePortableAuthorityGrantV3ForEffectParams, ConsumeStandingApprovalGrantForEffectParams,
     PortableAuthorityEffectAdmissionReceiptV2Record, PortableAuthorityGrantV3ConsumptionReceipt,
-    PortableAuthorityGrantV3State,
-    PortableAuthorityGrantV3Status, PortableAuthorityTemporalPostureV1,
-    SettleStandingApprovalGrantConsumptionParams, StandingApprovalGrantConsumptionReceipt,
-    StandingApprovalGrantSettlementReceipt,
+    PortableAuthorityGrantV3State, PortableAuthorityGrantV3Status,
+    PortableAuthorityTemporalPostureV1, SettleStandingApprovalGrantConsumptionParams,
+    StandingApprovalGrantConsumptionReceipt, StandingApprovalGrantSettlementReceipt,
 };
 use ioi_types::app::wallet_network::{WalletApprovalDecision, WalletApprovalDecisionKind};
 use ioi_types::app::{
@@ -1009,6 +1008,13 @@ pub(crate) struct PortableAuthorityConsumptionAdmission {
     pub(crate) admission_receipt: PortableAuthorityEffectAdmissionReceiptV2Record,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct ResolvedPortableAuthorityBinding {
+    pub(crate) audience: String,
+    pub(crate) holder_id: String,
+    pub(crate) holder_key_id: String,
+}
+
 fn sha256_ref_bytes(value: &[u8; 32]) -> String {
     format!("sha256:{}", hex::encode(value))
 }
@@ -1344,6 +1350,120 @@ fn validate_portable_grant_state_for_effect(
     Ok(state)
 }
 
+fn resolve_portable_binding_from_state(
+    grant_hash: [u8; 32],
+    actual_effect_ref: &str,
+    actual_effect_hash: [u8; 32],
+    state: &PortableAuthorityGrantV3State,
+    expected_audience_client_id: [u8; 32],
+) -> Result<ResolvedPortableAuthorityBinding, ResolveError> {
+    let leaf: serde_json::Value =
+        serde_json::from_slice(state.grant_chain_json.last().ok_or_else(|| {
+            ResolveError::Invalid("wallet.network portable grant chain is empty".to_string())
+        })?)
+        .map_err(|error| {
+            ResolveError::Invalid(format!(
+                "wallet.network portable leaf is malformed: {error}"
+            ))
+        })?;
+    let grant_hash_ref = sha256_ref_bytes(&grant_hash);
+    let effect_hash_ref = sha256_ref_bytes(&actual_effect_hash);
+    let active_for_new_use =
+        state.status == PortableAuthorityGrantV3Status::Active && state.remaining_calls > 0;
+    let exhausted_for_exact_recovery = state.status == PortableAuthorityGrantV3Status::Exhausted
+        && state.remaining_calls == 0
+        && state.uses_consumed == state.max_calls;
+    if state.schema_version != 1
+        || state.grant_hash != grant_hash
+        || state.audience_client_id != expected_audience_client_id
+        || (!active_for_new_use && !exhausted_for_exact_recovery)
+        || state.uses_consumed.saturating_add(state.remaining_calls) != state.max_calls
+        || leaf.get("body_hash").and_then(serde_json::Value::as_str)
+            != Some(grant_hash_ref.as_str())
+        || leaf
+            .pointer("/request_commitment/authorization_subject/kind")
+            .and_then(serde_json::Value::as_str)
+            != Some("exact_effect")
+        || leaf
+            .pointer("/request_commitment/authorization_subject/subject_ref")
+            .and_then(serde_json::Value::as_str)
+            != Some(actual_effect_ref)
+        || leaf
+            .pointer("/request_commitment/authorization_subject/subject_hash")
+            .and_then(serde_json::Value::as_str)
+            != Some(effect_hash_ref.as_str())
+    {
+        return Err(ResolveError::Refused(
+            "wallet.network cannot resolve a usable or exactly recoverable portable effect binding for this daemon".to_string(),
+        ));
+    }
+    let required_leaf = |field: &str| {
+        leaf.get(field)
+            .and_then(serde_json::Value::as_str)
+            .filter(|value| !value.is_empty())
+            .map(str::to_owned)
+            .ok_or_else(|| {
+                ResolveError::Invalid(format!(
+                    "wallet.network portable grant lacks signed {field}"
+                ))
+            })
+    };
+    Ok(ResolvedPortableAuthorityBinding {
+        audience: required_leaf("audience")?,
+        holder_id: required_leaf("holder_id")?,
+        holder_key_id: required_leaf("holder_key_id")?,
+    })
+}
+
+/// Resolve signed audience/holder coordinates from wallet-owned grant state. The request supplies
+/// only a grant-hash locator; every binding returned here comes from the registered signed leaf.
+pub(crate) async fn resolve_portable_authority_grant_v3_for_effect(
+    grant_hash: [u8; 32],
+    actual_effect_ref: &str,
+    actual_effect_hash: [u8; 32],
+) -> Result<ResolvedPortableAuthorityBinding, ResolveError> {
+    let config = load_config()?;
+    let audience_client_id = account_id_from_key_material(
+        SignatureSuite::ED25519,
+        &config.client_key.public_key().to_bytes(),
+    )
+    .map_err(|error| {
+        ResolveError::NotConfigured(format!(
+            "Hypervisor capability signer id could not be derived: {error}"
+        ))
+    })?;
+    let timeout = config.timeout;
+    tokio::time::timeout(timeout, async {
+        let mut client = connect(&config).await?;
+        let bytes = query_raw(
+            &mut client,
+            namespaced_key(PORTABLE_AUTHORITY_GRANT_V3_STATE_PREFIX, &grant_hash),
+        )
+        .await?
+        .ok_or_else(|| {
+            ResolveError::Refused(
+                "wallet.network found no registered state for the portable grant locator"
+                    .to_string(),
+            )
+        })?;
+        let state: PortableAuthorityGrantV3State = decode_state_value(&bytes)?;
+        resolve_portable_binding_from_state(
+            grant_hash,
+            actual_effect_ref,
+            actual_effect_hash,
+            &state,
+            audience_client_id,
+        )
+    })
+    .await
+    .map_err(|_| {
+        ResolveError::Unavailable(format!(
+            "authenticated wallet.network portable binding resolution exceeded {} ms",
+            timeout.as_millis()
+        ))
+    })?
+}
+
 /// Read the wallet-owned portable state and reject structural mismatches before preparing the
 /// daemon writer slot. Consensus time, signatures, current authority, and revocation remain the
 /// responsibility of the later atomic wallet transaction.
@@ -1595,5 +1715,84 @@ mod portable_authority_client_tests {
             validate_portable_effect_consumption_receipt(&substituted, receipt),
             Err(ResolveError::Invalid(_))
         ));
+    }
+
+    #[test]
+    fn portable_locator_resolves_signed_binding_fields_not_caller_fields() {
+        let params = params();
+        let client_id = [0x41; 32];
+        let leaf = serde_json::json!({
+            "body_hash": sha256_ref_bytes(&params.grant_hash),
+            "audience": params.expected_audience,
+            "holder_id": params.expected_holder_id,
+            "holder_key_id": params.expected_holder_key_id,
+            "request_commitment": {
+                "authorization_subject": {
+                    "kind": "exact_effect",
+                    "subject_ref": params.actual_effect_ref,
+                    "subject_hash": sha256_ref_bytes(&params.actual_effect_hash),
+                }
+            }
+        });
+        let state = PortableAuthorityGrantV3State {
+            schema_version: 1,
+            authority_grant_ref: "authority-grant://tests/portable/1".to_string(),
+            grant_hash: params.grant_hash,
+            grant_chain_json: vec![serde_jcs::to_vec(&leaf).expect("leaf")],
+            trusted_key_sets_json: vec![],
+            revocation_snapshots_json: vec![],
+            delegation_closure_json: None,
+            authority_request_json: vec![],
+            approval_ceremony_context_json: vec![],
+            authority_review_receipt_json: vec![],
+            issuer_authorities: vec![],
+            audience_client_id: client_id,
+            max_calls: 2,
+            uses_consumed: 1,
+            remaining_calls: 1,
+            last_consumed_at_ms: None,
+            status: PortableAuthorityGrantV3Status::Active,
+        };
+        let resolved = resolve_portable_binding_from_state(
+            params.grant_hash,
+            &params.actual_effect_ref,
+            params.actual_effect_hash,
+            &state,
+            client_id,
+        )
+        .expect("registered signed binding");
+        assert_eq!(resolved.audience, params.expected_audience);
+        assert_eq!(resolved.holder_id, params.expected_holder_id);
+        assert_eq!(resolved.holder_key_id, params.expected_holder_key_id);
+        assert!(resolve_portable_binding_from_state(
+            params.grant_hash,
+            &params.actual_effect_ref,
+            params.actual_effect_hash,
+            &state,
+            [0x42; 32],
+        )
+        .is_err());
+
+        let mut exhausted = state.clone();
+        exhausted.status = PortableAuthorityGrantV3Status::Exhausted;
+        exhausted.uses_consumed = exhausted.max_calls;
+        exhausted.remaining_calls = 0;
+        assert!(resolve_portable_binding_from_state(
+            params.grant_hash,
+            &params.actual_effect_ref,
+            params.actual_effect_hash,
+            &exhausted,
+            client_id,
+        )
+        .is_ok());
+        exhausted.status = PortableAuthorityGrantV3Status::Revoked;
+        assert!(resolve_portable_binding_from_state(
+            params.grant_hash,
+            &params.actual_effect_ref,
+            params.actual_effect_hash,
+            &exhausted,
+            client_id,
+        )
+        .is_err());
     }
 }

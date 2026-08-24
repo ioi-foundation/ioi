@@ -15,9 +15,13 @@ use ioi_services::agentic::runtime::kernel::approval::{
 };
 use ioi_services::wallet_network::{
     ApprovalGrantConsumptionReceipt, ConsumeApprovalGrantForEffectV2Params,
-    ConsumeStandingApprovalGrantForEffectParams, ExpectedPrincipalAuthorityBinding,
-    StandingApprovalGrantConsumptionReceipt,
+    ConsumePortableAuthorityGrantV3ForEffectParams, ConsumeStandingApprovalGrantForEffectParams,
+    ExpectedPrincipalAuthorityBinding, PortableAuthorityEffectAdmissionContextV1,
+    PortableAuthorityEffectAdmissionReceiptV2Record, PortableAuthorityGrantV3ConsumptionReceipt,
+    PortableAuthorityTemporalPostureV1, StandingApprovalGrantConsumptionReceipt,
 };
+use ioi_types::app::generated::architecture_contracts::validate_architecture_contract;
+use ioi_types::app::hypervisoros_node_attestation::temporal_profile_root;
 use ioi_types::app::{
     ApprovalAuthority, ApprovalGrant, PrincipalAuthorityBindingCoordinates,
     PrincipalAuthorityBindingProofV1, PrincipalAuthorityKind, PrincipalAuthorityResolutionReceipt,
@@ -26,10 +30,18 @@ use ioi_types::app::{
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
+use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
 use super::outcome_room_routes::record_output_hash;
 
 const AUTHORITY_ADMISSION_INTENT_FAMILY: &str = "authority-admission-intents";
+const PORTABLE_ADMISSION_EVIDENCE_HASH_EXCLUSIONS: &[&str] = &[
+    "output_hash",
+    "final_invoker_status",
+    "final_invoker_claim",
+    "final_invoker_settlement",
+    "final_invoker_reconciliation",
+];
 static AUTHORITY_ADMISSION_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -219,6 +231,28 @@ pub(crate) struct AdmittedStandingGrant {
     pub(crate) effect_hash: String,
     pub(crate) grant_ref: String,
     pub(crate) receipt: StandingApprovalGrantConsumptionReceipt,
+}
+
+/// One portable v3 exact-effect admission whose authority and registered v2 receipt remain
+/// wallet-owned. The daemon retains the exact paired projection and re-resolves it before claim.
+pub(crate) struct AdmittedPortableAuthorityGrant {
+    pub(crate) admission_intent_ref: String,
+    pub(crate) effect_hash: String,
+    pub(crate) params: ConsumePortableAuthorityGrantV3ForEffectParams,
+    pub(crate) consumption_receipt: PortableAuthorityGrantV3ConsumptionReceipt,
+    pub(crate) admission_receipt: PortableAuthorityEffectAdmissionReceiptV2Record,
+}
+
+/// Inputs the PEP must derive from trusted route and owner state before portable consumption.
+/// A request may present signed grant material, but it never supplies these resolved bindings.
+#[derive(Clone, Debug)]
+pub(crate) struct PortableAuthorityPepContext {
+    pub(crate) grant_hash: [u8; 32],
+    pub(crate) expected_audience: String,
+    pub(crate) expected_holder_id: String,
+    pub(crate) expected_holder_key_id: String,
+    pub(crate) actual_effect_ref: String,
+    pub(crate) admission: PortableAuthorityEffectAdmissionContextV1,
 }
 
 /// Durable final-invocation disposition carried on the admission-intent record.
@@ -756,6 +790,408 @@ async fn consume_authorized_decision(
     Ok(format!("{AUTHORITY_ADMISSION_INTENT_FAMILY}/{tail}"))
 }
 
+fn portable_consumption_slot_material(commitment: &Value) -> Result<Value, String> {
+    let mut material = commitment.clone();
+    material
+        .as_object_mut()
+        .ok_or_else(|| "portable authority commitment is not an object".to_string())?
+        .remove("admission")
+        .ok_or_else(|| "portable authority commitment lacks admission context".to_string())?;
+    Ok(material)
+}
+
+fn portable_consumption_id(commitment: &Value) -> Result<[u8; 32], String> {
+    let encoded = serde_jcs::to_vec(&portable_consumption_slot_material(commitment)?)
+        .map_err(|error| format!("portable authority slot cannot be canonicalized: {error}"))?;
+    let mut consumption_id = [0u8; 32];
+    consumption_id.copy_from_slice(&Sha256::digest(encoded));
+    Ok(consumption_id)
+}
+
+fn portable_params_with_retained_admission(
+    current: &ConsumePortableAuthorityGrantV3ForEffectParams,
+    record: &Value,
+) -> Result<ConsumePortableAuthorityGrantV3ForEffectParams, String> {
+    let admission = serde_json::from_value(
+        record
+            .pointer("/commitment/admission")
+            .cloned()
+            .ok_or_else(|| "prepared portable intent lacks its admission context".to_string())?,
+    )
+    .map_err(|error| format!("prepared portable admission context is malformed: {error}"))?;
+    let mut retained = current.clone();
+    retained.admission = admission;
+    Ok(retained)
+}
+
+fn portable_prepared_record(tail: &str, commitment: &Value, consumption_id: [u8; 32]) -> Value {
+    json!({
+        "schema_version": "ioi.hypervisor.authority-admission-intent.v1",
+        "intent_id": tail,
+        "status": "prepared",
+        "authority_mode": "portable_v3",
+        "commitment": commitment,
+        "consumption_id": hex::encode(consumption_id),
+        "wallet_consumption_receipt": Value::Null,
+        "wallet_admission_receipt_v2": Value::Null,
+        "final_invoker_status": "pending",
+    })
+}
+
+/// Admit one daemon-derived exact effect through an already registered portable v3 grant.
+///
+/// The deterministic slot is prepared before wallet I/O. wallet.network then verifies the sealed
+/// grant, meters the use, and constructs the registered v2 admission receipt in one transaction.
+/// A retry after wallet commit recovers the same pair and can never decrement a second use.
+pub(crate) async fn authorize_portable_authority_effect(
+    data_dir: &str,
+    contract: AuthorityContract,
+    required_scope: &str,
+    subject_ref: &str,
+    op: &str,
+    revision: u64,
+    effect: &Value,
+    pep: PortableAuthorityPepContext,
+    recovery_reuses_consumed_receipt: bool,
+) -> Result<AdmittedPortableAuthorityGrant, (StatusCode, Json<Value>)> {
+    let effect_hash = live_effect_hash(effect).map_err(|message| {
+        authority_consumption_challenge(
+            contract,
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "portable_authority_effect_invalid",
+            message,
+        )
+    })?;
+    let actual_effect_hash = sha256_ref_bytes(&effect_hash, "effect_hash").map_err(|message| {
+        authority_consumption_challenge(
+            contract,
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "portable_authority_effect_invalid",
+            message,
+        )
+    })?;
+    let commitment = json!({
+        "domain": "ioi.hypervisor.portable-authority-consumption.v1",
+        "authority_mode": "portable_v3",
+        "subject_ref": subject_ref,
+        "operation": op,
+        "revision": revision,
+        "required_scope": required_scope,
+        "effect_ref": pep.actual_effect_ref,
+        "effect_hash": effect_hash,
+        "grant_hash": format!("sha256:{}", hex::encode(pep.grant_hash)),
+        "expected_audience": pep.expected_audience,
+        "expected_holder_id": pep.expected_holder_id,
+        "expected_holder_key_id": pep.expected_holder_key_id,
+        "admission": pep.admission,
+    });
+    let consumption_id = portable_consumption_id(&commitment).map_err(|message| {
+        authority_consumption_challenge(
+            contract,
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "portable_authority_intent_invalid",
+            message,
+        )
+    })?;
+    let tail = format!("pai_{}", hex::encode(consumption_id));
+    let params = ConsumePortableAuthorityGrantV3ForEffectParams {
+        grant_hash: pep.grant_hash,
+        consumption_id,
+        expected_audience: pep.expected_audience,
+        expected_holder_id: pep.expected_holder_id,
+        expected_holder_key_id: pep.expected_holder_key_id,
+        actual_effect_ref: pep.actual_effect_ref,
+        actual_effect_hash,
+        admission: pep.admission,
+    };
+
+    let _guard = AUTHORITY_ADMISSION_LOCK.lock().await;
+    let existing =
+        super::durable_fs::read_record_durable(data_dir, AUTHORITY_ADMISSION_INTENT_FAMILY, &tail)
+            .map_err(|message| {
+                authority_consumption_challenge(
+                    contract,
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "portable_authority_intent_unreadable",
+                    message,
+                )
+            })?;
+    if let Some(record) = existing.as_ref() {
+        let retained_commitment = record.get("commitment").ok_or_else(|| {
+            authority_consumption_challenge(
+                contract,
+                StatusCode::CONFLICT,
+                "portable_authority_intent_conflict",
+                "the deterministic portable-authority slot lacks its commitment".into(),
+            )
+        })?;
+        let retained_slot =
+            portable_consumption_slot_material(retained_commitment).map_err(|message| {
+                authority_consumption_challenge(
+                    contract,
+                    StatusCode::CONFLICT,
+                    "portable_authority_intent_conflict",
+                    message,
+                )
+            })?;
+        let current_slot = portable_consumption_slot_material(&commitment).map_err(|message| {
+            authority_consumption_challenge(
+                contract,
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "portable_authority_intent_invalid",
+                message,
+            )
+        })?;
+        if retained_slot != current_slot {
+            return Err(authority_consumption_challenge(
+                contract,
+                StatusCode::CONFLICT,
+                "portable_authority_intent_conflict",
+                "the deterministic portable-authority slot contains a different exact operation"
+                    .into(),
+            ));
+        }
+        let retained_params =
+            portable_params_with_retained_admission(&params, record).map_err(|message| {
+                authority_consumption_challenge(
+                    contract,
+                    StatusCode::CONFLICT,
+                    "portable_authority_intent_conflict",
+                    message,
+                )
+            })?;
+        match record.get("status").and_then(Value::as_str) {
+            Some("consumed") => {
+                // A durable use with no final-invoker claim is the crash window between admission
+                // and dispatch. Reusing that exact immutable pair is recovery, not replay; the
+                // common claim lock still grants exactly one invoker. Once any claim/disposition
+                // exists, ordinary direct entry refuses and only an explicitly idempotent owner
+                // recovery path may inspect the retained admission.
+                let unclaimed =
+                    record.get("final_invoker_status").and_then(Value::as_str) == Some("admitted");
+                if !recovery_reuses_consumed_receipt && !unclaimed {
+                    return Err(authority_consumption_challenge(
+                        contract,
+                        StatusCode::CONFLICT,
+                        "portable_authority_operation_already_admitted",
+                        "this exact portable-authority operation already has a final-invoker disposition and cannot invoke twice".into(),
+                    ));
+                }
+                let admitted = portable_admission_from_record(
+                    &format!("{AUTHORITY_ADMISSION_INTENT_FAMILY}/{tail}"),
+                    &effect_hash,
+                    &retained_params,
+                    record,
+                )
+                .map_err(|message| {
+                    authority_consumption_challenge(
+                        contract,
+                        StatusCode::SERVICE_UNAVAILABLE,
+                        "portable_authority_receipt_unavailable",
+                        message,
+                    )
+                })?;
+                revalidate_portable_authority_admission(data_dir, &admitted)
+                    .await
+                    .map_err(|message| {
+                        authority_consumption_challenge(
+                            contract,
+                            StatusCode::SERVICE_UNAVAILABLE,
+                            "portable_authority_receipt_unavailable",
+                            message,
+                        )
+                    })?;
+                return Ok(admitted);
+            }
+            Some("prepared") => {
+                let recovered = super::wallet_network_capability_client::recover_portable_authority_grant_v3_consumption_for_effect(&retained_params)
+                    .await
+                    .map_err(|error| map_consumption_error(contract, error))?;
+                if let Some(owner) = recovered {
+                    let consumed = portable_consumed_record(&tail, retained_commitment, &owner);
+                    super::durable_fs::persist_record_durable(
+                        data_dir,
+                        AUTHORITY_ADMISSION_INTENT_FAMILY,
+                        &tail,
+                        &consumed,
+                    )
+                    .map_err(|error| {
+                        authority_consumption_challenge(
+                            contract,
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            "portable_authority_receipt_not_durable",
+                            format!(
+                                "recovered wallet evidence could not be durably projected: {error:?}"
+                            ),
+                        )
+                    })?;
+                    let admitted = portable_admission_from_record(
+                        &format!("{AUTHORITY_ADMISSION_INTENT_FAMILY}/{tail}"),
+                        &effect_hash,
+                        &retained_params,
+                        &consumed,
+                    )
+                    .map_err(|message| {
+                        authority_consumption_challenge(
+                            contract,
+                            StatusCode::SERVICE_UNAVAILABLE,
+                            "portable_authority_receipt_unavailable",
+                            message,
+                        )
+                    })?;
+                    revalidate_portable_authority_admission(data_dir, &admitted)
+                        .await
+                        .map_err(|message| {
+                            authority_consumption_challenge(
+                                contract,
+                                StatusCode::SERVICE_UNAVAILABLE,
+                                "portable_authority_receipt_unavailable",
+                                message,
+                            )
+                        })?;
+                    return Ok(admitted);
+                }
+                // The owner proves the old slot never committed. It is now safe to refresh only
+                // the mutable admission context while preserving the stable consumption id.
+                if retained_commitment != &commitment {
+                    let prepared = portable_prepared_record(&tail, &commitment, consumption_id);
+                    super::durable_fs::persist_record_durable(
+                        data_dir,
+                        AUTHORITY_ADMISSION_INTENT_FAMILY,
+                        &tail,
+                        &prepared,
+                    )
+                    .map_err(|error| {
+                        authority_consumption_challenge(
+                            contract,
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            "portable_authority_intent_not_durable",
+                            format!(
+                                "refreshed portable authority intent was not durable: {error:?}"
+                            ),
+                        )
+                    })?;
+                }
+            }
+            _ => {
+                return Err(authority_consumption_challenge(
+                    contract,
+                    StatusCode::CONFLICT,
+                    "portable_authority_intent_conflict",
+                    "the deterministic portable-authority slot has an invalid lifecycle state"
+                        .into(),
+                ))
+            }
+        }
+    }
+    if existing.is_none() {
+        let prepared = portable_prepared_record(&tail, &commitment, consumption_id);
+        super::durable_fs::persist_record_durable(
+            data_dir,
+            AUTHORITY_ADMISSION_INTENT_FAMILY,
+            &tail,
+            &prepared,
+        )
+        .map_err(|error| {
+            authority_consumption_challenge(
+                contract,
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "portable_authority_intent_not_durable",
+                format!("portable authority intent was not durably prepared: {error:?}"),
+            )
+        })?;
+    }
+
+    super::wallet_network_capability_client::preflight_portable_authority_grant_v3_for_effect(
+        &params,
+    )
+    .await
+    .map_err(|error| map_consumption_error(contract, error))?;
+    let owner =
+        super::wallet_network_capability_client::consume_portable_authority_grant_v3_for_effect(
+            params.clone(),
+        )
+        .await
+        .map_err(|error| map_consumption_error(contract, error))?;
+    let consumed = portable_consumed_record(&tail, &commitment, &owner);
+    super::durable_fs::persist_record_durable(
+        data_dir,
+        AUTHORITY_ADMISSION_INTENT_FAMILY,
+        &tail,
+        &consumed,
+    )
+    .map_err(|error| {
+        authority_consumption_challenge(
+            contract,
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "portable_authority_receipt_not_durable",
+            format!(
+                "wallet committed the portable use but its paired daemon projection did not persist; retry recovers the same consumption id: {error:?}"
+            ),
+        )
+    })?;
+    Ok(AdmittedPortableAuthorityGrant {
+        admission_intent_ref: format!("{AUTHORITY_ADMISSION_INTENT_FAMILY}/{tail}"),
+        effect_hash,
+        params,
+        consumption_receipt: owner.consumption_receipt,
+        admission_receipt: owner.admission_receipt,
+    })
+}
+
+fn portable_consumed_record(
+    tail: &str,
+    commitment: &Value,
+    owner: &super::wallet_network_capability_client::PortableAuthorityConsumptionAdmission,
+) -> Value {
+    let mut consumed = json!({
+        "schema_version": "ioi.hypervisor.authority-admission-intent.v1",
+        "intent_id": tail,
+        "status": "consumed",
+        "authority_mode": "portable_v3",
+        "commitment": commitment,
+        "consumption_id": hex::encode(owner.consumption_receipt.consumption_id),
+        "wallet_consumption_receipt": owner.consumption_receipt,
+        "wallet_admission_receipt_v2": owner.admission_receipt,
+        "final_invoker_status": "admitted",
+    });
+    consumed["output_hash"] = json!(record_output_hash(
+        &consumed,
+        PORTABLE_ADMISSION_EVIDENCE_HASH_EXCLUSIONS,
+    ));
+    consumed
+}
+
+fn portable_admission_from_record(
+    reference: &str,
+    effect_hash: &str,
+    params: &ConsumePortableAuthorityGrantV3ForEffectParams,
+    record: &Value,
+) -> Result<AdmittedPortableAuthorityGrant, String> {
+    revalidate_admission_record(record, effect_hash)?;
+    let consumption_receipt = serde_json::from_value(
+        record
+            .get("wallet_consumption_receipt")
+            .cloned()
+            .unwrap_or(Value::Null),
+    )
+    .map_err(|error| format!("portable consumption receipt is malformed: {error}"))?;
+    let admission_receipt = serde_json::from_value(
+        record
+            .get("wallet_admission_receipt_v2")
+            .cloned()
+            .unwrap_or(Value::Null),
+    )
+    .map_err(|error| format!("portable admission receipt is malformed: {error}"))?;
+    Ok(AdmittedPortableAuthorityGrant {
+        admission_intent_ref: reference.to_string(),
+        effect_hash: effect_hash.to_string(),
+        params: params.clone(),
+        consumption_receipt,
+        admission_receipt,
+    })
+}
+
 /// Final-invoker fence: accept only the durable, consumed receipt for the exact authorized effect,
 /// then recover the immutable wallet-owned receipt by its deterministic consumption identity.
 /// A daemon-local projection is evidence, not the owner head.
@@ -820,6 +1256,87 @@ pub(crate) async fn revalidate_standing_admission_receipt(
         .ok_or_else(|| "wallet.network no longer resolves the standing draw receipt".to_string())?;
     if wallet_receipt != local_receipt {
         return Err("standing wallet receipt differs from durable daemon evidence".to_string());
+    }
+    Ok(())
+}
+
+/// Recover and byte-compare both wallet-owned portable records before final invocation.
+pub(crate) async fn revalidate_portable_authority_admission(
+    data_dir: &str,
+    admitted: &AdmittedPortableAuthorityGrant,
+) -> Result<(), String> {
+    let tail = admitted
+        .admission_intent_ref
+        .strip_prefix(&format!("{AUTHORITY_ADMISSION_INTENT_FAMILY}/"))
+        .ok_or_else(|| {
+            "portable authority intent reference is outside its owner family".to_string()
+        })?;
+    let record =
+        super::durable_fs::read_record_durable(data_dir, AUTHORITY_ADMISSION_INTENT_FAMILY, tail)?
+            .ok_or_else(|| "portable authority intent receipt is absent".to_string())?;
+    revalidate_admission_record(&record, &admitted.effect_hash)?;
+    if record.get("authority_mode").and_then(Value::as_str) != Some("portable_v3") {
+        return Err("portable authority intent has a foreign authority mode".to_string());
+    }
+    let expected_output_hash =
+        record_output_hash(&record, PORTABLE_ADMISSION_EVIDENCE_HASH_EXCLUSIONS);
+    if record.get("output_hash").and_then(Value::as_str) != Some(expected_output_hash.as_str()) {
+        return Err("portable authority intent output hash does not recompute".to_string());
+    }
+    let local_consumption: PortableAuthorityGrantV3ConsumptionReceipt = serde_json::from_value(
+        record
+            .get("wallet_consumption_receipt")
+            .cloned()
+            .unwrap_or(Value::Null),
+    )
+    .map_err(|error| format!("portable consumption receipt is malformed: {error}"))?;
+    let local_admission: PortableAuthorityEffectAdmissionReceiptV2Record = serde_json::from_value(
+        record
+            .get("wallet_admission_receipt_v2")
+            .cloned()
+            .unwrap_or(Value::Null),
+    )
+    .map_err(|error| format!("portable admission receipt is malformed: {error}"))?;
+    if local_consumption != admitted.consumption_receipt
+        || local_admission != admitted.admission_receipt
+    {
+        return Err("portable authority evidence changed after admission".to_string());
+    }
+
+    // Admission is not a temporal lease that may be replayed indefinitely. Re-census the
+    // owner plane immediately before the final-invoker claim and require the exact context the
+    // wallet sealed to still be current. Profile succession, evaluation replacement, evidence
+    // expiry, or loss of required continuity evidence therefore fails closed before any effect.
+    let policy_hash = format!(
+        "sha256:{}",
+        hex::encode(admitted.params.admission.policy_hash)
+    );
+    let current_admission = resolve_portable_temporal_context(
+        data_dir,
+        &admitted.params.admission.decision_profile_ref,
+        &policy_hash,
+        &admitted.params.actual_effect_ref,
+        &admitted.effect_hash,
+    )?;
+    if current_admission != admitted.params.admission {
+        return Err("portable authority temporal context changed after admission".to_string());
+    }
+
+    // Idempotent wallet replay is authoritative here: it returns the same immutable pair but
+    // first re-verifies the current capability client, issuer authority, revocation evidence,
+    // signed grant/issuance chain, and exact effect. A recovery or key rotation after consumption
+    // therefore cannot carry old authority across the final-invoker boundary.
+    let owner =
+        super::wallet_network_capability_client::consume_portable_authority_grant_v3_for_effect(
+            admitted.params.clone(),
+        )
+        .await
+        .map_err(|error| format!("portable wallet evidence revalidation failed: {error:?}"))?;
+    if owner.consumption_receipt != local_consumption || owner.admission_receipt != local_admission
+    {
+        return Err(
+            "daemon portable projection differs from wallet-owned immutable evidence".to_string(),
+        );
     }
     Ok(())
 }
@@ -959,18 +1476,50 @@ pub(crate) async fn claim_final_invocation(
     admitted: &AdmittedDeploymentGrant,
     invoker_label: &str,
 ) -> Result<FinalInvocationClaim, String> {
-    if invoker_label.trim().is_empty() {
-        return Err("a final invocation claim names its invoker".to_string());
-    }
     revalidate_authoritative_admission(
         data_dir,
         &admitted.admission_intent_ref,
         &admitted.authorized,
     )
     .await?;
+    claim_final_invocation_reference(
+        data_dir,
+        &admitted.admission_intent_ref,
+        &admitted.authorized.evidence.effect_hash,
+        invoker_label,
+    )
+    .await
+}
+
+/// Portable-v3 variant of the same final-invoker fence. The paired wallet records are
+/// revalidated before the common durable claim transition is allowed.
+pub(crate) async fn claim_portable_final_invocation(
+    data_dir: &str,
+    admitted: &AdmittedPortableAuthorityGrant,
+    invoker_label: &str,
+) -> Result<FinalInvocationClaim, String> {
+    revalidate_portable_authority_admission(data_dir, admitted).await?;
+    claim_final_invocation_reference(
+        data_dir,
+        &admitted.admission_intent_ref,
+        &admitted.effect_hash,
+        invoker_label,
+    )
+    .await
+}
+
+async fn claim_final_invocation_reference(
+    data_dir: &str,
+    admission_intent_ref: &str,
+    effect_hash: &str,
+    invoker_label: &str,
+) -> Result<FinalInvocationClaim, String> {
+    if invoker_label.trim().is_empty() {
+        return Err("a final invocation claim names its invoker".to_string());
+    }
 
     let _guard = AUTHORITY_ADMISSION_LOCK.lock().await;
-    let tail = admission_intent_tail(&admitted.admission_intent_ref)?;
+    let tail = admission_intent_tail(admission_intent_ref)?;
     let mut record =
         super::durable_fs::read_record_durable(data_dir, AUTHORITY_ADMISSION_INTENT_FAMILY, tail)?
             .ok_or_else(|| "authority admission receipt is absent".to_string())?;
@@ -1014,7 +1563,7 @@ pub(crate) async fn claim_final_invocation(
         "claim_id": claim_id,
         "invoker_label": invoker_label,
         "incarnation_id": process_incarnation_id(),
-        "effect_hash": admitted.authorized.evidence.effect_hash,
+        "effect_hash": effect_hash,
         "claimed_at_ms": local_now_ms(),
     });
     super::durable_fs::persist_record_durable(
@@ -1036,9 +1585,9 @@ pub(crate) async fn claim_final_invocation(
     .map_err(|error| format!("test crash coordination failed: {error}"))?;
 
     Ok(FinalInvocationClaim {
-        reference: admitted.admission_intent_ref.clone(),
+        reference: admission_intent_ref.to_string(),
         claim_id,
-        effect_hash: admitted.authorized.evidence.effect_hash.clone(),
+        effect_hash: effect_hash.to_string(),
         invoker_label: invoker_label.to_string(),
     })
 }
@@ -1350,6 +1899,10 @@ fn revalidate_admission_reference(
     let record =
         super::durable_fs::read_record_durable(data_dir, AUTHORITY_ADMISSION_INTENT_FAMILY, tail)?
             .ok_or_else(|| "authority admission receipt is absent".to_string())?;
+    revalidate_admission_record(&record, expected_effect_hash)
+}
+
+fn revalidate_admission_record(record: &Value, expected_effect_hash: &str) -> Result<(), String> {
     if record.get("status").and_then(Value::as_str) != Some("consumed")
         || record
             .get("wallet_consumption_receipt")
@@ -1717,7 +2270,7 @@ pub(crate) async fn resolve_required_authority(
         })
 }
 
-fn live_effect_hash(effect: &Value) -> Result<String, String> {
+pub(crate) fn live_effect_hash(effect: &Value) -> Result<String, String> {
     let material = json!({
         "domain": "ioi.hypervisor.live-authority-effect.v1",
         "effect": effect,
@@ -1725,6 +2278,429 @@ fn live_effect_hash(effect: &Value) -> Result<String, String> {
     let encoded = serde_jcs::to_vec(&material)
         .map_err(|error| format!("live effect cannot be canonicalized: {error}"))?;
     Ok(format!("sha256:{}", hex::encode(Sha256::digest(encoded))))
+}
+
+pub(crate) fn portable_effect_ref(effect_hash: &str) -> Result<String, String> {
+    let bytes = sha256_ref_bytes(effect_hash, "effect_hash")?;
+    Ok(format!(
+        "effect://hypervisor/live-route/{}",
+        hex::encode(bytes)
+    ))
+}
+
+const TEMPORAL_PROFILE_CONTRACT: &str =
+    "schema://ioi/components/daemon-runtime/temporal-verification-profile/v1";
+const TEMPORAL_EVALUATION_CONTRACT: &str =
+    "schema://ioi/components/daemon-runtime/temporal-validity-evaluation/v1";
+const TEMPORAL_PROFILE_FAMILY: &str = "hypervisoros-temporal-profiles";
+const TEMPORAL_EVIDENCE_FAMILY: &str = "hypervisoros-node-evidence";
+
+fn enumerate_censused_authority_family(data_dir: &str, family: &str) -> Result<Vec<Value>, String> {
+    let local = super::system_activation_routes::enumerate_family(data_dir, family)
+        .map_err(|error| format!("local census for '{family}' failed: {error:?}"))?;
+    let mut local_values: Vec<Value> = local.into_iter().map(|(_, value)| value).collect();
+    let mut substrate = super::substrate_store::read_required_all(data_dir, family)
+        .map_err(|error| format!("Agentgres census for '{family}' failed: {error}"))?;
+    let sort_key = |value: &Value| serde_json::to_string(value).unwrap_or_default();
+    local_values.sort_by_key(sort_key);
+    substrate.sort_by_key(sort_key);
+    if local_values != substrate {
+        return Err(format!(
+            "local and Agentgres censuses for '{family}' differ"
+        ));
+    }
+    Ok(local_values)
+}
+
+fn parse_temporal_bound_ms(value: &Value, pointer: &str) -> Result<u64, String> {
+    let text = value
+        .pointer(pointer)
+        .and_then(Value::as_str)
+        .ok_or_else(|| format!("temporal evaluation requires '{pointer}'"))?;
+    let parsed = OffsetDateTime::parse(text, &Rfc3339)
+        .map_err(|error| format!("temporal bound '{pointer}' is invalid: {error}"))?;
+    u64::try_from(parsed.unix_timestamp_nanos() / 1_000_000)
+        .map_err(|_| format!("temporal bound '{pointer}' predates the supported epoch"))
+}
+
+fn resolve_portable_temporal_context_from_records(
+    profiles: &[Value],
+    evaluations: &[Value],
+    decision_profile_ref: &str,
+    policy_hash: &str,
+    effect_ref: &str,
+    effect_hash: &str,
+    now_ms: u64,
+) -> Result<PortableAuthorityEffectAdmissionContextV1, String> {
+    let mut rooted = Vec::with_capacity(profiles.len());
+    for profile in profiles {
+        validate_architecture_contract(TEMPORAL_PROFILE_CONTRACT, profile)
+            .map_err(|error| format!("temporal profile is not registered-valid: {error}"))?;
+        rooted.push((profile, temporal_profile_root(profile)?));
+    }
+    let cited: Vec<&str> = rooted
+        .iter()
+        .filter_map(|(profile, _)| {
+            profile
+                .get("predecessor_profile_root")
+                .and_then(Value::as_str)
+        })
+        .collect();
+    let mut current: Vec<&Value> = rooted
+        .iter()
+        .filter(|(profile, root)| {
+            profile.get("status").and_then(Value::as_str) == Some("declared")
+                && !cited.contains(&root.as_str())
+        })
+        .map(|(profile, _)| *profile)
+        .collect();
+    let profile = match current.len() {
+        1 => current.pop().expect("one current profile"),
+        0 => return Err("no current declared temporal profile exists".to_string()),
+        _ => return Err("multiple temporal profiles claim current owner state".to_string()),
+    };
+    if !profile
+        .pointer("/declaration/applicable_operation_classes")
+        .and_then(Value::as_array)
+        .is_some_and(|classes| classes.iter().any(|value| value == "external_effect"))
+    {
+        return Err("the current temporal profile does not admit external effects".to_string());
+    }
+    if profile
+        .pointer("/declaration/required_effect_fence_profile_ref")
+        .is_some_and(|value| !value.is_null())
+    {
+        return Err(
+            "the current temporal profile requires an effect-fence profile that this admission does not prove"
+                .to_string(),
+        );
+    }
+    let profile_ref = profile
+        .get("profile_ref")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "the current temporal profile lacks profile_ref".to_string())?;
+    let profile_hash = profile
+        .get("profile_hash")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "the current temporal profile lacks profile_hash".to_string())?;
+    let required_claims: Vec<&str> = profile
+        .pointer("/declaration/required_claims")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .collect();
+    let minimum_domains = profile
+        .pointer(
+            "/declaration/evidence_policy/required_failure_domain_separation/minimum_distinct_source_domains",
+        )
+        .and_then(Value::as_u64)
+        .unwrap_or(u64::MAX);
+    let maximum_uncertainty_ms = profile
+        .pointer("/declaration/evidence_policy/maximum_uncertainty_ms")
+        .and_then(Value::as_u64);
+    let maximum_evidence_age_ms = profile
+        .pointer("/declaration/evidence_policy/maximum_evidence_age_ms")
+        .and_then(Value::as_u64);
+    let protected_floor_kinds: Vec<&str> = profile
+        .pointer("/declaration/continuity_policy/protected_namespace_floor_kinds")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .collect();
+
+    let mut matching = Vec::new();
+    for evaluation in evaluations {
+        if evaluation.get("schema_version").and_then(Value::as_str)
+            != Some("ioi.components.daemon-runtime.temporal-validity-evaluation.v1")
+        {
+            continue;
+        }
+        validate_architecture_contract(TEMPORAL_EVALUATION_CONTRACT, evaluation)
+            .map_err(|error| format!("temporal evaluation is not registered-valid: {error}"))?;
+        if evaluation.get("profile_ref").and_then(Value::as_str) == Some(profile_ref)
+            && evaluation.get("profile_hash").and_then(Value::as_str) == Some(profile_hash)
+            && evaluation.get("subject_ref").and_then(Value::as_str) == Some(effect_ref)
+            && evaluation.get("subject_hash").and_then(Value::as_str) == Some(effect_hash)
+            && evaluation.get("operation_class").and_then(Value::as_str) == Some("external_effect")
+        {
+            matching.push(evaluation);
+        }
+    }
+    let evaluation = match matching.len() {
+        1 => matching.pop().expect("one exact temporal evaluation"),
+        0 => {
+            return Err(
+                "no durable temporal evaluation binds the current profile and exact effect"
+                    .to_string(),
+            )
+        }
+        _ => return Err("multiple temporal evaluations bind the same exact effect".to_string()),
+    };
+    let claims = evaluation
+        .get("claims")
+        .and_then(Value::as_array)
+        .ok_or_else(|| "temporal evaluation lacks claims".to_string())?;
+    for required in &required_claims {
+        if !claims.iter().any(|claim| {
+            claim.get("kind").and_then(Value::as_str) == Some(*required)
+                && claim.get("status").and_then(Value::as_str) == Some("established")
+        }) {
+            return Err(format!(
+                "temporal evaluation does not establish required claim '{required}'"
+            ));
+        }
+    }
+    for claim in claims
+        .iter()
+        .filter(|claim| claim.get("status").and_then(Value::as_str) == Some("established"))
+    {
+        if maximum_uncertainty_ms.is_some_and(|maximum| {
+            claim
+                .get("uncertainty_ms")
+                .and_then(Value::as_u64)
+                .is_some_and(|actual| actual > maximum)
+        }) {
+            return Err("temporal claim exceeds the profile uncertainty bound".to_string());
+        }
+        if maximum_evidence_age_ms.is_some_and(|maximum| {
+            claim
+                .get("maximum_age_ms")
+                .and_then(Value::as_u64)
+                .is_some_and(|actual| actual > maximum)
+        }) {
+            return Err("temporal claim exceeds the profile evidence-age bound".to_string());
+        }
+    }
+    for floor_kind in &protected_floor_kinds {
+        if !claims.iter().any(|claim| {
+            claim.get("kind").and_then(Value::as_str) == Some("continuity_floor")
+                && claim.get("status").and_then(Value::as_str) == Some("established")
+                && claim.get("floor_kind").and_then(Value::as_str) == Some(*floor_kind)
+                && claim
+                    .get("outside_rollback_domain_evidence_refs")
+                    .and_then(Value::as_array)
+                    .is_some_and(|refs| !refs.is_empty())
+        }) {
+            return Err(format!(
+                "temporal evaluation does not establish protected continuity floor '{floor_kind}'"
+            ));
+        }
+    }
+    let domain_count = evaluation
+        .get("source_failure_domain_refs")
+        .and_then(Value::as_array)
+        .map(|values| values.len() as u64)
+        .unwrap_or_default();
+    if domain_count < minimum_domains {
+        return Err("temporal evaluation lacks the required failure-domain separation".to_string());
+    }
+    let valid_from = parse_temporal_bound_ms(evaluation, "/evidence_horizon/valid_from")?;
+    let valid_until = parse_temporal_bound_ms(evaluation, "/evidence_horizon/valid_until")?;
+    if valid_until < valid_from
+        || maximum_evidence_age_ms
+            .is_some_and(|maximum| valid_until.saturating_sub(valid_from) > maximum)
+    {
+        return Err("temporal evaluation exceeds the profile evidence horizon".to_string());
+    }
+    if now_ms < valid_from || now_ms > valid_until {
+        return Err("temporal evaluation is outside its evidence horizon".to_string());
+    }
+    if evaluation
+        .get("obligations")
+        .and_then(Value::as_array)
+        .is_some_and(|values| !values.is_empty())
+    {
+        return Err("temporal evaluation has unresolved pre-effect obligations".to_string());
+    }
+    let evidence_horizon_ms = valid_until.saturating_sub(valid_from);
+    let temporal_posture = match evaluation.get("temporal_posture").and_then(Value::as_str) {
+        Some("online_fresh") => PortableAuthorityTemporalPostureV1::OnlineFresh,
+        Some("bounded_offline")
+            if profile
+                .pointer("/declaration/disconnected_policy/allowed_operation_classes")
+                .and_then(Value::as_array)
+                .is_some_and(|classes| classes.iter().any(|value| value == "external_effect")) =>
+        {
+            let maximum_holdover_ms = profile
+                .pointer("/declaration/disconnected_policy/maximum_holdover_ms")
+                .and_then(Value::as_u64)
+                .ok_or_else(|| {
+                    "offline external effects require an explicit maximum holdover".to_string()
+                })?;
+            let maximum_revocation_exposure_ms = profile
+                .pointer("/declaration/disconnected_policy/maximum_revocation_exposure_ms")
+                .and_then(Value::as_u64)
+                .ok_or_else(|| {
+                    "offline external effects require an explicit maximum revocation exposure"
+                        .to_string()
+                })?;
+            if evidence_horizon_ms > maximum_holdover_ms
+                || evidence_horizon_ms > maximum_revocation_exposure_ms
+            {
+                return Err(
+                    "offline temporal evaluation exceeds its holdover or revocation-exposure bound"
+                        .to_string(),
+                );
+            }
+            PortableAuthorityTemporalPostureV1::BoundedOffline
+        }
+        Some("bounded_offline") => {
+            return Err("the temporal profile forbids offline external effects".to_string())
+        }
+        _ => return Err("temporal evaluation posture cannot admit an effect".to_string()),
+    };
+    let mut continuity_floor_evidence_refs: Vec<String> = claims
+        .iter()
+        .filter(|claim| {
+            claim.get("kind").and_then(Value::as_str) == Some("continuity_floor")
+                && claim.get("status").and_then(Value::as_str) == Some("established")
+        })
+        .flat_map(|claim| {
+            claim
+                .get("outside_rollback_domain_evidence_refs")
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+                .filter_map(Value::as_str)
+                .map(str::to_owned)
+        })
+        .collect();
+    continuity_floor_evidence_refs.sort();
+    continuity_floor_evidence_refs.dedup();
+    if required_claims.contains(&"continuity_floor") && continuity_floor_evidence_refs.is_empty() {
+        return Err(
+            "established continuity-floor claim carries no outside-domain evidence".to_string(),
+        );
+    }
+    Ok(PortableAuthorityEffectAdmissionContextV1 {
+        decision_profile_ref: decision_profile_ref.to_string(),
+        policy_hash: sha256_ref_bytes(policy_hash, "policy_hash")?,
+        temporal_verification_profile_ref: profile_ref.to_string(),
+        temporal_verification_profile_hash: sha256_ref_bytes(profile_hash, "profile_hash")?,
+        temporal_validity_evaluation_ref: evaluation
+            .get("evaluation_id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| "temporal evaluation lacks evaluation_id".to_string())?
+            .to_string(),
+        temporal_validity_evaluation_hash: sha256_ref_bytes(
+            evaluation
+                .get("evaluation_hash")
+                .and_then(Value::as_str)
+                .ok_or_else(|| "temporal evaluation lacks evaluation_hash".to_string())?,
+            "evaluation_hash",
+        )?,
+        temporal_posture,
+        continuity_floor_evidence_refs,
+        principal_authority_revalidation_receipt_ref: None,
+        principal_authority_revalidation_receipt_hash: None,
+    })
+}
+
+pub(crate) fn resolve_portable_temporal_context(
+    data_dir: &str,
+    decision_profile_ref: &str,
+    policy_hash: &str,
+    effect_ref: &str,
+    effect_hash: &str,
+) -> Result<PortableAuthorityEffectAdmissionContextV1, String> {
+    let profiles = enumerate_censused_authority_family(data_dir, TEMPORAL_PROFILE_FAMILY)?;
+    let evaluations = enumerate_censused_authority_family(data_dir, TEMPORAL_EVIDENCE_FAMILY)?;
+    resolve_portable_temporal_context_from_records(
+        &profiles,
+        &evaluations,
+        decision_profile_ref,
+        policy_hash,
+        effect_ref,
+        effect_hash,
+        local_now_ms(),
+    )
+}
+
+/// Resolve every non-request binding needed to turn a grant-hash locator into an admission.
+/// Signed audience/holder coordinates come from wallet state, and temporal claims come from the
+/// current censused owner plane. The locator alone never authorizes or supplies policy facts.
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn authorize_portable_authority_locator(
+    data_dir: &str,
+    contract: AuthorityContract,
+    grant_hash: [u8; 32],
+    required_scope: &str,
+    decision_profile_ref: &str,
+    policy_hash: &str,
+    subject_ref: &str,
+    op: &str,
+    revision: u64,
+    effect: &Value,
+    recovery_reuses_consumed_receipt: bool,
+) -> Result<AdmittedPortableAuthorityGrant, (StatusCode, Json<Value>)> {
+    let effect_hash = live_effect_hash(effect).map_err(|message| {
+        authority_consumption_challenge(
+            contract,
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "portable_authority_effect_invalid",
+            message,
+        )
+    })?;
+    let effect_ref = portable_effect_ref(&effect_hash).map_err(|message| {
+        authority_consumption_challenge(
+            contract,
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "portable_authority_effect_invalid",
+            message,
+        )
+    })?;
+    let effect_hash_bytes = sha256_ref_bytes(&effect_hash, "effect_hash").map_err(|message| {
+        authority_consumption_challenge(
+            contract,
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "portable_authority_effect_invalid",
+            message,
+        )
+    })?;
+    let binding =
+        super::wallet_network_capability_client::resolve_portable_authority_grant_v3_for_effect(
+            grant_hash,
+            &effect_ref,
+            effect_hash_bytes,
+        )
+        .await
+        .map_err(|error| map_consumption_error(contract, error))?;
+    let admission = resolve_portable_temporal_context(
+        data_dir,
+        decision_profile_ref,
+        policy_hash,
+        &effect_ref,
+        &effect_hash,
+    )
+    .map_err(|message| {
+        authority_consumption_challenge(
+            contract,
+            StatusCode::PRECONDITION_REQUIRED,
+            "portable_authority_temporal_evidence_required",
+            message,
+        )
+    })?;
+    authorize_portable_authority_effect(
+        data_dir,
+        contract,
+        required_scope,
+        subject_ref,
+        op,
+        revision,
+        effect,
+        PortableAuthorityPepContext {
+            grant_hash,
+            expected_audience: binding.audience,
+            expected_holder_id: binding.holder_id,
+            expected_holder_key_id: binding.holder_key_id,
+            actual_effect_ref: effect_ref,
+            admission,
+        },
+        recovery_reuses_consumed_receipt,
+    )
+    .await
 }
 
 /// Resolve the deployment-owned principal independently of request evidence, verify the submitted
@@ -2837,6 +3813,338 @@ mod final_invocation_claim_tests {
                 consumed.get("final_invoker_status").and_then(Value::as_str)
             ),
             Some(FinalInvocationDisposition::Admitted)
+        );
+    }
+}
+
+#[cfg(test)]
+mod portable_authority_intent_tests {
+    use super::*;
+
+    fn owner_pair(
+    ) -> super::super::wallet_network_capability_client::PortableAuthorityConsumptionAdmission {
+        super::super::wallet_network_capability_client::PortableAuthorityConsumptionAdmission {
+            consumption_receipt: PortableAuthorityGrantV3ConsumptionReceipt {
+                schema_version: 1,
+                receipt_hash: [0x11; 32],
+                grant_hash: [0x22; 32],
+                consumption_id: [0x33; 32],
+                authority_grant_ref: "authority-grant://tests/portable/1".to_string(),
+                actual_effect_ref: "effect://tests/portable/1".to_string(),
+                actual_effect_hash: [0x44; 32],
+                audience: "daemon://tests/pep".to_string(),
+                holder_id: "worker://tests/holder".to_string(),
+                holder_key_id: "key://tests/holder/1".to_string(),
+                admission_receipt_hash: [0x55; 32],
+                consumed_at_ms: 1_787_587_300_000,
+                usage_ordinal: 1,
+                remaining_calls: 0,
+            },
+            admission_receipt: PortableAuthorityEffectAdmissionReceiptV2Record {
+                schema_version: 1,
+                grant_hash: [0x22; 32],
+                consumption_id: [0x33; 32],
+                receipt_hash: [0x55; 32],
+                receipt_json: br#"{"schema_version":"tests"}"#.to_vec(),
+            },
+        }
+    }
+
+    fn fixture(name: &str) -> Value {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        serde_json::from_slice(&std::fs::read(root.join(name)).expect("fixture bytes"))
+            .expect("fixture JSON")
+    }
+
+    fn hash_material(material: Value) -> String {
+        format!(
+            "sha256:{}",
+            hex::encode(Sha256::digest(
+                serde_jcs::to_vec(&material).expect("canonical test material")
+            ))
+        )
+    }
+
+    fn temporal_records() -> (Value, Value, String, String, u64) {
+        let mut profile = fixture(
+            "docs/architecture/_meta/schemas/fixtures/temporal-verification-profile-v1/positive-declared.json",
+        );
+        profile["declaration"]["applicable_operation_classes"] = json!(["external_effect"]);
+        refresh_profile_hash(&mut profile);
+
+        let effect_ref = "effect://hypervisor/tests/portable".to_string();
+        let effect_hash = format!("sha256:{}", hex::encode([0x44; 32]));
+        let mut evaluation = fixture(
+            "docs/architecture/_meta/schemas/fixtures/temporal-validity-evaluation-v1/positive-online-fresh.json",
+        );
+        evaluation["profile_hash"] = profile["profile_hash"].clone();
+        evaluation["subject_ref"] = json!(effect_ref);
+        evaluation["subject_hash"] = json!(effect_hash);
+        evaluation["operation_class"] = json!("external_effect");
+        evaluation["evidence_horizon"] = json!({
+            "valid_from": "2026-08-24T12:00:00Z",
+            "valid_until": "2026-08-24T12:10:00Z",
+        });
+        evaluation["obligations"] = json!([]);
+        refresh_evaluation_hash(&mut evaluation);
+        let now_ms = parse_temporal_bound_ms(&json!({"at":"2026-08-24T12:05:00Z"}), "/at")
+            .expect("test time");
+        (profile, evaluation, effect_ref, effect_hash, now_ms)
+    }
+
+    fn refresh_profile_hash(profile: &mut Value) {
+        profile["profile_hash"] = json!(hash_material(json!({
+            "domain": "ioi.temporal-verification-profile-hash-jcs-sha256.v1",
+            "profile_ref": profile["profile_ref"],
+            "profile_version": profile["profile_version"],
+            "declaration": profile["declaration"],
+        })));
+    }
+
+    fn refresh_evaluation_hash(evaluation: &mut Value) {
+        evaluation["evaluation_hash"] = json!(hash_material(json!({
+            "domain": "ioi.temporal-validity-evaluation-hash-jcs-sha256.v1",
+            "evaluation_id": evaluation["evaluation_id"],
+            "profile_ref": evaluation["profile_ref"],
+            "profile_hash": evaluation["profile_hash"],
+            "subject_ref": evaluation["subject_ref"],
+            "subject_hash": evaluation["subject_hash"],
+            "operation_class": evaluation["operation_class"],
+            "evidence_refs": evaluation["evidence_refs"],
+            "source_failure_domain_refs": evaluation["source_failure_domain_refs"],
+            "claims": evaluation["claims"],
+            "temporal_posture": evaluation["temporal_posture"],
+            "evidence_horizon": evaluation["evidence_horizon"],
+            "invalidation_triggers": evaluation["invalidation_triggers"],
+            "obligations": evaluation["obligations"],
+        })));
+    }
+
+    #[test]
+    fn portable_projection_retains_the_atomic_pair_and_starts_claimable() {
+        let effect_hash = format!("sha256:{}", hex::encode([0x44; 32]));
+        let commitment = json!({
+            "domain": "ioi.hypervisor.portable-authority-consumption.v1",
+            "effect_hash": effect_hash,
+        });
+        let record = portable_consumed_record("pai_tests", &commitment, &owner_pair());
+
+        assert_eq!(record["authority_mode"], "portable_v3");
+        assert_eq!(record["final_invoker_status"], "admitted");
+        assert_eq!(
+            record["wallet_consumption_receipt"]["admission_receipt_hash"],
+            record["wallet_admission_receipt_v2"]["receipt_hash"]
+        );
+        assert_eq!(
+            record["output_hash"],
+            record_output_hash(&record, PORTABLE_ADMISSION_EVIDENCE_HASH_EXCLUSIONS)
+        );
+        revalidate_admission_record(&record, &effect_hash)
+            .expect("the exact portable effect is retained");
+        let mut claimed = record.clone();
+        claimed["final_invoker_status"] = json!("claimed");
+        claimed["final_invoker_claim"] = json!({"claim_id":"fic_tests"});
+        assert_eq!(
+            claimed["output_hash"],
+            record_output_hash(&claimed, PORTABLE_ADMISSION_EVIDENCE_HASH_EXCLUSIONS),
+            "legitimate finalizer state must not invalidate immutable authority evidence"
+        );
+    }
+
+    #[test]
+    fn portable_projection_rejects_effect_substitution_and_hash_tampering() {
+        let effect_hash = format!("sha256:{}", hex::encode([0x44; 32]));
+        let commitment = json!({
+            "domain": "ioi.hypervisor.portable-authority-consumption.v1",
+            "effect_hash": effect_hash,
+        });
+        let mut record = portable_consumed_record("pai_tests", &commitment, &owner_pair());
+        assert!(revalidate_admission_record(
+            &record,
+            &format!("sha256:{}", hex::encode([0x45; 32]))
+        )
+        .is_err());
+
+        record["wallet_admission_receipt_v2"]["receipt_hash"] = json!(vec![0; 32]);
+        assert_ne!(
+            record["output_hash"],
+            record_output_hash(&record, PORTABLE_ADMISSION_EVIDENCE_HASH_EXCLUSIONS),
+            "editing either half of the wallet pair invalidates the daemon projection"
+        );
+    }
+
+    #[test]
+    fn portable_slot_identity_is_stable_across_temporal_refresh_but_not_effect_change() {
+        let mut commitment = json!({
+            "domain": "ioi.hypervisor.portable-authority-consumption.v1",
+            "authority_mode": "portable_v3",
+            "subject_ref": "environment://tests/portable",
+            "operation": "scm.publish",
+            "revision": 1,
+            "required_scope": "scope:scm.publication.advance-target-ref",
+            "effect_ref": "effect://hypervisor/tests/portable",
+            "effect_hash": format!("sha256:{}", hex::encode([0x44; 32])),
+            "grant_hash": format!("sha256:{}", hex::encode([0x22; 32])),
+            "expected_audience": "daemon://tests/pep",
+            "expected_holder_id": "worker://tests/holder",
+            "expected_holder_key_id": "key://tests/holder/1",
+            "admission": {"temporal_validity_evaluation_ref":"evaluation://tests/1"},
+        });
+        let first = portable_consumption_id(&commitment).expect("first slot");
+        commitment["admission"]["temporal_validity_evaluation_ref"] = json!("evaluation://tests/2");
+        assert_eq!(
+            portable_consumption_id(&commitment).expect("refreshed slot"),
+            first,
+            "mutable currentness evidence must not mint a second exact-operation slot"
+        );
+        commitment["effect_hash"] = json!(format!("sha256:{}", hex::encode([0x45; 32])));
+        assert_ne!(
+            portable_consumption_id(&commitment).expect("changed effect slot"),
+            first,
+            "a different exact effect must never share the consumption slot"
+        );
+    }
+
+    #[test]
+    fn portable_pep_resolves_only_current_exact_established_temporal_evidence() {
+        let (profile, evaluation, effect_ref, effect_hash, now_ms) = temporal_records();
+        let context = resolve_portable_temporal_context_from_records(
+            &[profile],
+            &[evaluation.clone()],
+            "policy://hypervisor/tests/portable",
+            &format!("sha256:{}", hex::encode([0x66; 32])),
+            &effect_ref,
+            &effect_hash,
+            now_ms,
+        )
+        .expect("exact temporal evidence admits");
+        assert_eq!(
+            context.temporal_validity_evaluation_ref,
+            evaluation["evaluation_id"]
+        );
+        assert_eq!(
+            context.continuity_floor_evidence_refs,
+            vec!["evidence://acme/estate-1/anchor/operator/9"]
+        );
+    }
+
+    #[test]
+    fn portable_pep_refuses_foreign_or_expired_temporal_evidence() {
+        let (profile, mut evaluation, effect_ref, effect_hash, now_ms) = temporal_records();
+        assert!(resolve_portable_temporal_context_from_records(
+            std::slice::from_ref(&profile),
+            std::slice::from_ref(&evaluation),
+            "policy://hypervisor/tests/portable",
+            &format!("sha256:{}", hex::encode([0x66; 32])),
+            "effect://hypervisor/tests/foreign",
+            &effect_hash,
+            now_ms,
+        )
+        .is_err());
+
+        evaluation["evidence_horizon"]["valid_until"] = json!("2026-08-24T12:04:00Z");
+        refresh_evaluation_hash(&mut evaluation);
+        assert!(resolve_portable_temporal_context_from_records(
+            &[profile],
+            &[evaluation],
+            "policy://hypervisor/tests/portable",
+            &format!("sha256:{}", hex::encode([0x66; 32])),
+            &effect_ref,
+            &effect_hash,
+            now_ms,
+        )
+        .is_err());
+
+        let (profile, mut evaluation, effect_ref, effect_hash, now_ms) = temporal_records();
+        evaluation["evidence_horizon"]["valid_until"] = json!("2026-08-24T12:11:00Z");
+        refresh_evaluation_hash(&mut evaluation);
+        assert!(resolve_portable_temporal_context_from_records(
+            std::slice::from_ref(&profile),
+            std::slice::from_ref(&evaluation),
+            "policy://hypervisor/tests/portable",
+            &format!("sha256:{}", hex::encode([0x66; 32])),
+            &effect_ref,
+            &effect_hash,
+            now_ms,
+        )
+        .is_err());
+
+        let (mut fenced, mut evaluation, effect_ref, effect_hash, now_ms) = temporal_records();
+        fenced["declaration"]["required_effect_fence_profile_ref"] =
+            json!("policy://hypervisor/tests/effect-fence");
+        refresh_profile_hash(&mut fenced);
+        evaluation["profile_hash"] = fenced["profile_hash"].clone();
+        refresh_evaluation_hash(&mut evaluation);
+        assert!(resolve_portable_temporal_context_from_records(
+            &[fenced],
+            &[evaluation],
+            "policy://hypervisor/tests/portable",
+            &format!("sha256:{}", hex::encode([0x66; 32])),
+            &effect_ref,
+            &effect_hash,
+            now_ms,
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn portable_pep_enforces_bounded_offline_holdover_and_revocation_exposure() {
+        let (mut profile, mut evaluation, effect_ref, effect_hash, now_ms) = temporal_records();
+        profile["declaration"]["disconnected_policy"]["allowed_operation_classes"] =
+            json!(["external_effect"]);
+        evaluation["temporal_posture"] = json!("bounded_offline");
+
+        profile["declaration"]["disconnected_policy"]["maximum_holdover_ms"] = json!(600_000);
+        profile["declaration"]["disconnected_policy"]["maximum_revocation_exposure_ms"] =
+            Value::Null;
+        refresh_profile_hash(&mut profile);
+        evaluation["profile_hash"] = profile["profile_hash"].clone();
+        refresh_evaluation_hash(&mut evaluation);
+        assert!(resolve_portable_temporal_context_from_records(
+            std::slice::from_ref(&profile),
+            std::slice::from_ref(&evaluation),
+            "policy://hypervisor/tests/portable",
+            &format!("sha256:{}", hex::encode([0x66; 32])),
+            &effect_ref,
+            &effect_hash,
+            now_ms,
+        )
+        .is_err());
+
+        profile["declaration"]["disconnected_policy"]["maximum_revocation_exposure_ms"] =
+            json!(599_999);
+        refresh_profile_hash(&mut profile);
+        evaluation["profile_hash"] = profile["profile_hash"].clone();
+        refresh_evaluation_hash(&mut evaluation);
+        assert!(resolve_portable_temporal_context_from_records(
+            std::slice::from_ref(&profile),
+            std::slice::from_ref(&evaluation),
+            "policy://hypervisor/tests/portable",
+            &format!("sha256:{}", hex::encode([0x66; 32])),
+            &effect_ref,
+            &effect_hash,
+            now_ms,
+        )
+        .is_err());
+
+        profile["declaration"]["disconnected_policy"]["maximum_revocation_exposure_ms"] =
+            json!(600_000);
+        refresh_profile_hash(&mut profile);
+        evaluation["profile_hash"] = profile["profile_hash"].clone();
+        refresh_evaluation_hash(&mut evaluation);
+        assert_eq!(
+            resolve_portable_temporal_context_from_records(
+                &[profile],
+                &[evaluation],
+                "policy://hypervisor/tests/portable",
+                &format!("sha256:{}", hex::encode([0x66; 32])),
+                &effect_ref,
+                &effect_hash,
+                now_ms,
+            )
+            .expect("exactly bounded offline evidence admits")
+            .temporal_posture,
+            PortableAuthorityTemporalPostureV1::BoundedOffline
         );
     }
 }

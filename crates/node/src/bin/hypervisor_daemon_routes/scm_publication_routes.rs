@@ -2909,7 +2909,9 @@ pub(crate) async fn handle_scm_publish(
         revocation_ref: format!("scm-connectors/{connector_id}/credential"),
         authority_reason: "scm_publish_authority_required".to_owned(),
         grant_value: body
-            .get("wallet_approval_grant")
+            .get("wallet_portable_authority_grant_hash")
+            .filter(|value| !value.is_null())
+            .or_else(|| body.get("wallet_approval_grant"))
             .cloned()
             .unwrap_or(Value::Null),
         standing_draw: None,
@@ -2924,36 +2926,63 @@ pub(crate) async fn handle_scm_publish(
         .and_then(Value::as_str)
         .unwrap_or_default()
         .to_owned();
-    let Some(exact_admitted) = lease.admitted.exact() else {
-        return (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({
-                "ok": false,
-                "code": "scm_publication_standing_authority_not_supported",
-                "message": "SCM publication requires its exact-request authority path"
-            })),
-        );
-    };
     // The admission receipt the invoker records is the wallet-owned identity the authority owner
     // can resolve — never a reference synthesized from the lease id.
+    let (admitted_grant_ref, admission_intent_ref, admission_effect_hash) = match &lease.admitted {
+        super::lifecycle_routes::CapabilityAuthorityAdmission::Exact(admitted) => (
+            format!("grant://{}", admitted.authorized.evidence.grant_ref),
+            admitted.admission_intent_ref.clone(),
+            admitted.authorized.evidence.effect_hash.clone(),
+        ),
+        super::lifecycle_routes::CapabilityAuthorityAdmission::Portable(admitted) => (
+            admitted.consumption_receipt.authority_grant_ref.clone(),
+            admitted.admission_intent_ref.clone(),
+            admitted.effect_hash.clone(),
+        ),
+        super::lifecycle_routes::CapabilityAuthorityAdmission::Standing(_) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "ok": false,
+                    "code": "scm_publication_standing_authority_not_supported",
+                    "message": "SCM publication requires exact-request or exact-effect portable authority"
+                })),
+            );
+        }
+    };
     let mut authority = PublicationAuthority {
-        grant_refs: vec![format!("grant://{}", lease.grant_ref)],
+        grant_refs: vec![admitted_grant_ref],
         scope_refs: scopes,
         capability_lease_ref: format!("lease://{lease_id}"),
-        admission_receipt_ref: format!("receipt://{}", exact_admitted.admission_intent_ref),
-        admission_effect_hash: exact_admitted.authorized.evidence.effect_hash.clone(),
+        admission_receipt_ref: format!("receipt://{admission_intent_ref}"),
+        admission_effect_hash,
         final_invocation_claim_ref: None,
         final_invocation_claim_id: None,
     };
     // Claim the one final invocation before any remote effect. The claim is durable, so a crash
     // inside the dispatch window is recoverable as Unknown rather than replayable.
-    let claim = match super::governed_authority::claim_final_invocation(
-        &state.data_dir,
-        exact_admitted,
-        "scm.publication.advance-target-ref",
-    )
-    .await
-    {
+    let claim_result = match &lease.admitted {
+        super::lifecycle_routes::CapabilityAuthorityAdmission::Exact(admitted) => {
+            super::governed_authority::claim_final_invocation(
+                &state.data_dir,
+                admitted,
+                "scm.publication.advance-target-ref",
+            )
+            .await
+        }
+        super::lifecycle_routes::CapabilityAuthorityAdmission::Portable(admitted) => {
+            super::governed_authority::claim_portable_final_invocation(
+                &state.data_dir,
+                admitted,
+                "scm.publication.advance-target-ref",
+            )
+            .await
+        }
+        super::lifecycle_routes::CapabilityAuthorityAdmission::Standing(_) => {
+            unreachable!("standing admission was refused before publication claim")
+        }
+    };
+    let claim = match claim_result {
         Ok(claim) => claim,
         Err(reason) => {
             return (

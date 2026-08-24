@@ -12531,7 +12531,8 @@ pub(crate) struct CapabilityLeaseRequest {
     pub(crate) revocation_ref: String,
     /// Reason string surfaced on the 403 challenge (per-crossing for API clarity).
     pub(crate) authority_reason: String,
-    /// The wallet_approval_grant carried on the request body (Null → 403 challenge).
+    /// Exact grant evidence, or a portable grant-hash locator selected by the route. A locator is
+    /// never authority: the gateway resolves every signed binding from wallet-owned state.
     pub(crate) grant_value: Value,
     /// Optional daemon-derived standing-envelope draw. Only a route that has validated every
     /// effect facet against the registered envelope may construct this value.
@@ -12551,6 +12552,7 @@ pub(crate) struct StandingCapabilityDraw {
 
 pub(crate) enum CapabilityAuthorityAdmission {
     Exact(super::governed_authority::AdmittedDeploymentGrant),
+    Portable(super::governed_authority::AdmittedPortableAuthorityGrant),
     Standing(super::governed_authority::AdmittedStandingGrant),
 }
 
@@ -12558,21 +12560,8 @@ impl CapabilityAuthorityAdmission {
     pub(crate) fn intent_ref(&self) -> &str {
         match self {
             Self::Exact(admitted) => &admitted.admission_intent_ref,
+            Self::Portable(admitted) => &admitted.admission_intent_ref,
             Self::Standing(admitted) => &admitted.admission_intent_ref,
-        }
-    }
-
-    pub(crate) fn effect_hash(&self) -> &str {
-        match self {
-            Self::Exact(admitted) => &admitted.authorized.evidence.effect_hash,
-            Self::Standing(admitted) => &admitted.effect_hash,
-        }
-    }
-
-    pub(crate) fn exact(&self) -> Option<&super::governed_authority::AdmittedDeploymentGrant> {
-        match self {
-            Self::Exact(admitted) => Some(admitted),
-            Self::Standing(_) => None,
         }
     }
 }
@@ -12609,6 +12598,57 @@ fn capability_lease_request_hash(req: &CapabilityLeaseRequest) -> String {
         "scopes": req.scopes,
         "facets": req.request_facets,
     }))
+}
+
+fn portable_grant_locator(value: &Value) -> Result<Option<[u8; 32]>, String> {
+    let Some(reference) = value.as_str() else {
+        return Ok(None);
+    };
+    let hex_value = reference
+        .strip_prefix("sha256:")
+        .ok_or_else(|| "portable grant locator must be a sha256 reference".to_string())?;
+    if hex_value.len() != 64 || hex_value != hex_value.to_ascii_lowercase() {
+        return Err(
+            "portable grant locator must contain 32 lowercase hexadecimal bytes".to_string(),
+        );
+    }
+    let decoded = hex::decode(hex_value)
+        .map_err(|error| format!("portable grant locator is invalid hex: {error}"))?;
+    let hash: [u8; 32] = decoded
+        .try_into()
+        .map_err(|_| "portable grant locator must contain exactly 32 bytes".to_string())?;
+    if hash == [0; 32] {
+        return Err("portable grant locator must not be zero".to_string());
+    }
+    Ok(Some(hash))
+}
+
+#[cfg(test)]
+mod portable_grant_locator_tests {
+    use super::*;
+
+    #[test]
+    fn only_an_exact_sha256_string_selects_the_portable_path() {
+        assert_eq!(portable_grant_locator(&Value::Null).unwrap(), None);
+        assert_eq!(
+            portable_grant_locator(&json!({"grant":"signed"})).unwrap(),
+            None
+        );
+        assert_eq!(
+            portable_grant_locator(&json!(format!("sha256:{}", hex::encode([0x42; 32])))).unwrap(),
+            Some([0x42; 32])
+        );
+        assert!(portable_grant_locator(&json!("sha256:42")).is_err());
+        assert!(portable_grant_locator(&json!("grant://caller-text")).is_err());
+        assert!(portable_grant_locator(&json!(format!(
+            "sha256:{}",
+            hex::encode_upper([0xab; 32])
+        )))
+        .is_err());
+        assert!(
+            portable_grant_locator(&json!(format!("sha256:{}", hex::encode([0; 32])))).is_err()
+        );
+    }
 }
 
 /// Resolve a sealed credential record into a usable token + (source, key_source). Two kinds:
@@ -12809,6 +12849,18 @@ pub(crate) async fn authorize_capability_lease(
         "receipt_required": req.receipt_required,
         "revocation_ref": req.revocation_ref,
     });
+    let portable_locator = portable_grant_locator(&req.grant_value).map_err(|message| {
+        (
+            StatusCode::BAD_REQUEST,
+            json!({
+                "ok": false,
+                "decision": "blocked",
+                "reason": "portable_authority_locator_invalid",
+                "message": message,
+                "host_mutation": false,
+            }),
+        )
+    })?;
     let admitted = match if let Some(draw) = req.standing_draw.as_ref() {
         super::governed_authority::authorize_standing_deployment_grant(
             &st.data_dir,
@@ -12829,6 +12881,22 @@ pub(crate) async fn authorize_capability_lease(
         )
         .await
         .map(CapabilityAuthorityAdmission::Standing)
+    } else if let Some(grant_hash) = portable_locator {
+        super::governed_authority::authorize_portable_authority_locator(
+            &st.data_dir,
+            super::governed_authority::LIVE_ROUTE_AUTHORITY,
+            grant_hash,
+            &required_scope,
+            &format!("policy://hypervisor/{operation}"),
+            &policy_hash,
+            &subject_ref,
+            &operation,
+            1,
+            &effect,
+            false,
+        )
+        .await
+        .map(CapabilityAuthorityAdmission::Portable)
     } else {
         super::governed_authority::authorize_deployment_grant(
             &st.data_dir,
@@ -12865,6 +12933,13 @@ pub(crate) async fn authorize_capability_lease(
     let revalidation = match &admitted {
         CapabilityAuthorityAdmission::Exact(exact) => {
             super::governed_authority::revalidate_admission_receipt(&st.data_dir, exact).await
+        }
+        CapabilityAuthorityAdmission::Portable(portable) => {
+            super::governed_authority::revalidate_portable_authority_admission(
+                &st.data_dir,
+                portable,
+            )
+            .await
         }
         CapabilityAuthorityAdmission::Standing(standing) => {
             super::governed_authority::revalidate_standing_admission_receipt(&st.data_dir, standing)
@@ -12903,11 +12978,19 @@ pub(crate) async fn authorize_capability_lease(
     let authority_provider_ref = "wallet.network".to_string();
     let admitted_grant_ref = match &admitted {
         CapabilityAuthorityAdmission::Exact(exact) => exact.authorized.evidence.grant_ref.clone(),
+        CapabilityAuthorityAdmission::Portable(portable) => {
+            portable.consumption_receipt.authority_grant_ref.clone()
+        }
         CapabilityAuthorityAdmission::Standing(standing) => standing.grant_ref.clone(),
     };
     let standing_receipt = match &admitted {
         CapabilityAuthorityAdmission::Standing(standing) => Some(&standing.receipt),
-        CapabilityAuthorityAdmission::Exact(_) => None,
+        CapabilityAuthorityAdmission::Exact(_) | CapabilityAuthorityAdmission::Portable(_) => None,
+    };
+    let authority_mode = match &admitted {
+        CapabilityAuthorityAdmission::Exact(_) => "exact_request",
+        CapabilityAuthorityAdmission::Portable(_) => "portable_v3",
+        CapabilityAuthorityAdmission::Standing(_) => "standing_envelope",
     };
     let mut descriptor = json!({
         "schema_version": "ioi.hypervisor.capability-lease.v1",
@@ -12923,7 +13006,7 @@ pub(crate) async fn authorize_capability_lease(
         "revocation_ref": req.revocation_ref,
         "grant_ref": admitted_grant_ref,
         "admission_intent_ref": admitted.intent_ref(),
-        "authority_mode": if req.standing_draw.is_some() { "standing_envelope" } else { "exact_request" },
+        "authority_mode": authority_mode,
         "state": "active",
         "remaining_calls": 0,
         "credential_source": credential_source,

@@ -909,19 +909,11 @@ pub(crate) fn consume_portable_authority_grant_v3_for_effect(
     }
     let receipt_key = portable_authority_effect_consumption_receipt_key(&params.consumption_id);
     let admission_key = portable_authority_effect_admission_receipt_v2_key(&params.consumption_id);
-    if let Some(existing) =
-        load_typed::<PortableAuthorityGrantV3ConsumptionReceipt>(state, &receipt_key)?
-    {
-        let admission =
-            load_typed::<PortableAuthorityEffectAdmissionReceiptV2Record>(state, &admission_key)?
-                .ok_or_else(|| invalid("portable consumption is missing its admission receipt"))?;
-        validate_admission_record(&admission, &params)?;
-        validate_receipt(&existing, &params, admission.receipt_hash)?;
-        return Ok(());
-    }
-    if load_typed::<PortableAuthorityEffectAdmissionReceiptV2Record>(state, &admission_key)?
-        .is_some()
-    {
+    let existing_receipt =
+        load_typed::<PortableAuthorityGrantV3ConsumptionReceipt>(state, &receipt_key)?;
+    let existing_admission =
+        load_typed::<PortableAuthorityEffectAdmissionReceiptV2Record>(state, &admission_key)?;
+    if existing_receipt.is_none() && existing_admission.is_some() {
         return Err(invalid(
             "portable admission receipt exists without its atomic consumption receipt",
         ));
@@ -929,12 +921,17 @@ pub(crate) fn consume_portable_authority_grant_v3_for_effect(
     let state_key = portable_authority_grant_v3_state_key(&params.grant_hash);
     let mut record: PortableAuthorityGrantV3State = load_typed(state, &state_key)?
         .ok_or_else(|| invalid("portable grant is not registered"))?;
-    if record.status != PortableAuthorityGrantV3Status::Active
-        || record.remaining_calls == 0
+    let active_for_new_use =
+        record.status == PortableAuthorityGrantV3Status::Active && record.remaining_calls > 0;
+    let exhausted_for_exact_revalidation = existing_receipt.is_some()
+        && record.status == PortableAuthorityGrantV3Status::Exhausted
+        && record.remaining_calls == 0
+        && record.uses_consumed == record.max_calls;
+    if (!active_for_new_use && !exhausted_for_exact_revalidation)
         || record.uses_consumed.saturating_add(record.remaining_calls) != record.max_calls
     {
         return Err(invalid(
-            "portable grant is revoked, exhausted, or has invalid counters",
+            "portable grant is revoked, unavailable for new use or exact revalidation, or has invalid counters",
         ));
     }
     if record.audience_client_id != ctx.signer_account_id.0 {
@@ -995,6 +992,14 @@ pub(crate) fn consume_portable_authority_grant_v3_for_effect(
         return Err(invalid(
             "daemon-derived exact effect differs from the portable authorization subject",
         ));
+    }
+
+    if let Some(existing) = existing_receipt {
+        let admission = existing_admission
+            .ok_or_else(|| invalid("portable consumption is missing its admission receipt"))?;
+        validate_admission_record(&admission, &params)?;
+        validate_receipt(&existing, &params, admission.receipt_hash)?;
+        return Ok(());
     }
 
     let now_ms = block_timestamp_ms(ctx);

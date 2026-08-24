@@ -36,7 +36,11 @@ fn install_portable_issuer(
     state: &mut MockState,
     principal_ref: &str,
     public_key: Vec<u8>,
-) -> ExpectedPrincipalAuthorityBinding {
+) -> (
+    ExpectedPrincipalAuthorityBinding,
+    WalletControlPlaneRootRecord,
+    Ed25519KeyPair,
+) {
     let authority = ApprovalAuthority {
         schema_version: 1,
         authority_id: account_id_from_key_material(SignatureSuite::ED25519, &public_key)
@@ -131,7 +135,7 @@ fn install_portable_issuer(
         statement,
         SignatureProof {
             suite: SignatureSuite::ED25519,
-            public_key: root.public_key,
+            public_key: root.public_key.clone(),
             signature,
         },
     )
@@ -150,13 +154,99 @@ fn install_portable_issuer(
         )
         .expect("issue binding");
     });
-    ExpectedPrincipalAuthorityBinding {
-        principal_ref: principal_ref.to_owned(),
-        required_scope: PORTABLE_SCOPE.to_owned(),
-        coordinates: proof.coordinates(),
-        approval_authority_snapshot_hash: proof.statement.approval_authority_snapshot_hash,
-        approval_authority: authority,
-    }
+    (
+        ExpectedPrincipalAuthorityBinding {
+            principal_ref: principal_ref.to_owned(),
+            required_scope: PORTABLE_SCOPE.to_owned(),
+            coordinates: proof.coordinates(),
+            approval_authority_snapshot_hash: proof.statement.approval_authority_snapshot_hash,
+            approval_authority: authority,
+        },
+        root,
+        root_keypair,
+    )
+}
+
+fn rotate_portable_issuer(
+    service: &WalletNetworkService,
+    state: &mut MockState,
+    binding: &ExpectedPrincipalAuthorityBinding,
+    root: &WalletControlPlaneRootRecord,
+    root_keypair: &Ed25519KeyPair,
+) {
+    let rotated_keypair = Ed25519KeyPair::generate().expect("rotated issuer keypair");
+    let rotated_authority = ApprovalAuthority {
+        schema_version: 1,
+        authority_id: account_id_from_key_material(
+            SignatureSuite::ED25519,
+            &rotated_keypair.public_key().to_bytes(),
+        )
+        .expect("rotated authority id"),
+        public_key: rotated_keypair.public_key().to_bytes(),
+        signature_suite: SignatureSuite::ED25519,
+        expires_at: PORTABLE_NOW_MS + 60_000,
+        revoked: false,
+        scope_allowlist: vec![PORTABLE_SCOPE.to_owned()],
+    };
+    with_portable_ctx([7; 32], |ctx| {
+        run_async(
+            service.handle_service_call(
+                state,
+                "register_approval_authority@v1",
+                &codec::to_bytes_canonical(&RegisterApprovalAuthorityParams {
+                    authority: rotated_authority.clone(),
+                })
+                .expect("encode rotated authority"),
+                ctx,
+            ),
+        )
+        .expect("register rotated authority");
+    });
+
+    let statement = PrincipalAuthorityBindingStatementV1 {
+        schema_version: PRINCIPAL_AUTHORITY_BINDING_SCHEMA_VERSION,
+        principal_ref: binding.principal_ref.clone(),
+        authority_kind: PrincipalAuthorityKind::Approval,
+        binding_version: binding.coordinates.binding_version + 1,
+        status: PrincipalAuthorityBindingStatus::Active,
+        authority_id: rotated_authority.authority_id,
+        authority_public_key: rotated_authority.public_key.clone(),
+        authority_signature_suite: rotated_authority.signature_suite,
+        approval_authority_snapshot_hash: rotated_authority
+            .artifact_hash()
+            .expect("rotated authority hash"),
+        previous_binding_ref: Some(binding.coordinates.binding_ref.clone()),
+        previous_binding_hash: Some(binding.coordinates.binding_hash),
+        signed_at_ms: PORTABLE_NOW_MS,
+        expires_at_ms: Some(PORTABLE_NOW_MS + 60_000),
+        issuer_root_account_id: root.account_id,
+        reason: Some("recovery rotates portable issuer authority".to_owned()),
+    };
+    let signature = root_keypair
+        .sign(&statement.signing_bytes().expect("rotated binding bytes"))
+        .expect("rotated binding signature")
+        .to_bytes();
+    let proof = PrincipalAuthorityBindingProofV1::new(
+        statement,
+        SignatureProof {
+            suite: SignatureSuite::ED25519,
+            public_key: root.public_key.clone(),
+            signature,
+        },
+    )
+    .expect("rotated binding proof");
+    with_portable_ctx(root.account_id, |ctx| {
+        run_async(
+            service.handle_service_call(
+                state,
+                "issue_principal_authority_binding@v1",
+                &codec::to_bytes_canonical(&IssuePrincipalAuthorityBindingParams { proof })
+                    .expect("encode rotated binding"),
+                ctx,
+            ),
+        )
+        .expect("rotate issuer binding");
+    });
 }
 
 fn canonical(value: &Value) -> Vec<u8> {
@@ -222,14 +312,20 @@ fn portable_registration_consumes_ceremony_and_effect_atomically_and_idempotentl
     let public_key = URL_SAFE_NO_PAD
         .decode(key_set["keys"][0]["public_key"].as_str().unwrap())
         .expect("issuer public key");
-    let binding = install_portable_issuer(
+    let (binding, root, root_keypair) = install_portable_issuer(
         &service,
         &mut state,
         "org://wallet-network/portable-issuer",
         public_key,
     );
     let record = record_params(
-        &request, &context, &review, &grant, &key_set, &snapshot, binding,
+        &request,
+        &context,
+        &review,
+        &grant,
+        &key_set,
+        &snapshot,
+        binding.clone(),
     );
     with_portable_ctx([7; 32], |ctx| {
         let bytes = codec::to_bytes_canonical(&record).expect("record bytes");
@@ -359,7 +455,10 @@ fn portable_registration_consumes_ceremony_and_effect_atomically_and_idempotentl
             ctx,
         ))
         .expect_err("exhausted grant cannot authorize a second intent");
-        assert!(error.to_string().contains("exhausted"), "{error}");
+        assert!(
+            error.to_string().contains("unavailable for new use"),
+            "{error}"
+        );
 
         let mut conflict = consume.clone();
         conflict.actual_effect_ref = "effect://tests/conflicting-intent".to_owned();
@@ -371,7 +470,8 @@ fn portable_registration_consumes_ceremony_and_effect_atomically_and_idempotentl
         ))
         .expect_err("one consumption id cannot be rebound to a different intent");
         assert!(
-            error.to_string().contains("different effect ref"),
+            error.to_string().contains("different effect ref")
+                || error.to_string().contains("daemon-derived exact effect"),
             "{error}"
         );
 
@@ -425,6 +525,43 @@ fn portable_registration_consumes_ceremony_and_effect_atomically_and_idempotentl
         admission_json["body"]["actual_effect_hash"],
         format!("sha256:{}", hex::encode(effect_hash))
     );
+
+    rotate_portable_issuer(&service, &mut state, &binding, &root, &root_keypair);
+    with_portable_ctx([7; 32], |ctx| {
+        let error = run_async(service.handle_service_call(
+            &mut state,
+            "consume_portable_authority_grant_v3_for_effect@v1",
+            &codec::to_bytes_canonical(&consume).expect("post-recovery replay bytes"),
+            ctx,
+        ))
+        .expect_err("issuer recovery must invalidate even an already consumed grant before effect");
+        assert!(
+            error.to_string().contains("current") || error.to_string().contains("binding"),
+            "{error}"
+        );
+    });
+    let after_recovery: PortableAuthorityGrantV3State =
+        load_typed(&state, &portable_authority_grant_v3_state_key(&grant_hash))
+            .expect("load post-recovery state")
+            .expect("portable state");
+    assert_eq!(after_recovery.uses_consumed, 1);
+    assert_eq!(after_recovery.remaining_calls, 0);
+    assert_eq!(
+        load_typed::<PortableAuthorityGrantV3ConsumptionReceipt>(
+            &state,
+            &portable_authority_effect_consumption_receipt_key(&consume.consumption_id)
+        )
+        .expect("load retained post-recovery receipt"),
+        Some(receipt)
+    );
+    assert_eq!(
+        load_typed::<PortableAuthorityEffectAdmissionReceiptV2Record>(
+            &state,
+            &portable_authority_effect_admission_receipt_v2_key(&consume.consumption_id)
+        )
+        .expect("load retained post-recovery admission"),
+        Some(admission)
+    );
 }
 
 #[test]
@@ -436,7 +573,7 @@ fn portable_registration_rejects_request_carried_key_substitution_without_state(
     let public_key = URL_SAFE_NO_PAD
         .decode(key_set["keys"][0]["public_key"].as_str().unwrap())
         .expect("issuer public key");
-    let binding = install_portable_issuer(
+    let (binding, _root, _root_keypair) = install_portable_issuer(
         &service,
         &mut state,
         "org://wallet-network/portable-issuer",
@@ -492,7 +629,7 @@ fn portable_registration_rejects_request_carried_key_substitution_without_state(
 }
 
 #[test]
-fn portable_evidence_refresh_and_revocation_fail_closed_without_counter_mutation() {
+fn portable_evidence_refresh_recovery_and_revocation_fail_closed_without_counter_mutation() {
     let service = WalletNetworkService;
     let mut state = MockState::default();
     let (request, context, review, grant, key_set, snapshot) =
@@ -500,7 +637,7 @@ fn portable_evidence_refresh_and_revocation_fail_closed_without_counter_mutation
     let public_key = URL_SAFE_NO_PAD
         .decode(key_set["keys"][0]["public_key"].as_str().unwrap())
         .expect("issuer public key");
-    let binding = install_portable_issuer(
+    let (binding, root, root_keypair) = install_portable_issuer(
         &service,
         &mut state,
         "org://wallet-network/portable-issuer",
@@ -532,7 +669,7 @@ fn portable_evidence_refresh_and_revocation_fail_closed_without_counter_mutation
         .expect("portable state");
     let issuer_authorities = vec![PortableAuthorityIssuerBindingV1 {
         issuer_id: grant["issuer_id"].as_str().unwrap().to_owned(),
-        current_authority: binding,
+        current_authority: binding.clone(),
     }];
     let mut forged_snapshot = snapshot.clone();
     forged_snapshot["signature"] = serde_json::json!("A".repeat(86));
@@ -581,6 +718,64 @@ fn portable_evidence_refresh_and_revocation_fail_closed_without_counter_mutation
             ctx,
         ))
         .expect("evidence refresh replay remains valid");
+
+        rotate_portable_issuer(&service, &mut state, &binding, &root, &root_keypair);
+
+        let effect_hash = ref_hash(
+            &grant,
+            "/request_commitment/authorization_subject/subject_hash",
+        );
+        let consume_after_recovery = ConsumePortableAuthorityGrantV3ForEffectParams {
+            grant_hash,
+            consumption_id: [0x92; 32],
+            expected_audience: grant["audience"].as_str().unwrap().to_owned(),
+            expected_holder_id: grant["holder_id"].as_str().unwrap().to_owned(),
+            expected_holder_key_id: grant["holder_key_id"].as_str().unwrap().to_owned(),
+            actual_effect_ref: grant
+                .pointer("/request_commitment/authorization_subject/subject_ref")
+                .and_then(Value::as_str)
+                .unwrap()
+                .to_owned(),
+            actual_effect_hash: effect_hash,
+            admission: admission_context(),
+        };
+        let error = run_async(
+            service.handle_service_call(
+                &mut state,
+                "consume_portable_authority_grant_v3_for_effect@v1",
+                &codec::to_bytes_canonical(&consume_after_recovery)
+                    .expect("post-recovery consume bytes"),
+                ctx,
+            ),
+        )
+        .expect_err("issuer recovery must not preserve an old portable grant");
+        assert!(
+            error.to_string().contains("current") || error.to_string().contains("binding"),
+            "{error}"
+        );
+        let after_recovery: PortableAuthorityGrantV3State = load_typed(&state, &state_key)
+            .expect("load post-recovery state")
+            .expect("portable state");
+        assert_eq!(after_recovery.uses_consumed, 0);
+        assert_eq!(after_recovery.remaining_calls, after_recovery.max_calls);
+        assert!(load_typed::<PortableAuthorityGrantV3ConsumptionReceipt>(
+            &state,
+            &portable_authority_effect_consumption_receipt_key(
+                &consume_after_recovery.consumption_id
+            )
+        )
+        .expect("load post-recovery consumption")
+        .is_none());
+        assert!(
+            load_typed::<PortableAuthorityEffectAdmissionReceiptV2Record>(
+                &state,
+                &portable_authority_effect_admission_receipt_v2_key(
+                    &consume_after_recovery.consumption_id
+                )
+            )
+            .expect("load post-recovery admission")
+            .is_none()
+        );
 
         let revoke =
             codec::to_bytes_canonical(&RevokePortableAuthorityGrantV3Params { grant_hash })
