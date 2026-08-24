@@ -772,7 +772,9 @@ fn typed_port(p: &Value) -> Value {
 
 // ---- WS-10: resource isolation + connectivity profiles (cgroups/netns; port-conflict detect) ----
 
-/// Host ports already bound by OTHER running envs (for conflict detection — not silent drop).
+/// Host targets already admitted to OTHER running environments (for conflict detection — not
+/// silent drop). A recipe normally uses the declared port directly; provider adapters may retain
+/// an explicit host_port mapping in the typed status row.
 fn host_ports_in_use(data_dir: &str, exclude_env: &str) -> std::collections::HashSet<u64> {
     let mut set = std::collections::HashSet::new();
     for env in read_record_dir(data_dir, "environments") {
@@ -783,10 +785,7 @@ fn host_ports_in_use(data_dir: &str, exclude_env: &str) -> std::collections::Has
             continue;
         }
         if let Some(ports) = env["status"]["ports"].as_array() {
-            for hp in ports
-                .iter()
-                .filter_map(|p| p.get("host_port").and_then(|v| v.as_u64()))
-            {
+            for hp in ports.iter().filter_map(environment_port_record_target) {
                 set.insert(hp);
             }
         }
@@ -800,15 +799,172 @@ fn typed_port_checked(p: &Value, in_use: &std::collections::HashSet<u64>) -> (Va
     let mut port = typed_port(p);
     if let Some(hp) = p.get("host_port").and_then(|v| v.as_u64()) {
         port["host_port"] = json!(hp);
-        if in_use.contains(&hp) {
+    }
+    if let Some(target) = environment_port_record_target(&port) {
+        if in_use.contains(&target) {
             port["exposure_state"] = json!("conflict");
             port["conflict_reason"] = json!(format!(
-                "host_port {hp} already bound by another running env"
+                "host target {target} already admitted to another running env"
             ));
             return (port, true);
         }
     }
     (port, false)
+}
+
+/// Resolve the provider target from a typed environment-port row. The request path is only the
+/// logical port selector; it is never itself authority to choose a host socket.
+fn environment_port_record_target(port: &Value) -> Option<u64> {
+    if port
+        .get("protocol")
+        .and_then(Value::as_str)
+        .unwrap_or("tcp")
+        != "tcp"
+    {
+        return None;
+    }
+    port.get("host_port")
+        .and_then(Value::as_u64)
+        .or_else(|| port.get("port").and_then(Value::as_u64))
+        .filter(|target| (1..=65535).contains(target))
+}
+
+/// Fence preview forwarding to an already-admitted port row owned by this environment, and refuse
+/// any host target that another non-deleted environment also claims. This is deliberately checked
+/// immediately before lease minting: a caller-controlled `:port` can select a row, never nominate
+/// an arbitrary loopback consumer.
+fn admitted_environment_port_target(
+    data_dir: &str,
+    environment_id: &str,
+    environment: &Value,
+    requested_port: u64,
+) -> Result<u16, &'static str> {
+    let Some(port_record) = environment["status"]["ports"].as_array().and_then(|ports| {
+        ports
+            .iter()
+            .find(|entry| entry.get("port").and_then(Value::as_u64) == Some(requested_port))
+    }) else {
+        return Err("environment_port_not_admitted");
+    };
+    if port_record.get("exposure_state").and_then(Value::as_str) == Some("conflict") {
+        return Err("environment_port_target_conflict");
+    }
+    let Some(target) = environment_port_record_target(port_record) else {
+        return Err("environment_port_target_not_tcp");
+    };
+    let claimed_by_other = read_record_dir(data_dir, "environments")
+        .into_iter()
+        .filter(|other| other["id"].as_str() != Some(environment_id))
+        .filter(|other| other["status"]["deleted"].as_bool() != Some(true))
+        .any(|other| {
+            other["status"]["ports"].as_array().is_some_and(|ports| {
+                ports
+                    .iter()
+                    .any(|entry| environment_port_record_target(entry) == Some(target))
+            })
+        });
+    if claimed_by_other {
+        return Err("environment_port_target_owned_by_another_environment");
+    }
+    u16::try_from(target).map_err(|_| "environment_port_target_invalid")
+}
+
+#[cfg(test)]
+mod port_preview_fence_tests {
+    use super::*;
+
+    fn env(id: &str, ports: Value) -> Value {
+        json!({
+            "id": id,
+            "status": { "phase": "running", "ports": ports }
+        })
+    }
+
+    #[test]
+    fn request_path_can_only_select_an_admitted_tcp_port() {
+        let data = tempfile::tempdir().unwrap();
+        let own = env(
+            "env_owner",
+            json!([{ "port": 41001, "protocol": "tcp", "access_policy": "session_lease" }]),
+        );
+        assert_eq!(
+            admitted_environment_port_target(
+                data.path().to_str().unwrap(),
+                "env_owner",
+                &own,
+                41001,
+            ),
+            Ok(41001)
+        );
+        assert_eq!(
+            admitted_environment_port_target(
+                data.path().to_str().unwrap(),
+                "env_owner",
+                &own,
+                41002,
+            ),
+            Err("environment_port_not_admitted")
+        );
+    }
+
+    #[test]
+    fn admitted_row_cannot_forward_to_another_environments_host_target() {
+        let data = tempfile::tempdir().unwrap();
+        let own = env(
+            "env_owner",
+            json!([{
+                "port": 41001,
+                "host_port": 42001,
+                "protocol": "tcp",
+                "access_policy": "session_lease"
+            }]),
+        );
+        let other = env(
+            "env_other",
+            json!([{ "port": 42001, "protocol": "tcp", "access_policy": "private" }]),
+        );
+        persist_record(
+            data.path().to_str().unwrap(),
+            "environments",
+            "env_other",
+            &other,
+        )
+        .unwrap();
+        assert_eq!(
+            admitted_environment_port_target(
+                data.path().to_str().unwrap(),
+                "env_owner",
+                &own,
+                41001,
+            ),
+            Err("environment_port_target_owned_by_another_environment")
+        );
+    }
+
+    #[test]
+    fn conflicted_or_non_tcp_rows_fail_closed() {
+        let data = tempfile::tempdir().unwrap();
+        for (record, expected) in [
+            (
+                json!([{ "port": 41001, "protocol": "tcp", "exposure_state": "conflict" }]),
+                "environment_port_target_conflict",
+            ),
+            (
+                json!([{ "port": 41001, "protocol": "udp", "exposure_state": "closed" }]),
+                "environment_port_target_not_tcp",
+            ),
+        ] {
+            assert_eq!(
+                admitted_environment_port_target(
+                    data.path().to_str().unwrap(),
+                    "env_owner",
+                    &env("env_owner", record),
+                    41001,
+                ),
+                Err(expected)
+            );
+        }
+    }
 }
 
 // ---- Cut C: port preview — lease-bound expose / observe / revoke via the env gateway ----------
@@ -943,8 +1099,8 @@ pub(crate) async fn handle_env_ports(
         .unwrap_or_default()
         .into_iter()
         .map(|mut p| {
-            let port = p.get("port").and_then(|v| v.as_u64()).unwrap_or(0);
-            p["listening"] = json!(port_listening(port));
+            let target = environment_port_record_target(&p).unwrap_or(0);
+            p["listening"] = json!(port_listening(target));
             p
         })
         .collect();
@@ -980,10 +1136,19 @@ pub(crate) async fn handle_env_port_expose(
             "fail_closed": true }),
         ));
     }
-    if port == 0 || port > 65535 {
-        return Ok(Json(json!({ "ok": false, "reason": "invalid port" })));
-    }
-    let listening = port_listening(port);
+    let target_port = match admitted_environment_port_target(&st.data_dir, &id, &env, port) {
+        Ok(target) => target,
+        Err(reason) => {
+            return Ok(Json(json!({
+                "ok": false,
+                "reason": reason,
+                "fail_closed": true,
+                "environment_id": id,
+                "port": port
+            })))
+        }
+    };
+    let listening = port_listening(u64::from(target_port));
     let lease = super::authority_routes::issue_capability_lease(
         &st.data_dir,
         &identity.principal_ref,
@@ -1004,7 +1169,7 @@ pub(crate) async fn handle_env_port_expose(
     let (public_port, proxy) = match super::editor_proxy::bind_editor_proxy(
         &st.data_dir,
         &service_key,
-        port as u16,
+        target_port,
         &lease_id,
     )
     .await

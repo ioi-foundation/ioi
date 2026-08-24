@@ -121,6 +121,8 @@ const opsConsumer = body(src.supervisor, "lease_authorizes_env_ops");
 const previewAuth = body(src.lifecycle, "preview_request_authorized");
 const principalDelete = body(src.lifecycle, "handle_principal_delete");
 const managedCapture = body(src.managed, "capture_environment_backup");
+const portExpose = body(src.env, "handle_env_port_expose");
+const portTargetFence = body(src.env, "admitted_environment_port_target");
 
 check("R1_DERIVED_CLOSED_WORLD",
   census.registered_route_handlers === 979 && census.workspace_route_handlers === 37
@@ -186,6 +188,20 @@ check("R11_THREE_UNAUTHENTICATED_SURFACES_CLOSED",
     && src.editorProxy.includes("let authed = lease_active && token_ok;"),
   "ops minter+consumer, preview, and editor proxy are all exact-authority gates");
 
+const portFenceAt = portExpose.indexOf("admitted_environment_port_target");
+const portLeaseAt = portExpose.indexOf("issue_capability_lease");
+check("M032_PORT_TARGET_FENCE",
+  portFenceAt >= 0 && portLeaseAt > portFenceAt
+    && hasAll(portTargetFence, [
+      'read_record_dir(data_dir, "environments")',
+      'Err("environment_port_not_admitted")',
+      'Err("environment_port_target_owned_by_another_environment")',
+      "environment_port_record_target(port_record)",
+    ])
+    && portExpose.includes("target_port,") && !portExpose.includes("port as u16,")
+    && hasAll(src.live, ["M03.2 CROSS-CONSUMER NEGATIVE", "M03.2 POSITIVE CONTROL"]),
+  `fence_index=${portFenceAt} lease_index=${portLeaseAt} target_is_server_derived=${portExpose.includes("target_port,")}`);
+
 check("V4_SEVEN_HANDLES",
   get.includes("authorize_environment_owner_identity")
     && terminalCreate.includes("authorize_environment_owner")
@@ -228,10 +244,10 @@ let mutationManifest = null;
 try { mutationManifest = JSON.parse(read("apps/hypervisor/environment-owner-model.mutants.v1.json")); } catch { /* reported below */ }
 check("V18_MUTATION_FLOOR",
   mutationManifest?.schema_version === "ioi.hypervisor.environment-owner-model-mutants.v1"
-    && mutationManifest?.expected_mutations === 21 && mutationManifest?.anchors?.length === 21
-    && new Set(mutationManifest?.anchors?.map((anchor) => anchor.id)).size === 21
+    && mutationManifest?.expected_mutations === 22 && mutationManifest?.anchors?.length === 22
+    && new Set(mutationManifest?.anchors?.map((anchor) => anchor.id)).size === 22
     && mutationManifest?.anchors?.every((anchor) => anchor.red_on && anchor.find && anchor.replace && anchor.anchor_file),
-  `expected=21 actual=${mutationManifest?.anchors?.length ?? 0}`);
+  `expected=22 actual=${mutationManifest?.anchors?.length ?? 0}`);
 
 for (const result of results) {
   console.log(`${result.pass ? "PASS" : "FAIL"} [${result.code}] ${result.detail}`);

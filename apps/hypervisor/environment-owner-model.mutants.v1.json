@@ -1,6 +1,6 @@
 {
   "schema_version": "ioi.hypervisor.environment-owner-model-mutants.v1",
-  "expected_mutations": 21,
+  "expected_mutations": 22,
   "anchors": [
     {
       "id": "r1-qualified-route-registration-blind-spot",
@@ -124,8 +124,8 @@
     {
       "id": "v18-mutation-floor-can-shrink",
       "anchor_file": "apps/hypervisor/environment-owner-model.mutants.v1.json",
-      "find": "\"expected_mutations\": 21",
-      "replace": "\"expected_mutations\": 20",
+      "find": "\"expected_mutations\": 22",
+      "replace": "\"expected_mutations\": 21",
       "red_on": "V18_MUTATION_FLOOR"
     },
     {
@@ -148,6 +148,13 @@
       "find": "let identity = match super::environment_routes::authorize_environment_owner(",
       "replace": "let identity = match super::environment_routes::resolve_identity_without_environment_owner(",
       "red_on": "R11_THREE_UNAUTHENTICATED_SURFACES_CLOSED"
+    },
+    {
+      "id": "m032-port-preview-target-fence-removed",
+      "anchor_file": "crates/node/src/bin/hypervisor_daemon_routes/environment_routes.rs",
+      "find": "let target_port = match admitted_environment_port_target(",
+      "replace": "let target_port = match bypassed_environment_port_target(",
+      "red_on": "M032_PORT_TARGET_FENCE"
     }
   ]
 }

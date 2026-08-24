@@ -132,9 +132,9 @@
       "id": "env-lease-authority",
       "npm_script": "check:env-lease-authority",
       "source": "apps/hypervisor/scripts/verify-hypervisor-env-lease-authority.mjs",
-      "runtime_assertions": 31,
-      "assertion_names_sha256": "303e6b96a08d5888bdd82aa558a06664a343d9e53b7378cf25b00cf82d584475",
-      "note": "Exercises the former privilege escalation as a closed property: 31 live assertions cover all seven handles, material side-effect absence, daemon-minted ids, bind-before-bytes failure ordering, owner-only enumeration, typed legacy administration, deprovisioned-owner disposal, and exact-token browser proxies. The chained source contract and 21-mutation RED-ON-TARGET battery make ADR 0035's implementation shape replayable in the same gate."
+      "runtime_assertions": 33,
+      "assertion_names_sha256": "2d0fd595ba0a729d56f91b83a660f48179e5e20f87bda546a43097b7d8df0017",
+      "note": "Exercises the former privilege escalation and port-preview cross-consumer path as closed properties: 33 live assertions cover all seven handles, material side-effect absence, daemon-minted ids, bind-before-bytes failure ordering, owner-only enumeration, typed legacy administration, deprovisioned-owner disposal, exact-token browser proxies, and a live cross-environment target refusal with an exact positive control. The chained 19-assertion source contract and 22-mutation RED-ON-TARGET battery make ADR 0035 plus M03.2's implementation shape replayable in the same gate."
     },
     {
       "id": "environment-custody",

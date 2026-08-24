@@ -671,6 +671,16 @@ HypervisorEnvironmentPort
   route_binding_refs
 ```
 
+On the shared local-host substrate, a preview request's path port is only a
+selector for an already-admitted `HypervisorEnvironmentPort`; it is never the
+provider target itself. The daemon derives the loopback target from that typed
+status row immediately before minting the lease and refuses if the row is
+absent, non-TCP, conflicted, or resolves to a target claimed by another
+non-deleted environment. A declaration therefore cannot be used to proxy into
+another environment merely by repeating its port number. Provider substrates
+with independent network namespaces may supply their own environment-bound
+mapping, but must preserve the same no-cross-environment target invariant.
+
 ### HypervisorEnvironmentRouteBinding
 
 A port is a daemon-visible socket or service endpoint. An externally

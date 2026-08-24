@@ -31,6 +31,7 @@
 // tenant membership is not being mistaken for ownership.
 
 import fs from "node:fs";
+import { createServer } from "node:http";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -85,6 +86,24 @@ async function jd(url, { method = "GET", headers = {}, body } = {}) {
 
 const opsUrl = (D, env, m) => `${D}/supervisor/${env}/supervisor.v1.EnvironmentOpsService/${m}`;
 
+const listenMarker = (marker) => new Promise((resolve, reject) => {
+  const server = createServer((_request, response) => {
+    response.writeHead(200, { "content-type": "text/plain" });
+    response.end(marker);
+  });
+  server.once("error", reject);
+  server.listen(0, "127.0.0.1", () => resolve({
+    server,
+    port: server.address().port,
+    marker,
+  }));
+});
+
+const closeMarker = ({ server }) => new Promise((resolve) => {
+  server.closeAllConnections?.();
+  server.close(resolve);
+});
+
 async function run() {
   const previewAuthority = spawnSync("cargo", [
     "test", "--locked", "-q", "-p", "ioi-node", "--bin", "hypervisor-daemon",
@@ -97,6 +116,7 @@ async function run() {
   if (!plane) { console.error("BLOCKED — no daemon binary (exit 2)"); process.exit(2); }
   const D = plane.daemonUrl;
   const dataDir = plane.dataDir;
+  const markers = [];
   try {
     // Two real principals share org://local. The first creates the environment; the second is the
     // adversarial authenticated non-owner. A tenant-only check would admit both.
@@ -145,7 +165,13 @@ async function run() {
         && !environmentScopeRefs(dataDir).has(absentId),
       `get=${absentGet.status}/${errorCode(absentGet)} start=${absentStart.status}/${errorCode(absentStart)}`);
 
-    const createdEnv = await jd(`${D}/v1/hypervisor/environments`, { method: "POST", headers: ownerAuth, body: JSON.stringify({ spec: {} }) });
+    const ownPreview = await listenMarker("m032-owner-preview");
+    const victimPreview = await listenMarker("m032-victim-preview");
+    markers.push(ownPreview, victimPreview);
+    const declaredPorts = [8080, 9090, ownPreview.port, victimPreview.port]
+      .map((port) => ({ port, protocol: "tcp", access_policy: "session_lease" }));
+    const createdEnv = await jd(`${D}/v1/hypervisor/environments`, { method: "POST", headers: ownerAuth,
+      body: JSON.stringify({ spec: { declared_ports: declaredPorts } }) });
     const env = createdEnv.j?.environment?.id;
     const safeId = String(env || "missing").replace(/[^A-Za-z0-9_-]/g, "_");
     const ws = path.join(dataDir, "environments", safeId, "workspace");
@@ -153,6 +179,37 @@ async function run() {
     ok("the authenticated creation seam daemon-mints an id and the owner materializes its workspace",
       createdEnv.status === 200 && String(env).startsWith("env_") && startedEnv.status === 200 && fs.existsSync(ws),
       `create=${createdEnv.status} id=${env} start=${startedEnv.status} workspace=${fs.existsSync(ws)}`);
+
+    // M03.2 — declaration alone is not sufficient if another environment owns the same provider
+    // target. The vulnerable handler accepted the path number, minted a lease, and bound its proxy
+    // before adding that number to the caller's status row. Here both environments name the victim
+    // target so the cross-environment fence, not merely an "undeclared" check, has to refuse it.
+    const victimCreated = await jd(`${D}/v1/hypervisor/environments`, { method: "POST", headers: ownerAuth,
+      body: JSON.stringify({ spec: { declared_ports: [{ port: victimPreview.port, protocol: "tcp", access_policy: "private" }] } }) });
+    const victimEnv = victimCreated.j?.environment?.id;
+    const victimStarted = victimEnv ? await jd(`${D}/v1/hypervisor/environments/${victimEnv}/start`, { method: "POST", headers: ownerAuth, body: "{}" }) : { status: 0 };
+    const grantsBeforeCrossPreview = entryCount(path.join(dataDir, "authority-grants"));
+    const ownerRecordBeforeCrossPreview = fs.readFileSync(path.join(dataDir, "environments", `${safeId}.json`));
+    const crossPreview = await jd(`${D}/v1/hypervisor/environments/${env}/ports/${victimPreview.port}/expose`, { method: "POST", headers: ownerAuth, body: "{}" });
+    const ownerRecordAfterCrossPreview = fs.readFileSync(path.join(dataDir, "environments", `${safeId}.json`));
+    ok("M03.2 CROSS-CONSUMER NEGATIVE — an owner cannot make its preview proxy reach a host target claimed by another environment, even when its own declaration repeats that port; refusal mints no lease and mutates no environment record",
+      victimCreated.status === 200 && victimStarted.status === 200
+        && crossPreview.j?.ok === false && crossPreview.j?.reason === "environment_port_target_owned_by_another_environment"
+        && !crossPreview.j?.accessToken && !crossPreview.j?.public_proxy_port
+        && entryCount(path.join(dataDir, "authority-grants")) === grantsBeforeCrossPreview
+        && ownerRecordBeforeCrossPreview.equals(ownerRecordAfterCrossPreview),
+      `victim=${victimCreated.status}/${victimStarted.status} expose=${crossPreview.status}/${crossPreview.j?.reason} grants=${grantsBeforeCrossPreview}->${entryCount(path.join(dataDir, "authority-grants"))} record_unchanged=${ownerRecordBeforeCrossPreview.equals(ownerRecordAfterCrossPreview)}`);
+
+    const ownPreviewMint = await jd(`${D}/v1/hypervisor/environments/${env}/ports/${ownPreview.port}/expose`, { method: "POST", headers: ownerAuth, body: "{}" });
+    const ownPreviewToken = ownPreviewMint.j?.accessToken;
+    const ownPreviewReply = ownPreviewMint.j?.url && ownPreviewToken
+      ? await fetch(ownPreviewMint.j.url).then(async (response) => ({ status: response.status, body: await response.text() }))
+      : { status: 0, body: "" };
+    ok("M03.2 POSITIVE CONTROL — an exact lease reaches the environment's unique admitted TCP target, proving the negative is a target-ownership fence rather than a disabled preview plane",
+      ownPreviewMint.j?.ok === true && !!ownPreviewToken
+        && ownPreviewReply.status === 200 && ownPreviewReply.body === ownPreview.marker,
+      `mint=${ownPreviewMint.status}/${ownPreviewMint.j?.ok} proxy=${ownPreviewReply.status} marker=${ownPreviewReply.body}`);
+    await jd(`${D}/v1/hypervisor/environments/${env}/ports/${ownPreview.port}/unexpose`, { method: "POST", headers: ownerAuth, body: "{}" });
 
     // Bind precedes record bytes. Induce the second write to fail by replacing the fixture's
     // environment-record directory with a file, then prove the freshly minted substrate pin
@@ -425,11 +482,13 @@ async function run() {
     for (const r of results) console.log(`${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? ` — ${r.detail}` : ""}`);
     console.log(`\n${results.length - fails.length}/${results.length} passed`);
     emitVerifierCensus({ verifierId: "env-lease-authority", sourceUrl: import.meta.url, results });
+    await Promise.all(markers.map(closeMarker));
     await plane.stop();
     process.exit(fails.length ? 1 : 0);
   } catch (error) {
     for (const r of results) console.log(`${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? ` — ${r.detail}` : ""}`);
     console.error(`FAIL env-lease-authority — ${error?.stack || error}`);
+    await Promise.all(markers.map(closeMarker));
     await plane.stop();
     process.exit(1);
   }

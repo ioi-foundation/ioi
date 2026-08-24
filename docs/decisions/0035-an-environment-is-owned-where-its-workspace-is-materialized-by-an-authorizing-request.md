@@ -352,11 +352,12 @@ receipted disposal, and fences ops, editor and preview capability consumers to e
 resource and subject.
 
 The retained evidence is executable rather than this prose: `check:env-lease-authority` runs
-31 live assertions, 18 source/model assertions and 21 RED-ON-TARGET source mutations;
+33 live assertions, 19 source/model assertions and 22 RED-ON-TARGET source mutations, including
+the subsequent M03.2 port-preview membership-and-exclusivity fence;
 `check:environment-custody` runs 53 live assertions; and `check:backup-restore` runs 76. The
 source gate requires the exact aggregate-only allowlist and rejects unresolved registrations,
 lexer blind spots and marker leakage. The mutation battery includes non-owner ops-lease mint,
-create/bind ordering, alias, legacy-administration, owner-list, deactivation, seven-handle and
-source-census escape classes. Assertion counts and names are floor-pinned in
+create/bind ordering, alias, legacy-administration, owner-list, deactivation, seven-handle,
+port-target and source-census escape classes. Assertion counts and names are floor-pinned in
 `apps/hypervisor/verifier-floors.v1.json`; mutation outcomes are re-executed by the chained
 environment-lease check.

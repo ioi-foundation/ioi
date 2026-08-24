@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// ADR-0035 MUTATION BATTERY — 21 isolated implementation defects, each RED on its named property.
+// ADR-0035 + M03.2 MUTATION BATTERY — 22 isolated implementation defects, each RED on its named property.
 //
 // These are deliberately fast source-contract mutants. They run against a private temporary copy,
 // never rewrite the checkout, and complement (rather than replace) the live daemon suites: the live
@@ -27,7 +27,7 @@ const runGate = (root, gate = path.join(root, SOURCE_GATE_REL)) => spawnSync("no
 });
 const failures = (run) => `${run.stdout || ""}\n${run.stderr || ""}`.split("\n").filter((line) => line.startsWith("FAIL"));
 
-if (manifest.expected_mutations !== 21 || manifest.anchors?.length !== manifest.expected_mutations) {
+if (manifest.expected_mutations !== 22 || manifest.anchors?.length !== manifest.expected_mutations) {
   console.error(`BLOCKED — mutation manifest count ${manifest.anchors?.length ?? 0} != expected ${manifest.expected_mutations}`);
   process.exit(2);
 }
