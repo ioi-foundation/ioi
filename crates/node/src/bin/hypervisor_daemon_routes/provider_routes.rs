@@ -42,6 +42,46 @@ fn nanos() -> u128 {
         .unwrap_or(0)
 }
 
+#[cfg(test)]
+mod command_guardrail_tests {
+    use super::*;
+
+    #[test]
+    fn every_provider_workrun_entry_can_use_the_shared_fail_closed_refusal() {
+        let directory = tempfile::tempdir().unwrap();
+        let refusal = provider_workrun_guardrail_refusal(
+            directory.path().to_str().unwrap(),
+            "loopback-runner",
+            "provider-local-env",
+            "rm -rf /",
+        )
+        .expect("the built-in global denial must cover provider-local workruns");
+
+        assert_eq!(refusal["policy_denied"], json!(true));
+        assert_eq!(refusal["exit_code"], json!(126));
+        assert_eq!(refusal["provider"], json!("loopback-runner"));
+        assert_eq!(refusal["op"], json!("workrun"));
+        assert_eq!(refusal["execution_surface"], json!("provider.workrun"));
+
+        let environments = directory.path().join("environments");
+        std::fs::create_dir_all(&environments).unwrap();
+        std::fs::write(environments.join("broken-env.json"), b"{ malformed").unwrap();
+        let indeterminate = provider_workrun_guardrail_refusal(
+            directory.path().to_str().unwrap(),
+            "loopback-runner",
+            "broken-env",
+            "printf harmless",
+        )
+        .expect("a malformed environment record must refuse rather than drop local denials");
+        assert_eq!(indeterminate["policy_indeterminate"], json!(true));
+        assert_eq!(
+            indeterminate["refusal"]["store"],
+            json!("environment_record")
+        );
+        assert_eq!(indeterminate["exit_code"], json!(126));
+    }
+}
+
 fn trajectory_lock() -> &'static Mutex<()> {
     static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
     LOCK.get_or_init(|| Mutex::new(()))
@@ -8568,6 +8608,42 @@ fn pinned_result_client(
 /// The single final-invoker implementation for static provider adapters. Both the HTTP route and
 /// the workload-bound broker enter here, so the guest lane cannot grow a second provider client
 /// or persistence path.
+fn provider_workrun_guardrail_refusal(
+    data_dir: &str,
+    provider_id: &str,
+    env_ref: &str,
+    command: &str,
+) -> Option<Value> {
+    // Static provider fixtures can address a provider-local environment before a Hypervisor
+    // environment projection exists. The global policy still applies in that case; when the
+    // environment record exists its local declarations compose monotonically as usual.
+    let env = match super::environment_routes::load_env_guardrail_context(data_dir, env_ref) {
+        Ok(Some(env)) => env,
+        Ok(None) => json!({ "spec": {} }),
+        Err(detail) => {
+            let mut refusal = super::operability_routes::guardrail_indeterminate_refusal_response(
+                data_dir,
+                env_ref,
+                command,
+                "environment_record",
+                detail,
+            );
+            refusal["ok"] = json!(false);
+            refusal["provider"] = json!(provider_id);
+            refusal["op"] = json!("workrun");
+            refusal["execution_surface"] = json!("provider.workrun");
+            return Some(refusal);
+        }
+    };
+    let mut refusal =
+        super::operability_routes::guardrail_refusal_response(data_dir, &env, env_ref, command)?;
+    refusal["ok"] = json!(false);
+    refusal["provider"] = json!(provider_id);
+    refusal["op"] = json!("workrun");
+    refusal["execution_surface"] = json!("provider.workrun");
+    Some(refusal)
+}
+
 pub(crate) fn invoke_static_provider_operation(
     data_dir: &str,
     body: &Value,
@@ -8621,6 +8697,13 @@ pub(crate) fn invoke_static_provider_operation(
         .get("material_ref")
         .and_then(Value::as_str)
         .unwrap_or("");
+    if op == "workrun" {
+        if let Some(refusal) =
+            provider_workrun_guardrail_refusal(data_dir, provider_id, env_ref, command)
+        {
+            return (StatusCode::OK, Json(refusal));
+        }
+    }
     let result = match op {
         "preflight" => Ok(provider.preflight(&plan)),
         "create" => provider.create(data_dir, env_ref, &plan),
@@ -9615,6 +9698,13 @@ async fn handle_provider_op_internal(
         } else {
             None
         };
+        if op == "workrun" {
+            if let Some(refusal) =
+                provider_workrun_guardrail_refusal(data_dir, &kind, &env_ref, command)
+            {
+                return (StatusCode::OK, Json(refusal));
+            }
+        }
         let result = match op {
             "preflight" => Ok(provider.preflight(&plan)),
             "create" => provider.create(data_dir, &env_ref, &plan),

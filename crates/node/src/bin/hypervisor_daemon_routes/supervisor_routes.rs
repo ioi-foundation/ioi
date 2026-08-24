@@ -108,6 +108,18 @@ fn env_workspace(data_dir: &str, env_id: &str) -> Option<String> {
         .map(str::to_string)
 }
 
+fn supervisor_exec_guardrail_refusal(
+    data_dir: &str,
+    env_id: &str,
+    command: &str,
+) -> Result<Option<Value>, &'static str> {
+    let env = super::environment_routes::load_env(data_dir, env_id)
+        .ok_or("environment record disappeared before command admission")?;
+    Ok(super::operability_routes::guardrail_refusal_response(
+        data_dir, &env, env_id, command,
+    ))
+}
+
 /// Resolve `rel` under the workspace, fenced: no `..` escape, result must stay within `ws`.
 fn scoped(ws: &str, rel: &str) -> Result<PathBuf, String> {
     let rel = rel.trim_start_matches('/');
@@ -602,6 +614,16 @@ pub(crate) async fn handle_environment_ops(
 
         "Exec" => {
             let command = s("command");
+            let refusal = match supervisor_exec_guardrail_refusal(&st.data_dir, &env_id, &command) {
+                Ok(refusal) => refusal,
+                Err(message) => {
+                    return connect_err(StatusCode::NOT_FOUND, "not_found", message);
+                }
+            };
+            if let Some(mut refusal) = refusal {
+                refusal["execution_surface"] = json!("supervisor.v1.EnvironmentOpsService/Exec");
+                return ok_json(refusal);
+            }
             let cwd = {
                 let wd = s("workingDirectory");
                 if wd.is_empty() {
@@ -651,5 +673,38 @@ pub(crate) async fn handle_environment_ops(
             "unimplemented",
             &format!("unknown method {other}"),
         ),
+    }
+}
+
+#[cfg(test)]
+mod command_guardrail_tests {
+    use super::*;
+
+    #[test]
+    fn supervisor_exec_uses_the_shared_fail_closed_refusal_before_spawn() {
+        let directory = tempfile::tempdir().unwrap();
+        let environments = directory.path().join("environments");
+        std::fs::create_dir_all(&environments).unwrap();
+        std::fs::write(
+            environments.join("env_guarded.json"),
+            serde_json::to_vec(&json!({
+                "id": "env_guarded",
+                "spec": { "guardrails": { "deny_commands": ["supervisor-denied"] } },
+                "status": { "workspace_root": directory.path() }
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+
+        let refusal = supervisor_exec_guardrail_refusal(
+            directory.path().to_str().unwrap(),
+            "env_guarded",
+            "supervisor-denied --attempt",
+        )
+        .unwrap()
+        .expect("the environment-local denial must stop supervisor Exec");
+        assert_eq!(refusal["policy_denied"], json!(true));
+        assert_eq!(refusal["exit_code"], json!(126));
+        assert_eq!(refusal["denial"]["matched"], json!("supervisor-denied"));
     }
 }

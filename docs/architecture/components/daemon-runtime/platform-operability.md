@@ -964,6 +964,15 @@ Receipts and audit records bind facts about these decisions. They confer no
 authority, and neither their presence nor their absence changes what was
 enforced.
 
+The live enforcement set is every daemon sink that executes a caller-supplied
+command string: mounted workspace Exec, host and guest resolved tasks, service
+healthchecks, supervisor Exec, and both provider workrun funnels. Each evaluates
+the same owner function immediately before its host shell, guest monitor, or
+provider driver. Daemon-authored fixed-argv maintenance operations such as Git
+inspection, archive handling, key generation, and provider probes are not caller
+command strings and are outside this deny-string contract; they remain subject
+to their own custody, provenance, and effect-boundary controls.
+
 ### Composition narrows, and never the other way
 
 ```text

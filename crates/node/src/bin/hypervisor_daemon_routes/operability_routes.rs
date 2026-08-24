@@ -608,6 +608,69 @@ pub(crate) fn audit_guardrail_denial(
     )
 }
 
+/// The one command-execution guardrail refusal projection shared by every command-capable daemon
+/// primitive. `None` means only that this deny instrument raised no veto; it grants no execution
+/// authority. Denied and indeterminate decisions remain distinct, and the audit durability result
+/// reports evidence durability separately from the already-enforced refusal.
+fn project_guardrail_refusal(
+    data_dir: &str,
+    env_id: &str,
+    command: &str,
+    decision: GuardrailDecision,
+) -> Option<Value> {
+    let (mut body, refusal) = match decision {
+        GuardrailDecision::Allowed => return None,
+        GuardrailDecision::Denied(denial) => (
+            json!({
+                "environment_id": env_id, "command": command, "denied": true,
+                "policy_denied": true, "denial": denial.clone(), "exit_code": 126,
+                "stdout": "", "stderr": "blocked by environment guardrail policy (fail-closed)"
+            }),
+            denial,
+        ),
+        GuardrailDecision::Indeterminate(indeterminacy) => (
+            json!({
+                "environment_id": env_id, "command": command, "denied": true,
+                "policy_indeterminate": true, "refusal": indeterminacy.clone(), "exit_code": 126,
+                "stdout": "", "stderr": "refused: the command-execution guardrail policy is INDETERMINATE and no policy rule was evaluated (fail-closed)"
+            }),
+            indeterminacy,
+        ),
+    };
+    body["audit_durability"] = audit_guardrail_denial(data_dir, env_id, command, &refusal);
+    Some(body)
+}
+
+pub(crate) fn guardrail_refusal_response(
+    data_dir: &str,
+    env: &Value,
+    env_id: &str,
+    command: &str,
+) -> Option<Value> {
+    project_guardrail_refusal(
+        data_dir,
+        env_id,
+        command,
+        guardrail_check(data_dir, env, command),
+    )
+}
+
+pub(crate) fn guardrail_indeterminate_refusal_response(
+    data_dir: &str,
+    env_id: &str,
+    command: &str,
+    store: &'static str,
+    detail: String,
+) -> Value {
+    project_guardrail_refusal(
+        data_dir,
+        env_id,
+        command,
+        GuardrailDecision::Indeterminate(PolicyIndeterminacy::new(store, detail).as_refusal()),
+    )
+    .expect("an explicit indeterminate guardrail decision always refuses")
+}
+
 /// `changed_by_principal_ref` is the SERVER-RESOLVED principal from the authority crossing that
 /// admitted this mutation — never a request-carried field, which `validated_candidate_policy`
 /// refuses outright. A `truth_mutation` audit record that cannot answer "who" is weak evidence

@@ -400,13 +400,48 @@ fn bwrap_available() -> bool {
         .unwrap_or(false)
 }
 
-fn load_env(data_dir: &str, id: &str) -> Option<Value> {
+pub(crate) fn load_env(data_dir: &str, id: &str) -> Option<Value> {
     let path = std::path::Path::new(data_dir)
         .join("environments")
         .join(format!("{}.json", safe_id(id)));
     std::fs::read(path)
         .ok()
         .and_then(|b| serde_json::from_slice(&b).ok())
+}
+
+/// Strict environment projection load for command admission. True absence is distinct from an
+/// unreadable, malformed, symlinked, or non-regular record because treating indeterminacy as
+/// absence could silently discard environment-local denials.
+pub(crate) fn load_env_guardrail_context(
+    data_dir: &str,
+    id: &str,
+) -> Result<Option<Value>, String> {
+    let path = std::path::Path::new(data_dir)
+        .join("environments")
+        .join(format!("{}.json", safe_id(id)));
+    let metadata = match std::fs::symlink_metadata(&path) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => {
+            return Err(format!(
+                "environment record metadata is unreadable: {error}"
+            ))
+        }
+    };
+    if metadata.file_type().is_symlink() {
+        return Err("environment record is a symlink".to_string());
+    }
+    if !metadata.is_file() {
+        return Err("environment record is not a regular file".to_string());
+    }
+    let bytes = std::fs::read(&path)
+        .map_err(|error| format!("environment record is unreadable: {error}"))?;
+    let value: Value = serde_json::from_slice(&bytes)
+        .map_err(|error| format!("environment record is malformed: {error}"))?;
+    if !value.is_object() {
+        return Err("environment record is not a JSON object".to_string());
+    }
+    Ok(Some(value))
 }
 
 fn persist_env(data_dir: &str, env: &Value) -> Result<(), AppError> {
@@ -635,7 +670,14 @@ fn scaffold_devcontainer(ws: &str) -> bool {
 
 /// Run one resolved task as a REAL bounded process in the workspace; return a typed
 /// `HypervisorEnvironmentTask` record with phase/exit_code/log_ref.
-fn run_task(ws: &str, log_dir: &std::path::Path, task: &Value) -> Value {
+fn run_task(
+    data_dir: &str,
+    env_id: &str,
+    env: &Value,
+    ws: &str,
+    log_dir: &std::path::Path,
+    task: &Value,
+) -> Value {
     let name = task.get("name").and_then(|v| v.as_str()).unwrap_or("task");
     let command = task.get("command").and_then(|v| v.as_str()).unwrap_or("");
     let trigger = task
@@ -652,6 +694,19 @@ fn run_task(ws: &str, log_dir: &std::path::Path, task: &Value) -> Value {
     if command.is_empty() {
         return json!({ "task_ref": task_ref, "name": name, "trigger": trigger, "lifecycle": lifecycle,
             "phase": "succeeded", "exit_code": 0, "started_at": started_at, "ended_at": iso_now(), "log_ref": Value::Null });
+    }
+    if let Some(mut refusal) =
+        super::operability_routes::guardrail_refusal_response(data_dir, env, env_id, command)
+    {
+        refusal["task_ref"] = json!(task_ref);
+        refusal["name"] = json!(name);
+        refusal["trigger"] = json!(trigger);
+        refusal["lifecycle"] = json!(lifecycle);
+        refusal["phase"] = json!("failed");
+        refusal["started_at"] = json!(started_at);
+        refusal["ended_at"] = json!(iso_now());
+        refusal["log_ref"] = Value::Null;
+        return refusal;
     }
     let out = std::process::Command::new("timeout")
         .arg("120")
@@ -692,7 +747,13 @@ fn run_task(ws: &str, log_dir: &std::path::Path, task: &Value) -> Value {
 }
 
 /// Run a resolution's tasks (prebuild → environment_start order) as real processes.
-fn run_resolved_tasks(data_dir: &str, env_id: &str, ws: &str, resolution: &Value) -> Vec<Value> {
+fn run_resolved_tasks(
+    data_dir: &str,
+    env_id: &str,
+    env: &Value,
+    ws: &str,
+    resolution: &Value,
+) -> Vec<Value> {
     let log_dir = std::path::Path::new(data_dir)
         .join("environments")
         .join(safe_id(env_id))
@@ -702,7 +763,7 @@ fn run_resolved_tasks(data_dir: &str, env_id: &str, ws: &str, resolution: &Value
     for key in ["resolved_prebuild_tasks", "resolved_tasks"] {
         if let Some(arr) = resolution.get(key).and_then(|v| v.as_array()) {
             for t in arr {
-                results.push(run_task(ws, &log_dir, t));
+                results.push(run_task(data_dir, env_id, env, ws, &log_dir, t));
             }
         }
     }
@@ -711,7 +772,7 @@ fn run_resolved_tasks(data_dir: &str, env_id: &str, ws: &str, resolution: &Value
 
 /// Typed `HypervisorEnvironmentService`: required services must pass a healthcheck to be
 /// `running` (health-checks gate readiness); optional services without one are declared running.
-fn typed_service(ws: &str, svc: &Value) -> Value {
+fn typed_service(data_dir: &str, env_id: &str, env: &Value, ws: &str, svc: &Value) -> Value {
     let name = svc
         .get("name")
         .and_then(|v| v.as_str())
@@ -722,6 +783,21 @@ fn typed_service(ws: &str, svc: &Value) -> Value {
         .unwrap_or("optional");
     let healthcheck = svc.get("healthcheck").and_then(|v| v.as_str());
     let service_ref = format!("svc_{}", safe_id(name));
+    if let Some(hc) = healthcheck.filter(|command| !command.is_empty()) {
+        if let Some(mut refusal) =
+            super::operability_routes::guardrail_refusal_response(data_dir, env, env_id, hc)
+        {
+            refusal["service_ref"] = json!(service_ref);
+            refusal["name"] = json!(name);
+            refusal["lifecycle"] = json!(lifecycle);
+            refusal["healthcheck"] = json!(hc);
+            refusal["phase"] = json!("degraded");
+            refusal["restart_policy"] = json!("on_failure");
+            refusal["port_refs"] = svc.get("port_refs").cloned().unwrap_or_else(|| json!([]));
+            refusal["log_ref"] = Value::Null;
+            return refusal;
+        }
+    }
     let phase = match healthcheck {
         Some(hc) if !hc.is_empty() => {
             let healthy = std::process::Command::new("timeout")
@@ -1921,6 +1997,7 @@ fn provision_microvm(
 fn run_tasks_in_guest(
     st: &DaemonState,
     env_id: &str,
+    env: &Value,
     resolution: &Value,
 ) -> Result<Vec<Value>, AppError> {
     use super::microvm;
@@ -1943,6 +2020,27 @@ fn run_tasks_in_guest(
                     .unwrap_or("environment_start");
                 let required = t.get("required").and_then(|v| v.as_bool()).unwrap_or(false);
                 let started_at = iso_now();
+                if !command.is_empty() {
+                    if let Some(mut refusal) = super::operability_routes::guardrail_refusal_response(
+                        &st.data_dir,
+                        env,
+                        env_id,
+                        command,
+                    ) {
+                        refusal["task_ref"] = json!(format!("task_{}", safe_id(name)));
+                        refusal["name"] = json!(name);
+                        refusal["trigger"] = json!(trigger);
+                        refusal["lifecycle"] =
+                            json!(if required { "required" } else { "optional" });
+                        refusal["phase"] = json!("failed");
+                        refusal["started_at"] = json!(started_at);
+                        refusal["ended_at"] = json!(iso_now());
+                        refusal["executed_in"] = json!("none");
+                        refusal["log_ref"] = Value::Null;
+                        results.push(refusal);
+                        continue;
+                    }
+                }
                 let (phase, code) = if command.is_empty() {
                     ("succeeded", 0)
                 } else {
@@ -3402,7 +3500,7 @@ pub(crate) async fn handle_environment_action(
                     "running resolved tasks",
                 );
                 let task_results = if is_microvm && microvm_ok {
-                    let r = run_tasks_in_guest(&st, &id, &resolution).unwrap_or_default();
+                    let r = run_tasks_in_guest(&st, &id, &env, &resolution).unwrap_or_default();
                     // bring the guest's results back onto the host scoped workspace.
                     let _ = export_guest_workspace(&st, &id, &ws);
                     r
@@ -3410,7 +3508,7 @@ pub(crate) async fn handle_environment_action(
                     // sandbox boot failed — do NOT fall back to the host (would defeat isolation).
                     Vec::new()
                 } else {
-                    run_resolved_tasks(&st.data_dir, &id, &ws, &resolution)
+                    run_resolved_tasks(&st.data_dir, &id, &env, &ws, &resolution)
                 };
                 let any_required_failed = task_results.iter().any(|t| {
                     t["lifecycle"].as_str() == Some("required")
@@ -3428,7 +3526,7 @@ pub(crate) async fn handle_environment_action(
                     .cloned()
                     .unwrap_or_default()
                     .iter()
-                    .map(|s| typed_service(&ws, s))
+                    .map(|s| typed_service(&st.data_dir, &id, &env, &ws, s))
                     .collect();
                 env["status"]["services"] = json!(services);
                 // WS-10 — typed ports with host-port conflict detection (surfaced, not dropped).
@@ -4723,57 +4821,6 @@ pub(crate) async fn handle_workrun_get(
     Ok(Json(json!({ "workRun": rec })))
 }
 
-/// The command-execution guardrail decision AT the scoped execution primitive, and the response
-/// body when it refuses. `None` means no veto fired — which grants nothing: the caller still has
-/// every other gate to pass.
-///
-/// Extracted from the Axum adapter so both refusal shapes are directly testable without standing
-/// up a daemon. Two refusals, kept DISTINCT:
-///
-///   * `policy_denied` — a policy rule actually matched this command string. `denial` names the
-///     rule and the matched pattern.
-///   * `policy_indeterminate` — the policy could NOT be resolved (unreadable, malformed, or
-///     non-regular persisted state, or a malformed environment-local declaration). Execution is
-///     still refused, but the response must not claim a rule matched, because none did; the
-///     previous hardcoded "blocked by environment guardrail policy" stderr asserted exactly that
-///     for a state where no policy had been read at all.
-///
-/// The enforcement fact and the audit outcome are reported SEPARATELY. Losing the audit record is
-/// an observability gap, never a reason to admit the command and never `audited: true` — so
-/// `audit_durability` rides alongside the refusal instead of being discarded.
-fn guardrail_refusal_response(
-    data_dir: &str,
-    env: &Value,
-    env_id: &str,
-    command: &str,
-) -> Option<Value> {
-    use super::operability_routes::GuardrailDecision;
-    let (mut body, refusal) = match super::operability_routes::guardrail_check(
-        data_dir, env, command,
-    ) {
-        GuardrailDecision::Allowed => return None,
-        GuardrailDecision::Denied(denial) => (
-            json!({
-                "environment_id": env_id, "command": command, "denied": true,
-                "policy_denied": true, "denial": denial.clone(), "exit_code": 126,
-                "stdout": "", "stderr": "blocked by environment guardrail policy (fail-closed)"
-            }),
-            denial,
-        ),
-        GuardrailDecision::Indeterminate(indeterminacy) => (
-            json!({
-                "environment_id": env_id, "command": command, "denied": true,
-                "policy_indeterminate": true, "refusal": indeterminacy.clone(), "exit_code": 126,
-                "stdout": "", "stderr": "refused: the command-execution guardrail policy is INDETERMINATE and no policy rule was evaluated (fail-closed)"
-            }),
-            indeterminacy,
-        ),
-    };
-    body["audit_durability"] =
-        super::operability_routes::audit_guardrail_denial(data_dir, env_id, command, &refusal);
-    Some(body)
-}
-
 /// POST /v1/hypervisor/exec — the env's scoped terminal (Build Rule: terminal/logs).
 ///
 /// Runs a command in the environment's scoped workspace. Locally-authorized via the
@@ -4813,7 +4860,9 @@ pub(crate) async fn handle_workspace_exec(
     // Cut F (M) — guardrail enforcement at the exec primitive: the deny-list is checked on the
     // command string itself, so an agent cannot bypass policy via ordinary shell (a `bash -c "rm
     // -rf /"` is still this command string). Fail-closed + audited; the in-guest path is gated too.
-    if let Some(refusal) = guardrail_refusal_response(&st.data_dir, &env, env_id, command) {
+    if let Some(refusal) =
+        super::operability_routes::guardrail_refusal_response(&st.data_dir, &env, env_id, command)
+    {
         return Ok(Json(refusal));
     }
 
@@ -5670,7 +5719,7 @@ mod scoped_exec_guardrail_tests {
     }
 
     fn refuse(directory: &tempfile::TempDir, env: &Value, command: &str) -> Option<Value> {
-        guardrail_refusal_response(
+        super::super::operability_routes::guardrail_refusal_response(
             directory.path().to_str().unwrap(),
             env,
             env["id"].as_str().unwrap_or("env_1"),
@@ -5845,5 +5894,79 @@ mod scoped_exec_guardrail_tests {
         assert_eq!(audits.len(), 1);
         assert_eq!(audits[0]["kind"], json!("guardrail_denied"));
         assert_eq!(audits[0]["environment_ref"], json!("env_1"));
+    }
+
+    #[test]
+    fn resolved_tasks_and_service_healthchecks_refuse_before_host_process_spawn() {
+        let directory = temp();
+        let data_dir = directory.path().to_str().unwrap();
+        let workspace = directory.path().join("workspace");
+        let logs = directory.path().join("logs");
+        std::fs::create_dir_all(&workspace).unwrap();
+        std::fs::create_dir_all(&logs).unwrap();
+        let env = admit(
+            "env_guarded",
+            &json!({ "guardrails": { "deny_commands": ["guardrail-probe"] } }),
+        );
+
+        let task_marker = workspace.join("task-marker");
+        let task = json!({
+            "name": "guarded task",
+            "command": format!("printf guardrail-probe > {}", task_marker.display()),
+            "trigger": "environment_start",
+            "required": true
+        });
+        let task_result = run_task(
+            data_dir,
+            "env_guarded",
+            &env,
+            workspace.to_str().unwrap(),
+            &logs,
+            &task,
+        );
+        assert_eq!(task_result["policy_denied"], json!(true));
+        assert_eq!(task_result["phase"], json!("failed"));
+        assert_eq!(task_result["exit_code"], json!(126));
+        assert!(!task_marker.exists(), "a refused task must not spawn");
+
+        let health_marker = workspace.join("health-marker");
+        let service = json!({
+            "name": "guarded service",
+            "command": "serve",
+            "lifecycle": "required",
+            "healthcheck": format!("printf guardrail-probe > {}", health_marker.display())
+        });
+        let service_result = typed_service(
+            data_dir,
+            "env_guarded",
+            &env,
+            workspace.to_str().unwrap(),
+            &service,
+        );
+        assert_eq!(service_result["policy_denied"], json!(true));
+        assert_eq!(service_result["phase"], json!("degraded"));
+        assert_eq!(service_result["exit_code"], json!(126));
+        assert!(
+            !health_marker.exists(),
+            "a refused healthcheck must not spawn"
+        );
+
+        let allowed_marker = workspace.join("allowed-marker");
+        let allowed = json!({
+            "name": "allowed task",
+            "command": format!("printf allowed > {}", allowed_marker.display()),
+            "trigger": "environment_start",
+            "required": true
+        });
+        let allowed_result = run_task(
+            data_dir,
+            "env_guarded",
+            &env,
+            workspace.to_str().unwrap(),
+            &logs,
+            &allowed,
+        );
+        assert_eq!(allowed_result["phase"], json!("succeeded"));
+        assert_eq!(std::fs::read_to_string(allowed_marker).unwrap(), "allowed");
     }
 }
