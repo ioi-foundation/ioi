@@ -142,37 +142,51 @@
 {\large\itshape The Open Operating Stack for Bounded Autonomous Institutions}\\[1.6cm]
 {\large
 Date: August 2026\\[5pt]
-Version: 1.11.0\\[5pt]
+Version: 1.12.0\\[5pt]
 Author: Heath Ledger\\[1.1cm]
 \textbf{IOI Foundation}}
 \vfill
-{\footnotesize IOI Foundation \textperiodcentered{} Internet of Intelligence \textperiodcentered{} Technical Whitepaper v1.11.0}\\[0.4cm]
+{\footnotesize IOI Foundation \textperiodcentered{} Internet of Intelligence \textperiodcentered{} Technical Whitepaper v1.12.0}\\[0.4cm]
 \end{titlepage}
 
 \hypertarget{erratum}{%
-\section{Revision Notes --- v1.11.0 (August 2026)}\label{erratum}}
+\section{Revision Notes --- v1.12.0 (August 2026)}\label{erratum}}
 
-This revision carries two kinds of change. It incorporates the architecture
-that has been ratified since v1.10.0, and it corrects claim language and stale
-surface descriptions carried by that earlier version. The corrections below
-add no new commitment; they narrow what the text asserts.
+This revision reconciles the publishing synthesis with the governed-effect and
+AFT capstones completed after v1.11.0. It promotes architectural primitives
+that now have bounded implementation evidence while preserving the exact
+limits of the demonstrated profiles.
 
-\textbf{Proposition scoping.} Sentences in the economics and marketplace
-sections described evidence as establishing a whole service, delivery, or
-outcome. Each now states what this paper's technical sections already
-required: an evidence item stands for the proposition it names, and no
-receipt, proof, or verifier result lifts to a claim about the enclosing
-workflow, service outcome, deliverable, acceptance criteria, SLA, or
-settlement condition.
+\textbf{Two-sided governed effects.} The determinism and evidence sections now
+name the complete sequence: durable intent commitment before an external
+effect, provider-native evidence after it, durable outcome commitment that
+names the intent as predecessor, and terminal reconciliation as a separate
+correctness condition. This is stronger than execute-then-log while remaining
+proposition-scoped.
 
-\textbf{Retired vocabulary.} A note citing a separate conformance-document
-family was removed; that tree was retired and its contracts live with their
-owners. A retired application row was deleted and one surface label corrected.
+\textbf{Bounded autonomous authority.} The authority sections now distinguish
+exact-effect approvals from passkey-rooted standing envelopes, atomic
+single-use draws, and trajectory admission. They also name approval fatigue
+and individually admissible actions that compose into an inadmissible
+aggregate outcome as first-class threats.
 
-\textbf{Surface accuracy.} The product-surfaces section described a shell that
-no longer matches the architecture. It now names the six core workspaces, the
-Packages lifecycle with Marketplace as its discovery mode, the Developer
-Workspace label, and the conditional Embodied Systems registration.
+\textbf{Workload and secret boundary.} A trusted-host/hostile-guest profile now
+has implementation evidence for a fresh KVM guest with no network device,
+bounded output admission, opaque request-bound authority, replay refusal, and
+a scoped secret-non-possession probe. This is not resistance to a compromised
+host kernel, VMM, daemon, firmware, or hardware.
+
+\textbf{Portable evidence and relying-party effect.} The evidence sections now
+separate certificate production, verification, acceptance, and registry
+mutation. A separately provisioned first-party AFT verifier evaluated a
+portable C8 v3 bundle and an AFT measured-results registry changed state because
+the evidence satisfied its policy. This is not third-party verification.
+
+\textbf{AFT status and claim discipline.} The AFT assumption ledger now carries
+A1--A10, and the measured-cost appendix contains the retained Campaign O result
+under its measured-container, same-provider-container-unknown-host,
+variance-caveated honesty profile. The paper does not relabel that placement as
+bare metal or the result as reproduced within threshold.
 
 \hypertarget{abstract}{%
 \section{Abstract}\label{abstract}}
@@ -2308,7 +2322,12 @@ Unbounded, unlogged heuristic loops are strictly prohibited. \\
 DBIS-5: Binding Set for Enforceability Artifacts (MUST)
 
 For any consequential action that crosses the boundary, the runtime MUST
-emit a transaction-shaped action/evidence record that securely binds:
+emit a transaction-shaped action/evidence record that securely binds. Where
+the selected effect profile can produce an external consequence, it MUST also
+preserve the two-sided commitment order: the durable intent commitment is
+admitted before dispatch, and the durable outcome commitment is admitted only
+after the declared external evidence and reconciliation state are available.
+The outcome names the intent commitment as its predecessor.
 
 \begin{enumerate}
 \def\labelenumi{\arabic{enumi}.}
@@ -2321,6 +2340,12 @@ emit a transaction-shaped action/evidence record that securely binds:
   Context bindings where relevant (e.g., \emph{window\_id})
 \item
   Approval references (if the action required a user step-up token)
+\item
+  The pre-effect intent commitment ref and hash, including the bounded
+  authority and idempotency material required by the profile
+\item
+  The post-effect outcome commitment ref and hash, including evidence refs,
+  terminal or reconciliation-required state, and the predecessor intent ref
 \end{enumerate} \\
 \end{longtable}
 
@@ -2432,6 +2457,48 @@ separate execution or truth plane.
 No result or effect advances merely because it exists in the work graph. Its
 assurance, owner acceptance, adjudication, settlement, and production admission
 remain distinct transitions.
+
+\hypertarget{implemented-governed-effect-profile}{%
+\subsubsection{2.4.3 Implemented Governed-Effect
+Profile}\label{implemented-governed-effect-profile}}
+
+The August 2026 capstone demonstrates one bounded implementation of the
+deterministic effect gate against a real Akash provider. The architectural
+result is not that software can call a provider API. It is that the model was a
+proposer rather than the authority, and that the external lifecycle crossed
+distinct trust and state domains:
+
+\begin{center}
+\needspace{7\baselineskip}
+\begin{tikzpicture}[scale=1,transform shape,node distance=5mm and 8mm]
+\node[ioiplain,text width=39mm] (m) {\textbf{Probabilistic model}\\\footnotesize proposes a bounded operation};
+\node[ioibox,right=of m,text width=46mm] (h1) {\textbf{Hypervisor}\\\footnotesize admits proposal and authority; commits intent};
+\node[ioibox,right=of h1,text width=35mm] (p) {\textbf{Provider}\\\footnotesize effect, evidence, teardown, settlement};
+\node[ioibox,below=10mm of h1,text width=52mm] (h2) {\textbf{Hypervisor / relying party}\\\footnotesize reconcile, commit outcome, verify, accept or refuse};
+\draw[ioiflow](m)--(h1);
+\draw[ioiflow](h1)--(p);
+\draw[ioiflow](p)|-(h2);
+\end{tikzpicture}
+\end{center}
+
+The retained provider lifecycle reached escrow, bid, lease, authenticated
+workload-result retrieval, teardown, and terminal financial reconciliation with
+zero open or unknown exposure. A workload-bound follow-on composed a fresh
+KVM guest under the
+\texttt{trusted\_host\_}\allowbreak\texttt{hostile\_guest/no-nic-v1} profile,
+where the guest held only opaque request-bound authority and the named probes
+could not obtain provider credentials or recovery material. A portable C8 v3
+bundle subsequently passed a separately provisioned first-party verifier, and
+the AFT measured-results registry admitted exactly one variance-caveated row.
+
+This profile demonstrates logical policy mediation, workload-bound effect
+isolation, scoped worker secret non-possession, authenticated result binding,
+provider reconciliation, portable evidence, separate-binary verification, and
+a relying-party state transition for one exact Akash provider. It does not
+demonstrate provider neutrality, attested bare-metal placement, resistance to a
+compromised host trusted computing base, reproduced-within-threshold benchmark
+variance, third-party verification, or system-wide non-bypassability for every
+possible host effect. Those are separate profiles and milestones.
 
 \hypertarget{fractal-edge-in-topology-and-the-l0l1-boundary}{%
 \subsection{2.5 Fractal Edge-In Topology and the L0/L1
@@ -7866,6 +7933,45 @@ external-evidence format. Neither role expands its claim beyond the evidence
 and threat model it actually covers. \\
 \end{longtable}
 
+\hypertarget{portable-certificates-and-relying-party-acceptance}{%
+\subsubsection{6.2.3 Portable Certificates and Relying-Party
+Acceptance}\label{portable-certificates-and-relying-party-acceptance}}
+
+A certificate is evidence, not acceptance. A portable governed-effect bundle
+therefore separates four transitions that must not be collapsed:
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  the producer emits a certificate whose referenced objects are identified by
+  their native ref and native hash;
+\item
+  a declared verifier evaluates the bundle under a closed schema, trust-root,
+  mutation, and claim policy;
+\item
+  an accountable relying party applies its acceptance policy to the verified
+  result; and
+\item
+  only that relying party may perform its declared state transition, recording
+  before and after state hashes in an acceptance receipt.
+\end{enumerate}
+
+Verifier independence is multidimensional. Separate source, binary, code
+generation path, transport, operator, organization, and trust roots are
+different axes and MUST be reported rather than compressed into the word
+``independent.'' A separately built verifier maintained by the same
+organization is a \emph{first-party separate verifier}; it is not third-party
+verification.
+
+The first implemented relying-party profile is the AFT measured-results
+registry. Its policy accepts only the declared certificate and result schemas,
+environment and honesty classes, verdict set, trust roots, and registry
+predecessor. In the retained August 2026 admission, the separate Rust verifier
+accepted the portable C8 v3 evidence, rejected forty fully resealed semantic
+mutations, and the registry advanced once from revision zero to revision one.
+The producer could not self-declare acceptance inside its own certificate.
+
 \hypertarget{canonicalization-the-common-tongue}{%
 \subsection{6.3 Canonicalization: The Common
 Tongue}\label{canonicalization-the-common-tongue}}
@@ -8132,9 +8238,11 @@ and, when operating under enforceable modes, subject to slashing or
 dispute enforcement.
 
 \textbf{Implementation status.} Capability-lease authority, sealed
-credentials, and approval gates are live in the daemon. Guardian surfaces,
-key shards, and an MPC vault are planned; the profiles below are target
-architecture where those facilities are not yet implemented.
+credentials, approval gates, passkey-bound consent evidence, registered
+standing authority envelopes, and bounded atomic draws are implemented for the
+named development profiles. Guardian quorums, key shards, and a generalized MPC
+vault remain planned; the profiles below are target architecture where those
+facilities are not yet implemented.
 
 \hypertarget{the-superset-identity-stack-master-vs.-ops}{%
 \subsection{7.2 The Superset Identity Stack (Root Custody vs.
@@ -8703,6 +8811,40 @@ wallet.network supports programmatic extensibility (see Section
   to observe. Egress policy, least privilege, revocation, evidence, and review
   remain required. A live generalized connector marketplace is not claimed.
 \end{itemize}
+
+\hypertarget{standing-authority-and-trajectory-admission}{%
+\subsubsection{7.3.6 Standing Authority and Trajectory
+Admission}\label{standing-authority-and-trajectory-admission}}
+
+Exact-effect approval remains the default for consequential acts, but requiring
+a fresh human signature for every low-risk repetition creates approval fatigue
+and turns ceremony into an attack surface. A model need not forge a signature
+if it can persuade an operator to approve the two-hundredth request that looks
+like the previous forty.
+
+The bounded unattended profile therefore uses a
+\textbf{StandingAuthorityEnvelope}. The owner authenticates and consents to one
+exact envelope---purpose, targets, operation families, per-effect and aggregate
+spend, quantity, rate, time, result, evidence, revocation, and teardown
+constraints. Each later effect consumes a single-use draw atomically with the
+trajectory decision and durable intent commitment. A draw cannot widen the
+envelope, auto-top-up it, reset consumed budget, or survive revocation.
+
+Per-operation admissibility is not sufficient. A sequence of individually
+allowed effects may compose into an aggregate outcome the owner never
+authorized: distributed spend, many small deployments, chunked data egress, or
+cross-provider accumulation. The authority trajectory state therefore projects
+the relevant history at owner, System, principal, envelope-ancestor, provider,
+destination, data, and semantic-action scopes required by policy. Admission may
+allow, deny, or require step-up; semantic evidence may narrow or escalate but
+never create or widen authority. Failed admission leaves authority and
+trajectory state unchanged.
+
+The implemented development profile composes passkey consent evidence with a
+registered standing envelope and bounded atomic wallet draws. It does not yet
+claim generalized behavioral anomaly detection, every cross-provider semantic
+aggregation policy, guardian quorum, or protection against compromise of the
+wallet/daemon trusted computing base.
 
 \hypertarget{portable-app-sessions-agentgres-authority}{%
 \subsection{7.4 Portable Session Access and Authority
@@ -11610,6 +11752,47 @@ universally secure or universally applicable. It claims that
 authority-critical execution is receipt-bound and verifier-governed, so
 compromised substrates can be deprecated, challenged, or excluded
 without redefining the protocol.
+
+\hypertarget{approval-fatigue-and-trajectory-abuse}{%
+\subsubsection{9.2.11 Approval Fatigue and Trajectory
+Abuse}\label{approval-fatigue-and-trajectory-abuse}}
+
+\textbf{Scenario:} A model does not steal a credential or forge authority. It
+produces a long sequence of plausible requests until the approving human stops
+distinguishing them, or it composes many individually admissible effects into a
+forbidden aggregate outcome.
+
+\textbf{Defense:} Authority classes separate exact effects, closed batches,
+and standing envelopes. Standing authority carries aggregate budgets, rates,
+targets, expiry, evidence, revocation, and trajectory policy; each draw is
+atomic and single-use. Novel, anomalous, semantically cumulative, or
+threshold-crossing paths require step-up or refuse. Interfaces summarize the
+aggregate trajectory and delta from prior approvals rather than presenting
+each request as an isolated ceremony. This reduces approval fatigue; it does
+not make persuasion or semantic aggregation a solved problem.
+
+\hypertarget{effect-boundary-bypass}{%
+\subsubsection{9.2.12 Effect-Boundary Bypass and Trusted-Computing-Base
+Compromise}\label{effect-boundary-bypass}}
+
+\textbf{Scenario:} An untrusted workload routes around the mediated effect
+interface using ambient network, filesystem, host-control, inherited
+credential, or compromised-daemon access.
+
+\textbf{Defense:} A conformance profile must name the control points made
+unreachable by construction and the trusted computing base that enforces that
+claim. The implemented hostile-guest profile removes guest network devices,
+host mounts, and host-control sockets, gives the guest only an opaque
+request-bound capability, and admits bounded output through quarantine. Other
+provider, desktop, browser, and opaque external-harness profiles claim only the
+hooks they actually mediate.
+
+The daemon is part of the trusted computing base, as an operating-system kernel
+is. The current evidence does not prove system-level non-bypassability against
+a compromised host kernel, VMM, daemon, firmware, hardware, or every effect
+channel. ``Syscall boundary'' is load-bearing only for a profile whose isolation
+mechanism and adversarial tests make the named bypasses unreachable; elsewhere
+it remains an architectural interface and a target conformance property.
 
 \hypertarget{semantic-integrity-prompt-injection-and-context-poisoning}{%
 \subsection{9.3 Semantic Integrity (Prompt Injection and Context
@@ -15239,6 +15422,34 @@ model, safety of a physical act, legal consent, insurance coverage, and
 faithful enforcement are not made true merely by placing their labels or
 hashes inside a receipt.
 
+\textbf{Current bounded implementation evidence (August 2026).} The strongest
+retained governed-effect profile demonstrates: a model-originated but
+daemon-admitted request; operator- and wallet-bound authority; a pre-effect
+intent commitment; one real Akash provider lifecycle; authenticated workload
+result retrieval; teardown and terminal financial reconciliation with zero
+open or unknown exposure; a post-evidence outcome commitment; a fresh
+hostile-guest KVM profile with scoped secret-non-possession probes; portable C8
+v3 evidence; forty rejected resealed semantic mutations; and one
+policy-admitted AFT registry transition performed by a separately provisioned
+first-party verifier.
+
+The corresponding profile labels are:
+
+\begin{itemize}
+\tightlist
+\item \texttt{measured\_container};
+\item \texttt{same\_provider\_container\_unknown\_host};
+\item \texttt{variance\_caveated}; and
+\item \texttt{trusted\_host\_hostile\_guest}.
+\end{itemize}
+
+The evidence is deliberately not
+labeled provider-neutral, attested bare metal, compromised-host resistant,
+reproduced within threshold, third-party verified, or universally
+non-bypassable. Evidence hashes and campaign provenance live in the canonical
+architecture evidence and work-item records rather than in this publishing
+synthesis.
+
 \hypertarget{d.2-what-the-ioi-protocol-does-not-claim-non-claims}{%
 \subsection{D.2 What the IOI Protocol DOES NOT CLAIM
 (Non-Claims)}\label{d.2-what-the-ioi-protocol-does-not-claim-non-claims}}
@@ -15739,7 +15950,7 @@ receipt-backed, policy-explainable effect boundary. Insurability and
 legal recourse depend on the declared contract, jurisdiction, and
 receipt class rather than on raw model output.}
 
-Internet of Intelligence Protocol • Whitepaper v1.11.0 • © 2026 IOI
+Internet of Intelligence Protocol • Whitepaper v1.12.0 • © 2026 IOI
 Foundation
 
 \hypertarget{appendix-f-references-normative-standards}{%
